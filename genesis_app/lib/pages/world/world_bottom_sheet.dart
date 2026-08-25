@@ -17,7 +17,6 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_control_icons.dart';
-import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/tokens/genesis_typography.dart';

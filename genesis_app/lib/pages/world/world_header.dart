@@ -443,7 +443,9 @@ String worldOwnerDisplayName(WorldDetail world) {
 /// 配上矮 5 的内容带,在本机上恰好凑成和主页面一样的 69,但那是两个偏差
 /// 互相抵消;真实 inset ≥ 24 的机型上就会比主页面矮 5。
 double worldBottomSafeAreaOf(BuildContext context) {
-  return GenesisSafeAreaInsets.bottom(context);
+  // 底部 tab 带的安全区保底 24:无手势条的设备上也要留出这段,
+  // 且浮窗的幻影 tab 行与真实 tab 行共用同一几何,不能各算各的。
+  return GenesisSafeAreaInsets.bottom(context, minimum: 24);
 }
 
 IconData? worldCounterIcon(String key) {

@@ -13,7 +13,7 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
   testWidgets(
-    'events list renders ticks and sub ticks in reverse chronological order',
+    'events list renders ticks and sub ticks in chronological order',
     (WidgetTester tester) async {
       await tester.pumpWidget(
         MaterialApp(
@@ -76,11 +76,11 @@ void main() {
           .widgetList<WorldTickEventItem>(find.byType(WorldTickEventItem))
           .map((item) => (item.tickNumber, item.subTickNumber))
           .toList();
-      expect(renderedTicks, [(4, 2), (4, 1), (3, 1)]);
+      expect(renderedTicks, [(3, 1), (4, 1), (4, 2)]);
     },
   );
 
-  testWidgets('events list keeps tick zero sub ticks in descending order', (
+  testWidgets('events list keeps tick zero sub ticks in ascending order', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -130,7 +130,7 @@ void main() {
         .widgetList<WorldTickEventItem>(find.byType(WorldTickEventItem))
         .map((item) => item.subTickNumber)
         .toList();
-    expect(renderedTicks, [2, 1]);
+    expect(renderedTicks, [1, 2]);
   });
 
   testWidgets(
@@ -434,14 +434,15 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pumpAndSettle();
 
     expect(find.text('Sub tick 500 body'), findsOneWidget);
     expect(find.text('Sub tick 1 body'), findsNothing);
-    final firstRenderedTick = tester
+    final lastRenderedTick = tester
         .widgetList<WorldTickEventItem>(find.byType(WorldTickEventItem))
-        .first;
-    expect(firstRenderedTick.tickNumber, 4);
-    expect(firstRenderedTick.subTickNumber, 500);
+        .last;
+    expect(lastRenderedTick.tickNumber, 4);
+    expect(lastRenderedTick.subTickNumber, 500);
     expect(find.textContaining('Sub tick').evaluate().length, lessThan(500));
   });
 
@@ -489,6 +490,7 @@ void main() {
       ),
     );
     await tester.pump();
+    await tester.pump();
 
     expect(find.text('Latest tick body'), findsOneWidget);
 
@@ -500,6 +502,7 @@ void main() {
         )
         .controller!
         .offset;
+    expect(initialOffset, greaterThan(0));
     await tester.drag(list, const Offset(0, 300));
     await tester.pumpAndSettle();
 
@@ -511,7 +514,7 @@ void main() {
           )
           .controller!
           .offset,
-      greaterThan(initialOffset),
+      lessThan(initialOffset),
     );
   });
 
@@ -693,7 +696,10 @@ void main() {
       await tester.drag(list, const Offset(0, 700));
       await tester.pumpAndSettle();
 
-      expect(scrollController.offset, greaterThan(320));
+      expect(
+        scrollController.position.maxScrollExtent - scrollController.offset,
+        greaterThan(320),
+      );
       expect(buttonOpacity().opacity, 1);
       expect(tester.getSize(button), const Size.square(36));
       expect(
@@ -708,7 +714,10 @@ void main() {
       await tester.tap(button);
       await tester.pumpAndSettle();
 
-      expect(scrollController.offset, 0);
+      expect(
+        scrollController.offset,
+        scrollController.position.maxScrollExtent,
+      );
       expect(buttonOpacity().opacity, 0);
       expect(find.text('Tick 20 body'), findsOneWidget);
     },

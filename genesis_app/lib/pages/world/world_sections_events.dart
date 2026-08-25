@@ -127,6 +127,10 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
   var _loadMoreRequested = false;
   var _showScrollToTop = false;
 
+  /// 加载更早页时,新条目插在列表顶部,会把当前内容整体顶下去。
+  /// 记录插入前的 offset/maxExtent,渲染后按增量把 offset 补回去。
+  ({double pixels, double maxExtent})? _prependCompensation;
+
   int? get _requestedTickNumber {
     final target = widget.targetTickNumber;
     return target == null || target <= 0 ? null : target;
@@ -157,6 +161,28 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     if (ticksChanged || loadingCycleFinished) {
       _loadMoreRequested = false;
     }
+    if (ticksChanged &&
+        _earliestTickNumber(widget.ticks) != null &&
+        _earliestTickNumber(oldWidget.ticks) != null &&
+        _earliestTickNumber(widget.ticks)! <
+            _earliestTickNumber(oldWidget.ticks)! &&
+        _scrollController.hasClients) {
+      _prependCompensation = (
+        pixels: _scrollController.position.pixels,
+        maxExtent: _scrollController.position.maxScrollExtent,
+      );
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final saved = _prependCompensation;
+        _prependCompensation = null;
+        if (saved == null || !mounted || !_scrollController.hasClients) return;
+        final position = _scrollController.position;
+        final added = position.maxScrollExtent - saved.maxExtent;
+        if (added <= 0) return;
+        _scrollController.jumpTo(
+          (saved.pixels + added).clamp(0.0, position.maxScrollExtent),
+        );
+      });
+    }
 
     if (oldWidget.latestRevision != widget.latestRevision ||
         oldWidget.targetTickNumber != widget.targetTickNumber ||
@@ -170,6 +196,15 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
   void dispose() {
     _fallbackScrollController.dispose();
     super.dispose();
+  }
+
+  int? _earliestTickNumber(List<Map<String, dynamic>> ticks) {
+    int? earliest;
+    for (final tick in ticks) {
+      final tickNumber = worldEventTickNumber(tick);
+      if (earliest == null || tickNumber < earliest) earliest = tickNumber;
+    }
+    return earliest;
   }
 
   bool get _hasPendingTarget {
@@ -209,25 +244,51 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
         _scheduleScrollToTargetOrLatest();
         return;
       }
-      _scrollController.jumpTo(0);
+      _jumpToLatest();
+    });
+  }
+
+  /// 正序列表里"最新"在底部。懒构建下 maxScrollExtent 是估算值,
+  /// 跳一次未必到底,跳完下一帧校验、直到收敛(设上限防御)。
+  /// 用户一开始拖动就把代际推进,作废还挂着的重试,免得和手势抢位置。
+  var _jumpToLatestGeneration = 0;
+
+  void _jumpToLatest([int? generation, int remainingAttempts = 12]) {
+    final activeGeneration = generation ?? ++_jumpToLatestGeneration;
+    if (activeGeneration != _jumpToLatestGeneration ||
+        !mounted ||
+        !_scrollController.hasClients) {
+      return;
+    }
+    final position = _scrollController.position;
+    if ((position.pixels - position.maxScrollExtent).abs() < 1) return;
+    _scrollController.jumpTo(position.maxScrollExtent);
+    if (remainingAttempts <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _jumpToLatest(activeGeneration, remainingAttempts - 1);
     });
   }
 
   bool _handleScrollNotification(ScrollNotification notification) {
     if (notification.depth != 0) return false;
+    if (notification is UserScrollNotification &&
+        notification.direction != ScrollDirection.idle) {
+      _jumpToLatestGeneration += 1;
+    }
     final showScrollToTop =
-        notification.metrics.pixels > _scrollToTopVisibilityThreshold;
+        notification.metrics.extentAfter > _scrollToTopVisibilityThreshold;
     if (showScrollToTop != _showScrollToTop) {
       setState(() => _showScrollToTop = showScrollToTop);
     }
+    // 正序列表:更早的内容在上方,朝历史滚动 = 向顶部滚。
     final towardOlderEvents =
         notification is UserScrollNotification &&
-            notification.direction == ScrollDirection.reverse ||
+            notification.direction == ScrollDirection.forward ||
         notification is ScrollUpdateNotification &&
-            (notification.scrollDelta ?? 0) > 0 ||
-        notification is OverscrollNotification && notification.overscroll > 0;
+            (notification.scrollDelta ?? 0) < 0 ||
+        notification is OverscrollNotification && notification.overscroll < 0;
     if (towardOlderEvents &&
-        notification.metrics.extentAfter <= _loadMoreExtentThreshold) {
+        notification.metrics.extentBefore <= _loadMoreExtentThreshold) {
       _requestLoadMore();
     }
     return false;
@@ -237,7 +298,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     if (!_scrollController.hasClients) return;
     unawaited(
       _scrollController.animateTo(
-        0,
+        _scrollController.position.maxScrollExtent,
         duration: _scrollToTopDuration,
         curve: Curves.easeOutCubic,
       ),
@@ -332,9 +393,6 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
             child: CustomScrollView(
               key: const ValueKey<String>('world-events-tick-list'),
               controller: _scrollController,
-              // 数据保持最新在前、翻转渲染:视觉上最旧在顶、最新在底(正序),
-              // offset 0 仍是"最新",滚动/加载更早页的逻辑不变。
-              reverse: true,
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverPadding(
@@ -449,17 +507,23 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
   }
 
   List<_WorldEventListEntry> _buildListEntries() {
-    final ticks = worldEventTicksAscending(widget.ticks).reversed.toList();
+    // 正向列表 + 正序数据:最旧在顶、最新在底,和浮窗其他 tab 一样
+    // 顶部锚定(reverse 列表会让短内容沉底,还会把浮窗的拖拽手势反转)。
+    final ticks = worldEventTicksAscending(widget.ticks);
     final entries = <_WorldEventListEntry>[];
     final pendingTickNumber = _hasPendingTarget ? _requestedTickNumber : null;
     var pendingAdded = false;
 
+    if (!widget.hasMore && ticks.isNotEmpty) {
+      // 声明在故事开头之上。
+      entries.add(const _WorldEventListEntry.disclaimer());
+    }
     for (var index = 0; index < ticks.length; index += 1) {
       final tick = ticks[index];
       final tickNumber = worldEventTickNumber(tick);
       if (!pendingAdded &&
           pendingTickNumber != null &&
-          pendingTickNumber > tickNumber) {
+          pendingTickNumber < tickNumber) {
         entries.add(_WorldEventListEntry.pending(pendingTickNumber));
         pendingAdded = true;
       }
@@ -478,10 +542,6 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     }
     if (!pendingAdded && pendingTickNumber != null) {
       entries.add(_WorldEventListEntry.pending(pendingTickNumber));
-    }
-    if (!widget.hasMore && ticks.isNotEmpty) {
-      // 列表 reverse 渲染,追加在末尾 = 显示在最顶(故事开头之上)。
-      entries.add(const _WorldEventListEntry.disclaimer());
     }
     return entries;
   }

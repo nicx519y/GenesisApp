@@ -241,7 +241,8 @@ void main() {
       singleSectionSheet,
       isNot(contains("'world-detail-sheet-safe-area'")),
     );
-    expect(singleSectionSheet, contains('minimum: 24'));
+    expect(singleSectionSheet, contains('worldBottomSafeAreaOf(context)'));
+    expect(bottomSheet, isNot(contains('minimum: 24'))); // 保底收敛进 helper
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(sectionListView, contains('EdgeInsets.fromLTRB(20, 0, 20, 32)'));
     expect(sectionListView, contains('ListView.builder('));
@@ -699,7 +700,7 @@ void main() {
     );
     expect(scrollToTarget, contains('_containsTickNumber(target)'));
     expect(scrollToTarget, contains('Scrollable.ensureVisible('));
-    expect(scrollToTarget, contains('_scrollController.jumpTo(0)'));
+    expect(scrollToTarget, contains('_jumpToLatest()'));
     expect(
       eventsSectionState,
       contains('final hasPendingTarget = _hasPendingTarget;'),
@@ -737,12 +738,12 @@ void main() {
       worldSectionsSource.indexOf('class WorldEventsSectionState'),
       worldSectionsSource.indexOf('class WorldTickPendingEventPage'),
     );
-    // The rendered list walks the merged ticks newest-first and marks the
+    // The rendered list walks the merged ticks oldest-first and marks the
     // first/last row of each tick number, so sub ticks of one tick read as a
     // single page.
     expect(
       eventsSection,
-      contains('final ticks = worldEventTicksAscending(widget.ticks).reversed'),
+      contains('final ticks = worldEventTicksAscending(widget.ticks);'),
     );
     expect(
       eventsSection,

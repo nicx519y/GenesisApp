@@ -695,14 +695,14 @@ class _OriginSetupRolePortrait extends StatelessWidget {
             decoration: BoxDecoration(
               // 最底部收到比浮窗背景(#151517)更深一档的墨色(#0E0D10)
               // 并做实,靠明度差把卡片下缘从背景里区分出来;
-              // 往上经上层色(#1F1D24)过渡到透明。
+              // 中段走深墨 #151517(灰紫 raised 会把模糊图抬灰发糊)。
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
                   Color(0xFF0E0D10),
-                  Color(0x731F1D24),
-                  Color(0x001F1D24),
+                  Color(0x73151517),
+                  Color(0x00151517),
                 ],
                 stops: [0, 0.58, 1],
               ),

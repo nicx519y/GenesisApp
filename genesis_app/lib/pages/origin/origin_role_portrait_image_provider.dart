@@ -6,14 +6,14 @@ import 'package:flutter/material.dart';
 
 import '../../ui/components/genesis_static_network_image.dart';
 
-// 卡片暗色族:中段用上层背景色(redesignRaised #1F1D24)过渡,
-// 最底部锚定到比浮窗背景更深一档的墨色(#0E0D10)收底,
-// 靠明度差与背景区分卡片下缘。
+// 卡片暗色族全部走深墨系(#151517 -> #0E0D10):中明度的灰紫
+// (redesignRaised #1F1D24)叠在模糊图上会把阴影"抬灰",显得糊;
+// 深墨只压暗不泛灰。最底部锚定比浮窗背景更深一档的 #0E0D10 收底。
 const LinearGradient originRolePortraitGradient = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
   stops: <double>[0.42, 0.72, 1],
-  colors: <Color>[Colors.transparent, Color(0x661F1D24), Color(0xF00E0D10)],
+  colors: <Color>[Colors.transparent, Color(0x66151517), Color(0xF00E0D10)],
 );
 
 /// Produces the role-card portrait as one decoded image with its readability
@@ -204,8 +204,8 @@ Future<ui.Image> composeOriginRolePortraitImage({
       filterQuality: FilterQuality.low,
     );
     canvas.restore();
-    // 模糊底整体压暗 55%(原 45% 偏浅)。
-    canvas.drawRect(outputRect, Paint()..color = const Color(0x8C1F1D24));
+    // 模糊底压暗 55%,用深墨 #0E0D10 而不是灰紫 raised —— 后者会泛灰。
+    canvas.drawRect(outputRect, Paint()..color = const Color(0x8C0E0D10));
 
     final sharpHeight = outputWidth * sourceImage.height / sourceImage.width;
     final sharpRect = Rect.fromLTWH(0, 0, outputRect.width, sharpHeight);
