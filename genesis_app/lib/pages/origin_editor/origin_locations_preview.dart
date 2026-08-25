@@ -152,6 +152,8 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
       ),
       points: _previewFlatPoints(),
       locationNodes: _previewLocationNodes(),
+      // 与详情页 9g 的地点列表同一套展示:树形导引线 + 角色胶囊。
+      compactSheetStyle: true,
       enableOuterScrollHandoff: false,
       physics: const ClampingScrollPhysics(),
       padding: editable

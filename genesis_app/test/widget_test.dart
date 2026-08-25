@@ -3821,7 +3821,8 @@ void main() {
     expect(messagesTitle.style?.height, 1);
     expect(messagesTitle.style?.fontWeight, FontWeight.w800);
     expect(messagesTitle.style?.letterSpacing, -0.36);
-    expect(messagesTitle.style?.color, const Color(0xFFF4F3F6));
+    // Bar titles keep pure white on dark, same as Home (foregroundStrong).
+    expect(messagesTitle.style?.color, const Color(0xFFFFFFFF));
 
     const menuKeys = <ValueKey<String>>[
       ValueKey('message-menu-/message/notifications'),
@@ -14216,11 +14217,11 @@ void main() {
               matching: find.byType(CreateTextFieldBlock),
             ),
           )
-          .every((field) => field.labelFontWeight == FontWeight.w800),
+          .every((field) => field.labelFontWeight == FontWeight.w700),
       isTrue,
     );
     expect(find.text('1/8 (Added / Max)'), findsOneWidget);
-    final addCharacterText = tester.widget<Text>(find.text('+ Add Character'));
+    final addCharacterText = tester.widget<Text>(find.text('Add Character'));
     expect(
       addCharacterText.style?.color,
       GenesisCreateColors.worldoLight().successText,
@@ -14228,16 +14229,12 @@ void main() {
     expect(addCharacterText.style?.fontSize, 13);
     expect(addCharacterText.style?.fontWeight, FontWeight.w800);
     expect(
-      tester.getCenter(find.text('+ Add Character')).dx,
-      closeTo(tester.getCenter(find.byType(Scaffold)).dx, 0.01),
-    );
-    expect(
       tester.getCenter(find.text('Character 1')).dy,
       closeTo(tester.getCenter(find.byType(CreateFormDeleteButton)).dy, 0.01),
     );
 
     await tester.scrollUntilVisible(
-      find.text('+ Add Character'),
+      find.text('Add Character'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
@@ -14246,7 +14243,7 @@ void main() {
           find.byKey(const ValueKey<String>('create-characters-add-button')),
         )
         .dy;
-    await tester.tap(find.text('+ Add Character'));
+    await tester.tap(find.text('Add Character'));
     await tester.pumpAndSettle();
 
     expect(find.text('Character 2'), findsOneWidget);
@@ -14796,7 +14793,7 @@ void main() {
       find.byKey(const ValueKey<String>('locations-preview-list')),
       findsOneWidget,
     );
-    expect(find.text('- Main Street'), findsOneWidget);
+    expect(find.text('Main Street'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('world-location-card-Loc_1_1')),
       findsNothing,

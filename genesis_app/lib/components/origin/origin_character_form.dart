@@ -199,8 +199,9 @@ class OriginCharacterFormFields extends StatelessWidget {
   Widget build(BuildContext context) {
     final worldoStyle = createWorldoStyle;
     final resolvedLabelSize = worldoStyle ? 14.0 : labelSize;
+    // SPEC 5c: field labels are 700 14px.
     final resolvedLabelFontWeight = worldoStyle
-        ? FontWeight.w800
+        ? FontWeight.w700
         : labelFontWeight;
     final resolvedLabelInputGap = worldoStyle ? 8.0 : labelInputGap;
     final resolvedFieldGap = worldoStyle ? 16.0 : fieldGap;

@@ -16,9 +16,11 @@ class GenesisLargePageHeader extends StatelessWidget {
     required this.title,
     this.titleKey,
     this.trailing,
-    this.horizontalPadding = 20,
-    this.topPadding = 20,
-    this.bottomPadding = 18,
+    // Matches the Home header (9l): 22px page margin, and the 24px title
+    // vertically centered in the 50px top bar (13 + 24 + 13).
+    this.horizontalPadding = 22,
+    this.topPadding = 13,
+    this.bottomPadding = 13,
     this.backgroundColor,
   });
 
@@ -44,7 +46,14 @@ class GenesisLargePageHeader extends StatelessWidget {
         child: Row(
           children: [
             Expanded(
-              child: GenesisPageTitle(text: title, textKey: titleKey),
+              child: GenesisPageTitle(
+                text: title,
+                textKey: titleKey,
+                // Bar titles keep pure white on dark, same as Home.
+                style: TextStyle(
+                  color: context.genesisColors.foregroundStrong,
+                ),
+              ),
             ),
             if (trailing != null) trailing!,
           ],

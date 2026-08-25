@@ -10,7 +10,6 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/origin/origin_character_form.dart';
-import '../../components/origin/origin_role_recommendation.dart';
 import '../../components/origin/origin_role_selection_mark.dart';
 import '../../components/world_location_list.dart';
 import '../../components/world_point.dart';

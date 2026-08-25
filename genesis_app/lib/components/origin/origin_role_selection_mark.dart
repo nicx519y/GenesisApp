@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
 import 'genesis_origin_theme.dart';
 
-enum OriginRoleSelectionMarkStyle { checkbox, star }
+enum OriginRoleSelectionMarkStyle { checkbox, star, circle }
 
 class OriginRoleSelectionMark extends StatelessWidget {
   const OriginRoleSelectionMark({
@@ -11,21 +11,67 @@ class OriginRoleSelectionMark extends StatelessWidget {
     required this.selected,
     this.semanticLabel,
     this.style = OriginRoleSelectionMarkStyle.checkbox,
+    this.dimension = 16,
   });
 
   final bool selected;
   final String? semanticLabel;
   final OriginRoleSelectionMarkStyle style;
 
+  /// Only used by [OriginRoleSelectionMarkStyle.circle].
+  final double dimension;
+
   @override
   Widget build(BuildContext context) {
     return Semantics(
       checked: selected,
-      inMutuallyExclusiveGroup: style == OriginRoleSelectionMarkStyle.star,
+      inMutuallyExclusiveGroup: style != OriginRoleSelectionMarkStyle.checkbox,
       label: semanticLabel,
-      child: style == OriginRoleSelectionMarkStyle.star
-          ? _OriginRoleStarMark(selected: selected)
-          : _OriginRoleCheckboxMark(selected: selected),
+      child: switch (style) {
+        OriginRoleSelectionMarkStyle.star => _OriginRoleStarMark(
+          selected: selected,
+        ),
+        OriginRoleSelectionMarkStyle.circle => _OriginRoleCircleMark(
+          selected: selected,
+          dimension: dimension,
+        ),
+        OriginRoleSelectionMarkStyle.checkbox => _OriginRoleCheckboxMark(
+          selected: selected,
+        ),
+      },
+    );
+  }
+}
+
+class _OriginRoleCircleMark extends StatelessWidget {
+  const _OriginRoleCircleMark({required this.selected, required this.dimension});
+
+  final bool selected;
+  final double dimension;
+
+  @override
+  Widget build(BuildContext context) {
+    // Same circular check as the Opening location picker rows.
+    return Container(
+      width: dimension,
+      height: dimension,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: selected ? context.genesisColors.primary : Colors.transparent,
+        border: Border.all(
+          color: selected
+              ? context.genesisColors.primary
+              : context.genesisOriginColors.roleSetupMuted,
+          width: 1.5,
+        ),
+      ),
+      child: selected
+          ? Icon(
+              Icons.check,
+              size: dimension * 0.68,
+              color: context.genesisColors.textInverse,
+            )
+          : null,
     );
   }
 }

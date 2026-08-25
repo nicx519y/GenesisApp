@@ -169,7 +169,7 @@ void main() {
       );
       expect(
         tester.widget<OriginRoleSelectionMark>(ariCheckbox).style,
-        OriginRoleSelectionMarkStyle.star,
+        OriginRoleSelectionMarkStyle.circle,
       );
       expect(
         tester.widget<OriginRoleSelectionMark>(bexCheckbox).selected,
@@ -182,17 +182,10 @@ void main() {
         11,
       );
       expect(
-        tester
-            .widget<Icon>(
-              find.descendant(
-                of: ariCheckbox,
-                matching: find.byIcon(Icons.star_rounded),
-              ),
-            )
-            .size,
-        16,
+        find.descendant(of: ariCheckbox, matching: find.byIcon(Icons.check)),
+        findsOneWidget,
       );
-      expect(tester.getSize(ariCheckbox), const Size.square(16));
+      expect(tester.getSize(ariCheckbox), const Size.square(14));
       final bestRoleHitTarget = find.byKey(
         const ValueKey('origin-character-best-role-hit-target-char_ari'),
       );
@@ -201,14 +194,10 @@ void main() {
         tester.getTopLeft(bestRoleHitTarget).dy,
         tester.getTopLeft(ariCheckbox).dy,
       );
-      final unselectedStar = tester.widget<Icon>(
-        find.descendant(
-          of: bexCheckbox,
-          matching: find.byIcon(Icons.star_border_rounded),
-        ),
+      expect(
+        find.descendant(of: bexCheckbox, matching: find.byIcon(Icons.check)),
+        findsNothing,
       );
-      expect(unselectedStar.size, 16);
-      expect(unselectedStar.color, const Color(0x8CFFFFFF));
       final firstNameField = find.byType(TextField).first;
       expect(
         tester.getTopLeft(ariCheckbox).dy,
@@ -290,10 +279,14 @@ void main() {
       const ValueKey<String>('opening-best-role-mark-char_bex'),
     );
     expect(ariMark, findsOneWidget);
-    expect(bexMark, findsNothing);
+    expect(bexMark, findsOneWidget);
     expect(
-      find.descendant(of: ariMark, matching: find.byIcon(Icons.star_rounded)),
+      find.descendant(of: ariMark, matching: find.byIcon(Icons.check)),
       findsOneWidget,
+    );
+    expect(
+      find.descendant(of: bexMark, matching: find.byIcon(Icons.check)),
+      findsNothing,
     );
     final ariAvatar = find.byKey(
       const ValueKey<String>('opening-best-role-avatar-char_ari'),
@@ -311,15 +304,15 @@ void main() {
           )
           .style
           ?.fontSize,
-      13,
+      11,
     );
     expect(
-      tester.getTopLeft(ariMark).dx,
-      closeTo(tester.getTopLeft(ariAvatar).dx + 4, 0.01),
+      tester.getTopRight(ariMark).dx,
+      closeTo(tester.getTopRight(ariAvatar).dx - 4, 0.01),
     );
     expect(
-      tester.getBottomLeft(ariMark).dy,
-      closeTo(tester.getBottomLeft(ariAvatar).dy - 4, 0.01),
+      tester.getTopLeft(ariMark).dy,
+      closeTo(tester.getTopLeft(ariAvatar).dy + 4, 0.01),
     );
     final selectedCard = tester.widget<SizedBox>(
       find.byKey(const ValueKey<String>('opening-best-role-card-char_ari')),
@@ -332,8 +325,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(ariMark, findsNothing);
-    expect(bexMark, findsOneWidget);
+    expect(tester.widget<OriginRoleSelectionMark>(ariMark).selected, isFalse);
+    expect(tester.widget<OriginRoleSelectionMark>(bexMark).selected, isTrue);
 
     final saved = await repository.loadDraft();
     expect(saved.characters.map((item) => item.isRecommend).toList(), [0, 1]);

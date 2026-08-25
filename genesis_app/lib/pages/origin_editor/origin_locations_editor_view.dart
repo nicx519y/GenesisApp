@@ -404,12 +404,13 @@ class _InlineTreeLocationNameEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final prefixStyle = _inlineLocationNameStyle(context, level);
     final inputVerticalOffset = level == 0 ? -2.0 : -5.0;
     return KeyedSubtree(
       key: testKey,
-      child: Padding(
-        padding: EdgeInsets.only(left: level * 15.0),
+      child: WorldLocationTreeGuides(
+        level: level,
+        padding: EdgeInsets.zero,
+        breakAbove: level >= 1,
         child: TextFieldTapRegion(
           // Android renders the selection toolbar in the EditableText tap
           // region. Keep Paste/Copy/Select from cancelling inline editing.
@@ -422,10 +423,6 @@ class _InlineTreeLocationNameEditor extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Transform.translate(
-                    offset: const Offset(0, 5),
-                    child: Text('- ', style: prefixStyle),
-                  ),
                   Expanded(
                     child: Transform.translate(
                       offset: Offset(0, inputVerticalOffset),
@@ -652,13 +649,17 @@ class _InlineTreeLocationPreviewHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = _inlineLocationNameStyle(context, level);
+    // 与详情页 _NodeHeader(compactSheetStyle) 相同的层级几何。
     return InkWell(
       onTap: onTap,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(level * 15.0, 5, 0, 5),
+      child: WorldLocationTreeGuides(
+        level: level,
+        padding: level <= 0
+            ? const EdgeInsets.fromLTRB(0, 9, 0, 2)
+            : const EdgeInsets.fromLTRB(0, 0, 0, 2),
+        breakAbove: level >= 1,
         child: Row(
           children: [
-            Text('- ', style: style),
             Flexible(
               fit: FlexFit.loose,
               child: Text(
@@ -676,13 +677,13 @@ class _InlineTreeLocationPreviewHeader extends StatelessWidget {
 }
 
 TextStyle _inlineLocationNameStyle(BuildContext context, int level) {
-  // L1 15px, L2/L3 13px — all w800/1.15 on soft white.
+  // 对齐详情页 9g 的地点名样式:L1 15px、L2/L3 13px,统一 w600/1.15。
   final double fontSize = level <= 0 ? 15 : 13;
   return TextStyle(
-    color: context.genesisColors.textHeading,
+    color: context.genesisColors.textPrimary,
     fontSize: fontSize,
     height: 1.15,
-    fontWeight: FontWeight.w800,
+    fontWeight: FontWeight.w600,
   );
 }
 

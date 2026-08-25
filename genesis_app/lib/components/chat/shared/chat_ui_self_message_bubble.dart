@@ -81,9 +81,6 @@ class ChatSelfMessageBubble extends StatelessWidget {
             imageUrl: message.avatarUrl,
             colors: style.selfAvatarColors,
             seed: message.senderName,
-            borderColor: message.isPlayerControlledRole
-                ? context.genesisColors.primary
-                : null,
             style: style,
           ),
         ],

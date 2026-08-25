@@ -361,7 +361,8 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           return null;
         }
         return Padding(
-          padding: EdgeInsets.fromLTRB((level + 1) * 15.0, 0, 0, 12),
+          // 对齐详情页树形几何:L2 块内容左缩进 13。
+          padding: const EdgeInsets.fromLTRB(13, 0, 0, 12),
           child: _LocationTreeAddButton(
             key: ValueKey<String>(
               'create-add-l2-${_displayLocationId(l1.locationId)}',
@@ -378,7 +379,8 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
           return null;
         }
         return Padding(
-          padding: EdgeInsets.fromLTRB((level + 1) * 15.0, 5, 0, 8),
+          // 对齐详情页树形几何:L3 行左缩进 13 + 6。
+          padding: const EdgeInsets.fromLTRB(19, 5, 0, 8),
           child: _LocationTreeAddL3Button(
             buttonKey: ValueKey<String>(
               'create-add-l3-${_displayLocationId(l2.locationId)}',

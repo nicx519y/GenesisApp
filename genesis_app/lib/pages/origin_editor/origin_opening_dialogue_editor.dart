@@ -135,14 +135,15 @@ class _OpeningBestRoleSelector extends StatelessWidget {
         children: [
           Text(
             'Suggest a role for user',
+            // SPEC 5e: section titles are 800 15px.
             style: TextStyle(
               color: context.genesisCreateColors.text,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
               height: 1.2,
             ),
           ),
-          SizedBox(height: _fieldLabelInputGap),
+          SizedBox(height: 12),
           if (characters.isEmpty)
             Text(
               'No characters available.',
@@ -209,17 +210,35 @@ class _OpeningBestRoleOption extends StatelessWidget {
                       borderRadius: GenesisAvatarRadii.character,
                       showFallbackWhileLoading: false,
                     ),
+                    // SPEC 5e: the selected tile carries a red outer ring.
                     if (character.isRecommended)
-                      Positioned(
-                        left: 4,
-                        bottom: 4,
-                        child: OriginRecommendedRoleMark(
-                          badgeKey: ValueKey<String>(
-                            'opening-best-role-mark-$characterId',
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(
+                                GenesisAvatarRadii.character,
+                              ),
+                              border: Border.all(
+                                color: context.genesisCreateColors.accent,
+                                width: 2,
+                              ),
+                            ),
                           ),
-                          showBackground: true,
                         ),
                       ),
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: OriginRoleSelectionMark(
+                        key: ValueKey<String>(
+                          'opening-best-role-mark-$characterId',
+                        ),
+                        selected: character.isRecommended,
+                        style: OriginRoleSelectionMarkStyle.circle,
+                        dimension: 18,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -230,10 +249,14 @@ class _OpeningBestRoleOption extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: context.genesisCreateColors.text,
-                  fontSize: 13,
+                  color: character.isRecommended
+                      ? context.genesisCreateColors.text
+                      : context.genesisCreateColors.muted,
+                  fontSize: 11,
                   height: 1.1,
-                  fontWeight: FontWeight.w400,
+                  fontWeight: character.isRecommended
+                      ? FontWeight.w700
+                      : FontWeight.w500,
                 ),
               ),
             ],
@@ -305,66 +328,53 @@ class _OpeningNarratorEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final textColor =
         style.systemMessageTextStyle.color ?? context.genesisColors.textInverse;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(
-            left: style.systemMessageMargin.left,
-            right: style.systemMessageMargin.right,
+    return Padding(
+      padding: EdgeInsets.only(
+        left: style.systemMessageMargin.left,
+        right: style.systemMessageMargin.right,
+      ),
+      child: Container(
+        key: ValueKey<String>('${item.id}-narrator'),
+        width: double.infinity,
+        padding: style.systemMessagePadding,
+        decoration: BoxDecoration(
+          color: style.systemMessageBackgroundColor,
+          borderRadius: BorderRadius.circular(
+            style.systemMessageBorderRadius,
           ),
-          child: Container(
-            key: ValueKey<String>('${item.id}-narrator'),
-            width: double.infinity,
-            padding: style.systemMessagePadding,
-            decoration: BoxDecoration(
-              color: style.systemMessageBackgroundColor,
-              borderRadius: BorderRadius.circular(
-                style.systemMessageBorderRadius,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: SvgPicture.asset(
+                paragraphIconAsset,
+                width: 14,
+                height: 14,
+                fit: BoxFit.contain,
+                colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 3),
-                  child: SvgPicture.asset(
-                    paragraphIconAsset,
-                    width: 14,
-                    height: 14,
-                    fit: BoxFit.contain,
-                    colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
-                  ),
+            SizedBox(width: 6),
+            Expanded(
+              child: _OpeningDialogueTextField(
+                key: ValueKey<String>(
+                  '${item.id}-keyboard-safe-text-field',
                 ),
-                SizedBox(width: 6),
-                Expanded(
-                  child: _OpeningDialogueTextField(
-                    key: ValueKey<String>(
-                      '${item.id}-keyboard-safe-text-field',
-                    ),
-                    item: item,
-                    hintText: 'Enter narrator dialogue',
-                    style: style.systemMessageTextStyle,
-                    insertTextColor: context.genesisCreateColors.fieldFill,
-                    insertBackgroundColor: textColor.withValues(alpha: 0.08),
-                    onChanged: onChanged,
-                    focusNode: focusNode,
-                  ),
-                ),
-              ],
+                item: item,
+                hintText: 'Enter narrator dialogue',
+                style: style.systemMessageTextStyle,
+                insertTextColor: context.genesisCreateColors.fieldFill,
+                insertBackgroundColor: textColor.withValues(alpha: 0.08),
+                onChanged: onChanged,
+                focusNode: focusNode,
+                onDelete: onDelete,
+              ),
             ),
-          ),
+          ],
         ),
-        Positioned(
-          right: 0,
-          top: -8,
-          child: CreateFormDeleteButton(
-            buttonKey: ValueKey<String>('${item.id}-delete'),
-            decorationKey: ValueKey<String>('${item.id}-delete-container'),
-            onPressed: onDelete,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -388,10 +398,7 @@ class _OpeningCharacterEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final character = item.character!;
     final name = character.name.trim();
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Row(
+    return Row(
           key: ValueKey<String>('${item.id}-character'),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -452,6 +459,7 @@ class _OpeningCharacterEditor extends StatelessWidget {
                           context.genesisCreateColors.fieldFill,
                       onChanged: onChanged,
                       focusNode: focusNode,
+                      onDelete: onDelete,
                     ),
                   ),
                 ],
@@ -459,18 +467,7 @@ class _OpeningCharacterEditor extends StatelessWidget {
             ),
             SizedBox(width: style.avatarSideSpacerWidth),
           ],
-        ),
-        Positioned(
-          right: 0,
-          top: -8,
-          child: CreateFormDeleteButton(
-            buttonKey: ValueKey<String>('${item.id}-delete'),
-            decorationKey: ValueKey<String>('${item.id}-delete-container'),
-            onPressed: onDelete,
-          ),
-        ),
-      ],
-    );
+        );
   }
 }
 
@@ -484,6 +481,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
     required this.insertBackgroundColor,
     required this.onChanged,
     required this.focusNode,
+    this.onDelete,
   });
 
   final _OpeningDialogueItem item;
@@ -493,6 +491,10 @@ class _OpeningDialogueTextField extends StatelessWidget {
   final Color insertBackgroundColor;
   final VoidCallback onChanged;
   final FocusNode focusNode;
+
+  /// SPEC 5e: the trash button sits at the far right of the control row
+  /// inside the bubble, not floating outside it.
+  final VoidCallback? onDelete;
 
   static const int _maxCharacterCount = 500;
 
@@ -618,6 +620,22 @@ class _OpeningDialogueTextField extends StatelessWidget {
                   height: 1,
                 ),
               ),
+              if (onDelete != null) ...[
+                SizedBox(width: 7),
+                CreateFormDeleteButton(
+                  buttonKey: ValueKey<String>('${item.id}-delete'),
+                  decorationKey: ValueKey<String>('${item.id}-delete-container'),
+                  onPressed: onDelete!,
+                  size: 22,
+                  iconSize: 13,
+                  backgroundColor: context.genesisCreateColors.fieldFill,
+                  borderColor: Colors.transparent,
+                  borderRadius: 7,
+                  iconColor: context.genesisCreateColors.text.withValues(
+                    alpha: 0.6,
+                  ),
+                ),
+              ],
             ],
           ),
         ],

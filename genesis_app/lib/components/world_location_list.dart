@@ -746,7 +746,7 @@ class _NodeHeader extends StatelessWidget {
     }
     return InkWell(
       onTap: onTap == null ? null : () => onTap!(point),
-      child: _LocationTreeGuides(
+      child: WorldLocationTreeGuides(
         level: level,
         // L1 头维持 9/2 的呼吸;L2 头贴住自己那段线的顶端(5d 里
         // L2 标题就在块顶),断点由 breakAbove 的 12px 提供。
@@ -764,8 +764,9 @@ class _NodeHeader extends StatelessWidget {
 /// L3 行)外侧一条 `1px rgba(255,255,255,.12)` 的竖线、内容内缩 13,
 /// L3 行再内缩 6。L2 头上方留 12px 的无线空隙 —— 线在每个 L2 处自然断开。
 /// 列表是逐行懒构建的,每行画自己那段线,段与段在块内首尾相接。
-class _LocationTreeGuides extends StatelessWidget {
-  const _LocationTreeGuides({
+class WorldLocationTreeGuides extends StatelessWidget {
+  const WorldLocationTreeGuides({
+    super.key,
     required this.level,
     required this.padding,
     required this.child,
@@ -888,7 +889,7 @@ class _LocationCard extends StatelessWidget {
       key: ValueKey<String>('world-location-card-${point.id}'),
       onTap: onTap == null ? null : () => onTap!(targetPoint),
       child: compactSheetStyle
-          ? _LocationTreeGuides(
+          ? WorldLocationTreeGuides(
               level: level,
               padding: const EdgeInsets.symmetric(vertical: 10),
               child: body,

@@ -174,6 +174,9 @@ class _MessagesPageState extends State<MessagesPage> {
             title: 'Messages',
             titleKey: ValueKey('worldo-messages-title'),
           ),
+          // ~23px from the title text to the capsules (13 bar bottom + 10),
+          // sitting just tighter than the 26px below the capsule row.
+          const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 22),
             child: Row(
@@ -289,8 +292,9 @@ class _MessageMenuButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             onTap: () => _openCategory(context),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(11, 13, 11, 14),
+              padding: const EdgeInsets.symmetric(horizontal: 11),
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   FittedBox(
@@ -303,7 +307,7 @@ class _MessageMenuButton extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 14,
                         height: 1,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w800,
                         color: colors.textPrimary,
                       ),
                     ),
@@ -317,7 +321,7 @@ class _MessageMenuButton extends StatelessWidget {
                       maxLines: 1,
                       softWrap: false,
                       style: TextStyle(
-                        fontSize: 12,
+                        fontSize: 9.5,
                         height: 1,
                         fontWeight: FontWeight.w400,
                         color: unreadCount > 0

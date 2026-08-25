@@ -755,8 +755,9 @@ class _BasicsTextField extends StatelessWidget {
       maxLines: maxLines,
       prefix: prefix,
       requiredIndicator: requiredIndicator,
-      labelSize: 13,
-      labelFontWeight: FontWeight.w800,
+      // SPEC 5b: field labels are 700 14px.
+      labelSize: 14,
+      labelFontWeight: FontWeight.w700,
       labelInputGap: 8,
       fieldBorderRadius: fieldBorderRadius,
       fieldPadding: fieldPadding,
@@ -820,8 +821,8 @@ class _BasicsFieldLabel extends StatelessWidget {
       requiredColor: context.genesisCreateColors.accent,
       style: TextStyle(
         color: context.genesisCreateColors.text,
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
+        fontSize: 14,
+        fontWeight: FontWeight.w700,
         height: 1.2,
       ),
     );

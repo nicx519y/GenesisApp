@@ -308,7 +308,7 @@ ChatUiStyleConfig _worldoRedesignLocationChatStyle(ChatUiStyleConfig base) {
         GenesisTypography.withFallback(themed.senderNameTextStyle).copyWith(
           color: GenesisPalette.redesignSoftWhite,
           fontSize: 11,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w600,
           height: 1,
         ),
     composerBackgroundColor: GenesisPalette.transparent,

@@ -37,9 +37,6 @@ class ChatOtherMessageBubble extends StatelessWidget {
                         imageUrl: message.avatarUrl,
                         colors: style.otherAvatarColors,
                         seed: message.senderName,
-                        borderColor: message.isPlayerControlledRole
-                            ? context.genesisColors.primary
-                            : null,
                         style: style,
                       ),
               ),

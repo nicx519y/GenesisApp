@@ -2465,7 +2465,7 @@ void main() {
     expect(find.text('time \uFFFD'), findsOneWidget);
   });
 
-  testWidgets('player controlled chat avatar uses highlighted border', (
+  testWidgets('player controlled chat avatar carries no accent ring', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2487,6 +2487,8 @@ void main() {
       ),
     );
 
+    // Message avatars dropped the red player ring; the highlighted sender
+    // name is what marks a human-played role in the list now.
     expect(
       find.byWidgetPredicate((widget) {
         if (widget is! DecoratedBox) return false;
@@ -2496,7 +2498,7 @@ void main() {
         if (border is! Border) return false;
         return border.top.color == GenesisPalette.redesignAccent;
       }),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
@@ -2568,7 +2570,7 @@ void main() {
       expect(timeRect.left - nameRect.right, closeTo(8, 0.01));
       expect(name.style?.fontFamily, GenesisTypography.fontFamily);
       expect(name.style?.fontSize, 11);
-      expect(name.style?.fontWeight, FontWeight.w800);
+      expect(name.style?.fontWeight, FontWeight.w600);
       expect(name.style?.color, GenesisPalette.redesignSoftWhite);
       expect(time.style?.fontFamily, GenesisTypography.fontFamily);
       expect(time.style?.fontSize, 9.5);

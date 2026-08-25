@@ -123,8 +123,11 @@ class _CreateCharactersAddButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(13),
         onTap: onTap,
         child: CustomPaint(
+          // Same look as the Story Events "+ Add Event" button.
           painter: CreateDashedRRectPainter(
-            color: context.genesisColors.dragHandleSubtle,
+            color: context.genesisColors.foregroundStrong.withValues(
+              alpha: 0.24,
+            ),
             radius: 13,
             strokeWidth: 1.5,
           ),
@@ -136,7 +139,7 @@ class _CreateCharactersAddButton extends StatelessWidget {
               children: [
                 Icon(
                   Icons.add_rounded,
-                  size: 12,
+                  size: 14,
                   color: context.genesisCreateColors.successText,
                 ),
                 const SizedBox(width: 8),
@@ -186,7 +189,8 @@ class _BestRoleSelector extends StatelessWidget {
                 key: ValueKey('origin-character-recommended-${form.charId}'),
                 selected: form.isRecommended,
                 semanticLabel: 'Creator suggests this role for the user',
-                style: OriginRoleSelectionMarkStyle.star,
+                style: OriginRoleSelectionMarkStyle.circle,
+                dimension: 14,
               ),
               SizedBox(width: 6),
               Text(
