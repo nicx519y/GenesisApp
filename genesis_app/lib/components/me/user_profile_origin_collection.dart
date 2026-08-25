@@ -6,6 +6,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    required this.canEdit,
     this.redesigned = false,
   });
 
@@ -14,6 +15,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileOriginItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final bool canEdit;
   final bool redesigned;
 
   @override
@@ -32,6 +34,22 @@ class _OriginProfileCollectionList extends StatelessWidget {
     );
   }
 
+  Future<void> _openEditor(
+    BuildContext context,
+    UserProfileOriginItem item,
+  ) async {
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'me_origin_edit_click',
+      object1: item.oid,
+    );
+    await Navigator.of(
+      context,
+    ).pushNamed(RouteNames.edit, arguments: {'origin_id': item.oid});
+    if (!context.mounted) return;
+    onRefresh?.call();
+  }
+
   Widget _buildOriginList(
     BuildContext context,
     List<UserProfileOriginItem> items,
@@ -44,6 +62,13 @@ class _OriginProfileCollectionList extends StatelessWidget {
               imageUrl: item.imageUrl,
               title: redesigned ? item.title : originDisplayName(item.title),
               subtitle: item.subtitle,
+              titleTrailing: canEdit && !item.deleted
+                  ? const _OriginEditIcon()
+                  : null,
+              onTitleTrailingTap: canEdit && !item.deleted
+                  ? () => _openEditor(context, item)
+                  : null,
+              titleTrailingSemanticsLabel: 'Edit Worldo',
               showPressedBackground: false,
               useRedesignedLayout: redesigned,
               stats: [
@@ -97,6 +122,34 @@ class _OriginProfileCollectionList extends StatelessWidget {
       onRefresh: onRefresh,
       refreshKey: const ValueKey('profile-origin-list-refresh'),
       redesigned: redesigned,
+    );
+  }
+}
+
+/// Edit affordance on your own Worldo rows, sitting right after the title.
+/// Edit affordance on your own Worldo rows: a 12 glyph riding the title's
+/// bottom edge at the far right. It carries no gesture of its own - the list
+/// item stacks a 44 square over this corner and owns the tap, so the touch
+/// target is full size without the glyph having to be.
+class _OriginEditIcon extends StatelessWidget {
+  const _OriginEditIcon();
+
+  /// One step under the 14 title.
+  static const double iconSize = 12;
+
+  @override
+  Widget build(BuildContext context) {
+    return SvgPicture.asset(
+      editPencilLineIconAsset,
+      key: const ValueKey<String>('profile-origin-edit-entry'),
+      width: iconSize,
+      height: iconSize,
+      colorFilter: ColorFilter.mode(
+        // The 45% tier; textMetadata is the semantic that carries it.
+        context.genesisColors.textMetadata,
+        BlendMode.srcIn,
+      ),
+      excludeFromSemantics: true,
     );
   }
 }

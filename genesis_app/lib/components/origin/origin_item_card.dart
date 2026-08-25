@@ -134,7 +134,8 @@ class OriginItemCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ClipRRect(
-          borderRadius: BorderRadius.circular(8),
+          // 封面只圆上面两个角,下缘与文字区衔接处取直角。
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(8)),
           child: AspectRatio(
             aspectRatio: _coverAspectRatio,
             child: Stack(
@@ -142,6 +143,9 @@ class OriginItemCard extends StatelessWidget {
                 Positioned.fill(
                   child: GenesisListImage(
                     imageUrl: item.cover,
+                    // 圆角完全交给外层 ClipRRect(上圆下直);
+                    // 组件默认的四角圆角会让下面两角看起来仍是圆的。
+                    borderRadius: BorderRadius.zero,
                     maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                   ),
                 ),
@@ -150,7 +154,8 @@ class OriginItemCard extends StatelessWidget {
                   right: 0,
                   bottom: 0,
                   child: Container(
-                    padding: const EdgeInsets.fromLTRB(7, 18, 7, 6),
+                    // 左右 4:与封面下方文字区的缩进一致,统计行和标题左对齐。
+                    padding: const EdgeInsets.fromLTRB(4, 18, 4, 6),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.bottomCenter,
@@ -189,40 +194,49 @@ class OriginItemCard extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 5),
-        Text(
-          // 双列推荐页的标题不加 # 前缀(originDisplayName 会加)。
-          // Home 的 popular 列表和搜索结果仍走 originDisplayName,不受影响。
-          item.title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: colors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
+        // 文字区相对封面左右各缩进 4px,不与封面硬边齐平。
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                // 双列推荐页的标题不加 # 前缀(originDisplayName 会加)。
+                // Home 的 popular 列表和搜索结果仍走 originDisplayName,不受影响。
+                item.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  height: 1.3,
+                ),
+              ),
+              // 视觉间距对齐:两个 SizedBox 都写 5 时看起来并不相等 —— 封面底是硬边,
+              // 标题上方只多出「ascent 减大写字高」3.14(13 x 0.2413)加半行距 0.58,
+              // 合计约 8.7;而标题到简介之间还夹着标题降部 3.14 + 简介上方 3.14,
+              // 合计约 11.9。差 3.14,所以这一处收到 1.9,两处的**可见**间距才一致。
+              // (字号一改就要重算:标题 13 / 简介 11 对应 1.9,原先 14 / 12 时是 1.5。)
+              const SizedBox(height: 1.9),
+              Text(
+                item.subtitle,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colors.textSecondary,
+                  fontWeight: FontWeight.w400,
+                  fontSize: 11,
+                  height: 1.3,
+                ),
+              ),
+              if (item.tags.isNotEmpty) ...[
+                const SizedBox(height: 5),
+                _TagWrap(tags: item.tags),
+              ],
+            ],
           ),
         ),
-        // 视觉间距对齐:两个 SizedBox 都写 5 时看起来并不相等 —— 封面底是硬边,
-        // 标题上方只多出「ascent 减大写字高」3.14(13 x 0.2413)加半行距 0.58,
-        // 合计约 8.7;而标题到简介之间还夹着标题降部 3.14 + 简介上方 3.14,
-        // 合计约 11.9。差 3.14,所以这一处收到 1.9,两处的**可见**间距才一致。
-        // (字号一改就要重算:标题 13 / 简介 11 对应 1.9,原先 14 / 12 时是 1.5。)
-        const SizedBox(height: 1.9),
-        Text(
-          item.subtitle,
-          maxLines: 3,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: colors.textSecondary,
-            fontWeight: FontWeight.w400,
-            fontSize: 11,
-            height: 1.3,
-          ),
-        ),
-        if (item.tags.isNotEmpty) ...[
-          const SizedBox(height: 5),
-          _TagWrap(tags: item.tags),
-        ],
       ],
     );
   }

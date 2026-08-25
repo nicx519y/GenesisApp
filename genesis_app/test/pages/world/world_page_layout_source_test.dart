@@ -257,7 +257,9 @@ void main() {
       bottomTagContent,
       contains('borderRadius: BorderRadius.circular(11)'),
     );
-    expect(bottomTagContent, contains("'1'"));
+    // 未读标记走共享的方形圆角徽标,和地图 location 右上角同一份。
+    expect(bottomTagContent, contains('WorldEventCountBadge('));
+    expect(bottomTagContent, contains('count: 1'));
     expect(source, contains('class WorldSingleSectionBottomSheet'));
     expect(source, contains('class WorldSingleSectionSheetHeader'));
     expect(source, contains('onVerticalDragEnd'));

@@ -58,14 +58,20 @@ class _LoginSheetState extends State<LoginSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final media = MediaQuery.of(context);
-    final maxHeight = media.size.height - media.padding.top - 18;
-    final targetHeight = maxHeight < 342 ? maxHeight : 342.0;
-
-    return GenesisBottomSheetPanel(
+    // The sheet hugs its content instead of holding a fixed 342, so it stops
+    // rising past the copy when the flavour hides the Apple button.
+    return GenesisBottomSheetPanel.content(
       key: const ValueKey<String>('login-sheet-outline'),
       title: 'Sign in to continue',
-      height: targetHeight,
+      showBorder: false,
+      // Same 24 inset as the Me page, so both surfaces render the provider
+      // buttons at one width.
+      padding: const EdgeInsets.fromLTRB(
+        signedOutHorizontalInset,
+        20,
+        signedOutHorizontalInset,
+        14,
+      ),
       trailing: GenesisBottomSheetCloseButton(
         onPressed: _submittingProvider != null
             ? null
@@ -82,7 +88,7 @@ class _LoginSheetState extends State<LoginSheet> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Create worldo, launch worlds and invite friends',
+            signedOutSupportingCopy,
             style: TextStyle(
               fontSize: 13,
               color: context.genesisColors.textMuted,
@@ -93,15 +99,15 @@ class _LoginSheetState extends State<LoginSheet> {
           LoginProviderButtons(
             loggingInProvider: _submittingProvider,
             onLogin: _submit,
-            spacing: 12,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 18),
           const Center(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: 22),
               child: LoginLegalText(),
             ),
           ),
+          const SizedBox(height: 6),
         ],
       ),
     );

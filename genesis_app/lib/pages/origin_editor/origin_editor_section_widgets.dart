@@ -47,8 +47,8 @@ class _SectionRow extends StatelessWidget {
                   child: icon == null
                       ? null
                       : SizedBox(
-                          width: createHubStyle ? 18 : 24,
-                          height: createHubStyle ? 18 : 24,
+                          width: createHubStyle ? 20 : 24,
+                          height: createHubStyle ? 20 : 24,
                           child: SvgPicture.asset(
                             icon!,
                             fit: BoxFit.contain,
@@ -85,9 +85,7 @@ class _SectionRow extends StatelessWidget {
                                           : context
                                                 .genesisColors
                                                 .foregroundStrong,
-                                      // 设计稿 5a 原文:分区标题 14/800/1.15。
-                                      // 字阶收敛时被压到 13,按设计稿恢复。
-                                      fontSize: createHubStyle ? 14 : 15,
+                                      fontSize: createHubStyle ? 15 : 15,
                                       fontWeight: createHubStyle
                                           ? FontWeight.w800
                                           : FontWeight.w400,

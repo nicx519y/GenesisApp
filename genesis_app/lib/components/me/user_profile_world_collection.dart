@@ -6,7 +6,6 @@ class _WorldProfileCollectionList extends StatefulWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
-    required this.recentChatWorldId,
     required this.canDeleteWorlds,
     required this.onWorldDeleted,
     this.redesigned = false,
@@ -17,7 +16,6 @@ class _WorldProfileCollectionList extends StatefulWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
-  final String recentChatWorldId;
   final bool canDeleteWorlds;
   final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
   final bool redesigned;
@@ -79,7 +77,6 @@ class _WorldProfileCollectionListState
               subtitle: widget.redesigned
                   ? _splitWorldSubtitle(item.subtitle)
                   : item.subtitle,
-              showRecentChatTag: item.wid == widget.recentChatWorldId,
               isCollapsing: _collapsingWorldIds.contains(item.wid),
               showPressedBackground: false,
               enableFeedback: false,

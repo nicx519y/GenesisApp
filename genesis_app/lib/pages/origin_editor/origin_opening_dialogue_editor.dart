@@ -67,9 +67,9 @@ class _OpeningDialogueEditor extends StatelessWidget {
                         ),
                         label: character.name.trim(),
                         leading: SvgPicture.asset(
-                          characterStatIconAsset,
-                          width: 14,
-                          height: 14,
+                          originFeedRoleIconAsset,
+                          width: 12,
+                          height: 12,
                         ),
                         onTap: () => onAddCharacter(character),
                       ),
@@ -87,10 +87,10 @@ class _OpeningDialogueEditor extends StatelessWidget {
                     label: 'Narrator',
                     leading: SvgPicture.asset(
                       paragraphIconAsset,
-                      width: 14,
-                      height: 14,
+                      width: 13,
+                      height: 13,
                       colorFilter: ColorFilter.mode(
-                        context.genesisCreateColors.text,
+                        context.genesisCreateColors.successText,
                         BlendMode.srcIn,
                       ),
                     ),
@@ -99,10 +99,15 @@ class _OpeningDialogueEditor extends StatelessWidget {
                   _OpeningDialogueAddButton(
                     key: const ValueKey<String>('opening-add-image'),
                     label: 'Image',
-                    leading: Icon(
-                      Icons.image_outlined,
-                      color: context.genesisCreateColors.text,
-                      size: 16,
+                    // 设计稿 5e 的宽矩形图片图标,不再用偏窄的 material 图标。
+                    leading: SvgPicture.asset(
+                      imageLineIconAsset,
+                      width: 14,
+                      height: 14,
+                      colorFilter: ColorFilter.mode(
+                        context.genesisCreateColors.successText,
+                        BlendMode.srcIn,
+                      ),
                     ),
                     onTap: onAddImage,
                   ),
@@ -135,10 +140,9 @@ class _OpeningBestRoleSelector extends StatelessWidget {
         children: [
           Text(
             'Suggest a role for user',
-            // SPEC 5e: section titles are 800 15px.
             style: TextStyle(
               color: context.genesisCreateColors.text,
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.w800,
               height: 1.2,
             ),
@@ -407,7 +411,6 @@ class _OpeningCharacterEditor extends StatelessWidget {
               imageUrl: character.avatarUrl,
               colors: style.otherAvatarColors,
               seed: name,
-              borderColor: context.genesisCreateColors.border,
               style: style,
             ),
             SizedBox(width: style.avatarBubbleGap),
@@ -438,11 +441,9 @@ class _OpeningCharacterEditor extends StatelessWidget {
                     key: ValueKey<String>('${item.id}-bubble'),
                     width: double.infinity,
                     padding: style.bubblePadding,
+                    // 与对话页气泡同款:无描边。
                     decoration: BoxDecoration(
                       color: style.otherBubbleColor,
-                      border: Border.all(
-                        color: context.genesisCreateColors.border,
-                      ),
                       borderRadius: BorderRadius.circular(
                         style.bubbleBorderRadius,
                       ),
@@ -558,6 +559,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
             minLines: 3,
             maxLines: null,
             maxLength: _maxCharacterCount,
+            cursorColor: context.genesisCreateColors.text,
             style: style,
             onChanged: (_) => onChanged(),
             decoration: InputDecoration(
@@ -768,35 +770,34 @@ class _OpeningDialogueAddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // SPEC 5e:32 高、圆角 11、fieldFill 无边框,粉色加号 + 粉色类型图标。
     return Material(
       color: context.genesisCreateColors.fieldFill,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(11),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(11),
         onTap: onTap,
         child: Container(
-          height: 34,
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            border: Border.all(color: context.genesisCreateColors.border),
-            borderRadius: BorderRadius.circular(8),
-          ),
+          height: 32,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.add,
-                color: context.genesisCreateColors.text,
-                size: 17,
+                color: context.genesisCreateColors.successText,
+                size: 13,
               ),
-              SizedBox(width: 4),
+              SizedBox(width: 6),
               leading,
-              SizedBox(width: 4),
+              SizedBox(width: 6),
               Text(
                 label,
                 style: TextStyle(
-                  color: context.genesisCreateColors.text,
-                  fontSize: 13,
+                  color: context.genesisCreateColors.text.withValues(
+                    alpha: 0.73,
+                  ),
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                   height: 1,
                 ),

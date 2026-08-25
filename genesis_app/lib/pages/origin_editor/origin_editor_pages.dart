@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -264,9 +265,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
   }
 
   Future<void> _openSection(Widget page) async {
+    // 次级创建页水平转场:右滑进入,返回时向右退出。
     await Navigator.of(
       context,
-    ).push<bool>(MaterialPageRoute<bool>(builder: (_) => page));
+    ).push<bool>(CupertinoPageRoute<bool>(builder: (_) => page));
     if (!mounted) return;
     _clearInputFocus();
     await _reloadDraft();
@@ -548,10 +550,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   SizedBox(height: 20),
                                 ],
                                 _SectionRow(
-                                  // Basics 用主页底 bar Worldos 的同一枚 icon,
-                                  // 两处的"世界"符号保持一致。
+                                  // Basics 与主页底 bar Worldos 同一个"世界"符号,
+                                  // hub 用的是加粗描边的副本。
                                   icon: widget.createHubStyle
-                                      ? bottomNavOriginIconAsset
+                                      ? createOriginHubWorldosIconAsset
                                       : createOriginBasicsIconAsset,
                                   title: 'Basics',
                                   summary: _basicsSummary(_draft),
@@ -649,15 +651,16 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                     ),
                   ),
                   _KeyboardHiddenBottomAction(
+                    // 与子页 Save 同规格:40 高、上 14 下 24。
                     minimum: widget.createHubStyle
-                        ? const EdgeInsets.fromLTRB(20, 22, 20, 30)
+                        ? const EdgeInsets.fromLTRB(20, 14, 20, 24)
                         : const EdgeInsets.fromLTRB(24, 8, 24, 14),
                     child: GenesisPrimaryButton(
                       label: submitLabel,
                       width: widget.createHubStyle
                           ? double.infinity
                           : _primaryActionButtonWidth(context),
-                      height: widget.createHubStyle ? 44 : null,
+                      height: widget.createHubStyle ? 40 : null,
                       borderRadius: widget.createHubStyle
                           ? BorderRadius.circular(13)
                           : null,
@@ -695,59 +698,8 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
 
   String _basicsSummary(CreateOriginDraft draft) {
     if (!draft.basicsSaved) return 'Not started yet';
-    final basics = draft.basics;
-    return [
-      'Worldo Name: ${_originNameSummaryValue(basics.originName)}',
-      'Worldo Brief: ${_summaryValue(basics.worldView)}',
-      'Cover Image: ${basics.coverImageUrl.trim().isEmpty ? 'Not uploaded' : 'Uploaded'}',
-      'Worldo Settings: ${_summaryValue(basics.worldLogic)}',
-      'Worldo Time: ${_summaryValue(_worldTimeSummary(basics))}',
-      'Worldo Metric: ${_summaryValue(_progressMetricSummary(basics))}',
-    ].join('\n');
-  }
-
-  String _worldTimeSummary(BasicsDraft basics) {
-    final parts = <String>[
-      if (_singleLineSummaryText(basics.startedAt).isNotEmpty)
-        _singleLineSummaryText(basics.startedAt),
-      if (_singleLineSummaryText(basics.tickDurationTime).isNotEmpty)
-        _singleLineSummaryText(basics.tickDurationTime)
-      else if (basics.tickDurationDays != null)
-        basics.tickDurationDays == 1
-            ? '1 day'
-            : '${basics.tickDurationDays} days',
-    ];
-    return parts.join(', ');
-  }
-
-  String _progressMetricSummary(BasicsDraft basics) {
-    final raw = basics.metricJson.trim();
-    if (raw.isEmpty) return '';
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return raw;
-      final parts = <String>[
-        _summaryMetricValue(decoded['label']),
-        _summaryMetricValue(decoded['label_note']),
-        _summaryMetricValue(decoded['unit']),
-        _summaryMetricValue(decoded['default']),
-        _summaryMetricValue(decoded['range']),
-      ];
-      return parts.where((item) => item.isNotEmpty).join(', ');
-    } catch (_) {
-      return raw;
-    }
-  }
-
-  String _summaryMetricValue(Object? value) {
-    if (value == null) return '';
-    if (value is List) {
-      return value
-          .map((item) => item?.toString().trim() ?? '')
-          .where((item) => item.isNotEmpty)
-          .join(' - ');
-    }
-    return _singleLineSummaryText(value.toString());
+    // hub 摘要只留 #Worldo name。
+    return _originNameSummaryValue(draft.basics.originName);
   }
 
   String _charactersSummary(CreateOriginDraft draft) {
@@ -781,9 +733,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final l3Count = locations
         .where((item) => item.level != 1 && item.level != 2)
         .length;
-    return 'L1 · Region : $l1Count\n'
-        'L2 · Building : $l2Count\n'
-        'L3 · Room : $l3Count';
+    return '$l1Count region · $l2Count buildings · $l3Count rooms';
   }
 
   String _storyEventsSummary(CreateOriginDraft draft) {
@@ -812,12 +762,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           imageCount += 1;
       }
     }
-    return <String>[
-      locationName.isEmpty ? '-' : locationName,
-      'Character dialogue : $characterDialogueCount',
-      'Narrator : $narratorCount',
-      'Image : $imageCount',
-    ].join('\n');
+    final lineCount = characterDialogueCount + narratorCount;
+    return '${locationName.isEmpty ? '-' : locationName} · '
+        '$lineCount lines · $imageCount pics';
   }
 
   String _summaryValue(String value, {int maxLength = 48}) {
@@ -998,8 +945,8 @@ class _UpdateNotesField extends StatelessWidget {
       label: '',
       controller: controller,
       hintText: 'What changed in this version?',
-      minLines: 4,
-      maxLines: 4,
+      minLines: 2,
+      maxLines: 2,
       visibilityBottomPadding: 10,
       textInputAction: TextInputAction.done,
       onChanged: (_) {},

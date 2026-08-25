@@ -298,14 +298,14 @@ class _OriginCharactersEditorPageState
               ),
               _KeyboardHiddenBottomAction(
                 minimum: createWorldoStyle
-                    ? const EdgeInsets.fromLTRB(20, 22, 20, 30)
+                    ? const EdgeInsets.fromLTRB(20, 14, 20, 24)
                     : const EdgeInsets.fromLTRB(24, 8, 24, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
                   width: createWorldoStyle
                       ? double.infinity
                       : _primaryActionButtonWidth(context),
-                  height: createWorldoStyle ? 44 : null,
+                  height: createWorldoStyle ? 40 : null,
                   borderRadius: createWorldoStyle
                       ? BorderRadius.circular(13)
                       : null,

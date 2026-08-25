@@ -29,7 +29,7 @@ class _CharacterCard extends StatelessWidget {
       backgroundColor: createWorldoStyle
           ? context.genesisColors.pageBackground
           : null,
-      titleFontSize: createWorldoStyle ? 15 : 16,
+      titleFontSize: createWorldoStyle ? 14 : 16,
       titleFontWeight: createWorldoStyle ? FontWeight.w800 : FontWeight.w600,
       titleColor: createWorldoStyle ? context.genesisCreateColors.text : null,
       headerBottomSpacing: createWorldoStyle ? 13 : 0,
@@ -190,11 +190,11 @@ class _BestRoleSelector extends StatelessWidget {
                 selected: form.isRecommended,
                 semanticLabel: 'Creator suggests this role for the user',
                 style: OriginRoleSelectionMarkStyle.circle,
-                dimension: 14,
+                dimension: 12,
               ),
               SizedBox(width: 6),
               Text(
-                'Suggest',
+                "Suggest this character as the user's role",
                 style: TextStyle(
                   color: createWorldoStyle
                       ? context.genesisColors.textMuted

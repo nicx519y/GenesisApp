@@ -232,7 +232,8 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
             GenesisFieldLabel(
               text: widget.label,
               requiredIndicator: widget.requiredIndicator,
-              requiredColor: context.genesisCreateColors.accent,
+              // 必填星号统一用粉色,与弹窗/上传框里的粉色图标同色。
+              requiredColor: context.genesisCreateColors.successText,
               style: TextStyle(
                 color: context.genesisCreateColors.text,
                 fontSize: widget.labelSize,
@@ -293,6 +294,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                       minLines: widget.minLines,
                       maxLines: widget.maxLines,
                       textAlign: widget.textAlign,
+                      cursorColor: context.genesisCreateColors.text,
                       style: GenesisTypography.withFallback(
                         TextStyle(
                           color: context.genesisCreateColors.text,

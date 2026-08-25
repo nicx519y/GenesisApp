@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../app/config/genesis_image_config.dart';
 import '../ui/components/genesis_character_avatar.dart';
+import 'world_event_count_badge.dart';
 import 'world_map_avatar_logic.dart';
 import 'world_point.dart';
 
@@ -313,7 +314,12 @@ class WorldMapLocationMarker extends StatelessWidget {
               Positioned(
                 right: -3,
                 top: -4,
-                child: _WorldMapLocationEventBadge(count: eventCount),
+                child: WorldEventCountBadge(
+                  key: const ValueKey<String>(
+                    'world-map-location-event-count',
+                  ),
+                  count: eventCount,
+                ),
               ),
           ],
         ),
@@ -427,42 +433,6 @@ class _WorldMapLocationOverflowChip extends StatelessWidget {
           // 字重按实机观感提到 800(设计稿是 600)—— 这个数字块尺寸小、又压着
           // 72% 透明度,600 在设备上读起来偏轻。
           fontSize: worldMapLocationMarkerOverflowFontSize,
-          height: 1,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
-  }
-}
-
-class _WorldMapLocationEventBadge extends StatelessWidget {
-  const _WorldMapLocationEventBadge({required this.count});
-
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = count > 99 ? '99+' : '$count';
-    return Container(
-      key: const ValueKey<String>('world-map-location-event-count'),
-      // 圆角长方形,不是圆形:半径 6 < 高度的一半,并去掉描边 ——
-      // 设计稿 9a 的 #F82B3C 徽标本来就没有描边。
-      constraints: const BoxConstraints(minWidth: 20),
-      height: 16,
-      padding: const EdgeInsets.symmetric(horizontal: 5),
-      decoration: BoxDecoration(
-        color: worldMapLocationMarkerEventColor,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        label,
-        style: const TextStyle(
-          inherit: false,
-          fontFamily: GenesisTypography.fontFamily,
-          fontFamilyFallback: GenesisTypography.fontFamilyFallback,
-          color: Colors.white,
-          fontSize: 9.5,
           height: 1,
           fontWeight: FontWeight.w800,
         ),

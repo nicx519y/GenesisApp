@@ -8,7 +8,9 @@ import '../app/config/app_flavor_config.dart';
 import '../platform/auth/auth_session.dart';
 import '../pages/legal/legal_document_page.dart';
 import '../routers/app_router.dart';
+import '../ui/components/genesis_primary_button.dart';
 import '../ui/theme/genesis_semantic_colors.dart';
+import '../ui/tokens/genesis_radii.dart';
 
 const String _googleOauthIconAsset = 'assets/custom-icons/svg/login_google.svg';
 const String _appleOauthIconAsset = 'assets/custom-icons/svg/login_apple.svg';
@@ -17,6 +19,13 @@ const double _googleProviderIconSize = 22;
 const double _appleProviderIconSize = 22;
 const double _loginProviderSpinnerSize = 22;
 const double _loginProviderContentWidth = 220;
+
+/// Shared inset for every signed-out surface: 24 puts the provider buttons at
+/// 87% of the screen — the reference lockup's proportion — and makes the Me
+/// page and the login sheet render identical buttons.
+const double signedOutHorizontalInset = 24;
+const String signedOutSupportingCopy =
+    'Create a Worldo and invite friends to join you.';
 
 class LoginProviderButtons extends StatelessWidget {
   const LoginProviderButtons({
@@ -145,8 +154,10 @@ class LoginProviderButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.isLoading = false,
-    this.height = 56,
-    this.borderRadius = 16,
+    // The provider buttons are ordinary regular-size buttons; they ride the
+    // shared 42/radius-11 metrics rather than a taller one-off.
+    this.height = GenesisButton.regularHeight,
+    this.borderRadius = GenesisRadii.button,
     this.backgroundColor,
     this.foregroundColor,
   });
@@ -156,7 +167,7 @@ class LoginProviderButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool isLoading;
   final double height;
-  final double borderRadius;
+  final BorderRadius borderRadius;
   final Color? backgroundColor;
   final Color? foregroundColor;
 
@@ -178,9 +189,7 @@ class LoginProviderButton extends StatelessWidget {
           disabledForegroundColor: foregroundColor.withValues(alpha: 0.55),
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 22),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(borderRadius),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: borderRadius),
           alignment: Alignment.center,
         ),
         child: Center(
@@ -214,8 +223,8 @@ class LoginProviderButton extends StatelessWidget {
                       maxLines: 1,
                       textAlign: TextAlign.left,
                       style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
                         height: 1.1,
                         color: foregroundColor,
                       ),

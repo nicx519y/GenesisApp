@@ -457,6 +457,11 @@ class _InlineTreeLocationNameEditor extends StatelessWidget {
                       onPressed: onDelete,
                       enabled: deleteEnabled,
                       onDisabledPressed: onDeleteDisabled,
+                      size: 30,
+                      iconSize: 14,
+                      backgroundColor: context.genesisCreateColors.fieldFill,
+                      borderColor: Colors.transparent,
+                      borderRadius: 10,
                     ),
                   ),
                 ],
@@ -582,7 +587,7 @@ class _LocationEditorNote extends StatelessWidget {
                             color: colors.textPrimary,
                             fontSize: 11,
                             height: 1,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -591,13 +596,17 @@ class _LocationEditorNote extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 3),
-                  Text(
-                    level.description,
-                    style: TextStyle(
-                      color: colors.textSecondary,
-                      fontSize: 11,
-                      height: 1.45,
-                      fontWeight: FontWeight.w400,
+                  Padding(
+                    // 缩进到徽标(26)+间距(7)之后,和层级名左对齐。
+                    padding: const EdgeInsets.only(left: 33),
+                    child: Text(
+                      level.description,
+                      style: TextStyle(
+                        color: colors.textSecondary,
+                        fontSize: 11,
+                        height: 1.45,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
                   ),
                 ],
@@ -694,36 +703,35 @@ class _InlineLocationSaveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 与其他页面的方形操作按钮同款:30x30、圆角 10、fieldFill、无边框;
+    // 对号与方角垃圾桶同 1.6 描边。
     return SizedBox(
-      width: 24,
-      height: 24,
+      width: 30,
+      height: 30,
       child: Stack(
         fit: StackFit.expand,
         children: [
           Container(
             decoration: BoxDecoration(
-              color: context.genesisCreateColors.fieldOverlay,
-              border: Border.all(
-                color: context.genesisCreateColors.inputBorder,
-              ),
-              borderRadius: BorderRadius.circular(6),
+              color: context.genesisCreateColors.fieldFill,
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
           IconButton(
             tooltip: 'Save',
             onPressed: onPressed,
-            padding: const EdgeInsets.all(5),
-            constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+            padding: const EdgeInsets.all(8),
+            constraints: const BoxConstraints.tightFor(width: 30, height: 30),
             icon: SvgPicture.asset(
-              saveLineIconAsset,
+              checkLineIconAsset,
               width: 14,
               height: 14,
               colorFilter: ColorFilter.mode(
-                context.genesisCreateColors.accent,
+                context.genesisCreateColors.muted,
                 BlendMode.srcIn,
               ),
             ),
-            splashRadius: 12,
+            splashRadius: 15,
           ),
         ],
       ),
@@ -822,31 +830,35 @@ class _LocationTreeAddL3Button extends StatelessWidget {
         key: buttonKey,
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(11),
+          borderRadius: BorderRadius.circular(12),
           onTap: onTap,
           child: CustomPaint(
+            // 与树里 L3 行的图片方块同规格:52x52、圆角 12。
+            // 小方块用细虚线,圆角处才有足够的笔画贴合弧线。
             painter: CreateDashedRRectPainter(
               color: context.genesisCreateColors.dash,
-              radius: 11,
+              radius: 12,
               strokeWidth: 1.5,
+              dashWidth: 5,
+              dashSpace: 4,
             ),
             child: SizedBox(
-              width: 46,
-              height: 46,
+              width: 52,
+              height: 52,
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
                     Icons.add,
                     color: context.genesisColors.accentText,
-                    size: 12,
+                    size: 13,
                   ),
                   SizedBox(height: 2),
                   Text(
                     isRequired ? 'L3 *' : 'L3',
                     style: TextStyle(
                       color: context.genesisColors.accentText,
-                      fontSize: 9.5,
+                      fontSize: 11,
                       height: 1,
                       fontWeight: FontWeight.w600,
                     ),

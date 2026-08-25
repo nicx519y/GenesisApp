@@ -34,6 +34,11 @@ void main() {
         find.byKey(const ValueKey<String>('gem-task-reward-icon')),
         findsOneWidget,
       );
+      expect(
+        find.byKey(const ValueKey<String>('gem-task-success-icon')),
+        findsNothing,
+        reason: 'the gem only heads the success card, not the prompt',
+      );
       expect(find.text('Check in'), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
       _expectDialogBorder(tester);
@@ -43,6 +48,10 @@ void main() {
 
       expect(find.text('Check in successful!'), findsOneWidget);
       expect(find.text('+50'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('gem-task-success-icon')),
+        findsOneWidget,
+      );
       _expectDialogBorder(tester);
 
       await tester.pump(const Duration(milliseconds: 2999));
@@ -137,6 +146,12 @@ void main() {
 
     expect(find.text('Claim successful!'), findsOneWidget);
     expect(find.text('+120'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('gem-task-success-icon')),
+      findsOneWidget,
+      reason: 'design 9r puts a gem above the claim-success title',
+    );
+    expect(find.text('Added to your balance'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 }

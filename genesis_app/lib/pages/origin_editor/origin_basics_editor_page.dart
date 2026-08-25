@@ -446,10 +446,10 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             'The public hook players see first — the setting, the core conflict, and what makes it intriguing.',
                         minLines: 3,
                         maxLines: 8,
-                        minimumHeight: 88,
+                        minimumHeight: 84,
                         fieldPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
-                          vertical: 13,
+                          vertical: 11,
                         ),
                         focusNode: _worldViewFocusNode,
                         nextFocusNode: _worldLogicFocusNode,
@@ -510,10 +510,10 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             'The hidden rules and backstory that drive the story — agendas, mechanics, and secret limits.',
                         minLines: 3,
                         maxLines: 12,
-                        minimumHeight: 88,
+                        minimumHeight: 84,
                         fieldPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
-                          vertical: 13,
+                          vertical: 11,
                         ),
                         focusNode: _worldLogicFocusNode,
                         nextFocusNode: _worldStartTimeFocusNode,
@@ -570,7 +570,7 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                             color: context.genesisCreateColors.text.withValues(
                               alpha: 0.73,
                             ),
-                            fontSize: 11,
+                            fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -680,10 +680,10 @@ class _OriginBasicsEditorPageState extends State<OriginBasicsEditorPage> {
                 ),
               ),
               _KeyboardHiddenBottomAction(
-                minimum: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+                minimum: const EdgeInsets.fromLTRB(20, 14, 20, 24),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  height: 44,
+                  height: 40,
                   borderRadius: BorderRadius.circular(13),
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
@@ -712,7 +712,7 @@ class _BasicsTextField extends StatelessWidget {
     this.maxLines,
     this.prefix,
     this.requiredIndicator = false,
-    this.minimumHeight = 46,
+    this.minimumHeight = 42,
     this.fieldPadding = const EdgeInsets.symmetric(horizontal: 14),
     this.fieldBorderRadius = 13,
     this.prefixGap = 8,
@@ -755,9 +755,8 @@ class _BasicsTextField extends StatelessWidget {
       maxLines: maxLines,
       prefix: prefix,
       requiredIndicator: requiredIndicator,
-      // SPEC 5b: field labels are 700 14px.
       labelSize: 14,
-      labelFontWeight: FontWeight.w700,
+      labelFontWeight: FontWeight.w800,
       labelInputGap: 8,
       fieldBorderRadius: fieldBorderRadius,
       fieldPadding: fieldPadding,
@@ -818,11 +817,11 @@ class _BasicsFieldLabel extends StatelessWidget {
     return GenesisFieldLabel(
       text: text,
       requiredIndicator: requiredIndicator,
-      requiredColor: context.genesisCreateColors.accent,
+      requiredColor: context.genesisCreateColors.successText,
       style: TextStyle(
         color: context.genesisCreateColors.text,
         fontSize: 14,
-        fontWeight: FontWeight.w700,
+        fontWeight: FontWeight.w800,
         height: 1.2,
       ),
     );
@@ -839,6 +838,7 @@ class _BasicsSectionHeading extends StatelessWidget {
     return Text(
       text,
       style: GenesisTypography.sectionTitle.copyWith(
+        fontSize: 14,
         color: context.genesisCreateColors.text,
       ),
     );
@@ -892,7 +892,7 @@ class _SimulationFieldLabel extends StatelessWidget {
       text,
       style: TextStyle(
         color: context.genesisCreateColors.text.withValues(alpha: 0.73),
-        fontSize: 11,
+        fontSize: 13,
         fontWeight: FontWeight.w600,
         height: 1.2,
       ),
@@ -976,7 +976,7 @@ class _TimeProgressOption extends StatelessWidget {
               color: selected
                   ? context.genesisCreateColors.selectedOptionText
                   : context.genesisCreateColors.text.withValues(alpha: 0.8),
-              fontSize: 11,
+              fontSize: 13,
               fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
               height: 1.2,
             ),

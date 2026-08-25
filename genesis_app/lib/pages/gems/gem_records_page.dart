@@ -220,7 +220,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     }
     if (state.records.isEmpty) {
       return RefreshIndicator(
-        color: context.genesisGemColors.accent,
+        color: context.genesisColors.foregroundStrong,
         onRefresh: () => _loadFirstPage(index: index, refreshing: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -240,7 +240,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
       );
     }
     return RefreshIndicator(
-      color: context.genesisGemColors.accent,
+      color: context.genesisColors.foregroundStrong,
       onRefresh: () => _loadFirstPage(index: index, refreshing: true),
       child: ListView.builder(
         controller: state.scrollController,

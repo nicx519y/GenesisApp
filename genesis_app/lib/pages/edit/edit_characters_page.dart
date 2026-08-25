@@ -10,6 +10,10 @@ class EditCharactersPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OriginCharactersEditorPage(repository: repository);
+    // 编辑态与创建环节共用同一套 createWorldoStyle 版式。
+    return OriginCharactersEditorPage(
+      repository: repository,
+      createWorldoStyle: true,
+    );
   }
 }

@@ -314,10 +314,10 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   Widget _buildBottomSaveAction({VoidCallback? onShown}) {
     return _KeyboardHiddenBottomAction(
       onShown: onShown,
-      minimum: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+      minimum: const EdgeInsets.fromLTRB(20, 14, 20, 24),
       child: GenesisPrimaryButton(
         label: _isSaving ? 'Saving...' : 'Save',
-        height: 44,
+        height: 40,
         borderRadius: BorderRadius.circular(13),
         fontSize: 13,
         fontWeight: FontWeight.w800,

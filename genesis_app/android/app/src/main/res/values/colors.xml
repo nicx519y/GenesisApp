@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#FF2442</color>
-    <color name="worldo_theme_background">#17151B</color>
+    <!-- Surface #151517, the single dark ground the app paints behind
+         its first frame; keeping the splash on the old #17151B showed a
+         colour step as Flutter took over. -->
+    <color name="worldo_theme_background">#151517</color>
 </resources>

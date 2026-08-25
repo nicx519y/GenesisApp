@@ -112,7 +112,9 @@ void main() {
     );
   });
 
-  testWidgets('login sheet has the shared subtle outline', (tester) async {
+  testWidgets('login sheet drops the outline and hugs its content', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(body: LoginSheet(onLogin: (_) async => false)),
@@ -126,10 +128,16 @@ void main() {
     final shape = material.shape! as RoundedRectangleBorder;
 
     expect(shape.borderRadius, GenesisBottomSheetPanel.borderRadius);
-    expect(shape.side.width, 1);
+    expect(shape.side, BorderSide.none);
     expect(
-      shape.side.color,
-      GenesisSemanticColors.worldoLight().textPrimary.withValues(alpha: 0.14),
+      tester.widget<GenesisBottomSheetPanel>(panel).height,
+      isNull,
+      reason: 'the sheet is content-sized, not pinned to a fixed height',
+    );
+    expect(
+      find.byKey(const ValueKey<String>('signed-out-signup-bonus')),
+      findsNothing,
+      reason: 'the sign-up bonus rides the signed-out page only',
     );
   });
 

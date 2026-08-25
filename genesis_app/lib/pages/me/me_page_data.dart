@@ -17,36 +17,11 @@ extension _MePageData on _MePageState {
         isLoading: false,
         total: 0,
       );
-      _setRecentChatMarker('', '');
       return const _MePageContent.signedOut();
     }
     return _MePageContent.signedIn(
       await _loadProfileData(refreshAllCollections: true),
     );
-  }
-
-  Future<void> _loadRecentChatMarker() async {
-    final uid = await _readCurrentBackendUid();
-    final record = await recentWorldChatStore.loadForUid(uid);
-    if (!_canUpdateAsyncState) return;
-    final nextWorldId = record?.uid == uid ? record?.worldId ?? '' : '';
-    _setRecentChatMarker(uid, nextWorldId);
-  }
-
-  void _handleRecentChatChanged() {
-    if (!_canUpdateAsyncState) return;
-    final record = recentWorldChatStore.listenable.value;
-    if (record == null) return;
-    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
-    _setRecentChatMarker(record.uid, record.worldId);
-  }
-
-  void _setRecentChatMarker(String uid, String worldId) {
-    if (_recentChatUid == uid && _recentChatWorldId == worldId) return;
-    _updateState(() {
-      _recentChatUid = uid;
-      _recentChatWorldId = worldId;
-    });
   }
 
   Future<UserProfileData> _loadProfileData({

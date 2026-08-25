@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -58,7 +59,6 @@ import 'package:genesis_flutter_android/components/world_top_overlay_bar.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_semantic_colors.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_palette.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
@@ -6217,7 +6217,7 @@ void main() {
         tester.getSize(
           find.byKey(const ValueKey<String>('origin-loading-role-card')),
         ),
-        const Size(216, 300),
+        const Size(216, 312),
       );
       expect(find.byType(WorldMap), findsNothing);
       expect(find.byType(Tilemap), findsNothing);
@@ -7939,9 +7939,9 @@ void main() {
       '?x-oss-process=image/resize,w_360,image/format,webp',
     );
     expect(provider.outputWidth, 324);
-    expect(provider.outputHeight, 450);
+    expect(provider.outputHeight, 468);
     expect(sourceProvider.cacheWidth, 324);
-    expect(sourceProvider.cacheHeight, 450);
+    expect(sourceProvider.cacheHeight, 468);
   });
 
   testWidgets('Origin opening puts the recommended role first and marks it', (
@@ -8139,7 +8139,7 @@ void main() {
       const ValueKey<String>('origin-setup-role-portrait-$roleId'),
     );
     expect(portrait, findsOneWidget);
-    expect(tester.getSize(portrait), const Size(216, 300));
+    expect(tester.getSize(portrait), const Size(216, 312));
     final roleCardFrame = tester.widget<DecoratedBox>(
       find.byKey(
         const ValueKey<String>('origin-setup-role-card-frame-$roleId'),
@@ -8193,7 +8193,7 @@ void main() {
       const ValueKey<String>('origin-setup-role-card-body-toggle-$roleId'),
     );
     expect(tester.getSize(roleToggle), const Size(196, 18));
-    expect(tester.getSize(cardBodyToggle), const Size(216, 300));
+    expect(tester.getSize(cardBodyToggle), const Size(216, 312));
     expect(
       find.ancestor(
         of: roleToggle,
@@ -8891,11 +8891,11 @@ void main() {
         ),
       );
 
-      // Mirrors _OriginSetupRoleSection's 216x300 card at devicePixelRatio 1.
+      // Mirrors _OriginSetupRoleSection's 216x312 card at devicePixelRatio 1.
       final provider = OriginRolePortraitImageProvider.fromUrl(
         imageUrl: profileAvatar,
         outputWidth: 216,
-        outputHeight: 300,
+        outputHeight: 312,
       );
       final tombstone = find.byKey(
         const ValueKey<String>('origin-opening-sheet-tombstone'),
@@ -10743,7 +10743,7 @@ void main() {
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
 
-    expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
+    expect(find.text('YOUR LIVING AI WORLDS'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
   });
@@ -10758,7 +10758,7 @@ void main() {
 
     final eulaRecognizer = _recognizerForText(
       tester.widget<Text>(_loginLegalTextFinder()).textSpan!,
-      'EULA',
+      'End User License Agreement',
     );
     eulaRecognizer.onTap?.call();
     await tester.pumpAndSettle();
@@ -10781,7 +10781,8 @@ void main() {
 
     final logo = find.byKey(const Key('signed_out_worldo_logo'));
     expect(logo, findsOneWidget);
-    expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
+    expect(find.text('YOUR LIVING AI WORLDS'), findsOneWidget);
+    expect(find.text('Sign up and get 200 gems!'), findsOneWidget);
   });
 
   testWidgets('signed-out Me top area restores debug button after ten taps', (
@@ -10833,7 +10834,7 @@ void main() {
     );
 
     for (var i = 0; i < 10; i += 1) {
-      await tester.tap(find.text('LIVE YOUR WORLD'));
+      await tester.tap(find.text('YOUR LIVING AI WORLDS'));
       await tester.pump();
     }
 
@@ -10885,24 +10886,21 @@ void main() {
     expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
-    expect(find.byIcon(Icons.close), findsOneWidget);
+    // The sheet close control is an SvgPicture, not a Material icon.
+    expect(find.byTooltip('Close'), findsOneWidget);
     expect(find.text('Cancel'), findsNothing);
     expect(_loginLegalTextFinder(), findsOneWidget);
-    expect(
-      find.text('Create worldo, launch worlds and invite friends'),
-      findsOneWidget,
-    );
+    const subtitleCopy = 'Create a Worldo and invite friends to join you.';
+    expect(find.text(subtitleCopy), findsOneWidget);
     final title = tester.widget<Text>(find.text('Sign in to continue'));
-    final subtitle = tester.widget<Text>(
-      find.text('Create worldo, launch worlds and invite friends'),
-    );
+    final subtitle = tester.widget<Text>(find.text(subtitleCopy));
     final googleLabel = tester.widget<Text>(find.text('Continue with Google'));
     expect(title.style?.fontSize, 17);
-    expect(title.style?.fontWeight, FontWeight.w600);
+    expect(title.style?.fontWeight, FontWeight.w800);
     expect(subtitle.style?.fontSize, 13);
     expect(subtitle.style?.color, const Color(0x99131215));
-    expect(googleLabel.style?.fontSize, 13);
-    expect(googleLabel.style?.fontWeight, FontWeight.w400);
+    expect(googleLabel.style?.fontSize, 14);
+    expect(googleLabel.style?.fontWeight, FontWeight.w600);
     final googleIcon = find.byWidgetPredicate(
       (widget) =>
           widget is SvgPicture &&
@@ -11950,29 +11948,25 @@ void main() {
     expect(find.text('Basics'), findsNothing);
   });
 
-  testWidgets('tap Create while signed in opens redesigned bottom sheet', (
+  testWidgets('tap Create while signed in opens the full create page', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
     await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
     await tester.pumpAndSettle();
 
+    // Create 是整页水平推入,而不是弹窗。
+    expect(find.byType(BottomSheet), findsNothing);
     expect(
-      find.byKey(const ValueKey<String>('create-worldo-bottom-sheet')),
+      find.byKey(const ValueKey<String>('create-worldo-hub-scaffold')),
       findsOneWidget,
     );
-    expect(find.byType(BottomSheet), findsOneWidget);
-    final createSheet = tester.widget<BottomSheet>(find.byType(BottomSheet));
-    expect(createSheet.enableDrag, isTrue);
-    expect(createSheet.backgroundColor, isNot(Colors.transparent));
-    expect(createSheet.clipBehavior, Clip.antiAlias);
-    final createSheetShape = createSheet.shape! as RoundedRectangleBorder;
-    expect(createSheetShape.borderRadius, GenesisRadii.sheet);
-    expect(createSheetShape.side.width, 1);
-    expect(createSheetShape.side.color.a, closeTo(0.14, 0.0001));
-    expect(createSheetShape.side.color.r, 1);
-    expect(createSheetShape.side.color.g, 1);
-    expect(createSheetShape.side.color.b, 1);
+    final createRoute = ModalRoute.of(
+      tester.element(
+        find.byKey(const ValueKey<String>('create-worldo-hub-scaffold')),
+      ),
+    );
+    expect(createRoute, isA<CupertinoPageRoute<void>>());
     expect(find.text('Create Worldo'), findsOneWidget);
     expect(find.text('Basics'), findsOneWidget);
     expect(find.text('Locations (>=1)'), findsOneWidget);
@@ -12003,7 +11997,10 @@ void main() {
 
     final titleStyle = tester
         .widget<Text>(
-          find.byKey(const ValueKey<String>('create-worldo-hub-title')),
+          find.descendant(
+            of: find.byKey(const ValueKey<String>('create-worldo-hub-title')),
+            matching: find.byType(Text),
+          ),
         )
         .style;
     expect(titleStyle?.fontSize, 17);
@@ -12012,9 +12009,9 @@ void main() {
     expect(titleStyle?.color, Colors.white);
 
     final basicsStyle = tester.widget<Text>(find.text('Basics')).style;
-    expect(basicsStyle?.fontSize, 13);
+    expect(basicsStyle?.fontSize, 15);
     expect(basicsStyle?.fontWeight, FontWeight.w800);
-    expect(basicsStyle?.color, Colors.white);
+    expect(basicsStyle?.color, const Color(0xFFF4F3F6));
     expect(
       tester.getSize(find.byKey(const ValueKey<String>('section-icon-Basics'))),
       const Size.square(34),
@@ -12038,44 +12035,27 @@ void main() {
     final createButton = tester.widget<GenesisPrimaryButton>(
       find.widgetWithText(GenesisPrimaryButton, 'Create'),
     );
-    expect(createButton.height, 44);
+    expect(createButton.height, 40);
     expect(createButton.width, double.infinity);
     expect(createButton.borderRadius, BorderRadius.circular(13));
     expect(createButton.fontSize, 13);
     expect(createButton.fontWeight, FontWeight.w800);
   });
 
-  testWidgets('Create Worldo sheet moves as one drawer and drags closed', (
+  testWidgets('Create page back returns to the shell', (
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
     await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
     await tester.pumpAndSettle();
 
-    final sheet = find.byKey(
-      const ValueKey<String>('create-worldo-bottom-sheet'),
-    );
-    final createButton = find.widgetWithText(GenesisPrimaryButton, 'Create');
-    final initialSheetTop = tester.getTopLeft(sheet).dy;
-    final initialButtonTop = tester.getTopLeft(createButton).dy;
+    expect(find.text('Create Worldo'), findsOneWidget);
 
-    final gesture = await tester.startGesture(
-      tester.getCenter(find.text('Opening')),
-    );
-    await gesture.moveBy(const Offset(0, 20));
-    await tester.pump();
-    await gesture.moveBy(const Offset(0, 160));
-    await tester.pump();
-
-    expect(tester.getTopLeft(sheet).dy, greaterThan(initialSheetTop));
-    expect(tester.getTopLeft(createButton).dy, greaterThan(initialButtonTop));
-
-    await gesture.moveBy(const Offset(0, 520));
-    await gesture.up();
+    await tester.tap(find.byType(GenesisBackIcon));
     await tester.pumpAndSettle();
 
-    expect(sheet, findsNothing);
     expect(find.text('Create Worldo'), findsNothing);
+    expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
   });
 
   testWidgets('create route opens create origin page', (
@@ -12116,9 +12096,9 @@ void main() {
         screenHeight -
         tester.getRect(find.widgetWithText(FilledButton, 'Create')).bottom;
 
-    expect(createButtonSize.height, 44);
+    expect(createButtonSize.height, 40);
     expect(createButtonSize.width, screenWidth - 40);
-    expect(createBottomGap, 30);
+    expect(createBottomGap, 24);
   });
 
   testWidgets('invalid create basics save is disabled with BFD8CD', (
@@ -12543,9 +12523,9 @@ void main() {
       final openingDialogueTitle = tester.widget<Text>(
         find.byKey(const ValueKey<String>('opening-dialogue-title')),
       );
-      expect(selectLocationTitle.style?.fontSize, 15);
+      expect(selectLocationTitle.style?.fontSize, 14);
       expect(selectLocationTitle.style?.fontWeight, FontWeight.w800);
-      expect(openingDialogueTitle.style?.fontSize, 15);
+      expect(openingDialogueTitle.style?.fontSize, 14);
       expect(openingDialogueTitle.style?.fontWeight, FontWeight.w800);
       expect(
         tester
@@ -12791,10 +12771,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.descendant(
-          of: imageAddButton,
-          matching: find.byIcon(Icons.image_outlined),
-        ),
+        find.descendant(of: imageAddButton, matching: find.byType(SvgPicture)),
         findsOneWidget,
       );
       expect(
@@ -13993,10 +13970,10 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateOriginPage()));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Worldo Name: #Cff'), findsOneWidget);
-    expect(find.textContaining('Worldo Brief: Xkkdd'), findsOneWidget);
+    expect(find.textContaining('#Cff'), findsOneWidget);
+    expect(find.textContaining('Worldo Brief'), findsNothing);
     expect(find.textContaining('World Logic:'), findsNothing);
-    expect(find.textContaining('Cover Image: Uploaded'), findsOneWidget);
+    expect(find.textContaining('Cover Image'), findsNothing);
     expect(find.textContaining('1 characters: Tff'), findsOneWidget);
     expect(find.textContaining('Suggested: Tff'), findsOneWidget);
     final charactersTitle = find.text('Characters (>=1)');
@@ -14022,7 +13999,7 @@ void main() {
     expect(charactersCompleted, findsNothing);
     expect(tester.getSize(charactersChevron), const Size.square(20));
     final charactersTitleStyle = tester.widget<Text>(charactersTitle).style;
-    expect(charactersTitleStyle?.fontSize, 13);
+    expect(charactersTitleStyle?.fontSize, 15);
     expect(charactersTitleStyle?.fontWeight, FontWeight.w800);
     expect(charactersTitleStyle?.color, Colors.white);
     final bestRoleSummary = tester.widget<Text>(
@@ -14040,13 +14017,11 @@ void main() {
     expect(bestRoleSummary.overflow, TextOverflow.ellipsis);
     expect(bestRoleSummary.style?.fontSize, 11);
     expect(bestRoleSummary.style?.color, const Color(0x99131215));
-    expect(find.textContaining('L1 · Region : 1'), findsOneWidget);
-    expect(find.textContaining('L2 · Building : 1'), findsOneWidget);
-    expect(find.textContaining('L3 · Room : 1'), findsOneWidget);
-    expect(find.textContaining('Jenrn ff'), findsOneWidget);
-    expect(find.textContaining('Character dialogue : 0'), findsOneWidget);
-    expect(find.textContaining('Narrator : 1'), findsOneWidget);
-    expect(find.textContaining('Image : 0'), findsOneWidget);
+    expect(
+      find.textContaining('1 region · 1 buildings · 1 rooms'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Jenrn ff · 1 lines · 0 pics'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
     await tester.drag(find.byType(ListView), const Offset(0, -240));
     await tester.pump();
@@ -14217,7 +14192,7 @@ void main() {
               matching: find.byType(CreateTextFieldBlock),
             ),
           )
-          .every((field) => field.labelFontWeight == FontWeight.w700),
+          .every((field) => field.labelFontWeight == FontWeight.w600),
       isTrue,
     );
     expect(find.text('1/8 (Added / Max)'), findsOneWidget);
@@ -14389,16 +14364,16 @@ void main() {
       tester.widget<CreateFormCard>(find.byType(CreateFormCard)).showBorder,
       isFalse,
     );
+    // 编辑态与创建环节共用 createWorldoStyle 版式。
+    expect(find.byType(CreateInlineAddButton), findsNothing);
     expect(
-      tester.widget<CreateInlineAddButton>(find.byType(CreateInlineAddButton)),
-      isA<CreateInlineAddButton>()
-          .having((button) => button.fontSize, 'fontSize', 13)
-          .having((button) => button.centered, 'centered', isTrue),
+      find.byKey(const ValueKey<String>('create-characters-add-button')),
+      findsOneWidget,
     );
     expect(
       tester
           .widgetList<CreateTextFieldBlock>(find.byType(CreateTextFieldBlock))
-          .every((field) => field.labelFontWeight == FontWeight.w400),
+          .every((field) => field.labelFontWeight == FontWeight.w600),
       isTrue,
     );
 
@@ -15988,22 +15963,20 @@ void main() {
       const ValueKey<String>('locations-inline-save-Loc_1'),
     );
     expect(inlineSaveButton, findsOneWidget);
-    final inlineSaveIcon = _assetSvgFinder(saveLineIconAsset);
     expect(
-      find.descendant(of: inlineSaveButton, matching: inlineSaveIcon),
+      find.descendant(of: inlineSaveButton, matching: find.byIcon(Icons.check)),
       findsOneWidget,
     );
-    final saveIconWidget = tester.widget<SvgPicture>(
-      find.descendant(of: inlineSaveButton, matching: inlineSaveIcon),
-    );
-    expect(saveIconWidget.width, 14);
-    expect(saveIconWidget.height, 14);
     expect(
-      saveIconWidget.colorFilter,
-      ColorFilter.mode(
-        GenesisCreateColors.worldoLight().accent,
-        BlendMode.srcIn,
-      ),
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: inlineSaveButton,
+              matching: find.byIcon(Icons.check),
+            ),
+          )
+          .color,
+      GenesisCreateColors.worldoLight().accent,
     );
     final saveButtonDecoration =
         tester
@@ -16048,14 +16021,13 @@ void main() {
       tester.getSize(inlineSaveButton),
       tester.getSize(inlineDeleteButton),
     );
-    final deleteIconWidget = tester.widget<SvgPicture>(
+    expect(
       find.descendant(
         of: inlineDeleteButton,
         matching: _assetSvgFinder(createFormDeleteIconAsset),
       ),
+      findsOneWidget,
     );
-    expect(deleteIconWidget.width, saveIconWidget.width);
-    expect(deleteIconWidget.height, saveIconWidget.height);
     await tester.tap(inlineSaveButton);
     await tester.pump();
     expect(l1InlineEditor, findsNothing);
@@ -16147,7 +16119,7 @@ void main() {
     );
     expect(l3Sheet, findsOneWidget);
     final sheetRectWithoutKeyboard = tester.getRect(l3Sheet);
-    expect(sheetRectWithoutKeyboard.height, closeTo(844 * 0.75, 0.01));
+    expect(sheetRectWithoutKeyboard.height, closeTo(480, 0.01));
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
     await tester.pumpAndSettle();
     expect(tester.getRect(l3Sheet), sheetRectWithoutKeyboard);
@@ -16991,7 +16963,7 @@ void main() {
       ),
     );
     expect(availableAriAvatar.name, 'Ari');
-    expect(availableAriAvatar.size, 20);
+    expect(availableAriAvatar.size, 18);
     final availableAri = find.byKey(
       const ValueKey('available-initial-character-char_ari'),
     );
@@ -17690,7 +17662,7 @@ void main() {
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Archive'), findsOneWidget);
-    expect(find.textContaining('Narrator : 1'), findsOneWidget);
+    expect(find.textContaining('1 lines'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
 
     rootPublish = tester.widget<FilledButton>(
@@ -17915,7 +17887,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
     await tester.pumpAndSettle();
-    expect(find.textContaining('Narrator : 1'), findsOneWidget);
+    expect(find.textContaining('1 lines'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -360));
     await tester.pump();
@@ -18045,7 +18017,7 @@ void main() {
         for (var i = 0; i < 10; i++) {
           await tester.pump(const Duration(milliseconds: 100));
           if (find
-              .textContaining('Worldo Name: #Editable Origin')
+              .textContaining('#Editable Origin')
               .evaluate()
               .isNotEmpty) {
             break;
@@ -18056,7 +18028,7 @@ void main() {
       await tester.tap(find.text('Open edit'));
       await waitForEditLoad(1);
       expect(
-        find.textContaining('Worldo Name: #Editable Origin'),
+        find.textContaining('#Editable Origin'),
         findsOneWidget,
       );
 
@@ -18067,7 +18039,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Save'));
       await tester.pumpAndSettle();
       expect(
-        find.textContaining('Worldo Name: #Edited Origin'),
+        find.textContaining('#Edited Origin'),
         findsOneWidget,
       );
 
@@ -18081,10 +18053,10 @@ void main() {
       await waitForEditLoad(2);
       expect(transport.requestsFor('/api/v2/origin/foredit'), hasLength(2));
       expect(
-        find.textContaining('Worldo Name: #Editable Origin'),
+        find.textContaining('#Editable Origin'),
         findsOneWidget,
       );
-      expect(find.textContaining('Worldo Name: #Edited Origin'), findsNothing);
+      expect(find.textContaining('#Edited Origin'), findsNothing);
     },
   );
 
@@ -25705,7 +25677,8 @@ Future<Finder> _openL3LocationEditorSheet(
 
 Finder _loginLegalTextFinder() {
   return _richTextFinder(
-    'By continuing, you agree to our Terms, Privacy Policy, and EULA',
+    'By continuing, you agree to our Terms, Privacy Policy, and '
+    'End User License Agreement',
   );
 }
 

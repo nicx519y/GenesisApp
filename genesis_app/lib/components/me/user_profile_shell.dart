@@ -24,7 +24,6 @@ class UserProfileContent extends StatefulWidget {
     this.tabLabelFontSize = 16,
     this.isBlocking = false,
     this.isBlocked = false,
-    this.recentChatWorldId = '',
     this.appearance = UserProfileAppearance.standard,
   });
 
@@ -51,7 +50,6 @@ class UserProfileContent extends StatefulWidget {
   final double? tabLabelFontSize;
   final bool isBlocking;
   final bool isBlocked;
-  final String recentChatWorldId;
   final UserProfileAppearance appearance;
 
   @override
@@ -196,6 +194,7 @@ class _UserProfileContentState extends State<UserProfileContent>
             isLoading: widget.originsLoading,
             listenable: widget.originsListenable,
             onRefresh: widget.onRefreshOrigins,
+            canEdit: data.isSelf,
             redesigned: isWorldoMe,
           ),
           _WorldProfileCollectionList(
@@ -203,7 +202,6 @@ class _UserProfileContentState extends State<UserProfileContent>
             isLoading: widget.worldsLoading,
             listenable: widget.worldsListenable,
             onRefresh: widget.onRefreshWorlds,
-            recentChatWorldId: widget.recentChatWorldId,
             canDeleteWorlds: data.isSelf,
             onWorldDeleted: widget.onWorldDeleted,
             redesigned: isWorldoMe,
@@ -642,23 +640,39 @@ class _GemsBalanceEntry extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 7),
+                      // The unit sits on the amount's baseline, the way 9r
+                      // sets its reward lines; centring it left the 11pt label
+                      // floating against the 20pt figure.
                       Flexible(
-                        child: GenesisMetricValueText(
-                          value: balance == null
-                              ? '0'
-                              : _formatGemBalance(balance),
-                          textKey: const ValueKey('user-profile-gems-balance'),
-                          style: TextStyle(color: colors.foregroundStrong),
-                        ),
-                      ),
-                      const SizedBox(width: 7),
-                      Text(
-                        'Gems',
-                        style: TextStyle(
-                          fontSize: 11,
-                          height: 1,
-                          fontWeight: FontWeight.w600,
-                          color: colors.textTimestamp,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
+                          children: [
+                            Flexible(
+                              child: GenesisMetricValueText(
+                                value: balance == null
+                                    ? '0'
+                                    : _formatGemBalance(balance),
+                                textKey: const ValueKey(
+                                  'user-profile-gems-balance',
+                                ),
+                                style: TextStyle(
+                                  color: colors.foregroundStrong,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 7),
+                            Text(
+                              'Gems',
+                              style: TextStyle(
+                                fontSize: 11,
+                                height: 1,
+                                fontWeight: FontWeight.w600,
+                                color: colors.textTimestamp,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

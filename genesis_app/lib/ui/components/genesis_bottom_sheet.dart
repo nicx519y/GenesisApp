@@ -60,17 +60,24 @@ class GenesisBottomSheetSurface extends StatelessWidget {
     required this.child,
     this.maintainBottomViewPadding = false,
     this.borderRadius = GenesisRadii.sheet,
+    this.showBorder = true,
   });
 
   final Widget child;
   final bool maintainBottomViewPadding;
   final BorderRadius borderRadius;
 
+  /// Sheets carry the shared 14% hairline. Turn it off for panels that should
+  /// read as a bare plate against the scrim.
+  final bool showBorder;
+
   @override
   Widget build(BuildContext context) {
     return Material(
       color: context.genesisColors.surface,
-      shape: genesisModalShape(context, borderRadius: borderRadius),
+      shape: showBorder
+          ? genesisModalShape(context, borderRadius: borderRadius)
+          : RoundedRectangleBorder(borderRadius: borderRadius),
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
@@ -127,6 +134,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     this.titleTextStyle,
     this.maintainBottomViewPadding = false,
     this.showHeader = true,
+    this.showBorder = true,
   }) : layout = GenesisBottomSheetLayout.fixed;
 
   const GenesisBottomSheetPanel.content({
@@ -139,6 +147,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     this.titleTextStyle,
     this.maintainBottomViewPadding = false,
     this.showHeader = true,
+    this.showBorder = true,
   }) : height = null,
        layout = GenesisBottomSheetLayout.content;
 
@@ -153,6 +162,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     this.titleTextStyle,
     this.maintainBottomViewPadding = false,
     this.showHeader = true,
+    this.showBorder = true,
   }) : layout = GenesisBottomSheetLayout.scrollable;
 
   static const BorderRadius borderRadius = GenesisRadii.sheet;
@@ -167,6 +177,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
   final TextStyle? titleTextStyle;
   final bool maintainBottomViewPadding;
   final bool showHeader;
+  final bool showBorder;
   final GenesisBottomSheetLayout layout;
 
   @override
@@ -221,6 +232,7 @@ class GenesisBottomSheetPanel extends StatelessWidget {
     };
     return GenesisBottomSheetSurface(
       maintainBottomViewPadding: maintainBottomViewPadding,
+      showBorder: showBorder,
       child: panel,
     );
   }

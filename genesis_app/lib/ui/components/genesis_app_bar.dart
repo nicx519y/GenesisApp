@@ -155,7 +155,7 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
                     overflow: TextOverflow.ellipsis,
                     style: resolvedTitleStyle,
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 5),
                   Text(
                     subtitle!,
                     maxLines: 1,

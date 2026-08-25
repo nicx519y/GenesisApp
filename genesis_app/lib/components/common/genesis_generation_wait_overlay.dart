@@ -7,6 +7,7 @@ import '../../ui/components/genesis_dialog.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 
@@ -114,7 +115,11 @@ class _GenesisGenerationWaitOverlayState
         Text(
           widget.message,
           textAlign: TextAlign.left,
-          style: const TextStyle(fontSize: 13, height: 1.4),
+          style: TextStyle(
+            fontSize: 13,
+            height: 1.4,
+            color: context.genesisColors.textBody,
+          ),
         ),
       );
       waitBody = Column(
@@ -152,13 +157,22 @@ class _GenesisGenerationWaitOverlayState
                             key: const ValueKey('world-tick1-wait-dialog'),
                             title: title,
                             maxWidth: 312,
-                            padding: EdgeInsets.fromLTRB(
-                              10,
-                              16,
-                              10,
-                              hasPerspectiveText ? 0 : 16,
+                            // 15/w600: the room's title tier, not the 17/w800
+                            // bar tier - a wait card is not a navigation bar.
+                            titleStyle: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              height: 1.15,
+                              color: context.genesisColors.textPrimary,
                             ),
-                            content: SizedBox(width: 292, child: waitBody),
+                            showBorder: false,
+                            padding: EdgeInsets.fromLTRB(
+                              20,
+                              20,
+                              20,
+                              hasPerspectiveText ? 0 : 20,
+                            ),
+                            content: SizedBox(width: 272, child: waitBody),
                           ),
                         ),
                       ),
@@ -302,11 +316,21 @@ class _LaunchWaitAvatar extends StatelessWidget {
       logicalHeight: size,
       devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
     ).trim();
+    // The default fallback picks a saturated hue from the name, which lands
+    // far outside the redesign's ink ramp; the wait surfaces use the same
+    // white-on-white14 slot as the NPC avatar instead.
     final fallback = GenesisAvatarFallback(
       name: avatar.name,
       width: size,
       height: size,
       borderRadius: GenesisAvatarRadii.character,
+      backgroundColor: GenesisPalette.redesignWhite14,
+      textStyle: TextStyle(
+        color: GenesisPalette.redesignSoftWhite,
+        fontSize: (size * 0.3).clamp(11.0, 26.0),
+        height: 1,
+        fontWeight: FontWeight.w600,
+      ),
     );
 
     final Widget image;

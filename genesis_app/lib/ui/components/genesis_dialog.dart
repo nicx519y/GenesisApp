@@ -38,6 +38,8 @@ class GenesisDialog extends StatelessWidget {
     this.showCloseButton = false,
     this.padding = const EdgeInsets.all(GenesisSpacing.pageWide),
     this.maxWidth = 420,
+    this.titleStyle,
+    this.showBorder = true,
   }) : assert(
          actions.length <= 3,
          'Use GenesisBottomSheetPanel when there are more than three actions.',
@@ -52,6 +54,14 @@ class GenesisDialog extends StatelessWidget {
   final EdgeInsetsGeometry padding;
   final double maxWidth;
 
+  /// Overrides the default navigation-title tier (17/w800) for dialogs whose
+  /// heading should sit lighter.
+  final TextStyle? titleStyle;
+
+  /// The 14% modal hairline. Passive wait surfaces drop it - they present no
+  /// actions, so the outline only adds chrome.
+  final bool showBorder;
+
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
@@ -65,7 +75,7 @@ class GenesisDialog extends StatelessWidget {
           decoration: BoxDecoration(
             color: colors.surfaceRaised,
             borderRadius: const BorderRadius.all(Radius.circular(18)),
-            border: genesisModalBorder(context),
+            border: showBorder ? genesisModalBorder(context) : null,
           ),
           child: Padding(
             padding: padding,
@@ -79,9 +89,11 @@ class GenesisDialog extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title,
-                        style: GenesisTypography.navigationTitle.copyWith(
-                          color: colors.textPrimary,
-                        ),
+                        style:
+                            titleStyle ??
+                            GenesisTypography.navigationTitle.copyWith(
+                              color: colors.textPrimary,
+                            ),
                       ),
                     ),
                     if (showCloseButton)

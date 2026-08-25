@@ -47,10 +47,11 @@ void main() {
     expect(addLabel.style?.fontSize, 13);
     expect(addLabel.style?.fontWeight, FontWeight.w800);
 
+    // 子页 Save 统一为 40 高、底部留白 24。
     final saveRect = tester.getRect(find.widgetWithText(FilledButton, 'Save'));
-    expect(saveRect.height, 44);
+    expect(saveRect.height, 40);
     expect(saveRect.left, 20);
     expect(saveRect.right, 370);
-    expect(844 - saveRect.bottom, 30);
+    expect(844 - saveRect.bottom, 24);
   });
 }

@@ -109,16 +109,18 @@ class CreateDashedRRectPainter extends CustomPainter {
     required this.color,
     required this.radius,
     this.strokeWidth = 1,
+    this.dashWidth = 8,
+    this.dashSpace = 7,
   });
 
   final Color color;
   final double radius;
   final double strokeWidth;
+  final double dashWidth;
+  final double dashSpace;
 
   @override
   void paint(Canvas canvas, Size size) {
-    const double dashWidth = 8;
-    const double dashSpace = 7;
     final paint = Paint()
       ..color = color
       ..strokeWidth = strokeWidth
@@ -129,11 +131,15 @@ class CreateDashedRRectPainter extends CustomPainter {
     );
     final path = Path()..addRRect(rrect);
     for (final metric in path.computeMetrics()) {
-      var distance = 0.0;
-      while (distance < metric.length) {
-        final end = (distance + dashWidth).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(distance, end), paint);
-        distance += dashWidth + dashSpace;
+      // 让 dash+gap 恰好整除路径长度,首尾衔接、圆角处不被间隙截断,
+      // 不同尺寸的虚线框圆角观感才一致。
+      var unitCount = (metric.length / (dashWidth + dashSpace)).round();
+      if (unitCount < 1) unitCount = 1;
+      final unit = metric.length / unitCount;
+      final dash = unit * (dashWidth / (dashWidth + dashSpace));
+      for (var i = 0; i < unitCount; i++) {
+        final start = i * unit;
+        canvas.drawPath(metric.extractPath(start, start + dash), paint);
       }
     }
   }
@@ -142,6 +148,8 @@ class CreateDashedRRectPainter extends CustomPainter {
   bool shouldRepaint(covariant CreateDashedRRectPainter oldDelegate) {
     return oldDelegate.color != color ||
         oldDelegate.radius != radius ||
-        oldDelegate.strokeWidth != strokeWidth;
+        oldDelegate.strokeWidth != strokeWidth ||
+        oldDelegate.dashWidth != dashWidth ||
+        oldDelegate.dashSpace != dashSpace;
   }
 }

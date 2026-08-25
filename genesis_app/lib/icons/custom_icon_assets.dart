@@ -57,6 +57,13 @@ const String createOriginHubOpeningIconAsset =
     'assets/custom-icons/svg/create_origin_hub_opening.svg';
 const String createOriginHubStoryEventsIconAsset =
     'assets/custom-icons/svg/create_origin_hub_story_events.svg';
+// 主页底 bar Worldos 图标的加粗版,只给 create hub 用。
+const String createOriginHubWorldosIconAsset =
+    'assets/custom-icons/svg/create_origin_hub_worldos.svg';
+// 与方角垃圾桶同 1.6 描边的对勾,配套用在 30x30 方形操作按钮里。
+const String checkLineIconAsset = 'assets/custom-icons/svg/check_line.svg';
+// 设计稿 5e 的宽矩形图片图标(山形 + 圆点)。
+const String imageLineIconAsset = 'assets/custom-icons/svg/image_line.svg';
 const String refreshModifiedIconAsset = 'assets/custom-icons/svg/refresh_2.svg';
 const String editPencilLineIconAsset =
     'assets/custom-icons/svg/edit_pencil_line.svg';

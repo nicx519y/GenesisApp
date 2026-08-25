@@ -101,9 +101,21 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
     if (_loading) return;
     FocusManager.instance.primaryFocus?.unfocus();
     if (_dialogueItems.any((item) => item.hasContent)) {
+      // 与删除确认弹窗同规范:短标题 + 13px 说明文案。
       final shouldContinue = await showGenesisActionBox<bool>(
         context: context,
-        title: 'Switching locations will clear the dialogue content.',
+        title: 'Switch location?',
+        titleContent: Text(
+          'Switching locations will clear the dialogue content.',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: context.genesisCreateColors.muted,
+            fontSize: 13,
+            height: 1.3,
+            fontWeight: FontWeight.w400,
+          ),
+        ),
+        titleHeight: 104,
         actions: const [
           GenesisActionBoxAction<bool>(label: 'Continue', value: true),
         ],
@@ -301,7 +313,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                   ),
                                   style: TextStyle(
                                     color: context.genesisCreateColors.text,
-                                    fontSize: 15,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                     height: 1.2,
                                   ),
@@ -332,7 +344,7 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                                         style: TextStyle(
                                           color:
                                               context.genesisCreateColors.text,
-                                          fontSize: 15,
+                                          fontSize: 14,
                                           fontWeight: FontWeight.w800,
                                           height: 1.2,
                                         ),
@@ -390,10 +402,11 @@ class _OriginOpeningEditorPageState extends State<OriginOpeningEditorPage> {
                     ),
                   ),
                   _KeyboardHiddenBottomAction(
-                    minimum: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+                    minimum: const EdgeInsets.fromLTRB(20, 14, 20, 24),
                     child: GenesisPrimaryButton(
                       label: _isSaving ? 'Saving...' : 'Save',
-                      height: 44,
+                      // 压低到全局按钮的 compact 高度。
+                      height: 40,
                       borderRadius: BorderRadius.circular(13),
                       fontSize: 13,
                       fontWeight: FontWeight.w800,

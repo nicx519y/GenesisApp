@@ -81,7 +81,9 @@ class ChatHeader extends StatelessWidget {
           fontSize: 12,
           fontWeight: FontWeight.w600,
           height: 1,
-          color: (style.headerTitleTextStyle.color ?? const Color(0xFFFFFFFF))
+          color:
+              (style.headerTitleTextStyle.color ??
+                      context.genesisColors.foregroundStrong)
               .withValues(alpha: 0.45),
         );
     final textColumn = Column(
@@ -319,8 +321,13 @@ class _ChatHeaderTitleText extends StatelessWidget {
           ? visibleTitle
           : '$visibleTitle $spokenSuffix',
       excludeSemantics: true,
+      // 1u sets the title row to align-items:baseline: the occupant pill's
+      // count shares the location name's baseline instead of floating at the
+      // taller text box's centre.
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
         children: [
           Flexible(
             child: Text(

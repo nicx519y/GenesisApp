@@ -5,7 +5,6 @@ import '../../utils/stat_count_formatter.dart';
 import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_image_radii.dart';
 import 'genesis_list_image.dart';
-import 'recent_chat_marker.dart';
 
 class GenesisProfileCollectionItemData {
   const GenesisProfileCollectionItemData({
@@ -14,7 +13,6 @@ class GenesisProfileCollectionItemData {
     required this.title,
     required this.subtitle,
     this.stats = const <GenesisProfileCollectionStat>[],
-    this.showRecentChatTag = false,
     this.isCollapsing = false,
     this.showPressedBackground = true,
     this.enableFeedback = true,
@@ -22,6 +20,9 @@ class GenesisProfileCollectionItemData {
     this.onLongPress,
     this.onCollapsed,
     this.useRedesignedLayout = false,
+    this.titleTrailing,
+    this.onTitleTrailingTap,
+    this.titleTrailingSemanticsLabel,
   });
 
   final Object? animationKey;
@@ -29,7 +30,6 @@ class GenesisProfileCollectionItemData {
   final String title;
   final String subtitle;
   final List<GenesisProfileCollectionStat> stats;
-  final bool showRecentChatTag;
   final bool isCollapsing;
   final bool showPressedBackground;
   final bool enableFeedback;
@@ -37,6 +37,18 @@ class GenesisProfileCollectionItemData {
   final VoidCallback? onLongPress;
   final VoidCallback? onCollapsed;
   final bool useRedesignedLayout;
+
+  /// Optional adornment pinned to the far right of the title line. It is laid
+  /// out inside the line, so it aligns to the title's bottom edge exactly and
+  /// costs no row height while it is shorter than the line box.
+  final Widget? titleTrailing;
+
+  /// Makes [titleTrailing] tappable. The handler is wired to a transparent
+  /// [titleTrailingWidth] square stacked over the corner rather than to the
+  /// adornment itself, so the touch target is a full 44 without the adornment
+  /// having to be 44 in layout.
+  final VoidCallback? onTitleTrailingTap;
+  final String? titleTrailingSemanticsLabel;
 }
 
 class GenesisProfileCollectionStat {
@@ -63,84 +75,132 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
     borderRadius: _borderRadius,
   );
 
+  /// Touch target for [onTitleTrailingTap]. The square is stacked over the
+  /// column's top-right corner, so the rows below it give up
+  /// [titleTrailingWidth] of width rather than the row giving up height.
+  static const double titleTrailingWidth = 44;
+  static const double titleTrailingGap = 8;
+
   final GenesisProfileCollectionItemData item;
 
   @override
   Widget build(BuildContext context) {
     final redesigned = item.useRedesignedLayout;
+    final coveredWidth = item.onTitleTrailingTap == null
+        ? 0.0
+        : titleTrailingWidth;
     return Material(
       color: context.genesisColors.surface,
       shape: _shape,
-      child: SizedBox(
-        width: double.infinity,
-        child: Stack(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                GenesisListImage(
-                  imageUrl: item.imageUrl,
-                  width: redesigned ? 60 : 52,
-                  height: redesigned ? 78 : 52,
-                  // 9k: the 60x78 cover is radius 8.
-                  borderRadius: redesigned
-                      ? BorderRadius.circular(8)
-                      : GenesisImageRadii.content,
-                ),
-                SizedBox(width: redesigned ? 12 : 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            fit: FlexFit.loose,
-                            child: Text(
-                              item.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                fontSize: redesigned ? 14 : 13,
-                                height: 1.1,
-                                fontWeight: FontWeight.w600,
-                                color: redesigned
-                                    ? context.genesisColors.textPrimary
-                                    : context.genesisColors.accentText,
+      // The row tap lives on an InkWell that *wraps* the content rather than a
+      // Positioned.fill sibling above it: an overlay sibling is hit-tested
+      // first and swallows taps meant for controls inside the row, such as
+      // [titleSuffix].
+      child: InkWell(
+        overlayColor: item.showPressedBackground
+            ? null
+            : const WidgetStatePropertyAll<Color>(Colors.transparent),
+        enableFeedback: item.enableFeedback,
+        onTap: item.onTap,
+        onLongPress: item.onLongPress,
+        child: SizedBox(
+          width: double.infinity,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              GenesisListImage(
+                imageUrl: item.imageUrl,
+                width: redesigned ? 60 : 52,
+                height: redesigned ? 78 : 52,
+                // 9k: the 60x78 cover is radius 8.
+                borderRadius: redesigned
+                    ? BorderRadius.circular(8)
+                    : GenesisImageRadii.content,
+              ),
+              SizedBox(width: redesigned ? 12 : 10),
+              Expanded(
+                child: Stack(
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          // The adornment rides the title's bottom edge; being
+                          // in the line means the text engine's own metrics
+                          // decide that edge, not a duplicated constant.
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: redesigned ? 14 : 13,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w600,
+                                  color: redesigned
+                                      ? context.genesisColors.textPrimary
+                                      : context.genesisColors.accentText,
+                                ),
                               ),
                             ),
-                          ),
-                          if (item.showRecentChatTag) ...[
-                            const SizedBox(width: 6),
-                            const RecentChatTag(),
+                            if (item.titleTrailing case final trailing?) ...[
+                              const SizedBox(width: titleTrailingGap),
+                              trailing,
+                            ],
                           ],
+                        ),
+                        const SizedBox(height: 5),
+                        // Only the rows under the touch square give up width;
+                        // the title line already reserved room for the
+                        // adornment itself.
+                        Padding(
+                          padding: EdgeInsets.only(right: coveredWidth),
+                          child: _Subtitle(
+                            text: item.subtitle,
+                            redesigned: redesigned,
+                          ),
+                        ),
+                        if (item.stats.isNotEmpty) ...[
+                          SizedBox(height: redesigned ? 7 : 8),
+                          Padding(
+                            padding: EdgeInsets.only(right: coveredWidth),
+                            child: _StatsRow(
+                              stats: item.stats,
+                              redesigned: redesigned,
+                            ),
+                          ),
                         ],
-                      ),
-                      const SizedBox(height: 5),
-                      _Subtitle(text: item.subtitle, redesigned: redesigned),
-                      if (item.stats.isNotEmpty) ...[
-                        SizedBox(height: redesigned ? 7 : 8),
-                        _StatsRow(stats: item.stats, redesigned: redesigned),
                       ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            Positioned.fill(
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  overlayColor: item.showPressedBackground
-                      ? null
-                      : const WidgetStatePropertyAll<Color>(Colors.transparent),
-                  enableFeedback: item.enableFeedback,
-                  onTap: item.onTap,
-                  onLongPress: item.onLongPress,
+                    ),
+                    // A Stack only hit-tests inside its own box, so this stays
+                    // tappable while the column is at least as tall as the
+                    // square - which the cover height already guarantees.
+                    if (item.onTitleTrailingTap case final onTap?)
+                      Positioned(
+                        top: 0,
+                        right: 0,
+                        child: Semantics(
+                          button: true,
+                          label: item.titleTrailingSemanticsLabel,
+                          child: GestureDetector(
+                            key: const ValueKey<String>(
+                              'profile-collection-title-trailing-tap',
+                            ),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: onTap,
+                            child: const SizedBox.square(
+                              dimension: titleTrailingWidth,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

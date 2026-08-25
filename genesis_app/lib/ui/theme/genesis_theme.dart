@@ -153,7 +153,9 @@ abstract final class GenesisTheme {
       iconTheme: IconThemeData(color: colors.foregroundStrong),
       primaryIconTheme: IconThemeData(color: colors.foregroundStrong),
       progressIndicatorTheme: ProgressIndicatorThemeData(
-        color: colors.primary,
+        // 等待圈用白色而不是品牌红:下拉刷新和各页 loading 都继承这里。
+        // 按钮上的 loading 圈不走这条 —— GenesisPrimaryButton 自己用 onPrimary。
+        color: colors.foregroundStrong,
         linearTrackColor: colors.surfaceProgress,
         circularTrackColor: colors.surfaceProgress,
       ),

@@ -11,6 +11,7 @@ import '../../app/bootstrap/service_registry.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/map_detail_sheet_surface.dart';
 import '../../components/world_details_shell.dart';
+import '../../components/world_event_count_badge.dart';
 import '../../components/world_map.dart';
 import '../../components/world/genesis_world_theme.dart';
 import '../../network/models/location_tree.dart';
@@ -311,28 +312,11 @@ class WorldBottomTagContent extends StatelessWidget {
             ),
             if (showUnreadDot) ...[
               const SizedBox(width: 6),
-              Container(
+              WorldEventCountBadge(
                 key: item.kind == WorldBottomSheetKind.events
                     ? const ValueKey('world-events-unread-dot')
                     : null,
-                constraints: const BoxConstraints(minWidth: 15),
-                height: 15,
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                decoration: BoxDecoration(
-                  color: context.genesisColors.danger,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  '1',
-                  style: TextStyle(
-                    color: context.genesisColors.onDanger,
-                    fontSize: 9.5,
-                    height: 1,
-                    fontWeight: FontWeight.w800,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
+                count: 1,
               ),
             ],
           ],

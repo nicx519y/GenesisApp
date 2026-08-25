@@ -199,9 +199,8 @@ class OriginCharacterFormFields extends StatelessWidget {
   Widget build(BuildContext context) {
     final worldoStyle = createWorldoStyle;
     final resolvedLabelSize = worldoStyle ? 14.0 : labelSize;
-    // SPEC 5c: field labels are 700 14px.
     final resolvedLabelFontWeight = worldoStyle
-        ? FontWeight.w700
+        ? FontWeight.w600
         : labelFontWeight;
     final resolvedLabelInputGap = worldoStyle ? 8.0 : labelInputGap;
     final resolvedFieldGap = worldoStyle ? 16.0 : fieldGap;
@@ -272,13 +271,13 @@ class OriginCharacterFormFields extends StatelessWidget {
                     fieldPadding: worldoStyle
                         ? const EdgeInsets.symmetric(
                             horizontal: 14,
-                            vertical: 12,
+                            vertical: 11,
                           )
                         : const EdgeInsets.symmetric(
                             horizontal: 10,
                             vertical: 10,
                           ),
-                    minimumHeight: worldoStyle ? 46 : null,
+                    minimumHeight: worldoStyle ? 42 : null,
                     inputFontSize: worldoStyle ? 13 : 14,
                     hintFontSize: worldoStyle ? 13 : null,
                     inputLineHeight: worldoStyle ? 1.55 : 1.42,
@@ -312,13 +311,13 @@ class OriginCharacterFormFields extends StatelessWidget {
                       fieldPadding: worldoStyle
                           ? const EdgeInsets.symmetric(
                               horizontal: 14,
-                              vertical: 12,
+                              vertical: 11,
                             )
                           : const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 10,
                             ),
-                      minimumHeight: worldoStyle ? 46 : null,
+                      minimumHeight: worldoStyle ? 42 : null,
                       inputFontSize: worldoStyle ? 13 : 14,
                       hintFontSize: worldoStyle ? 13 : null,
                       inputLineHeight: worldoStyle ? 1.55 : 1.42,
@@ -358,13 +357,13 @@ class OriginCharacterFormFields extends StatelessWidget {
                       fieldPadding: worldoStyle
                           ? const EdgeInsets.symmetric(
                               horizontal: 14,
-                              vertical: 12,
+                              vertical: 11,
                             )
                           : const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 10,
                             ),
-                      minimumHeight: worldoStyle ? 46 : null,
+                      minimumHeight: worldoStyle ? 42 : null,
                       inputFontSize: worldoStyle ? 13 : 14,
                       hintFontSize: worldoStyle ? 13 : null,
                       inputLineHeight: worldoStyle ? 1.55 : 1.42,
@@ -405,7 +404,7 @@ class OriginCharacterFormFields extends StatelessWidget {
             fieldPadding: worldoStyle
                 ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
                 : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            minimumHeight: worldoStyle ? 46 : null,
+            minimumHeight: worldoStyle ? 42 : null,
             inputFontSize: worldoStyle ? 13 : 14,
             hintFontSize: worldoStyle ? 13 : null,
             inputLineHeight: worldoStyle ? 1.55 : 1.42,
@@ -444,7 +443,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               fieldPadding: worldoStyle
                   ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
                   : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-              minimumHeight: worldoStyle ? 46 : null,
+              minimumHeight: worldoStyle ? 42 : null,
               inputFontSize: worldoStyle ? 13 : 14,
               hintFontSize: worldoStyle ? 13 : null,
               inputLineHeight: worldoStyle ? 1.55 : 1.42,
@@ -484,9 +483,9 @@ class OriginCharacterFormFields extends StatelessWidget {
             labelInputGap: resolvedLabelInputGap,
             fieldBorderRadius: worldoStyle ? 13 : 8,
             fieldPadding: worldoStyle
-                ? const EdgeInsets.fromLTRB(14, 13, 14, 13)
+                ? const EdgeInsets.fromLTRB(14, 11, 14, 11)
                 : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-            minimumHeight: worldoStyle ? 66 : null,
+            minimumHeight: worldoStyle ? 62 : null,
             inputFontSize: worldoStyle ? 13 : 14,
             hintFontSize: worldoStyle ? 13 : null,
             inputLineHeight: worldoStyle ? 1.55 : 1.42,
@@ -523,9 +522,9 @@ class OriginCharacterFormFields extends StatelessWidget {
           labelInputGap: resolvedLabelInputGap,
           fieldBorderRadius: worldoStyle ? 13 : 8,
           fieldPadding: worldoStyle
-              ? const EdgeInsets.fromLTRB(14, 13, 14, 13)
+              ? const EdgeInsets.fromLTRB(14, 11, 14, 11)
               : const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-          minimumHeight: worldoStyle ? 88 : null,
+          minimumHeight: worldoStyle ? 84 : null,
           inputFontSize: worldoStyle ? 13 : 14,
           hintFontSize: worldoStyle ? 13 : null,
           inputLineHeight: worldoStyle ? 1.55 : 1.42,

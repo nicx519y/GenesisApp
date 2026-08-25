@@ -76,9 +76,14 @@ class _OpeningInitialCharacters extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       key: const ValueKey<String>('opening-initial-characters'),
-      crossAxisAlignment: CrossAxisAlignment.center,
+      // 图标与文本的第一行对齐(文本可能折成两行)。
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SvgPicture.asset(characterStatIconAsset, width: 14, height: 14),
+        Padding(
+          padding: const EdgeInsets.only(top: 2.5),
+          // 与 feed 卡片等处一致的粉色人形图标。
+          child: SvgPicture.asset(originFeedRoleIconAsset, width: 12, height: 12),
+        ),
         SizedBox(width: 6),
         Expanded(
           child: Text(

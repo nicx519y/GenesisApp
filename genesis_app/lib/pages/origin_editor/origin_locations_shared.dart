@@ -66,9 +66,18 @@ class _LocationCard extends StatelessWidget {
               label: 'IMAGE\n(Optional)',
               width: 96,
               height: 144,
-              iconSize: 36,
+              // 空态样式与 Characters 的 AVATAR 上传框同规格。
+              iconSize: 22,
+              borderRadius: 13,
               cropSize: const Size(1500, 3000),
-              emptyIconLabelGap: 8,
+              emptyIconLabelGap: 7,
+              emptyLabelFontSize: 11,
+              emptyLabelFontWeight: FontWeight.w600,
+              emptyBackgroundColor: Colors.transparent,
+              emptyIconColor: context.genesisCreateColors.successText,
+              emptyLabelColor: context.genesisCreateColors.successText,
+              dashColor: context.genesisColors.textDisabled,
+              dashStrokeWidth: 1.5,
               onChanged: onChanged,
             ),
             SizedBox(width: 12),
@@ -197,6 +206,7 @@ class _InitialCharactersField extends StatelessWidget {
                                 for (final character in selectedCharacters)
                                   _InitialCharacterChip(
                                     characterId: character.charId.trim(),
+                                    avatarUrl: character.avatarUrl.trim(),
                                     name: character.name.trim(),
                                     onRemove: onRemoveCharacter,
                                   ),
@@ -326,12 +336,13 @@ class _InitialCharactersField extends StatelessWidget {
     final textPainter = TextPainter(
       text: TextSpan(
         text: name,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
       ),
       maxLines: 1,
       textDirection: Directionality.of(context),
     )..layout();
-    return (textPainter.width + 38).clamp(0.0, 180.0).toDouble();
+    // 左内边距 6 + 头像 18 + 间距 5 + 文本 + 关闭区 ~32。
+    return (textPainter.width + 61).clamp(0.0, 180.0).toDouble();
   }
 
   List<CharacterDraft> get _selectedCharacters {
@@ -368,9 +379,9 @@ class _AvailableInitialCharacterChip extends StatelessWidget {
         constraints: const BoxConstraints(maxWidth: 180),
         padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
         decoration: BoxDecoration(
-          color: context.genesisColors.surface,
+          // 与选中态胶囊同款,不再用红色描边。
+          color: context.genesisColors.surfaceTag,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: context.genesisCreateColors.accentBorder),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -378,8 +389,8 @@ class _AvailableInitialCharacterChip extends StatelessWidget {
             GenesisCharacterAvatar(
               url: avatarUrl,
               name: name,
-              size: 20,
-              borderRadius: GenesisAvatarRadii.character,
+              size: 18,
+              borderRadius: 6,
             ),
             SizedBox(width: 6),
             Flexible(
@@ -391,7 +402,7 @@ class _AvailableInitialCharacterChip extends StatelessWidget {
                   color: context.genesisCreateColors.text,
                   fontSize: 11,
                   height: 1.2,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),
@@ -405,16 +416,19 @@ class _AvailableInitialCharacterChip extends StatelessWidget {
 class _InitialCharacterChip extends StatelessWidget {
   const _InitialCharacterChip({
     required this.characterId,
+    required this.avatarUrl,
     required this.name,
     required this.onRemove,
   });
 
   final String characterId;
+  final String avatarUrl;
   final String name;
   final ValueChanged<String> onRemove;
 
   @override
   Widget build(BuildContext context) {
+    // 与详情页的角色胶囊同款:surfaceTag 底、无边框、18px 头像。
     return GestureDetector(
       key: ValueKey('initial-character-chip-remove-$characterId'),
       behavior: HitTestBehavior.opaque,
@@ -423,15 +437,21 @@ class _InitialCharacterChip extends StatelessWidget {
         key: ValueKey('initial-character-chip-$characterId'),
         constraints: const BoxConstraints(maxWidth: 180),
         height: 32,
-        padding: const EdgeInsets.only(left: 10, right: 4),
+        padding: const EdgeInsets.only(left: 6, right: 4),
         decoration: BoxDecoration(
-          color: context.genesisColors.surface,
+          color: context.genesisColors.surfaceTag,
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: context.genesisCreateColors.accentBorder),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            GenesisCharacterAvatar(
+              url: avatarUrl,
+              name: name,
+              size: 18,
+              borderRadius: 6,
+            ),
+            SizedBox(width: 5),
             Flexible(
               child: Text(
                 name,
@@ -440,7 +460,7 @@ class _InitialCharacterChip extends StatelessWidget {
                 style: TextStyle(
                   color: context.genesisCreateColors.text,
                   fontSize: 11,
-                  fontWeight: FontWeight.w800,
+                  fontWeight: FontWeight.w600,
                   height: 1.2,
                 ),
               ),

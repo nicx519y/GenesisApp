@@ -159,4 +159,46 @@ void main() {
     expect(collapsedCount, 1);
     expect(find.text('Deleted World'), findsNothing);
   });
+
+  testWidgets('title trailing takes its own taps, the row keeps the rest', (
+    WidgetTester tester,
+  ) async {
+    var rowTaps = 0;
+    var suffixTaps = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GenesisProfileCollectionListItem(
+            item: GenesisProfileCollectionItemData(
+              imageUrl: '',
+              title: 'Old Money',
+              subtitle: 'A worldo subtitle',
+              useRedesignedLayout: true,
+              onTap: () => rowTaps += 1,
+              titleTrailing: const SizedBox.square(dimension: 12),
+              onTitleTrailingTap: () => suffixTaps += 1,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final tapTarget = find.byKey(
+      const ValueKey<String>('profile-collection-title-trailing-tap'),
+    );
+    expect(
+      tester.getSize(tapTarget),
+      const Size(44, 44),
+      reason: 'the touch target is a full square even though the glyph is 12',
+    );
+    await tester.tap(tapTarget);
+    await tester.pumpAndSettle();
+    expect(suffixTaps, 1);
+    expect(rowTaps, 0, reason: 'the row must not fire behind the suffix');
+
+    await tester.tap(find.text('A worldo subtitle'));
+    await tester.pumpAndSettle();
+    expect(rowTaps, 1);
+    expect(suffixTaps, 1);
+  });
 }

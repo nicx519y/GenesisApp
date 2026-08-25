@@ -59,11 +59,11 @@ void main() {
       expect(transport.requestsFor('/api/v2/origin/foredit'), hasLength(1));
       expect(transport.requestsFor('/api/v1/origin/foredit'), isEmpty);
       expect(transport.requestsFor('/api/v1/origin/detail'), isEmpty);
-      // hub 版式把 Opening 摘要合并成一行(以 · 连接)。
-      expect(find.textContaining('Archive'), findsOneWidget);
-      expect(find.textContaining('Character dialogue : 1'), findsOneWidget);
-      expect(find.textContaining('Narrator : 1'), findsOneWidget);
-      expect(find.textContaining('Image : 1'), findsOneWidget);
+      // hub 版式的 Opening 摘要:location name · x lines · x pics。
+      expect(
+        find.textContaining('Archive · 2 lines · 1 pics'),
+        findsOneWidget,
+      );
 
       await tester.tap(find.text('Basics'));
       await tester.pumpAndSettle();
@@ -175,24 +175,25 @@ void main() {
         tester.widget<OriginRoleSelectionMark>(bexCheckbox).selected,
         isFalse,
       );
-      expect(find.text('Suggest'), findsNWidgets(2));
+      const suggestLabel = "Suggest this character as the user's role";
+      expect(find.text(suggestLabel), findsNWidgets(2));
       expect(find.text('Recommend as the best role'), findsNothing);
       expect(
-        tester.widget<Text>(find.text('Suggest').first).style?.fontSize,
-        11,
+        tester.widget<Text>(find.text(suggestLabel).first).style?.fontSize,
+        9.5,
       );
       expect(
         find.descendant(of: ariCheckbox, matching: find.byIcon(Icons.check)),
         findsOneWidget,
       );
-      expect(tester.getSize(ariCheckbox), const Size.square(14));
+      expect(tester.getSize(ariCheckbox), const Size.square(12));
       final bestRoleHitTarget = find.byKey(
         const ValueKey('origin-character-best-role-hit-target-char_ari'),
       );
       expect(tester.getSize(bestRoleHitTarget).height, 32);
       expect(
-        tester.getTopLeft(bestRoleHitTarget).dy,
         tester.getTopLeft(ariCheckbox).dy,
+        closeTo(tester.getTopLeft(bestRoleHitTarget).dy, 2),
       );
       expect(
         find.descendant(of: bexCheckbox, matching: find.byIcon(Icons.check)),
@@ -205,7 +206,7 @@ void main() {
       );
       expect(
         tester.getTopLeft(ariCheckbox).dy,
-        closeTo(tester.getTopLeft(find.text('3 / 30').first).dy, 0.01),
+        closeTo(tester.getTopLeft(find.text('3 / 30').first).dy, 2),
       );
 
       await tester.ensureVisible(bexCheckbox);

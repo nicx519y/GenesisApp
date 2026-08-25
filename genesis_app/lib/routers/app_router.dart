@@ -551,7 +551,8 @@ sealed class AppRouter {
           builder: (_) => const SearchPage(),
         );
       case RouteNames.create:
-        return MaterialPageRoute<void>(
+        // Create 整页水平转场进入。
+        return CupertinoPageRoute<void>(
           settings: settings,
           builder: (_) => const CreateOriginPage(),
         );

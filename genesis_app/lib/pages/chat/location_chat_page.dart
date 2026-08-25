@@ -34,6 +34,7 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
+import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_modal_border.dart';
@@ -956,9 +957,15 @@ class _LocationChatRoster extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFFF82B3C);
-    const accentSoft = Color(0xFFFF8A9A);
-    const soft = Color(0xFFF4F3F6);
+    final colors = context.genesisColors;
+    final chatTheme = context.genesisChatTheme;
+    // Same physical values as before, read from their semantic slots: the
+    // brand red, the soft pink the tick links use, the soft-white text tier,
+    // and foregroundStrong for the optical whites of the glass.
+    final accent = colors.primary;
+    final accentSoft = chatTheme.tickLocation;
+    final soft = colors.textPrimary;
+    final white = colors.foregroundStrong;
     final radius = BorderRadius.circular(14);
     return Material(
       type: MaterialType.transparency,
@@ -967,7 +974,7 @@ class _LocationChatRoster extends StatelessWidget {
           borderRadius: radius,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.5),
+              color: colors.scrim.withValues(alpha: 0.5),
               blurRadius: 38,
               offset: const Offset(0, 18),
             ),
@@ -990,11 +997,9 @@ class _LocationChatRoster extends StatelessWidget {
               ),
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.12),
+                  color: white.withValues(alpha: 0.12),
                   borderRadius: radius,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.16),
-                  ),
+                  border: Border.all(color: white.withValues(alpha: 0.16)),
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(7),
@@ -1009,7 +1014,7 @@ class _LocationChatRoster extends StatelessWidget {
                             Container(
                               width: 4,
                               height: 4,
-                              decoration: const BoxDecoration(
+                              decoration: BoxDecoration(
                                 color: accent,
                                 shape: BoxShape.circle,
                               ),
@@ -1022,7 +1027,7 @@ class _LocationChatRoster extends StatelessWidget {
                                 height: 1,
                                 fontWeight: FontWeight.w500,
                                 letterSpacing: 0.95,
-                                color: Colors.white.withValues(alpha: 0.45),
+                                color: white.withValues(alpha: 0.45),
                               ),
                             ),
                           ],
@@ -1039,7 +1044,7 @@ class _LocationChatRoster extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: isSelf
-                                    ? Colors.white.withValues(alpha: 0.08)
+                                    ? white.withValues(alpha: 0.08)
                                     : null,
                                 borderRadius: BorderRadius.circular(9),
                               ),
@@ -1071,15 +1076,13 @@ class _LocationChatRoster extends StatelessWidget {
                                             : FontWeight.w400,
                                         color: isSelf
                                             ? soft
-                                            : Colors.white.withValues(
-                                                alpha: 0.73,
-                                              ),
+                                            : white.withValues(alpha: 0.73),
                                       ),
                                     ),
                                   ),
                                   if (isSelf) ...[
                                     const SizedBox(width: 8),
-                                    const Text(
+                                    Text(
                                       'YOU',
                                       style: TextStyle(
                                         fontSize: 9.5,

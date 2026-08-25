@@ -311,8 +311,10 @@ class _ChatTickProgressContent extends StatelessWidget {
       children: [
         _ChatTickProgressTitle(title: payload.title),
         if (avatars.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Center(child: GenerationAvatarCarousel(avatars: avatars)),
+          const SizedBox(height: 12),
+          // 88 is the wait dialog's hero size; inside the tick plate the
+          // carousel sits with 13px body text, so it stays at row scale.
+          Center(child: GenerationAvatarCarousel(avatars: avatars, size: 44)),
         ],
       ],
     );

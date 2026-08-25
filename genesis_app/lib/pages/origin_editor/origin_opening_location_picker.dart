@@ -145,14 +145,6 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                   SizedBox(height: 5),
                   Row(
                     children: [
-                      if (option.characterNames.isNotEmpty) ...[
-                        SvgPicture.asset(
-                          characterStatIconAsset,
-                          width: 14,
-                          height: 14,
-                        ),
-                        SizedBox(width: 6),
-                      ],
                       Expanded(
                         child: Text(
                           option.characterNames.isEmpty
@@ -178,12 +170,13 @@ class _OpeningLocationOptionRow extends StatelessWidget {
               height: 22,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
+                // 选中态用白色,不用红色。
                 color: selected
-                    ? context.genesisCreateColors.accent
+                    ? context.genesisCreateColors.selectedOptionSurface
                     : Colors.transparent,
                 border: Border.all(
                   color: selected
-                      ? context.genesisCreateColors.accent
+                      ? context.genesisCreateColors.selectedOptionSurface
                       : context.genesisCreateColors.border,
                   width: 1.5,
                 ),
@@ -192,7 +185,7 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                   ? Icon(
                       Icons.check,
                       size: 15,
-                      color: context.genesisColors.onPrimary,
+                      color: context.genesisCreateColors.selectedOptionText,
                     )
                   : null,
             ),

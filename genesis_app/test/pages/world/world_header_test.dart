@@ -156,10 +156,26 @@ void main() {
       ),
     );
 
+    final playingAvatar = find.byKey(const ValueKey('world-playing-avatar'));
     expect(
-      tester.getSize(find.byKey(const ValueKey('world-playing-avatar'))),
+      tester.getSize(playingAvatar),
       const Size.square(worldCharacterAvatarLogicalSize),
     );
+    // 收起态浮窗的角色头像不画红环:整块里不应出现 danger 底色或红色描边。
+    final colors = GenesisTheme.worldoDark()
+        .extension<GenesisSemanticColors>()!;
+    final decorations = tester
+        .widgetList<Container>(
+          find.descendant(of: playingAvatar, matching: find.byType(Container)),
+        )
+        .expand(
+          (container) => [container.decoration, container.foregroundDecoration],
+        )
+        .whereType<BoxDecoration>();
+    for (final decoration in decorations) {
+      expect(decoration.color, isNot(colors.danger));
+      expect(decoration.border, isNull);
+    }
     expect(find.text('Playing Adrian'), findsOneWidget);
     expect(find.text('Tick 7-2'), findsOneWidget);
     expect(find.text('Tick now'), findsOneWidget);

@@ -445,9 +445,8 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
     }
     FocusManager.instance.primaryFocus?.unfocus();
     final draftForm = _LocationForm.copyOf(target.form);
-    final sheetHeight =
-        MediaQuery.sizeOf(context).height * 0.75 -
-        MediaQuery.viewPaddingOf(context).bottom;
+    // 固定高度:保证弹起时不挡住页面顶部的三层说明卡。
+    const sheetHeight = 480.0;
     var draftOwnedBySheet = false;
     try {
       final action = await showGenesisModalBottomSheet<_L3EditorSheetAction>(
@@ -482,7 +481,14 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                   title: isNew ? 'Add L3 Location' : 'Edit L3 Location',
                   height: sheetHeight,
                   maintainBottomViewPadding: true,
-                  trailing: GenesisBottomSheetCloseButton(
+                  showBorder: false,
+                  titleTextStyle: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
+                    color: context.genesisCreateColors.text,
+                  ),
+                  trailing: _L3SheetCloseButton(
                     buttonKey: const ValueKey<String>(
                       'locations-l3-editor-close',
                     ),
@@ -634,6 +640,37 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
         draftForm.dispose();
       }
     }
+  }
+}
+
+/// L3 弹窗的关闭按钮:与页面里的方角操作按钮(30x30 r10 fieldFill)同款。
+class _L3SheetCloseButton extends StatelessWidget {
+  const _L3SheetCloseButton({required this.onPressed, this.buttonKey});
+
+  final VoidCallback onPressed;
+  final Key? buttonKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 30,
+      height: 30,
+      child: Material(
+        color: context.genesisCreateColors.fieldFill,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          key: buttonKey,
+          borderRadius: BorderRadius.circular(10),
+          onTap: onPressed,
+          child: Center(
+            child: GenesisCloseIcon(
+              size: 14,
+              color: context.genesisColors.textMuted,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

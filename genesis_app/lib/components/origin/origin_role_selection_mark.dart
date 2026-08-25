@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../ui/theme/genesis_semantic_colors.dart';
+import '../create/genesis_create_theme.dart';
 import 'genesis_origin_theme.dart';
 
 enum OriginRoleSelectionMarkStyle { checkbox, star, circle }
@@ -51,25 +52,29 @@ class _OriginRoleCircleMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Same circular check as the Opening location picker rows.
+    // Same circular check as the Opening location picker rows:
+    // selected state is white with an ink check, not red.
+    final createColors = context.genesisCreateColors;
     return Container(
       width: dimension,
       height: dimension,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? context.genesisColors.primary : Colors.transparent,
+        color: selected
+            ? createColors.selectedOptionSurface
+            : Colors.transparent,
         border: Border.all(
           color: selected
-              ? context.genesisColors.primary
+              ? createColors.selectedOptionSurface
               : context.genesisOriginColors.roleSetupMuted,
-          width: 1.5,
+          width: 1,
         ),
       ),
       child: selected
           ? Icon(
               Icons.check,
               size: dimension * 0.68,
-              color: context.genesisColors.textInverse,
+              color: createColors.selectedOptionText,
             )
           : null,
     );

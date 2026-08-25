@@ -18,6 +18,8 @@ class _OriginStoryEventsEditorPageState
   final List<FocusNode> _eventFocusNodes = <FocusNode>[];
 
   bool _isSaving = false;
+  // 进入时是否已有保存过的事件:有的话空态也允许保存(用于清空)。
+  bool _hadSavedEvents = false;
 
   @override
   void initState() {
@@ -30,6 +32,9 @@ class _OriginStoryEventsEditorPageState
     final source = draft.storyEvents.isEmpty
         ? const <StoryEventDraft>[StoryEventDraft()]
         : draft.storyEvents;
+    _hadSavedEvents = draft.storyEvents.any(
+      (item) => item.event.trim().isNotEmpty,
+    );
     for (final event in source) {
       _eventControllers.add(TextEditingController(text: event.event));
       _eventFocusNodes.add(FocusNode());
@@ -96,8 +101,21 @@ class _OriginStoryEventsEditorPageState
     Navigator.of(context).pop(true);
   }
 
+  bool get _hasAnyEventContent {
+    return _eventControllers.any(
+      (controller) => controller.text.trim().isNotEmpty,
+    );
+  }
+
+  // 与其他子页一致:无可保存内容时置灰,点击给出原因。
   bool get _canUseSaveButton {
-    return !_isSaving;
+    if (_isSaving) return false;
+    return _hasAnyEventContent || _hadSavedEvents;
+  }
+
+  String get _saveDisabledReason {
+    if (_isSaving) return 'Saving is already in progress.';
+    return 'Add at least one event before saving.';
   }
 
   void _showError(String message) {
@@ -156,16 +174,15 @@ class _OriginStoryEventsEditorPageState
                 ),
               ),
               _KeyboardHiddenBottomAction(
-                minimum: const EdgeInsets.fromLTRB(20, 22, 20, 30),
+                minimum: const EdgeInsets.fromLTRB(20, 14, 20, 24),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
-                  height: 44,
+                  height: 40,
                   borderRadius: BorderRadius.circular(13),
                   fontSize: 13,
                   fontWeight: FontWeight.w800,
                   onPressed: _canUseSaveButton ? _saveEvents : null,
-                  onDisabledPressed: () =>
-                      _showError('Saving is already in progress.'),
+                  onDisabledPressed: () => _showError(_saveDisabledReason),
                 ),
               ),
             ],
@@ -227,9 +244,9 @@ class _StoryEventCard extends StatelessWidget {
             fieldBorderRadius: 13,
             fieldPadding: const EdgeInsets.symmetric(
               horizontal: 14,
-              vertical: 13,
+              vertical: 11,
             ),
-            minimumHeight: 88,
+            minimumHeight: 84,
             inputFontSize: 13,
             hintFontSize: 13,
             inputLineHeight: 1.55,

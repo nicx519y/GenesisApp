@@ -217,7 +217,7 @@ class _GemWalletPageState extends State<GemWalletPage>
       );
     }
     return RefreshIndicator(
-      color: context.genesisGemColors.accent,
+      color: context.genesisColors.foregroundStrong,
       onRefresh: () => _refreshAll(silent: true),
       child: _GemWalletContent(
         products: _products,

@@ -12,9 +12,12 @@ class _OriginSetupRoleSection extends StatefulWidget {
   });
 
   static const double _cardWidth = 216;
-  static const double _cardHeight = 300;
+  // 设计稿 9i 是 300;加高 12,给下拉键与上方文字/下方 Select 留出气口。
+  static const double _cardHeight = 312;
   static const double _buttonHeight = 34;
-  static const double _toggleAreaHeight = 18;
+  // 切换区上缘(10 + 34 + 32 = 76)正好贴文字块底缘,箭头居中于区内
+  // 即位于文字与 Select 的正中点。
+  static const double _toggleAreaHeight = 32;
 
   final List<OriginCharacter> characters;
   final bool launching;
@@ -466,46 +469,46 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
         child: DecoratedBox(
           key: ValueKey<String>('origin-setup-role-card-frame-$stableId'),
           decoration: BoxDecoration(
-            color: context.genesisOriginColors.roleSetupPanel,
+            color: const Color(0xFF151517),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Stack(
             fit: StackFit.expand,
             children: [
+              // 人像常驻在底层:翻面时详情是叠在它上面的玻璃层,
+              // backdrop 模糊才有可取的内容。
               GestureDetector(
                 key: ValueKey<String>(
                   'origin-setup-role-card-body-toggle-$stableId',
                 ),
                 behavior: HitTestBehavior.opaque,
                 onTap: _toggleDetails,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 220),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeIn,
-                  child: _showDetails
-                      ? Padding(
-                          padding: const EdgeInsets.only(
-                            bottom:
-                                _OriginSetupRoleSection._toggleAreaHeight +
-                                _OriginSetupRoleSection._buttonHeight +
-                                10,
-                          ),
-                          child: _OriginSetupRoleDetails(
-                            key: ValueKey<String>(
-                              'origin-setup-role-details-$stableId',
-                            ),
-                            content: content,
-                            controller: _detailsController,
-                          ),
-                        )
-                      : _OriginSetupRolePortrait(
-                          key: ValueKey<String>(
-                            'origin-setup-role-portrait-$stableId',
-                          ),
-                          content: content,
-                          avatarUrl: avatarUrl,
-                          cardWidth: cardWidth,
-                        ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    _OriginSetupRolePortrait(
+                      key: ValueKey<String>(
+                        'origin-setup-role-portrait-$stableId',
+                      ),
+                      content: content,
+                      avatarUrl: avatarUrl,
+                      cardWidth: cardWidth,
+                    ),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeIn,
+                      child: _showDetails
+                          ? _OriginSetupRoleDetails(
+                              key: ValueKey<String>(
+                                'origin-setup-role-details-$stableId',
+                              ),
+                              content: content,
+                              controller: _detailsController,
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
                 ),
               ),
               if (topLabel != null && !_showDetails)
@@ -712,7 +715,8 @@ class _OriginSetupRolePortrait extends StatelessWidget {
         Positioned(
           left: 10,
           right: 10,
-          bottom: 65,
+          // 底缘正好落在切换区上缘(10 + 34 + 32 = 76)。
+          bottom: 76,
           // 文案顺序:name / identity / personality。
           // 字阶(产品定稿):name 17/800,identity 11/600,
           // personality 11/400,行距统一 1.3,行间距 4。
@@ -785,52 +789,66 @@ class _OriginSetupRoleDetails extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 翻面详情是叠在人像上的玻璃层:深灰底色(#151517)80% + backdrop 模糊,
+    // 不再用偏紫的 roleSetupPanel。滚动视口整体限制在下拉键/Select 区上方,
+    // 内容滚动时不会从按钮下面穿过。
     return SizedBox.expand(
-      child: ColoredBox(
-        color: context.genesisOriginColors.roleSetupPanel,
-        child: SingleChildScrollView(
-          key: ValueKey<String>(
-            'origin-setup-role-details-scroll-${content.stableId}',
-          ),
-          controller: controller,
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                content.name.trim().isEmpty ? '—' : content.name.trim(),
-                textAlign: TextAlign.start,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
-                  color: context.genesisColors.textPrimary,
-                  decoration: TextDecoration.none,
-                ),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+        child: ColoredBox(
+          color: const Color(0xCC151517),
+          child: Padding(
+            padding: const EdgeInsets.only(
+              bottom:
+                  _OriginSetupRoleSection._toggleAreaHeight +
+                  _OriginSetupRoleSection._buttonHeight +
+                  10,
+            ),
+            child: SingleChildScrollView(
+              key: ValueKey<String>(
+                'origin-setup-role-details-scroll-${content.stableId}',
               ),
-              const SizedBox(height: 14),
-              _OriginSetupRoleDetailField(
-                label: 'Identity',
-                value: content.identity,
+              controller: controller,
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    content.name.trim().isEmpty ? '—' : content.name.trim(),
+                    textAlign: TextAlign.start,
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                      color: context.genesisColors.textPrimary,
+                      decoration: TextDecoration.none,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _OriginSetupRoleDetailField(
+                    label: 'Identity',
+                    value: content.identity,
+                  ),
+                  if (content.isProfile)
+                    _OriginSetupRoleDetailField(
+                      label: 'Background',
+                      value: content.background,
+                      addBottomGap: false,
+                    )
+                  else ...[
+                    _OriginSetupRoleDetailField(
+                      label: 'Brief',
+                      value: content.brief,
+                    ),
+                    _OriginSetupRoleDetailField(
+                      label: 'Goal',
+                      value: content.goal,
+                      addBottomGap: false,
+                    ),
+                  ],
+                ],
               ),
-              if (content.isProfile)
-                _OriginSetupRoleDetailField(
-                  label: 'Background',
-                  value: content.background,
-                  addBottomGap: false,
-                )
-              else ...[
-                _OriginSetupRoleDetailField(
-                  label: 'Brief',
-                  value: content.brief,
-                ),
-                _OriginSetupRoleDetailField(
-                  label: 'Goal',
-                  value: content.goal,
-                  addBottomGap: false,
-                ),
-              ],
-            ],
+            ),
           ),
         ),
       ),
@@ -875,11 +893,12 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
               displayValue,
               softWrap: true,
               textAlign: TextAlign.start,
+              // 字段值比标签小一号(11)、颜色降一档(textBody)。
               style: TextStyle(
-                fontSize: 13,
+                fontSize: 11,
                 height: 1.4,
                 fontWeight: FontWeight.w400,
-                color: context.genesisColors.textPrimary,
+                color: context.genesisColors.textBody,
                 decoration: TextDecoration.none,
               ),
             ),
@@ -938,9 +957,9 @@ class _OriginSetupRoleImage extends StatelessWidget {
       gaplessPlayback: true,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded || frame != null) return child;
-        return ColoredBox(
-          color: context.genesisOriginColors.roleSetupPanel,
-          child: SizedBox(width: width, height: height),
+        return const ColoredBox(
+          color: Color(0xFF151517),
+          child: SizedBox.expand(),
         );
       },
       errorBuilder: (context, error, stackTrace) => fallback,
