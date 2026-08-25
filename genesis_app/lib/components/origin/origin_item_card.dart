@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
@@ -208,6 +209,13 @@ class OriginItemCard extends StatelessWidget {
                       iconAsset: connectStatIconAsset,
                       value: item.connectCnt,
                     ),
+                    const SizedBox(width: 10),
+                    _ImageStat(
+                      iconAsset: characterStatIconAsset,
+                      preserveIconAssetColor: true,
+                      iconColorMapper: const _WhiteCharacterColorMapper(),
+                      value: item.characterCnt,
+                    ),
                   ],
                 ),
               ),
@@ -220,28 +228,55 @@ class OriginItemCard extends StatelessWidget {
 }
 
 class _ImageStat extends StatelessWidget {
-  const _ImageStat({required this.iconAsset, required this.value});
+  const _ImageStat({
+    required this.iconAsset,
+    this.preserveIconAssetColor = false,
+    this.iconColorMapper,
+    required this.value,
+  });
 
   final String iconAsset;
+  final bool preserveIconAssetColor;
+  final ColorMapper? iconColorMapper;
   final int value;
 
   @override
   Widget build(BuildContext context) {
     return Flexible(
-      child: StatItem(
-        iconAsset: iconAsset,
-        iconSize: 10,
-        iconColor: Colors.white,
-        gap: 4,
-        text: formatStatCount(value),
-        textStyle: const TextStyle(
-          color: Colors.white,
-          fontSize: 11,
-          height: 1,
-          fontWeight: FontWeight.w400,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: StatItem(
+          iconAsset: iconAsset,
+          preserveIconAssetColor: preserveIconAssetColor,
+          iconColorMapper: iconColorMapper,
+          iconSize: 10,
+          iconColor: Colors.white,
+          gap: 4,
+          text: formatStatCount(value),
+          textStyle: const TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            height: 1,
+            fontWeight: FontWeight.w400,
+          ),
         ),
       ),
     );
+  }
+}
+
+class _WhiteCharacterColorMapper extends ColorMapper {
+  const _WhiteCharacterColorMapper();
+
+  @override
+  Color substitute(
+    String? id,
+    String elementName,
+    String attributeName,
+    Color color,
+  ) {
+    return color == const Color(0xFF111111) ? Colors.white : color;
   }
 }
 

@@ -9,6 +9,7 @@ class StatItem extends StatelessWidget {
     this.icon,
     this.iconAsset,
     this.preserveIconAssetColor = false,
+    this.iconColorMapper,
     required this.text,
     this.iconSize = 14,
     this.iconColor,
@@ -25,6 +26,7 @@ class StatItem extends StatelessWidget {
   final IconData? icon;
   final String? iconAsset;
   final bool preserveIconAssetColor;
+  final ColorMapper? iconColorMapper;
   final String text;
   final double iconSize;
   final Color? iconColor;
@@ -58,9 +60,15 @@ class StatItem extends StatelessWidget {
                     asset: asset,
                     size: visualSize,
                     color: null,
+                    colorMapper: iconColorMapper,
                   ),
                 )
-              : _StatAssetIcon(asset: asset, size: visualSize, color: color)
+              : _StatAssetIcon(
+                  asset: asset,
+                  size: visualSize,
+                  color: color,
+                  colorMapper: iconColorMapper,
+                )
         else
           Icon(icon, size: iconSize, color: color),
         SizedBox(width: gap),
@@ -79,11 +87,13 @@ class _StatAssetIcon extends StatelessWidget {
     required this.asset,
     required this.size,
     required this.color,
+    required this.colorMapper,
   });
 
   final String asset;
   final double size;
   final Color? color;
+  final ColorMapper? colorMapper;
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +103,7 @@ class _StatAssetIcon extends StatelessWidget {
         width: size,
         height: size,
         fit: BoxFit.contain,
+        colorMapper: colorMapper,
         colorFilter: color == null
             ? null
             : ColorFilter.mode(color!, BlendMode.srcIn),

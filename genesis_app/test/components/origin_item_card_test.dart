@@ -62,7 +62,7 @@ void main() {
       copyCnt: 2300,
       connectCnt: 4400000,
       discussCnt: 0,
-      characterCnt: 0,
+      characterCnt: 8700,
       locationCnt: 0,
     );
 
@@ -75,6 +75,31 @@ void main() {
     );
 
     expect(_assetSvgFinder(copyStatIconAsset), findsOneWidget);
+    expect(_assetSvgFinder(characterStatIconAsset), findsOneWidget);
+    final characterIcon = tester.widget<SvgPicture>(
+      _assetSvgFinder(characterStatIconAsset),
+    );
+    final characterColorMapper =
+        (characterIcon.bytesLoader as SvgAssetLoader).colorMapper;
+    expect(characterColorMapper, isNotNull);
+    expect(
+      characterColorMapper!.substitute(
+        null,
+        'path',
+        'fill',
+        const Color(0xFF111111),
+      ),
+      Colors.white,
+    );
+    expect(
+      characterColorMapper.substitute(
+        null,
+        'path',
+        'fill',
+        const Color(0xFFFF2442),
+      ),
+      const Color(0xFFFF2442),
+    );
     expect(
       tester.getSize(find.byType(AspectRatio).first),
       const Size(180, 270),
@@ -91,6 +116,7 @@ void main() {
     expect(copyIcon.height, 10);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
+    expect(find.text('8.7K'), findsOneWidget);
     expect(tester.widget<Text>(find.text('2.3K')).style?.fontSize, 11);
     expect(find.text('v3'), findsNothing);
 
