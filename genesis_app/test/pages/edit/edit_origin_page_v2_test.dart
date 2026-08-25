@@ -59,10 +59,11 @@ void main() {
       expect(transport.requestsFor('/api/v2/origin/foredit'), hasLength(1));
       expect(transport.requestsFor('/api/v1/origin/foredit'), isEmpty);
       expect(transport.requestsFor('/api/v1/origin/detail'), isEmpty);
-      expect(find.text('Archive'), findsOneWidget);
-      expect(find.text('Character dialogue : 1'), findsOneWidget);
-      expect(find.text('Narrator : 1'), findsOneWidget);
-      expect(find.text('Image : 1'), findsOneWidget);
+      // hub 版式把 Opening 摘要合并成一行(以 · 连接)。
+      expect(find.textContaining('Archive'), findsOneWidget);
+      expect(find.textContaining('Character dialogue : 1'), findsOneWidget);
+      expect(find.textContaining('Narrator : 1'), findsOneWidget);
+      expect(find.textContaining('Image : 1'), findsOneWidget);
 
       await tester.tap(find.text('Basics'));
       await tester.pumpAndSettle();

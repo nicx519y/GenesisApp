@@ -22,6 +22,7 @@ import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/tokens/genesis_palette.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import 'world_constants.dart';
+import 'world_header.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_sections.dart';
@@ -197,7 +198,7 @@ class _WorldBottomTagsState extends State<WorldBottomTags>
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             physics: const ClampingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 18),
+            padding: const EdgeInsets.fromLTRB(18, 9, 18, 7),
             child: Stack(
               key: _trackKey,
               children: [
@@ -939,7 +940,7 @@ class WorldSingleSectionBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    final bottomSafeArea = GenesisSafeAreaInsets.bottom(context, minimum: 24);
+    final bottomSafeArea = worldBottomSafeAreaOf(context);
     final bottomTabsInset = worldMainTabsHeight + bottomSafeArea;
     return LayoutBuilder(
       builder: (context, constraints) {

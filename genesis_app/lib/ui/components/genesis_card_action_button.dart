@@ -1,3 +1,5 @@
+import 'dart:ui' show ImageFilter;
+
 import 'package:flutter/material.dart';
 
 import '../theme/genesis_semantic_colors.dart';
@@ -13,6 +15,9 @@ class GenesisCardActionButton extends StatelessWidget {
     this.interactionKey,
     this.height = 34,
     this.borderRadius = 11,
+    this.fontSize = 11,
+    this.lineHeight = 1,
+    this.backdropBlurSigma = 0,
   }) : icon = null,
        tooltip = null;
 
@@ -25,7 +30,10 @@ class GenesisCardActionButton extends StatelessWidget {
     this.interactionKey,
     this.height = 34,
     this.borderRadius = 11,
-  }) : label = null;
+    this.backdropBlurSigma = 0,
+  }) : label = null,
+       fontSize = 11,
+       lineHeight = 1;
 
   final String? label;
   final IconData? icon;
@@ -35,6 +43,12 @@ class GenesisCardActionButton extends StatelessWidget {
   final Key? interactionKey;
   final double height;
   final double borderRadius;
+  final double fontSize;
+  final double lineHeight;
+
+  /// >0 时按钮底做毛玻璃(背景 backdrop 模糊),用于叠在图像上的场景,
+  /// 如角色卡的 Select(设计稿 9i:blur 10)。
+  final double backdropBlurSigma;
 
   @override
   Widget build(BuildContext context) {
@@ -48,8 +62,8 @@ class GenesisCardActionButton extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: GenesisTypography.supporting.copyWith(
-              fontSize: 11,
-              height: 1,
+              fontSize: fontSize,
+              height: lineHeight,
               fontWeight: FontWeight.w800,
               color: foreground,
               decoration: TextDecoration.none,
@@ -57,6 +71,29 @@ class GenesisCardActionButton extends StatelessWidget {
           )
         : Icon(iconData, size: 15, color: foreground);
 
+    Widget surface = Material(
+      key: surfaceKey,
+      color: colors.foregroundStrong.withValues(alpha: 0.16),
+      borderRadius: BorderRadius.circular(borderRadius),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        key: interactionKey,
+        onTap: onPressed,
+        child: Center(child: content),
+      ),
+    );
+    if (backdropBlurSigma > 0) {
+      surface = ClipRRect(
+        borderRadius: BorderRadius.circular(borderRadius),
+        child: BackdropFilter(
+          filter: ImageFilter.blur(
+            sigmaX: backdropBlurSigma,
+            sigmaY: backdropBlurSigma,
+          ),
+          child: surface,
+        ),
+      );
+    }
     Widget result = Semantics(
       button: true,
       enabled: enabled,
@@ -64,17 +101,7 @@ class GenesisCardActionButton extends StatelessWidget {
       child: SizedBox(
         width: iconData == null ? null : height,
         height: height,
-        child: Material(
-          key: surfaceKey,
-          color: colors.foregroundStrong.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(borderRadius),
-          clipBehavior: Clip.antiAlias,
-          child: InkWell(
-            key: interactionKey,
-            onTap: onPressed,
-            child: Center(child: content),
-          ),
-        ),
+        child: surface,
       ),
     );
     if (tooltip case final tooltip?) {

@@ -6,11 +6,14 @@ import 'package:flutter/material.dart';
 
 import '../../ui/components/genesis_static_network_image.dart';
 
+// 卡片暗色族:中段用上层背景色(redesignRaised #1F1D24)过渡,
+// 最底部锚定到比浮窗背景更深一档的墨色(#0E0D10)收底,
+// 靠明度差与背景区分卡片下缘。
 const LinearGradient originRolePortraitGradient = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
   stops: <double>[0.42, 0.72, 1],
-  colors: <Color>[Colors.transparent, Color(0x66151517), Color(0xF0151517)],
+  colors: <Color>[Colors.transparent, Color(0x661F1D24), Color(0xF00E0D10)],
 );
 
 /// Produces the role-card portrait as one decoded image with its readability
@@ -165,20 +168,69 @@ Future<ui.Image> composeOriginRolePortraitImage({
   final canvas = Canvas(recorder);
   // Design 9i anchors the portrait to the top edge (object-position 50% 0%)
   // and relies on tall source art to fill the card without a visible crop.
-  // Sources at least as tall as the card follow that cover crop exactly, but
-  // a square or landscape avatar would lose its sides to the same cover, so
-  // it keeps its full width instead and the card's panel color plus the baked
-  // gradient own the space beneath it.
+  // Sources at least as tall as the card follow that cover crop exactly. A
+  // square or landscape avatar keeps its full width at the top instead, over
+  // a blurred, dimmed cover-scaled copy of the same art; the sharp layer's
+  // bottom edge is feathered into that backdrop so the card reads as one
+  // continuous rectangle of artwork with no visible seam.
   final sourceIsAsTallAsCard =
       sourceImage.height * outputWidth >= sourceImage.width * outputHeight;
-  paintImage(
-    canvas: canvas,
-    rect: outputRect,
-    image: sourceImage,
-    fit: sourceIsAsTallAsCard ? BoxFit.cover : BoxFit.fitWidth,
-    alignment: Alignment.topCenter,
-    filterQuality: FilterQuality.medium,
-  );
+  if (sourceIsAsTallAsCard) {
+    paintImage(
+      canvas: canvas,
+      rect: outputRect,
+      image: sourceImage,
+      fit: BoxFit.cover,
+      alignment: Alignment.topCenter,
+      filterQuality: FilterQuality.medium,
+    );
+  } else {
+    final blurSigma = outputWidth * 0.08;
+    canvas.saveLayer(
+      outputRect,
+      Paint()
+        ..imageFilter = ui.ImageFilter.blur(
+          sigmaX: blurSigma,
+          sigmaY: blurSigma,
+          tileMode: ui.TileMode.clamp,
+        ),
+    );
+    paintImage(
+      canvas: canvas,
+      rect: outputRect,
+      image: sourceImage,
+      fit: BoxFit.cover,
+      alignment: Alignment.center,
+      filterQuality: FilterQuality.low,
+    );
+    canvas.restore();
+    // 模糊底整体压暗 55%(原 45% 偏浅)。
+    canvas.drawRect(outputRect, Paint()..color = const Color(0x8C1F1D24));
+
+    final sharpHeight = outputWidth * sourceImage.height / sourceImage.width;
+    final sharpRect = Rect.fromLTWH(0, 0, outputRect.width, sharpHeight);
+    final featherTop = sharpHeight * 0.72;
+    canvas.saveLayer(sharpRect, Paint());
+    paintImage(
+      canvas: canvas,
+      rect: outputRect,
+      image: sourceImage,
+      fit: BoxFit.fitWidth,
+      alignment: Alignment.topCenter,
+      filterQuality: FilterQuality.medium,
+    );
+    canvas.drawRect(
+      sharpRect,
+      Paint()
+        ..blendMode = BlendMode.dstIn
+        ..shader = ui.Gradient.linear(
+          Offset(0, featherTop),
+          Offset(0, sharpHeight),
+          const <Color>[Color(0xFFFFFFFF), Color(0x00FFFFFF)],
+        ),
+    );
+    canvas.restore();
+  }
   canvas.drawRect(
     outputRect,
     Paint()..shader = originRolePortraitGradient.createShader(outputRect),

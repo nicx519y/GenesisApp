@@ -490,6 +490,11 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
           appBar: widget.createHubStyle
               ? _CreateHubAppBar(
                   title: widget.title,
+                  // 编辑流把 Current Version 放在标题的副标题位。
+                  subtitle: widget.showCurrentVersion
+                      ? 'Current Version: '
+                            '${_versionLabel(_draft.basics.originVersion)}'
+                      : null,
                   onBack: () => unawaited(_handleLeaveRequest()),
                   trailing: debugRandomButton,
                 )
@@ -529,7 +534,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                     : 0,
                               ),
                               children: [
-                                if (widget.showCurrentVersion) ...[
+                                // hub 版式下 Current Version 移到了标题副标题;
+                                // 旧版式保留原位。
+                                if (widget.showCurrentVersion &&
+                                    !widget.createHubStyle) ...[
                                   Text(
                                     'Current Version: ${_versionLabel(_draft.basics.originVersion)}',
                                     style: _editSummaryLabelStyle.copyWith(
@@ -541,8 +549,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   SizedBox(height: 20),
                                 ],
                                 _SectionRow(
+                                  // Basics 用主页底 bar Worldos 的同一枚 icon,
+                                  // 两处的"世界"符号保持一致。
                                   icon: widget.createHubStyle
-                                      ? createOriginHubBasicsIconAsset
+                                      ? bottomNavOriginIconAsset
                                       : createOriginBasicsIconAsset,
                                   title: 'Basics',
                                   summary: _basicsSummary(_draft),
@@ -619,7 +629,10 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                     ),
                                   ),
                                 ),
-                                if (widget.createHubStyle)
+                                // 这条"创建前必填"提示只属于 Create 流;
+                                // Edit 流(带 update notes)不展示。
+                                if (widget.createHubStyle &&
+                                    widget.updateNotesController == null)
                                   const _CreateHubRequirementsNote(),
                                 if (widget.updateNotesController != null) ...[
                                   SizedBox(height: 20),
@@ -867,12 +880,14 @@ class _CreateHubAppBar extends StatelessWidget implements PreferredSizeWidget {
   const _CreateHubAppBar({
     required this.title,
     required this.onBack,
+    this.subtitle,
     this.trailing,
   });
 
   static const double _height = 64;
 
   final String title;
+  final String? subtitle;
   final VoidCallback onBack;
   final Widget? trailing;
 
@@ -883,6 +898,7 @@ class _CreateHubAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return GenesisAppBar(
       title: title,
+      subtitle: subtitle,
       variant: GenesisAppBarVariant.leadingTitle,
       backgroundColor: context.genesisColors.pageBackground,
       onBack: onBack,
@@ -946,11 +962,28 @@ class _UpdateNotesFieldLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      '📝Update notes (required to publish)',
-      style: _editSummaryLabelStyle.copyWith(
-        color: context.genesisColors.foregroundStrong,
-      ),
+    // 图标与详情页的 Edit Worldo 按钮同款铅笔线稿。
+    return Row(
+      children: [
+        SvgPicture.asset(
+          editPencilLineIconAsset,
+          width: 13,
+          height: 13,
+          colorFilter: ColorFilter.mode(
+            context.genesisColors.foregroundStrong,
+            BlendMode.srcIn,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Flexible(
+          child: Text(
+            'Update notes (required to publish)',
+            style: _editSummaryLabelStyle.copyWith(
+              color: context.genesisColors.foregroundStrong,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

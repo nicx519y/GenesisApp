@@ -15,6 +15,8 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
   const GenesisAppBar({
     super.key,
     required this.title,
+    this.subtitle,
+    this.subtitleStyle,
     this.variant = GenesisAppBarVariant.centered,
     this.onBack,
     this.backButtonKey,
@@ -32,6 +34,10 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
   });
 
   final String title;
+
+  /// 标题下的一行小字(仅非 centered 变体渲染),如版本号等页面级元信息。
+  final String? subtitle;
+  final TextStyle? subtitleStyle;
   final GenesisAppBarVariant variant;
   final VoidCallback? onBack;
   final Key? backButtonKey;
@@ -132,11 +138,38 @@ class GenesisAppBar extends StatelessWidget implements PreferredSizeWidget {
         onTap: onTitleTap,
         child: centered
             ? GenesisPageTitle(text: title, style: resolvedTitleStyle)
-            : Text(
+            : subtitle == null || subtitle!.trim().isEmpty
+            ? Text(
                 title,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: resolvedTitleStyle,
+              )
+            : Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: resolvedTitleStyle,
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style:
+                        subtitleStyle ??
+                        TextStyle(
+                          fontSize: 11,
+                          height: 1.2,
+                          fontWeight: FontWeight.w400,
+                          color: colors.textSecondary,
+                        ),
+                  ),
+                ],
               ),
       ),
       actions: actions,

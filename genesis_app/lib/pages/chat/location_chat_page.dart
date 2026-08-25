@@ -940,8 +940,9 @@ class _LocationChatRoster extends StatelessWidget {
     required this.selfOccupantId,
   });
 
-  /// Same glass as the AI role bubbles: a grouped 14-sigma backdrop blur under
-  /// a 13% white fill.
+  /// Same glass as the composer input field: a grouped 14-sigma backdrop blur
+  /// under a 12% white fill. The drawer used to sit on dark ink, which read
+  /// too heavy over the scene.
   static const double _blurSigma = 14;
 
   final List<WorldChatroomEntity> occupants;
@@ -989,7 +990,7 @@ class _LocationChatRoster extends StatelessWidget {
               ),
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: const Color(0xFF151517).withValues(alpha: 0.72),
+                  color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: radius,
                   border: Border.all(
                     color: Colors.white.withValues(alpha: 0.16),

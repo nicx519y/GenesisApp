@@ -513,9 +513,44 @@ class _OriginDetailDraggableSheetState
       onOriginChanged: widget.onOriginChanged,
       scrollController: scrollController,
       embeddedInSheet: true,
-      launching: widget.launching,
-      onLaunch: widget.onLaunch,
       onClose: _collapseToMinChildSize,
+    );
+  }
+
+  /// Info 页的 Enter world 常驻底 bar:只有浮窗完全拉起后可见;
+  /// 页面左右切换时它随 Info 页平移进出(不做渐隐)。
+  Widget _buildInfoLaunchBar(double bottomInset) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_sheetController, _pageController]),
+      builder: (context, _) {
+        final maxChildSize = _expandedChildSize(context);
+        final extent = _sheetController.isAttached
+            ? _sheetController.size
+            : _minChildSize;
+        final expandProgress = ((extent - (maxChildSize - 0.05)) / 0.05)
+            .clamp(0.0, 1.0)
+            .toDouble();
+        final page = _pageController.hasClients
+            ? _pageController.page ?? _currentPage.toDouble()
+            : _currentPage.toDouble();
+        final infoProgress = page.clamp(0.0, 1.0).toDouble();
+        final interactive = expandProgress >= 0.99 && infoProgress >= 0.99;
+        return IgnorePointer(
+          key: const ValueKey<String>('origin-info-launch-bar-visibility'),
+          ignoring: !interactive,
+          child: Opacity(
+            opacity: expandProgress,
+            child: FractionalTranslation(
+              translation: Offset(1.0 - infoProgress, 0),
+              child: _OriginInfoLaunchBar(
+                bottomInset: bottomInset,
+                launching: widget.launching,
+                onLaunch: widget.onLaunch,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -531,7 +566,7 @@ class _OriginDetailDraggableSheetState
     );
   }
 
-  Widget _buildCollapsedOpeningRoleAction() {
+  Widget _buildCollapsedOpeningRoleAction(double bottomInset) {
     return AnimatedBuilder(
       animation: Listenable.merge([_sheetController, _pageController]),
       builder: (context, _) {
@@ -554,6 +589,7 @@ class _OriginDetailDraggableSheetState
           child: Opacity(
             opacity: opacity,
             child: _OriginCollapsedOpeningRoleAction(
+              bottomInset: bottomInset,
               onTap: _expandOpeningRoleCards,
               onVerticalDragStart: _handleCollapsedRoleDragStart,
               onVerticalDragUpdate: _handleCollapsedRoleDragUpdate,
@@ -610,28 +646,30 @@ class _OriginDetailDraggableSheetState
             snapAnimationDuration: _snapAnimationDuration,
             builder: (context, scrollController) {
               _handleSheetScrollControllerReady(scrollController);
+              // 安全区只垫在内容页下面;底部两条覆盖层(Select your role /
+              // Enter world)贴到浮窗物理底边,安全区改为它们的内边距,
+              // 这样按钮不会浮得太高。
+              final bottomInset = GenesisSafeAreaInsets.bottom(
+                context,
+                minimum: originWorldDetailBottomSafeAreaMinimum,
+              );
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: _originDetailSheetDecoration(context),
                 child: ClipRRect(
                   borderRadius: _originDetailSheetBorderRadius,
-                  child: Padding(
-                    key: const ValueKey<String>(
-                      'origin-detail-bottom-safe-area',
-                    ),
-                    padding: EdgeInsets.only(
-                      bottom: GenesisSafeAreaInsets.bottom(
-                        context,
-                        minimum: originWorldDetailBottomSafeAreaMinimum,
-                      ),
-                    ),
-                    child: ScrollConfiguration(
-                      behavior: ScrollConfiguration.of(
-                        context,
-                      ).copyWith(overscroll: false),
-                      child: Stack(
-                        children: [
-                          NotificationListener<ScrollEndNotification>(
+                  child: ScrollConfiguration(
+                    behavior: ScrollConfiguration.of(
+                      context,
+                    ).copyWith(overscroll: false),
+                    child: Stack(
+                      children: [
+                        Padding(
+                          key: const ValueKey<String>(
+                            'origin-detail-bottom-safe-area',
+                          ),
+                          padding: EdgeInsets.only(bottom: bottomInset),
+                          child: NotificationListener<ScrollEndNotification>(
                             onNotification: _handlePageScrollEnd,
                             child: PageView.builder(
                               key: const ValueKey<String>(
@@ -656,22 +694,28 @@ class _OriginDetailDraggableSheetState
                               },
                             ),
                           ),
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            top: originDetailSheetHandleTopOffsetForTesting,
-                            child: IgnorePointer(
-                              child: _buildAnimatedPageIndicator(),
-                            ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: originDetailSheetHandleTopOffsetForTesting,
+                          child: IgnorePointer(
+                            child: _buildAnimatedPageIndicator(),
                           ),
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            child: _buildCollapsedOpeningRoleAction(),
-                          ),
-                        ],
-                      ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: _buildCollapsedOpeningRoleAction(bottomInset),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: _buildInfoLaunchBar(bottomInset),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -686,6 +730,7 @@ class _OriginDetailDraggableSheetState
 
 class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
   const _OriginCollapsedOpeningRoleAction({
+    required this.bottomInset,
     required this.onTap,
     required this.onVerticalDragStart,
     required this.onVerticalDragUpdate,
@@ -693,6 +738,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
     required this.onVerticalDragCancel,
   });
 
+  final double bottomInset;
   final VoidCallback onTap;
   final GestureDragStartCallback onVerticalDragStart;
   final GestureDragUpdateCallback onVerticalDragUpdate;
@@ -702,10 +748,13 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
+    // 设计稿的收起态浮窗高 300,这条 108 高、34% 实底的渐变条只在那种高度下
+    // 才不碍事;实机收起高度更矮,长渐变会把下层正文半透出来,所以压矮并把
+    // 实底段加长。贴着浮窗底边摆放,安全区收进内边距,免得整块浮得太高。
     return Container(
-      height: 108,
+      height: 52 + bottomInset,
       alignment: Alignment.bottomCenter,
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: EdgeInsets.only(bottom: bottomInset),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
@@ -715,7 +764,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
             colors.pageBackground,
             colors.pageBackground.withValues(alpha: 0),
           ],
-          stops: const [0, 0.34, 1],
+          stops: const [0, 0.55, 1],
         ),
       ),
       child: GestureDetector(
@@ -765,8 +814,6 @@ class _OriginIntroList extends StatefulWidget {
     required this.onOriginChanged,
     this.scrollController,
     this.embeddedInSheet = false,
-    this.launching = false,
-    this.onLaunch,
     this.onClose,
   });
 
@@ -775,8 +822,6 @@ class _OriginIntroList extends StatefulWidget {
   final VoidCallback onOriginChanged;
   final ScrollController? scrollController;
   final bool embeddedInSheet;
-  final bool launching;
-  final VoidCallback? onLaunch;
   final VoidCallback? onClose;
 
   @override
@@ -849,19 +894,13 @@ class _OriginIntroListState extends State<_OriginIntroList> {
     }
     children.addAll([
       const SizedBox(height: originDetailSectionGapForTesting),
-      CopyWorldProgressSection(originId: widget.origin.oid),
-      const SizedBox(height: 22),
       _DiscussSection(origin: widget.origin, controller: _discussController),
-      const SizedBox(height: 22),
+      const SizedBox(height: originDetailSectionGapForTesting),
       _OriginCharactersSection(characters: widget.origin.characters),
     ]);
-    if (widget.embeddedInSheet && widget.onLaunch != null) {
-      children.add(
-        _OriginInfoLaunchAction(
-          launching: widget.launching,
-          onLaunch: widget.onLaunch!,
-        ),
-      );
+    if (widget.embeddedInSheet) {
+      // Enter world 改为浮窗底部常驻 bar,列表末尾只留出让位高度。
+      children.add(const SizedBox(height: _originInfoLaunchBarHeight + 12));
     }
     final scrollKey = PageStorageKey<String>(
       'origin-intro-${widget.origin.oid}',
@@ -903,40 +942,45 @@ class _OriginIntroListState extends State<_OriginIntroList> {
   }
 }
 
-class _OriginInfoLaunchAction extends StatelessWidget {
-  const _OriginInfoLaunchAction({
+/// Info 页常驻底 bar 在安全区之上占用的高度(10 + 40),
+/// 底部安全区由 bar 自己的内边距吸收,列表让位时不必计入。
+const double _originInfoLaunchBarHeight = 50;
+
+class _OriginInfoLaunchBar extends StatelessWidget {
+  const _OriginInfoLaunchBar({
+    required this.bottomInset,
     required this.launching,
     required this.onLaunch,
   });
 
+  final double bottomInset;
   final bool launching;
   final VoidCallback onLaunch;
 
   @override
   Widget build(BuildContext context) {
     final colors = context.genesisColors;
+    // 底 bar 样式:通底色、无分隔线,贴着浮窗底边,安全区收进内边距。
     return Container(
       key: const ValueKey<String>('origin-info-launch-action'),
-      margin: const EdgeInsets.only(top: 20),
-      padding: const EdgeInsets.fromLTRB(0, 14, 0, 26),
-      decoration: BoxDecoration(
-        border: Border(
-          top: BorderSide(
-            color: colors.foregroundStrong.withValues(alpha: 0.14),
-            width: 1,
-          ),
-        ),
+      padding: EdgeInsets.fromLTRB(
+        originDetailSheetHorizontalPaddingForTesting,
+        10,
+        originDetailSheetHorizontalPaddingForTesting,
+        bottomInset,
       ),
+      color: colors.pageBackground,
       child: GenesisPrimaryButton(
         label: 'Enter world',
         onPressed: launching ? null : onLaunch,
-        height: 44,
+        height: 40,
         borderRadius: BorderRadius.circular(14),
         padding: EdgeInsets.zero,
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        fontSize: 13,
-        fontWeight: FontWeight.w800,
+        // 主按钮组件的标准字号(15),不再压小一档。
+        fontSize: 15,
+        fontWeight: FontWeight.w700,
         isLoading: launching,
         loadingSize: 22,
         loadingStrokeWidth: 2.4,
@@ -953,21 +997,29 @@ class _OriginSheetPageHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 与 world 浮窗固定头的标题行同规格:26 高、底部 12,navigationTitle/1.3。
     return Padding(
-      padding: const EdgeInsets.fromLTRB(0, 6, 0, 14),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              title,
-              key: ValueKey<String>('origin-detail-sheet-page-$title'),
-              style: GenesisTypography.navigationTitle.copyWith(
-                color: context.genesisColors.textHeading,
+      padding: const EdgeInsets.only(bottom: 12),
+      child: SizedBox(
+        height: 26,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                key: ValueKey<String>('origin-detail-sheet-page-$title'),
+                style: GenesisTypography.navigationTitle.copyWith(
+                  height: worldDetailLineHeight,
+                  color: context.genesisColors.textPrimary,
+                ),
               ),
             ),
-          ),
-          if (trailing case final trailing?) trailing,
-        ],
+            if (trailing case final trailing?) trailing,
+          ],
+        ),
       ),
     );
   }
@@ -1167,11 +1219,10 @@ class _OriginSheetHeaderContent extends StatelessWidget {
         currentUid.trim().isNotEmpty && currentUid.trim() == ownerUid;
     final version = origin.versionNum <= 0 ? 1 : origin.versionNum;
     final age = formatGenesisDateTime(origin.updatedAt, fallback: '');
-    final metaStyle = TextStyle(
-      color: context.genesisColors.textMuted,
-      fontSize: 9.5,
-      height: 1.4,
-      fontWeight: FontWeight.w600,
+    // 与已加载世界的详情页 meta 行同规格(worldDetailMetaTextStyle):
+    // 11/400/1.3,textSecondary。
+    final metaStyle = worldDetailMetaTextStyle.copyWith(
+      color: context.genesisColors.textSecondary,
     );
     final headerActions = _OriginInfoHeaderActions(origin: origin);
 
@@ -1196,7 +1247,9 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GenesisTypography.contentTitle.copyWith(
-                      color: context.genesisColors.foregroundStrong,
+                      fontSize: 16,
+                      height: worldDetailLineHeight,
+                      color: context.genesisColors.textPrimary,
                       decoration: TextDecoration.none,
                     ),
                   ),
@@ -1212,7 +1265,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 7),
                   CopyableIdLabel(
                     label: 'OID',
                     value: origin.oid,
@@ -1221,10 +1274,17 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                         : null,
                     enabled: !origin.deleted,
                     customTextStyle: metaStyle,
-                    customIconColor: context.genesisColors.textMuted,
+                    customIconColor: context.genesisColors.textSecondary,
+                    // 与 world 详情页同款复制图标与尺寸,跟 11px 正文对齐。
+                    copyIconAsset: copyIdIconAsset,
+                    copyIconSize: worldDetailMetaIconSize,
+                    trailingGap: 4,
                   ),
                   GenesisInlineMetaLabel(
-                    text: 'Creator: ${formatUidForDisplay(originator)}',
+                    // 与 world 详情页一致:正常创建者带 @ 前缀,
+                    // 已删除/缺省(-)不带。
+                    text:
+                        'Creator: ${origin.ownerDeleted || originator == '-' ? originator : '@${formatUidForDisplay(originator)}'}',
                     onTap: ownerUid.isEmpty || origin.ownerDeleted
                         ? null
                         : () => Navigator.of(context).pushNamed(
@@ -1235,15 +1295,19 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     trailingIcon: ownerUid.isEmpty || origin.ownerDeleted
                         ? null
                         : Icons.chevron_right,
-                    trailingIconColor: context.genesisColors.textMuted,
-                    trailingIconSize: 10,
+                    trailingIconColor: context.genesisColors.textSecondary,
+                    trailingIconSize: 12,
                     trailingGap: 3,
                   ),
-                  Text(
-                    'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                  // 与上两行同用 meta 组件,三行才有一致的 3px 垂直节奏
+                  // (裸 Text 没有那份内边距,行距会显得不均)。
+                  GenesisInlineMetaLabel(
+                    text:
+                        'Latest Version: V$version'
+                        '${age.isEmpty ? '' : ' · $age'}',
                     style: metaStyle,
+                    // 无尾图标,但最小行高与上两行的图标尺寸取齐。
+                    trailingIconSize: worldDetailMetaIconSize,
                   ),
                   if (canEditOrigin) ...[
                     const SizedBox(height: 12),
@@ -1260,30 +1324,6 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                   ],
                 ],
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Row(
-          key: const ValueKey<String>('origin-info-stats-row'),
-          children: [
-            _OriginInfoStat(
-              key: const ValueKey<String>('origin-info-stat-copy'),
-              iconAsset: copyStatIconAsset,
-              value: origin.copyCount,
-            ),
-            const SizedBox(width: 20),
-            _OriginInfoStat(
-              key: const ValueKey<String>('origin-info-stat-connect'),
-              iconAsset: connectStatIconAsset,
-              value: origin.interactCount,
-            ),
-            const SizedBox(width: 20),
-            _OriginInfoStat(
-              key: const ValueKey<String>('origin-info-stat-character'),
-              iconAsset: characterStatIconAsset,
-              preserveIconAssetColor: true,
-              value: origin.characterCount,
             ),
           ],
         ),
@@ -1307,10 +1347,8 @@ class _OriginInfoHeaderActions extends StatelessWidget {
           key: const ValueKey<String>('origin-info-more-button'),
           child: GenesisMoreActionMenuButton(
             buttonSize: 26,
-            iconSize: 13,
-            iconColor: context.genesisColors.foregroundStrong.withValues(
-              alpha: 0.72,
-            ),
+            iconSize: 14,
+            iconColor: context.genesisColors.textSecondary,
             items: [
               genesisReportMenuItem(
                 context: context,
@@ -1327,9 +1365,7 @@ class _OriginInfoHeaderActions extends StatelessWidget {
             onTap: onClose,
             child: GenesisCloseIcon(
               size: 12,
-              color: context.genesisColors.foregroundStrong.withValues(
-                alpha: 0.72,
-              ),
+              color: context.genesisColors.textPrimary,
             ),
           ),
         ],
@@ -1350,7 +1386,8 @@ class _OriginInfoHeaderCircle extends StatelessWidget {
       width: 26,
       height: 26,
       decoration: BoxDecoration(
-        color: context.genesisColors.foregroundStrong.withValues(alpha: 0.13),
+        // 与 world 浮窗固定头的圆形操作钮同底色。
+        color: context.genesisWorldColors.closeSurface,
         shape: BoxShape.circle,
       ),
       alignment: Alignment.center,
@@ -1362,39 +1399,6 @@ class _OriginInfoHeaderCircle extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       child: content,
-    );
-  }
-}
-
-class _OriginInfoStat extends StatelessWidget {
-  const _OriginInfoStat({
-    super.key,
-    required this.iconAsset,
-    this.preserveIconAssetColor = false,
-    required this.value,
-  });
-
-  final String iconAsset;
-  final bool preserveIconAssetColor;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return StatItem(
-      iconAsset: iconAsset,
-      preserveIconAssetColor: preserveIconAssetColor,
-      iconSize: 14,
-      iconAssetScale: 1,
-      iconVerticalOffset: 0,
-      iconColor: context.genesisColors.textPrimary,
-      gap: 4,
-      text: formatStatCount(value),
-      textStyle: TextStyle(
-        fontSize: 11,
-        height: 1,
-        fontWeight: FontWeight.w400,
-        color: context.genesisColors.textPrimary,
-      ),
     );
   }
 }

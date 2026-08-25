@@ -215,7 +215,7 @@ class _MessagesPageState extends State<MessagesPage> {
             child: Text(
               'Private chats',
               style: TextStyle(
-                fontSize: 9.5,
+                fontSize: 12,
                 height: 1,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.1,
@@ -278,7 +278,7 @@ class _MessageMenuButton extends StatelessWidget {
     final statusText = unreadCount > 0 ? '$unreadCount new' : 'All read';
     return Expanded(
       child: SizedBox(
-        height: 56,
+        height: 60,
         child: Material(
           key: ValueKey<String>('message-menu-$routeName-surface'),
           color: colors.inputBackground,
@@ -289,7 +289,7 @@ class _MessageMenuButton extends StatelessWidget {
             borderRadius: BorderRadius.circular(14),
             onTap: () => _openCategory(context),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(13, 13, 13, 14),
+              padding: const EdgeInsets.fromLTRB(11, 13, 11, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -301,9 +301,9 @@ class _MessageMenuButton extends StatelessWidget {
                       maxLines: 1,
                       softWrap: false,
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: 14,
                         height: 1,
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w600,
                         color: colors.textPrimary,
                       ),
                     ),
@@ -317,9 +317,9 @@ class _MessageMenuButton extends StatelessWidget {
                       maxLines: 1,
                       softWrap: false,
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 12,
                         height: 1,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w400,
                         color: unreadCount > 0
                             ? colors.danger
                             : colors.textTertiary,
@@ -367,18 +367,13 @@ class _ConversationList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView.separated(
+    return ListView.builder(
       controller: controller,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
       padding: const EdgeInsets.only(left: 22, right: 22, bottom: 18),
       itemCount: conversationIds.length,
-      separatorBuilder: (_, _) => Divider(
-        height: 1,
-        thickness: 1,
-        color: context.genesisColors.dividerSubtle,
-      ),
       itemBuilder: (context, index) {
         final conversationId = conversationIds[index];
         final listenable = conversationStore.rowListenable(conversationId);
@@ -409,7 +404,8 @@ class _ConversationTile extends StatelessWidget {
   });
 
   static const double _avatarSize = 44;
-  static const double _avatarBorderRadius = 14;
+  // 9j: user avatars are circles (border-radius 50%), same as the Me page.
+  static const double _avatarBorderRadius = _avatarSize / 2;
 
   final DirectMessageConversationRecord item;
   final Future<void> Function(DirectMessageConversationRecord item) onTap;
@@ -428,7 +424,7 @@ class _ConversationTile extends StatelessWidget {
       child: InkWell(
         onTap: () => unawaited(onTap(item)),
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 13),
+          padding: const EdgeInsets.symmetric(vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -456,7 +452,7 @@ class _ConversationTile extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 14,
                               height: 1.15,
                               fontWeight: FontWeight.w600,
                               color: context.genesisColors.textPrimary,
@@ -491,7 +487,7 @@ class _ConversationTile extends StatelessWidget {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: 11,
+                          fontSize: 12,
                           height: 1.45,
                           fontWeight: FontWeight.w400,
                           color:

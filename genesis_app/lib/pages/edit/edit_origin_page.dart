@@ -204,6 +204,8 @@ class _EditOriginPageState extends State<EditOriginPage> {
       leaveSubmitLabel: 'Publish',
       submitUnavailableMessage: 'No changes to publish.',
       showCurrentVersion: true,
+      // 与 Create 页同一套 hub 版式(顶栏、分区行图标、间距、提交按钮)。
+      createHubStyle: true,
       updateNotesController: _updateNotesController,
       submitStatus: _submitStatus,
       reloadSignal: _reloadSignal,

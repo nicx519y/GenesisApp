@@ -16,8 +16,12 @@ const double worldMapHeaderButtonSize = 34;
 const double worldMapHeaderTitleGap = 10;
 const double worldSheetTitleBottomGap = 8;
 // 设计稿原文:拉起条 `margin:10px auto 12px` + 自身 4px = 26。
-const double worldPanelHandleBandHeight = 26;
-const double worldMainTabsHeight = 45;
+// 设计稿原文:拉起条 `margin:10px auto 12px` + 自身 4 = 26。
+// 实机上条与 Playing 行之间显空,底部留白收到 8,内容整体上移 4。
+const double worldPanelHandleBandHeight = 22;
+// 与主页面底 bar 同源:BottomTabs 的内容带也是 50(见 bottom_tabs.dart),
+// 安全区由 GenesisSafeAreaInsets.bottom 的真实 inset 补,不再各算各的。
+const double worldMainTabsHeight = 50;
 const double worldBottomTagHeight = 34;
 // Playing 行:头像外框 48(与详情页 Cast 行同规格,红环内置)+ 13 下内边距
 // + 1 分隔线。
@@ -34,6 +38,7 @@ const double worldSecondaryMapControlWidth = 160;
 const double worldTimePillHorizontalPadding = 12;
 const double worldMapContentTopOffset =
     worldMapTabsHeight + worldTimePillTopGap + worldTimePillHeight + 8;
+
 /// Detail/Cast 行头像的显示 = 拉取尺寸。设计稿 9f 是 40,放大一档到 48
 /// (56 试过,太大)。
 const double worldCharacterAvatarLogicalSize = 48;

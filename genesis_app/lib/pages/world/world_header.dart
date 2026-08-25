@@ -438,8 +438,12 @@ String worldOwnerDisplayName(WorldDetail world) {
   return formatUidForDisplay(world.ownerUid);
 }
 
+/// 地图页底部安全区。用设备真实 inset,不设下限 —— 主页面的 BottomTabs 和
+/// app_router 里算 panelHeight 用的都是这个口径。原先这里垫到最少 24,
+/// 配上矮 5 的内容带,在本机上恰好凑成和主页面一样的 69,但那是两个偏差
+/// 互相抵消;真实 inset ≥ 24 的机型上就会比主页面矮 5。
 double worldBottomSafeAreaOf(BuildContext context) {
-  return GenesisSafeAreaInsets.bottom(context, minimum: 24);
+  return GenesisSafeAreaInsets.bottom(context);
 }
 
 IconData? worldCounterIcon(String key) {

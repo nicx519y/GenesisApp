@@ -19,18 +19,24 @@ class _OriginCharactersSection extends StatelessWidget {
           title: 'Cast',
           count: '(${characters.length})',
         ),
-        const SizedBox(height: 10),
-        if (characters.isEmpty)
-          Text('No characters', style: _mutedBodyTextStyle(context))
-        else
+        if (characters.isEmpty) ...[
+          const SizedBox(height: worldDetailSectionTitleContentGap),
+          Text('No characters', style: _mutedBodyTextStyle(context)),
+        ] else ...[
+          // 角色行自带 11 的上下内边距,标题下只补差额,
+          // 使标题→首行视觉间距与 World brief 一侧的 12 对齐。
+          const SizedBox(height: worldDetailCastTitleGap),
           for (final character in sortedCharacters)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 11),
+              padding: const EdgeInsets.symmetric(
+                vertical: worldCharacterRowVerticalPadding,
+              ),
               child: _OriginCharacterRow(
                 character: character,
                 imageUrls: characterAvatarUrls,
               ),
             ),
+        ],
       ],
     );
   }
@@ -60,7 +66,6 @@ class _OriginCharacterRow extends StatelessWidget {
           url: avatarUrl,
           name: character.name,
           imageUrls: imageUrls,
-          recommended: character.isRecommended,
         ),
         const SizedBox(width: 11),
         Expanded(
@@ -124,17 +129,16 @@ class _OriginCharacterPortrait extends StatelessWidget {
     required this.url,
     required this.name,
     required this.imageUrls,
-    required this.recommended,
   });
 
-  static const double _width = 40;
-  static const double _borderRadius = 12;
+  // 与已加载世界详情页的 Cast 行同规格:头像 48、圆角 12。
+  static const double _width = worldCharacterAvatarLogicalSize;
+  static const double _borderRadius = worldCharacterAvatarRadius;
 
   final String characterId;
   final String url;
   final String name;
   final List<String> imageUrls;
-  final bool recommended;
 
   @override
   Widget build(BuildContext context) {
@@ -166,28 +170,14 @@ class _OriginCharacterPortrait extends StatelessWidget {
             errorWidget: (_, _) => fallback,
           );
     final initialIndex = imageUrls.indexOf(url.trim());
-    final portrait = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        SizedBox(
-          width: _width,
-          height: _width,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_borderRadius),
-            child: image,
-          ),
-        ),
-        if (recommended)
-          Positioned(
-            right: -4,
-            bottom: -4,
-            child: OriginRecommendedRoleMark(
-              badgeKey: ValueKey<String>(
-                'origin-character-recommended-$characterId',
-              ),
-            ),
-          ),
-      ],
+    // 设计反馈:Info 页 Cast 行不再叠推荐五角星角标。
+    final portrait = SizedBox(
+      width: _width,
+      height: _width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_borderRadius),
+        child: image,
+      ),
     );
     if (resolvedUrl.isEmpty) return portrait;
     return GestureDetector(
@@ -245,11 +235,13 @@ TextStyle _originTickContentLabelStyle(BuildContext context) => TextStyle(
   decoration: TextDecoration.none,
 );
 
+// 三条 tick 文本与已加载世界 Events 区的同名样式对齐
+// (正文 textPrimary、时间戳 textMuted)。
 TextStyle _originTickContentTextStyle(BuildContext context) => TextStyle(
   fontSize: 13,
   height: 1.6,
   fontWeight: FontWeight.w400,
-  color: context.genesisColors.textQuaternary,
+  color: context.genesisColors.textPrimary,
   decoration: TextDecoration.none,
 );
 
@@ -257,7 +249,7 @@ TextStyle _originTickContentTimestampStyle(BuildContext context) => TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: context.genesisColors.textPrimary,
+  color: context.genesisColors.textMuted,
   decoration: TextDecoration.none,
 );
 

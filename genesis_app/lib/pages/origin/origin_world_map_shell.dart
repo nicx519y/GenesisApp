@@ -222,7 +222,13 @@ class _OriginInitialDialogueLoadingContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SingleChildScrollView(
       physics: NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(10, 6, 10, 12),
+      // 与加载完成后的正文同一横向边距(20),内容落位时不跳。
+      padding: EdgeInsets.fromLTRB(
+        originDetailSheetHorizontalPaddingForTesting,
+        6,
+        originDetailSheetHorizontalPaddingForTesting,
+        12,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -278,7 +284,13 @@ class _OriginRoleSetupLoadingContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return const SingleChildScrollView(
       physics: NeverScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(10, 10, 10, 28),
+      // 与加载完成后的正文同一横向边距(20)。
+      padding: EdgeInsets.fromLTRB(
+        originDetailSheetHorizontalPaddingForTesting,
+        10,
+        originDetailSheetHorizontalPaddingForTesting,
+        28,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

@@ -138,13 +138,19 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final profileCardCount = profileRole == null ? 0 : 1;
     final cardCount = characters.length + profileCardCount + 1;
     _cardStride = cardWidth + cardGap;
+    // 上方留出分区级断点:开场白对话和选角是两个板块,对话列表自带 10 的
+    // 尾距,这里补到 28,与详情页的分区间距同级。
+    // 下方只留 6:浮窗自身的底部安全区(>=24)已经提供了收尾空间,
+    // 再叠一层分区间距会让卡片区浮得太高。
     return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
+      padding: const EdgeInsets.only(top: 18, bottom: 6),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 22),
+            padding: const EdgeInsets.symmetric(
+              horizontal: originDetailSheetHorizontalPaddingForTesting,
+            ),
             child: Text(
               'Pick who you play, and the story starts here.',
               style: TextStyle(
@@ -164,7 +170,9 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
               controller: _cardsController,
               scrollDirection: Axis.horizontal,
               physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 22),
+              padding: const EdgeInsets.symmetric(
+                horizontal: originDetailSheetHorizontalPaddingForTesting,
+              ),
               itemCount: cardCount,
               itemExtent: _cardStride,
               // Keep every role card laid out so scrolling never rebuilds a
@@ -296,10 +304,7 @@ class _OriginSetupCustomRoleCard extends StatelessWidget {
     return Material(
       key: const ValueKey<String>('origin-setup-role-custom-card'),
       color: context.genesisColors.surfaceSoft,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: context.genesisColors.borderNeutral),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         splashFactory: NoSplash.splashFactory,
@@ -612,6 +617,8 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                     ? null
                                     : widget.onEdit,
                                 height: buttonHeight,
+                                // 与同排 Select 一致的毛玻璃底。
+                                backdropBlurSigma: 10,
                               ),
                               const SizedBox(width: 7),
                             ],
@@ -630,6 +637,11 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                     ? null
                                     : widget.onSelect,
                                 height: buttonHeight,
+                                // 角色卡字阶:Select 12/800/1.3;
+                                // 毛玻璃底(设计稿 9i:blur 10)。
+                                fontSize: 12,
+                                lineHeight: 1.3,
+                                backdropBlurSigma: 10,
                               ),
                             ),
                           ],
@@ -664,6 +676,10 @@ class _OriginSetupRolePortrait extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
+        // 设计稿 9i 的卡片由整幅竖图铺满;方图之外的区域用上层背景色
+        // (redesignRaised #1F1D24)打底 —— 用页面底色会让卡片底部
+        // 和浮窗背景融成一片。
+        const DecoratedBox(decoration: BoxDecoration(color: Color(0xFF1F1D24))),
         _OriginSetupRoleImage(
           url: avatarUrl,
           name: content.name,
@@ -677,13 +693,16 @@ class _OriginSetupRolePortrait extends StatelessWidget {
           height: 180,
           child: DecoratedBox(
             decoration: BoxDecoration(
+              // 最底部收到比浮窗背景(#151517)更深一档的墨色(#0E0D10)
+              // 并做实,靠明度差把卡片下缘从背景里区分出来;
+              // 往上经上层色(#1F1D24)过渡到透明。
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
                 colors: [
-                  Color(0xF0151517),
-                  Color(0x73151517),
-                  Color(0x00151517),
+                  Color(0xFF0E0D10),
+                  Color(0x731F1D24),
+                  Color(0x001F1D24),
                 ],
                 stops: [0, 0.58, 1],
               ),
@@ -694,25 +713,12 @@ class _OriginSetupRolePortrait extends StatelessWidget {
           left: 10,
           right: 10,
           bottom: 65,
+          // 文案顺序:name / identity / personality。
+          // 字阶(产品定稿):name 17/800,identity 11/600,
+          // personality 11/400,行距统一 1.3,行间距 4。
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (content.identity.trim().isNotEmpty) ...[
-                Text(
-                  content.identity.trim(),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 9.5,
-                    height: 1,
-                    fontWeight: FontWeight.w600,
-                    color: context.genesisColors.textBody,
-                    decoration: TextDecoration.none,
-                  ),
-                ),
-                const SizedBox(height: 4),
-              ],
               Text(
                 content.name,
                 maxLines: 1,
@@ -720,12 +726,28 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 17,
-                  height: 1.05,
+                  height: 1.3,
                   fontWeight: FontWeight.w800,
                   color: context.genesisColors.textPrimary,
                   decoration: TextDecoration.none,
                 ),
               ),
+              if (content.identity.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  content.identity.trim(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                    color: context.genesisColors.textBody,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ],
               if (content.brief.trim().isNotEmpty) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -735,9 +757,10 @@ class _OriginSetupRolePortrait extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11,
-                    height: 1.4,
+                    height: 1.3,
                     fontWeight: FontWeight.w400,
-                    color: context.genesisColors.textHighEmphasis,
+                    // personality 配色与 detail 页 Cast 行一致:强调粉。
+                    color: context.genesisColors.accentText,
                     decoration: TextDecoration.none,
                   ),
                 ),

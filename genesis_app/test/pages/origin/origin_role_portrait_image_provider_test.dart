@@ -61,7 +61,7 @@ void main() {
     await provider.evict();
   });
 
-  testWidgets('keeps a square source un-cropped with the card panel below', (
+  testWidgets('keeps a square source un-cropped over a blurred backdrop', (
     tester,
   ) async {
     final sourceProvider = _SolidImageProvider(
@@ -94,14 +94,18 @@ void main() {
     final data = pixels;
     expect(data, isNotNull);
     // fitWidth draws the 16x16 source as 12x12 at the top; the row below the
-    // artwork holds only the translucent gradient, proving the sides were not
-    // cover-cropped away to fill the full card height.
+    // artwork is filled by the blurred, dimmed cover backdrop (still clearly
+    // red-tinted but darker than the sharp art), proving the sides were not
+    // cover-cropped away and the card bottom is no longer empty.
     final topRed = _redChannel(data!, x: 6, y: 1, width: 12);
-    final belowArtAlpha = _alphaChannel(data, x: 6, y: 14, width: 12);
     final topAlpha = _alphaChannel(data, x: 6, y: 1, width: 12);
+    final belowArtRed = _redChannel(data, x: 6, y: 14, width: 12);
+    final belowArtAlpha = _alphaChannel(data, x: 6, y: 14, width: 12);
     expect(topRed, greaterThan(230));
     expect(topAlpha, 255);
-    expect(belowArtAlpha, lessThan(255));
+    expect(belowArtAlpha, 255);
+    expect(belowArtRed, greaterThan(30));
+    expect(belowArtRed, lessThan(topRed));
 
     composite.dispose();
     await provider.evict();

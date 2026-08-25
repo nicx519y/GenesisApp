@@ -24,7 +24,10 @@ void main() {
   test('origin detail sheet header sizing matches design', () {
     expect(originDetailSheetHeaderHeightForTesting, 30);
     expect(originDetailSheetHeaderBodyGapForTesting, 0);
-    expect(originDetailSheetHandleTopOffsetForTesting, 2);
+    // 指示条落点与 world 浮窗固定头一致(顶部 12)。
+    expect(originDetailSheetHandleTopOffsetForTesting, 12);
+    // Info 固定头与 world 浮窗同高(30 + 26 + 12)。
+    expect(originInfoPinnedHeaderHeightForTesting, 68);
     expect(GenesisRadii.sheetTopRadiusValue, 24);
   });
 
@@ -43,7 +46,8 @@ void main() {
   });
 
   test('origin detail sections use main ui spacing', () {
-    expect(originDetailSectionGapForTesting, 20);
+    // Info 页分区间距与已加载世界的详情页对齐(worldDetailSectionGap)。
+    expect(originDetailSectionGapForTesting, 28);
     expect(originDetailSectionTitleIconGapForTesting, 8);
   });
 

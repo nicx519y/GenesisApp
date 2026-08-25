@@ -37,22 +37,18 @@ class _SectionRow extends StatelessWidget {
                   ? CrossAxisAlignment.center
                   : CrossAxisAlignment.start,
               children: [
+                // hub 版式的 34 容器只用来对齐,不再画胶囊底
+                // (胶囊看着像按钮,容易误会成可点的控件)。
                 Container(
                   key: ValueKey<String>('section-icon-$title'),
                   width: createHubStyle ? 34 : 24,
                   height: createHubStyle ? 34 : 24,
                   alignment: Alignment.center,
-                  decoration: createHubStyle
-                      ? BoxDecoration(
-                          color: context.genesisCreateColors.fieldFill,
-                          borderRadius: BorderRadius.circular(11),
-                        )
-                      : null,
                   child: icon == null
                       ? null
                       : SizedBox(
-                          width: createHubStyle ? 16 : 24,
-                          height: createHubStyle ? 16 : 24,
+                          width: createHubStyle ? 18 : 24,
+                          height: createHubStyle ? 18 : 24,
                           child: SvgPicture.asset(
                             icon!,
                             fit: BoxFit.contain,
@@ -89,7 +85,9 @@ class _SectionRow extends StatelessWidget {
                                           : context
                                                 .genesisColors
                                                 .foregroundStrong,
-                                      fontSize: createHubStyle ? 13 : 15,
+                                      // 设计稿 5a 原文:分区标题 14/800/1.15。
+                                      // 字阶收敛时被压到 13,按设计稿恢复。
+                                      fontSize: createHubStyle ? 14 : 15,
                                       fontWeight: createHubStyle
                                           ? FontWeight.w800
                                           : FontWeight.w400,

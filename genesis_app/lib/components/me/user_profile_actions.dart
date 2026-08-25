@@ -120,7 +120,8 @@ class _ProfileActionButtons extends StatelessWidget {
     final disabledForegroundColor = isFollowed
         ? colors.foregroundStrong.withValues(alpha: 0.54)
         : colors.onDanger;
-    const actionTextStyle = TextStyle(fontWeight: FontWeight.w600);
+    // Matches the design-system button metrics (GenesisButton compact).
+    const actionTextStyle = TextStyle(fontSize: 13, fontWeight: FontWeight.w600);
 
     return Row(
       children: [
@@ -135,8 +136,8 @@ class _ProfileActionButtons extends StatelessWidget {
                 disabledBackgroundColor: disabledBackgroundColor,
                 foregroundColor: foregroundColor,
                 disabledForegroundColor: disabledForegroundColor,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: GenesisRadii.button,
                 ),
               ),
               child: followLoading
@@ -169,8 +170,8 @@ class _ProfileActionButtons extends StatelessWidget {
                 disabledForegroundColor: colors.foregroundStrong.withValues(
                   alpha: 0.54,
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                shape: const RoundedRectangleBorder(
+                  borderRadius: GenesisRadii.button,
                 ),
               ),
               child: const Text('Message', style: actionTextStyle),

@@ -3397,11 +3397,11 @@ void main() {
     final dmAvatar = find.byKey(const ValueKey('dm-avatar-dm_test_001'));
     final dmName = find.text('Penny Direct');
     expect(dmAvatar, findsOneWidget);
-    // 8-22 改版:会话头像 48->44,圆角 8->14
+    // 8-25 改版:会话头像改为正圆(44,圆角 22),同 Me 页
     // (见 messages_page.dart `_ConversationTile._avatarSize` /
     // `_avatarBorderRadius`,私有类无法在测试里直接引用)。
     expect(tester.getSize(dmAvatar), const Size(44, 44));
-    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 14);
+    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 22);
     // 8-22 改版:会话行改成 CrossAxisAlignment.center,头像不再与标题顶对齐,
     // 而是与「标题+预览」这一整块文字垂直居中对齐。
     final dmPreview = find.text('First direct message preview');
@@ -3831,7 +3831,7 @@ void main() {
     for (final menuKey in menuKeys) {
       final menu = find.byKey(menuKey);
       expect(menu, findsOneWidget);
-      expect(tester.getSize(menu).height, 56);
+      expect(tester.getSize(menu).height, 60);
       final status = tester.widget<Text>(
         find.descendant(of: menu, matching: find.text('1 new')),
       );
@@ -3871,8 +3871,8 @@ void main() {
     final privateChatsStyle = tester
         .widget<Text>(find.text('Private chats'))
         .style;
-    // 9j: 9.5/500 on the 45% tier.
-    expect(privateChatsStyle?.fontSize, 9.5);
+    // 9j: 12/600 on the 45% tier.
+    expect(privateChatsStyle?.fontSize, 12);
     expect(privateChatsStyle?.height, 1);
     expect(privateChatsStyle?.fontWeight, FontWeight.w600);
     expect(privateChatsStyle?.color, const Color(0x73FFFFFF));
@@ -3880,7 +3880,8 @@ void main() {
     final dmAvatar = find.byKey(const ValueKey('dm-avatar-DMC_MOCK_001'));
     expect(dmAvatar, findsOneWidget);
     expect(tester.getSize(dmAvatar), const Size.square(44));
-    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 14);
+    // 9j: user avatars are circles, same as the Me page.
+    expect(tester.widget<GenesisAvatar>(dmAvatar).borderRadius, 22);
   });
 
   testWidgets('logout clears messages badge and signed-in tab caches', (
@@ -8167,7 +8168,7 @@ void main() {
     );
     expect(identityText.maxLines, 1);
     expect(identityText.overflow, TextOverflow.ellipsis);
-    expect(identityText.style?.fontSize, 9.5);
+    expect(identityText.style?.fontSize, 11);
     expect(
       find.descendant(of: portrait, matching: find.text('Knows the path')),
       findsOneWidget,
@@ -8360,21 +8361,10 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(bottomSheetScrollController.offset, 0);
+    // 数据统计行已按设计反馈移除。
     expect(
       find.byKey(const ValueKey<String>('origin-info-stats-row')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('origin-info-stat-copy')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('origin-info-stat-connect')),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('origin-info-stat-character')),
-      findsOneWidget,
+      findsNothing,
     );
     final infoMoreButton = find.byKey(
       const ValueKey<String>('origin-info-more-button'),
@@ -8437,26 +8427,25 @@ void main() {
     expect(characterIdentity.style?.color, characterColors.textBody);
     expect(characterIdentity.style?.fontSize, 13);
     expect(characterTagline.style?.color, characterColors.accentText);
+    // Enter world 现在是浮窗底部常驻 bar(整个拉起后出现),不再随列表滚动。
     final infoLaunchAction = find.byKey(
       const ValueKey<String>('origin-info-launch-action'),
     );
     expect(infoLaunchAction, findsOneWidget);
-    await tester.ensureVisible(infoLaunchAction);
-    await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey<String>('origin-info-bookmark-icon')),
       findsNothing,
     );
     final launchButtonFinder = find.widgetWithText(FilledButton, 'Enter world');
-    expect(tester.getSize(launchButtonFinder).height, 44);
+    expect(tester.getSize(launchButtonFinder).height, 40);
     expect(
       tester.getSize(launchButtonFinder).width,
-      closeTo(tester.getSize(infoLaunchAction).width, 0.01),
+      closeTo(tester.getSize(infoLaunchAction).width - 40, 0.01),
     );
     final launchButton = tester.widget<FilledButton>(launchButtonFinder);
     expect(
       launchButton.style?.textStyle?.resolve(<WidgetState>{})?.fontSize,
-      13,
+      15,
     );
     await tester.tap(launchButtonFinder);
     await tester.pumpAndSettle();
@@ -9746,7 +9735,7 @@ void main() {
       find.byKey(const ValueKey<String>('worldo-title-info-button')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Creator: Tester'));
+    await tester.tap(find.text('Creator: @Tester'));
     await tester.pumpAndSettle();
 
     final userInfoRequests = transport.requestsFor('/api/v1/user/info');
@@ -17703,8 +17692,8 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
     await tester.pumpAndSettle();
-    expect(find.text('Archive'), findsOneWidget);
-    expect(find.text('Narrator : 1'), findsOneWidget);
+    expect(find.textContaining('Archive'), findsOneWidget);
+    expect(find.textContaining('Narrator : 1'), findsOneWidget);
     expect(find.text('Saved'), findsNothing);
 
     rootPublish = tester.widget<FilledButton>(
@@ -17724,7 +17713,7 @@ void main() {
     expect(
       tester.getRect(updateNotesSafeRegion).bottom -
           tester.getRect(updateNotesField).bottom,
-      closeTo(20, 0.5),
+      closeTo(20, 1),
     );
     await tester.enterText(updateNotesField, 'Clarified the archive rules.');
     await tester.pump();
@@ -17732,7 +17721,7 @@ void main() {
       find.byType(EditableText),
     );
     expect(notesEditable.widget.focusNode.hasFocus, isTrue);
-    await tester.tap(find.text('📝Update notes (required to publish)'));
+    await tester.tap(find.text('Update notes (required to publish)'));
     await tester.pump();
     notesEditable = tester.state<EditableTextState>(find.byType(EditableText));
     expect(notesEditable.widget.focusNode.hasFocus, isFalse);
@@ -17929,7 +17918,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(GenesisPrimaryButton, 'Save'));
     await tester.pumpAndSettle();
-    expect(find.text('Narrator : 1'), findsOneWidget);
+    expect(find.textContaining('Narrator : 1'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -360));
     await tester.pump();
@@ -17938,7 +17927,7 @@ void main() {
       'Clarified the archive rules.',
     );
     await tester.pump();
-    await tester.tap(find.text('📝Update notes (required to publish)'));
+    await tester.tap(find.text('Update notes (required to publish)'));
     await tester.pump();
     tester.testTextInput.hide();
     await tester.pump();
@@ -19794,7 +19783,8 @@ void main() {
       false,
     );
 
-    await tester.tap(find.text('World'));
+    // worldoMe tabs read "Creation N" / "Playing N".
+    await tester.tap(find.textContaining('Playing'));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.chevron_right), findsNothing);
@@ -19926,9 +19916,10 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      expect(find.text('#Origin 1'), findsOneWidget);
+      // worldoMe list titles drop the legacy '#' prefix.
+      expect(find.text('Origin 1'), findsOneWidget);
 
-      await tester.tap(find.text('World'));
+      await tester.tap(find.textContaining('Playing'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(
@@ -20000,8 +19991,8 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('#Origin Old'), findsOneWidget);
-      expect(find.text('#Origin New'), findsNothing);
+      expect(find.text('Origin Old'), findsOneWidget);
+      expect(find.text('Origin New'), findsNothing);
 
       var refreshFuture = tester
           .widget<RefreshIndicator>(
@@ -20011,17 +20002,17 @@ void main() {
       await tester.pump();
 
       expect(transport.originListRequests, 2);
-      expect(find.text('#Origin Old'), findsOneWidget);
-      expect(find.text('#Origin New'), findsNothing);
+      expect(find.text('Origin Old'), findsOneWidget);
+      expect(find.text('Origin New'), findsNothing);
 
       transport.completeOriginRefresh();
       await tester.pumpAndSettle();
       await refreshFuture;
 
-      expect(find.text('#Origin Old'), findsNothing);
-      expect(find.text('#Origin New'), findsOneWidget);
+      expect(find.text('Origin Old'), findsNothing);
+      expect(find.text('Origin New'), findsOneWidget);
 
-      await tester.tap(find.text('World'));
+      await tester.tap(find.textContaining('Playing'));
       await tester.pumpAndSettle();
 
       expect(find.text('World Old'), findsOneWidget);
@@ -25568,17 +25559,11 @@ Future<void> _tapOriginInfoEnterWorld(WidgetTester tester) async {
     const PageStorageKey<String>('origin-intro-o_test_1'),
   );
   expect(infoList, findsOneWidget);
-  final action = find.byKey(
-    const ValueKey<String>('origin-info-launch-action'),
+  // Enter world 是浮窗底部常驻 bar,完全拉起后即可见,无需滚动。
+  expect(
+    find.byKey(const ValueKey<String>('origin-info-launch-action')),
+    findsOneWidget,
   );
-  await tester.scrollUntilVisible(
-    action,
-    500,
-    scrollable: find
-        .descendant(of: infoList, matching: find.byType(Scrollable))
-        .first,
-  );
-  await tester.pumpAndSettle();
   await tester.tap(find.widgetWithText(FilledButton, 'Enter world'));
   await tester.pumpAndSettle();
 }

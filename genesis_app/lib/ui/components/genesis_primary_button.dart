@@ -393,7 +393,19 @@ class _GenesisButtonLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final icon = leadingIcon;
     if (icon == null) {
-      return Text(label, maxLines: 1, overflow: TextOverflow.ellipsis);
+      // 纯文字标签也要做墨迹居中:bodyStrong 的 height 1.4 让行盒按比例
+      // 放大后,墨迹中心比盒中心低约 0.06em("Enter world" 这类无降部
+      // 文案看起来整体偏下)。压成紧行盒后墨迹中心反而比盒中心高
+      // 0.0635em,再整体下移同样的量,可见字形正好落在按钮竖直中心。
+      return Transform.translate(
+        offset: Offset(0, fontSize * _inkCentreOffsetEm),
+        child: Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          strutStyle: const StrutStyle(height: 1, forceStrutHeight: true),
+        ),
+      );
     }
     // 两步才能对齐,少一步都不够:
     // 1) forceStrutHeight 把标签压成紧行盒。否则 bodyStrong 的 height 1.4 会让

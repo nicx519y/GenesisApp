@@ -26,9 +26,9 @@ import '../../components/map_detail_sheet_surface.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/origin_role_recommendation.dart';
 import '../../components/origin/genesis_origin_theme.dart';
-import '../../components/origin/stat_item.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
 import '../../components/tilemap/tilemap_settings_store.dart';
+import '../../components/world/genesis_world_theme.dart';
 import '../../components/world_map.dart';
 import '../../components/world_top_overlay_bar.dart';
 import '../../network/genesis_http_cache_manager.dart';
@@ -60,9 +60,9 @@ import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
-import '../../utils/stat_count_formatter.dart';
 import '../chat/location_chat_background_preloader.dart';
 import '../chat/location_chat_page.dart';
+import '../world/world_constants.dart';
 import '../world/world_header.dart';
 import '../world/world_map_bubble_candidates.dart';
 import '../world/world_navigation.dart';
@@ -96,17 +96,20 @@ const double originDetailSheetHorizontalPaddingForTesting = 20;
 @visibleForTesting
 const double originDetailSheetHeaderHeightForTesting = 30;
 
+// Info 页固定头与已加载世界的详情浮窗同高:页码条段 30 + 标题行 26 + 12。
 @visibleForTesting
-const double originInfoPinnedHeaderHeightForTesting = 76;
+const double originInfoPinnedHeaderHeightForTesting = worldDetailSheetHeaderHeight;
 
 @visibleForTesting
 const double originDetailSheetHeaderBodyGapForTesting = 0;
 
+// 页码指示条的落点与 world 浮窗一致(顶部 12)。
 @visibleForTesting
-const double originDetailSheetHandleTopOffsetForTesting = 2;
+const double originDetailSheetHandleTopOffsetForTesting = 12;
 
+// Info 页分区间距与已加载世界的详情页对齐(worldDetailSectionGap = 28)。
 @visibleForTesting
-const double originDetailSectionGapForTesting = 20;
+const double originDetailSectionGapForTesting = worldDetailSectionGap;
 
 @visibleForTesting
 const double originDetailSectionTitleIconGapForTesting = 8;

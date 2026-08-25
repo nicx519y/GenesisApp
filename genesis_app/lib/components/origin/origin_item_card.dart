@@ -200,7 +200,11 @@ class OriginItemCard extends StatelessWidget {
             height: 1.3,
           ),
         ),
-        const SizedBox(height: 5),
+        // 视觉间距对齐:两个 SizedBox 都写 5 时看起来并不相等 —— 封面底是硬边,
+        // 标题上方只多出「ascent 减大写字高」的 3.38(14 x 0.2413)加半行距 0.62,
+        // 合计约 9;而标题到简介之间还夹着标题的降部空白 3.38 + 简介上方的 3.43,
+        // 合计约 12.4。这里把这一处收到 1.5,两处的**可见**间距才一致。
+        const SizedBox(height: 1.5),
         Text(
           item.subtitle,
           maxLines: 3,
@@ -261,10 +265,27 @@ class _ImageStat extends StatelessWidget {
 class _TagWrap extends StatelessWidget {
   const _TagWrap({required this.tags});
 
-  /// 9.5/1 label plus 4px of padding above and below.
-  static const double _chipHeight = 9.5 + 4 + 4;
+  static const double _fontSize = 9.5;
+  static const double _verticalPadding = 4;
   static const double _runSpacing = 4;
-  static const double _twoRowHeight = _chipHeight * 2 + _runSpacing;
+
+  /// chip 区的高度上限 —— 只留**一行**。
+  /// 原先写成常量 `9.5 + 4 + 4` 当作一行高、乘 2 当作两行上限,把标签的行盒当成
+  /// 正好等于字号;实机量下来一行是 16.7~17.0,两行 37.3~38,和常量算出的 39 只
+  /// 差 1~2px,任何亚像素误差都会让 ClipRect 切掉第二行的底部圆角。现在改成按
+  /// 当前 textScaler 实测行高,且只保留一行,不再有被截的余地。
+  static double _rowHeightOf(BuildContext context) {
+    final painter = TextPainter(
+      text: const TextSpan(
+        text: 'Hg',
+        style: TextStyle(fontSize: _fontSize, height: 1),
+      ),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    return painter.height + _verticalPadding * 2;
+  }
 
   final List<String> tags;
 
@@ -274,7 +295,7 @@ class _TagWrap extends StatelessWidget {
     final colors = context.genesisColors;
     return ClipRect(
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: _twoRowHeight),
+        constraints: BoxConstraints(maxHeight: _rowHeightOf(context)),
         child: Wrap(
           spacing: 4,
           runSpacing: _runSpacing,
@@ -286,7 +307,7 @@ class _TagWrap extends StatelessWidget {
                   return Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 7,
-                      vertical: 4,
+                      vertical: _verticalPadding,
                     ),
                     decoration: BoxDecoration(
                       color: trending
@@ -299,7 +320,7 @@ class _TagWrap extends StatelessWidget {
                       softWrap: false,
                       style: TextStyle(
                         color: trending ? colors.accentText : colors.textBody,
-                        fontSize: 9.5,
+                        fontSize: _fontSize,
                         height: 1,
                         fontWeight: FontWeight.w600,
                       ),

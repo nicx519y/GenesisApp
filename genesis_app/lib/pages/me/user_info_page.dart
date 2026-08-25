@@ -18,7 +18,6 @@ import '../../ui/components/genesis_page_header.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_skeleton.dart';
 import '../../ui/theme/genesis_semantic_colors.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -465,6 +464,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
         );
       },
       child: Scaffold(
+        backgroundColor: context.genesisColors.pageBackground,
         appBar: GenesisBackAppBar(
           pageName: _profileCollapsed ? _profileTitle : '',
           onBack: _handleBack,
@@ -531,6 +531,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
                 onCollapsedChanged: _handleProfileCollapsedChanged,
                 isBlocking: _isBlockingUser,
                 isBlocked: _profileBlocked,
+                appearance: UserProfileAppearance.worldoMe,
               );
             },
           ),
@@ -545,36 +546,39 @@ class _UserInfoLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Mirrors the worldoMe profile header geometry: 72px circular avatar,
+    // 22px page margin, 36px-tall action buttons on the design button radius.
     return const _UserInfoSkeletonShimmer(
       child: Column(
         key: ValueKey<String>('user-info-loading-skeleton'),
         children: [
-          SizedBox(height: 10),
+          SizedBox(height: 12),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+            padding: EdgeInsets.symmetric(horizontal: 22),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _UserInfoSkeletonBone(
-                  width: 80,
-                  height: 80,
-                  borderRadius: GenesisAvatarRadii.user,
-                ),
+                _UserInfoSkeletonBone(width: 72, height: 72, borderRadius: 36),
                 SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(height: 2),
                       _UserInfoSkeletonBone(
                         widthFactor: 0.58,
                         height: 20,
                         borderRadius: 4,
                       ),
-                      SizedBox(height: 10),
+                      SizedBox(height: 8),
+                      _UserInfoSkeletonBone(
+                        width: 96,
+                        height: 10,
+                        borderRadius: 4,
+                      ),
+                      SizedBox(height: 8),
                       _UserInfoSkeletonBone(
                         width: 128,
-                        height: 16,
+                        height: 12,
                         borderRadius: 4,
                       ),
                     ],
@@ -583,37 +587,26 @@ class _UserInfoLoadingSkeleton extends StatelessWidget {
               ],
             ),
           ),
-          SizedBox(height: 20),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                _UserInfoSkeletonBone(width: 84, height: 20, borderRadius: 4),
-                SizedBox(width: 16),
-                _UserInfoSkeletonBone(width: 86, height: 20, borderRadius: 4),
-              ],
-            ),
-          ),
-          SizedBox(height: 20),
-          Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _UserInfoSkeletonBone(height: 38, borderRadius: 8),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: _UserInfoSkeletonBone(height: 38, borderRadius: 8),
-                ),
-              ],
-            ),
-          ),
           SizedBox(height: 18),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 22),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _UserInfoSkeletonBone(height: 36, borderRadius: 11),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _UserInfoSkeletonBone(height: 36, borderRadius: 11),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: 22),
           Align(
             alignment: Alignment.centerLeft,
             child: Padding(
-              padding: EdgeInsets.only(left: 16),
+              padding: EdgeInsets.only(left: 22),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -626,7 +619,7 @@ class _UserInfoLoadingSkeleton extends StatelessWidget {
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
+              padding: EdgeInsets.symmetric(horizontal: 22),
               child: _UserInfoCollectionSkeletonList(),
             ),
           ),

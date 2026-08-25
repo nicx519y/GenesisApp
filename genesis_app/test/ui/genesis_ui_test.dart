@@ -1471,9 +1471,13 @@ void main() {
         .singleWhere(
           (decoration) =>
               decoration.color == GenesisPalette.redesignAccent &&
+              // 形状取自设计稿 9l(50x38 / 圆角 12),但高度改为与同排 item 的
+              // 「图标 + 间距 + 标签」布局盒等高(33.5),宽度圆角等比缩。
               decoration.shape ==
-                  const ContinuousRectangleBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(20)),
+                  const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.all(
+                      Radius.circular(12 * (33.5 / 38)),
+                    ),
                   ),
         );
     expect(decoration.color, GenesisPalette.redesignAccent);
@@ -1484,13 +1488,13 @@ void main() {
         matching: find.byWidgetPredicate(
           (widget) =>
               widget is Container &&
-              widget.constraints?.maxWidth == 42 &&
-              widget.constraints?.maxHeight == 33,
+              widget.constraints?.maxWidth == 50 * (33.5 / 38) &&
+              widget.constraints?.maxHeight == 33.5,
         ),
       ),
     );
-    expect(createSurface.constraints?.maxWidth, 42);
-    expect(createSurface.constraints?.maxHeight, 33);
+    expect(createSurface.constraints?.maxWidth, 50 * (33.5 / 38));
+    expect(createSurface.constraints?.maxHeight, 33.5);
     expect(
       tester.getCenter(find.byWidget(createSurface)).dy,
       tester.getCenter(find.byKey(const ValueKey('bottom-nav-Create'))).dy,

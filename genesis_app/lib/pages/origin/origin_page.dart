@@ -142,7 +142,8 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
           GenesisTopSafeArea(
             backgroundColor: context.genesisColors.surface,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 14, 20, 12),
+              // 底部 12 -> 8:搜索框到分类 tab 的间距收紧。试过 6,偏挤,回到 8。
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 8),
               child: GenesisSearchField(
                 key: const ValueKey<String>('origin-feed-search'),
                 height: 38,
@@ -679,7 +680,10 @@ class _OriginFeedState extends State<_OriginFeed>
               controller: _scrollController,
               primary: false,
               cacheExtent: 900,
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+              // 只为放大封面:左右边距 20 -> 8、中缝 11 -> 6,卡片宽度
+              // (360-40-11)/2 = 154.5 -> (360-16-6)/2 = 169。卡片内部排版不动。
+              // 顶部 10 -> 6:tab 到第一排封面的间距收紧。
+              padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
               physics: const BouncingScrollPhysics(
                 parent: AlwaysScrollableScrollPhysics(),
               ),
@@ -688,7 +692,7 @@ class _OriginFeedState extends State<_OriginFeed>
                     crossAxisCount: 2,
                   ),
               mainAxisSpacing: 11,
-              crossAxisSpacing: 11,
+              crossAxisSpacing: 6,
               itemCount: _items.length + (_isLoadingMore ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index >= _items.length) {

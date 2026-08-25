@@ -13,14 +13,12 @@ class _WorldViewSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _OriginInfoSectionHeading(title: 'World brief'),
-        const SizedBox(height: 10),
-        Padding(
-          padding: const EdgeInsets.only(top: 12),
-          child: Text(
-            body,
-            style: _bodyTextStyle(
-              context,
-            ).copyWith(height: 1.5, color: context.genesisColors.textBody),
+        const SizedBox(height: worldDetailSectionTitleContentGap),
+        Text(
+          body,
+          style: _bodyTextStyle(context).copyWith(
+            height: worldDetailLineHeight,
+            color: context.genesisColors.textBody,
           ),
         ),
       ],
@@ -146,8 +144,9 @@ class _OriginInfoSectionHeading extends StatelessWidget {
     final colors = context.genesisColors;
     return Row(
       children: [
+        // 与已加载世界详情页的分区标题同款:9x9 红方块沿 Y 轴斜切。
         Transform(
-          transform: Matrix4.skewX(-0.16),
+          transform: Matrix4.skewY(worldDetailSectionGlyphSkew),
           alignment: Alignment.center,
           child: Container(width: 9, height: 9, color: colors.danger),
         ),
@@ -155,7 +154,8 @@ class _OriginInfoSectionHeading extends StatelessWidget {
         Text(
           title,
           style: GenesisTypography.sectionTitle.copyWith(
-            color: colors.textHeading,
+            height: worldDetailLineHeight,
+            color: colors.textPrimary,
           ),
         ),
         if (count case final count?) ...[
@@ -197,12 +197,9 @@ class _LaunchPreviewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(
-          icon: Icons.auto_awesome,
-          iconColor: context.genesisOriginColors.launchPreviewAccent,
-          title: 'Launch Preview',
-        ),
-        const SizedBox(height: 8),
+        // 分区标题与页面其余分区(world 详情页同款红方块标题)保持一致。
+        const _OriginInfoSectionHeading(title: 'Launch Preview'),
+        const SizedBox(height: worldDetailSectionTitleContentGap),
         WorldTickEventItem(
           tick: previewTick,
           tickNumber: 1,
@@ -324,7 +321,7 @@ class _DiscussSection extends StatelessWidget {
                       ),
                     ),
                     if (showDiscussList) ...[
-                      const SizedBox(height: 21),
+                      const SizedBox(height: worldDetailSectionTitleContentGap),
                       _OriginInfoCommentsPreview(controller: controller),
                     ],
                   ],
@@ -393,7 +390,7 @@ class _OriginInfoCommentsPreview extends StatelessWidget {
                 style: TextStyle(
                   color: colors.textBody,
                   fontSize: 13,
-                  height: 1.5,
+                  height: worldDetailLineHeight,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -425,7 +422,14 @@ List<Widget> _originInitialDialogueSlivers(
   // straight from the location-chat style so the preview reads like the chat
   // room; only the sheet inset and theme-aware ink colors are local.
   final style = locationStyle.copyWith(
-    messageListPadding: const EdgeInsets.fromLTRB(22, 11, 22, 10),
+    // 横向边距统一 20:设计稿 9i 原文是 22,但 9n/9f 与整个详情浮窗体系
+    // 都是 20,Opening/Info 左右滑动时内容边缘不应跳动。
+    messageListPadding: const EdgeInsets.fromLTRB(
+      originDetailSheetHorizontalPaddingForTesting,
+      11,
+      originDetailSheetHorizontalPaddingForTesting,
+      10,
+    ),
     headerTitleTextStyle: locationStyle.headerTitleTextStyle.copyWith(
       color: context.genesisColors.foregroundStrong,
       fontSize: 13,
@@ -549,7 +553,12 @@ List<Widget> _originWorldoBriefSlivers(
     SliverToBoxAdapter(
       child: Padding(
         key: const ValueKey<String>('origin-opening-worldo-brief'),
-        padding: const EdgeInsets.fromLTRB(22, 6, 22, 0),
+        padding: const EdgeInsets.fromLTRB(
+          originDetailSheetHorizontalPaddingForTesting,
+          6,
+          originDetailSheetHorizontalPaddingForTesting,
+          0,
+        ),
         child: Container(
           padding: const EdgeInsets.only(bottom: 11),
           decoration: BoxDecoration(

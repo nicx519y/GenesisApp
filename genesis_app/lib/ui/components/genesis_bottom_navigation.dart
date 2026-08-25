@@ -8,6 +8,11 @@ import '../theme/genesis_semantic_colors.dart';
 import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
 
+/// 普通 item 的图标边长与标签行高 —— create 按钮按这两个值对齐高度,
+/// 三者同源,改一处不会漂。
+const double _navIconSize = 22;
+const double _navLabelHeight = 9.5;
+
 class GenesisBottomNavigationItem {
   const GenesisBottomNavigationItem({
     required this.label,
@@ -201,13 +206,25 @@ class _ProminentNavigationIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // 形状取自设计稿 9l 底栏的 create 按钮:
+    //   width:50px; height:38px; border-radius:12px; background:#F82B3C
+    // 但高度改为与同排 item 的「图标 + 间距 + 标签」布局盒等高,否则红块会比
+    // 旁边的图标文字高出一截。宽度与圆角按设计稿的 50:38:12 等比缩。
+    //
+    // 设计稿那条 margin-bottom:3 不带:我们的 item 内容带只有 50,加上去会让
+    // Column 溢出 3px(真机上只显示成黄黑警告条,很容易漏掉)。
+    //
+    // 原先是 42x33 配 ContinuousRectangleBorder(20) —— 连续曲率在 33 高的盒子上
+    // 会把圆角铺满整体,渲染成异形 blob。这里改用标准 RoundedRectangleBorder。
+    const stackHeight = _navIconSize + GenesisSpacing.xxs + _navLabelHeight;
+    const scale = stackHeight / 38;
     return Container(
-      width: 42,
-      height: 33,
+      width: 50 * scale,
+      height: stackHeight,
       decoration: ShapeDecoration(
         color: backgroundColor,
-        shape: const ContinuousRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(20)),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12 * scale)),
         ),
       ),
       alignment: Alignment.center,
