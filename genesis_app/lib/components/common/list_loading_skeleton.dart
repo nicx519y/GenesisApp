@@ -131,20 +131,24 @@ class _OriginGridSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MasonryGridView.builder(
+    return CustomScrollView(
       key: const ValueKey<String>('genesis-origin-grid-skeleton'),
-      primary: false,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      primary: true,
       physics: const BouncingScrollPhysics(
         parent: AlwaysScrollableScrollPhysics(),
       ),
-      gridDelegate: const SliverSimpleGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-      ),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 11,
-      itemCount: itemCount,
-      itemBuilder: (context, index) => const _OriginGridSkeletonItem(),
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
+          sliver: SliverMasonryGrid.count(
+            crossAxisCount: 2,
+            mainAxisSpacing: 2,
+            crossAxisSpacing: 2,
+            childCount: itemCount,
+            itemBuilder: (context, index) => const _OriginGridSkeletonItem(),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -154,50 +158,28 @@ class _OriginGridSkeletonItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const AspectRatio(
-          aspectRatio: 2 / 3,
-          child: _SkeletonBone(
-            key: ValueKey<String>('genesis-origin-grid-cover-skeleton'),
-            borderRadius: GenesisImageRadii.contentValue,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const _SkeletonBone(widthFactor: 0.72, height: 12, borderRadius: 4),
-        const SizedBox(height: 6),
-        const _SkeletonBone(widthFactor: 0.96, height: 9, borderRadius: 4),
-        const SizedBox(height: 6),
-        const _SkeletonBone(widthFactor: 0.66, height: 9, borderRadius: 4),
-        const SizedBox(height: 8),
-        const _SkeletonLineRow(widths: [40, 54], height: 17, borderRadius: 2),
-      ],
+    return const AspectRatio(
+      aspectRatio: 2 / 3,
+      child: _SkeletonBone(
+        key: ValueKey<String>('genesis-origin-grid-cover-skeleton'),
+        borderRadius: GenesisImageRadii.contentValue,
+      ),
     );
   }
 }
 
 class _SkeletonLineRow extends StatelessWidget {
-  const _SkeletonLineRow({
-    required this.widths,
-    required this.height,
-    this.borderRadius = 4,
-  });
+  const _SkeletonLineRow({required this.widths, required this.height});
 
   final List<double> widths;
   final double height;
-  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         for (final entry in widths.indexed) ...[
-          _SkeletonBone(
-            width: entry.$2,
-            height: height,
-            borderRadius: borderRadius,
-          ),
+          _SkeletonBone(width: entry.$2, height: height, borderRadius: 4),
           if (entry.$1 != widths.length - 1) const SizedBox(width: 10),
         ],
       ],

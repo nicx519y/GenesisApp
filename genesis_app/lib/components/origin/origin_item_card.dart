@@ -129,73 +129,92 @@ class OriginItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: GenesisImageRadii.content,
-          child: AspectRatio(
-            aspectRatio: _coverAspectRatio,
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: GenesisListImage(
-                    imageUrl: item.cover,
-                    maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    height: 26,
-                    padding: const EdgeInsets.symmetric(horizontal: 14),
-                    color: Colors.black.withValues(alpha: 0.3),
-                    child: Row(
-                      children: [
-                        _ImageStat(
-                          iconAsset: copyStatIconAsset,
-                          value: item.copyCnt,
-                        ),
-                        const SizedBox(width: 10),
-                        _ImageStat(
-                          iconAsset: connectStatIconAsset,
-                          value: item.connectCnt,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+    return ClipRRect(
+      borderRadius: GenesisImageRadii.content,
+      child: AspectRatio(
+        aspectRatio: _coverAspectRatio,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GenesisListImage(
+                imageUrl: item.cover,
+                maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+              ),
             ),
-          ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 26,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.6),
+                      Colors.black.withValues(alpha: 0.6),
+                    ],
+                    stops: const [0, 0.28, 1],
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      originDisplayName(item.title),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.subtitle,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontWeight: FontWeight.w400,
+                        fontSize: 11,
+                        height: 1.2,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                height: 26,
+                padding: const EdgeInsets.symmetric(horizontal: 14),
+                color: Colors.black.withValues(alpha: 0.8),
+                child: Row(
+                  children: [
+                    _ImageStat(
+                      iconAsset: copyStatIconAsset,
+                      value: item.copyCnt,
+                    ),
+                    const SizedBox(width: 10),
+                    _ImageStat(
+                      iconAsset: connectStatIconAsset,
+                      value: item.connectCnt,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          originDisplayName(item.title),
-          style: const TextStyle(
-            color: Color(0xFF4B6192),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.3,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          item.subtitle,
-          style: const TextStyle(
-            color: Color(0xFF888888),
-            fontWeight: FontWeight.w400,
-            fontSize: 12,
-            height: 1.2,
-          ),
-          maxLines: 4,
-          overflow: TextOverflow.ellipsis,
-        ),
-        const SizedBox(height: 6),
-        _TagWrap(tags: item.tags),
-      ],
+      ),
     );
   }
 }
@@ -211,113 +230,18 @@ class _ImageStat extends StatelessWidget {
     return Flexible(
       child: StatItem(
         iconAsset: iconAsset,
-        iconSize: 11,
+        iconSize: 10,
         iconColor: Colors.white,
         gap: 4,
         text: formatStatCount(value),
         textStyle: const TextStyle(
           color: Colors.white,
-          fontSize: 12,
+          fontSize: 11,
           height: 1,
           fontWeight: FontWeight.w400,
         ),
       ),
     );
-  }
-}
-
-class _TagWrap extends StatelessWidget {
-  const _TagWrap({required this.tags});
-
-  final List<String> tags;
-
-  static const double _spacing = 6;
-  static const double _runSpacing = 6;
-  static const double _horizontalPadding = 4;
-  static const TextStyle _textStyle = TextStyle(
-    color: Color(0xFF4B6192),
-    fontSize: 10,
-    height: 1.7,
-    fontWeight: FontWeight.w400,
-  );
-
-  @override
-  Widget build(BuildContext context) {
-    if (tags.isEmpty) return const SizedBox.shrink();
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final visibleTags = _visibleTagsForRows(
-          tags: tags,
-          maxWidth: constraints.maxWidth,
-          textDirection: Directionality.of(context),
-        );
-        if (visibleTags.isEmpty) return const SizedBox.shrink();
-        return Wrap(
-          spacing: _spacing,
-          runSpacing: _runSpacing,
-          children: [
-            for (final tag in visibleTags)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: _horizontalPadding,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F3F6),
-                  borderRadius: BorderRadius.circular(2),
-                ),
-                child: Text(
-                  tag,
-                  softWrap: false,
-                  overflow: TextOverflow.visible,
-                  style: _textStyle,
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
-
-  List<String> _visibleTagsForRows({
-    required List<String> tags,
-    required double maxWidth,
-    required TextDirection textDirection,
-  }) {
-    if (!maxWidth.isFinite) return tags;
-
-    const maxRows = 2;
-    final visibleTags = <String>[];
-    var row = 1;
-    var rowWidth = 0.0;
-
-    for (final tag in tags) {
-      final tagWidth = _measureTagWidth(tag, textDirection);
-      final nextWidth = rowWidth == 0
-          ? tagWidth
-          : rowWidth + _spacing + tagWidth;
-      if (nextWidth <= maxWidth || rowWidth == 0) {
-        visibleTags.add(tag);
-        rowWidth = nextWidth;
-        continue;
-      }
-
-      row += 1;
-      if (row > maxRows) break;
-      visibleTags.add(tag);
-      rowWidth = tagWidth;
-    }
-
-    return visibleTags;
-  }
-
-  double _measureTagWidth(String tag, TextDirection textDirection) {
-    final painter = TextPainter(
-      text: TextSpan(text: tag, style: _textStyle),
-      maxLines: 1,
-      textDirection: textDirection,
-    )..layout();
-    return painter.width + _horizontalPadding * 2;
   }
 }
 

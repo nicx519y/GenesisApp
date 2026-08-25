@@ -2,16 +2,19 @@ import 'dart:async';
 
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
-import '../../components/page_header.dart';
 import '../../components/origin/origin_item_card.dart';
+import '../../components/page_header.dart';
+import '../../components/search_bar.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
 import 'origin_feed_cache_store.dart';
 
@@ -135,32 +138,69 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final categories = _categories;
+    final labels = categories.map((item) => item.name).toList();
     return DefaultTabController(
       length: categories.length,
       child: Column(
         children: [
-          PageHeader(pageName: 'Worldo'),
-          const SizedBox(height: 4),
-          SecendTabs(
-            labels: categories.map((item) => item.name).toList(),
-            verticalPadding: 0,
+          GenesisTopSafeArea(
+            backgroundColor: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(
+                height: kGenesisTopBarHeight + 4,
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  child: SizedBox(
+                    height: kGenesisTopBarHeight,
+                    child: Transform.translate(
+                      offset: const Offset(0, 5),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: SearchBarPlaceholder(
+                              onTap: () {
+                                Navigator.of(
+                                  context,
+                                ).pushNamed(RouteNames.search);
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
           ),
           Expanded(
-            child: TabBarView(
-              children: [
-                for (final entry in categories.indexed)
-                  _OriginFeed(
-                    index: entry.$1,
-                    category: entry.$2,
-                    isInitialPage: widget.isInitialPage && entry.$1 == 0,
-                    onFirstPageReady: entry.$1 == 0
-                        ? widget.onForYouFirstPageReady
-                        : null,
-                    onInitialLoadCompleted: entry.$1 == 0
-                        ? _retryHotTagsIfNeeded
-                        : null,
-                  ),
+            child: NestedScrollView(
+              physics: const BouncingScrollPhysics(
+                parent: AlwaysScrollableScrollPhysics(),
+              ),
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                SliverToBoxAdapter(
+                  child: SecendTabs(labels: labels, verticalPadding: 0),
+                ),
               ],
+              body: TabBarView(
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  for (final entry in categories.indexed)
+                    _OriginFeed(
+                      index: entry.$1,
+                      category: entry.$2,
+                      isInitialPage: widget.isInitialPage && entry.$1 == 0,
+                      onFirstPageReady: entry.$1 == 0
+                          ? widget.onForYouFirstPageReady
+                          : null,
+                      onInitialLoadCompleted: entry.$1 == 0
+                          ? _retryHotTagsIfNeeded
+                          : null,
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -227,13 +267,11 @@ class _OriginFeedState extends State<_OriginFeed>
   static const _loadMoreThreshold = 700.0;
 
   TabController? _tabController;
-  final ScrollController _scrollController = ScrollController();
   final List<OriginListItem> _items = <OriginListItem>[];
   var _nextPage = 1;
   var _total = 0;
   var _hasMore = true;
   var _hasRequested = false;
-  var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
   var _isRefreshing = false;
@@ -309,10 +347,6 @@ class _OriginFeedState extends State<_OriginFeed>
       _tabController?.removeListener(_handleTabChange);
       _tabController = nextController..addListener(_handleTabChange);
     }
-    if (!_scrollListenerAttached) {
-      _scrollController.addListener(_handleScroll);
-      _scrollListenerAttached = true;
-    }
     _requestIfCurrentTab();
   }
 
@@ -332,9 +366,6 @@ class _OriginFeedState extends State<_OriginFeed>
     unawaited(_activeFirstScreenRenderOperation?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     _tabController?.removeListener(_handleTabChange);
-    _scrollController
-      ..removeListener(_handleScroll)
-      ..dispose();
     super.dispose();
   }
 
@@ -398,16 +429,17 @@ class _OriginFeedState extends State<_OriginFeed>
     unawaited(_refreshItems());
   }
 
-  void _handleScroll() {
-    if (!_scrollController.hasClients ||
-        _scrollController.position.extentAfter > _loadMoreThreshold) {
-      return;
+  bool _handleScroll(ScrollNotification notification) {
+    if (notification.depth != 0 ||
+        notification.metrics.extentAfter > _loadMoreThreshold) {
+      return false;
     }
     if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
-      return;
+      return false;
     }
     _trackForYouListLoad(type: 'load_more', page: _nextPage);
     unawaited(_loadNextPage());
+    return false;
   }
 
   Future<void> _refreshFromPull() {
@@ -620,6 +652,13 @@ class _OriginFeedState extends State<_OriginFeed>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final scrollKey = PageStorageKey<String>(
+      'origin-feed-${widget.category.name}-${widget.category.scene}',
+    );
+    const physics = BouncingScrollPhysics(
+      parent: AlwaysScrollableScrollPhysics(),
+    );
+
     if (!_hasRequested ||
         _isInitialLoading ||
         (_permissionPromptMayBeOpen && !_initialLoadCompleted)) {
@@ -627,83 +666,98 @@ class _OriginFeedState extends State<_OriginFeed>
     }
 
     if (_error != null && _items.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Load failed'),
-            const SizedBox(height: 10),
-            FilledButton(onPressed: _refreshItems, child: const Text('Retry')),
-          ],
-        ),
+      return CustomScrollView(
+        key: scrollKey,
+        primary: true,
+        physics: physics,
+        slivers: [
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Load failed'),
+                  const SizedBox(height: 10),
+                  FilledButton(
+                    onPressed: _refreshItems,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       );
     }
 
     return RefreshIndicator(
       onRefresh: _refreshFromPull,
-      child: _items.isEmpty
-          ? ListView(
-              key: PageStorageKey<String>(
-                'origin-feed-${widget.category.name}-${widget.category.scene}',
-              ),
-              physics: const AlwaysScrollableScrollPhysics(),
-              children: [
-                SizedBox(
-                  height: MediaQuery.sizeOf(context).height * 0.45,
-                  child: const Center(child: Text('No data')),
-                ),
-              ],
-            )
-          : MasonryGridView.builder(
-              key: PageStorageKey<String>(
-                'origin-feed-${widget.category.name}-${widget.category.scene}',
-              ),
-              controller: _scrollController,
-              primary: false,
-              cacheExtent: 900,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              gridDelegate:
-                  const SliverSimpleGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+      child: NotificationListener<ScrollNotification>(
+        onNotification: _handleScroll,
+        child: _items.isEmpty
+            ? CustomScrollView(
+                key: scrollKey,
+                primary: true,
+                physics: physics,
+                slivers: const [
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Center(child: Text('No data')),
                   ),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 11,
-              itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index >= _items.length) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 18),
-                    child: Center(
-                      child: SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                ],
+              )
+            : CustomScrollView(
+                key: scrollKey,
+                primary: true,
+                scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+                physics: physics,
+                slivers: [
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(2, 5, 2, 0),
+                    sliver: SliverMasonryGrid.count(
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 2,
+                      crossAxisSpacing: 2,
+                      childCount: _items.length + (_isLoadingMore ? 1 : 0),
+                      itemBuilder: (context, index) {
+                        if (index >= _items.length) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 18),
+                            child: Center(
+                              child: SizedBox.square(
+                                dimension: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        final item = _items[index];
+                        return GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: item.deleted
+                              ? null
+                              : () {
+                                  GenesisTelemetry.collectLog(
+                                    actionType: 'event',
+                                    action: 'worldo_list_click',
+                                    object1: item.oid,
+                                  );
+                                  Navigator.of(context).pushNamed(
+                                    RouteNames.originWorld,
+                                    arguments: {'originId': 0, 'oid': item.oid},
+                                  );
+                                },
+                          child: OriginItemCard(item: item),
+                        );
+                      },
                     ),
-                  );
-                }
-                final item = _items[index];
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: item.deleted
-                      ? null
-                      : () {
-                          GenesisTelemetry.collectLog(
-                            actionType: 'event',
-                            action: 'worldo_list_click',
-                            object1: item.oid,
-                          );
-                          Navigator.of(context).pushNamed(
-                            RouteNames.originWorld,
-                            arguments: {'originId': 0, 'oid': item.oid},
-                          );
-                        },
-                  child: OriginItemCard(item: item),
-                );
-              },
-            ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }

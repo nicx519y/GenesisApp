@@ -82,17 +82,23 @@ void main() {
     final connectIcon = tester.widget<SvgPicture>(
       _assetSvgFinder(connectStatIconAsset),
     );
-    expect(connectIcon.width, 13);
-    expect(connectIcon.height, 13);
+    expect(connectIcon.width, 12);
+    expect(connectIcon.height, 12);
+    final copyIcon = tester.widget<SvgPicture>(
+      _assetSvgFinder(copyStatIconAsset),
+    );
+    expect(copyIcon.width, 10);
+    expect(copyIcon.height, 10);
     expect(find.text('2.3K'), findsOneWidget);
     expect(find.text('4.4M'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('2.3K')).style?.fontSize, 11);
     expect(find.text('v3'), findsNothing);
 
     final subtitle = tester.widget<Text>(find.text('Tycoon idols'));
-    expect(subtitle.style?.color, const Color(0xFF888888));
-    expect(subtitle.style?.fontSize, 12);
+    expect(subtitle.style?.color, Colors.white.withValues(alpha: 0.75));
+    expect(subtitle.style?.fontSize, 11);
     expect(subtitle.style?.height, 1.2);
-    expect(subtitle.maxLines, 4);
+    expect(subtitle.maxLines, 3);
     expect(
       tester
           .widget<GenesisListImage>(find.byType(GenesisListImage))
@@ -101,9 +107,7 @@ void main() {
     );
   });
 
-  testWidgets('shows all tags that fit within two rows', (
-    WidgetTester tester,
-  ) async {
+  testWidgets('does not render origin tags', (WidgetTester tester) async {
     const item = OriginListItem(
       oid: 'o_alpha',
       status: 1,
@@ -132,14 +136,14 @@ void main() {
       ),
     );
 
-    expect(find.text('one'), findsOneWidget);
-    expect(find.text('two'), findsOneWidget);
-    expect(find.text('three'), findsOneWidget);
-    expect(find.text('four'), findsOneWidget);
-    expect(find.text('five'), findsOneWidget);
+    expect(find.text('one'), findsNothing);
+    expect(find.text('two'), findsNothing);
+    expect(find.text('three'), findsNothing);
+    expect(find.text('four'), findsNothing);
+    expect(find.text('five'), findsNothing);
   });
 
-  testWidgets('wraps and fully displays a long title', (
+  testWidgets('limits a long cover title to two lines', (
     WidgetTester tester,
   ) async {
     const longTitle =
@@ -174,55 +178,15 @@ void main() {
 
     final titleFinder = find.text('#$longTitle');
     final title = tester.widget<Text>(titleFinder);
-    expect(title.maxLines, isNull);
-    expect(title.overflow, isNull);
-    expect(tester.getSize(titleFinder).height, greaterThan(14 * 1.3));
-  });
-
-  testWidgets('hides tags that would overflow past two rows', (
-    WidgetTester tester,
-  ) async {
-    const item = OriginListItem(
-      oid: 'o_alpha',
-      status: 1,
-      versionNum: 3,
-      name: 'Alpha Empire',
-      cover: '',
-      displaySubtitle: 'Tycoon idols',
-      worldView: '',
-      createdUid: 'u_1',
-      createdUserName: 'Shawn',
-      createdAt: '2026-05-01T00:00:00Z',
-      updatedAt: '2026-05-02T00:00:00Z',
-      tags: <String>[
-        'alphaalphaalphaalphaalpha',
-        'betabetabetabetabeta',
-        'gammagammagammagamma',
-        'deltadeltadeltadelta',
-      ],
-      copyCnt: 2300,
-      connectCnt: 4400000,
-      discussCnt: 0,
-      characterCnt: 0,
-      locationCnt: 0,
+    expect(title.style?.color, Colors.white);
+    expect(title.style?.fontSize, 13);
+    expect(title.style?.fontWeight, FontWeight.w600);
+    expect(title.maxLines, 2);
+    expect(title.overflow, TextOverflow.ellipsis);
+    expect(
+      tester.getSize(titleFinder).height,
+      lessThanOrEqualTo((13 * 1.3 * 2).ceilToDouble()),
     );
-
-    await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: SizedBox(width: 180, child: OriginItemCard(item: item)),
-        ),
-      ),
-    );
-
-    expect(find.text('alphaalphaalphaalphaalpha'), findsOneWidget);
-    expect(find.text('betabetabetabetabeta'), findsOneWidget);
-    expect(find.text('gammagammagammagamma'), findsNothing);
-    expect(find.text('deltadeltadeltadelta'), findsNothing);
-
-    final alpha = tester.widget<Text>(find.text('alphaalphaalphaalphaalpha'));
-    expect(alpha.overflow, TextOverflow.visible);
-    expect(alpha.softWrap, isFalse);
   });
 }
 

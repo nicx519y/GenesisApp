@@ -18,7 +18,9 @@ import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_bottom_navigation.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
+import 'package:genesis_flutter_android/ui/components/secend_tabs.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
@@ -2937,7 +2939,8 @@ void main() {
 
     expect(find.byType(AppShellPage, skipOffstage: false), findsOneWidget);
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('Worldo'), findsNothing);
+    expect(find.text('For you'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
     await tester.pump();
@@ -2964,6 +2967,24 @@ void main() {
         .getTopLeft(find.byType(SearchBarPlaceholder).first)
         .dy;
     expect(searchPageSearchTop, homeSearchTop);
+  });
+
+  testWidgets('Home header extends without moving its search bar', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(useMock: true),
+        child: const MaterialApp(home: HomePage()),
+      ),
+    );
+    await tester.pump();
+
+    final searchRect = tester.getRect(find.byType(SearchBarPlaceholder));
+    final headerRect = tester.getRect(find.byType(GenesisTopSafeArea));
+
+    expect(searchRect.top, 12);
+    expect(headerRect.bottom - searchRect.bottom, 6);
   });
 
   testWidgets('search bar placeholder stays single line with ellipsis', (
@@ -4606,7 +4627,7 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('#Worldo'), findsOneWidget);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('Worldo'), findsNothing);
     expect(find.text('For you'), findsOneWidget);
   });
 
@@ -4851,12 +4872,12 @@ void main() {
     expect(find.text('Popular'), findsNothing);
     expect(find.text('For you'), findsNothing);
 
-    for (var i = 0; i < 20 && find.text('Worldo').evaluate().isEmpty; i += 1) {
+    for (var i = 0; i < 20 && find.text('For you').evaluate().isEmpty; i += 1) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('Worldo'), findsNothing);
     expect(find.text('For you'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
@@ -4889,14 +4910,15 @@ void main() {
 
       for (
         var i = 0;
-        i < 20 && find.text('Worldo').evaluate().isEmpty;
+        i < 20 && find.text('For you').evaluate().isEmpty;
         i += 1
       ) {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worldo'), findsOneWidget);
+      expect(find.text('Worldo'), findsNothing);
+      expect(find.text('For you'), findsOneWidget);
 
       await tester.tap(find.text('Home'));
       for (
@@ -4956,14 +4978,15 @@ void main() {
 
       for (
         var i = 0;
-        i < 20 && find.text('Worldo').evaluate().isEmpty;
+        i < 20 && find.text('For you').evaluate().isEmpty;
         i += 1
       ) {
         await tester.pump(const Duration(milliseconds: 50));
       }
 
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worldo'), findsOneWidget);
+      expect(find.text('Worldo'), findsNothing);
+      expect(find.text('For you'), findsOneWidget);
 
       await tester.tap(find.text('Home'));
       await tester.pumpAndSettle();
@@ -5159,6 +5182,56 @@ void main() {
     expect(originRequests, hasLength(2));
     expect(originRequests.last.uri.queryParameters['scene'], 'tag');
     expect(originRequests.last.uri.queryParameters['tag'], 'Destroyed');
+  });
+
+  testWidgets('Origin category tabs scroll away with the card grid', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final searchFinder = find.byType(SearchBarPlaceholder);
+    final categoryFinder = find.text('For you');
+    final feedFinder = find.byKey(
+      const PageStorageKey<String>('origin-feed-For you-foryou'),
+    );
+    final searchRect = tester.getRect(searchFinder);
+    final headerRect = tester.getRect(find.byType(GenesisTopSafeArea));
+    final tabsRect = tester.getRect(find.byType(SecendTabs));
+    final initialSearchTop = tester.getTopLeft(searchFinder).dy;
+
+    expect(searchRect.top, 12);
+    expect(headerRect.bottom - searchRect.bottom, 6);
+    expect(tabsRect.top - headerRect.bottom, 0);
+    expect(
+      tester.widget<TabBarView>(find.byType(TabBarView)).physics,
+      isA<NeverScrollableScrollPhysics>(),
+    );
+    expect(
+      find.ancestor(
+        of: find.byType(NestedScrollView),
+        matching: find.byType(RefreshIndicator),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.ancestor(of: feedFinder, matching: find.byType(RefreshIndicator)),
+      findsOneWidget,
+    );
+    expect(categoryFinder.hitTestable(), findsOneWidget);
+    await tester.drag(feedFinder, const Offset(0, -400));
+    await tester.pumpAndSettle();
+
+    expect(tester.getTopLeft(searchFinder).dy, initialSearchTop);
+    expect(categoryFinder.hitTestable(), findsNothing);
   });
 
   testWidgets(
