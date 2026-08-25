@@ -7,13 +7,16 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
+import '../../ui/tokens/genesis_origin_card_geometry.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../../utils/stat_count_formatter.dart';
 
-const double _coverAspectRatio = 2 / 3;
+const double _coverDetailsTransitionHeight = 112;
+const Color _cardFooterColor = Color(0xFF111111);
+const Color _transparentCardFooterColor = Color(0x00111111);
 
 @immutable
 class OriginListItem {
@@ -132,96 +135,111 @@ class OriginItemCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: GenesisImageRadii.content,
-      child: AspectRatio(
-        aspectRatio: _coverAspectRatio,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: GenesisListImage(
-                imageUrl: item.cover,
-                maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      child: Stack(
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              AspectRatio(
+                aspectRatio: genesisOriginCoverAspectRatio,
+                child: GenesisListImage(
+                  imageUrl: item.cover,
+                  borderRadius: BorderRadius.zero,
+                  maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                ),
+              ),
+              const SizedBox(
+                height: genesisOriginCardBottomExtension,
+                child: ColoredBox(
+                  key: ValueKey<String>('origin-item-card-footer-extension'),
+                  color: Color(0xFF111111),
+                ),
+              ),
+            ],
+          ),
+          const Positioned(
+            left: 0,
+            right: 0,
+            bottom: genesisOriginCardBottomExtension,
+            height: _coverDetailsTransitionHeight,
+            child: DecoratedBox(
+              key: ValueKey<String>('origin-item-card-cover-transition'),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [_transparentCardFooterColor, _cardFooterColor],
+                ),
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 26,
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.transparent,
-                      Colors.black.withValues(alpha: 0.6),
-                      Colors.black.withValues(alpha: 0.6),
-                    ],
-                    stops: const [0, 0.28, 1],
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 26,
+            child: Container(
+              key: const ValueKey<String>('origin-item-card-details'),
+              padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    originDisplayName(item.title),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      height: 1.3,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      originDisplayName(item.title),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.3,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                  const SizedBox(height: 4),
+                  Text(
+                    item.subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.75),
+                      fontWeight: FontWeight.w400,
+                      fontSize: 11,
+                      height: 1.2,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      item.subtitle,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontWeight: FontWeight.w400,
-                        fontSize: 11,
-                        height: 1.2,
-                      ),
-                      maxLines: 3,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
               ),
             ),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 0,
-              child: Container(
-                height: 26,
-                padding: const EdgeInsets.symmetric(horizontal: 14),
-                color: Colors.black.withValues(alpha: 0.8),
-                child: Row(
-                  children: [
-                    _ImageStat(
-                      iconAsset: copyStatIconAsset,
-                      value: item.copyCnt,
-                    ),
-                    const SizedBox(width: 10),
-                    _ImageStat(
-                      iconAsset: connectStatIconAsset,
-                      value: item.connectCnt,
-                    ),
-                    const SizedBox(width: 10),
-                    _ImageStat(
-                      iconAsset: characterStatIconAsset,
-                      preserveIconAssetColor: true,
-                      iconColorMapper: const _WhiteCharacterColorMapper(),
-                      value: item.characterCnt,
-                    ),
-                  ],
-                ),
+          ),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 0,
+            child: Container(
+              key: const ValueKey<String>('origin-item-card-stats'),
+              height: 26,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              color: _cardFooterColor,
+              child: Row(
+                children: [
+                  _ImageStat(iconAsset: copyStatIconAsset, value: item.copyCnt),
+                  const SizedBox(width: 8),
+                  _ImageStat(
+                    iconAsset: connectStatIconAsset,
+                    value: item.connectCnt,
+                  ),
+                  const SizedBox(width: 8),
+                  _ImageStat(
+                    iconAsset: characterStatIconAsset,
+                    preserveIconAssetColor: true,
+                    iconColorMapper: const _WhiteCharacterColorMapper(),
+                    value: item.characterCnt,
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -242,25 +260,19 @@ class _ImageStat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Flexible(
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        alignment: Alignment.centerLeft,
-        child: StatItem(
-          iconAsset: iconAsset,
-          preserveIconAssetColor: preserveIconAssetColor,
-          iconColorMapper: iconColorMapper,
-          iconSize: 10,
-          iconColor: Colors.white,
-          gap: 4,
-          text: formatStatCount(value),
-          textStyle: const TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            height: 1,
-            fontWeight: FontWeight.w400,
-          ),
-        ),
+    return StatItem(
+      iconAsset: iconAsset,
+      preserveIconAssetColor: preserveIconAssetColor,
+      iconColorMapper: iconColorMapper,
+      iconSize: 10,
+      iconColor: Colors.white,
+      gap: 4,
+      text: formatStatCount(value),
+      textStyle: const TextStyle(
+        color: Colors.white,
+        fontSize: 11,
+        height: 1,
+        fontWeight: FontWeight.w400,
       ),
     );
   }

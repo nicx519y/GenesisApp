@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_origin_card_geometry.dart';
 
 void main() {
   test('preserves returned UGC backslashes for origin cards', () {
@@ -59,17 +60,17 @@ void main() {
       createdAt: '2026-05-01T00:00:00Z',
       updatedAt: '2026-05-02T00:00:00Z',
       tags: <String>[],
-      copyCnt: 2300,
-      connectCnt: 4400000,
+      copyCnt: 99900,
+      connectCnt: 99900000,
       discussCnt: 0,
-      characterCnt: 8700,
+      characterCnt: 8,
       locationCnt: 0,
     );
 
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: SizedBox(width: 180, child: OriginItemCard(item: item)),
+          body: SizedBox(width: 220, child: OriginItemCard(item: item)),
         ),
       ),
     );
@@ -102,7 +103,43 @@ void main() {
     );
     expect(
       tester.getSize(find.byType(AspectRatio).first),
-      const Size(180, 270),
+      const Size(220, 330),
+    );
+    expect(tester.getSize(find.byType(GenesisListImage)), const Size(220, 330));
+    expect(
+      tester.getSize(find.byType(OriginItemCard)),
+      const Size(220, 330 + genesisOriginCardBottomExtension),
+    );
+    final footerFinder = find.byKey(
+      const ValueKey<String>('origin-item-card-footer-extension'),
+    );
+    expect(
+      tester.getSize(footerFinder),
+      const Size(220, genesisOriginCardBottomExtension),
+    );
+    expect(
+      tester.widget<ColoredBox>(footerFinder).color,
+      const Color(0xFF111111),
+    );
+    final coverTransition = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('origin-item-card-cover-transition')),
+    );
+    final coverTransitionGradient =
+        (coverTransition.decoration as BoxDecoration).gradient
+            as LinearGradient;
+    expect(coverTransitionGradient.colors.first, const Color(0x00111111));
+    expect(coverTransitionGradient.colors.last, const Color(0xFF111111));
+    final details = tester.widget<Container>(
+      find.byKey(const ValueKey<String>('origin-item-card-details')),
+    );
+    expect(details.decoration, isNull);
+    expect(
+      tester
+          .widget<Container>(
+            find.byKey(const ValueKey<String>('origin-item-card-stats')),
+          )
+          .color,
+      const Color(0xFF111111),
     );
     final connectIcon = tester.widget<SvgPicture>(
       _assetSvgFinder(connectStatIconAsset),
@@ -114,10 +151,17 @@ void main() {
     );
     expect(copyIcon.width, 10);
     expect(copyIcon.height, 10);
-    expect(find.text('2.3K'), findsOneWidget);
-    expect(find.text('4.4M'), findsOneWidget);
-    expect(find.text('8.7K'), findsOneWidget);
-    expect(tester.widget<Text>(find.text('2.3K')).style?.fontSize, 11);
+    expect(find.text('99.9K'), findsOneWidget);
+    expect(find.text('99.9M'), findsOneWidget);
+    expect(find.text('8'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('99.9K')).style?.fontSize, 11);
+    expect(tester.widget<Text>(find.text('99.9M')).style?.fontSize, 11);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is FittedBox && widget.fit == BoxFit.scaleDown,
+      ),
+      findsNothing,
+    );
     expect(find.text('v3'), findsNothing);
 
     final subtitle = tester.widget<Text>(find.text('Tycoon idols'));

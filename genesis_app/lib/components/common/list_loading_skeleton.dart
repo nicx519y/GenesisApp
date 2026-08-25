@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../ui/tokens/genesis_image_radii.dart';
+import '../../ui/tokens/genesis_origin_card_geometry.dart';
 
 enum _GenesisListSkeletonType { world, originGrid }
 
@@ -158,11 +159,24 @@ class _OriginGridSkeletonItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const AspectRatio(
-      aspectRatio: 2 / 3,
-      child: _SkeletonBone(
-        key: ValueKey<String>('genesis-origin-grid-cover-skeleton'),
-        borderRadius: GenesisImageRadii.contentValue,
+    return const ClipRRect(
+      borderRadius: GenesisImageRadii.content,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: genesisOriginCoverAspectRatio,
+            child: _SkeletonBone(
+              key: ValueKey<String>('genesis-origin-grid-cover-skeleton'),
+              borderRadius: 0,
+            ),
+          ),
+          SizedBox(
+            height: genesisOriginCardBottomExtension,
+            child: ColoredBox(color: Color(0xFF111111)),
+          ),
+        ],
       ),
     );
   }
