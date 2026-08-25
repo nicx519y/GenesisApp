@@ -134,13 +134,18 @@ void main() {
     );
     expect(details.decoration, isNull);
     expect(
-      tester
-          .widget<Container>(
-            find.byKey(const ValueKey<String>('origin-item-card-stats')),
-          )
-          .color,
-      const Color(0xFF111111),
+      tester.getSize(
+        find.byKey(const ValueKey<String>('origin-item-card-cover-transition')),
+      ),
+      const Size(220, 50),
     );
+    final statsFinder = find.byKey(
+      const ValueKey<String>('origin-item-card-stats'),
+    );
+    final statsPadding =
+        tester.widget<Padding>(statsFinder).padding as EdgeInsets;
+    expect(statsPadding.top, 8);
+    expect(statsPadding.bottom, 6);
     final connectIcon = tester.widget<SvgPicture>(
       _assetSvgFinder(connectStatIconAsset),
     );
@@ -156,6 +161,14 @@ void main() {
     expect(find.text('8'), findsOneWidget);
     expect(tester.widget<Text>(find.text('99.9K')).style?.fontSize, 11);
     expect(tester.widget<Text>(find.text('99.9M')).style?.fontSize, 11);
+    expect(tester.widget<Text>(find.text('99.9K')).style?.height, 1.2);
+    final nameRect = tester.getRect(find.text('#Alpha Empire'));
+    final briefRect = tester.getRect(find.text('Tycoon idols'));
+    final statsTextRect = tester.getRect(find.text('99.9K'));
+    final cardRect = tester.getRect(find.byType(OriginItemCard));
+    expect(briefRect.top - nameRect.bottom, 4);
+    expect(statsTextRect.top - briefRect.bottom, 8);
+    expect(cardRect.bottom - statsTextRect.bottom, 6);
     expect(
       find.byWidgetPredicate(
         (widget) => widget is FittedBox && widget.fit == BoxFit.scaleDown,
@@ -251,11 +264,12 @@ void main() {
     expect(title.style?.color, Colors.white);
     expect(title.style?.fontSize, 13);
     expect(title.style?.fontWeight, FontWeight.w600);
+    expect(title.style?.height, 1.2);
     expect(title.maxLines, 2);
     expect(title.overflow, TextOverflow.ellipsis);
     expect(
       tester.getSize(titleFinder).height,
-      lessThanOrEqualTo((13 * 1.3 * 2).ceilToDouble()),
+      lessThanOrEqualTo((13 * 1.2 * 2).ceilToDouble()),
     );
   });
 }

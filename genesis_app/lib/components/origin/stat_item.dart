@@ -10,6 +10,7 @@ class StatItem extends StatelessWidget {
     this.iconAsset,
     this.preserveIconAssetColor = false,
     this.iconColorMapper,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
     required this.text,
     this.iconSize = 14,
     this.iconColor,
@@ -27,6 +28,7 @@ class StatItem extends StatelessWidget {
   final String? iconAsset;
   final bool preserveIconAssetColor;
   final ColorMapper? iconColorMapper;
+  final CrossAxisAlignment crossAxisAlignment;
   final String text;
   final double iconSize;
   final Color? iconColor;
@@ -50,7 +52,7 @@ class StatItem extends StatelessWidget {
         : iconVerticalOffset;
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
+      crossAxisAlignment: crossAxisAlignment,
       children: [
         if (asset case final asset?)
           preserveIconAssetColor

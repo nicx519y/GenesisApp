@@ -14,7 +14,7 @@ import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../../utils/stat_count_formatter.dart';
 
-const double _coverDetailsTransitionHeight = 112;
+const double _coverDetailsTransitionHeight = 50;
 const Color _cardFooterColor = Color(0xFF111111);
 const Color _transparentCardFooterColor = Color(0x00111111);
 
@@ -153,7 +153,7 @@ class OriginItemCard extends StatelessWidget {
                 height: genesisOriginCardBottomExtension,
                 child: ColoredBox(
                   key: ValueKey<String>('origin-item-card-footer-extension'),
-                  color: Color(0xFF111111),
+                  color: _cardFooterColor,
                 ),
               ),
             ],
@@ -177,66 +177,69 @@ class OriginItemCard extends StatelessWidget {
           Positioned(
             left: 0,
             right: 0,
-            bottom: 26,
-            child: Container(
-              key: const ValueKey<String>('origin-item-card-details'),
-              padding: const EdgeInsets.fromLTRB(8, 8, 8, 7),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    originDisplayName(item.title),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    item.subtitle,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.75),
-                      fontWeight: FontWeight.w400,
-                      fontSize: 11,
-                      height: 1.2,
-                    ),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
             bottom: 0,
-            child: Container(
-              key: const ValueKey<String>('origin-item-card-stats'),
-              height: 26,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              color: _cardFooterColor,
-              child: Row(
-                children: [
-                  _ImageStat(iconAsset: copyStatIconAsset, value: item.copyCnt),
-                  const SizedBox(width: 8),
-                  _ImageStat(
-                    iconAsset: connectStatIconAsset,
-                    value: item.connectCnt,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  key: const ValueKey<String>('origin-item-card-details'),
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        originDisplayName(item.title),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          height: 1.2,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        item.subtitle,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontWeight: FontWeight.w400,
+                          fontSize: 11,
+                          height: 1.2,
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 8),
-                  _ImageStat(
-                    iconAsset: characterStatIconAsset,
-                    preserveIconAssetColor: true,
-                    iconColorMapper: const _WhiteCharacterColorMapper(),
-                    value: item.characterCnt,
+                ),
+                Padding(
+                  key: const ValueKey<String>('origin-item-card-stats'),
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ImageStat(
+                        iconAsset: copyStatIconAsset,
+                        value: item.copyCnt,
+                      ),
+                      const SizedBox(width: 8),
+                      _ImageStat(
+                        iconAsset: connectStatIconAsset,
+                        value: item.connectCnt,
+                      ),
+                      const SizedBox(width: 8),
+                      _ImageStat(
+                        iconAsset: characterStatIconAsset,
+                        preserveIconAssetColor: true,
+                        iconColorMapper: const _WhiteCharacterColorMapper(),
+                        value: item.characterCnt,
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -264,6 +267,7 @@ class _ImageStat extends StatelessWidget {
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconColorMapper: iconColorMapper,
+      crossAxisAlignment: CrossAxisAlignment.start,
       iconSize: 10,
       iconColor: Colors.white,
       gap: 4,
@@ -271,7 +275,7 @@ class _ImageStat extends StatelessWidget {
       textStyle: const TextStyle(
         color: Colors.white,
         fontSize: 11,
-        height: 1,
+        height: 1.2,
         fontWeight: FontWeight.w400,
       ),
     );
