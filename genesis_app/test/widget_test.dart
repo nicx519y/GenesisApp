@@ -41,7 +41,6 @@ import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/bottom_tabs.dart';
-import 'package:genesis_flutter_android/components/gems/gem_assets.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
@@ -5250,49 +5249,29 @@ void main() {
     expect(originRequests.last.uri.queryParameters['tag'], 'Destroyed');
   });
 
-  testWidgets('Origin gem entry sits left of search and opens wallet', (
+  testWidgets('Origin header only displays the full-width search field', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(useMock: true),
-        child: MaterialApp(
-          routes: {
-            RouteNames.gemWallet: (_) =>
-                const Scaffold(body: Text('Gem Wallet destination')),
-          },
-          home: const OriginPage(),
-        ),
+        child: const MaterialApp(home: OriginPage()),
       ),
     );
     await tester.pump();
 
-    final entryFinder = find.byKey(
-      const ValueKey<String>('origin-gem-wallet-entry'),
-    );
-    final iconFinder = find.byKey(
-      const ValueKey<String>('origin-gem-wallet-icon'),
-    );
-    final forYouFinder = find.text('For you');
     final searchFinder = find.byType(SearchBarPlaceholder);
-    final entryRect = tester.getRect(entryFinder);
-    final iconRect = tester.getRect(iconFinder);
-    final forYouRect = tester.getRect(forYouFinder);
     final searchRect = tester.getRect(searchFinder);
-    final icon = tester.widget<SvgPicture>(iconFinder);
 
-    expect(entryRect.size, const Size(28, 36));
-    expect(iconRect.left, forYouRect.left);
-    expect(searchRect.left - entryRect.right, 6);
-    expect(entryRect.center.dy, searchRect.center.dy);
-    expect((icon.bytesLoader as SvgAssetLoader).assetName, gemIconAsset);
-    expect(icon.width, 24);
-    expect(icon.height, 24);
-
-    await tester.tap(entryFinder);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Gem Wallet destination'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-gem-wallet-entry')),
+      findsNothing,
+    );
+    expect(searchRect.left, 16);
+    expect(
+      searchRect.right,
+      tester.getSize(find.byType(OriginPage)).width - 16,
+    );
   });
 
   testWidgets(

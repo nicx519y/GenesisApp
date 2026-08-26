@@ -5,14 +5,12 @@ import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'
     show FloatingHeaderSnapConfiguration, ScrollCacheExtent;
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
-import '../../components/gems/gem_assets.dart';
 import '../../components/origin/origin_item_card.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
@@ -270,36 +268,6 @@ class _OriginPageState extends State<OriginPage>
                           offset: const Offset(0, 5),
                           child: Row(
                             children: [
-                              Semantics(
-                                button: true,
-                                label: 'Gem Wallet',
-                                child: GestureDetector(
-                                  key: const ValueKey<String>(
-                                    'origin-gem-wallet-entry',
-                                  ),
-                                  behavior: HitTestBehavior.opaque,
-                                  onTap: () => Navigator.of(
-                                    context,
-                                  ).pushNamed(RouteNames.gemWallet),
-                                  child: SizedBox(
-                                    width: 28,
-                                    height: 36,
-                                    child: Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: SvgPicture.asset(
-                                        gemIconAsset,
-                                        key: const ValueKey<String>(
-                                          'origin-gem-wallet-icon',
-                                        ),
-                                        width: 24,
-                                        height: 24,
-                                        excludeFromSemantics: true,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 6),
                               Expanded(
                                 child: SearchBarPlaceholder(
                                   onTap: () {
