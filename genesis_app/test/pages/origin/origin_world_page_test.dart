@@ -546,6 +546,34 @@ void main() {
       expect(source, isNot(contains('bool _sameCharacterText')));
     },
   );
+
+  test('origin info images use the requested DPR policies', () {
+    final worldoBriefImage = originSectionsSource.substring(
+      originSectionsSource.indexOf('class _OriginPreviewImage'),
+      originSectionsSource.indexOf('class _LaunchPreviewSection'),
+    );
+    final characterPortrait = originSectionsSource.substring(
+      originSectionsSource.indexOf('class _OriginCharacterPortrait'),
+      originSectionsSource.indexOf('const _bodyTextStyle'),
+    );
+
+    expect(
+      worldoBriefImage,
+      contains('static const double _maxDevicePixelRatio = 2;'),
+    );
+    expect(
+      worldoBriefImage,
+      contains('maxDevicePixelRatio: _maxDevicePixelRatio'),
+    );
+    expect(
+      characterPortrait,
+      contains('maxDevicePixelRatio: devicePixelRatio'),
+    );
+    expect(
+      characterPortrait,
+      isNot(contains('_originRoleCardAvatarUrl(context, url)')),
+    );
+  });
 }
 
 OriginDetail _originDetail({

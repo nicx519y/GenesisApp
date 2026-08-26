@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import 'genesis_modal_routes.dart';
@@ -28,6 +29,7 @@ ImageProvider<Object>? genesisImageViewerPreviewProvider(
   double? logicalWidth,
   double? logicalHeight,
   BoxFit? fit,
+  double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
 }) {
   final url = imageUrl.trim();
   if (url.isEmpty) return null;
@@ -35,8 +37,16 @@ ImageProvider<Object>? genesisImageViewerPreviewProvider(
   final devicePixelRatio = MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1;
   return GenesisStaticNetworkImageProvider(
     imageUrl: url,
-    cacheWidth: _viewerDecodePixelDimension(logicalWidth, devicePixelRatio),
-    cacheHeight: _viewerDecodePixelDimension(logicalHeight, devicePixelRatio),
+    cacheWidth: _viewerDecodePixelDimension(
+      logicalWidth,
+      devicePixelRatio,
+      maxDevicePixelRatio: maxDevicePixelRatio,
+    ),
+    cacheHeight: _viewerDecodePixelDimension(
+      logicalHeight,
+      devicePixelRatio,
+      maxDevicePixelRatio: maxDevicePixelRatio,
+    ),
     fit: fit,
   );
 }
@@ -70,6 +80,7 @@ Future<void> showGenesisImageViewer(
   List<ImageProvider<Object>?> previewImageProviders =
       const <ImageProvider<Object>?>[],
   int initialIndex = 0,
+  double maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
 }) {
   final urls = <String>[];
   final previews = <ImageProvider<Object>?>[];
@@ -95,6 +106,7 @@ Future<void> showGenesisImageViewer(
         imageUrls: urls,
         previewImageProviders: previews,
         initialIndex: initialIndex.clamp(0, urls.length - 1),
+        maxDevicePixelRatio: maxDevicePixelRatio,
       );
     },
     transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -109,11 +121,13 @@ class GenesisImageViewerOverlay extends StatefulWidget {
     required this.imageUrls,
     this.previewImageProviders = const <ImageProvider<Object>?>[],
     this.initialIndex = 0,
+    this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final List<String> imageUrls;
   final List<ImageProvider<Object>?> previewImageProviders;
   final int initialIndex;
+  final double maxDevicePixelRatio;
 
   @override
   State<GenesisImageViewerOverlay> createState() =>
@@ -205,6 +219,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
       logicalWidth: logicalWidth,
       logicalHeight: logicalHeight,
       devicePixelRatio: mediaQuery?.devicePixelRatio ?? 1,
+      maxDevicePixelRatio: widget.maxDevicePixelRatio,
     );
   }
 
@@ -329,6 +344,7 @@ class _GenesisImageViewerOverlayState extends State<GenesisImageViewerOverlay> {
                                     ? widget.previewImageProviders[index]
                                     : null,
                                 controller: _transformationControllers[index],
+                                maxDevicePixelRatio: widget.maxDevicePixelRatio,
                               ),
                             );
                           },
@@ -403,14 +419,20 @@ ImageProvider<Object> _viewerImageProvider(String url) {
 
 int? _viewerDecodePixelDimension(
   double? logicalDimension,
-  double devicePixelRatio,
-) {
+  double devicePixelRatio, {
+  double? maxDevicePixelRatio,
+}) {
   if (logicalDimension == null ||
       !logicalDimension.isFinite ||
       logicalDimension <= 0) {
     return null;
   }
-  final ratio = genesisImageDevicePixelRatio(devicePixelRatio);
+  final ratio = maxDevicePixelRatio == null
+      ? genesisImageDevicePixelRatio(devicePixelRatio)
+      : genesisImageDevicePixelRatio(
+          devicePixelRatio,
+          maxDevicePixelRatio: maxDevicePixelRatio,
+        );
   return (logicalDimension * ratio).ceil();
 }
 
@@ -444,12 +466,14 @@ class _ViewerImage extends StatelessWidget {
     required this.url,
     required this.previewImageProvider,
     required this.controller,
+    required this.maxDevicePixelRatio,
   });
 
   final int index;
   final String url;
   final ImageProvider<Object>? previewImageProvider;
   final TransformationController controller;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -475,6 +499,7 @@ class _ViewerImage extends StatelessWidget {
                   url: url,
                   previewImageProvider: previewImageProvider,
                   fit: BoxFit.fitWidth,
+                  maxDevicePixelRatio: maxDevicePixelRatio,
                 ),
               ),
             ),
@@ -530,12 +555,14 @@ class _ProgressiveImageByUrl extends StatelessWidget {
     required this.url,
     required this.previewImageProvider,
     required this.fit,
+    required this.maxDevicePixelRatio,
   });
 
   final int index;
   final String url;
   final ImageProvider<Object>? previewImageProvider;
   final BoxFit fit;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -567,6 +594,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
           logicalWidth: logicalWidth,
           logicalHeight: logicalHeight,
           devicePixelRatio: devicePixelRatio,
+          maxDevicePixelRatio: maxDevicePixelRatio,
         );
         if (fullImageUrl.isEmpty) return fallback;
 
@@ -576,6 +604,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
                 url,
                 fullImageUrl: fullImageUrl,
                 devicePixelRatio: devicePixelRatio,
+                maxDevicePixelRatio: maxDevicePixelRatio,
               )
             : '';
         if (explicitPreviewProvider == null &&
@@ -586,6 +615,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
             width: logicalWidth,
             fit: fit,
             fallback: fallback,
+            maxDevicePixelRatio: maxDevicePixelRatio,
           );
         }
 
@@ -596,6 +626,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
                 width: logicalWidth,
                 fit: fit,
                 fallback: fallback,
+                maxDevicePixelRatio: maxDevicePixelRatio,
               )
             : KeyedSubtree(
                 key: ValueKey('genesis-image-viewer-preview-$index'),
@@ -620,6 +651,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
           width: logicalWidth,
           fit: fit,
           fallback: preview,
+          maxDevicePixelRatio: maxDevicePixelRatio,
         );
       },
     );
@@ -631,6 +663,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
     required double? width,
     required BoxFit fit,
     required Widget fallback,
+    required double maxDevicePixelRatio,
   }) {
     if (imageUrl.startsWith('assets/')) {
       return KeyedSubtree(
@@ -653,6 +686,7 @@ class _ProgressiveImageByUrl extends StatelessWidget {
         imageUrl: imageUrl,
         width: width,
         fit: fit,
+        maxDevicePixelRatio: maxDevicePixelRatio,
         placeholder: (_) => fallback,
         errorWidget: (_, _) => fallback,
       ),
@@ -665,18 +699,21 @@ String _selectViewerImageUrl(
   required double? logicalWidth,
   required double? logicalHeight,
   required double devicePixelRatio,
+  required double maxDevicePixelRatio,
 }) {
   final selected = selectGenesisImageUrl(
     source,
     logicalWidth: logicalWidth,
     logicalHeight: logicalHeight,
     devicePixelRatio: devicePixelRatio,
+    maxDevicePixelRatio: maxDevicePixelRatio,
   ).trim();
   final candidate = selected.isNotEmpty ? selected : source.trim();
   final resized = resizeGenesisImageUrl(
     candidate,
     logicalWidth: logicalWidth,
     devicePixelRatio: devicePixelRatio,
+    maxDevicePixelRatio: maxDevicePixelRatio,
   );
   return resized.isNotEmpty ? resized : candidate;
 }
@@ -685,6 +722,7 @@ String _selectViewerPreviewImageUrl(
   String source, {
   required String fullImageUrl,
   required double devicePixelRatio,
+  required double maxDevicePixelRatio,
 }) {
   final candidate = source.trim();
   if (candidate.isEmpty || candidate.startsWith('assets/')) return candidate;
@@ -701,6 +739,7 @@ String _selectViewerPreviewImageUrl(
     fullImageUrl,
     logicalWidth: 120,
     devicePixelRatio: devicePixelRatio,
+    maxDevicePixelRatio: maxDevicePixelRatio,
   );
   return resized.isNotEmpty ? resized : candidate;
 }

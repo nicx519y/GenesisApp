@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/config/genesis_image_config.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
@@ -307,6 +308,39 @@ void main() {
     expect(identical(previewImage.image, previewProvider), isTrue);
   });
 
+  testWidgets('viewer honors the caller image DPR policy', (tester) async {
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.devicePixelRatio = 3;
+
+    await _pumpViewerHost(tester, const [
+      'https://cdn.example.com/full-dpr.png',
+    ], maxDevicePixelRatio: 3);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<GenesisImageViewerOverlay>(
+            find.byType(GenesisImageViewerOverlay),
+          )
+          .maxDevicePixelRatio,
+      3,
+    );
+    expect(
+      tester
+          .widget<GenesisStaticNetworkImage>(
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('genesis-image-viewer-full-0')),
+                  matching: find.byType(GenesisStaticNetworkImage),
+                )
+                .first,
+          )
+          .maxDevicePixelRatio,
+      3,
+    );
+  });
+
   testWidgets('image zoom resets after paging away and back', (tester) async {
     await _pumpViewerHost(tester, const [_firstImage, _secondImage]);
 
@@ -514,6 +548,7 @@ Future<void> _pumpViewerHost(
   List<ImageProvider<Object>?> previewImageProviders =
       const <ImageProvider<Object>?>[],
   int initialIndex = 0,
+  double? maxDevicePixelRatio,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -528,6 +563,9 @@ Future<void> _pumpViewerHost(
                   imageUrls: imageUrls,
                   previewImageProviders: previewImageProviders,
                   initialIndex: initialIndex,
+                  maxDevicePixelRatio:
+                      maxDevicePixelRatio ??
+                      GenesisImageConfig.maxDevicePixelRatio,
                 ),
                 child: const Text('Open'),
               );
