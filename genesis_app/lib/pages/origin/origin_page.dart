@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
@@ -10,6 +11,7 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/page_header.dart';
 import '../../components/origin/origin_item_card.dart';
+import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -224,16 +226,36 @@ class _OriginFeed extends StatefulWidget {
 class _OriginFeedState extends State<_OriginFeed>
     with AutomaticKeepAliveClientMixin<_OriginFeed>, WidgetsBindingObserver {
   static const _pageSize = 20;
+  static const _forYouPageSize = 10;
   static const _loadMoreThreshold = 700.0;
+  static const _minimumExposureRatio = 0.3;
+  static const _minimumExposureDuration = Duration(milliseconds: 1500);
+  static const _exposureBatchCoalescingDuration = Duration(milliseconds: 16);
+  static const _maxExposureBatchSize = 100;
+  static const _maxExposureAttempts = 3;
 
   TabController? _tabController;
   final ScrollController _scrollController = ScrollController();
+  final GlobalKey _exposureViewportKey = GlobalKey(
+    debugLabel: 'origin-feed-exposure-viewport',
+  );
   final List<OriginListItem> _items = <OriginListItem>[];
+  final Map<String, double> _visibleExposureFractions = <String, double>{};
+  final Map<String, Timer> _exposureTimers = <String, Timer>{};
+  final Map<String, GlobalKey> _exposureCardKeys = <String, GlobalKey>{};
+  final Map<String, String> _renderedExposureCovers = <String, String>{};
+  final Set<String> _pendingExposureIds = <String>{};
+  final Set<String> _inFlightExposureIds = <String>{};
+  final Set<String> _reportedExposureIds = <String>{};
+  Timer? _exposureQueueFlushTimer;
   var _nextPage = 1;
+  var _nextScore = 0;
   var _total = 0;
+  var _layoutRevision = 0;
   var _hasMore = true;
   var _hasRequested = false;
   var _scrollListenerAttached = false;
+  var _exposureViewportValidationScheduled = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
   var _isRefreshing = false;
@@ -248,8 +270,25 @@ class _OriginFeedState extends State<_OriginFeed>
   FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
   var _firstScreenRequestAttempt = 0;
   var _firstScreenRenderCompleted = false;
+  var _isSendingExposures = false;
 
-  bool get _usesFirstPageCache => widget.category.scene == 'foryou';
+  bool get _isForYouFeed => widget.category.scene == 'foryou';
+
+  bool get _usesFirstPageCache => _isForYouFeed;
+
+  bool get _isCurrentTab => _tabController?.index == widget.index;
+
+  bool get _isCurrentTabSettled {
+    final controller = _tabController;
+    if (controller == null ||
+        controller.index != widget.index ||
+        controller.indexIsChanging) {
+      return false;
+    }
+    final animationValue = controller.animation?.value;
+    return animationValue == null ||
+        (animationValue - widget.index).abs() < 0.001;
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -270,11 +309,20 @@ class _OriginFeedState extends State<_OriginFeed>
   @override
   void initState() {
     super.initState();
+    if (_isForYouFeed) {
+      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+    }
     WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _clearExposureCandidates();
+    } else if (_isCurrentTab && _items.isNotEmpty) {
+      _scheduleVisibilityFlush();
+    }
+
     if (!_isPrimaryFeed || _initialLoadCompleted) return;
 
     if (state == AppLifecycleState.inactive ||
@@ -332,6 +380,8 @@ class _OriginFeedState extends State<_OriginFeed>
     unawaited(_activeFirstScreenRenderOperation?.cancel());
     WidgetsBinding.instance.removeObserver(this);
     _tabController?.removeListener(_handleTabChange);
+    _clearExposureCandidates();
+    _exposureQueueFlushTimer?.cancel();
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
@@ -339,6 +389,9 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _resetListState() {
+    _clearExposureCandidates();
+    _exposureQueueFlushTimer?.cancel();
+    _exposureQueueFlushTimer = null;
     unawaited(_activeFirstScreenRequestOperation?.cancel());
     unawaited(_activeFirstScreenRenderOperation?.cancel());
     _activeFirstScreenRequestOperation = null;
@@ -346,7 +399,11 @@ class _OriginFeedState extends State<_OriginFeed>
     _firstScreenRequestAttempt = 0;
     _firstScreenRenderCompleted = false;
     _items.clear();
+    _exposureCardKeys.clear();
+    _renderedExposureCovers.clear();
+    _layoutRevision += 1;
     _nextPage = 1;
+    _nextScore = 0;
     _total = 0;
     _hasMore = true;
     _hasRequested = false;
@@ -360,6 +417,9 @@ class _OriginFeedState extends State<_OriginFeed>
     _permissionPromptMayBeOpen = false;
     _retryInitialLoadWhenFinished = false;
     _hasRetriedInitialStartup = false;
+    _pendingExposureIds.clear();
+    _inFlightExposureIds.clear();
+    _reportedExposureIds.clear();
   }
 
   void _scheduleFirstScreenRenderCompletion(
@@ -384,6 +444,11 @@ class _OriginFeedState extends State<_OriginFeed>
 
   void _handleTabChange() {
     _requestIfCurrentTab();
+    if (_isCurrentTabSettled && _items.isNotEmpty) {
+      _scheduleVisibilityFlush();
+    } else {
+      _clearExposureCandidates();
+    }
   }
 
   void _requestIfCurrentTab() {
@@ -399,6 +464,7 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _handleScroll() {
+    _scheduleExposureViewportValidation();
     if (!_scrollController.hasClients ||
         _scrollController.position.extentAfter > _loadMoreThreshold) {
       return;
@@ -410,12 +476,45 @@ class _OriginFeedState extends State<_OriginFeed>
     unawaited(_loadNextPage());
   }
 
+  void _scheduleFeedPaginationContinuation() {
+    if (!_isForYouFeed || !_hasMore) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_isCurrentTab ||
+          !_hasMore ||
+          _isInitialLoading ||
+          _isLoadingMore ||
+          _isRefreshing) {
+        return;
+      }
+
+      // Exposure filtering and client-side OID de-duplication can leave a
+      // cursor page empty (or too short to move the viewport away from the
+      // load-more threshold). No further scroll notification is emitted when
+      // that happens, so keep advancing the cursor until the viewport has
+      // enough content or the server ends pagination.
+      final stillNeedsContent =
+          _items.isEmpty ||
+          (_scrollController.hasClients &&
+              _scrollController.position.extentAfter <= _loadMoreThreshold);
+      if (stillNeedsContent) {
+        unawaited(_loadNextPage(advanceLogicalPage: false));
+      }
+    });
+  }
+
   Future<void> _refreshFromPull() {
     _trackForYouListLoad(type: 'refresh', page: 1);
     return _refreshItems();
   }
 
-  Future<_OriginListPage> _fetchPage(int page) async {
+  Future<_OriginListPage> _fetchPage(int page, {int? startScore}) async {
+    if (_isForYouFeed) {
+      final data = await AppServicesScope.of(
+        context,
+      ).api.v1.origin.feed(startScore: startScore ?? 0, rn: _forYouPageSize);
+      return _parseOriginFeedPage(data);
+    }
     final scene = widget.category.scene;
     final data = await AppServicesScope.of(context).api.v1.origin.list(
       scene: scene,
@@ -452,18 +551,22 @@ class _OriginFeedState extends State<_OriginFeed>
         data == null) {
       return;
     }
-    final page = _parseOriginListPage(data);
+    final page = _parseOriginFeedPage(data);
     if (!mounted || _hasCompletedFirstPageNetworkRequest) return;
     setState(() {
       _items
         ..clear()
         ..addAll(page.items);
+      _layoutRevision += 1;
       _total = page.total;
       _nextPage = 2;
-      _hasMore = _items.length < _total && page.items.isNotEmpty;
+      _nextScore = page.nextScore ?? 0;
+      _hasMore = page.hasMore == true && _nextScore > 0;
       _isInitialLoading = false;
       _error = null;
     });
+    _pruneExposureCandidates();
+    _scheduleFeedPaginationContinuation();
     widget.onFirstPageReady?.call();
   }
 
@@ -478,6 +581,7 @@ class _OriginFeedState extends State<_OriginFeed>
 
   Future<void> _refreshItems() async {
     if (_initialLoadInFlight) return;
+    _clearExposureCandidates();
     _initialLoadInFlight = _isPrimaryFeed && !_initialLoadCompleted;
     setState(() {
       _error = null;
@@ -503,7 +607,7 @@ class _OriginFeedState extends State<_OriginFeed>
     }
 
     try {
-      final page = await _fetchPage(1);
+      final page = await _fetchPage(1, startScore: 0);
       if (!mounted) {
         unawaited(requestOperation?.cancel());
         return;
@@ -538,12 +642,18 @@ class _OriginFeedState extends State<_OriginFeed>
         _items
           ..clear()
           ..addAll(page.items);
+        _layoutRevision += 1;
         _total = page.total;
         _nextPage = 2;
-        _hasMore = _items.length < _total && page.items.isNotEmpty;
+        _nextScore = page.nextScore ?? 0;
+        _hasMore = _isForYouFeed
+            ? page.hasMore == true && _nextScore > 0
+            : _items.length < _total && page.items.isNotEmpty;
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      _pruneExposureCandidates();
+      _scheduleFeedPaginationContinuation();
       widget.onFirstPageReady?.call();
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
@@ -582,6 +692,7 @@ class _OriginFeedState extends State<_OriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      if (_items.isNotEmpty) _scheduleVisibilityFlush();
       if (shouldRetryAfterResume && mounted) {
         _hasRetriedInitialStartup = true;
         unawaited(_refreshItems());
@@ -589,7 +700,7 @@ class _OriginFeedState extends State<_OriginFeed>
     }
   }
 
-  Future<void> _loadNextPage() async {
+  Future<void> _loadNextPage({bool advanceLogicalPage = true}) async {
     if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
       return;
     }
@@ -599,15 +710,28 @@ class _OriginFeedState extends State<_OriginFeed>
     });
 
     try {
-      final page = await _fetchPage(_nextPage);
+      final requestedScore = _nextScore;
+      final page = await _fetchPage(
+        _nextPage,
+        startScore: _isForYouFeed ? requestedScore : null,
+      );
       if (!mounted) return;
       setState(() {
-        _items.addAll(page.items);
+        final existingIds = _items.map((item) => item.oid).toSet();
+        _items.addAll(page.items.where((item) => existingIds.add(item.oid)));
         _total = page.total;
-        _nextPage += 1;
-        _hasMore = _items.length < _total && page.items.isNotEmpty;
+        if (advanceLogicalPage) _nextPage += 1;
+        if (_isForYouFeed) {
+          final returnedScore = page.nextScore ?? requestedScore;
+          _nextScore = returnedScore;
+          _hasMore = page.hasMore == true && returnedScore > requestedScore;
+        } else {
+          _hasMore = _items.length < _total && page.items.isNotEmpty;
+        }
         _isLoadingMore = false;
       });
+      _pruneExposureCandidates();
+      _scheduleFeedPaginationContinuation();
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -615,6 +739,216 @@ class _OriginFeedState extends State<_OriginFeed>
         _isLoadingMore = false;
       });
     }
+  }
+
+  void _pruneExposureCandidates() {
+    final currentCovers = <String, String>{
+      for (final item in _items) item.oid: item.cover,
+    };
+    final currentIds = currentCovers.keys.toSet();
+    _visibleExposureFractions.removeWhere(
+      (oid, _) => !currentIds.contains(oid),
+    );
+    _exposureCardKeys.removeWhere((oid, _) => !currentIds.contains(oid));
+    _renderedExposureCovers.removeWhere(
+      (oid, cover) => currentCovers[oid] != cover,
+    );
+    final removedIds = _exposureTimers.keys
+        .where((oid) => !currentIds.contains(oid))
+        .toList(growable: false);
+    for (final oid in removedIds) {
+      _exposureTimers.remove(oid)?.cancel();
+    }
+  }
+
+  void _scheduleVisibilityFlush() {
+    if (!_isForYouFeed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isCurrentTabSettled) return;
+      VisibilityDetectorController.instance.notifyNow();
+    });
+  }
+
+  bool get _canTrackExposure {
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    return _isForYouFeed &&
+        _isCurrentTabSettled &&
+        !_isInitialLoading &&
+        !_isRefreshing &&
+        !_permissionPromptMayBeOpen &&
+        (lifecycleState == null || lifecycleState == AppLifecycleState.resumed);
+  }
+
+  bool _alreadyHandledExposure(String oid) {
+    return _reportedExposureIds.contains(oid) ||
+        _pendingExposureIds.contains(oid) ||
+        _inFlightExposureIds.contains(oid);
+  }
+
+  void _clearExposureCandidates() {
+    for (final timer in _exposureTimers.values) {
+      timer.cancel();
+    }
+    _exposureTimers.clear();
+    _visibleExposureFractions.clear();
+  }
+
+  GlobalKey _exposureCardKey(String oid) {
+    return _exposureCardKeys.putIfAbsent(
+      oid,
+      () => GlobalKey(debugLabel: 'origin-feed-card-$oid'),
+    );
+  }
+
+  double _actualExposureVisibleFraction(String oid) {
+    final cardRenderObject = _exposureCardKeys[oid]?.currentContext
+        ?.findRenderObject();
+    final viewportRenderObject = _exposureViewportKey.currentContext
+        ?.findRenderObject();
+    if (cardRenderObject is! RenderBox ||
+        viewportRenderObject is! RenderBox ||
+        !cardRenderObject.attached ||
+        !viewportRenderObject.attached ||
+        !cardRenderObject.hasSize ||
+        !viewportRenderObject.hasSize) {
+      return 0;
+    }
+    final cardRect =
+        cardRenderObject.localToGlobal(Offset.zero) & cardRenderObject.size;
+    final viewportRect =
+        viewportRenderObject.localToGlobal(Offset.zero) &
+        viewportRenderObject.size;
+    final intersection = cardRect.intersect(viewportRect);
+    final cardArea = cardRect.width * cardRect.height;
+    if (intersection.isEmpty || cardArea <= 0) return 0;
+    return (intersection.width * intersection.height / cardArea)
+        .clamp(0.0, 1.0)
+        .toDouble();
+  }
+
+  bool _qualifiesForExposure(String oid, String cover) {
+    return _canTrackExposure &&
+        cover.isNotEmpty &&
+        _renderedExposureCovers[oid] == cover &&
+        (_visibleExposureFractions[oid] ?? 0) >= _minimumExposureRatio &&
+        _actualExposureVisibleFraction(oid) >= _minimumExposureRatio &&
+        !_alreadyHandledExposure(oid);
+  }
+
+  void _updateExposureCandidate(String oid, String cover) {
+    if (!_qualifiesForExposure(oid, cover)) {
+      _exposureTimers.remove(oid)?.cancel();
+      return;
+    }
+    _exposureTimers.putIfAbsent(
+      oid,
+      () => Timer(_minimumExposureDuration, () {
+        VisibilityDetectorController.instance.notifyNow();
+        _exposureTimers.remove(oid);
+        if (!mounted || !_qualifiesForExposure(oid, cover)) return;
+        _enqueueExposures([oid]);
+      }),
+    );
+  }
+
+  void _handleCoverLoaded(String oid, String cover) {
+    if (cover.isEmpty) return;
+    _renderedExposureCovers[oid] = cover;
+    _updateExposureCandidate(oid, cover);
+  }
+
+  void _handleItemVisibilityChanged(
+    String oid,
+    String cover,
+    VisibilityInfo info,
+  ) {
+    final visibleFraction = info.visibleFraction.clamp(0.0, 1.0).toDouble();
+    _visibleExposureFractions[oid] = visibleFraction;
+    _updateExposureCandidate(oid, cover);
+  }
+
+  void _scheduleExposureViewportValidation() {
+    if (!_isForYouFeed || _exposureViewportValidationScheduled) return;
+    _exposureViewportValidationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _exposureViewportValidationScheduled = false;
+      if (!mounted) return;
+      final activeIds = _exposureTimers.keys.toList(growable: false);
+      for (final oid in activeIds) {
+        final cover = _renderedExposureCovers[oid] ?? '';
+        if (!_qualifiesForExposure(oid, cover)) {
+          _exposureTimers.remove(oid)?.cancel();
+        }
+      }
+    });
+  }
+
+  void _enqueueExposures(Iterable<String> originIds) {
+    if (!_isForYouFeed) return;
+    for (final oid in originIds) {
+      if (oid.isEmpty ||
+          _reportedExposureIds.contains(oid) ||
+          _pendingExposureIds.contains(oid) ||
+          _inFlightExposureIds.contains(oid)) {
+        continue;
+      }
+      _pendingExposureIds.add(oid);
+    }
+    if (_pendingExposureIds.isNotEmpty) {
+      _exposureQueueFlushTimer ??= Timer(_exposureBatchCoalescingDuration, () {
+        _exposureQueueFlushTimer = null;
+        unawaited(_drainExposureQueue());
+      });
+    }
+  }
+
+  Future<void> _drainExposureQueue() async {
+    if (_isSendingExposures || !_isForYouFeed) return;
+    _isSendingExposures = true;
+    try {
+      while (mounted && _pendingExposureIds.isNotEmpty) {
+        final batch = _pendingExposureIds
+            .take(_maxExposureBatchSize)
+            .toList(growable: false);
+        _pendingExposureIds.removeAll(batch);
+        _inFlightExposureIds.addAll(batch);
+        var delivered = false;
+        var retainForNextTrigger = false;
+        for (var attempt = 1; attempt <= _maxExposureAttempts; attempt += 1) {
+          try {
+            await AppServicesScope.of(
+              context,
+            ).api.v1.origin.reportFeedExposure(batch);
+            delivered = true;
+            break;
+          } catch (error) {
+            if (!_isRetryableExposureError(error)) break;
+            if (attempt >= _maxExposureAttempts) {
+              retainForNextTrigger = true;
+              break;
+            }
+            await Future<void>.delayed(Duration(seconds: attempt));
+            if (!mounted) {
+              retainForNextTrigger = true;
+              break;
+            }
+          }
+        }
+        _inFlightExposureIds.removeAll(batch);
+        if (delivered) {
+          _reportedExposureIds.addAll(batch);
+        } else if (retainForNextTrigger) {
+          _pendingExposureIds.addAll(batch);
+          break;
+        }
+      }
+    } finally {
+      _isSendingExposures = false;
+    }
+  }
+
+  bool _isRetryableExposureError(Object error) {
+    return error is ApiException && (error.code == 5000 || error.retryable);
   }
 
   @override
@@ -654,55 +988,79 @@ class _OriginFeedState extends State<_OriginFeed>
                 ),
               ],
             )
-          : MasonryGridView.builder(
-              key: PageStorageKey<String>(
-                'origin-feed-${widget.category.name}-${widget.category.scene}',
-              ),
-              controller: _scrollController,
-              primary: false,
-              cacheExtent: 900,
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-              physics: const BouncingScrollPhysics(
-                parent: AlwaysScrollableScrollPhysics(),
-              ),
-              gridDelegate:
-                  const SliverSimpleGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
+          : ClipRect(
+              key: _exposureViewportKey,
+              child: KeyedSubtree(
+                key: ValueKey<String>(
+                  'origin-feed-layout-${widget.index}-$_layoutRevision',
+                ),
+                child: MasonryGridView.builder(
+                  key: PageStorageKey<String>(
+                    'origin-feed-${widget.category.name}-${widget.category.scene}',
                   ),
-              mainAxisSpacing: 10,
-              crossAxisSpacing: 11,
-              itemCount: _items.length + (_isLoadingMore ? 1 : 0),
-              itemBuilder: (context, index) {
-                if (index >= _items.length) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 18),
-                    child: Center(
-                      child: SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
+                  controller: _scrollController,
+                  primary: false,
+                  cacheExtent: 900,
+                  padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                  physics: const BouncingScrollPhysics(
+                    parent: AlwaysScrollableScrollPhysics(),
+                  ),
+                  gridDelegate:
+                      const SliverSimpleGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
                       ),
-                    ),
-                  );
-                }
-                final item = _items[index];
-                return GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: item.deleted
-                      ? null
-                      : () {
-                          GenesisTelemetry.collectLog(
-                            actionType: 'event',
-                            action: 'worldo_list_click',
-                            object1: item.oid,
-                          );
-                          Navigator.of(context).pushNamed(
-                            RouteNames.originWorld,
-                            arguments: {'originId': 0, 'oid': item.oid},
-                          );
-                        },
-                  child: OriginItemCard(item: item),
-                );
-              },
+                  mainAxisSpacing: 10,
+                  crossAxisSpacing: 11,
+                  itemCount: _items.length + (_isLoadingMore ? 1 : 0),
+                  itemBuilder: (context, index) {
+                    if (index >= _items.length) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 18),
+                        child: Center(
+                          child: SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      );
+                    }
+                    final item = _items[index];
+                    final card = GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: item.deleted
+                          ? null
+                          : () {
+                              GenesisTelemetry.collectLog(
+                                actionType: 'event',
+                                action: 'worldo_list_click',
+                                object1: item.oid,
+                              );
+                              Navigator.of(context).pushNamed(
+                                RouteNames.originWorld,
+                                arguments: {'originId': 0, 'oid': item.oid},
+                              );
+                            },
+                      child: OriginItemCard(
+                        item: item,
+                        onCoverLoaded: _isForYouFeed
+                            ? () => _handleCoverLoaded(item.oid, item.cover)
+                            : null,
+                      ),
+                    );
+                    if (!_isForYouFeed) return card;
+                    return VisibilityDetector(
+                      key: _exposureCardKey(item.oid),
+                      onVisibilityChanged: (info) =>
+                          _handleItemVisibilityChanged(
+                            item.oid,
+                            item.cover,
+                            info,
+                          ),
+                      child: card,
+                    );
+                  },
+                ),
+              ),
             ),
     );
   }
@@ -713,11 +1071,36 @@ class _OriginListPage {
     required this.items,
     required this.total,
     required this.rawData,
+    this.nextScore,
+    this.hasMore,
   });
 
   final List<OriginListItem> items;
   final int total;
   final Map<String, dynamic> rawData;
+  final int? nextScore;
+  final bool? hasMore;
+}
+
+_OriginListPage _parseOriginFeedPage(Map<String, dynamic> data) {
+  final list = data['list'];
+  final parsedItems = list is List
+      ? list
+            .whereType<Map>()
+            .map((raw) => OriginListItem.fromJson(asJsonMap(raw)))
+            .toList(growable: false)
+      : const <OriginListItem>[];
+  final seenIds = <String>{};
+  final items = parsedItems
+      .where((item) => item.oid.isNotEmpty && seenIds.add(item.oid))
+      .toList(growable: false);
+  return _OriginListPage(
+    items: items,
+    total: items.length,
+    rawData: data,
+    nextScore: asInt(data['next_score']),
+    hasMore: asBool(data['has_more']),
+  );
 }
 
 _OriginListPage _parseOriginListPage(Map<String, dynamic> data) {

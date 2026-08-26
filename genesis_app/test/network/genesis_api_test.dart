@@ -945,6 +945,77 @@ void main() {
     expect(apiTransport.lastRequest!.uri.queryParameters['tag_name'], isNull);
   });
 
+  test('Origin feed uses cursor query and exposure body', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: request.method == 'GET'
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[],"rn":10,"next_score":27,"has_more":true}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"recorded_count":2}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+    final api = _apiWith(apiTransport, healthTransport);
+
+    final page = await api.v1.origin.feed(startScore: 11, rn: 10);
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/feed');
+    expect(apiTransport.lastRequest!.uri.queryParameters, {
+      'start_score': '11',
+      'rn': '10',
+    });
+    expect(page['next_score'], 27);
+    expect(page['has_more'], true);
+
+    final recorded = await api.v1.origin.reportFeedExposure([
+      'o_ABC001',
+      'o_ABC002',
+      'o_ABC001',
+    ]);
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/feed/exposure');
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'origin_ids': ['o_ABC001', 'o_ABC002'],
+    });
+    expect(recorded, 2);
+  });
+
+  test('Origin feed validates cursor, page size, and exposure batch', () async {
+    final api = _apiWith(
+      _FakeTransport(
+        handler: (_) => throw StateError('request should not be sent'),
+      ),
+      _FakeTransport(
+        handler: (_) => throw StateError('request should not be sent'),
+      ),
+    );
+
+    expect(() => api.v1.origin.feed(startScore: -1), throwsArgumentError);
+    expect(
+      () => api.v1.origin.feed(startScore: 0, rn: 101),
+      throwsArgumentError,
+    );
+    await expectLater(
+      api.v1.origin.reportFeedExposure(const []),
+      throwsArgumentError,
+    );
+    await expectLater(
+      api.v1.origin.reportFeedExposure(
+        List<String>.generate(101, (index) => 'o_$index'),
+      ),
+      throwsArgumentError,
+    );
+  });
+
   test('getOrigins maps non-default category to scene tag', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -2613,7 +2684,7 @@ void main() {
   });
 
   test(
-    'default v1 business requests are signed when Gateway auth is enabled',
+    'Origin feed carries signed X-Device-ID through the Gateway chain',
     () async {
       final apiTransport = _FakeTransport(
         handler: (_) => const TransportResponse(
@@ -2643,10 +2714,10 @@ void main() {
         useMock: false,
         gatewayRequestInterceptor: interceptor,
       );
-      await api.getOrigins();
+      await api.v1.origin.feed(startScore: 0, rn: 10);
 
       final request = apiTransport.lastRequest!;
-      expect(request.uri.path, '/api/v1/origin/list');
+      expect(request.uri.path, '/api/v1/origin/feed');
       expect(request.headers['X-App-ID'], 'hashed-app-id');
       expect(request.headers['X-Platform'], 'ios');
       expect(request.headers['X-Device-ID'], 'test-device-id');

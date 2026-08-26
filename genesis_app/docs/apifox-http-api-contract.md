@@ -78,6 +78,8 @@ Origin detail 增量核对时间：2026-08-05
 | chatroom | POST | `/aitown-chat/internal/narrator/write` | 写入旁白消息 |
 | search | GET | `/api/v1/search` | 全局搜索 |
 | origin | GET | `/api/v1/origin/list` | Origin 模板列表 |
+| origin | GET | `/api/v1/origin/feed` | 按设备去重的 For you 推荐流 |
+| origin | POST | `/api/v1/origin/feed/exposure` | 上报 For you 可见项 |
 | origin | GET | `/api/v1/origin/hot_tags` | Origin 热门标签 |
 | origin | GET | `/api/v1/origin/my_launch_preset_characters` | 查询我 launch 过的 preset 角色 |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
@@ -911,6 +913,38 @@ Query：
 - `pn*`: integer
 - `rn*`: integer
 - `list*`: `{ info: OriginInfo, stats: OriginStats, discusses?: DiscussItem[] }[]`；`discusses` 仅 `scene=popular` 返回，最多 2 条顶级评论
+
+### GET `/api/v1/origin/feed`
+
+按设备返回去重后的 Origin For you 推荐流。请求统一通过 Gateway 链路携带必填 `X-Device-ID`。`start_score` 是不包含自身的 Redis ZSET 位置游标；刷新传 `0`，分页传上一次响应的 `next_score`。
+
+Query：
+
+- `start_score`: int64，默认 `0`，最小值 `0`
+- `rn`: integer，默认 `10`，范围 `1..100`
+
+响应 `data`：
+
+- `list*`: `{ info: OriginInfo, stats: OriginStats }[]`
+- `rn*`: integer
+- `next_score*`: int64，服务端本次最后检查的位置；被曝光记录过滤的成员仍会推进该游标
+- `has_more*`: boolean，`next_score` 之后是否仍有成员
+
+客户端检测到 `next_score` 未前进时必须停止继续分页，防止异常响应造成重复请求。
+
+### POST `/api/v1/origin/feed/exposure`
+
+上报当前设备实际看到的 Origin。请求统一通过 Gateway 链路携带必填 `X-Device-ID`；服务端对请求内 ID 和同设备重复请求幂等，并按上海自然日保存曝光集合。
+
+JSON body：
+
+- `origin_ids*`: string[]，数量 `1..100`
+
+响应 `data`：
+
+- `recorded_count*`: integer
+
+客户端只统计封面图片已成功渲染、在列表真实内容视口内可见面积至少 30% 且连续可见满 1.5 秒的卡片；占位图、图片加载中或加载失败时不开始计时。可见面积低于 30% 时取消本次计时，重新进入后重新计时。快速经过的卡片不采集，当前页面生命周期内按 OID 去重。服务端 `5000` 或可重试网络错误最多尝试 3 次，参数错误 `4004` 不重试。
 
 ### GET `/api/v1/origin/hot_tags`
 
@@ -2115,6 +2149,8 @@ query：
 | `POST /aitown-chat/internal/narrator/write` | 已新增 `ChatroomHttpApi.writeNarrator(worldId,tickId,locationGroups)`，body 使用 `world_id/tick_id/location_groups`，响应消费 `message_id`；本地 mock 会写入 narrator 消息。 |
 | `GET /api/v1/search` | `SearchV1Api.search` 已改为发送 `keyword/type/pn/rn`；`type` 为空时不随 query 发送，表示全局搜索；`SearchPage` 已消费 `origins/worlds/users` 分类结果块。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `scene/tag/tag_id/keyword/uid/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`；首页 popular 会优先消费 `list[].discusses` 作为最新 2 条讨论预览，本地 mock 仅默认/`popular` 场景返回该字段。 |
+| `GET /api/v1/origin/feed` | `OriginV1Api.feed` 使用 `start_score/rn`；Origin 页仅 For you 使用该接口，刷新传 `0`，分页严格复用响应 `next_score`，并以 `has_more` 和游标前进共同决定是否继续。 |
+| `POST /api/v1/origin/feed/exposure` | `OriginV1Api.reportFeedExposure` 提交 `origin_ids`；Origin 页仅在封面成功渲染后，按列表真实内容视口内 30% 可见面积和连续 1.5 秒可见时长采集；占位、加载中、加载失败、低于阈值或快速经过均不采集，本地按页面生命周期去重。 |
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
 | `GET /api/v1/origin/my_launch_preset_characters` | 已新增 `OriginV1Api.myLaunchPresetCharacters(originId)` 与 `GenesisApi.getMyLaunchPresetCharacters(originId)`，query 使用 `origin_id`，响应映射为 `OriginMyLaunchPresetCharacter` 列表并保留 `ImageResource`；请求复用共享 runtime/auth/Gateway header 链路；本地 mock 会在 `/origin/launch` 使用 preset 角色时记录并按当前 origin 角色定义返回去重历史。 |
 | `GET /api/v1/origin/info` | 已新增 `OriginV1Api.info(originId)` 与 `GenesisApi.getOriginInfo(oid)`，query 使用 `origin_id`；响应消费 `info + stats`，不期待 `characters/locations/ticks`。 |
