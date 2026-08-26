@@ -32,14 +32,18 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
                 ? constraints.maxHeight
                 : MediaQuery.sizeOf(context).height;
             final bottomSafeArea = GenesisSafeAreaInsets.bottom(context);
-            final mapHeight = originWorldMapHeightFor(
+            final sheetTop = originWorldMapHeightFor(
+              viewportHeight: viewportHeight,
+              bottomSafeArea: bottomSafeArea,
+            );
+            final mapHeight = originWorldRenderedMapHeightFor(
               viewportHeight: viewportHeight,
               bottomSafeArea: bottomSafeArea,
             );
             final sheetHostHeight = viewportHeight;
             final sheetMinChildSize = sheetHostHeight <= 0
                 ? _OriginDetailDraggableSheet.defaultInitialChildSize
-                : ((sheetHostHeight - mapHeight) / sheetHostHeight)
+                : ((sheetHostHeight - sheetTop) / sheetHostHeight)
                       .clamp(0.08, 1.0)
                       .toDouble();
             return Stack(

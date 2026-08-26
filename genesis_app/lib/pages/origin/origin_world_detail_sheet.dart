@@ -158,6 +158,57 @@ class _OriginDetailDraggableSheetState
     );
   }
 
+  void _collapseToMinChildSize() {
+    _cancelExtentSettleWait();
+    final commandGeneration = ++_extentCommandGeneration;
+    unawaited(
+      _animateToRequestedExtent(
+        commandGeneration: commandGeneration,
+        expanded: false,
+      ),
+    );
+  }
+
+  void _expandOpeningRoleCards() {
+    _expandToMaxChildSize();
+  }
+
+  void _handleCollapsedRoleDragStart(DragStartDetails details) {
+    _cancelExtentSettleWait();
+    _extentCommandGeneration += 1;
+  }
+
+  void _handleCollapsedRoleDragUpdate(DragUpdateDetails details) {
+    if (!_sheetController.isAttached) return;
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    if (viewportHeight <= 0) return;
+    final nextExtent =
+        (_sheetController.size - details.delta.dy / viewportHeight)
+            .clamp(_minChildSize, _expandedChildSize(context))
+            .toDouble();
+    _sheetController.jumpTo(nextExtent);
+  }
+
+  void _handleCollapsedRoleDragEnd(DragEndDetails details) {
+    if (!_sheetController.isAttached) return;
+    final draggedUp = (details.primaryVelocity ?? 0) < -200;
+    final raisedEnough = _sheetController.size > _minChildSize + 0.04;
+    if (draggedUp || raisedEnough) {
+      _expandOpeningRoleCards();
+    } else {
+      _collapseToMinChildSize();
+    }
+  }
+
+  void _handleCollapsedRoleDragCancel() {
+    if (!_sheetController.isAttached) return;
+    if (_sheetController.size > _minChildSize + 0.04) {
+      _expandOpeningRoleCards();
+    } else {
+      _collapseToMinChildSize();
+    }
+  }
+
   Future<void> _animateToRequestedExtent({
     required int commandGeneration,
     required bool expanded,
@@ -390,6 +441,42 @@ class _OriginDetailDraggableSheetState
     );
   }
 
+  Widget _buildCollapsedOpeningRoleAction(double bottomInset) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_sheetController, _pageController]),
+      builder: (context, child) {
+        final sheetExtent = _sheetController.isAttached
+            ? _sheetController.size
+            : _minChildSize;
+        final raisedProgress = ((sheetExtent - _minChildSize) / 0.04)
+            .clamp(0.0, 1.0)
+            .toDouble();
+        final page = _pageController.hasClients
+            ? _pageController.page ?? _currentPage.toDouble()
+            : _currentPage.toDouble();
+        final openingProgress = (1.0 - page.clamp(0.0, 1.0)).toDouble();
+        final opacity = ((1.0 - raisedProgress) * openingProgress)
+            .clamp(0.0, 1.0)
+            .toDouble();
+        return IgnorePointer(
+          key: const ValueKey<String>('origin-opening-select-role-visibility'),
+          ignoring: opacity < 0.99,
+          child: Opacity(
+            opacity: opacity,
+            child: _OriginCollapsedOpeningRoleAction(
+              bottomInset: bottomInset,
+              onTap: _expandOpeningRoleCards,
+              onVerticalDragStart: _handleCollapsedRoleDragStart,
+              onVerticalDragUpdate: _handleCollapsedRoleDragUpdate,
+              onVerticalDragEnd: _handleCollapsedRoleDragEnd,
+              onVerticalDragCancel: _handleCollapsedRoleDragCancel,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   OriginDiscussListController _ensureDiscussController() {
     final existing = _discussController;
     if (existing != null) return existing;
@@ -573,6 +660,7 @@ class _OriginDetailDraggableSheetState
             snapAnimationDuration: _snapAnimationDuration,
             builder: (context, scrollController) {
               _handleSheetScrollControllerReady(scrollController);
+              final bottomInset = GenesisSafeAreaInsets.bottom(context);
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: BoxDecoration(
@@ -619,12 +707,97 @@ class _OriginDetailDraggableSheetState
                             child: _buildAnimatedPageIndicator(),
                           ),
                         ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          child: _buildCollapsedOpeningRoleAction(bottomInset),
+                        ),
                       ],
                     ),
                   ),
                 ),
               );
             },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
+  const _OriginCollapsedOpeningRoleAction({
+    required this.bottomInset,
+    required this.onTap,
+    required this.onVerticalDragStart,
+    required this.onVerticalDragUpdate,
+    required this.onVerticalDragEnd,
+    required this.onVerticalDragCancel,
+  });
+
+  final double bottomInset;
+  final VoidCallback onTap;
+  final GestureDragStartCallback onVerticalDragStart;
+  final GestureDragUpdateCallback onVerticalDragUpdate;
+  final GestureDragEndCallback onVerticalDragEnd;
+  final GestureDragCancelCallback onVerticalDragCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('origin-opening-select-role-gradient'),
+      height: 52 + bottomInset,
+      alignment: Alignment.bottomCenter,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomCenter,
+          end: Alignment.topCenter,
+          colors: [
+            originWorldDetailSheetBackgroundColor,
+            originWorldDetailSheetBackgroundColor,
+            originWorldDetailSheetBackgroundColor.withValues(alpha: 0),
+          ],
+          stops: const [0, 0.55, 1],
+        ),
+      ),
+      child: GestureDetector(
+        key: const ValueKey<String>('origin-opening-select-role-action'),
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        onVerticalDragStart: onVerticalDragStart,
+        onVerticalDragUpdate: onVerticalDragUpdate,
+        onVerticalDragEnd: onVerticalDragEnd,
+        onVerticalDragCancel: onVerticalDragCancel,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.string(
+                '<svg viewBox="0 0 16 9"><path d="M1.5 7.5 L8 2 L14.5 7.5" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg>',
+                key: const ValueKey<String>('origin-opening-select-role-arrow'),
+                width: 14,
+                height: 8,
+                colorFilter: const ColorFilter.mode(
+                  Color(0xFF111111),
+                  BlendMode.srcIn,
+                ),
+              ),
+              const SizedBox(height: 7),
+              const Text(
+                'Select your role',
+                key: ValueKey<String>('origin-opening-select-role-label'),
+                style: TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 11,
+                  height: 1,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.none,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -706,12 +879,16 @@ class _OriginSheetPageIndicatorSegment extends StatelessWidget {
   final Key containerKey;
   final double selectionProgress;
 
+  static const double _combinedSegmentWidth = 46;
+  static const double _inactiveWidth = _combinedSegmentWidth / 3;
+  static const double _activeWidth = _combinedSegmentWidth * 2 / 3;
+
   @override
   Widget build(BuildContext context) {
     final progress = selectionProgress.clamp(0.0, 1.0);
     return Container(
       key: containerKey,
-      width: 23,
+      width: lerpDouble(_inactiveWidth, _activeWidth, progress),
       height: 5,
       decoration: BoxDecoration(
         color: Color.lerp(

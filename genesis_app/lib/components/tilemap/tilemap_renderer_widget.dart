@@ -396,11 +396,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 showEvent:
                                     widget.showEventForTile?.call(tile) ??
                                     false,
-                                verticalOverflow:
-                                    _tilemapLocationLabelVerticalOverflow(
-                                      context,
-                                      name,
-                                    ),
                               ),
                             );
                           }
@@ -457,9 +452,6 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                           avatarIndex: activeBubbleAvatarIndex,
                                           avatarCount:
                                               activeBubbleLabel!.avatars.length,
-                                          locationLabelVerticalOverflow:
-                                              activeBubbleLabel
-                                                  .verticalOverflow,
                                         );
                                   return Stack(
                                     fit: StackFit.expand,

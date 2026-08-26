@@ -664,6 +664,7 @@ class WorldSingleSectionBottomSheetState
     return GenesisEdgeSwipeBack(
       onBack: () => Navigator.of(context).pop(),
       child: FractionallySizedBox(
+        key: const ValueKey<String>('world-single-section-bottom-sheet'),
         heightFactor: _sheetHeightFactor,
         alignment: Alignment.bottomCenter,
         child: DecoratedBox(
@@ -675,6 +676,8 @@ class WorldSingleSectionBottomSheetState
             children: [
               WorldSingleSectionSheetHeader(
                 item: _headerItem,
+                pageController: _pageController,
+                pageCount: worldBottomTagItems.length,
                 onClose: () => Navigator.of(context).pop(),
               ),
               Expanded(child: _buildDismissibleSheetContent()),
@@ -689,10 +692,14 @@ class WorldSingleSectionBottomSheetState
 class WorldSingleSectionSheetHeader extends StatefulWidget {
   const WorldSingleSectionSheetHeader({
     required this.item,
+    required this.pageController,
+    required this.pageCount,
     required this.onClose,
   });
 
   final WorldBottomTagItem item;
+  final PageController pageController;
+  final int pageCount;
   final VoidCallback onClose;
 
   @override
@@ -745,13 +752,9 @@ class WorldSingleSectionSheetHeaderState
               left: 0,
               right: 0,
               child: Center(
-                child: Container(
-                  width: 64,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD2D2D2),
-                    borderRadius: BorderRadius.circular(3),
-                  ),
+                child: WorldSheetPageIndicator(
+                  pageController: widget.pageController,
+                  pageCount: widget.pageCount,
                 ),
               ),
             ),
@@ -803,6 +806,85 @@ class WorldSingleSectionSheetHeaderState
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class WorldSheetPageIndicator extends StatelessWidget {
+  const WorldSheetPageIndicator({
+    required this.pageController,
+    required this.pageCount,
+  });
+
+  static const double _activeWidth = 26;
+  static const double _inactiveWidth = 4;
+  static const double _segmentGap = 5;
+  static const double _height = 4;
+  static const Color _activeColor = Color(0xFF666666);
+  static const Color _inactiveColor = Color(0xFFB7B7B7);
+
+  final PageController pageController;
+  final int pageCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: pageController,
+      builder: (context, child) {
+        final page = pageController.hasClients
+            ? pageController.page ?? pageController.initialPage.toDouble()
+            : pageController.initialPage.toDouble();
+        return SizedBox(
+          height: _height,
+          child: Row(
+            key: const ValueKey<String>('world-sheet-page-indicator'),
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var index = 0; index < pageCount; index++) ...[
+                _WorldSheetPageIndicatorSegment(
+                  index: index,
+                  selectionProgress: (1 - (page - index).abs())
+                      .clamp(0.0, 1.0)
+                      .toDouble(),
+                ),
+                if (index != pageCount - 1) const SizedBox(width: _segmentGap),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WorldSheetPageIndicatorSegment extends StatelessWidget {
+  const _WorldSheetPageIndicatorSegment({
+    required this.index,
+    required this.selectionProgress,
+  });
+
+  final int index;
+  final double selectionProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = selectionProgress.clamp(0.0, 1.0);
+    return Container(
+      key: ValueKey<String>('world-sheet-page-segment-$index'),
+      width:
+          WorldSheetPageIndicator._inactiveWidth +
+          (WorldSheetPageIndicator._activeWidth -
+                  WorldSheetPageIndicator._inactiveWidth) *
+              progress,
+      height: WorldSheetPageIndicator._height,
+      decoration: BoxDecoration(
+        color: Color.lerp(
+          WorldSheetPageIndicator._inactiveColor,
+          WorldSheetPageIndicator._activeColor,
+          progress,
+        ),
+        borderRadius: BorderRadius.circular(2),
       ),
     );
   }

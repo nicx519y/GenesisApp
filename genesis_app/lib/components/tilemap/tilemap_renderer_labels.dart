@@ -7,7 +7,6 @@ class _TilemapLocationLabelData {
     required this.avatars,
     required this.showRecentChat,
     required this.showEvent,
-    required this.verticalOverflow,
   });
 
   final TilemapCell tile;
@@ -15,7 +14,6 @@ class _TilemapLocationLabelData {
   final List<UserAvatar> avatars;
   final bool showRecentChat;
   final bool showEvent;
-  final double verticalOverflow;
 }
 
 const double _tilemapLocationLabelMaxWidth = 141;
@@ -27,6 +25,14 @@ const double _tilemapLocationActivityIconExtraWidth =
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   inherit: false,
   color: Colors.white,
+  fontSize: 12,
+  height: 1.2,
+  leadingDistribution: TextLeadingDistribution.even,
+  fontWeight: FontWeight.w600,
+);
+const TextStyle _tilemapEmptyLocationLabelTextStyle = TextStyle(
+  inherit: false,
+  color: Color(0xBAFFFFFF),
   fontSize: 12,
   height: 1.2,
   leadingDistribution: TextLeadingDistribution.even,
@@ -47,11 +53,15 @@ class _TilemapLocationLabelLayout {
 
 _TilemapLocationLabelLayout _tilemapLocationLabelLayout(
   BuildContext context,
-  String name,
-) {
+  String name, {
+  required bool occupied,
+}) {
+  final style = occupied
+      ? _tilemapLocationLabelTextStyle
+      : _tilemapEmptyLocationLabelTextStyle;
   final painter =
       TextPainter(
-        text: TextSpan(text: name, style: _tilemapLocationLabelTextStyle),
+        text: TextSpan(text: name, style: style),
         textAlign: TextAlign.center,
         textDirection: Directionality.of(context),
         textScaler: MediaQuery.textScalerOf(context),
@@ -75,31 +85,6 @@ _TilemapLocationLabelLayout _tilemapLocationLabelLayout(
     ),
     height: painter.height + _tilemapLocationLabelVerticalPadding * 2,
     lineCount: lineCount,
-  );
-}
-
-double _tilemapLocationLabelHeight(BuildContext context, String name) {
-  return _tilemapLocationLabelLayout(context, name).height;
-}
-
-double _tilemapLocationSingleLineLabelHeight(BuildContext context) {
-  final painter = TextPainter(
-    text: const TextSpan(text: 'M', style: _tilemapLocationLabelTextStyle),
-    maxLines: 1,
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-  )..layout();
-  return painter.height + _tilemapLocationLabelVerticalPadding * 2;
-}
-
-double _tilemapLocationLabelVerticalOverflow(
-  BuildContext context,
-  String name,
-) {
-  return math.max(
-    0,
-    _tilemapLocationLabelHeight(context, name) -
-        _tilemapLocationSingleLineLabelHeight(context),
   );
 }
 
@@ -213,7 +198,15 @@ class _TilemapLocationBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labelLayout = _tilemapLocationLabelLayout(context, name);
+    final occupied = avatars.isNotEmpty;
+    final labelStyle = occupied
+        ? _tilemapLocationLabelTextStyle
+        : _tilemapEmptyLocationLabelTextStyle;
+    final labelLayout = _tilemapLocationLabelLayout(
+      context,
+      name,
+      occupied: occupied,
+    );
     final activityIconCount = (showEvent ? 1 : 0) + (showRecentChat ? 1 : 0);
     final activityIconsWidth =
         activityIconCount * _tilemapLocationActivityIconExtraWidth;
@@ -223,7 +216,15 @@ class _TilemapLocationBubble extends StatelessWidget {
       child: FractionalTranslation(
         translation: const Offset(-0.5, 0),
         child: Transform.translate(
-          offset: Offset(0, -_tilemapLocationSingleLineLabelHeight(context)),
+          // Match the reference marker: the white dot's center, rather than
+          // the label's lower edge, is fixed to the tile anchor. Measuring the
+          // rendered label also keeps the point fixed when the name wraps.
+          offset: Offset(
+            0,
+            -labelLayout.height -
+                tilemapLocationLabelToDotSpacing -
+                tilemapLocationDotSize / 2,
+          ),
           child: Semantics(
             label: name,
             child: Column(
@@ -292,7 +293,7 @@ class _TilemapLocationBubble extends StatelessWidget {
                                     softWrap: true,
                                     maxLines: labelLayout.lineCount,
                                     overflow: TextOverflow.visible,
-                                    style: _tilemapLocationLabelTextStyle,
+                                    style: labelStyle,
                                   ),
                                 ),
                               ),
@@ -335,8 +336,26 @@ class _TilemapLocationBubble extends StatelessWidget {
                       ),
                   ],
                 ),
+                const SizedBox(height: tilemapLocationLabelToDotSpacing),
+                DecoratedBox(
+                  key: ValueKey<String>('tile-location-dot-$name'),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xD9FFFFFF),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Color(0x59000000),
+                        blurRadius: 0,
+                        spreadRadius: 3,
+                      ),
+                    ],
+                  ),
+                  child: const SizedBox.square(
+                    dimension: tilemapLocationDotSize,
+                  ),
+                ),
                 if (avatars.isNotEmpty) ...[
-                  const SizedBox(height: tilemapLocationLabelToAvatarSpacing),
+                  const SizedBox(height: tilemapLocationDotToAvatarSpacing),
                   TilemapLocationAvatars(
                     avatars: avatars,
                     onAvatarTap: onAvatarTap,

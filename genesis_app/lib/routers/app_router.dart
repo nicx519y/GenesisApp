@@ -694,7 +694,7 @@ class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
         final viewportHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : MediaQuery.sizeOf(context).height;
-        final mapHeight = originWorldMapHeightFor(
+        final mapHeight = originWorldRenderedMapHeightFor(
           viewportHeight: viewportHeight,
           bottomSafeArea: GenesisSafeAreaInsets.bottom(context),
         );

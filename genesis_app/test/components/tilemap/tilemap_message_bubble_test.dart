@@ -20,18 +20,17 @@ void main() {
     );
 
     expect(anchor.dx, 179);
-    expect(anchor.dy, 152);
+    expect(anchor.dy, 155.5);
   });
 
-  test('Tilemap bubble anchor includes wrapped location label overflow', () {
+  test('Tilemap bubble anchor stays fixed when the location label wraps', () {
     final anchor = tilemapMessageBubbleAvatarTopLeft(
       locationBubbleAnchor: const Offset(200, 100),
       avatarIndex: 0,
       avatarCount: 1,
-      locationLabelVerticalOverflow: 14.4,
     );
 
-    expect(anchor.dy, 120.4);
+    expect(anchor.dy, 109.5);
   });
 
   testWidgets('Tilemap bubble playback shows a gap and loops', (tester) async {

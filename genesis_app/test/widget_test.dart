@@ -6029,7 +6029,7 @@ void main() {
       tester.widget<ColoredBox>(transitionPanelBackground).color,
       originWorldDetailSheetBackgroundColor,
     );
-    final expectedMapHeight = originWorldMapHeightFor(
+    final expectedMapHeight = originWorldRenderedMapHeightFor(
       viewportHeight: viewportSize.height,
       bottomSafeArea: 0,
     );
@@ -6231,16 +6231,20 @@ void main() {
       );
       expect(
         loadingMapRect.height,
-        originWorldMapHeightFor(
+        originWorldRenderedMapHeightFor(
           viewportHeight: viewportSize.height,
           bottomSafeArea: 24,
         ),
       );
-      final expectedMapHeight = viewportSize.height * 0.65 - 24;
+      final expectedSheetTop = viewportSize.height * 0.65 - 24;
+      final expectedMapHeight = expectedSheetTop + originWorldMapSheetUnderlap;
       final expectedCollapsedSheetHeight =
-          viewportSize.height - expectedMapHeight;
+          viewportSize.height - expectedSheetTop;
       expect(loadingMapRect.height, expectedMapHeight);
-      expect(loadingSheetRect.top, loadingMapRect.bottom);
+      expect(
+        loadingSheetRect.top,
+        loadingMapRect.bottom - originWorldMapSheetUnderlap,
+      );
       expect(loadingSheetRect.height, expectedCollapsedSheetHeight);
 
       originDetailCompleter.complete(
@@ -6478,15 +6482,17 @@ void main() {
     );
     expect(sheetPageHandle, findsOneWidget);
     expect(sheetPageDot, findsOneWidget);
-    expect(tester.getSize(sheetPageHandle), const Size(23, 5));
-    expect(tester.getSize(sheetPageDot), const Size(23, 5));
+    expect(tester.getSize(sheetPageHandle).width, closeTo(46 * 2 / 3, 0.001));
+    expect(tester.getSize(sheetPageDot).width, closeTo(46 / 3, 0.001));
+    expect(tester.getSize(sheetPageHandle).height, 5);
+    expect(tester.getSize(sheetPageDot).height, 5);
     expect(
       tester
           .getSize(
             find.byKey(const ValueKey<String>('origin-sheet-page-indicator')),
           )
           .width,
-      54,
+      closeTo(54, 0.001),
     );
     expect(
       tester.getTopLeft(sheetPageDot).dx -
@@ -6507,6 +6513,36 @@ void main() {
       tester.getCenter(sheetPageHandle).dx,
       lessThan(tester.getCenter(sheetPageDot).dx),
     );
+    final selectRoleVisibility = find.byKey(
+      const ValueKey<String>('origin-opening-select-role-visibility'),
+    );
+    final selectRoleAction = find.byKey(
+      const ValueKey<String>('origin-opening-select-role-action'),
+    );
+    final selectRoleGradient = find.byKey(
+      const ValueKey<String>('origin-opening-select-role-gradient'),
+    );
+    expect(selectRoleVisibility, findsOneWidget);
+    expect(selectRoleAction, findsOneWidget);
+    expect(
+      tester.widget<IgnorePointer>(selectRoleVisibility).ignoring,
+      isFalse,
+    );
+    expect(
+      tester.widget<Text>(find.text('Select your role')).style?.color,
+      const Color(0xFF111111),
+    );
+    final selectRoleDecoration =
+        tester.widget<Container>(selectRoleGradient).decoration
+            as BoxDecoration;
+    final selectRoleBackground =
+        selectRoleDecoration.gradient! as LinearGradient;
+    expect(selectRoleBackground.colors, const [
+      Color(0xFFEDEDED),
+      Color(0xFFEDEDED),
+      Color(0x00EDEDED),
+    ]);
+    expect(selectRoleBackground.stops, const [0, 0.55, 1]);
     final openingBriefTitleTop = tester
         .getTopLeft(
           find.descendant(
@@ -6525,6 +6561,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Tilemap), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    expect(tester.widget<IgnorePointer>(selectRoleVisibility).ignoring, isTrue);
     expect(
       find.byKey(const ValueKey<String>('origin-info-stats-row')),
       findsOneWidget,
@@ -6649,6 +6686,26 @@ void main() {
       tester.getCenter(sheetPageHandle).dx,
       lessThan(tester.getCenter(sheetPageDot).dx),
     );
+    expect(
+      tester.widget<IgnorePointer>(selectRoleVisibility).ignoring,
+      isFalse,
+    );
+    final collapsedSheetTop = tester
+        .getTopLeft(
+          find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
+        )
+        .dy;
+    await tester.tap(selectRoleAction);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
+          )
+          .dy,
+      lessThan(collapsedSheetTop),
+    );
+    expect(tester.widget<IgnorePointer>(selectRoleVisibility).ignoring, isTrue);
   });
 
   testWidgets('origin detail sheet pauses all Tilemap animations', (
@@ -10184,14 +10241,15 @@ void main() {
     final sheetContext = tester.element(find.byType(DraggableScrollableSheet));
     final height = MediaQuery.sizeOf(sheetContext).height;
     final bottomSafeArea = GenesisSafeAreaInsets.bottom(sheetContext);
-    final expectedMapHeight = height * 0.65 - bottomSafeArea;
+    final expectedSheetTop = height * 0.65 - bottomSafeArea;
+    final expectedMapHeight = expectedSheetTop + originWorldMapSheetUnderlap;
     expect(
       tester
           .getSize(find.byKey(const ValueKey<String>('origin-map-viewport')))
           .height,
       closeTo(expectedMapHeight, 0.001),
     );
-    final collapsedSize = (height - expectedMapHeight) / height;
+    final collapsedSize = (height - expectedSheetTop) / height;
     expect(sheet.minChildSize, closeTo(collapsedSize, 0.001));
     expect(sheet.initialChildSize, closeTo(collapsedSize, 0.001));
 
@@ -21215,6 +21273,56 @@ void main() {
     await tester.tap(detailTag);
     await tester.pumpAndSettle();
     expect(currentTilemap().animationsPaused, isTrue);
+
+    final sheetIndicator = find.byKey(
+      const ValueKey<String>('world-sheet-page-indicator'),
+    );
+    expect(sheetIndicator, findsOneWidget);
+    expect(tester.getSize(sheetIndicator), const Size(53, 4));
+    for (var index = 0; index < 4; index++) {
+      final segment = find.byKey(
+        ValueKey<String>('world-sheet-page-segment-$index'),
+      );
+      expect(segment, findsOneWidget);
+      expect(tester.getSize(segment).height, 4);
+      expect(tester.getSize(segment).width, index == 0 ? 26 : 4);
+      expect(
+        (tester.widget<Container>(segment).decoration as BoxDecoration).color,
+        index == 0 ? const Color(0xFF666666) : const Color(0xFFB7B7B7),
+      );
+    }
+
+    final sheetPages = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>('world-single-section-bottom-sheet'),
+      ),
+      matching: find.byType(PageView),
+    );
+    expect(sheetPages, findsOneWidget);
+    final sheetPageController = tester.widget<PageView>(sheetPages).controller!;
+    final pageAnimation = sheetPageController.animateToPage(
+      1,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+    await tester.pumpAndSettle();
+    await pageAnimation;
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('world-sheet-page-segment-0')),
+          )
+          .width,
+      4,
+    );
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('world-sheet-page-segment-1')),
+          )
+          .width,
+      26,
+    );
 
     Navigator.of(tester.element(find.byType(WorldPage))).pop();
     await tester.pumpAndSettle();

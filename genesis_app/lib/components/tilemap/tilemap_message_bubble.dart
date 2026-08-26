@@ -202,15 +202,13 @@ Offset tilemapMessageBubbleAvatarTopLeft({
   required Offset locationBubbleAnchor,
   required int avatarIndex,
   required int avatarCount,
-  double locationLabelVerticalOverflow = 0,
 }) {
   return Offset(
     locationBubbleAnchor.dx -
         tilemapLocationAvatarGroupWidth / 2 +
         tilemapLocationAvatarLeft(avatarIndex, avatarCount),
     locationBubbleAnchor.dy +
-        locationLabelVerticalOverflow +
-        tilemapLocationLabelToAvatarSpacing +
+        tilemapLocationDotCenterToAvatarSpacing +
         tilemapLocationAvatarTop(avatarIndex),
   );
 }

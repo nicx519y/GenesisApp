@@ -11,7 +11,15 @@ import '../world_point.dart';
 
 const double tilemapLocationAvatarSize = 42;
 const double tilemapLocationAvatarSpacing = 4;
-const double tilemapLocationLabelToAvatarSpacing = 6;
+const double tilemapLocationLabelToDotSpacing = 6;
+const double tilemapLocationDotSize = 7;
+const double tilemapLocationDotToAvatarSpacing = 6;
+const double tilemapLocationDotCenterToAvatarSpacing =
+    tilemapLocationDotSize / 2 + tilemapLocationDotToAvatarSpacing;
+const double tilemapLocationLabelToAvatarSpacing =
+    tilemapLocationLabelToDotSpacing +
+    tilemapLocationDotSize +
+    tilemapLocationDotToAvatarSpacing;
 const int tilemapLocationAvatarColumnCount = 3;
 const double tilemapLocationAvatarGroupWidth =
     tilemapLocationAvatarSize * tilemapLocationAvatarColumnCount +

@@ -1222,8 +1222,19 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey<String>('tile-location-dot-High School')),
-      findsNothing,
+      findsOneWidget,
     );
+    final locationDot = find.byKey(
+      const ValueKey<String>('tile-location-dot-High School'),
+    );
+    expect(tester.getSize(locationDot), const Size.square(7));
+    final locationDotDecoration =
+        tester.widget<DecoratedBox>(locationDot).decoration as BoxDecoration;
+    expect(locationDotDecoration.shape, BoxShape.circle);
+    expect(locationDotDecoration.color, const Color(0xD9FFFFFF));
+    expect(locationDotDecoration.boxShadow, const [
+      BoxShadow(color: Color(0x59000000), blurRadius: 0, spreadRadius: 3),
+    ]);
     final bubbleBody = tester.widget<Container>(
       find.byKey(
         const ValueKey<String>('tile-location-bubble-body-High School'),
@@ -1232,10 +1243,11 @@ void main() {
     final labelDecoration = bubbleBody.decoration! as BoxDecoration;
     expect(labelDecoration.color, Colors.black.withValues(alpha: 0.4));
     expect(labelDecoration.borderRadius, BorderRadius.circular(4));
+    expect(labelDecoration.border, isNull);
     final locationName = tester.widget<Text>(find.text('High School'));
     expect(locationName.textAlign, TextAlign.center);
     expect(locationName.softWrap, true);
-    expect(locationName.style?.color, Colors.white);
+    expect(locationName.style?.color, const Color(0xBAFFFFFF));
     expect(locationName.style?.fontSize, 12);
     expect(locationName.style?.height, 1.2);
     expect(locationName.style?.fontWeight, FontWeight.w600);
@@ -1249,8 +1261,17 @@ void main() {
       ),
     );
     expect(
-      bubbleBodyRect.bottom,
+      tester.getRect(locationDot).center.dy,
       closeTo(tileRect.center.dy + tileRect.height / 8, 0.01),
+    );
+    expect(
+      bubbleBodyRect.bottom,
+      closeTo(
+        tester.getRect(locationDot).center.dy -
+            tilemapLocationDotSize / 2 -
+            tilemapLocationLabelToDotSpacing,
+        0.01,
+      ),
     );
     expect(bubbleBodyRect.center.dx, closeTo(tileRect.center.dx, 0.01));
     expect(eventRect.left - bubbleBodyRect.right, closeTo(3, 0.01));
@@ -1276,7 +1297,7 @@ void main() {
   });
 
   testWidgets(
-    'multi-line location name pushes avatars and message bubble down',
+    'multi-line location name grows upward from the fixed location dot',
     (tester) async {
       final config = TilemapConfig.fromTiles(
         id: 'wrapped_location_label',
@@ -1347,6 +1368,9 @@ void main() {
       final singleAvatarRect = tester.getRect(
         find.byKey(const ValueKey<String>('tilemap-location-avatar-char_1')),
       );
+      final singleDotRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tile-location-dot-$singleLineName')),
+      );
       final singleMessageRect = tester.getRect(
         find.byKey(
           const ValueKey<String>('tilemap-character-message-bubble-body'),
@@ -1384,6 +1408,9 @@ void main() {
       final wrappedAvatarRect = tester.getRect(
         find.byKey(const ValueKey<String>('tilemap-location-avatar-char_1')),
       );
+      final wrappedDotRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tile-location-dot-$wrappedName')),
+      );
       final wrappedMessageRect = tester.getRect(
         find.byKey(
           const ValueKey<String>('tilemap-character-message-bubble-body'),
@@ -1397,9 +1424,11 @@ void main() {
       expect(wrappedParagraph.maxLines, greaterThan(1));
       expect(wrappedParagraph.didExceedMaxLines, isFalse);
       expect(wrappedParagraph.size.height, greaterThan(singleLabelRect.height));
-      expect(wrappedLabelRect.top, closeTo(singleLabelRect.top, 0.01));
-      expect(wrappedAvatarRect.top, greaterThan(singleAvatarRect.top));
-      expect(wrappedMessageRect.top, greaterThan(singleMessageRect.top));
+      expect(wrappedLabelRect.top, lessThan(singleLabelRect.top));
+      expect(wrappedLabelRect.bottom, closeTo(singleLabelRect.bottom, 0.01));
+      expect(wrappedDotRect.center.dy, closeTo(singleDotRect.center.dy, 0.01));
+      expect(wrappedAvatarRect.top, closeTo(singleAvatarRect.top, 0.01));
+      expect(wrappedMessageRect.top, closeTo(singleMessageRect.top, 0.01));
 
       const unevenWrappedName = 'WWWWWWWWWW iiiiiiiiii';
       await tester.pumpWidget(harness(unevenWrappedName));
@@ -2181,16 +2210,28 @@ void main() {
           const ValueKey<String>('tile-location-bubble-body-June Coffee'),
         ),
       );
+      final occupiedLocationName = tester.widget<Text>(
+        find.text('June Coffee'),
+      );
+      expect(occupiedLocationName.style?.color, Colors.white);
+      expect(occupiedLocationName.style?.fontWeight, FontWeight.w600);
       final avatarRects = <Rect>[
         for (final id in const ['a', 'b', 'c', 'd'])
           tester.getRect(
             find.byKey(ValueKey<String>('tilemap-location-avatar-$id')),
           ),
       ];
+      final dotRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tile-location-dot-June Coffee')),
+      );
 
       expect(
-        avatarRects.first.top - bubbleRect.bottom,
-        closeTo(tilemapLocationLabelToAvatarSpacing, 0.01),
+        dotRect.top - bubbleRect.bottom,
+        closeTo(tilemapLocationLabelToDotSpacing, 0.01),
+      );
+      expect(
+        avatarRects.first.top - dotRect.bottom,
+        closeTo(tilemapLocationDotToAvatarSpacing, 0.01),
       );
       expect(avatarRects[0].top, avatarRects[1].top);
       expect(avatarRects[1].top, avatarRects[2].top);
