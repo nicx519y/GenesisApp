@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart'
-    show FloatingHeaderSnapConfiguration, ScrollCacheExtent;
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
@@ -36,8 +35,7 @@ class OriginPage extends StatefulWidget {
   State<OriginPage> createState() => _OriginPageState();
 }
 
-class _OriginPageState extends State<OriginPage>
-    with WidgetsBindingObserver, TickerProviderStateMixin {
+class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   static const _tabsHeight = 32.0;
   static const _scrollToTopDuration = Duration(milliseconds: 240);
   static const _forYouCategory = _OriginCategory(
@@ -46,13 +44,10 @@ class _OriginPageState extends State<OriginPage>
   );
 
   final _hotTagsCache = const _OriginHotTagsCache();
-  final ScrollController _nestedScrollController = ScrollController();
   final Map<_OriginCategory, GlobalKey<_OriginFeedState>> _feedKeys = {};
   List<_OriginCategory> _categories = const [_forYouCategory];
   TabController? _categoryTabController;
-  var _tabsVisible = true;
   var _scrollToTopInProgress = false;
-  var _showTabsDuringScrollToTop = false;
   var _hasSyncedHotTags = false;
   var _hotTagsSyncInFlight = false;
   var _retryHotTagsOnResume = false;
@@ -63,7 +58,6 @@ class _OriginPageState extends State<OriginPage>
     super.initState();
     _lifecycleState = WidgetsBinding.instance.lifecycleState;
     WidgetsBinding.instance.addObserver(this);
-    _nestedScrollController.addListener(_handleNestedScroll);
     widget.activationListenable?.addListener(_handleMainNavReselected);
     unawaited(_syncHotTags());
     unawaited(_hydrateCachedCategories());
@@ -81,8 +75,6 @@ class _OriginPageState extends State<OriginPage>
   @override
   void dispose() {
     widget.activationListenable?.removeListener(_handleMainNavReselected);
-    _nestedScrollController.removeListener(_handleNestedScroll);
-    _nestedScrollController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -91,21 +83,11 @@ class _OriginPageState extends State<OriginPage>
     return _feedKeys.putIfAbsent(category, () => GlobalKey<_OriginFeedState>());
   }
 
-  void _handleNestedScroll() {
-    if (_scrollToTopInProgress || !_nestedScrollController.hasClients) return;
-    final position = _nestedScrollController.position;
-    final tabsVisible = position.pixels < _tabsHeight - precisionErrorTolerance;
-    if (tabsVisible == _tabsVisible || !mounted) return;
-    setState(() {
-      _tabsVisible = tabsVisible;
-    });
-  }
-
   void _handleCategoryTap(BuildContext tabContext, int index) {
     final controller = DefaultTabController.of(tabContext);
     _categoryTabController = controller;
     if (controller.index != index || controller.indexIsChanging) return;
-    unawaited(_scrollCategoryToTop(index, keepTabsVisible: true));
+    unawaited(_scrollCategoryToTop(index));
   }
 
   void _handleMainNavReselected() {
@@ -126,46 +108,17 @@ class _OriginPageState extends State<OriginPage>
     unawaited(_scrollCategoryToTop(0));
   }
 
-  Future<void> _scrollCategoryToTop(
-    int index, {
-    bool keepTabsVisible = false,
-  }) async {
+  Future<void> _scrollCategoryToTop(int index) async {
     if (index < 0 || index >= _categories.length || _scrollToTopInProgress) {
       return;
     }
     _scrollToTopInProgress = true;
-    if (keepTabsVisible && mounted) {
-      setState(() {
-        _showTabsDuringScrollToTop = true;
-      });
-    }
     try {
-      await _revealTabs();
-      if (!mounted) return;
       final feedState = _feedKeyFor(_categories[index]).currentState;
       if (feedState != null) await feedState.scrollToTop();
-      if (!mounted) return;
-      await _revealTabs();
     } finally {
       _scrollToTopInProgress = false;
-      if (mounted && (_showTabsDuringScrollToTop || !_tabsVisible)) {
-        setState(() {
-          _showTabsDuringScrollToTop = false;
-          _tabsVisible = true;
-        });
-      }
     }
-  }
-
-  Future<void> _revealTabs() async {
-    if (!_nestedScrollController.hasClients) return;
-    final position = _nestedScrollController.position;
-    if (position.pixels <= position.minScrollExtent) return;
-    await _nestedScrollController.animateTo(
-      position.minScrollExtent,
-      duration: _scrollToTopDuration,
-      curve: Curves.easeOutCubic,
-    );
   }
 
   @override
@@ -285,69 +238,32 @@ class _OriginPageState extends State<OriginPage>
                   ),
                 ),
               ),
+              SizedBox(
+                height: _tabsHeight,
+                child: ColoredBox(
+                  color: Colors.white,
+                  child: SecendTabs(
+                    labels: labels,
+                    verticalPadding: 0,
+                    onTap: (index) => _handleCategoryTap(tabContext, index),
+                  ),
+                ),
+              ),
               Expanded(
-                child: Stack(
+                child: TabBarView(
                   children: [
-                    Positioned.fill(
-                      child: NestedScrollView(
-                        controller: _nestedScrollController,
-                        floatHeaderSlivers: true,
-                        physics: const BouncingScrollPhysics(
-                          parent: AlwaysScrollableScrollPhysics(),
-                        ),
-                        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-                          SliverPersistentHeader(
-                            floating: true,
-                            delegate: _OriginTabsHeaderDelegate(
-                              height: _tabsHeight,
-                              vsync: this,
-                              child: SecendTabs(
-                                labels: labels,
-                                verticalPadding: 0,
-                                onTap: (index) =>
-                                    _handleCategoryTap(tabContext, index),
-                              ),
-                            ),
-                          ),
-                        ],
-                        body: TabBarView(
-                          physics: _tabsVisible
-                              ? null
-                              : const NeverScrollableScrollPhysics(),
-                          children: [
-                            for (final entry in categories.indexed)
-                              _OriginFeed(
-                                key: _feedKeyFor(entry.$2),
-                                index: entry.$1,
-                                category: entry.$2,
-                                isInitialPage:
-                                    widget.isInitialPage && entry.$1 == 0,
-                                onFirstPageReady: entry.$1 == 0
-                                    ? widget.onForYouFirstPageReady
-                                    : null,
-                                onInitialLoadCompleted: entry.$1 == 0
-                                    ? _retryHotTagsIfNeeded
-                                    : null,
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    if (_showTabsDuringScrollToTop)
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: _tabsHeight,
-                        child: ColoredBox(
-                          color: Colors.white,
-                          child: SecendTabs(
-                            labels: labels,
-                            verticalPadding: 0,
-                            onTap: (index) =>
-                                _handleCategoryTap(tabContext, index),
-                          ),
-                        ),
+                    for (final entry in categories.indexed)
+                      _OriginFeed(
+                        key: _feedKeyFor(entry.$2),
+                        index: entry.$1,
+                        category: entry.$2,
+                        isInitialPage: widget.isInitialPage && entry.$1 == 0,
+                        onFirstPageReady: entry.$1 == 0
+                            ? widget.onForYouFirstPageReady
+                            : null,
+                        onInitialLoadCompleted: entry.$1 == 0
+                            ? _retryHotTagsIfNeeded
+                            : null,
                       ),
                   ],
                 ),
@@ -357,48 +273,6 @@ class _OriginPageState extends State<OriginPage>
         },
       ),
     );
-  }
-}
-
-class _OriginTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _OriginTabsHeaderDelegate({
-    required this.height,
-    required this.vsync,
-    required this.child,
-  });
-
-  final double height;
-  @override
-  final TickerProvider vsync;
-  final Widget child;
-
-  @override
-  FloatingHeaderSnapConfiguration get snapConfiguration =>
-      FloatingHeaderSnapConfiguration(
-        curve: Curves.easeOutCubic,
-        duration: Duration(milliseconds: 160),
-      );
-
-  @override
-  double get minExtent => height;
-
-  @override
-  double get maxExtent => height;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return ColoredBox(color: Colors.white, child: child);
-  }
-
-  @override
-  bool shouldRebuild(covariant _OriginTabsHeaderDelegate oldDelegate) {
-    return height != oldDelegate.height ||
-        vsync != oldDelegate.vsync ||
-        child != oldDelegate.child;
   }
 }
 

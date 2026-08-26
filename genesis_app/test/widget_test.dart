@@ -5184,8 +5184,6 @@ void main() {
 
     await tester.drag(forYouFeedFinder, const Offset(0, -400));
     await tester.pumpAndSettle();
-    await tester.drag(forYouFeedFinder, const Offset(0, 80));
-    await tester.pumpAndSettle();
 
     expect(forYouScrollableState.position.pixels, greaterThan(0));
     await tester.tap(find.text('Destroyed').hitTestable());
@@ -5207,13 +5205,7 @@ void main() {
       0,
     );
     expect(forYouScrollableState.position.pixels, 0);
-    expect(
-      tester
-          .state<NestedScrollViewState>(find.byType(NestedScrollView))
-          .outerController
-          .offset,
-      0,
-    );
+    expect(find.byType(NestedScrollView), findsNothing);
     AppStartupCoordinator.resetForTesting();
   });
 
@@ -5275,7 +5267,7 @@ void main() {
   });
 
   testWidgets(
-    'Origin category tabs float back and current tab returns to top',
+    'Origin category tabs stay pinned, swipe, and current tab returns to top',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport();
       await tester.pumpWidget(
@@ -5309,32 +5301,8 @@ void main() {
         tester.widget<TabBarView>(find.byType(TabBarView)).physics,
         isNull,
       );
-      expect(
-        tester
-            .widget<NestedScrollView>(find.byType(NestedScrollView))
-            .floatHeaderSlivers,
-        isTrue,
-      );
-      expect(
-        tester
-            .widget<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
-            .floating,
-        isTrue,
-      );
-      expect(
-        tester
-            .widget<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
-            .delegate
-            .snapConfiguration,
-        isNotNull,
-      );
-      expect(
-        find.ancestor(
-          of: find.byType(NestedScrollView),
-          matching: find.byType(RefreshIndicator),
-        ),
-        findsNothing,
-      );
+      expect(find.byType(NestedScrollView), findsNothing);
+      expect(find.byType(SliverPersistentHeader), findsNothing);
       expect(
         find.ancestor(of: feedFinder, matching: find.byType(RefreshIndicator)),
         findsOneWidget,
@@ -5356,27 +5324,26 @@ void main() {
         0,
       );
 
+      await tester.drag(find.byType(PageView), const Offset(-500, 0));
+      await tester.pumpAndSettle();
+      expect(tabController.index, 1);
+
+      await tester.drag(find.byType(PageView), const Offset(500, 0));
+      await tester.pumpAndSettle();
+      expect(tabController.index, 0);
+
       await tester.drag(feedFinder, const Offset(0, -400));
       await tester.pumpAndSettle();
 
       expect(tester.getTopLeft(searchFinder).dy, initialSearchTop);
-      expect(categoryFinder.hitTestable(), findsNothing);
-      expect(
-        tester.widget<TabBarView>(find.byType(TabBarView)).physics,
-        isA<NeverScrollableScrollPhysics>(),
-      );
-      expect(
-        tester.widget<PageView>(find.byType(PageView)).physics?.parent,
-        isA<NeverScrollableScrollPhysics>(),
-      );
-
-      await tester.drag(feedFinder, const Offset(0, 30));
-      await tester.pumpAndSettle();
-
       expect(categoryFinder.hitTestable(), findsOneWidget);
       expect(
         tester.widget<TabBarView>(find.byType(TabBarView)).physics,
         isNull,
+      );
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).physics,
+        isA<PageScrollPhysics>(),
       );
       expect(
         tester.state<ScrollableState>(feedScrollableFinder).position.pixels,
@@ -5392,13 +5359,6 @@ void main() {
 
       expect(
         tester.state<ScrollableState>(feedScrollableFinder).position.pixels,
-        0,
-      );
-      expect(
-        tester
-            .state<NestedScrollViewState>(find.byType(NestedScrollView))
-            .outerController
-            .offset,
         0,
       );
     },
