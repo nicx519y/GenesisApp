@@ -218,7 +218,7 @@ const _mutedBodyTextStyle = TextStyle(
 
 const _originTickContentLabelStyle = TextStyle(
   fontSize: 13,
-  height: 1.6,
+  height: 1.4,
   fontWeight: FontWeight.w600,
   color: Color(0xFF111111),
   decoration: TextDecoration.none,
@@ -226,7 +226,7 @@ const _originTickContentLabelStyle = TextStyle(
 
 const _originTickContentTextStyle = TextStyle(
   fontSize: 13,
-  height: 1.6,
+  height: 1.4,
   fontWeight: FontWeight.w400,
   color: Color(0xFF444444),
   decoration: TextDecoration.none,

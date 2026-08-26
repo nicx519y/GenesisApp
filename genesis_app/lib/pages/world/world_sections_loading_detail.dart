@@ -166,129 +166,143 @@ class WorldDetailSection extends StatelessWidget {
     final brief = world.brief.trim().isEmpty ? '-' : world.brief.trim();
     final cover = worldResolveAssetUrl(world.cover).trim();
     final canDeleteWorld = worldCanDeleteLaunchedOnlyBySelf(world, currentUid);
+    final metaStyle = CopyableIdLabel.textStyle.copyWith(height: 1.2);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          children: [
-            const SizedBox(width: 38),
-            Expanded(
-              child: Text(
-                title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 18,
-                  height: 1.25,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF4B6192),
-                ),
-              ),
-            ),
-            SizedBox(
-              width: 38,
-              child: GenesisMoreActionMenuButton(
-                buttonSize: 18 * 1.25,
-                items: [
-                  genesisReportMenuItem(
-                    context: context,
-                    targetType: 'world',
-                    targetId: world.worldId,
-                  ),
-                  GenesisActionMenuItem(
-                    label: 'Delete',
-                    iconAsset: genesisDeleteIconAsset,
-                    textStyle: TextStyle(
-                      fontSize: 12,
-                      height: 1.2,
-                      fontWeight: FontWeight.w400,
-                      color: canDeleteWorld
-                          ? Colors.white
-                          : Colors.white.withValues(alpha: 0.45),
-                    ),
-                    onSelected: () {
-                      if (!canDeleteWorld) {
-                        showGenesisToast(
-                          context,
-                          'Only worlds launched by you alone can be deleted.',
-                          duration: const Duration(seconds: 3),
-                        );
-                        return;
-                      }
-                      unawaited(onDeleteWorld?.call(context, world));
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        GenesisPairedMetaRow(
-          leftLabel: 'WID',
-          leftValue: world.worldId,
-          leftDisplayValue: world.deleted ? deletedEntityDisplayText : null,
-          leftCopyEnabled: !world.deleted,
-          leftStyle: worldHeaderMetaTextStyle,
-          leftIconColor: worldHeaderMetaColor,
-          rightText: 'Owner: $owner',
-          rightOnTap: ownerUid.isEmpty || world.ownerDeleted
-              ? null
-              : () => Navigator.of(
-                  context,
-                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
-          rightStyle: worldHeaderMetaTextStyle,
-          rightIconColor: worldHeaderMetaColor,
-        ),
-        const SizedBox(height: 0),
-        GenesisInlineMetaLabel(
-          text: 'Source Worldo: $sourceOid · V$version',
-          onTap: !canOpenSourceWorldo
-              ? null
-              : () => Navigator.of(context).pushNamed(
-                  RouteNames.originWorld,
-                  arguments: {
-                    'oid': sourceWorldoRouteId,
-                    'originId': world.originId,
-                  },
-                ),
-          style: CopyableIdLabel.textStyle,
-          trailingIcon: canOpenSourceWorldo ? Icons.chevron_right : null,
-          trailingIconColor: worldHeaderMetaColor,
-          trailingIconSize: 16,
-        ),
-        const SizedBox(height: 8),
-        Row(
+          key: const ValueKey<String>('world-detail-basic-info'),
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (newUserJoinNotice == null)
-              const Spacer()
-            else
-              Expanded(
-                child: SizedBox(
-                  height: 35,
-                  child: _WorldNewUserJoinNoticeSwitcher(
-                    notice: newUserJoinNotice!,
+            WorldDetailCoverImage(url: cover),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          title,
+                          key: const ValueKey<String>('world-detail-name'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            height: 1.25,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF4B6192),
+                            decoration: TextDecoration.none,
+                          ),
+                        ),
+                      ),
+                      GenesisMoreActionMenuButton(
+                        buttonSize: 18 * 1.25,
+                        items: [
+                          genesisReportMenuItem(
+                            context: context,
+                            targetType: 'world',
+                            targetId: world.worldId,
+                          ),
+                          GenesisActionMenuItem(
+                            label: 'Delete',
+                            iconAsset: genesisDeleteIconAsset,
+                            textStyle: TextStyle(
+                              fontSize: 12,
+                              height: 1.2,
+                              fontWeight: FontWeight.w400,
+                              color: canDeleteWorld
+                                  ? Colors.white
+                                  : Colors.white.withValues(alpha: 0.45),
+                            ),
+                            onSelected: () {
+                              if (!canDeleteWorld) {
+                                showGenesisToast(
+                                  context,
+                                  'Only worlds launched by you alone can be deleted.',
+                                  duration: const Duration(seconds: 3),
+                                );
+                                return;
+                              }
+                              unawaited(onDeleteWorld?.call(context, world));
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                ),
+                  const SizedBox(height: 4),
+                  CopyableIdLabel(
+                    label: 'WID',
+                    value: world.worldId,
+                    displayValue: world.deleted
+                        ? deletedEntityDisplayText
+                        : null,
+                    enabled: !world.deleted,
+                    customTextStyle: metaStyle,
+                    customIconColor: worldHeaderMetaColor,
+                  ),
+                  GenesisInlineMetaLabel(
+                    text: 'Owner: $owner',
+                    onTap: ownerUid.isEmpty || world.ownerDeleted
+                        ? null
+                        : () => Navigator.of(context).pushNamed(
+                            RouteNames.userInfo,
+                            arguments: {'uid': ownerUid},
+                          ),
+                    style: metaStyle,
+                    trailingIcon: ownerUid.isEmpty || world.ownerDeleted
+                        ? null
+                        : Icons.chevron_right,
+                    trailingIconColor: worldHeaderMetaColor,
+                    trailingIconSize: genesisCopyableIdIconSize,
+                    trailingGap: 4,
+                  ),
+                  GenesisInlineMetaLabel(
+                    text: 'Source Worldo: $sourceOid · V$version',
+                    onTap: !canOpenSourceWorldo
+                        ? null
+                        : () => Navigator.of(context).pushNamed(
+                            RouteNames.originWorld,
+                            arguments: {
+                              'oid': sourceWorldoRouteId,
+                              'originId': world.originId,
+                              'initialName': world.origin.name,
+                            },
+                          ),
+                    style: metaStyle,
+                    trailingIcon: canOpenSourceWorldo
+                        ? Icons.chevron_right
+                        : null,
+                    trailingIconColor: worldHeaderMetaColor,
+                    trailingIconSize: genesisCopyableIdIconSize,
+                    trailingGap: 4,
+                  ),
+                  const SizedBox(height: 10),
+                  GenesisPrimaryButton(
+                    label: 'Invite',
+                    onPressed: () => _copyInviteText(context, worldName: title),
+                    height: 35,
+                    width: 140,
+                    backgroundColor: const Color(0xFFFF2442),
+                    disabledBackgroundColor: const Color(
+                      0xFFFF2442,
+                    ).withValues(alpha: 0.62),
+                    foregroundColor: Colors.white,
+                    fontSize: 16,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  if (newUserJoinNotice != null) ...[
+                    const SizedBox(height: 8),
+                    _WorldNewUserJoinNoticeSwitcher(notice: newUserJoinNotice!),
+                  ],
+                ],
               ),
-            const SizedBox(width: 16),
-            GenesisPrimaryButton(
-              label: 'Invite',
-              onPressed: () => _copyInviteText(context, worldName: title),
-              height: 35,
-              width: 140,
-              backgroundColor: const Color(0xFFFF2442),
-              disabledBackgroundColor: const Color(
-                0xFFFF2442,
-              ).withValues(alpha: 0.62),
-              foregroundColor: Colors.white,
-              fontSize: 16,
-              padding: EdgeInsets.zero,
-              minimumSize: Size.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ],
         ),
@@ -300,8 +314,6 @@ class WorldDetailSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(brief, style: worldDetailBodyTextStyle),
-        const SizedBox(height: 8),
-        WorldDetailCoverImage(url: cover),
         const SizedBox(height: 24),
         const WorldDetailSectionTitle(
           asset: worldSectionCastIconAsset,
@@ -362,12 +374,15 @@ class WorldDetailSectionListView extends StatelessWidget {
       itemCount: itemCount,
       itemBuilder: (context, index) {
         if (index == 0) {
-          return WorldDetailSection(
-            world: world,
-            currentUid: currentUid,
-            newUserJoinNotice: newUserJoinNotice,
-            onDeleteWorld: onDeleteWorld,
-            showCharacters: false,
+          return Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: WorldDetailSection(
+              world: world,
+              currentUid: currentUid,
+              newUserJoinNotice: newUserJoinNotice,
+              onDeleteWorld: onDeleteWorld,
+              showCharacters: false,
+            ),
           );
         }
         if (sortedCharacters.isEmpty) {
@@ -551,8 +566,8 @@ class WorldDetailSectionTitle extends StatelessWidget {
 class WorldDetailCoverImage extends StatelessWidget {
   const WorldDetailCoverImage({required this.url});
 
-  static const double _maxHeight = 360;
-  static const double _aspectRatio = 2 / 3;
+  static const double width = 120;
+  static const double height = 180;
 
   final String url;
 
@@ -565,86 +580,55 @@ class WorldDetailCoverImage extends StatelessWidget {
       child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final mediaHeight = MediaQuery.sizeOf(context).height;
-        final maxHeight = mediaHeight.isFinite
-            ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
-            : _maxHeight;
-        final maxWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : maxHeight * _aspectRatio;
-        final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
-        final height = width / _aspectRatio;
-
-        final preview = Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: ClipRRect(
-              borderRadius: GenesisImageRadii.content,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final imageUrl = selectGenesisImageUrl(
-                    url,
-                    logicalWidth: constraints.maxWidth.isFinite
-                        ? constraints.maxWidth
-                        : null,
-                    logicalHeight: constraints.maxHeight.isFinite
-                        ? constraints.maxHeight
-                        : null,
-                    devicePixelRatio:
-                        MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-                  );
-                  return imageUrl.isEmpty
-                      ? fallback
-                      : imageUrl.startsWith('assets/')
-                      ? Image.asset(
-                          imageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              fallback,
-                        )
-                      : GenesisStaticNetworkImage(
-                          imageUrl: imageUrl,
-                          fit: BoxFit.cover,
-                          placeholder: (_) => fallback,
-                          errorWidget: (_, _) => fallback,
-                        );
-                },
-              ),
-            ),
-          ),
-        );
-        if (viewerUrl.isEmpty) return preview;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () {
-            final imageUrl = selectGenesisImageUrl(
-              url,
-              logicalWidth: width,
-              logicalHeight: height,
-              devicePixelRatio:
-                  MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
-            );
-            showGenesisImageViewer(
-              context,
-              imageUrls: [viewerUrl],
-              previewImageProviders: [
-                genesisImageViewerPreviewProvider(
-                  context,
-                  imageUrl: imageUrl,
-                  logicalWidth: width,
-                  logicalHeight: height,
+    final imageUrl = selectGenesisImageUrl(
+      url,
+      logicalWidth: width,
+      logicalHeight: height,
+      devicePixelRatio: MediaQuery.maybeOf(context)?.devicePixelRatio ?? 1,
+    );
+    final preview = Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        key: const ValueKey<String>('world-detail-cover'),
+        width: width,
+        height: height,
+        child: ClipRRect(
+          borderRadius: GenesisImageRadii.content,
+          child: imageUrl.isEmpty
+              ? fallback
+              : imageUrl.startsWith('assets/')
+              ? Image.asset(
+                  imageUrl,
                   fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => fallback,
+                )
+              : GenesisStaticNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_) => fallback,
+                  errorWidget: (_, _) => fallback,
                 ),
-              ],
-            );
-          },
-          child: preview,
-        );
-      },
+        ),
+      ),
+    );
+    if (viewerUrl.isEmpty) return preview;
+    return GestureDetector(
+      key: const ValueKey<String>('world-detail-cover-viewer'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showGenesisImageViewer(
+        context,
+        imageUrls: [viewerUrl],
+        previewImageProviders: [
+          genesisImageViewerPreviewProvider(
+            context,
+            imageUrl: imageUrl,
+            logicalWidth: width,
+            logicalHeight: height,
+            fit: BoxFit.cover,
+          ),
+        ],
+      ),
+      child: preview,
     );
   }
 }
@@ -673,7 +657,12 @@ class WorldSectionListView extends StatelessWidget {
         key: PageStorageKey<String>(storageKey),
         primary: false,
         physics: const ClampingScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
+        padding: const EdgeInsets.fromLTRB(
+          12,
+          worldSheetVisibleContentTopGap,
+          12,
+          32,
+        ),
         itemCount: itemCount,
         itemBuilder: itemBuilder,
       );
@@ -682,7 +671,12 @@ class WorldSectionListView extends StatelessWidget {
       key: PageStorageKey<String>(storageKey),
       primary: false,
       physics: const ClampingScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
+      padding: const EdgeInsets.fromLTRB(
+        12,
+        worldSheetVisibleContentTopGap,
+        12,
+        32,
+      ),
       children: [child!],
     );
   }

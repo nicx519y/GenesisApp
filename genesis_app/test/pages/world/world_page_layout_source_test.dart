@@ -190,13 +190,10 @@ void main() {
     expect(eventsSectionBuilder, contains('overscroll: false'));
     expect(locationsSectionBuilder, contains('ScrollConfiguration'));
     expect(locationsSectionBuilder, contains('overscroll: false'));
-    expect(
-      eventsSectionBuilder,
-      contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'),
-    );
+    expect(eventsSectionBuilder, contains('worldSheetVisibleContentTopGap'));
     expect(
       locationsSectionBuilder,
-      contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'),
+      contains('worldSheetVisibleContentTopGap - 5'),
     );
     expect(singleSectionSheet, contains('Expanded('));
     expect(singleSectionSheet, contains('_buildDismissibleSheetContent()'));
@@ -209,7 +206,7 @@ void main() {
     expect(singleSectionSheet, contains('overscroll: false'));
     expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
-    expect(sectionListView, contains('EdgeInsets.fromLTRB(12, 14, 12, 32)'));
+    expect(sectionListView, contains('worldSheetVisibleContentTopGap'));
     expect(sectionListView, contains('ListView.builder('));
     expect(source, isNot(contains('EdgeInsets.fromLTRB(24, 14, 24, 32)')));
     expect(bottomTags, isNot(contains('TabBar(')));
@@ -269,7 +266,20 @@ void main() {
     expect(sections, contains('showCharacters: false'));
     expect(
       detailSection,
-      contains('const SizedBox(height: 4),\n        GenesisPairedMetaRow'),
+      contains("key: const ValueKey<String>('world-detail-basic-info')"),
+    );
+    expect(detailSection, contains('WorldDetailCoverImage(url: cover)'));
+    expect(detailSection, contains('const SizedBox(width: 14)'));
+    expect(detailSection, contains('fontSize: 16'));
+    expect(detailSection, contains("label: 'WID'"));
+    expect(detailSection, contains("text: 'Owner: \$owner'"));
+    expect(
+      detailSection,
+      contains('trailingIconSize: genesisCopyableIdIconSize'),
+    );
+    expect(
+      detailSection.indexOf('WorldDetailCoverImage(url: cover)'),
+      lessThan(briefIndex),
     );
   });
 
@@ -353,6 +363,9 @@ void main() {
     );
 
     expect(cover, contains('GenesisStaticNetworkImage('));
+    expect(cover, contains('static const double width = 120'));
+    expect(cover, contains('static const double height = 180'));
+    expect(cover, contains("ValueKey<String>('world-detail-cover')"));
     expect(cover, isNot(contains('Image.network(')));
   });
 

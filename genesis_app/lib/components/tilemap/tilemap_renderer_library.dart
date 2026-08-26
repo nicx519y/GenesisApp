@@ -168,7 +168,7 @@ const TilemapVisualStyle tilemapLightVisualStyle = TilemapVisualStyle(
   gridLineColor: Color(0xFFD7D6D2),
 );
 const TilemapVisualStyle tilemapDarkVisualStyle = TilemapVisualStyle(
-  backgroundColor: Color(0xFF37362E),
+  backgroundColor: Colors.black,
   gridLineColor: Color(0xFF2E2D26),
 );
 

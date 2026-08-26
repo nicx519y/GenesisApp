@@ -128,7 +128,7 @@ class _CopyWorldProgressCard extends StatelessWidget {
   const _CopyWorldProgressCard({required this.summary, required this.onOpen});
 
   static const double _bodyFontSize = 13;
-  static const double _bodyLineHeight = 1.45;
+  static const double _bodyLineHeight = 1.4;
   static const double _bodyHeight = _bodyFontSize * _bodyLineHeight * 5 + 6;
   static const _bodyStrutStyle = StrutStyle(
     fontSize: _bodyFontSize,

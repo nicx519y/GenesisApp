@@ -63,7 +63,6 @@ class WorldCharacterListView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sortedCharacters = worldSortedCharacters(characters, currentUid);
-    final hasCharacterRole = sortedCharacters.any(worldIsCharacterRole);
     return WorldSectionListView.builder(
       storageKey: storageKey,
       itemCount: math.max(sortedCharacters.length, 1),
@@ -73,9 +72,7 @@ class WorldCharacterListView extends StatelessWidget {
         }
         final character = sortedCharacters[index];
         return Padding(
-          padding: EdgeInsets.only(
-            top: index == 0 ? (hasCharacterRole ? 5 : 0) : 22,
-          ),
+          padding: EdgeInsets.only(top: index == 0 ? 0 : 22),
           child: WorldCharacterRow(
             character: character,
             currentUid: currentUid,

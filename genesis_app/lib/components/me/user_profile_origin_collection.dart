@@ -72,6 +72,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
                             arguments: {
                               'originId': item.originId,
                               'oid': item.oid,
+                              'initialName': item.title,
                             },
                           )
                           .then((_) {

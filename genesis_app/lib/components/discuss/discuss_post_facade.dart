@@ -181,7 +181,7 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF2F2F2),
+          color: const Color(0xFFF8F8F8),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(

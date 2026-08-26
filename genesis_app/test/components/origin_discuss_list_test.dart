@@ -102,6 +102,29 @@ void main() {
     expect(secondTop - firstBottom, closeTo(16, 0.1));
   });
 
+  testWidgets('supports a preview content line-height override', (
+    tester,
+  ) async {
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) async =>
+            _page(pn: pn, rn: rn, totalAll: 1, contents: ['Preview body']),
+      );
+
+    await controller.loadInitialIfNeeded();
+    await tester.pumpWidget(
+      _host(
+        controller,
+        showActions: false,
+        showReplies: false,
+        contentLineHeight: 1.4,
+      ),
+    );
+
+    expect(tester.widget<Text>(find.text('Preview body')).style?.height, 1.4);
+  });
+
   testWidgets('hides View More when total_all is not greater than two', (
     tester,
   ) async {
@@ -1194,6 +1217,7 @@ Widget _host(
   bool showActions = true,
   bool showReplies = true,
   bool imageTapOpensViewer = false,
+  double contentLineHeight = 1.45,
   OriginDiscussItemTap? onItemReplyTap,
 }) {
   final app = MaterialApp(
@@ -1209,6 +1233,7 @@ Widget _host(
               showActions: showActions,
               showReplies: showReplies,
               imageTapOpensViewer: imageTapOpensViewer,
+              contentLineHeight: contentLineHeight,
               onItemReplyTap: onItemReplyTap,
             ),
           ),

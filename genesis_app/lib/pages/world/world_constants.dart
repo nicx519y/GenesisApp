@@ -10,11 +10,12 @@ const String worldSectionCastIconAsset =
 const String worldDetailIconAsset =
     'assets/custom-icons/svg/worlddetail-icon.svg';
 const double worldMapTabsHeight = 38;
-const double worldMapBackButtonLeft = 9.5;
-const double worldMapIdentityHorizontalGap = 12;
+const double worldMapBackButtonLeft = 12;
+const double worldMapIdentityHorizontalGap = 10;
 const double worldMainTabsHeight = 49;
 const double worldBottomTagHeight = 34;
 const double worldBottomTagToStatsGap = 10;
+const double worldSheetVisibleContentTopGap = 15;
 const double worldStatsTopSpacerHeight =
     (worldMainTabsHeight + worldBottomTagHeight) / 2 -
     WorldDetailsPageScaffold.inlineContentTopPadding +
@@ -44,7 +45,7 @@ const TextStyle worldHeaderMetaTextStyle = TextStyle(
 );
 const TextStyle worldDetailBodyTextStyle = TextStyle(
   fontSize: 13,
-  height: 1.45,
+  height: 1.4,
   fontWeight: FontWeight.w400,
   color: Color(0xFF111111),
 );

@@ -150,7 +150,11 @@ class _MemoryModelRouteArgs {
 }
 
 class _OriginWorldRouteArgs {
-  const _OriginWorldRouteArgs({required this.oid, required this.originId});
+  const _OriginWorldRouteArgs({
+    required this.oid,
+    required this.originId,
+    required this.initialName,
+  });
 
   factory _OriginWorldRouteArgs.from(Object? raw) {
     final args = _RouteArgs(raw);
@@ -159,11 +163,18 @@ class _OriginWorldRouteArgs {
           ? args.directString()
           : args.string(const ['oid']),
       originId: args.integer(const ['originId']),
+      initialName: args.string(const [
+        'initial_name',
+        'initialName',
+        'origin_name',
+        'name',
+      ]),
     );
   }
 
   final String oid;
   final int originId;
+  final String initialName;
 }
 
 class _DiscussRouteArgs {
@@ -202,6 +213,7 @@ class _WorldRouteArgs {
     required this.wid,
     required this.waitForTick1,
     this.initialWorldDetail,
+    required this.initialName,
     required this.initialLocationId,
   });
 
@@ -218,6 +230,12 @@ class _WorldRouteArgs {
         'initial_world_detail',
         'initialWorldDetail',
       ]),
+      initialName: args.string(const [
+        'initial_name',
+        'initialName',
+        'world_name',
+        'name',
+      ]),
       initialLocationId: args.string(const [
         'initial_location_id',
         'initialLocationId',
@@ -228,6 +246,7 @@ class _WorldRouteArgs {
   final String wid;
   final bool waitForTick1;
   final WorldDetail? initialWorldDetail;
+  final String initialName;
   final String initialLocationId;
 }
 
@@ -454,8 +473,11 @@ sealed class AppRouter {
         final args = _OriginWorldRouteArgs.from(settings.arguments);
         return _OriginWorldPageRoute(
           settings: settings,
-          builder: (_) =>
-              OriginWorldPage(oid: args.oid, originId: args.originId),
+          builder: (_) => OriginWorldPage(
+            oid: args.oid,
+            originId: args.originId,
+            initialName: args.initialName,
+          ),
         );
       case RouteNames.discuss:
         final args = _DiscussRouteArgs.from(settings.arguments);
@@ -477,6 +499,7 @@ sealed class AppRouter {
             wid: args.wid,
             waitForTick1: args.waitForTick1,
             initialWorldDetail: args.initialWorldDetail,
+            initialName: args.initialName,
             initialLocationId: args.initialLocationId,
           ),
         );

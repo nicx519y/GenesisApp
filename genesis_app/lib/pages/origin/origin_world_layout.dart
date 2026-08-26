@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 
 const Color originWorldDetailSheetBackgroundColor = Color(0xFFEDEDED);
 const double originWorldMapPanelTopGap = 50;
-const double originWorldMapCollapsedHeightOffset = 60;
-const double originWorldMapDefaultExposedChildSize = 0.31;
+const double originWorldMapHeightFraction = 0.65;
 
 double originWorldMapHeightFor({
   required double viewportHeight,
@@ -13,9 +12,7 @@ double originWorldMapHeightFor({
       (viewportHeight - originWorldMapPanelTopGap - bottomSafeArea)
           .clamp(0.0, viewportHeight)
           .toDouble();
-  return (viewportHeight * (1 - originWorldMapDefaultExposedChildSize) +
-          originWorldMapCollapsedHeightOffset -
-          bottomSafeArea)
+  return (viewportHeight * originWorldMapHeightFraction - bottomSafeArea)
       .clamp(0.0, maxMapHeight)
       .toDouble();
 }

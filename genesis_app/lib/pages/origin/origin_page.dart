@@ -747,7 +747,11 @@ class _OriginFeedState extends State<_OriginFeed>
                                   );
                                   Navigator.of(context).pushNamed(
                                     RouteNames.originWorld,
-                                    arguments: {'originId': 0, 'oid': item.oid},
+                                    arguments: {
+                                      'originId': 0,
+                                      'oid': item.oid,
+                                      'initialName': item.name,
+                                    },
                                   );
                                 },
                           child: OriginItemCard(item: item),

@@ -166,7 +166,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.left,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF111111),

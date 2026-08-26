@@ -22,7 +22,7 @@ export 'world_map_avatar_logic.dart';
 export 'world_map_contract.dart';
 export 'world_point.dart';
 
-const Color kWorldMapLoadingBackgroundColor = Color(0xFF37362E);
+const Color kWorldMapLoadingBackgroundColor = Colors.black;
 
 @immutable
 class WorldMapTilemapOptions {

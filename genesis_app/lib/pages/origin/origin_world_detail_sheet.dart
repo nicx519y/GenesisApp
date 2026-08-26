@@ -1,5 +1,8 @@
 part of 'origin_world_page.dart';
 
+const int _originOpeningSheetPageIndex = 0;
+const int _originInfoSheetPageIndex = 1;
+
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
@@ -18,7 +21,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onCustomizeRole,
   });
 
-  static const double defaultInitialChildSize = 0.22;
+  static const double defaultInitialChildSize = 0.35;
 
   final OriginDetail origin;
   final double minChildSize;
@@ -48,17 +51,17 @@ class _OriginDetailDraggableSheetState
   static const double _extentUpdateEpsilon = 0.001;
   static const int _extentSettleFrameCount = 2;
   static const _snapAnimationDuration = Duration(milliseconds: 260);
-  static const double _sheetPageSwipeThreshold = 40;
-  static const double _sheetPageFlingVelocity = 400;
 
   late final DraggableScrollableController _sheetController;
+  late final PageController _pageController;
+  late final ScrollController _openingPreviewScrollController;
+  late final ScrollController _infoPreviewScrollController;
   final Completer<void> _sheetReady = Completer<void>();
   ScrollController? _sheetScrollController;
   OriginDiscussListController? _discussController;
   late _OriginInitialDialoguePreview? _initialDialoguePreview;
   var _currentUid = '';
-  var _sheetPageIndex = 0;
-  var _horizontalDragDistance = 0.0;
+  var _currentPage = _originOpeningSheetPageIndex;
   var _isFullyExpanded = false;
   var _isRaised = false;
   var _extentCommandGeneration = 0;
@@ -68,7 +71,7 @@ class _OriginDetailDraggableSheetState
   Timer? _extentSettleTimer;
   Completer<void>? _extentSettleCompleter;
 
-  double get _minChildSize => widget.minChildSize.clamp(0.08, 0.42).toDouble();
+  double get _minChildSize => widget.minChildSize.clamp(0.08, 1.0).toDouble();
 
   double get _effectiveInitialChildSize => _minChildSize;
 
@@ -90,6 +93,9 @@ class _OriginDetailDraggableSheetState
   void initState() {
     super.initState();
     _sheetController = DraggableScrollableController();
+    _pageController = PageController(initialPage: _currentPage);
+    _openingPreviewScrollController = ScrollController();
+    _infoPreviewScrollController = ScrollController();
     _initialDialoguePreview = _originFirstInitialDialoguePreview(widget.origin);
     if (widget.expandRequest > 0) {
       _expandToMaxChildSize();
@@ -104,7 +110,12 @@ class _OriginDetailDraggableSheetState
         widget.origin,
       );
       if (oldWidget.origin.oid != widget.origin.oid) {
-        _sheetPageIndex = 0;
+        _currentPage = _originOpeningSheetPageIndex;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || !_pageController.hasClients) return;
+          _pageController.jumpToPage(_originOpeningSheetPageIndex);
+        });
+        WidgetsBinding.instance.ensureVisualUpdate();
         final discussController = _discussController;
         if (discussController != null) {
           _configureDiscuss(discussController);
@@ -129,6 +140,9 @@ class _OriginDetailDraggableSheetState
       _sheetReady.complete();
     }
     _sheetController.dispose();
+    _pageController.dispose();
+    _openingPreviewScrollController.dispose();
+    _infoPreviewScrollController.dispose();
     _discussController?.dispose();
     super.dispose();
   }
@@ -338,42 +352,41 @@ class _OriginDetailDraggableSheetState
     _scheduleSheetReadyCheck();
   }
 
-  void _handleSheetHorizontalDragStart(DragStartDetails details) {
-    _horizontalDragDistance = 0;
-  }
-
-  void _handleSheetHorizontalDragUpdate(DragUpdateDetails details) {
-    _horizontalDragDistance += details.primaryDelta ?? 0;
-  }
-
-  void _handleSheetHorizontalDragCancel() {
-    _horizontalDragDistance = 0;
-  }
-
-  void _handleSheetHorizontalDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final distance = _horizontalDragDistance;
-    _horizontalDragDistance = 0;
-    if (distance.abs() < _sheetPageSwipeThreshold &&
-        velocity.abs() < _sheetPageFlingVelocity) {
-      return;
+  bool _handlePageScrollEnd(ScrollEndNotification notification) {
+    if (notification.metrics.axis != Axis.horizontal ||
+        !_pageController.hasClients) {
+      return false;
     }
-    final direction = velocity.abs() >= _sheetPageFlingVelocity
-        ? velocity
-        : distance;
-    final nextIndex = direction < 0 ? 1 : 0;
-    if (nextIndex == _sheetPageIndex) return;
+    _selectPage((_pageController.page ?? _currentPage.toDouble()).round());
+    return false;
+  }
 
-    if (nextIndex == 1) _ensureDiscussController();
+  void _selectPage(int page) {
+    if (page == _currentPage) return;
+    if (page == _originInfoSheetPageIndex) _ensureDiscussController();
     final scrollController = _sheetScrollController;
     if (scrollController != null && scrollController.hasClients) {
       scrollController.jumpTo(0);
     }
-    setState(() => _sheetPageIndex = nextIndex);
+    setState(() => _currentPage = page);
     GenesisTelemetry.collectLog(
       actionType: 'pageview',
-      action: nextIndex == 1 ? 'worldo_detail_intro' : 'worldo_detail_sheet',
+      action: page == _originInfoSheetPageIndex
+          ? 'worldo_detail_intro'
+          : 'worldo_detail_sheet',
       object1: widget.origin.oid,
+    );
+  }
+
+  Widget _buildAnimatedPageIndicator() {
+    return AnimatedBuilder(
+      animation: _pageController,
+      builder: (context, child) {
+        final page = _pageController.hasClients
+            ? _pageController.page ?? _currentPage.toDouble()
+            : _currentPage.toDouble();
+        return _OriginSheetDragHandle(page: page);
+      },
     );
   }
 
@@ -407,6 +420,8 @@ class _OriginDetailDraggableSheetState
   List<Widget> _originInfoSlivers() {
     final discussController = _ensureDiscussController();
     final children = <Widget>[
+      _OriginInfoTitleRow(origin: widget.origin),
+      const SizedBox(height: 8),
       _OriginSheetHeaderContent(
         origin: widget.origin,
         currentUid: _currentUid,
@@ -434,13 +449,84 @@ class _OriginDetailDraggableSheetState
         key: PageStorageKey<String>('origin-intro-${widget.origin.oid}'),
         padding: EdgeInsets.fromLTRB(
           originDetailSheetHorizontalPaddingForTesting,
-          8,
+          6,
           originDetailSheetHorizontalPaddingForTesting,
           24,
         ),
         sliver: SliverList(delegate: SliverChildListDelegate(children)),
       ),
     ];
+  }
+
+  Widget _buildOpeningPage(
+    ScrollController scrollController,
+    _OriginInitialDialoguePreview? initialDialoguePreview,
+  ) {
+    return KeyedSubtree(
+      key: const ValueKey<String>('origin-detail-sheet-page-Opening'),
+      child: CustomScrollView(
+        controller: scrollController,
+        key: PageStorageKey<String>(
+          'origin-detail-bottom-sheet-${widget.origin.oid}',
+        ),
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: const _OriginSheetHeaderDelegate(topPadding: 0),
+          ),
+          if (widget.autoExpansionPending)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: KeyedSubtree(
+                key: const ValueKey<String>('origin-opening-sheet-tombstone'),
+                child: initialDialoguePreview != null
+                    ? const _OriginInitialDialogueLoadingContent()
+                    : const _OriginRoleSetupLoadingContent(),
+              ),
+            )
+          else ...[
+            ..._originWorldoBriefSlivers(widget.origin),
+            if (initialDialoguePreview != null)
+              ..._originInitialDialogueSlivers(
+                widget.origin,
+                initialDialoguePreview,
+              ),
+            SliverToBoxAdapter(
+              child: _OriginSetupRoleSection(
+                characters: widget.origin.characters,
+                launching: widget.launching,
+                profileRole: widget.profileRole,
+                onSelectRole: widget.onSelectRole,
+                onSelectProfileRole: widget.onSelectProfileRole,
+                onEditProfileRole: widget.onEditProfileRole,
+                onCustomizeRole: widget.onCustomizeRole,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoPage(ScrollController scrollController) {
+    return KeyedSubtree(
+      key: const ValueKey<String>('origin-detail-sheet-page-Info'),
+      child: CustomScrollView(
+        controller: scrollController,
+        key: PageStorageKey<String>(
+          'origin-detail-info-bottom-sheet-${widget.origin.oid}',
+        ),
+        physics: const ClampingScrollPhysics(),
+        slivers: [
+          SliverPersistentHeader(
+            pinned: true,
+            delegate: const _OriginSheetHeaderDelegate(topPadding: 0),
+          ),
+          ..._originInfoSlivers(),
+        ],
+      ),
+    );
   }
 
   void _scheduleSheetReadyCheck() {
@@ -499,61 +585,41 @@ class _OriginDetailDraggableSheetState
                     behavior: ScrollConfiguration.of(
                       context,
                     ).copyWith(overscroll: false),
-                    child: GestureDetector(
-                      key: const ValueKey<String>('origin-detail-sheet-pages'),
-                      behavior: HitTestBehavior.translucent,
-                      onHorizontalDragStart: _handleSheetHorizontalDragStart,
-                      onHorizontalDragUpdate: _handleSheetHorizontalDragUpdate,
-                      onHorizontalDragEnd: _handleSheetHorizontalDragEnd,
-                      onHorizontalDragCancel: _handleSheetHorizontalDragCancel,
-                      child: CustomScrollView(
-                        controller: scrollController,
-                        key: PageStorageKey<String>(
-                          'origin-detail-bottom-sheet-${widget.origin.oid}',
-                        ),
-                        physics: const ClampingScrollPhysics(),
-                        slivers: [
-                          SliverPersistentHeader(
-                            pinned: true,
-                            delegate: _OriginSheetHeaderDelegate(
-                              topPadding: 0,
-                              pageIndex: _sheetPageIndex,
+                    child: Stack(
+                      children: [
+                        NotificationListener<ScrollEndNotification>(
+                          onNotification: _handlePageScrollEnd,
+                          child: PageView.builder(
+                            key: const ValueKey<String>(
+                              'origin-detail-sheet-pages',
                             ),
+                            controller: _pageController,
+                            itemCount: 2,
+                            physics: const PageScrollPhysics(),
+                            itemBuilder: (context, page) {
+                              final pageScrollController = page == _currentPage
+                                  ? scrollController
+                                  : page == _originOpeningSheetPageIndex
+                                  ? _openingPreviewScrollController
+                                  : _infoPreviewScrollController;
+                              return page == _originOpeningSheetPageIndex
+                                  ? _buildOpeningPage(
+                                      pageScrollController,
+                                      initialDialoguePreview,
+                                    )
+                                  : _buildInfoPage(pageScrollController);
+                            },
                           ),
-                          if (widget.autoExpansionPending)
-                            SliverFillRemaining(
-                              hasScrollBody: false,
-                              child: KeyedSubtree(
-                                key: const ValueKey<String>(
-                                  'origin-opening-sheet-tombstone',
-                                ),
-                                child: initialDialoguePreview != null
-                                    ? const _OriginInitialDialogueLoadingContent()
-                                    : const _OriginRoleSetupLoadingContent(),
-                              ),
-                            )
-                          else if (_sheetPageIndex == 0) ...[
-                            ..._originWorldoBriefSlivers(widget.origin),
-                            if (initialDialoguePreview != null)
-                              ..._originInitialDialogueSlivers(
-                                widget.origin,
-                                initialDialoguePreview,
-                              ),
-                            SliverToBoxAdapter(
-                              child: _OriginSetupRoleSection(
-                                characters: widget.origin.characters,
-                                launching: widget.launching,
-                                profileRole: widget.profileRole,
-                                onSelectRole: widget.onSelectRole,
-                                onSelectProfileRole: widget.onSelectProfileRole,
-                                onEditProfileRole: widget.onEditProfileRole,
-                                onCustomizeRole: widget.onCustomizeRole,
-                              ),
-                            ),
-                          ] else
-                            ..._originInfoSlivers(),
-                        ],
-                      ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          top: originDetailSheetHandleTopOffsetForTesting,
+                          child: IgnorePointer(
+                            child: _buildAnimatedPageIndicator(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -567,13 +633,13 @@ class _OriginDetailDraggableSheetState
 }
 
 class _OriginSheetDragHandle extends StatelessWidget {
-  const _OriginSheetDragHandle({this.pageIndex});
+  const _OriginSheetDragHandle({this.page});
 
   static const Color _activeColor = Color(0xFF666666);
   static const Color _inactiveDotColor = Color(0xFFB7B7B7);
   static const Color _loadingHandleColor = Color(0xFFD2D2D2);
 
-  final int? pageIndex;
+  final double? page;
 
   Widget _buildHandle({required Color color, Key? key}) {
     return Container(
@@ -589,27 +655,16 @@ class _OriginSheetDragHandle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentPageIndex = pageIndex;
-    if (currentPageIndex == null) {
+    final currentPage = page;
+    if (currentPage == null) {
       return SizedBox(
         height: 14,
         child: Center(child: _buildHandle(color: _loadingHandleColor)),
       );
     }
 
-    final activeHandle = _buildHandle(
-      key: const ValueKey<String>('origin-sheet-page-handle'),
-      color: _activeColor,
-    );
-    final inactiveDot = Container(
-      key: const ValueKey<String>('origin-sheet-page-dot'),
-      width: 6,
-      height: 6,
-      decoration: const BoxDecoration(
-        color: _inactiveDotColor,
-        shape: BoxShape.circle,
-      ),
-    );
+    final infoProgress = currentPage.clamp(0.0, 1.0);
+    final infoSelected = infoProgress >= 0.5;
 
     return SizedBox(
       height: 14,
@@ -617,23 +672,63 @@ class _OriginSheetDragHandle extends StatelessWidget {
         child: Row(
           key: const ValueKey<String>('origin-sheet-page-indicator'),
           mainAxisSize: MainAxisSize.min,
-          children: currentPageIndex == 0
-              ? [activeHandle, const SizedBox(width: 8), inactiveDot]
-              : [inactiveDot, const SizedBox(width: 8), activeHandle],
+          children: [
+            _OriginSheetPageIndicatorSegment(
+              containerKey: ValueKey<String>(
+                infoSelected
+                    ? 'origin-sheet-page-dot'
+                    : 'origin-sheet-page-handle',
+              ),
+              selectionProgress: 1 - infoProgress,
+            ),
+            const SizedBox(width: 8),
+            _OriginSheetPageIndicatorSegment(
+              containerKey: ValueKey<String>(
+                infoSelected
+                    ? 'origin-sheet-page-handle'
+                    : 'origin-sheet-page-dot',
+              ),
+              selectionProgress: infoProgress,
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _OriginSheetHeaderDelegate({
-    required this.topPadding,
-    required this.pageIndex,
+class _OriginSheetPageIndicatorSegment extends StatelessWidget {
+  const _OriginSheetPageIndicatorSegment({
+    required this.containerKey,
+    required this.selectionProgress,
   });
 
+  final Key containerKey;
+  final double selectionProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = selectionProgress.clamp(0.0, 1.0);
+    return Container(
+      key: containerKey,
+      width: 23,
+      height: 5,
+      decoration: BoxDecoration(
+        color: Color.lerp(
+          _OriginSheetDragHandle._inactiveDotColor,
+          _OriginSheetDragHandle._activeColor,
+          progress,
+        ),
+        borderRadius: BorderRadius.circular(3),
+      ),
+    );
+  }
+}
+
+class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
+  const _OriginSheetHeaderDelegate({required this.topPadding});
+
   final double topPadding;
-  final int pageIndex;
 
   @override
   double get minExtent => topPadding + originDetailSheetHeaderHeightForTesting;
@@ -647,25 +742,14 @@ class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return ColoredBox(
-      color: originWorldDetailSheetBackgroundColor,
-      child: Stack(
-        children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            top: topPadding + originDetailSheetHandleTopOffsetForTesting,
-            child: _OriginSheetDragHandle(pageIndex: pageIndex),
-          ),
-        ],
-      ),
+    return const SizedBox.expand(
+      child: ColoredBox(color: originWorldDetailSheetBackgroundColor),
     );
   }
 
   @override
   bool shouldRebuild(covariant _OriginSheetHeaderDelegate oldDelegate) {
-    return oldDelegate.topPadding != topPadding ||
-        oldDelegate.pageIndex != pageIndex;
+    return oldDelegate.topPadding != topPadding;
   }
 }
 
@@ -692,100 +776,148 @@ class _OriginSheetHeaderContent extends StatelessWidget {
         currentUid.trim().isNotEmpty && currentUid.trim() == ownerUid;
     final version = origin.versionNum <= 0 ? 1 : origin.versionNum;
     final age = formatGenesisDateTime(origin.updatedAt, fallback: '');
+    final metaStyle = CopyableIdLabel.textStyle.copyWith(height: 1.2);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(width: 38),
-            Expanded(
-              child: Text(
-                originDisplayName(origin.name, fallback: origin.oid),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 18,
-                  height: 1.25,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF4B6192),
-                  decoration: TextDecoration.none,
-                ),
-              ),
+            _OriginPreviewImage(
+              url: _resolveAssetUrl(origin.mapImage),
+              width: 120,
+              height: 180,
             ),
-            SizedBox(
-              width: 38,
-              child: GenesisMoreActionMenuButton(
-                buttonSize: 18 * 1.25,
-                items: [
-                  genesisReportMenuItem(
-                    context: context,
-                    targetType: 'origin',
-                    targetId: origin.oid,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    originDisplayName(origin.name, fallback: origin.oid),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.25,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF4B6192),
+                      decoration: TextDecoration.none,
+                    ),
                   ),
+                  const SizedBox(height: 4),
+                  CopyableIdLabel(
+                    label: 'OID',
+                    value: origin.oid,
+                    displayValue: origin.deleted
+                        ? deletedEntityDisplayText
+                        : null,
+                    enabled: !origin.deleted,
+                    customTextStyle: metaStyle,
+                  ),
+                  GenesisInlineMetaLabel(
+                    text: 'Originator: ${formatUidForDisplay(originator)}',
+                    onTap: ownerUid.isEmpty || origin.ownerDeleted
+                        ? null
+                        : () => Navigator.of(context).pushNamed(
+                            RouteNames.userInfo,
+                            arguments: {'uid': ownerUid},
+                          ),
+                    trailingIcon: ownerUid.isEmpty || origin.ownerDeleted
+                        ? null
+                        : Icons.chevron_right,
+                    style: metaStyle,
+                    trailingIconSize: genesisCopyableIdIconSize,
+                    trailingGap: 4,
+                  ),
+                  GenesisInlineMetaLabel(
+                    text:
+                        'Latest Version: V$version'
+                        '${age.isEmpty ? '' : ' · $age'}',
+                    style: metaStyle,
+                    trailingIconSize: genesisCopyableIdIconSize,
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    key: const ValueKey<String>('origin-info-stats-row'),
+                    children: [
+                      _OriginInfoStat(
+                        key: const ValueKey<String>('origin-info-stat-copy'),
+                        iconAsset: copyStatIconAsset,
+                        value: origin.copyCount,
+                      ),
+                      const SizedBox(width: 20),
+                      _OriginInfoStat(
+                        key: const ValueKey<String>('origin-info-stat-connect'),
+                        iconAsset: connectStatIconAsset,
+                        value: origin.interactCount,
+                      ),
+                      const SizedBox(width: 20),
+                      _OriginInfoStat(
+                        key: const ValueKey<String>(
+                          'origin-info-stat-character',
+                        ),
+                        iconAsset: characterStatIconAsset,
+                        preserveIconAssetColor: true,
+                        value: origin.characterCount,
+                      ),
+                    ],
+                  ),
+                  if (canEditOrigin) ...[
+                    const SizedBox(height: 6),
+                    _OriginInlineEditAction(
+                      onTap: () async {
+                        await Navigator.of(context).pushNamed(
+                          RouteNames.edit,
+                          arguments: {'origin_id': origin.oid},
+                        );
+                        if (!context.mounted) return;
+                        onOriginChanged();
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
           ],
         ),
-        const SizedBox(height: 4),
-        GenesisPairedMetaRow(
-          leftLabel: 'OID',
-          leftValue: origin.oid,
-          leftDisplayValue: origin.deleted ? deletedEntityDisplayText : null,
-          leftCopyEnabled: !origin.deleted,
-          rightText: 'Originator: ${formatUidForDisplay(originator)}',
-          rightOnTap: ownerUid.isEmpty || origin.ownerDeleted
-              ? null
-              : () => Navigator.of(
-                  context,
-                ).pushNamed(RouteNames.userInfo, arguments: {'uid': ownerUid}),
+      ],
+    );
+  }
+}
+
+class _OriginInfoTitleRow extends StatelessWidget {
+  const _OriginInfoTitleRow({required this.origin});
+
+  final OriginDetail origin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Expanded(
+          child: Text(
+            'Info',
+            key: ValueKey<String>('origin-info-title'),
+            style: TextStyle(
+              fontSize: 16,
+              height: 1.2,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF111111),
+              decoration: TextDecoration.none,
+            ),
+          ),
         ),
-        if (canEditOrigin) const SizedBox(height: 6),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                'Latest Version: V$version${age.isEmpty ? '' : ' · $age'}',
-                style: CopyableIdLabel.textStyle,
-              ),
-            ),
-            if (canEditOrigin)
-              _OriginInlineEditAction(
-                onTap: () async {
-                  await Navigator.of(context).pushNamed(
-                    RouteNames.edit,
-                    arguments: {'origin_id': origin.oid},
-                  );
-                  if (!context.mounted) return;
-                  onOriginChanged();
-                },
-              ),
-          ],
-        ),
-        const SizedBox(height: 18),
-        Row(
-          key: const ValueKey<String>('origin-info-stats-row'),
-          children: [
-            _OriginInfoStat(
-              key: const ValueKey<String>('origin-info-stat-copy'),
-              iconAsset: copyStatIconAsset,
-              value: origin.copyCount,
-            ),
-            const SizedBox(width: 20),
-            _OriginInfoStat(
-              key: const ValueKey<String>('origin-info-stat-connect'),
-              iconAsset: connectStatIconAsset,
-              value: origin.interactCount,
-            ),
-            const SizedBox(width: 20),
-            _OriginInfoStat(
-              key: const ValueKey<String>('origin-info-stat-character'),
-              iconAsset: characterStatIconAsset,
-              preserveIconAssetColor: true,
-              value: origin.characterCount,
+        GenesisMoreActionMenuButton(
+          key: const ValueKey<String>('origin-info-report-menu'),
+          buttonSize: 18 * 1.25,
+          items: [
+            genesisReportMenuItem(
+              context: context,
+              targetType: 'origin',
+              targetId: origin.oid,
             ),
           ],
         ),
@@ -811,14 +943,14 @@ class _OriginInfoStat extends StatelessWidget {
     return StatItem(
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
-      iconSize: 14,
+      iconSize: 12,
       iconAssetScale: 1,
       iconVerticalOffset: 0,
       iconColor: const Color(0xFF111111),
       gap: 4,
       text: formatStatCount(value),
       textStyle: const TextStyle(
-        fontSize: 14,
+        fontSize: 12,
         height: 1,
         fontWeight: FontWeight.w400,
         color: Color(0xFF111111),

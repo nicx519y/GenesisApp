@@ -17,7 +17,6 @@ import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
-import 'package:genesis_flutter_android/ui/components/genesis_bottom_navigation.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/components/secend_tabs.dart';
@@ -132,6 +131,7 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
@@ -6102,7 +6102,11 @@ void main() {
       AppServicesScope(
         services: services,
         child: const MaterialApp(
-          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          home: OriginWorldPage(
+            oid: 'o_test_1',
+            originId: 0,
+            initialName: 'Cached Worldo Name',
+          ),
         ),
       ),
     );
@@ -6110,6 +6114,7 @@ void main() {
     expect(skeletonCountAtFirstPostFrame, 1);
     expect(detailRequestCountAtFirstPostFrame, 0);
     expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(1));
+    expect(find.text('#Cached Worldo Name'), findsOneWidget);
     expect(find.byType(WorldMap), findsNothing);
     expect(find.byType(Tilemap), findsNothing);
     expect(
@@ -6231,6 +6236,12 @@ void main() {
           bottomSafeArea: 24,
         ),
       );
+      final expectedMapHeight = viewportSize.height * 0.65 - 24;
+      final expectedCollapsedSheetHeight =
+          viewportSize.height - expectedMapHeight;
+      expect(loadingMapRect.height, expectedMapHeight);
+      expect(loadingSheetRect.top, loadingMapRect.bottom);
+      expect(loadingSheetRect.height, expectedCollapsedSheetHeight);
 
       originDetailCompleter.complete(
         transport._jsonResponse({
@@ -6260,6 +6271,14 @@ void main() {
       expect(find.byType(Tilemap), findsOneWidget);
       expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
       expect(tester.getRect(mapViewport), loadingMapRect);
+      final detailSheet = tester.widget<DraggableScrollableSheet>(
+        find.byType(DraggableScrollableSheet),
+      );
+      expect(
+        detailSheet.minChildSize,
+        expectedCollapsedSheetHeight / viewportSize.height,
+      );
+      expect(detailSheet.initialChildSize, detailSheet.minChildSize);
       expect(
         tester.getRect(
           find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
@@ -6390,6 +6409,9 @@ void main() {
       const ValueKey<String>('origin-detail-sheet-pages'),
     );
     expect(sheetPages, findsOneWidget);
+    final sheetPageView = tester.widget<PageView>(sheetPages);
+    expect(sheetPageView.controller, isNotNull);
+    expect(sheetPageView.physics, isA<PageScrollPhysics>());
     expect(find.text('Map'), findsNothing);
     expect(find.text('Info.'), findsNothing);
     expect(
@@ -6404,9 +6426,50 @@ void main() {
       find.byKey(const ValueKey<String>('origin-top-worldo-name')),
     );
     expect(topWorldoName.data, '#Origin detail o_test_1');
-    expect(topWorldoName.style?.color, const Color(0xFF4B6192));
+    expect(topWorldoName.textAlign, TextAlign.left);
+    expect(topWorldoName.style?.color, Colors.white);
     expect(topWorldoName.style?.fontSize, 16);
     expect(topWorldoName.style?.fontWeight, FontWeight.w600);
+    expect(topWorldoName.style?.shadows, hasLength(1));
+    final topBar = find.byKey(const ValueKey<String>('origin-top-overlay-bar'));
+    final viewportWidth =
+        tester.view.physicalSize.width / tester.view.devicePixelRatio;
+    expect(tester.getTopLeft(topBar).dx, moreOrLessEquals(12));
+    expect(tester.getTopRight(topBar).dx, moreOrLessEquals(viewportWidth - 12));
+    expect(tester.getSize(topBar).height, genesisSearchFieldHeight);
+    expect(
+      find.byKey(const ValueKey<String>('origin-top-bar-surface')),
+      findsNothing,
+    );
+    final topBackSurface = tester.widget<Material>(
+      find.byKey(const ValueKey<String>('origin-top-back-surface')),
+    );
+    expect(topBackSurface.color, const Color(0x80151517));
+    expect(
+      tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('origin-top-worldo-name')),
+              )
+              .dx -
+          tester
+              .getTopRight(
+                find.byKey(const ValueKey<String>('origin-top-back-surface')),
+              )
+              .dx,
+      moreOrLessEquals(10),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('origin-top-back-glass')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Icon &&
+              widget.icon == Icons.arrow_back_ios_new &&
+              widget.color == Colors.white,
+        ),
+      ),
+      findsOneWidget,
+    );
     final sheetPageHandle = find.byKey(
       const ValueKey<String>('origin-sheet-page-handle'),
     );
@@ -6415,8 +6478,21 @@ void main() {
     );
     expect(sheetPageHandle, findsOneWidget);
     expect(sheetPageDot, findsOneWidget);
-    expect(tester.getSize(sheetPageHandle), const Size(40, 5));
-    expect(tester.getSize(sheetPageDot), const Size.square(6));
+    expect(tester.getSize(sheetPageHandle), const Size(23, 5));
+    expect(tester.getSize(sheetPageDot), const Size(23, 5));
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('origin-sheet-page-indicator')),
+          )
+          .width,
+      54,
+    );
+    expect(
+      tester.getTopLeft(sheetPageDot).dx -
+          tester.getTopRight(sheetPageHandle).dx,
+      8,
+    );
     expect(
       (tester.widget<Container>(sheetPageDot).decoration as BoxDecoration)
           .color,
@@ -6431,6 +6507,16 @@ void main() {
       tester.getCenter(sheetPageHandle).dx,
       lessThan(tester.getCenter(sheetPageDot).dx),
     );
+    final openingBriefTitleTop = tester
+        .getTopLeft(
+          find.descendant(
+            of: find.byKey(
+              const ValueKey<String>('origin-opening-worldo-brief'),
+            ),
+            matching: find.text('Worldo Brief'),
+          ),
+        )
+        .dy;
     var sheetPagesRect = tester.getRect(sheetPages);
     await tester.dragFrom(
       Offset(sheetPagesRect.right - 24, sheetPagesRect.top + 16),
@@ -6443,6 +6529,109 @@ void main() {
       find.byKey(const ValueKey<String>('origin-info-stats-row')),
       findsOneWidget,
     );
+    final infoPage = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-page-Info'),
+    );
+    final infoTitleFinder = find.descendant(
+      of: infoPage,
+      matching: find.byKey(const ValueKey<String>('origin-info-title')),
+    );
+    final infoTitle = tester.widget<Text>(infoTitleFinder);
+    expect(infoTitle.data, 'Info');
+    expect(infoTitle.style?.fontSize, 16);
+    expect(infoTitle.style?.fontWeight, FontWeight.w600);
+    expect(
+      tester.getTopLeft(infoTitleFinder).dy,
+      moreOrLessEquals(openingBriefTitleTop),
+    );
+    expect(
+      find.ancestor(
+        of: infoTitleFinder,
+        matching: find.byType(SliverPersistentHeader),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: infoPage,
+        matching: find.byKey(const ValueKey<String>('origin-info-report-menu')),
+      ),
+      findsOneWidget,
+    );
+    final infoCover = find.descendant(
+      of: infoPage,
+      matching: find.byKey(const ValueKey<String>('origin-info-cover')),
+    );
+    expect(tester.getSize(infoCover), const Size(120, 180));
+    final infoName = find.descendant(
+      of: infoPage,
+      matching: find.text('#Origin detail o_test_1'),
+    );
+    expect(tester.widget<Text>(infoName).style?.fontSize, 16);
+    expect(
+      tester.getTopLeft(infoName).dx - tester.getTopRight(infoCover).dx,
+      moreOrLessEquals(14),
+    );
+    expect(
+      tester.getTopLeft(find.text('OID: o_test_1')).dy,
+      lessThan(tester.getTopLeft(find.text('Originator: Tester')).dy),
+    );
+    expect(
+      tester.getTopLeft(find.text('Originator: Tester')).dy,
+      lessThan(tester.getTopLeft(find.textContaining('Latest Version: V1')).dy),
+    );
+    expect(tester.widget<Text>(find.text('OID: o_test_1')).style?.height, 1.2);
+    expect(
+      tester.widget<Text>(find.text('Originator: Tester')).style?.height,
+      1.2,
+    );
+    expect(
+      tester
+          .widget<Text>(find.textContaining('Latest Version: V1'))
+          .style
+          ?.height,
+      1.2,
+    );
+    final oidTextRect = tester.getRect(find.text('OID: o_test_1'));
+    final originatorTextRect = tester.getRect(find.text('Originator: Tester'));
+    final latestVersionTextRect = tester.getRect(
+      find.textContaining('Latest Version: V1'),
+    );
+    expect(
+      originatorTextRect.top - oidTextRect.bottom,
+      moreOrLessEquals(latestVersionTextRect.top - originatorTextRect.bottom),
+    );
+    final infoStatsRow = find.byKey(
+      const ValueKey<String>('origin-info-stats-row'),
+    );
+    expect(
+      tester.getTopLeft(infoStatsRow).dy,
+      greaterThan(latestVersionTextRect.bottom),
+    );
+    expect(
+      tester.getTopLeft(infoStatsRow).dy -
+          tester
+              .getBottomLeft(
+                find.ancestor(
+                  of: find.textContaining('Latest Version: V1'),
+                  matching: find.byType(GenesisInlineMetaLabel),
+                ),
+              )
+              .dy,
+      moreOrLessEquals(10),
+    );
+    expect(
+      tester.getTopLeft(infoStatsRow).dx,
+      moreOrLessEquals(tester.getTopLeft(infoName).dx),
+    );
+    final copyStatItem = tester.widget<StatItem>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('origin-info-stat-copy')),
+        matching: find.byType(StatItem),
+      ),
+    );
+    expect(copyStatItem.iconSize, 12);
+    expect(copyStatItem.textStyle.fontSize, 12);
     expect(
       tester.getCenter(sheetPageHandle).dx,
       greaterThan(tester.getCenter(sheetPageDot).dx),
@@ -6656,7 +6845,7 @@ void main() {
     );
     expect(brief, findsOneWidget);
     final briefTitle = tester.widget<Text>(find.text('Worldo Brief'));
-    expect(briefTitle.style?.fontSize, 16);
+    expect(briefTitle.style?.fontSize, 14);
     expect(
       find.descendant(of: brief, matching: find.byIcon(MyFlutterApp.eye)),
       findsOneWidget,
@@ -6679,6 +6868,18 @@ void main() {
       14,
     );
     expect(openingLocation, findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: openingLocation,
+              matching: find.text('Detail Location'),
+            ),
+          )
+          .style
+          ?.fontSize,
+      14,
+    );
     expect(
       (tester.widget<Padding>(openingLocation).padding as EdgeInsets).bottom,
       8,
@@ -6811,16 +7012,22 @@ void main() {
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 60),
+        moreOrLessEquals(viewportWidth - 12),
       );
+      expect(tester.getSize(navigationBar).height, genesisSearchFieldHeight);
 
       await tilemapSettingsButtonVisibility.setVisible(true);
       await tester.pumpAndSettle();
 
       expect(settingsButton, findsOneWidget);
       expect(
+        tester.getTopLeft(settingsButton).dy -
+            tester.getBottomLeft(navigationBar).dy,
+        moreOrLessEquals(8),
+      );
+      expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 60),
+        moreOrLessEquals(viewportWidth - 12),
       );
 
       await tilemapSettingsButtonVisibility.setVisible(false);
@@ -6829,7 +7036,7 @@ void main() {
       expect(settingsButton, findsNothing);
       expect(
         tester.getTopRight(navigationBar).dx,
-        moreOrLessEquals(viewportWidth - 60),
+        moreOrLessEquals(viewportWidth - 12),
       );
     },
   );
@@ -7137,12 +7344,11 @@ void main() {
     );
   });
 
-  testWidgets('Origin detail worldview image opens image viewer', (
+  testWidgets('Origin detail info cover opens image viewer', (
     WidgetTester tester,
   ) async {
-    final transport = _RecordingV1ListTransport(
-      originMapUrl: kMockV1SteamMapImage,
-    );
+    const coverAsset = 'assets/images/default_list_image.png';
+    final transport = _RecordingV1ListTransport(originMapUrl: coverAsset);
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(
@@ -7158,9 +7364,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final worldviewImage = _assetImageFinder(kMockV1SteamMapImage);
-    await _dragOriginPanelUntilVisible(tester, worldviewImage);
-    await tester.tap(worldviewImage);
+    await _swipeOriginSheetToInfo(tester);
+
+    expect(
+      find.byKey(const ValueKey<String>('origin-info-cover')),
+      findsOneWidget,
+    );
+    final infoCover = find.byKey(
+      const ValueKey<String>('origin-info-cover-viewer'),
+    );
+    expect(infoCover, findsOneWidget);
+    expect(
+      find.descendant(of: infoCover, matching: _assetImageFinder(coverAsset)),
+      findsOneWidget,
+    );
+    await tester.tap(infoCover);
     await tester.pumpAndSettle();
 
     expect(
@@ -7782,6 +8000,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final selectRoleTitle = tester.widget<Text>(find.text('Select Your Role'));
+    expect(selectRoleTitle.style?.fontSize, 14);
+
     final recommendedRole = find.byKey(
       const ValueKey<String>('origin-setup-role-c_recommended'),
     );
@@ -8234,7 +8455,9 @@ void main() {
     );
     final infoScrollRect = tester.getRect(
       find.byKey(
-        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+        const PageStorageKey<String>(
+          'origin-detail-info-bottom-sheet-o_test_1',
+        ),
       ),
     );
     await tester.flingFrom(
@@ -9225,6 +9448,14 @@ void main() {
     expect(find.text('Origin launch tick narrator.'), findsOneWidget);
     expect(find.text('Detail Location'), findsWidgets);
     expect(find.text('Detail location launch paragraph.'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('Global')).style?.height, 1.4);
+    expect(
+      tester
+          .widget<Text>(find.text('Origin launch tick narrator.'))
+          .style
+          ?.height,
+      1.4,
+    );
   });
 
   testWidgets('Origin detail hides launch preview without tick1 data', (
@@ -9319,7 +9550,7 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('copy-world-progress-body')))
             .height,
-        closeTo(13 * 1.45 * 5 + 6, 0.1),
+        closeTo(13 * 1.4 * 5 + 6, 0.1),
       );
       await tester.tap(
         find.text('First copied world progress summary for o_test_1.'),
@@ -9468,7 +9699,7 @@ void main() {
       final bodySize = tester.getSize(
         find.byKey(const ValueKey('copy-world-progress-body')),
       );
-      expect(bodySize.height, greaterThan(12 * 1.45 * 5));
+      expect(bodySize.height, greaterThan(12 * 1.4 * 5));
       expect(tester.takeException(), isNull);
     },
   );
@@ -9503,7 +9734,7 @@ void main() {
         tester
             .getSize(find.byKey(const ValueKey('copy-world-progress-empty')))
             .height,
-        lessThan(14 * 1.45 * 5),
+        lessThan(14 * 1.4 * 5),
       );
     },
   );
@@ -9527,13 +9758,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _swipeOriginSheetToInfo(tester);
     await tester.tap(find.text('Originator: Tester'));
     await tester.pumpAndSettle();
 
     final userInfoRequests = transport.requestsFor('/api/v1/user/info');
     expect(userInfoRequests, hasLength(1));
     expect(userInfoRequests.single.uri.queryParameters['uid'], 'u_test');
-    expect(find.text('User Info'), findsOneWidget);
+    expect(find.byType(UserInfoPage), findsOneWidget);
   });
 
   testWidgets('Origin detail shows edit button to owner', (
@@ -9555,6 +9787,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _swipeOriginSheetToInfo(tester);
     expect(find.text('Edit Worldo'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('origin-inline-edit-worldo')),
@@ -9596,6 +9829,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _swipeOriginSheetToInfo(tester);
     expect(find.text('Edit Worldo'), findsNothing);
     expect(
       find.byKey(const ValueKey('origin-inline-edit-worldo')),
@@ -9947,9 +10181,17 @@ void main() {
     final sheet = tester.widget<DraggableScrollableSheet>(
       find.byType(DraggableScrollableSheet),
     );
-    final height =
-        tester.view.physicalSize.height / tester.view.devicePixelRatio;
-    final collapsedSize = 0.31 - 15 / height;
+    final sheetContext = tester.element(find.byType(DraggableScrollableSheet));
+    final height = MediaQuery.sizeOf(sheetContext).height;
+    final bottomSafeArea = GenesisSafeAreaInsets.bottom(sheetContext);
+    final expectedMapHeight = height * 0.65 - bottomSafeArea;
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('origin-map-viewport')))
+          .height,
+      closeTo(expectedMapHeight, 0.001),
+    );
+    final collapsedSize = (height - expectedMapHeight) / height;
     expect(sheet.minChildSize, closeTo(collapsedSize, 0.001));
     expect(sheet.initialChildSize, closeTo(collapsedSize, 0.001));
 
@@ -21114,13 +21356,16 @@ void main() {
     await tester.pumpWidget(
       AppServicesScope(
         services: services,
-        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        child: const MaterialApp(
+          home: WorldPage(wid: 'w_test_1', initialName: 'Cached World Name'),
+        ),
       ),
     );
 
     expect(skeletonCountAtFirstPostFrame, 1);
     expect(detailRequestCountAtFirstPostFrame, 0);
     expect(transport.requestsFor('/api/v1/world/detail'), hasLength(1));
+    expect(find.text('Cached World Name'), findsOneWidget);
     final expectedMapBackground = tilemapVisualStyleFor(
       tilemapDefaultVisualMode,
     ).backgroundColor;
@@ -21174,17 +21419,102 @@ void main() {
       expect(find.byType(WorldLocationChatRouterHost), findsNothing);
       expect(transport.requestsFor('/api/v1/world/map'), isEmpty);
 
+      final worldDetail = transport._worldDetail('w_test_1');
+      final worldInfo = worldDetail['info']! as Map<String, Object?>;
+      worldInfo['current_time'] = 'Day 2, 08:00';
       worldDetailCompleter.complete(
         transport._jsonResponse({
           'err_no': 0,
           'err_str': 'success',
-          'data': transport._worldDetail('w_test_1'),
+          'data': worldDetail,
         }),
       );
       await tester.pump();
 
       expect(find.byType(WorldDetailsPageScaffold), findsOneWidget);
       expect(find.byType(WorldMapIdentityPill), findsOneWidget);
+      final worldTopName = tester.widget<Text>(
+        find.byKey(const ValueKey<String>('world-top-name')),
+      );
+      expect(worldTopName.data, 'World detail w_test_1');
+      expect(worldTopName.textAlign, TextAlign.left);
+      expect(worldTopName.style?.color, Colors.white);
+      expect(worldTopName.style?.fontSize, 16);
+      expect(worldTopName.style?.fontWeight, FontWeight.w600);
+      expect(worldTopName.style?.shadows, hasLength(1));
+      final worldTopBar = find.byKey(
+        const ValueKey<String>('world-top-overlay-bar'),
+      );
+      final viewportWidth =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      expect(tester.getTopLeft(worldTopBar).dx, moreOrLessEquals(12));
+      expect(
+        tester.getTopRight(worldTopBar).dx,
+        moreOrLessEquals(viewportWidth - 12),
+      );
+      expect(tester.getSize(worldTopBar).height, worldMapTabsHeight);
+      expect(
+        find.byKey(const ValueKey<String>('world-top-bar-surface')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<Material>(
+              find.byKey(const ValueKey<String>('world-top-back-surface')),
+            )
+            .color,
+        const Color(0x80151517),
+      );
+      final worldTopTime = find.byKey(const ValueKey<String>('world-top-time'));
+      final worldTopTimeTexts = tester
+          .widgetList<Text>(
+            find.descendant(of: worldTopTime, matching: find.byType(Text)),
+          )
+          .toList(growable: false);
+      expect(
+        worldTopTimeTexts.every((text) => text.style?.fontSize == 10),
+        isTrue,
+      );
+      expect(
+        worldTopTimeTexts.every(
+          (text) => text.style?.shadows?.isNotEmpty ?? false,
+        ),
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<Icon>(
+              find.descendant(
+                of: worldTopTime,
+                matching: find.byIcon(Icons.schedule),
+              ),
+            )
+            .size,
+        10,
+      );
+      expect(
+        tester
+                .getTopLeft(
+                  find.byKey(const ValueKey<String>('world-top-name')),
+                )
+                .dx -
+            tester
+                .getTopRight(
+                  find.byKey(const ValueKey<String>('world-top-back-surface')),
+                )
+                .dx,
+        moreOrLessEquals(10),
+      );
+      expect(
+        tester
+            .getTopLeft(find.byKey(const ValueKey<String>('world-top-time')))
+            .dx,
+        moreOrLessEquals(
+          tester
+              .getTopLeft(find.byKey(const ValueKey<String>('world-top-name')))
+              .dx,
+        ),
+      );
       expect(
         find.byKey(const ValueKey<String>('world-map-loading-background')),
         findsOneWidget,
@@ -21202,6 +21532,10 @@ void main() {
       expect(find.byType(Tilemap), findsOneWidget);
       expect(find.byType(WorldLocationChatRouterHost), findsOneWidget);
       expect(transport.requestsFor('/api/v1/world/map'), hasLength(1));
+      expect(
+        tester.widget<Tilemap>(find.byType(Tilemap)).visualModeToggleTop,
+        moreOrLessEquals(tester.getBottomLeft(worldTopBar).dy + 8),
+      );
 
       worldMapCompleter.complete(transport._jsonResponse({}));
       await tester.pumpWidget(const SizedBox.shrink());
@@ -24894,6 +25228,18 @@ Future<void> _revealOriginCustomRoleCard(WidgetTester tester) async {
     await tester.drag(sheet, const Offset(0, -400));
     await tester.pumpAndSettle();
   }
+}
+
+Future<void> _swipeOriginSheetToInfo(WidgetTester tester) async {
+  final sheetPages = find.byKey(
+    const ValueKey<String>('origin-detail-sheet-pages'),
+  );
+  final sheetPagesRect = tester.getRect(sheetPages);
+  await tester.dragFrom(
+    Offset(sheetPagesRect.right - 24, sheetPagesRect.top + 16),
+    Offset(-sheetPagesRect.width * 0.8, 0),
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _dragOriginPanelUntilVisible(

@@ -4,11 +4,11 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
   Widget _buildPersistentMapOverlay(double top, {OriginDetail? origin}) {
     return Positioned(
       left: 12,
-      right: 60,
+      right: 12,
       top: top + 8,
       child: _OriginWorldNameOverlay(
         worldoName: origin == null
-            ? ''
+            ? originDisplayName(widget.initialName)
             : originDisplayName(origin.name, fallback: origin.oid),
       ),
     );
@@ -40,7 +40,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
             final sheetMinChildSize = sheetHostHeight <= 0
                 ? _OriginDetailDraggableSheet.defaultInitialChildSize
                 : ((sheetHostHeight - mapHeight) / sheetHostHeight)
-                      .clamp(0.08, 0.42)
+                      .clamp(0.08, 1.0)
                       .toDouble();
             return Stack(
               children: [
@@ -91,56 +91,51 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
 class _OriginWorldNameOverlay extends StatelessWidget {
   const _OriginWorldNameOverlay({required this.worldoName});
 
-  static const Color _backgroundColor = Color(0xE6FFFFFF);
-
   final String worldoName;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return SizedBox(
       key: const ValueKey<String>('origin-top-overlay-bar'),
-      children: [
-        Container(
-          width: genesisSearchFieldHeight,
-          height: genesisSearchFieldHeight,
-          decoration: BoxDecoration(
-            color: _backgroundColor,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: IconButton(
-            iconSize: 18,
+      height: genesisSearchFieldHeight,
+      child: Row(
+        children: [
+          GenesisMapGlassBackButton(
+            dimension: genesisSearchFieldHeight,
             onPressed: () => Navigator.of(context).maybePop(),
-            icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-            padding: EdgeInsets.zero,
+            glassKey: const ValueKey<String>('origin-top-back-glass'),
+            surfaceKey: const ValueKey<String>('origin-top-back-surface'),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Container(
-            height: genesisSearchFieldHeight,
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: _backgroundColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              worldoName,
-              key: const ValueKey<String>('origin-top-worldo-name'),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Color(0xFF4B6192),
-                fontSize: 16,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                decoration: TextDecoration.none,
+          const SizedBox(width: 10),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                worldoName,
+                key: const ValueKey<String>('origin-top-worldo-name'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.left,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  height: 1.2,
+                  fontWeight: FontWeight.w600,
+                  decoration: TextDecoration.none,
+                  shadows: [
+                    Shadow(
+                      color: Color(0x99000000),
+                      blurRadius: 6,
+                      offset: Offset(0, 1),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
+          const SizedBox(width: 48),
+        ],
+      ),
     );
   }
 }

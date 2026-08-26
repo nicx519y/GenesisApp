@@ -19,8 +19,6 @@ class _WorldViewSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Text(body, style: _bodyTextStyle),
-        const SizedBox(height: 8),
-        _OriginPreviewImage(url: _resolveAssetUrl(origin.mapImage)),
       ],
     );
   }
@@ -32,12 +30,15 @@ String _originWorldoBrief(OriginDetail origin) {
 }
 
 class _OriginPreviewImage extends StatelessWidget {
-  const _OriginPreviewImage({required this.url});
-
-  static const double _maxHeight = 360;
-  static const double _aspectRatio = 2 / 3;
+  const _OriginPreviewImage({
+    required this.url,
+    required this.width,
+    required this.height,
+  });
 
   final String url;
+  final double width;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
@@ -48,60 +49,49 @@ class _OriginPreviewImage extends StatelessWidget {
       alignment: Alignment.center,
       child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
     );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final mediaHeight = MediaQuery.sizeOf(context).height;
-        final maxHeight = mediaHeight.isFinite
-            ? _maxHeight.clamp(0.0, mediaHeight * 0.35).toDouble()
-            : _maxHeight;
-        final maxWidth = constraints.maxWidth.isFinite
-            ? constraints.maxWidth
-            : maxHeight * _aspectRatio;
-        final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
-        final height = width / _aspectRatio;
-        final preview = Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: imageUrl.isEmpty
-                  ? fallback
-                  : imageUrl.startsWith('assets/')
-                  ? Image.asset(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => fallback,
-                    )
-                  : GenesisStaticNetworkImage(
-                      imageUrl: imageUrl,
-                      fit: BoxFit.cover,
-                      placeholder: (_) => fallback,
-                      errorWidget: (_, _) => fallback,
-                    ),
-            ),
-          ),
-        );
-        if (viewerUrl.isEmpty) return preview;
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: () => showGenesisImageViewer(
+    final preview = Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        key: const ValueKey<String>('origin-info-cover'),
+        width: width,
+        height: height,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: imageUrl.isEmpty
+              ? fallback
+              : imageUrl.startsWith('assets/')
+              ? Image.asset(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => fallback,
+                )
+              : GenesisStaticNetworkImage(
+                  imageUrl: imageUrl,
+                  fit: BoxFit.cover,
+                  placeholder: (_) => fallback,
+                  errorWidget: (_, _) => fallback,
+                ),
+        ),
+      ),
+    );
+    if (viewerUrl.isEmpty) return preview;
+    return GestureDetector(
+      key: const ValueKey<String>('origin-info-cover-viewer'),
+      behavior: HitTestBehavior.opaque,
+      onTap: () => showGenesisImageViewer(
+        context,
+        imageUrls: [viewerUrl],
+        previewImageProviders: [
+          genesisImageViewerPreviewProvider(
             context,
-            imageUrls: [viewerUrl],
-            previewImageProviders: [
-              genesisImageViewerPreviewProvider(
-                context,
-                imageUrl: imageUrl,
-                logicalWidth: width,
-                logicalHeight: height,
-                fit: BoxFit.cover,
-              ),
-            ],
+            imageUrl: imageUrl,
+            logicalWidth: width,
+            logicalHeight: height,
+            fit: BoxFit.cover,
           ),
-          child: preview,
-        );
-      },
+        ],
+      ),
+      child: preview,
     );
   }
 }
@@ -223,6 +213,7 @@ class _DiscussSection extends StatelessWidget {
                       OriginDiscussList(
                         controller: controller,
                         count: origin.discussCount,
+                        contentLineHeight: 1.4,
                         showHeader: false,
                         showActions: false,
                         showReplies: false,
@@ -288,7 +279,7 @@ List<Widget> _originInitialDialogueSlivers(
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.left,
-                style: style.headerTitleTextStyle.copyWith(fontSize: 16),
+                style: style.headerTitleTextStyle.copyWith(fontSize: 14),
               ),
             ),
           ],
@@ -360,7 +351,7 @@ List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       height: 1.2,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF111111),

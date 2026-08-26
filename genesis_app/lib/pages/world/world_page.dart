@@ -63,12 +63,14 @@ class WorldPage extends StatefulWidget {
     required this.wid,
     this.waitForTick1 = false,
     this.initialWorldDetail,
+    this.initialName = '',
     this.initialLocationId = '',
   });
 
   final String wid;
   final bool waitForTick1;
   final WorldDetail? initialWorldDetail;
+  final String initialName;
   final String initialLocationId;
 
   @override
@@ -598,7 +600,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           eventLocationIds: eventMapLocationIds,
           animationsPaused: _worldBottomSheetOpen || mapPausedForLocationChat,
           reloadRevision: _tilemapReloadRevision,
-          visualModeToggleTop: topPadding + 6,
+          visualModeToggleTop: topPadding + 8 + worldMapTabsHeight + 8,
           visualModeToggleRight: worldMapBackButtonLeft,
           restorationController: _tilemapRestorationController,
           onMapTap: _recordWorldTilemapClick,

@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import 'genesis_center_toast.dart';
 
+const double genesisCopyableIdIconSize = 14;
+
 class CopyableIdLabel extends StatelessWidget {
   const CopyableIdLabel({
     super.key,
@@ -44,6 +46,7 @@ class CopyableIdLabel extends StatelessWidget {
       style: customTextStyle ?? CopyableIdLabel.textStyle,
       trailingIcon: enabled && showCopyIcon ? Icons.copy_outlined : null,
       trailingIconColor: customIconColor ?? CopyableIdLabel.iconColor,
+      trailingIconSize: genesisCopyableIdIconSize,
       trailingGap: 6,
     );
   }
@@ -89,8 +92,8 @@ class GenesisInlineMetaLabel extends StatelessWidget {
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 3),
-        child: SizedBox(
-          height: trailingIconSize,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: trailingIconSize),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -146,97 +149,40 @@ class GenesisPairedMetaRow extends StatelessWidget {
   final TextStyle rightStyle;
   final Color rightIconColor;
 
-  static const double _iconSize = 16;
-
   @override
   Widget build(BuildContext context) {
-    final normalizedLeftLabel = leftLabel.trim().toUpperCase();
-    final resolvedLeftValue =
-        leftDisplayValue ?? formatCopyableIdValue(leftValue);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: SizedBox(
-        height: _iconSize,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: InkWell(
-                onTap: leftCopyEnabled
-                    ? () => _copyMetaValue(
-                        context,
-                        resolvedLeftValue,
-                        normalizedLeftLabel,
-                      )
-                    : null,
-                borderRadius: BorderRadius.circular(6),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        '$normalizedLeftLabel: $resolvedLeftValue',
-                        style: leftStyle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (leftCopyEnabled) ...[
-                      const SizedBox(width: 6),
-                      Icon(
-                        Icons.copy_outlined,
-                        size: _iconSize,
-                        color: leftIconColor,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: InkWell(
-                onTap: rightOnTap,
-                borderRadius: BorderRadius.circular(6),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        rightText,
-                        textAlign: TextAlign.right,
-                        style: rightStyle,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    if (rightOnTap != null) ...[
-                      const SizedBox(width: 4),
-                      Icon(
-                        Icons.chevron_right,
-                        size: _iconSize,
-                        color: rightIconColor,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-          ],
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: CopyableIdLabel(
+            label: leftLabel,
+            value: leftValue,
+            displayValue: leftDisplayValue,
+            enabled: leftCopyEnabled,
+            customTextStyle: leftStyle,
+            customIconColor: leftIconColor,
+          ),
         ),
-      ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Align(
+            alignment: Alignment.centerRight,
+            heightFactor: 1,
+            child: GenesisInlineMetaLabel(
+              text: rightText,
+              onTap: rightOnTap,
+              style: rightStyle,
+              textAlign: TextAlign.right,
+              trailingIcon: rightOnTap == null ? null : Icons.chevron_right,
+              trailingIconColor: rightIconColor,
+              trailingIconSize: genesisCopyableIdIconSize,
+              trailingGap: 4,
+            ),
+          ),
+        ),
+      ],
     );
-  }
-
-  Future<void> _copyMetaValue(
-    BuildContext context,
-    String displayValue,
-    String normalizedLabel,
-  ) async {
-    await Clipboard.setData(ClipboardData(text: displayValue));
-    if (!context.mounted) return;
-    showGenesisToast(context, '$normalizedLabel copied');
   }
 }
 

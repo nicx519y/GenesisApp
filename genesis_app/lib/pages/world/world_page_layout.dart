@@ -33,6 +33,7 @@ extension _WorldPageLayout on _WorldPageState {
           persistentTopOverlay: _buildPersistentMapOverlay(
             topPadding,
             world: world,
+            initialName: widget.initialName,
             worldTime: world?.currentTime ?? '',
             tickIndex: world?.tickCount ?? -1,
             subTickNo: world?.subTickNo ?? 0,
@@ -78,12 +79,13 @@ extension _WorldPageLayout on _WorldPageState {
   Widget _buildPersistentMapOverlay(
     double top, {
     WorldDetail? world,
+    String initialName = '',
     String worldTime = '',
     int tickIndex = -1,
     int subTickNo = 0,
   }) {
     final title = world == null
-        ? ''
+        ? initialName.trim()
         : (world.name.trim().isEmpty ? world.worldId : world.name.trim());
     final resolvedWorldTimeLabel = worldTimeLabel(
       tickIndex: tickIndex,
@@ -106,17 +108,8 @@ extension _WorldPageLayout on _WorldPageState {
               if (_worldMainTabIndex == 0)
                 Positioned(
                   left: worldMapBackButtonLeft,
-                  top: top + 6,
-                  child: WorldMapBackButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                  ),
-                ),
-              if (world != null &&
-                  (title.isNotEmpty || resolvedWorldTimeLabel.isNotEmpty))
-                Positioned(
-                  left: sideReservedWidth,
-                  right: sideReservedWidth,
-                  top: top + 2,
+                  right: worldMapBackButtonLeft,
+                  top: top + 8,
                   child: AnimatedBuilder(
                     animation:
                         _mainTabController.animation ?? _mainTabController,
@@ -124,13 +117,11 @@ extension _WorldPageLayout on _WorldPageState {
                       if (_worldMainTabIndex != 0) {
                         return const SizedBox.shrink();
                       }
-                      return Align(
-                        alignment: Alignment.topCenter,
-                        child: WorldMapIdentityPill(
-                          title: title,
-                          timeText: resolvedWorldTimeLabel,
-                          maxWidth: maxIdentityWidth,
-                        ),
+                      return WorldMapTopBar(
+                        title: title,
+                        timeText: resolvedWorldTimeLabel,
+                        maxIdentityWidth: maxIdentityWidth,
+                        onBackPressed: () => Navigator.of(context).maybePop(),
                       );
                     },
                   ),

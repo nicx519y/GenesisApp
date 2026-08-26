@@ -31,6 +31,11 @@ void main() {
 
       expect(find.text('WID: w_TEST_1'), findsOneWidget);
       expect(find.byIcon(Icons.copy_outlined), findsOneWidget);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.copy_outlined)).size,
+        genesisCopyableIdIconSize,
+      );
+      expect(tester.getSize(find.byType(CopyableIdLabel)).height, 20);
 
       await tester.tap(find.text('WID: w_TEST_1'));
       await tester.pump();
@@ -77,5 +82,40 @@ void main() {
 
     expect(copied, ['u_search_1']);
     await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('paired meta row reuses the shared copyable id label', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 360,
+              child: GenesisPairedMetaRow(
+                leftLabel: 'WID',
+                leftValue: 'w_test_1',
+                rightText: 'Owner: Tester',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.descendant(
+        of: find.byType(GenesisPairedMetaRow),
+        matching: find.byType(CopyableIdLabel),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.copy_outlined)).size,
+      genesisCopyableIdIconSize,
+    );
+    expect(tester.getSize(find.byType(GenesisPairedMetaRow)).height, 20);
   });
 }

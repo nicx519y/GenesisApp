@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../components/origin/stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
+import '../../ui/components/genesis_map_top_glass_bar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/display_name_formatter.dart';
@@ -21,18 +22,48 @@ class WorldMapBackButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: worldMapTabsHeight,
+    return GenesisMapGlassBackButton(
+      dimension: worldMapTabsHeight,
+      onPressed: onPressed,
+      glassKey: const ValueKey<String>('world-top-back-glass'),
+      surfaceKey: const ValueKey<String>('world-top-back-surface'),
+    );
+  }
+}
+
+class WorldMapTopBar extends StatelessWidget {
+  const WorldMapTopBar({
+    required this.title,
+    required this.timeText,
+    required this.maxIdentityWidth,
+    required this.onBackPressed,
+  });
+
+  final String title;
+  final String timeText;
+  final double maxIdentityWidth;
+  final VoidCallback onBackPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey<String>('world-top-overlay-bar'),
       height: worldMapTabsHeight,
-      decoration: BoxDecoration(
-        color: const Color(0xE6FFFFFF),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: IconButton(
-        iconSize: 18,
-        onPressed: onPressed,
-        icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
-        padding: EdgeInsets.zero,
+      child: Row(
+        children: [
+          WorldMapBackButton(onPressed: onBackPressed),
+          const SizedBox(width: worldMapIdentityHorizontalGap),
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: WorldMapIdentityPill(
+                title: title,
+                timeText: timeText,
+                maxWidth: maxIdentityWidth,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -52,37 +83,35 @@ class WorldMapIdentityPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ConstrainedBox(
-      constraints: BoxConstraints(
-        minWidth: worldTimePillMinWidth,
-        maxWidth: maxWidth,
-      ),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFFFF).withValues(alpha: 0.86),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(
-            worldTimePillHorizontalPadding,
-            title.isEmpty ? 0 : 7,
-            worldTimePillHorizontalPadding,
-            7,
-          ),
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: SizedBox(
+        height: worldMapTabsHeight,
+        child: Align(
+          alignment: Alignment.centerLeft,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (title.isNotEmpty)
                 Text(
                   title,
+                  key: const ValueKey<String>('world-top-name'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
+                  textAlign: TextAlign.left,
                   style: const TextStyle(
-                    color: Color(0xFF4B6192),
+                    color: Colors.white,
                     fontSize: 16,
-                    height: 1.1,
-                    leadingDistribution: TextLeadingDistribution.even,
+                    height: 1.2,
                     fontWeight: FontWeight.w600,
+                    decoration: TextDecoration.none,
+                    shadows: [
+                      Shadow(
+                        color: Color(0x99000000),
+                        blurRadius: 6,
+                        offset: Offset(0, 1),
+                      ),
+                    ],
                   ),
                 ),
               if (title.isNotEmpty && timeText.isNotEmpty)
@@ -100,14 +129,18 @@ class _WorldMapTimeLabel extends StatelessWidget {
   const _WorldMapTimeLabel({required this.text});
 
   static const _textStyle = TextStyle(
-    color: Color(0xFF111111),
-    fontSize: 12,
+    color: Colors.white,
+    fontSize: 10,
     height: 1,
     leadingDistribution: TextLeadingDistribution.even,
     fontWeight: FontWeight.w400,
+    decoration: TextDecoration.none,
+    shadows: [
+      Shadow(color: Color(0xB3000000), blurRadius: 4, offset: Offset(0, 1)),
+    ],
   );
   static const _strutStyle = StrutStyle(
-    fontSize: 12,
+    fontSize: 10,
     height: 1,
     forceStrutHeight: true,
   );
@@ -122,15 +155,16 @@ class _WorldMapTimeLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     final parts = _splitWorldMapTimeLabel(text);
     return Row(
+      key: const ValueKey<String>('world-top-time'),
       mainAxisSize: MainAxisSize.min,
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         if (parts.tick.isNotEmpty) ...[
           Text(
             parts.tick,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
+            textAlign: TextAlign.left,
             style: _textStyle,
             strutStyle: _strutStyle,
             textHeightBehavior: _textHeightBehavior,
@@ -139,14 +173,25 @@ class _WorldMapTimeLabel extends StatelessWidget {
             const Text(' · ', style: _textStyle, strutStyle: _strutStyle),
         ],
         if (parts.time.isNotEmpty) ...[
-          const Icon(Icons.schedule, size: 12, color: Color(0xFF111111)),
+          const Icon(
+            Icons.schedule,
+            size: 10,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                color: Color(0xB3000000),
+                blurRadius: 4,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
           const SizedBox(width: 4),
           Flexible(
             child: Text(
               parts.time,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
+              textAlign: TextAlign.left,
               style: _textStyle,
               strutStyle: _strutStyle,
               textHeightBehavior: _textHeightBehavior,

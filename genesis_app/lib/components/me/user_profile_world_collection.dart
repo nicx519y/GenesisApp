@@ -124,7 +124,7 @@ class _WorldProfileCollectionListState
     );
     final result = await Navigator.of(context).pushNamed<WorldPageResult>(
       RouteNames.world,
-      arguments: {'wid': item.wid},
+      arguments: {'wid': item.wid, 'initialName': item.title},
     );
     if (!mounted || result == null) return;
     final deletedWorldId = result.deletedWorldId.trim();

@@ -43,6 +43,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/components/genesis_map_top_glass_bar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_search_field.dart';
@@ -76,10 +77,16 @@ part 'origin_world_location_chat.dart';
 part 'origin_world_map_data.dart';
 
 class OriginWorldPage extends StatefulWidget {
-  const OriginWorldPage({super.key, required this.oid, required this.originId});
+  const OriginWorldPage({
+    super.key,
+    required this.oid,
+    required this.originId,
+    this.initialName = '',
+  });
 
   final String oid;
   final int originId;
+  final String initialName;
 
   @override
   State<OriginWorldPage> createState() => _OriginWorldPageState();
@@ -1135,7 +1142,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 showVisualModeToggle: true,
                 animationsPaused: detailSheetRaised,
                 locationImageFlowPaused: detailSheetRaised,
-                visualModeToggleTop: topPadding + 8,
+                visualModeToggleTop:
+                    topPadding + 8 + genesisSearchFieldHeight + 8,
                 visualModeToggleRight: 12,
                 onMapTap: () => _recordWorldoTilemapClick(origin),
                 onCurrentLocationsChanged:

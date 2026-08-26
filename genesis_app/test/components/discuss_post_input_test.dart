@@ -31,6 +31,26 @@ void main() {
     expect(cappedProgress, greaterThan(0.09));
   });
 
+  testWidgets('uses the collapsed input background color', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(body: DiscussPostInput(bizId: 'o_test_1')),
+      ),
+    );
+
+    final inputContainer = find
+        .ancestor(
+          of: find.text('Write a post'),
+          matching: find.byType(Container),
+        )
+        .first;
+    final decoration =
+        tester.widget<Container>(inputContainer).decoration as BoxDecoration;
+    expect(decoration.color, const Color(0xFFF8F8F8));
+  });
+
   testWidgets('keeps the global status bar transparent while composer opens', (
     WidgetTester tester,
   ) async {

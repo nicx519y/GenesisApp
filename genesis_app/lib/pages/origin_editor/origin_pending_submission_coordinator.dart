@@ -398,7 +398,7 @@ class _OriginPendingSubmissionPoller {
       if (!navigator.mounted) return;
       navigator.pushNamed(
         RouteNames.originWorld,
-        arguments: {'oid': originId, 'originId': 0},
+        arguments: {'oid': originId, 'originId': 0, 'initialName': originName},
       );
     });
   }

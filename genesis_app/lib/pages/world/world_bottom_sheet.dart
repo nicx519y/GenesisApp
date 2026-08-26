@@ -445,7 +445,12 @@ class WorldSingleSectionBottomSheetState
         error: _eventsCache.error,
         latestRevision: _selection.eventsLatestRevision,
         targetTickNumber: _selection.eventsTargetTickNumber,
-        contentPadding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
+        contentPadding: const EdgeInsets.fromLTRB(
+          12,
+          worldSheetVisibleContentTopGap,
+          12,
+          32,
+        ),
         onLoadMore: _loadNextEventsPage,
       ),
     );
@@ -488,7 +493,14 @@ class WorldSingleSectionBottomSheetState
         recentChatLocationIds: widget.recentChatLocationIds,
         enableOuterScrollHandoff: false,
         lazyBuildRows: true,
-        padding: const EdgeInsets.fromLTRB(12, 14, 12, 32),
+        // Location rows provide their own 5px top inset. Subtract it here so
+        // the first visible image/text still starts 15px below the header.
+        padding: const EdgeInsets.fromLTRB(
+          12,
+          worldSheetVisibleContentTopGap - 5,
+          12,
+          32,
+        ),
         onPointTap: (point) {
           final locationId = point.sceneId.trim().isNotEmpty
               ? point.sceneId.trim()

@@ -543,12 +543,16 @@ class _SearchPageState extends State<SearchPage>
       case _SearchTab.origin:
         Navigator.of(context).pushNamed(
           RouteNames.originWorld,
-          arguments: {'originId': 0, 'oid': item.entityId},
+          arguments: {
+            'originId': 0,
+            'oid': item.entityId,
+            'initialName': item.title,
+          },
         );
       case _SearchTab.world:
         final result = await Navigator.of(context).pushNamed<WorldPageResult>(
           RouteNames.world,
-          arguments: {'wid': item.entityId},
+          arguments: {'wid': item.entityId, 'initialName': item.title},
         );
         if (!mounted || result == null) return;
         _removeDeletedWorld(result.deletedWorldId);
