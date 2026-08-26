@@ -18094,6 +18094,267 @@ void main() {
     );
   });
 
+  testWidgets(
+    'developer test page gets updates and resets World History watermarks',
+    (WidgetTester tester) async {
+      await AppEndpointOverrideStore.clear();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              initialUid: 'u_watermark_test',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('test'));
+      await tester.pumpAndSettle();
+
+      final panel = find.byKey(
+        const ValueKey<String>('developer-world-history-watermark-panel'),
+      );
+      final highWatermarkInput = find.byKey(
+        const ValueKey<String>(
+          'developer-world-history-high-watermark-input',
+        ),
+      );
+      final lowWatermarkInput = find.byKey(
+        const ValueKey<String>(
+          'developer-world-history-low-watermark-input',
+        ),
+      );
+      expect(panel, findsOneWidget);
+      expect(highWatermarkInput, findsOneWidget);
+      expect(lowWatermarkInput, findsOneWidget);
+      expect(find.text('high_watermark · 20–30'), findsOneWidget);
+      expect(find.text('low_watermark · 10–20'), findsOneWidget);
+      expect(
+        find.text('Ranges: high_watermark 20–30, low_watermark 10–20.'),
+        findsNothing,
+      );
+      expect(
+        tester.widget<TextField>(highWatermarkInput).controller?.text,
+        isEmpty,
+      );
+      expect(
+        tester.widget<TextField>(lowWatermarkInput).controller?.text,
+        isEmpty,
+      );
+      final fetchButton = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('developer-world-history-fetch')),
+      );
+      final updateButton = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('developer-world-history-update')),
+      );
+      final deleteButton = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('developer-world-history-delete')),
+      );
+      expect(
+        fetchButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+        Colors.transparent,
+      );
+      expect(
+        updateButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+        Colors.transparent,
+      );
+      expect(
+        deleteButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+        Colors.transparent,
+      );
+      expect(
+        fetchButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+        isNot(
+          updateButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+        ),
+      );
+      expect(
+        updateButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+        isNot(
+          deleteButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+        ),
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-world-history-fetch')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(highWatermarkInput).controller?.text,
+        '25',
+      );
+      expect(
+        tester.widget<TextField>(lowWatermarkInput).controller?.text,
+        '15',
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        find.descendant(
+          of: panel,
+          matching: find.text('stored_high_watermark'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-stored_high_watermark-value',
+                ),
+              ),
+            )
+            .data,
+        '0',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-stored_low_watermark-value',
+                ),
+              ),
+            )
+            .data,
+        '0',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-source-value',
+                ),
+              ),
+            )
+            .data,
+        'default',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-degraded-value',
+                ),
+              ),
+            )
+            .data,
+        'false',
+      );
+
+      await tester.enterText(highWatermarkInput, '28');
+      await tester.enterText(lowWatermarkInput, '12');
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-world-history-update')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(highWatermarkInput).controller?.text,
+        '28',
+      );
+      expect(
+        tester.widget<TextField>(lowWatermarkInput).controller?.text,
+        '12',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-stored_high_watermark-value',
+                ),
+              ),
+            )
+            .data,
+        '28',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-stored_low_watermark-value',
+                ),
+              ),
+            )
+            .data,
+        '12',
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-world-history-delete')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(highWatermarkInput).controller?.text,
+        '25',
+      );
+      expect(
+        tester.widget<TextField>(lowWatermarkInput).controller?.text,
+        '15',
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'developer World History controls require test environment and login',
+    (WidgetTester tester) async {
+      await AppEndpointOverrideStore.clear();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(initialAuthToken: null),
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('test'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const ValueKey<String>('developer-world-history-watermark-panel'),
+        ),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await AppEndpointOverrideStore.save(
+        const AppEndpointOverrides(
+          apiBaseUrl: 'https://api.worldo.ai/api/',
+          gatewayApiBaseUrl: 'https://api.worldo.ai/apix/',
+          chatroomHttpBaseUrl: 'https://api.worldo.ai/',
+          chatroomWsBaseUrl: 'wss://api.worldo.ai/aitown-chat/ws',
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(initialAuthToken: 'backend-token'),
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('test'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const ValueKey<String>('developer-world-history-watermark-panel'),
+        ),
+        findsNothing,
+      );
+      await AppEndpointOverrideStore.clear();
+    },
+  );
+
   testWidgets('developer test tab controls telemetry debug upload', (
     WidgetTester tester,
   ) async {

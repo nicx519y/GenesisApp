@@ -667,6 +667,66 @@ void main() {
     );
   });
 
+  test('v1 user World History settings use GET PUT and DELETE contract', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        final responseData = switch (request.method) {
+          'PUT' =>
+            '{"high_watermark":28,"low_watermark":12,"stored_high_watermark":28,"stored_low_watermark":12,"source":"stored","degraded":false}',
+          _ =>
+            '{"high_watermark":25,"low_watermark":15,"stored_high_watermark":0,"stored_low_watermark":0,"source":"default","degraded":false}',
+        };
+        return TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":$responseData}',
+        );
+      },
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final fetched = await api.v1.user.worldHistorySettings();
+    final updated = await api.v1.user.updateWorldHistorySettings(
+      highWatermark: 28,
+      lowWatermark: 12,
+    );
+    final reset = await api.v1.user.resetWorldHistorySettings();
+
+    expect(fetched.highWatermark, 25);
+    expect(fetched.lowWatermark, 15);
+    expect(fetched.storedHighWatermark, 0);
+    expect(fetched.source, 'default');
+    expect(updated.highWatermark, 28);
+    expect(updated.lowWatermark, 12);
+    expect(updated.storedLowWatermark, 12);
+    expect(updated.source, 'stored');
+    expect(reset.highWatermark, 25);
+    expect(reset.degraded, isFalse);
+    expect(apiTransport.requests.map((request) => request.method), [
+      'GET',
+      'PUT',
+      'DELETE',
+    ]);
+    expect(
+      apiTransport.requests.map((request) => request.uri.path),
+      List<String>.filled(3, '/api/v1/user/world-history-settings'),
+    );
+    expect(jsonDecode(utf8.decode(apiTransport.requests[1].bodyBytes!)), {
+      'high_watermark': 28,
+      'low_watermark': 12,
+    });
+    expect(apiTransport.requests[2].bodyBytes, isNull);
+  });
+
   test('bindDevice does not persist guest uid when user info fails', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(

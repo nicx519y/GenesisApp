@@ -45,7 +45,7 @@ Origin detail 增量核对时间：2026-08-05
 
 ## 总览
 
-本文档当前覆盖 53 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
+本文档当前覆盖 56 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -59,6 +59,9 @@ Origin detail 增量核对时间：2026-08-05
 | 用户 | GET | `/api/v1/user/followers` | 用户粉丝列表 |
 | 用户 | GET | `/api/v1/user/info` | user Info |
 | 用户 | POST | `/api/v1/user/oauth/apple` | Apple login |
+| 用户 | GET | `/api/v1/user/world-history-settings` | 查询当前用户 World History 水位设置 |
+| 用户 | PUT | `/api/v1/user/world-history-settings` | 原子更新当前用户 World History 水位设置 |
+| 用户 | DELETE | `/api/v1/user/world-history-settings` | 重置当前用户 World History 水位设置 |
 | world | GET | `/api/v1/world/list` | World 列表 |
 | world | GET | `/api/v1/world/detail` | World 详情 |
 | world | GET | `/api/v1/world/map` | 读取 World 2.5D 地图 |
@@ -559,6 +562,30 @@ Query：
 - `pn*`: integer
 - `rn*`: integer
 - `list*`: `{ user: UserInfo, relation: UserRelation }[]`
+
+### GET `/api/v1/user/world-history-settings`
+
+查询当前登录用户的 World History 水位。响应 `data`：
+
+- `high_watermark*`: integer，当前生效高水位
+- `low_watermark*`: integer，当前生效低水位
+- `stored_high_watermark*`: integer，持久化高水位；使用默认值时为 `0`
+- `stored_low_watermark*`: integer，持久化低水位；使用默认值时为 `0`
+- `source*`: string，例如 `default`
+- `degraded*`: boolean
+
+### PUT `/api/v1/user/world-history-settings`
+
+原子更新当前登录用户的两个 World History 水位。JSON body 两个字段都必填：
+
+- `high_watermark*`: integer，范围 `20..30`
+- `low_watermark*`: integer，范围 `10..20`
+
+响应 `data` 与 GET 相同。
+
+### DELETE `/api/v1/user/world-history-settings`
+
+删除当前用户保存的水位值并恢复服务端默认值。请求 body：无。响应 `data` 与 GET 相同。
 
 ## Origin / World 接口
 
@@ -2068,6 +2095,9 @@ query：
 | `POST /api/v1/user/unfollow` | `FollowV1Api.unfollow` body 已改为 `target_uid`，响应按空对象处理。 |
 | `GET /api/v1/user/following` | 已新增 `FollowV1Api.following(uid,pn,rn)`。 |
 | `GET /api/v1/user/followers` | 已新增 `FollowV1Api.followers(uid,pn,rn)`。 |
+| `GET /api/v1/user/world-history-settings` | 已新增 `UserV1Api.worldHistorySettings`，解析当前生效值、持久化值、来源和降级状态；Developer Page 仅在测试环境且存在完整登录 session 时显示入口。 |
+| `PUT /api/v1/user/world-history-settings` | 已新增 `UserV1Api.updateWorldHistorySettings`，JSON body 原子提交 `high_watermark/low_watermark`，Developer Page 在提交前校验 Apifox 范围。 |
+| `DELETE /api/v1/user/world-history-settings` | 已新增 `UserV1Api.resetWorldHistorySettings`，无 body，成功后用服务端返回的默认生效值刷新输入框。 |
 | `GET /api/v1/world/list` | `WorldV1Api.list` query 已使用 `scene/tag/origin_id/uid/keyword/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；首页和个人 world 列表可消费 `list[].info + stats`。 |
 | `GET /api/v1/world/info` | 已新增 `WorldV1Api.info(worldId)` 与 `GenesisApi.getWorldInfo(wid)`，query 使用 `world_id`；响应消费 `info + stats`，不期待 `relation_status/characters/locations/ticks`。 |
 | `GET /api/v1/world/detail` | `WorldV1Api.detail` query 只使用 `world_id`；详情 mapper 消费 `info.definition_version`、`info.last_chat_location_id`、`info.metric`、`relation_status` 与 `locations[].location_description/location_paragraph/location_timestamp/dialogue`；World Tilemap 首次进入时优先聚焦最后聊天 location 的当前可见节点；地图 JSON 按需通过 `/world/map` 获取，完整 tick 列表通过 `/world/tick/list` 获取。 |

@@ -438,6 +438,31 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_paged(_state.v1UserBlocks(), query));
     }
 
+    if (method == 'GET' && path == 'user/world-history-settings') {
+      return _v1Ok(_state.v1WorldHistorySettings());
+    }
+
+    if (method == 'PUT' && path == 'user/world-history-settings') {
+      final highWatermark = asInt(body['high_watermark']);
+      final lowWatermark = asInt(body['low_watermark']);
+      if (highWatermark < 20 ||
+          highWatermark > 30 ||
+          lowWatermark < 10 ||
+          lowWatermark > 20) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      return _v1Ok(
+        _state.updateV1WorldHistorySettings(
+          highWatermark: highWatermark,
+          lowWatermark: lowWatermark,
+        ),
+      );
+    }
+
+    if (method == 'DELETE' && path == 'user/world-history-settings') {
+      return _v1Ok(_state.resetV1WorldHistorySettings());
+    }
+
     if (method == 'GET' && path == 'user/profile') {
       return _v1Ok(_state.v1UserProfile(query['uid']));
     }
@@ -1056,6 +1081,9 @@ class _MockState {
   };
   int _v1GemBalance = 430;
   int _v1DirectMessageUnreadCount = 1;
+  int _v1WorldHistoryHighWatermark = 25;
+  int _v1WorldHistoryLowWatermark = 15;
+  bool _v1WorldHistoryUsesDefault = true;
   String _v1DmConversationCursor = 'dm_sync_1';
   bool _v1DmConversationDeltaSent = false;
   final List<Map<String, dynamic>> _v1DiscussPosts = kMockV1DiscussPosts
@@ -1084,6 +1112,38 @@ class _MockState {
   Map<String, dynamic> get _v1Origin => _v1Origins.first;
 
   Map<String, dynamic> get _v1World => _v1Worlds.first;
+
+  Map<String, dynamic> v1WorldHistorySettings() {
+    return <String, dynamic>{
+      'high_watermark': _v1WorldHistoryHighWatermark,
+      'low_watermark': _v1WorldHistoryLowWatermark,
+      'stored_high_watermark': _v1WorldHistoryUsesDefault
+          ? 0
+          : _v1WorldHistoryHighWatermark,
+      'stored_low_watermark': _v1WorldHistoryUsesDefault
+          ? 0
+          : _v1WorldHistoryLowWatermark,
+      'source': _v1WorldHistoryUsesDefault ? 'default' : 'stored',
+      'degraded': false,
+    };
+  }
+
+  Map<String, dynamic> updateV1WorldHistorySettings({
+    required int highWatermark,
+    required int lowWatermark,
+  }) {
+    _v1WorldHistoryHighWatermark = highWatermark;
+    _v1WorldHistoryLowWatermark = lowWatermark;
+    _v1WorldHistoryUsesDefault = false;
+    return v1WorldHistorySettings();
+  }
+
+  Map<String, dynamic> resetV1WorldHistorySettings() {
+    _v1WorldHistoryHighWatermark = 25;
+    _v1WorldHistoryLowWatermark = 15;
+    _v1WorldHistoryUsesDefault = true;
+    return v1WorldHistorySettings();
+  }
 
   Map<String, dynamic> _v1UserPayload(Map<String, dynamic> user) {
     final copy = _deepCopyMap(user);

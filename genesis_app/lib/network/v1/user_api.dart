@@ -1,3 +1,5 @@
+import '../json_utils.dart';
+import '../models/world_history_settings.dart';
 import 'v1_api_resource.dart';
 
 class UserV1Api extends V1ApiResource {
@@ -173,6 +175,32 @@ class UserV1Api extends V1ApiResource {
   /// ```
   Future<Map<String, dynamic>> blocks({int? pn, int? rn}) {
     return getMap('user/blocks', v1Query({'pn': pn, 'rn': rn}));
+  }
+
+  /// GET /api/v1/user/world-history-settings
+  Future<WorldHistorySettings> worldHistorySettings() async {
+    final data = await getMap('user/world-history-settings');
+    return WorldHistorySettings.fromJson(data);
+  }
+
+  /// PUT /api/v1/user/world-history-settings
+  Future<WorldHistorySettings> updateWorldHistorySettings({
+    required int highWatermark,
+    required int lowWatermark,
+  }) async {
+    final json = await client.put<Object?>(
+      'v1/user/world-history-settings',
+      body: {'high_watermark': highWatermark, 'low_watermark': lowWatermark},
+    );
+    final data = handleV1ResponseErrNo(json);
+    return WorldHistorySettings.fromJson(asJsonMap(data));
+  }
+
+  /// DELETE /api/v1/user/world-history-settings
+  Future<WorldHistorySettings> resetWorldHistorySettings() async {
+    final json = await client.delete<Object?>('v1/user/world-history-settings');
+    final data = handleV1ResponseErrNo(json);
+    return WorldHistorySettings.fromJson(asJsonMap(data));
   }
 
   /// GET /api/v1/user/profile
