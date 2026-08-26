@@ -56,6 +56,7 @@ class _AppShellPageState extends State<AppShellPage>
   late final ValueNotifier<bool> _meTabActiveNotifier;
   late final ValueNotifier<bool> _homeTabActiveNotifier;
   late final ValueNotifier<int> _homeTabActivationNotifier;
+  late final ValueNotifier<int> _worldoTabActivationNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
   late final bool _shouldResolveColdStartHomeTarget;
   var _coldStartHomeTargetResolved = true;
@@ -92,6 +93,7 @@ class _AppShellPageState extends State<AppShellPage>
     _meTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 4);
     _homeTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 0);
     _homeTabActivationNotifier = ValueNotifier<int>(0);
+    _worldoTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
     _shouldResolveColdStartHomeTarget = widget.initialIndex == 0;
     _coldStartHomeTargetResolved = !_shouldResolveColdStartHomeTarget;
@@ -124,6 +126,7 @@ class _AppShellPageState extends State<AppShellPage>
     _meTabActiveNotifier.dispose();
     _homeTabActiveNotifier.dispose();
     _homeTabActivationNotifier.dispose();
+    _worldoTabActivationNotifier.dispose();
     _unreadSummaryNotifier.dispose();
     super.dispose();
   }
@@ -324,7 +327,10 @@ class _AppShellPageState extends State<AppShellPage>
     }
 
     if (index == 1) {
-      if (_selectedIndex == 1) return;
+      if (_selectedIndex == 1) {
+        _worldoTabActivationNotifier.value += 1;
+        return;
+      }
       _selectTab(1);
       return;
     }
@@ -582,6 +588,7 @@ class _AppShellPageState extends State<AppShellPage>
         1 => OriginPage(
           isInitialPage: widget.initialIndex == 1,
           onForYouFirstPageReady: _handleWorldoForYouFirstPageReady,
+          activationListenable: _worldoTabActivationNotifier,
         ),
         3 => ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,

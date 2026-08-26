@@ -2655,7 +2655,7 @@ void main() {
 
       await tester.tap(find.text('Home'));
       await tester.pump();
-      await tester.tap(find.text('#Worldo'));
+      await tester.tap(find.text('Worldo'));
 
       expect(_pageViewCount(telemetry, 'worldo_list_tab'), 2);
     },
@@ -2924,7 +2924,7 @@ void main() {
 
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Popular'), findsNothing);
-    expect(find.text('#Worldo'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('Create'), findsNothing);
     expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
     expect(find.text('Messages'), findsOneWidget);
@@ -2940,7 +2940,7 @@ void main() {
 
     expect(find.byType(AppShellPage, skipOffstage: false), findsOneWidget);
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
-    expect(find.text('Worldo'), findsNothing);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
@@ -4619,17 +4619,20 @@ void main() {
     }
   });
 
-  testWidgets('tap #Worldo switches to Worldo page', (
+  testWidgets('tap Worldo switches to Worldo page', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
-    await tester.tap(find.text('#Worldo'));
+    await tester.tap(find.text('Worldo'));
     await tester.pumpAndSettle();
 
     expect(find.text('Home'), findsOneWidget);
-    expect(find.text('#Worldo'), findsOneWidget);
-    expect(find.text('Worldo'), findsNothing);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    AppStartupCoordinator.resetForTesting();
   });
 
   testWidgets('AppServicesScope delays old GemWallet disposal on replacement', (
@@ -4878,7 +4881,7 @@ void main() {
     }
 
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-    expect(find.text('Worldo'), findsNothing);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
@@ -4918,7 +4921,7 @@ void main() {
       }
 
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worldo'), findsNothing);
+      expect(find.text('Worldo'), findsOneWidget);
       expect(find.text('For you'), findsOneWidget);
 
       await tester.tap(find.text('Home'));
@@ -4986,7 +4989,7 @@ void main() {
       }
 
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worldo'), findsNothing);
+      expect(find.text('Worldo'), findsOneWidget);
       expect(find.text('For you'), findsOneWidget);
 
       await tester.tap(find.text('Home'));
@@ -5042,7 +5045,7 @@ void main() {
       expect(worldRequests.single.uri.queryParameters['pn'], '1');
       expect(worldRequests.single.uri.queryParameters['rn'], '10');
       expect(find.text('World tick narrator 1'), findsOneWidget);
-      expect(find.text('Worldo'), findsNothing);
+      expect(find.text('Worldo'), findsOneWidget);
     },
   );
 
@@ -5145,12 +5148,74 @@ void main() {
     await tester.pumpAndSettle();
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('#Worldo'));
+    await tester.tap(find.text('Worldo'));
     await tester.pumpAndSettle();
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
     expect(find.text('#Origin 1'), findsOneWidget);
+  });
+
+  testWidgets('reselecting Worldo returns For you feed and header to top', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const AppShellPage(initialIndex: 1),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final forYouFeedFinder = find.byKey(
+      const PageStorageKey<String>('origin-feed-For you-foryou'),
+    );
+    final forYouScrollableFinder = find.descendant(
+      of: forYouFeedFinder,
+      matching: find.byType(Scrollable),
+    );
+    final forYouScrollableState = tester.state<ScrollableState>(
+      forYouScrollableFinder,
+    );
+
+    await tester.drag(forYouFeedFinder, const Offset(0, -400));
+    await tester.pumpAndSettle();
+    await tester.drag(forYouFeedFinder, const Offset(0, 80));
+    await tester.pumpAndSettle();
+
+    expect(forYouScrollableState.position.pixels, greaterThan(0));
+    await tester.tap(find.text('Destroyed').hitTestable());
+    await tester.pumpAndSettle();
+    expect(
+      DefaultTabController.of(tester.element(find.byType(TabBar).first)).index,
+      1,
+    );
+
+    final worldoNavFinder = find.descendant(
+      of: find.byType(BottomTabs),
+      matching: find.text('Worldo'),
+    );
+    await tester.tap(worldoNavFinder);
+    await tester.pumpAndSettle();
+
+    expect(
+      DefaultTabController.of(tester.element(find.byType(TabBar).first)).index,
+      0,
+    );
+    expect(forYouScrollableState.position.pixels, 0);
+    expect(
+      tester
+          .state<NestedScrollViewState>(find.byType(NestedScrollView))
+          .outerController
+          .offset,
+      0,
+    );
+    AppStartupCoordinator.resetForTesting();
   });
 
   testWidgets('Origin tab requests v1 origin list scene on enter', (
@@ -5230,55 +5295,135 @@ void main() {
     expect(find.text('Gem Wallet destination'), findsOneWidget);
   });
 
-  testWidgets('Origin category tabs scroll away with the card grid', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: const OriginPage(),
+  testWidgets(
+    'Origin category tabs float back and current tab returns to top',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(),
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    final searchFinder = find.byType(SearchBarPlaceholder);
-    final categoryFinder = find.text('For you');
-    final feedFinder = find.byKey(
-      const PageStorageKey<String>('origin-feed-For you-foryou'),
-    );
-    final searchRect = tester.getRect(searchFinder);
-    final headerRect = tester.getRect(find.byType(GenesisTopSafeArea));
-    final tabsRect = tester.getRect(find.byType(SecendTabs));
-    final initialSearchTop = tester.getTopLeft(searchFinder).dy;
+      final searchFinder = find.byType(SearchBarPlaceholder);
+      final categoryFinder = find.text('For you');
+      final feedFinder = find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      );
+      final feedScrollableFinder = find.descendant(
+        of: feedFinder,
+        matching: find.byType(Scrollable),
+      );
+      final searchRect = tester.getRect(searchFinder);
+      final headerRect = tester.getRect(find.byType(GenesisTopSafeArea));
+      final tabsRect = tester.getRect(find.byType(SecendTabs).first);
+      final initialSearchTop = tester.getTopLeft(searchFinder).dy;
 
-    expect(searchRect.top, 12);
-    expect(headerRect.bottom - searchRect.bottom, 6);
-    expect(tabsRect.top - headerRect.bottom, 0);
-    expect(
-      tester.widget<TabBarView>(find.byType(TabBarView)).physics,
-      isA<NeverScrollableScrollPhysics>(),
-    );
-    expect(
-      find.ancestor(
-        of: find.byType(NestedScrollView),
-        matching: find.byType(RefreshIndicator),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.ancestor(of: feedFinder, matching: find.byType(RefreshIndicator)),
-      findsOneWidget,
-    );
-    expect(categoryFinder.hitTestable(), findsOneWidget);
-    await tester.drag(feedFinder, const Offset(0, -400));
-    await tester.pumpAndSettle();
+      expect(searchRect.top, 12);
+      expect(headerRect.bottom - searchRect.bottom, 6);
+      expect(tabsRect.top - headerRect.bottom, 0);
+      expect(
+        tester.widget<TabBarView>(find.byType(TabBarView)).physics,
+        isNull,
+      );
+      expect(
+        tester
+            .widget<NestedScrollView>(find.byType(NestedScrollView))
+            .floatHeaderSlivers,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
+            .floating,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
+            .delegate
+            .snapConfiguration,
+        isNotNull,
+      );
+      expect(
+        find.ancestor(
+          of: find.byType(NestedScrollView),
+          matching: find.byType(RefreshIndicator),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.ancestor(of: feedFinder, matching: find.byType(RefreshIndicator)),
+        findsOneWidget,
+      );
+      expect(categoryFinder.hitTestable(), findsOneWidget);
 
-    expect(tester.getTopLeft(searchFinder).dy, initialSearchTop);
-    expect(categoryFinder.hitTestable(), findsNothing);
-  });
+      final tabController = DefaultTabController.of(
+        tester.element(find.byType(TabBar).first),
+      );
+      expect(tabController.length, 2);
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).physics,
+        isA<PageScrollPhysics>(),
+      );
+      expect(
+        DefaultTabController.of(
+          tester.element(find.byType(TabBar).first),
+        ).index,
+        0,
+      );
+
+      await tester.drag(feedFinder, const Offset(0, -400));
+      await tester.pumpAndSettle();
+
+      expect(tester.getTopLeft(searchFinder).dy, initialSearchTop);
+      expect(categoryFinder.hitTestable(), findsNothing);
+      expect(
+        tester.widget<TabBarView>(find.byType(TabBarView)).physics,
+        isA<NeverScrollableScrollPhysics>(),
+      );
+      expect(
+        tester.widget<PageView>(find.byType(PageView)).physics?.parent,
+        isA<NeverScrollableScrollPhysics>(),
+      );
+
+      await tester.drag(feedFinder, const Offset(0, 30));
+      await tester.pumpAndSettle();
+
+      expect(categoryFinder.hitTestable(), findsOneWidget);
+      expect(
+        tester.widget<TabBarView>(find.byType(TabBarView)).physics,
+        isNull,
+      );
+      expect(
+        tester.state<ScrollableState>(feedScrollableFinder).position.pixels,
+        greaterThan(0),
+      );
+
+      await tester.tap(categoryFinder.hitTestable());
+      await tester.pump();
+      expect(categoryFinder.hitTestable(), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(categoryFinder.hitTestable(), findsOneWidget);
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.state<ScrollableState>(feedScrollableFinder).position.pixels,
+        0,
+      );
+      expect(
+        tester
+            .state<NestedScrollViewState>(find.byType(NestedScrollView))
+            .outerController
+            .offset,
+        0,
+      );
+    },
+  );
 
   testWidgets(
     'Origin keeps the skeleton during a permission prompt and retries on resume',
