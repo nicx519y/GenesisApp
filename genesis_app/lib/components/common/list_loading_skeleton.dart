@@ -1,20 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
-import '../../ui/tokens/genesis_image_radii.dart';
-import '../../ui/theme/genesis_semantic_colors.dart';
 import '../../ui/components/genesis_skeleton.dart';
 
-enum _GenesisListSkeletonType { world, popularOrigin, originGrid }
+enum _GenesisListSkeletonType { world, originGrid }
 
 class GenesisListLoadingSkeleton extends StatelessWidget {
   const GenesisListLoadingSkeleton.worldList({super.key, this.itemCount = 4})
     : _type = _GenesisListSkeletonType.world;
-
-  const GenesisListLoadingSkeleton.popularOriginList({
-    super.key,
-    this.itemCount = 3,
-  }) : _type = _GenesisListSkeletonType.popularOrigin;
 
   const GenesisListLoadingSkeleton.originGrid({super.key, this.itemCount = 8})
     : _type = _GenesisListSkeletonType.originGrid;
@@ -27,9 +20,6 @@ class GenesisListLoadingSkeleton extends StatelessWidget {
     return _SkeletonShimmer(
       child: switch (_type) {
         _GenesisListSkeletonType.world => _WorldListSkeleton(
-          itemCount: itemCount,
-        ),
-        _GenesisListSkeletonType.popularOrigin => _PopularOriginListSkeleton(
           itemCount: itemCount,
         ),
         _GenesisListSkeletonType.originGrid => _OriginGridSkeleton(
@@ -95,148 +85,6 @@ class _WorldSkeletonItem extends StatelessWidget {
             ],
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _PopularOriginListSkeleton extends StatelessWidget {
-  const _PopularOriginListSkeleton({required this.itemCount});
-
-  final int itemCount;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      key: const ValueKey<String>('genesis-popular-origin-list-skeleton'),
-      primary: false,
-      padding: const EdgeInsets.only(top: 4, bottom: 24),
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      itemCount: itemCount,
-      separatorBuilder: (context, index) => Divider(
-        height: 25,
-        thickness: 1,
-        color: context.genesisColors.dividerMuted,
-      ),
-      itemBuilder: (context, index) {
-        return const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: _PopularOriginSkeletonItem(),
-        );
-      },
-    );
-  }
-}
-
-class _PopularOriginSkeletonItem extends StatelessWidget {
-  const _PopularOriginSkeletonItem();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SkeletonBone(
-              key: ValueKey<String>(
-                'genesis-popular-origin-list-thumbnail-skeleton',
-              ),
-              width: 60,
-              height: 60,
-              borderRadius: GenesisImageRadii.contentValue,
-            ),
-            SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _SkeletonBone(widthFactor: 0.52, height: 14, borderRadius: 4),
-                  SizedBox(height: 8),
-                  _SkeletonLineRow(widths: [74, 116], height: 12),
-                  SizedBox(height: 10),
-                  _SkeletonLineRow(widths: [42, 46, 40], height: 12),
-                ],
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 12),
-        _SkeletonBone(widthFactor: 0.94, height: 10, borderRadius: 4),
-        SizedBox(height: 7),
-        _SkeletonBone(widthFactor: 0.78, height: 10, borderRadius: 4),
-        SizedBox(height: 7),
-        _SkeletonBone(widthFactor: 0.54, height: 10, borderRadius: 4),
-        SizedBox(height: 14),
-        _SkeletonBone(
-          key: ValueKey<String>('genesis-popular-origin-hero-skeleton'),
-          width: 107,
-          height: 160.5,
-          borderRadius: GenesisImageRadii.contentValue,
-        ),
-        SizedBox(height: 16),
-        _SkeletonProgressHeader(titleWidth: 144),
-        SizedBox(height: 12),
-        _SkeletonBone(widthFactor: 0.88, height: 10, borderRadius: 4),
-        SizedBox(height: 7),
-        _SkeletonBone(widthFactor: 0.76, height: 10, borderRadius: 4),
-        SizedBox(height: 12),
-        _SkeletonMetaRow(),
-        SizedBox(height: 12),
-        _SkeletonBone(widthFactor: 0.5, height: 12, borderRadius: 4),
-        SizedBox(height: 14),
-        _SkeletonEnterRow(),
-      ],
-    );
-  }
-}
-
-class _SkeletonProgressHeader extends StatelessWidget {
-  const _SkeletonProgressHeader({required this.titleWidth});
-
-  final double titleWidth;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const _SkeletonBone(width: 14, height: 14, borderRadius: 7),
-        const SizedBox(width: 5),
-        _SkeletonBone(width: titleWidth, height: 14, borderRadius: 4),
-      ],
-    );
-  }
-}
-
-class _SkeletonMetaRow extends StatelessWidget {
-  const _SkeletonMetaRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: _SkeletonLineRow(widths: [82, 28], height: 12)),
-        _SkeletonBone(width: 56, height: 12, borderRadius: 4),
-      ],
-    );
-  }
-}
-
-class _SkeletonEnterRow extends StatelessWidget {
-  const _SkeletonEnterRow();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      children: [
-        Expanded(child: _SkeletonBone(height: 14, borderRadius: 4)),
-        SizedBox(width: 12),
-        _SkeletonBone(width: 38, height: 14, borderRadius: 4),
-        SizedBox(width: 4),
-        _SkeletonBone(width: 20, height: 20, borderRadius: 10),
       ],
     );
   }

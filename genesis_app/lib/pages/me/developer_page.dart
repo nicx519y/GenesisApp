@@ -850,6 +850,10 @@ String _telemetryStatusLabel(TelemetryUploadState state) {
   if (state.automaticEnabled) {
     return 'Production policy active';
   }
+  if (state.performanceEnabled &&
+      state.blockReason == TelemetryUploadBlockReason.nonProductionEndpoint) {
+    return 'Performance active · other uploads blocked by endpoint';
+  }
   if (state.debugOverrides.anyEnabled) {
     return 'Debug channels enabled · test';
   }

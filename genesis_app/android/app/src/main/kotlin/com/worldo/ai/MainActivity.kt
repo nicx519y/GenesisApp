@@ -13,6 +13,8 @@ import android.media.ExifInterface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Process
+import android.os.UserManager
 import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
@@ -86,6 +88,12 @@ class MainActivity : FlutterActivity() {
                     Thread {
                         val diagnostics = resolveAndroidDeviceIdDiagnostics()
                         runOnUiThread { result.success(diagnostics) }
+                    }.start()
+                }
+                "getDeviceIdentitySnapshot" -> {
+                    Thread {
+                        val snapshot = resolveAndroidDeviceIdentitySnapshot()
+                        runOnUiThread { result.success(snapshot) }
                     }.start()
                 }
                 "setUid" -> {
@@ -229,6 +237,92 @@ class MainActivity : FlutterActivity() {
             "aaid" to advertisingId,
             "device_id" to deviceId,
         )
+    }
+
+    private fun resolveAndroidDeviceIdentitySnapshot(): Map<String, Any?> {
+        val androidId =
+            Settings.Secure.getString(contentResolver, Settings.Secure.ANDROID_ID)?.trim() ?: ""
+        val advertisingId = readAdvertisingId()?.trim() ?: ""
+        val source: String
+        val deviceId: String
+        when {
+            isValidDeviceIdentifier(androidId) -> {
+                source = "android_id"
+                deviceId = androidId
+            }
+            isValidDeviceIdentifier(advertisingId) -> {
+                source = "aaid"
+                deviceId = advertisingId
+            }
+            else -> {
+                source = "generated_uuid"
+                deviceId = generatedAndroidDeviceId()
+            }
+        }
+
+        return mapOf(
+            "platform" to "android",
+            "device_id" to deviceId,
+            "device_id_source" to source,
+            "signing_cert_sha256" to signingCertificateSha256(),
+            "android_user_serial" to androidUserSerial(),
+            "android_user_type" to androidUserType(),
+            "gateway_public_key_hash" to runCatching {
+                sha256Hex(ensureGatewayPublicKey().encoded)
+            }.getOrDefault(""),
+            "manufacturer" to Build.MANUFACTURER,
+            "model" to Build.MODEL,
+            "device" to Build.DEVICE,
+            "os_build_fingerprint_hash" to sha256Hex(
+                Build.FINGERPRINT.toByteArray(Charsets.UTF_8),
+            ),
+        )
+    }
+
+    private fun signingCertificateSha256(): String {
+        return runCatching {
+            @Suppress("DEPRECATION")
+            val info = packageManager.getPackageInfo(
+                packageName,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    PackageManager.GET_SIGNING_CERTIFICATES
+                } else {
+                    PackageManager.GET_SIGNATURES
+                },
+            )
+            @Suppress("DEPRECATION")
+            val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                info.signingInfo?.apkContentsSigners.orEmpty()
+            } else {
+                info.signatures.orEmpty()
+            }
+            val certificate = signatures.firstOrNull()?.toByteArray() ?: return@runCatching ""
+            sha256Hex(certificate)
+        }.getOrDefault("")
+    }
+
+    private fun androidUserSerial(): Long? {
+        return runCatching {
+            val userManager = getSystemService(UserManager::class.java)
+            userManager.getSerialNumberForUser(Process.myUserHandle()).takeIf { it >= 0 }
+        }.getOrNull()
+    }
+
+    private fun androidUserType(): String {
+        return runCatching {
+            val userManager = getSystemService(UserManager::class.java)
+            when {
+                userManager.isManagedProfile -> "managed_profile"
+                Process.myUid() / 100000 == 0 -> "system"
+                else -> "secondary_or_guest"
+            }
+        }.getOrDefault("unknown")
+    }
+
+    private fun sha256Hex(bytes: ByteArray): String {
+        return MessageDigest.getInstance("SHA-256")
+            .digest(bytes)
+            .joinToString("") { byte -> "%02x".format(byte.toInt() and 0xff) }
     }
 
     private fun readAdvertisingId(): String? {

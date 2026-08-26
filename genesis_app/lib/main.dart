@@ -23,7 +23,6 @@ export 'app/genesis_app.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await GenesisSystemUi.initialize();
-  final appStartedAt = DateTime.now();
   unawaited(
     SystemChrome.setPreferredOrientations(<DeviceOrientation>[
       DeviceOrientation.portraitUp,
@@ -76,7 +75,7 @@ Future<void> main() async {
     final services = AppBootstrap.createInitialServices(config: appConfig);
     AppStartupCoordinator.recordStartupFirstReport();
     final initialIndexFuture = _resolveInitialBottomTab(services);
-    AppStartupCoordinator.configure(startedAt: appStartedAt);
+    AppStartupCoordinator.configure();
     unawaited(
       initialIndexFuture.then(
         (initialIndex) => runApp(

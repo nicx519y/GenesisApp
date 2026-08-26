@@ -103,19 +103,26 @@ class AppBootstrap {
       debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
     }
     final normalizedUid = uid?.trim() ?? '';
+    var reportUid = '';
     if (normalizedUid.isNotEmpty && !normalizedUid.startsWith('guest_')) {
+      reportUid = normalizedUid;
       GenesisTelemetry.setUserId(normalizedUid);
     } else {
       if (normalizedUid.startsWith('guest_')) {
         await services.sessionStore.clearUid();
       }
       try {
-        await services.api.bindDevice().timeout(_guestBindTimeout);
+        final user = await services.api.bindDevice().timeout(_guestBindTimeout);
+        reportUid = user.uid.trim();
+        if (reportUid.isNotEmpty && !reportUid.startsWith('guest_')) {
+          GenesisTelemetry.setUserId(reportUid);
+        }
       } catch (e, st) {
         debugPrint('[Auth][Bootstrap] guest bind failed: $e');
         debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
       }
     }
+    unawaited(services.deviceInfoTelemetry.reportStartup(uid: reportUid));
   }
 
   static Future<void> _enableCrashReportingAfterFirebaseReady() async {

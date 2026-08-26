@@ -44,7 +44,7 @@
 	<key>FIREBASE_ANALYTICS_COLLECTION_ENABLED</key>
 	<false/>
 	<key>firebase_performance_collection_enabled</key>
-	<false/>
+	<true/>
 	<key>GIDClientID</key>
 	<string>876583138986-igmuf8cnqkqfau2k4k30bamjn6482u2j.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>

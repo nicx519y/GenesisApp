@@ -269,7 +269,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
         targetId: targetUid,
         content: 'User blocked from profile.',
       );
-      BlockedUserReviewReturn.markPendingHomePopularRefresh();
+      BlockedUserReviewReturn.markPendingHomeRefresh();
       if (!mounted) return;
       _clearProfileCollections();
       setState(() {
@@ -377,15 +377,13 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   void _handleBack() {
-    if (!BlockedUserReviewReturn.consumePendingHomePopularRefresh()) {
+    if (!BlockedUserReviewReturn.consumePendingHomeRefresh()) {
       Navigator.of(context).maybePop();
       return;
     }
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      RouteNames.home,
-      (route) => false,
-      arguments: const {'home_tab': 'popular'},
-    );
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(RouteNames.home, (route) => false);
   }
 
   Future<List<UserProfileOriginItem>> _loadOriginItems(
@@ -450,18 +448,16 @@ class _UserInfoPageState extends State<UserInfoPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: !BlockedUserReviewReturn.hasPendingHomePopularRefresh,
+      canPop: !BlockedUserReviewReturn.hasPendingHomeRefresh,
       onPopInvokedWithResult: (didPop, _) {
         if (didPop) return;
-        if (!BlockedUserReviewReturn.consumePendingHomePopularRefresh()) {
+        if (!BlockedUserReviewReturn.consumePendingHomeRefresh()) {
           Navigator.of(context).maybePop();
           return;
         }
-        Navigator.of(context).pushNamedAndRemoveUntil(
-          RouteNames.home,
-          (route) => false,
-          arguments: const {'home_tab': 'popular'},
-        );
+        Navigator.of(
+          context,
+        ).pushNamedAndRemoveUntil(RouteNames.home, (route) => false);
       },
       child: Scaffold(
         backgroundColor: context.genesisColors.pageBackground,

@@ -60,7 +60,7 @@ void main() {
     expect(state.blockReason, TelemetryUploadBlockReason.internalFlavor);
   });
 
-  test('one non-production endpoint blocks automatic upload', () {
+  test('production release keeps Performance on after switching endpoints', () {
     final state = evaluateTelemetryUploadPolicy(
       config: productionConfig.copyWith(
         chatroomWsBaseUrl: 'wss://dev.hushie.ai/aitown-chat/ws',
@@ -71,7 +71,11 @@ void main() {
     );
 
     expect(state.usesOfficialEndpoints, isFalse);
-    expect(state.performanceEnabled, isFalse);
+    expect(state.automaticEnabled, isFalse);
+    expect(state.collectEnabled, isFalse);
+    expect(state.analyticsEnabled, isFalse);
+    expect(state.performanceEnabled, isTrue);
+    expect(state.crashlyticsEnabled, isFalse);
     expect(state.blockReason, TelemetryUploadBlockReason.nonProductionEndpoint);
   });
 

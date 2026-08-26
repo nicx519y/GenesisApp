@@ -127,11 +127,9 @@ void main() {
         navigatorKey: genesisNavigatorKey,
         onGenerateRoute: (settings) {
           if (settings.name == RouteNames.home) {
-            final args = settings.arguments as Map?;
             return MaterialPageRoute<void>(
               settings: settings,
-              builder: (_) =>
-                  Scaffold(body: Text('home_tab=${args?['home_tab']}')),
+              builder: (_) => const Scaffold(body: Text('home')),
             );
           }
           if (settings.name == RouteNames.world) {

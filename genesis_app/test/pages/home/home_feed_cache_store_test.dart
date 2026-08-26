@@ -19,12 +19,6 @@ void main() {
       ],
       'total': 1,
     });
-    await aliceStore.save(HomeFeedCacheKind.popular, <String, dynamic>{
-      'list': <Map<String, Object>>[
-        <String, Object>{'oid': 'o_alice'},
-      ],
-      'total': 1,
-    });
     await bobStore.save(HomeFeedCacheKind.myWorlds, <String, dynamic>{
       'list': <Map<String, Object>>[
         <String, Object>{'wid': 'w_bob'},
@@ -36,11 +30,6 @@ void main() {
       ((await aliceStore.load(HomeFeedCacheKind.myWorlds))!['list'] as List)
           .first['wid'],
       'w_alice',
-    );
-    expect(
-      ((await aliceStore.load(HomeFeedCacheKind.popular))!['list'] as List)
-          .first['oid'],
-      'o_alice',
     );
     expect(
       ((await bobStore.load(HomeFeedCacheKind.myWorlds))!['list'] as List)
@@ -55,26 +44,26 @@ void main() {
       ownerUid: HomeFeedCacheStore.anonymousOwnerUid,
     );
 
-    await emptyOwnerStore.save(HomeFeedCacheKind.popular, <String, dynamic>{
+    await emptyOwnerStore.save(HomeFeedCacheKind.myWorlds, <String, dynamic>{
       'list': <Map<String, Object>>[
-        <String, Object>{'oid': 'o_guest'},
+        <String, Object>{'wid': 'w_guest'},
       ],
       'total': 1,
     });
 
     expect(
-      ((await anonymousStore.load(HomeFeedCacheKind.popular))!['list'] as List)
-          .first['oid'],
-      'o_guest',
+      ((await anonymousStore.load(HomeFeedCacheKind.myWorlds))!['list'] as List)
+          .first['wid'],
+      'w_guest',
     );
   });
 
   test('returns null for invalid cached json', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
-      '${HomeFeedCacheStore.storageKey}.u_alice.popular': 'not json',
+      '${HomeFeedCacheStore.storageKey}.u_alice.my_worlds': 'not json',
     });
     const store = HomeFeedCacheStore(ownerUid: 'u_alice');
 
-    expect(await store.load(HomeFeedCacheKind.popular), isNull);
+    expect(await store.load(HomeFeedCacheKind.myWorlds), isNull);
   });
 }

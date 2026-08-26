@@ -7,7 +7,6 @@ import 'firebase_performance_monitoring.dart';
 
 enum FirebasePerformanceSurface {
   myWorlds('my_worlds'),
-  popular('popular'),
   worldo('worldo'),
   worldPage('world_page'),
   originWorldPage('origin_world_page');
@@ -173,16 +172,6 @@ class FirebasePerformanceOperation {
         FirebasePerformancePhase.render,
       ):
         return 'my_worlds_first_render';
-      case (
-        FirebasePerformanceSurface.popular,
-        FirebasePerformancePhase.request,
-      ):
-        return 'popular_first_request';
-      case (
-        FirebasePerformanceSurface.popular,
-        FirebasePerformancePhase.render,
-      ):
-        return 'popular_first_render';
       case (
         FirebasePerformanceSurface.worldo,
         FirebasePerformancePhase.request,

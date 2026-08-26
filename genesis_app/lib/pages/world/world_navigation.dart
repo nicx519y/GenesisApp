@@ -12,11 +12,7 @@ void openWorldFromMyWorldsRoot(
 }) {
   final worldArguments = Map<String, Object?>.unmodifiable(arguments);
   unawaited(
-    navigator.pushNamedAndRemoveUntil<void>(
-      RouteNames.home,
-      (_) => false,
-      arguments: const {'home_tab': 'my_world'},
-    ),
+    navigator.pushNamedAndRemoveUntil<void>(RouteNames.home, (_) => false),
   );
   scheduleMicrotask(() {
     if (!navigator.mounted) return;

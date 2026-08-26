@@ -395,11 +395,7 @@ class _OriginPendingSubmissionPoller {
     if (shouldGo != true) return;
     final navigator = genesisNavigatorKey.currentState;
     if (navigator == null) return;
-    navigator.pushNamedAndRemoveUntil(
-      RouteNames.home,
-      (_) => false,
-      arguments: {'home_tab': 'my_world'},
-    );
+    navigator.pushNamedAndRemoveUntil(RouteNames.home, (_) => false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!navigator.mounted) return;
       navigator.pushNamed(

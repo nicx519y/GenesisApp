@@ -96,7 +96,12 @@ class TelemetryUploadState {
 
   bool get collectEnabled => isChannelEnabled(TelemetryChannel.collect);
   bool get analyticsEnabled => isChannelEnabled(TelemetryChannel.analytics);
-  bool get performanceEnabled => isChannelEnabled(TelemetryChannel.performance);
+  // Production release builds start Firebase Performance natively so the
+  // automatic _app_start trace is not lost while Dart resolves endpoints.
+  // Endpoint overrides do not downgrade a production release for this channel.
+  bool get performanceEnabled =>
+      (isReleaseBuild && isProductionFlavor) ||
+      debugOverrides.isEnabled(TelemetryChannel.performance);
   bool get crashlyticsEnabled => isChannelEnabled(TelemetryChannel.crashlytics);
 }
 

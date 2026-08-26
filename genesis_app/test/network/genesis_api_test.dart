@@ -3086,6 +3086,7 @@ void main() {
         );
         final sessionStore = MemoryUserSessionStore();
         final identityAuth = _FakeIdentityAuthService();
+        final deviceInfoLoginUids = <String>[];
         final api = GenesisApi(
           transport: apiTransport,
           useMock: false,
@@ -3097,6 +3098,7 @@ void main() {
           api: api,
           identityAuth: identityAuth,
           sessionStore: sessionStore,
+          onLoginSuccess: (uid) async => deviceInfoLoginUids.add(uid),
         );
 
         await coordinator.loginWithIdentity(
@@ -3119,6 +3121,7 @@ void main() {
             'device_id': 'test-device-id',
           }),
         ]);
+        expect(deviceInfoLoginUids, <String>['u_login']);
       },
     );
   }

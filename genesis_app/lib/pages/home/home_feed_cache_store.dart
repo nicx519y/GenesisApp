@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-enum HomeFeedCacheKind { myWorlds, popular }
+enum HomeFeedCacheKind { myWorlds }
 
 class HomeFeedCacheStore {
   const HomeFeedCacheStore({String? ownerUid}) : _ownerUid = ownerUid;
@@ -42,8 +42,6 @@ class HomeFeedCacheStore {
     switch (kind) {
       case HomeFeedCacheKind.myWorlds:
         return 'my_worlds';
-      case HomeFeedCacheKind.popular:
-        return 'popular';
     }
   }
 }

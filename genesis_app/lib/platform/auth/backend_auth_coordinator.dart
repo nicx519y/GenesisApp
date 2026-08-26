@@ -18,6 +18,7 @@ abstract interface class BackendAuthCoordinator {
 }
 
 typedef BackendRequestPreparation = Future<void> Function();
+typedef BackendLoginSuccessCallback = Future<void> Function(String uid);
 
 class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
   const GenesisBackendAuthCoordinator({
@@ -25,15 +26,18 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
     required IdentityAuthService identityAuth,
     required UserSessionStore sessionStore,
     BackendRequestPreparation? prepareBackendRequest,
+    BackendLoginSuccessCallback? onLoginSuccess,
   }) : _api = api,
        _identityAuth = identityAuth,
        _sessionStore = sessionStore,
-       _prepareBackendRequest = prepareBackendRequest;
+       _prepareBackendRequest = prepareBackendRequest,
+       _onLoginSuccess = onLoginSuccess;
 
   final GenesisApi _api;
   final IdentityAuthService _identityAuth;
   final UserSessionStore _sessionStore;
   final BackendRequestPreparation? _prepareBackendRequest;
+  final BackendLoginSuccessCallback? _onLoginSuccess;
 
   @override
   Future<bool> hasAuthenticatedBackendSession({bool tryAutoRefresh = true}) {
@@ -54,6 +58,10 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
       stopwatch.stop();
       GenesisTelemetry.setUserId(user.uid);
       GenesisTelemetry.collectLog(actionType: 'event', action: 'login');
+      final onLoginSuccess = _onLoginSuccess;
+      if (onLoginSuccess != null) {
+        unawaited(onLoginSuccess(user.uid));
+      }
       GenesisTelemetry.event(
         'login_success',
         category: 'auth',

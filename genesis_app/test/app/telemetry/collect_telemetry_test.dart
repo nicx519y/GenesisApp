@@ -44,6 +44,51 @@ class _FakeTransport implements HttpTransport {
   }
 }
 
+class _FaultInjectingCollectStore implements CollectEventStore {
+  final MemoryCollectEventStore delegate = MemoryCollectEventStore();
+
+  bool failEnqueue = false;
+  bool failClaim = false;
+  bool failNextDelete = false;
+  int resetCount = 0;
+
+  int get pendingCount => delegate.pendingCountForTesting;
+  int get inFlightCount => delegate.inFlightCountForTesting;
+
+  @override
+  Future<void> enqueue(CollectEvent event) async {
+    if (failEnqueue) throw StateError('enqueue unavailable');
+    await delegate.enqueue(event);
+  }
+
+  @override
+  Future<void> recoverInFlight() => delegate.recoverInFlight();
+
+  @override
+  Future<ClaimedCollectEventBatch?> claimPending({required int limit}) {
+    if (failClaim) throw StateError('claim unavailable');
+    return delegate.claimPending(limit: limit);
+  }
+
+  @override
+  Future<void> deleteClaimed(String batchId) async {
+    if (failNextDelete) {
+      failNextDelete = false;
+      throw StateError('delete unavailable');
+    }
+    await delegate.deleteClaimed(batchId);
+  }
+
+  @override
+  Future<void> releaseClaimed(String batchId) =>
+      delegate.releaseClaimed(batchId);
+
+  @override
+  Future<void> resetConnection() async {
+    resetCount += 1;
+  }
+}
+
 class _TestDeviceIdService implements DeviceIdService {
   const _TestDeviceIdService();
 
@@ -93,6 +138,10 @@ void main() {
     required CollectTelemetryClient client,
     Duration interval = const Duration(hours: 1),
     int batchSize = defaultCollectUploadBatchSize,
+    int maxBatchBytes = defaultCollectUploadBatchBytes,
+    int memoryFallbackLimit = defaultCollectMemoryFallbackLimit,
+    Duration storeTimeout = defaultCollectStoreTimeout,
+    Duration requestTimeout = defaultCollectRequestTimeout,
     DateTime Function()? clock,
     String Function()? idGenerator,
   }) {
@@ -100,6 +149,10 @@ void main() {
       store: store,
       interval: interval,
       batchSize: batchSize,
+      maxBatchBytes: maxBatchBytes,
+      memoryFallbackLimit: memoryFallbackLimit,
+      storeTimeout: storeTimeout,
+      requestTimeout: requestTimeout,
       clock: clock,
       idGenerator: idGenerator,
     )..configure(enabled: true, client: client);
@@ -126,6 +179,15 @@ void main() {
       clock: () => DateTime.fromMillisecondsSinceEpoch(1784692855123),
       idGenerator: () => 'event-1',
     );
+    value.setContext(
+      const CollectUploadContext(
+        platform: 'android',
+        appVersion: '1.2.3',
+        appEnvironment: 'production',
+        deviceId: 'device-1',
+        userId: 'user-1',
+      ),
+    );
 
     await value.enqueuePayload(const <String, Object?>{
       'action_type': 'pageview',
@@ -143,6 +205,12 @@ void main() {
       'object2': '',
       'object3': '',
     });
+    expect(event.platform, 'android');
+    expect(event.appVersion, '1.2.3');
+    expect(event.appEnvironment, 'production');
+    expect(event.deviceId, 'device-1');
+    expect(event.userId, 'user-1');
+    expect(event.contextCaptured, isTrue);
     expect(client.batches, isEmpty);
   });
 
@@ -213,7 +281,7 @@ void main() {
     expect(store.eventsForTesting, isEmpty);
   });
 
-  test('one check claims only the oldest 500 events', () async {
+  test('one check claims only the oldest 100 events', () async {
     final store = MemoryCollectEventStore();
     final client = _FakeCollectClient();
     var nextId = 0;
@@ -222,7 +290,7 @@ void main() {
       client: client,
       idGenerator: () => 'event-${nextId++}',
     );
-    for (var index = 0; index < 501; index += 1) {
+    for (var index = 0; index < 101; index += 1) {
       await value.enqueuePayload(<String, Object?>{
         'action_type': 'event',
         'action': 'event_$index',
@@ -232,9 +300,9 @@ void main() {
     value.start();
     await _waitUntil(() => value.hasTimerForTesting);
 
-    expect(client.batches.single, hasLength(500));
+    expect(client.batches.single, hasLength(100));
     expect(client.batches.single.first.action, 'event_0');
-    expect(client.batches.single.last.action, 'event_499');
+    expect(client.batches.single.last.action, 'event_99');
     expect(store.pendingCountForTesting, 1);
   });
 
@@ -263,6 +331,109 @@ void main() {
     expect(client.batches[1].single.action, 'production_event');
     expect(client.headers[1]['x-app-environment'], 'production');
   });
+
+  test(
+    'queued events keep the identity captured when they were created',
+    () async {
+      final store = MemoryCollectEventStore();
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      value.setContext(
+        const CollectUploadContext(
+          platform: 'android',
+          appVersion: '1.2.3',
+          appEnvironment: 'production',
+          deviceId: 'device-1',
+          userId: 'user-a',
+        ),
+      );
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'user_a_event',
+      });
+      value.setUserId('user-b');
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'user_b_event',
+      });
+
+      await value.checkNow();
+      await value.checkNow();
+
+      expect(client.batches, hasLength(2));
+      expect(client.batches[0].single.action, 'user_a_event');
+      expect(client.headers[0]['X-UID'], 'user-a');
+      expect(client.batches[1].single.action, 'user_b_event');
+      expect(client.headers[1]['X-UID'], 'user-b');
+      expect(
+        client.headers.every((headers) => headers['X-Device-ID'] == 'device-1'),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'events without identity headers are uploaded in a separate batch',
+    () async {
+      final store = MemoryCollectEventStore();
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      value.setContext(
+        const CollectUploadContext(
+          platform: 'ios',
+          appVersion: '2.0.0',
+          appEnvironment: 'production',
+          deviceId: 'device-2',
+          userId: 'user-2',
+        ),
+      );
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'identity_event',
+      });
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'anonymous_event',
+      }, includeIdentityHeaders: false);
+
+      await value.checkNow();
+      await value.checkNow();
+
+      expect(client.batches, hasLength(2));
+      expect(client.headers[0]['X-UID'], 'user-2');
+      expect(client.headers[0]['X-Device-ID'], 'device-2');
+      expect(client.headers[1].containsKey('X-UID'), isFalse);
+      expect(client.headers[1].containsKey('X-Device-ID'), isFalse);
+      expect(client.headers[1]['X-Platform'], 'ios');
+    },
+  );
+
+  test(
+    'events queued before context initialization use startup context',
+    () async {
+      final store = MemoryCollectEventStore();
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'startup_first_report',
+      });
+      expect(store.eventsForTesting.single.contextCaptured, isFalse);
+      value.setContext(
+        const CollectUploadContext(
+          platform: 'android',
+          appVersion: '1.2.3',
+          appEnvironment: 'production',
+          deviceId: 'device-startup',
+        ),
+      );
+
+      await value.checkNow();
+
+      expect(client.headers.single['X-App-Version'], '1.2.3');
+      expect(client.headers.single['X-Device-ID'], 'device-startup');
+    },
+  );
 
   test('failed upload releases claimed events for retry', () async {
     final store = MemoryCollectEventStore();
@@ -303,6 +474,185 @@ void main() {
     expect(store.pendingCountForTesting, 1);
     expect(store.inFlightCountForTesting, 0);
   });
+
+  test('a hung upload times out without permanently locking checks', () async {
+    final store = MemoryCollectEventStore();
+    var uploadCount = 0;
+    final client = _FakeCollectClient(
+      onCollect: (_) {
+        uploadCount += 1;
+        if (uploadCount == 1) return Completer<void>().future;
+        return Future<void>.value();
+      },
+    );
+    final value = uploader(
+      store: store,
+      client: client,
+      requestTimeout: const Duration(milliseconds: 10),
+    );
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'hung_once',
+    });
+
+    await value.checkNow();
+
+    expect(value.isCheckingForTesting, isFalse);
+    expect(store.pendingCountForTesting, 1);
+    expect(value.health.consecutiveUploadFailures, 1);
+
+    await value.checkNow(force: true);
+
+    expect(uploadCount, 2);
+    expect(store.eventsForTesting, isEmpty);
+    expect(value.health.consecutiveUploadFailures, 0);
+  });
+
+  test(
+    'a permanent poison event is isolated without blocking later events',
+    () async {
+      final store = MemoryCollectEventStore();
+      final acceptedActions = <String>[];
+      final client = _FakeCollectClient(
+        onCollect: (events) async {
+          if (events.any((event) => event.action == 'poison')) {
+            throw const CollectUploadException(
+              message: 'invalid payload',
+              kind: CollectUploadFailureKind.permanent,
+              statusCode: 400,
+            );
+          }
+          acceptedActions.addAll(events.map((event) => event.action));
+        },
+      );
+      var nextId = 0;
+      final value = uploader(
+        store: store,
+        client: client,
+        idGenerator: () => 'event-${nextId++}',
+      );
+      for (final action in <String>[
+        'before_poison',
+        'poison',
+        'after_poison',
+      ]) {
+        await value.enqueuePayload(<String, Object?>{
+          'action_type': 'event',
+          'action': action,
+        });
+      }
+
+      await value.checkNow();
+
+      expect(acceptedActions, <String>['before_poison', 'after_poison']);
+      expect(value.deadLettersForTesting.single.action, 'poison');
+      expect(value.health.deadLetterCount, 1);
+      expect(store.eventsForTesting, isEmpty);
+    },
+  );
+
+  test(
+    'SQLite enqueue failure falls back to memory and uploads directly',
+    () async {
+      final store = _FaultInjectingCollectStore()..failEnqueue = true;
+      final client = _FakeCollectClient();
+      final value = uploader(
+        store: store,
+        client: client,
+        storeTimeout: const Duration(milliseconds: 20),
+      );
+
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'memory_fallback',
+      });
+      expect(value.health.storeStatus, CollectStoreStatus.unavailable);
+      expect(value.health.memoryFallbackCount, 1);
+
+      await value.checkNow(force: true);
+
+      expect(client.batches.single.single.action, 'memory_fallback');
+      expect(value.health.memoryFallbackCount, 0);
+    },
+  );
+
+  test('memory fallback is bounded and reports dropped events', () async {
+    final store = _FaultInjectingCollectStore()..failEnqueue = true;
+    final client = _FakeCollectClient();
+    final value = uploader(
+      store: store,
+      client: client,
+      memoryFallbackLimit: 2,
+    );
+
+    for (final action in <String>['oldest', 'middle', 'latest']) {
+      await value.enqueuePayload(<String, Object?>{
+        'action_type': 'event',
+        'action': action,
+      });
+    }
+
+    expect(value.health.memoryFallbackCount, 2);
+    expect(value.health.droppedEventCount, 1);
+
+    await value.checkNow(force: true);
+    expect(client.batches.single.map((event) => event.action), <String>[
+      'middle',
+      'latest',
+    ]);
+  });
+
+  test('a failed claim does not lock later checks', () async {
+    final store = _FaultInjectingCollectStore();
+    final client = _FakeCollectClient();
+    final value = uploader(store: store, client: client);
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'after_sqlite_recovery',
+    });
+    store.failClaim = true;
+
+    await value.checkNow();
+
+    expect(value.isCheckingForTesting, isFalse);
+    expect(value.health.storeStatus, CollectStoreStatus.unavailable);
+    expect(client.batches, isEmpty);
+
+    store.failClaim = false;
+    await value.checkNow(force: true);
+
+    expect(client.batches.single.single.action, 'after_sqlite_recovery');
+    expect(value.health.storeStatus, CollectStoreStatus.healthy);
+  });
+
+  test(
+    'server success plus local delete failure does not block later rows',
+    () async {
+      final store = _FaultInjectingCollectStore()..failNextDelete = true;
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'accepted_but_not_deleted',
+      });
+
+      await value.checkNow();
+
+      expect(store.inFlightCount, 1);
+      expect(store.pendingCount, 0);
+
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'later_event',
+      });
+      await value.checkNow(force: true);
+
+      expect(client.batches, hasLength(2));
+      expect(client.batches.last.single.action, 'later_event');
+      expect(store.inFlightCount, 1);
+      expect(store.pendingCount, 0);
+    },
+  );
 
   test(
     'startup recovers an in-flight batch from the previous process',
@@ -357,6 +707,11 @@ void main() {
         object1: '',
         object2: '',
         object3: '',
+        appEnvironment: 'production',
+        platform: 'android',
+        appVersion: '1.2.3',
+        deviceId: 'device-sqlite',
+        userId: 'user-sqlite',
       ),
     );
     await firstStore.claimPending(limit: 500);
@@ -370,8 +725,125 @@ void main() {
     await reopenedStore.recoverInFlight();
     final recovered = await reopenedStore.claimPending(limit: 500);
 
-    expect(recovered?.events.single.eventId, 'sqlite-event');
+    final recoveredEvent = recovered?.events.single;
+    expect(recoveredEvent?.eventId, 'sqlite-event');
+    expect(recoveredEvent?.platform, 'android');
+    expect(recoveredEvent?.appVersion, '1.2.3');
+    expect(recoveredEvent?.deviceId, 'device-sqlite');
+    expect(recoveredEvent?.userId, 'user-sqlite');
+    expect(recoveredEvent?.contextCaptured, isTrue);
   });
+
+  test('SQLite claims different identity snapshots separately', () async {
+    sqfliteFfiInit();
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'genesis-collect-identity-group-test-',
+    );
+    final databasePath = '${tempDirectory.path}/collect.db';
+    final store = SqfliteCollectEventStore(
+      databaseFactoryOverride: databaseFactoryFfi,
+      databasePath: databasePath,
+    );
+    addTearDown(() async {
+      await store.close();
+      if (tempDirectory.existsSync()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+    await store.enqueue(
+      const CollectEvent(
+        eventId: 'user-a-event',
+        actionType: 'event',
+        action: 'user_a',
+        appTimestamp: 1,
+        object1: '',
+        object2: '',
+        object3: '',
+        appEnvironment: 'production',
+        platform: 'android',
+        appVersion: '1.2.3',
+        deviceId: 'device-1',
+        userId: 'user-a',
+      ),
+    );
+    await store.enqueue(
+      const CollectEvent(
+        eventId: 'user-b-event',
+        actionType: 'event',
+        action: 'user_b',
+        appTimestamp: 2,
+        object1: '',
+        object2: '',
+        object3: '',
+        appEnvironment: 'production',
+        platform: 'android',
+        appVersion: '1.2.3',
+        deviceId: 'device-1',
+        userId: 'user-b',
+      ),
+    );
+
+    final first = await store.claimPending(limit: 100);
+    expect(first?.events.map((event) => event.eventId), <String>[
+      'user-a-event',
+    ]);
+    await store.deleteClaimed(first!.batchId);
+    final second = await store.claimPending(limit: 100);
+    expect(second?.events.map((event) => event.eventId), <String>[
+      'user-b-event',
+    ]);
+  });
+
+  test(
+    'SQLite store can reopen itself after its connection is reset',
+    () async {
+      sqfliteFfiInit();
+      final tempDirectory = await Directory.systemTemp.createTemp(
+        'genesis-collect-reset-test-',
+      );
+      final databasePath = '${tempDirectory.path}/collect.db';
+      final store = SqfliteCollectEventStore(
+        databaseFactoryOverride: databaseFactoryFfi,
+        databasePath: databasePath,
+      );
+      addTearDown(() async {
+        await store.close();
+        if (tempDirectory.existsSync()) {
+          await tempDirectory.delete(recursive: true);
+        }
+      });
+      await store.enqueue(
+        const CollectEvent(
+          eventId: 'before-reset',
+          actionType: 'event',
+          action: 'before_reset',
+          appTimestamp: 1,
+          object1: '',
+          object2: '',
+          object3: '',
+        ),
+      );
+
+      await store.resetConnection();
+      await store.enqueue(
+        const CollectEvent(
+          eventId: 'after-reset',
+          actionType: 'event',
+          action: 'after_reset',
+          appTimestamp: 2,
+          object1: '',
+          object2: '',
+          object3: '',
+        ),
+      );
+
+      final batch = await store.claimPending(limit: 10);
+      expect(batch?.events.map((event) => event.eventId), <String>[
+        'before-reset',
+        'after-reset',
+      ]);
+    },
+  );
 
   test('SQLite version 1 queue migrates with an environment column', () async {
     sqfliteFfiInit();
@@ -431,6 +903,76 @@ void main() {
 
     expect(batch?.events.single.eventId, 'legacy-event');
     expect(batch?.events.single.appEnvironment, isEmpty);
+    expect(batch?.events.single.platform, isEmpty);
+    expect(batch?.events.single.contextCaptured, isFalse);
+  });
+
+  test('SQLite version 2 queue migrates with identity columns', () async {
+    sqfliteFfiInit();
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'genesis-collect-identity-migration-test-',
+    );
+    final databasePath = '${tempDirectory.path}/collect.db';
+    final legacyDatabase = await databaseFactoryFfi.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 2,
+        onCreate: (db, _) async {
+          await db.execute('''
+            CREATE TABLE collect_events (
+              sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+              event_id TEXT NOT NULL UNIQUE,
+              action_type TEXT NOT NULL,
+              action TEXT NOT NULL,
+              app_timestamp INTEGER NOT NULL,
+              object1 TEXT NOT NULL,
+              object2 TEXT NOT NULL,
+              object3 TEXT NOT NULL,
+              app_environment TEXT NOT NULL DEFAULT '',
+              include_identity_headers INTEGER NOT NULL,
+              state TEXT NOT NULL,
+              batch_id TEXT
+            )
+          ''');
+        },
+      ),
+    );
+    await legacyDatabase.insert('collect_events', <String, Object?>{
+      'event_id': 'version-2-event',
+      'action_type': 'event',
+      'action': 'version_2',
+      'app_timestamp': 2,
+      'object1': '',
+      'object2': '',
+      'object3': '',
+      'app_environment': 'production',
+      'include_identity_headers': 1,
+      'state': 'pending',
+      'batch_id': null,
+    });
+    await legacyDatabase.close();
+
+    final migratedStore = SqfliteCollectEventStore(
+      databaseFactoryOverride: databaseFactoryFfi,
+      databasePath: databasePath,
+    );
+    addTearDown(() async {
+      await migratedStore.close();
+      if (tempDirectory.existsSync()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+
+    final batch = await migratedStore.claimPending(limit: 500);
+    final event = batch?.events.single;
+
+    expect(event?.eventId, 'version-2-event');
+    expect(event?.appEnvironment, 'production');
+    expect(event?.platform, isEmpty);
+    expect(event?.appVersion, isEmpty);
+    expect(event?.deviceId, isEmpty);
+    expect(event?.userId, isEmpty);
+    expect(event?.contextCaptured, isFalse);
   });
 
   test('concurrent checks do not overlap an active request', () async {
@@ -474,6 +1016,24 @@ void main() {
       expect(client.batches.single.single.action, 'after_resume');
     },
   );
+
+  test('app background triggers a best-effort immediate upload', () async {
+    final store = MemoryCollectEventStore();
+    final client = _FakeCollectClient();
+    final value = uploader(store: store, client: client);
+
+    value.start();
+    await _waitUntil(() => value.hasTimerForTesting);
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'before_background',
+    });
+
+    value.handleAppBackgrounded();
+    await _waitUntil(() => client.batches.isNotEmpty);
+
+    expect(client.batches.single.single.action, 'before_background');
+  });
 
   test(
     'startup first report is queued before initialize without consumption',
@@ -538,40 +1098,35 @@ void main() {
     expect(client.batches.single.single.object1, 'sku_1');
   });
 
-  test(
-    'cold start and lifecycle transitions queue simple Collect events once',
-    () async {
-      final store = MemoryCollectEventStore();
-      final client = _FakeCollectClient();
-      final value = uploader(store: store, client: client);
-      GenesisTelemetry.setCollectUploaderForTesting(value);
-      final observer = GenesisTelemetryLifecycleObserver(
-        startedAt: DateTime.now().subtract(const Duration(milliseconds: 25)),
-        initialState: AppLifecycleState.resumed,
-      );
+  test('lifecycle transitions queue simple Collect events once', () async {
+    final store = MemoryCollectEventStore();
+    final client = _FakeCollectClient();
+    final value = uploader(store: store, client: client);
+    GenesisTelemetry.setCollectUploaderForTesting(value);
+    final observer = GenesisTelemetryLifecycleObserver(
+      initialState: AppLifecycleState.resumed,
+    );
 
-      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
-      observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
-      observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
-      observer.didChangeAppLifecycleState(AppLifecycleState.paused);
-      observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
-      await GenesisTelemetry.waitForCollectWritesForTesting();
+    observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
+    observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
+    observer.didChangeAppLifecycleState(AppLifecycleState.paused);
+    observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    await GenesisTelemetry.waitForCollectWritesForTesting();
 
-      expect(store.eventsForTesting.map((event) => event.action), <String>[
-        'app_start',
-        'app_foreground',
-        'app_background',
-        'app_foreground',
-      ]);
-      for (final event in store.eventsForTesting) {
-        expect(event.actionType, 'event');
-        expect(event.object1, isEmpty);
-        expect(event.object2, isEmpty);
-        expect(event.object3, isEmpty);
-      }
-      expect(client.batches, isEmpty);
-    },
-  );
+    expect(store.eventsForTesting.map((event) => event.action), <String>[
+      'app_foreground',
+      'app_background',
+      'app_foreground',
+    ]);
+    for (final event in store.eventsForTesting) {
+      expect(event.actionType, 'event');
+      expect(event.object1, isEmpty);
+      expect(event.object2, isEmpty);
+      expect(event.object3, isEmpty);
+    }
+    expect(client.batches, isEmpty);
+  });
 
   test('Sdk client posts batch envelope and requires err_no zero', () async {
     final transport = _FakeTransport(
@@ -622,7 +1177,15 @@ void main() {
     );
     await expectLater(
       client.collectBatch(const <CollectEvent>[event]),
-      throwsStateError,
+      throwsA(
+        isA<CollectUploadException>()
+            .having(
+              (error) => error.kind,
+              'kind',
+              CollectUploadFailureKind.permanent,
+            )
+            .having((error) => error.errNo, 'errNo', 1001),
+      ),
     );
     transport.response = const TransportResponse(
       statusCode: 200,
@@ -631,7 +1194,13 @@ void main() {
     );
     await expectLater(
       client.collectBatch(const <CollectEvent>[event]),
-      throwsFormatException,
+      throwsA(
+        isA<CollectUploadException>().having(
+          (error) => error.kind,
+          'kind',
+          CollectUploadFailureKind.transient,
+        ),
+      ),
     );
     transport.response = const TransportResponse(
       statusCode: 500,
@@ -640,7 +1209,15 @@ void main() {
     );
     await expectLater(
       client.collectBatch(const <CollectEvent>[event]),
-      throwsStateError,
+      throwsA(
+        isA<CollectUploadException>()
+            .having(
+              (error) => error.kind,
+              'kind',
+              CollectUploadFailureKind.transient,
+            )
+            .having((error) => error.statusCode, 'statusCode', 500),
+      ),
     );
   });
 

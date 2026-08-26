@@ -128,6 +128,12 @@ class GenesisTelemetry {
   @visibleForTesting
   static GenesisTelemetryContext get contextForTesting => _context;
 
+  static bool get hasCompleteContextMetadata =>
+      _hasKnownAppVersion(_context.appVersion) &&
+      _hasKnownDeviceId(_context.deviceId);
+
+  static CollectTelemetryHealth get collectHealth => _collectUploader.health;
+
   @visibleForTesting
   static void setSinkForTesting(GenesisTelemetrySink sink) {
     _sink = sink;
@@ -197,13 +203,21 @@ class GenesisTelemetry {
     required AppConfig config,
     required DeviceIdService deviceIdService,
     AppVersionInfo? appVersion,
+    Future<AppVersionInfo> Function()? appVersionReader,
+    Duration appVersionTimeout = const Duration(seconds: 1),
+    Duration deviceIdTimeout = const Duration(seconds: 2),
     bool trackingEnabled = true,
   }) async {
     if (!_collectPrepared && !_sinkOverriddenForTesting) {
       prepareCollect(config);
     }
-    final version = appVersion ?? await AppMetadataService.appVersion();
-    final deviceId = await _safeDeviceId(deviceIdService);
+    final version =
+        appVersion ??
+        await _safeAppVersion(
+          appVersionReader ?? AppMetadataService.appVersion,
+          appVersionTimeout,
+        );
+    final deviceId = await _safeDeviceId(deviceIdService, deviceIdTimeout);
     _context = _context.copyWith(
       appVersion: version.versionName.trim().isEmpty
           ? 'unknown'
@@ -231,6 +245,44 @@ class GenesisTelemetry {
     );
   }
 
+  static Future<void> refreshContextMetadata({
+    required DeviceIdService deviceIdService,
+    Future<AppVersionInfo> Function()? appVersionReader,
+    Duration appVersionTimeout = const Duration(seconds: 1),
+    Duration deviceIdTimeout = const Duration(seconds: 2),
+  }) async {
+    var appVersion = _context.appVersion;
+    var appBuild = _context.appBuild;
+    if (!_hasKnownAppVersion(appVersion)) {
+      final version = await _safeAppVersion(
+        appVersionReader ?? AppMetadataService.appVersion,
+        appVersionTimeout,
+      );
+      final versionName = version.versionName.trim();
+      if (versionName.isNotEmpty) {
+        appVersion = versionName;
+        appBuild = version.versionCode.trim();
+      }
+    }
+
+    var deviceId = _context.deviceId;
+    if (!_hasKnownDeviceId(deviceId)) {
+      deviceId = await _safeDeviceId(deviceIdService, deviceIdTimeout);
+    }
+
+    _context = _context.copyWith(
+      appVersion: appVersion,
+      appBuild: appBuild,
+      deviceId: deviceId,
+    );
+    await _sink.setContext(_context);
+    _collectUploader.updateMetadataContext(
+      platform: _context.platform,
+      appVersion: _context.appVersion,
+      deviceId: _context.deviceId,
+    );
+  }
+
   static void startCollectUploader() {
     _collectStartRequested = true;
     _collectUploader.start();
@@ -238,6 +290,10 @@ class GenesisTelemetry {
 
   static void handleAppResumed() {
     _collectUploader.handleAppResumed();
+  }
+
+  static void handleAppBackgrounded() {
+    _collectUploader.handleAppBackgrounded();
   }
 
   @visibleForTesting
@@ -329,10 +385,28 @@ class GenesisTelemetry {
     Object? object2,
     Object? object3,
   }) {
+    unawaited(
+      collectLogAndWait(
+        actionType: actionType,
+        action: action,
+        object1: object1,
+        object2: object2,
+        object3: object3,
+      ),
+    );
+  }
+
+  static Future<bool> collectLogAndWait({
+    required String actionType,
+    required String action,
+    Object? object1,
+    Object? object2,
+    Object? object3,
+  }) async {
     final normalizedActionType = actionType.trim();
     final normalizedAction = action.trim();
     if (!_enabled || normalizedActionType.isEmpty || normalizedAction.isEmpty) {
-      return;
+      return false;
     }
     final payload = <String, Object?>{
       'action_type': normalizedActionType,
@@ -341,7 +415,7 @@ class GenesisTelemetry {
       'object2': object2,
       'object3': object3,
     };
-    unawaited(_collectUploader.enqueuePayload(payload));
+    final enqueued = await _collectUploader.enqueuePayloadWithResult(payload);
     unawaited(
       _sink.record(
         GenesisTelemetryEvent(
@@ -352,6 +426,7 @@ class GenesisTelemetry {
         ),
       ),
     );
+    return enqueued;
   }
 
   static void setUserId(String? uid) {
@@ -368,12 +443,41 @@ class GenesisTelemetry {
     unawaited(_sink.captureException(error, stackTrace));
   }
 
-  static Future<String> _safeDeviceId(DeviceIdService deviceIdService) async {
+  static Future<AppVersionInfo> _safeAppVersion(
+    Future<AppVersionInfo> Function() reader,
+    Duration timeout,
+  ) async {
     try {
-      return (await deviceIdService.getDeviceId()).trim();
-    } catch (_) {
+      return await reader().timeout(timeout);
+    } catch (error) {
+      debugPrint('[Telemetry] app version unavailable: $error');
+      return const AppVersionInfo();
+    }
+  }
+
+  static Future<String> _safeDeviceId(
+    DeviceIdService deviceIdService,
+    Duration timeout,
+  ) async {
+    try {
+      final value = (await deviceIdService.getDeviceId().timeout(
+        timeout,
+      )).trim();
+      return _hasKnownDeviceId(value) ? value : '';
+    } catch (error) {
+      debugPrint('[Telemetry] device id unavailable: $error');
       return '';
     }
+  }
+
+  static bool _hasKnownAppVersion(String value) {
+    final normalized = value.trim().toLowerCase();
+    return normalized.isNotEmpty && normalized != 'unknown';
+  }
+
+  static bool _hasKnownDeviceId(String value) {
+    final normalized = value.trim().toLowerCase();
+    return normalized.isNotEmpty && normalized != 'unknown';
   }
 }
 
@@ -394,32 +498,13 @@ Object _safeTelemetryValue(Object? value) {
 }
 
 class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
-  GenesisTelemetryLifecycleObserver({
-    DateTime? startedAt,
-    AppLifecycleState? initialState,
-  }) : _startedAt = startedAt ?? DateTime.now() {
-    final startupDurationMs = DateTime.now()
-        .difference(_startedAt)
-        .inMilliseconds;
-    GenesisTelemetry.event(
-      'app_start',
-      category: 'app.lifecycle',
-      data: <String, Object?>{
-        'startup_duration_ms': startupDurationMs,
-        'start_type': 'cold',
-      },
-      collectPayload: <String, Object?>{
-        'action_type': 'event',
-        'action': 'app_start',
-      },
-    );
+  GenesisTelemetryLifecycleObserver({AppLifecycleState? initialState}) {
     if ((initialState ?? WidgetsBinding.instance.lifecycleState) ==
         AppLifecycleState.resumed) {
       _reportForeground();
     }
   }
 
-  final DateTime _startedAt;
   bool _isForeground = false;
 
   @override
@@ -440,6 +525,7 @@ class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
             'action': 'app_background',
           },
         );
+        GenesisTelemetry.handleAppBackgrounded();
       case AppLifecycleState.resumed:
         GenesisTelemetry.handleAppResumed();
         _reportForeground();
