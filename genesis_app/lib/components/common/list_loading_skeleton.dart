@@ -31,6 +31,30 @@ class GenesisListLoadingSkeleton extends StatelessWidget {
   }
 }
 
+class GenesisListLoadingBone extends StatelessWidget {
+  const GenesisListLoadingBone({
+    super.key,
+    this.width,
+    this.height,
+    this.borderRadius = 4,
+  });
+
+  final double? width;
+  final double? height;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SkeletonShimmer(
+      child: _SkeletonBone(
+        width: width,
+        height: height,
+        borderRadius: borderRadius,
+      ),
+    );
+  }
+}
+
 class _WorldListSkeleton extends StatelessWidget {
   const _WorldListSkeleton({required this.itemCount});
 
@@ -159,25 +183,17 @@ class _OriginGridSkeletonItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const ClipRRect(
-      borderRadius: GenesisImageRadii.content,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          AspectRatio(
-            aspectRatio: genesisOriginCoverAspectRatio,
-            child: _SkeletonBone(
-              key: ValueKey<String>('genesis-origin-grid-cover-skeleton'),
-              borderRadius: 0,
-            ),
-          ),
-          SizedBox(
-            height: genesisOriginCardBottomExtension,
-            child: ColoredBox(color: Color(0xFF111111)),
-          ),
-        ],
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemHeight =
+            constraints.maxWidth / genesisOriginCoverAspectRatio +
+            genesisOriginCardBottomExtension;
+        return _SkeletonBone(
+          key: const ValueKey<String>('genesis-origin-grid-item-skeleton'),
+          height: itemHeight,
+          borderRadius: GenesisImageRadii.contentValue,
+        );
+      },
     );
   }
 }

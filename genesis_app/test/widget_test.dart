@@ -1,12 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
@@ -43,6 +46,7 @@ import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_p
 import 'package:genesis_flutter_android/components/bottom_tabs.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
+import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
@@ -1445,6 +1449,36 @@ class _QueuedOriginRefreshTransport implements HttpTransport {
   }
 }
 
+class _BlockingOriginPaginationTransport extends _RecordingV1ListTransport {
+  final secondPageResponse = Completer<TransportResponse>();
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path == '/api/v1/origin/list' &&
+        request.uri.queryParameters['pn'] == '2') {
+      requests.add(request);
+      return secondPageResponse.future;
+    }
+    return super.send(request);
+  }
+
+  void completeSecondPage() {
+    if (secondPageResponse.isCompleted) return;
+    secondPageResponse.complete(
+      _jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
+          'list': [
+            for (var index = 20; index < 40; index += 1) _originItem(index),
+          ],
+          'total': _RecordingV1ListTransport.total,
+        },
+      }),
+    );
+  }
+}
+
 class _OriginPermissionPromptTransport extends _RecordingV1ListTransport {
   final Completer<TransportResponse> firstOriginResponse =
       Completer<TransportResponse>();
@@ -2214,7 +2248,19 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  late ui.Image originItemTestImage;
+
+  setUpAll(() async {
+    originItemTestImage = await _createOriginItemTestImage();
+  });
+
+  tearDownAll(() {
+    originItemTestImage.dispose();
+  });
+
   setUp(() {
+    debugOriginItemCoverImageProvider = (_) =>
+        _SynchronousTestImageProvider(originItemTestImage);
     FirebaseAnalyticsMonitoring.resetForTesting();
     FirebasePerformanceMonitoring.resetForTesting();
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -2229,6 +2275,7 @@ void main() {
   });
 
   tearDown(() async {
+    debugOriginItemCoverImageProvider = null;
     FirebaseAnalyticsMonitoring.resetForTesting();
     FirebasePerformanceMonitoring.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
@@ -5307,6 +5354,18 @@ void main() {
         find.ancestor(of: feedFinder, matching: find.byType(RefreshIndicator)),
         findsOneWidget,
       );
+      final feedScrollView = tester.widget<CustomScrollView>(feedFinder);
+      expect(
+        feedScrollView.scrollCacheExtent,
+        const ScrollCacheExtent.viewport(2),
+      );
+      final virtualGrid = tester.widget<SliverMasonryGrid>(
+        find.byKey(const ValueKey<String>('origin-feed-virtual-grid')),
+      );
+      final virtualDelegate =
+          virtualGrid.delegate as SliverChildBuilderDelegate;
+      expect(virtualDelegate.addAutomaticKeepAlives, isFalse);
+      expect(virtualDelegate.addRepaintBoundaries, isTrue);
       expect(categoryFinder.hitTestable(), findsOneWidget);
 
       final tabController = DefaultTabController.of(
@@ -10962,6 +11021,65 @@ void main() {
     expect(loadEvents, hasLength(1));
     expect(loadEvents.single.data['object1'], 'load_more');
     expect(loadEvents.single.data['object2'], 2);
+  });
+
+  testWidgets('Origin load-more indicator is centered below the masonry grid', (
+    WidgetTester tester,
+  ) async {
+    final transport = _BlockingOriginPaginationTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final feedFinder = find.byKey(
+      const PageStorageKey<String>('origin-feed-For you-foryou'),
+    );
+    await tester.drag(feedFinder, const Offset(0, -10000));
+    await tester.pump();
+
+    final loadMoreFinder = find.byKey(
+      const ValueKey<String>('origin-feed-load-more'),
+    );
+    for (
+      var attempt = 0;
+      attempt < 10 && loadMoreFinder.evaluate().isEmpty;
+      attempt += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(loadMoreFinder, findsOneWidget);
+    expect(
+      find.ancestor(
+        of: loadMoreFinder,
+        matching: find.byType(SliverToBoxAdapter),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.ancestor(
+        of: loadMoreFinder,
+        matching: find.byType(SliverMasonryGrid),
+      ),
+      findsNothing,
+    );
+    expect(
+      tester.getCenter(loadMoreFinder).dx,
+      closeTo(tester.getCenter(feedFinder).dx, 0.1),
+    );
+    final virtualGrid = tester.widget<SliverMasonryGrid>(
+      find.byKey(const ValueKey<String>('origin-feed-virtual-grid')),
+    );
+    expect(virtualGrid.delegate.estimatedChildCount, 20);
+
+    transport.completeSecondPage();
+    await tester.pumpAndSettle();
+    expect(loadMoreFinder, findsNothing);
   });
 
   testWidgets('Origin pull refresh keeps current list until response returns', (
@@ -25479,6 +25597,55 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump(const Duration(seconds: 2));
   });
+}
+
+Future<ui.Image> _createOriginItemTestImage() async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.drawRect(
+    const Rect.fromLTWH(0, 0, 2, 3),
+    Paint()..color = const Color(0xFFCCCCCC),
+  );
+  final picture = recorder.endRecording();
+  try {
+    return await picture.toImage(2, 3);
+  } finally {
+    picture.dispose();
+  }
+}
+
+@immutable
+class _SynchronousTestImageProvider
+    extends ImageProvider<_SynchronousTestImageProvider> {
+  const _SynchronousTestImageProvider(this.image);
+
+  final ui.Image image;
+
+  @override
+  Future<_SynchronousTestImageProvider> obtainKey(
+    ImageConfiguration configuration,
+  ) {
+    return SynchronousFuture<_SynchronousTestImageProvider>(this);
+  }
+
+  @override
+  ImageStreamCompleter loadImage(
+    _SynchronousTestImageProvider key,
+    ImageDecoderCallback decode,
+  ) {
+    return OneFrameImageStreamCompleter(
+      SynchronousFuture<ImageInfo>(ImageInfo(image: image.clone())),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _SynchronousTestImageProvider &&
+        identical(other.image, image);
+  }
+
+  @override
+  int get hashCode => identityHashCode(image);
 }
 
 Future<void> _openOriginRoleSheetFromLocation(WidgetTester tester) async {

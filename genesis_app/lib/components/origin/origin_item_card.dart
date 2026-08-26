@@ -1,6 +1,10 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../common/list_loading_skeleton.dart';
+import 'origin_item_cover_image_provider.dart';
 import 'stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/genesis_api.dart';
@@ -10,13 +14,17 @@ import '../../ui/tokens/genesis_image_radii.dart';
 import '../../ui/tokens/genesis_origin_card_geometry.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
+import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../../utils/stat_count_formatter.dart';
 
 const double _coverDetailsTransitionHeight = 50;
 const Color _cardFooterColor = Color(0xFF111111);
-const Color _transparentCardFooterColor = Color(0x00111111);
+
+@visibleForTesting
+ImageProvider<Object> Function(OriginItemCoverImageProvider provider)?
+debugOriginItemCoverImageProvider;
 
 @immutable
 class OriginListItem {
@@ -133,117 +141,171 @@ class OriginItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: GenesisImageRadii.content,
-      child: Stack(
-        children: [
-          Column(
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final coverHeight = width / genesisOriginCoverAspectRatio;
+        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+        final effectiveDevicePixelRatio =
+            devicePixelRatio.isFinite && devicePixelRatio > 0
+            ? devicePixelRatio
+            : 1.0;
+        final resolvedImageUrl = selectGenesisImageUrl(
+          item.cover,
+          logicalWidth: width,
+          logicalHeight: coverHeight,
+          devicePixelRatio: effectiveDevicePixelRatio,
+          maxDevicePixelRatio: effectiveDevicePixelRatio,
+        ).trim();
+        final compositeCoverProvider = OriginItemCoverImageProvider.fromUrl(
+          imageUrl: resolvedImageUrl,
+          fallbackAsset: genesisDefaultListImageAsset,
+          outputWidth: math.max(1, (width * effectiveDevicePixelRatio).ceil()),
+          outputHeight: math.max(
+            1,
+            (coverHeight * effectiveDevicePixelRatio).ceil(),
+          ),
+          transitionHeight: math.max(
+            1,
+            (_coverDetailsTransitionHeight * effectiveDevicePixelRatio).ceil(),
+          ),
+        );
+        final ImageProvider<Object> coverProvider =
+            debugOriginItemCoverImageProvider?.call(compositeCoverProvider) ??
+            compositeCoverProvider;
+        final totalHeight = coverHeight + genesisOriginCardBottomExtension;
+
+        return ClipRRect(
+          borderRadius: GenesisImageRadii.content,
+          child: Image(
+            key: const ValueKey<String>('origin-item-card-composite-loader'),
+            image: coverProvider,
+            width: width,
+            height: coverHeight,
+            fit: BoxFit.fill,
+            gaplessPlayback: false,
+            filterQuality: FilterQuality.medium,
+            frameBuilder: (context, cover, frame, wasSynchronouslyLoaded) {
+              if (!wasSynchronouslyLoaded && frame == null) {
+                return SizedBox(
+                  key: const ValueKey<String>('origin-item-card-loading'),
+                  width: width,
+                  height: totalHeight,
+                  child: const GenesisListLoadingBone(borderRadius: 0),
+                );
+              }
+              return _LoadedOriginItemCard(item: item, cover: cover);
+            },
+            errorBuilder: (context, error, stackTrace) => SizedBox(
+              key: const ValueKey<String>('origin-item-card-loading-error'),
+              width: width,
+              height: totalHeight,
+              child: const GenesisListLoadingBone(borderRadius: 0),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _LoadedOriginItemCard extends StatelessWidget {
+  const _LoadedOriginItemCard({required this.item, required this.cover});
+
+  final OriginListItem item;
+  final Widget cover;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      key: const ValueKey<String>('origin-item-card-ready'),
+      children: [
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            KeyedSubtree(
+              key: const ValueKey<String>('origin-item-card-composited-cover'),
+              child: cover,
+            ),
+            const SizedBox(
+              height: genesisOriginCardBottomExtension,
+              child: ColoredBox(
+                key: ValueKey<String>('origin-item-card-footer-extension'),
+                color: _cardFooterColor,
+              ),
+            ),
+          ],
+        ),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              AspectRatio(
-                aspectRatio: genesisOriginCoverAspectRatio,
-                child: GenesisListImage(
-                  imageUrl: item.cover,
-                  borderRadius: BorderRadius.zero,
-                  maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+              Container(
+                key: const ValueKey<String>('origin-item-card-details'),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      originDisplayName(item.title),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      item.subtitle,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.75),
+                        fontWeight: FontWeight.w400,
+                        fontSize: 11,
+                        height: 1.2,
+                      ),
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(
-                height: genesisOriginCardBottomExtension,
-                child: ColoredBox(
-                  key: ValueKey<String>('origin-item-card-footer-extension'),
-                  color: _cardFooterColor,
+              Padding(
+                key: const ValueKey<String>('origin-item-card-stats'),
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _ImageStat(
+                      iconAsset: copyStatIconAsset,
+                      value: item.copyCnt,
+                    ),
+                    const SizedBox(width: 8),
+                    _ImageStat(
+                      iconAsset: connectStatIconAsset,
+                      value: item.connectCnt,
+                    ),
+                    const SizedBox(width: 8),
+                    _ImageStat(
+                      iconAsset: characterStatIconAsset,
+                      preserveIconAssetColor: true,
+                      iconColorMapper: const _WhiteCharacterColorMapper(),
+                      value: item.characterCnt,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const Positioned(
-            left: 0,
-            right: 0,
-            bottom: genesisOriginCardBottomExtension,
-            height: _coverDetailsTransitionHeight,
-            child: DecoratedBox(
-              key: ValueKey<String>('origin-item-card-cover-transition'),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [_transparentCardFooterColor, _cardFooterColor],
-                ),
-              ),
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  key: const ValueKey<String>('origin-item-card-details'),
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        originDisplayName(item.title),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        item.subtitle,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontWeight: FontWeight.w400,
-                          fontSize: 11,
-                          height: 1.2,
-                        ),
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  key: const ValueKey<String>('origin-item-card-stats'),
-                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      _ImageStat(
-                        iconAsset: copyStatIconAsset,
-                        value: item.copyCnt,
-                      ),
-                      const SizedBox(width: 8),
-                      _ImageStat(
-                        iconAsset: connectStatIconAsset,
-                        value: item.connectCnt,
-                      ),
-                      const SizedBox(width: 8),
-                      _ImageStat(
-                        iconAsset: characterStatIconAsset,
-                        preserveIconAssetColor: true,
-                        iconColorMapper: const _WhiteCharacterColorMapper(),
-                        value: item.characterCnt,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

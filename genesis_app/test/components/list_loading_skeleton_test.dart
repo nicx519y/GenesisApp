@@ -33,11 +33,18 @@ void main() {
       find.byKey(const ValueKey<String>('genesis-origin-grid-skeleton')),
       findsOneWidget,
     );
-    final firstCover = find
-        .byKey(const ValueKey<String>('genesis-origin-grid-cover-skeleton'))
+    final firstItem = find
+        .byKey(const ValueKey<String>('genesis-origin-grid-item-skeleton'))
         .first;
-    final coverSize = tester.getSize(firstCover);
-    expect(coverSize.width, greaterThan(100));
-    expect(coverSize.height, closeTo(coverSize.width * 1.5, 0.01));
+    final itemSize = tester.getSize(firstItem);
+    expect(itemSize.width, greaterThan(100));
+    expect(itemSize.height, closeTo(itemSize.width * 1.5 + 67, 0.01));
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ColoredBox && widget.color == const Color(0xFF111111),
+      ),
+      findsNothing,
+    );
   });
 }

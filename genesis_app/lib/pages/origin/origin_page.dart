@@ -795,55 +795,66 @@ class _OriginFeedState extends State<_OriginFeed>
             : CustomScrollView(
                 key: scrollKey,
                 primary: true,
-                scrollCacheExtent: const ScrollCacheExtent.pixels(900),
+                scrollCacheExtent: const ScrollCacheExtent.viewport(2),
                 physics: physics,
                 slivers: [
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(2, 5, 2, 0),
-                    sliver: SliverMasonryGrid.count(
-                      crossAxisCount: 2,
+                    sliver: SliverMasonryGrid(
+                      key: const ValueKey<String>('origin-feed-virtual-grid'),
+                      gridDelegate:
+                          const SliverSimpleGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                          ),
                       mainAxisSpacing: 2,
                       crossAxisSpacing: 2,
-                      childCount: _items.length + (_isLoadingMore ? 1 : 0),
-                      itemBuilder: (context, index) {
-                        if (index >= _items.length) {
-                          return const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 18),
-                            child: Center(
-                              child: SizedBox.square(
-                                dimension: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              ),
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) {
+                          final item = _items[index];
+                          return GestureDetector(
+                            key: ValueKey<String>(
+                              'origin-feed-item-${item.oid}',
                             ),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: item.deleted
+                                ? null
+                                : () {
+                                    GenesisTelemetry.collectLog(
+                                      actionType: 'event',
+                                      action: 'worldo_list_click',
+                                      object1: item.oid,
+                                    );
+                                    Navigator.of(context).pushNamed(
+                                      RouteNames.originWorld,
+                                      arguments: {
+                                        'originId': 0,
+                                        'oid': item.oid,
+                                        'initialName': item.name,
+                                      },
+                                    );
+                                  },
+                            child: OriginItemCard(item: item),
                           );
-                        }
-                        final item = _items[index];
-                        return GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTap: item.deleted
-                              ? null
-                              : () {
-                                  GenesisTelemetry.collectLog(
-                                    actionType: 'event',
-                                    action: 'worldo_list_click',
-                                    object1: item.oid,
-                                  );
-                                  Navigator.of(context).pushNamed(
-                                    RouteNames.originWorld,
-                                    arguments: {
-                                      'originId': 0,
-                                      'oid': item.oid,
-                                      'initialName': item.name,
-                                    },
-                                  );
-                                },
-                          child: OriginItemCard(item: item),
-                        );
-                      },
+                        },
+                        childCount: _items.length,
+                        addAutomaticKeepAlives: false,
+                        addRepaintBoundaries: true,
+                      ),
                     ),
                   ),
+                  if (_isLoadingMore)
+                    const SliverToBoxAdapter(
+                      child: Padding(
+                        key: ValueKey<String>('origin-feed-load-more'),
+                        padding: EdgeInsets.symmetric(vertical: 18),
+                        child: Center(
+                          child: SizedBox.square(
+                            dimension: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
       ),
