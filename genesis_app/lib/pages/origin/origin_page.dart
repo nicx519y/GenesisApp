@@ -245,27 +245,36 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                   child: SecendTabs(
                     labels: labels,
                     verticalPadding: 0,
+                    physics: const BouncingScrollPhysics(),
                     onTap: (index) => _handleCategoryTap(tabContext, index),
                   ),
                 ),
               ),
               Expanded(
-                child: TabBarView(
-                  children: [
-                    for (final entry in categories.indexed)
-                      _OriginFeed(
-                        key: _feedKeyFor(entry.$2),
-                        index: entry.$1,
-                        category: entry.$2,
-                        isInitialPage: widget.isInitialPage && entry.$1 == 0,
-                        onFirstPageReady: entry.$1 == 0
-                            ? widget.onForYouFirstPageReady
-                            : null,
-                        onInitialLoadCompleted: entry.$1 == 0
-                            ? _retryHotTagsIfNeeded
-                            : null,
-                      ),
-                  ],
+                child: ScrollConfiguration(
+                  key: const ValueKey<String>(
+                    'origin-tab-pages-scroll-configuration',
+                  ),
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(overscroll: false),
+                  child: TabBarView(
+                    children: [
+                      for (final entry in categories.indexed)
+                        _OriginFeed(
+                          key: _feedKeyFor(entry.$2),
+                          index: entry.$1,
+                          category: entry.$2,
+                          isInitialPage: widget.isInitialPage && entry.$1 == 0,
+                          onFirstPageReady: entry.$1 == 0
+                              ? widget.onForYouFirstPageReady
+                              : null,
+                          onInitialLoadCompleted: entry.$1 == 0
+                              ? _retryHotTagsIfNeeded
+                              : null,
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ],

@@ -1,103 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/home/world_item_card.dart';
-import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
-import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_avatar_radii.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 
 void main() {
-  testWidgets('renders last progress time from last tick created_at', (
-    WidgetTester tester,
-  ) async {
-    tester.view.devicePixelRatio = 3;
-    addTearDown(tester.view.resetDevicePixelRatio);
-
-    final item = WorldListItem.fromJson(const <String, dynamic>{
-      'wid': 'w_alpha',
-      'name': 'Alpha World',
-      'cover': '',
-      'created_uid': 'u_1',
-      'created_user_name': 'Shawn',
-      'created_at': '2020-01-01T00:00:00Z',
-      'updated_at': '2020-01-02T00:00:00Z',
-      'last_tick': {
-        'tick_no': 3,
-        'sub_tick_no': 2,
-        'current_time': 'Day 3, 08:00',
-        'created_at': '2999-01-01T00:00:00Z',
-        'narrator': 'The city chooses a new route.',
-      },
-      'tick_cnt': 3,
-      'connect_cnt': 4,
-      'ai_character_cnt': 5,
-      'player_cnt': 6,
-    });
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SizedBox(width: 390, child: WorldItemCard(item: item)),
-        ),
-      ),
-    );
-
-    expect(find.text('Last Progress'), findsOneWidget);
-    expect(find.text('Alpha World'), findsOneWidget);
-    expect(find.text('#Alpha World'), findsNothing);
-    expect(
-      _horizontalGap(
-        tester,
-        find.byIcon(MyFlutterApp.lastProgress),
-        find.text('Last Progress'),
-      ),
-      8,
-    );
-    expect(find.text('2999-1-1'), findsOneWidget);
-    expect(find.text('Tick 3-2 · Day 3, 08:00'), findsOneWidget);
-    expect(find.text('The city chooses a new route.'), findsOneWidget);
-    expect(
-      tester.getTopLeft(find.byIcon(MyFlutterApp.lastProgress)).dy,
-      tester.getRect(find.byType(GenesisListImage).first).bottom + 16,
-    );
-
-    final thumbnails = tester.widgetList<GenesisListImage>(
-      find.byType(GenesisListImage),
-    );
-    expect(
-      thumbnails.any(
-        (image) =>
-            image.width == 60 &&
-            image.height == 60 &&
-            image.borderRadius ==
-                BorderRadius.circular(GenesisImageRadii.contentValue),
-      ),
-      isTrue,
-    );
-    expect(thumbnails.every((image) => image.maxDevicePixelRatio == 3), isTrue);
-
-    final titleLeft = tester.getTopLeft(find.text('Alpha World')).dx;
-    final bodyLeft = tester
-        .getTopLeft(find.text('The city chooses a new route.'))
-        .dx;
-    expect(bodyLeft, lessThan(titleLeft));
-  });
-
-  test('last progress omits the sub-tick suffix when it is zero', () {
-    final item = WorldListItem.fromJson(const <String, dynamic>{
-      'wid': 'w_alpha',
-      'last_tick': {
-        'tick_no': 3,
-        'sub_tick_no': 0,
-        'current_time': 'Day 3, 08:00',
-      },
-    });
-
-    expect(item.lastProgressSubTickNo, 0);
-    expect(item.progressTickTimeLabel, 'Tick 3 · Day 3, 08:00');
-  });
-
-  testWidgets('renders scene mine my_character without detail services', (
+  testWidgets('renders the compact four-row My Worlds card', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 3;
@@ -108,70 +18,21 @@ void main() {
         'world_id': 'w_alpha',
         'world_name': 'Alpha World',
         'cover': '',
-        'owner_uid': 'u_owner',
-        'owner_name': 'Owner',
-        'updated_at': '2020-01-02T00:00:00Z',
-        'metric': {'label': 'Goal Progress', 'unit': '%', 'default': 42},
+        'created_at': '2998-01-01T00:00:00Z',
       },
-      'stats': {
-        'tick_cnt': 3,
-        'connect_cnt': 4,
-        'character_cnt': 5,
-        'player_cnt': 6,
-      },
+      'stats': {'connect_cnt': 4},
       'last_tick': {
         'tick_no': 3,
-        'current_time': 'Day 3, 08:00',
+        'sub_tick_no': 2,
         'created_at': '2999-01-01T00:00:00Z',
-        'narrator': 'The city chooses a new route.',
+        'narrator':
+            'The city chooses a new route while every district prepares for the next turn.',
       },
       'my_character': {
         'char_id': 'c_self',
-        'player_uid': 'u_mock',
-        'player_username': 'Mock User',
         'name': 'Self Hero',
-        'brief': 'Current user character.',
         'avatar': {'sm_url': '', 'xl_url': '', 'object_key': ''},
-        'metric_value': 0,
       },
-    });
-
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: SizedBox(width: 390, child: WorldItemCard(item: item)),
-        ),
-      ),
-    );
-
-    expect(item.myCharacter?['char_id'], 'c_self');
-    expect(item.metric['default'], 42);
-    expect(_richTextFinder('Self Hero (Me)'), findsOneWidget);
-    expect(find.text('Player'), findsOneWidget);
-    expect(find.text('Goal Progress: 42%'), findsOneWidget);
-    expect(
-      tester
-          .widget<GenesisCharacterAvatar>(find.byType(GenesisCharacterAvatar))
-          .maxDevicePixelRatio,
-      3,
-    );
-  });
-
-  testWidgets('renders recent activity tag label after world name', (
-    WidgetTester tester,
-  ) async {
-    final item = WorldListItem.fromJson(const <String, dynamic>{
-      'wid': 'w_alpha',
-      'name': 'Alpha World',
-      'cover': '',
-      'created_uid': 'u_1',
-      'created_user_name': 'Shawn',
-      'created_at': '2020-01-01T00:00:00Z',
-      'updated_at': '2020-01-02T00:00:00Z',
-      'tick_cnt': 3,
-      'connect_cnt': 4,
-      'ai_character_cnt': 5,
-      'player_cnt': 6,
     });
 
     await tester.pumpWidget(
@@ -181,38 +42,99 @@ void main() {
             width: 390,
             child: WorldItemCard(
               item: item,
-              recentActivityTagLabel: 'Last Tick',
+              recentActivityTagLabel: 'Last Message',
             ),
           ),
         ),
       ),
     );
 
+    expect(item.cardTimestamp, '2999-01-01T00:00:00Z');
     expect(find.text('Alpha World'), findsOneWidget);
-    expect(find.text('Last Tick'), findsNothing);
-    expect(find.text('Recent'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey<String>('recent-activity-tag-last-tick')),
-      findsOneWidget,
+    expect(find.text('2999-1-1'), findsOneWidget);
+    expect(find.text('2998-1-1'), findsNothing);
+    expect(find.text('Tick 3-2 · 4 messages'), findsOneWidget);
+    expect(find.text('Self Hero'), findsOneWidget);
+
+    final tickMessages = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-card-tick-messages')),
     );
-    expect(
-      tester.getTopLeft(find.text('Recent')).dx,
-      greaterThan(tester.getTopLeft(find.text('Alpha World')).dx),
+    expect(tickMessages.style?.color, const Color(0xFF666666));
+    final recentTag = find.byKey(
+      const ValueKey<String>('recent-activity-tag-last-message'),
     );
+    expect(recentTag, findsOneWidget);
+    final coverRect = tester.getRect(find.byType(GenesisListImage).first);
+    final recentTagRect = tester.getRect(recentTag);
+    expect(recentTagRect.left, moreOrLessEquals(coverRect.left));
+    expect(recentTagRect.bottom, moreOrLessEquals(coverRect.bottom));
+
+    final cover = tester.widget<GenesisListImage>(
+      find.byType(GenesisListImage).first,
+    );
+    expect(cover.width, 60);
+    expect(cover.height, 80);
+    expect(
+      cover.borderRadius,
+      BorderRadius.circular(GenesisImageRadii.contentValue),
+    );
+    expect(cover.maxDevicePixelRatio, 3);
+
+    final narrator = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-card-narrator')),
+    );
+    expect(narrator.maxLines, 2);
+    expect(narrator.overflow, TextOverflow.ellipsis);
+    expect(narrator.style?.color, const Color(0xFF666666));
+    expect(narrator.style?.fontSize, 12);
+    expect(narrator.style?.height, 1.2);
+    expect(narrator.style?.fontWeight, FontWeight.w400);
+
+    final avatar = tester.widget<GenesisCharacterAvatar>(
+      find.byType(GenesisCharacterAvatar),
+    );
+    expect(avatar.size, 25);
+    expect(avatar.borderRadius, GenesisAvatarRadii.character);
+    expect(avatar.maxDevicePixelRatio, 3);
+
+    final nameRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-card-name')),
+    );
+    final timeRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-card-time')),
+    );
+    final tickRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-card-tick-messages')),
+    );
+    final narratorRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-card-narrator')),
+    );
+    final characterRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-card-character')),
+    );
+
+    expect(timeRect.right, 390);
+    expect(timeRect.left, greaterThan(nameRect.left));
+    expect(tickRect.top, greaterThan(nameRect.top));
+    expect(narratorRect.top, greaterThan(tickRect.top));
+    expect(characterRect.top, greaterThan(narratorRect.top));
   });
 
-  testWidgets('hides only last progress section when summary is empty', (
+  testWidgets('uses created_at when last tick time is zero', (
     WidgetTester tester,
   ) async {
     final item = WorldListItem.fromJson(const <String, dynamic>{
-      'wid': 'w_empty_progress',
-      'name': 'Quiet World',
-      'cover': '',
-      'updated_at': '2020-01-02T00:00:00Z',
+      'info': {
+        'world_id': 'w_alpha',
+        'world_name': 'Alpha World',
+        'cover': '',
+        'created_at': '2998-01-01T00:00:00Z',
+      },
+      'stats': {'connect_cnt': 1},
       'last_tick': {
         'tick_no': 3,
-        'current_time': 'Day 3, 08:00',
-        'created_at': '2999-01-01T00:00:00Z',
+        'sub_tick_no': 0,
+        'created_at': 0,
         'narrator': '   ',
       },
     });
@@ -225,62 +147,39 @@ void main() {
       ),
     );
 
-    expect(find.text('Quiet World'), findsOneWidget);
-    expect(find.text('Last Progress'), findsNothing);
-    expect(find.text('Tick 3 · Day 3, 08:00'), findsNothing);
-    expect(find.byIcon(MyFlutterApp.lastProgress), findsNothing);
+    expect(item.cardTimestamp, '2998-01-01T00:00:00Z');
+    expect(item.cardTickLabel, 'Tick 3');
+    expect(find.text('2998-1-1'), findsOneWidget);
+    expect(find.text('Tick 3 · 1 messages'), findsOneWidget);
+    expect(find.textContaining('Tick 3-0'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('world-card-narrator')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-card-character')),
+      findsNothing,
+    );
   });
 
-  testWidgets(
-    'keeps character section 16px below summary when last progress is absent',
-    (WidgetTester tester) async {
-      final item = WorldListItem.fromJson(const <String, dynamic>{
-        'info': {
-          'world_id': 'w_empty_progress',
-          'world_name': 'Quiet World',
-          'cover': '',
-          'owner_uid': 'u_owner',
-          'owner_name': 'Owner',
-          'metric': {'label': 'Goal Progress', 'unit': '%', 'default': 42},
-        },
-        'last_tick': {'narrator': '   '},
-        'my_character': {
-          'char_id': 'c_self',
-          'player_uid': 'u_mock',
-          'player_username': 'Mock User',
-          'name': 'Self Hero',
-          'avatar': {'sm_url': '', 'xl_url': '', 'object_key': ''},
-        },
+  test('treats Unix epoch timestamp variants as empty', () {
+    for (final emptyTimestamp in <Object>[0, '0', '1970-01-01T00:00:00Z']) {
+      final item = WorldListItem.fromJson(<String, dynamic>{
+        'info': {'world_id': 'w_alpha', 'created_at': '2998-01-01T00:00:00Z'},
+        'last_tick': {'created_at': emptyTimestamp},
       });
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: SizedBox(width: 390, child: WorldItemCard(item: item)),
-          ),
-        ),
-      );
+      expect(item.cardTimestamp, '2998-01-01T00:00:00Z');
+    }
+  });
 
-      final summaryBottom = tester
-          .getRect(find.byType(GenesisListImage).first)
-          .bottom;
-      final characterTop = tester
-          .getTopLeft(_richTextFinder('Self Hero (Me)'))
-          .dy;
+  test('uses current stats subtick when last tick is still zero', () {
+    final item = WorldListItem.fromJson({
+      'info': {'world_id': 'w_subtick', 'world_name': 'Subtick World'},
+      'stats': {'tick_cnt': 0, 'sub_tick_no': 1},
+      'last_tick': {'tick_no': 0, 'sub_tick_no': 0},
+    });
 
-      expect(characterTop, summaryBottom + 18);
-    },
-  );
-}
-
-double _horizontalGap(WidgetTester tester, Finder left, Finder right) {
-  final leftRect = tester.getRect(left);
-  final rightRect = tester.getRect(right);
-  return rightRect.left - leftRect.right;
-}
-
-Finder _richTextFinder(String text) {
-  return find.byWidgetPredicate(
-    (widget) => widget is RichText && widget.text.toPlainText() == text,
-  );
+    expect(item.cardTickLabel, 'Tick 0-1');
+  });
 }

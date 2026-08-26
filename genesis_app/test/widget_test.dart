@@ -5304,6 +5304,17 @@ void main() {
       expect(find.byType(NestedScrollView), findsNothing);
       expect(find.byType(SliverPersistentHeader), findsNothing);
       expect(
+        tester.widget<TabBar>(find.byType(TabBar).first).physics,
+        isA<BouncingScrollPhysics>(),
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('origin-tab-pages-scroll-configuration'),
+        ),
+        findsOneWidget,
+      );
+      expect(find.byType(StretchingOverscrollIndicator), findsNothing);
+      expect(
         find.ancestor(of: feedFinder, matching: find.byType(RefreshIndicator)),
         findsOneWidget,
       );

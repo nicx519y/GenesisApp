@@ -26,6 +26,7 @@ class GenesisTabBar extends StatelessWidget {
     this.unselectedLabelColor,
     this.expanded = false,
     this.tabAlignment,
+    this.physics,
     this.onTap,
   });
 
@@ -43,6 +44,7 @@ class GenesisTabBar extends StatelessWidget {
   final Color? unselectedLabelColor;
   final bool expanded;
   final TabAlignment? tabAlignment;
+  final ScrollPhysics? physics;
   final ValueChanged<int>? onTap;
 
   @override
@@ -65,6 +67,7 @@ class GenesisTabBar extends StatelessWidget {
         isScrollable: !expanded,
         tabAlignment:
             tabAlignment ?? (expanded ? TabAlignment.fill : TabAlignment.start),
+        physics: physics,
         dividerColor: Colors.transparent,
         padding: EdgeInsets.zero,
         labelPadding: labelPadding,
