@@ -154,8 +154,8 @@ void main() {
     final copyIcon = tester.widget<SvgPicture>(
       _assetSvgFinder(copyStatIconAsset),
     );
-    expect(copyIcon.width, 10);
-    expect(copyIcon.height, 10);
+    expect(copyIcon.width, 11);
+    expect(copyIcon.height, 11);
     expect(find.text('99.9K'), findsOneWidget);
     expect(find.text('99.9M'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);

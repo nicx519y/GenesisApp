@@ -269,7 +269,7 @@ List<Widget> _originInitialDialogueSlivers(
           children: [
             Icon(
               Icons.place_outlined,
-              size: style.headerTitleIconSize,
+              size: 14,
               color: style.headerTitleIconColor,
             ),
             SizedBox(width: style.headerTitleIconGap),
@@ -341,7 +341,7 @@ List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
                 Icon(
                   MyFlutterApp.eye,
                   key: ValueKey<String>('origin-opening-worldo-brief-icon'),
-                  size: 16,
+                  size: 14,
                   color: Color(0xFFFF2442),
                 ),
                 SizedBox(width: originDetailSectionTitleIconGapForTesting),

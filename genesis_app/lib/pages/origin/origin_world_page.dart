@@ -23,6 +23,7 @@ import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
+import '../../components/origin/origin_character_form.dart';
 import '../../components/origin/origin_role_recommendation.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/tilemap/tilemap_renderer.dart';
@@ -712,13 +713,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
     await _launchOrigin(
       origin,
-      OriginRoleLaunchSelection.custom(
-        OriginCustomRoleDraft(
-          avatarUrl: profileRole.avatarUrl,
-          name: profileRole.name,
-          identity: '',
-        ),
-      ),
+      OriginRoleLaunchSelection.custom(profileRole),
       initialLocationId:
           _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
     );
@@ -1178,13 +1173,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                   _selectAndLaunchPresetRole(origin, character),
               onSelectProfileRole: (profileRole) =>
                   _selectAndLaunchProfileRole(origin, profileRole),
-              onEditProfileRole: () => _showLaunchRoleSheet(
-                origin,
-                initialCustomTab: true,
-                fillProfileOnOpen: true,
-              ),
-              onCustomizeRole: () =>
-                  _showLaunchRoleSheet(origin, initialCustomTab: true),
+              onFillProfileRole: _customRoleFromProfile,
             ),
         topOverlay: _buildLocationChatOverlay(origin),
         map: WorldKeepAlivePage(child: map),

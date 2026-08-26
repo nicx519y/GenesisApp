@@ -6910,7 +6910,7 @@ void main() {
     final briefIcon = tester.widget<Icon>(
       find.byKey(const ValueKey<String>('origin-opening-worldo-brief-icon')),
     );
-    expect(briefIcon.size, 16);
+    expect(briefIcon.size, 14);
     expect(briefIcon.color, const Color(0xFFFF2442));
     expect(find.text('Origin detail subtitle'), findsOneWidget);
     expect(
@@ -6924,6 +6924,13 @@ void main() {
           ?.fontSize,
       14,
     );
+    final locationIcon = tester.widget<Icon>(
+      find.descendant(
+        of: openingLocation,
+        matching: find.byIcon(Icons.place_outlined),
+      ),
+    );
+    expect(locationIcon.size, 14);
     expect(openingLocation, findsOneWidget);
     expect(
       tester
@@ -8070,7 +8077,7 @@ void main() {
       find.byKey(const ValueKey<String>('origin-setup-role-cards')),
     );
     expect(roleCards.itemExtent, 252);
-    expect(roleCards.scrollCacheExtent?.value, 252 * 3);
+    expect(roleCards.scrollCacheExtent?.value, 252 * 2);
     expect(recommendedRole, findsOneWidget);
     expect(regularRole, findsOneWidget);
     expect(
@@ -8080,8 +8087,8 @@ void main() {
     final roleTitleLaunchIcon = tester.widget<SvgPicture>(
       find.byKey(const ValueKey<String>('origin-setup-role-title-launch-icon')),
     );
-    expect(roleTitleLaunchIcon.width, 16);
-    expect(roleTitleLaunchIcon.height, 16);
+    expect(roleTitleLaunchIcon.width, 14);
+    expect(roleTitleLaunchIcon.height, 14);
     final suggestedLabel = find.byKey(
       const ValueKey<String>('origin-setup-role-suggested-label-c_recommended'),
     );
@@ -8247,51 +8254,28 @@ void main() {
       find.byKey(const ValueKey<String>('origin-setup-custom-form')),
       findsNothing,
     );
-    await _revealOriginCustomRoleCard(tester);
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
-      findsOneWidget,
+      findsNothing,
     );
-    final customCard = tester.widget<Material>(
-      find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
-    );
-    expect(customCard.color, const Color(0xCC000000));
-    final customCardInkWell = tester.widget<InkWell>(
-      find.descendant(
-        of: find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
-        matching: find.byType(InkWell),
-      ),
-    );
-    expect(customCardInkWell.splashFactory, NoSplash.splashFactory);
-    expect(
-      customCardInkWell.overlayColor?.resolve(<WidgetState>{
-        WidgetState.pressed,
-      }),
-      Colors.transparent,
-    );
-    expect(customCardInkWell.highlightColor, Colors.transparent);
-    final customPlus = tester.widget<Text>(find.text('+'));
-    final customLabel = tester.widget<Text>(find.text('Custom'));
-    expect(customPlus.style?.color, Colors.white);
-    expect(customLabel.style?.color, Colors.white);
     const roleId = 'c_o_test_1';
     final portrait = find.byKey(
       const ValueKey<String>('origin-setup-role-portrait-$roleId'),
     );
     expect(portrait, findsOneWidget);
+    await _dragOriginPanelUntilVisible(tester, portrait);
+    await tester.pumpAndSettle();
     expect(tester.getSize(portrait).width, 240);
     final setupAvatarFinder = find.descendant(
       of: portrait,
-      matching: find.byType(GenesisStaticNetworkImage),
+      matching: find.byType(Image),
     );
     expect(setupAvatarFinder, findsOneWidget);
-    final setupAvatar = tester.widget<GenesisStaticNetworkImage>(
-      setupAvatarFinder,
-    );
-    expect(
-      setupAvatar.placeholder!(tester.element(setupAvatarFinder)),
-      isA<ColoredBox>(),
-    );
+    final setupAvatar = tester.widget<Image>(setupAvatarFinder);
+    final setupAvatarProvider =
+        setupAvatar.image as OriginRolePortraitImageProvider;
+    final setupAvatarSource =
+        setupAvatarProvider.sourceProvider as GenesisStaticNetworkImageProvider;
 
     expect(
       find.descendant(of: portrait, matching: find.text('Guide')),
@@ -8315,6 +8299,10 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-page-dot-1')),
       findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-page-dot-2')),
+      findsNothing,
     );
     expect(
       find.byKey(
@@ -8453,23 +8441,6 @@ void main() {
       ),
       findsOneWidget,
     );
-    await tester.scrollUntilVisible(
-      find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
-      400,
-      scrollable: find
-          .descendant(
-            of: find.byKey(const ValueKey<String>('origin-setup-role-cards')),
-            matching: find.byType(Scrollable),
-          )
-          .first,
-    );
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(
-        const ValueKey<String>('origin-setup-role-page-current-2-of-2'),
-      ),
-      findsOneWidget,
-    );
     final bottomSheetScrollView = tester.widget<CustomScrollView>(
       find.byKey(
         const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
@@ -8531,7 +8502,7 @@ void main() {
         matching: find.byType(GenesisStaticNetworkImage),
       ),
     );
-    expect(infoAvatar.imageUrl, setupAvatar.imageUrl);
+    expect(infoAvatar.imageUrl, setupAvatarSource.imageUrl);
     sheetPagesRect = tester.getRect(sheetPages);
     await tester.dragFrom(
       Offset(sheetPagesRect.left + 24, sheetPagesRect.top + 16),
@@ -8539,88 +8510,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.widgetWithText(FilledButton, 'Launch'), findsNothing);
-    await _openOriginRoleSheetFromCustomCard(tester);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('origin-role-sheet')),
-        matching: find.text('Setup Your Role'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('origin-role-launch-icon')),
-      findsOneWidget,
-    );
-    expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('origin-role-sheet')),
-        matching: find.byType(AnimatedSwitcher),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.byKey(const ValueKey<String>('origin-role-preset-tab')),
-      findsOneWidget,
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('origin-role-cancel'))).height,
-      35,
-    );
-    expect(
-      tester.getSize(find.byKey(const ValueKey('origin-role-launch'))).height,
-      35,
-    );
-
-    await tester.tap(find.text('Preset'));
-    await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey<String>('origin-role-launch-icon')),
-      findsOneWidget,
-    );
-
-    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pump();
-
-    expect(find.text('Please select a preset role'), findsOneWidget);
-    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
-
-    await tester.tap(
-      find.byKey(const ValueKey('origin-role-preset-c_o_test_1')),
-    );
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pumpAndSettle();
-
-    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-    expect(launchRequests, hasLength(1));
-    final launchBody = transport.decodedBody(launchRequests.single);
-    expect(launchBody['origin_id'], 'o_test_1');
-    expect(launchBody.containsKey('oid'), isFalse);
-    expect(launchBody['preset_character_id'], 'c_o_test_1');
-    final launchActions = telemetry.events.map((event) => event.name).toList();
-    expect(launchActions, contains('worldo_launch_sheet'));
-    expect(launchActions, isNot(contains('worldo_launch_opening')));
-    expect(launchActions, isNot(contains('worldo_launch_submit_start')));
-    expect(launchActions, contains('worldo_launch_submit_success'));
-    expect(
-      _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
-      findsOneWidget,
-    );
-    expect(find.byType(WorldPage), findsNothing);
-    await tester.tap(find.text('Enter'));
-    await tester.pumpAndSettle();
-    final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
-    expect(launchedWorldPage.wid, 'w_launched_from_origin');
-    expect(launchedWorldPage.waitForTick1, isFalse);
-    final worldRequests = transport.requestsFor('/api/v1/world/detail');
-    expect(worldRequests, isNotEmpty);
-    expect(
-      worldRequests.last.uri.queryParameters['world_id'],
-      'w_launched_from_origin',
-    );
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
   });
 
   testWidgets(
@@ -8650,7 +8539,7 @@ void main() {
         transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
         hasLength(1),
       );
-      await _openOriginRoleSheetFromCustomCard(tester);
+      await _openOriginRoleSheetFromLocation(tester);
 
       expect(find.byKey(const ValueKey('origin-role-sheet')), findsOneWidget);
       expect(
@@ -8700,6 +8589,9 @@ void main() {
   testWidgets(
     'Origin launched role tab uses my launch preset characters endpoint',
     (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final chatroom = _FakeChatroomClient();
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'approved',
         myLaunchPresetCharacters: const [
@@ -8729,6 +8621,7 @@ void main() {
             transport: transport,
             useMock: false,
             initialAuthToken: 'token',
+            chatroom: chatroom,
           ),
           child: MaterialApp(
             onGenerateRoute: AppRouter.onGenerateRoute,
@@ -8744,7 +8637,7 @@ void main() {
       );
       expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
 
-      await _openOriginRoleSheetFromCustomCard(tester);
+      await _openOriginRoleSheetFromLocation(tester);
       await tester.tap(find.text('Launched'));
       await tester.pumpAndSettle();
 
@@ -8778,14 +8671,18 @@ void main() {
         find.byType(WorldPage),
       );
       expect(launchedWorldPage.wid, 'w_history_1');
-      expect(launchedWorldPage.initialLocationId, isEmpty);
+      expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
       expect(find.byType(LocationChatPanel), findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+      AppStartupCoordinator.resetForTesting();
     },
   );
 
   testWidgets('Origin shows cached signed-in profile as a direct launch role', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'approved',
     );
@@ -8816,6 +8713,10 @@ void main() {
       const ValueKey<String>('origin-setup-role-current-user'),
     );
     expect(profileRole, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
+      findsNothing,
+    );
     final profilePortrait = find.byKey(
       const ValueKey<String>('origin-setup-role-portrait-current-user'),
     );
@@ -8912,8 +8813,9 @@ void main() {
         .onTap!();
     await tester.pumpAndSettle();
 
+    expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
     final customForm = find.byKey(
-      const ValueKey<String>('origin-role-custom-tab'),
+      const ValueKey<String>('origin-setup-custom-form'),
     );
     expect(customForm, findsOneWidget);
     final customFields = find.descendant(
@@ -8929,8 +8831,21 @@ void main() {
       isEmpty,
     );
     expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
-    await tester.tap(find.byKey(const ValueKey('origin-role-sheet-close')));
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-custom-cancel')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-custom-launch')),
+      findsOneWidget,
+    );
+    tester
+        .widget<GenesisSecondaryButton>(
+          find.byKey(const ValueKey<String>('origin-setup-custom-cancel')),
+        )
+        .onPressed!();
     await tester.pumpAndSettle();
+    expect(customForm, findsNothing);
 
     tester.widget<InkWell>(profileRole).onTap!();
     await tester.pumpAndSettle();
@@ -8947,6 +8862,150 @@ void main() {
     );
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
+    AppStartupCoordinator.resetForTesting();
+  });
+
+  testWidgets('Origin profile editor launches its custom role inline', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          initialUserInfo: const {
+            'uid': 'u_profile',
+            'name': 'Profile Hero',
+            'avatar': 'https://cdn.example.com/profile.jpg',
+          },
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<InkWell>(
+          find.byKey(
+            const ValueKey<String>('origin-setup-role-edit-current-user'),
+          ),
+        )
+        .onTap!();
+    await tester.pump();
+
+    final customForm = find.byKey(
+      const ValueKey<String>('origin-setup-custom-form'),
+      skipOffstage: false,
+    );
+    final fields = find.descendant(
+      of: customForm,
+      matching: find.byType(TextField, skipOffstage: false),
+      skipOffstage: false,
+    );
+    expect(fields, findsNWidgets(3));
+    final nameController = tester.widget<TextField>(fields.first).controller!;
+    expect(nameController.text, 'Profile Hero');
+    expect(nameController.selection, const TextSelection.collapsed(offset: 0));
+    await tester.pumpAndSettle();
+    expect(nameController.text, 'Profile Hero');
+    expect(nameController.selection, const TextSelection.collapsed(offset: 0));
+
+    final fieldBlocks = find.descendant(
+      of: customForm,
+      matching: find.byType(CreateTextFieldBlock, skipOffstage: false),
+      skipOffstage: false,
+    );
+    expect(fieldBlocks, findsNWidgets(3));
+    for (final fieldBlock in tester.widgetList<CreateTextFieldBlock>(
+      fieldBlocks,
+    )) {
+      expect(fieldBlock.fillColor, const Color(0xFFF8F8F8));
+      expect(fieldBlock.handoffVerticalDragToAncestor, isTrue);
+      expect(fieldBlock.scrollPadding?.bottom, kMinInteractiveDimension);
+    }
+
+    await tester.ensureVisible(fieldBlocks.at(2));
+    await tester.pumpAndSettle();
+    await tester.tap(fields.at(2));
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    final keyboardTop = tester.view.physicalSize.height - 300;
+    expect(
+      tester.getRect(fieldBlocks.at(2)).bottom,
+      lessThanOrEqualTo(keyboardTop),
+    );
+    final sheetHandle = find.byKey(
+      const ValueKey<String>('origin-sheet-page-handle'),
+    );
+    expect(sheetHandle, findsOneWidget);
+    final handleTopWithKeyboard = tester.getTopLeft(sheetHandle).dy;
+
+    final openingScrollView = tester.widget<CustomScrollView>(
+      find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      ),
+    );
+    final openingScrollController = openingScrollView.controller!;
+    final offsetBeforeFieldDrag = openingScrollController.offset;
+    final canDragDown =
+        offsetBeforeFieldDrag >
+        openingScrollController.position.minScrollExtent + 20;
+    final fieldDragDelta = canDragDown ? 60.0 : -60.0;
+    await tester.drag(fields.at(2), Offset(0, fieldDragDelta));
+    await tester.pump();
+    if (canDragDown) {
+      expect(openingScrollController.offset, lessThan(offsetBeforeFieldDrag));
+    } else {
+      expect(
+        openingScrollController.offset,
+        greaterThan(offsetBeforeFieldDrag),
+      );
+    }
+
+    for (final keyboardInset in <double>[240, 180, 120, 60, 0]) {
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        tester.getTopLeft(sheetHandle).dy,
+        closeTo(handleTopWithKeyboard, 0.01),
+      );
+    }
+    await tester.pumpAndSettle();
+    await tester.enterText(fields.at(1), 'Explorer');
+    await tester.enterText(fields.at(2), 'Inline profile biography');
+    await tester.pump();
+
+    tester
+        .widget<GenesisPrimaryButton>(
+          find.byKey(const ValueKey<String>('origin-setup-custom-launch')),
+        )
+        .onPressed!();
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
+    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+    expect(launchRequests, hasLength(1));
+    final launchBody = transport.decodedBody(launchRequests.single);
+    expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
+    expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
+    expect(
+      launchBody['custom_role'],
+      containsPair('bio', 'Inline profile biography'),
+    );
+    await tester.pump(const Duration(seconds: 2));
+    AppStartupCoordinator.resetForTesting();
   });
 
   testWidgets(
@@ -9033,18 +9092,22 @@ void main() {
     },
   );
 
-  testWidgets('Origin custom card opens custom role sheet and launches', (
+  testWidgets('Origin location launch opens custom role sheet and launches', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'approved',
     );
+    final chatroom = _FakeChatroomClient();
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(
           transport: transport,
           useMock: false,
           initialAuthToken: 'token',
+          chatroom: chatroom,
         ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
@@ -9054,16 +9117,16 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final customCard = find.byKey(
-      const ValueKey<String>('origin-setup-role-custom-card'),
-    );
-    final customCardTapTarget = tester.widget<InkWell>(
-      find.descendant(of: customCard, matching: find.byType(InkWell)),
-    );
-    customCardTapTarget.onTap!();
-    await tester.pumpAndSettle();
+    await _openOriginRoleSheetFromLocation(tester);
 
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('origin-role-sheet')),
+        matching: find.text('Custom'),
+      ),
+    );
+    await tester.pumpAndSettle();
     final customForm = find.byKey(
       const ValueKey<String>('origin-role-custom-tab'),
     );
@@ -9088,9 +9151,11 @@ void main() {
     expect(launchBody['custom_role'], containsPair('name', 'Inline Hero'));
     expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
     expect(launchBody['custom_role'], containsPair('bio', 'Inline bio'));
+    await tester.pump(const Duration(seconds: 2));
+    AppStartupCoordinator.resetForTesting();
   });
 
-  testWidgets('Origin custom card asks for login when signed out', (
+  testWidgets('Origin location launch asks for login when signed out', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -9114,14 +9179,7 @@ void main() {
       findsNothing,
     );
 
-    final customCard = find.byKey(
-      const ValueKey<String>('origin-setup-role-custom-card'),
-    );
-    final customCardTapTarget = tester.widget<InkWell>(
-      find.descendant(of: customCard, matching: find.byType(InkWell)),
-    );
-    customCardTapTarget.onTap!();
-    await tester.pumpAndSettle();
+    await _openOriginRoleSheetFromLocation(tester);
 
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
@@ -9314,7 +9372,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump();
 
-    await _openOriginRoleSheetFromCustomCard(tester);
+    await _openOriginRoleSheetFromLocation(tester);
     await tester.tap(find.text('Preset'));
     await tester.pumpAndSettle();
     await tester.tap(
@@ -9324,27 +9382,9 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
     await tester.pumpAndSettle();
 
-    expect(
-      _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
-      findsOneWidget,
-    );
-    expect(find.byType(WorldPage), findsNothing);
-    expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
-    expect(
-      transport
-          .requestsFor('/api/v1/world/detail')
-          .where(
-            (request) =>
-                request.uri.queryParameters['world_id'] ==
-                'w_launched_from_origin',
-          ),
-      isEmpty,
-    );
-
-    await tester.tap(find.text('Enter'));
-    await tester.pumpAndSettle();
     final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
     expect(launchedWorldPage.wid, 'w_launched_from_origin');
+    expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
     expect(launchedWorldPage.waitForTick1, isFalse);
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     var worldRequests = transport
@@ -9898,9 +9938,15 @@ void main() {
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
+    final chatroom = _FakeChatroomClient();
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          chatroom: chatroom,
+        ),
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
@@ -9909,7 +9955,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _openOriginRoleSheetFromCustomCard(tester);
+    await _openOriginRoleSheetFromLocation(tester);
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -9918,14 +9964,6 @@ void main() {
     );
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField).at(0), 'Custom Hero');
-    await tester.pump();
-
-    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pump();
-
-    expect(find.text('Please enter identity'), findsOneWidget);
-    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
-
     await tester.enterText(find.byType(TextField).at(1), 'Time traveler');
     await tester.enterText(find.byType(TextField).at(2), 'Knows too much.');
     await tester.pump();
@@ -9955,12 +9993,14 @@ void main() {
     final transport = _RecordingV1ListTransport(
       worldRelationStatus: 'approved',
     );
+    final chatroom = _FakeChatroomClient();
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(
           transport: transport,
           useMock: false,
           initialAuthToken: 'token',
+          chatroom: chatroom,
           initialUserInfo: {
             'name': 'Profile Hero',
             'identity': 'Saved explorer',
@@ -9982,7 +10022,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _openOriginRoleSheetFromCustomCard(tester);
+    await _openOriginRoleSheetFromLocation(tester);
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -10145,7 +10185,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await _openOriginRoleSheetFromCustomCard(tester);
+    await _openOriginRoleSheetFromLocation(tester);
 
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
@@ -10154,6 +10194,7 @@ void main() {
   testWidgets(
     'Origin detail custom role keeps avatar empty when profile has no avatar',
     (WidgetTester tester) async {
+      final chatroom = _FakeChatroomClient();
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'approved',
       );
@@ -10163,6 +10204,7 @@ void main() {
             transport: transport,
             useMock: false,
             initialAuthToken: 'token',
+            chatroom: chatroom,
             initialUserInfo: {
               'name': 'Profile Hero',
               'identity': 'Saved explorer',
@@ -10177,7 +10219,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await _openOriginRoleSheetFromCustomCard(tester);
+      await _openOriginRoleSheetFromLocation(tester);
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('origin-role-sheet')),
@@ -25309,33 +25351,18 @@ void main() {
   });
 }
 
-Future<void> _openOriginRoleSheetFromCustomCard(WidgetTester tester) async {
-  await _revealOriginCustomRoleCard(tester);
-  final customCard = find.byKey(
-    const ValueKey<String>('origin-setup-role-custom-card'),
-  );
-  expect(customCard, findsOneWidget);
-  final customCardAction = find.descendant(
-    of: customCard,
-    matching: find.byType(InkWell),
-  );
-  tester.widget<InkWell>(customCardAction).onTap!();
+Future<void> _openOriginRoleSheetFromLocation(WidgetTester tester) async {
+  await tester.tap(find.text('Detail Location'), warnIfMissed: false);
   await tester.pumpAndSettle();
-}
-
-Future<void> _revealOriginCustomRoleCard(WidgetTester tester) async {
-  final customCard = find.byKey(
-    const ValueKey<String>('origin-setup-role-custom-card'),
+  final chatPanel = find.byType(LocationChatPanel);
+  expect(chatPanel, findsOneWidget);
+  final launchAction = find.descendant(
+    of: chatPanel,
+    matching: find.text('Launch to send'),
   );
-  final sheet = find.byKey(const ValueKey<String>('origin-detail-sheet-pages'));
-  for (
-    var attempt = 0;
-    attempt < 8 && customCard.evaluate().isEmpty;
-    attempt++
-  ) {
-    await tester.drag(sheet, const Offset(0, -400));
-    await tester.pumpAndSettle();
-  }
+  expect(launchAction, findsOneWidget);
+  await tester.tap(launchAction);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _swipeOriginSheetToInfo(WidgetTester tester) async {

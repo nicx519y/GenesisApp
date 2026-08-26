@@ -154,6 +154,8 @@ class OriginCharacterFormFields extends StatelessWidget {
     this.showFieldNotes = false,
     this.showPlaceholders = true,
     this.textFieldScrollPadding,
+    this.textFieldFillColor,
+    this.handoffTextFieldVerticalDragToAncestor = false,
     this.nextFocusNode,
     this.nameSupportLeading,
   });
@@ -188,6 +190,8 @@ class OriginCharacterFormFields extends StatelessWidget {
   final bool showFieldNotes;
   final bool showPlaceholders;
   final EdgeInsets? textFieldScrollPadding;
+  final Color? textFieldFillColor;
+  final bool handoffTextFieldVerticalDragToAncestor;
   final FocusNode? nextFocusNode;
   final Widget? nameSupportLeading;
 
@@ -230,6 +234,9 @@ class OriginCharacterFormFields extends StatelessWidget {
                     labelInputGap: labelInputGap,
                     maxLines: 1,
                     scrollPadding: textFieldScrollPadding,
+                    fillColor: textFieldFillColor,
+                    handoffVerticalDragToAncestor:
+                        handoffTextFieldVerticalDragToAncestor,
                     focusNode: form.focusNodes.name,
                     nextFocusNode: form.focusNodes.identity,
                     supportLeading: nameSupportLeading,
@@ -252,6 +259,9 @@ class OriginCharacterFormFields extends StatelessWidget {
                       labelInputGap: labelInputGap,
                       maxLines: 3,
                       scrollPadding: textFieldScrollPadding,
+                      fillColor: textFieldFillColor,
+                      handoffVerticalDragToAncestor:
+                          handoffTextFieldVerticalDragToAncestor,
                       focusNode: form.focusNodes.identity,
                       nextFocusNode: _nextAfterIdentity,
                       onChanged: (_) => onChanged(),
@@ -274,6 +284,9 @@ class OriginCharacterFormFields extends StatelessWidget {
                       labelInputGap: labelInputGap,
                       maxLines: 3,
                       scrollPadding: textFieldScrollPadding,
+                      fillColor: textFieldFillColor,
+                      handoffVerticalDragToAncestor:
+                          handoffTextFieldVerticalDragToAncestor,
                       focusNode: form.focusNodes.personality,
                       nextFocusNode: _nextAfterPersonality,
                       onChanged: (_) => onChanged(),
@@ -297,6 +310,9 @@ class OriginCharacterFormFields extends StatelessWidget {
             labelInputGap: labelInputGap,
             maxLines: 3,
             scrollPadding: textFieldScrollPadding,
+            fillColor: textFieldFillColor,
+            handoffVerticalDragToAncestor:
+                handoffTextFieldVerticalDragToAncestor,
             focusNode: form.focusNodes.identity,
             nextFocusNode: _nextAfterIdentity,
             onChanged: (_) => onChanged(),
@@ -318,6 +334,9 @@ class OriginCharacterFormFields extends StatelessWidget {
               labelInputGap: labelInputGap,
               maxLines: 3,
               scrollPadding: textFieldScrollPadding,
+              fillColor: textFieldFillColor,
+              handoffVerticalDragToAncestor:
+                  handoffTextFieldVerticalDragToAncestor,
               focusNode: form.focusNodes.personality,
               nextFocusNode: _nextAfterPersonality,
               onChanged: (_) => onChanged(),
@@ -342,6 +361,9 @@ class OriginCharacterFormFields extends StatelessWidget {
             labelFontWeight: labelFontWeight,
             labelInputGap: labelInputGap,
             scrollPadding: textFieldScrollPadding,
+            fillColor: textFieldFillColor,
+            handoffVerticalDragToAncestor:
+                handoffTextFieldVerticalDragToAncestor,
             focusNode: form.focusNodes.goal,
             nextFocusNode: form.focusNodes.bio,
             onChanged: (_) => onChanged(),
@@ -364,6 +386,8 @@ class OriginCharacterFormFields extends StatelessWidget {
           labelFontWeight: labelFontWeight,
           labelInputGap: labelInputGap,
           scrollPadding: textFieldScrollPadding,
+          fillColor: textFieldFillColor,
+          handoffVerticalDragToAncestor: handoffTextFieldVerticalDragToAncestor,
           focusNode: form.focusNodes.bio,
           nextFocusNode: nextFocusNode,
           onChanged: (_) => onChanged(),

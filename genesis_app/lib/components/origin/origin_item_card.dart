@@ -218,7 +218,7 @@ class OriginItemCard extends StatelessWidget {
                   key: const ValueKey<String>('origin-item-card-stats'),
                   padding: const EdgeInsets.fromLTRB(8, 8, 8, 6),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       _ImageStat(
                         iconAsset: copyStatIconAsset,
@@ -267,7 +267,7 @@ class _ImageStat extends StatelessWidget {
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconColorMapper: iconColorMapper,
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       iconSize: 10,
       iconColor: Colors.white,
       gap: 4,

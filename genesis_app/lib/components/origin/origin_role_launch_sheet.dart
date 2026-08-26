@@ -846,6 +846,10 @@ class OriginCustomRoleForm extends StatelessWidget {
     required this.canFillProfile,
     required this.onChanged,
     required this.onFillFromProfile,
+    this.scrollable = true,
+    this.textFieldFillColor,
+    this.textFieldScrollPadding,
+    this.handoffTextFieldVerticalDragToAncestor = false,
   });
 
   final OriginCharacterForm form;
@@ -853,65 +857,75 @@ class OriginCustomRoleForm extends StatelessWidget {
   final bool canFillProfile;
   final VoidCallback onChanged;
   final VoidCallback onFillFromProfile;
+  final bool scrollable;
+  final Color? textFieldFillColor;
+  final EdgeInsets? textFieldScrollPadding;
+  final bool handoffTextFieldVerticalDragToAncestor;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE1E1E6), width: 1.2),
-            ),
-            child: OriginCharacterFormFields(
-              form: form,
-              onChanged: onChanged,
-              showPersonality: false,
-              showGoal: false,
-              showAvatarRemoveLink: true,
-              labelFontWeight: FontWeight.w600,
-              avatarEmptyLabelFontWeight: FontWeight.w600,
-              avatarRemoveLinkFontWeight: FontWeight.w600,
-              avatarEmptyIconLabelGap: 6,
-              identityBelowAvatarRow: true,
-              showPlaceholders: false,
-              textFieldScrollPadding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              topSpacing: 0,
-              bioMaxLines: 3,
-            ),
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFFE1E1E6), width: 1.2),
           ),
-          if (canFillProfile) ...[
-            const SizedBox(height: 10),
-            Material(
-              color: Colors.transparent,
-              child: InkWell(
-                key: const ValueKey('origin-role-fill-profile'),
-                onTap: fillingProfile ? null : onFillFromProfile,
-                borderRadius: BorderRadius.circular(6),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 0,
-                    vertical: 8,
-                  ),
-                  child: Text(
-                    fillingProfile ? 'Filling...' : 'Fill from my profile',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      height: 1.1,
-                      fontWeight: FontWeight.w600,
-                      color: GenesisColors.brand,
-                    ),
+          child: OriginCharacterFormFields(
+            form: form,
+            onChanged: onChanged,
+            showPersonality: false,
+            showGoal: false,
+            showAvatarRemoveLink: true,
+            labelFontWeight: FontWeight.w600,
+            avatarEmptyLabelFontWeight: FontWeight.w600,
+            avatarRemoveLinkFontWeight: FontWeight.w600,
+            avatarEmptyIconLabelGap: 6,
+            identityBelowAvatarRow: true,
+            showPlaceholders: false,
+            textFieldScrollPadding:
+                textFieldScrollPadding ??
+                const EdgeInsets.fromLTRB(20, 20, 20, 8),
+            textFieldFillColor: textFieldFillColor,
+            handoffTextFieldVerticalDragToAncestor:
+                handoffTextFieldVerticalDragToAncestor,
+            topSpacing: 0,
+            bioMaxLines: 3,
+          ),
+        ),
+        if (canFillProfile) ...[
+          const SizedBox(height: 10),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: const ValueKey('origin-role-fill-profile'),
+              onTap: fillingProfile ? null : onFillFromProfile,
+              borderRadius: BorderRadius.circular(6),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 8),
+                child: Text(
+                  fillingProfile ? 'Filling...' : 'Fill from my profile',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.1,
+                    fontWeight: FontWeight.w600,
+                    color: GenesisColors.brand,
                   ),
                 ),
               ),
             ),
-          ],
+          ),
         ],
-      ),
+      ],
+    );
+    if (!scrollable) {
+      return Padding(padding: const EdgeInsets.only(bottom: 8), child: content);
+    }
+    return SingleChildScrollView(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: content,
     );
   }
 }

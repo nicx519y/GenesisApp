@@ -17,8 +17,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.profileRole,
     required this.onSelectRole,
     required this.onSelectProfileRole,
-    required this.onEditProfileRole,
-    required this.onCustomizeRole,
+    required this.onFillProfileRole,
   });
 
   static const double defaultInitialChildSize = 0.35;
@@ -35,8 +34,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
-  final VoidCallback onEditProfileRole;
-  final VoidCallback onCustomizeRole;
+  final OriginRoleProfileLoader? onFillProfileRole;
 
   @override
   State<_OriginDetailDraggableSheet> createState() =>
@@ -586,8 +584,8 @@ class _OriginDetailDraggableSheetState
                 profileRole: widget.profileRole,
                 onSelectRole: widget.onSelectRole,
                 onSelectProfileRole: widget.onSelectProfileRole,
-                onEditProfileRole: widget.onEditProfileRole,
-                onCustomizeRole: widget.onCustomizeRole,
+                onFillProfileRole: widget.onFillProfileRole,
+                onBeginProfileRoleEditing: _expandOpeningRoleCards,
               ),
             ),
           ],
@@ -661,6 +659,9 @@ class _OriginDetailDraggableSheetState
             builder: (context, scrollController) {
               _handleSheetScrollControllerReady(scrollController);
               final bottomInset = GenesisSafeAreaInsets.bottom(context);
+              final keyboardInset = MediaQuery.viewInsetsOf(
+                context,
+              ).bottom.clamp(0.0, MediaQuery.sizeOf(context).height).toDouble();
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: BoxDecoration(
@@ -677,26 +678,33 @@ class _OriginDetailDraggableSheetState
                       children: [
                         NotificationListener<ScrollEndNotification>(
                           onNotification: _handlePageScrollEnd,
-                          child: PageView.builder(
+                          child: Padding(
                             key: const ValueKey<String>(
-                              'origin-detail-sheet-pages',
+                              'origin-detail-sheet-keyboard-safe-content',
                             ),
-                            controller: _pageController,
-                            itemCount: 2,
-                            physics: const PageScrollPhysics(),
-                            itemBuilder: (context, page) {
-                              final pageScrollController = page == _currentPage
-                                  ? scrollController
-                                  : page == _originOpeningSheetPageIndex
-                                  ? _openingPreviewScrollController
-                                  : _infoPreviewScrollController;
-                              return page == _originOpeningSheetPageIndex
-                                  ? _buildOpeningPage(
-                                      pageScrollController,
-                                      initialDialoguePreview,
-                                    )
-                                  : _buildInfoPage(pageScrollController);
-                            },
+                            padding: EdgeInsets.only(bottom: keyboardInset),
+                            child: PageView.builder(
+                              key: const ValueKey<String>(
+                                'origin-detail-sheet-pages',
+                              ),
+                              controller: _pageController,
+                              itemCount: 2,
+                              physics: const PageScrollPhysics(),
+                              itemBuilder: (context, page) {
+                                final pageScrollController =
+                                    page == _currentPage
+                                    ? scrollController
+                                    : page == _originOpeningSheetPageIndex
+                                    ? _openingPreviewScrollController
+                                    : _infoPreviewScrollController;
+                                return page == _originOpeningSheetPageIndex
+                                    ? _buildOpeningPage(
+                                        pageScrollController,
+                                        initialDialoguePreview,
+                                      )
+                                    : _buildInfoPage(pageScrollController);
+                              },
+                            ),
                           ),
                         ),
                         Positioned(

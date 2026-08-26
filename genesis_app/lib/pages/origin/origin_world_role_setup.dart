@@ -7,8 +7,8 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.profileRole,
     required this.onSelectRole,
     required this.onSelectProfileRole,
-    required this.onEditProfileRole,
-    required this.onCustomizeRole,
+    required this.onFillProfileRole,
+    required this.onBeginProfileRoleEditing,
   });
 
   static const double _cardWidth = 240;
@@ -20,8 +20,8 @@ class _OriginSetupRoleSection extends StatefulWidget {
   final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
-  final VoidCallback onEditProfileRole;
-  final VoidCallback onCustomizeRole;
+  final OriginRoleProfileLoader? onFillProfileRole;
+  final VoidCallback onBeginProfileRoleEditing;
 
   @override
   State<_OriginSetupRoleSection> createState() =>
@@ -32,12 +32,21 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   final ScrollController _cardsController = ScrollController();
   final ValueNotifier<int> _currentCardIndex = ValueNotifier<int>(0);
   final Set<String> _preloadedAvatarKeys = <String>{};
+  final GlobalKey _inlineCustomFormKey = GlobalKey();
+  final OriginCharacterForm _inlineCustomForm = OriginCharacterForm.empty(
+    charId: 'current_user_custom_role',
+  );
   var _cardStride = 1.0;
+  var _showInlineCustomForm = false;
+  var _inlineCustomFormInitialized = false;
+  var _inlineCustomProfileLoaded = false;
+  var _fillingInlineCustomForm = false;
 
   @override
   void initState() {
     super.initState();
     _cardsController.addListener(_handleCardsScroll);
+    _inlineCustomForm.addListener(_handleInlineCustomFormChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       _precacheUpcomingRoleAvatars(_currentCardIndex.value);
@@ -48,7 +57,9 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   void didUpdateWidget(covariant _OriginSetupRoleSection oldWidget) {
     super.didUpdateWidget(oldWidget);
     final lastIndex = _cardCount - 1;
-    if (_currentCardIndex.value > lastIndex) {
+    if (lastIndex < 0) {
+      _currentCardIndex.value = 0;
+    } else if (_currentCardIndex.value > lastIndex) {
       _currentCardIndex.value = lastIndex;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -58,19 +69,145 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   }
 
   int get _cardCount =>
-      widget.characters.length + (widget.profileRole == null ? 1 : 2);
+      widget.characters.length + (widget.profileRole == null ? 0 : 1);
 
   @override
   void dispose() {
     _cardsController.removeListener(_handleCardsScroll);
     _cardsController.dispose();
     _currentCardIndex.dispose();
+    _inlineCustomForm
+      ..removeListener(_handleInlineCustomFormChanged)
+      ..dispose();
     super.dispose();
+  }
+
+  void _handleInlineCustomFormChanged() {
+    if (mounted && _showInlineCustomForm) setState(() {});
+  }
+
+  bool get _inlineCustomReady {
+    return _inlineCustomForm.name.text.trim().isNotEmpty &&
+        _inlineCustomForm.identity.text.trim().isNotEmpty &&
+        !_fillingInlineCustomForm;
+  }
+
+  void _setInlineCustomFieldText(
+    TextEditingController controller,
+    String text,
+  ) {
+    if (controller.text == text) return;
+    controller.value = TextEditingValue(
+      text: text,
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+  }
+
+  void _seedInlineCustomForm(OriginCustomRoleDraft draft) {
+    _setInlineCustomFieldText(
+      _inlineCustomForm.avatarUrl,
+      draft.avatarUrl.trim(),
+    );
+    _setInlineCustomFieldText(
+      _inlineCustomForm.name,
+      _limitOriginProfileRoleField(
+        draft.name.trim(),
+        originCharacterNameMaxLength,
+      ),
+    );
+    _setInlineCustomFieldText(
+      _inlineCustomForm.identity,
+      _limitOriginProfileRoleField(
+        draft.identity.trim(),
+        originCharacterIdentityMaxLength,
+      ),
+    );
+    _setInlineCustomFieldText(
+      _inlineCustomForm.bio,
+      _limitOriginProfileRoleField(
+        draft.bio.trim(),
+        originCharacterBioMaxLength,
+      ),
+    );
+  }
+
+  void _toggleInlineCustomForm() {
+    if (widget.launching) return;
+    if (_showInlineCustomForm) {
+      FocusScope.of(context).unfocus();
+      setState(() => _showInlineCustomForm = false);
+      return;
+    }
+    final profileRole = widget.profileRole;
+    if (profileRole == null) return;
+    widget.onBeginProfileRoleEditing();
+    if (!_inlineCustomFormInitialized) {
+      _inlineCustomFormInitialized = true;
+      _seedInlineCustomForm(profileRole);
+    }
+    setState(() => _showInlineCustomForm = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final formContext = _inlineCustomFormKey.currentContext;
+      if (!mounted || formContext == null) return;
+      Scrollable.ensureVisible(
+        formContext,
+        alignment: 0.08,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      );
+    });
+    if (!_inlineCustomProfileLoaded && !_fillingInlineCustomForm) {
+      unawaited(_fillInlineCustomFormFromProfile());
+    }
+  }
+
+  Future<void> _fillInlineCustomFormFromProfile() async {
+    final loader = widget.onFillProfileRole;
+    if (loader == null || _fillingInlineCustomForm) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _fillingInlineCustomForm = true);
+    try {
+      final draft = await loader();
+      if (!mounted || draft == null) return;
+      _seedInlineCustomForm(draft);
+      _inlineCustomProfileLoaded = true;
+    } finally {
+      if (mounted) setState(() => _fillingInlineCustomForm = false);
+    }
+  }
+
+  void _cancelInlineCustomForm() {
+    if (widget.launching) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _showInlineCustomForm = false);
+  }
+
+  Future<void> _launchInlineCustomRole() async {
+    if (widget.launching) return;
+    if (!_inlineCustomReady) {
+      final message = _inlineCustomForm.name.text.trim().isEmpty
+          ? 'Please enter a name'
+          : _inlineCustomForm.identity.text.trim().isEmpty
+          ? 'Please enter an identity'
+          : 'Please wait for the profile to finish loading.';
+      showGenesisToast(context, message);
+      return;
+    }
+    FocusScope.of(context).unfocus();
+    await widget.onSelectProfileRole(
+      OriginCustomRoleDraft(
+        avatarUrl: _inlineCustomForm.avatarUrl.text,
+        name: _inlineCustomForm.name.text,
+        identity: _inlineCustomForm.identity.text,
+        bio: _inlineCustomForm.bio.text,
+      ),
+    );
   }
 
   void _handleCardsScroll() {
     if (!_cardsController.hasClients || _cardStride <= 0) return;
     final cardCount = _cardCount;
+    if (cardCount <= 0) return;
     final nextIndex = (_cardsController.offset / _cardStride).round().clamp(
       0,
       cardCount - 1,
@@ -132,7 +269,8 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final characters = originCharactersRecommendedFirst(widget.characters);
     final profileRole = widget.profileRole;
     final profileCardCount = profileRole == null ? 0 : 1;
-    final cardCount = characters.length + profileCardCount + 1;
+    final cardCount = characters.length + profileCardCount;
+    if (cardCount == 0) return const SizedBox.shrink();
     _cardStride = cardWidth + cardGap;
     return Padding(
       padding: const EdgeInsets.only(bottom: 28),
@@ -148,8 +286,8 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                   key: const ValueKey<String>(
                     'origin-setup-role-title-launch-icon',
                   ),
-                  width: 16,
-                  height: 16,
+                  width: 14,
+                  height: 14,
                   excludeFromSemantics: true,
                   colorFilter: const ColorFilter.mode(
                     Color(0xFF111111),
@@ -206,7 +344,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                         cardWidth: cardWidth,
                         buttonHeight: _OriginSetupRoleSection._buttonHeight,
                         launching: widget.launching,
-                        onEdit: widget.onEditProfileRole,
+                        onEdit: _toggleInlineCustomForm,
                         onSelect: () =>
                             unawaited(widget.onSelectProfileRole(profileRole)),
                       ),
@@ -214,18 +352,6 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                   );
                 }
                 final characterIndex = index - profileCardCount;
-                if (characterIndex == characters.length) {
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: SizedBox(
-                      width: cardWidth,
-                      child: _OriginSetupCustomRoleCard(
-                        launching: widget.launching,
-                        onTap: widget.onCustomizeRole,
-                      ),
-                    ),
-                  );
-                }
                 final character = characters[characterIndex];
                 return Align(
                   alignment: Alignment.centerLeft,
@@ -254,10 +380,100 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                   currentIndex: currentIndex.clamp(0, cardCount - 1),
                 ),
           ),
+          if (_showInlineCustomForm) ...[
+            const SizedBox(height: 16),
+            Padding(
+              key: _inlineCustomFormKey,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              child: Column(
+                key: const ValueKey<String>('origin-setup-custom-form'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AbsorbPointer(
+                    absorbing: widget.launching,
+                    child: OriginCustomRoleForm(
+                      key: const ValueKey<String>(
+                        'origin-setup-custom-form-fields',
+                      ),
+                      form: _inlineCustomForm,
+                      fillingProfile: _fillingInlineCustomForm,
+                      canFillProfile: widget.onFillProfileRole != null,
+                      onChanged: _handleInlineCustomFormChanged,
+                      onFillFromProfile: _fillInlineCustomFormFromProfile,
+                      scrollable: false,
+                      textFieldFillColor: const Color(0xFFF8F8F8),
+                      textFieldScrollPadding: const EdgeInsets.fromLTRB(
+                        20,
+                        20,
+                        20,
+                        kMinInteractiveDimension,
+                      ),
+                      handoffTextFieldVerticalDragToAncestor: true,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GenesisSecondaryButton(
+                          key: const ValueKey<String>(
+                            'origin-setup-custom-cancel',
+                          ),
+                          label: 'Cancel',
+                          onPressed: widget.launching
+                              ? null
+                              : _cancelInlineCustomForm,
+                          height: 35,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: GenesisPrimaryButton(
+                          key: const ValueKey<String>(
+                            'origin-setup-custom-launch',
+                          ),
+                          label: 'Launch',
+                          leadingIcon: widget.launching
+                              ? null
+                              : SvgPicture.asset(
+                                  launchIconAsset,
+                                  width: 14,
+                                  height: 14,
+                                  colorFilter: const ColorFilter.mode(
+                                    Colors.white,
+                                    BlendMode.srcIn,
+                                  ),
+                                ),
+                          iconGap: 6,
+                          onPressed: widget.launching
+                              ? null
+                              : _launchInlineCustomRole,
+                          isLoading: widget.launching,
+                          height: 35,
+                          backgroundColor: _inlineCustomReady
+                              ? GenesisColors.brand
+                              : const Color(0xFFC8D9D1),
+                          foregroundColor: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+String _limitOriginProfileRoleField(String value, int maxLength) {
+  final characters = value.characters;
+  if (characters.length <= maxLength) return value;
+  return characters.take(maxLength).toString();
 }
 
 class _OriginRoleCardsIndicator extends StatelessWidget {
@@ -294,63 +510,6 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
             ),
           );
         }),
-      ),
-    );
-  }
-}
-
-class _OriginSetupCustomRoleCard extends StatelessWidget {
-  const _OriginSetupCustomRoleCard({
-    required this.launching,
-    required this.onTap,
-  });
-
-  final bool launching;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      key: const ValueKey<String>('origin-setup-role-custom-card'),
-      color: const Color(0xCC000000),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0x1FFFFFFF)),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        splashFactory: NoSplash.splashFactory,
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        highlightColor: Colors.transparent,
-        onTap: launching ? null : onTap,
-        child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Text(
-                '+',
-                style: TextStyle(
-                  fontSize: 36,
-                  height: 1,
-                  fontWeight: FontWeight.w300,
-                  color: Colors.white,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'Custom',
-                style: TextStyle(
-                  fontSize: 16,
-                  height: 1,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  decoration: TextDecoration.none,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

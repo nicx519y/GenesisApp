@@ -2,17 +2,19 @@ const String discussIconAsset = 'assets/custom-icons/png/discuss.png';
 const String searchIconAsset = 'assets/custom-icons/png/search_icon.png';
 
 double customIconAssetRenderSize(String assetName, double baseSize) {
-  return assetName == connectStatIconAsset ? baseSize + 2 : baseSize;
+  if (assetName == connectStatIconAsset) return baseSize + 2;
+  if (assetName == launchIconAsset) return baseSize + 1;
+  return baseSize;
 }
 
-const String copyStatIconAsset = 'assets/custom-icons/svg/copy_icon.svg';
+const String launchIconAsset = 'assets/custom-icons/svg/launch_icon.svg';
+const String copyStatIconAsset = launchIconAsset;
 const String paragraphIconAsset = 'assets/custom-icons/svg/paragraph_icon.svg';
 const String eventsIconAsset = 'assets/custom-icons/svg/events.svg';
 const String clueIconAsset = 'assets/custom-icons/svg/clue.svg';
 const String routeIconAsset = 'assets/custom-icons/svg/route.svg';
 const String tickStatIconAsset = 'assets/custom-icons/svg/tick_icon.svg';
 const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
-const String launchIconAsset = 'assets/custom-icons/svg/launch_icon.svg';
 const String characterStatIconAsset =
     'assets/custom-icons/svg/ai_char_icon.svg';
 const String locationChatCharacterIconAsset =

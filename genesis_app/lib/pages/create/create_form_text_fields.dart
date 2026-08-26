@@ -63,13 +63,37 @@ class _CreateKeyboardSafeFocusRegionState
   void _ensureRegionVisible() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_observedFocusNode.hasFocus) return;
-      unawaited(
-        Scrollable.ensureVisible(
-          context,
-          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-        ),
-      );
+      unawaited(_ensureRegionVisibleAboveKeyboard());
     });
+  }
+
+  Future<void> _ensureRegionVisibleAboveKeyboard() async {
+    await Scrollable.ensureVisible(
+      context,
+      alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+    );
+    if (!mounted || !_observedFocusNode.hasFocus) return;
+
+    final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
+    if (keyboardInset <= 0) return;
+    final renderObject = context.findRenderObject();
+    if (renderObject is! RenderBox || !renderObject.hasSize) return;
+    final keyboardTop = MediaQuery.sizeOf(context).height - keyboardInset;
+    final regionBottom = renderObject
+        .localToGlobal(Offset(0, renderObject.size.height))
+        .dy;
+    final overlap = regionBottom - keyboardTop;
+    if (overlap <= 0) return;
+
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable == null) return;
+    final position = scrollable.position;
+    if (!position.hasPixels || !position.hasContentDimensions) return;
+    final target = (position.pixels + overlap)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    if ((target - position.pixels).abs() < 0.000001) return;
+    position.jumpTo(target);
   }
 
   @override
@@ -101,6 +125,8 @@ class CreateTextFieldBlock extends StatefulWidget {
     this.onEditingComplete,
     this.onSubmitted,
     this.scrollPadding,
+    this.fillColor,
+    this.handoffVerticalDragToAncestor = false,
     this.visibilityBottomPadding = 0,
     this.inputFormatters = const [],
     this.focusNode,
@@ -127,6 +153,8 @@ class CreateTextFieldBlock extends StatefulWidget {
   final VoidCallback? onEditingComplete;
   final ValueChanged<String>? onSubmitted;
   final EdgeInsets? scrollPadding;
+  final Color? fillColor;
+  final bool handoffVerticalDragToAncestor;
   final double visibilityBottomPadding;
   final List<TextInputFormatter> inputFormatters;
   final FocusNode? focusNode;
@@ -186,6 +214,20 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
     }
   }
 
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (!widget.handoffVerticalDragToAncestor || !event.down) return;
+    final delta = event.delta.dy;
+    if (delta == 0) return;
+    final scrollable = Scrollable.maybeOf(context);
+    if (scrollable == null || !scrollable.position.hasPixels) return;
+    final position = scrollable.position;
+    final nextPixels = (position.pixels - delta)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    if ((nextPixels - position.pixels).abs() < 0.000001) return;
+    position.jumpTo(nextPixels);
+  }
+
   @override
   Widget build(BuildContext context) {
     return CreateKeyboardSafeFocusRegion(
@@ -208,7 +250,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
           ],
           Container(
             decoration: BoxDecoration(
-              color: createFormFieldFill,
+              color: widget.fillColor ?? createFormFieldFill,
               borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -223,55 +265,61 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                   const SizedBox(width: 8),
                 ],
                 Expanded(
-                  child: TextFieldTapRegion(
-                    groupId: createFormTextFieldTapRegionGroup,
-                    child: TextField(
-                      controller: widget.controller,
-                      focusNode: focusNode,
-                      scrollPadding:
-                          widget.scrollPadding ??
-                          const EdgeInsets.fromLTRB(
-                            20,
-                            20,
-                            20,
-                            kMinInteractiveDimension,
-                          ),
-                      onChanged: widget.onChanged,
-                      onTapOutside: (_) =>
-                          FocusManager.instance.primaryFocus?.unfocus(),
-                      keyboardType: _resolvedKeyboardType,
-                      textInputAction: _resolvedTextInputAction,
-                      onEditingComplete: _shouldHandleEditingComplete
-                          ? () => _handleEditingComplete(focusNode)
-                          : null,
-                      onSubmitted: widget.onSubmitted,
-                      inputFormatters: [
-                        if (!_isSingleLine)
-                          const GenesisConsecutiveNewlineLimiter(),
-                        ...widget.inputFormatters,
-                      ],
-                      maxLength: widget.maxLength,
-                      minLines: widget.minLines,
-                      maxLines: widget.maxLines,
-                      style: GenesisTypography.withFallback(
-                        TextStyle(
-                          color: createFormText,
-                          fontSize: 14,
-                          height: widget.inputLineHeight,
-                        ),
-                      ),
-                      decoration: InputDecoration(
-                        border: InputBorder.none,
-                        counterText: '',
-                        hintText: widget.hintText,
-                        isDense: true,
-                        contentPadding: EdgeInsets.zero,
-                        hintStyle: GenesisTypography.withFallback(
+                  child: Listener(
+                    behavior: HitTestBehavior.translucent,
+                    onPointerMove: widget.handoffVerticalDragToAncestor
+                        ? _handlePointerMove
+                        : null,
+                    child: TextFieldTapRegion(
+                      groupId: createFormTextFieldTapRegionGroup,
+                      child: TextField(
+                        controller: widget.controller,
+                        focusNode: focusNode,
+                        scrollPadding:
+                            widget.scrollPadding ??
+                            const EdgeInsets.fromLTRB(
+                              20,
+                              20,
+                              20,
+                              kMinInteractiveDimension,
+                            ),
+                        onChanged: widget.onChanged,
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        keyboardType: _resolvedKeyboardType,
+                        textInputAction: _resolvedTextInputAction,
+                        onEditingComplete: _shouldHandleEditingComplete
+                            ? () => _handleEditingComplete(focusNode)
+                            : null,
+                        onSubmitted: widget.onSubmitted,
+                        inputFormatters: [
+                          if (!_isSingleLine)
+                            const GenesisConsecutiveNewlineLimiter(),
+                          ...widget.inputFormatters,
+                        ],
+                        maxLength: widget.maxLength,
+                        minLines: widget.minLines,
+                        maxLines: widget.maxLines,
+                        style: GenesisTypography.withFallback(
                           TextStyle(
-                            color: createFormHint,
+                            color: createFormText,
                             fontSize: 14,
-                            letterSpacing: 0,
                             height: widget.inputLineHeight,
+                          ),
+                        ),
+                        decoration: InputDecoration(
+                          border: InputBorder.none,
+                          counterText: '',
+                          hintText: widget.hintText,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                          hintStyle: GenesisTypography.withFallback(
+                            TextStyle(
+                              color: createFormHint,
+                              fontSize: 14,
+                              letterSpacing: 0,
+                              height: widget.inputLineHeight,
+                            ),
                           ),
                         ),
                       ),
