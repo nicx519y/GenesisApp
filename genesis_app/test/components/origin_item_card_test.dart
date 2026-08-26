@@ -1,12 +1,32 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/origin/origin_item_cover_image_provider.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
-import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_origin_card_geometry.dart';
 
 void main() {
+  setUp(() {
+    debugGenesisStaticNetworkImageCompleter = null;
+    debugOriginItemCoverImageProvider = null;
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+  });
+
+  tearDown(() {
+    debugGenesisStaticNetworkImageCompleter = null;
+    debugOriginItemCoverImageProvider = null;
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+  });
+
   test('preserves returned UGC backslashes for origin cards', () {
     final item = OriginListItem.fromJson({
       'info': {
@@ -74,6 +94,7 @@ void main() {
         ),
       ),
     );
+    await _pumpUntilOriginCardReady(tester);
 
     expect(_assetSvgFinder(copyStatIconAsset), findsOneWidget);
     expect(_assetSvgFinder(characterStatIconAsset), findsOneWidget);
@@ -101,11 +122,10 @@ void main() {
       ),
       const Color(0xFFFF2442),
     );
-    expect(
-      tester.getSize(find.byType(AspectRatio).first),
-      const Size(220, 330),
+    final coverFinder = find.byKey(
+      const ValueKey<String>('origin-item-card-composited-cover'),
     );
-    expect(tester.getSize(find.byType(GenesisListImage)), const Size(220, 330));
+    expect(tester.getSize(coverFinder), const Size(220, 330));
     expect(
       tester.getSize(find.byType(OriginItemCard)),
       const Size(220, 330 + genesisOriginCardBottomExtension),
@@ -121,24 +141,21 @@ void main() {
       tester.widget<ColoredBox>(footerFinder).color,
       const Color(0xFF111111),
     );
-    final coverTransition = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('origin-item-card-cover-transition')),
+    final coverImage = tester.widget<Image>(
+      find.byKey(const ValueKey<String>('origin-item-card-composite-loader')),
     );
-    final coverTransitionGradient =
-        (coverTransition.decoration as BoxDecoration).gradient
-            as LinearGradient;
-    expect(coverTransitionGradient.colors.first, const Color(0x00111111));
-    expect(coverTransitionGradient.colors.last, const Color(0xFF111111));
+    final coverProvider = coverImage.image as OriginItemCoverImageProvider;
+    expect(coverProvider.outputWidth, 660);
+    expect(coverProvider.outputHeight, 990);
+    expect(coverProvider.transitionHeight, 150);
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-cover-transition')),
+      findsNothing,
+    );
     final details = tester.widget<Container>(
       find.byKey(const ValueKey<String>('origin-item-card-details')),
     );
     expect(details.decoration, isNull);
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey<String>('origin-item-card-cover-transition')),
-      ),
-      const Size(220, 50),
-    );
     final statsFinder = find.byKey(
       const ValueKey<String>('origin-item-card-stats'),
     );
@@ -182,13 +199,96 @@ void main() {
     expect(subtitle.style?.fontSize, 11);
     expect(subtitle.style?.height, 1.2);
     expect(subtitle.maxLines, 3);
-    expect(
-      tester
-          .widget<GenesisListImage>(find.byType(GenesisListImage))
-          .maxDevicePixelRatio,
-      3,
-    );
   });
+
+  testWidgets(
+    'keeps the whole item hidden until its composite cover is ready',
+    (WidgetTester tester) async {
+      final frame = Completer<ImageInfo>();
+      final sourceImage = await _solidImage(const Color(0xFFFF0000));
+      addTearDown(sourceImage.dispose);
+      debugGenesisStaticNetworkImageCompleter = (_) {
+        return OneFrameImageStreamCompleter(frame.future);
+      };
+
+      const item = OriginListItem(
+        oid: 'o_delayed',
+        status: 1,
+        versionNum: 1,
+        name: 'Delayed Origin',
+        cover: 'https://cdn.example.com/delayed.webp',
+        displaySubtitle: 'Wait for the composite',
+        worldView: '',
+        createdUid: 'u_1',
+        createdUserName: 'Shawn',
+        createdAt: '2026-05-01T00:00:00Z',
+        updatedAt: '2026-05-02T00:00:00Z',
+        tags: <String>[],
+        copyCnt: 3,
+        connectCnt: 4,
+        discussCnt: 0,
+        characterCnt: 5,
+        locationCnt: 0,
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: SizedBox(width: 220, child: OriginItemCard(item: item)),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final loadingFinder = find.byKey(
+        const ValueKey<String>('origin-item-card-loading'),
+      );
+      expect(loadingFinder, findsOneWidget);
+      expect(
+        tester.getSize(loadingFinder),
+        const Size(220, 330 + genesisOriginCardBottomExtension),
+      );
+      final shimmerFinder = find.descendant(
+        of: loadingFinder,
+        matching: find.byType(DecoratedBox),
+      );
+      expect(shimmerFinder, findsOneWidget);
+      final initialDecoration =
+          tester.widget<DecoratedBox>(shimmerFinder).decoration
+              as BoxDecoration;
+      final initialGradient = initialDecoration.gradient! as LinearGradient;
+      expect(initialGradient.colors, const [
+        Color(0xFFE8EBF0),
+        Color(0xFFF6F7F9),
+        Color(0xFFE8EBF0),
+      ]);
+      await tester.pump(const Duration(milliseconds: 350));
+      final movedDecoration =
+          tester.widget<DecoratedBox>(shimmerFinder).decoration
+              as BoxDecoration;
+      final movedGradient = movedDecoration.gradient! as LinearGradient;
+      expect(movedGradient.begin, isNot(initialGradient.begin));
+      expect(find.text('#Delayed Origin'), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-footer-extension')),
+        findsNothing,
+      );
+
+      frame.complete(ImageInfo(image: sourceImage.clone()));
+      await _pumpUntilOriginCardReady(tester);
+
+      expect(loadingFinder, findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-ready')),
+        findsOneWidget,
+      );
+      expect(find.text('#Delayed Origin'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-footer-extension')),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('does not render origin tags', (WidgetTester tester) async {
     const item = OriginListItem(
@@ -218,6 +318,7 @@ void main() {
         ),
       ),
     );
+    await _pumpUntilOriginCardReady(tester);
 
     expect(find.text('one'), findsNothing);
     expect(find.text('two'), findsNothing);
@@ -258,6 +359,7 @@ void main() {
         ),
       ),
     );
+    await _pumpUntilOriginCardReady(tester);
 
     final titleFinder = find.text('#$longTitle');
     final title = tester.widget<Text>(titleFinder);
@@ -281,4 +383,30 @@ Finder _assetSvgFinder(String assetName) {
         widget.bytesLoader is SvgAssetLoader &&
         (widget.bytesLoader as SvgAssetLoader).assetName == assetName,
   );
+}
+
+Future<ui.Image> _solidImage(Color color) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.drawRect(const Rect.fromLTWH(0, 0, 8, 12), Paint()..color = color);
+  final picture = recorder.endRecording();
+  try {
+    return await picture.toImage(8, 12);
+  } finally {
+    picture.dispose();
+  }
+}
+
+Future<void> _pumpUntilOriginCardReady(WidgetTester tester) async {
+  final readyFinder = find.byKey(
+    const ValueKey<String>('origin-item-card-ready'),
+  );
+  for (var attempt = 0; attempt < 20; attempt += 1) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 1)),
+    );
+    await tester.pump();
+    if (readyFinder.evaluate().isNotEmpty) return;
+  }
+  fail('Origin item composite image did not become ready.');
 }
