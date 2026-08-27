@@ -404,7 +404,7 @@ void main() {
     expect(find.textContaining('Latest Version: V1'), findsOneWidget);
   });
 
-  testWidgets('keeps every Brief match around a middle ellipsis complete', (
+  testWidgets('keeps a prefix before a complete trailing Brief match', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -424,9 +424,10 @@ void main() {
     expect(brief.maxLines, 2);
     expect(displayedBrief, contains('…'));
     expect(displayedBrief, startsWith('Brief: Two'));
+    expect(displayedBrief, isNot(startsWith('Brief: …')));
     expect(displayedBrief, contains('rooftop'));
     expect(displayedBrief, endsWith('rooftop'));
-    expect(_highlightedTextParts(brief), containsAll(['Two', 'rooftop']));
+    expect(_highlightedTextParts(brief), contains('rooftop'));
     expect(displayedBrief, isNot(contains('ro…')));
 
     final painter = TextPainter(
@@ -662,7 +663,7 @@ void main() {
     );
   });
 
-  testWidgets('Worldo cards grow with long briefs and every character name', (
+  testWidgets('Worldo keeps matched character names whole within two lines', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -683,7 +684,12 @@ void main() {
         )
         .first;
     final brief = tester.widget<Text>(find.textContaining('Brief:'));
-    final characters = find.textContaining('Extra Character 12');
+    final characters = find.textContaining('Characters:');
+    final charactersText = tester.widget<Text>(characters);
+    final charactersValue = charactersText.textSpan!.toPlainText();
+    final displayedCharacterTokens = charactersValue
+        .replaceFirst('Characters: ', '')
+        .split(', ');
     final latestVersion = find.textContaining('Latest Version: V1');
 
     expect(brief.maxLines, 2);
@@ -691,6 +697,50 @@ void main() {
     expect(brief.textSpan?.toPlainText(), contains('Latest Version visible'));
     expect(_highlightedTextParts(brief), contains('Latest Version visible'));
     expect(characters, findsOneWidget);
+    expect(charactersText.maxLines, 2);
+    expect(charactersValue, contains('…'));
+    expect(charactersValue, isNot(startsWith('Characters: …')));
+    expect(charactersValue, contains('Character 1'));
+    expect(charactersValue, contains('Extra Character 12'));
+    expect(
+      _highlightedTextParts(charactersText),
+      contains('Extra Character 12'),
+    );
+    expect(
+      displayedCharacterTokens.where((token) => token != '…'),
+      everyElement(
+        isIn(const [
+          'Character 1',
+          'Supporting 1',
+          'Extra Character 3',
+          'Extra Character 4',
+          'Extra Character 5',
+          'Extra Character 6',
+          'Extra Character 7',
+          'Extra Character 8',
+          'Extra Character 9',
+          'Extra Character 10',
+          'Extra Character 11',
+          'Extra Character 12',
+        ]),
+      ),
+    );
+    final charactersPainter =
+        TextPainter(
+          text: TextSpan(
+            style: charactersText.style,
+            children: [charactersText.textSpan!],
+          ),
+          maxLines: 2,
+          ellipsis: '…',
+          textDirection: TextDirection.ltr,
+        )..layout(
+          maxWidth: tester
+              .renderObject<RenderBox>(characters)
+              .constraints
+              .maxWidth,
+        );
+    expect(charactersPainter.didExceedMaxLines, isFalse);
     expect(latestVersion, findsOneWidget);
     expect(tester.getSize(tile).height, greaterThan(120));
     expect(
@@ -1021,7 +1071,6 @@ Map<String, dynamic> _item(
             'field': 'brief',
             'highlight_ranges': [
               if (trailingBriefMatch) ...[
-                {'start': 0, 'length': 'Two'.length},
                 {
                   'start': _trailingMatchBrief.indexOf('rooftop'),
                   'length': 'rooftop'.length,
@@ -1037,20 +1086,30 @@ Map<String, dynamic> _item(
                 },
             ],
           },
-          {
-            'field': 'character_name',
-            'character_id': 'character_$index',
-            'highlight_ranges': [
-              {'start': 0, 'length': 9},
-            ],
-          },
-          {
-            'field': 'character_name',
-            'character_id': 'supporting_$index',
-            'highlight_ranges': [
-              {'start': 0, 'length': 10},
-            ],
-          },
+          if (!longOriginContent)
+            {
+              'field': 'character_name',
+              'character_id': 'character_$index',
+              'highlight_ranges': [
+                {'start': 0, 'length': 9},
+              ],
+            },
+          if (!longOriginContent)
+            {
+              'field': 'character_name',
+              'character_id': 'supporting_$index',
+              'highlight_ranges': [
+                {'start': 0, 'length': 10},
+              ],
+            },
+          if (longOriginContent)
+            {
+              'field': 'character_name',
+              'character_id': 'extra_${index}_12',
+              'highlight_ranges': [
+                {'start': 0, 'length': 'Extra Character 12'.length},
+              ],
+            },
         ],
       ],
       'matches_truncated': false,

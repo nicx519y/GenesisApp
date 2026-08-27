@@ -117,12 +117,7 @@ class _OriginSearchMetadata extends StatelessWidget {
         ),
         if (showBrief)
           _SearchBriefExcerpt(text: brief, highlightRanges: briefRanges),
-        if (showCharacters)
-          Text.rich(
-            _originCharactersSpan(origin),
-            softWrap: true,
-            style: _searchMetadataStyle,
-          ),
+        if (showCharacters) _OriginCharactersExcerpt(origin: origin),
         Text(
           'Latest Version: ${_originVersionLabel(origin.originVersion)}',
           maxLines: 1,
@@ -132,6 +127,129 @@ class _OriginSearchMetadata extends StatelessWidget {
       ],
     );
   }
+}
+
+class _OriginCharactersExcerpt extends StatelessWidget {
+  const _OriginCharactersExcerpt({required this.origin});
+
+  final SearchV2OriginItem origin;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final visibleIndexes = _originCharacterIndexesForWidth(
+          context,
+          origin: origin,
+          maxWidth: constraints.maxWidth,
+        );
+        return Text.rich(
+          _originCharactersSpan(origin, visibleIndexes: visibleIndexes),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          softWrap: true,
+          style: _searchMetadataStyle,
+        );
+      },
+    );
+  }
+}
+
+List<int> _originCharacterIndexesForWidth(
+  BuildContext context, {
+  required SearchV2OriginItem origin,
+  required double maxWidth,
+}) {
+  final allIndexes = List<int>.generate(
+    origin.characters.length,
+    (index) => index,
+  );
+  if (!maxWidth.isFinite ||
+      _originCharactersFit(
+        context,
+        origin: origin,
+        visibleIndexes: allIndexes,
+        maxWidth: maxWidth,
+      )) {
+    return allIndexes;
+  }
+
+  final matchedCharacterIds = origin.matches
+      .whereType<SearchV2CharacterMatch>()
+      .where((match) => match.field == 'character_name')
+      .map((match) => match.characterId)
+      .toSet();
+  final matchedIndexes = allIndexes
+      .where(
+        (index) =>
+            matchedCharacterIds.contains(origin.characters[index].characterId),
+      )
+      .toList(growable: false);
+  final visibleIndexes = <int>[...matchedIndexes];
+  if (allIndexes.isNotEmpty && !visibleIndexes.contains(0)) {
+    final withFirstName = <int>[0, ...visibleIndexes]..sort();
+    if (_originCharactersFit(
+      context,
+      origin: origin,
+      visibleIndexes: withFirstName,
+      maxWidth: maxWidth,
+    )) {
+      visibleIndexes
+        ..clear()
+        ..addAll(withFirstName);
+    }
+  }
+  final referenceIndexes = matchedIndexes.isEmpty
+      ? const <int>[0]
+      : matchedIndexes;
+  final remainingIndexes =
+      allIndexes.where((index) => !visibleIndexes.contains(index)).toList()
+        ..sort((left, right) {
+          int distanceToMatch(int index) => referenceIndexes
+              .map((matchedIndex) => (matchedIndex - index).abs())
+              .reduce((a, b) => a < b ? a : b);
+          final byDistance = distanceToMatch(
+            left,
+          ).compareTo(distanceToMatch(right));
+          return byDistance != 0 ? byDistance : left.compareTo(right);
+        });
+
+  for (final index in remainingIndexes) {
+    final candidate = [...visibleIndexes, index]..sort();
+    if (!_originCharactersFit(
+      context,
+      origin: origin,
+      visibleIndexes: candidate,
+      maxWidth: maxWidth,
+    )) {
+      continue;
+    }
+    visibleIndexes
+      ..clear()
+      ..addAll(candidate);
+  }
+  visibleIndexes.sort();
+  return visibleIndexes;
+}
+
+bool _originCharactersFit(
+  BuildContext context, {
+  required SearchV2OriginItem origin,
+  required List<int> visibleIndexes,
+  required double maxWidth,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(
+      style: _searchMetadataStyle,
+      children: [_originCharactersSpan(origin, visibleIndexes: visibleIndexes)],
+    ),
+    maxLines: 2,
+    ellipsis: '…',
+    textDirection: Directionality.of(context),
+    textScaler: MediaQuery.textScalerOf(context),
+    locale: Localizations.localeOf(context),
+  )..layout(maxWidth: maxWidth);
+  return !painter.didExceedMaxLines;
 }
 
 class _SearchBriefExcerpt extends StatelessWidget {
@@ -263,7 +381,11 @@ _SearchBriefExcerptData _buildSearchBriefExcerpt(
   final excerptRanges = <SearchV2HighlightRange>[];
   for (var index = 0; index < windows.length; index += 1) {
     final window = windows[index];
-    if (index == 0 ? window.start > 0 : window.start > windows[index - 1].end) {
+    if (index == 0 && window.start > 0) {
+      final leadingEnd = _searchBriefLeadingContextEnd(text, window.start);
+      buffer.write(text.substring(0, leadingEnd));
+      if (leadingEnd < window.start) buffer.write('…');
+    } else if (index > 0 && window.start > windows[index - 1].end) {
       buffer.write('…');
     }
     final outputStart = buffer.length;
@@ -285,6 +407,13 @@ _SearchBriefExcerptData _buildSearchBriefExcerpt(
     text: buffer.toString(),
     highlightRanges: excerptRanges,
   );
+}
+
+int _searchBriefLeadingContextEnd(String text, int omittedEnd) {
+  const preferredLength = 18;
+  if (omittedEnd <= preferredLength) return omittedEnd;
+  final boundary = text.lastIndexOf(' ', preferredLength);
+  return boundary > 0 ? boundary : preferredLength;
 }
 
 class _SearchBriefExcerptData {
@@ -332,13 +461,28 @@ TextSpan _searchResultTitleSpan(_SearchResultItem item) {
   }
 }
 
-TextSpan _originCharactersSpan(SearchV2OriginItem origin) {
+TextSpan _originCharactersSpan(
+  SearchV2OriginItem origin, {
+  List<int>? visibleIndexes,
+}) {
   if (origin.characters.isEmpty) {
     return const TextSpan(text: 'Characters: -');
   }
+  final indexes =
+      visibleIndexes ??
+      List<int>.generate(origin.characters.length, (index) => index);
   final spans = <InlineSpan>[const TextSpan(text: 'Characters: ')];
-  for (var index = 0; index < origin.characters.length; index += 1) {
-    if (index > 0) spans.add(const TextSpan(text: ', '));
+  if (indexes.isEmpty) {
+    spans.add(const TextSpan(text: '…'));
+    return TextSpan(children: spans);
+  }
+  for (var visibleIndex = 0; visibleIndex < indexes.length; visibleIndex += 1) {
+    final index = indexes[visibleIndex];
+    if (visibleIndex > 0 && index > indexes[visibleIndex - 1] + 1) {
+      spans.add(const TextSpan(text: ', …, '));
+    } else if (visibleIndex > 0) {
+      spans.add(const TextSpan(text: ', '));
+    }
     final character = origin.characters[index];
     final name = character.name.isEmpty ? '-' : character.name;
     final ranges = character.name.isEmpty
@@ -348,6 +492,9 @@ TextSpan _originCharactersSpan(SearchV2OriginItem origin) {
               .where((match) => match.characterId == character.characterId)
               .expand((match) => match.highlightRanges);
     spans.add(_highlightedSearchSpan(name, ranges));
+  }
+  if (indexes.last < origin.characters.length - 1) {
+    spans.add(const TextSpan(text: ', …'));
   }
   return TextSpan(children: spans);
 }
