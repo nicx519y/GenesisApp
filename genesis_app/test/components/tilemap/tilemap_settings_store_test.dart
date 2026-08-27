@@ -116,7 +116,7 @@ void main() {
       'location_image_flow_opacity': 0.49,
       'location_image_flow_duration_seconds': 7.5,
       'location_image_flow_blend_mode': 'plus',
-      'initial_scale': 12.0,
+      'initial_scale': 8.0,
       'drag_boundary_padding_tiles': 2.0,
     });
   });
@@ -240,7 +240,7 @@ void main() {
       );
 
       expect(releaseSettings.loadingStyle, TilemapLoadingStyle.disabled);
-      expect(releaseSettings.initialScale, 12);
+      expect(releaseSettings.initialScale, 8);
       expect(releaseSettings.visualMode, cachedSettings.visualMode);
       expect(releaseSettings.cacheFogTileBitmaps, false);
       expect(releaseSettings.dragBoundaryPaddingTiles, 8);

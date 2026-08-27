@@ -31,19 +31,9 @@ class ChatMessageBubble extends StatelessWidget {
     final borderRadius = !style.useScenePlateBubbleGeometry
         ? BorderRadius.circular(style.systemMessageBorderRadius)
         : usesSelfScenePlate
-        ? const BorderRadius.only(
-            topLeft: Radius.circular(14),
-            topRight: Radius.circular(6),
-            bottomRight: Radius.circular(14),
-            bottomLeft: Radius.circular(14),
-          )
+        ? kChatScenePlateSelfBubbleBorderRadius
         : usesAiScenePlate
-        ? const BorderRadius.only(
-            topLeft: Radius.circular(6),
-            topRight: Radius.circular(14),
-            bottomRight: Radius.circular(14),
-            bottomLeft: Radius.circular(14),
-          )
+        ? kChatScenePlateAiBubbleBorderRadius
         : BorderRadius.only(
             topLeft: Radius.zero,
             topRight: Radius.circular(style.bubbleBorderRadius),

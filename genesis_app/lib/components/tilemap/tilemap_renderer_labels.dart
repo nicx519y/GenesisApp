@@ -207,7 +207,7 @@ class _TilemapLocationBubble extends StatelessWidget {
       name,
       occupied: occupied,
     );
-    final activityIconCount = (showEvent ? 1 : 0) + (showRecentChat ? 1 : 0);
+    final activityIconCount = showRecentChat ? 1 : 0;
     final activityIconsWidth =
         activityIconCount * _tilemapLocationActivityIconExtraWidth;
     return Positioned(
@@ -299,6 +299,17 @@ class _TilemapLocationBubble extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (showEvent)
+                            const Positioned(
+                              right: worldMapLocationEventBadgeRight,
+                              top: worldMapLocationEventBadgeTop,
+                              child: WorldEventCountBadge(
+                                key: ValueKey<String>(
+                                  'world-map-location-event-count',
+                                ),
+                                count: 1,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -307,18 +318,6 @@ class _TilemapLocationBubble extends StatelessWidget {
                         width: activityIconsWidth,
                         child: Row(
                           children: [
-                            if (showEvent)
-                              const SizedBox(
-                                width: _tilemapLocationActivityIconExtraWidth,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: WorldEventMapBadge(
-                                    badgeKey: ValueKey<String>(
-                                      'tilemap-event-icon',
-                                    ),
-                                  ),
-                                ),
-                              ),
                             if (showRecentChat)
                               const SizedBox(
                                 width: _tilemapLocationActivityIconExtraWidth,

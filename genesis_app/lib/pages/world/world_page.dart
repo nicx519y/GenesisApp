@@ -120,6 +120,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   final Map<String, Future<void>> _preloadingLocationMessageFutures =
       <String, Future<void>>{};
   String _activeChatLocationId = '';
+  String _pendingLocationChatLeaveId = '';
   late String _pendingInitialLocationId;
   late bool _initialLocationChatEntry;
   late bool _locationChatTransitionsEnabled;
@@ -198,6 +199,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       worldTickProgressFailureRevision: _worldTickProgressFailureRevision,
       cache: _locationChatPageCache,
       onBack: _closeCachedLocationChat,
+      onOverlayDismissed: _completePendingLocationChatLeave,
       onCharactersMovedLocationTap: (movement) =>
           unawaited(_openCharactersMovedTargetLocation(movement)),
       animateTransitions: _locationChatTransitionsEnabled,
@@ -622,6 +624,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           locationNodes: listLocationNodes,
           preferredFocusLocationId:
               _initialTilemapPreferredFocusLocationId ?? '',
+          centerContentInitially: true,
           recentChatLocationIds: recentMapLocationIds,
           eventLocationIds: eventMapLocationIds,
           animationsPaused: _worldBottomSheetOpen || mapPausedForLocationChat,

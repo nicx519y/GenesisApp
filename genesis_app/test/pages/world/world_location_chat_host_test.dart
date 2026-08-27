@@ -113,6 +113,7 @@ void main() {
     final cache = WorldLocationChatPageCache();
     cache.syncDescriptors(const {'loc_1': first, 'loc_2': second});
     late StateSetter rebuildHost;
+    var overlayDismissedCount = 0;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -124,6 +125,7 @@ void main() {
               chatroom: null,
               cache: cache,
               onBack: () {},
+              onOverlayDismissed: () => overlayDismissedCount += 1,
               onPanelReady: (_) {},
               isMessageQueueInitializationCovered: (_) => false,
               onCharactersMovedLocationTap: (movement) {
@@ -206,6 +208,11 @@ void main() {
       ),
     );
     expect(openedMovement?.toLocationId, 'loc_1');
+
+    rebuildHost(cache.deactivate);
+    await tester.pump();
+    await tester.pump();
+    expect(overlayDismissedCount, 1);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

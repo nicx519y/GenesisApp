@@ -16,6 +16,7 @@ class TilemapImageLoadPlan {
     double dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles,
     TilemapLocationAvatarsResolver? locationAvatarsForTile,
     String preferredLocationId = '',
+    bool centerContentInitially = false,
   }) {
     // Flutter coalesces identical NetworkImage requests. Keep one request per
     // resolved asset, but weight its completion by every tile that becomes
@@ -58,6 +59,7 @@ class TilemapImageLoadPlan {
       tiles: config.tiles,
       locationAvatarsForTile: locationAvatarsForTile,
       preferredLocationId: preferredLocationId,
+      centerContentInitially: centerContentInitially,
     );
     final initialFocus = initialFocusTile == null
         ? null

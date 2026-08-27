@@ -77,7 +77,8 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
 
     final selfId = firstNonEmpty([_myUserId, _mySenderId]);
     final selfName = _localSelfDisplayName();
-    if (state.joinedLocationId == widget.locationId &&
+    if ((state.joinedLocationId == widget.locationId ||
+            _optimisticSelfOccupancy) &&
         (selfId.isNotEmpty || selfName.isNotEmpty)) {
       add(
         WorldChatroomEntity(

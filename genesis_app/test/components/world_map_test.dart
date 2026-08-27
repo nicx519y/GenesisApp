@@ -14,7 +14,6 @@ import 'package:genesis_flutter_android/components/world_map_interaction_notific
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
-import 'package:genesis_flutter_android/pages/world/world_map_data.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/recent_chat_marker.dart';
 
@@ -285,7 +284,9 @@ void main() {
     );
   });
 
-  testWidgets('world map renders Event before Recent Message', (tester) async {
+  testWidgets('world map renders event count on the location name', (
+    tester,
+  ) async {
     await _pumpWorldMap(
       tester,
       users: const [],
@@ -307,7 +308,7 @@ void main() {
       find.byKey(const ValueKey<String>('world-map-location-label-point-1')),
     );
     final eventRect = tester.getRect(
-      find.byKey(const ValueKey<String>('world-map-event-icon')),
+      find.byKey(const ValueKey<String>('world-map-location-event-count')),
     );
     final recentRect = tester.getRect(
       find.byKey(const ValueKey<String>('world-map-recent-chat-icon')),
@@ -316,30 +317,21 @@ void main() {
       find.byKey(const ValueKey<String>('world-map-location-dot')),
     );
 
-    expect(eventRect.left, closeTo(labelRect.right + 3, 0.01));
-    expect(recentRect.left, closeTo(eventRect.right + 3, 0.01));
-    expect(eventRect.center.dy, closeTo(labelRect.center.dy, 0.01));
+    expect(eventRect.size, const Size(20, 16));
+    expect(eventRect.left, closeTo(labelRect.right - 4, 0.01));
+    expect(eventRect.top, closeTo(labelRect.top - 12, 0.01));
+    expect(eventRect.bottom, closeTo(labelRect.top + 4, 0.01));
+    expect(eventRect.center.dy, lessThan(recentRect.center.dy));
     expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
-    expect(eventRect.size, const Size.square(16));
-    final eventBadge = tester.widget<DecoratedBox>(
-      find.byKey(const ValueKey<String>('world-map-event-icon')),
-    );
     expect(
-      (eventBadge.decoration as BoxDecoration).color,
-      kWorldEventMarkerBackgroundColor,
-    );
-    final eventSvg = tester.widget<SvgPicture>(
       find.descendant(
-        of: find.byKey(const ValueKey<String>('world-map-event-icon')),
-        matching: find.byType(SvgPicture),
+        of: find.byKey(
+          const ValueKey<String>('world-map-location-event-count'),
+        ),
+        matching: find.text('1'),
       ),
+      findsOneWidget,
     );
-    expect(
-      eventSvg.colorFilter,
-      const ColorFilter.mode(kWorldEventMarkerColor, BlendMode.srcIn),
-    );
-    expect(eventSvg.width, kWorldEventMapIconSize);
-    expect(eventSvg.height, kWorldEventMapIconSize);
   });
 
   testWidgets('world map renders generated avatar when avatar URL is empty', (
@@ -386,6 +378,42 @@ void main() {
     expect(tappedIds, ['point-1']);
   });
 
+  testWidgets('world map bubble uses the location chat AI bubble style', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [UserAvatar('AA', id: 'char_a', name: 'Ava')],
+      activeBubble: const WorldMapMessageBubble(
+        characterId: 'char_a',
+        content: 'Ava checks the storefront.',
+      ),
+    );
+
+    final surface = find.byType(WorldMapMessageBubbleSurface);
+    expect(surface, findsOneWidget);
+    final decoration =
+        tester
+                .widget<DecoratedBox>(
+                  find.descendant(
+                    of: surface,
+                    matching: find.byType(DecoratedBox),
+                  ),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(decoration.color, const Color(0x993A3942));
+    expect(decoration.borderRadius, BorderRadius.circular(8));
+    expect(
+      find.descendant(of: surface, matching: find.byType(BackdropFilter)),
+      findsOneWidget,
+    );
+    final text = tester.widget<Text>(find.text('Ava checks the storefront.'));
+    expect(text.style?.fontSize, 12);
+    expect(text.style?.height, 1.2);
+    expect(text.style?.color, const Color(0xFFF4F3F6));
+  });
+
   testWidgets('world map bubble adapts width up to the maximum', (
     tester,
   ) async {
@@ -415,7 +443,7 @@ void main() {
 
     final longSize = tester.getSize(find.byKey(bubbleBodyKey));
     expect(shortSize.width, lessThan(longSize.width));
-    expect(shortTextSize.height, lessThan(20));
+    expect(shortTextSize.height, closeTo(14, 0.01));
     expect(longSize.width, worldMapMessageBubbleMaxWidth);
     expect(shortSize.height, lessThan(longSize.height));
   });
@@ -616,37 +644,47 @@ void main() {
   test('player controlled map avatar uses highlighted border', () {
     expect(
       worldMapAvatarBorderColorForTesting(isPlayerControlledRole: true),
-      const Color(0xFF338960),
+      const Color(0xFFFF2442),
     );
     expect(
       worldMapAvatarBorderColorForTesting(isPlayerControlledRole: false),
+      isNull,
+    );
+    expect(
+      worldMapAvatarBorderColorForTesting(
+        isPlayerControlledRole: false,
+        showAiMarker: true,
+      ),
       const Color(0xFFDDDDDD),
     );
   });
 
-  test('world map star only shows for unclaimed ai roles', () {
-    expect(
-      worldMapCharacterShouldShowStarForTesting({'type': 1, 'player_uid': ''}),
-      isTrue,
+  testWidgets('world map AI avatar is plain and player role has a red border', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [
+        UserAvatar('AI', id: 'ai', name: 'AI Role'),
+        UserAvatar(
+          'PR',
+          id: 'player',
+          name: 'Player Role',
+          isPlayerControlledRole: true,
+        ),
+      ],
     );
-    expect(
-      worldMapCharacterShouldShowStarForTesting({
-        'type': 'ai',
-        'player_uid': null,
-      }),
-      isTrue,
-    );
-    expect(
-      worldMapCharacterShouldShowStarForTesting({
-        'type': 1,
-        'player_uid': 'u_1',
-      }),
-      isFalse,
-    );
-    expect(
-      worldMapCharacterShouldShowStarForTesting({'type': 2, 'player_uid': ''}),
-      isFalse,
-    );
+
+    final avatars = tester
+        .widgetList<GenesisCharacterAvatar>(find.byType(GenesisCharacterAvatar))
+        .toList(growable: false);
+    expect(avatars, hasLength(2));
+    expect(avatars[0].showStar, isFalse);
+    expect(avatars[0].border, isNull);
+    expect(avatars[1].showStar, isFalse);
+    final playerBorder = avatars[1].border! as Border;
+    expect(playerBorder.top.color, const Color(0xFFFF2442));
+    expect(playerBorder.top.width, 2);
   });
 
   testWidgets(

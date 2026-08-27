@@ -1159,6 +1159,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 locationNodes: listLocationNodes,
                 preferredFocusLocationId:
                     origin.initLocationGroup?.locationId.trim() ?? '',
+                centerContentInitially: true,
                 showVisualModeToggle: true,
                 animationsPaused: detailSheetRaised,
                 locationImageFlowPaused: detailSheetRaised,

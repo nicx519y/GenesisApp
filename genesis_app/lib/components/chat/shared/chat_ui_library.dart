@@ -24,6 +24,7 @@ import '../../../ui/tokens/genesis_colors.dart';
 import '../../../ui/tokens/genesis_typography.dart';
 import '../../../ui/text/genesis_text_input_formatters.dart';
 import '../../../utils/genesis_message_image.dart';
+import 'chat_scene_plate_tokens.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_ui_style_config.dart';
@@ -122,18 +123,13 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
     fontWeight: FontWeight.w600,
     height: 1,
   ),
-  bubblePadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+  bubblePadding: kChatScenePlateBubblePadding,
   bubbleBorderRadius: 14,
   selfBubbleColor: const Color(0x99C41F2E),
-  otherBubbleColor: const Color(0x993A3942),
-  bubbleTextStyle: const TextStyle(
-    color: Color(0xFFF4F3F6),
-    fontSize: 14,
-    height: 1.4,
-    fontWeight: FontWeight.w400,
-  ),
+  otherBubbleColor: kChatScenePlateAiBubbleColor,
+  bubbleTextStyle: kChatScenePlateBubbleTextStyle,
   useScenePlateBubbleGeometry: true,
-  bubbleBackdropBlurSigma: 14,
+  bubbleBackdropBlurSigma: kChatScenePlateBubbleBlurSigma,
   systemMessageMargin: const EdgeInsets.only(bottom: 14),
   systemMessagePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
   systemMessageBackgroundColor: const Color(0x14FFFFFF),

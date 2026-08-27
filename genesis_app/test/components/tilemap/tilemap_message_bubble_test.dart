@@ -210,8 +210,53 @@ void main() {
     final preservedWidth = tester.getSize(find.byKey(bodyKey)).width;
 
     expect(adaptiveWidth, lessThan(worldMapMessageBubbleMaxWidth));
-    expect(adaptiveTextHeight, lessThan(20));
+    expect(adaptiveTextHeight, closeTo(14, 0.01));
     expect(preservedWidth, worldMapMessageBubbleMaxWidth);
+  });
+
+  testWidgets('Tilemap bubble uses the location chat AI bubble style', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: SizedBox(
+          width: 300,
+          height: 500,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              TilemapCharacterMessageBubble(
+                text: 'AI response',
+                avatarTopLeft: Offset(120, 100),
+                viewportWidth: 300,
+                onTap: null,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    final surface = find.byType(WorldMapMessageBubbleSurface);
+    final decoration =
+        tester
+                .widget<DecoratedBox>(
+                  find.descendant(
+                    of: surface,
+                    matching: find.byType(DecoratedBox),
+                  ),
+                )
+                .decoration
+            as BoxDecoration;
+    expect(decoration.color, const Color(0x993A3942));
+    expect(decoration.borderRadius, worldMapMessageBubbleBorderRadius);
+    expect(worldMapMessageBubbleBorderRadius, BorderRadius.circular(8));
+    expect(
+      find.descendant(of: surface, matching: find.byType(BackdropFilter)),
+      findsOneWidget,
+    );
+    final text = tester.widget<Text>(find.text('AI response'));
+    expect(text.style, worldMapMessageBubbleTextStyle);
   });
 
   testWidgets(
@@ -245,7 +290,7 @@ void main() {
         ),
       );
 
-      expect(textSize.height, lessThan(20));
+      expect(textSize.height, closeTo(14, 0.01));
       expect(bodySize.width, lessThan(worldMapMessageBubbleMaxWidth));
     },
   );

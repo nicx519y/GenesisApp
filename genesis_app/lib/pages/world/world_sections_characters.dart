@@ -183,8 +183,13 @@ class WorldCharacterRow extends StatelessWidget {
         GenesisCharacterAvatar(
           url: avatarUrl,
           name: name,
-          showStar: isCharacterRole,
-          starSize: 20,
+          showStar: false,
+          border: isCharacterRole
+              ? null
+              : Border.all(
+                  color: kChatScenePlatePlayerRoleBorderColor,
+                  width: 2,
+                ),
           showFallbackWhileLoading: false,
         ),
         const SizedBox(width: 14),
@@ -363,7 +368,7 @@ String worldCharacterNameSuffix({
   if (currentUid.isNotEmpty &&
       playerUid.isNotEmpty &&
       playerUid == currentUid) {
-    return '(Me)';
+    return '';
   }
   if (playerUid.isNotEmpty && username.isNotEmpty) return '($username)';
   return '';

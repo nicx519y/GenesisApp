@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import '../../app/config/genesis_image_config.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_colors.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_point.dart';
 
@@ -93,6 +92,10 @@ class _TilemapLocationAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = worldMapAvatarBorderColor(
+      isPlayerControlledRole: avatar.isPlayerControlledRole,
+      showAiMarker: avatar.showStar,
+    );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
@@ -119,12 +122,12 @@ class _TilemapLocationAvatar extends StatelessWidget {
             offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(
-          color: avatar.isPlayerControlledRole
-              ? GenesisColors.brand
-              : const Color(0xFFDDDDDD),
-          width: 1,
-        ),
+        border: borderColor == null
+            ? null
+            : Border.all(
+                color: borderColor,
+                width: avatar.isPlayerControlledRole ? 2 : 1,
+              ),
       ),
     );
   }

@@ -389,6 +389,7 @@ class Tilemap extends StatefulWidget {
     this.locationId = 'root',
     this.locationNodes = const <WorldMapLocationNode>[],
     this.preferredFocusLocationId = '',
+    this.centerContentInitially = false,
     this.drillExitTop = 68,
     this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
@@ -419,6 +420,7 @@ class Tilemap extends StatefulWidget {
     this.locationId = 'root',
     this.locationNodes = const <WorldMapLocationNode>[],
     this.preferredFocusLocationId = '',
+    this.centerContentInitially = false,
     this.drillExitTop = 68,
     this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
@@ -448,6 +450,7 @@ class Tilemap extends StatefulWidget {
   final String locationId;
   final List<WorldMapLocationNode> locationNodes;
   final String preferredFocusLocationId;
+  final bool centerContentInitially;
   final double drillExitTop;
   final double? drillExitMaxWidth;
   final bool showVisualModeToggle;
@@ -1806,6 +1809,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
       locationAvatarsForTile: _locationAvatarsForTile,
       preferredLocationId: _preferredVisibleFocusLocationId(config),
+      centerContentInitially: widget.centerContentInitially,
     );
   }
 
@@ -1856,6 +1860,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       showRecentChatForTile: _showRecentChatForTile,
       showEventForTile: _showEventForTile,
       preferredFocusLocationId: _preferredVisibleFocusLocationId(config),
+      centerContentInitially: widget.centerContentInitially,
       messageBubbles: includeLiveContent
           ? widget.messageBubbles
           : const <WorldMapMessageBubble>[],
@@ -2132,6 +2137,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       widget._entityId,
       _cacheGeneration,
       renderSettings,
+      widget.centerContentInitially,
       Object.hashAll(widget.locationNodes.map(_locationNodeEnvironmentHash)),
       _requestedPreferredFocusLocationId.isNotEmpty
           ? _requestedPreferredFocusLocationId

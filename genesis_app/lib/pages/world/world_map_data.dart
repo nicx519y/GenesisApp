@@ -170,7 +170,6 @@ Map<String, List<UserAvatar>> worldAvatarsByLocationFromCharacterPositions(
     if (worldIsCurrentUserCharacter(c, currentUid)) continue;
     final name = (c['name'] ?? '').toString();
     final avatar = worldResolveAssetUrl((c['avatar'] ?? '').toString());
-    final showStar = worldMapCharacterShouldShowStarForTesting(c);
     final isPlayerControlledRole = worldMapString(c, const [
       'player_uid',
       'user_id',
@@ -189,22 +188,11 @@ Map<String, List<UserAvatar>> worldAvatarsByLocationFromCharacterPositions(
         id: id,
         name: name,
         avatarUrl: avatar,
-        showStar: showStar,
         isPlayerControlledRole: isPlayerControlledRole,
       ),
     );
   }
   return map;
-}
-
-@visibleForTesting
-bool worldMapCharacterShouldShowStarForTesting(Map<String, dynamic> character) {
-  final type = character['type'];
-  final isAiRole = type is num
-      ? type == 1
-      : {'1', 'ai'}.contains('$type'.trim().toLowerCase());
-  final playerUid = worldMapString(character, const ['player_uid']);
-  return isAiRole && playerUid.isEmpty;
 }
 
 String worldInitials(String name) {

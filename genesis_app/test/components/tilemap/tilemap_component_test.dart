@@ -814,7 +814,7 @@ void main() {
       mapSize: const Size(200, 100),
       contentBounds: contentBounds,
     );
-    expect(tilemapTransformScale(transform), 12);
+    expect(tilemapTransformScale(transform), 8);
     expect(
       MatrixUtils.transformPoint(transform, contentBounds.center),
       viewportSize.center(Offset.zero) + const Offset(0, 20),
@@ -826,7 +826,7 @@ void main() {
     expect(tilemapResolvedInitialScale(1), tilemapInitialScaleMin);
     expect(tilemapResolvedInitialScale(40), tilemapInitialScaleMax);
     expect(tilemapResolvedInitialScale(double.nan), tilemapDefaultInitialScale);
-    expect(tilemapDefaultInitialScale, 12);
+    expect(tilemapDefaultInitialScale, 8);
     expect(tilemapInitialScaleMin, 5);
     expect(tilemapInitialScaleMax, 30);
   });
@@ -867,6 +867,22 @@ void main() {
     );
 
     expect(selected?.locationId, 'opening');
+  });
+
+  test('content-centered entry ignores location focus candidates', () {
+    const tiles = [
+      TilemapCell(x: 0, y: 0, type: 'a', locationId: 'opening'),
+      TilemapCell(x: 1, y: 0, type: 'a', locationId: 'occupied'),
+    ];
+
+    expect(
+      tilemapInitialFocusLocationTile(
+        tiles: tiles,
+        preferredLocationId: 'opening',
+        centerContentInitially: true,
+      ),
+      isNull,
+    );
   });
 
   test('opening focus resolves to its visible ancestor on the current map', () {
@@ -1186,16 +1202,34 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey<String>('tilemap-event-icon')),
+      find.byKey(const ValueKey<String>('world-map-location-event-count')),
       findsOneWidget,
     );
     final eventRect = tester.getRect(
-      find.byKey(const ValueKey<String>('tilemap-event-icon')),
+      find.byKey(const ValueKey<String>('world-map-location-event-count')),
     );
     final recentRect = tester.getRect(
       find.byKey(const ValueKey<String>('tilemap-recent-chat-icon')),
     );
-    expect(eventRect.right, lessThan(recentRect.left));
+    final labelRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('tile-location-bubble-body-High School'),
+      ),
+    );
+    expect(eventRect.size, const Size(20, 16));
+    expect(eventRect.left, closeTo(labelRect.right - 4, 0.01));
+    expect(eventRect.top, closeTo(labelRect.top - 12, 0.01));
+    expect(eventRect.bottom, closeTo(labelRect.top + 4, 0.01));
+    expect(eventRect.center.dy, lessThan(recentRect.center.dy));
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('world-map-location-event-count'),
+        ),
+        matching: find.text('1'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('tile-location-label-0-0')),
       findsOneWidget,
@@ -1274,8 +1308,6 @@ void main() {
       ),
     );
     expect(bubbleBodyRect.center.dx, closeTo(tileRect.center.dx, 0.01));
-    expect(eventRect.left - bubbleBodyRect.right, closeTo(3, 0.01));
-    expect(recentRect.left - eventRect.right, closeTo(3, 0.01));
     await tester.tap(
       find.byKey(
         const ValueKey<String>('tile-location-bubble-body-High School'),
