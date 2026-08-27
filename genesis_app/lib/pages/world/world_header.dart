@@ -1,11 +1,9 @@
 // ignore_for_file: use_key_in_widget_constructors
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../components/origin/stat_item.dart';
-import '../../icons/custom_icon_assets.dart';
 import '../../network/models/world.dart';
+import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_map_top_glass_bar.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_safe_area.dart';
@@ -14,6 +12,7 @@ import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
 import 'world_constants.dart';
 import 'world_models.dart';
+import 'world_value_helpers.dart';
 
 class WorldMapBackButton extends StatelessWidget {
   const WorldMapBackButton({required this.onPressed});
@@ -237,18 +236,21 @@ String worldTimeLabel({
 class WorldFeedContent extends StatelessWidget {
   const WorldFeedContent({
     required this.world,
+    required this.currentUid,
     required this.worldActionRunning,
     required this.onWorldAction,
     required this.onPullUp,
   });
 
   final WorldDetail world;
+  final String currentUid;
   final bool worldActionRunning;
   final Future<void> Function(WorldHeaderActionKind action) onWorldAction;
   final VoidCallback onPullUp;
 
   @override
   Widget build(BuildContext context) {
+    final infoHeaderHeight = worldInfoHeaderHeightFor(world);
     return SliverMainAxisGroup(
       slivers: [
         SliverToBoxAdapter(
@@ -256,9 +258,10 @@ class WorldFeedContent extends StatelessWidget {
             onPullUp: onPullUp,
             child: SizedBox(
               key: const ValueKey<String>('world-panel-info-row'),
-              height: worldInfoHeaderHeight,
+              height: infoHeaderHeight,
               child: WorldInfoHeader(
                 world: world,
+                currentUid: currentUid,
                 worldActionRunning: worldActionRunning,
                 onWorldAction: onWorldAction,
               ),
@@ -341,17 +344,20 @@ class WorldKeepAlivePageState extends State<WorldKeepAlivePage>
 class WorldInfoHeader extends StatelessWidget {
   const WorldInfoHeader({
     required this.world,
+    required this.currentUid,
     required this.worldActionRunning,
     required this.onWorldAction,
   });
 
   final WorldDetail world;
+  final String currentUid;
   final bool worldActionRunning;
   final Future<void> Function(WorldHeaderActionKind action) onWorldAction;
 
   @override
   Widget build(BuildContext context) {
     final action = worldHeaderActionFor(world.relationStatus);
+    final infoHeaderHeight = worldInfoHeaderHeightFor(world);
     final canTapRunningProgress =
         action.kind == WorldHeaderActionKind.progress &&
         worldActionRunning &&
@@ -359,58 +365,38 @@ class WorldInfoHeader extends StatelessWidget {
         !world.deleted;
     final actionEnabled =
         !world.deleted && !worldActionRunning && action.isClickable;
-    final counters = <Map<String, dynamic>>[
-      {'icon': 'tick', 'value': world.tickCount},
-      {'icon': 'connect', 'value': world.connectCount},
-      {'icon': 'character', 'value': world.characterCount},
-      {'icon': 'player', 'value': world.playerCount},
-    ];
+    final usesCompactProgressButton =
+        action.kind == WorldHeaderActionKind.progress;
+    final isLaunched = shouldConnectWorldChatroom(world.relationStatus);
+    final currentCharacter = _worldCurrentUserCharacter(
+      world.characters,
+      currentUid,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: worldInfoHeaderHeight,
+          key: const ValueKey<String>('world-info-header-content'),
+          height: infoHeaderHeight,
           child: Align(
             alignment: Alignment.center,
             child: SizedBox(
-              height: worldInfoHeaderContentHeight,
+              height: worldCharacterAvatarLogicalSize,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Wrap(
-                      spacing: 16,
-                      runSpacing: 8,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        for (final data in counters)
-                          StatItem(
-                            icon: worldCounterIcon(
-                              data['icon'] as String? ?? '',
-                            ),
-                            iconAsset: worldCounterIconAsset(
-                              data['icon'] as String? ?? '',
-                            ),
-                            preserveIconAssetColor:
-                                worldCounterIconAssetPreservesColor(
-                                  data['icon'] as String? ?? '',
-                                ),
-                            iconSize: 14,
-                            iconColor: Colors.black,
-                            text: formatStatCount(
-                              data['value'] is num ? data['value'] as num : 0,
-                            ),
-                            gap: 4,
-                            textStyle: const TextStyle(
-                              fontSize: 14,
-                              height: 1,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.black,
-                            ),
+                    child: isLaunched
+                        ? _WorldLaunchedCharacterSummary(
+                            character: currentCharacter,
+                            messageCount: world.connectCount,
+                          )
+                        : _WorldUnlaunchedSummary(
+                            tickCount: world.tickCount,
+                            subTickNo: world.subTickNo,
+                            messageCount: world.connectCount,
                           ),
-                      ],
-                    ),
                   ),
                   const SizedBox(width: 18),
                   GestureDetector(
@@ -421,34 +407,21 @@ class WorldInfoHeader extends StatelessWidget {
                     child: AbsorbPointer(
                       absorbing: canTapRunningProgress,
                       child: GenesisPrimaryButton(
+                        key: const ValueKey<String>(
+                          'world-header-action-button',
+                        ),
                         label: action.label,
-                        leadingIcon:
-                            action.kind == WorldHeaderActionKind.progress
-                            ? SvgPicture.asset(
-                                tickStatIconAsset,
-                                key: const ValueKey<String>(
-                                  'world-progress-button-icon',
-                                ),
-                                width: 12,
-                                height: 12,
-                                colorFilter: const ColorFilter.mode(
-                                  Colors.white,
-                                  BlendMode.srcIn,
-                                ),
-                              )
-                            : null,
-                        iconGap: 6,
                         onPressed: actionEnabled
                             ? () => onWorldAction(action.kind)
                             : null,
-                        height: 35,
-                        width: 140,
-                        backgroundColor: const Color(0xFF2F9663),
+                        height: usesCompactProgressButton ? 32 : 35,
+                        width: usesCompactProgressButton ? 110 : 140,
+                        backgroundColor: const Color(0xFFFF2442),
                         disabledBackgroundColor: const Color(
-                          0xFF2F9663,
+                          0xFFFF2442,
                         ).withValues(alpha: 0.62),
                         foregroundColor: Colors.white,
-                        fontSize: 16,
+                        fontSize: usesCompactProgressButton ? 14 : 16,
                         padding: EdgeInsets.zero,
                         minimumSize: Size.zero,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -468,9 +441,138 @@ class WorldInfoHeader extends StatelessWidget {
   }
 }
 
-double worldCollapsedPanelHeightFor(BuildContext context) {
+class _WorldLaunchedCharacterSummary extends StatelessWidget {
+  const _WorldLaunchedCharacterSummary({
+    required this.character,
+    required this.messageCount,
+  });
+
+  final Map<String, dynamic>? character;
+  final int messageCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final character = this.character;
+    final name = character == null
+        ? 'Character'
+        : worldMapString(character, const ['name'], fallback: 'Character');
+    final avatarUrl = character == null
+        ? ''
+        : worldMapString(character, const ['avatar']);
+
+    return Row(
+      key: const ValueKey<String>('world-launched-character-summary'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        GenesisCharacterAvatar(
+          key: const ValueKey<String>('world-current-character-avatar'),
+          url: avatarUrl,
+          name: name,
+          size: worldCharacterAvatarLogicalSize,
+          showFallbackWhileLoading: false,
+          maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                name,
+                key: const ValueKey<String>('world-current-character-name'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 14,
+                  height: 1.2,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${formatStatCount(messageCount)} messages',
+                key: const ValueKey<String>('world-header-messages'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFF666666),
+                  fontSize: 12,
+                  height: 1.2,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _WorldUnlaunchedSummary extends StatelessWidget {
+  const _WorldUnlaunchedSummary({
+    required this.tickCount,
+    required this.subTickNo,
+    required this.messageCount,
+  });
+
+  final int tickCount;
+  final int subTickNo;
+  final int messageCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final tickLabel = 'Tick $tickCount${subTickNo > 0 ? '-$subTickNo' : ''}';
+    return Text(
+      '$tickLabel · ${formatStatCount(messageCount)} messages',
+      key: const ValueKey<String>('world-unlaunched-summary'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Color(0xFF111111),
+        fontSize: 13,
+        height: 1.2,
+        fontWeight: FontWeight.w400,
+      ),
+    );
+  }
+}
+
+Map<String, dynamic>? _worldCurrentUserCharacter(
+  List<Map<String, dynamic>> characters,
+  String currentUid,
+) {
+  final uid = currentUid.trim();
+  if (uid.isEmpty) return null;
+  for (final character in characters) {
+    if (worldIsCurrentUserCharacter(character, uid)) return character;
+  }
+  return null;
+}
+
+double worldInfoHeaderHeightFor(
+  WorldDetail? world, {
+  bool assumeLaunched = false,
+}) {
+  if (assumeLaunched ||
+      (world != null && shouldConnectWorldChatroom(world.relationStatus))) {
+    return worldLaunchedInfoHeaderHeight;
+  }
+  return worldInfoHeaderHeight;
+}
+
+double worldCollapsedPanelHeightFor(
+  BuildContext context, {
+  WorldDetail? world,
+  bool assumeLaunched = false,
+}) {
   final bottomSafeArea = worldBottomSafeAreaOf(context);
-  return worldCollapsedPanelBaseHeight + bottomSafeArea;
+  final infoHeaderHeightDelta =
+      worldInfoHeaderHeightFor(world, assumeLaunched: assumeLaunched) -
+      worldInfoHeaderHeight;
+  return worldCollapsedPanelBaseHeight + infoHeaderHeightDelta + bottomSafeArea;
 }
 
 String worldOwnerDisplayName(WorldDetail world) {
@@ -484,33 +586,4 @@ String worldOwnerDisplayName(WorldDetail world) {
 
 double worldBottomSafeAreaOf(BuildContext context) {
   return GenesisSafeAreaInsets.bottom(context);
-}
-
-IconData? worldCounterIcon(String key) {
-  switch (key) {
-    case 'tick':
-      return null;
-    case 'connect':
-      return null;
-    case 'character':
-      return null;
-    case 'player':
-      return null;
-    default:
-      return Icons.circle_outlined;
-  }
-}
-
-String? worldCounterIconAsset(String key) {
-  return switch (key) {
-    'tick' => tickStatIconAsset,
-    'connect' => connectStatIconAsset,
-    'character' => characterStatIconAsset,
-    'player' => userStatIconAsset,
-    _ => null,
-  };
-}
-
-bool worldCounterIconAssetPreservesColor(String key) {
-  return key == 'character';
 }

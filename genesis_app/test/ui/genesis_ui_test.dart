@@ -821,9 +821,9 @@ void main() {
                 selectedIconAsset: bottomNavHomePressIconAsset,
               ),
               GenesisBottomNavigationItem(
-                label: 'Messages',
-                iconAsset: bottomNavMessagesIconAsset,
-                selectedIconAsset: bottomNavMessagesPressIconAsset,
+                label: 'Inbox',
+                iconAsset: bottomNavInboxIconAsset,
+                selectedIconAsset: bottomNavInboxPressIconAsset,
                 badgeCount: 4,
               ),
               GenesisBottomNavigationItem(
@@ -849,7 +849,7 @@ void main() {
     );
     expect(
       (icons[1].bytesLoader as SvgAssetLoader).assetName,
-      bottomNavMessagesPressIconAsset,
+      bottomNavInboxPressIconAsset,
     );
     expect(icons[2].width, 22);
     expect(icons[2].height, 22);
@@ -895,7 +895,7 @@ void main() {
 
     final badgePosition = tester.widget<Positioned>(
       find.ancestor(
-        of: find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+        of: find.byKey(const ValueKey('bottom-nav-Inbox-unread-badge')),
         matching: find.byType(Positioned),
       ),
     );

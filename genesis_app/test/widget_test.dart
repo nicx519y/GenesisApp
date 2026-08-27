@@ -2973,7 +2973,7 @@ void main() {
     expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('Create'), findsNothing);
     expect(find.byKey(const ValueKey('bottom-nav-Create')), findsOneWidget);
-    expect(find.text('Messages'), findsOneWidget);
+    expect(find.text('Inbox'), findsOneWidget);
     expect(find.text('Me'), findsOneWidget);
   });
 
@@ -3221,7 +3221,7 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester);
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
     expect(find.text('登录后可使用该功能'), findsNothing);
@@ -3236,9 +3236,10 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Inbox'), findsNWidgets(2));
     expect(find.text('Notifications'), findsOneWidget);
     expect(find.text('New followers'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
@@ -3281,7 +3282,7 @@ void main() {
     expect(transport.count('/api/v1/message/unread'), 0);
     expect(transport.count('/api/v1/direct_message/conversations'), 0);
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(transport.count('/api/v1/message/unread'), 0);
@@ -3324,7 +3325,7 @@ void main() {
     expect(transport.count('/api/v1/message/unread'), 2);
     expect(transport.count('/api/v1/direct_message/conversations'), 2);
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pump();
     await tester.pump();
     expect(transport.count('/api/v1/message/unread'), 3);
@@ -3363,7 +3364,7 @@ void main() {
       expect(transport.count('/api/v1/message/unread'), 1);
       expect(transport.count('/api/v1/direct_message/conversations'), 1);
 
-      await tester.tap(find.text('Messages'));
+      await tester.tap(find.text('Inbox'));
       await tester.pump();
       await tester.pump();
 
@@ -3399,7 +3400,7 @@ void main() {
     expect(transport.count('/api/v1/direct_message/conversations'), 1);
 
     await tester.pump(const Duration(seconds: 2));
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pump();
     await tester.pump();
 
@@ -3428,6 +3429,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.text('Inbox'), findsOneWidget);
     expect(find.text('Penny Direct'), findsOneWidget);
     expect(find.text('First direct message preview'), findsOneWidget);
     final lastMessage = tester.widget<Text>(
@@ -3835,13 +3837,13 @@ void main() {
 
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+        of: find.byKey(const ValueKey('bottom-nav-Inbox-unread-badge')),
         matching: find.text('4'),
       ),
       findsOneWidget,
     );
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
     expect(
@@ -3910,7 +3912,7 @@ void main() {
 
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+        of: find.byKey(const ValueKey('bottom-nav-Inbox-unread-badge')),
         matching: find.text('4'),
       ),
       findsOneWidget,
@@ -3927,14 +3929,14 @@ void main() {
 
     expect(await sessionStore.readUid(), isNull);
     expect(
-      find.byKey(const ValueKey('bottom-nav-Messages-unread-badge')),
+      find.byKey(const ValueKey('bottom-nav-Inbox-unread-badge')),
       findsNothing,
     );
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 4);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsOneWidget);
@@ -3946,7 +3948,7 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Notifications').first);
@@ -3967,7 +3969,7 @@ void main() {
   ) async {
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('New followers').first);
@@ -10092,19 +10094,37 @@ void main() {
     );
     expect(
       find.widgetWithText(GenesisPrimaryButton, 'Edit Worldo'),
-      findsNothing,
+      findsOneWidget,
     );
-    final editText = tester.widget<Text>(find.text('Edit Worldo'));
-    expect(editText.style?.fontSize, 14);
-    expect(editText.style?.color, const Color(0xFF4B6192));
-    final editIcon = tester.widget<SvgPicture>(
+    final editButton = tester.widget<GenesisPrimaryButton>(
+      find.widgetWithText(GenesisPrimaryButton, 'Edit Worldo'),
+    );
+    expect(editButton.height, 35);
+    expect(editButton.width, 140);
+    expect(editButton.backgroundColor, const Color(0xFFFF2442));
+    expect(editButton.foregroundColor, Colors.white);
+    expect(editButton.fontSize, 16);
+    expect(editButton.leadingIcon, isNull);
+    expect(
+      tester
+              .getTopLeft(
+                find.byKey(const ValueKey('origin-inline-edit-worldo')),
+              )
+              .dy -
+          tester
+              .getBottomLeft(
+                find.byKey(const ValueKey<String>('origin-info-stats-row')),
+              )
+              .dy,
+      moreOrLessEquals(10),
+    );
+    expect(
       find.descendant(
         of: find.byKey(const ValueKey('origin-inline-edit-worldo')),
         matching: _assetSvgFinder(editPencilLineIconAsset),
       ),
+      findsNothing,
     );
-    expect(editIcon.width, 16);
-    expect(editIcon.height, 16);
   });
 
   testWidgets('Origin detail hides edit button from non-owner', (
@@ -10798,16 +10818,14 @@ void main() {
     final transport = _RecordingV1ListTransport(worldRelationStatus: 'none');
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const HomePage(),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
         ),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
       ),
     );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Request');
@@ -10817,6 +10835,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Request to join this World?'), findsOneWidget);
+    final requestDialogAction = tester.widget<Text>(find.text('Request').last);
+    expect(requestDialogAction.style?.color, const Color(0xFFFF2442));
     expect(transport.requestsFor('/api/v1/world/apply'), isEmpty);
 
     await tester.tap(find.text('Cancel'));
@@ -10837,23 +10857,28 @@ void main() {
     final transport = _RecordingV1ListTransport(worldRelationStatus: 'pending');
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const HomePage(),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
         ),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
       ),
     );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Requested');
     await tester.ensureVisible(buttonFinder);
     await tester.pumpAndSettle();
     expect(buttonFinder, findsOneWidget);
-    expect(tester.widget<FilledButton>(buttonFinder).onPressed, isNull);
+    final pendingButton = tester.widget<FilledButton>(buttonFinder);
+    expect(pendingButton.onPressed, isNull);
+    expect(
+      pendingButton.style?.backgroundColor?.resolve(<WidgetState>{
+        WidgetState.disabled,
+      }),
+      const Color(0xFFFF2442).withValues(alpha: 0.62),
+    );
 
     await tester.tap(buttonFinder);
     await tester.pump();
@@ -10870,16 +10895,14 @@ void main() {
     );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const HomePage(),
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
         ),
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
       ),
     );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('#World 1'));
     await tester.pumpAndSettle();
 
     final buttonFinder = find.widgetWithText(FilledButton, 'Launch');
@@ -11170,6 +11193,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
+    expect(find.text('Sign up and get 200 Gems!'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
   });
@@ -11208,6 +11232,25 @@ void main() {
     final logo = find.byKey(const Key('signed_out_worldo_logo'));
     expect(logo, findsOneWidget);
     expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
+    final gemsPromo = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('signed-out-gems-promo')),
+    );
+    expect(gemsPromo.data, 'Sign up and get 200 Gems!');
+    expect(gemsPromo.style?.color, const Color(0xFFFF2442));
+    expect(gemsPromo.style?.fontSize, 13);
+    expect(
+      tester
+              .getTopLeft(
+                find.byKey(const ValueKey<String>('signed-out-login-buttons')),
+              )
+              .dy -
+          tester
+              .getBottomLeft(
+                find.byKey(const ValueKey<String>('signed-out-gems-promo')),
+              )
+              .dy,
+      moreOrLessEquals(20),
+    );
   });
 
   testWidgets('signed-out Me top area restores debug button after ten taps', (
@@ -12165,7 +12208,7 @@ void main() {
     await tester.ensureVisible(find.text('Continue with Google'));
     expect(find.text('Continue with Google'), findsOneWidget);
 
-    await tester.tap(find.text('Messages'));
+    await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
     expect(find.text('Sign in to continue'), findsOneWidget);
 
@@ -22752,13 +22795,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final progressButton = find.widgetWithText(FilledButton, 'Progress');
+    final progressButton = find.widgetWithText(FilledButton, 'Tick now');
     final progressIcon = find.byKey(
       const ValueKey<String>('world-progress-button-icon'),
     );
-    expect(progressIcon, findsOneWidget);
-    expect(tester.widget<SvgPicture>(progressIcon).width, 12);
-    expect(tester.widget<SvgPicture>(progressIcon).height, 12);
+    expect(progressIcon, findsNothing);
     await tester.ensureVisible(progressButton);
     await tester.tap(progressButton);
     await tester.pump();
@@ -22944,14 +22985,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final progressButton = find.widgetWithText(FilledButton, 'Progress');
+    final progressButton = find.widgetWithText(FilledButton, 'Tick now');
     await tester.ensureVisible(progressButton);
     await tester.tap(progressButton);
     await tester.pumpAndSettle();
 
     expect(transport.requestsFor('/api/v1/world/tick'), hasLength(1));
     expect(find.text('Insufficient Gems'), findsOneWidget);
-    expect(find.text('Progress failed'), findsNothing);
+    expect(find.text('Tick now failed'), findsNothing);
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
   });
 

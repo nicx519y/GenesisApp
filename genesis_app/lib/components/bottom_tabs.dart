@@ -45,9 +45,9 @@ class BottomTabs extends StatelessWidget {
           ],
         ),
         GenesisBottomNavigationItem(
-          label: 'Messages',
-          iconAsset: bottomNavMessagesIconAsset,
-          selectedIconAsset: bottomNavMessagesPressIconAsset,
+          label: 'Inbox',
+          iconAsset: bottomNavInboxIconAsset,
+          selectedIconAsset: bottomNavInboxPressIconAsset,
           badgeCount: messagesUnreadCount,
         ),
         const GenesisBottomNavigationItem(

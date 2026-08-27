@@ -162,7 +162,7 @@ WorldHeaderAction worldHeaderActionFor(String relationStatus) {
     case 'joined':
       return const WorldHeaderAction(
         WorldHeaderActionKind.progress,
-        'Progress',
+        'Tick now',
         true,
       );
     default:
@@ -191,7 +191,7 @@ String worldHeaderActionLabel(WorldHeaderActionKind action) {
     case WorldHeaderActionKind.launch:
       return 'Launch';
     case WorldHeaderActionKind.progress:
-      return 'Progress';
+      return 'Tick now';
     case WorldHeaderActionKind.pending:
       return 'Requested';
     case WorldHeaderActionKind.unavailable:

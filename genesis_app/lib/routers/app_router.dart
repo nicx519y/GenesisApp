@@ -213,6 +213,7 @@ class _WorldRouteArgs {
     required this.wid,
     required this.waitForTick1,
     this.initialWorldDetail,
+    required this.initiallyLaunched,
     required this.initialName,
     required this.initialLocationId,
   });
@@ -230,6 +231,10 @@ class _WorldRouteArgs {
         'initial_world_detail',
         'initialWorldDetail',
       ]),
+      initiallyLaunched: args.boolean(const [
+        'initially_launched',
+        'initiallyLaunched',
+      ], fallback: false),
       initialName: args.string(const [
         'initial_name',
         'initialName',
@@ -246,6 +251,7 @@ class _WorldRouteArgs {
   final String wid;
   final bool waitForTick1;
   final WorldDetail? initialWorldDetail;
+  final bool initiallyLaunched;
   final String initialName;
   final String initialLocationId;
 }
@@ -499,6 +505,7 @@ sealed class AppRouter {
             wid: args.wid,
             waitForTick1: args.waitForTick1,
             initialWorldDetail: args.initialWorldDetail,
+            initiallyLaunched: args.initiallyLaunched,
             initialName: args.initialName,
             initialLocationId: args.initialLocationId,
           ),

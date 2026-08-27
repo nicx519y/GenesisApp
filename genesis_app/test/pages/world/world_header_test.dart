@@ -1,6 +1,9 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
+import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 
 void main() {
   test('world map time label includes the current sub-tick number', () {
@@ -37,5 +40,177 @@ void main() {
     });
 
     expect(world.subTickNo, 0);
+  });
+
+  test('launched loading hint uses the launched footer height', () {
+    expect(
+      worldInfoHeaderHeightFor(null, assumeLaunched: true),
+      worldLaunchedInfoHeaderHeight,
+    );
+    expect(worldInfoHeaderHeightFor(null), worldInfoHeaderHeight);
+  });
+
+  testWidgets(
+    'launched world footer shows the current user role and messages',
+    (tester) async {
+      final world = WorldDetail.fromJson(const {
+        'world_id': 'world-launched',
+        'tick_count': 7,
+        'sub_tick_no': 3,
+        'connect_count': 1280,
+        'relation_status': 'owner',
+        'characters': [
+          {
+            'char_id': 'character-other',
+            'player_uid': 'user-other',
+            'name': 'Other Role',
+            'avatar': '',
+          },
+          {
+            'char_id': 'character-self',
+            'player_uid': 'user-self',
+            'name': 'My Role',
+            'avatar': '',
+          },
+        ],
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: WorldInfoHeader(
+              world: world,
+              currentUid: 'user-self',
+              worldActionRunning: false,
+              onWorldAction: (_) async {},
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey<String>('world-launched-character-summary')),
+        findsOneWidget,
+      );
+      expect(find.text('My Role'), findsOneWidget);
+      expect(find.text('1.3K messages'), findsOneWidget);
+      expect(find.textContaining('Tick 7-3'), findsNothing);
+      expect(find.widgetWithText(FilledButton, 'Tick now'), findsOneWidget);
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey<String>('world-info-header-content')),
+            )
+            .height,
+        worldLaunchedInfoHeaderHeight,
+      );
+
+      final characterName = tester.widget<Text>(
+        find.byKey(const ValueKey<String>('world-current-character-name')),
+      );
+      expect(characterName.style?.fontSize, 14);
+      expect(characterName.style?.fontWeight, FontWeight.w600);
+
+      final avatar = tester.widget<GenesisCharacterAvatar>(
+        find.byKey(const ValueKey<String>('world-current-character-avatar')),
+      );
+      expect(avatar.size, worldCharacterAvatarLogicalSize);
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey<String>('world-current-character-avatar')),
+        ),
+        const Size.square(worldCharacterAvatarLogicalSize),
+      );
+      expect(
+        tester
+            .getTopLeft(
+              find.byKey(
+                const ValueKey<String>('world-current-character-name'),
+              ),
+            )
+            .dy,
+        moreOrLessEquals(
+          tester
+              .getTopLeft(
+                find.byKey(
+                  const ValueKey<String>('world-current-character-avatar'),
+                ),
+              )
+              .dy,
+        ),
+      );
+      final button = tester.widget<FilledButton>(
+        find.widgetWithText(FilledButton, 'Tick now'),
+      );
+      expect(
+        tester.getSize(
+          find.byKey(const ValueKey<String>('world-header-action-button')),
+        ),
+        const Size(110, 32),
+      );
+      expect(button.style?.textStyle?.resolve(<WidgetState>{})?.fontSize, 14);
+      expect(
+        button.style?.backgroundColor?.resolve(<WidgetState>{}),
+        const Color(0xFFFF2442),
+      );
+    },
+  );
+
+  testWidgets('unlaunched world footer shows tick and messages', (
+    tester,
+  ) async {
+    final world = WorldDetail.fromJson(const {
+      'world_id': 'world-unlaunched',
+      'tick_count': 0,
+      'sub_tick_no': 1,
+      'connect_count': 4,
+      'relation_status': 'none',
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorldInfoHeader(
+            world: world,
+            currentUid: 'user-self',
+            worldActionRunning: false,
+            onWorldAction: (_) async {},
+          ),
+        ),
+      ),
+    );
+
+    final summary = tester.widget<Text>(find.text('Tick 0-1 · 4 messages'));
+    expect(summary.style?.color, const Color(0xFF111111));
+    expect(
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('world-info-header-content')),
+          )
+          .height,
+      worldInfoHeaderHeight,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-launched-character-summary')),
+      findsNothing,
+    );
+    final button = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Request'),
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('world-header-action-button')),
+      ),
+      const Size(140, 35),
+    );
+    expect(button.style?.textStyle?.resolve(<WidgetState>{})?.fontSize, 16);
+    expect(
+      button.style?.backgroundColor?.resolve(<WidgetState>{}),
+      const Color(0xFFFF2442),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-progress-button-icon')),
+      findsNothing,
+    );
   });
 }

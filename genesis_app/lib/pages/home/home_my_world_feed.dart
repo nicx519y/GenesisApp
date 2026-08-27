@@ -807,7 +807,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     );
     final result = await Navigator.of(context).pushNamed<WorldPageResult>(
       RouteNames.world,
-      arguments: {'wid': item.wid, 'initialName': item.name},
+      arguments: {
+        'wid': item.wid,
+        'initialName': item.name,
+        'initiallyLaunched': true,
+      },
     );
     if (!mounted || result == null) return;
     _beginWorldDeletion(result.deletedWorldId);

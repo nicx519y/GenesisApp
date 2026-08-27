@@ -296,7 +296,7 @@ extension _WorldPageTickFlow on _WorldPageState {
         GenesisActionBoxAction<bool>(
           label: 'Request',
           value: true,
-          color: Color(0xFF2F9663),
+          color: Color(0xFFFF2442),
         ),
       ],
     );

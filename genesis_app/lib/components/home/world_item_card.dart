@@ -274,19 +274,31 @@ class _WorldSummary extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          item.title,
+          key: const ValueKey<String>('world-card-name'),
+          style: const TextStyle(
+            color: Color(0xFF4B6192),
+            fontSize: 14,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: Text(
-                item.title,
-                key: const ValueKey<String>('world-card-name'),
+                '${item.cardTickLabel} · ${formatStatCount(item.connectCnt)} messages',
+                key: const ValueKey<String>('world-card-tick-messages'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF4B6192),
-                  fontSize: 14,
-                  height: 1.1,
-                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF666666),
+                  fontSize: 12,
+                  height: 1.2,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
@@ -307,19 +319,6 @@ class _WorldSummary extends StatelessWidget {
               ),
             ],
           ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${item.cardTickLabel} · ${formatStatCount(item.connectCnt)} messages',
-          key: const ValueKey<String>('world-card-tick-messages'),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
-            color: Color(0xFF666666),
-            fontSize: 12,
-            height: 1.2,
-            fontWeight: FontWeight.w400,
-          ),
         ),
         if (item.progressSummary.isNotEmpty) ...[
           const SizedBox(height: 4),

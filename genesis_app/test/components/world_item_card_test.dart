@@ -114,8 +114,9 @@ void main() {
     );
 
     expect(timeRect.right, 390);
-    expect(timeRect.left, greaterThan(nameRect.left));
+    expect(timeRect.left, greaterThan(tickRect.left));
     expect(tickRect.top, greaterThan(nameRect.top));
+    expect(timeRect.top, moreOrLessEquals(tickRect.top));
     expect(narratorRect.top, greaterThan(tickRect.top));
     expect(characterRect.top, greaterThan(narratorRect.top));
   });
@@ -159,6 +160,41 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('world-card-character')),
       findsNothing,
+    );
+  });
+
+  testWidgets('wraps a long world name instead of truncating it', (
+    WidgetTester tester,
+  ) async {
+    final item = WorldListItem.fromJson(const <String, dynamic>{
+      'info': {
+        'world_id': 'w_long_name',
+        'world_name':
+            'A World Name That Needs More Than One Line To Be Displayed',
+        'created_at': '2998-01-01T00:00:00Z',
+      },
+      'stats': {'connect_cnt': 1},
+      'last_tick': {'tick_no': 1, 'sub_tick_no': 0},
+    });
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 260, child: WorldItemCard(item: item)),
+        ),
+      ),
+    );
+
+    final name = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('world-card-name')),
+    );
+    expect(name.maxLines, isNull);
+    expect(name.overflow, isNull);
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('world-card-name')))
+          .height,
+      greaterThan(16),
     );
   });
 

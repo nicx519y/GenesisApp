@@ -92,7 +92,11 @@ void main() {
     expect(
       loadingShell,
       contains(
-        'final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);',
+        'final collapsedPanelHeight = worldCollapsedPanelHeightFor(\n'
+        '      context,\n'
+        '      world: world,\n'
+        '      assumeLaunched: assumeLaunched,\n'
+        '    );',
       ),
     );
     expect(
