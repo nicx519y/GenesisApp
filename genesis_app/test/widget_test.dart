@@ -2130,6 +2130,13 @@ TransportResponse _v1Response(Object? data) {
   );
 }
 
+Finder _searchTabCount(String tab, String count) {
+  return find.descendant(
+    of: find.byKey(ValueKey<String>('search-tab-count-$tab')),
+    matching: find.text(count),
+  );
+}
+
 class _RecordingSearchTransport implements HttpTransport {
   final requests = <TransportRequest>[];
 
@@ -2148,71 +2155,103 @@ class _RecordingSearchTransport implements HttpTransport {
       };
     } else if (path == '/api/v1/origin/list') {
       data = {'list': const <Object?>[], 'total': 0};
-    } else if (path == '/api/v1/search') {
+    } else if (path == '/api/v2/search') {
+      final type = request.uri.queryParameters['type'] ?? '';
       data = {
         'keyword': request.uri.queryParameters['keyword'] ?? '',
-        'type': request.uri.queryParameters['type'] ?? '',
+        'type': type,
         'origins': {
           'total': 1,
           'pn': 1,
           'rn': 20,
-          'list': [
-            {
-              'info': {
-                'origin_id': 'o_search_1',
-                'origin_name': 'Search Origin',
-                'brief': 'Origin brief should not render',
-                'owner_name': 'Origin Owner',
-                'version_num': 3,
-                'updated_at': '2020-01-01T00:00:00Z',
-                'cover': '',
-              },
-              'stats': {'copy_cnt': 9, 'connect_cnt': 12, 'character_cnt': 8},
-            },
-          ],
+          'list': type == 'origin'
+              ? [
+                  {
+                    'origin_id': 'o_search_1',
+                    'origin_name': 'Search Origin',
+                    'origin_version': '3',
+                    'brief': 'Origin brief should not render',
+                    'language': 'en',
+                    'cover': '',
+                    'tags': <String>[],
+                    'characters': <Object?>[],
+                    'owner': {
+                      'uid': 'u_origin_owner',
+                      'name': 'Origin Owner',
+                      'avatar': '',
+                    },
+                    'stats': {
+                      'copy_cnt': 9,
+                      'discuss_cnt': 0,
+                      'connect_cnt': 12,
+                      'character_cnt': 8,
+                      'location_cnt': 0,
+                      'max_tick_cnt': 0,
+                    },
+                    'matches': [
+                      {
+                        'field': 'origin_name',
+                        'highlight_ranges': [
+                          {'start': 0, 'length': 6},
+                        ],
+                      },
+                    ],
+                    'matches_truncated': false,
+                  },
+                ]
+              : <Object?>[],
         },
         'worlds': {
           'total': 1,
           'pn': 1,
           'rn': 20,
-          'list': [
-            {
-              'info': {
-                'world_id': 'w_search_1',
-                'world_name': 'Search World',
-                'brief': 'World brief should not render',
-                'owner_name': 'World Owner',
-                'cover': '',
-              },
-              'stats': {
-                'tick_cnt': 6,
-                'connect_cnt': 4,
-                'player_cnt': 8,
-                'location_cnt': 1,
-              },
-            },
-          ],
+          'list': type == 'world'
+              ? [
+                  {
+                    'world_id': 'w_search_1',
+                    'world_name': 'Search World',
+                    'origin_id': 'o_search_1',
+                    'language': 'en',
+                    'cover': '',
+                    'owner': {
+                      'uid': 'u_world_owner',
+                      'name': 'World Owner',
+                      'avatar': '',
+                    },
+                    'created_at': 0,
+                    'matches': [
+                      {
+                        'field': 'world_name',
+                        'highlight_ranges': [
+                          {'start': 0, 'length': 6},
+                        ],
+                      },
+                    ],
+                  },
+                ]
+              : <Object?>[],
         },
         'users': {
           'total': 1,
           'pn': 1,
           'rn': 20,
-          'list': [
-            {
-              'user': {
-                'uid': 'u_search_1',
-                'name': 'Search User',
-                'bio': 'Bio',
-                'avatar': '',
-              },
-              'relation': {
-                'is_self': false,
-                'is_followed': false,
-                'followed_me': false,
-                'is_friend': false,
-              },
-            },
-          ],
+          'list': type == 'user'
+              ? [
+                  {
+                    'uid': 'u_search_1',
+                    'name': 'Search User',
+                    'avatar': '',
+                    'matches': [
+                      {
+                        'field': 'user_name',
+                        'highlight_ranges': [
+                          {'start': 0, 'length': 6},
+                        ],
+                      },
+                    ],
+                  },
+                ]
+              : <Object?>[],
         },
       };
     }
@@ -2909,6 +2948,78 @@ void main() {
     },
   );
 
+  testWidgets('Home refreshes on tab reentry, foreground, and route return', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      GenesisApp(
+        initialIndex: 1,
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: 'u_test',
+          initialAuthToken: 'backend-token',
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+
+    final initialRequestCount = transport
+        .requestsFor('/api/v1/world/list')
+        .length;
+    expect(initialRequestCount, greaterThan(0));
+
+    await tester.tap(find.text('Worldo'));
+    await tester.pumpAndSettle();
+    expect(
+      transport.requestsFor('/api/v1/world/list'),
+      hasLength(initialRequestCount),
+    );
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    expect(
+      transport.requestsFor('/api/v1/world/list'),
+      hasLength(initialRequestCount + 1),
+    );
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    expect(
+      transport.requestsFor('/api/v1/world/list'),
+      hasLength(initialRequestCount + 2),
+    );
+
+    final shellContext = tester.element(find.byType(AppShellPage));
+    Navigator.of(shellContext).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const Scaffold(body: Text('Covered Home')),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      transport.requestsFor('/api/v1/world/list'),
+      hasLength(initialRequestCount + 2),
+    );
+
+    Navigator.of(tester.element(find.text('Covered Home'))).pop();
+    await tester.pumpAndSettle();
+
+    expect(
+      transport.requestsFor('/api/v1/world/list'),
+      hasLength(initialRequestCount + 3),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    AppStartupCoordinator.resetForTesting();
+  });
+
   testWidgets('AppShell contains background billing recovery failures', (
     WidgetTester tester,
   ) async {
@@ -3220,6 +3331,7 @@ void main() {
     WidgetTester tester,
   ) async {
     await _pumpGenesisApp(tester);
+    await tester.pump();
 
     await tester.tap(find.text('Explore').first);
     await tester.pumpAndSettle();
@@ -3228,10 +3340,10 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    expect(find.text('All'), findsOneWidget);
-    expect(find.text('Worldo'), findsOneWidget);
-    expect(find.text('World'), findsOneWidget);
-    expect(find.text('User'), findsOneWidget);
+    expect(find.text('All'), findsNothing);
+    expect(_searchTabCount('origin', '0'), findsOneWidget);
+    expect(_searchTabCount('world', '0'), findsNothing);
+    expect(_searchTabCount('user', '0'), findsNothing);
     expect(find.text('No results.'), findsOneWidget);
 
     await tester.tap(find.text('Worldo'));
@@ -3245,15 +3357,18 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No results.'), findsOneWidget);
     expect(find.text('Worlds'), findsNothing);
+    expect(_searchTabCount('world', '0'), findsOneWidget);
 
     await tester.tap(find.text('User'));
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
     expect(find.text('No results.'), findsOneWidget);
     expect(find.text('Users'), findsNothing);
+    expect(_searchTabCount('user', '0'), findsOneWidget);
+    AppStartupCoordinator.resetForTesting();
   });
 
-  testWidgets('search page debounces v1 search request and renders sections', (
+  testWidgets('search page debounces v2 search request and renders sections', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingSearchTransport();
@@ -3273,56 +3388,49 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'reborn');
     await tester.pump(const Duration(milliseconds: 599));
-    expect(transport.requestsFor('/api/v1/search'), isEmpty);
+    expect(transport.requestsFor('/api/v2/search'), isEmpty);
 
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pumpAndSettle();
 
-    final searchRequests = transport.requestsFor('/api/v1/search');
+    final searchRequests = transport.requestsFor('/api/v2/search');
     expect(searchRequests, hasLength(1));
     expect(searchRequests.single.uri.queryParameters['keyword'], 'reborn');
-    expect(
-      searchRequests.single.uri.queryParameters.containsKey('type'),
-      false,
-    );
+    expect(searchRequests.single.uri.queryParameters['type'], 'origin');
     expect(searchRequests.single.uri.queryParameters['pn'], '1');
     expect(searchRequests.single.uri.queryParameters['rn'], '20');
-    expect(find.text('Worldos'), findsOneWidget);
+    expect(_searchTabCount('origin', '1'), findsOneWidget);
+    expect(_searchTabCount('world', '1'), findsNothing);
+    expect(_searchTabCount('user', '1'), findsNothing);
+    expect(find.text('Worldos'), findsNothing);
     expect(find.text('#Search Origin'), findsOneWidget);
     final title = tester.widget<Text>(find.text('#Search Origin'));
     expect(title.style?.fontSize, 14);
     expect(title.style?.fontWeight, FontWeight.w600);
-    expect(find.text('Worlds'), findsOneWidget);
+
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Search World'), findsOneWidget);
-    expect(find.text('Users'), findsOneWidget);
+    expect(
+      transport.requestsFor('/api/v2/search').last.uri.queryParameters['type'],
+      'world',
+    );
+    expect(_searchTabCount('world', '1'), findsOneWidget);
+
+    await tester.tap(find.text('User'));
+    await tester.pumpAndSettle();
+
     expect(find.text('Search User'), findsOneWidget);
+    expect(
+      transport.requestsFor('/api/v2/search').last.uri.queryParameters['type'],
+      'user',
+    );
+    expect(_searchTabCount('user', '1'), findsOneWidget);
     final searchUserUid = find.text('UID: u_search_1');
     expect(searchUserUid, findsOneWidget);
-    expect(
-      find.ancestor(of: searchUserUid, matching: find.byType(CopyableIdLabel)),
-      findsOneWidget,
-    );
-    final searchUserUidLabel = find.ancestor(
-      of: searchUserUid,
-      matching: find.byType(CopyableIdLabel),
-    );
-    expect(
-      find.descendant(
-        of: searchUserUidLabel,
-        matching: find.byIcon(Icons.copy_outlined),
-      ),
-      findsNothing,
-    );
     expect(find.text('Origin brief should not render'), findsNothing);
-    expect(find.text('World brief should not render'), findsNothing);
-    final subtitle = tester.widget<Text>(
-      find.textContaining('OID: o_search_1  Originator: Origin Owner'),
-    );
-    expect(subtitle.style?.fontSize, 12);
-    expect(subtitle.style?.fontWeight, FontWeight.w400);
-    expect(find.textContaining('Latest Version: V3'), findsOneWidget);
-    expect(find.text('WID: w_search_1  Owner: World Owner'), findsOneWidget);
-    expect(find.byType(StatItem), findsNWidgets(7));
+    AppStartupCoordinator.resetForTesting();
   });
 
   testWidgets('search page reruns the active query after session change', (
@@ -3349,14 +3457,14 @@ void main() {
     await tester.enterText(find.byType(TextField), 'reborn');
     await tester.pump(const Duration(milliseconds: 600));
     await tester.pumpAndSettle();
-    expect(transport.requestsFor('/api/v1/search'), hasLength(1));
+    expect(transport.requestsFor('/api/v2/search'), hasLength(1));
 
     await sessionStore.saveUid('u_logged_in');
     await sessionStore.saveAuthToken('backend-token');
     services.notifySessionChanged();
     await tester.pumpAndSettle();
 
-    final requests = transport.requestsFor('/api/v1/search');
+    final requests = transport.requestsFor('/api/v2/search');
     expect(requests, hasLength(2));
     expect(requests.last.uri.queryParameters['keyword'], 'reborn');
     expect(requests.last.uri.queryParameters['pn'], '1');
@@ -3375,7 +3483,7 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
 
-    expect(find.text('Worldos'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
     expect(find.textContaining('老肖'), findsWidgets);
   });
 
