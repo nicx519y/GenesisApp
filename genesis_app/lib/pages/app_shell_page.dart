@@ -55,6 +55,7 @@ class _AppShellPageState extends State<AppShellPage>
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
   late final ValueNotifier<bool> _meTabActiveNotifier;
   late final ValueNotifier<bool> _homeTabActiveNotifier;
+  late final ValueNotifier<bool> _worldoTabActiveNotifier;
   late final ValueNotifier<int> _homeTabActivationNotifier;
   late final ValueNotifier<int> _worldoTabActivationNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
@@ -92,6 +93,7 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 3);
     _meTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 4);
     _homeTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 0);
+    _worldoTabActiveNotifier = ValueNotifier<bool>(_selectedIndex == 1);
     _homeTabActivationNotifier = ValueNotifier<int>(0);
     _worldoTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
@@ -125,6 +127,7 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabActiveNotifier.dispose();
     _meTabActiveNotifier.dispose();
     _homeTabActiveNotifier.dispose();
+    _worldoTabActiveNotifier.dispose();
     _homeTabActivationNotifier.dispose();
     _worldoTabActivationNotifier.dispose();
     _unreadSummaryNotifier.dispose();
@@ -264,6 +267,7 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
     _meTabActiveNotifier.value = _selectedIndex == 4;
     _homeTabActiveNotifier.value = _selectedIndex == 0;
+    _worldoTabActiveNotifier.value = _selectedIndex == 1;
     _startPostLaunchWorkIfAllowed();
   }
 
@@ -427,6 +431,7 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
     _meTabActiveNotifier.value = _selectedIndex == 4;
     _homeTabActiveNotifier.value = _selectedIndex == 0;
+    _worldoTabActiveNotifier.value = _selectedIndex == 1;
     if (previousIndex != index) {
       _recordSelectedTabPageView();
       _notifyActiveTabActivated();
@@ -574,6 +579,7 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabActiveNotifier.value = _selectedIndex == 3;
     _meTabActiveNotifier.value = _selectedIndex == 4;
     _homeTabActiveNotifier.value = _selectedIndex == 0;
+    _worldoTabActiveNotifier.value = _selectedIndex == 1;
   }
 
   Widget _cachedTabPage(int index) {
@@ -589,6 +595,7 @@ class _AppShellPageState extends State<AppShellPage>
           isInitialPage: widget.initialIndex == 1,
           onForYouFirstPageReady: _handleWorldoForYouFirstPageReady,
           activationListenable: _worldoTabActivationNotifier,
+          isActiveListenable: _worldoTabActiveNotifier,
         ),
         3 => ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,
@@ -645,6 +652,8 @@ class _AppShellPageState extends State<AppShellPage>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kGenesisDefaultSystemUiOverlayStyle,
       child: Scaffold(
+        // Origin owns the iOS status-bar gesture so it can require two taps.
+        primary: _selectedIndex != 1,
         body: _buildBody(),
         bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,
