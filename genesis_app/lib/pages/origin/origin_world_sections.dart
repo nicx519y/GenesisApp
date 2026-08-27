@@ -36,13 +36,13 @@ class _OriginPreviewImage extends StatelessWidget {
 
   static const double _maxHeight = 360;
   static const double _aspectRatio = 2 / 3;
+  static const double _maxDevicePixelRatio = 2;
 
   final String url;
 
   @override
   Widget build(BuildContext context) {
     final viewerUrl = url.trim();
-    final imageUrl = viewerUrl;
     final fallback = Container(
       color: const Color(0xFFEFF1F4),
       alignment: Alignment.center,
@@ -59,6 +59,14 @@ class _OriginPreviewImage extends StatelessWidget {
             : maxHeight * _aspectRatio;
         final width = maxWidth.clamp(0.0, maxHeight * _aspectRatio).toDouble();
         final height = width / _aspectRatio;
+        final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+        final imageUrl = selectGenesisImageUrl(
+          viewerUrl,
+          logicalWidth: width,
+          logicalHeight: height,
+          devicePixelRatio: devicePixelRatio,
+          maxDevicePixelRatio: _maxDevicePixelRatio,
+        ).trim();
         final preview = Align(
           alignment: Alignment.centerLeft,
           child: SizedBox(
@@ -77,6 +85,7 @@ class _OriginPreviewImage extends StatelessWidget {
                   : GenesisStaticNetworkImage(
                       imageUrl: imageUrl,
                       fit: BoxFit.cover,
+                      maxDevicePixelRatio: _maxDevicePixelRatio,
                       placeholder: (_) => fallback,
                       errorWidget: (_, _) => fallback,
                     ),
@@ -89,6 +98,7 @@ class _OriginPreviewImage extends StatelessWidget {
           onTap: () => showGenesisImageViewer(
             context,
             imageUrls: [viewerUrl],
+            maxDevicePixelRatio: _maxDevicePixelRatio,
             previewImageProviders: [
               genesisImageViewerPreviewProvider(
                 context,
@@ -96,6 +106,7 @@ class _OriginPreviewImage extends StatelessWidget {
                 logicalWidth: width,
                 logicalHeight: height,
                 fit: BoxFit.cover,
+                maxDevicePixelRatio: _maxDevicePixelRatio,
               ),
             ],
           ),
