@@ -109,14 +109,7 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
           children: [
             widget.child,
             if (widget.bottomSpacing > 0)
-              const Padding(
-                padding: EdgeInsets.only(top: 24, bottom: 16),
-                child: Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Color(0xFFEFEFEF),
-                ),
-              ),
+              SizedBox(height: widget.bottomSpacing),
           ],
         ),
       ),

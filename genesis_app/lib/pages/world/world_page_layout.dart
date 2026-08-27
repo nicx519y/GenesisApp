@@ -21,8 +21,20 @@ extension _WorldPageLayout on _WorldPageState {
     });
   }
 
-  Widget _buildInitialLoadingScaffold(double topPadding, {WorldDetail? world}) {
-    final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
+  Widget _buildInitialLoadingScaffold(
+    double topPadding, {
+    WorldDetail? world,
+    bool assumeLaunched = false,
+  }) {
+    final collapsedPanelHeight = worldCollapsedPanelHeightFor(
+      context,
+      world: world,
+      assumeLaunched: assumeLaunched,
+    );
+    final infoHeaderHeight = worldInfoHeaderHeightFor(
+      world,
+      assumeLaunched: assumeLaunched,
+    );
     return Stack(
       children: [
         WorldDetailsPageScaffold(
@@ -45,7 +57,9 @@ extension _WorldPageLayout on _WorldPageState {
           fixedCollapsedPanelHeight: collapsedPanelHeight,
           fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
           contentBottomPaddingOverride: 0,
-          slivers: const [WorldDetailsLoadingContent()],
+          slivers: [
+            WorldDetailsLoadingContent(infoHeaderHeight: infoHeaderHeight),
+          ],
         ),
         _buildWorldBottomTagsOverlay(
           collapsedPanelHeight: collapsedPanelHeight,

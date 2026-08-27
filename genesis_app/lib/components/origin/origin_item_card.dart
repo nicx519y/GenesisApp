@@ -134,10 +134,35 @@ class OriginListItem {
   }
 }
 
-class OriginItemCard extends StatelessWidget {
-  const OriginItemCard({super.key, required this.item});
+class OriginItemCard extends StatefulWidget {
+  const OriginItemCard({super.key, required this.item, this.onCoverLoaded});
 
   final OriginListItem item;
+  final VoidCallback? onCoverLoaded;
+
+  @override
+  State<OriginItemCard> createState() => _OriginItemCardState();
+}
+
+class _OriginItemCardState extends State<OriginItemCard> {
+  var _coverLoadNotified = false;
+
+  @override
+  void didUpdateWidget(covariant OriginItemCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.item.oid != widget.item.oid ||
+        oldWidget.item.cover != widget.item.cover) {
+      _coverLoadNotified = false;
+    }
+  }
+
+  void _notifyCoverLoaded() {
+    if (_coverLoadNotified) return;
+    _coverLoadNotified = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onCoverLoaded?.call();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +176,7 @@ class OriginItemCard extends StatelessWidget {
             ? devicePixelRatio
             : 1.0;
         final resolvedImageUrl = selectGenesisImageUrl(
-          item.cover,
+          widget.item.cover,
           logicalWidth: width,
           logicalHeight: coverHeight,
           devicePixelRatio: effectiveDevicePixelRatio,
@@ -194,7 +219,8 @@ class OriginItemCard extends StatelessWidget {
                   child: const GenesisListLoadingBone(borderRadius: 0),
                 );
               }
-              return _LoadedOriginItemCard(item: item, cover: cover);
+              _notifyCoverLoaded();
+              return _LoadedOriginItemCard(item: widget.item, cover: cover);
             },
             errorBuilder: (context, error, stackTrace) => SizedBox(
               key: const ValueKey<String>('origin-item-card-loading-error'),

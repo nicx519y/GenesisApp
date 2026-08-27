@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../components/origin/stat_item.dart';
-import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
@@ -14,6 +11,15 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/stat_count_formatter.dart';
+
+bool _isUsableWorldCardTimestamp(String value) {
+  final text = value.trim();
+  if (text.isEmpty || text.toLowerCase() == 'null') return false;
+  final numeric = num.tryParse(text);
+  if (numeric != null) return numeric > 0;
+  final parsed = parseFlexibleTimestamp(text);
+  return parsed == null || parsed.year > 1970;
+}
 
 @immutable
 class WorldListItem {
@@ -52,7 +58,8 @@ class WorldListItem {
 
   factory WorldListItem.fromJson(Map<String, dynamic> json) {
     final info = json['info'] is Map ? asJsonMap(json['info']) : json;
-    final stats = json['stats'] is Map ? asJsonMap(json['stats']) : json;
+    final hasNestedStats = json['stats'] is Map;
+    final stats = hasNestedStats ? asJsonMap(json['stats']) : json;
     final lastTick = json['last_tick'] is Map
         ? asJsonMap(json['last_tick'])
         : (info['last_tick'] is Map
@@ -101,11 +108,12 @@ class WorldListItem {
       updatedAt: asString(info['updated_at']),
       lastProgressAt: asString(lastTick['created_at']),
       lastProgressSummary: asString(lastTick['narrator']),
-      lastProgressTickNo: asInt(
-        lastTick['tick_no'],
-        fallback: asInt(lastTick['tick_index']),
-      ),
-      lastProgressSubTickNo: asInt(lastTick['sub_tick_no']),
+      lastProgressTickNo: hasNestedStats && stats.containsKey('tick_cnt')
+          ? asInt(stats['tick_cnt'])
+          : asInt(lastTick['tick_no'], fallback: asInt(lastTick['tick_index'])),
+      lastProgressSubTickNo: hasNestedStats && stats.containsKey('sub_tick_no')
+          ? asInt(stats['sub_tick_no'])
+          : asInt(lastTick['sub_tick_no']),
       lastProgressCurrentTime: asString(
         lastTick['current_time'],
         fallback: asString(info['current_time']),
@@ -175,6 +183,20 @@ class WorldListItem {
 
   String get progressSummary => lastProgressSummary.trim();
 
+  String get cardTimestamp {
+    final lastTickTime = lastProgressAt.trim();
+    if (_isUsableWorldCardTimestamp(lastTickTime)) return lastTickTime;
+    final worldCreatedTime = createdAt.trim();
+    return _isUsableWorldCardTimestamp(worldCreatedTime)
+        ? worldCreatedTime
+        : '';
+  }
+
+  String get cardTickLabel {
+    final subTick = lastProgressSubTickNo > 0 ? '-$lastProgressSubTickNo' : '';
+    return 'Tick $lastProgressTickNo$subTick';
+  }
+
   String get progressTickTimeLabel {
     final parts = <String>[];
     if (lastProgressTickNo > 0) {
@@ -201,433 +223,145 @@ class WorldItemCard extends StatelessWidget {
     super.key,
     required this.item,
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
-    this.showPreviewImages = true,
-    this.showRecentChatTag = false,
     this.recentActivityTagLabel = '',
   });
 
   final WorldListItem item;
   final double thumbnailBorderRadius;
-  final bool showPreviewImages;
-  final bool showRecentChatTag;
   final String recentActivityTagLabel;
-
-  String get _resolvedRecentActivityTagLabel {
-    final label = recentActivityTagLabel.trim();
-    if (label.isNotEmpty) return label;
-    return showRecentChatTag ? 'Last Message' : '';
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final activityTagLabel = recentActivityTagLabel.trim();
+    return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        Stack(
           children: [
             _WorldImage(
               imageUrl: item.cover,
               width: 60,
-              height: 60,
+              height: 80,
               borderRadius: thumbnailBorderRadius,
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: _WorldSummary(
-                item: item,
-                recentActivityTagLabel: _resolvedRecentActivityTagLabel,
+            if (activityTagLabel.isNotEmpty)
+              Positioned(
+                left: 0,
+                bottom: 0,
+                child: RecentChatTag(label: activityTagLabel),
               ),
-            ),
           ],
         ),
-        const SizedBox(height: 8),
-        if (item.progressSummary.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _ProgressHeader(timestamp: item.lastProgressAt),
-          if (item.progressTickTimeLabel.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            _ProgressTickTime(label: item.progressTickTimeLabel),
-          ],
-          const SizedBox(height: 8),
-          Text(
-            item.progressSummary,
-            maxLines: 10,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF111111),
-              fontSize: 13,
-              height: 1.4,
-              fontWeight: FontWeight.w400,
-            ),
-          ),
-        ],
-        _CurrentUserStatusPreview(item: item),
-        if (showPreviewImages) _WorldPreviewImages(item: item),
+        const SizedBox(width: 14),
+        Expanded(child: _WorldSummary(item: item)),
       ],
-    );
-  }
-}
-
-class _CurrentUserStatusPreview extends StatelessWidget {
-  const _CurrentUserStatusPreview({required this.item});
-
-  final WorldListItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final character = item.myCharacter;
-    if (character == null) return const SizedBox.shrink();
-    final playerUid = _mapString(character, const ['player_uid']);
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: _CurrentUserStatusRow(
-        data: _CurrentUserStatusData(
-          metric: item.metric,
-          character: character,
-          currentUid: playerUid,
-        ),
-      ),
-    );
-  }
-}
-
-class _CurrentUserStatusData {
-  const _CurrentUserStatusData({
-    required this.metric,
-    required this.character,
-    required this.currentUid,
-  });
-
-  final Map<String, dynamic> metric;
-  final Map<String, dynamic> character;
-  final String currentUid;
-}
-
-class _CurrentUserStatusRow extends StatelessWidget {
-  const _CurrentUserStatusRow({required this.data});
-
-  final _CurrentUserStatusData data;
-
-  @override
-  Widget build(BuildContext context) {
-    final character = data.character;
-    final name = _mapString(character, const ['name'], fallback: 'Character');
-    final playerUid = _mapString(character, const ['player_uid']);
-    final username = _mapString(character, const ['player_username']);
-    final suffix = _characterNameSuffix(
-      currentUid: data.currentUid,
-      playerUid: playerUid,
-      username: username,
-      playerDeleted: entityDeleted(character['player_deleted']),
-    );
-    final isCharacterRole = _isCharacterRole(character);
-    final roleLabel = isCharacterRole ? 'Character' : 'Player';
-    final subtitle = _metricStatusText(data.metric, character);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(right: isCharacterRole ? 6 : 0),
-          child: GenesisCharacterAvatar(
-            url: _mapImageUrl(character, const ['avatar']),
-            name: name,
-            showStar: isCharacterRole,
-            starSize: 20,
-            showFallbackWhileLoading: false,
-            maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 2),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          text: name,
-                          children: [
-                            if (suffix.isNotEmpty)
-                              TextSpan(
-                                text: ' $suffix',
-                                style: const TextStyle(
-                                  color: Color(0xFF888888),
-                                ),
-                              ),
-                          ],
-                        ),
-                        style: const TextStyle(
-                          fontSize: 13,
-                          height: 1.15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      roleLabel,
-                      textAlign: TextAlign.right,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.15,
-                        fontWeight: FontWeight.w400,
-                        color: Color(0xFF8F8F8F),
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 1.35,
-                    fontWeight: FontWeight.w400,
-                    color: Color(0xFF666666),
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _ProgressTickTime extends StatelessWidget {
-  const _ProgressTickTime({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF4F4F8),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        label,
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Color(0xFF111111),
-          fontSize: 12,
-          height: 1.1,
-          fontWeight: FontWeight.w400,
-        ),
-      ),
     );
   }
 }
 
 class _WorldSummary extends StatelessWidget {
-  const _WorldSummary({
-    required this.item,
-    required this.recentActivityTagLabel,
-  });
+  const _WorldSummary({required this.item});
 
   final WorldListItem item;
-  final String recentActivityTagLabel;
 
   @override
   Widget build(BuildContext context) {
-    final tagLabel = recentActivityTagLabel.trim();
+    final timestamp = item.cardTimestamp;
+    final character = item.myCharacter;
+    final characterName = character == null
+        ? ''
+        : _mapString(character, const ['name'], fallback: 'Character');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Text(
+          item.title,
+          key: const ValueKey<String>('world-card-name'),
+          style: const TextStyle(
+            color: Color(0xFF4B6192),
+            fontSize: 14,
+            height: 1.1,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 4),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(
-              fit: FlexFit.loose,
+            Expanded(
               child: Text(
-                item.title,
+                '${item.cardTickLabel} · ${formatStatCount(item.connectCnt)} messages',
+                key: const ValueKey<String>('world-card-tick-messages'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  color: Color(0xFF4B6192),
-                  fontSize: 14,
-                  height: 1.1,
-                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF666666),
+                  fontSize: 12,
+                  height: 1.2,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
-            if (tagLabel.isNotEmpty) ...[
-              const SizedBox(width: 6),
-              RecentChatTag(label: tagLabel),
+            if (formatGenesisTimestamp(timestamp).isNotEmpty) ...[
+              const SizedBox(width: 10),
+              GenesisTimestampText(
+                key: const ValueKey<String>('world-card-time'),
+                timestamp: timestamp,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: const TextStyle(
+                  color: Color(0xFF8B8B8B),
+                  fontSize: 12,
+                  height: 1.1,
+                  fontWeight: FontWeight.w400,
+                ),
+              ),
             ],
           ],
         ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Flexible(
-              child: Text(
-                'WID: ${deletedAwareIdLabel(item.wid, deleted: item.deleted)}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _worldMetaStyle,
-              ),
-            ),
-            const SizedBox(width: 24),
-            Flexible(
-              child: Text(
-                'Owner: ${item.ownerLabel}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: _worldMetaStyle,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _WorldStatsRow(item: item),
-      ],
-    );
-  }
-}
-
-class _WorldPreviewImages extends StatelessWidget {
-  const _WorldPreviewImages({required this.item});
-
-  final WorldListItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    final previewImages = item.resolvedPreviewImages.take(2).toList();
-    if (previewImages.isEmpty) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Row(
-        children: [
-          for (final entry in previewImages.indexed) ...[
-            Expanded(
-              child: _WorldImage(
-                imageUrl: entry.$2,
-                height: 120,
-                borderRadius: GenesisImageRadii.contentValue,
-              ),
-            ),
-            if (entry.$1 != previewImages.length - 1) const SizedBox(width: 10),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _WorldStatsRow extends StatelessWidget {
-  const _WorldStatsRow({required this.item});
-
-  final WorldListItem item;
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 10,
-      runSpacing: 4,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        _Stat(iconAsset: tickStatIconAsset, value: item.tickCnt),
-        _Stat(iconAsset: connectStatIconAsset, value: item.connectCnt),
-        _Stat(
-          iconAsset: characterStatIconAsset,
-          preserveIconAssetColor: true,
-          value: item.aiCharacterCnt,
-        ),
-        _Stat(iconAsset: userStatIconAsset, value: item.playerCnt),
-      ],
-    );
-  }
-}
-
-class _Stat extends StatelessWidget {
-  const _Stat({
-    required this.iconAsset,
-    this.preserveIconAssetColor = false,
-    required this.value,
-  });
-
-  final String iconAsset;
-  final bool preserveIconAssetColor;
-  final int value;
-
-  @override
-  Widget build(BuildContext context) {
-    return StatItem(
-      iconAsset: iconAsset,
-      preserveIconAssetColor: preserveIconAssetColor,
-      iconSize: 11,
-      iconColor: Colors.black,
-      gap: 4,
-      text: formatStatCount(value),
-      textStyle: const TextStyle(
-        color: Colors.black,
-        fontSize: 12,
-        height: 1,
-        fontWeight: FontWeight.w400,
-      ),
-    );
-  }
-}
-
-class _ProgressHeader extends StatelessWidget {
-  const _ProgressHeader({required this.timestamp});
-
-  final Object? timestamp;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        const Icon(
-          MyFlutterApp.lastProgress,
-          color: Color(0xFFFF2442),
-          size: 14,
-        ),
-        const SizedBox(width: 8),
-        const Expanded(
-          child: Text(
-            'Last Progress',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Color(0xFF1D1D1D),
-              fontSize: 13,
-              height: 1,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        if (formatGenesisTimestamp(timestamp).isNotEmpty) ...[
-          const SizedBox(width: 10),
-          GenesisTimestampText(
-            timestamp: timestamp,
-            maxLines: 1,
+        if (item.progressSummary.isNotEmpty) ...[
+          const SizedBox(height: 4),
+          Text(
+            item.progressSummary,
+            key: const ValueKey<String>('world-card-narrator'),
+            maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF8B8B8B),
+              color: Color(0xFF666666),
               fontSize: 12,
-              height: 1.1,
+              height: 1.2,
               fontWeight: FontWeight.w400,
             ),
+          ),
+        ],
+        if (character != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            key: const ValueKey<String>('world-card-character'),
+            children: [
+              GenesisCharacterAvatar(
+                url: _mapImageUrl(character, const ['avatar']),
+                name: characterName,
+                size: 25,
+                showFallbackWhileLoading: false,
+                maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  characterName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF111111),
+                    fontSize: 12,
+                    height: 1.2,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ],
@@ -658,73 +392,6 @@ class _WorldImage extends StatelessWidget {
       maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
   }
-}
-
-const _worldMetaStyle = TextStyle(
-  color: Color(0xFF666666),
-  fontSize: 12,
-  height: 1.2,
-  fontWeight: FontWeight.w400,
-);
-
-bool _isCharacterRole(Map<String, dynamic> character) {
-  return _mapString(character, const ['player_uid']).isEmpty;
-}
-
-String _characterNameSuffix({
-  required String currentUid,
-  required String playerUid,
-  required String username,
-  required bool playerDeleted,
-}) {
-  if (playerUid.isNotEmpty && playerDeleted) {
-    return '($deletedEntityDisplayText)';
-  }
-  if (currentUid.isNotEmpty &&
-      playerUid.isNotEmpty &&
-      playerUid == currentUid) {
-    return '(Me)';
-  }
-  if (playerUid.isNotEmpty && username.isNotEmpty) return '($username)';
-  return '';
-}
-
-String _metricStatusText(
-  Map<String, dynamic> metric,
-  Map<String, dynamic> character,
-) {
-  final label = _mapString(metric, const ['label']);
-  final unit = _mapString(metric, const ['unit']);
-  final value = _resolvedMetricValueText(
-    character['metric_value'],
-    metric['default'],
-  );
-  if (label.isEmpty) return '$value$unit';
-  return '$label: $value$unit';
-}
-
-String _resolvedMetricValueText(Object? metricValue, Object? defaultValue) {
-  final parsedMetricValue = _metricNumber(metricValue);
-  final resolved = parsedMetricValue == null || parsedMetricValue == 0
-      ? defaultValue
-      : metricValue;
-  return _metricDisplayValue(resolved);
-}
-
-num? _metricNumber(Object? value) {
-  if (value is num) return value;
-  final text = '$value'.trim();
-  if (text.isEmpty || text == 'null') return null;
-  return num.tryParse(text);
-}
-
-String _metricDisplayValue(Object? value) {
-  if (value is num) {
-    return value % 1 == 0 ? value.toInt().toString() : value.toString();
-  }
-  final text = '$value'.trim();
-  if (text.isEmpty || text == 'null') return '0';
-  return text;
 }
 
 String _mapString(

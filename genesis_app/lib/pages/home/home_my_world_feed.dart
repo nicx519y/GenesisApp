@@ -837,7 +837,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     );
     final result = await Navigator.of(context).pushNamed<WorldPageResult>(
       RouteNames.world,
-      arguments: {'wid': item.wid, 'initialName': item.name},
+      arguments: {
+        'wid': item.wid,
+        'initialName': item.name,
+        'initiallyLaunched': true,
+      },
     );
     if (!mounted || result == null) return;
     _beginWorldDeletion(result.deletedWorldId);
@@ -954,7 +958,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                   isCollapsing: isCollapsing,
                   bottomSpacing: index == _items.length - 1 && !_isLoadingMore
                       ? 0
-                      : 41,
+                      : 30,
                   onCollapseCompensationChanged: (value) =>
                       _setCollapseCompensation(worldId, value),
                   onCollapsed: () => _handleWorldCollapseCompleted(worldId),
@@ -965,7 +969,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: WorldItemCard(
                         item: vm,
-                        showPreviewImages: false,
                         recentActivityTagLabel: activityTagLabel,
                       ),
                     ),

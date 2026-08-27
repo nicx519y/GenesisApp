@@ -3,43 +3,61 @@
 part of 'world_sections_library.dart';
 
 class WorldDetailsLoadingContent extends StatelessWidget {
-  const WorldDetailsLoadingContent();
+  const WorldDetailsLoadingContent({
+    this.infoHeaderHeight = worldInfoHeaderHeight,
+  });
+
+  final double infoHeaderHeight;
 
   @override
   Widget build(BuildContext context) {
-    return const SliverMainAxisGroup(
+    return SliverMainAxisGroup(
       slivers: [
-        SliverToBoxAdapter(child: SizedBox(height: worldStatsTopSpacerHeight)),
-        SliverToBoxAdapter(child: WorldInfoHeaderLoadingSkeleton()),
+        const SliverToBoxAdapter(
+          child: SizedBox(height: worldStatsTopSpacerHeight),
+        ),
+        SliverToBoxAdapter(
+          child: WorldInfoHeaderLoadingSkeleton(height: infoHeaderHeight),
+        ),
       ],
     );
   }
 }
 
 class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
-  const WorldInfoHeaderLoadingSkeleton();
+  const WorldInfoHeaderLoadingSkeleton({this.height = worldInfoHeaderHeight});
+
+  final double height;
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox(
-      key: ValueKey<String>('world-panel-info-row'),
-      height: worldInfoHeaderHeight,
-      child: Align(
+    return SizedBox(
+      key: const ValueKey<String>('world-panel-info-row'),
+      height: height,
+      child: const Align(
         alignment: Alignment.center,
         child: SizedBox(
-          height: worldInfoHeaderContentHeight,
+          height: worldCharacterAvatarLogicalSize,
           child: Row(
             children: [
               Expanded(
-                child: Wrap(
-                  spacing: 16,
-                  runSpacing: 8,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                child: Row(
                   children: [
-                    WorldLoadingStatBone(),
-                    WorldLoadingStatBone(),
-                    WorldLoadingStatBone(),
-                    WorldLoadingStatBone(),
+                    WorldLoadingBone(
+                      width: worldCharacterAvatarLogicalSize,
+                      height: worldCharacterAvatarLogicalSize,
+                      radius: 12,
+                    ),
+                    SizedBox(width: 8),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        WorldLoadingBone(width: 74, height: 13),
+                        SizedBox(height: 6),
+                        WorldLoadingBone(width: 58, height: 12),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -54,22 +72,6 @@ class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-class WorldLoadingStatBone extends StatelessWidget {
-  const WorldLoadingStatBone();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        WorldLoadingBone(width: 14, height: 14, radius: 7),
-        SizedBox(width: 4),
-        WorldLoadingBone(width: 14, height: 12),
-      ],
     );
   }
 }

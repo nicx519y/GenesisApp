@@ -35,6 +35,7 @@ class _OriginPreviewImage extends StatelessWidget {
     required this.width,
     required this.height,
   });
+  static const double _maxDevicePixelRatio = 2;
 
   final String url;
   final double width;
@@ -43,7 +44,13 @@ class _OriginPreviewImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final viewerUrl = url.trim();
-    final imageUrl = viewerUrl;
+    final imageUrl = selectGenesisImageUrl(
+      viewerUrl,
+      logicalWidth: width,
+      logicalHeight: height,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      maxDevicePixelRatio: _maxDevicePixelRatio,
+    ).trim();
     final fallback = Container(
       color: const Color(0xFFEFF1F4),
       alignment: Alignment.center,
@@ -68,6 +75,7 @@ class _OriginPreviewImage extends StatelessWidget {
               : GenesisStaticNetworkImage(
                   imageUrl: imageUrl,
                   fit: BoxFit.cover,
+                  maxDevicePixelRatio: _maxDevicePixelRatio,
                   placeholder: (_) => fallback,
                   errorWidget: (_, _) => fallback,
                 ),
@@ -81,6 +89,7 @@ class _OriginPreviewImage extends StatelessWidget {
       onTap: () => showGenesisImageViewer(
         context,
         imageUrls: [viewerUrl],
+        maxDevicePixelRatio: _maxDevicePixelRatio,
         previewImageProviders: [
           genesisImageViewerPreviewProvider(
             context,
@@ -88,6 +97,7 @@ class _OriginPreviewImage extends StatelessWidget {
             logicalWidth: width,
             logicalHeight: height,
             fit: BoxFit.cover,
+            maxDevicePixelRatio: _maxDevicePixelRatio,
           ),
         ],
       ),

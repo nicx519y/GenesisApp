@@ -21,6 +21,7 @@ class SecendTabs extends StatelessWidget {
     this.indicatorHeight,
     this.expanded = false,
     this.tabAlignment,
+    this.physics,
     this.verticalPadding = secendTabsVerticalPadding,
     this.onTap,
   });
@@ -39,6 +40,7 @@ class SecendTabs extends StatelessWidget {
   final double? indicatorHeight;
   final bool expanded;
   final TabAlignment? tabAlignment;
+  final ScrollPhysics? physics;
   final double verticalPadding;
   final ValueChanged<int>? onTap;
 
@@ -61,6 +63,7 @@ class SecendTabs extends StatelessWidget {
         indicatorHeight: indicatorHeight,
         expanded: expanded,
         tabAlignment: tabAlignment,
+        physics: physics,
         onTap: onTap,
       ),
     );

@@ -258,6 +258,31 @@ void main() {
     expect(response.shouldForceUpgrade, false);
   });
 
+  test(
+    'local mock Origin feed advances cursor and deduplicates exposure',
+    () async {
+      final api = GenesisApi(useMock: true);
+
+      final firstPage = await api.v1.origin.feed(startScore: 0, rn: 2);
+      final firstItems = firstPage['list']! as List;
+      final firstInfo = (firstItems.first as Map)['info']! as Map;
+      final firstOriginId = '${firstInfo['origin_id']}';
+
+      expect(firstItems, hasLength(2));
+      expect(firstPage['next_score'], 2);
+      expect(firstPage['has_more'], true);
+      expect(await api.v1.origin.reportFeedExposure([firstOriginId]), 1);
+      expect(await api.v1.origin.reportFeedExposure([firstOriginId]), 0);
+
+      final filteredPage = await api.v1.origin.feed(startScore: 0, rn: 2);
+      final filteredIds = (filteredPage['list']! as List)
+          .map((item) => '${((item as Map)['info'] as Map)['origin_id']}')
+          .toList(growable: false);
+      expect(filteredIds, isNot(contains(firstOriginId)));
+      expect(filteredPage['next_score'], 2);
+    },
+  );
+
   test('local mock exposes detail definition versions and map APIs', () async {
     final api = GenesisApi(useMock: true);
 
