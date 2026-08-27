@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
@@ -27,11 +28,13 @@ class OriginPage extends StatefulWidget {
     this.isInitialPage = false,
     this.onForYouFirstPageReady,
     this.activationListenable,
+    this.isActiveListenable,
   });
 
   final bool isInitialPage;
   final VoidCallback? onForYouFirstPageReady;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<bool>? isActiveListenable;
 
   @override
   State<OriginPage> createState() => _OriginPageState();
@@ -39,6 +42,7 @@ class OriginPage extends StatefulWidget {
 
 class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   static const _tabsHeight = 32.0;
+  static const _searchTopSpacing = 12.0;
   static const _scrollToTopDuration = Duration(milliseconds: 240);
   static const _forYouCategory = _OriginCategory(
     name: 'For you',
@@ -46,6 +50,8 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   );
 
   final _hotTagsCache = const _OriginHotTagsCache();
+  final _iosPrimaryScrollController = ScrollController();
+  final _statusBarTapClock = Stopwatch()..start();
   final Map<_OriginCategory, GlobalKey<_OriginFeedState>> _feedKeys = {};
   List<_OriginCategory> _categories = const [_forYouCategory];
   TabController? _categoryTabController;
@@ -54,6 +60,9 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   var _hotTagsSyncInFlight = false;
   var _retryHotTagsOnResume = false;
   AppLifecycleState? _lifecycleState;
+  Duration? _lastStatusBarTap;
+
+  bool get _isPageActive => widget.isActiveListenable?.value ?? true;
 
   @override
   void initState() {
@@ -78,6 +87,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   void dispose() {
     widget.activationListenable?.removeListener(_handleMainNavReselected);
     WidgetsBinding.instance.removeObserver(this);
+    _iosPrimaryScrollController.dispose();
     super.dispose();
   }
 
@@ -121,6 +131,26 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     } finally {
       _scrollToTopInProgress = false;
     }
+  }
+
+  void _scrollCurrentCategoryToTop() {
+    if (!_isPageActive) return;
+    final controller = _categoryTabController;
+    if (controller == null) return;
+    unawaited(_scrollCategoryToTop(controller.index));
+  }
+
+  @override
+  void handleStatusBarTap() {
+    if (defaultTargetPlatform != TargetPlatform.iOS || !_isPageActive) return;
+    final now = _statusBarTapClock.elapsed;
+    final lastTap = _lastStatusBarTap;
+    if (lastTap != null && now - lastTap <= kDoubleTapTimeout) {
+      _lastStatusBarTap = null;
+      _scrollCurrentCategoryToTop();
+      return;
+    }
+    _lastStatusBarTap = now;
   }
 
   @override
@@ -202,43 +232,64 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final categories = _categories;
     final labels = categories.map((item) => item.name).toList();
-    return DefaultTabController(
+    final page = DefaultTabController(
       length: categories.length,
       child: Builder(
         builder: (tabContext) {
           _categoryTabController = DefaultTabController.of(tabContext);
           return Column(
             children: [
-              GenesisTopSafeArea(
-                backgroundColor: Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: SizedBox(
-                    height: kGenesisTopBarHeight + 4,
-                    child: Align(
-                      alignment: Alignment.topCenter,
+              Stack(
+                children: [
+                  GenesisTopSafeArea(
+                    backgroundColor: Colors.white,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: SizedBox(
-                        height: kGenesisTopBarHeight,
-                        child: Transform.translate(
-                          offset: const Offset(0, 5),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: SearchBarPlaceholder(
-                                  onTap: () {
-                                    Navigator.of(
-                                      context,
-                                    ).pushNamed(RouteNames.search);
-                                  },
-                                ),
+                        height: kGenesisTopBarHeight + 4,
+                        child: Align(
+                          alignment: Alignment.topCenter,
+                          child: SizedBox(
+                            height: kGenesisTopBarHeight,
+                            child: Transform.translate(
+                              offset: const Offset(0, 5),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: SearchBarPlaceholder(
+                                      onTap: () {
+                                        Navigator.of(
+                                          context,
+                                        ).pushNamed(RouteNames.search);
+                                      },
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
-                ),
+                  if (defaultTargetPlatform == TargetPlatform.android)
+                    Positioned(
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      height:
+                          GenesisSafeAreaInsets.top(context) +
+                          _searchTopSpacing,
+                      child: GestureDetector(
+                        key: const ValueKey<String>(
+                          'origin-android-scroll-to-top-zone',
+                        ),
+                        behavior: HitTestBehavior.opaque,
+                        onDoubleTap: _scrollCurrentCategoryToTop,
+                        child: const SizedBox.expand(),
+                      ),
+                    ),
+                ],
               ),
               SizedBox(
                 height: _tabsHeight,
@@ -274,6 +325,11 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
           );
         },
       ),
+    );
+    if (defaultTargetPlatform != TargetPlatform.iOS) return page;
+    return PrimaryScrollController(
+      controller: _iosPrimaryScrollController,
+      child: page,
     );
   }
 }

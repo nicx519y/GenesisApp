@@ -5485,7 +5485,7 @@ void main() {
         MaterialApp(
           home: AppServicesScope(
             services: await _testServices(transport: transport, useMock: false),
-            child: const OriginPage(),
+            child: const Scaffold(body: OriginPage()),
           ),
         ),
       );
@@ -5584,6 +5584,122 @@ void main() {
         tester.state<ScrollableState>(feedScrollableFinder).position.pixels,
         0,
       );
+    },
+  );
+
+  testWidgets('Origin returns to top after two iOS status bar taps', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      AppStartupCoordinator.resetForTesting();
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const AppShellPage(initialIndex: 1),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final feedFinder = find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      );
+      final feedScrollableFinder = find.descendant(
+        of: feedFinder,
+        matching: find.byType(Scrollable),
+      );
+      await tester.drag(feedFinder, const Offset(0, -400));
+      await tester.pumpAndSettle();
+
+      final scrollableState = tester.state<ScrollableState>(
+        feedScrollableFinder,
+      );
+      expect(scrollableState.position.pixels, greaterThan(0));
+
+      Future<void> sendStatusBarTap() {
+        return tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+          SystemChannels.statusBar.name,
+          SystemChannels.statusBar.codec.encodeMethodCall(
+            const MethodCall('handleScrollToTop'),
+          ),
+          (_) {},
+        );
+      }
+
+      await sendStatusBarTap();
+      await tester.pump();
+      expect(scrollableState.position.pixels, greaterThan(0));
+
+      await sendStatusBarTap();
+      await tester.pumpAndSettle();
+      expect(scrollableState.position.pixels, 0);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+      AppStartupCoordinator.resetForTesting();
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
+  testWidgets(
+    'Origin Android top zone ends at search field and double tap scrolls up',
+    (WidgetTester tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        final transport = _RecordingV1ListTransport();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppServicesScope(
+              services: await _testServices(
+                transport: transport,
+                useMock: false,
+              ),
+              child: const OriginPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final zoneFinder = find.byKey(
+          const ValueKey<String>('origin-android-scroll-to-top-zone'),
+        );
+        final searchFinder = find.byType(SearchBarPlaceholder);
+        final originRect = tester.getRect(find.byType(OriginPage));
+        final zoneRect = tester.getRect(zoneFinder);
+        final searchRect = tester.getRect(searchFinder);
+        expect(zoneRect.left, originRect.left);
+        expect(zoneRect.right, originRect.right);
+        expect(zoneRect.top, originRect.top);
+        expect(zoneRect.bottom, searchRect.top);
+
+        final feedFinder = find.byKey(
+          const PageStorageKey<String>('origin-feed-For you-foryou'),
+        );
+        final feedScrollableFinder = find.descendant(
+          of: feedFinder,
+          matching: find.byType(Scrollable),
+        );
+        await tester.drag(feedFinder, const Offset(0, -400));
+        await tester.pumpAndSettle();
+
+        final scrollableState = tester.state<ScrollableState>(
+          feedScrollableFinder,
+        );
+        expect(scrollableState.position.pixels, greaterThan(0));
+
+        await tester.tap(zoneFinder);
+        await tester.pump(kDoubleTapMinTime);
+        expect(scrollableState.position.pixels, greaterThan(0));
+
+        await tester.tap(zoneFinder);
+        await tester.pumpAndSettle();
+        expect(scrollableState.position.pixels, 0);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
     },
   );
 
