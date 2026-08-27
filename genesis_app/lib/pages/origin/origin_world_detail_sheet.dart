@@ -1035,7 +1035,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     ],
                   ),
                   if (canEditOrigin) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 10),
                     _OriginInlineEditAction(
                       onTap: () async {
                         await Navigator.of(context).pushNamed(
@@ -1132,42 +1132,23 @@ class _OriginInfoStat extends StatelessWidget {
 class _OriginInlineEditAction extends StatelessWidget {
   const _OriginInlineEditAction({required this.onTap});
 
-  static const Color _color = Color(0xFF4B6192);
-
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return GenesisPrimaryButton(
       key: const ValueKey('origin-inline-edit-worldo'),
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(4),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SvgPicture.asset(
-              editPencilLineIconAsset,
-              width: 16,
-              height: 16,
-              colorFilter: const ColorFilter.mode(_color, BlendMode.srcIn),
-            ),
-            const SizedBox(width: 4),
-            const Text(
-              'Edit Worldo',
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.2,
-                fontWeight: FontWeight.w500,
-                color: _color,
-                decoration: TextDecoration.none,
-              ),
-            ),
-          ],
-        ),
-      ),
+      label: 'Edit Worldo',
+      onPressed: onTap,
+      height: 35,
+      width: 140,
+      backgroundColor: const Color(0xFFFF2442),
+      disabledBackgroundColor: const Color(0xFFFF2442).withValues(alpha: 0.62),
+      foregroundColor: Colors.white,
+      fontSize: 16,
+      padding: EdgeInsets.zero,
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
     );
   }
 }

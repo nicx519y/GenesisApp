@@ -93,7 +93,21 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                     ),
                     Column(
                       children: [
+                        const Text(
+                          'Sign up and get 200 Gems!',
+                          key: ValueKey<String>('signed-out-gems-promo'),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFFFF2442),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
                         LoginProviderButtons(
+                          key: const ValueKey<String>(
+                            'signed-out-login-buttons',
+                          ),
                           loggingInProvider: widget.loggingInProvider,
                           onLogin: widget.onLogin,
                         ),

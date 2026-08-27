@@ -63,6 +63,7 @@ class WorldPage extends StatefulWidget {
     required this.wid,
     this.waitForTick1 = false,
     this.initialWorldDetail,
+    this.initiallyLaunched = false,
     this.initialName = '',
     this.initialLocationId = '',
   });
@@ -70,6 +71,7 @@ class WorldPage extends StatefulWidget {
   final String wid;
   final bool waitForTick1;
   final WorldDetail? initialWorldDetail;
+  final bool initiallyLaunched;
   final String initialName;
   final String initialLocationId;
 
@@ -477,7 +479,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           ),
         );
       }
-      return _buildInitialLoadingScaffold(topPadding);
+      return _buildInitialLoadingScaffold(
+        topPadding,
+        world: widget.initialWorldDetail,
+        assumeLaunched: widget.initiallyLaunched,
+      );
     }
     if (_renderStage != _WorldPageRenderStage.content) {
       _scheduleContentMountAfterDetailShellFrame();
@@ -543,7 +549,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         : points;
     final recentMapLocationIds = _recentChatLocationPathIds;
     final eventMapLocationIds = _currentTickEventLocationPathIds;
-    final collapsedPanelHeight = worldCollapsedPanelHeightFor(context);
+    final collapsedPanelHeight = worldCollapsedPanelHeightFor(
+      context,
+      world: world,
+    );
     Widget buildWorldMapPage(int tabIndex, {required bool pointMode}) {
       final preparingInitialTilemap =
           _initialLocationChatEntry && _activeChatLocationId.isNotEmpty;
@@ -637,6 +646,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       ),
       WorldFeedContent(
         world: world,
+        currentUid: _currentUid,
         worldActionRunning: _worldActionRunning,
         onWorldAction: _runWorldAction,
         onPullUp: () => _openWorldBottomSheet(WorldBottomSheetKind.events),

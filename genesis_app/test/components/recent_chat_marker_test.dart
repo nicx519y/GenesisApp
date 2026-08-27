@@ -28,6 +28,10 @@ void main() {
     expect(_tagColor(tester, 'last-message'), const Color(0xFFE8F5EF));
     expect(_tagColor(tester, 'last-tick'), const Color(0xFFEAF2FF));
     expect(_tagColor(tester, 'last-launch'), const Color(0xFFFFF0E3));
+    expect(
+      _tagDecoration(tester, 'last-message').borderRadius,
+      BorderRadius.circular(4),
+    );
 
     final recentIcon = tester.widget<RecentChatIcon>(
       find.byType(RecentChatIcon),
@@ -62,8 +66,12 @@ void main() {
 }
 
 Color? _tagColor(WidgetTester tester, String key) {
+  return _tagDecoration(tester, key).color;
+}
+
+BoxDecoration _tagDecoration(WidgetTester tester, String key) {
   final container = tester.widget<Container>(
     find.byKey(ValueKey<String>('recent-activity-tag-$key')),
   );
-  return (container.decoration as BoxDecoration?)?.color;
+  return container.decoration! as BoxDecoration;
 }

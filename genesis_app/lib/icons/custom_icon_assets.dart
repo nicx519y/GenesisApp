@@ -57,10 +57,10 @@ const String bottomNavOriginPressIconAsset =
     'assets/custom-icons/svg/bottom_nav_origin_press.svg';
 const String bottomNavCreateIconAsset =
     'assets/custom-icons/svg/bottom_nav_create.svg';
-const String bottomNavMessagesIconAsset =
-    'assets/custom-icons/svg/bottom_nav_messages.svg';
-const String bottomNavMessagesPressIconAsset =
-    'assets/custom-icons/svg/bottom_nav_messages_press.svg';
+const String bottomNavInboxIconAsset =
+    'assets/custom-icons/svg/bottom_nav_inbox.svg';
+const String bottomNavInboxPressIconAsset =
+    'assets/custom-icons/svg/bottom_nav_inbox_press.svg';
 const String bottomNavMeIconAsset = 'assets/custom-icons/svg/bottom_nav_me.svg';
 const String bottomNavMePressIconAsset =
     'assets/custom-icons/svg/bottom_nav_me_press.svg';
