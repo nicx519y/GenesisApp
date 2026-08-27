@@ -22862,7 +22862,7 @@ void main() {
     expect(currentTilemap().animationsPaused, isFalse);
   });
 
-  testWidgets('world route slides over its matching loading backdrop', (
+  testWidgets('world route shows its real shell during initial Android push', (
     WidgetTester tester,
   ) async {
     const viewportSize = Size(400, 800);
@@ -22907,45 +22907,13 @@ void main() {
     final mapBackground = find.byKey(
       const ValueKey<String>('world-map-loading-background'),
     );
-    final transitionBackground = find.byKey(
-      const ValueKey<String>('world-route-transition-background'),
+    expect(
+      find.byKey(const ValueKey<String>('world-route-transition-background')),
+      findsNothing,
     );
-    final transitionMapBackground = find.byKey(
-      const ValueKey<String>('world-route-transition-map-background'),
-    );
-    final transitionPanelBackground = find.byKey(
-      const ValueKey<String>('world-route-transition-panel-background'),
-    );
-    expect(transitionBackground, findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('world-route-opaque-slide-transition')),
-      findsOneWidget,
-    );
-    expect(transitionMapBackground, findsOneWidget);
-    expect(transitionPanelBackground, findsOneWidget);
-
-    final expectedMapBackground = tilemapVisualStyleFor(
-      tilemapDefaultVisualMode,
-    ).backgroundColor;
-    expect(
-      tester.widget<ColoredBox>(transitionBackground).color,
-      expectedMapBackground,
-    );
-    expect(
-      tester.widget<ColoredBox>(transitionMapBackground).color,
-      expectedMapBackground,
-    );
-    expect(
-      (tester.widget<DecoratedBox>(transitionPanelBackground).decoration
-              as BoxDecoration)
-          .color,
-      Colors.white,
-    );
-    expect(
-      tester.getSize(transitionPanelBackground).height,
-      worldCollapsedPanelBaseHeight +
-          worldLaunchedInfoHeaderHeight -
-          worldInfoHeaderHeight,
+      findsNothing,
     );
     expect(
       tester
@@ -22960,9 +22928,15 @@ void main() {
     expect(worldRoute.transitionDuration, greaterThan(Duration.zero));
     expect(routeAnimation.value, 0);
 
-    final restingMapLeft = tester.getRect(transitionMapBackground).left;
-    final initialMapRect = tester.getRect(mapBackground);
-    expect(initialMapRect.left, greaterThan(restingMapLeft));
+    final pageScaffold = find.descendant(
+      of: find.byType(WorldDetailsPageScaffold),
+      matching: find.byType(Scaffold),
+    );
+    final initialPageRect = tester.getRect(pageScaffold);
+    final initialPanelRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-panel-info-row')),
+    );
+    expect(initialPageRect.left, 0);
 
     await tester.pump(
       Duration(microseconds: worldRoute.transitionDuration.inMicroseconds ~/ 2),
@@ -22970,19 +22944,23 @@ void main() {
 
     expect(routeAnimation.value, greaterThan(0));
     expect(routeAnimation.value, lessThan(1));
-    final midTransitionMapRect = tester.getRect(mapBackground);
-    expect(midTransitionMapRect.left, lessThan(initialMapRect.left));
-    expect(midTransitionMapRect.left, greaterThan(restingMapLeft));
-    expect(
-      tester.widget<ColoredBox>(mapBackground).color,
-      expectedMapBackground,
+    final midTransitionPageRect = tester.getRect(pageScaffold);
+    final midTransitionPanelRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-panel-info-row')),
     );
+    expect(midTransitionPageRect, initialPageRect);
+    expect(midTransitionPanelRect, initialPanelRect);
 
     await tester.pump(worldRoute.transitionDuration);
 
     expect(routeAnimation.value, 1);
-    expect(transitionBackground, findsNothing);
-    expect(tester.getRect(mapBackground).left, closeTo(restingMapLeft, 0.01));
+    expect(tester.getRect(pageScaffold), initialPageRect);
+    expect(
+      tester.getRect(
+        find.byKey(const ValueKey<String>('world-panel-info-row')),
+      ),
+      initialPanelRect,
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     worldDetailCompleter.complete(transport._jsonResponse({}));
