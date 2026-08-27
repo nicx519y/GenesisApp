@@ -333,9 +333,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       if (_myUserId.isEmpty) _rememberMyUserId(_mySenderId);
       await service.join(locationId: widget.locationId);
       _joinedLocation = true;
+      _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinDone');
     } catch (e) {
       _joinedLocation = false;
+      _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinFailed', details: {'error': '$e'});
       if (!mounted) return;
       _setLocationChatState(() {
@@ -579,8 +581,16 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
 
   void _handleChatroomState(WorldChatroomState state) {
     if (!mounted) return;
+    if (state.joinedLocationId == widget.locationId) {
+      _optimisticSelfOccupancy = false;
+    }
     final service = _service;
     if (service != null) _syncSenderIdentity(service);
+    if (widget.active &&
+        (state.joinedLocationId == widget.locationId ||
+            _optimisticSelfOccupancy)) {
+      _lastActiveOccupants = _roomOccupantsForCurrentLocation(state);
+    }
     if (widget.active &&
         widget.isLeafLocation &&
         service != null &&

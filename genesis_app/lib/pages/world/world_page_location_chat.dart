@@ -171,6 +171,7 @@ extension _WorldPageLocationChat on _WorldPageState {
         'descriptor': _debugDescriptor(descriptor),
       },
     );
+    _pendingLocationChatLeaveId = '';
     if (previousActiveId.isNotEmpty && previousActiveId != locationId) {
       if (!descriptor.isLeafLocation) {
         unawaited(_leaveCachedLocationChat(previousActiveId));
@@ -268,7 +269,7 @@ extension _WorldPageLocationChat on _WorldPageState {
     if (locationId.isEmpty) return;
     final closingInitialLocationChat = _initialLocationChatEntry;
     FocusManager.instance.primaryFocus?.unfocus();
-    unawaited(_leaveCachedLocationChat(locationId));
+    _pendingLocationChatLeaveId = locationId;
     _setWorldPageState(() {
       _activeChatLocationId = '';
       _locationChatPageCache.deactivate();
@@ -295,6 +296,13 @@ extension _WorldPageLocationChat on _WorldPageState {
         _setWorldPageState(() => _locationChatTransitionsEnabled = true);
       });
     }
+  }
+
+  void _completePendingLocationChatLeave() {
+    final locationId = _pendingLocationChatLeaveId;
+    _pendingLocationChatLeaveId = '';
+    if (locationId.isEmpty || _activeChatLocationId.isNotEmpty) return;
+    unawaited(_leaveCachedLocationChat(locationId));
   }
 
   void _handleWorldPopBlocked() {

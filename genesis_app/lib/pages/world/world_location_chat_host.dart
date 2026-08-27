@@ -246,6 +246,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
     required this.chatroom,
     required this.cache,
     required this.onBack,
+    this.onOverlayDismissed,
     required this.onPanelReady,
     required this.isMessageQueueInitializationCovered,
     required this.onCharactersMovedLocationTap,
@@ -258,6 +259,7 @@ class WorldLocationChatRouterHost extends StatefulWidget {
   final WorldChatroomService? chatroom;
   final WorldLocationChatPageCache cache;
   final VoidCallback onBack;
+  final VoidCallback? onOverlayDismissed;
   final ValueChanged<String> onPanelReady;
   final bool Function(String locationId) isMessageQueueInitializationCovered;
   final ChatCharacterMovementTap onCharactersMovedLocationTap;
@@ -294,8 +296,10 @@ class WorldLocationChatRouterHostState
   }
 
   void _handleDismissed() {
-    if (_displayLocationId.isEmpty) return;
-    setState(() => _displayLocationId = '');
+    if (_displayLocationId.isNotEmpty) {
+      setState(() => _displayLocationId = '');
+    }
+    widget.onOverlayDismissed?.call();
   }
 
   @override

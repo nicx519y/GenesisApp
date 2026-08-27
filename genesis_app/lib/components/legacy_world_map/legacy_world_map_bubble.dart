@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../world_map_contract.dart';
+import 'legacy_world_map_background.dart';
 
 const Duration legacyWorldMapBubbleDisplayDuration = Duration(seconds: 4);
 const Duration legacyWorldMapBubbleGapDuration = Duration(milliseconds: 500);
@@ -50,7 +51,7 @@ class LegacyWorldMapPositionedMessageBubble extends StatelessWidget {
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
-  static const double _avatarSize = 42;
+  static const double _avatarSize = legacyWorldMapAvatarImageLogicalSize;
   static const double _bubbleGap = 8;
   static const double _pointerWidth = worldMapMessageBubblePointerWidth;
   static const double _pointerHeight = 10;
@@ -107,7 +108,9 @@ class _MapMessageBubble extends StatelessWidget {
           width: 12,
           height: 10,
           child: CustomPaint(
-            painter: const _MapMessageBubblePointerPainter(color: Colors.white),
+            painter: const _MapMessageBubblePointerPainter(
+              color: worldMapMessageBubbleBackgroundColor,
+            ),
           ),
         ),
         Padding(
@@ -115,22 +118,11 @@ class _MapMessageBubble extends StatelessWidget {
           child: SizedBox(
             key: const ValueKey<String>('world-map-message-bubble-body'),
             width: double.infinity,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.16),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
+            child: WorldMapMessageBubbleSurface(
               child: Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: worldMapMessageBubbleHorizontalPadding,
-                  vertical: 9,
+                  vertical: worldMapMessageBubbleVerticalPadding,
                 ),
                 child: Text(
                   text,

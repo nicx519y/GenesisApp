@@ -2707,7 +2707,7 @@ void main() {
       await tester.pumpWidget(panel(active: true));
       await tester.pump();
       final title = find.text('The Wisteria Terrace With A Long Name');
-      final count = find.text('0');
+      final count = find.text('1');
       final modelEntry = find.byKey(const ValueKey('memory-model-entry'));
       final activeTitleRect = tester.getRect(title);
       final activeCountRect = tester.getRect(count);
@@ -2723,6 +2723,50 @@ void main() {
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
+    },
+  );
+
+  testWidgets(
+    'location chat adds self optimistically and retains the count on exit',
+    (tester) async {
+      final connected = await _connectedLocationChatTestService();
+
+      Widget panel({required bool active}) {
+        return AppServicesScope(
+          services: connected.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              key: const ValueKey<String>('optimistic-occupant-panel'),
+              worldId: 'world-current',
+              locationId: 'location-current',
+              locationName: 'Wisteria Terrace',
+              active: active,
+              service: connected.service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        );
+      }
+
+      await tester.pumpWidget(panel(active: true));
+      expect(find.text('1'), findsOneWidget);
+
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => connected.service.state.joinedLocationId == 'location-current',
+      );
+      expect(find.text('1'), findsOneWidget);
+
+      unawaited(connected.service.leave());
+      await tester.pumpWidget(panel(active: false));
+      await tester.pump();
+
+      expect(find.text('1'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(connected.service.dispose());
     },
   );
 

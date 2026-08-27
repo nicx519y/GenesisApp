@@ -7,14 +7,39 @@ import 'world_point.dart';
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
 
 const double worldMapMessageBubbleMaxWidth = 220;
-const double worldMapMessageBubbleHorizontalPadding = 12;
+const double worldMapMessageBubbleHorizontalPadding = 11;
+const double worldMapMessageBubbleVerticalPadding = 8;
 const double worldMapMessageBubblePointerWidth = 12;
+const Color worldMapMessageBubbleBackgroundColor = Color(0xCC3A3942);
+const BorderRadius worldMapMessageBubbleBorderRadius = BorderRadius.all(
+  Radius.circular(8),
+);
 const TextStyle worldMapMessageBubbleTextStyle = TextStyle(
-  color: Color(0xFF1F1F1F),
-  fontSize: 11,
-  height: 1.25,
+  color: Color(0xFFF4F3F6),
+  fontSize: 12,
+  height: 1.2,
   fontWeight: FontWeight.w400,
 );
+
+class WorldMapMessageBubbleSurface extends StatelessWidget {
+  const WorldMapMessageBubbleSurface({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: worldMapMessageBubbleBorderRadius,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: worldMapMessageBubbleBackgroundColor,
+          borderRadius: worldMapMessageBubbleBorderRadius,
+        ),
+        child: child,
+      ),
+    );
+  }
+}
 
 TextStyle resolveWorldMapMessageBubbleTextStyle(BuildContext context) {
   return DefaultTextStyle.of(

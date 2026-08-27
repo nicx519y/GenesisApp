@@ -1,0 +1,29 @@
+import 'package:flutter/material.dart';
+
+const double kChatScenePlateBubbleHorizontalPadding = 13;
+const double kChatScenePlateBubbleVerticalPadding = 11;
+const EdgeInsets kChatScenePlateBubblePadding = EdgeInsets.symmetric(
+  horizontal: kChatScenePlateBubbleHorizontalPadding,
+  vertical: kChatScenePlateBubbleVerticalPadding,
+);
+const Color kChatScenePlateAiBubbleColor = Color(0x993A3942);
+const Color kChatScenePlatePlayerRoleBorderColor = Color(0xFFFF2442);
+const double kChatScenePlateBubbleBlurSigma = 14;
+const TextStyle kChatScenePlateBubbleTextStyle = TextStyle(
+  color: Color(0xFFF4F3F6),
+  fontSize: 14,
+  height: 1.4,
+  fontWeight: FontWeight.w400,
+);
+const BorderRadius kChatScenePlateAiBubbleBorderRadius = BorderRadius.only(
+  topLeft: Radius.circular(6),
+  topRight: Radius.circular(14),
+  bottomRight: Radius.circular(14),
+  bottomLeft: Radius.circular(14),
+);
+const BorderRadius kChatScenePlateSelfBubbleBorderRadius = BorderRadius.only(
+  topLeft: Radius.circular(14),
+  topRight: Radius.circular(6),
+  bottomRight: Radius.circular(14),
+  bottomLeft: Radius.circular(14),
+);

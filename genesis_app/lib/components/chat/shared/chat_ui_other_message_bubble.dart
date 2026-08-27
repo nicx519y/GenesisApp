@@ -39,7 +39,7 @@ class ChatOtherMessageBubble extends StatelessWidget {
                         seed: message.senderName,
                         borderColor: message.isPlayerControlledRole
                             ? (style.useScenePlateBubbleGeometry
-                                  ? GenesisColors.create
+                                  ? kChatScenePlatePlayerRoleBorderColor
                                   : GenesisColors.brand)
                             : null,
                         style: style,

@@ -487,6 +487,26 @@ void main() {
     expect(bubbles.single.content, 'Open before sunrise.');
   });
 
+  test('origin map avatars have no AI star marker or white frame trigger', () {
+    final avatar = originMapAvatarForTesting(
+      OriginCharacter(
+        id: 7,
+        characterId: 'char_1',
+        originId: 1,
+        name: 'Casey',
+        avatar: '',
+        tags: '',
+        currentLocationId: 12,
+        initialLocationId: 12,
+        createdAt: null,
+        updatedAt: null,
+      ),
+    );
+
+    expect(avatar.showStar, isFalse);
+    expect(avatar.isPlayerControlledRole, isFalse);
+  });
+
   test(
     'origin map bubbles ignore dialogue when character is at another location',
     () {

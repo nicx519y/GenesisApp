@@ -8,7 +8,7 @@ import '../../utils/genesis_image_resource.dart';
 
 const String kWorldMapFallbackBackgroundAsset =
     'assets/images/map_default/root_default.webp';
-const double legacyWorldMapAvatarImageLogicalSize = 42;
+const double legacyWorldMapAvatarImageLogicalSize = 36;
 const double legacyWorldMapPreviewImageLogicalWidth = 120;
 
 String legacyWorldMapImageUrl(

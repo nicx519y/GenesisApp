@@ -221,7 +221,9 @@ TilemapCell? tilemapInitialFocusLocationTile({
   required Iterable<TilemapCell> tiles,
   TilemapLocationAvatarsResolver? locationAvatarsForTile,
   String preferredLocationId = '',
+  bool centerContentInitially = false,
 }) {
+  if (centerContentInitially) return null;
   final resolvedPreferredLocationId = preferredLocationId.trim();
   TilemapCell? selectedTile;
   var selectedAvatarCount = -1;

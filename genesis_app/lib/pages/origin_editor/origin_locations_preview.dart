@@ -134,7 +134,6 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
             id: character.charId.trim(),
             name: name,
             avatarUrl: character.avatarUrl.trim(),
-            showStar: true,
           );
         })
         .toList(growable: false);

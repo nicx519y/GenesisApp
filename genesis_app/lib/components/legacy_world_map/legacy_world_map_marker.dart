@@ -6,24 +6,32 @@ import '../../ui/components/recent_chat_marker.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import 'package:flutter/material.dart';
 
-import '../../ui/tokens/genesis_colors.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
+import '../world_event_count_badge.dart';
 import '../world_point.dart';
 import 'legacy_world_map_background.dart';
 import 'legacy_world_map_bubble.dart';
 
 @visibleForTesting
-Color worldMapAvatarBorderColorForTesting({
+Color? worldMapAvatarBorderColorForTesting({
   required bool isPlayerControlledRole,
+  bool showAiMarker = false,
 }) {
   return legacyWorldMapAvatarBorderColor(
     isPlayerControlledRole: isPlayerControlledRole,
+    showAiMarker: showAiMarker,
   );
 }
 
-Color legacyWorldMapAvatarBorderColor({required bool isPlayerControlledRole}) {
-  return isPlayerControlledRole ? GenesisColors.brand : const Color(0xFFDDDDDD);
+Color? legacyWorldMapAvatarBorderColor({
+  required bool isPlayerControlledRole,
+  required bool showAiMarker,
+}) {
+  return worldMapAvatarBorderColor(
+    isPlayerControlledRole: isPlayerControlledRole,
+    showAiMarker: showAiMarker,
+  );
 }
 
 @visibleForTesting
@@ -68,7 +76,7 @@ const double _worldPointActivityIconExtraWidth =
 const double _worldPointMaxLabelBoxWidth =
     _worldPointMaxLabelTextWidth + _worldPointLabelHorizontalPadding;
 const double _worldPointDotSize = 8;
-const double _worldPointAvatarSize = 42;
+const double _worldPointAvatarSize = legacyWorldMapAvatarImageLogicalSize;
 const double _worldPointAvatarSpacing = 4;
 const double _worldPointLabelToDotSpacing = 6;
 const double _worldPointAvatarTopGap = 10;
@@ -139,8 +147,7 @@ _WorldPointMarkerGeometry _geometryForPoint(
   required bool showEventIcon,
 }) {
   final users = worldMapVisibleAvatarsForPoint(point);
-  final activityIconCount =
-      (showEventIcon ? 1 : 0) + (showRecentChatIcon ? 1 : 0);
+  final activityIconCount = showRecentChatIcon ? 1 : 0;
   final activityIconsWidth =
       activityIconCount * _worldPointActivityIconExtraWidth * 2;
   final labelMaxWidth = math.min(
@@ -454,7 +461,7 @@ class _WorldPointMarker extends StatelessWidget {
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
-  static const double _avatarSize = 42;
+  static const double _avatarSize = legacyWorldMapAvatarImageLogicalSize;
   static const double _avatarSpacing = 4;
   static const double _avatarTopGap = 10;
   static const double _pointSize = 8;
@@ -472,8 +479,7 @@ class _WorldPointMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasUsers = users.isNotEmpty;
     final avatars = users;
-    final activityIconCount =
-        (showEventIcon ? 1 : 0) + (showRecentChatIcon ? 1 : 0);
+    final activityIconCount = showRecentChatIcon ? 1 : 0;
     final activityIconsWidth =
         activityIconCount * _worldPointActivityIconExtraWidth;
 
@@ -542,6 +548,17 @@ class _WorldPointMarker extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (showEventIcon)
+                            const Positioned(
+                              right: worldMapLocationEventBadgeRight,
+                              top: worldMapLocationEventBadgeTop,
+                              child: WorldEventCountBadge(
+                                key: ValueKey<String>(
+                                  'world-map-location-event-count',
+                                ),
+                                count: 1,
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -550,18 +567,6 @@ class _WorldPointMarker extends StatelessWidget {
                         width: activityIconsWidth,
                         child: Row(
                           children: [
-                            if (showEventIcon)
-                              const SizedBox(
-                                width: _worldPointActivityIconExtraWidth,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: WorldEventMapBadge(
-                                    badgeKey: ValueKey<String>(
-                                      'world-map-event-icon',
-                                    ),
-                                  ),
-                                ),
-                              ),
                             if (showRecentChatIcon)
                               const SizedBox(
                                 width: _worldPointActivityIconExtraWidth,
@@ -827,6 +832,10 @@ class _MapAvatarImage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = legacyWorldMapAvatarBorderColor(
+      isPlayerControlledRole: isPlayerControlledRole,
+      showAiMarker: showStar,
+    );
     return GenesisCharacterAvatar(
       url: url,
       name: name,
@@ -847,12 +856,12 @@ class _MapAvatarImage extends StatelessWidget {
           offset: const Offset(0, 1),
         ),
       ],
-      border: Border.all(
-        color: legacyWorldMapAvatarBorderColor(
-          isPlayerControlledRole: isPlayerControlledRole,
-        ),
-        width: 1,
-      ),
+      border: borderColor == null
+          ? null
+          : Border.all(
+              color: borderColor,
+              width: isPlayerControlledRole ? 2 : 1,
+            ),
     );
   }
 }

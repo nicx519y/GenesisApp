@@ -17,6 +17,7 @@ class TilemapRenderer extends StatefulWidget {
     this.showRecentChatForTile,
     this.showEventForTile,
     this.preferredFocusLocationId = '',
+    this.centerContentInitially = false,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.onMapTap,
@@ -53,6 +54,7 @@ class TilemapRenderer extends StatefulWidget {
   final TilemapRecentChatResolver? showRecentChatForTile;
   final TilemapEventResolver? showEventForTile;
   final String preferredFocusLocationId;
+  final bool centerContentInitially;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
   final VoidCallback? onMapTap;
@@ -274,6 +276,7 @@ class _TilemapRendererState extends State<TilemapRenderer>
             tiles: widget.config.tiles,
             locationAvatarsForTile: widget.locationAvatarsForTile,
             preferredLocationId: widget.preferredFocusLocationId,
+            centerContentInitially: widget.centerContentInitially,
           );
           final initialFocus = initialFocusTile == null
               ? null

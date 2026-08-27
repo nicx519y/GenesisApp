@@ -363,6 +363,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _joiningLocation = false;
+  bool _optimisticSelfOccupancy = false;
+  List<WorldChatroomEntity>? _lastActiveOccupants;
+  List<WorldChatroomEntity>? _exitRetainedOccupants;
   bool _sending = false;
   bool _rosterOpen = false;
   bool _handlingUnauthorizedFailure = false;
@@ -431,6 +434,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void initState() {
     super.initState();
+    _optimisticSelfOccupancy = widget.active && widget.isLeafLocation;
     locationChatHeaderEffectSettings.addListener(
       _handleHeaderEffectSettingsChanged,
     );
@@ -513,6 +517,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         oldWidget.locationId != widget.locationId;
     final becameActive = !oldWidget.active && widget.active;
     final becameInactive = oldWidget.active && !widget.active;
+    if (becameActive) {
+      _lastActiveOccupants = null;
+      _exitRetainedOccupants = null;
+      _optimisticSelfOccupancy = widget.isLeafLocation;
+    } else if (becameInactive) {
+      _exitRetainedOccupants =
+          _lastActiveOccupants ??
+          _roomOccupantsForCurrentLocation(_chatroomState);
+      _optimisticSelfOccupancy = false;
+    }
     if (changedChatTarget || becameInactive) {
       _rosterOpen = false;
     }
@@ -611,7 +625,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final occupants = _roomOccupantsForCurrentLocation(_chatroomState);
+    final occupants = !widget.active && _exitRetainedOccupants != null
+        ? _exitRetainedOccupants!
+        : _roomOccupantsForCurrentLocation(_chatroomState);
     final selfOccupantId = firstNonEmpty([_myUserId, _mySenderId]);
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
     final joined = _chatroomState.joinedLocationId == widget.locationId;
