@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
@@ -90,21 +89,16 @@ class _MePageState extends State<MePage> {
   // Extension method tear-offs are not equal across reads, so listener
   // registration and removal must reuse these stable callback objects.
   late final VoidCallback _tabActivatedListener;
-  late final VoidCallback _recentChatChangedListener;
   late final VoidCallback _sessionChangedListener;
   bool _isDisposed = false;
-  String _recentChatUid = '';
-  String _recentChatWorldId = '';
 
   @override
   void initState() {
     super.initState();
     _tabActivatedListener = _handleTabActivated;
-    _recentChatChangedListener = _handleRecentChatChanged;
     _sessionChangedListener = _handleSessionChanged;
     _future = _loadData();
     widget.activationListenable?.addListener(_tabActivatedListener);
-    recentWorldChatStore.listenable.addListener(_recentChatChangedListener);
   }
 
   @override
@@ -124,7 +118,6 @@ class _MePageState extends State<MePage> {
     _sessionRevisionListenable?.removeListener(_sessionChangedListener);
     _sessionRevisionListenable = sessionRevision;
     sessionRevision.addListener(_sessionChangedListener);
-    unawaited(_loadRecentChatMarker());
   }
 
   @override
@@ -132,7 +125,6 @@ class _MePageState extends State<MePage> {
     _isDisposed = true;
     _loadGeneration += 1;
     _sessionRevisionListenable?.removeListener(_sessionChangedListener);
-    recentWorldChatStore.listenable.removeListener(_recentChatChangedListener);
     widget.activationListenable?.removeListener(_tabActivatedListener);
     _isUpdatingProfile.dispose();
     _avatarUrl.dispose();
@@ -232,7 +224,10 @@ class _MePageState extends State<MePage> {
                   onWorldDeleted: _handleWorldDeleted,
                   onCollectionTabChanged: _handleCollectionTabChanged,
                   onCollapsedChanged: _handleProfileCollapsedChanged,
-                  recentChatWorldId: _recentChatWorldId,
+                  originTabLabel: 'Worldo',
+                  worldTabLabel: 'Playing',
+                  showCollectionCounts: true,
+                  tabLabelFontSize: 14,
                 ),
               ),
             ],

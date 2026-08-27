@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
+import '../tokens/genesis_colors.dart';
 
-const Color kRecentChatMarkerColor = Color(0xFF338960);
-const Color kRecentChatMarkerBackgroundColor = Color(0xFFE8F5EF);
-const Color kWorldEventMarkerColor = Color(0xFFFF2442);
+const Color kRecentChatMarkerColor = GenesisColors.brand;
+const Color kRecentChatMarkerBackgroundColor = Color(0xFFFFF0F2);
+const Color kWorldEventMarkerColor = GenesisColors.brand;
 const Color kWorldEventMarkerBackgroundColor = Color(0xFFFFF0F2);
 const double kRecentChatMapBadgeSize = 16;
 const double kRecentChatMapIconSize = 10;

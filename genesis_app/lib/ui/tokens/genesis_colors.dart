@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
 abstract final class GenesisColors {
-  static const Color brand = Color(0xFF338960);
-  static const Color brandBright = Color(0xFF00C27A);
-  static const Color brandSoft = Color(0xFFBFD8CD);
+  static const Color brand = Color(0xFFFF2442);
+  static const Color brandBright = brand;
+  static const Color brandSoft = Color(0xFFFFB8C3);
   static const Color create = Color(0xFFFF2442);
+  static const Color createAdd = Color(0xFFC41F2E);
 
   static const Color surface = Colors.white;
   static const Color surfaceMuted = Color(0xFFF9F9F9);

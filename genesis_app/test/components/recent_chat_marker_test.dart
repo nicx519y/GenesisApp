@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/components/recent_chat_marker.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
   testWidgets('recent chat tag keeps its profile-list styling', (tester) async {
@@ -15,7 +16,7 @@ void main() {
     expect(find.text('Last Tick'), findsNothing);
     expect(find.text('Last Launch'), findsNothing);
     expect(find.byType(RecentChatIcon), findsOneWidget);
-    expect(_tagColor(tester, 'last-message'), const Color(0xFFE8F5EF));
+    expect(_tagColor(tester, 'last-message'), const Color(0xFFFFF0F2));
     expect(
       _tagDecoration(tester, 'last-message').borderRadius,
       BorderRadius.circular(4),
@@ -25,7 +26,7 @@ void main() {
       find.byType(RecentChatIcon),
     );
     expect(recentIcon.color, kRecentChatMarkerColor);
-    expect(kRecentChatMarkerColor, const Color(0xFF338960));
+    expect(kRecentChatMarkerColor, GenesisColors.brand);
     final svg = tester.widget<SvgPicture>(
       find.descendant(
         of: find.byType(RecentChatIcon),

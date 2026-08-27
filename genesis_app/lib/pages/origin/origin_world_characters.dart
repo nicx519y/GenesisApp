@@ -59,7 +59,6 @@ class _OriginCharacterRow extends StatelessWidget {
           url: avatarUrl,
           name: character.name,
           imageUrls: imageUrls,
-          recommended: character.isRecommended,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -107,7 +106,6 @@ class _OriginCharacterPortrait extends StatelessWidget {
     required this.url,
     required this.name,
     required this.imageUrls,
-    required this.recommended,
   });
 
   static const double _width = 86;
@@ -117,7 +115,6 @@ class _OriginCharacterPortrait extends StatelessWidget {
   final String url;
   final String name;
   final List<String> imageUrls;
-  final bool recommended;
 
   @override
   Widget build(BuildContext context) {
@@ -155,27 +152,12 @@ class _OriginCharacterPortrait extends StatelessWidget {
             errorWidget: (_, _) => fallback,
           );
     final initialIndex = imageUrls.indexOf(url.trim());
-    final portrait = Stack(
-      clipBehavior: Clip.none,
-      children: [
-        SizedBox(
-          width: _width,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(_borderRadius),
-            child: image,
-          ),
-        ),
-        if (recommended)
-          Positioned(
-            right: -4,
-            bottom: -4,
-            child: OriginRecommendedRoleMark(
-              badgeKey: ValueKey<String>(
-                'origin-character-recommended-$characterId',
-              ),
-            ),
-          ),
-      ],
+    final portrait = SizedBox(
+      width: _width,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(_borderRadius),
+        child: image,
+      ),
     );
     if (resolvedUrl.isEmpty) return portrait;
     return GestureDetector(

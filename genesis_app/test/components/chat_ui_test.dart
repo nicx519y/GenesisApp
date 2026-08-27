@@ -27,6 +27,14 @@ class _JumpRecordingScrollController extends ScrollController {
 }
 
 void main() {
+  test('private chat keeps its legacy green send button', () {
+    expect(kPrivateChatStyle.composerSendButtonColor, const Color(0xFF338960));
+    expect(
+      kPrivateChatStyle.composerSendButtonDisabledColor,
+      const Color(0xFFBFD8CD),
+    );
+  });
+
   testWidgets('chat bubble avatars use the 2.4 DPR cap', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -2403,7 +2411,7 @@ void main() {
         if (decoration is! BoxDecoration) return false;
         final border = decoration.border;
         if (border is! Border) return false;
-        return border.top.color == const Color(0xFF338960);
+        return border.top.color == GenesisColors.brand;
       }),
       findsOneWidget,
     );

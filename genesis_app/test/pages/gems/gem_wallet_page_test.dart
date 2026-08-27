@@ -21,6 +21,7 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 const _wrappingTaskDescription =
@@ -126,7 +127,7 @@ void main() {
     expect(taskButtonDecoration.border, isNull);
     expect(
       tester.widget<Text>(find.text('Go')).style?.color,
-      const Color(0xFF338960),
+      GenesisColors.brand,
     );
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,

@@ -72,6 +72,10 @@ void main() {
     );
   });
 
+  test('location shimmer defaults off in every build mode', () {
+    expect(tilemapDefaultShowLocationImageFlow, isFalse);
+  });
+
   test('publishes the persisted visual mode for loading surfaces', () async {
     final cachedSettings = TilemapRenderSettings.defaults().toJson()
       ..['visual_mode'] = TilemapVisualMode.light.name;
@@ -104,7 +108,7 @@ void main() {
       'blend_fog_with_shadow_tiles': true,
       'cache_fog_tile_bitmaps': true,
       'show_shadow_zero_borders': false,
-      'show_location_image_flow': true,
+      'show_location_image_flow': false,
       'location_image_flow_angle_degrees': 267.88,
       'location_image_flow_gradient_points': [
         {'position': 0.0, 'color': '#00624700'},
@@ -280,7 +284,7 @@ void main() {
     expect(settings.blendFogWithShadowTiles, true);
     expect(settings.cacheFogTileBitmaps, tilemapDefaultCacheFogTileBitmaps);
     expect(settings.showShadowZeroBorders, false);
-    expect(settings.showLocationImageFlow, true);
+    expect(settings.showLocationImageFlow, false);
     expect(
       settings.locationImageFlowAngleDegrees,
       tilemapDefaultLocationImageFlowAngleDegrees,
@@ -329,7 +333,7 @@ void main() {
 
       expect(settings.loadingStyle, tilemapDefaultLoadingStyle);
       expect(settings.cacheFogTileBitmaps, tilemapDefaultCacheFogTileBitmaps);
-      expect(settings.showLocationImageFlow, true);
+      expect(settings.showLocationImageFlow, false);
       expect(
         settings.locationImageFlowAngleDegrees,
         tilemapDefaultLocationImageFlowAngleDegrees,

@@ -64,6 +64,8 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
   composerBackgroundColor: const Color(0xF2F6F6F6),
   clearComposerBackgroundGradient: true,
   composerBackdropBlurSigma: 20,
+  composerSendButtonColor: const Color(0xFF338960),
+  composerSendButtonDisabledColor: const Color(0xFFBFD8CD),
   senderNameTextStyle: ChatUiStyleConfig.standard.senderNameTextStyle.copyWith(
     color: const Color(0xFF111111),
   ),

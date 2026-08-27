@@ -310,13 +310,13 @@ class _NotificationItem {
   Color get joinRequestStatusColor {
     switch (approvalStatus) {
       case _JoinRequestApprovalStatus.approved:
-        return const Color(0xFF25845C);
+        return GenesisColors.brand;
       case _JoinRequestApprovalStatus.rejected:
         return const Color(0xFF8A8D93);
       case _JoinRequestApprovalStatus.pending:
-        return const Color(0xFF25845C);
+        return GenesisColors.brand;
       case null:
-        return const Color(0xFF25845C);
+        return GenesisColors.brand;
     }
   }
 

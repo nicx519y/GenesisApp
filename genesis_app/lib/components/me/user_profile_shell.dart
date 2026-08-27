@@ -22,9 +22,11 @@ class UserProfileContent extends StatefulWidget {
     this.onCollapsedChanged,
     this.nameUidGap = 4,
     this.tabLabelFontSize = 16,
+    this.originTabLabel = '#Worldo',
+    this.worldTabLabel = 'World',
+    this.showCollectionCounts = false,
     this.isBlocking = false,
     this.isBlocked = false,
-    this.recentChatWorldId = '',
   });
 
   final UserProfileData data;
@@ -48,9 +50,11 @@ class UserProfileContent extends StatefulWidget {
   final ValueChanged<bool>? onCollapsedChanged;
   final double nameUidGap;
   final double? tabLabelFontSize;
+  final String originTabLabel;
+  final String worldTabLabel;
+  final bool showCollectionCounts;
   final bool isBlocking;
   final bool isBlocked;
-  final String recentChatWorldId;
 
   @override
   State<UserProfileContent> createState() => _UserProfileContentState();
@@ -120,20 +124,65 @@ class _UserProfileContentState extends State<UserProfileContent>
               delegate: _ProfileTabsHeaderDelegate(
                 child: Align(
                   alignment: Alignment.centerLeft,
-                  child: GenesisTabBar(
-                    controller: _tabController,
-                    labels: const ['#Worldo', 'World'],
-                    horizontalPadding: 8,
-                    labelPadding: const EdgeInsets.symmetric(horizontal: 8),
-                    labelFontSize: widget.tabLabelFontSize,
-                    onTap: _reportCollectionTab,
-                  ),
+                  child: _buildCollectionTabs(data),
                 ),
               ),
             ),
         ];
       },
       body: _buildCollectionBody(data),
+    );
+  }
+
+  Widget _buildCollectionTabs(UserProfileData data) {
+    Widget buildTabs(int originCount, int worldCount) {
+      return GenesisTabBar(
+        controller: _tabController,
+        labels: [
+          widget.showCollectionCounts
+              ? '${widget.originTabLabel} $originCount'
+              : widget.originTabLabel,
+          widget.showCollectionCounts
+              ? '${widget.worldTabLabel} $worldCount'
+              : widget.worldTabLabel,
+        ],
+        horizontalPadding: 8,
+        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+        labelFontSize: widget.tabLabelFontSize,
+        onTap: _reportCollectionTab,
+      );
+    }
+
+    if (!widget.showCollectionCounts) {
+      return buildTabs(data.origins.length, data.worlds.length);
+    }
+
+    Widget buildWithWorldCount(int originCount) {
+      final worldsListenable = widget.worldsListenable;
+      if (worldsListenable == null) {
+        return buildTabs(originCount, data.worlds.length);
+      }
+      return ValueListenableBuilder<
+        UserProfileCollectionState<UserProfileWorldItem>
+      >(
+        valueListenable: worldsListenable,
+        builder: (context, state, _) {
+          return buildTabs(originCount, state.items.length);
+        },
+      );
+    }
+
+    final originsListenable = widget.originsListenable;
+    if (originsListenable == null) {
+      return buildWithWorldCount(data.origins.length);
+    }
+    return ValueListenableBuilder<
+      UserProfileCollectionState<UserProfileOriginItem>
+    >(
+      valueListenable: originsListenable,
+      builder: (context, state, _) {
+        return buildWithWorldCount(state.items.length);
+      },
     );
   }
 
@@ -171,13 +220,13 @@ class _UserProfileContentState extends State<UserProfileContent>
             isLoading: widget.originsLoading,
             listenable: widget.originsListenable,
             onRefresh: widget.onRefreshOrigins,
+            canEditOrigins: data.isSelf,
           ),
           _WorldProfileCollectionList(
             items: data.worlds,
             isLoading: widget.worldsLoading,
             listenable: widget.worldsListenable,
             onRefresh: widget.onRefreshWorlds,
-            recentChatWorldId: widget.recentChatWorldId,
             canDeleteWorlds: data.isSelf,
             onWorldDeleted: widget.onWorldDeleted,
           ),

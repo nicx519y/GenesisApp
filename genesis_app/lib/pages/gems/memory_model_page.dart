@@ -8,6 +8,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_model.dart';
+import '../../ui/tokens/genesis_colors.dart';
 
 typedef GemModelCatalogLoader =
     Future<GemModelCatalog> Function(String worldId);
@@ -445,7 +446,7 @@ class _GemModelTileContent extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: Color(0xFF34C759),
+                  color: GenesisColors.brand,
                   shape: BoxShape.circle,
                 ),
               ),

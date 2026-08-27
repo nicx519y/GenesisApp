@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
+import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/utils/entity_deleted.dart';
 
@@ -75,6 +76,10 @@ void main() {
               worlds: <UserProfileWorldItem>[],
             ),
             onCollectionTabChanged: selectedIndexes.add,
+            originTabLabel: 'Worldo',
+            worldTabLabel: 'Playing',
+            showCollectionCounts: true,
+            tabLabelFontSize: 14,
           ),
         ),
       ),
@@ -93,12 +98,166 @@ void main() {
       const Size.square(24),
     );
 
-    await tester.tap(find.text('World'));
+    expect(find.text('Worldo 0'), findsOneWidget);
+    expect(find.text('Playing 0'), findsOneWidget);
+    expect(find.text('#Worldo'), findsNothing);
+    expect(find.text('World'), findsNothing);
+
+    await tester.tap(find.text('Playing 0'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('#Worldo'));
+    await tester.tap(find.text('Worldo 0'));
     await tester.pumpAndSettle();
 
     expect(selectedIndexes, <int>[1, 0]);
+  });
+
+  testWidgets('profile collection tab counts follow current list state', (
+    tester,
+  ) async {
+    final originsState =
+        ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
+          const UserProfileCollectionState<UserProfileOriginItem>(
+            items: <UserProfileOriginItem>[],
+            isLoading: false,
+          ),
+        );
+    final worldsState =
+        ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
+          const UserProfileCollectionState<UserProfileWorldItem>(
+            items: <UserProfileWorldItem>[],
+            isLoading: false,
+          ),
+        );
+    addTearDown(originsState.dispose);
+    addTearDown(worldsState.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UserProfileContent(
+            data: const UserProfileData(
+              avatarUrl: '',
+              displayName: 'User',
+              uid: 'u_user',
+              followingCount: 0,
+              followerCount: 0,
+              origins: <UserProfileOriginItem>[],
+              worlds: <UserProfileWorldItem>[],
+            ),
+            originsListenable: originsState,
+            worldsListenable: worldsState,
+            originTabLabel: 'Worldo',
+            worldTabLabel: 'Playing',
+            showCollectionCounts: true,
+            tabLabelFontSize: 14,
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Worldo 0'), findsOneWidget);
+    expect(find.text('Playing 0'), findsOneWidget);
+
+    originsState.value =
+        const UserProfileCollectionState<UserProfileOriginItem>(
+          items: <UserProfileOriginItem>[
+            UserProfileOriginItem(
+              originId: 1,
+              oid: 'oid_1',
+              title: 'Worldo One',
+              subtitle: '',
+              imageUrl: '',
+              copyCount: 0,
+              interactCount: 0,
+              characterCount: 0,
+            ),
+          ],
+          isLoading: false,
+        );
+    worldsState.value = const UserProfileCollectionState<UserProfileWorldItem>(
+      items: <UserProfileWorldItem>[
+        UserProfileWorldItem(
+          wid: 'wid_1',
+          title: 'World One',
+          subtitle: '',
+          imageUrl: '',
+          progressCount: 0,
+          interactCount: 0,
+          characterCount: 0,
+          playerCount: 0,
+          ownerName: 'User',
+        ),
+        UserProfileWorldItem(
+          wid: 'wid_2',
+          title: 'World Two',
+          subtitle: '',
+          imageUrl: '',
+          progressCount: 0,
+          interactCount: 0,
+          characterCount: 0,
+          playerCount: 0,
+          ownerName: 'User',
+        ),
+      ],
+      isLoading: false,
+    );
+    await tester.pump();
+
+    expect(find.text('Worldo 1'), findsOneWidget);
+    expect(find.text('Playing 2'), findsOneWidget);
+  });
+
+  testWidgets('self Worldo edit icon opens the edit page directly', (
+    tester,
+  ) async {
+    RouteSettings? openedSettings;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        onGenerateRoute: (settings) {
+          openedSettings = settings;
+          return MaterialPageRoute<void>(
+            settings: settings,
+            builder: (_) => const SizedBox.shrink(),
+          );
+        },
+        home: const Scaffold(
+          body: UserProfileContent(
+            data: UserProfileData(
+              avatarUrl: '',
+              displayName: 'User',
+              uid: 'u_user',
+              followingCount: 0,
+              followerCount: 0,
+              origins: [
+                UserProfileOriginItem(
+                  originId: 7,
+                  oid: 'oid_7',
+                  title: 'My Worldo',
+                  subtitle: 'World seed',
+                  imageUrl: '',
+                  copyCount: 0,
+                  interactCount: 0,
+                  characterCount: 0,
+                ),
+              ],
+              worlds: <UserProfileWorldItem>[],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final editAction = find.byKey(
+      const ValueKey<String>('profile-collection-item-edit-oid_7'),
+    );
+    expect(editAction, findsOneWidget);
+
+    await tester.tap(editAction);
+    await tester.pumpAndSettle();
+
+    expect(openedSettings?.name, RouteNames.edit);
+    expect(openedSettings?.arguments, {'origin_id': 'oid_7'});
   });
 
   testWidgets('self profile shows Gems balance entry and opens wallet', (

@@ -13,6 +13,7 @@ import '../../components/common/local_image_crop_page.dart';
 import '../../platform/native_image_picker.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/text/genesis_text_input_formatters.dart';
+import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/genesis_image_resource.dart';
@@ -25,14 +26,15 @@ part 'create_upload_box.dart';
 part 'create_upload_preview.dart';
 part 'create_form_add_controls.dart';
 
-const Color createFormGreen = Color(0xFF338960);
+const Color createFormGreen = GenesisColors.brand;
 const Color createFormFieldFill = Color(0xFFF4F4F6);
 const Color createFormHint = Color(0xFFA8A8AD);
 const Color createFormText = Color(0xFF111111);
 const Color createFormMuted = Color(0xFF6F6F6F);
 const Color createFormNote = Color(0xFF888888);
 const Color createFormBorder = Color(0xFFE1E1E6);
-const Color createFormDash = Color(0xFFB8CDBF);
+const Color createFormDash = GenesisColors.brandSoft;
+const Color createFormUploadBorder = createFormBorder;
 const Color createFormDanger = Color(0xFFFF2442);
 const String createFormDeleteIconAsset =
     'assets/custom-icons/svg/delete-icon.svg';

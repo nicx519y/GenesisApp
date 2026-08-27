@@ -32,7 +32,7 @@ class CreateAddButton extends StatelessWidget {
               child: Text(
                 label,
                 style: const TextStyle(
-                  color: createFormText,
+                  color: GenesisColors.createAdd,
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
                 ),
@@ -84,7 +84,7 @@ class CreateInlineAddButton extends StatelessWidget {
         ],
       ),
       style: TextStyle(
-        color: createFormGreen,
+        color: GenesisColors.createAdd,
         fontSize: fontSize,
         fontWeight: FontWeight.w600,
         height: 1.2,

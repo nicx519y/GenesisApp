@@ -12,6 +12,7 @@ import '../common/genesis_modal_routes.dart';
 import '../common/genesis_upload_progress_overlay.dart';
 import '../../platform/native_image_picker.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
+import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';

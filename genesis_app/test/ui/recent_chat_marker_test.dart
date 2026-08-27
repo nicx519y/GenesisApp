@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/components/recent_chat_marker.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
   testWidgets('recent chat markers use the world connect stat icon', (
@@ -33,6 +34,6 @@ void main() {
     )) {
       expect(marker.color, kRecentChatMarkerColor);
     }
-    expect(kRecentChatMarkerColor, const Color(0xFF338960));
+    expect(kRecentChatMarkerColor, GenesisColors.brand);
   });
 }

@@ -129,6 +129,56 @@ void main() {
     expect(find.text('7'), findsOneWidget);
   });
 
+  testWidgets('edit action is independent from the collection item tap', (
+    WidgetTester tester,
+  ) async {
+    var itemTapCount = 0;
+    var editTapCount = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ProfileCollectionList(
+            items: [
+              GenesisProfileCollectionItemData(
+                animationKey: 'oid_1',
+                imageUrl: '',
+                title: 'Editable Worldo',
+                subtitle: 'World seed',
+                onTap: () => itemTapCount += 1,
+                onEdit: () => editTapCount += 1,
+              ),
+            ],
+            emptyText: 'Empty',
+          ),
+        ),
+      ),
+    );
+
+    final editAction = find.byKey(
+      const ValueKey<String>('profile-collection-item-edit-oid_1'),
+    );
+    expect(editAction, findsOneWidget);
+    final editIcon = tester.widget<SvgPicture>(
+      find.descendant(of: editAction, matching: find.byType(SvgPicture)),
+    );
+    expect(editIcon.bytesLoader, isA<SvgAssetLoader>());
+    expect(editIcon.width, 16);
+    expect(editIcon.height, 16);
+
+    await tester.tap(editAction);
+    expect(editTapCount, 1);
+    expect(itemTapCount, 0);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(GenesisProfileCollectionListItem),
+        matching: find.byType(InkWell),
+      ),
+    );
+    expect(itemTapCount, 1);
+  });
+
   testWidgets('notifies after a collection item finishes collapsing', (
     WidgetTester tester,
   ) async {

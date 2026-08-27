@@ -6,6 +6,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    required this.canEditOrigins,
   });
 
   final List<UserProfileOriginItem> items;
@@ -13,6 +14,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileOriginItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final bool canEditOrigins;
 
   @override
   Widget build(BuildContext context) {
@@ -39,6 +41,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
       items: items
           .map(
             (item) => GenesisProfileCollectionItemData(
+              animationKey: item.oid,
               imageUrl: item.imageUrl,
               title: originDisplayName(item.title),
               subtitle: item.subtitle,
@@ -79,6 +82,19 @@ class _OriginProfileCollectionList extends StatelessWidget {
                             if (!context.mounted) return;
                             onRefresh?.call();
                           });
+                    },
+              onEdit: !canEditOrigins || item.deleted
+                  ? null
+                  : () async {
+                      final originId = item.oid.trim().isNotEmpty
+                          ? item.oid.trim()
+                          : '${item.originId}';
+                      await Navigator.of(context).pushNamed(
+                        RouteNames.edit,
+                        arguments: {'origin_id': originId},
+                      );
+                      if (!context.mounted) return;
+                      await onRefresh?.call();
                     },
             ),
           )

@@ -22,7 +22,7 @@ class _EmptyUpload extends StatelessWidget {
       children: [
         Icon(
           Icons.add_photo_alternate_outlined,
-          color: createFormGreen,
+          color: GenesisColors.createAdd,
           size: iconSize,
         ),
         SizedBox(height: iconLabelGap),

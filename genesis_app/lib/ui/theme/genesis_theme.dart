@@ -13,11 +13,11 @@ abstract final class GenesisTheme {
   static ThemeData light() {
     // The base palette for Material components; seedColor determines derived Material colors such as default button and state colors.
     final colorScheme = ColorScheme.fromSeed(
-      // Use the bright brand green as the seed color for the Material ColorScheme.
+      // Use the shared brand color as the seed for Material component defaults.
       seedColor: GenesisColors.brandBright,
       // The current product uses light backgrounds, so Brightness.light is fixed here.
       brightness: Brightness.light,
-    );
+    ).copyWith(primary: GenesisColors.brand);
 
     return ThemeData(
       // The standard color system consumed by Flutter Material components.

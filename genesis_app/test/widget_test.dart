@@ -28,7 +28,6 @@ import 'package:genesis_flutter_android/ui/components/secend_tabs.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
-import 'package:genesis_flutter_android/app/recent_chat/recent_world_chat_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_performance_monitoring.dart';
@@ -138,6 +137,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
@@ -2452,6 +2452,11 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  test('create form accents use the shared brand palette', () {
+    expect(createFormGreen, GenesisColors.brand);
+    expect(createFormDash, GenesisColors.brandSoft);
+  });
+
   late ui.Image originItemTestImage;
 
   setUpAll(() async {
@@ -4656,6 +4661,10 @@ void main() {
 
     final title = tester.widget<Text>(find.text('Join request'));
     expect(title.style?.fontWeight, FontWeight.w600);
+    expect(
+      tester.widget<Text>(find.text('Awaiting your approval')).style?.color,
+      GenesisColors.brand,
+    );
   });
 
   testWidgets('world apply review notification opens world', (
@@ -5054,7 +5063,6 @@ void main() {
     final replacementActivation = ValueNotifier<int>(0);
     addTearDown(activation.dispose);
     addTearDown(replacementActivation.dispose);
-    addTearDown(() => recentWorldChatStore.listenable.value = null);
     final services = await _testServices(
       useMock: false,
       transport: _RecordingV1ListTransport(),
@@ -5064,7 +5072,6 @@ void main() {
 
     expect(_hasListenersForTest(activation), isFalse);
     expect(_hasListenersForTest(services.sessionRevision), isFalse);
-    expect(_hasListenersForTest(recentWorldChatStore.listenable), isFalse);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -5078,7 +5085,6 @@ void main() {
 
     expect(_hasListenersForTest(activation), isTrue);
     expect(_hasListenersForTest(services.sessionRevision), isTrue);
-    expect(_hasListenersForTest(recentWorldChatStore.listenable), isTrue);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -5095,7 +5101,6 @@ void main() {
     expect(_hasListenersForTest(activation), isFalse);
     expect(_hasListenersForTest(replacementActivation), isTrue);
     expect(_hasListenersForTest(services.sessionRevision), isTrue);
-    expect(_hasListenersForTest(recentWorldChatStore.listenable), isTrue);
 
     await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
     await tester.pump();
@@ -5103,18 +5108,48 @@ void main() {
     expect(_hasListenersForTest(activation), isFalse);
     expect(_hasListenersForTest(replacementActivation), isFalse);
     expect(_hasListenersForTest(services.sessionRevision), isFalse);
-    expect(_hasListenersForTest(recentWorldChatStore.listenable), isFalse);
+  });
 
-    recentWorldChatStore.listenable.value = const RecentWorldChatRecord(
-      uid: 'u_listener',
-      worldId: 'world_listener',
-      locationId: 'location_listener',
-      locationPathIds: <String>['location_listener'],
-      updatedAt: 1,
+  testWidgets('Me page loads Playing count before the tab is selected', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldListTotal: 2);
+    final services = await _testServices(
+      useMock: false,
+      transport: transport,
+      initialAuthToken: 'backend-token',
+      initialUserInfo: {
+        'uid': 'u_mock',
+        'name': 'Cached User',
+        'avatar': '',
+        'following_cnt': 0,
+        'follower_cnt': 0,
+      },
     );
-    await tester.pump();
 
-    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const Scaffold(body: MePage()),
+        ),
+      ),
+    );
+    for (
+      var index = 0;
+      index < 20 && find.text('Playing 2').evaluate().isEmpty;
+      index += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(find.text('Playing 2'), findsOneWidget);
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.labelStyle?.fontSize, 14);
+    expect(tabBar.unselectedLabelStyle?.fontSize, 14);
+    final requests = transport.requestsFor('/api/v1/world/list');
+    expect(requests, hasLength(1));
+    expect(requests.single.uri.queryParameters['scene'], 'mine');
   });
 
   testWidgets('Me settings route does not dispose shared GemWallet service', (
@@ -8175,6 +8210,7 @@ void main() {
           'brief': 'Keeps the path',
           'description': 'First character.',
           'avatar': 'assets/images/default_list_image.png',
+          'is_recommend': 1,
           'initial_location_id': 'l_o_test_1',
           'location_id': 'l_o_test_1',
         },
@@ -8204,11 +8240,16 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await _swipeOriginSheetToInfo(tester);
 
     final firstPortrait = find.byKey(
       const ValueKey('origin-character-portrait-c_iris'),
     );
     await _dragOriginPanelUntilVisible(tester, firstPortrait);
+    expect(
+      find.byKey(const ValueKey<String>('origin-character-recommended-c_iris')),
+      findsNothing,
+    );
     tester.widget<GestureDetector>(firstPortrait).onTap?.call();
     await tester.pumpAndSettle();
 
@@ -13350,7 +13391,7 @@ void main() {
     await expectCreateButtonMatchesSaveSpacing('Story Events (Optional)');
   });
 
-  testWidgets('invalid create basics save is disabled with BFD8CD', (
+  testWidgets('invalid create basics save uses the soft brand color', (
     WidgetTester tester,
   ) async {
     await CreateOriginDraftStore.clear();
@@ -13367,7 +13408,7 @@ void main() {
       saveButton.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      GenesisColors.brandSoft,
     );
   });
 
@@ -13497,7 +13538,7 @@ void main() {
       createButton.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      GenesisColors.brandSoft,
     );
   });
 
@@ -13534,7 +13575,7 @@ void main() {
       createButton.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      GenesisColors.brandSoft,
     );
   });
 
@@ -15248,11 +15289,8 @@ void main() {
         0.01,
       ),
     );
-    expect(
-      tester.getTopLeft(charactersCompleted).dx -
-          tester.getTopRight(charactersTitle).dx,
-      closeTo(6, 0.01),
-    );
+    expect(charactersTitle, findsOneWidget);
+    expect(charactersCompleted, findsNothing);
     expect(
       tester.getTopRight(find.text('1 characters: Tff')).dx,
       greaterThan(tester.getTopLeft(charactersChevron).dx),
@@ -15445,7 +15483,7 @@ void main() {
       isTrue,
     );
     final addCharacterText = tester.widget<Text>(find.text('+ Add Character'));
-    expect(addCharacterText.style?.color, createFormGreen);
+    expect(addCharacterText.style?.color, GenesisColors.createAdd);
     expect(addCharacterText.style?.fontSize, 16);
     expect(addCharacterText.style?.fontWeight, FontWeight.w600);
     expect(
@@ -15700,49 +15738,41 @@ void main() {
     await tester.pumpWidget(const MaterialApp(home: CreateLocationsPage()));
     await tester.pumpAndSettle();
 
-    expect(find.text('L1: 1'), findsOneWidget);
-    expect(find.text('L2: 0'), findsOneWidget);
-    expect(find.text('L3: 0/15 (Added/Max)'), findsOneWidget);
+    expect(find.text('L1: 1'), findsNothing);
+    expect(find.text('L2: 0'), findsNothing);
+    expect(find.text('L3: 0/15 (Added/Max)'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('locations-statistics-note')),
       findsOneWidget,
     );
+    expect(find.text('Your world is built in 3 levels:'), findsOneWidget);
+    expect(find.text('L1'), findsOneWidget);
+    expect(find.text('Region'), findsOneWidget);
+    expect(find.text('L2'), findsOneWidget);
+    expect(find.text('Building'), findsOneWidget);
+    expect(find.text('L3'), findsOneWidget);
+    expect(find.text('Room'), findsOneWidget);
     expect(
       find.text(
-        'Your world is built in 3 levels:\n'
-        'L1 · Region     An area of your world — Downtown\n'
-        "L2 · Building   A building inside it — Joe's Diner\n"
-        'L3 · Room       A room inside that building — The Back Kitchen\n'
         'Every location needs all three levels. Up to 15 rooms in total.',
       ),
       findsOneWidget,
     );
-    final statisticsNote = find.descendant(
-      of: find.byKey(const ValueKey<String>('locations-statistics-note')),
-      matching: find.byType(CreateFormNote),
+    final statisticsNote = find.byKey(
+      const ValueKey<String>('locations-statistics-note'),
     );
-    expect(statisticsNote, findsOneWidget);
     expect(
       find.descendant(
         of: statisticsNote,
-        matching: _assetSvgFinder(createFormInfoIconAsset),
+        matching: find.byType(CreateFormNote),
       ),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(
-      tester
-          .getBottomLeft(
-            find.byKey(const ValueKey<String>('locations-statistics-note')),
-          )
-          .dy,
-      lessThan(
-        tester
-            .getTopLeft(
-              find.byKey(const ValueKey<String>('create-location-l3-count')),
-            )
-            .dy,
-      ),
+    final l1Badge = tester.widget<Text>(
+      find.descendant(of: statisticsNote, matching: find.text('L1')),
     );
+    expect(l1Badge.style?.fontSize, 9.5);
+    expect(l1Badge.style?.color, const Color(0xFF131215));
     expect(
       find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
       findsOneWidget,
@@ -15773,40 +15803,14 @@ void main() {
       findsNothing,
     );
 
-    final locationCounts = find.byKey(
-      const ValueKey<String>('create-location-l3-count'),
-    );
     expect(
-      tester
-          .widgetList<Text>(
-            find.descendant(of: locationCounts, matching: find.byType(Text)),
-          )
-          .every(
-            (text) =>
-                text.style?.fontSize == 13 &&
-                text.style?.color == const Color(0xFF666666),
-          ),
-      isTrue,
-    );
-    expect(tester.widget<Wrap>(locationCounts).spacing, 16);
-    expect(
-      tester
-          .widget<Align>(
-            find
-                .ancestor(of: locationCounts, matching: find.byType(Align))
-                .first,
-          )
-          .alignment,
-      Alignment.centerLeft,
-    );
-    expect(
-      find.ancestor(of: locationCounts, matching: find.byType(ListView)),
-      findsOneWidget,
+      find.byKey(const ValueKey<String>('create-location-l3-count')),
+      findsNothing,
     );
     final editList = find.byKey(const ValueKey<String>('locations-edit-list'));
     expect(
       tester.getTopLeft(statisticsNote).dy - tester.getTopLeft(editList).dy,
-      closeTo(16, 0.01),
+      closeTo(8, 0.01),
     );
 
     await tester.tap(
@@ -15848,8 +15852,8 @@ void main() {
     await tester.pump();
 
     expect(find.text('Downtown'), findsOneWidget);
-    expect(find.text('L2: 1'), findsOneWidget);
-    expect(find.text('L3: 0/15 (Added/Max)'), findsOneWidget);
+    expect(find.text('L2: 1'), findsNothing);
+    expect(find.text('L3: 0/15 (Added/Max)'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('locations-inline-name-Loc_1_1')),
       findsOneWidget,
@@ -15892,6 +15896,29 @@ void main() {
       findsOneWidget,
     );
     expect(
+      tester
+          .widget<Text>(find.descendant(of: addL3, matching: find.text('L3 *')))
+          .style
+          ?.color,
+      GenesisColors.createAdd,
+    );
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(of: addL3, matching: find.byIcon(Icons.add)),
+          )
+          .color,
+      GenesisColors.createAdd,
+    );
+    final addL3Border = tester
+        .widgetList<CustomPaint>(
+          find.descendant(of: addL3, matching: find.byType(CustomPaint)),
+        )
+        .map((widget) => widget.painter)
+        .whereType<CreateDashedRRectPainter>()
+        .single;
+    expect(addL3Border.color, createFormBorder);
+    expect(
       find.byKey(const ValueKey<String>('create-add-l2-Loc_1')),
       findsNothing,
     );
@@ -15905,7 +15932,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Add L3 Location'), findsOneWidget);
     expect(find.text('Edit L3 Location'), findsNothing);
-    expect(find.text('L3: 0/15 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 0/15 (Added/Max)'), findsNothing);
     expect(find.text('L3 Location'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('locations-l3-editor-delete')),
@@ -15943,7 +15970,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(l3Sheet, findsNothing);
-    expect(find.text('L3: 0/15 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 0/15 (Added/Max)'), findsNothing);
     expect(addL3, findsOneWidget);
     expect(find.text('L3 Location'), findsNothing);
 
@@ -15959,15 +15986,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Central Station'), findsOneWidget);
-    expect(find.text('L3: 1/15 (Added/Max)'), findsOneWidget);
+    expect(find.text('L3: 1/15 (Added/Max)'), findsNothing);
     final addL2 = find.byKey(const ValueKey<String>('create-add-l2-Loc_1'));
     final addL1 = find.byKey(const ValueKey<String>('create-add-l1-location'));
     expect(addL2, findsOneWidget);
-    expect(addL1, findsOneWidget);
     expect(
       find.descendant(of: addL3, matching: find.text('L3')),
       findsOneWidget,
     );
+    await tester.scrollUntilVisible(
+      addL1,
+      100,
+      scrollable: find.descendant(
+        of: find.byKey(const ValueKey<String>('locations-edit-list')),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    expect(addL1, findsOneWidget);
   });
 
   testWidgets('locations preview keeps an L2 without L3 as an L2 header', (
@@ -16031,7 +16066,7 @@ void main() {
     );
     expect(tester.widget<TextField>(l1Field).focusNode?.hasFocus, isTrue);
 
-    await tester.tap(find.text('L1: 1'));
+    await tester.tap(find.text('Your world is built in 3 levels:'));
     await tester.pump();
 
     expect(l1Editor, findsOneWidget);
@@ -16237,9 +16272,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('L1: 3'), findsOneWidget);
-    expect(find.text('L2: 3'), findsOneWidget);
-    expect(find.text('L3: 3/15 (Added/Max)'), findsOneWidget);
+    expect(find.text('L1: 3'), findsNothing);
+    expect(find.text('L2: 3'), findsNothing);
+    expect(find.text('L3: 3/15 (Added/Max)'), findsNothing);
     await tester.drag(
       find.byKey(const ValueKey<String>('locations-edit-list')),
       const Offset(0, -3000),
@@ -16374,12 +16409,12 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(newL1Editor, findsNothing);
     expect(addL1, findsOneWidget);
-    expect(find.text('L1: 1'), findsOneWidget);
+    expect(find.text('L1: 1'), findsNothing);
     await outsideTap.up();
     await tester.pump();
     expect(newL1Editor, findsNothing);
     expect(find.text('Discarded Harbor'), findsNothing);
-    expect(find.text('L1: 1'), findsOneWidget);
+    expect(find.text('L1: 1'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
       findsNothing,
@@ -16567,7 +16602,7 @@ void main() {
 
     expect(l1Editor, findsNothing);
     expect(find.textContaining('Delete L1'), findsNothing);
-    expect(find.text('L1: 1'), findsOneWidget);
+    expect(find.text('L1: 1'), findsNothing);
 
     final addL2 = find.byKey(const ValueKey<String>('create-add-l2-Loc_1'));
     await tester.tap(addL2);
@@ -16585,7 +16620,7 @@ void main() {
 
     expect(l2Editor, findsNothing);
     expect(find.textContaining('Delete L2'), findsNothing);
-    expect(find.text('L2: 1'), findsOneWidget);
+    expect(find.text('L2: 1'), findsNothing);
   });
 
   testWidgets('deleting the empty required L2 cancels its new L1 directly', (
@@ -16634,14 +16669,14 @@ void main() {
     expect(find.text('Delete'), findsNothing);
     expect(find.text('Cancel'), findsNothing);
     expect(l2Editor, findsNothing);
-    expect(find.text('L1: 1'), findsOneWidget);
+    expect(find.text('L1: 1'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('create-add-l1-location')),
       findsOneWidget,
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('L1: 1'), findsOneWidget);
+    expect(find.text('L1: 1'), findsNothing);
     expect(l2Editor, findsNothing);
     expect(
       find.byKey(const ValueKey<String>('create-add-l1-location')),
@@ -16717,10 +16752,10 @@ void main() {
     await tester.tap(find.text('Delete'));
     await tester.pump();
     expect(savedL2Editor, findsNothing);
-    expect(find.text('L2: 1'), findsOneWidget);
+    expect(find.text('L2: 1'), findsNothing);
     await tester.pumpAndSettle();
 
-    expect(find.text('L2: 1'), findsOneWidget);
+    expect(find.text('L2: 1'), findsNothing);
     expect(find.text('Market Road'), findsNothing);
   });
 
@@ -17123,18 +17158,8 @@ void main() {
       const ValueKey<String>('locations-inline-name-Loc_1'),
     );
     expect(l1InlineEditor, findsOneWidget);
-    final statisticsNote = find.descendant(
-      of: find.byKey(const ValueKey<String>('locations-statistics-note')),
-      matching: find.byType(CreateFormNote),
-    );
-    expect(
-      tester.getRect(statisticsNote).top -
-          tester
-              .getRect(
-                find.byKey(const ValueKey<String>('create-location-l3-count')),
-              )
-              .bottom,
-      8,
+    final statisticsNote = find.byKey(
+      const ValueKey<String>('locations-statistics-note'),
     );
     expect(
       tester.getRect(l1InlineEditor).top -
@@ -17157,7 +17182,11 @@ void main() {
     expect(
       tester.widget<CreateTextFieldBlock>(l1FieldBlock),
       isA<CreateTextFieldBlock>()
-          .having((field) => field.hintText, 'hintText', 'L1 Location')
+          .having(
+            (field) => field.hintText,
+            'hintText',
+            'L1 Location · Region *',
+          )
           .having((field) => field.note, 'note', isNull)
           .having((field) => field.maxLength, 'maxLength', 25)
           .having((field) => field.maxLines, 'maxLines', 1)
@@ -17204,7 +17233,7 @@ void main() {
       const ValueKey<String>('locations-inline-save-Loc_1'),
     );
     expect(inlineSaveButton, findsOneWidget);
-    final inlineSaveIcon = _assetSvgFinder(saveLineIconAsset);
+    final inlineSaveIcon = _assetSvgFinder(checkLineIconAsset);
     expect(
       find.descendant(of: inlineSaveButton, matching: inlineSaveIcon),
       findsOneWidget,
@@ -17216,7 +17245,7 @@ void main() {
     expect(saveIconWidget.height, 14);
     expect(
       saveIconWidget.colorFilter,
-      const ColorFilter.mode(createFormGreen, BlendMode.srcIn),
+      const ColorFilter.mode(createFormMuted, BlendMode.srcIn),
     );
     final saveButtonDecoration =
         tester
@@ -17233,29 +17262,9 @@ void main() {
     expect(saveButtonDecoration.color, const Color(0xE6F4F4F6));
     expect(
       (saveButtonDecoration.border as Border).top.color,
-      const Color(0xFFD8D8DE),
+      const Color(0xFF888888),
     );
-    final deleteButtonDecoration =
-        tester
-                .widget<Container>(
-                  find
-                      .descendant(
-                        of: find.byType(CreateFormDeleteButton),
-                        matching: find.byType(Container),
-                      )
-                      .first,
-                )
-                .decoration
-            as BoxDecoration;
-    expect(saveButtonDecoration.color, deleteButtonDecoration.color);
-    expect(
-      (saveButtonDecoration.border as Border).top.color,
-      (deleteButtonDecoration.border as Border).top.color,
-    );
-    expect(
-      saveButtonDecoration.borderRadius,
-      deleteButtonDecoration.borderRadius,
-    );
+    expect(saveButtonDecoration.borderRadius, BorderRadius.circular(6));
     final inlineDeleteButton = find.byType(CreateFormDeleteButton);
     expect(
       tester.getSize(inlineSaveButton),
@@ -17302,7 +17311,11 @@ void main() {
     expect(
       tester.widget<CreateTextFieldBlock>(l2FieldBlock),
       isA<CreateTextFieldBlock>()
-          .having((field) => field.hintText, 'hintText', 'L2 Location')
+          .having(
+            (field) => field.hintText,
+            'hintText',
+            'L2 Location · Building *',
+          )
           .having((field) => field.note, 'note', isNull),
     );
     final l2Note = find.descendant(
@@ -18297,7 +18310,7 @@ void main() {
     );
     expect(find.byType(CreateInlineAddButton), findsOneWidget);
     final addEventText = tester.widget<Text>(find.text('+ Add Event'));
-    expect(addEventText.style?.color, createFormGreen);
+    expect(addEventText.style?.color, GenesisColors.createAdd);
     expect(addEventText.style?.fontSize, 16);
     expect(addEventText.style?.fontWeight, FontWeight.w600);
     expect(
@@ -18412,7 +18425,7 @@ void main() {
       createButton.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      GenesisColors.brandSoft,
     );
   });
 
@@ -18840,7 +18853,7 @@ void main() {
       rootPublish.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      GenesisColors.brandSoft,
     );
     expect(transport.requestsFor('/api/v2/origin/update'), isEmpty);
 
@@ -18922,7 +18935,7 @@ void main() {
       find.byType(EditableText),
     );
     expect(notesEditable.widget.focusNode.hasFocus, isTrue);
-    await tester.tap(find.text('📝Update notes (required to publish)'));
+    await tester.tap(find.text('Update notes (required to publish)'));
     await tester.pump();
     notesEditable = tester.state<EditableTextState>(find.byType(EditableText));
     expect(notesEditable.widget.focusNode.hasFocus, isFalse);
@@ -19128,7 +19141,7 @@ void main() {
       'Clarified the archive rules.',
     );
     await tester.pump();
-    await tester.tap(find.text('📝Update notes (required to publish)'));
+    await tester.tap(find.text('Update notes (required to publish)'));
     await tester.pump();
     tester.testTextInput.hide();
     await tester.pump();

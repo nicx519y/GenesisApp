@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/network/models/gem_model.dart';
 import 'package:genesis_flutter_android/pages/gems/memory_model_page.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
@@ -84,6 +85,13 @@ void main() {
     expect(
       find.byKey(const ValueKey('gem-model-current-sake_pro')),
       findsNothing,
+    );
+    final currentModelMarker = tester.widget<Container>(
+      find.byKey(const ValueKey('gem-model-current-top_pick_v3')),
+    );
+    expect(
+      (currentModelMarker.decoration as BoxDecoration).color,
+      GenesisColors.brand,
     );
     final saveStyle = saveButton.style?.textStyle?.resolve(<WidgetState>{});
     expect(saveStyle?.fontSize, 14);

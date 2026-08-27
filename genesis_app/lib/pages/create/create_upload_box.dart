@@ -158,7 +158,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
           onTap: _isUploading ? null : () => _pickCropAndUpload(context),
           child: CustomPaint(
             painter: CreateDashedRRectPainter(
-              color: createFormDash,
+              color: createFormUploadBorder,
               radius: widget.borderRadius,
               strokeWidth: 1.2,
             ),

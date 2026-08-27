@@ -95,7 +95,7 @@ class _DiscussComposerPanel extends StatelessWidget {
                     icon: const Icon(
                       Icons.add_photo_alternate_outlined,
                       size: 30,
-                      color: Color(0xFF00834C),
+                      color: GenesisColors.createAdd,
                     ),
                   ),
                   const Spacer(),

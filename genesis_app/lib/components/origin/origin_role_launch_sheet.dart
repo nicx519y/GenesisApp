@@ -981,7 +981,7 @@ class _SheetActions extends StatelessWidget {
             height: 35,
             backgroundColor: canLaunch || launching
                 ? GenesisColors.brand
-                : const Color(0xFFC8D9D1),
+                : GenesisColors.brandSoft,
             foregroundColor: Colors.white,
             fontWeight: FontWeight.w600,
           ),

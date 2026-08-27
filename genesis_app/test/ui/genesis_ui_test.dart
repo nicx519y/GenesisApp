@@ -33,9 +33,12 @@ void main() {
   });
 
   test('GenesisTheme uses the default text color and red selection handle', () {
-    final selectionTheme = GenesisTheme.light().textSelectionTheme;
+    final theme = GenesisTheme.light();
+    final selectionTheme = theme.textSelectionTheme;
     expect(selectionTheme.cursorColor, GenesisColors.textPrimary);
     expect(selectionTheme.selectionHandleColor, GenesisColors.create);
+    expect(theme.colorScheme.primary, GenesisColors.brand);
+    expect(GenesisColors.brandBright, GenesisColors.brand);
   });
 
   test('GenesisTheme disables Material state effects', () {
@@ -345,7 +348,7 @@ void main() {
       theme?.filledButtonTheme.style?.backgroundColor?.resolve(
         const <WidgetState>{},
       ),
-      const Color(0xFF338960),
+      GenesisColors.brand,
     );
   });
 
@@ -368,7 +371,7 @@ void main() {
       button.style?.backgroundColor?.resolve(<WidgetState>{
         WidgetState.disabled,
       }),
-      const Color(0xFFBFD8CD),
+      GenesisColors.brandSoft,
     );
     expect(
       button.style?.foregroundColor?.resolve(<WidgetState>{

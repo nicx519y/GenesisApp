@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_upload_progress_overlay.dart';
 import 'package:genesis_flutter_android/components/discuss/discuss_post_input.dart';
 import 'package:genesis_flutter_android/ui/system/genesis_system_ui.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:image/image.dart' as img;
 
 void main() {
@@ -91,6 +92,12 @@ void main() {
     expect(calls, isNotEmpty);
     expect(calls.last['statusBarColor'], Colors.transparent.toARGB32());
     expect(calls.last['statusBarIconBrightness'], Brightness.dark.toString());
+    expect(
+      tester
+          .widget<Icon>(find.byIcon(Icons.add_photo_alternate_outlined))
+          .color,
+      GenesisColors.createAdd,
+    );
 
     await tester.tapAt(const Offset(20, 20));
     await tester.pumpAndSettle();

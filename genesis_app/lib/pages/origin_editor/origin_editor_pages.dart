@@ -456,7 +456,7 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    const disabledSubmitColor = Color(0xFFBFD8CD);
+    const disabledSubmitColor = GenesisColors.brandSoft;
     final canUseSubmitButton =
         !_isSubmitting &&
         widget.submitStatus == OriginDraftSubmitStatus.idle &&
@@ -518,7 +518,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   icon: createOriginBasicsIconAsset,
                                   title: 'Basics',
                                   summary: _basicsSummary(_draft),
-                                  completed: _draft.basicsSaved,
                                   modified: _basicsModified(_draft),
                                   onTap: () => _openSection(
                                     widget.basicsPageBuilder(widget.repository),
@@ -528,7 +527,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   icon: createOriginCharactersIconAsset,
                                   title: 'Characters (>=1)',
                                   summary: _charactersSummary(_draft),
-                                  completed: _draft.charactersSaved,
                                   modified: _charactersModified(_draft),
                                   wrapFirstSummaryLine: true,
                                   onTap: () => _openSection(
@@ -541,7 +539,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   icon: createOriginLocationsIconAsset,
                                   title: 'Locations (>=1)',
                                   summary: _locationsSummary(_draft),
-                                  completed: _draft.locationsSaved,
                                   modified: _locationsModified(_draft),
                                   onTap: () => _openSection(
                                     widget.locationsPageBuilder(
@@ -557,7 +554,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                     icon: createOriginOpeningIconAsset,
                                     title: 'Opening',
                                     summary: _openingSummary(_draft),
-                                    completed: _draft.openingSaved,
                                     modified: _openingModified(_draft),
                                     onTap: () => _openSection(
                                       widget.openingPageBuilder!(
@@ -569,7 +565,6 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
                                   icon: createOriginStoryEventsIconAsset,
                                   title: 'Story Events (Optional)',
                                   summary: _storyEventsSummary(_draft),
-                                  completed: _draft.storyEventsSaved,
                                   modified: _storyEventsModified(_draft),
                                   showDivider: false,
                                   onTap: () => _openSection(
@@ -813,7 +808,7 @@ class _UpdateNotesFieldLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Text(
-      '📝Update notes (required to publish)',
+      'Update notes (required to publish)',
       style: _editSummaryLabelStyle,
     );
   }

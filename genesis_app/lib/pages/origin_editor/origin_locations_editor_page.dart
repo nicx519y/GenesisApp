@@ -39,12 +39,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       'work too.';
   static const String _completeRequiredLocationMessage =
       'Please complete this location or delete it.';
-  static const TextStyle _locationCountStyle = TextStyle(
-    color: Color(0xFF666666),
-    fontSize: 13,
-    height: 1.2,
-  );
-
   final List<_LocationForm> _forms = <_LocationForm>[];
   final List<_L1LocationForm> _treeForms = <_L1LocationForm>[];
   final Set<String> _reservedLocationIds = <String>{};

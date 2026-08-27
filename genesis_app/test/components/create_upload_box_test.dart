@@ -3,9 +3,41 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/pages/create/create_form_widgets.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
+  testWidgets('CreateUploadBox uses neutral border and red upload icon', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CreateUploadBox(
+            controller: controller,
+            label: 'UPLOAD',
+            onChanged: () {},
+          ),
+        ),
+      ),
+    );
+
+    final uploadIcon = tester.widget<Icon>(
+      find.byIcon(Icons.add_photo_alternate_outlined),
+    );
+    expect(uploadIcon.color, GenesisColors.createAdd);
+
+    final dashedPaint = tester
+        .widgetList<CustomPaint>(find.byType(CustomPaint))
+        .map((widget) => widget.painter)
+        .whereType<CreateDashedRRectPainter>()
+        .single;
+    expect(dashedPaint.color, const Color(0xFFE1E1E6));
+  });
+
   testWidgets(
     'CreateUploadBox shows preview after external controller update',
     (WidgetTester tester) async {

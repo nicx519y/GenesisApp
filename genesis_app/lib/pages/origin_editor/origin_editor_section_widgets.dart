@@ -6,7 +6,6 @@ class _SectionRow extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.summary,
-    required this.completed,
     required this.onTap,
     this.modified = false,
     this.wrapFirstSummaryLine = false,
@@ -16,7 +15,6 @@ class _SectionRow extends StatelessWidget {
   final String? icon;
   final String title;
   final String summary;
-  final bool completed;
   final VoidCallback? onTap;
   final bool modified;
   final bool wrapFirstSummaryLine;
@@ -67,21 +65,6 @@ class _SectionRow extends StatelessWidget {
                                     ),
                                   ),
                                 ),
-                                if (completed) ...[
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    '✓',
-                                    key: ValueKey<String>(
-                                      'section-completed-$title',
-                                    ),
-                                    style: const TextStyle(
-                                      color: Color(0xFF1C7D56),
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                      height: 1,
-                                    ),
-                                  ),
-                                ],
                                 if (modified) ...[
                                   const SizedBox(width: 6),
                                   _ModifiedSectionBadge(

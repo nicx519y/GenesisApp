@@ -767,7 +767,9 @@ class _TimeProgressOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return Material(
       key: ValueKey('time-progress-option-$label'),
-      color: selected ? const Color(0xFFE0EEE8) : createFormFieldFill,
+      color: selected
+          ? GenesisColors.brand.withValues(alpha: 0.10)
+          : createFormFieldFill,
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         borderRadius: BorderRadius.circular(8),

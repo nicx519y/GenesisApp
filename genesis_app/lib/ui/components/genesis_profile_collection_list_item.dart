@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../components/origin/stat_item.dart';
+import '../../icons/custom_icon_assets.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../tokens/genesis_image_radii.dart';
 import 'genesis_list_image.dart';
-import 'recent_chat_marker.dart';
 
 class GenesisProfileCollectionItemData {
   const GenesisProfileCollectionItemData({
@@ -13,11 +14,11 @@ class GenesisProfileCollectionItemData {
     required this.title,
     required this.subtitle,
     this.stats = const <GenesisProfileCollectionStat>[],
-    this.showRecentChatTag = false,
     this.isCollapsing = false,
     this.showPressedBackground = true,
     this.enableFeedback = true,
     this.onTap,
+    this.onEdit,
     this.onLongPress,
     this.onCollapsed,
   });
@@ -27,11 +28,11 @@ class GenesisProfileCollectionItemData {
   final String title;
   final String subtitle;
   final List<GenesisProfileCollectionStat> stats;
-  final bool showRecentChatTag;
   final bool isCollapsing;
   final bool showPressedBackground;
   final bool enableFeedback;
   final VoidCallback? onTap;
+  final VoidCallback? onEdit;
   final VoidCallback? onLongPress;
   final VoidCallback? onCollapsed;
 }
@@ -86,27 +87,28 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            fit: FlexFit.loose,
-                            child: Text(
-                              item.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                fontSize: 14,
-                                height: 1.1,
-                                fontWeight: FontWeight.w600,
-                                color: Color(0xFF4B6192),
+                      Padding(
+                        padding: EdgeInsets.only(
+                          right: item.onEdit == null ? 0 : 32,
+                        ),
+                        child: Row(
+                          children: [
+                            Flexible(
+                              fit: FlexFit.loose,
+                              child: Text(
+                                item.title,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  height: 1.1,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF4B6192),
+                                ),
                               ),
                             ),
-                          ),
-                          if (item.showRecentChatTag) ...[
-                            const SizedBox(width: 6),
-                            const RecentChatTag(),
                           ],
-                        ],
+                        ),
                       ),
                       const SizedBox(height: 5),
                       Text(
@@ -141,6 +143,39 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                 ),
               ),
             ),
+            if (item.onEdit case final onEdit?)
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Semantics(
+                  button: true,
+                  label: 'Edit ${item.title}',
+                  child: GestureDetector(
+                    key: ValueKey<String>(
+                      'profile-collection-item-edit-'
+                      '${item.animationKey ?? item.title}',
+                    ),
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onEdit,
+                    child: SizedBox(
+                      width: 32,
+                      height: 28,
+                      child: Align(
+                        alignment: Alignment.topRight,
+                        child: SvgPicture.asset(
+                          editPencilLineIconAsset,
+                          width: 16,
+                          height: 16,
+                          colorFilter: const ColorFilter.mode(
+                            Color(0xFF4B6192),
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

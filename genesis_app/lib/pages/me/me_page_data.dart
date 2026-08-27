@@ -9,46 +9,29 @@ extension _MePageData on _MePageState {
       _loadGeneration += 1;
       _setOriginsState(const <UserProfileOriginItem>[], isLoading: false);
       _setWorldsState(const <UserProfileWorldItem>[], isLoading: false);
-      _setRecentChatMarker('', '');
       return const _MePageContent.signedOut();
     }
-    return _MePageContent.signedIn(await _loadProfileData());
-  }
-
-  Future<void> _loadRecentChatMarker() async {
-    final uid = await _readCurrentBackendUid();
-    final record = await recentWorldChatStore.loadForUid(uid);
-    if (!_canUpdateAsyncState) return;
-    final nextWorldId = record?.uid == uid ? record?.worldId ?? '' : '';
-    _setRecentChatMarker(uid, nextWorldId);
-  }
-
-  void _handleRecentChatChanged() {
-    if (!_canUpdateAsyncState) return;
-    final record = recentWorldChatStore.listenable.value;
-    if (record == null) return;
-    if (_recentChatUid.isNotEmpty && record.uid != _recentChatUid) return;
-    _setRecentChatMarker(record.uid, record.worldId);
-  }
-
-  void _setRecentChatMarker(String uid, String worldId) {
-    if (_recentChatUid == uid && _recentChatWorldId == worldId) return;
-    _updateState(() {
-      _recentChatUid = uid;
-      _recentChatWorldId = worldId;
-    });
+    return _MePageContent.signedIn(
+      await _loadProfileData(refreshAllCollections: true),
+    );
   }
 
   Future<UserProfileData> _loadProfileData({
     bool showCollectionLoading = true,
     int? refreshCollectionTabIndex = 0,
+    bool refreshAllCollections = false,
   }) async {
     final generation = _loadGeneration + 1;
     _loadGeneration = generation;
     final currentOrigins = _originsState.value.items;
     final currentWorlds = _worldsState.value.items;
-    if (refreshCollectionTabIndex != null && showCollectionLoading) {
-      _setCollectionLoading(refreshCollectionTabIndex, isLoading: true);
+    if (showCollectionLoading) {
+      if (refreshAllCollections) {
+        _setCollectionLoading(0, isLoading: true);
+        _setCollectionLoading(1, isLoading: true);
+      } else if (refreshCollectionTabIndex != null) {
+        _setCollectionLoading(refreshCollectionTabIndex, isLoading: true);
+      }
     }
     final services = AppServicesScope.read(context);
     final api = services.api;
@@ -87,17 +70,26 @@ extension _MePageData on _MePageState {
       fallbackUid: uid,
     );
 
-    if (refreshCollectionTabIndex != null && _isTabActive) {
-      unawaited(
-        _refreshCollectionTab(
-          refreshCollectionTabIndex,
-          generation: generation,
-          api: api,
-          uid: uid,
-          fallbackOrigins: currentOrigins,
-          fallbackWorlds: currentWorlds,
-        ),
-      );
+    if (_isTabActive) {
+      if (refreshAllCollections) {
+        unawaited(
+          Future.wait<void>([
+            _loadOrigins(generation, api, uid, fallbackItems: currentOrigins),
+            _loadWorlds(generation, api, uid, fallbackItems: currentWorlds),
+          ]),
+        );
+      } else if (refreshCollectionTabIndex != null) {
+        unawaited(
+          _refreshCollectionTab(
+            refreshCollectionTabIndex,
+            generation: generation,
+            api: api,
+            uid: uid,
+            fallbackOrigins: currentOrigins,
+            fallbackWorlds: currentWorlds,
+          ),
+        );
+      }
     }
 
     final data = UserProfileData(
