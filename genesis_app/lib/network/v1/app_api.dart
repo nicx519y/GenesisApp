@@ -4,6 +4,9 @@ import 'v1_api_resource.dart';
 class AppV1Api extends V1ApiResource {
   const AppV1Api(super.client);
 
+  /// GET /api/v1/app/config
+  Future<Map<String, dynamic>> config() => getMap('app/config');
+
   /// POST /api/v1/app/version/check
   Future<AppVersionCheckResponse> versionCheck({
     required String appId,

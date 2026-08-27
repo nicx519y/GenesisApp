@@ -549,6 +549,10 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.v1OriginHotTags());
     }
 
+    if (method == 'GET' && path == 'app/config') {
+      return _v1Ok({'show_opening_sheet': false});
+    }
+
     if (method == 'GET' && path == 'origin/my_launch_preset_characters') {
       final originId = (query['origin_id'] ?? '').trim();
       if (originId.isEmpty) {
@@ -2494,7 +2498,6 @@ class _MockState {
     final info = _mapFromObject(contract['info']);
     return {
       ...contract,
-      'show_opening_sheet': asBool(origin['show_opening_sheet']),
       'info': <String, dynamic>{
         for (final key in const <String>[
           'origin_id',
@@ -5007,7 +5010,6 @@ List<Map<String, dynamic>> _expandMockV1Origins() {
       'location_cnt': _mockStatCount(index, offset: 4),
       'start_time': 'Day ${(index % 12) + 1} 08:00',
       'tick_duration_days': 7 + (index % 30),
-      'show_opening_sheet': index == 0,
     };
   });
 }

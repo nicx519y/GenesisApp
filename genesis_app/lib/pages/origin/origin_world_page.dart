@@ -83,11 +83,13 @@ class OriginWorldPage extends StatefulWidget {
     required this.oid,
     required this.originId,
     this.initialName = '',
+    this.showOpeningSheetOnEntry = false,
   });
 
   final String oid;
   final int originId;
   final String initialName;
+  final bool showOpeningSheetOnEntry;
 
   @override
   State<OriginWorldPage> createState() => _OriginWorldPageState();
@@ -144,9 +146,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
   bool _launching = false;
-  int _detailSheetExpandRequest = 0;
-  bool _entryDetailResponsePending = true;
-  bool _waitingForOpeningSheetExpansion = false;
+  late bool _waitingForOpeningSheetExpansion;
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
   );
@@ -160,6 +160,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   @override
   void initState() {
     super.initState();
+    _waitingForOpeningSheetExpansion = widget.showOpeningSheetOnEntry;
     tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
     _scheduleInitialOriginLoadAfterFrameworkFrame();
@@ -203,9 +204,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _activeChatLocation = null;
       _currentTilemapLocationIds = const <String>{};
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
-      _detailSheetExpandRequest = 0;
-      _entryDetailResponsePending = true;
-      _waitingForOpeningSheetExpansion = false;
+      _waitingForOpeningSheetExpansion = widget.showOpeningSheetOnEntry;
       _detailSheetRaisedNotifier.value = false;
       _scheduleInitialOriginLoadAfterFrameworkFrame();
     }
@@ -388,17 +387,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
           isInitial ||
           _origin == null ||
           _renderStage != _OriginWorldPageRenderStage.content;
-      final handlesEntryDetailResponse = _entryDetailResponsePending;
       setState(() {
         _origin = origin;
         _initialLoadError = null;
-        if (handlesEntryDetailResponse) {
-          _entryDetailResponsePending = false;
-          if (origin.showOpeningSheet) {
-            _detailSheetExpandRequest += 1;
-            _waitingForOpeningSheetExpansion = true;
-          }
-        }
         if (shouldStageInitialContent) {
           _renderStage = _OriginWorldPageRenderStage.detailShell;
           _contentMountScheduled = false;
@@ -1195,7 +1186,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               origin: origin,
               copyWorldProgressSummaries: _copyWorldProgressSummaries,
               minChildSize: minChildSize,
-              expandRequest: _detailSheetExpandRequest,
+              initiallyExpanded: widget.showOpeningSheetOnEntry,
               autoExpansionPending: _waitingForOpeningSheetExpansion,
               onRaisedChanged: _handleDetailSheetRaisedChanged,
               onFullyExpanded: _handleOpeningSheetFullyExpanded,

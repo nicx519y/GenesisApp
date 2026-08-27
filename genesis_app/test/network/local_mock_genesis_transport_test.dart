@@ -258,6 +258,14 @@ void main() {
     expect(response.shouldForceUpgrade, false);
   });
 
+  test('local mock app config returns global opening sheet flag', () async {
+    final api = GenesisApi(useMock: true);
+
+    final config = await api.v1.app.config();
+
+    expect(config, {'show_opening_sheet': false});
+  });
+
   test(
     'local mock Origin feed advances cursor and deduplicates exposure',
     () async {
@@ -670,9 +678,9 @@ void main() {
       throwsA(isA<ApiException>().having((error) => error.code, 'code', 20101)),
     );
     final detail = await api.v1.origin.detail(oid: origin);
-    expect(detail['show_opening_sheet'], isTrue);
     final secondDetail = await api.v1.origin.detail(originId: secondOriginId);
-    expect(secondDetail['show_opening_sheet'], isFalse);
+    expect(detail, isNot(contains('show_opening_sheet')));
+    expect(secondDetail, isNot(contains('show_opening_sheet')));
     final detailInfo = detail['info'] as Map;
     expect(detailInfo['origin_id'], origin);
     expect(detailInfo['metric'], isA<Map>());

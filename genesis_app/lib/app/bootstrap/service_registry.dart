@@ -20,6 +20,7 @@ import '../../routers/app_router.dart';
 import '../../platform/platform_services.dart';
 import '../../platform/session/user_info_cache.dart';
 import '../config/app_config.dart';
+import '../config/app_global_config.dart';
 import '../config/platform_config.dart';
 import '../debug/location_chat_debug_storage.dart';
 import '../gems/gem_wallet_store.dart';
@@ -50,6 +51,7 @@ class AppServices {
     GemWalletStore? gemWallet,
     this.billing,
     ValueNotifier<int>? sessionRevision,
+    AppGlobalConfigStore? appGlobalConfig,
   }) : deviceInfoTelemetry =
            deviceInfoTelemetry ??
            DeviceInfoTelemetryReporter(deviceIdService: deviceId),
@@ -59,6 +61,9 @@ class AppServices {
              loadWallet: api.v1.gem.wallet,
              readUid: sessionStore.readUid,
            ),
+       appGlobalConfig =
+           appGlobalConfig ??
+           AppGlobalConfigStore(loadConfig: api.v1.app.config),
        sessionRevision = sessionRevision ?? ValueNotifier<int>(0);
 
   final AppConfig config;
@@ -78,6 +83,7 @@ class AppServices {
   final GatewayAuthCoordinator? gatewayAuth;
   final GemWalletStore gemWallet;
   final BillingService? billing;
+  final AppGlobalConfigStore appGlobalConfig;
   final ValueNotifier<int> sessionRevision;
 
   void notifySessionChanged() {
@@ -89,6 +95,7 @@ class AppServices {
   void dispose() {
     billing?.dispose();
     gemWallet.dispose();
+    appGlobalConfig.dispose();
   }
 }
 
