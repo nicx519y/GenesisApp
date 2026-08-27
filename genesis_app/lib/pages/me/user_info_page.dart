@@ -14,6 +14,7 @@ import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
+import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
@@ -31,7 +32,9 @@ class UserInfoPage extends StatefulWidget {
 
 class _UserInfoPageState extends State<UserInfoPage> {
   late Future<UserProfileData> _future;
+  late final SessionRevisionSubscription _sessionRevision;
   int _loadGeneration = 0;
+  int _sessionListGeneration = 0;
   String _profileUid = '';
   String _profileTitle = '';
   bool _profileIsSelf = true;
@@ -58,11 +61,19 @@ class _UserInfoPageState extends State<UserInfoPage> {
   @override
   void initState() {
     super.initState();
+    _sessionRevision = SessionRevisionSubscription(_handleSessionChanged);
     _future = _loadData();
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sessionRevision.bind(AppServicesScope.of(context).sessionRevision);
+  }
+
+  @override
   void dispose() {
+    _sessionRevision.dispose();
     _originsState.dispose();
     _worldsState.dispose();
     super.dispose();
@@ -94,19 +105,6 @@ class _UserInfoPageState extends State<UserInfoPage> {
         _mapBool(relation, 'is_self') ||
         (localUid.isNotEmpty && localUid == profileUid);
     final isBlocked = !isSelf && _mapBool(relation, 'is_blocked');
-    if (mounted &&
-        (_profileUid != profileUid ||
-            _profileTitle != displayName ||
-            _profileIsSelf != isSelf ||
-            _profileBlocked != isBlocked)) {
-      setState(() {
-        _profileUid = profileUid;
-        _profileTitle = displayName;
-        _profileIsSelf = isSelf;
-        _profileBlocked = isBlocked;
-      });
-    }
-
     final data = UserProfileData(
       avatarUrl: avatarUrl,
       displayName: displayName,
@@ -120,6 +118,21 @@ class _UserInfoPageState extends State<UserInfoPage> {
       origins: const [],
       worlds: const [],
     );
+    if (!mounted || generation != _loadGeneration) {
+      return data;
+    }
+    if (_profileUid != profileUid ||
+        _profileTitle != displayName ||
+        _profileIsSelf != isSelf ||
+        _profileBlocked != isBlocked) {
+      setState(() {
+        _profileUid = profileUid;
+        _profileTitle = displayName;
+        _profileIsSelf = isSelf;
+        _profileBlocked = isBlocked;
+      });
+    }
+
     if (!mounted || generation != _loadGeneration) return data;
 
     if (profileUid.isEmpty || isBlocked) {
@@ -133,6 +146,23 @@ class _UserInfoPageState extends State<UserInfoPage> {
       unawaited(services.gemWallet.refresh());
     }
     return data;
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+    _loadGeneration += 1;
+    _sessionListGeneration += 1;
+    _clearProfileCollections();
+    final refresh = _loadData();
+    setState(() {
+      _profileUid = '';
+      _profileTitle = '';
+      _profileIsSelf = true;
+      _profileBlocked = false;
+      _isBlockingUser = false;
+      _profileCollapsed = false;
+      _future = refresh;
+    });
   }
 
   Future<void> _loadOrigins(int generation, GenesisApi api, String uid) async {
@@ -185,6 +215,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   Future<void> _refreshOrigins() async {
+    final generation = _loadGeneration;
     final uid = _profileUid.trim().isEmpty ? widget.uid.trim() : _profileUid;
     if (uid.isEmpty) return;
     final current = _originsState.value;
@@ -195,13 +226,13 @@ class _UserInfoPageState extends State<UserInfoPage> {
     try {
       final api = AppServicesScope.read(context).api;
       final items = await _loadOriginItems(api, uid);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
         items: items,
         isLoading: false,
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
         items: current.items,
         isLoading: false,
@@ -210,6 +241,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   Future<void> _refreshWorlds() async {
+    final generation = _loadGeneration;
     final uid = _profileUid.trim().isEmpty ? widget.uid.trim() : _profileUid;
     if (uid.isEmpty) return;
     final current = _worldsState.value;
@@ -220,13 +252,13 @@ class _UserInfoPageState extends State<UserInfoPage> {
     try {
       final api = AppServicesScope.read(context).api;
       final items = await _loadWorldItems(api, uid);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
         items: items,
         isLoading: false,
       );
     } catch (_) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
         items: current.items,
         isLoading: false,
@@ -511,6 +543,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
               final data = snapshot.data;
               if (data == null) return const SizedBox.shrink();
               return UserProfileContent(
+                key: ValueKey<String>(
+                  'user-info-session-$_sessionListGeneration',
+                ),
                 data: data,
                 originsListenable: _originsState,
                 worldsListenable: _worldsState,

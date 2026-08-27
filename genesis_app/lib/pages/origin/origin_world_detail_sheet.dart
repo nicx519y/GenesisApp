@@ -3,12 +3,26 @@ part of 'origin_world_page.dart';
 const int _originOpeningSheetPageIndex = 0;
 const int _originInfoSheetPageIndex = 1;
 
+double _originDetailExpandedChildSize(
+  BuildContext context, {
+  required double minChildSize,
+}) {
+  final viewportHeight = MediaQuery.sizeOf(context).height;
+  if (viewportHeight <= 0) return minChildSize;
+  final expandedTop = originWorldDetailExpandedSheetTopFor(
+    topSafeArea: GenesisSafeAreaInsets.top(context),
+  );
+  return (1.0 - expandedTop / viewportHeight)
+      .clamp(minChildSize, 1.0)
+      .toDouble();
+}
+
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
     required this.copyWorldProgressSummaries,
     required this.minChildSize,
-    required this.expandRequest,
+    required this.initiallyExpanded,
     required this.autoExpansionPending,
     required this.onRaisedChanged,
     required this.onFullyExpanded,
@@ -26,7 +40,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final OriginDetail origin;
   final List<WorldSummaryLatestItem> copyWorldProgressSummaries;
   final double minChildSize;
-  final int expandRequest;
+  final bool initiallyExpanded;
   final bool autoExpansionPending;
   final ValueChanged<bool> onRaisedChanged;
   final VoidCallback onFullyExpanded;
@@ -46,8 +60,6 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
 class _OriginDetailDraggableSheetState
     extends State<_OriginDetailDraggableSheet> {
   static const double _absoluteMaxChildSize = 1.0;
-  static const double _topOverlayTopOffset = 8.0;
-  static const double _expandedTopOverlayGap = 20.0;
   static const double _extentUpdateEpsilon = 0.001;
   static const int _extentSettleFrameCount = 2;
   static const _snapAnimationDuration = Duration(milliseconds: 260);
@@ -73,20 +85,11 @@ class _OriginDetailDraggableSheetState
 
   double get _minChildSize => widget.minChildSize.clamp(0.08, 1.0).toDouble();
 
-  double get _effectiveInitialChildSize => _minChildSize;
-
   double _expandedChildSize(BuildContext context) {
-    final viewportHeight = MediaQuery.sizeOf(context).height;
-    final sheetHostHeight = viewportHeight;
-    if (sheetHostHeight <= 0) return _minChildSize;
-    final expandedTop =
-        GenesisSafeAreaInsets.top(context) +
-        _topOverlayTopOffset +
-        genesisSearchFieldHeight +
-        _expandedTopOverlayGap;
-    return (1.0 - expandedTop / sheetHostHeight)
-        .clamp(_minChildSize, _absoluteMaxChildSize)
-        .toDouble();
+    return _originDetailExpandedChildSize(
+      context,
+      minChildSize: _minChildSize,
+    ).clamp(_minChildSize, _absoluteMaxChildSize).toDouble();
   }
 
   @override
@@ -97,8 +100,8 @@ class _OriginDetailDraggableSheetState
     _openingPreviewScrollController = ScrollController();
     _infoPreviewScrollController = ScrollController();
     _initialDialoguePreview = _originFirstInitialDialoguePreview(widget.origin);
-    if (widget.expandRequest > 0) {
-      _expandToMaxChildSize();
+    if (widget.initiallyExpanded && widget.autoExpansionPending) {
+      _completeInitialExpansionAfterPaint();
     }
   }
 
@@ -127,9 +130,6 @@ class _OriginDetailDraggableSheetState
     if (oldWidget.minChildSize != widget.minChildSize) {
       _syncRaisedStateAfterBuild();
     }
-    if (oldWidget.expandRequest != widget.expandRequest) {
-      _expandToMaxChildSize();
-    }
   }
 
   @override
@@ -156,6 +156,20 @@ class _OriginDetailDraggableSheetState
         expanded: true,
       ),
     );
+  }
+
+  void _completeInitialExpansionAfterPaint() {
+    unawaited(() async {
+      await _sheetReady.future;
+      await _waitForNextFrame();
+      if (!mounted ||
+          !widget.autoExpansionPending ||
+          !_sheetController.isAttached ||
+          !_isAtExpandedExtent()) {
+        return;
+      }
+      widget.onFullyExpanded();
+    }());
   }
 
   void _collapseToMinChildSize() {
@@ -447,6 +461,8 @@ class _OriginDetailDraggableSheetState
       builder: (context, child) {
         final sheetExtent = _sheetController.isAttached
             ? _sheetController.size
+            : widget.initiallyExpanded
+            ? _expandedChildSize(context)
             : _minChildSize;
         final raisedProgress = ((sheetExtent - _minChildSize) / 0.04)
             .clamp(0.0, 1.0)
@@ -570,9 +586,7 @@ class _OriginDetailDraggableSheetState
               hasScrollBody: false,
               child: KeyedSubtree(
                 key: const ValueKey<String>('origin-opening-sheet-tombstone'),
-                child: initialDialoguePreview != null
-                    ? const _OriginInitialDialogueLoadingContent()
-                    : const _OriginRoleSetupLoadingContent(),
+                child: const _OriginSheetLoadingContent(),
               ),
             )
           else ...[
@@ -644,9 +658,10 @@ class _OriginDetailDraggableSheetState
   Widget build(BuildContext context) {
     final minChildSize = _minChildSize;
     final maxChildSize = _expandedChildSize(context);
-    final initialChildSize = _effectiveInitialChildSize
-        .clamp(minChildSize, maxChildSize)
-        .toDouble();
+    final initialChildSize =
+        (widget.initiallyExpanded ? maxChildSize : minChildSize)
+            .clamp(minChildSize, maxChildSize)
+            .toDouble();
     final initialDialoguePreview = _initialDialoguePreview;
     return IgnorePointer(
       ignoring: widget.autoExpansionPending,

@@ -17,6 +17,7 @@ import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/blocked_user_review_return.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
@@ -137,7 +138,6 @@ import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
@@ -242,6 +242,7 @@ Future<AppServices> _testServices({
   AppVersionCheckService? appVersionCheck,
   ExternalUrlOpener? externalUrlOpener,
   DeviceIdService? deviceIdService,
+  AppGlobalConfigStore? appGlobalConfig,
 }) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
@@ -305,6 +306,7 @@ Future<AppServices> _testServices({
     externalUrlOpener: externalUrlOpener ?? _FakeExternalUrlOpener(),
     gemWallet: gemWallet,
     billing: billingService,
+    appGlobalConfig: appGlobalConfig,
   );
 }
 
@@ -583,7 +585,6 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.hotTagsCompleter,
     this.originDefinitionVersion = 1,
     this.worldDefinitionVersion = 1,
-    this.originShowOpeningSheet = false,
     this.originExposureFailuresRemaining = 0,
     this.originCover = '',
   });
@@ -625,7 +626,6 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Completer<TransportResponse>? hotTagsCompleter;
   final int originDefinitionVersion;
   final int worldDefinitionVersion;
-  final bool originShowOpeningSheet;
   final String originCover;
   int originExposureFailuresRemaining;
   int _worldDetailRequestIndex = 0;
@@ -1174,7 +1174,6 @@ class _RecordingV1ListTransport implements HttpTransport {
   Map<String, Object?> _originDetail(String oid) {
     final fallback = oid.isEmpty ? 'o_test_1' : oid;
     return {
-      'show_opening_sheet': originShowOpeningSheet,
       'info': {
         'origin_id': fallback,
         'origin_name': 'Origin detail $fallback',
@@ -3326,6 +3325,44 @@ void main() {
     expect(find.byType(StatItem), findsNWidgets(7));
   });
 
+  testWidgets('search page reruns the active query after session change', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    AppStartupCoordinator.configure(
+      appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+    );
+    final transport = _RecordingSearchTransport();
+    final sessionStore = MemoryUserSessionStore();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialUid: null,
+      sessionStoreOverride: sessionStore,
+    );
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Explore').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'reborn');
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(transport.requestsFor('/api/v1/search'), hasLength(1));
+
+    await sessionStore.saveUid('u_logged_in');
+    await sessionStore.saveAuthToken('backend-token');
+    services.notifySessionChanged();
+    await tester.pumpAndSettle();
+
+    final requests = transport.requestsFor('/api/v1/search');
+    expect(requests, hasLength(2));
+    expect(requests.last.uri.queryParameters['keyword'], 'reborn');
+    expect(requests.last.uri.queryParameters['pn'], '1');
+    expect(find.text('#Search Origin'), findsOneWidget);
+  });
+
   testWidgets('search page renders local mock Chinese user results', (
     WidgetTester tester,
   ) async {
@@ -5370,6 +5407,68 @@ void main() {
     expect(find.text('#Origin 1'), findsOneWidget);
   });
 
+  testWidgets(
+    'session change reloads Worldo first page and resets its scroll position',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      AppStartupCoordinator.configure(
+        appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+      );
+      GenesisTelemetry.setSinkForTesting(_CapturingTelemetrySink());
+      addTearDown(GenesisTelemetry.resetForTesting);
+      final transport = _RecordingV1ListTransport();
+      final sessionStore = MemoryUserSessionStore();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: null,
+        sessionStoreOverride: sessionStore,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const AppShellPage(initialIndex: 1),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final feedFinder = find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      );
+      ScrollableState currentScrollable() => tester.state<ScrollableState>(
+        find.descendant(of: feedFinder, matching: find.byType(Scrollable)),
+      );
+
+      final anonymousScrollable = currentScrollable();
+      await tester.drag(feedFinder, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      expect(anonymousScrollable.position.pixels, greaterThan(0));
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+
+      await tester.tap(find.text('Me'));
+      await tester.pumpAndSettle();
+      await sessionStore.saveUid('u_logged_in');
+      await sessionStore.saveAuthToken('backend-token');
+      services.notifySessionChanged();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Worldo'));
+      await tester.pumpAndSettle();
+
+      final signedInScrollable = currentScrollable();
+      final feedRequests = transport.requestsFor('/api/v1/origin/feed');
+      expect(feedRequests, hasLength(2));
+      expect(feedRequests.last.uri.queryParameters, {
+        'start_score': '0',
+        'rn': '10',
+      });
+      expect(identical(signedInScrollable, anonymousScrollable), isFalse);
+      expect(signedInScrollable.position.pixels, 0);
+    },
+  );
+
   testWidgets('reselecting Worldo returns For you feed and header to top', (
     WidgetTester tester,
   ) async {
@@ -5599,6 +5698,64 @@ void main() {
       );
     },
   );
+
+  testWidgets('Home My Worlds returns to top after two iOS status bar taps', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: const Scaffold(primary: false, body: HomePage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final feedFinder = find.byKey(
+        const PageStorageKey<String>('home-feed-my-world'),
+      );
+      final feedScrollableFinder = find.descendant(
+        of: feedFinder,
+        matching: find.byType(Scrollable),
+      );
+      final scrollableState = tester.state<ScrollableState>(
+        feedScrollableFinder,
+      );
+      expect(scrollableState.position.maxScrollExtent, greaterThan(0));
+      scrollableState.position.jumpTo(scrollableState.position.maxScrollExtent);
+      await tester.pump();
+
+      Future<void> sendStatusBarTap() {
+        return tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+          SystemChannels.statusBar.name,
+          SystemChannels.statusBar.codec.encodeMethodCall(
+            const MethodCall('handleScrollToTop'),
+          ),
+          (_) {},
+        );
+      }
+
+      await sendStatusBarTap();
+      await tester.pump();
+      expect(scrollableState.position.pixels, greaterThan(0));
+
+      await sendStatusBarTap();
+      await tester.pumpAndSettle();
+      expect(scrollableState.position.pixels, 0);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
 
   testWidgets('Origin returns to top after two iOS status bar taps', (
     WidgetTester tester,
@@ -6445,7 +6602,7 @@ void main() {
     expect(find.text('View More >'), findsOneWidget);
   });
 
-  testWidgets('origin route slides over its matching loading backdrop', (
+  testWidgets('origin route opens without a forward slide on Android', (
     WidgetTester tester,
   ) async {
     const viewportSize = Size(400, 800);
@@ -6487,58 +6644,15 @@ void main() {
     final mapBackground = find.byKey(
       const ValueKey<String>('origin-map-loading-background'),
     );
-    final transitionBackground = find.byKey(
-      const ValueKey<String>('origin-route-transition-background'),
-    );
-    final transitionMapBackground = find.byKey(
-      const ValueKey<String>('origin-route-transition-map-background'),
-    );
-    final transitionPanelBackground = find.byKey(
-      const ValueKey<String>('origin-route-transition-panel-background'),
-    );
-    expect(transitionBackground, findsOneWidget);
-    expect(transitionMapBackground, findsOneWidget);
-    expect(transitionPanelBackground, findsOneWidget);
-
-    final expectedMapBackground = tilemapVisualStyleFor(
-      tilemapDefaultVisualMode,
-    ).backgroundColor;
-    expect(
-      tester.widget<ColoredBox>(transitionBackground).color,
-      originWorldDetailSheetBackgroundColor,
-    );
-    expect(
-      tester.widget<ColoredBox>(transitionMapBackground).color,
-      expectedMapBackground,
-    );
-    expect(
-      tester.widget<ColoredBox>(transitionPanelBackground).color,
-      originWorldDetailSheetBackgroundColor,
-    );
-    final expectedMapHeight = originWorldRenderedMapHeightFor(
-      viewportHeight: viewportSize.height,
-      bottomSafeArea: 0,
-    );
-    final expectedSheetTop = originWorldMapHeightFor(
-      viewportHeight: viewportSize.height,
-      bottomSafeArea: 0,
-    );
-    expect(tester.getSize(transitionMapBackground).height, expectedMapHeight);
-    expect(tester.getTopLeft(transitionPanelBackground).dy, expectedSheetTop);
-    expect(expectedMapHeight - expectedSheetTop, originWorldMapSheetUnderlap);
-    expect(
-      tester
-          .widget<ClipRRect>(
-            find.ancestor(
-              of: transitionPanelBackground,
-              matching: find.byType(ClipRRect),
-            ),
-          )
-          .borderRadius,
-      GenesisRadii.sheet,
-    );
-
     expect(mapBackground, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-route-forward-transition')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-route-transition-background')),
+      findsNothing,
+    );
     final originRoute = ModalRoute.of(
       tester.element(find.byType(OriginWorldPage)),
     )!;
@@ -6546,9 +6660,9 @@ void main() {
     expect(originRoute.transitionDuration, greaterThan(Duration.zero));
     expect(routeAnimation.value, 0);
 
-    final restingMapLeft = tester.getRect(transitionMapBackground).left;
     final initialMapRect = tester.getRect(mapBackground);
-    expect(initialMapRect.left, greaterThan(restingMapLeft));
+    expect(initialMapRect.left, 0);
+    expect(initialMapRect.width, viewportSize.width);
 
     await tester.pump(
       Duration(
@@ -6559,18 +6673,12 @@ void main() {
     expect(routeAnimation.value, greaterThan(0));
     expect(routeAnimation.value, lessThan(1));
     final midTransitionMapRect = tester.getRect(mapBackground);
-    expect(midTransitionMapRect.left, lessThan(initialMapRect.left));
-    expect(midTransitionMapRect.left, greaterThan(restingMapLeft));
-    expect(
-      tester.widget<ColoredBox>(mapBackground).color,
-      expectedMapBackground,
-    );
+    expect(midTransitionMapRect, initialMapRect);
 
     await tester.pump(originRoute.transitionDuration);
 
     expect(routeAnimation.value, 1);
-    expect(transitionBackground, findsNothing);
-    expect(tester.getRect(mapBackground).left, closeTo(restingMapLeft, 0.01));
+    expect(tester.getRect(mapBackground), initialMapRect);
 
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
     await tester.pumpAndSettle();
@@ -6712,10 +6820,28 @@ void main() {
       final loadingMapRect = tester.getRect(mapViewport);
       final loadingSheetRect = tester.getRect(loadingSheet);
       expect(
-        tester.getSize(
-          find.byKey(const ValueKey<String>('origin-loading-role-card')),
-        ),
-        const Size(240, 333),
+        find.byKey(const ValueKey<String>('origin-loading-generic-title')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-loading-generic-line-1')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-loading-generic-line-2')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-loading-brief-icon')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-loading-dialogue-icon')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-loading-role-card')),
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey<String>('origin-loading-launch-button')),
@@ -7999,20 +8125,127 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Origin detail show_opening_sheet expands once per page entry', (
+  testWidgets('Origin route snapshots global opening sheet config', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    final appGlobalConfig = AppGlobalConfigStore(
+      loadConfig: () async => const <String, dynamic>{},
+      initialValue: const AppGlobalConfig(showOpeningSheet: true),
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          appGlobalConfig: appGlobalConfig,
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(context).pushNamed(
+                RouteNames.originWorld,
+                arguments: const <String, Object?>{'oid': 'o_test_1'},
+              ),
+              child: const Text('Open origin detail'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open origin detail'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .widget<OriginWorldPage>(find.byType(OriginWorldPage))
+          .showOpeningSheetOnEntry,
+      isTrue,
+    );
+  });
+
+  testWidgets('Origin expanded route starts at its final loading position', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(360, 780);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
-    final transport = _RecordingV1ListTransport(originShowOpeningSheet: true);
+    final transport = _RecordingV1ListTransport(
+      originDetailCompleter: Completer<TransportResponse>(),
+    );
+    final appGlobalConfig = AppGlobalConfigStore(
+      loadConfig: () async => const <String, dynamic>{},
+      initialValue: const AppGlobalConfig(showOpeningSheet: true),
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          appGlobalConfig: appGlobalConfig,
+        ),
+        child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android),
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () => Navigator.of(context).pushNamed(
+                RouteNames.originWorld,
+                arguments: const <String, Object?>{'oid': 'o_test_1'},
+              ),
+              child: const Text('Open expanded origin'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open expanded origin'));
+    await tester.pump();
+    await tester.pump();
+
+    final loadingSheet = find.byKey(
+      const ValueKey<String>('origin-detail-loading-sheet'),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-route-transition-background')),
+      findsNothing,
+    );
+    expect(loadingSheet, findsOneWidget);
+    expect(
+      tester.getTopLeft(loadingSheet).dy,
+      closeTo(
+        originWorldDetailExpandedSheetTopFor(
+          topSafeArea: GenesisSafeAreaInsets.top(
+            tester.element(find.byType(OriginWorldPage)),
+          ),
+        ),
+        1,
+      ),
+    );
+  });
+
+  testWidgets('Origin app config expands once per page entry', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport();
     final services = await _testServices(transport: transport, useMock: false);
     await tester.pumpWidget(
       AppServicesScope(
         services: services,
         child: const MaterialApp(
-          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          home: OriginWorldPage(
+            oid: 'o_test_1',
+            originId: 0,
+            showOpeningSheetOnEntry: true,
+          ),
         ),
       ),
     );
@@ -8060,11 +8293,19 @@ void main() {
     expect(tester.getTopLeft(sheetSurface).dy, closeTo(collapsedTop, 1));
 
     await tester.pumpWidget(const SizedBox.shrink());
+    final reenteredServices = await _testServices(
+      transport: transport,
+      useMock: false,
+    );
     await tester.pumpWidget(
       AppServicesScope(
-        services: services,
+        services: reenteredServices,
         child: const MaterialApp(
-          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          home: OriginWorldPage(
+            oid: 'o_test_1',
+            originId: 0,
+            showOpeningSheetOnEntry: true,
+          ),
         ),
       ),
     );
@@ -8081,184 +8322,21 @@ void main() {
   });
 
   testWidgets(
-    'Origin Tilemap waits until automatic opening sheet expansion finishes',
+    'Origin app config true uses expanded height on first sheet frame',
     (WidgetTester tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 780);
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.view.resetPhysicalSize);
-      final transport = _RecordingV1ListTransport(
-        originDefinitionVersion: 2,
-        originShowOpeningSheet: true,
-      );
+      final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
       await tester.pumpWidget(
         AppServicesScope(
           services: await _testServices(transport: transport, useMock: false),
           child: const MaterialApp(
-            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
-          ),
-        ),
-      );
-
-      final sheetSurface = find.byKey(
-        const ValueKey<String>('origin-detail-sheet-surface'),
-      );
-      final tombstone = find.byKey(
-        const ValueKey<String>('origin-opening-sheet-tombstone'),
-      );
-      for (
-        var frame = 0;
-        frame < 10 && sheetSurface.evaluate().isEmpty;
-        frame += 1
-      ) {
-        await tester.pump();
-      }
-
-      expect(sheetSurface, findsOneWidget);
-      expect(
-        find.byKey(
-          const ValueKey<String>('origin-opening-sheet-map-background'),
-        ),
-        findsOneWidget,
-      );
-      expect(tombstone, findsOneWidget);
-      expect(
-        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
-        findsNothing,
-      );
-      expect(find.byType(Tilemap), findsNothing);
-      expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
-
-      await tester.pump(const Duration(milliseconds: 130));
-
-      expect(find.byType(Tilemap), findsNothing);
-      expect(transport.requestsFor('/api/v1/origin/map'), isEmpty);
-
-      final sheet = tester.widget<DraggableScrollableSheet>(
-        find.byType(DraggableScrollableSheet),
-      );
-      final expandedTop = 780 * (1 - sheet.maxChildSize);
-      var paintedFullyExpandedTombstone = false;
-      for (var frame = 0; frame < 30; frame += 1) {
-        await tester.pump(const Duration(milliseconds: 16));
-        final isFullyExpanded =
-            (tester.getTopLeft(sheetSurface).dy - expandedTop).abs() <= 1;
-        if (isFullyExpanded && tombstone.evaluate().isNotEmpty) {
-          paintedFullyExpandedTombstone = true;
-          break;
-        }
-      }
-
-      expect(paintedFullyExpandedTombstone, isTrue);
-      expect(tombstone, findsOneWidget);
-      expect(
-        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
-        findsNothing,
-      );
-      expect(find.byType(Tilemap), findsNothing);
-
-      await tester.pump();
-
-      await tester.pumpAndSettle();
-
-      expect(
-        tester.getTopLeft(sheetSurface).dy,
-        closeTo(780 * (1 - sheet.maxChildSize), 1),
-      );
-      expect(tombstone, findsNothing);
-      expect(
-        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
-        findsOneWidget,
-      );
-      expect(find.byType(Tilemap), findsOneWidget);
-      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
-    },
-  );
-
-  testWidgets(
-    'Origin opening sheet interruption immediately reveals real content',
-    (WidgetTester tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(360, 780);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      addTearDown(tester.view.resetPhysicalSize);
-      final transport = _RecordingV1ListTransport(
-        originDefinitionVersion: 2,
-        originShowOpeningSheet: true,
-      );
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: const MaterialApp(
-            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
-          ),
-        ),
-      );
-
-      final sheetSurface = find.byKey(
-        const ValueKey<String>('origin-detail-sheet-surface'),
-      );
-      final tombstone = find.byKey(
-        const ValueKey<String>('origin-opening-sheet-tombstone'),
-      );
-      for (
-        var frame = 0;
-        frame < 10 && sheetSurface.evaluate().isEmpty;
-        frame += 1
-      ) {
-        await tester.pump();
-      }
-      expect(tombstone, findsOneWidget);
-      expect(
-        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
-        findsNothing,
-      );
-      expect(find.byType(Tilemap), findsNothing);
-
-      final sheetContext = tester.element(sheetSurface);
-      ScrollStartNotification(
-        metrics: FixedScrollMetrics(
-          minScrollExtent: 0,
-          maxScrollExtent: 100,
-          pixels: 0,
-          viewportDimension: 100,
-          axisDirection: AxisDirection.down,
-          devicePixelRatio: 1,
-        ),
-        context: sheetContext,
-        dragDetails: DragStartDetails(),
-      ).dispatch(sheetContext);
-      await tester.pump();
-      await tester.pump();
-
-      expect(tombstone, findsNothing);
-      expect(
-        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
-        findsOneWidget,
-      );
-      expect(find.byType(Tilemap), findsOneWidget);
-      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
-    },
-  );
-
-  testWidgets(
-    'Origin opening sheet recovers when its ticker animation cannot advance',
-    (WidgetTester tester) async {
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = const Size(360, 780);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      addTearDown(tester.view.resetPhysicalSize);
-      final transport = _RecordingV1ListTransport(
-        originDefinitionVersion: 2,
-        originShowOpeningSheet: true,
-      );
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: const MaterialApp(
-            home: TickerMode(
-              enabled: false,
-              child: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
             ),
           ),
         ),
@@ -8274,13 +8352,6 @@ void main() {
       ) {
         await tester.pump();
       }
-      expect(sheetSurface, findsOneWidget);
-      expect(find.byType(Tilemap), findsNothing);
-
-      await tester.pump(const Duration(milliseconds: 300));
-      for (var frame = 0; frame < 3; frame += 1) {
-        await tester.pump();
-      }
 
       final sheet = tester.widget<DraggableScrollableSheet>(
         find.byType(DraggableScrollableSheet),
@@ -8289,10 +8360,108 @@ void main() {
         tester.getTopLeft(sheetSurface).dy,
         closeTo(780 * (1 - sheet.maxChildSize), 1),
       );
+      final collapsedRoleAction = find.byKey(
+        const ValueKey<String>('origin-opening-select-role-visibility'),
+      );
+      expect(
+        tester.widget<IgnorePointer>(collapsedRoleAction).ignoring,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<Opacity>(
+              find.descendant(
+                of: collapsedRoleAction,
+                matching: find.byType(Opacity),
+              ),
+            )
+            .opacity,
+        0,
+      );
+
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        closeTo(780 * (1 - sheet.maxChildSize), 1),
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+        findsOneWidget,
+      );
       expect(find.byType(Tilemap), findsOneWidget);
       expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
     },
   );
+
+  testWidgets('Origin app config true expands the loading sheet immediately', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport(
+      originDetailCompleter: Completer<TransportResponse>(),
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(
+            oid: 'o_test_1',
+            originId: 0,
+            showOpeningSheetOnEntry: true,
+          ),
+        ),
+      ),
+    );
+
+    final loadingSheet = find.byKey(
+      const ValueKey<String>('origin-detail-loading-sheet'),
+    );
+    final loadingSheetContext = tester.element(loadingSheet);
+    expect(
+      tester.getTopLeft(loadingSheet).dy,
+      closeTo(
+        GenesisSafeAreaInsets.top(loadingSheetContext) +
+            8 +
+            genesisSearchFieldHeight +
+            20,
+        1,
+      ),
+    );
+  });
+
+  testWidgets('Origin app config false uses collapsed height', (
+    WidgetTester tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final sheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    final sheet = tester.widget<DraggableScrollableSheet>(
+      find.byType(DraggableScrollableSheet),
+    );
+    expect(
+      tester.getTopLeft(sheetSurface).dy,
+      closeTo(780 * (1 - sheet.minChildSize), 1),
+    );
+  });
 
   testWidgets(
     'Origin entry still expands when a newer detail request wins the race',
@@ -8304,13 +8473,16 @@ void main() {
       final originDetailCompleter = Completer<TransportResponse>();
       final transport = _RecordingV1ListTransport(
         originDetailCompleter: originDetailCompleter,
-        originShowOpeningSheet: true,
       );
       await tester.pumpWidget(
         AppServicesScope(
           services: await _testServices(transport: transport, useMock: false),
           child: const MaterialApp(
-            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
           ),
         ),
       );
@@ -8352,12 +8524,16 @@ void main() {
     tester.view.physicalSize = const Size(360, 780);
     addTearDown(tester.view.resetDevicePixelRatio);
     addTearDown(tester.view.resetPhysicalSize);
-    final transport = _RecordingV1ListTransport(originShowOpeningSheet: true);
+    final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(transport: transport, useMock: false),
         child: const MaterialApp(
-          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          home: OriginWorldPage(
+            oid: 'o_test_1',
+            originId: 0,
+            showOpeningSheetOnEntry: true,
+          ),
         ),
       ),
     );
@@ -9502,7 +9678,6 @@ void main() {
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'approved',
         originDefinitionVersion: 2,
-        originShowOpeningSheet: true,
       );
 
       await tester.pumpWidget(
@@ -9518,7 +9693,11 @@ void main() {
             },
           ),
           child: const MaterialApp(
-            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
           ),
         ),
       );

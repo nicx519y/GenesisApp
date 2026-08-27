@@ -11,6 +11,7 @@ import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/json_utils.dart';
+import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
@@ -60,12 +61,15 @@ class _SearchPageState extends State<SearchPage>
   final FocusNode _focusNode = FocusNode();
   late final TabController _tabController;
   late final Map<_SearchTab, _SearchTabResults> _results;
+  late final SessionRevisionSubscription _sessionRevision;
 
   Timer? _debounceTimer;
   int _requestToken = 0;
   String _activeQuery = '';
   bool _hasInput = false;
   List<String> _searchHistory = <String>[];
+  var _sessionListGeneration = 0;
+  var _didLoadSessionData = false;
 
   @override
   void initState() {
@@ -77,10 +81,19 @@ class _SearchPageState extends State<SearchPage>
     _results = {
       for (final tab in _SearchTab.values) tab: _SearchTabResults(tab),
     };
-    unawaited(_loadSearchHistory());
+    _sessionRevision = SessionRevisionSubscription(_handleSessionChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sessionRevision.bind(AppServicesScope.of(context).sessionRevision);
+    if (_didLoadSessionData) return;
+    _didLoadSessionData = true;
+    unawaited(_loadSearchHistory());
   }
 
   @override
@@ -91,12 +104,34 @@ class _SearchPageState extends State<SearchPage>
       ..dispose();
     _controller.dispose();
     _focusNode.dispose();
+    _sessionRevision.dispose();
     super.dispose();
   }
 
-  Future<void> _loadSearchHistory() async {
-    final history = await (await _historyStore()).load();
+  void _handleSessionChanged() {
     if (!mounted) return;
+    _debounceTimer?.cancel();
+    final query = _controller.text.trim();
+    final searchable = _searchableCharacterCount(query) >= _minSearchLength;
+    final token = ++_requestToken;
+    setState(() {
+      _sessionListGeneration += 1;
+      _searchHistory = <String>[];
+      _activeQuery = searchable ? query : '';
+      _hasInput = searchable;
+      _resetAllTabs();
+      if (searchable) _markAllTabsStale();
+    });
+    unawaited(_loadSearchHistory());
+    if (searchable) {
+      unawaited(_refreshTab(_selectedTab, token: token));
+    }
+  }
+
+  Future<void> _loadSearchHistory() async {
+    final revision = _sessionRevision.value;
+    final history = await (await _historyStore()).load();
+    if (!mounted || !_sessionRevision.matches(revision)) return;
     setState(() {
       _searchHistory = history;
     });
@@ -105,8 +140,9 @@ class _SearchPageState extends State<SearchPage>
   Future<void> _recordActiveSearchQuery() async {
     final query = _activeQuery.trim();
     if (query.isEmpty) return;
+    final revision = _sessionRevision.value;
     final history = await (await _historyStore()).add(query);
-    if (!mounted) return;
+    if (!mounted || !_sessionRevision.matches(revision)) return;
     setState(() {
       _searchHistory = history;
     });
@@ -503,7 +539,9 @@ class _SearchPageState extends State<SearchPage>
       children: [
         for (final tab in _SearchTab.values)
           _SearchResultList(
-            key: PageStorageKey<String>('search-results-${tab.apiType}'),
+            key: PageStorageKey<String>(
+              'search-results-$_sessionListGeneration-${tab.apiType}',
+            ),
             tab: tab,
             state: _results[tab]!,
             onRetry: () => _refreshTab(tab, token: _requestToken),

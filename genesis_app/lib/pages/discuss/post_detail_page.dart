@@ -13,6 +13,7 @@ import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/discuss/story_badge.dart';
 import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
+import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
@@ -60,17 +61,21 @@ class PostDetailPage extends StatefulWidget {
 
 class _PostDetailPageState extends State<PostDetailPage> {
   late final OriginDiscussListController _controller;
+  late final SessionRevisionSubscription _sessionRevision;
   bool _initialRepliesRequested = false;
+  var _loadGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _controller = OriginDiscussListController();
+    _sessionRevision = SessionRevisionSubscription(_handleSessionChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _sessionRevision.bind(AppServicesScope.of(context).sessionRevision);
     _loadInitialRepliesIfNeeded();
   }
 
@@ -79,12 +84,19 @@ class _PostDetailPageState extends State<PostDetailPage> {
     super.didUpdateWidget(oldWidget);
     final item = widget.item;
     if (item?.discussId == oldWidget.item?.discussId) return;
+    _loadGeneration += 1;
     _initialRepliesRequested = false;
+    _controller.seedItems(
+      oid: item?.bizId ?? '',
+      items: const <OriginDiscussListItem>[],
+      totalAll: 0,
+    );
     _loadInitialRepliesIfNeeded();
   }
 
   @override
   void dispose() {
+    _sessionRevision.dispose();
     _controller.dispose();
     super.dispose();
   }
@@ -100,10 +112,24 @@ class _PostDetailPageState extends State<PostDetailPage> {
     final item = widget.item;
     if (item == null || item.replyRootDiscussId.trim().isEmpty) return;
     _initialRepliesRequested = true;
-    unawaited(_loadInitialReplies(item.replyRootDiscussId));
+    unawaited(_loadInitialReplies(item.replyRootDiscussId, _loadGeneration));
   }
 
-  Future<void> _loadInitialReplies(String rootDiscussId) async {
+  void _handleSessionChanged() {
+    if (!mounted) return;
+    _loadGeneration += 1;
+    _initialRepliesRequested = false;
+    final item = widget.item;
+    _controller.seedItems(
+      oid: item?.bizId ?? '',
+      items: const <OriginDiscussListItem>[],
+      totalAll: 0,
+    );
+    setState(() {});
+    _loadInitialRepliesIfNeeded();
+  }
+
+  Future<void> _loadInitialReplies(String rootDiscussId, int generation) async {
     try {
       final data = await AppServicesScope.read(context).api.v1.discuss.replies(
         rootDiscussId: rootDiscussId,
@@ -111,13 +137,16 @@ class _PostDetailPageState extends State<PostDetailPage> {
         rn: originDiscussRepliesPageSize,
       );
       final page = OriginDiscussRepliesPage.fromJson(data);
+      if (!mounted || generation != _loadGeneration) return;
       final loaded = _controller.seedRepliesPage(
         rootDiscussId: rootDiscussId,
         page: page,
       );
-      if (!loaded && mounted) showGenesisToast(context, 'Load replies failed');
+      if (!loaded) showGenesisToast(context, 'Load replies failed');
     } catch (_) {
-      if (mounted) showGenesisToast(context, 'Load replies failed');
+      if (mounted && generation == _loadGeneration) {
+        showGenesisToast(context, 'Load replies failed');
+      }
     }
   }
 
@@ -176,6 +205,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
             children: [
               Positioned.fill(
                 child: ListView(
+                  key: ValueKey<String>('post-detail-session-$_loadGeneration'),
                   padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
                   children: [
                     _PostDetailRoot(

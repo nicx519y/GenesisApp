@@ -68,6 +68,8 @@ class _AppShellPageState extends State<AppShellPage>
   Future<void>? _coldStartHomeTargetResolution;
   ValueListenable<int>? _sessionRevisionListenable;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
+  PageStorageBucket _sessionPageStorageBucket = PageStorageBucket();
+  var _sessionTabGeneration = 0;
   final ValueNotifier<UnreadSummary> _unreadSummaryNotifier =
       ValueNotifier<UnreadSummary>(UnreadSummary.zero);
   static const _messagesPollInterval = Duration(seconds: 30);
@@ -570,6 +572,8 @@ class _AppShellPageState extends State<AppShellPage>
   void _resetSessionBoundState({required int selectedIndex}) {
     setState(() {
       _tabPageCache.clear();
+      _sessionPageStorageBucket = PageStorageBucket();
+      _sessionTabGeneration += 1;
       _visitedTabIndexes
         ..clear()
         ..add(selectedIndex);
@@ -586,18 +590,21 @@ class _AppShellPageState extends State<AppShellPage>
     return _tabPageCache.putIfAbsent(index, () {
       return switch (index) {
         0 => HomePage(
+          key: ValueKey<String>('home-session-$_sessionTabGeneration'),
           activationListenable: _homeTabActivationNotifier,
           isActiveListenable: _homeTabActiveNotifier,
           isFirstPageViewReported: _isFirstContentPageViewReported,
           onFirstPageViewReady: _recordFirstContentPageView,
         ),
         1 => OriginPage(
+          key: ValueKey<String>('worldo-session-$_sessionTabGeneration'),
           isInitialPage: widget.initialIndex == 1,
           onForYouFirstPageReady: _handleWorldoForYouFirstPageReady,
           activationListenable: _worldoTabActivationNotifier,
           isActiveListenable: _worldoTabActiveNotifier,
         ),
         3 => ValueListenableBuilder<UnreadSummary>(
+          key: ValueKey<String>('messages-session-$_sessionTabGeneration'),
           valueListenable: _unreadSummaryNotifier,
           builder: (context, unreadSummary, _) {
             return MessagesPage(
@@ -608,6 +615,7 @@ class _AppShellPageState extends State<AppShellPage>
           },
         ),
         4 => MePage(
+          key: ValueKey<String>('me-session-$_sessionTabGeneration'),
           onLoggedOut: _handleMeLoggedOut,
           onLogin: _loginWithProvider,
           onLoginCompleted: () => showDailyCheckInAfterLogin(context),
@@ -652,9 +660,13 @@ class _AppShellPageState extends State<AppShellPage>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kGenesisDefaultSystemUiOverlayStyle,
       child: Scaffold(
-        // Origin owns the iOS status-bar gesture so it can require two taps.
-        primary: _selectedIndex != 1,
-        body: _buildBody(),
+        // Home and Origin own the iOS status-bar gesture so they can require
+        // two taps before scrolling their active list to the top.
+        primary: _selectedIndex != 0 && _selectedIndex != 1,
+        body: PageStorage(
+          bucket: _sessionPageStorageBucket,
+          child: _buildBody(),
+        ),
         bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(
           valueListenable: _unreadSummaryNotifier,
           builder: (context, unreadSummary, _) {

@@ -10,6 +10,7 @@ import '../../components/discuss/origin_discuss_list.dart';
 import '../../components/me/genesis_follow_user_list_tile.dart';
 import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
+import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../utils/api_error_message.dart';
@@ -45,6 +46,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   static const _pageSize = 20;
 
   final _scrollController = ScrollController();
+  late final SessionRevisionSubscription _sessionRevision;
   final _items = <_NotificationItem>[];
   final _initialUnreadIds = <String>{};
   final _loadingFollowUids = <String>{};
@@ -55,6 +57,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   var _loadingMore = false;
   var _refreshing = false;
   Object? _error;
+  var _loadGeneration = 0;
 
   bool get _hasMore => _items.length < _total;
   bool get _isCommentsBlock => widget.block == 'interaction';
@@ -62,12 +65,20 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   @override
   void initState() {
     super.initState();
+    _sessionRevision = SessionRevisionSubscription(_handleSessionChanged);
     _scrollController.addListener(_onScroll);
     unawaited(_loadFirstPage());
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _sessionRevision.bind(AppServicesScope.of(context).sessionRevision);
+  }
+
+  @override
   void dispose() {
+    _sessionRevision.dispose();
     _scrollController
       ..removeListener(_onScroll)
       ..dispose();
@@ -82,12 +93,34 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     }
   }
 
-  Future<void> _markCategoryRead() async {
+  void _handleSessionChanged() {
+    if (!mounted) return;
+    _loadGeneration += 1;
+    setState(() {
+      _items.clear();
+      _initialUnreadIds.clear();
+      _loadingFollowUids.clear();
+      _followStateOverrides.clear();
+      _page = 1;
+      _total = 0;
+      _loading = true;
+      _loadingMore = false;
+      _refreshing = false;
+      _error = null;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
+    unawaited(_loadFirstPage());
+  }
+
+  Future<void> _markCategoryRead(int generation) async {
     try {
       await AppServicesScope.read(
         context,
       ).api.v1.messages.markNotificationsRead(block: widget.block);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       if (_items.any((item) => !item.isRead)) {
         setState(() {
           for (var index = 0; index < _items.length; index += 1) {
@@ -121,6 +154,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   }
 
   Future<void> _loadPage(int page, {required bool replace}) async {
+    final generation = _loadGeneration;
     try {
       final data = await AppServicesScope.read(context).api.v1.messages
           .notifications(block: widget.block, pn: page, rn: _pageSize);
@@ -128,7 +162,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       final items = rawItems
           .map((item) => _NotificationItem.fromJson(asJsonMap(item)))
           .toList(growable: false);
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       if (replace) {
         _initialUnreadIds
           ..clear()
@@ -149,9 +183,9 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
         _refreshing = false;
         _error = null;
       });
-      if (replace) unawaited(_markCategoryRead());
+      if (replace) unawaited(_markCategoryRead(generation));
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _loading = false;
         _loadingMore = false;

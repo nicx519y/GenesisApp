@@ -50,6 +50,9 @@ Future<void> main() async {
       return const AppConfig();
     },
   );
+  final services = AppBootstrap.createInitialServices(config: appConfig);
+  final appGlobalConfigLoad = _loadAppGlobalConfig(services);
+  final initialIndexFuture = _resolveInitialBottomTab(services);
   await Future.wait<Object?>(<Future<Object?>>[
     tilemapSettingsLoad,
     captureSettingsLoad,
@@ -58,20 +61,23 @@ Future<void> main() async {
   // after the actual runtime endpoints and persisted debug override are known.
   await TelemetryRuntimeController.initialize(appConfig);
 
-  void runGenesisApp() {
-    final services = AppBootstrap.createInitialServices(config: appConfig);
-    AppStartupCoordinator.recordStartupFirstReport();
-    final initialIndexFuture = _resolveInitialBottomTab(services);
-    AppStartupCoordinator.configure();
-    unawaited(
-      initialIndexFuture.then(
-        (initialIndex) =>
-            runApp(GenesisApp(services: services, initialIndex: initialIndex)),
-      ),
+  AppStartupCoordinator.recordStartupFirstReport();
+  AppStartupCoordinator.configure();
+  final initialIndex = await initialIndexFuture;
+  await appGlobalConfigLoad;
+  runApp(GenesisApp(services: services, initialIndex: initialIndex));
+}
+
+Future<void> _loadAppGlobalConfig(AppServices services) async {
+  try {
+    await services.appGlobalConfig.refresh().timeout(
+      const Duration(seconds: 3),
+    );
+  } catch (error) {
+    debugPrint(
+      '[Startup] app global config load failed; using defaults: $error',
     );
   }
-
-  runGenesisApp();
 }
 
 Future<int> _resolveInitialBottomTab(AppServices services) async {

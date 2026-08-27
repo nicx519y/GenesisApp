@@ -10,6 +10,7 @@ import '../../components/page_header.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
+import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_safe_area.dart';
@@ -34,20 +35,25 @@ class _DiscussPageState extends State<DiscussPage> {
   static const double _postInputReservedHeight = 96;
 
   late final OriginDiscussListController _discussController;
+  late final SessionRevisionSubscription _sessionRevision;
   final ScrollController _scrollController = ScrollController();
   Future<OriginDetail>? _future;
   OriginDetail? _origin;
   double _downwardDragDistance = 0;
+  var _loadGeneration = 0;
+  var _sessionListGeneration = 0;
 
   @override
   void initState() {
     super.initState();
     _discussController = OriginDiscussListController();
+    _sessionRevision = SessionRevisionSubscription(_handleSessionChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _sessionRevision.bind(AppServicesScope.of(context).sessionRevision);
     _future ??= _loadOriginDetail();
   }
 
@@ -62,6 +68,7 @@ class _DiscussPageState extends State<DiscussPage> {
 
   @override
   void dispose() {
+    _sessionRevision.dispose();
     _scrollController.dispose();
     _discussController.dispose();
     super.dispose();
@@ -88,9 +95,10 @@ class _DiscussPageState extends State<DiscussPage> {
   Future<OriginDetail> _loadOriginDetail({
     bool forceDiscussRefresh = false,
   }) async {
+    final generation = ++_loadGeneration;
     final api = AppServicesScope.read(context).api;
     final origin = await api.getOrigin(widget.oid);
-    if (!mounted) return origin;
+    if (!mounted || generation != _loadGeneration) return origin;
     _origin = origin;
     _discussController.configure(
       oid: origin.oid,
@@ -104,6 +112,22 @@ class _DiscussPageState extends State<DiscussPage> {
       await _discussController.loadInitialIfNeeded();
     }
     return origin;
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+    _loadGeneration += 1;
+    _sessionListGeneration += 1;
+    final future = _loadOriginDetail(forceDiscussRefresh: true);
+    setState(() {
+      _origin = null;
+      _future = future;
+      _downwardDragDistance = 0;
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scrollController.hasClients) return;
+      _scrollController.jumpTo(0);
+    });
   }
 
   Future<void> _refresh() async {
@@ -151,6 +175,9 @@ class _DiscussPageState extends State<DiscussPage> {
                   child: NotificationListener<ScrollNotification>(
                     onNotification: _handleScrollNotification,
                     child: ListView(
+                      key: ValueKey<String>(
+                        'discuss-session-$_sessionListGeneration',
+                      ),
                       controller: _scrollController,
                       physics: const AlwaysScrollableScrollPhysics(),
                       padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),

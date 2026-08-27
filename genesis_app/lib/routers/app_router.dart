@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../components/tilemap/tilemap_renderer.dart';
+import '../app/bootstrap/app_services_scope.dart';
 import '../components/tilemap/tilemap_settings_store.dart';
 import '../components/world_details_shell.dart';
 import '../pages/app_shell_page.dart';
@@ -15,7 +16,6 @@ import '../pages/gems/gem_records_page.dart';
 import '../pages/gems/gem_wallet_page.dart';
 import '../pages/gems/memory_model_page.dart';
 import '../pages/search/search_page.dart';
-import '../pages/origin/origin_world_layout.dart';
 import '../pages/origin/origin_world_page.dart';
 import '../pages/world/world_constants.dart';
 import '../pages/world/world_page.dart';
@@ -30,7 +30,6 @@ import '../network/chatroom/world_chatroom_service.dart';
 import '../network/models/world.dart';
 import '../components/discuss/origin_discuss_list.dart';
 import '../ui/components/genesis_safe_area.dart';
-import '../ui/tokens/genesis_radii.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -480,10 +479,13 @@ sealed class AppRouter {
         final args = _OriginWorldRouteArgs.from(settings.arguments);
         return _OriginWorldPageRoute(
           settings: settings,
-          builder: (_) => OriginWorldPage(
+          builder: (context) => OriginWorldPage(
             oid: args.oid,
             originId: args.originId,
             initialName: args.initialName,
+            showOpeningSheetOnEntry: AppServicesScope.read(
+              context,
+            ).appGlobalConfig.value.showOpeningSheet,
           ),
         );
       case RouteNames.discuss:
@@ -671,93 +673,20 @@ class _OriginWorldPageRoute extends MaterialPageRoute<void> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final transition = super.buildTransitions(
-      context,
-      animation,
-      secondaryAnimation,
-      child,
-    );
     final platform = Theme.of(context).platform;
     final isInitialForwardAnimation =
         !_initialPushCompleted &&
         animation.status != AnimationStatus.reverse &&
         animation.status != AnimationStatus.completed &&
         !popGestureInProgress;
-    if (platform != TargetPlatform.android || !isInitialForwardAnimation) {
-      return transition;
+    if (platform == TargetPlatform.android && isInitialForwardAnimation) {
+      return child;
     }
-
-    return Stack(
-      key: const ValueKey<String>('origin-route-forward-transition'),
-      fit: StackFit.expand,
-      children: [const _OriginWorldRouteTransitionBackdrop(), transition],
-    );
-  }
-}
-
-class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
-  const _OriginWorldRouteTransitionBackdrop();
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final viewportHeight = constraints.maxHeight.isFinite
-            ? constraints.maxHeight
-            : MediaQuery.sizeOf(context).height;
-        final bottomSafeArea = GenesisSafeAreaInsets.bottom(context);
-        final sheetTop = originWorldMapHeightFor(
-          viewportHeight: viewportHeight,
-          bottomSafeArea: bottomSafeArea,
-        );
-        final mapHeight = originWorldRenderedMapHeightFor(
-          viewportHeight: viewportHeight,
-          bottomSafeArea: bottomSafeArea,
-        );
-        return ValueListenableBuilder<TilemapVisualMode>(
-          valueListenable: tilemapVisualModeController,
-          builder: (context, visualMode, child) {
-            final mapBackground = tilemapVisualStyleFor(
-              visualMode,
-            ).backgroundColor;
-            return ColoredBox(
-              key: const ValueKey<String>('origin-route-transition-background'),
-              color: originWorldDetailSheetBackgroundColor,
-              child: Stack(
-                children: [
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: 0,
-                    height: mapHeight,
-                    child: ColoredBox(
-                      key: const ValueKey<String>(
-                        'origin-route-transition-map-background',
-                      ),
-                      color: mapBackground,
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    top: sheetTop,
-                    bottom: 0,
-                    child: ClipRRect(
-                      borderRadius: GenesisRadii.sheet,
-                      child: const ColoredBox(
-                        key: ValueKey<String>(
-                          'origin-route-transition-panel-background',
-                        ),
-                        color: originWorldDetailSheetBackgroundColor,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      },
+    return super.buildTransitions(
+      context,
+      animation,
+      secondaryAnimation,
+      child,
     );
   }
 }

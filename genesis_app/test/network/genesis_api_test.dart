@@ -9,7 +9,6 @@ import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
-import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/models/tilemap_definition.dart';
 import 'package:genesis_flutter_android/network/v1/upload_api.dart';
@@ -257,6 +256,34 @@ void main() {
       expect(response.updateUrl, 'https://apps.apple.com/app/id000000');
     },
   );
+
+  test('v1 app config gets documented path and returns global flags', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"show_opening_sheet":true}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final config = await api.v1.app.config();
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/app/config');
+    expect(apiTransport.lastRequest!.bodyBytes, isNull);
+    expect(config['show_opening_sheet'], isTrue);
+  });
 
   test(
     'v1 app version check throws ApiException for non-zero err_no',
@@ -1154,7 +1181,6 @@ void main() {
           'err_no': 0,
           'err_msg': 'succ',
           'data': {
-            'show_opening_sheet': true,
             'info': {
               'origin_id': 'o_1',
               'origin_name': 'Origin One',
@@ -1334,7 +1360,6 @@ void main() {
     expect(origin.language, 'zh-Hans');
     expect(origin.currentTime, 'Day 7, 19:10');
     expect(origin.status, 10);
-    expect(origin.showOpeningSheet, isTrue);
     expect(origin.ownerUser.uid, 'u_1');
     expect(origin.ownerUser.followerCount, 11);
     expect(origin.ownerUser.avatarResource.objectKey, 'owner-xl.webp');
@@ -1395,10 +1420,6 @@ void main() {
     expect(location.y, -64.25);
     expect(location.imageResource.objectKey, 'gate-xl.webp');
     expect(location.dialogue.single.content, 'Doors open at eight.');
-  });
-
-  test('OriginDetail defaults showOpeningSheet to false', () {
-    expect(OriginDetail.fromJson(const {}).showOpeningSheet, isFalse);
   });
 
   test('getOriginMap uses map contract and preserves tilemap JSON', () async {

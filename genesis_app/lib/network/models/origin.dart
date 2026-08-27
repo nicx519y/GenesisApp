@@ -146,7 +146,6 @@ class OriginDetail {
     this.currentTime = '',
     this.status = 0,
     this.startTime = '',
-    this.showOpeningSheet = false,
     required this.copyCount,
     required this.interactCount,
     this.discussCount = 0,
@@ -191,7 +190,6 @@ class OriginDetail {
   final String currentTime;
   final int status;
   final String startTime;
-  final bool showOpeningSheet;
   final int copyCount;
   final int interactCount;
   final int discussCount;
@@ -280,7 +278,6 @@ class OriginDetail {
         info['start_time'],
         fallback: asString(info['started_at']),
       ),
-      showOpeningSheet: asBool(json['show_opening_sheet']),
       copyCount: asInt(stats['copy_cnt'], fallback: asInt(info['copy_count'])),
       interactCount: asInt(
         stats['connect_cnt'],
