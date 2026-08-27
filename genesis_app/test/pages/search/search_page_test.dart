@@ -93,6 +93,51 @@ void main() {
     expect(find.text('#Origin 1'), findsOneWidget);
   });
 
+  testWidgets('switches directly from results to the next tab skeleton', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1400);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(
+      searchDelay: const Duration(seconds: 1),
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin 1'), findsOneWidget);
+
+    await tester.tap(find.text('World'));
+    for (var frame = 0; frame < 10; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (transport.searchRequests.any(
+        (request) => request.uri.queryParameters['type'] == 'world',
+      )) {
+        break;
+      }
+    }
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'world');
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('No results.'), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'genesis-search-result-world-thumbnail-skeleton',
+        ),
+      ),
+      findsWidgets,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('World 1'), findsOneWidget);
+  });
+
   testWidgets('uses the shared list progress style while loading next page', (
     tester,
   ) async {

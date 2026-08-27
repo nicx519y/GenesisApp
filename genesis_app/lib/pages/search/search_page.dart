@@ -213,7 +213,7 @@ class _SearchPageState extends State<SearchPage>
   _SearchTab get _selectedTab => _SearchTab.values[_tabController.index];
 
   void _handleTabChanged() {
-    if (_isSelectingDefaultTab || _tabController.indexIsChanging) return;
+    if (_isSelectingDefaultTab) return;
     final tab = _selectedTab;
     final state = _results[tab]!;
     if (_activeQuery.isEmpty || state.hasRequested) return;
