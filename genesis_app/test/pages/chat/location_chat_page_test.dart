@@ -2827,6 +2827,14 @@ void main() {
 
     final roster = find.byKey(const ValueKey<String>('location-chat-roster'));
     expect(roster, findsOneWidget);
+    final rosterBackdrop = tester.widget<BackdropFilter>(
+      find.descendant(of: roster, matching: find.byType(BackdropFilter)),
+    );
+    expect(rosterBackdrop.filter, isNull);
+    expect(
+      rosterBackdrop.filterConfig,
+      const ImageFilterConfig.blur(sigmaX: 14, sigmaY: 14, bounded: false),
+    );
     expect(
       find.descendant(of: roster, matching: find.text('IN THE ROOM')),
       findsNothing,

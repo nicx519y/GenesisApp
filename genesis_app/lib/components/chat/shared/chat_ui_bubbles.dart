@@ -83,18 +83,14 @@ class _ChatStableBackdropSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: borderRadius,
-      child: Stack(
-        fit: StackFit.passthrough,
-        children: [
-          Positioned.fill(
-            child: BackdropFilter.grouped(
-              blendMode: BlendMode.srcOver,
-              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
-              child: const SizedBox.expand(),
-            ),
-          ),
-          child,
-        ],
+      child: BackdropFilter.grouped(
+        blendMode: BlendMode.srcOver,
+        filterConfig: ImageFilterConfig.blur(
+          sigmaX: sigma,
+          sigmaY: sigma,
+          bounded: false,
+        ),
+        child: child,
       ),
     );
   }

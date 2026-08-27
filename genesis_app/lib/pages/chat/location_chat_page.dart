@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -931,9 +930,10 @@ class _LocationChatRoster extends StatelessWidget {
               Positioned.fill(
                 child: BackdropFilter(
                   blendMode: BlendMode.srcOver,
-                  filter: ImageFilter.blur(
+                  filterConfig: ImageFilterConfig.blur(
                     sigmaX: _blurSigma,
                     sigmaY: _blurSigma,
+                    bounded: false,
                   ),
                   child: const SizedBox.expand(),
                 ),

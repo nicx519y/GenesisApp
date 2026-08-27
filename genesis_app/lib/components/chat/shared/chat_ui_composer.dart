@@ -173,7 +173,11 @@ class _ComposerInputSurface extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        filterConfig: ImageFilterConfig.blur(
+          sigmaX: blurSigma,
+          sigmaY: blurSigma,
+          bounded: false,
+        ),
         child: child,
       ),
     );
@@ -190,7 +194,11 @@ class _ChatComposerBackdropFilter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (sigma <= 0) return child;
     return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      filterConfig: ImageFilterConfig.blur(
+        sigmaX: sigma,
+        sigmaY: sigma,
+        bounded: false,
+      ),
       child: child,
     );
   }
@@ -390,7 +398,11 @@ class _ComposerSendButtonSurface extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(borderRadius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        filterConfig: ImageFilterConfig.blur(
+          sigmaX: blurSigma,
+          sigmaY: blurSigma,
+          bounded: false,
+        ),
         child: child,
       ),
     );

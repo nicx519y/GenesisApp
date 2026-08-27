@@ -2084,12 +2084,16 @@ void main() {
     expect(kLocationChatStyle.headerBackdropBlurSigma, 4);
     expect(kLocationChatStyle.headerBackgroundGradient, isNull);
     expect(kLocationChatStyle.headerBackgroundColor.a, 0);
-    expect(
+    final headerBackdrop = tester.widget<BackdropFilter>(
       find.descendant(
         of: find.byType(ChatHeader),
         matching: find.byType(BackdropFilter),
       ),
-      findsOneWidget,
+    );
+    expect(headerBackdrop.filter, isNull);
+    expect(
+      headerBackdrop.filterConfig,
+      const ImageFilterConfig.blur(sigmaX: 4, sigmaY: 4, bounded: false),
     );
   });
 
@@ -2118,12 +2122,46 @@ void main() {
     final input = tester.widget<TextField>(find.byType(TextField));
     expect(input.cursorColor, kLocationChatStyle.inputTextStyle.color);
     expect(input.cursorColor, Colors.white);
+    final composerBackdrops = tester
+        .widgetList<BackdropFilter>(
+          find.descendant(
+            of: find.byType(ChatComposer),
+            matching: find.byType(BackdropFilter),
+          ),
+        )
+        .toList(growable: false);
+    expect(composerBackdrops, hasLength(3));
     expect(
-      find.descendant(
-        of: find.byType(ChatComposer),
-        matching: find.byType(BackdropFilter),
-      ),
-      findsNWidgets(3),
+      composerBackdrops.every((backdrop) => backdrop.filter == null),
+      isTrue,
+    );
+    expect(
+      composerBackdrops
+          .where(
+            (backdrop) =>
+                backdrop.filterConfig ==
+                const ImageFilterConfig.blur(
+                  sigmaX: 4,
+                  sigmaY: 4,
+                  bounded: false,
+                ),
+          )
+          .length,
+      2,
+    );
+    expect(
+      composerBackdrops
+          .where(
+            (backdrop) =>
+                backdrop.filterConfig ==
+                const ImageFilterConfig.blur(
+                  sigmaX: 14,
+                  sigmaY: 14,
+                  bounded: false,
+                ),
+          )
+          .length,
+      1,
     );
   });
 
@@ -2239,7 +2277,18 @@ void main() {
         bottomLeft: Radius.circular(14),
       ),
     );
-    expect(find.byType(BackdropFilter), findsNWidgets(2));
+    final bubbleBackdrops = tester
+        .widgetList<BackdropFilter>(find.byType(BackdropFilter))
+        .toList(growable: false);
+    expect(bubbleBackdrops, hasLength(2));
+    for (final backdrop in bubbleBackdrops) {
+      expect(backdrop.filter, isNull);
+      expect(
+        backdrop.filterConfig,
+        const ImageFilterConfig.blur(sigmaX: 14, sigmaY: 14, bounded: false),
+      );
+      expect(backdrop.child, isA<Container>());
+    }
 
     final aiName = tester.widget<Text>(
       find.byKey(const ValueKey<String>('chat-sender-name-scene-ai')),

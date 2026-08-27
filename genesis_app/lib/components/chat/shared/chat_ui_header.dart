@@ -384,7 +384,11 @@ class _ChatHeaderBackdropFilter extends StatelessWidget {
   Widget build(BuildContext context) {
     if (sigma <= 0) return child;
     return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      filterConfig: ImageFilterConfig.blur(
+        sigmaX: sigma,
+        sigmaY: sigma,
+        bounded: false,
+      ),
       child: child,
     );
   }
