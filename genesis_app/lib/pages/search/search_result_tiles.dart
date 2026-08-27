@@ -136,18 +136,21 @@ class _ResultThumb extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const size = 52.0;
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     if (item.tab == _SearchTab.user) {
       return GenesisAvatar(
         url: item.coverImage,
         name: item.title,
         size: size,
         borderRadius: GenesisAvatarRadii.user,
+        maxDevicePixelRatio: devicePixelRatio,
       );
     }
     return GenesisListImage(
       imageUrl: item.coverImage,
       width: size,
       height: size,
+      maxDevicePixelRatio: devicePixelRatio,
     );
   }
 }

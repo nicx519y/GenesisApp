@@ -121,7 +121,14 @@ class _OriginCharacterPortrait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final resolvedUrl = _originRoleCardAvatarUrl(context, url);
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final resolvedUrl = selectGenesisImageUrl(
+      url,
+      logicalWidth: _width,
+      logicalHeight: _width,
+      devicePixelRatio: devicePixelRatio,
+      maxDevicePixelRatio: devicePixelRatio,
+    ).trim();
     final fallback = GenesisAvatarFallback(
       name: name,
       width: _width,
@@ -143,6 +150,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
             width: _width,
             fit: BoxFit.fitWidth,
             alignment: Alignment.topCenter,
+            maxDevicePixelRatio: devicePixelRatio,
             placeholder: (_) => const SizedBox(width: _width, height: _width),
             errorWidget: (_, _) => fallback,
           );
@@ -176,13 +184,21 @@ class _OriginCharacterPortrait extends StatelessWidget {
       onTap: () => showGenesisImageViewer(
         context,
         imageUrls: imageUrls,
+        maxDevicePixelRatio: devicePixelRatio,
         previewImageProviders: [
           for (final imageUrl in imageUrls)
             genesisImageViewerPreviewProvider(
               context,
-              imageUrl: _originRoleCardAvatarUrl(context, imageUrl),
+              imageUrl: selectGenesisImageUrl(
+                imageUrl,
+                logicalWidth: _width,
+                logicalHeight: _width,
+                devicePixelRatio: devicePixelRatio,
+                maxDevicePixelRatio: devicePixelRatio,
+              ).trim(),
               logicalWidth: _width,
               fit: BoxFit.fitWidth,
+              maxDevicePixelRatio: devicePixelRatio,
             ),
         ],
         initialIndex: initialIndex < 0 ? 0 : initialIndex,

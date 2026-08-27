@@ -138,6 +138,32 @@ void main() {
     );
   });
 
+  testWidgets('GenesisListImage forwards successful frame callback', (
+    WidgetTester tester,
+  ) async {
+    var loadedCount = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GenesisListImage(
+            imageUrl: 'https://cdn.example.com/list-frame.webp',
+            width: 100,
+            height: 75,
+            onImageLoaded: () => loadedCount += 1,
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<GenesisStaticNetworkImage>(
+      find.byType(GenesisStaticNetworkImage),
+    );
+    expect(image.onImageLoaded, isNotNull);
+
+    image.onImageLoaded!();
+    expect(loadedCount, 1);
+  });
+
   test('selectGenesisImageUrl strips xl query before adding resize params', () {
     final resource = GenesisImageResourceRegistry.register(
       const GenesisImageResource(

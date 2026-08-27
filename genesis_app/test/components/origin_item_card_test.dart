@@ -230,11 +230,18 @@ void main() {
         characterCnt: 5,
         locationCnt: 0,
       );
+      var coverLoaded = false;
 
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
           home: Scaffold(
-            body: SizedBox(width: 220, child: OriginItemCard(item: item)),
+            body: SizedBox(
+              width: 220,
+              child: OriginItemCard(
+                item: item,
+                onCoverLoaded: () => coverLoaded = true,
+              ),
+            ),
           ),
         ),
       );
@@ -273,6 +280,7 @@ void main() {
         find.byKey(const ValueKey<String>('origin-item-card-footer-extension')),
         findsNothing,
       );
+      expect(coverLoaded, isFalse);
 
       frame.complete(ImageInfo(image: sourceImage.clone()));
       await _pumpUntilOriginCardReady(tester);
@@ -287,6 +295,7 @@ void main() {
         find.byKey(const ValueKey<String>('origin-item-card-footer-extension')),
         findsOneWidget,
       );
+      expect(coverLoaded, isTrue);
     },
   );
 

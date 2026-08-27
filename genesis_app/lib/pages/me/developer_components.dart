@@ -1,5 +1,9 @@
 part of 'developer_page.dart';
 
+const Color _worldHistoryGetColor = Color(0xFF1565C0);
+const Color _worldHistoryUpdateColor = Color(0xFF2E7D32);
+const Color _worldHistoryDeleteColor = Color(0xFFB3261E);
+
 class _DeveloperTestSectionPanel extends StatelessWidget {
   const _DeveloperTestSectionPanel({super.key, required this.child});
 
@@ -15,6 +19,254 @@ class _DeveloperTestSectionPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
+    );
+  }
+}
+
+class _DeveloperWorldHistoryWatermarkPanel extends StatelessWidget {
+  const _DeveloperWorldHistoryWatermarkPanel({
+    required this.highWatermarkController,
+    required this.lowWatermarkController,
+    required this.busyAction,
+    required this.settings,
+    required this.onFetch,
+    required this.onUpdate,
+    required this.onDelete,
+  });
+
+  final TextEditingController highWatermarkController;
+  final TextEditingController lowWatermarkController;
+  final String? busyAction;
+  final WorldHistorySettings? settings;
+  final VoidCallback onFetch;
+  final VoidCallback onUpdate;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = busyAction == null;
+    return _DeveloperTestSectionPanel(
+      key: const ValueKey<String>('developer-world-history-watermark-panel'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _DeveloperSectionTitle('World History watermarks'),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _DeveloperWorldHistoryWatermarkInput(
+                  fieldKey: const ValueKey<String>(
+                    'developer-world-history-high-watermark-input',
+                  ),
+                  label: 'high_watermark · 20–30',
+                  controller: highWatermarkController,
+                  enabled: enabled,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _DeveloperWorldHistoryWatermarkInput(
+                  fieldKey: const ValueKey<String>(
+                    'developer-world-history-low-watermark-input',
+                  ),
+                  label: 'low_watermark · 10–20',
+                  controller: lowWatermarkController,
+                  enabled: enabled,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _DeveloperWorldHistoryReadOnlyValue(
+            field: 'stored_high_watermark',
+            value: settings == null
+                ? '—'
+                : '${settings!.storedHighWatermark}',
+          ),
+          const SizedBox(height: 6),
+          _DeveloperWorldHistoryReadOnlyValue(
+            field: 'stored_low_watermark',
+            value: settings == null
+                ? '—'
+                : '${settings!.storedLowWatermark}',
+          ),
+          const SizedBox(height: 6),
+          _DeveloperWorldHistoryReadOnlyValue(
+            field: 'source',
+            value: settings?.source.isNotEmpty == true ? settings!.source : '—',
+          ),
+          const SizedBox(height: 6),
+          _DeveloperWorldHistoryReadOnlyValue(
+            field: 'degraded',
+            value: settings == null ? '—' : '${settings!.degraded}',
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  key: const ValueKey<String>('developer-world-history-fetch'),
+                  onPressed: enabled ? onFetch : null,
+                  style: _worldHistoryActionButtonStyle(
+                    _worldHistoryGetColor,
+                  ),
+                  child: _worldHistoryActionButtonContent(
+                    label: 'Get',
+                    loading: busyAction == 'fetch',
+                    color: _worldHistoryGetColor,
+                    loadingKey: const ValueKey<String>(
+                      'developer-world-history-fetch-loading',
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  key: const ValueKey<String>('developer-world-history-update'),
+                  onPressed: enabled ? onUpdate : null,
+                  style: _worldHistoryActionButtonStyle(
+                    _worldHistoryUpdateColor,
+                  ),
+                  child: _worldHistoryActionButtonContent(
+                    label: 'Update',
+                    loading: busyAction == 'update',
+                    color: _worldHistoryUpdateColor,
+                    loadingKey: const ValueKey<String>(
+                      'developer-world-history-update-loading',
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton(
+                  key: const ValueKey<String>('developer-world-history-delete'),
+                  onPressed: enabled ? onDelete : null,
+                  style: _worldHistoryActionButtonStyle(
+                    _worldHistoryDeleteColor,
+                  ),
+                  child: _worldHistoryActionButtonContent(
+                    label: 'Delete',
+                    loading: busyAction == 'delete',
+                    color: _worldHistoryDeleteColor,
+                    loadingKey: const ValueKey<String>(
+                      'developer-world-history-delete-loading',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _worldHistoryActionButtonContent({
+  required String label,
+  required bool loading,
+  required Color color,
+  required Key loadingKey,
+}) {
+  if (!loading) return Text(label);
+  return SizedBox.square(
+    key: loadingKey,
+    dimension: 16,
+    child: CircularProgressIndicator(
+      strokeWidth: 2,
+      color: color,
+    ),
+  );
+}
+
+ButtonStyle _worldHistoryActionButtonStyle(Color foregroundColor) {
+  return OutlinedButton.styleFrom(
+    foregroundColor: foregroundColor,
+    backgroundColor: Colors.transparent,
+    side: const BorderSide(color: Color(0xFFD0D0D4)),
+  );
+}
+
+class _DeveloperWorldHistoryWatermarkInput extends StatelessWidget {
+  const _DeveloperWorldHistoryWatermarkInput({
+    required this.fieldKey,
+    required this.label,
+    required this.controller,
+    required this.enabled,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final TextEditingController controller;
+  final bool enabled;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: fieldKey,
+      controller: controller,
+      enabled: enabled,
+      keyboardType: TextInputType.number,
+      inputFormatters: <TextInputFormatter>[
+        FilteringTextInputFormatter.digitsOnly,
+      ],
+      textInputAction: TextInputAction.done,
+      decoration: InputDecoration(
+        labelText: label,
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        floatingLabelStyle: const TextStyle(
+          fontSize: 12,
+          color: Color(0xFF555555),
+          fontWeight: FontWeight.w600,
+        ),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 12,
+        ),
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+}
+
+class _DeveloperWorldHistoryReadOnlyValue extends StatelessWidget {
+  const _DeveloperWorldHistoryReadOnlyValue({
+    required this.field,
+    required this.value,
+  });
+
+  final String field;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            field,
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFF555555),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Text(
+          value,
+          key: ValueKey<String>('developer-world-history-$field-value'),
+          textAlign: TextAlign.right,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.black,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

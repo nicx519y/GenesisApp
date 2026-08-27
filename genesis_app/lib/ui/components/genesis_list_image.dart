@@ -18,6 +18,7 @@ class GenesisListImage extends StatelessWidget {
     this.borderRadius = GenesisImageRadii.content,
     this.placeholderAsset = genesisDefaultListImageAsset,
     this.maxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
+    this.onImageLoaded,
   });
 
   final String imageUrl;
@@ -27,6 +28,7 @@ class GenesisListImage extends StatelessWidget {
   final BorderRadiusGeometry borderRadius;
   final String placeholderAsset;
   final double maxDevicePixelRatio;
+  final VoidCallback? onImageLoaded;
 
   @override
   Widget build(BuildContext context) {
@@ -36,12 +38,13 @@ class GenesisListImage extends StatelessWidget {
         final image = resolved.isEmpty
             ? _placeholder()
             : resolved.startsWith('assets/')
-            ? Image.asset(
-                resolved,
+            ? _LoadedAssetImage(
+                assetName: resolved,
                 width: _finite(width),
                 height: _finite(height),
                 fit: fit,
-                errorBuilder: (context, error, stackTrace) => _placeholder(),
+                onImageLoaded: onImageLoaded,
+                errorWidget: _placeholder,
               )
             : GenesisStaticNetworkImage(
                 imageUrl: resolved,
@@ -51,6 +54,7 @@ class GenesisListImage extends StatelessWidget {
                 maxDevicePixelRatio: maxDevicePixelRatio,
                 placeholder: (_) => _placeholder(),
                 errorWidget: (_, _) => _placeholder(),
+                onImageLoaded: onImageLoaded,
               );
 
         return ClipRRect(
@@ -77,6 +81,62 @@ class GenesisListImage extends StatelessWidget {
       width: _finite(width),
       height: _finite(height),
       fit: fit,
+    );
+  }
+}
+
+class _LoadedAssetImage extends StatefulWidget {
+  const _LoadedAssetImage({
+    required this.assetName,
+    required this.width,
+    required this.height,
+    required this.fit,
+    required this.onImageLoaded,
+    required this.errorWidget,
+  });
+
+  final String assetName;
+  final double? width;
+  final double? height;
+  final BoxFit fit;
+  final VoidCallback? onImageLoaded;
+  final Widget Function() errorWidget;
+
+  @override
+  State<_LoadedAssetImage> createState() => _LoadedAssetImageState();
+}
+
+class _LoadedAssetImageState extends State<_LoadedAssetImage> {
+  var _didNotifyLoaded = false;
+
+  @override
+  void didUpdateWidget(covariant _LoadedAssetImage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.assetName != widget.assetName) {
+      _didNotifyLoaded = false;
+    }
+  }
+
+  void _notifyLoaded() {
+    if (_didNotifyLoaded) return;
+    _didNotifyLoaded = true;
+    widget.onImageLoaded?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Image.asset(
+      widget.assetName,
+      width: widget.width,
+      height: widget.height,
+      fit: widget.fit,
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) {
+          _notifyLoaded();
+        }
+        return child;
+      },
+      errorBuilder: (context, error, stackTrace) => widget.errorWidget(),
     );
   }
 }
