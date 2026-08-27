@@ -136,6 +136,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
@@ -6338,7 +6339,24 @@ void main() {
       viewportHeight: viewportSize.height,
       bottomSafeArea: 0,
     );
+    final expectedSheetTop = originWorldMapHeightFor(
+      viewportHeight: viewportSize.height,
+      bottomSafeArea: 0,
+    );
     expect(tester.getSize(transitionMapBackground).height, expectedMapHeight);
+    expect(tester.getTopLeft(transitionPanelBackground).dy, expectedSheetTop);
+    expect(expectedMapHeight - expectedSheetTop, originWorldMapSheetUnderlap);
+    expect(
+      tester
+          .widget<ClipRRect>(
+            find.ancestor(
+              of: transitionPanelBackground,
+              matching: find.byType(ClipRRect),
+            ),
+          )
+          .borderRadius,
+      GenesisRadii.sheet,
+    );
 
     expect(mapBackground, findsOneWidget);
     final originRoute = ModalRoute.of(
@@ -6779,44 +6797,25 @@ void main() {
       ),
       findsOneWidget,
     );
-    final sheetPageHandle = find.byKey(
-      const ValueKey<String>('origin-sheet-page-handle'),
-    );
-    final sheetPageDot = find.byKey(
-      const ValueKey<String>('origin-sheet-page-dot'),
-    );
-    expect(sheetPageHandle, findsOneWidget);
-    expect(sheetPageDot, findsOneWidget);
-    expect(tester.getSize(sheetPageHandle).width, closeTo(46 * 2 / 3, 0.001));
-    expect(tester.getSize(sheetPageDot).width, closeTo(46 / 3, 0.001));
-    expect(tester.getSize(sheetPageHandle).height, 5);
-    expect(tester.getSize(sheetPageDot).height, 5);
     expect(
-      tester
-          .getSize(
-            find.byKey(const ValueKey<String>('origin-sheet-page-indicator')),
-          )
-          .width,
-      closeTo(54, 0.001),
+      find.byKey(const ValueKey<String>('origin-sheet-page-indicator')),
+      findsOneWidget,
+    );
+    final sheetPageActiveSegment = find.byKey(
+      const ValueKey<String>('origin-sheet-page-active-segment'),
+    );
+    final sheetPageInactiveSegment = find.byKey(
+      const ValueKey<String>('origin-sheet-page-inactive-segment'),
+    );
+    expect(sheetPageActiveSegment, findsOneWidget);
+    expect(sheetPageInactiveSegment, findsOneWidget);
+    expect(
+      tester.getSize(sheetPageActiveSegment).width,
+      closeTo(46 * 2 / 3, 0.001),
     );
     expect(
-      tester.getTopLeft(sheetPageDot).dx -
-          tester.getTopRight(sheetPageHandle).dx,
-      8,
-    );
-    expect(
-      (tester.widget<Container>(sheetPageDot).decoration as BoxDecoration)
-          .color,
-      const Color(0xFFB7B7B7),
-    );
-    expect(
-      (tester.widget<Container>(sheetPageHandle).decoration as BoxDecoration)
-          .color,
-      const Color(0xFF666666),
-    );
-    expect(
-      tester.getCenter(sheetPageHandle).dx,
-      lessThan(tester.getCenter(sheetPageDot).dx),
+      tester.getSize(sheetPageInactiveSegment).width,
+      closeTo(46 / 3, 0.001),
     );
     final selectRoleVisibility = find.byKey(
       const ValueKey<String>('origin-opening-select-role-visibility'),
@@ -6974,11 +6973,6 @@ void main() {
     );
     expect(copyStatItem.iconSize, 12);
     expect(copyStatItem.textStyle.fontSize, 12);
-    expect(
-      tester.getCenter(sheetPageHandle).dx,
-      greaterThan(tester.getCenter(sheetPageDot).dx),
-    );
-
     sheetPagesRect = tester.getRect(sheetPages);
     await tester.dragFrom(
       Offset(sheetPagesRect.left + 24, sheetPagesRect.top + 16),
@@ -6987,10 +6981,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(Tilemap), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
-    expect(
-      tester.getCenter(sheetPageHandle).dx,
-      lessThan(tester.getCenter(sheetPageDot).dx),
-    );
     expect(
       tester.widget<IgnorePointer>(selectRoleVisibility).ignoring,
       isFalse,
@@ -9251,11 +9241,11 @@ void main() {
       tester.getRect(fieldBlocks.at(2)).bottom,
       lessThanOrEqualTo(keyboardTop),
     );
-    final sheetHandle = find.byKey(
-      const ValueKey<String>('origin-sheet-page-handle'),
+    final sheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
     );
-    expect(sheetHandle, findsOneWidget);
-    final handleTopWithKeyboard = tester.getTopLeft(sheetHandle).dy;
+    expect(sheetSurface, findsOneWidget);
+    final sheetTopWithKeyboard = tester.getTopLeft(sheetSurface).dy;
 
     final openingScrollView = tester.widget<CustomScrollView>(
       find.byKey(
@@ -9283,8 +9273,8 @@ void main() {
       tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
       await tester.pump(const Duration(milliseconds: 16));
       expect(
-        tester.getTopLeft(sheetHandle).dy,
-        closeTo(handleTopWithKeyboard, 0.01),
+        tester.getTopLeft(sheetSurface).dy,
+        closeTo(sheetTopWithKeyboard, 0.01),
       );
     }
     await tester.pumpAndSettle();
@@ -9884,6 +9874,59 @@ void main() {
     expect(find.text('Launch Preview'), findsNothing);
     expect(find.text('Origin launch tick narrator.'), findsNothing);
     expect(find.text('Detail location launch paragraph.'), findsNothing);
+  });
+
+  testWidgets('Origin detail loads and shows copy world progress summaries', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final summaryRequests = transport.requestsFor(
+      '/api/v1/world/summary/latest',
+    );
+    expect(summaryRequests, hasLength(1));
+    expect(summaryRequests.single.method, 'GET');
+    expect(summaryRequests.single.uri.queryParameters['origin_id'], 'o_test_1');
+
+    final sheetPages = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-pages'),
+    );
+    final sheetPagesRect = tester.getRect(sheetPages);
+    await tester.dragFrom(
+      Offset(sheetPagesRect.right - 24, sheetPagesRect.top + 16),
+      Offset(-sheetPagesRect.width * 0.8, 0),
+    );
+    await tester.pumpAndSettle();
+    for (var index = 0; index < 6; index += 1) {
+      if (find
+          .text('First copied world progress summary for o_test_1.')
+          .evaluate()
+          .isNotEmpty) {
+        break;
+      }
+      await tester.dragFrom(const Offset(400, 500), const Offset(0, -420));
+      await tester.pumpAndSettle();
+    }
+
+    expect(
+      find.text('First copied world progress summary for o_test_1.'),
+      findsOneWidget,
+    );
+    expect(find.text('WID: w_summary_1'), findsOneWidget);
   });
 
   testWidgets(

@@ -30,6 +30,7 @@ import '../network/chatroom/world_chatroom_service.dart';
 import '../network/models/world.dart';
 import '../components/discuss/origin_discuss_list.dart';
 import '../ui/components/genesis_safe_area.dart';
+import '../ui/tokens/genesis_radii.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -694,9 +695,14 @@ class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
         final viewportHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
             : MediaQuery.sizeOf(context).height;
+        final bottomSafeArea = GenesisSafeAreaInsets.bottom(context);
+        final sheetTop = originWorldMapHeightFor(
+          viewportHeight: viewportHeight,
+          bottomSafeArea: bottomSafeArea,
+        );
         final mapHeight = originWorldRenderedMapHeightFor(
           viewportHeight: viewportHeight,
-          bottomSafeArea: GenesisSafeAreaInsets.bottom(context),
+          bottomSafeArea: bottomSafeArea,
         );
         return ValueListenableBuilder<TilemapVisualMode>(
           valueListenable: tilemapVisualModeController,
@@ -707,10 +713,12 @@ class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
             return ColoredBox(
               key: const ValueKey<String>('origin-route-transition-background'),
               color: originWorldDetailSheetBackgroundColor,
-              child: Column(
+              child: Stack(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
                     height: mapHeight,
                     child: ColoredBox(
                       key: const ValueKey<String>(
@@ -719,12 +727,19 @@ class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
                       color: mapBackground,
                     ),
                   ),
-                  const Expanded(
-                    child: ColoredBox(
-                      key: ValueKey<String>(
-                        'origin-route-transition-panel-background',
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: sheetTop,
+                    bottom: 0,
+                    child: ClipRRect(
+                      borderRadius: GenesisRadii.sheet,
+                      child: const ColoredBox(
+                        key: ValueKey<String>(
+                          'origin-route-transition-panel-background',
+                        ),
+                        color: originWorldDetailSheetBackgroundColor,
                       ),
-                      color: originWorldDetailSheetBackgroundColor,
                     ),
                   ),
                 ],

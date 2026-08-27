@@ -10,6 +10,12 @@ import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 
 void main() {
+  final originWorldPageSource = File(
+    'lib/pages/origin/origin_world_page.dart',
+  ).readAsStringSync();
+  final originWorldDetailSheetSource = File(
+    'lib/pages/origin/origin_world_detail_sheet.dart',
+  ).readAsStringSync();
   final originSectionsSource = [
     'lib/pages/origin/origin_world_sections.dart',
     'lib/pages/origin/origin_world_role_setup.dart',
@@ -21,15 +27,29 @@ void main() {
   });
 
   test('origin detail sheet header sizing matches design', () {
-    expect(originDetailSheetHeaderHeightForTesting, 30);
+    expect(
+      originDetailSheetHeaderHeightForTesting,
+      GenesisRadii.sheetTopRadiusValue + 6,
+    );
     expect(originDetailSheetHeaderBodyGapForTesting, 0);
-    expect(originDetailSheetHandleTopOffsetForTesting, 2);
+    expect(originDetailSheetPageIndicatorTopOffsetForTesting, 4);
     expect(GenesisRadii.sheetTopRadiusValue, 18);
   });
 
   test('origin detail sections use main ui spacing', () {
     expect(originDetailSectionGapForTesting, 24);
     expect(originDetailSectionTitleIconGapForTesting, 8);
+  });
+
+  test('origin detail loads and passes copy world progress summaries', () {
+    expect(
+      originWorldPageSource,
+      contains('.api.getLatestWorldSummaries(originId: resolvedOriginId)'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('summaries: widget.copyWorldProgressSummaries'),
+    );
   });
 
   test('origin location opening preview keeps every initial dialogue line', () {
