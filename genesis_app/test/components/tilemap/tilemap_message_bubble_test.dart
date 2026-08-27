@@ -19,8 +19,8 @@ void main() {
       avatarCount: 4,
     );
 
-    expect(anchor.dx, 179);
-    expect(anchor.dy, 155.5);
+    expect(anchor.dx, 182);
+    expect(anchor.dy, 149.5);
   });
 
   test('Tilemap bubble anchor stays fixed when the location label wraps', () {
@@ -214,7 +214,7 @@ void main() {
     expect(preservedWidth, worldMapMessageBubbleMaxWidth);
   });
 
-  testWidgets('Tilemap bubble uses the location chat AI bubble style', (
+  testWidgets('Tilemap bubble uses the shared map bubble style', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -248,12 +248,14 @@ void main() {
                 )
                 .decoration
             as BoxDecoration;
-    expect(decoration.color, const Color(0x993A3942));
+    expect(decoration.color, const Color(0xCC3A3942));
     expect(decoration.borderRadius, worldMapMessageBubbleBorderRadius);
+    expect(worldMapMessageBubbleHorizontalPadding, 11);
+    expect(worldMapMessageBubbleVerticalPadding, 8);
     expect(worldMapMessageBubbleBorderRadius, BorderRadius.circular(8));
     expect(
       find.descendant(of: surface, matching: find.byType(BackdropFilter)),
-      findsOneWidget,
+      findsNothing,
     );
     final text = tester.widget<Text>(find.text('AI response'));
     expect(text.style, worldMapMessageBubbleTextStyle);
@@ -366,7 +368,7 @@ void main() {
         pointerRect.center.dx - bodyRect.left,
         closeTo(bodyRect.width / 4, 0.01),
       );
-      expect(pointerRect.center.dx, closeTo(21, 0.01));
+      expect(pointerRect.center.dx, closeTo(18, 0.01));
     },
   );
 
@@ -410,7 +412,7 @@ void main() {
         pointerRect.center.dx - bodyRect.left,
         closeTo(bodyRect.width * 3 / 4, 0.01),
       );
-      expect(pointerRect.center.dx, closeTo(291, 0.01));
+      expect(pointerRect.center.dx, closeTo(288, 0.01));
     },
   );
 }

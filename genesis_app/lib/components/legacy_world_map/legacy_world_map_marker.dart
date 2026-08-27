@@ -76,7 +76,7 @@ const double _worldPointActivityIconExtraWidth =
 const double _worldPointMaxLabelBoxWidth =
     _worldPointMaxLabelTextWidth + _worldPointLabelHorizontalPadding;
 const double _worldPointDotSize = 8;
-const double _worldPointAvatarSize = 42;
+const double _worldPointAvatarSize = legacyWorldMapAvatarImageLogicalSize;
 const double _worldPointAvatarSpacing = 4;
 const double _worldPointLabelToDotSpacing = 6;
 const double _worldPointAvatarTopGap = 10;
@@ -461,7 +461,7 @@ class _WorldPointMarker extends StatelessWidget {
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
-  static const double _avatarSize = 42;
+  static const double _avatarSize = legacyWorldMapAvatarImageLogicalSize;
   static const double _avatarSpacing = 4;
   static const double _avatarTopGap = 10;
   static const double _pointSize = 8;

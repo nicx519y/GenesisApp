@@ -37,6 +37,8 @@ void main() {
 
       final aiAvatar = avatarFor('ai');
       final playerAvatar = avatarFor('player');
+      expect(aiAvatar.size, 36);
+      expect(playerAvatar.size, 36);
       expect(aiAvatar.showStar, isFalse);
       expect(aiAvatar.border, isNull);
       expect(playerAvatar.showStar, isFalse);

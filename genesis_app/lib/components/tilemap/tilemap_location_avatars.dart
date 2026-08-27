@@ -8,7 +8,7 @@ import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_point.dart';
 
-const double tilemapLocationAvatarSize = 42;
+const double tilemapLocationAvatarSize = 36;
 const double tilemapLocationAvatarSpacing = 4;
 const double tilemapLocationLabelToDotSpacing = 6;
 const double tilemapLocationDotSize = 7;

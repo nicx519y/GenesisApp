@@ -186,13 +186,7 @@ Map<String, List<UserAvatar>> _originAvatarsByLocation(
   for (final c in characters) {
     final locationId = _originCharacterMapLocationId(c);
     if (locationId <= 0) continue;
-    final avatar = UserAvatar(
-      _initials(c.name),
-      id: _originCharacterMapAvatarId(c),
-      name: c.name,
-      avatarUrl: _resolveAssetUrl(c.avatar),
-      showStar: true,
-    );
+    final avatar = _originMapAvatar(c);
     final keys = <String>{'$locationId', ...?locationIdsByStableId[locationId]}
       ..remove('');
     for (final key in keys) {
@@ -200,6 +194,20 @@ Map<String, List<UserAvatar>> _originAvatarsByLocation(
     }
   }
   return map;
+}
+
+UserAvatar _originMapAvatar(OriginCharacter character) {
+  return UserAvatar(
+    _initials(character.name),
+    id: _originCharacterMapAvatarId(character),
+    name: character.name,
+    avatarUrl: _resolveAssetUrl(character.avatar),
+  );
+}
+
+@visibleForTesting
+UserAvatar originMapAvatarForTesting(OriginCharacter character) {
+  return _originMapAvatar(character);
 }
 
 String _originCharacterMapAvatarId(OriginCharacter character) {

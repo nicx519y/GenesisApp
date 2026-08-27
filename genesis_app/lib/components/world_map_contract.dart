@@ -1,21 +1,16 @@
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import 'chat/shared/chat_scene_plate_tokens.dart';
 import 'world_point.dart';
 
 typedef WorldPointTapCallback = FutureOr<void> Function(WorldPoint point);
 
 const double worldMapMessageBubbleMaxWidth = 220;
-const double worldMapMessageBubbleHorizontalPadding =
-    kChatScenePlateBubbleHorizontalPadding;
-const double worldMapMessageBubbleVerticalPadding =
-    kChatScenePlateBubbleVerticalPadding;
+const double worldMapMessageBubbleHorizontalPadding = 11;
+const double worldMapMessageBubbleVerticalPadding = 8;
 const double worldMapMessageBubblePointerWidth = 12;
-const Color worldMapMessageBubbleBackgroundColor = kChatScenePlateAiBubbleColor;
-const double worldMapMessageBubbleBlurSigma = kChatScenePlateBubbleBlurSigma;
+const Color worldMapMessageBubbleBackgroundColor = Color(0xCC3A3942);
 const BorderRadius worldMapMessageBubbleBorderRadius = BorderRadius.all(
   Radius.circular(8),
 );
@@ -35,18 +30,12 @@ class WorldMapMessageBubbleSurface extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRRect(
       borderRadius: worldMapMessageBubbleBorderRadius,
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: worldMapMessageBubbleBlurSigma,
-          sigmaY: worldMapMessageBubbleBlurSigma,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: worldMapMessageBubbleBackgroundColor,
+          borderRadius: worldMapMessageBubbleBorderRadius,
         ),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: worldMapMessageBubbleBackgroundColor,
-            borderRadius: worldMapMessageBubbleBorderRadius,
-          ),
-          child: child,
-        ),
+        child: child,
       ),
     );
   }

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../world_map_contract.dart';
+import 'legacy_world_map_background.dart';
 
 const Duration legacyWorldMapBubbleDisplayDuration = Duration(seconds: 4);
 const Duration legacyWorldMapBubbleGapDuration = Duration(milliseconds: 500);
@@ -50,7 +51,7 @@ class LegacyWorldMapPositionedMessageBubble extends StatelessWidget {
   final ValueChanged<PointerDownEvent> onPointerDown;
   final VoidCallback? onTap;
 
-  static const double _avatarSize = 42;
+  static const double _avatarSize = legacyWorldMapAvatarImageLogicalSize;
   static const double _bubbleGap = 8;
   static const double _pointerWidth = worldMapMessageBubblePointerWidth;
   static const double _pointerHeight = 10;

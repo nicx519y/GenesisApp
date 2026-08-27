@@ -121,7 +121,7 @@ void main() {
 
     final avatars = find.byType(GenesisCharacterAvatar);
     expect(avatars, findsNWidgets(3));
-    expect(tester.getSize(avatars.first), const Size(42, 42));
+    expect(tester.getSize(avatars.first), const Size(36, 36));
     expect(
       tester.widget<GenesisCharacterAvatar>(avatars.first).boxShadow,
       isNotEmpty,
@@ -378,7 +378,7 @@ void main() {
     expect(tappedIds, ['point-1']);
   });
 
-  testWidgets('world map bubble uses the location chat AI bubble style', (
+  testWidgets('world map bubble uses the shared map bubble style', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -402,11 +402,11 @@ void main() {
                 )
                 .decoration
             as BoxDecoration;
-    expect(decoration.color, const Color(0x993A3942));
+    expect(decoration.color, const Color(0xCC3A3942));
     expect(decoration.borderRadius, BorderRadius.circular(8));
     expect(
       find.descendant(of: surface, matching: find.byType(BackdropFilter)),
-      findsOneWidget,
+      findsNothing,
     );
     final text = tester.widget<Text>(find.text('Ava checks the storefront.'));
     expect(text.style?.fontSize, 12);
@@ -1263,7 +1263,7 @@ void main() {
 
     final firstCenter = tester.getCenter(avatars.at(0));
     final secondCenter = tester.getCenter(avatars.at(1));
-    expect((firstCenter - secondCenter).distance, lessThan(42));
+    expect((firstCenter - secondCenter).distance, lessThan(36));
   });
 
   testWidgets('points list shows all locations and indents by hierarchy', (
