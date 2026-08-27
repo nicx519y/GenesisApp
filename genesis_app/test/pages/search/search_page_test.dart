@@ -93,6 +93,79 @@ void main() {
     expect(find.text('#Origin 1'), findsOneWidget);
   });
 
+  testWidgets('shows no results only after a successful empty response', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1400);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(
+      singleWorldResult: true,
+      searchDelay: const Duration(seconds: 1),
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+
+    expect(find.text('No results.'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('genesis-search-result-list-skeleton')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('No results.'), findsOneWidget);
+  });
+
+  testWidgets('switches directly from results to the next tab skeleton', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1400);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(
+      searchDelay: const Duration(seconds: 1),
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin 1'), findsOneWidget);
+
+    await tester.tap(find.text('World'));
+    for (var frame = 0; frame < 10; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (transport.searchRequests.any(
+        (request) => request.uri.queryParameters['type'] == 'world',
+      )) {
+        break;
+      }
+    }
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'world');
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('No results.'), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'genesis-search-result-world-thumbnail-skeleton',
+        ),
+      ),
+      findsWidgets,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('World 1'), findsOneWidget);
+  });
+
   testWidgets('uses the shared list progress style while loading next page', (
     tester,
   ) async {
@@ -331,6 +404,41 @@ void main() {
     expect(find.textContaining('Latest Version: V1'), findsOneWidget);
   });
 
+  testWidgets('keeps a prefix before a complete trailing Brief match', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(trailingBriefMatch: true);
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'rooftop');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final briefFinder = find.textContaining('Brief:');
+    final brief = tester.widget<Text>(briefFinder.first);
+    final displayedBrief = brief.textSpan!.toPlainText();
+    expect(brief.maxLines, 2);
+    expect(displayedBrief, contains('…'));
+    expect(displayedBrief, startsWith('Brief: Two'));
+    expect(displayedBrief, isNot(startsWith('Brief: …')));
+    expect(displayedBrief, contains('rooftop'));
+    expect(displayedBrief, endsWith('rooftop'));
+    expect(_highlightedTextParts(brief), contains('rooftop'));
+    expect(displayedBrief, isNot(contains('ro…')));
+
+    final painter = TextPainter(
+      text: TextSpan(style: brief.style, children: [brief.textSpan!]),
+      maxLines: 2,
+      ellipsis: '…',
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: tester.getSize(briefFinder.first).width);
+    expect(painter.didExceedMaxLines, isFalse);
+  });
+
   testWidgets('highlights every documented v2 search match field', (
     tester,
   ) async {
@@ -555,7 +663,7 @@ void main() {
     );
   });
 
-  testWidgets('Worldo cards grow with long briefs and every character name', (
+  testWidgets('Worldo keeps matched character names whole within two lines', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -576,7 +684,12 @@ void main() {
         )
         .first;
     final brief = tester.widget<Text>(find.textContaining('Brief:'));
-    final characters = find.textContaining('Extra Character 12');
+    final characters = find.textContaining('Characters:');
+    final charactersText = tester.widget<Text>(characters);
+    final charactersValue = charactersText.textSpan!.toPlainText();
+    final displayedCharacterTokens = charactersValue
+        .replaceFirst('Characters: ', '')
+        .split(', ');
     final latestVersion = find.textContaining('Latest Version: V1');
 
     expect(brief.maxLines, 2);
@@ -584,6 +697,50 @@ void main() {
     expect(brief.textSpan?.toPlainText(), contains('Latest Version visible'));
     expect(_highlightedTextParts(brief), contains('Latest Version visible'));
     expect(characters, findsOneWidget);
+    expect(charactersText.maxLines, 2);
+    expect(charactersValue, contains('…'));
+    expect(charactersValue, isNot(startsWith('Characters: …')));
+    expect(charactersValue, contains('Character 1'));
+    expect(charactersValue, contains('Extra Character 12'));
+    expect(
+      _highlightedTextParts(charactersText),
+      contains('Extra Character 12'),
+    );
+    expect(
+      displayedCharacterTokens.where((token) => token != '…'),
+      everyElement(
+        isIn(const [
+          'Character 1',
+          'Supporting 1',
+          'Extra Character 3',
+          'Extra Character 4',
+          'Extra Character 5',
+          'Extra Character 6',
+          'Extra Character 7',
+          'Extra Character 8',
+          'Extra Character 9',
+          'Extra Character 10',
+          'Extra Character 11',
+          'Extra Character 12',
+        ]),
+      ),
+    );
+    final charactersPainter =
+        TextPainter(
+          text: TextSpan(
+            style: charactersText.style,
+            children: [charactersText.textSpan!],
+          ),
+          maxLines: 2,
+          ellipsis: '…',
+          textDirection: TextDirection.ltr,
+        )..layout(
+          maxWidth: tester
+              .renderObject<RenderBox>(characters)
+              .constraints
+              .maxWidth,
+        );
+    expect(charactersPainter.didExceedMaxLines, isFalse);
     expect(latestVersion, findsOneWidget);
     expect(tester.getSize(tile).height, greaterThan(120));
     expect(
@@ -715,6 +872,7 @@ class _SearchPageTransport implements HttpTransport {
     this.singleWorldResult = false,
     this.longOriginContent = false,
     this.originNameMatchOnly = false,
+    this.trailingBriefMatch = false,
     this.paginated = false,
     this.sectionTotals = const <String, int>{},
     this.searchDelay = Duration.zero,
@@ -724,6 +882,7 @@ class _SearchPageTransport implements HttpTransport {
   final bool singleWorldResult;
   final bool longOriginContent;
   final bool originNameMatchOnly;
+  final bool trailingBriefMatch;
   final bool paginated;
   final Map<String, int> sectionTotals;
   final Duration searchDelay;
@@ -767,6 +926,7 @@ class _SearchPageTransport implements HttpTransport {
           total: sectionTotals['origin'],
           longOriginContent: longOriginContent,
           originNameMatchOnly: originNameMatchOnly,
+          trailingBriefMatch: trailingBriefMatch,
           paginated: paginated,
           pageNumber: pageNumber,
         ),
@@ -800,6 +960,7 @@ Map<String, dynamic> _section(
   int? total,
   bool longOriginContent = false,
   bool originNameMatchOnly = false,
+  bool trailingBriefMatch = false,
   bool paginated = false,
   int pageNumber = 1,
 }) {
@@ -832,6 +993,7 @@ Map<String, dynamic> _section(
           firstItemIndex + offset,
           longOriginContent: longOriginContent,
           originNameMatchOnly: originNameMatchOnly,
+          trailingBriefMatch: trailingBriefMatch,
         ),
     ],
     'total': total ?? (paginated ? 21 : itemCount),
@@ -845,18 +1007,27 @@ const _longOriginBrief =
     'search result card measures its complete content, wraps onto '
     'additional lines, and still keeps Latest Version visible.';
 
+const _trailingMatchBrief =
+    'Two delinquents who bully you are kissing?! You saw the whole scene '
+    'on the rooftop';
+
 Map<String, dynamic> _item(
   String type,
   int index, {
   bool longOriginContent = false,
   bool originNameMatchOnly = false,
+  bool trailingBriefMatch = false,
 }) {
   return switch (type) {
     'origin' => {
       'origin_id': 'origin_$index',
       'origin_name': 'Origin $index',
       'origin_version': '$index',
-      'brief': longOriginContent ? _longOriginBrief : 'Origin brief $index',
+      'brief': trailingBriefMatch
+          ? _trailingMatchBrief
+          : longOriginContent
+          ? _longOriginBrief
+          : 'Origin brief $index',
       'language': 'en',
       'owner': {
         'uid': 'owner_$index',
@@ -899,8 +1070,15 @@ Map<String, dynamic> _item(
           {
             'field': 'brief',
             'highlight_ranges': [
-              {'start': 0, 'length': 6},
-              {'start': 7, 'length': 5},
+              if (trailingBriefMatch) ...[
+                {
+                  'start': _trailingMatchBrief.indexOf('rooftop'),
+                  'length': 'rooftop'.length,
+                },
+              ] else ...[
+                {'start': 0, 'length': 6},
+                {'start': 7, 'length': 5},
+              ],
               if (longOriginContent)
                 {
                   'start': _longOriginBrief.indexOf('Latest Version visible'),
@@ -908,20 +1086,30 @@ Map<String, dynamic> _item(
                 },
             ],
           },
-          {
-            'field': 'character_name',
-            'character_id': 'character_$index',
-            'highlight_ranges': [
-              {'start': 0, 'length': 9},
-            ],
-          },
-          {
-            'field': 'character_name',
-            'character_id': 'supporting_$index',
-            'highlight_ranges': [
-              {'start': 0, 'length': 10},
-            ],
-          },
+          if (!longOriginContent)
+            {
+              'field': 'character_name',
+              'character_id': 'character_$index',
+              'highlight_ranges': [
+                {'start': 0, 'length': 9},
+              ],
+            },
+          if (!longOriginContent)
+            {
+              'field': 'character_name',
+              'character_id': 'supporting_$index',
+              'highlight_ranges': [
+                {'start': 0, 'length': 10},
+              ],
+            },
+          if (longOriginContent)
+            {
+              'field': 'character_name',
+              'character_id': 'extra_${index}_12',
+              'highlight_ranges': [
+                {'start': 0, 'length': 'Extra Character 12'.length},
+              ],
+            },
         ],
       ],
       'matches_truncated': false,

@@ -78,6 +78,10 @@ class _SearchResultListState extends State<_SearchResultList>
       );
     }
 
+    if (!state.hasSuccessfulResponse) {
+      return const SizedBox.shrink();
+    }
+
     if (state.items.isEmpty) {
       return const Center(
         child: Text(

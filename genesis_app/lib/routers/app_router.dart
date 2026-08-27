@@ -1,10 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import '../components/tilemap/tilemap_renderer.dart';
 import '../app/bootstrap/app_services_scope.dart';
-import '../components/tilemap/tilemap_settings_store.dart';
-import '../components/world_details_shell.dart';
 import '../pages/app_shell_page.dart';
 import '../pages/create/create_origin_page.dart';
 import '../pages/common/page_not_found_page.dart';
@@ -17,7 +14,6 @@ import '../pages/gems/gem_wallet_page.dart';
 import '../pages/gems/memory_model_page.dart';
 import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
-import '../pages/world/world_constants.dart';
 import '../pages/world/world_page.dart';
 import '../pages/world/world_page_result.dart';
 import '../pages/chat/chat_page.dart';
@@ -29,7 +25,6 @@ import '../network/chatroom/chatroom_connection_controller.dart';
 import '../network/chatroom/world_chatroom_service.dart';
 import '../network/models/world.dart';
 import '../components/discuss/origin_discuss_list.dart';
-import '../ui/components/genesis_safe_area.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -510,9 +505,6 @@ sealed class AppRouter {
         final args = _WorldRouteArgs.from(settings.arguments);
         return _WorldPageRoute(
           settings: settings,
-          useLaunchedPanelGeometry:
-              args.initiallyLaunched ||
-              _worldDetailUsesLaunchedPanel(args.initialWorldDetail),
           builder: (_) => WorldPage(
             wid: args.wid,
             waitForTick1: args.waitForTick1,
@@ -699,13 +691,7 @@ class _OriginWorldPageRoute extends MaterialPageRoute<void> {
 }
 
 class _WorldPageRoute extends MaterialPageRoute<WorldPageResult> {
-  _WorldPageRoute({
-    required super.builder,
-    required super.settings,
-    required this.useLaunchedPanelGeometry,
-  });
-
-  final bool useLaunchedPanelGeometry;
+  _WorldPageRoute({required super.builder, required super.settings});
 
   bool _initialPushCompleted = false;
 
@@ -743,83 +729,11 @@ class _WorldPageRoute extends MaterialPageRoute<WorldPageResult> {
         animation.status != AnimationStatus.reverse &&
         animation.status != AnimationStatus.completed &&
         !popGestureInProgress;
-    if (platform != TargetPlatform.android || !isInitialForwardAnimation) {
-      return transition;
+    if (platform == TargetPlatform.android && isInitialForwardAnimation) {
+      return child;
     }
-
-    // Keep Android's World route opaque while it slides. Fading this route
-    // cross-paints its footer avatar with the previous page during push/pop.
-    return Stack(
-      key: const ValueKey<String>('world-route-forward-transition'),
-      fit: StackFit.expand,
-      children: [
-        _WorldRouteTransitionBackdrop(
-          useLaunchedPanelGeometry: useLaunchedPanelGeometry,
-        ),
-        transition,
-      ],
-    );
+    return transition;
   }
-}
-
-class _WorldRouteTransitionBackdrop extends StatelessWidget {
-  const _WorldRouteTransitionBackdrop({required this.useLaunchedPanelGeometry});
-
-  final bool useLaunchedPanelGeometry;
-
-  @override
-  Widget build(BuildContext context) {
-    final panelHeight =
-        worldCollapsedPanelBaseHeight +
-        (useLaunchedPanelGeometry
-            ? worldLaunchedInfoHeaderHeight - worldInfoHeaderHeight
-            : 0) +
-        GenesisSafeAreaInsets.bottom(context);
-    return ValueListenableBuilder<TilemapVisualMode>(
-      valueListenable: tilemapVisualModeController,
-      builder: (context, visualMode, child) {
-        final mapBackground = tilemapVisualStyleFor(visualMode).backgroundColor;
-        return ColoredBox(
-          key: const ValueKey<String>('world-route-transition-background'),
-          color: mapBackground,
-          child: Column(
-            children: [
-              Expanded(
-                child: ColoredBox(
-                  key: const ValueKey<String>(
-                    'world-route-transition-map-background',
-                  ),
-                  color: mapBackground,
-                ),
-              ),
-              SizedBox(
-                height: panelHeight,
-                child: DecoratedBox(
-                  key: const ValueKey<String>(
-                    'world-route-transition-panel-background',
-                  ),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(
-                        WorldDetailsPageScaffold.defaultPanelTopRadius,
-                      ),
-                    ),
-                  ),
-                  child: const SizedBox.expand(),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
-bool _worldDetailUsesLaunchedPanel(WorldDetail? world) {
-  final relationStatus = world?.relationStatus.trim().toLowerCase();
-  return relationStatus == 'owner' || relationStatus == 'joined';
 }
 
 class _LocationChatPageRoute extends PageRoute<void>
