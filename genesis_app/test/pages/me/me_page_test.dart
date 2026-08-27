@@ -139,10 +139,31 @@ void main() {
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
     expect(tester.widget<Text>(find.text('User')).style?.fontSize, 20);
+    expect(tester.widget<Text>(find.text('12')).style?.fontSize, 16);
+    expect(tester.widget<Text>(find.text('Following')).style?.fontSize, 14);
+    expect(tester.widget<Text>(find.text('34')).style?.fontSize, 16);
+    expect(tester.widget<Text>(find.text('Followers')).style?.fontSize, 14);
+    expect(
+      tester.widget<Text>(find.text('12')).style?.color,
+      const Color(0xFF111111),
+    );
+    expect(
+      tester.widget<Text>(find.text('Following')).style?.color,
+      const Color(0xFF666666),
+    );
+    expect(
+      tester.getCenter(find.text('12')).dy,
+      moreOrLessEquals(tester.getCenter(find.text('Following')).dy),
+    );
+    expect(
+      tester.getCenter(find.text('34')).dy,
+      moreOrLessEquals(tester.getCenter(find.text('Followers')).dy),
+    );
     final uidText = find.text('UID: u_user');
     final followingCount = find.text('12');
     expect(uidText, findsOneWidget);
     expect(followingCount, findsOneWidget);
+    expect(tester.widget<Text>(uidText).style?.color, const Color(0xFF666666));
     expect(
       tester.getTopLeft(followingCount).dx,
       moreOrLessEquals(tester.getTopLeft(uidText).dx),

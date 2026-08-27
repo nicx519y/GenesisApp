@@ -484,6 +484,15 @@ void main() {
     final firstVisibility = find.byKey(
       const ValueKey('chat-story-event-visibility-story-0'),
     );
+    final timestampText = tester.widget<Text>(firstTimestamp);
+    expect(timestampText.style?.fontSize, 11);
+    expect(timestampText.style?.color, Colors.white.withValues(alpha: 0.72));
+    final aiRoleText = tester.widget<Text>(find.text('Mateo'));
+    final userRoleText = tester.widget<Text>(find.text('Iris'));
+    expect(aiRoleText.style?.fontSize, 13);
+    expect(aiRoleText.style?.height, 1.3);
+    expect(userRoleText.style?.fontSize, 13);
+    expect(userRoleText.style?.height, 1.3);
     expect(
       tester.getCenter(firstVisibility).dx,
       greaterThan(tester.getCenter(firstTimestamp).dx),
@@ -2052,7 +2061,7 @@ void main() {
         of: find.byType(ChatComposer),
         matching: find.byType(BackdropFilter),
       ),
-      findsNWidgets(2),
+      findsNWidgets(3),
     );
   });
 
@@ -2534,7 +2543,7 @@ void main() {
 
     final avatarFinder = find.byKey(const ValueKey('chat-npc-avatar'));
     expect(avatarFinder, findsOneWidget);
-    expect(tester.getSize(avatarFinder), const Size(36, 36));
+    expect(tester.getSize(avatarFinder), const Size(40, 40));
     expect(find.text('NPC'), findsOneWidget);
     expect(find.text('VG'), findsNothing);
 
@@ -3463,7 +3472,7 @@ void main() {
         find.byKey(const ValueKey<String>('chat-tick-message-surface')),
       );
       final tickDecoration = tickBubble.decoration! as BoxDecoration;
-      expect(tickDecoration.color, const Color(0x99000000));
+      expect(tickDecoration.color, const Color(0x99151517));
       expect(tickDecoration.borderRadius, BorderRadius.circular(10));
       expect(tickDecoration.border, Border.all(color: const Color(0x33FFFFFF)));
       final tickAccent = find.byKey(

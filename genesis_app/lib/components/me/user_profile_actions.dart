@@ -73,6 +73,7 @@ class _FollowStatButton extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(count, style: countStyle),
             const SizedBox(width: 4),

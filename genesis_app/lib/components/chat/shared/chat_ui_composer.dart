@@ -68,49 +68,53 @@ class ChatComposer extends StatelessWidget {
                     SizedBox(width: style.composerLeadingGap),
                   ],
                   Expanded(
-                    child: Container(
-                      constraints: BoxConstraints(
-                        minHeight: style.inputMinHeight,
-                        maxHeight: style.inputMaxHeight,
-                      ),
-                      decoration: BoxDecoration(
-                        color: style.inputBackgroundColor,
-                        borderRadius: BorderRadius.circular(
-                          style.inputBorderRadius,
+                    child: _ComposerInputSurface(
+                      blurSigma: style.inputBackdropBlurSigma,
+                      borderRadius: style.inputBorderRadius,
+                      child: Container(
+                        constraints: BoxConstraints(
+                          minHeight: style.inputMinHeight,
+                          maxHeight: style.inputMaxHeight,
                         ),
-                      ),
-                      child: TextField(
-                        controller: controller,
-                        focusNode: focusNode,
-                        cursorColor:
-                            style.inputTextStyle.color ??
-                            GenesisColors.textPrimary,
-                        enabled: inputEnabled,
-                        minLines: style.inputMinLines,
-                        maxLines: style.inputMaxLines,
-                        keyboardType: submitFromKeyboard
-                            ? TextInputType.text
-                            : TextInputType.multiline,
-                        textInputAction: submitFromKeyboard
-                            ? TextInputAction.send
-                            : TextInputAction.newline,
-                        onTapOutside: (_) =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
-                        onTap: onInputTap,
-                        onSubmitted: submitFromKeyboard
-                            ? (_) {
-                                if (sendEnabled) unawaited(onSend());
-                              }
-                            : null,
-                        style: GenesisTypography.withFallback(
-                          style.inputTextStyle,
+                        decoration: BoxDecoration(
+                          color: style.inputBackgroundColor,
+                          borderRadius: BorderRadius.circular(
+                            style.inputBorderRadius,
+                          ),
                         ),
-                        decoration: InputDecoration(
-                          border: InputBorder.none,
-                          hintText: hintText,
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: style.inputHorizontalPadding,
-                            vertical: style.inputVerticalPadding,
+                        child: TextField(
+                          controller: controller,
+                          focusNode: focusNode,
+                          cursorColor:
+                              style.inputTextStyle.color ??
+                              GenesisColors.textPrimary,
+                          enabled: inputEnabled,
+                          minLines: style.inputMinLines,
+                          maxLines: style.inputMaxLines,
+                          keyboardType: submitFromKeyboard
+                              ? TextInputType.text
+                              : TextInputType.multiline,
+                          textInputAction: submitFromKeyboard
+                              ? TextInputAction.send
+                              : TextInputAction.newline,
+                          onTapOutside: (_) =>
+                              FocusManager.instance.primaryFocus?.unfocus(),
+                          onTap: onInputTap,
+                          onSubmitted: submitFromKeyboard
+                              ? (_) {
+                                  if (sendEnabled) unawaited(onSend());
+                                }
+                              : null,
+                          style: GenesisTypography.withFallback(
+                            style.inputTextStyle,
+                          ),
+                          decoration: InputDecoration(
+                            border: InputBorder.none,
+                            hintText: hintText,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: style.inputHorizontalPadding,
+                              vertical: style.inputVerticalPadding,
+                            ),
                           ),
                         ),
                       ),
@@ -147,6 +151,30 @@ class ChatComposer extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ComposerInputSurface extends StatelessWidget {
+  const _ComposerInputSurface({
+    required this.blurSigma,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  final double blurSigma;
+  final double borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (blurSigma <= 0) return child;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: child,
       ),
     );
   }

@@ -71,7 +71,7 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
 
 const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
-const double _npcChatAvatarSize = 36;
+const double _npcChatAvatarSize = 40;
 const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
 const Color _locationChatBackgroundColor = Color(0xFF151517);
 const Color _locationChatSurfaceColor = Colors.transparent;
@@ -95,13 +95,14 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   composerBackdropBlurSigma: _locationChatSurfaceBlurSigma,
   composerSendButtonWidth: 40,
   composerSendButtonHeight: 40,
-  composerSendButtonBorderRadius: 20,
+  composerSendButtonBorderRadius: 8,
   composerSendButtonColor: const Color(0xFFFF2442),
   composerSendButtonDisabledColor: const Color(0x21FFFFFF),
   composerSendButtonBackdropBlurSigma: 14,
   composerSendButtonIconSize: 17,
   composerActionGap: 9,
   inputBackgroundColor: const Color(0x1FFFFFFF),
+  inputBackdropBlurSigma: 4,
   inputBorderRadius: 8,
   inputTextStyle: ChatUiStyleConfig.standard.inputTextStyle.copyWith(
     color: Colors.white,
