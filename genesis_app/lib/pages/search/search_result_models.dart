@@ -8,6 +8,7 @@ class _SearchTabResults {
   int nextPage = 1;
   bool hasMore = true;
   bool hasRequested = false;
+  bool hasSuccessfulResponse = false;
   bool isInitialLoading = false;
   bool isLoadingMore = false;
   int requestToken = 0;
@@ -19,6 +20,7 @@ class _SearchTabResults {
     nextPage = 1;
     hasMore = true;
     hasRequested = false;
+    hasSuccessfulResponse = false;
     isInitialLoading = false;
     isLoadingMore = false;
     requestToken = 0;

@@ -227,6 +227,7 @@ bool _searchBriefFits(
       ],
     ),
     maxLines: 2,
+    ellipsis: '…',
     textDirection: Directionality.of(context),
     textScaler: MediaQuery.textScalerOf(context),
     locale: Localizations.localeOf(context),

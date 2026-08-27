@@ -199,6 +199,7 @@ class _SearchPageState extends State<SearchPage>
     _tabTotals.clear();
     for (final state in _results.values) {
       state.hasRequested = false;
+      state.hasSuccessfulResponse = false;
       state.isInitialLoading = false;
       state.isLoadingMore = false;
       state.error = null;
@@ -227,6 +228,7 @@ class _SearchPageState extends State<SearchPage>
     setState(() {
       state
         ..hasRequested = true
+        ..hasSuccessfulResponse = false
         ..isInitialLoading = state.items.isEmpty
         ..isLoadingMore = false
         ..error = null
@@ -249,6 +251,7 @@ class _SearchPageState extends State<SearchPage>
           ..total = page.total
           ..nextPage = 2
           ..hasMore = page.hasMore
+          ..hasSuccessfulResponse = true
           ..isInitialLoading = false
           ..error = null;
         _tabTotals.addAll(page.tabTotals);
@@ -263,6 +266,7 @@ class _SearchPageState extends State<SearchPage>
       if (!_acceptsResult(token, query)) return;
       setState(() {
         state
+          ..hasSuccessfulResponse = false
           ..isInitialLoading = false
           ..error = state.items.isEmpty ? error : null;
       });

@@ -93,6 +93,34 @@ void main() {
     expect(find.text('#Origin 1'), findsOneWidget);
   });
 
+  testWidgets('shows no results only after a successful empty response', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1400);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(
+      singleWorldResult: true,
+      searchDelay: const Duration(seconds: 1),
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+
+    expect(find.text('No results.'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('genesis-search-result-list-skeleton')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('No results.'), findsOneWidget);
+  });
+
   testWidgets('switches directly from results to the next tab skeleton', (
     tester,
   ) async {
@@ -374,6 +402,40 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Latest Version: V1'), findsOneWidget);
+  });
+
+  testWidgets('keeps every Brief match around a middle ellipsis complete', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(trailingBriefMatch: true);
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'rooftop');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final briefFinder = find.textContaining('Brief:');
+    final brief = tester.widget<Text>(briefFinder.first);
+    final displayedBrief = brief.textSpan!.toPlainText();
+    expect(brief.maxLines, 2);
+    expect(displayedBrief, contains('…'));
+    expect(displayedBrief, startsWith('Brief: Two'));
+    expect(displayedBrief, contains('rooftop'));
+    expect(displayedBrief, endsWith('rooftop'));
+    expect(_highlightedTextParts(brief), containsAll(['Two', 'rooftop']));
+    expect(displayedBrief, isNot(contains('ro…')));
+
+    final painter = TextPainter(
+      text: TextSpan(style: brief.style, children: [brief.textSpan!]),
+      maxLines: 2,
+      ellipsis: '…',
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: tester.getSize(briefFinder.first).width);
+    expect(painter.didExceedMaxLines, isFalse);
   });
 
   testWidgets('highlights every documented v2 search match field', (
@@ -760,6 +822,7 @@ class _SearchPageTransport implements HttpTransport {
     this.singleWorldResult = false,
     this.longOriginContent = false,
     this.originNameMatchOnly = false,
+    this.trailingBriefMatch = false,
     this.paginated = false,
     this.sectionTotals = const <String, int>{},
     this.searchDelay = Duration.zero,
@@ -769,6 +832,7 @@ class _SearchPageTransport implements HttpTransport {
   final bool singleWorldResult;
   final bool longOriginContent;
   final bool originNameMatchOnly;
+  final bool trailingBriefMatch;
   final bool paginated;
   final Map<String, int> sectionTotals;
   final Duration searchDelay;
@@ -812,6 +876,7 @@ class _SearchPageTransport implements HttpTransport {
           total: sectionTotals['origin'],
           longOriginContent: longOriginContent,
           originNameMatchOnly: originNameMatchOnly,
+          trailingBriefMatch: trailingBriefMatch,
           paginated: paginated,
           pageNumber: pageNumber,
         ),
@@ -845,6 +910,7 @@ Map<String, dynamic> _section(
   int? total,
   bool longOriginContent = false,
   bool originNameMatchOnly = false,
+  bool trailingBriefMatch = false,
   bool paginated = false,
   int pageNumber = 1,
 }) {
@@ -877,6 +943,7 @@ Map<String, dynamic> _section(
           firstItemIndex + offset,
           longOriginContent: longOriginContent,
           originNameMatchOnly: originNameMatchOnly,
+          trailingBriefMatch: trailingBriefMatch,
         ),
     ],
     'total': total ?? (paginated ? 21 : itemCount),
@@ -890,18 +957,27 @@ const _longOriginBrief =
     'search result card measures its complete content, wraps onto '
     'additional lines, and still keeps Latest Version visible.';
 
+const _trailingMatchBrief =
+    'Two delinquents who bully you are kissing?! You saw the whole scene '
+    'on the rooftop';
+
 Map<String, dynamic> _item(
   String type,
   int index, {
   bool longOriginContent = false,
   bool originNameMatchOnly = false,
+  bool trailingBriefMatch = false,
 }) {
   return switch (type) {
     'origin' => {
       'origin_id': 'origin_$index',
       'origin_name': 'Origin $index',
       'origin_version': '$index',
-      'brief': longOriginContent ? _longOriginBrief : 'Origin brief $index',
+      'brief': trailingBriefMatch
+          ? _trailingMatchBrief
+          : longOriginContent
+          ? _longOriginBrief
+          : 'Origin brief $index',
       'language': 'en',
       'owner': {
         'uid': 'owner_$index',
@@ -944,8 +1020,16 @@ Map<String, dynamic> _item(
           {
             'field': 'brief',
             'highlight_ranges': [
-              {'start': 0, 'length': 6},
-              {'start': 7, 'length': 5},
+              if (trailingBriefMatch) ...[
+                {'start': 0, 'length': 'Two'.length},
+                {
+                  'start': _trailingMatchBrief.indexOf('rooftop'),
+                  'length': 'rooftop'.length,
+                },
+              ] else ...[
+                {'start': 0, 'length': 6},
+                {'start': 7, 'length': 5},
+              ],
               if (longOriginContent)
                 {
                   'start': _longOriginBrief.indexOf('Latest Version visible'),
