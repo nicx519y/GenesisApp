@@ -86,6 +86,9 @@ class _DebugPasswordDialogState extends State<_DebugPasswordDialog> {
                     key: const ValueKey<String>('debug-password-input'),
                     controller: _controller,
                     focusNode: _focusNode,
+                    cursorColor:
+                        Theme.of(context).textTheme.bodyLarge?.color ??
+                        const Color(0xFF111111),
                     obscureText: true,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(),

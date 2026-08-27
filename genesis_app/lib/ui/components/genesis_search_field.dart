@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../text/genesis_text_input_formatters.dart';
+import '../tokens/genesis_colors.dart';
 import '../tokens/genesis_spacing.dart';
 import '../tokens/genesis_typography.dart';
 import '../theme/genesis_ui_theme.dart';
@@ -91,6 +92,8 @@ class GenesisSearchField extends StatelessWidget {
                 ? TextField(
                     controller: controller,
                     focusNode: focusNode,
+                    cursorColor:
+                        effectiveTextStyle.color ?? GenesisColors.textPrimary,
                     onChanged: onChanged,
                     textInputAction: textInputAction,
                     readOnly: readOnly,

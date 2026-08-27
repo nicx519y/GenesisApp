@@ -1087,7 +1087,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","cover":"","created_at":1716000000},"stats":{"tick_cnt":4,"player_cnt":5}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"player_cnt":5}}],"total":1}}',
           );
         }
         return const TransportResponse(
@@ -1129,6 +1129,10 @@ void main() {
     expect(origins.data.single.oid, 'o_1');
     expect(origins.data.single.originator, 'Origin Owner');
     expect(worlds.single.wid, 'w_1');
+    expect(
+      worlds.single.updatedAtText,
+      DateTime.fromMillisecondsSinceEpoch(1717000000 * 1000).toIso8601String(),
+    );
     expect(apiTransport.requests[0].uri.path, '/api/v1/origin/list');
     expect(apiTransport.requests[0].uri.queryParameters['scene'], 'mine');
     expect(

@@ -290,6 +290,7 @@ class _LocationChatRouteArgs {
     required this.locationId,
     required this.worldName,
     required this.locationName,
+    required this.parentLocationName,
     required this.backgroundImageUrl,
     required this.backgroundPreviewImageUrl,
     required this.isLeafLocation,
@@ -312,6 +313,10 @@ class _LocationChatRouteArgs {
       ]),
       worldName: args.string(const ['world_name', 'worldName']),
       locationName: args.string(const ['locationName', 'location_name']),
+      parentLocationName: args.string(const [
+        'parent_location_name',
+        'parentLocationName',
+      ]),
       backgroundImageUrl: args.string(const [
         'background_image_url',
         'backgroundImageUrl',
@@ -351,6 +356,7 @@ class _LocationChatRouteArgs {
   final String locationId;
   final String worldName;
   final String locationName;
+  final String parentLocationName;
   final String backgroundImageUrl;
   final String backgroundPreviewImageUrl;
   final bool isLeafLocation;
@@ -504,6 +510,9 @@ sealed class AppRouter {
         final args = _WorldRouteArgs.from(settings.arguments);
         return _WorldPageRoute(
           settings: settings,
+          useLaunchedPanelGeometry:
+              args.initiallyLaunched ||
+              _worldDetailUsesLaunchedPanel(args.initialWorldDetail),
           builder: (_) => WorldPage(
             wid: args.wid,
             waitForTick1: args.waitForTick1,
@@ -533,6 +542,7 @@ sealed class AppRouter {
             locationId: args.locationId,
             worldName: args.worldName,
             locationName: args.locationName,
+            parentLocationName: args.parentLocationName,
             backgroundImageUrl: args.backgroundImageUrl,
             backgroundPreviewImageUrl: args.backgroundPreviewImageUrl,
             isLeafLocation: args.isLeafLocation,
@@ -689,7 +699,13 @@ class _OriginWorldPageRoute extends MaterialPageRoute<void> {
 }
 
 class _WorldPageRoute extends MaterialPageRoute<WorldPageResult> {
-  _WorldPageRoute({required super.builder, required super.settings});
+  _WorldPageRoute({
+    required super.builder,
+    required super.settings,
+    required this.useLaunchedPanelGeometry,
+  });
+
+  final bool useLaunchedPanelGeometry;
 
   bool _initialPushCompleted = false;
 
@@ -707,13 +723,21 @@ class _WorldPageRoute extends MaterialPageRoute<WorldPageResult> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final transition = super.buildTransitions(
-      context,
-      animation,
-      secondaryAnimation,
-      child,
-    );
     final platform = Theme.of(context).platform;
+    final transition = platform == TargetPlatform.android
+        ? SlideTransition(
+            key: const ValueKey<String>('world-route-opaque-slide-transition'),
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  ),
+                ),
+            child: child,
+          )
+        : super.buildTransitions(context, animation, secondaryAnimation, child);
     final isInitialForwardAnimation =
         !_initialPushCompleted &&
         animation.status != AnimationStatus.reverse &&
@@ -723,23 +747,34 @@ class _WorldPageRoute extends MaterialPageRoute<WorldPageResult> {
       return transition;
     }
 
-    // Android fades the incoming route while sliding it. Paint the same shell
-    // underneath so those transparent frames never reveal the previous page.
+    // Keep Android's World route opaque while it slides. Fading this route
+    // cross-paints its footer avatar with the previous page during push/pop.
     return Stack(
       key: const ValueKey<String>('world-route-forward-transition'),
       fit: StackFit.expand,
-      children: [const _WorldRouteTransitionBackdrop(), transition],
+      children: [
+        _WorldRouteTransitionBackdrop(
+          useLaunchedPanelGeometry: useLaunchedPanelGeometry,
+        ),
+        transition,
+      ],
     );
   }
 }
 
 class _WorldRouteTransitionBackdrop extends StatelessWidget {
-  const _WorldRouteTransitionBackdrop();
+  const _WorldRouteTransitionBackdrop({required this.useLaunchedPanelGeometry});
+
+  final bool useLaunchedPanelGeometry;
 
   @override
   Widget build(BuildContext context) {
     final panelHeight =
-        worldCollapsedPanelBaseHeight + GenesisSafeAreaInsets.bottom(context);
+        worldCollapsedPanelBaseHeight +
+        (useLaunchedPanelGeometry
+            ? worldLaunchedInfoHeaderHeight - worldInfoHeaderHeight
+            : 0) +
+        GenesisSafeAreaInsets.bottom(context);
     return ValueListenableBuilder<TilemapVisualMode>(
       valueListenable: tilemapVisualModeController,
       builder: (context, visualMode, child) {
@@ -780,6 +815,11 @@ class _WorldRouteTransitionBackdrop extends StatelessWidget {
       },
     );
   }
+}
+
+bool _worldDetailUsesLaunchedPanel(WorldDetail? world) {
+  final relationStatus = world?.relationStatus.trim().toLowerCase();
+  return relationStatus == 'owner' || relationStatus == 'joined';
 }
 
 class _LocationChatPageRoute extends PageRoute<void>

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,7 +8,6 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
-import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
@@ -165,6 +165,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   int? _pendingProgressTickCount;
   var _currentUid = '';
   var _currentUidRequested = false;
+  Future<void>? _currentUidLoad;
   Set<String> _recentChatLocationIds = const <String>{};
   Set<String> _recentChatLocationPathIds = const <String>{};
   Set<String> _currentTickEventLocationPathIds = const <String>{};
@@ -324,6 +325,20 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       return;
     }
     final world = _world!;
+    await _currentUidLoad;
+    if (!mounted ||
+        !identical(_world, world) ||
+        _renderStage != _WorldPageRenderStage.detailShell) {
+      _contentMountScheduled = false;
+      return;
+    }
+    await _precacheCurrentWorldFooterAvatar(world);
+    if (!mounted ||
+        !identical(_world, world) ||
+        _renderStage != _WorldPageRenderStage.detailShell) {
+      _contentMountScheduled = false;
+      return;
+    }
     FirebasePerformanceOperation? renderOperation;
     if (!_initialContentRenderCompleted &&
         _initialRenderPerformanceOperation == null) {
@@ -418,7 +433,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     super.didChangeDependencies();
     if (!_currentUidRequested) {
       _currentUidRequested = true;
-      unawaited(_loadCurrentUid());
+      final currentUidLoad = _loadCurrentUid();
+      _currentUidLoad = currentUidLoad;
+      unawaited(currentUidLoad);
     }
   }
 

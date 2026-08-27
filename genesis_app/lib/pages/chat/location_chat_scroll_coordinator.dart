@@ -549,92 +549,98 @@ class _LocationChatAnchoredMessageListState
             minHeight > style.messageListPadding.vertical
             ? minHeight - style.messageListPadding.vertical
             : 0.0;
-        return SingleChildScrollView(
-          key: _scrollViewportKey,
-          controller: widget.coordinator.controller,
-          physics: LocationChatBottomAnchoringScrollPhysics(
-            shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
-            oldestMessageStopOffset: () =>
-                widget.coordinator.oldestMessageStopOffset,
-            shouldStopAtOldestMessage: () =>
-                widget.coordinator.shouldStopAtOldestMessage,
-            takeDetachedLayoutCorrection: _takeDetachedLayoutCorrection,
+        return ScrollConfiguration(
+          key: const ValueKey<String>(
+            'location-chat-message-scroll-configuration',
           ),
-          keyboardDismissBehavior:
-              widget.keyboardDismissBehavior ??
-              ScrollViewKeyboardDismissBehavior.manual,
-          child: ConstrainedBox(
-            constraints: BoxConstraints(minHeight: minHeight),
-            child: Padding(
-              padding: style.messageListPadding,
-              child: Column(
-                key: _messageContentKey,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  AnimatedBuilder(
-                    animation: _oldestEdgeLoadingAnimation,
-                    child: Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: SizedBox.square(
-                        dimension: style.sendingBadgeSize,
-                        child: Padding(
-                          padding: EdgeInsets.all(style.sendingBadgePadding),
-                          child: CircularProgressIndicator(
-                            strokeWidth: style.sendingBadgeStrokeWidth,
-                            color: style.sendingBadgeColor,
+          behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+          child: SingleChildScrollView(
+            key: _scrollViewportKey,
+            controller: widget.coordinator.controller,
+            physics: LocationChatBottomAnchoringScrollPhysics(
+              shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
+              oldestMessageStopOffset: () =>
+                  widget.coordinator.oldestMessageStopOffset,
+              shouldStopAtOldestMessage: () =>
+                  widget.coordinator.shouldStopAtOldestMessage,
+              takeDetachedLayoutCorrection: _takeDetachedLayoutCorrection,
+            ),
+            keyboardDismissBehavior:
+                widget.keyboardDismissBehavior ??
+                ScrollViewKeyboardDismissBehavior.manual,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: minHeight),
+              child: Padding(
+                padding: style.messageListPadding,
+                child: Column(
+                  key: _messageContentKey,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AnimatedBuilder(
+                      animation: _oldestEdgeLoadingAnimation,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                        child: SizedBox.square(
+                          dimension: style.sendingBadgeSize,
+                          child: Padding(
+                            padding: EdgeInsets.all(style.sendingBadgePadding),
+                            child: CircularProgressIndicator(
+                              strokeWidth: style.sendingBadgeStrokeWidth,
+                              color: style.sendingBadgeColor,
+                            ),
                           ),
                         ),
                       ),
+                      builder: (context, child) {
+                        final factor = _oldestEdgeLoadingAnimation.value;
+                        if (factor <= 0 &&
+                            !widget.oldestEdgeLoading &&
+                            !_loadingCollapsePending) {
+                          return const SizedBox.shrink();
+                        }
+                        return ClipRect(
+                          child: Align(
+                            alignment: Alignment.topCenter,
+                            heightFactor: factor,
+                            child: Opacity(opacity: factor, child: child),
+                          ),
+                        );
+                      },
                     ),
-                    builder: (context, child) {
-                      final factor = _oldestEdgeLoadingAnimation.value;
-                      if (factor <= 0 &&
-                          !widget.oldestEdgeLoading &&
-                          !_loadingCollapsePending) {
-                        return const SizedBox.shrink();
-                      }
-                      return ClipRect(
-                        child: Align(
-                          alignment: Alignment.topCenter,
-                          heightFactor: factor,
-                          child: Opacity(opacity: factor, child: child),
+                    if (hasOldestEdgeContent)
+                      ChatOldestEdgeContent(
+                        topTitle: widget.topTitle,
+                        notice: widget.oldestEdgeNotice,
+                        loading: false,
+                        style: style,
+                      ),
+                    if (requiresSecondScroll)
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minHeight: messageViewportHeight,
                         ),
-                      );
-                    },
-                  ),
-                  if (hasOldestEdgeContent)
-                    ChatOldestEdgeContent(
-                      topTitle: widget.topTitle,
-                      notice: widget.oldestEdgeNotice,
-                      loading: false,
-                      style: style,
-                    ),
-                  if (requiresSecondScroll)
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        minHeight: messageViewportHeight,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (
-                            var index = 0;
-                            index < _renderedMessages.length;
-                            index += 1
-                          )
-                            _buildMessageRow(index, style),
-                        ],
-                      ),
-                    )
-                  else
-                    for (
-                      var index = 0;
-                      index < _renderedMessages.length;
-                      index += 1
-                    )
-                      _buildMessageRow(index, style),
-                  SizedBox(height: _layoutCorrectionExtentSignal),
-                ],
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (
+                              var index = 0;
+                              index < _renderedMessages.length;
+                              index += 1
+                            )
+                              _buildMessageRow(index, style),
+                          ],
+                        ),
+                      )
+                    else
+                      for (
+                        var index = 0;
+                        index < _renderedMessages.length;
+                        index += 1
+                      )
+                        _buildMessageRow(index, style),
+                    SizedBox(height: _layoutCorrectionExtentSignal),
+                  ],
+                ),
               ),
             ),
           ),

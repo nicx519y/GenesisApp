@@ -46,11 +46,11 @@ class _DiscussComposerPanel extends StatelessWidget {
               TextField(
                 controller: controller,
                 focusNode: focusNode,
+                cursorColor: const Color(0xFF111111),
                 keyboardType: TextInputType.multiline,
                 textInputAction: TextInputAction.newline,
                 minLines: _discussComposerMinTextLines,
                 maxLines: _discussComposerMaxTextLines,
-                cursorColor: const Color(0xFF6C657A),
                 style: const TextStyle(
                   fontSize: _discussComposerFontSize,
                   height: _discussComposerLineHeight,

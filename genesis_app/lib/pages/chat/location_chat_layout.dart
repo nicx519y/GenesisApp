@@ -53,25 +53,8 @@ extension _LocationChatLayout on _LocationChatPanelState {
     _edgeSwipeBackTriggered = false;
   }
 
-  EdgeInsets _locationChatMessageListPadding(
-    ChatUiStyleConfig style, {
-    required double headerHeight,
-    required double composerHeight,
-  }) {
-    return style.messageListPadding.copyWith(
-      top: style.messageListPadding.top + headerHeight,
-      bottom: style.messageListPadding.bottom + composerHeight,
-    );
-  }
-
   double _locationChatHeaderHeight(ChatUiStyleConfig style) {
     return GenesisSafeAreaInsets.top(context) + style.headerHeight;
-  }
-
-  double _locationChatComposerHeight(ChatUiStyleConfig style) {
-    if (_composerHeight > 0) return _composerHeight;
-    final bottomInset = GenesisSafeAreaInsets.bottom(context);
-    return style.composerPadding.vertical + style.inputMinHeight + bottomInset;
   }
 
   void _handleComposerFocusChanged() {
@@ -90,11 +73,5 @@ extension _LocationChatLayout on _LocationChatPanelState {
     widget.onDraftTextChanged?.call(_textController.text);
     if (_hasDraftText == hasText) return;
     _setLocationChatState(() => _hasDraftText = hasText);
-  }
-
-  void _handleComposerHeightChanged(double height) {
-    if ((_composerHeight - height).abs() > 0.5) {
-      _setLocationChatState(() => _composerHeight = height);
-    }
   }
 }

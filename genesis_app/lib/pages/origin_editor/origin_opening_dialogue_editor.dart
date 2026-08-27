@@ -541,6 +541,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
             key: ValueKey<String>('${item.id}-field'),
             controller: item.controller,
             focusNode: focusNode,
+            cursorColor: style.color ?? createFormText,
             keyboardType: TextInputType.multiline,
             textInputAction: TextInputAction.newline,
             scrollPadding: const EdgeInsets.fromLTRB(

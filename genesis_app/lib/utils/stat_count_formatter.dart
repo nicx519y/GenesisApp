@@ -19,6 +19,11 @@ String formatStatCount(num value) {
   return _trimDecimal(value.toStringAsFixed(1));
 }
 
+String formatMessageCountLabel(num value) {
+  final unit = value == 0 || value == 1 ? 'Message' : 'Messages';
+  return '${formatStatCount(value)} $unit';
+}
+
 String _trimDecimal(String value) {
   return value.endsWith('.0') ? value.substring(0, value.length - 2) : value;
 }

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
+import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 
 void main() {
@@ -50,6 +51,28 @@ void main() {
     expect(worldInfoHeaderHeightFor(null), worldInfoHeaderHeight);
   });
 
+  testWidgets('launched footer skeleton uses the compact action size', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: WorldInfoHeaderLoadingSkeleton(
+            height: worldLaunchedInfoHeaderHeight,
+            useCompactAction: true,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('world-loading-action')),
+      ),
+      const Size(92, 34),
+    );
+  });
+
   testWidgets(
     'launched world footer shows the current user role and messages',
     (tester) async {
@@ -93,8 +116,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('My Role'), findsOneWidget);
-      expect(find.text('1.3K messages'), findsOneWidget);
-      expect(find.textContaining('Tick 7-3'), findsNothing);
+      expect(find.text('Tick 7-3 · 1.3K Messages'), findsOneWidget);
       expect(find.widgetWithText(FilledButton, 'Tick now'), findsOneWidget);
       expect(
         tester
@@ -113,6 +135,18 @@ void main() {
 
       final avatar = tester.widget<GenesisCharacterAvatar>(
         find.byKey(const ValueKey<String>('world-current-character-avatar')),
+      );
+      final avatarPlaceholder = tester.widget<DecoratedBox>(
+        find.byKey(
+          const ValueKey<String>('world-current-character-avatar-placeholder'),
+        ),
+      );
+      final avatarPlaceholderDecoration =
+          avatarPlaceholder.decoration as BoxDecoration;
+      expect(avatarPlaceholderDecoration.color, const Color(0xFFE9EDF2));
+      expect(
+        avatarPlaceholderDecoration.borderRadius,
+        BorderRadius.circular(12),
       );
       expect(avatar.size, worldCharacterAvatarLogicalSize);
       expect(
@@ -146,7 +180,7 @@ void main() {
         tester.getSize(
           find.byKey(const ValueKey<String>('world-header-action-button')),
         ),
-        const Size(110, 32),
+        const Size(92, 34),
       );
       expect(button.style?.textStyle?.resolve(<WidgetState>{})?.fontSize, 14);
       expect(
@@ -180,7 +214,7 @@ void main() {
       ),
     );
 
-    final summary = tester.widget<Text>(find.text('Tick 0-1 · 4 messages'));
+    final summary = tester.widget<Text>(find.text('Tick 0-1 · 4 Messages'));
     expect(summary.style?.color, const Color(0xFF111111));
     expect(
       tester

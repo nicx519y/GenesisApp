@@ -124,6 +124,11 @@ abstract final class GenesisTheme {
           letterSpacing: 0,
         ),
       ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: GenesisColors.textPrimary,
+        selectionColor: GenesisColors.create.withValues(alpha: 0.32),
+        selectionHandleColor: GenesisColors.create,
+      ),
       // Theme extension for custom Genesis UI components.
       // SearchField, PageTitle, BottomNavigation, TabBar, and similar components read styles from this extension first.
       extensions: <ThemeExtension<dynamic>>[GenesisUiTheme.light()],

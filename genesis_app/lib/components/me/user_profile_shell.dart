@@ -247,22 +247,23 @@ class _UserProfileContentState extends State<UserProfileContent>
                             : formatUidForDisplay(data.uid),
                         enabled: !data.deleted,
                       ),
+                      if (data.isSelf) ...[
+                        const SizedBox(height: 12),
+                        _buildFollowStats(data, followerCount),
+                      ],
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: _FollowStats(
-              followingCount: data.followingCount,
-              followerCount: followerCount,
-              onFollowingTap: () => _openFollows(0),
-              onFollowersTap: () => _openFollows(1),
+          if (!data.isSelf) ...[
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildFollowStats(data, followerCount),
             ),
-          ),
+          ],
           if (data.isSelf) ...[
             const SizedBox(height: 20),
             Padding(
@@ -286,6 +287,18 @@ class _UserProfileContentState extends State<UserProfileContent>
           ],
           const SizedBox(height: 5),
         ],
+      ),
+    );
+  }
+
+  Widget _buildFollowStats(UserProfileData data, int followerCount) {
+    return KeyedSubtree(
+      key: const ValueKey<String>('user-profile-follow-stats'),
+      child: _FollowStats(
+        followingCount: data.followingCount,
+        followerCount: followerCount,
+        onFollowingTap: () => _openFollows(0),
+        onFollowersTap: () => _openFollows(1),
       ),
     );
   }

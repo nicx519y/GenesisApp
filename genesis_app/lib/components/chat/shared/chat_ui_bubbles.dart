@@ -17,25 +17,94 @@ class ChatMessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
+    final isAiRoleMessage =
+        !message.isMe &&
+        !message.isPlayerControlledRole &&
+        message.senderType == 'character';
+    final usesSelfScenePlate =
+        style.useScenePlateBubbleGeometry && message.isMe;
+    final usesAiScenePlate =
+        style.useScenePlateBubbleGeometry && isAiRoleMessage;
     final background = message.isMe
         ? style.selfBubbleColor
         : style.otherBubbleColor;
+    final borderRadius = !style.useScenePlateBubbleGeometry
+        ? BorderRadius.circular(style.systemMessageBorderRadius)
+        : usesSelfScenePlate
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(14),
+            topRight: Radius.circular(6),
+            bottomRight: Radius.circular(14),
+            bottomLeft: Radius.circular(14),
+          )
+        : usesAiScenePlate
+        ? const BorderRadius.only(
+            topLeft: Radius.circular(6),
+            topRight: Radius.circular(14),
+            bottomRight: Radius.circular(14),
+            bottomLeft: Radius.circular(14),
+          )
+        : BorderRadius.only(
+            topLeft: Radius.zero,
+            topRight: Radius.circular(style.bubbleBorderRadius),
+            bottomRight: Radius.circular(style.bubbleBorderRadius),
+            bottomLeft: Radius.circular(style.bubbleBorderRadius),
+          );
     final text = message.error == null
         ? message.text
         : '${message.text}\n${message.error}';
+    final bubble = Container(
+      key: ValueKey<String>('chat-message-bubble-${message.localId}'),
+      padding: style.bubblePadding,
+      decoration: BoxDecoration(color: background, borderRadius: borderRadius),
+      child: _InlineMarkdownText(
+        text: text.isEmpty ? '...' : text,
+        style: style.bubbleTextStyle,
+      ),
+    );
     return GestureDetector(
       onTap: onTap,
       onLongPressStart: onLongPressStart,
-      child: Container(
-        padding: style.bubblePadding,
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
-        ),
-        child: _InlineMarkdownText(
-          text: text.isEmpty ? '...' : text,
-          style: style.bubbleTextStyle,
-        ),
+      child:
+          (usesSelfScenePlate || usesAiScenePlate) &&
+              style.bubbleBackdropBlurSigma > 0
+          ? _ChatStableBackdropSurface(
+              borderRadius: borderRadius,
+              sigma: style.bubbleBackdropBlurSigma,
+              child: bubble,
+            )
+          : bubble,
+    );
+  }
+}
+
+class _ChatStableBackdropSurface extends StatelessWidget {
+  const _ChatStableBackdropSurface({
+    required this.borderRadius,
+    required this.sigma,
+    required this.child,
+  });
+
+  final BorderRadius borderRadius;
+  final double sigma;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: borderRadius,
+      child: Stack(
+        fit: StackFit.passthrough,
+        children: [
+          Positioned.fill(
+            child: BackdropFilter(
+              blendMode: BlendMode.srcOver,
+              filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          child,
+        ],
       ),
     );
   }
@@ -90,19 +159,19 @@ class ChatAvatar extends StatelessWidget {
                   GenesisImageConfig.chatAvatarMaxDevicePixelRatio,
             ),
           ),
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(
-                    color: borderColor ?? Colors.white,
-                    width: 1,
+          if (borderColor != null)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: borderColor!, width: 1),
+                    borderRadius: BorderRadius.circular(
+                      style.avatarBorderRadius,
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(style.avatarBorderRadius),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -110,17 +179,27 @@ class ChatAvatar extends StatelessWidget {
 }
 
 class ChatNpcAvatar extends StatelessWidget {
-  const ChatNpcAvatar({super.key});
+  const ChatNpcAvatar({super.key, this.style});
+
+  final ChatUiStyleConfig? style;
 
   @override
   Widget build(BuildContext context) {
-    return const SizedBox.square(
-      key: ValueKey('chat-npc-avatar'),
+    final usesScenePlate = style?.useScenePlateBubbleGeometry ?? false;
+    return SizedBox.square(
+      key: const ValueKey('chat-npc-avatar'),
       dimension: _npcChatAvatarSize,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: _npcChatAvatarBackgroundColor,
+          color: usesScenePlate
+              ? const Color(0x24FFFFFF)
+              : _npcChatAvatarBackgroundColor,
           shape: BoxShape.circle,
+          border: usesScenePlate
+              ? const Border.fromBorderSide(
+                  BorderSide(color: Color(0x2EFFFFFF), width: 1),
+                )
+              : null,
         ),
         child: Center(
           child: Text(
@@ -128,7 +207,7 @@ class ChatNpcAvatar extends StatelessWidget {
             style: TextStyle(
               color: Colors.white,
               fontSize: 11,
-              fontWeight: FontWeight.w700,
+              fontWeight: usesScenePlate ? FontWeight.w800 : FontWeight.w700,
               height: 1,
             ),
           ),

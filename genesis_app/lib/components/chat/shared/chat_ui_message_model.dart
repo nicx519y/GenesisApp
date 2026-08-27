@@ -240,22 +240,25 @@ class ChatStoryEventVisibleRoleVm {
     required this.roleId,
     required this.name,
     required this.isAi,
+    this.avatarUrl = '',
   });
 
   final String roleId;
   final String name;
   final bool isAi;
+  final String avatarUrl;
 
   @override
   bool operator ==(Object other) {
     return other is ChatStoryEventVisibleRoleVm &&
         other.roleId == roleId &&
         other.name == name &&
-        other.isAi == isAi;
+        other.isAi == isAi &&
+        other.avatarUrl == avatarUrl;
   }
 
   @override
-  int get hashCode => Object.hash(roleId, name, isAi);
+  int get hashCode => Object.hash(roleId, name, isAi, avatarUrl);
 }
 
 class ChatCharactersMovedPayloadVm extends ChatTimelinePayloadVm {

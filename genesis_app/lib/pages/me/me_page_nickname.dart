@@ -78,6 +78,7 @@ class _NickNameInput extends StatelessWidget {
             key: const ValueKey<String>('me-edit-nickname-input'),
             controller: controller,
             autofocus: true,
+            cursorColor: const Color(0xFF111111),
             maxLines: 1,
             maxLength: maxLength,
             textInputAction: TextInputAction.done,

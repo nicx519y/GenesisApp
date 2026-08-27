@@ -5,9 +5,11 @@ part of 'world_sections_library.dart';
 class WorldDetailsLoadingContent extends StatelessWidget {
   const WorldDetailsLoadingContent({
     this.infoHeaderHeight = worldInfoHeaderHeight,
+    this.useCompactAction = false,
   });
 
   final double infoHeaderHeight;
+  final bool useCompactAction;
 
   @override
   Widget build(BuildContext context) {
@@ -17,7 +19,10 @@ class WorldDetailsLoadingContent extends StatelessWidget {
           child: SizedBox(height: worldStatsTopSpacerHeight),
         ),
         SliverToBoxAdapter(
-          child: WorldInfoHeaderLoadingSkeleton(height: infoHeaderHeight),
+          child: WorldInfoHeaderLoadingSkeleton(
+            height: infoHeaderHeight,
+            useCompactAction: useCompactAction,
+          ),
         ),
       ],
     );
@@ -25,22 +30,26 @@ class WorldDetailsLoadingContent extends StatelessWidget {
 }
 
 class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
-  const WorldInfoHeaderLoadingSkeleton({this.height = worldInfoHeaderHeight});
+  const WorldInfoHeaderLoadingSkeleton({
+    this.height = worldInfoHeaderHeight,
+    this.useCompactAction = false,
+  });
 
   final double height;
+  final bool useCompactAction;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: const ValueKey<String>('world-panel-info-row'),
       height: height,
-      child: const Align(
+      child: Align(
         alignment: Alignment.center,
         child: SizedBox(
           height: worldCharacterAvatarLogicalSize,
           child: Row(
             children: [
-              Expanded(
+              const Expanded(
                 child: Row(
                   children: [
                     WorldLoadingBone(
@@ -61,11 +70,11 @@ class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
                   ],
                 ),
               ),
-              SizedBox(width: 18),
+              const SizedBox(width: 18),
               WorldLoadingBone(
-                key: ValueKey<String>('world-loading-action'),
-                width: 140,
-                height: worldInfoHeaderContentHeight,
+                key: const ValueKey<String>('world-loading-action'),
+                width: useCompactAction ? 92 : 140,
+                height: useCompactAction ? 34 : worldInfoHeaderContentHeight,
                 radius: 8,
               ),
             ],
@@ -285,16 +294,17 @@ class WorldDetailSection extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
                   GenesisPrimaryButton(
+                    key: const ValueKey<String>('world-detail-invite-button'),
                     label: 'Invite',
                     onPressed: () => _copyInviteText(context, worldName: title),
-                    height: 35,
-                    width: 140,
+                    height: 34,
+                    width: 92,
                     backgroundColor: const Color(0xFFFF2442),
                     disabledBackgroundColor: const Color(
                       0xFFFF2442,
                     ).withValues(alpha: 0.62),
                     foregroundColor: Colors.white,
-                    fontSize: 16,
+                    fontSize: 14,
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,

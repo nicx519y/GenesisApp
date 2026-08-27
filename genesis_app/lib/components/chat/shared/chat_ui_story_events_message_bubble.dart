@@ -58,6 +58,7 @@ class _ChatStoryEventParagraph extends StatelessWidget {
     required this.paragraph,
     required this.style,
     required this.addTopSpacing,
+    this.scenePlate = false,
   });
 
   final String messageLocalId;
@@ -65,13 +66,24 @@ class _ChatStoryEventParagraph extends StatelessWidget {
   final ChatStoryEventParagraphVm paragraph;
   final ChatUiStyleConfig style;
   final bool addTopSpacing;
+  final bool scenePlate;
 
   @override
   Widget build(BuildContext context) {
+    if (scenePlate) {
+      return _ChatTickSceneStoryEventParagraph(
+        messageLocalId: messageLocalId,
+        index: index,
+        paragraph: paragraph,
+        addTopSpacing: addTopSpacing,
+      );
+    }
     final textColor = style.systemMessageTextStyle.color ?? Colors.white;
     final metadataStyle = style.systemMessageTextStyle.copyWith(
-      color: textColor.withValues(alpha: 0.72),
-      fontSize: (style.systemMessageTextStyle.fontSize ?? 12) - 1,
+      color: textColor.withValues(alpha: 0.60),
+      fontSize: 11,
+      fontWeight: FontWeight.w400,
+      height: 1.3,
     );
     final isPublic = paragraph.visibilityLabel.trim().toLowerCase() == 'public';
     final hasTimestamp = paragraph.timestamp.trim().isNotEmpty;
@@ -94,9 +106,12 @@ class _ChatStoryEventParagraph extends StatelessWidget {
                 key: ValueKey<String>(
                   'chat-story-event-icon-$messageLocalId-$index',
                 ),
-                width: 14,
-                height: 14,
-                colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
+                width: 13,
+                height: 13,
+                colorFilter: ColorFilter.mode(
+                  textColor.withValues(alpha: 0.60),
+                  BlendMode.srcIn,
+                ),
               ),
               if (hasTimestamp) ...[
                 const SizedBox(width: 8),
@@ -127,7 +142,10 @@ class _ChatStoryEventParagraph extends StatelessWidget {
           _InlineMarkdownText(
             text: paragraph.text,
             textAlign: TextAlign.left,
-            style: style.systemMessageTextStyle.copyWith(height: 1.45),
+            style: style.systemMessageTextStyle.copyWith(
+              fontSize: 13,
+              height: 1.3,
+            ),
           ),
           if (paragraph.clue.trim().isNotEmpty) ...[
             const SizedBox(height: 5),
@@ -153,7 +171,8 @@ class _ChatStoryEventParagraph extends StatelessWidget {
                     textAlign: TextAlign.left,
                     style: style.systemMessageTextStyle.copyWith(
                       color: textColor.withValues(alpha: 0.72),
-                      height: 1.35,
+                      fontSize: 13,
+                      height: 1.3,
                     ),
                     softItalic: true,
                   ),
@@ -163,6 +182,220 @@ class _ChatStoryEventParagraph extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+class _ChatTickSceneStoryEventParagraph extends StatelessWidget {
+  const _ChatTickSceneStoryEventParagraph({
+    required this.messageLocalId,
+    required this.index,
+    required this.paragraph,
+    required this.addTopSpacing,
+  });
+
+  final String messageLocalId;
+  final int index;
+  final ChatStoryEventParagraphVm paragraph;
+  final bool addTopSpacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasTimestamp = paragraph.timestamp.trim().isNotEmpty;
+    final hasVisibleRoles = paragraph.visibleRoles.isNotEmpty;
+    final visibilityLabel = paragraph.visibilityLabel.trim();
+    final showFallbackVisibility =
+        !hasVisibleRoles &&
+        visibilityLabel.isNotEmpty &&
+        visibilityLabel.toLowerCase() != 'public';
+    return Container(
+      key: ValueKey<String>(
+        'chat-story-event-paragraph-$messageLocalId-$index',
+      ),
+      width: double.infinity,
+      margin: EdgeInsets.only(top: addTopSpacing ? 12 : 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Transform.translate(
+            offset: const Offset(0, -1),
+            child: SvgPicture.asset(
+              eventsIconAsset,
+              key: ValueKey<String>(
+                'chat-story-event-icon-$messageLocalId-$index',
+              ),
+              width: 13,
+              height: 13,
+              colorFilter: ColorFilter.mode(
+                _tickMessageHeaderColor.withValues(alpha: 0.60),
+                BlendMode.srcIn,
+              ),
+            ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (hasTimestamp)
+                  Text(
+                    genesisDisplaySafeText(paragraph.timestamp),
+                    key: ValueKey<String>(
+                      'chat-story-event-timestamp-$messageLocalId-$index',
+                    ),
+                    style: TextStyle(
+                      color: _tickMessageHeaderColor.withValues(alpha: 0.45),
+                      fontSize: 11,
+                      height: 1,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                if (hasVisibleRoles || showFallbackVisibility) ...[
+                  if (hasTimestamp) const SizedBox(height: 8),
+                  KeyedSubtree(
+                    key: ValueKey<String>(
+                      'chat-story-event-visibility-$messageLocalId-$index',
+                    ),
+                    child: hasVisibleRoles
+                        ? _ChatTickSceneVisibleRoles(
+                            roles: paragraph.visibleRoles,
+                          )
+                        : Text(
+                            genesisDisplaySafeText(visibilityLabel),
+                            style: TextStyle(
+                              color: _tickMessageHeaderColor.withValues(
+                                alpha: 0.72,
+                              ),
+                              fontSize: 13,
+                              height: 1,
+                            ),
+                          ),
+                  ),
+                ],
+                const SizedBox(height: 7),
+                _InlineMarkdownText(
+                  text: paragraph.text,
+                  textAlign: TextAlign.left,
+                  style: TextStyle(
+                    color: _tickMessageHeaderColor.withValues(alpha: 0.73),
+                    fontSize: 13,
+                    height: 1.3,
+                    fontWeight: FontWeight.w400,
+                  ),
+                ),
+                if (paragraph.clue.trim().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    key: ValueKey<String>(
+                      'chat-story-event-clue-$messageLocalId-$index',
+                    ),
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: SvgPicture.asset(
+                          clueIconAsset,
+                          key: ValueKey<String>(
+                            'chat-story-event-key-icon-$messageLocalId-$index',
+                          ),
+                          width: 13,
+                          height: 13,
+                          colorFilter: const ColorFilter.mode(
+                            _tickMessageClueColor,
+                            BlendMode.srcIn,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _InlineMarkdownText(
+                          text: paragraph.clue,
+                          textAlign: TextAlign.left,
+                          style: const TextStyle(
+                            color: _tickMessageClueColor,
+                            fontSize: 13,
+                            height: 1.3,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          softItalic: true,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatTickSceneVisibleRoles extends StatelessWidget {
+  const _ChatTickSceneVisibleRoles({required this.roles});
+
+  final List<ChatStoryEventVisibleRoleVm> roles;
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: [
+        for (final role in roles) _ChatTickSceneVisibleRole(role: role),
+      ],
+    );
+  }
+}
+
+class _ChatTickSceneVisibleRole extends StatelessWidget {
+  const _ChatTickSceneVisibleRole({required this.role});
+
+  final ChatStoryEventVisibleRoleVm role;
+
+  @override
+  Widget build(BuildContext context) {
+    final isPlayerRole = !role.isAi;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          key: ValueKey<String>('chat-tick-visible-role-avatar-${role.roleId}'),
+          width: 18,
+          height: 18,
+          foregroundDecoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(6),
+            border: isPlayerRole
+                ? Border.all(color: _tickMessageAccentColor, width: 1.5)
+                : null,
+          ),
+          child: GenesisAvatar(
+            name: role.name,
+            url: role.avatarUrl,
+            size: 18,
+            borderRadius: 6,
+            textStyle: const TextStyle(
+              color: _tickMessageHeaderColor,
+              fontSize: 9.5,
+              height: 1,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          genesisDisplaySafeText(role.name),
+          style: TextStyle(
+            color: _tickMessageHeaderColor.withValues(
+              alpha: isPlayerRole ? 1 : 0.72,
+            ),
+            fontSize: 11,
+            height: 1,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
 }

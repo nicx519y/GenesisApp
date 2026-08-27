@@ -80,7 +80,9 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
       ),
     ),
     snapshotCoverUrl: cover,
-    updatedAtText: _apiDateTimeText(world['updated_at'] ?? world['created_at']),
+    updatedAtText: _apiDateTimeText(
+      world['last_active_at'] ?? world['updated_at'] ?? world['created_at'],
+    ),
     ownerName: asString(
       world['owner_name'],
       fallback: asString(world['created_user_name']),

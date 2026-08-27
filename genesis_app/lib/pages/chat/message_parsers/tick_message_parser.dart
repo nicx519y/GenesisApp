@@ -134,6 +134,7 @@ class TickMessageParser implements LocationChatMessageParser {
           roleId: roleId.trim(),
           name: name,
           isAi: context.roleIsAi(roleId) ?? false,
+          avatarUrl: context.roleAvatarUrl(roleId),
         ),
       );
     }

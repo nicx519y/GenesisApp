@@ -19,6 +19,7 @@ void main() {
         'world_name': 'Alpha World',
         'cover': '',
         'created_at': '2998-01-01T00:00:00Z',
+        'last_active_at': '3000-01-01T00:00:00Z',
       },
       'stats': {'connect_cnt': 4},
       'last_tick': {
@@ -38,36 +39,25 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: SizedBox(
-            width: 390,
-            child: WorldItemCard(
-              item: item,
-              recentActivityTagLabel: 'Last Message',
-            ),
-          ),
+          body: SizedBox(width: 390, child: WorldItemCard(item: item)),
         ),
       ),
     );
 
-    expect(item.cardTimestamp, '2999-01-01T00:00:00Z');
+    expect(item.cardTimestamp, '3000-01-01T00:00:00Z');
     expect(find.text('Alpha World'), findsOneWidget);
-    expect(find.text('2999-1-1'), findsOneWidget);
+    expect(find.text('3000-1-1'), findsOneWidget);
+    expect(find.text('2999-1-1'), findsNothing);
     expect(find.text('2998-1-1'), findsNothing);
-    expect(find.text('Tick 3-2 · 4 messages'), findsOneWidget);
+    expect(find.text('Tick 3-2 · 4 Messages'), findsOneWidget);
     expect(find.text('Self Hero'), findsOneWidget);
 
     final tickMessages = tester.widget<Text>(
       find.byKey(const ValueKey<String>('world-card-tick-messages')),
     );
     expect(tickMessages.style?.color, const Color(0xFF666666));
-    final recentTag = find.byKey(
-      const ValueKey<String>('recent-activity-tag-last-message'),
-    );
-    expect(recentTag, findsOneWidget);
     final coverRect = tester.getRect(find.byType(GenesisListImage).first);
-    final recentTagRect = tester.getRect(recentTag);
-    expect(recentTagRect.left, moreOrLessEquals(coverRect.left));
-    expect(recentTagRect.bottom, moreOrLessEquals(coverRect.bottom));
+    expect(coverRect.left, 0);
 
     final cover = tester.widget<GenesisListImage>(
       find.byType(GenesisListImage).first,
@@ -121,7 +111,7 @@ void main() {
     expect(characterRect.top, greaterThan(narratorRect.top));
   });
 
-  testWidgets('uses created_at when last tick time is zero', (
+  testWidgets('uses last_active_at instead of last tick time', (
     WidgetTester tester,
   ) async {
     final item = WorldListItem.fromJson(const <String, dynamic>{
@@ -130,6 +120,7 @@ void main() {
         'world_name': 'Alpha World',
         'cover': '',
         'created_at': '2998-01-01T00:00:00Z',
+        'last_active_at': '2997-01-01T00:00:00Z',
       },
       'stats': {'connect_cnt': 1},
       'last_tick': {
@@ -148,10 +139,11 @@ void main() {
       ),
     );
 
-    expect(item.cardTimestamp, '2998-01-01T00:00:00Z');
+    expect(item.cardTimestamp, '2997-01-01T00:00:00Z');
     expect(item.cardTickLabel, 'Tick 3');
-    expect(find.text('2998-1-1'), findsOneWidget);
-    expect(find.text('Tick 3 · 1 messages'), findsOneWidget);
+    expect(find.text('2997-1-1'), findsOneWidget);
+    expect(find.text('2998-1-1'), findsNothing);
+    expect(find.text('Tick 3 · 1 Message'), findsOneWidget);
     expect(find.textContaining('Tick 3-0'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('world-card-narrator')),
@@ -198,11 +190,15 @@ void main() {
     );
   });
 
-  test('treats Unix epoch timestamp variants as empty', () {
+  test('treats Unix epoch last_active_at variants as empty', () {
     for (final emptyTimestamp in <Object>[0, '0', '1970-01-01T00:00:00Z']) {
       final item = WorldListItem.fromJson(<String, dynamic>{
-        'info': {'world_id': 'w_alpha', 'created_at': '2998-01-01T00:00:00Z'},
-        'last_tick': {'created_at': emptyTimestamp},
+        'info': {
+          'world_id': 'w_alpha',
+          'created_at': '2998-01-01T00:00:00Z',
+          'last_active_at': emptyTimestamp,
+        },
+        'last_tick': {'created_at': '2999-01-01T00:00:00Z'},
       });
 
       expect(item.cardTimestamp, '2998-01-01T00:00:00Z');

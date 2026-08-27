@@ -247,8 +247,9 @@ void main() {
     expect(detailSection, contains('iconSize: 17'));
     expect(detailSection, contains('currentUid: currentUid'));
     expect(detailSection, contains("label: 'Invite'"));
-    expect(detailSection, contains('width: 140'));
-    expect(detailSection, contains('height: 35'));
+    expect(detailSection, contains('width: 92'));
+    expect(detailSection, contains('height: 34'));
+    expect(detailSection, contains('fontSize: 14'));
     expect(detailSection, contains('Color(0xFFFF2442)'));
     expect(detailSection, contains('Clipboard.setData'));
     expect(detailSection, contains('Link copied. Share it with your friends.'));

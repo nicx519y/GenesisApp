@@ -865,8 +865,12 @@ void main() {
     expect((worlds['list'] as List), hasLength(10));
     final firstWorldStats =
         (((worlds['list'] as List).first as Map)['stats'] as Map);
+    final firstWorldInfo =
+        (((worlds['list'] as List).first as Map)['info'] as Map);
     expect(firstWorldStats['tick_cnt'], greaterThanOrEqualTo(1000));
     expect(firstWorldStats['connect_cnt'], greaterThanOrEqualTo(1000));
+    expect(firstWorldInfo['last_active_at'], isA<int>());
+    expect(firstWorldInfo['last_active_at'], greaterThan(0));
     final myWorlds = await api.v1.world.list(
       scene: 'uid',
       uid: 'u_mock_001',

@@ -1,10 +1,6 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../app/bootstrap/service_registry.dart';
-import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
@@ -30,7 +26,6 @@ Future<String?> startOriginLaunch({
       showGenesisToast(context, 'Launch failed');
       return null;
     }
-    unawaited(_markLaunchedWorldActivity(services, wid));
     GenesisTelemetry.collectLog(
       actionType: 'event',
       action: 'worldo_launch_submit_success',
@@ -43,17 +38,5 @@ Future<String?> startOriginLaunch({
       showGenesisToast(context, 'Launch failed');
     }
     return null;
-  }
-}
-
-Future<void> _markLaunchedWorldActivity(
-  AppServices services,
-  String worldId,
-) async {
-  try {
-    final uid = await resolveRecentWorldChatUid(services);
-    await worldActivityTagStore.markLastLaunch(uid: uid, worldId: worldId);
-  } catch (_) {
-    // Activity metadata must not delay or fail a successful launch.
   }
 }

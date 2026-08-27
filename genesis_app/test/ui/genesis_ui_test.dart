@@ -32,6 +32,12 @@ void main() {
     expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, isNull);
   });
 
+  test('GenesisTheme uses the default text color and red selection handle', () {
+    final selectionTheme = GenesisTheme.light().textSelectionTheme;
+    expect(selectionTheme.cursorColor, GenesisColors.textPrimary);
+    expect(selectionTheme.selectionHandleColor, GenesisColors.create);
+  });
+
   test('GenesisTheme disables Material state effects', () {
     final theme = GenesisTheme.light();
     const pressed = <WidgetState>{WidgetState.pressed};
@@ -186,7 +192,10 @@ void main() {
             body: GenesisSearchField(
               controller: controller,
               hintText: 'Search',
-              textStyle: const TextStyle(fontSize: 16),
+              textStyle: const TextStyle(
+                color: Color(0xFF123456),
+                fontSize: 16,
+              ),
               hintStyle: const TextStyle(fontSize: 16),
             ),
           ),
@@ -198,6 +207,8 @@ void main() {
 
       expect(controller.text, rendered);
       final input = tester.widget<TextField>(find.byType(TextField));
+      expect(input.cursorColor, input.style?.color);
+      expect(input.cursorColor, const Color(0xFF123456));
       expect(input.style?.fontFamily, isNull);
       expect(input.style?.fontFamilyFallback, isNull);
       expect(input.decoration?.hintStyle?.fontFamilyFallback, isNull);

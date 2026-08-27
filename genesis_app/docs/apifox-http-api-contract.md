@@ -255,6 +255,7 @@ Origin detail 增量核对时间：2026-08-05
 - `events`: string[]
 - `metric`: `WorldMetric`
 - `created_at`: integer，Unix 秒
+- `last_active_at`: integer，Unix 秒；world 最近一次活跃时间，My Worlds 卡片使用此字段显示时间
 - `started_at`: string，故事内起始时间文本
 - `tick_duration_days`: integer
 - `cover`: string
@@ -612,6 +613,8 @@ Query：
 - `pn*`: integer
 - `rn*`: integer
 - `list*`: `{ info: WorldInfo, stats: WorldStats }[]`
+
+其中 `info.last_active_at` 为 world 最近一次活跃时间（Unix 秒）；My Worlds 卡片时间以该字段为准，不读取 `last_tick.created_at`。
 
 ### GET `/api/v1/world/summary/latest`
 

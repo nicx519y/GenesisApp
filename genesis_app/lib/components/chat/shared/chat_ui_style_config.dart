@@ -71,6 +71,8 @@ class ChatUiStyleConfig {
     required this.composerSendButtonColor,
     // Disabled send button background color.
     required this.composerSendButtonDisabledColor,
+    // Backdrop blur used only by the send button surface.
+    this.composerSendButtonBackdropBlurSigma = 0,
     // Send button icon color.
     required this.composerSendButtonIconColor,
     // Send button icon size.
@@ -141,6 +143,10 @@ class ChatUiStyleConfig {
     required this.otherBubbleColor,
     // Message bubble text style.
     required this.bubbleTextStyle,
+    // Whether messages use the Location Chat scene-plate geometry.
+    this.useScenePlateBubbleGeometry = false,
+    // Backdrop blur for Location Chat message plates.
+    this.bubbleBackdropBlurSigma = 0,
     // Avatar size.
     required this.avatarSize,
     // Avatar border radius.
@@ -443,6 +449,8 @@ class ChatUiStyleConfig {
   final Color composerSendButtonColor;
   // Disabled send button background color.
   final Color composerSendButtonDisabledColor;
+  // Backdrop blur used only by the send button surface.
+  final double composerSendButtonBackdropBlurSigma;
   // Send button icon color.
   final Color composerSendButtonIconColor;
   // Send button icon size.
@@ -513,6 +521,10 @@ class ChatUiStyleConfig {
   final Color otherBubbleColor;
   // Message bubble text style.
   final TextStyle bubbleTextStyle;
+  // Whether messages use the Location Chat scene-plate geometry.
+  final bool useScenePlateBubbleGeometry;
+  // Backdrop blur for Location Chat message plates.
+  final double bubbleBackdropBlurSigma;
   // Avatar size.
   final double avatarSize;
   // Avatar border radius.
@@ -560,6 +572,7 @@ class ChatUiStyleConfig {
 
   ChatUiStyleConfig copyWith({
     Color? conversationBackgroundColor,
+    double? headerHeight,
     Color? headerBackgroundColor,
     Gradient? headerBackgroundGradient,
     bool clearHeaderBackgroundGradient = false,
@@ -576,16 +589,42 @@ class ChatUiStyleConfig {
     double? headerSubtitleTopGap,
     EdgeInsets? messageListPadding,
     double? rowBottomPadding,
+    double? avatarSize,
+    double? avatarBorderRadius,
     double? avatarSideSpacerWidth,
     TextStyle? senderNameTextStyle,
+    double? senderNameBottomGap,
     bool? showSenderNameAboveOtherBubble,
+    EdgeInsets? bubblePadding,
+    double? bubbleBorderRadius,
+    Color? selfBubbleColor,
+    Color? otherBubbleColor,
+    TextStyle? bubbleTextStyle,
+    bool? useScenePlateBubbleGeometry,
+    double? bubbleBackdropBlurSigma,
+    TextStyle? avatarTextStyle,
     EdgeInsets? systemMessageMargin,
+    EdgeInsets? systemMessagePadding,
+    Color? systemMessageBackgroundColor,
+    double? systemMessageBorderRadius,
+    TextStyle? systemMessageTextStyle,
     bool? showComposerSendButton,
+    double? composerSendButtonWidth,
+    double? composerSendButtonHeight,
+    double? composerSendButtonBorderRadius,
+    Color? composerSendButtonColor,
+    Color? composerSendButtonDisabledColor,
+    double? composerSendButtonBackdropBlurSigma,
+    double? composerSendButtonIconSize,
+    double? composerActionGap,
+    Color? inputBackgroundColor,
+    double? inputBorderRadius,
+    TextStyle? inputTextStyle,
   }) {
     return ChatUiStyleConfig(
       conversationBackgroundColor:
           conversationBackgroundColor ?? this.conversationBackgroundColor,
-      headerHeight: headerHeight,
+      headerHeight: headerHeight ?? this.headerHeight,
       headerBackgroundColor:
           headerBackgroundColor ?? this.headerBackgroundColor,
       headerBackgroundGradient: clearHeaderBackgroundGradient
@@ -623,27 +662,37 @@ class ChatUiStyleConfig {
       showComposerAddButton: showComposerAddButton,
       showComposerSendButton:
           showComposerSendButton ?? this.showComposerSendButton,
-      composerSendButtonWidth: composerSendButtonWidth,
-      composerSendButtonHeight: composerSendButtonHeight,
-      composerSendButtonBorderRadius: composerSendButtonBorderRadius,
-      composerSendButtonColor: composerSendButtonColor,
-      composerSendButtonDisabledColor: composerSendButtonDisabledColor,
+      composerSendButtonWidth:
+          composerSendButtonWidth ?? this.composerSendButtonWidth,
+      composerSendButtonHeight:
+          composerSendButtonHeight ?? this.composerSendButtonHeight,
+      composerSendButtonBorderRadius:
+          composerSendButtonBorderRadius ?? this.composerSendButtonBorderRadius,
+      composerSendButtonColor:
+          composerSendButtonColor ?? this.composerSendButtonColor,
+      composerSendButtonDisabledColor:
+          composerSendButtonDisabledColor ??
+          this.composerSendButtonDisabledColor,
+      composerSendButtonBackdropBlurSigma:
+          composerSendButtonBackdropBlurSigma ??
+          this.composerSendButtonBackdropBlurSigma,
       composerSendButtonIconColor: composerSendButtonIconColor,
-      composerSendButtonIconSize: composerSendButtonIconSize,
+      composerSendButtonIconSize:
+          composerSendButtonIconSize ?? this.composerSendButtonIconSize,
       composerSendButtonLoadingSize: composerSendButtonLoadingSize,
       composerSendButtonLoadingStrokeWidth:
           composerSendButtonLoadingStrokeWidth,
       composerLeadingGap: composerLeadingGap,
-      composerActionGap: composerActionGap,
+      composerActionGap: composerActionGap ?? this.composerActionGap,
       inputMinHeight: inputMinHeight,
       inputMinLines: inputMinLines,
       inputMaxLines: inputMaxLines,
       inputLineHeight: inputLineHeight,
       inputHorizontalPadding: inputHorizontalPadding,
       inputVerticalPadding: inputVerticalPadding,
-      inputBackgroundColor: inputBackgroundColor,
-      inputBorderRadius: inputBorderRadius,
-      inputTextStyle: inputTextStyle,
+      inputBackgroundColor: inputBackgroundColor ?? this.inputBackgroundColor,
+      inputBorderRadius: inputBorderRadius ?? this.inputBorderRadius,
+      inputTextStyle: inputTextStyle ?? this.inputTextStyle,
       messageListPadding: messageListPadding ?? this.messageListPadding,
       topTitleEmptyHeight: topTitleEmptyHeight,
       topTitleBottomPadding: topTitleBottomPadding,
@@ -655,22 +704,26 @@ class ChatUiStyleConfig {
       avatarBubbleGap: avatarBubbleGap,
       avatarSideSpacerWidth:
           avatarSideSpacerWidth ?? this.avatarSideSpacerWidth,
-      senderNameBottomGap: senderNameBottomGap,
+      senderNameBottomGap: senderNameBottomGap ?? this.senderNameBottomGap,
       statusTextTopGap: statusTextTopGap,
       statusTextStyle: statusTextStyle,
       senderNameTextStyle: senderNameTextStyle ?? this.senderNameTextStyle,
       showSenderNameAboveOtherBubble:
           showSenderNameAboveOtherBubble ?? this.showSenderNameAboveOtherBubble,
-      bubblePadding: bubblePadding,
-      bubbleBorderRadius: bubbleBorderRadius,
-      selfBubbleColor: selfBubbleColor,
-      otherBubbleColor: otherBubbleColor,
-      bubbleTextStyle: bubbleTextStyle,
-      avatarSize: avatarSize,
-      avatarBorderRadius: avatarBorderRadius,
+      bubblePadding: bubblePadding ?? this.bubblePadding,
+      bubbleBorderRadius: bubbleBorderRadius ?? this.bubbleBorderRadius,
+      selfBubbleColor: selfBubbleColor ?? this.selfBubbleColor,
+      otherBubbleColor: otherBubbleColor ?? this.otherBubbleColor,
+      bubbleTextStyle: bubbleTextStyle ?? this.bubbleTextStyle,
+      useScenePlateBubbleGeometry:
+          useScenePlateBubbleGeometry ?? this.useScenePlateBubbleGeometry,
+      bubbleBackdropBlurSigma:
+          bubbleBackdropBlurSigma ?? this.bubbleBackdropBlurSigma,
+      avatarSize: avatarSize ?? this.avatarSize,
+      avatarBorderRadius: avatarBorderRadius ?? this.avatarBorderRadius,
       selfAvatarColors: selfAvatarColors,
       otherAvatarColors: otherAvatarColors,
-      avatarTextStyle: avatarTextStyle,
+      avatarTextStyle: avatarTextStyle ?? this.avatarTextStyle,
       aiBadgeSize: aiBadgeSize,
       aiBadgeColor: aiBadgeColor,
       sendingBadgeSize: sendingBadgeSize,
@@ -684,10 +737,13 @@ class ChatUiStyleConfig {
       dateDividerBottomPadding: dateDividerBottomPadding,
       dateDividerTextStyle: dateDividerTextStyle,
       systemMessageMargin: systemMessageMargin ?? this.systemMessageMargin,
-      systemMessagePadding: systemMessagePadding,
-      systemMessageBackgroundColor: systemMessageBackgroundColor,
-      systemMessageBorderRadius: systemMessageBorderRadius,
-      systemMessageTextStyle: systemMessageTextStyle,
+      systemMessagePadding: systemMessagePadding ?? this.systemMessagePadding,
+      systemMessageBackgroundColor:
+          systemMessageBackgroundColor ?? this.systemMessageBackgroundColor,
+      systemMessageBorderRadius:
+          systemMessageBorderRadius ?? this.systemMessageBorderRadius,
+      systemMessageTextStyle:
+          systemMessageTextStyle ?? this.systemMessageTextStyle,
     );
   }
 

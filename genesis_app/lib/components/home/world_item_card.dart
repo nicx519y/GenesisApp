@@ -5,7 +5,6 @@ import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
-import '../../ui/components/recent_chat_marker.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -38,6 +37,7 @@ class WorldListItem {
     required this.ownerUid,
     required this.ownerName,
     required this.createdAt,
+    required this.lastActiveAt,
     required this.updatedAt,
     required this.lastProgressAt,
     required this.lastProgressSummary,
@@ -105,6 +105,7 @@ class WorldListItem {
         fallback: asString(info['created_user_name']),
       ),
       createdAt: asString(info['created_at']),
+      lastActiveAt: asString(info['last_active_at']),
       updatedAt: asString(info['updated_at']),
       lastProgressAt: asString(lastTick['created_at']),
       lastProgressSummary: asString(lastTick['narrator']),
@@ -150,6 +151,7 @@ class WorldListItem {
   final String ownerUid;
   final String ownerName;
   final String createdAt;
+  final String lastActiveAt;
   final String updatedAt;
   final String lastProgressAt;
   final String lastProgressSummary;
@@ -184,8 +186,8 @@ class WorldListItem {
   String get progressSummary => lastProgressSummary.trim();
 
   String get cardTimestamp {
-    final lastTickTime = lastProgressAt.trim();
-    if (_isUsableWorldCardTimestamp(lastTickTime)) return lastTickTime;
+    final activeTime = lastActiveAt.trim();
+    if (_isUsableWorldCardTimestamp(activeTime)) return activeTime;
     final worldCreatedTime = createdAt.trim();
     return _isUsableWorldCardTimestamp(worldCreatedTime)
         ? worldCreatedTime
@@ -223,34 +225,21 @@ class WorldItemCard extends StatelessWidget {
     super.key,
     required this.item,
     this.thumbnailBorderRadius = GenesisImageRadii.contentValue,
-    this.recentActivityTagLabel = '',
   });
 
   final WorldListItem item;
   final double thumbnailBorderRadius;
-  final String recentActivityTagLabel;
 
   @override
   Widget build(BuildContext context) {
-    final activityTagLabel = recentActivityTagLabel.trim();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Stack(
-          children: [
-            _WorldImage(
-              imageUrl: item.cover,
-              width: 60,
-              height: 80,
-              borderRadius: thumbnailBorderRadius,
-            ),
-            if (activityTagLabel.isNotEmpty)
-              Positioned(
-                left: 0,
-                bottom: 0,
-                child: RecentChatTag(label: activityTagLabel),
-              ),
-          ],
+        _WorldImage(
+          imageUrl: item.cover,
+          width: 60,
+          height: 80,
+          borderRadius: thumbnailBorderRadius,
         ),
         const SizedBox(width: 14),
         Expanded(child: _WorldSummary(item: item)),
@@ -290,7 +279,7 @@ class _WorldSummary extends StatelessWidget {
           children: [
             Expanded(
               child: Text(
-                '${item.cardTickLabel} · ${formatStatCount(item.connectCnt)} messages',
+                '${item.cardTickLabel} · ${formatMessageCountLabel(item.connectCnt)}',
                 key: const ValueKey<String>('world-card-tick-messages'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

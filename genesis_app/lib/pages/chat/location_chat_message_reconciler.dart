@@ -36,6 +36,9 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       locationName: timelineIdentityIndex.locationName,
       roleName: timelineIdentityIndex.roleName,
       roleIsAi: timelineIdentityIndex.roleIsAi,
+      roleAvatarUrl: (roleId) => _resizedLocationChatAvatarUrl(
+        timelineIdentityIndex.roleAvatarUrl(roleId),
+      ),
     );
     final retainedTimelineCacheKeys = <String>{};
     final visibleSource = <LocationChatParsedMessage>[];
@@ -557,6 +560,7 @@ class _LocationChatTimelineIdentityIndex {
     required this.locationNamesById,
     required this.roleNamesById,
     required this.roleIsAiById,
+    required this.roleAvatarsById,
     required this.revision,
   });
 
@@ -641,17 +645,24 @@ class _LocationChatTimelineIdentityIndex {
       characterPositions: characterPositions,
       entitiesById: state.entitiesById,
     );
+    final roleAvatarsById = _locationChatRoleAvatarsById(
+      characters: characters,
+      characterPositions: characterPositions,
+      entitiesById: state.entitiesById,
+    );
     final revision = Object.hashAll(<Object?>[
       ...characterNamesById.entries.expand((entry) => [entry.key, entry.value]),
       ...locationNamesById.entries.expand((entry) => [entry.key, entry.value]),
       ...roleNamesById.entries.expand((entry) => [entry.key, entry.value]),
       ...roleIsAiById.entries.expand((entry) => [entry.key, entry.value]),
+      ...roleAvatarsById.entries.expand((entry) => [entry.key, entry.value]),
     ]);
     return _LocationChatTimelineIdentityIndex._(
       characterNamesById: characterNamesById,
       locationNamesById: locationNamesById,
       roleNamesById: roleNamesById,
       roleIsAiById: roleIsAiById,
+      roleAvatarsById: roleAvatarsById,
       revision: revision,
     );
   }
@@ -660,6 +671,7 @@ class _LocationChatTimelineIdentityIndex {
   final Map<String, String> locationNamesById;
   final Map<String, String> roleNamesById;
   final Map<String, bool> roleIsAiById;
+  final Map<String, String> roleAvatarsById;
   final int revision;
 
   String characterName(String characterId) {
@@ -678,6 +690,10 @@ class _LocationChatTimelineIdentityIndex {
 
   bool? roleIsAi(String roleId) {
     return roleIsAiById[_chatroomIdentityKey(roleId)];
+  }
+
+  String roleAvatarUrl(String roleId) {
+    return roleAvatarsById[_chatroomIdentityKey(roleId)] ?? '';
   }
 }
 
@@ -826,6 +842,47 @@ Map<String, bool> _locationChatRoleIsAiById({
     }..remove('');
     for (final key in keys) {
       result.putIfAbsent(key, () => entry.value.isAi);
+    }
+  }
+  return result;
+}
+
+Map<String, String> _locationChatRoleAvatarsById({
+  required Iterable<Map<String, dynamic>> characters,
+  required Iterable<Map<String, dynamic>> characterPositions,
+  required Map<String, WorldChatroomEntity> entitiesById,
+}) {
+  final result = <String, String>{};
+  for (final candidate in <Map<String, dynamic>>[
+    ...characters,
+    ...characterPositions,
+  ]) {
+    final rawCharacter = candidate['character'];
+    final character = rawCharacter is Map
+        ? _stringKeyMap(rawCharacter)
+        : candidate;
+    final characterId = _firstMapString(character, const [
+      'character_id',
+      'char_id',
+      'id',
+    ]).trim();
+    final key = _chatroomIdentityKey(characterId);
+    if (key.isEmpty) continue;
+    final avatarUrl = _firstMapImageUrl(character, const [
+      'avatar',
+      'avatar_url',
+    ]);
+    if (avatarUrl.isNotEmpty) result.putIfAbsent(key, () => avatarUrl);
+  }
+  for (final entry in entitiesById.entries) {
+    final avatarUrl = entry.value.avatarUrl.trim();
+    if (avatarUrl.isEmpty) continue;
+    final keys = <String>{
+      _chatroomIdentityKey(entry.key),
+      _chatroomIdentityKey(entry.value.id),
+    }..remove('');
+    for (final key in keys) {
+      result.putIfAbsent(key, () => avatarUrl);
     }
   }
   return result;
