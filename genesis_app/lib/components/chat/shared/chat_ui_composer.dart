@@ -18,6 +18,7 @@ class ChatComposer extends StatelessWidget {
     this.focusNode,
     this.onInputTap,
     this.sendIcon = ChatComposerSendIcon.send,
+    this.backdropGroupKey,
   });
 
   final TextEditingController controller;
@@ -34,6 +35,11 @@ class ChatComposer extends StatelessWidget {
   final VoidCallback? onInputTap;
   final ChatComposerSendIcon sendIcon;
 
+  /// Groups only the outer composer blur with non-overlapping filters.
+  ///
+  /// The overlapping input and send-button filters remain independent.
+  final BackdropKey? backdropGroupKey;
+
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
@@ -45,6 +51,7 @@ class ChatComposer extends StatelessWidget {
       child: ClipRect(
         child: _ChatComposerBackdropFilter(
           sigma: style.composerBackdropBlurSigma,
+          backdropGroupKey: backdropGroupKey,
           child: Container(
             padding: style.composerPadding.copyWith(
               bottom: style.composerPadding.bottom + bottomInset,
@@ -185,15 +192,21 @@ class _ComposerInputSurface extends StatelessWidget {
 }
 
 class _ChatComposerBackdropFilter extends StatelessWidget {
-  const _ChatComposerBackdropFilter({required this.sigma, required this.child});
+  const _ChatComposerBackdropFilter({
+    required this.sigma,
+    required this.backdropGroupKey,
+    required this.child,
+  });
 
   final double sigma;
+  final BackdropKey? backdropGroupKey;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     if (sigma <= 0) return child;
     return BackdropFilter(
+      backdropGroupKey: backdropGroupKey,
       filterConfig: ImageFilterConfig.blur(
         sigmaX: sigma,
         sigmaY: sigma,

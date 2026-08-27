@@ -2066,6 +2066,7 @@ void main() {
   testWidgets('location chat header is transparent with blur four', (
     WidgetTester tester,
   ) async {
+    final backdropGroupKey = BackdropKey();
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -2076,6 +2077,7 @@ void main() {
             connecting: false,
             onBack: () {},
             style: kLocationChatStyle,
+            backdropGroupKey: backdropGroupKey,
           ),
         ),
       ),
@@ -2090,6 +2092,7 @@ void main() {
         matching: find.byType(BackdropFilter),
       ),
     );
+    expect(headerBackdrop.backdropGroupKey, same(backdropGroupKey));
     expect(headerBackdrop.filter, isNull);
     expect(
       headerBackdrop.filterConfig,
@@ -2100,6 +2103,7 @@ void main() {
   testWidgets('location chat composer is transparent with blur four', (
     WidgetTester tester,
   ) async {
+    final backdropGroupKey = BackdropKey();
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -2110,6 +2114,7 @@ void main() {
             sending: false,
             onSend: () async {},
             style: kLocationChatStyle,
+            backdropGroupKey: backdropGroupKey,
           ),
         ),
       ),
@@ -2131,6 +2136,18 @@ void main() {
         )
         .toList(growable: false);
     expect(composerBackdrops, hasLength(3));
+    expect(
+      composerBackdrops
+          .where((backdrop) => backdrop.backdropGroupKey == backdropGroupKey)
+          .length,
+      1,
+    );
+    expect(
+      composerBackdrops
+          .where((backdrop) => backdrop.backdropGroupKey == null)
+          .length,
+      2,
+    );
     expect(
       composerBackdrops.every((backdrop) => backdrop.filter == null),
       isTrue,

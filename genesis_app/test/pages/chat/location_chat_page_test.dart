@@ -262,6 +262,12 @@ void main() {
     final composerWidget = tester.widget<ChatComposer>(
       find.byType(ChatComposer),
     );
+    final headerWidget = tester.widget<ChatHeader>(find.byType(ChatHeader));
+    expect(headerWidget.backdropGroupKey, isNotNull);
+    expect(
+      composerWidget.backdropGroupKey,
+      same(headerWidget.backdropGroupKey),
+    );
     expect(composerWidget.style?.composerBackdropBlurSigma, 4);
     expect(composerWidget.style?.composerSendButtonBackdropBlurSigma, 14);
     expect(composerWidget.style?.composerSendButtonBorderRadius, 8);
