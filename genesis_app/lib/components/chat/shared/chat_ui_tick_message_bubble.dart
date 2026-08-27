@@ -1,6 +1,6 @@
 part of 'chat_ui_library.dart';
 
-const Color _tickMessageBackgroundColor = Color(0x99000000);
+const Color _tickMessageBackgroundColor = Color(0x99151517);
 const Color _tickMessageAccentColor = Color(0xFFFF2442);
 const Color _tickMessageClueColor = Color(0xFFFF8A9A);
 const Color _tickMessageHeaderColor = Color(0xFFF4F3F6);

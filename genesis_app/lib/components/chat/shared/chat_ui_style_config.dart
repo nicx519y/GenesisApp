@@ -99,6 +99,8 @@ class ChatUiStyleConfig {
     required this.inputVerticalPadding,
     // Input field background color.
     required this.inputBackgroundColor,
+    // Backdrop blur used only by the input field surface.
+    this.inputBackdropBlurSigma = 0,
     // Input field border radius.
     required this.inputBorderRadius,
     // Input field text style.
@@ -477,6 +479,8 @@ class ChatUiStyleConfig {
   final double inputVerticalPadding;
   // Input field background color.
   final Color inputBackgroundColor;
+  // Backdrop blur used only by the input field surface.
+  final double inputBackdropBlurSigma;
   // Input field border radius.
   final double inputBorderRadius;
   // Input field text style.
@@ -618,6 +622,7 @@ class ChatUiStyleConfig {
     double? composerSendButtonIconSize,
     double? composerActionGap,
     Color? inputBackgroundColor,
+    double? inputBackdropBlurSigma,
     double? inputBorderRadius,
     TextStyle? inputTextStyle,
   }) {
@@ -691,6 +696,8 @@ class ChatUiStyleConfig {
       inputHorizontalPadding: inputHorizontalPadding,
       inputVerticalPadding: inputVerticalPadding,
       inputBackgroundColor: inputBackgroundColor ?? this.inputBackgroundColor,
+      inputBackdropBlurSigma:
+          inputBackdropBlurSigma ?? this.inputBackdropBlurSigma,
       inputBorderRadius: inputBorderRadius ?? this.inputBorderRadius,
       inputTextStyle: inputTextStyle ?? this.inputTextStyle,
       messageListPadding: messageListPadding ?? this.messageListPadding,

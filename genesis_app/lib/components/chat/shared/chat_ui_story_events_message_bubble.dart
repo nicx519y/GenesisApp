@@ -80,7 +80,7 @@ class _ChatStoryEventParagraph extends StatelessWidget {
     }
     final textColor = style.systemMessageTextStyle.color ?? Colors.white;
     final metadataStyle = style.systemMessageTextStyle.copyWith(
-      color: textColor.withValues(alpha: 0.60),
+      color: textColor.withValues(alpha: 0.72),
       fontSize: 11,
       fontWeight: FontWeight.w400,
       height: 1.3,
@@ -488,7 +488,7 @@ class _ChatStoryEventVisibleRoleGroup extends StatelessWidget {
           child: Text(
             genesisDisplaySafeText(names.join(', ')),
             softWrap: true,
-            style: TextStyle(color: textColor, fontSize: 12),
+            style: TextStyle(color: textColor, fontSize: 13, height: 1.3),
           ),
         ),
       ],

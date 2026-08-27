@@ -97,7 +97,7 @@ class _ChatStableBackdropSurface extends StatelessWidget {
         fit: StackFit.passthrough,
         children: [
           Positioned.fill(
-            child: BackdropFilter(
+            child: BackdropFilter.grouped(
               blendMode: BlendMode.srcOver,
               filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
               child: const SizedBox.expand(),

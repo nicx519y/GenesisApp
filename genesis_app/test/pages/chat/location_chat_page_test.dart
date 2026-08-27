@@ -264,9 +264,12 @@ void main() {
     );
     expect(composerWidget.style?.composerBackdropBlurSigma, 4);
     expect(composerWidget.style?.composerSendButtonBackdropBlurSigma, 14);
+    expect(composerWidget.style?.composerSendButtonBorderRadius, 8);
+    expect(composerWidget.style?.inputBackdropBlurSigma, 4);
     final messageViewport = find.byKey(
       const ValueKey<String>('location-chat-message-viewport-clip'),
     );
+    expect(find.byType(BackdropGroup), findsOneWidget);
     expect(
       tester.widget<ClipRect>(messageViewport).clipBehavior,
       Clip.hardEdge,
@@ -315,7 +318,7 @@ void main() {
         of: find.byType(ChatComposer),
         matching: find.byType(BackdropFilter),
       ),
-      findsOneWidget,
+      findsNWidgets(2),
     );
 
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
