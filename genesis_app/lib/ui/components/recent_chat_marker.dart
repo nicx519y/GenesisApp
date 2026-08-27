@@ -64,34 +64,31 @@ class WorldEventMapBadge extends StatelessWidget {
 }
 
 class RecentChatTag extends StatelessWidget {
-  const RecentChatTag({super.key, this.label = 'Last Message'});
-
-  final String label;
+  const RecentChatTag({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final style = _RecentActivityTagStyle.forLabel(label);
     return Semantics(
-      label: label,
+      label: 'Last Message',
       child: Container(
-        key: ValueKey<String>('recent-activity-tag-${style.key}'),
+        key: const ValueKey<String>('recent-activity-tag-last-message'),
         height: 18,
         padding: const EdgeInsets.symmetric(horizontal: 5),
-        decoration: BoxDecoration(
-          color: style.backgroundColor,
-          borderRadius: BorderRadius.circular(4),
+        decoration: const BoxDecoration(
+          color: kRecentChatMarkerBackgroundColor,
+          borderRadius: BorderRadius.all(Radius.circular(4)),
         ),
-        child: Row(
+        child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            style.icon,
-            const SizedBox(width: 3),
+            RecentChatIcon(size: 10),
+            SizedBox(width: 3),
             Text(
               'Recent',
               maxLines: 1,
               overflow: TextOverflow.clip,
               style: TextStyle(
-                color: style.foregroundColor,
+                color: kRecentChatMarkerColor,
                 fontSize: 10,
                 height: 1,
                 fontWeight: FontWeight.w600,
@@ -101,62 +98,6 @@ class RecentChatTag extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _RecentActivityTagStyle {
-  const _RecentActivityTagStyle({
-    required this.key,
-    required this.foregroundColor,
-    required this.backgroundColor,
-    required this.icon,
-  });
-
-  final String key;
-  final Color foregroundColor;
-  final Color backgroundColor;
-  final Widget icon;
-
-  static _RecentActivityTagStyle forLabel(String label) {
-    switch (label.trim()) {
-      case 'Last Tick':
-        return _RecentActivityTagStyle(
-          key: 'last-tick',
-          foregroundColor: const Color(0xFF2563EB),
-          backgroundColor: const Color(0xFFEAF2FF),
-          icon: SvgPicture.asset(
-            tickStatIconAsset,
-            width: 8,
-            height: 8,
-            colorFilter: const ColorFilter.mode(
-              Color(0xFF2563EB),
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      case 'Last Launch':
-        return _RecentActivityTagStyle(
-          key: 'last-launch',
-          foregroundColor: const Color(0xFFE56A00),
-          backgroundColor: const Color(0xFFFFF0E3),
-          icon: SvgPicture.asset(
-            launchIconAsset,
-            width: 10,
-            height: 10,
-            colorFilter: const ColorFilter.mode(
-              Color(0xFFE56A00),
-              BlendMode.srcIn,
-            ),
-          ),
-        );
-      default:
-        return const _RecentActivityTagStyle(
-          key: 'last-message',
-          foregroundColor: kRecentChatMarkerColor,
-          backgroundColor: kRecentChatMarkerBackgroundColor,
-          icon: RecentChatIcon(size: 10),
-        );
-    }
   }
 }
 

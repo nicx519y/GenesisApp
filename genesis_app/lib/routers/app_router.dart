@@ -502,6 +502,9 @@ sealed class AppRouter {
         final args = _WorldRouteArgs.from(settings.arguments);
         return _WorldPageRoute(
           settings: settings,
+          useLaunchedPanelGeometry:
+              args.initiallyLaunched ||
+              _worldDetailUsesLaunchedPanel(args.initialWorldDetail),
           builder: (_) => WorldPage(
             wid: args.wid,
             waitForTick1: args.waitForTick1,
@@ -760,7 +763,13 @@ class _OriginWorldRouteTransitionBackdrop extends StatelessWidget {
 }
 
 class _WorldPageRoute extends MaterialPageRoute<WorldPageResult> {
-  _WorldPageRoute({required super.builder, required super.settings});
+  _WorldPageRoute({
+    required super.builder,
+    required super.settings,
+    required this.useLaunchedPanelGeometry,
+  });
+
+  final bool useLaunchedPanelGeometry;
 
   bool _initialPushCompleted = false;
 
@@ -778,13 +787,21 @@ class _WorldPageRoute extends MaterialPageRoute<WorldPageResult> {
     Animation<double> secondaryAnimation,
     Widget child,
   ) {
-    final transition = super.buildTransitions(
-      context,
-      animation,
-      secondaryAnimation,
-      child,
-    );
     final platform = Theme.of(context).platform;
+    final transition = platform == TargetPlatform.android
+        ? SlideTransition(
+            key: const ValueKey<String>('world-route-opaque-slide-transition'),
+            position: Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero)
+                .animate(
+                  CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOutCubic,
+                    reverseCurve: Curves.easeInCubic,
+                  ),
+                ),
+            child: child,
+          )
+        : super.buildTransitions(context, animation, secondaryAnimation, child);
     final isInitialForwardAnimation =
         !_initialPushCompleted &&
         animation.status != AnimationStatus.reverse &&
@@ -794,23 +811,34 @@ class _WorldPageRoute extends MaterialPageRoute<WorldPageResult> {
       return transition;
     }
 
-    // Android fades the incoming route while sliding it. Paint the same shell
-    // underneath so those transparent frames never reveal the previous page.
+    // Keep Android's World route opaque while it slides. Fading this route
+    // cross-paints its footer avatar with the previous page during push/pop.
     return Stack(
       key: const ValueKey<String>('world-route-forward-transition'),
       fit: StackFit.expand,
-      children: [const _WorldRouteTransitionBackdrop(), transition],
+      children: [
+        _WorldRouteTransitionBackdrop(
+          useLaunchedPanelGeometry: useLaunchedPanelGeometry,
+        ),
+        transition,
+      ],
     );
   }
 }
 
 class _WorldRouteTransitionBackdrop extends StatelessWidget {
-  const _WorldRouteTransitionBackdrop();
+  const _WorldRouteTransitionBackdrop({required this.useLaunchedPanelGeometry});
+
+  final bool useLaunchedPanelGeometry;
 
   @override
   Widget build(BuildContext context) {
     final panelHeight =
-        worldCollapsedPanelBaseHeight + GenesisSafeAreaInsets.bottom(context);
+        worldCollapsedPanelBaseHeight +
+        (useLaunchedPanelGeometry
+            ? worldLaunchedInfoHeaderHeight - worldInfoHeaderHeight
+            : 0) +
+        GenesisSafeAreaInsets.bottom(context);
     return ValueListenableBuilder<TilemapVisualMode>(
       valueListenable: tilemapVisualModeController,
       builder: (context, visualMode, child) {
@@ -851,6 +879,11 @@ class _WorldRouteTransitionBackdrop extends StatelessWidget {
       },
     );
   }
+}
+
+bool _worldDetailUsesLaunchedPanel(WorldDetail? world) {
+  final relationStatus = world?.relationStatus.trim().toLowerCase();
+  return relationStatus == 'owner' || relationStatus == 'joined';
 }
 
 class _LocationChatPageRoute extends PageRoute<void>

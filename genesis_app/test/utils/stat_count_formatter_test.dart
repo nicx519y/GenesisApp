@@ -10,4 +10,11 @@ void main() {
     expect(formatStatCount(2500000000), '2.5B');
     expect(formatStatCount(7300000000000), '7.3T');
   });
+
+  test('formatMessageCountLabel uses singular for zero and one', () {
+    expect(formatMessageCountLabel(0), '0 Message');
+    expect(formatMessageCountLabel(1), '1 Message');
+    expect(formatMessageCountLabel(2), '2 Messages');
+    expect(formatMessageCountLabel(1200), '1.2K Messages');
+  });
 }

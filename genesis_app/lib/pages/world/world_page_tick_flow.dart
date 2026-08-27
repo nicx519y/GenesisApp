@@ -48,9 +48,6 @@ extension _WorldPageTickFlow on _WorldPageState {
         _pendingProgressTickCount = result.tickCount > 0
             ? result.tickCount
             : null;
-        if (result.tickCount > 1) {
-          unawaited(_markLastTickActivityTag());
-        }
         GenesisTelemetry.collectLog(
           actionType: 'event',
           action: 'world_progress_submit_success',
@@ -96,11 +93,6 @@ extension _WorldPageTickFlow on _WorldPageState {
         _setWorldPageState(() => _worldActionRunning = false);
       }
     }
-  }
-
-  Future<void> _markLastTickActivityTag() async {
-    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
-    await worldActivityTagStore.markLastTick(uid: uid, worldId: widget.wid);
   }
 
   bool _isWorldProgressInsufficientGems(Object error) {

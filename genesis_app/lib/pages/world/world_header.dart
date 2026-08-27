@@ -390,6 +390,8 @@ class WorldInfoHeader extends StatelessWidget {
                     child: isLaunched
                         ? _WorldLaunchedCharacterSummary(
                             character: currentCharacter,
+                            tickCount: world.tickCount,
+                            subTickNo: world.subTickNo,
                             messageCount: world.connectCount,
                           )
                         : _WorldUnlaunchedSummary(
@@ -414,8 +416,8 @@ class WorldInfoHeader extends StatelessWidget {
                         onPressed: actionEnabled
                             ? () => onWorldAction(action.kind)
                             : null,
-                        height: usesCompactProgressButton ? 32 : 35,
-                        width: usesCompactProgressButton ? 110 : 140,
+                        height: usesCompactProgressButton ? 34 : 35,
+                        width: usesCompactProgressButton ? 92 : 140,
                         backgroundColor: const Color(0xFFFF2442),
                         disabledBackgroundColor: const Color(
                           0xFFFF2442,
@@ -444,10 +446,14 @@ class WorldInfoHeader extends StatelessWidget {
 class _WorldLaunchedCharacterSummary extends StatelessWidget {
   const _WorldLaunchedCharacterSummary({
     required this.character,
+    required this.tickCount,
+    required this.subTickNo,
     required this.messageCount,
   });
 
   final Map<String, dynamic>? character;
+  final int tickCount;
+  final int subTickNo;
   final int messageCount;
 
   @override
@@ -459,18 +465,28 @@ class _WorldLaunchedCharacterSummary extends StatelessWidget {
     final avatarUrl = character == null
         ? ''
         : worldMapString(character, const ['avatar']);
+    final tickLabel = 'Tick $tickCount${subTickNo > 0 ? '-$subTickNo' : ''}';
 
     return Row(
       key: const ValueKey<String>('world-launched-character-summary'),
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        GenesisCharacterAvatar(
-          key: const ValueKey<String>('world-current-character-avatar'),
-          url: avatarUrl,
-          name: name,
-          size: worldCharacterAvatarLogicalSize,
-          showFallbackWhileLoading: false,
-          maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+        DecoratedBox(
+          key: const ValueKey<String>(
+            'world-current-character-avatar-placeholder',
+          ),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE9EDF2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: GenesisCharacterAvatar(
+            key: const ValueKey<String>('world-current-character-avatar'),
+            url: avatarUrl,
+            name: name,
+            size: worldCharacterAvatarLogicalSize,
+            showFallbackWhileLoading: false,
+            maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+          ),
         ),
         const SizedBox(width: 8),
         Expanded(
@@ -492,7 +508,7 @@ class _WorldLaunchedCharacterSummary extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                '${formatStatCount(messageCount)} messages',
+                '$tickLabel · ${formatMessageCountLabel(messageCount)}',
                 key: const ValueKey<String>('world-header-messages'),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -526,7 +542,7 @@ class _WorldUnlaunchedSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final tickLabel = 'Tick $tickCount${subTickNo > 0 ? '-$subTickNo' : ''}';
     return Text(
-      '$tickLabel · ${formatStatCount(messageCount)} messages',
+      '$tickLabel · ${formatMessageCountLabel(messageCount)}',
       key: const ValueKey<String>('world-unlaunched-summary'),
       maxLines: 1,
       overflow: TextOverflow.ellipsis,

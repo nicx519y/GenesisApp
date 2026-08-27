@@ -60,8 +60,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _isLoadingMore = false;
   var _isRefreshing = false;
   var _isSignedOut = false;
-  String _activityTagUid = '';
-  WorldActivityTagState? _activityTagState;
   Object? _error;
   FirebasePerformanceOperation? _activeFirstScreenRequestOperation;
   FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
@@ -77,7 +75,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _scheduleInitialPageRenderCompletionIfNeeded();
     widget.activationListenable?.addListener(_handlePageActivated);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
-    worldActivityTagStore.listenable.addListener(_handleActivityTagsChanged);
     worldDeletionEvents.addListener(_handleExternalWorldDeleted);
   }
 
@@ -97,7 +94,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _scrollListenerAttached = true;
     }
     _preloadCachedItemsIfNeeded();
-    unawaited(_loadWorldActivityTags());
     _requestIfCurrentTab();
     _tryRecordFirstPageView();
   }
@@ -127,7 +123,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _startupInitialRetryTimer?.cancel();
     unawaited(_activeFirstScreenRequestOperation?.cancel());
     unawaited(_activeFirstScreenRenderOperation?.cancel());
-    worldActivityTagStore.listenable.removeListener(_handleActivityTagsChanged);
     worldDeletionEvents.removeListener(_handleExternalWorldDeleted);
     widget.activationListenable?.removeListener(_handlePageActivated);
     widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
@@ -138,55 +133,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     super.dispose();
   }
 
-  Future<void> _loadWorldActivityTags() async {
-    final uid = await resolveRecentWorldChatUid(AppServicesScope.read(context));
-    var state = await worldActivityTagStore.loadForUid(uid);
-    if ((state?.lastMessageWorldId ?? '').trim().isEmpty) {
-      final record = await recentWorldChatStore.loadForUid(uid);
-      final worldId = record?.uid == uid ? record?.worldId.trim() ?? '' : '';
-      if (worldId.isNotEmpty) {
-        await worldActivityTagStore.markLastMessage(uid: uid, worldId: worldId);
-        state = worldActivityTagStore.listenable.value;
-      }
-    }
-    if (!mounted) return;
-    if (_activityTagUid == uid &&
-        _sameWorldActivityTagState(_activityTagState, state)) {
-      return;
-    }
-    setState(() {
-      _activityTagUid = uid;
-      _activityTagState = state;
-    });
-  }
-
-  void _handleActivityTagsChanged() {
-    final state = worldActivityTagStore.listenable.value;
-    if (state == null) return;
-    if (_activityTagUid.isNotEmpty && state.uid != _activityTagUid) return;
-    if (_sameWorldActivityTagState(_activityTagState, state)) return;
-    setState(() {
-      _activityTagUid = state.uid;
-      _activityTagState = state;
-    });
-  }
-
   void _handleExternalWorldDeleted() {
     final event = worldDeletionEvents.value;
     if (event == null) return;
     _beginWorldDeletion(event.worldId);
-  }
-
-  bool _sameWorldActivityTagState(
-    WorldActivityTagState? current,
-    WorldActivityTagState? next,
-  ) {
-    if (identical(current, next)) return true;
-    if (current == null || next == null) return current == next;
-    return current.uid == next.uid &&
-        current.lastMessageWorldId == next.lastMessageWorldId &&
-        current.lastTickWorldId == next.lastTickWorldId &&
-        current.lastLaunchWorldId == next.lastLaunchWorldId;
   }
 
   void _resetListState() {
@@ -277,7 +227,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _isLoadingMore = false;
     _isRefreshing = false;
     _cacheLoadFuture = Future<bool>.value(true);
-    unawaited(_syncLastTickActivityTagFromItems(page.items));
   }
 
   void _clearDeleteState() {
@@ -486,7 +435,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     }
 
     final page = _parseWorldListPage(data);
-    unawaited(_syncLastTickActivityTagFromItems(page.items));
     _startupInitialRetryTimer?.cancel();
     _startupInitialRetryTimer = null;
     setState(() {
@@ -592,7 +540,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _activeFirstScreenRequestOperation = null;
       }
       unawaited(requestOperation?.succeed());
-      unawaited(_syncLastTickActivityTagFromItems(page.items));
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
       final shouldReplaceItems = !_worldPageMatchesCurrent(page);
@@ -685,6 +632,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       item.ownerUid,
       item.ownerName,
       item.createdAt,
+      item.lastActiveAt,
       item.updatedAt,
       item.lastProgressAt,
       item.lastProgressSummary,
@@ -745,7 +693,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     try {
       final page = await _fetchPage(_nextPage);
       if (!mounted) return;
-      unawaited(_syncLastTickActivityTagFromItems([..._items, ...page.items]));
       setState(() {
         _items.addAll(page.items);
         _pruneDeleteStateForCurrentItems();
@@ -920,9 +867,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                 final isDeleting = _deletingWorldIds.contains(worldId);
                 final isCollapsing = _collapsingWorldIds.contains(worldId);
                 final canInteract = !vm.deleted && !isDeleting && !isCollapsing;
-                final activityTagLabel = vm.deleted
-                    ? ''
-                    : _activityTagState?.labelForWorldId(worldId) ?? '';
                 return _AnimatedHomeWorldListItem(
                   key: ValueKey<String>('home-my-world-$worldId'),
                   isCollapsing: isCollapsing,
@@ -937,46 +881,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
                     onTap: canInteract ? () => unawaited(_openWorld(vm)) : null,
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: WorldItemCard(
-                        item: vm,
-                        recentActivityTagLabel: activityTagLabel,
-                      ),
+                      child: WorldItemCard(item: vm),
                     ),
                   ),
                 );
               },
             ),
     );
-  }
-
-  Future<void> _syncLastTickActivityTagFromItems(
-    List<WorldListItem> items,
-  ) async {
-    final worldId = _lastTickWorldIdFromItems(items);
-    if (worldId.isEmpty) return;
-    final uid = _activityTagUid.isNotEmpty
-        ? _activityTagUid
-        : await resolveRecentWorldChatUid(AppServicesScope.read(context));
-    await worldActivityTagStore.markLastTick(uid: uid, worldId: worldId);
-  }
-
-  String _lastTickWorldIdFromItems(List<WorldListItem> items) {
-    WorldListItem? fallback;
-    WorldListItem? latest;
-    DateTime? latestTime;
-
-    for (final item in items) {
-      if (item.deleted) continue;
-      if (item.lastProgressTickNo <= 1 && item.tickCnt <= 1) continue;
-      fallback ??= item;
-      final time = parseFlexibleTimestamp(item.lastProgressAt);
-      if (time == null) continue;
-      if (latestTime == null || time.isAfter(latestTime)) {
-        latestTime = time;
-        latest = item;
-      }
-    }
-
-    return (latest ?? fallback)?.wid.trim() ?? '';
   }
 }

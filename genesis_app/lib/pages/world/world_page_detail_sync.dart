@@ -181,6 +181,68 @@ extension _WorldPageDetailSync on _WorldPageState {
     }
   }
 
+  Future<void> _precacheCurrentWorldFooterAvatar(WorldDetail world) async {
+    if (!shouldConnectWorldChatroom(world.relationStatus)) return;
+    final uid = _currentUid.trim();
+    if (uid.isEmpty) return;
+
+    Map<String, dynamic>? currentCharacter;
+    for (final character in world.characters) {
+      if (worldMapString(character, const ['player_uid']) != uid) continue;
+      currentCharacter = character;
+      break;
+    }
+    if (currentCharacter == null || !mounted) return;
+
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final avatarUrl = selectGenesisImageUrl(
+      worldMapString(currentCharacter, const ['avatar']),
+      logicalWidth: worldCharacterAvatarLogicalSize,
+      logicalHeight: worldCharacterAvatarLogicalSize,
+      devicePixelRatio: devicePixelRatio,
+      maxDevicePixelRatio: devicePixelRatio,
+    ).trim();
+    if (avatarUrl.isEmpty) return;
+
+    final ImageProvider<Object> provider;
+    if (avatarUrl.startsWith('assets/')) {
+      provider = AssetImage(avatarUrl);
+    } else {
+      final decodeSize = math.max(
+        1,
+        (worldCharacterAvatarLogicalSize * devicePixelRatio).ceil(),
+      );
+      provider = GenesisStaticNetworkImageProvider(
+        imageUrl: avatarUrl,
+        cacheWidth: decodeSize,
+        cacheHeight: decodeSize,
+        fit: BoxFit.cover,
+      );
+    }
+
+    try {
+      await precacheImage(
+        provider,
+        context,
+        onError: (exception, stackTrace) {
+          if (kDebugMode) {
+            debugPrint(
+              '[WorldPage] footer avatar precache failed url="$avatarUrl": '
+              '$exception',
+            );
+          }
+        },
+      ).timeout(const Duration(seconds: 2));
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          '[WorldPage] footer avatar precache did not finish url="$avatarUrl": '
+          '$error',
+        );
+      }
+    }
+  }
+
   String _rootMapImageUrlForWorld(WorldDetail world) {
     final displayRootMapUrl = worldRootMapImageUrl(
       world.processedLocationTree.initialMapDisplayRoots,

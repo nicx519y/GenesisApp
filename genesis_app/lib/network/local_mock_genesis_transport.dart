@@ -4443,6 +4443,11 @@ class _MockState {
         'events': kMockV1Events.map((event) => event['content']).toList(),
         'metric': _deepCopyMap(kMockV1Metric),
         'created_at': _mockEpoch(world['created_at']),
+        'last_active_at': _mockEpoch(
+          world['last_active_at'] ??
+              world['last_progress_at'] ??
+              world['updated_at'],
+        ),
         'started_at': '${world['created_at']}',
         'tick_duration_days': 30,
         'cover': _mockImageObject(world['cover']),

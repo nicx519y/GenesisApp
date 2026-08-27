@@ -58,7 +58,11 @@ extension _WorldPageLayout on _WorldPageState {
           fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
           contentBottomPaddingOverride: 0,
           slivers: [
-            WorldDetailsLoadingContent(infoHeaderHeight: infoHeaderHeight),
+            WorldDetailsLoadingContent(
+              infoHeaderHeight: infoHeaderHeight,
+              useCompactAction:
+                  infoHeaderHeight == worldLaunchedInfoHeaderHeight,
+            ),
           ],
         ),
         _buildWorldBottomTagsOverlay(

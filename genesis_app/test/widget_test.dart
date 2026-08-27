@@ -10425,11 +10425,11 @@ void main() {
     final editButton = tester.widget<GenesisPrimaryButton>(
       find.widgetWithText(GenesisPrimaryButton, 'Edit Worldo'),
     );
-    expect(editButton.height, 35);
-    expect(editButton.width, 140);
+    expect(editButton.height, 34);
+    expect(editButton.width, 92);
     expect(editButton.backgroundColor, const Color(0xFFFF2442));
     expect(editButton.foregroundColor, Colors.white);
-    expect(editButton.fontSize, 16);
+    expect(editButton.fontSize, 14);
     expect(editButton.leadingIcon, isNull);
     expect(
       tester
@@ -22600,7 +22600,10 @@ void main() {
               builder: (context) => TextButton(
                 onPressed: () => Navigator.of(context).pushNamed(
                   RouteNames.world,
-                  arguments: const <String, Object?>{'wid': 'w_test_1'},
+                  arguments: const <String, Object?>{
+                    'wid': 'w_test_1',
+                    'initiallyLaunched': true,
+                  },
                 ),
                 child: const Text('Open World'),
               ),
@@ -22627,6 +22630,10 @@ void main() {
       const ValueKey<String>('world-route-transition-panel-background'),
     );
     expect(transitionBackground, findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('world-route-opaque-slide-transition')),
+      findsOneWidget,
+    );
     expect(transitionMapBackground, findsOneWidget);
     expect(transitionPanelBackground, findsOneWidget);
 
@@ -22649,7 +22656,15 @@ void main() {
     );
     expect(
       tester.getSize(transitionPanelBackground).height,
-      worldCollapsedPanelBaseHeight,
+      worldCollapsedPanelBaseHeight +
+          worldLaunchedInfoHeaderHeight -
+          worldInfoHeaderHeight,
+    );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('world-panel-info-row')))
+          .height,
+      worldLaunchedInfoHeaderHeight,
     );
 
     expect(mapBackground, findsOneWidget);
@@ -22920,7 +22935,7 @@ void main() {
       find.byKey(const ValueKey<String>('world-map-loading-background')),
       findsOneWidget,
     );
-    expect(find.byType(WorldMapIdentityPill), findsNothing);
+    expect(find.byType(WorldMapIdentityPill), findsOneWidget);
     expect(find.byType(WorldFeedContent), findsNothing);
     expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
     final panelInfoRow = find.byKey(

@@ -151,7 +151,11 @@ extension _WorldPageTabs on _WorldPageState {
         (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
         '';
     if (!mounted || uid == _currentUid) return;
-    _setWorldPageState(() => _currentUid = uid);
+    if (_renderStage == _WorldPageRenderStage.content) {
+      _setWorldPageState(() => _currentUid = uid);
+    } else {
+      _currentUid = uid;
+    }
   }
 
   List<String> _locationPathIdsForLocationId(

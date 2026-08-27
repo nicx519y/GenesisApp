@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 
 import '../../app/bootstrap/app_services_scope.dart';
-import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
@@ -19,7 +18,6 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_deleted_list_item_transition.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_colors.dart';
-import '../../utils/genesis_timestamp_formatter.dart';
 import 'home_feed_cache_store.dart';
 import '../world/world_deletion_events.dart';
 import '../world/world_page_result.dart';
