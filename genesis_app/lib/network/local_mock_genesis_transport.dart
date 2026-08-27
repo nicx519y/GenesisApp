@@ -110,7 +110,13 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (apiPath.startsWith('v1/')) {
-      return _handleV1(method, apiPath.substring('v1/'.length), query, body);
+      return _handleV1(
+        method,
+        apiPath.substring('v1/'.length),
+        query,
+        body,
+        _requestDeviceId(request),
+      );
     }
 
     if (method == 'GET' && apiPath == 'auth/me/public-profile') {
@@ -377,6 +383,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     String path,
     Map<String, String> query,
     Map<String, dynamic> body,
+    String deviceId,
   ) async {
     if (method == 'POST' && path == 'app/version/check') {
       return _v1Ok({
@@ -438,6 +445,31 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_paged(_state.v1UserBlocks(), query));
     }
 
+    if (method == 'GET' && path == 'user/world-history-settings') {
+      return _v1Ok(_state.v1WorldHistorySettings());
+    }
+
+    if (method == 'PUT' && path == 'user/world-history-settings') {
+      final highWatermark = asInt(body['high_watermark']);
+      final lowWatermark = asInt(body['low_watermark']);
+      if (highWatermark < 20 ||
+          highWatermark > 30 ||
+          lowWatermark < 10 ||
+          lowWatermark > 20) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      return _v1Ok(
+        _state.updateV1WorldHistorySettings(
+          highWatermark: highWatermark,
+          lowWatermark: lowWatermark,
+        ),
+      );
+    }
+
+    if (method == 'DELETE' && path == 'user/world-history-settings') {
+      return _v1Ok(_state.resetV1WorldHistorySettings());
+    }
+
     if (method == 'GET' && path == 'user/profile') {
       return _v1Ok(_state.v1UserProfile(query['uid']));
     }
@@ -481,6 +513,36 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'origin/list') {
       return _v1Ok(_state.v1OriginContractList(query));
+    }
+
+    if (method == 'GET' && path == 'origin/feed') {
+      final startScore = int.tryParse(query['start_score'] ?? '') ?? 0;
+      final rn = int.tryParse(query['rn'] ?? '') ?? 10;
+      if (startScore < 0 || rn < 1 || rn > 100) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      return _v1Ok(
+        _state.v1OriginFeed(startScore: startScore, rn: rn, deviceId: deviceId),
+      );
+    }
+
+    if (method == 'POST' && path == 'origin/feed/exposure') {
+      final rawIds = body['origin_ids'];
+      final originIds = rawIds is List
+          ? rawIds
+                .map((id) => '$id'.trim())
+                .where((id) => id.isNotEmpty)
+                .toSet()
+          : const <String>{};
+      if (originIds.isEmpty || originIds.length > 100) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      return _v1Ok({
+        'recorded_count': _state.recordV1OriginFeedExposures(
+          deviceId: deviceId,
+          originIds: originIds,
+        ),
+      });
     }
 
     if (method == 'GET' && path == 'origin/hot_tags') {
@@ -984,6 +1046,17 @@ class LocalMockGenesisTransport implements HttpTransport {
     return const <String, dynamic>{};
   }
 
+  String _requestDeviceId(TransportRequest request) {
+    for (final entry in request.headers.entries) {
+      final name = entry.key.toLowerCase();
+      if (name == 'x-device-id' || name == 'device-id') {
+        final value = entry.value.trim();
+        if (value.isNotEmpty) return value;
+      }
+    }
+    return 'local-mock-device';
+  }
+
   Map<String, dynamic> _decodeMultipartFields(String input) {
     final fields = <String, dynamic>{};
     final pattern = RegExp(
@@ -1034,6 +1107,8 @@ class _MockState {
       .toList(growable: true);
   final Map<String, Map<String, int>> _v1PresetLaunchHistoryByOrigin =
       <String, Map<String, int>>{};
+  final Map<String, Set<String>> _v1OriginFeedExposuresByDevice =
+      <String, Set<String>>{};
   final Map<String, List<Map<String, dynamic>>> _v1TicksByWorld =
       <String, List<Map<String, dynamic>>>{};
   final List<Map<String, dynamic>> _v1WorldApplies = <Map<String, dynamic>>[];
@@ -1056,6 +1131,9 @@ class _MockState {
   };
   int _v1GemBalance = 430;
   int _v1DirectMessageUnreadCount = 1;
+  int _v1WorldHistoryHighWatermark = 25;
+  int _v1WorldHistoryLowWatermark = 15;
+  bool _v1WorldHistoryUsesDefault = true;
   String _v1DmConversationCursor = 'dm_sync_1';
   bool _v1DmConversationDeltaSent = false;
   final List<Map<String, dynamic>> _v1DiscussPosts = kMockV1DiscussPosts
@@ -1084,6 +1162,38 @@ class _MockState {
   Map<String, dynamic> get _v1Origin => _v1Origins.first;
 
   Map<String, dynamic> get _v1World => _v1Worlds.first;
+
+  Map<String, dynamic> v1WorldHistorySettings() {
+    return <String, dynamic>{
+      'high_watermark': _v1WorldHistoryHighWatermark,
+      'low_watermark': _v1WorldHistoryLowWatermark,
+      'stored_high_watermark': _v1WorldHistoryUsesDefault
+          ? 0
+          : _v1WorldHistoryHighWatermark,
+      'stored_low_watermark': _v1WorldHistoryUsesDefault
+          ? 0
+          : _v1WorldHistoryLowWatermark,
+      'source': _v1WorldHistoryUsesDefault ? 'default' : 'stored',
+      'degraded': false,
+    };
+  }
+
+  Map<String, dynamic> updateV1WorldHistorySettings({
+    required int highWatermark,
+    required int lowWatermark,
+  }) {
+    _v1WorldHistoryHighWatermark = highWatermark;
+    _v1WorldHistoryLowWatermark = lowWatermark;
+    _v1WorldHistoryUsesDefault = false;
+    return v1WorldHistorySettings();
+  }
+
+  Map<String, dynamic> resetV1WorldHistorySettings() {
+    _v1WorldHistoryHighWatermark = 25;
+    _v1WorldHistoryLowWatermark = 15;
+    _v1WorldHistoryUsesDefault = true;
+    return v1WorldHistorySettings();
+  }
 
   Map<String, dynamic> _v1UserPayload(Map<String, dynamic> user) {
     final copy = _deepCopyMap(user);
@@ -2217,6 +2327,42 @@ class _MockState {
       return item;
     }).toList();
     return _v1Paged(items, query);
+  }
+
+  Map<String, dynamic> v1OriginFeed({
+    required int startScore,
+    required int rn,
+    required String deviceId,
+  }) {
+    final start = startScore.clamp(0, _v1Origins.length);
+    final end = (start + rn).clamp(0, _v1Origins.length);
+    final exposedIds = _v1OriginFeedExposuresByDevice[deviceId] ?? const {};
+    final inspected = _v1Origins.sublist(start, end);
+    final items = inspected
+        .where((origin) => !exposedIds.contains('${origin['oid'] ?? ''}'))
+        .map(_v1OriginContractItem)
+        .toList(growable: false);
+    return {
+      'list': items,
+      'rn': rn,
+      'next_score': end > start ? end : startScore,
+      'has_more': end < _v1Origins.length,
+    };
+  }
+
+  int recordV1OriginFeedExposures({
+    required String deviceId,
+    required Set<String> originIds,
+  }) {
+    final exposedIds = _v1OriginFeedExposuresByDevice.putIfAbsent(
+      deviceId,
+      () => <String>{},
+    );
+    var recordedCount = 0;
+    for (final originId in originIds) {
+      if (exposedIds.add(originId)) recordedCount += 1;
+    }
+    return recordedCount;
   }
 
   Map<String, dynamic> v1OriginHotTags() {

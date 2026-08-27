@@ -667,6 +667,66 @@ void main() {
     );
   });
 
+  test('v1 user World History settings use GET PUT and DELETE contract', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        final responseData = switch (request.method) {
+          'PUT' =>
+            '{"high_watermark":28,"low_watermark":12,"stored_high_watermark":28,"stored_low_watermark":12,"source":"stored","degraded":false}',
+          _ =>
+            '{"high_watermark":25,"low_watermark":15,"stored_high_watermark":0,"stored_low_watermark":0,"source":"default","degraded":false}',
+        };
+        return TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: '{"err_no":0,"err_msg":"succ","data":$responseData}',
+        );
+      },
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final fetched = await api.v1.user.worldHistorySettings();
+    final updated = await api.v1.user.updateWorldHistorySettings(
+      highWatermark: 28,
+      lowWatermark: 12,
+    );
+    final reset = await api.v1.user.resetWorldHistorySettings();
+
+    expect(fetched.highWatermark, 25);
+    expect(fetched.lowWatermark, 15);
+    expect(fetched.storedHighWatermark, 0);
+    expect(fetched.source, 'default');
+    expect(updated.highWatermark, 28);
+    expect(updated.lowWatermark, 12);
+    expect(updated.storedLowWatermark, 12);
+    expect(updated.source, 'stored');
+    expect(reset.highWatermark, 25);
+    expect(reset.degraded, isFalse);
+    expect(apiTransport.requests.map((request) => request.method), [
+      'GET',
+      'PUT',
+      'DELETE',
+    ]);
+    expect(
+      apiTransport.requests.map((request) => request.uri.path),
+      List<String>.filled(3, '/api/v1/user/world-history-settings'),
+    );
+    expect(jsonDecode(utf8.decode(apiTransport.requests[1].bodyBytes!)), {
+      'high_watermark': 28,
+      'low_watermark': 12,
+    });
+    expect(apiTransport.requests[2].bodyBytes, isNull);
+  });
+
   test('bindDevice does not persist guest uid when user info fails', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -883,6 +943,77 @@ void main() {
     expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '20');
     expect(apiTransport.lastRequest!.uri.queryParameters['tag'], isNull);
     expect(apiTransport.lastRequest!.uri.queryParameters['tag_name'], isNull);
+  });
+
+  test('Origin feed uses cursor query and exposure body', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: request.method == 'GET'
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[],"rn":10,"next_score":27,"has_more":true}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"recorded_count":2}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+    final api = _apiWith(apiTransport, healthTransport);
+
+    final page = await api.v1.origin.feed(startScore: 11, rn: 10);
+
+    expect(apiTransport.lastRequest!.method, 'GET');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/feed');
+    expect(apiTransport.lastRequest!.uri.queryParameters, {
+      'start_score': '11',
+      'rn': '10',
+    });
+    expect(page['next_score'], 27);
+    expect(page['has_more'], true);
+
+    final recorded = await api.v1.origin.reportFeedExposure([
+      'o_ABC001',
+      'o_ABC002',
+      'o_ABC001',
+    ]);
+
+    expect(apiTransport.lastRequest!.method, 'POST');
+    expect(apiTransport.lastRequest!.uri.path, '/api/v1/origin/feed/exposure');
+    expect(jsonDecode(utf8.decode(apiTransport.lastRequest!.bodyBytes!)), {
+      'origin_ids': ['o_ABC001', 'o_ABC002'],
+    });
+    expect(recorded, 2);
+  });
+
+  test('Origin feed validates cursor, page size, and exposure batch', () async {
+    final api = _apiWith(
+      _FakeTransport(
+        handler: (_) => throw StateError('request should not be sent'),
+      ),
+      _FakeTransport(
+        handler: (_) => throw StateError('request should not be sent'),
+      ),
+    );
+
+    expect(() => api.v1.origin.feed(startScore: -1), throwsArgumentError);
+    expect(
+      () => api.v1.origin.feed(startScore: 0, rn: 101),
+      throwsArgumentError,
+    );
+    await expectLater(
+      api.v1.origin.reportFeedExposure(const []),
+      throwsArgumentError,
+    );
+    await expectLater(
+      api.v1.origin.reportFeedExposure(
+        List<String>.generate(101, (index) => 'o_$index'),
+      ),
+      throwsArgumentError,
+    );
   });
 
   test('getOrigins maps non-default category to scene tag', () async {
@@ -2553,7 +2684,7 @@ void main() {
   });
 
   test(
-    'default v1 business requests are signed when Gateway auth is enabled',
+    'Origin feed carries signed X-Device-ID through the Gateway chain',
     () async {
       final apiTransport = _FakeTransport(
         handler: (_) => const TransportResponse(
@@ -2583,10 +2714,10 @@ void main() {
         useMock: false,
         gatewayRequestInterceptor: interceptor,
       );
-      await api.getOrigins();
+      await api.v1.origin.feed(startScore: 0, rn: 10);
 
       final request = apiTransport.lastRequest!;
-      expect(request.uri.path, '/api/v1/origin/list');
+      expect(request.uri.path, '/api/v1/origin/feed');
       expect(request.headers['X-App-ID'], 'hashed-app-id');
       expect(request.headers['X-Platform'], 'ios');
       expect(request.headers['X-Device-ID'], 'test-device-id');

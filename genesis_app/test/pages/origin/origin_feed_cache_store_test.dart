@@ -17,13 +17,17 @@ void main() {
       'list': <Map<String, Object?>>[
         <String, Object?>{'oid': 'o_alice'},
       ],
-      'total': 1,
+      'rn': 10,
+      'next_score': 10,
+      'has_more': true,
     });
     await bobStore.saveForYouFirstPage(<String, dynamic>{
       'list': <Map<String, Object?>>[
         <String, Object?>{'oid': 'o_bob'},
       ],
-      'total': 1,
+      'rn': 10,
+      'next_score': 20,
+      'has_more': false,
     });
 
     expect(
@@ -46,7 +50,9 @@ void main() {
       'list': <Map<String, Object?>>[
         <String, Object?>{'oid': 'o_guest'},
       ],
-      'total': 1,
+      'rn': 10,
+      'next_score': 10,
+      'has_more': false,
     });
 
     expect(
@@ -59,6 +65,15 @@ void main() {
   test('returns null for invalid cached json', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       '${OriginFeedCacheStore.storageKey}.u_alice.foryou.page_1': 'not json',
+    });
+    const store = OriginFeedCacheStore(ownerUid: 'u_alice');
+
+    expect(await store.loadForYouFirstPage(), isNull);
+  });
+
+  test('does not read the legacy page-number cache key', () async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'origin_feed_cache_v1.u_alice.foryou.page_1': '{"list":[]}',
     });
     const store = OriginFeedCacheStore(ownerUid: 'u_alice');
 
