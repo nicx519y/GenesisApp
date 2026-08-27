@@ -23,7 +23,7 @@ const String userStatIconAsset = 'assets/custom-icons/svg/user_icon.svg';
 const String createOriginBasicsIconAsset =
     'assets/custom-icons/svg/create_origin_basics.svg';
 const String createOriginCharactersIconAsset =
-    'assets/custom-icons/svg/create_origin_characters.svg';
+    'assets/custom-icons/svg/create_origin_character.svg';
 const String createOriginOpeningIconAsset =
     'assets/custom-icons/svg/create_origin_opening.svg';
 const String createOriginLocationsIconAsset =
