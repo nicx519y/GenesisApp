@@ -894,7 +894,18 @@ void main() {
       await tester.pump();
 
       expect(position.pixels, closeTo(pixelsBeforeTick, 0.1));
-      expect(find.text('Detached canonical tick'), findsOneWidget);
+      expect(find.text('Detached canonical tick'), findsNothing);
+      expect(
+        tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byKey(const ValueKey('location-chat-message-list')),
+            )
+            .messages
+            .where((message) => message.isTick)
+            .single
+            .text,
+        'Detached canonical tick',
+      );
       expect(find.text('1 new message'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('location-chat-new-message-notice')),
@@ -919,7 +930,7 @@ void main() {
 
       expect(position.pixels, closeTo(pixelsBeforeTick, 0.1));
       expect(find.text('Detached canonical tick'), findsNothing);
-      expect(find.text('Latest detached canonical tick'), findsOneWidget);
+      expect(find.text('Latest detached canonical tick'), findsNothing);
       expect(
         tester
             .widget<LocationChatAnchoredMessageList>(
@@ -928,6 +939,17 @@ void main() {
             .messages
             .where((message) => message.isTick),
         hasLength(1),
+      );
+      expect(
+        tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byKey(const ValueKey('location-chat-message-list')),
+            )
+            .messages
+            .where((message) => message.isTick)
+            .single
+            .text,
+        'Latest detached canonical tick',
       );
       expect(find.text('1 new message'), findsOneWidget);
 
@@ -2837,7 +2859,31 @@ void main() {
     expect(httpMessage.senderType, 'narrator');
     expect(websocketMessage.messageType, 'image');
     expect(httpMessage.messageType, 'image');
-    expect(find.byType(ChatImageMessage), findsNWidgets(2));
+    final renderedImageUrls = <String>{};
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('location-chat-message-list')),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    for (final offset in <double>[0, position.maxScrollExtent]) {
+      position.jumpTo(offset);
+      await tester.pump();
+      renderedImageUrls.addAll(
+        tester
+            .widgetList<ChatImageMessage>(find.byType(ChatImageMessage))
+            .map((widget) => widget.message.imageUrl),
+      );
+    }
+    expect(renderedImageUrls, contains(imageUrl));
+    expect(
+      tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          )
+          .messages
+          .where((message) => message.senderType == 'image'),
+      hasLength(2),
+    );
     expect(find.byType(ChatMessageBubble), findsNothing);
     final imageMessages = tester.widgetList<ChatImageMessage>(
       find.byType(ChatImageMessage),
@@ -2957,13 +3003,33 @@ void main() {
       expect(blockedCharacterImage.messageType, 'image');
       expect(unknown.messageType, 'future_format');
       expect(explicitText.messageType, 'text');
-      expect(find.byType(ChatImageMessage), findsNWidgets(2));
+      final imageMessages = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          )
+          .messages
+          .where((message) => message.senderType == 'image');
+      expect(imageMessages, hasLength(2));
       expect(
-        tester
-            .widgetList<ChatImageMessage>(find.byType(ChatImageMessage))
-            .map((widget) => widget.message.imageUrl),
+        imageMessages.map((message) => message.imageUrl),
         containsAll(<String>[narPicImage, narImage]),
       );
+      final renderedImageUrls = <String>{};
+      final scrollable = find.descendant(
+        of: find.byKey(const ValueKey('location-chat-message-list')),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      for (final offset in <double>[0, position.maxScrollExtent]) {
+        position.jumpTo(offset);
+        await tester.pump();
+        renderedImageUrls.addAll(
+          tester
+              .widgetList<ChatImageMessage>(find.byType(ChatImageMessage))
+              .map((widget) => widget.message.imageUrl),
+        );
+      }
+      expect(renderedImageUrls, containsAll(<String>[narPicImage, narImage]));
       expect(find.text('Visible narrator text'), findsOneWidget);
       expect(find.text('https://cdn.example.com/blocked.png'), findsNothing);
       expect(find.text('https://cdn.example.com/future.bin'), findsNothing);

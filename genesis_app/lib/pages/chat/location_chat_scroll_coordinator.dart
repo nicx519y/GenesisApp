@@ -1,6 +1,11 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show BoxParentData, ScrollDirection;
+import 'package:flutter/rendering.dart'
+    show
+        BoxParentData,
+        ScrollCacheExtent,
+        ScrollDirection,
+        SliverMultiBoxAdaptorParentData;
 
 import '../../components/chat/shared/chat_ui.dart';
 
@@ -18,6 +23,7 @@ const locationChatOldestEdgeLoadingAnimationDuration = Duration(
   milliseconds: 220,
 );
 const _locationChatLayoutCorrectionExtentSignal = 0.001;
+const _locationChatAnchorRestoreCacheExtent = 1000000000.0;
 
 /// Owns every programmatic scroll-position change for location chat.
 class LocationChatScrollCoordinator extends ChangeNotifier {
@@ -266,6 +272,9 @@ class _LocationChatAnchoredMessageListState
   bool _historyCommitScheduled = false;
   bool _oldestMessageStopLayoutScheduled = false;
   bool _detachedAnchorSnapshotScheduled = false;
+  bool _anchorRestorePending = false;
+  bool _anchorRestoreCleanupScheduled = false;
+  int? _anchorRestoreMessageCount;
   double _layoutCorrectionExtentSignal = 0;
   ({String localId, double contentOffset})? _detachedLayoutAnchor;
 
@@ -398,6 +407,14 @@ class _LocationChatAnchoredMessageListState
         : null;
     if (shouldPreserveAnchor) {
       _detachedLayoutAnchor = layoutAnchor;
+      _anchorRestorePending = layoutAnchor != null;
+      _anchorRestoreMessageCount = layoutAnchor == null
+          ? null
+          : _anchorRestoreChildCount(
+              previousLocalIds: previousLocalIds,
+              nextLocalIds: nextLocalIds,
+              anchorLocalId: layoutAnchor.localId,
+            );
       // A rolling-window replacement can keep the exact same total extent.
       // Toggling a subpixel tail extent still makes ScrollPosition run the
       // layout-phase correction before this frame is painted.
@@ -423,6 +440,8 @@ class _LocationChatAnchoredMessageListState
   void _handleCoordinatorChanged() {
     if (!widget.coordinator.isDetached) {
       _detachedLayoutAnchor = null;
+      _anchorRestorePending = false;
+      _anchorRestoreMessageCount = null;
       return;
     }
     _scheduleDetachedAnchorSnapshot();
@@ -475,6 +494,27 @@ class _LocationChatAnchoredMessageListState
       if (pureTailAppend) return false;
     }
     return true;
+  }
+
+  int _anchorRestoreChildCount({
+    required List<String> previousLocalIds,
+    required List<String> nextLocalIds,
+    required String anchorLocalId,
+  }) {
+    final nextIndexByLocalId = <String, int>{
+      for (var index = 0; index < nextLocalIds.length; index += 1)
+        nextLocalIds[index]: index,
+    };
+    var lastRequiredIndex = nextIndexByLocalId[anchorLocalId] ?? 0;
+    for (final localId in previousLocalIds) {
+      final nextIndex = nextIndexByLocalId[localId];
+      if (nextIndex == null ||
+          !_isActive(_messageLayoutKeys[localId]?.currentContext)) {
+        continue;
+      }
+      if (nextIndex > lastRequiredIndex) lastRequiredIndex = nextIndex;
+    }
+    return (lastRequiredIndex + 1).clamp(0, nextLocalIds.length);
   }
 
   ({String localId, double top})? _visibleRetainedAnchor(
@@ -557,98 +597,211 @@ class _LocationChatAnchoredMessageListState
           behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
           child: BackdropGroup(
             backdropKey: _messageBackdropKey,
-            child: SingleChildScrollView(
-              key: _scrollViewportKey,
-              controller: widget.coordinator.controller,
-              physics: LocationChatBottomAnchoringScrollPhysics(
-                shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
-                oldestMessageStopOffset: () =>
-                    widget.coordinator.oldestMessageStopOffset,
-                shouldStopAtOldestMessage: () =>
-                    widget.coordinator.shouldStopAtOldestMessage,
-                takeDetachedLayoutCorrection: _takeDetachedLayoutCorrection,
-              ),
-              keyboardDismissBehavior:
-                  widget.keyboardDismissBehavior ??
-                  ScrollViewKeyboardDismissBehavior.manual,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: minHeight),
-                child: Padding(
-                  padding: style.messageListPadding,
-                  child: Column(
-                    key: _messageContentKey,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      AnimatedBuilder(
-                        animation: _oldestEdgeLoadingAnimation,
-                        child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                          child: SizedBox.square(
-                            dimension: style.sendingBadgeSize,
-                            child: Padding(
-                              padding: EdgeInsets.all(
-                                style.sendingBadgePadding,
-                              ),
-                              child: CircularProgressIndicator(
-                                strokeWidth: style.sendingBadgeStrokeWidth,
-                                color: style.sendingBadgeColor,
-                              ),
-                            ),
-                          ),
-                        ),
-                        builder: (context, child) {
-                          final factor = _oldestEdgeLoadingAnimation.value;
-                          if (factor <= 0 &&
-                              !widget.oldestEdgeLoading &&
-                              !_loadingCollapsePending) {
-                            return const SizedBox.shrink();
-                          }
-                          return ClipRect(
-                            child: Align(
-                              alignment: Alignment.topCenter,
-                              heightFactor: factor,
-                              child: Opacity(opacity: factor, child: child),
-                            ),
-                          );
-                        },
-                      ),
-                      if (hasOldestEdgeContent)
-                        ChatOldestEdgeContent(
-                          topTitle: widget.topTitle,
-                          notice: widget.oldestEdgeNotice,
-                          loading: false,
-                          style: style,
-                        ),
-                      if (requiresSecondScroll)
-                        ConstrainedBox(
-                          constraints: BoxConstraints(
-                            minHeight: messageViewportHeight,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              for (
-                                var index = 0;
-                                index < _renderedMessages.length;
-                                index += 1
-                              )
-                                _buildMessageRow(index, style),
-                            ],
-                          ),
-                        )
-                      else
-                        for (
-                          var index = 0;
-                          index < _renderedMessages.length;
-                          index += 1
-                        )
-                          _buildMessageRow(index, style),
-                      SizedBox(height: _layoutCorrectionExtentSignal),
-                    ],
+            child: requiresSecondScroll
+                ? _buildSecondScrollMessageView(
+                    style: style,
+                    minHeight: minHeight,
+                    messageViewportHeight: messageViewportHeight,
+                    hasOldestEdgeContent: hasOldestEdgeContent,
+                  )
+                : _buildLazyMessageView(
+                    style: style,
+                    hasOldestEdgeContent: hasOldestEdgeContent,
                   ),
-                ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildLazyMessageView({
+    required ChatUiStyleConfig style,
+    required bool hasOldestEdgeContent,
+  }) {
+    final renderedMessageCount = _anchorRestorePending
+        ? (_anchorRestoreMessageCount ?? _renderedMessages.length).clamp(
+            0,
+            _renderedMessages.length,
+          )
+        : _renderedMessages.length;
+    final messageIndexByLayoutId = <String, int>{
+      for (var index = 0; index < renderedMessageCount; index += 1)
+        _messageLayoutId(_renderedMessages[index]): index,
+    };
+
+    int? findChildIndex(Key key) {
+      if (key case ValueKey<String>(:final value)) {
+        const prefix = 'location-chat-message-row:';
+        if (!value.startsWith(prefix)) return null;
+        final messageIndex =
+            messageIndexByLayoutId[value.substring(prefix.length)];
+        return messageIndex;
+      }
+      return null;
+    }
+
+    final padding = style.messageListPadding;
+    final horizontalPadding = EdgeInsets.only(
+      left: padding.left,
+      right: padding.right,
+    );
+
+    return CustomScrollView(
+      key: _scrollViewportKey,
+      controller: widget.coordinator.controller,
+      physics: _messageScrollPhysics(),
+      // Keep the retained anchor in the same sliver layout transaction. Once
+      // its exact variable-height offset has been applied, the next frame
+      // returns to the normal lazy cache window.
+      scrollCacheExtent: _anchorRestorePending
+          ? const ScrollCacheExtent.pixels(
+              _locationChatAnchorRestoreCacheExtent,
+            )
+          : null,
+      keyboardDismissBehavior:
+          widget.keyboardDismissBehavior ??
+          ScrollViewKeyboardDismissBehavior.manual,
+      slivers: [
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            padding.left,
+            padding.top,
+            padding.right,
+            0,
+          ),
+          sliver: SliverToBoxAdapter(
+            key: const ValueKey<String>('location-chat-oldest-edge-loading'),
+            child: _buildOldestEdgeLoading(style),
+          ),
+        ),
+        if (hasOldestEdgeContent)
+          SliverPadding(
+            padding: horizontalPadding,
+            sliver: SliverToBoxAdapter(
+              key: const ValueKey<String>('location-chat-oldest-edge-content'),
+              child: ChatOldestEdgeContent(
+                topTitle: widget.topTitle,
+                notice: widget.oldestEdgeNotice,
+                loading: false,
+                style: style,
               ),
             ),
+          ),
+        SliverPadding(
+          padding: horizontalPadding,
+          sliver: SliverList.builder(
+            itemCount: renderedMessageCount,
+            itemBuilder: (context, index) => _buildMessageRow(index, style),
+            findChildIndexCallback: findChildIndex,
+            addAutomaticKeepAlives: false,
+            addRepaintBoundaries: true,
+          ),
+        ),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(
+            padding.left,
+            0,
+            padding.right,
+            padding.bottom,
+          ),
+          sliver: SliverToBoxAdapter(
+            key: const ValueKey<String>('location-chat-layout-correction'),
+            child: SizedBox(height: _layoutCorrectionExtentSignal),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSecondScrollMessageView({
+    required ChatUiStyleConfig style,
+    required double minHeight,
+    required double messageViewportHeight,
+    required bool hasOldestEdgeContent,
+  }) {
+    return SingleChildScrollView(
+      key: _scrollViewportKey,
+      controller: widget.coordinator.controller,
+      physics: _messageScrollPhysics(),
+      keyboardDismissBehavior:
+          widget.keyboardDismissBehavior ??
+          ScrollViewKeyboardDismissBehavior.manual,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: minHeight),
+        child: Padding(
+          padding: style.messageListPadding,
+          child: Column(
+            key: _messageContentKey,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildOldestEdgeLoading(style),
+              if (hasOldestEdgeContent)
+                ChatOldestEdgeContent(
+                  topTitle: widget.topTitle,
+                  notice: widget.oldestEdgeNotice,
+                  loading: false,
+                  style: style,
+                ),
+              ConstrainedBox(
+                constraints: BoxConstraints(minHeight: messageViewportHeight),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (
+                      var index = 0;
+                      index < _renderedMessages.length;
+                      index += 1
+                    )
+                      _buildMessageRow(index, style, lazy: false),
+                  ],
+                ),
+              ),
+              SizedBox(height: _layoutCorrectionExtentSignal),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  ScrollPhysics _messageScrollPhysics() {
+    return LocationChatBottomAnchoringScrollPhysics(
+      shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
+      oldestMessageStopOffset: () => widget.coordinator.oldestMessageStopOffset,
+      shouldStopAtOldestMessage: () =>
+          widget.coordinator.shouldStopAtOldestMessage,
+      takeDetachedLayoutCorrection: _takeDetachedLayoutCorrection,
+    );
+  }
+
+  Widget _buildOldestEdgeLoading(ChatUiStyleConfig style) {
+    return AnimatedBuilder(
+      animation: _oldestEdgeLoadingAnimation,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        child: SizedBox.square(
+          dimension: style.sendingBadgeSize,
+          child: Padding(
+            padding: EdgeInsets.all(style.sendingBadgePadding),
+            child: CircularProgressIndicator(
+              strokeWidth: style.sendingBadgeStrokeWidth,
+              color: style.sendingBadgeColor,
+            ),
+          ),
+        ),
+      ),
+      builder: (context, child) {
+        final factor = _oldestEdgeLoadingAnimation.value;
+        if (factor <= 0 &&
+            !widget.oldestEdgeLoading &&
+            !_loadingCollapsePending) {
+          return const SizedBox.shrink();
+        }
+        return ClipRect(
+          child: Align(
+            alignment: Alignment.topCenter,
+            heightFactor: factor,
+            child: Opacity(opacity: factor, child: child),
           ),
         );
       },
@@ -704,36 +857,78 @@ class _LocationChatAnchoredMessageListState
     );
     if (widget.oldestEdgeLoading || _loadingCollapsePending) return null;
     final correction = nextContentOffset - anchor.contentOffset;
+    _finishAnchorRestoreAfterLayout();
     return correction.abs() > precisionErrorTolerance ? correction : null;
+  }
+
+  void _finishAnchorRestoreAfterLayout() {
+    if (!_anchorRestorePending || _anchorRestoreCleanupScheduled) return;
+    _anchorRestorePending = false;
+    _anchorRestoreMessageCount = null;
+    _anchorRestoreCleanupScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _anchorRestoreCleanupScheduled = false;
+      if (!mounted || _anchorRestorePending) return;
+      setState(() {});
+    });
   }
 
   double? _messageContentOffset(String localId) {
     final messageContext = _messageLayoutKeys[localId]?.currentContext;
-    final contentContext = _messageContentKey.currentContext;
-    final messageRenderObject = messageContext?.findRenderObject();
-    final contentRenderObject = contentContext?.findRenderObject();
-    if (messageRenderObject == null || contentRenderObject == null) return null;
+    if (!_isActive(messageContext)) return null;
+    final messageRenderObject = messageContext!.findRenderObject();
+    if (messageRenderObject == null || !messageRenderObject.attached) {
+      return null;
+    }
 
-    // This runs from ScrollPhysics during layout, where localToGlobal is not
-    // safe. Box parent-data offsets provide the same content-space delta.
-    var offset = 0.0;
+    // This runs from ScrollPhysics while the sliver is laying out. Reading a
+    // RenderBox size (including through getOffsetToReveal) is not legal there.
+    // The sliver child parent data already contains the exact variable-height
+    // layout offset, so use it without forcing another geometry read.
+    var boxOffset = 0.0;
     RenderObject? current = messageRenderObject;
-    while (current != null && current != contentRenderObject) {
+    final contentContext = _messageContentKey.currentContext;
+    final contentRenderObject = _isActive(contentContext)
+        ? contentContext!.findRenderObject()
+        : null;
+    while (current != null) {
+      if (current == contentRenderObject) {
+        return boxOffset.isFinite ? boxOffset : null;
+      }
       final parentData = current.parentData;
-      if (parentData is BoxParentData) offset += parentData.offset.dy;
+      if (parentData is SliverMultiBoxAdaptorParentData) {
+        final layoutOffset = parentData.layoutOffset;
+        if (layoutOffset == null) return null;
+        final offset = layoutOffset + boxOffset;
+        return offset.isFinite ? offset : null;
+      }
+      if (parentData is BoxParentData) {
+        boxOffset += parentData.offset.dy;
+      }
       current = current.parent;
     }
-    return current == contentRenderObject && offset.isFinite ? offset : null;
+    return null;
   }
 
   Rect? _messageBounds(String localId) {
     if (localId.isEmpty) return null;
     final messageContext = _messageLayoutKeys[localId]?.currentContext;
-    final renderObject = messageContext?.findRenderObject();
+    if (!_isActive(messageContext)) return null;
+    final renderObject = messageContext!.findRenderObject();
     if (renderObject is! RenderBox || !_hasLaidOutRenderPath(renderObject)) {
       return null;
     }
     return _globalBounds(renderObject);
+  }
+
+  bool _isActive(BuildContext? context) {
+    if (context == null || !context.mounted) return false;
+    var active = true;
+    assert(() {
+      active = (context as Element).debugIsActive;
+      return true;
+    }());
+    return active;
   }
 
   Rect? _globalBounds(RenderObject? renderObject) {
@@ -760,14 +955,18 @@ class _LocationChatAnchoredMessageListState
     return true;
   }
 
-  Widget _buildMessageRow(int messageIndex, ChatUiStyleConfig style) {
+  Widget _buildMessageRow(
+    int messageIndex,
+    ChatUiStyleConfig style, {
+    bool lazy = true,
+  }) {
     final current = _renderedMessages[messageIndex];
     final previous = messageIndex == 0
         ? null
         : _renderedMessages[messageIndex - 1];
     final layoutId = _messageLayoutId(current);
     final layoutKey = _messageLayoutKeys.putIfAbsent(layoutId, GlobalKey.new);
-    return KeyedSubtree(
+    final row = KeyedSubtree(
       key: layoutKey,
       child: ChatMessageRow(
         key: ValueKey(layoutId),
@@ -781,6 +980,11 @@ class _LocationChatAnchoredMessageListState
             widget.showDateDividers &&
             shouldShowChatDateDivider(previous?.createdAt, current.createdAt),
       ),
+    );
+    if (!lazy) return row;
+    return KeyedSubtree(
+      key: ValueKey<String>('location-chat-message-row:$layoutId'),
+      child: row,
     );
   }
 }
