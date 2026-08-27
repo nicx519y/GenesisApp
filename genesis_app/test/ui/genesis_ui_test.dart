@@ -256,6 +256,37 @@ void main() {
     expect(find.text('Explore'), findsOneWidget);
   });
 
+  testWidgets('search and clear icons use symmetric horizontal insets', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: 'Worldo');
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 300,
+              child: SearchBarPlaceholder(
+                controller: controller,
+                onClear: controller.clear,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final fieldRect = tester.getRect(find.byType(SearchBarPlaceholder));
+    final searchIconRect = tester.getRect(find.byType(Image));
+    final clearIconRect = tester.getRect(find.byIcon(Icons.close));
+    final searchInset = searchIconRect.left - fieldRect.left;
+    final clearInset = fieldRect.right - clearIconRect.right;
+
+    expect(clearInset, searchInset);
+  });
+
   testWidgets('PageHeader reuses SearchBarPlaceholder', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(

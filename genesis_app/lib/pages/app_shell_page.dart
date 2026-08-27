@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/bootstrap/polling_scheduler.dart';
+import '../app/debug_page_tracker.dart';
 import '../app/gems/daily_check_in_coordinator.dart';
 import '../app/startup/app_startup_coordinator.dart';
 import '../app/telemetry/genesis_telemetry.dart';
@@ -49,7 +50,7 @@ class AppShellPage extends StatefulWidget {
 }
 
 class _AppShellPageState extends State<AppShellPage>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, RouteAware {
   late int _selectedIndex;
   late final Set<int> _visitedTabIndexes;
   late final ValueNotifier<bool> _messagesTabActiveNotifier;
@@ -81,6 +82,7 @@ class _AppShellPageState extends State<AppShellPage>
   late bool _hasSeenResumed;
   String? _lastBillingRecoveryUid;
   AppLifecycleState? _lifecycleState;
+  PageRoute<dynamic>? _subscribedRoute;
 
   @override
   void initState() {
@@ -125,6 +127,7 @@ class _AppShellPageState extends State<AppShellPage>
       _handlePostLaunchWorkAllowed,
     );
     WidgetsBinding.instance.removeObserver(this);
+    genesisPageRouteObserver.unsubscribe(this);
     _stopMessagesPolling();
     _messagesTabActiveNotifier.dispose();
     _meTabActiveNotifier.dispose();
@@ -203,11 +206,24 @@ class _AppShellPageState extends State<AppShellPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic> && !identical(route, _subscribedRoute)) {
+      genesisPageRouteObserver.unsubscribe(this);
+      _subscribedRoute = route;
+      genesisPageRouteObserver.subscribe(this, route);
+    }
     final sessionRevision = AppServicesScope.of(context).sessionRevision;
     if (identical(_sessionRevisionListenable, sessionRevision)) return;
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     _sessionRevisionListenable = sessionRevision;
     sessionRevision.addListener(_handleSessionChanged);
+  }
+
+  @override
+  void didPopNext() {
+    if (_selectedIndex == 0) {
+      _notifyActiveTabActivated();
+    }
   }
 
   void _startMessagesPolling() {

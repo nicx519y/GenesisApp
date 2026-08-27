@@ -17,6 +17,7 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_origin_card_geometry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -51,9 +52,147 @@ void main() {
       transport.searchRequests.single.uri.queryParameters['keyword'],
       'ab',
     );
+    expect(
+      transport.searchRequests.single.uri.queryParameters['type'],
+      'origin',
+    );
   });
 
-  testWidgets('limits all sections to three results and opens more tab', (
+  testWidgets('uses card skeletons instead of progress rings while loading', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1400);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(
+      searchDelay: const Duration(seconds: 1),
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('genesis-search-result-list-skeleton')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'genesis-search-result-origin-thumbnail-skeleton',
+        ),
+      ),
+      findsWidgets,
+    );
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin 1'), findsOneWidget);
+  });
+
+  testWidgets('uses the shared list progress style while loading next page', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 900);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(
+      paginated: true,
+      loadMoreDelay: const Duration(seconds: 1),
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final resultsList = find.byType(ListView).hitTestable().first;
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: resultsList, matching: find.byType(Scrollable)),
+    );
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pump();
+
+    expect(
+      find.byKey(const ValueKey<String>('search-result-load-more')),
+      findsOneWidget,
+    );
+    final progress = tester.widget<CircularProgressIndicator>(
+      find.byType(CircularProgressIndicator),
+    );
+    expect(progress.strokeWidth, 2);
+    expect(
+      tester.getSize(find.byType(CircularProgressIndicator)),
+      const Size.square(20),
+    );
+
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin 21'), findsOneWidget);
+  });
+
+  testWidgets('updates all tab totals from every typed response', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1800);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(
+      sectionTotals: const {'origin': 14, 'world': 24, 'user': 34},
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump();
+    final tabRectsBeforeTotals = {
+      for (final tab in const ['origin', 'world', 'user'])
+        tab: tester.getRect(find.byKey(ValueKey<String>('search-tab-$tab'))),
+    };
+    expect(tabRectsBeforeTotals['origin']?.left, 16);
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    for (final entry in tabRectsBeforeTotals.entries) {
+      expect(
+        tester.getRect(find.byKey(ValueKey<String>('search-tab-${entry.key}'))),
+        entry.value,
+      );
+    }
+    expect(_searchTabCount('origin', '14'), findsOneWidget);
+    expect(_searchTabCount('world', '24'), findsOneWidget);
+    expect(_searchTabCount('user', '34'), findsOneWidget);
+    final originCount = tester.widget<Text>(_searchTabCount('origin', '14'));
+    expect(originCount.style?.fontSize, 10);
+    expect(originCount.style?.color, const Color(0xFFFF2442));
+    expect(find.text('All'), findsNothing);
+    expect(find.text('#Origin 4'), findsOneWidget);
+    expect(
+      transport.searchRequests.single.uri.queryParameters['type'],
+      'origin',
+    );
+
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+    expect(_searchTabCount('origin', '14'), findsOneWidget);
+    expect(_searchTabCount('world', '24'), findsOneWidget);
+    expect(_searchTabCount('user', '34'), findsOneWidget);
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'world');
+
+    await tester.tap(find.text('User'));
+    await tester.pumpAndSettle();
+    expect(_searchTabCount('origin', '14'), findsOneWidget);
+    expect(_searchTabCount('world', '24'), findsOneWidget);
+    expect(_searchTabCount('user', '34'), findsOneWidget);
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'user');
+    expect(transport.searchRequests, hasLength(3));
+  });
+
+  testWidgets('selects the default tab from the case-insensitive id prefix', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -61,6 +200,78 @@ void main() {
     addTearDown(tester.view.reset);
 
     final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'U_test');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('User 1'), findsOneWidget);
+    expect(find.text('#Origin 1'), findsNothing);
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'user');
+
+    await tester.enterText(find.byType(TextField), 'w_TEST');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('World 1'), findsOneWidget);
+    expect(find.text('User 1'), findsNothing);
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'world');
+
+    await tester.enterText(find.byType(TextField), 'anything');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.text('World 1'), findsNothing);
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'origin');
+  });
+
+  testWidgets('loads the next page independently for all three typed tabs', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 900);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(paginated: true);
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    for (final entry in const [
+      (tabLabel: 'Worldo', type: 'origin', lastItem: '#Origin 21'),
+      (tabLabel: 'World', type: 'world', lastItem: 'World 21'),
+      (tabLabel: 'User', type: 'user', lastItem: 'User 21'),
+    ]) {
+      if (entry.type != 'origin') {
+        await tester.tap(find.text(entry.tabLabel));
+        await tester.pumpAndSettle();
+      }
+
+      await tester.drag(
+        find.byType(ListView).hitTestable().first,
+        const Offset(0, -5000),
+      );
+      await tester.pumpAndSettle();
+
+      final requests = transport.searchRequests
+          .where((request) => request.uri.queryParameters['type'] == entry.type)
+          .toList(growable: false);
+      expect(requests, hasLength(2));
+      expect(requests.last.uri.queryParameters['pn'], '2');
+      expect(requests.last.uri.queryParameters['rn'], '20');
+      expect(find.text(entry.lastItem), findsOneWidget);
+    }
+  });
+
+  testWidgets('only shows optional Worldo metadata selected by matches', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(originNameMatchOnly: true);
     await _pumpSearchPage(tester, transport);
 
     await tester.enterText(find.byType(TextField), 'ab');
@@ -68,19 +279,12 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('#Origin 1'), findsOneWidget);
-    expect(find.text('#Origin 3'), findsOneWidget);
-    expect(find.text('#Origin 4'), findsNothing);
-    expect(find.text('More >'), findsNWidgets(3));
-
-    await tester.tap(find.text('More >').first);
-    await tester.pumpAndSettle();
-
-    expect(transport.searchRequests, hasLength(2));
-    expect(transport.searchRequests.last.uri.queryParameters['type'], 'origin');
-    expect(find.text('#Origin 4'), findsOneWidget);
+    expect(find.textContaining('Brief:'), findsNothing);
+    expect(find.textContaining('Characters:'), findsNothing);
+    expect(find.textContaining('Latest Version: V1'), findsOneWidget);
   });
 
-  testWidgets('shows world stats as ticks, connects, characters, players', (
+  testWidgets('renders world fields from the v2 search contract', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -94,31 +298,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    final tick = find.text('101');
-    final connect = find.text('201');
-    final character = find.text('301');
-    final player = find.text('401');
-    expect(tick, findsOneWidget);
-    expect(connect, findsOneWidget);
-    expect(character, findsOneWidget);
-    expect(player, findsOneWidget);
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
 
-    final tickOffset = tester.getTopLeft(tick);
-    final connectOffset = tester.getTopLeft(connect);
-    final characterOffset = tester.getTopLeft(character);
-    final playerOffset = tester.getTopLeft(player);
-
-    expect(connectOffset.dx, greaterThan(tickOffset.dx));
-    expect(characterOffset.dx, greaterThan(connectOffset.dx));
-    expect(playerOffset.dx, greaterThan(characterOffset.dx));
-    expect(connectOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
-    expect(characterOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
-    expect(playerOffset.dy, moreOrLessEquals(tickOffset.dy, epsilon: 1));
+    expect(find.text('World 1'), findsOneWidget);
+    expect(find.textContaining('WID: world_1'), findsOneWidget);
+    expect(find.textContaining('Owner: Owner 1'), findsOneWidget);
   });
 
-  testWidgets('shows origin latest version from prefixed string fields', (
-    tester,
-  ) async {
+  testWidgets('shows the origin version returned by v2 search', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1200);
     addTearDown(tester.view.reset);
@@ -130,11 +318,20 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
+    final brief = tester.widget<Text>(
+      find.textContaining('Brief: Origin brief 1'),
+    );
+    expect(brief.textSpan?.toPlainText(), 'Brief: Origin brief 1');
+    expect(brief.maxLines, 2);
+    expect(brief.textSpan?.toPlainText(), isNot(contains('…')));
+    expect(
+      find.textContaining('Characters: Character 1, Supporting 1'),
+      findsOneWidget,
+    );
     expect(find.textContaining('Latest Version: V1'), findsOneWidget);
-    expect(find.textContaining('Latest Version: -'), findsNothing);
   });
 
-  testWidgets('shows deleted for deleted origin owner in search results', (
+  testWidgets('highlights every documented v2 search match field', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -148,8 +345,52 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Originator: deleted'), findsOneWidget);
-    expect(find.textContaining('Originator: Eve'), findsNothing);
+    expect(_highlightedTextParts(tester.widget<Text>(find.text('#Origin 1'))), [
+      'Origin',
+    ]);
+    expect(
+      _highlightedTextParts(
+        tester.widget<Text>(find.textContaining('Brief: Origin brief 1')),
+      ),
+      ['Origin', 'brief'],
+    );
+    expect(
+      _highlightedTextParts(
+        tester.widget<Text>(
+          find.textContaining('Characters: Character 1, Supporting 1'),
+        ),
+      ),
+      ['Character', 'Supporting'],
+    );
+
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+    expect(_highlightedTextParts(tester.widget<Text>(find.text('World 1'))), [
+      'World',
+    ]);
+
+    await tester.tap(find.text('User'));
+    await tester.pumpAndSettle();
+    expect(_highlightedTextParts(tester.widget<Text>(find.text('User 1'))), [
+      'User',
+    ]);
+  });
+
+  testWidgets('shows the documented origin owner name in search results', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Originator: Deleted User'), findsOneWidget);
   });
 
   testWidgets('dismisses search focus when tapping result area', (
@@ -169,13 +410,13 @@ void main() {
     final editable = tester.state<EditableTextState>(find.byType(EditableText));
     expect(editable.widget.focusNode.hasFocus, isTrue);
 
-    await tester.tap(find.text('Worldos').first);
+    await tester.tapAt(const Offset(400, 1100));
     await tester.pump();
 
     expect(editable.widget.focusNode.hasFocus, isFalse);
   });
 
-  testWidgets('uses compact result item spacing for origins and users', (
+  testWidgets('uses the Worldo cover ratio and compact result spacing', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -198,8 +439,8 @@ void main() {
     final originImage = tester.widget<GenesisListImage>(
       find.descendant(of: originTile, matching: find.byType(GenesisListImage)),
     );
-    expect(originImage.width, 52);
-    expect(originImage.height, 52);
+    expect(originImage.width, 60);
+    expect(originImage.height, 60 / genesisOriginCoverAspectRatio);
 
     final originSizedBoxes = tester
         .widgetList<SizedBox>(
@@ -229,6 +470,24 @@ void main() {
     );
     expect(originSubtitle.style?.height, 1.3);
 
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+
+    final worldTile = find
+        .ancestor(
+          of: find.text('World 1'),
+          matching: find.byType(GestureDetector),
+        )
+        .first;
+    final worldImage = tester.widget<GenesisListImage>(
+      find.descendant(of: worldTile, matching: find.byType(GenesisListImage)),
+    );
+    expect(worldImage.width, 60);
+    expect(worldImage.height, 60);
+
+    await tester.tap(find.text('User'));
+    await tester.pumpAndSettle();
+
     final userTile = find
         .ancestor(
           of: find.text('User 1'),
@@ -238,7 +497,22 @@ void main() {
     final userAvatar = tester.widget<GenesisAvatar>(
       find.descendant(of: userTile, matching: find.byType(GenesisAvatar)),
     );
-    expect(userAvatar.size, 52);
+    expect(userAvatar.size, 60);
+    expect(userAvatar.borderRadius, 30);
+
+    final userAvatarRect = tester.getRect(
+      find.descendant(of: userTile, matching: find.byType(GenesisAvatar)),
+    );
+    final userNameRect = tester.getRect(
+      find.descendant(of: userTile, matching: find.text('User 1')),
+    );
+    final userIdRect = tester.getRect(
+      find.descendant(of: userTile, matching: find.textContaining('UID:')),
+    );
+    expect(
+      (userNameRect.top + userIdRect.bottom) / 2,
+      closeTo(userAvatarRect.center.dy, 1),
+    );
 
     final userSizedBoxes = tester
         .widgetList<SizedBox>(
@@ -246,7 +520,7 @@ void main() {
         )
         .toList();
     expect(userSizedBoxes.any((box) => box.width == 10), isTrue);
-    expect(userSizedBoxes.any((box) => box.height == 5), isTrue);
+    expect(userSizedBoxes.any((box) => box.height == 7), isTrue);
   });
 
   testWidgets('uses the full screen DPR for every search result image', (
@@ -266,16 +540,59 @@ void main() {
     final listImages = tester.widgetList<GenesisListImage>(
       find.byType(GenesisListImage),
     );
+    expect(listImages, isNotEmpty);
+    expect(listImages.every((image) => image.maxDevicePixelRatio == 3), isTrue);
+
+    await tester.tap(find.text('User'));
+    await tester.pumpAndSettle();
     final userAvatars = tester.widgetList<GenesisAvatar>(
       find.byType(GenesisAvatar),
     );
-
-    expect(listImages, isNotEmpty);
-    expect(listImages.every((image) => image.maxDevicePixelRatio == 3), isTrue);
     expect(userAvatars, isNotEmpty);
     expect(
       userAvatars.every((avatar) => avatar.maxDevicePixelRatio == 3),
       isTrue,
+    );
+  });
+
+  testWidgets('Worldo cards grow with long briefs and every character name', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(longOriginContent: true);
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final tile = find
+        .ancestor(
+          of: find.text('#Origin 1'),
+          matching: find.byType(GestureDetector),
+        )
+        .first;
+    final brief = tester.widget<Text>(find.textContaining('Brief:'));
+    final characters = find.textContaining('Extra Character 12');
+    final latestVersion = find.textContaining('Latest Version: V1');
+
+    expect(brief.maxLines, 2);
+    expect(brief.textSpan?.toPlainText(), contains('…'));
+    expect(brief.textSpan?.toPlainText(), contains('Latest Version visible'));
+    expect(_highlightedTextParts(brief), contains('Latest Version visible'));
+    expect(characters, findsOneWidget);
+    expect(latestVersion, findsOneWidget);
+    expect(tester.getSize(tile).height, greaterThan(120));
+    expect(
+      tester.getTopLeft(latestVersion).dy,
+      greaterThan(tester.getTopLeft(characters).dy),
+    );
+    expect(
+      tester.getBottomRight(latestVersion).dy,
+      lessThanOrEqualTo(tester.getBottomRight(tile).dy),
     );
   });
 
@@ -304,7 +621,7 @@ void main() {
       },
     );
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'w_test');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -317,6 +634,13 @@ void main() {
     expect(find.text('World 1'), findsNothing);
     expect(find.text('No results.'), findsOneWidget);
   });
+}
+
+Finder _searchTabCount(String tab, String count) {
+  return find.descendant(
+    of: find.byKey(ValueKey<String>('search-tab-count-$tab')),
+    matching: find.text(count),
+  );
 }
 
 Future<void> _pumpSearchPage(
@@ -387,19 +711,39 @@ Future<AppServices> _servicesWithTransport(
 }
 
 class _SearchPageTransport implements HttpTransport {
-  _SearchPageTransport({this.singleWorldResult = false});
+  _SearchPageTransport({
+    this.singleWorldResult = false,
+    this.longOriginContent = false,
+    this.originNameMatchOnly = false,
+    this.paginated = false,
+    this.sectionTotals = const <String, int>{},
+    this.searchDelay = Duration.zero,
+    this.loadMoreDelay = Duration.zero,
+  });
 
   final bool singleWorldResult;
+  final bool longOriginContent;
+  final bool originNameMatchOnly;
+  final bool paginated;
+  final Map<String, int> sectionTotals;
+  final Duration searchDelay;
+  final Duration loadMoreDelay;
   final List<TransportRequest> requests = <TransportRequest>[];
 
   List<TransportRequest> get searchRequests => requests
-      .where((request) => request.uri.path.endsWith('/v1/search'))
+      .where((request) => request.uri.path.endsWith('/v2/search'))
       .toList(growable: false);
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
-    if (request.uri.path.endsWith('/v1/search')) {
+    if (request.uri.path.endsWith('/v2/search')) {
+      final pageNumber =
+          int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
+      final delay = pageNumber > 1 ? loadMoreDelay : searchDelay;
+      if (delay > Duration.zero) {
+        await Future<void>.delayed(delay);
+      }
       if (singleWorldResult) {
         return _jsonResponse({
           'keyword': request.uri.queryParameters['keyword'] ?? '',
@@ -417,9 +761,29 @@ class _SearchPageTransport implements HttpTransport {
       return _jsonResponse({
         'keyword': request.uri.queryParameters['keyword'] ?? '',
         'type': request.uri.queryParameters['type'] ?? '',
-        'origins': _section('origin', request.uri.queryParameters['type']),
-        'worlds': _section('world', request.uri.queryParameters['type']),
-        'users': _section('user', request.uri.queryParameters['type']),
+        'origins': _section(
+          'origin',
+          request.uri.queryParameters['type'],
+          total: sectionTotals['origin'],
+          longOriginContent: longOriginContent,
+          originNameMatchOnly: originNameMatchOnly,
+          paginated: paginated,
+          pageNumber: pageNumber,
+        ),
+        'worlds': _section(
+          'world',
+          request.uri.queryParameters['type'],
+          total: sectionTotals['world'],
+          paginated: paginated,
+          pageNumber: pageNumber,
+        ),
+        'users': _section(
+          'user',
+          request.uri.queryParameters['type'],
+          total: sectionTotals['user'],
+          paginated: paginated,
+          pageNumber: pageNumber,
+        ),
       });
     }
     return _jsonResponse(const <String, dynamic>{});
@@ -430,62 +794,188 @@ Map<String, dynamic> _emptySection() {
   return const {'list': <Object?>[], 'total': 0, 'pn': 1, 'rn': 20};
 }
 
-Map<String, dynamic> _section(String type, String? requestedType) {
+Map<String, dynamic> _section(
+  String type,
+  String? requestedType, {
+  int? total,
+  bool longOriginContent = false,
+  bool originNameMatchOnly = false,
+  bool paginated = false,
+  int pageNumber = 1,
+}) {
+  final resultTotal = total ?? (paginated ? 21 : 4);
   if (requestedType != null &&
       requestedType.isNotEmpty &&
       requestedType != type) {
-    return const {'list': <Object?>[], 'total': 0, 'pn': 1, 'rn': 20};
+    return {
+      'list': const <Object?>[],
+      'total': resultTotal,
+      'pn': pageNumber,
+      'rn': 20,
+    };
   }
+  final itemCount = paginated
+      ? switch (pageNumber) {
+          1 => 20,
+          2 => 1,
+          _ => 0,
+        }
+      : longOriginContent && type == 'origin'
+      ? 1
+      : 4;
+  final firstItemIndex = paginated ? ((pageNumber - 1) * 20) + 1 : 1;
   return {
-    'list': [for (var index = 1; index <= 4; index += 1) _item(type, index)],
-    'total': 4,
-    'pn': 1,
+    'list': [
+      for (var offset = 0; offset < itemCount; offset += 1)
+        _item(
+          type,
+          firstItemIndex + offset,
+          longOriginContent: longOriginContent,
+          originNameMatchOnly: originNameMatchOnly,
+        ),
+    ],
+    'total': total ?? (paginated ? 21 : itemCount),
+    'pn': pageNumber,
     'rn': 20,
   };
 }
 
-Map<String, dynamic> _item(String type, int index) {
+const _longOriginBrief =
+    'This is a deliberately long Worldo brief used to verify that the '
+    'search result card measures its complete content, wraps onto '
+    'additional lines, and still keeps Latest Version visible.';
+
+Map<String, dynamic> _item(
+  String type,
+  int index, {
+  bool longOriginContent = false,
+  bool originNameMatchOnly = false,
+}) {
   return switch (type) {
     'origin' => {
-      'info': {
-        'origin_id': 'origin_$index',
-        'origin_name': 'Origin $index',
-        'owner_name': index == 1 ? 'Eve' : 'Owner $index',
-        'owner_user': {'deleted': index == 1, 'name': 'Owner $index'},
-        'origin_version': '-',
-        'latestVersion': {'versionNum': index},
-        'origin_version_time': 1777680000 + index,
-        'cover': '',
-      },
-      'stats': {
-        'copy_cnt': index,
-        'connect_cnt': index,
-        'character_cnt': index,
-      },
-    },
-    'world' => {
-      'info': {
-        'world_id': 'world_$index',
-        'world_name': 'World $index',
-        'cover': '',
-      },
-      'stats': {
-        'tick_cnt': 100 + index,
-        'connect_cnt': 200 + index,
-        'character_cnt': 300 + index,
-        'player_cnt': 400 + index,
-      },
-    },
-    _ => {
-      'user': {
-        'uid': 'user_$index',
-        'name': 'User $index',
-        'bio': 'Bio $index',
+      'origin_id': 'origin_$index',
+      'origin_name': 'Origin $index',
+      'origin_version': '$index',
+      'brief': longOriginContent ? _longOriginBrief : 'Origin brief $index',
+      'language': 'en',
+      'owner': {
+        'uid': 'owner_$index',
+        'name': index == 1 ? 'Deleted User' : 'Owner $index',
         'avatar': '',
       },
-      'relation': const <String, dynamic>{},
+      'latestVersion': {'versionNum': index},
+      'cover': '',
+      'tags': ['tag-$index'],
+      'characters': [
+        {'character_id': 'character_$index', 'name': 'Character $index'},
+        {'character_id': 'supporting_$index', 'name': 'Supporting $index'},
+        if (longOriginContent)
+          for (
+            var characterIndex = 3;
+            characterIndex <= 12;
+            characterIndex += 1
+          )
+            {
+              'character_id': 'extra_${index}_$characterIndex',
+              'name': 'Extra Character $characterIndex',
+            },
+      ],
+      'stats': {
+        'copy_cnt': index,
+        'discuss_cnt': index + 10,
+        'connect_cnt': index,
+        'character_cnt': index,
+        'location_cnt': index + 20,
+        'max_tick_cnt': index + 30,
+      },
+      'matches': [
+        {
+          'field': 'origin_name',
+          'highlight_ranges': [
+            {'start': 0, 'length': 6},
+          ],
+        },
+        if (!originNameMatchOnly) ...[
+          {
+            'field': 'brief',
+            'highlight_ranges': [
+              {'start': 0, 'length': 6},
+              {'start': 7, 'length': 5},
+              if (longOriginContent)
+                {
+                  'start': _longOriginBrief.indexOf('Latest Version visible'),
+                  'length': 'Latest Version visible'.length,
+                },
+            ],
+          },
+          {
+            'field': 'character_name',
+            'character_id': 'character_$index',
+            'highlight_ranges': [
+              {'start': 0, 'length': 9},
+            ],
+          },
+          {
+            'field': 'character_name',
+            'character_id': 'supporting_$index',
+            'highlight_ranges': [
+              {'start': 0, 'length': 10},
+            ],
+          },
+        ],
+      ],
+      'matches_truncated': false,
+    },
+    'world' => {
+      'world_id': 'world_$index',
+      'world_name': 'World $index',
+      'origin_id': 'origin_$index',
+      'language': 'en',
+      'cover': '',
+      'owner': {'uid': 'owner_$index', 'name': 'Owner $index', 'avatar': ''},
+      'created_at': 1777680000 + index,
+      'matches': [
+        {
+          'field': 'world_name',
+          'highlight_ranges': [
+            {'start': 0, 'length': 5},
+          ],
+        },
+      ],
+    },
+    _ => {
+      'uid': 'user_$index',
+      'name': 'User $index',
+      'avatar': '',
+      'matches': [
+        {
+          'field': 'user_name',
+          'highlight_ranges': [
+            {'start': 0, 'length': 4},
+          ],
+        },
+      ],
     },
   };
+}
+
+List<String> _highlightedTextParts(Text text) {
+  final result = <String>[];
+
+  void collect(InlineSpan span) {
+    if (span is! TextSpan) return;
+    if (span.style?.color == const Color(0xFFFF2442) && span.text != null) {
+      expect(span.style?.backgroundColor, isNull);
+      result.add(span.text!);
+    }
+    for (final child in span.children ?? const <InlineSpan>[]) {
+      collect(child);
+    }
+  }
+
+  final span = text.textSpan;
+  if (span != null) collect(span);
+  return result;
 }
 
 TransportResponse _jsonResponse(Map<String, dynamic> data) {

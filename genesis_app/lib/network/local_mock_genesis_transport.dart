@@ -353,6 +353,13 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, String> query,
     Map<String, dynamic> body,
   ) async {
+    if (method == 'GET' && path == 'search') {
+      if (kDebugMode) {
+        debugPrint('[LocalMockGenesisTransport] GET /api/v2/search $query');
+      }
+      return _v1Ok(_state.v1Search(query));
+    }
+
     if (method == 'GET' && path == 'origin/foredit') {
       final originId = (query['origin_id'] ?? '').trim();
       if (originId.isEmpty) {
@@ -899,13 +906,6 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok({
         'feedback_id': 'fbk_mock_${DateTime.now().microsecondsSinceEpoch}',
       });
-    }
-
-    if (method == 'GET' && path == 'search') {
-      if (kDebugMode) {
-        debugPrint('[LocalMockGenesisTransport] GET /api/v1/search $query');
-      }
-      return _v1Ok(_state.v1Search(query));
     }
 
     if (method == 'GET' && path == 'search/suggest') {
@@ -4010,7 +4010,32 @@ class _MockState {
               matches(origin['created_user_name']) ||
               matches((origin['tags'] as List?)?.join(' ')),
         )
-        .map(_v1OriginContractItem)
+        .map((origin) {
+          final contract = _v1OriginContractItem(origin);
+          final info = _mapFromObject(contract['info']);
+          return <String, dynamic>{
+            'origin_id': info['origin_id'],
+            'origin_name': info['origin_name'],
+            'origin_version': info['origin_version'],
+            'brief': info['brief'],
+            'language': info['language'],
+            'cover': info['cover'],
+            'tags': info['tags'],
+            'characters': _originEditCharacters(origin)
+                .map(
+                  (character) => <String, dynamic>{
+                    'character_id':
+                        character['character_id'] ?? character['char_id'] ?? '',
+                    'name': character['name'] ?? '',
+                  },
+                )
+                .toList(growable: false),
+            'owner': _searchV2Owner(info['owner_user']),
+            'stats': contract['stats'],
+            'matches': const <Map<String, dynamic>>[],
+            'matches_truncated': false,
+          };
+        })
         .toList();
 
     final worldResults = _v1Worlds
@@ -4022,17 +4047,26 @@ class _MockState {
               matches(world['owner_name']) ||
               matches((world['tags'] as List?)?.join(' ')),
         )
-        .map(
-          (world) => {
-            ..._v1WorldContractItem(world),
-            'last_tick': {
-              'tick_no': world['tick_cnt'] ?? 0,
-              'narrator': world['last_progress_summary'] ?? '',
-              'created_at': world['last_progress_at'] ?? 0,
-              'paragraphs': const <Map<String, dynamic>>[],
-            },
-          },
-        )
+        .map((world) {
+          final contract = _v1WorldContractItem(world);
+          final info = _mapFromObject(contract['info']);
+          final ownerUid = '${info['owner_uid'] ?? ''}';
+          return <String, dynamic>{
+            'world_id': info['world_id'],
+            'world_name': info['world_name'],
+            'origin_id': info['origin_id'],
+            'language': world['language'] ?? '',
+            'cover': info['cover'],
+            'owner': _searchV2Owner(
+              _contractPublicUser(
+                ownerUid,
+                fallbackName: '${info['owner_name'] ?? ''}',
+              ),
+            ),
+            'created_at': info['created_at'],
+            'matches': const <Map<String, dynamic>>[],
+          };
+        })
         .toList();
 
     final userResults = _v1SearchUsers
@@ -4044,22 +4078,11 @@ class _MockState {
               matches(item['user_code']),
         )
         .map(
-          (item) => {
-            'user': {
-              'uid': item['uid'] ?? '',
-              'name': item['name'] ?? '',
-              'avatar': _mockImageObject(item['avatar']),
-              'bio': item['bio'] ?? '',
-              'last_login_at': item['last_login_at'] ?? kMockV1Now,
-              'create_at': item['create_at'] ?? kMockV1Now,
-              'follower_cnt': item['follower_cnt'] ?? 0,
-              'following_cnt': item['following_cnt'] ?? 0,
-              'friend_cnt': item['friend_cnt'] ?? 0,
-              'create_origin_cnt': item['create_origin_cnt'] ?? 0,
-              'launch_world_cnt': item['launch_world_cnt'] ?? 0,
-              'join_world_cnt': item['join_world_cnt'] ?? 0,
-            },
-            'relation': _relationForSearchUser(item),
+          (item) => <String, dynamic>{
+            'uid': item['uid'] ?? '',
+            'name': item['name'] ?? '',
+            'avatar': _mockImageObject(item['avatar']),
+            'matches': const <Map<String, dynamic>>[],
           },
         )
         .toList();
@@ -4093,6 +4116,15 @@ class _MockState {
   int _positiveInt(String? value, {required int fallback}) {
     final parsed = int.tryParse(value ?? '') ?? fallback;
     return parsed < 1 ? fallback : parsed;
+  }
+
+  Map<String, dynamic> _searchV2Owner(Object? value) {
+    final owner = _mapFromObject(value);
+    return <String, dynamic>{
+      'uid': owner['uid'] ?? '',
+      'name': owner['name'] ?? '',
+      'avatar': owner['avatar'] ?? _mockImageObject(''),
+    };
   }
 
   List<Map<String, dynamic>> _pageSearchResults(

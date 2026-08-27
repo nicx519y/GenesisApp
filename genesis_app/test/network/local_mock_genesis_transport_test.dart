@@ -1278,16 +1278,15 @@ void main() {
     expect(feedback['feedback_id'], startsWith('fbk_mock_'));
 
     final search = await api.v1.search.search(query: 'steam');
-    expect((search['origins'] as Map)['list'] as List, isNotEmpty);
+    expect(search.origins.items, isNotEmpty);
+    expect(search.origins.items.first.originVersion, isNotEmpty);
     await api.v1.search.suggest(query: 'steam', limit: 10);
 
     final rebornSearch = await api.v1.search.search(query: '重生', pn: 1, rn: 20);
-    final rebornOrigins = rebornSearch['origins'] as Map;
-    final rebornWorlds = rebornSearch['worlds'] as Map;
-    expect(rebornOrigins['total'], greaterThan(0));
-    expect(rebornOrigins['list'] as List, isNotEmpty);
-    expect(rebornWorlds['total'], greaterThan(0));
-    expect(rebornWorlds['list'] as List, isNotEmpty);
+    expect(rebornSearch.origins.total, greaterThan(0));
+    expect(rebornSearch.origins.items, isNotEmpty);
+    expect(rebornSearch.worlds.total, greaterThan(0));
+    expect(rebornSearch.worlds.items, isNotEmpty);
 
     final userSearch = await api.v1.search.search(
       query: '老肖',
@@ -1295,18 +1294,26 @@ void main() {
       pn: 1,
       rn: 20,
     );
-    final userSearchGroup = userSearch['users'] as Map;
-    expect(userSearchGroup['total'], greaterThan(0));
-    expect(userSearchGroup['list'] as List, isNotEmpty);
+    expect(userSearch.users.total, greaterThan(0));
+    expect(userSearch.users.items, isNotEmpty);
 
     final searchAllPage1 = await api.v1.search.search(query: '', pn: 1, rn: 20);
     for (final group in [
-      searchAllPage1['origins'] as Map,
-      searchAllPage1['worlds'] as Map,
-      searchAllPage1['users'] as Map,
+      (
+        total: searchAllPage1.origins.total,
+        count: searchAllPage1.origins.items.length,
+      ),
+      (
+        total: searchAllPage1.worlds.total,
+        count: searchAllPage1.worlds.items.length,
+      ),
+      (
+        total: searchAllPage1.users.total,
+        count: searchAllPage1.users.items.length,
+      ),
     ]) {
-      expect(group['total'], greaterThanOrEqualTo(50));
-      expect(group['list'] as List, hasLength(20));
+      expect(group.total, greaterThanOrEqualTo(50));
+      expect(group.count, 20);
     }
     final searchUserPage2 = await api.v1.search.search(
       query: '',
@@ -1314,12 +1321,10 @@ void main() {
       pn: 2,
       rn: 20,
     );
-    final userGroup = searchUserPage2['users'] as Map;
-    final originGroup = searchUserPage2['origins'] as Map;
-    expect(userGroup['total'], greaterThanOrEqualTo(50));
-    expect(userGroup['list'] as List, hasLength(20));
-    expect(originGroup['total'], 0);
-    expect(originGroup['list'] as List, isEmpty);
+    expect(searchUserPage2.users.total, greaterThanOrEqualTo(50));
+    expect(searchUserPage2.users.items, hasLength(20));
+    expect(searchUserPage2.origins.total, 0);
+    expect(searchUserPage2.origins.items, isEmpty);
 
     final upload = await api.v1.common.uploadFile(
       bytes: const [1, 2, 3],

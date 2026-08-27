@@ -55,6 +55,119 @@ class GenesisListLoadingBone extends StatelessWidget {
   }
 }
 
+enum GenesisSearchResultSkeletonType { origin, world, user }
+
+class GenesisSearchResultLoadingSkeleton extends StatelessWidget {
+  const GenesisSearchResultLoadingSkeleton.list({
+    super.key,
+    required this.type,
+    this.itemCount = 6,
+  });
+
+  final GenesisSearchResultSkeletonType type;
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return _SkeletonShimmer(
+      child: _SearchResultSkeletonList(type: type, itemCount: itemCount),
+    );
+  }
+}
+
+class _SearchResultSkeletonList extends StatelessWidget {
+  const _SearchResultSkeletonList({
+    required this.type,
+    required this.itemCount,
+  });
+
+  final GenesisSearchResultSkeletonType type;
+  final int itemCount;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      key: const ValueKey<String>('genesis-search-result-list-skeleton'),
+      primary: false,
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 28),
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
+      ),
+      itemCount: itemCount,
+      itemBuilder: (context, index) => Padding(
+        padding: const EdgeInsets.only(bottom: 22),
+        child: _SearchResultSkeletonItem(type: type),
+      ),
+    );
+  }
+}
+
+class _SearchResultSkeletonItem extends StatelessWidget {
+  const _SearchResultSkeletonItem({required this.type});
+
+  final GenesisSearchResultSkeletonType type;
+
+  @override
+  Widget build(BuildContext context) {
+    final isOrigin = type == GenesisSearchResultSkeletonType.origin;
+    final isUser = type == GenesisSearchResultSkeletonType.user;
+    return Row(
+      key: const ValueKey<String>('genesis-search-result-item-skeleton'),
+      crossAxisAlignment: isUser
+          ? CrossAxisAlignment.center
+          : CrossAxisAlignment.start,
+      children: [
+        _SkeletonBone(
+          key: ValueKey<String>(
+            'genesis-search-result-${type.name}-thumbnail-skeleton',
+          ),
+          width: 60,
+          height: isOrigin ? 90 : 60,
+          borderRadius: isUser ? 30 : GenesisImageRadii.contentValue,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const _SkeletonBone(
+                widthFactor: 0.56,
+                height: 14,
+                borderRadius: 4,
+              ),
+              SizedBox(height: isUser ? 7 : 5),
+              _SkeletonBone(
+                widthFactor: isUser ? 0.42 : 0.76,
+                height: 12,
+                borderRadius: 4,
+              ),
+              if (isOrigin) ...[
+                const SizedBox(height: 5),
+                const _SkeletonBone(
+                  widthFactor: 0.88,
+                  height: 12,
+                  borderRadius: 4,
+                ),
+                const SizedBox(height: 5),
+                const _SkeletonBone(
+                  widthFactor: 0.62,
+                  height: 12,
+                  borderRadius: 4,
+                ),
+              ],
+              if (!isUser) ...[
+                const SizedBox(height: 8),
+                const _SkeletonLineRow(widths: [30, 34, 32, 30], height: 12),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _WorldListSkeleton extends StatelessWidget {
   const _WorldListSkeleton({required this.itemCount});
 
