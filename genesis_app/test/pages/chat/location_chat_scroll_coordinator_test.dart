@@ -85,6 +85,23 @@ void main() {
     );
   }
 
+  testWidgets('location chat disables overscroll indicators', (tester) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+
+    await tester.pumpWidget(viewport(coordinator));
+    await tester.pump();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>('location-chat-message-scroll-configuration'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(StretchingOverscrollIndicator), findsNothing);
+    expect(find.byType(GlowingOverscrollIndicator), findsNothing);
+  });
+
   testWidgets('async long content accepts the first user drag', (tester) async {
     final coordinator = LocationChatScrollCoordinator();
     final messageCount = ValueNotifier<int>(0);

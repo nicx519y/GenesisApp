@@ -8,10 +8,15 @@ class ChatHeader extends StatelessWidget {
     required this.connected,
     required this.connecting,
     required this.onBack,
+    this.titleSuffix,
+    this.titleSuffixSemanticsLabel,
+    this.titleOverline,
+    this.titleOverlineStyle,
     this.showTitleIcon = true,
     this.showSubtitle = true,
     this.showMoreButton = true,
     this.alignContentLeft = false,
+    this.trailingVerticallyCentered = false,
     this.subtitleIconAsset,
     this.trailing,
     this.style,
@@ -22,10 +27,15 @@ class ChatHeader extends StatelessWidget {
   final bool connected;
   final bool connecting;
   final VoidCallback onBack;
+  final Widget? titleSuffix;
+  final String? titleSuffixSemanticsLabel;
+  final String? titleOverline;
+  final TextStyle? titleOverlineStyle;
   final bool showTitleIcon;
   final bool showSubtitle;
   final bool showMoreButton;
   final bool alignContentLeft;
+  final bool trailingVerticallyCentered;
   final String? subtitleIconAsset;
   final Widget? trailing;
   final ChatUiStyleConfig? style;
@@ -37,7 +47,27 @@ class ChatHeader extends StatelessWidget {
     final headerSidePadding = trailing == null
         ? style.headerTrailingPlaceholderWidth
         : _chatHeaderTrailingWidth;
-    final trailingInTitleRow = alignContentLeft && trailing != null;
+    final trailingInTitleRow =
+        alignContentLeft && trailing != null && !trailingVerticallyCentered;
+    final centeredTrailing =
+        alignContentLeft && trailing != null && trailingVerticallyCentered;
+    final titleText = _ChatHeaderTitleText(
+      title: title,
+      suffix: titleSuffix,
+      suffixSemanticsLabel: titleSuffixSemanticsLabel,
+      style: style.headerTitleTextStyle,
+    );
+    final overline = titleOverline?.trim() ?? '';
+    final overlineStyle =
+        titleOverlineStyle ??
+        style.headerTitleTextStyle.copyWith(
+          color: (style.headerTitleTextStyle.color ?? Colors.white).withValues(
+            alpha: 0.45,
+          ),
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          height: 1,
+        );
     return ClipRect(
       child: _ChatHeaderBackdropFilter(
         sigma: style.headerBackdropBlurSigma,
@@ -69,115 +99,155 @@ class ChatHeader extends StatelessWidget {
                   left: alignContentLeft
                       ? style.headerTrailingPlaceholderWidth
                       : 0,
-                  right: alignContentLeft && !trailingInTitleRow
+                  right:
+                      alignContentLeft &&
+                          !trailingInTitleRow &&
+                          !centeredTrailing
                       ? headerSidePadding
                       : 0,
                   top: 0,
                   bottom: 0,
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: alignContentLeft
-                        ? CrossAxisAlignment.start
-                        : CrossAxisAlignment.center,
+                  child: Row(
                     children: [
-                      Padding(
-                        padding: alignContentLeft
-                            ? EdgeInsets.zero
-                            : EdgeInsets.symmetric(
-                                horizontal: headerSidePadding,
-                              ),
-                        child: Row(
-                          mainAxisAlignment: alignContentLeft
-                              ? MainAxisAlignment.start
-                              : MainAxisAlignment.center,
-                          mainAxisSize: alignContentLeft
-                              ? MainAxisSize.max
-                              : MainAxisSize.min,
+                      Expanded(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: alignContentLeft
+                              ? CrossAxisAlignment.start
+                              : CrossAxisAlignment.center,
                           children: [
-                            if (showTitleIcon) ...[
-                              Icon(
-                                Icons.place_outlined,
-                                size: style.headerTitleIconSize,
-                                color: style.headerTitleIconColor,
+                            if (overline.isNotEmpty) ...[
+                              Padding(
+                                padding: alignContentLeft
+                                    ? EdgeInsets.only(
+                                        left: showTitleIcon
+                                            ? style.headerTitleIconSize +
+                                                  style.headerTitleIconGap
+                                            : 0,
+                                      )
+                                    : EdgeInsets.symmetric(
+                                        horizontal: headerSidePadding,
+                                      ),
+                                child: Row(
+                                  mainAxisAlignment: alignContentLeft
+                                      ? MainAxisAlignment.start
+                                      : MainAxisAlignment.center,
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        overline,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: overlineStyle,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    _ChatHeaderOverlineChevron(
+                                      color:
+                                          overlineStyle.color ??
+                                          style.headerTitleIconColor,
+                                    ),
+                                  ],
+                                ),
                               ),
-                              SizedBox(width: style.headerTitleIconGap),
                             ],
-                            if (alignContentLeft)
-                              Expanded(
-                                child: Text(
-                                  genesisDisplaySafeText(title),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: style.headerTitleTextStyle,
-                                ),
-                              )
-                            else
-                              Flexible(
-                                child: Text(
-                                  genesisDisplaySafeText(title),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: style.headerTitleTextStyle,
+                            Padding(
+                              padding: alignContentLeft
+                                  ? EdgeInsets.zero
+                                  : EdgeInsets.symmetric(
+                                      horizontal: headerSidePadding,
+                                    ),
+                              child: Row(
+                                mainAxisAlignment: alignContentLeft
+                                    ? MainAxisAlignment.start
+                                    : MainAxisAlignment.center,
+                                mainAxisSize: alignContentLeft
+                                    ? MainAxisSize.max
+                                    : MainAxisSize.min,
+                                children: [
+                                  if (showTitleIcon) ...[
+                                    Icon(
+                                      Icons.place_outlined,
+                                      size: style.headerTitleIconSize,
+                                      color: style.headerTitleIconColor,
+                                    ),
+                                    SizedBox(width: style.headerTitleIconGap),
+                                  ],
+                                  if (alignContentLeft)
+                                    Expanded(child: titleText)
+                                  else
+                                    Flexible(child: titleText),
+                                  if (trailingInTitleRow)
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: Transform.translate(
+                                        offset: const Offset(0, 2),
+                                        child: trailing,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            if (showSubtitle) ...[
+                              SizedBox(height: style.headerSubtitleTopGap),
+                              Padding(
+                                padding: alignContentLeft
+                                    ? EdgeInsets.zero
+                                    : const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                      ),
+                                child: Row(
+                                  mainAxisAlignment: alignContentLeft
+                                      ? MainAxisAlignment.start
+                                      : MainAxisAlignment.center,
+                                  children: [
+                                    if (subtitleIconAsset != null)
+                                      _ChatHeaderSubtitleAssetIcon(
+                                        asset: subtitleIconAsset!,
+                                        style: style,
+                                      )
+                                    else if (connected)
+                                      _ChatHeaderSubtitleAssetIcon(
+                                        asset: characterStatIconAsset,
+                                        style: style,
+                                      )
+                                    else
+                                      Icon(
+                                        connecting
+                                            ? Icons.sync
+                                            : Icons.cloud_off,
+                                        size: style.headerStatusIconSize,
+                                        color: style.headerStatusIconColor,
+                                      ),
+                                    SizedBox(width: style.headerStatusIconGap),
+                                    Flexible(
+                                      child: Text(
+                                        genesisDisplaySafeText(subtitle),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: alignContentLeft
+                                            ? TextAlign.left
+                                            : TextAlign.center,
+                                        style: style.headerSubtitleTextStyle,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                            if (trailingInTitleRow)
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: Transform.translate(
-                                  offset: const Offset(0, 2),
-                                  child: trailing,
-                                ),
-                              ),
+                            ],
                           ],
                         ),
                       ),
-                      if (showSubtitle) ...[
-                        SizedBox(height: style.headerSubtitleTopGap),
-                        Padding(
-                          padding: alignContentLeft
-                              ? EdgeInsets.zero
-                              : const EdgeInsets.symmetric(horizontal: 10),
-                          child: Row(
-                            mainAxisAlignment: alignContentLeft
-                                ? MainAxisAlignment.start
-                                : MainAxisAlignment.center,
-                            children: [
-                              if (subtitleIconAsset != null)
-                                _ChatHeaderSubtitleAssetIcon(
-                                  asset: subtitleIconAsset!,
-                                  style: style,
-                                )
-                              else if (connected)
-                                _ChatHeaderSubtitleAssetIcon(
-                                  asset: characterStatIconAsset,
-                                  style: style,
-                                )
-                              else
-                                Icon(
-                                  connecting ? Icons.sync : Icons.cloud_off,
-                                  size: style.headerStatusIconSize,
-                                  color: style.headerStatusIconColor,
-                                ),
-                              SizedBox(width: style.headerStatusIconGap),
-                              Flexible(
-                                child: Text(
-                                  genesisDisplaySafeText(subtitle),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  textAlign: alignContentLeft
-                                      ? TextAlign.left
-                                      : TextAlign.center,
-                                  style: style.headerSubtitleTextStyle,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                      if (centeredTrailing) ...[
+                        const SizedBox(width: 10),
+                        trailing!,
                       ],
                     ],
                   ),
                 ),
-                if (trailing != null && !trailingInTitleRow)
+                if (trailing != null &&
+                    !trailingInTitleRow &&
+                    !centeredTrailing)
                   Align(
                     alignment: Alignment.centerRight,
                     child: SizedBox(
@@ -213,6 +283,94 @@ class ChatHeader extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ChatHeaderTitleText extends StatelessWidget {
+  const _ChatHeaderTitleText({
+    required this.title,
+    required this.style,
+    this.suffix,
+    this.suffixSemanticsLabel,
+  });
+
+  final String title;
+  final TextStyle style;
+  final Widget? suffix;
+  final String? suffixSemanticsLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleTitle = genesisDisplaySafeText(title);
+    final spokenSuffix = suffixSemanticsLabel?.trim() ?? '';
+    return Semantics(
+      label: spokenSuffix.isEmpty
+          ? visibleTitle
+          : '$visibleTitle $spokenSuffix',
+      excludeSemantics: true,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.baseline,
+        textBaseline: TextBaseline.alphabetic,
+        children: [
+          Flexible(
+            child: Text(
+              visibleTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style,
+            ),
+          ),
+          if (suffix != null) ...[const SizedBox(width: 4), suffix!],
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatHeaderOverlineChevron extends StatelessWidget {
+  const _ChatHeaderOverlineChevron({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 7,
+      child: CustomPaint(
+        painter: _ChatHeaderOverlineChevronPainter(
+          color: color.withValues(alpha: color.a * 0.5),
+        ),
+      ),
+    );
+  }
+}
+
+class _ChatHeaderOverlineChevronPainter extends CustomPainter {
+  const _ChatHeaderOverlineChevronPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.25
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    canvas.drawPath(
+      Path()
+        ..moveTo(size.width * 0.35, size.height * 0.18)
+        ..lineTo(size.width * 0.68, size.height * 0.5)
+        ..lineTo(size.width * 0.35, size.height * 0.82),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_ChatHeaderOverlineChevronPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 

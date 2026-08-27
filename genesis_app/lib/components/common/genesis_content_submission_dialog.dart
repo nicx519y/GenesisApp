@@ -94,6 +94,9 @@ class _GenesisContentSubmissionDialogState
         key: widget.contentInputKey,
         controller: _controller,
         focusNode: _focusNode,
+        cursorColor:
+            Theme.of(context).textTheme.bodyLarge?.color ??
+            const Color(0xFF111111),
         autofocus: true,
         minLines: 3,
         maxLines: 3,

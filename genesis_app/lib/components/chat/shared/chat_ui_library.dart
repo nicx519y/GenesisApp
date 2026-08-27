@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
@@ -72,13 +73,14 @@ const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
 const double _npcChatAvatarSize = 36;
 const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
-const Color _locationChatBackgroundColor = Color(0xFF111111);
-const Color _locationChatSurfaceColor = Color(0xE6111111);
+const Color _locationChatBackgroundColor = Color(0xFF151517);
+const Color _locationChatSurfaceColor = Colors.transparent;
 const double _locationChatSurfaceBlurSigma = 4;
 const double _chatHeaderTrailingWidth = 96;
 
 ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   conversationBackgroundColor: _locationChatBackgroundColor,
+  headerHeight: 50,
   headerBackgroundColor: _locationChatSurfaceColor,
   clearHeaderBackgroundGradient: true,
   headerTitleTextStyle: ChatUiStyleConfig.standard.headerTitleTextStyle
@@ -91,14 +93,54 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   composerBackgroundColor: _locationChatSurfaceColor,
   clearComposerBackgroundGradient: true,
   composerBackdropBlurSigma: _locationChatSurfaceBlurSigma,
+  composerSendButtonWidth: 40,
+  composerSendButtonHeight: 40,
+  composerSendButtonBorderRadius: 20,
+  composerSendButtonColor: const Color(0xFFFF2442),
+  composerSendButtonDisabledColor: const Color(0x21FFFFFF),
+  composerSendButtonBackdropBlurSigma: 14,
+  composerSendButtonIconSize: 17,
+  composerActionGap: 9,
+  inputBackgroundColor: const Color(0x1FFFFFFF),
+  inputBorderRadius: 8,
+  inputTextStyle: ChatUiStyleConfig.standard.inputTextStyle.copyWith(
+    color: Colors.white,
+    fontSize: 14,
+    height: 1.4,
+  ),
   messageListPadding: ChatUiStyleConfig.standard.messageListPadding.copyWith(
     left: _locationChatOuterPadding,
     right: _locationChatOuterPadding,
   ),
+  rowBottomPadding: 14,
   avatarSideSpacerWidth: _locationChatAvatarOneThird,
-  systemMessageMargin: EdgeInsets.only(
-    left: _locationChatAvatarOneThird,
-    right: _locationChatAvatarOneThird,
-    bottom: 18,
+  senderNameBottomGap: 6,
+  senderNameTextStyle: const TextStyle(
+    color: Color(0xFFF4F3F6),
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    height: 1,
+  ),
+  bubblePadding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+  bubbleBorderRadius: 14,
+  selfBubbleColor: const Color(0x99C41F2E),
+  otherBubbleColor: const Color(0x993A3942),
+  bubbleTextStyle: const TextStyle(
+    color: Color(0xFFF4F3F6),
+    fontSize: 14,
+    height: 1.4,
+    fontWeight: FontWeight.w400,
+  ),
+  useScenePlateBubbleGeometry: true,
+  bubbleBackdropBlurSigma: 14,
+  systemMessageMargin: const EdgeInsets.only(bottom: 14),
+  systemMessagePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  systemMessageBackgroundColor: const Color(0x14FFFFFF),
+  systemMessageBorderRadius: 8,
+  systemMessageTextStyle: const TextStyle(
+    color: Color(0x99FFFFFF),
+    fontSize: 13,
+    height: 1.3,
+    fontWeight: FontWeight.w400,
   ),
 );

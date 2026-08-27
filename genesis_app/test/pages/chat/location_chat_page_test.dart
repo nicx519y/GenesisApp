@@ -31,6 +31,8 @@ import 'package:genesis_flutter_android/platform/channels/genesis_method_channel
 import 'package:genesis_flutter_android/platform/device/android_sdk_version.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_avatar_radii.dart';
 
 String _readLocationChatImplementationSource() {
   return [
@@ -246,6 +248,51 @@ void main() {
     final textField = find.byType(TextField);
     final restingBottom = tester.getBottomRight(textField).dy;
     expect(scaffold.resizeToAvoidBottomInset, isFalse);
+    expect(
+      tester.widget<ChatComposer>(find.byType(ChatComposer)).hintText,
+      'Text...',
+    );
+    expect(
+      tester
+          .widget<ChatHeader>(find.byType(ChatHeader))
+          .style
+          ?.headerBackdropBlurSigma,
+      4,
+    );
+    final composerWidget = tester.widget<ChatComposer>(
+      find.byType(ChatComposer),
+    );
+    expect(composerWidget.style?.composerBackdropBlurSigma, 4);
+    expect(composerWidget.style?.composerSendButtonBackdropBlurSigma, 14);
+    final messageViewport = find.byKey(
+      const ValueKey<String>('location-chat-message-viewport-clip'),
+    );
+    expect(
+      tester.widget<ClipRect>(messageViewport).clipBehavior,
+      Clip.hardEdge,
+    );
+    expect(
+      find.ancestor(of: messageViewport, matching: find.byType(Expanded)),
+      findsOneWidget,
+    );
+    final messageViewportRect = tester.getRect(messageViewport);
+    expect(
+      messageViewportRect.top,
+      closeTo(tester.getRect(find.byType(ChatHeader)).bottom, 0.1),
+    );
+    expect(
+      messageViewportRect.bottom,
+      closeTo(tester.getRect(find.byType(ChatComposer)).top, 0.1),
+    );
+    expect(
+      tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey<String>('location-chat-message-list')),
+          )
+          .style
+          ?.messageListPadding,
+      kLocationChatStyle.messageListPadding,
+    );
 
     expect(tester.widget<ChatHeader>(find.byType(ChatHeader)).style, isNotNull);
     locationChatHeaderEffectSettings.previewTransparencyStrength(0);
@@ -265,17 +312,10 @@ void main() {
     expect(disabledComposerStyle.composerBackdropBlurSigma, 0);
     expect(
       find.descendant(
-        of: find.byType(ChatHeader),
-        matching: find.byType(BackdropFilter),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.descendant(
         of: find.byType(ChatComposer),
         matching: find.byType(BackdropFilter),
       ),
-      findsNothing,
+      findsOneWidget,
     );
 
     tester.view.viewInsets = const FakeViewPadding(bottom: 300);
@@ -1319,17 +1359,10 @@ void main() {
           closeTo(restingBottom - inset, 0.1),
         );
         expect(
-          tester.getSize(find.byType(LocationChatAnchoredMessageList)),
-          restingMessageListSize,
+          tester.getSize(find.byType(LocationChatAnchoredMessageList)).height,
+          closeTo(restingMessageListSize.height - inset, 0.1),
         );
       }
-
-      await tester.pump();
-      await tester.pump();
-      expect(
-        tester.getSize(find.byType(LocationChatAnchoredMessageList)).height,
-        lessThan(restingMessageListSize.height - 250),
-      );
 
       tester.view.resetViewInsets();
       await tester.pump();
@@ -1396,15 +1429,11 @@ void main() {
           tester.getBottomRight(textField).dy,
           closeTo(restingBottom - effectiveInset, 0.1),
         );
-        expect(tester.getSize(messageList), restingMessageListSize);
+        expect(
+          tester.getSize(messageList).height,
+          closeTo(restingMessageListSize.height - effectiveInset, 0.1),
+        );
       }
-
-      await tester.pump();
-      await tester.pump();
-      expect(
-        tester.getSize(messageList).height,
-        closeTo(restingMessageListSize.height - 266, 0.1),
-      );
 
       for (final rawInset in [220.0, 100.0, 34.0, 20.0, 0.0]) {
         tester.view.viewInsets = FakeViewPadding(bottom: rawInset);
@@ -1413,6 +1442,10 @@ void main() {
         expect(
           tester.getBottomRight(textField).dy,
           closeTo(restingBottom - effectiveInset, 0.1),
+        );
+        expect(
+          tester.getSize(messageList).height,
+          closeTo(restingMessageListSize.height - effectiveInset, 0.1),
         );
       }
       expect(tester.getSize(messageList), restingMessageListSize);
@@ -1440,6 +1473,53 @@ void main() {
         'user': {'selected_model_code': 'legacy_model'},
       }),
       'cc_4_5',
+    );
+  });
+
+  test('selected model title reads the title cached for its code', () {
+    expect(
+      selectedModelTitleFromUserInfo({
+        'selected_model_titles': {'sedna': 'Sedna'},
+      }, 'sedna'),
+      'Sedna',
+    );
+  });
+
+  testWidgets('location chat darkens the top and bottom of its background', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'background-world',
+          locationId: 'background-location',
+          active: false,
+          renderBackgroundImage: false,
+        ),
+      ),
+    );
+
+    final overlay = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('location-chat-background-overlay')),
+    );
+    final decoration = overlay.decoration as BoxDecoration;
+    final gradient = decoration.gradient! as LinearGradient;
+    expect(gradient.stops, const <double>[0, 0.32, 0.64, 1]);
+    expect(gradient.colors, const <Color>[
+      Color(0xCC131215),
+      Color(0x80131215),
+      Color(0x80131215),
+      Color(0xCC131215),
+    ]);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('location-chat-background')),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ColoredBox && widget.color == const Color(0xFF151517),
+        ),
+      ),
+      findsOneWidget,
     );
   });
 
@@ -1604,7 +1684,13 @@ void main() {
     unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
     await _pumpUntilLocationChatTest(
       tester,
-      () => socket.sendMessageCount == 1 && analytics.events.length == 1,
+      () =>
+          socket.sendMessageCount == 1 &&
+          analytics.events.any((event) => event.name == 'message_sent'),
+    );
+    await tester.pump();
+    final initialAnalyticsEvents = List<_LocationChatAnalyticsEvent>.of(
+      analytics.events,
     );
     socket.serverV2AckForLatestSend(errNo: 9001);
     await _pumpUntilLocationChatTest(
@@ -1617,7 +1703,7 @@ void main() {
       tester,
       () => socket.sendMessageCount == 2,
     );
-    expect(analytics.events, hasLength(1));
+    expect(analytics.events, initialAnalyticsEvents);
 
     socket.serverV2AckForLatestSend(errNo: 9001);
     await tester.pump();
@@ -2595,9 +2681,11 @@ void main() {
 
       await tester.pumpWidget(panel(active: true));
       await tester.pump();
-      final title = find.text('The Wisteria Terrace With A Long Name (0)');
+      final title = find.text('The Wisteria Terrace With A Long Name');
+      final count = find.text('0');
       final modelEntry = find.byKey(const ValueKey('memory-model-entry'));
       final activeTitleRect = tester.getRect(title);
+      final activeCountRect = tester.getRect(count);
       final activeModelRect = tester.getRect(modelEntry);
 
       await tester.pumpWidget(panel(active: false));
@@ -2605,12 +2693,96 @@ void main() {
 
       expect(modelEntry, findsOneWidget);
       expect(tester.getRect(title), activeTitleRect);
+      expect(tester.getRect(count), activeCountRect);
       expect(tester.getRect(modelEntry), activeModelRect);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
     },
   );
+
+  testWidgets('opening the roster preserves scroll and dismisses outside', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'roster-scroll',
+          locationId: 'loc-1',
+          active: false,
+          openingPreviewMessages: <WorldChatroomMessage>[
+            for (var index = 0; index < 24; index += 1)
+              WorldChatroomMessage(
+                messageId: 0,
+                conversationRoundId: 'opening-preview-$index',
+                roundOrder: index,
+                locationId: 'loc-1',
+                senderType: 'character',
+                senderId: 'char-role',
+                senderName: 'Preview Role',
+                content: 'Opening line $index.',
+                createdAt: null,
+              ),
+          ],
+          openingPreviewEntities: const [
+            WorldChatroomEntity(
+              id: 'char-role',
+              name: 'Preview Role',
+              avatarUrl: '',
+              type: WorldChatroomEntityType.character,
+              locationId: 'loc-1',
+              isAi: true,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('location-chat-message-list')),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable).position;
+    position.jumpTo(position.maxScrollExtent / 2);
+    await tester.pump();
+    final scrolledOffset = position.pixels;
+    final scrollableElement = tester.element(scrollable);
+    expect(scrolledOffset, greaterThan(0));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('location-chat-occupant-pill')),
+    );
+    await tester.pump();
+
+    final roster = find.byKey(const ValueKey<String>('location-chat-roster'));
+    expect(roster, findsOneWidget);
+    expect(
+      find.descendant(of: roster, matching: find.text('IN THE ROOM')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: roster, matching: find.text('Preview Role')),
+      findsOneWidget,
+    );
+    final rosterAvatar = tester.widget<GenesisCharacterAvatar>(
+      find.descendant(
+        of: roster,
+        matching: find.byType(GenesisCharacterAvatar),
+      ),
+    );
+    expect(rosterAvatar.borderRadius, GenesisAvatarRadii.character);
+    expect(identical(tester.element(scrollable), scrollableElement), isTrue);
+    expect(
+      tester.state<ScrollableState>(scrollable).position.pixels,
+      scrolledOffset,
+    );
+
+    await tester.tapAt(const Offset(8, 500));
+    await tester.pump();
+    expect(roster, findsNothing);
+  });
 
   testWidgets('WebSocket and HTTP narrator nar_pic messages render as images', (
     tester,
@@ -2898,7 +3070,10 @@ void main() {
       expect(find.byType(ChatUserEnterLocationMessageBubble), findsNWidgets(2));
       expect(find.byType(ChatStoryEventsMessageBubble), findsOneWidget);
       expect(find.byType(ChatCharactersMovedMessageBubble), findsOneWidget);
-      expect(find.text('Alice entered the cafe.'), findsOneWidget);
+      expect(
+        find.text('Alice came to the cafe.', findRichText: true),
+        findsOneWidget,
+      );
       expect(find.text('Dh来到了okkk。'), findsOneWidget);
       expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
       expect(find.text('Old Station'), findsNothing);
@@ -2919,7 +3094,7 @@ void main() {
         ),
         findsNWidgets(2),
       );
-      expect(find.text('Alice'), findsNWidgets(2));
+      expect(find.text('Alice'), findsOneWidget);
       expect(find.text('char-unknown'), findsOneWidget);
       expect(find.text('has gone to'), findsNWidgets(2));
       expect(find.text('loc-cafe'), findsOneWidget);
@@ -3006,11 +3181,17 @@ void main() {
     expect(find.byType(ChatTickMessageBubble), findsOneWidget);
     expect(find.byType(ChatStoryEventsMessageBubble), findsNothing);
     expect(find.byType(ChatCharactersMovedMessageBubble), findsNothing);
-    expect(find.text('Tick 1-2 · Day 1, 13:50'), findsOneWidget);
+    expect(find.text('Tick 1-2'), findsOneWidget);
     expect(find.text('Global'), findsNothing);
     expect(find.text('The promise-shaped key pulses.'), findsOneWidget);
     expect(find.text('Event'), findsNothing);
-    expect(find.text('location-current'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(ChatTickMessageBubble),
+        matching: find.text('location-current'),
+      ),
+      findsNothing,
+    );
     expect(find.text('public'), findsNothing);
     expect(find.text('Frost creeps toward Room 0.'), findsOneWidget);
     expect(find.text('Character destinations'), findsNothing);
@@ -3258,7 +3439,13 @@ void main() {
 
       expect(find.byType(ChatStoryEventsMessageBubble), findsNWidgets(2));
       expect(find.text('Tick 4-1 · Day 2, 00:09:15'), findsNothing);
-      expect(find.text('loc_1_1_1'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(ChatStoryEventsMessageBubble),
+          matching: find.text('loc_1_1_1'),
+        ),
+        findsNothing,
+      );
       expect(find.text('Day 2, 00:08:30'), findsOneWidget);
       expect(find.text('中年男人把录音带塞进桌角的旧录音机。'), findsOneWidget);
       expect(find.text('问他为什么不敢让你听完。'), findsOneWidget);
@@ -3335,7 +3522,13 @@ void main() {
       findsNWidgets(2),
     );
     expect(find.text('public'), findsNothing);
-    expect(find.text('location-current'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(ChatStoryEventsMessageBubble),
+        matching: find.text('location-current'),
+      ),
+      findsNothing,
+    );
     expect(find.text('Day 3, 08:29:00'), findsOneWidget);
     expect(find.text('HTTP event body.'), findsOneWidget);
     expect(find.text('HTTP event clue.'), findsOneWidget);
@@ -3375,7 +3568,7 @@ void main() {
     });
     await tester.pump();
 
-    expect(find.text('luxury_selection_v4'), findsOneWidget);
+    expect(find.text('Luxury_selection_v4'), findsOneWidget);
     expect(find.text('Model'), findsNothing);
 
     await tester.pumpWidget(const SizedBox.shrink());
@@ -3452,19 +3645,22 @@ void main() {
     },
   );
 
-  test('location chat background falls back to bundled default when empty', () {
-    expect(
-      resolveLocationChatBackgroundUrlForTesting(imageUrl: ''),
-      'assets/images/map_default/location_default.webp',
-    );
+  test('location chat background uses no image when empty', () {
+    expect(resolveLocationChatBackgroundUrlForTesting(imageUrl: ''), isEmpty);
   });
 
-  test('location chat background maps predata default CDN image to asset', () {
+  test('location chat background suppresses the predata default image', () {
     expect(
       resolveLocationChatBackgroundUrlForTesting(
         imageUrl: 'https://cdn-001.worldo.ai/predata/location_default.webp',
       ),
-      'assets/images/map_default/location_default.webp',
+      isEmpty,
+    );
+    expect(
+      resolveLocationChatBackgroundUrlForTesting(
+        imageUrl: 'assets/images/map_default/location_default.webp',
+      ),
+      isEmpty,
     );
   });
 

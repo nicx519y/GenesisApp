@@ -31,14 +31,16 @@ class ChatOtherMessageBubble extends StatelessWidget {
                 behavior: HitTestBehavior.opaque,
                 onTap: onAvatarTap,
                 child: _isNpcSender(message.senderId)
-                    ? const ChatNpcAvatar()
+                    ? ChatNpcAvatar(style: style)
                     : ChatAvatar(
                         label: chatInitials(message.senderName),
                         imageUrl: message.avatarUrl,
                         colors: style.otherAvatarColors,
                         seed: message.senderName,
                         borderColor: message.isPlayerControlledRole
-                            ? GenesisColors.brand
+                            ? (style.useScenePlateBubbleGeometry
+                                  ? GenesisColors.create
+                                  : GenesisColors.brand)
                             : null,
                         style: style,
                       ),
@@ -54,15 +56,22 @@ class ChatOtherMessageBubble extends StatelessWidget {
                   SizedBox(
                     width: maxBubbleWidth,
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
-                        Expanded(
+                        Flexible(
                           child: Text(
+                            key: ValueKey<String>(
+                              'chat-sender-name-${message.localId}',
+                            ),
                             senderName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: message.isPlayerControlledRole
                                 ? style.senderNameTextStyle.copyWith(
-                                    color: GenesisColors.brand,
+                                    color: style.useScenePlateBubbleGeometry
+                                        ? GenesisColors.create
+                                        : GenesisColors.brand,
                                   )
                                 : style.senderNameTextStyle,
                           ),
@@ -70,11 +79,22 @@ class ChatOtherMessageBubble extends StatelessWidget {
                         if (currentTime.isNotEmpty) ...[
                           const SizedBox(width: 8),
                           Text(
+                            key: ValueKey<String>(
+                              'chat-sender-time-${message.localId}',
+                            ),
                             currentTime,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            textAlign: TextAlign.right,
-                            style: style.senderNameTextStyle,
+                            style: style.useScenePlateBubbleGeometry
+                                ? GenesisTypography.withFallback(
+                                    style.senderNameTextStyle,
+                                  ).copyWith(
+                                    color: Colors.white.withValues(alpha: 0.45),
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1,
+                                  )
+                                : style.senderNameTextStyle,
                           ),
                         ],
                       ],

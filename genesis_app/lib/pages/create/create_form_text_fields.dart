@@ -275,6 +275,7 @@ class _CreateTextFieldBlockState extends State<CreateTextFieldBlock> {
                       child: TextField(
                         controller: widget.controller,
                         focusNode: focusNode,
+                        cursorColor: createFormText,
                         scrollPadding:
                             widget.scrollPadding ??
                             const EdgeInsets.fromLTRB(

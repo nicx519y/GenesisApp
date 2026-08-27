@@ -294,7 +294,7 @@ class _DisplayNameText extends StatelessWidget {
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: const TextStyle(
-        fontSize: 18,
+        fontSize: 20,
         height: 1,
         fontWeight: FontWeight.w600,
         color: Colors.black,

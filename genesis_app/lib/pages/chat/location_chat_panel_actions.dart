@@ -59,46 +59,47 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
     return locationChatMessageReportTargetIdForTesting(message);
   }
 
-  List<WorldChatroomEntity> _realUsersForCurrentLocation(
+  /// Everyone standing in the room, including AI characters. Self is inserted
+  /// first, then the server order is preserved while duplicate identities are
+  /// removed.
+  List<WorldChatroomEntity> _roomOccupantsForCurrentLocation(
     WorldChatroomState state,
   ) {
     final locationIds = _currentLocationIds();
-    final users = <WorldChatroomEntity>[];
+    final occupants = <WorldChatroomEntity>[];
     final seen = <String>{};
 
-    void addUser(WorldChatroomEntity entity) {
-      if (!_isRealUserEntity(entity)) return;
+    void add(WorldChatroomEntity entity) {
       final key = _realUserDedupKey(entity);
       if (key.isEmpty || !seen.add(key)) return;
-      users.add(entity);
+      occupants.add(entity);
+    }
+
+    final selfId = firstNonEmpty([_myUserId, _mySenderId]);
+    final selfName = _localSelfDisplayName();
+    if (state.joinedLocationId == widget.locationId &&
+        (selfId.isNotEmpty || selfName.isNotEmpty)) {
+      add(
+        WorldChatroomEntity(
+          id: selfId.isEmpty ? selfName : selfId,
+          name: selfName,
+          avatarUrl: _localSelfAvatarUrl(),
+          type: WorldChatroomEntityType.player,
+          locationId: widget.locationId,
+          isAi: false,
+        ),
+      );
     }
 
     for (final locationId in locationIds) {
       for (final entity
           in state.entitiesByLocation[locationId] ??
               const <WorldChatroomEntity>[]) {
-        addUser(entity);
+        add(entity);
       }
     }
 
-    if (state.joinedLocationId == widget.locationId) {
-      final selfId = firstNonEmpty([_myUserId, _mySenderId]);
-      final selfName = _localSelfDisplayName();
-      if (selfId.isNotEmpty || selfName.isNotEmpty) {
-        addUser(
-          WorldChatroomEntity(
-            id: selfId.isEmpty ? selfName : selfId,
-            name: selfName,
-            avatarUrl: _localSelfAvatarUrl(),
-            type: WorldChatroomEntityType.player,
-            locationId: widget.locationId,
-            isAi: false,
-          ),
-        );
-      }
-    }
-
-    return users;
+    return occupants;
   }
 
   List<String> _currentLocationIds() {
@@ -115,10 +116,6 @@ extension _LocationChatPanelActions on _LocationChatPanelState {
       add(locationId);
     }
     return ids;
-  }
-
-  bool _isRealUserEntity(WorldChatroomEntity entity) {
-    return !entity.isAi;
   }
 
   String _realUserDedupKey(WorldChatroomEntity entity) {

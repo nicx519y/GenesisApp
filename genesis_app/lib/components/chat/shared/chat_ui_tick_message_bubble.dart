@@ -1,8 +1,12 @@
 part of 'chat_ui_library.dart';
 
-const Color _tickMessageBackgroundColor = Color(0xF0182430);
-const Color _tickMessageAccentColor = Color(0xFF709BC2);
-const Color _tickMessageHeaderColor = Color(0xFFC4DBEF);
+const Color _tickMessageBackgroundColor = Color(0x99000000);
+const Color _tickMessageAccentColor = Color(0xFFFF2442);
+const Color _tickMessageClueColor = Color(0xFFFF8A9A);
+const Color _tickMessageHeaderColor = Color(0xFFF4F3F6);
+const Color _tickMessageBorderColor = Color(0x33FFFFFF);
+const Color _tickMessageDividerColor = Color(0x29FFFFFF);
+const double _tickMessageBlurSigma = 14;
 
 class ChatTickPayloadVm extends ChatTimelinePayloadVm {
   const ChatTickPayloadVm({
@@ -137,37 +141,61 @@ class _ChatTickSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usesScenePlate = style.useScenePlateBubbleGeometry;
+    final borderRadius = BorderRadius.circular(
+      usesScenePlate ? 10 : style.systemMessageBorderRadius,
+    );
+    final surface = Container(
+      key: const ValueKey<String>('chat-tick-message-surface'),
+      width: double.infinity,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: _tickMessageBackgroundColor,
+        borderRadius: borderRadius,
+        border: usesScenePlate
+            ? Border.all(color: _tickMessageBorderColor)
+            : null,
+      ),
+      child: usesScenePlate
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+              child: child,
+            )
+          : Stack(
+              children: [
+                const Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: 2,
+                  child: ColoredBox(
+                    key: ValueKey<String>('chat-tick-message-accent'),
+                    color: _tickMessageAccentColor,
+                  ),
+                ),
+                Padding(padding: style.systemMessagePadding, child: child),
+              ],
+            ),
+    );
+    final margin = style.systemMessageMargin;
+    final plateMargin = usesScenePlate
+        ? margin.copyWith(
+            left: math.max(margin.left, style.avatarSideSpacerWidth),
+            right: math.max(margin.right, style.avatarSideSpacerWidth),
+          )
+        : margin;
     return Padding(
       key: bubbleKey,
-      padding: style.systemMessageMargin,
+      padding: plateMargin,
       child: GestureDetector(
         onLongPressStart: onLongPressStart,
-        child: Container(
-          key: const ValueKey<String>('chat-tick-message-surface'),
-          width: double.infinity,
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: _tickMessageBackgroundColor,
-            borderRadius: BorderRadius.circular(
-              style.systemMessageBorderRadius,
-            ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: 2,
-                child: ColoredBox(
-                  key: const ValueKey<String>('chat-tick-message-accent'),
-                  color: _tickMessageAccentColor,
-                ),
-              ),
-              Padding(padding: style.systemMessagePadding, child: child),
-            ],
-          ),
-        ),
+        child: usesScenePlate
+            ? _ChatStableBackdropSurface(
+                borderRadius: borderRadius,
+                sigma: _tickMessageBlurSigma,
+                child: surface,
+              )
+            : surface,
       ),
     );
   }
@@ -188,6 +216,7 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final usesScenePlate = style.useScenePlateBubbleGeometry;
     final storyEvents = payload.storyEvents;
     final charactersMoved = payload.charactersMoved;
     final groupedMovements = charactersMoved == null
@@ -205,7 +234,7 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
           _ChatTickGlobalSection(text: payload.globalText, style: style),
         ],
         if (storyEvents != null && storyEvents.paragraphs.isNotEmpty) ...[
-          const SizedBox(height: 20),
+          SizedBox(height: usesScenePlate ? 12 : 20),
           for (var index = 0; index < storyEvents.paragraphs.length; index += 1)
             _ChatStoryEventParagraph(
               messageLocalId: '${message.localId}-tick',
@@ -213,28 +242,50 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
               paragraph: storyEvents.paragraphs[index],
               style: style,
               addTopSpacing: index > 0,
+              scenePlate: usesScenePlate,
             ),
         ],
-        if (groupedMovements.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          for (var index = 0; index < groupedMovements.length; index += 1) ...[
-            if (index > 0) const SizedBox(height: 10),
-            _ChatCharacterMovementRow(
-              messageLocalId: '${message.localId}-tick',
-              index: index,
-              movement: groupedMovements[index],
-              style: style,
-              onLocationTap: onLocationTap,
-              usePastTenseDirection: true,
-            ),
-          ],
-        ],
+        if (groupedMovements.isNotEmpty)
+          usesScenePlate
+              ? _ChatTickMovementSection(
+                  messageLocalId: '${message.localId}-tick',
+                  movements: groupedMovements,
+                  style: style,
+                  onLocationTap: onLocationTap,
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 20),
+                    for (
+                      var index = 0;
+                      index < groupedMovements.length;
+                      index += 1
+                    ) ...[
+                      if (index > 0) const SizedBox(height: 10),
+                      _ChatCharacterMovementRow(
+                        messageLocalId: '${message.localId}-tick',
+                        index: index,
+                        movement: groupedMovements[index],
+                        style: style,
+                        onLocationTap: onLocationTap,
+                        usePastTenseDirection: true,
+                      ),
+                    ],
+                  ],
+                ),
         if (showFallback) ...[
           const SizedBox(height: 10),
           _InlineMarkdownText(
             text: payload.fallbackContent,
             textAlign: TextAlign.left,
-            style: style.systemMessageTextStyle.copyWith(height: 1.45),
+            style: style.systemMessageTextStyle.copyWith(
+              color: usesScenePlate
+                  ? Colors.white.withValues(alpha: 0.73)
+                  : null,
+              fontSize: usesScenePlate ? 13 : null,
+              height: usesScenePlate ? 1.3 : 1.45,
+            ),
           ),
         ],
       ],
@@ -262,8 +313,8 @@ class _ChatTickProgressContent extends StatelessWidget {
       children: [
         _ChatTickProgressTitle(title: payload.title),
         if (avatars.isNotEmpty) ...[
-          const SizedBox(height: 14),
-          Center(child: GenerationAvatarCarousel(avatars: avatars)),
+          const SizedBox(height: 12),
+          Center(child: GenerationAvatarCarousel(avatars: avatars, size: 44)),
         ],
       ],
     );
@@ -309,7 +360,7 @@ class _ChatTickProgressTitleState extends State<_ChatTickProgressTitle> {
       style: const TextStyle(
         color: _tickMessageHeaderColor,
         fontSize: 13,
-        height: 1.2,
+        height: 1.3,
         fontWeight: FontWeight.w600,
       ),
     );
@@ -324,15 +375,47 @@ class _ChatTickHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currentTime = message.currentTime.trim();
-    return Text(
+    final label = _tickLabel(message);
+    if (!style.useScenePlateBubbleGeometry) {
+      return Text(
+        key: ValueKey<String>('chat-tick-header-${message.localId}'),
+        label,
+        style: style.systemMessageTextStyle.copyWith(
+          color: _tickMessageHeaderColor,
+          fontWeight: FontWeight.w400,
+        ),
+      );
+    }
+    return Container(
       key: ValueKey<String>('chat-tick-header-${message.localId}'),
-      currentTime.isEmpty
-          ? _tickLabel(message)
-          : '${_tickLabel(message)} · ${genesisDisplaySafeText(currentTime)}',
-      style: style.systemMessageTextStyle.copyWith(
-        color: _tickMessageHeaderColor,
-        fontWeight: FontWeight.w400,
+      padding: const EdgeInsets.only(bottom: 10),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: _tickMessageDividerColor)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            key: const ValueKey<String>('chat-tick-header-dot'),
+            width: 5,
+            height: 5,
+            decoration: const BoxDecoration(
+              color: _tickMessageAccentColor,
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              label,
+              style: style.systemMessageTextStyle.copyWith(
+                color: _tickMessageHeaderColor,
+                fontSize: 13,
+                height: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -353,9 +436,57 @@ class _ChatTickGlobalSection extends StatelessWidget {
         text: text,
         textAlign: TextAlign.left,
         style: style.systemMessageTextStyle.copyWith(
-          color: textColor.withValues(alpha: 0.72),
+          color: style.useScenePlateBubbleGeometry
+              ? Colors.white.withValues(alpha: 0.73)
+              : textColor.withValues(alpha: 0.72),
+          fontSize: style.useScenePlateBubbleGeometry ? 13 : null,
+          height: style.useScenePlateBubbleGeometry ? 1.3 : null,
         ),
         softItalicPerToken: true,
+      ),
+    );
+  }
+}
+
+class _ChatTickMovementSection extends StatelessWidget {
+  const _ChatTickMovementSection({
+    required this.messageLocalId,
+    required this.movements,
+    required this.style,
+    required this.onLocationTap,
+  });
+
+  final String messageLocalId;
+  final List<ChatCharacterMovementVm> movements;
+  final ChatUiStyleConfig style;
+  final ChatCharacterMovementTap? onLocationTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('chat-tick-movement-section'),
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 13),
+      padding: const EdgeInsets.only(top: 11),
+      decoration: const BoxDecoration(
+        border: Border(top: BorderSide(color: _tickMessageDividerColor)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < movements.length; index += 1) ...[
+            if (index > 0) const SizedBox(height: 10),
+            _ChatCharacterMovementRow(
+              messageLocalId: messageLocalId,
+              index: index,
+              movement: movements[index],
+              style: style,
+              onLocationTap: onLocationTap,
+              usePastTenseDirection: true,
+              scenePlate: true,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -368,6 +499,9 @@ class _ChatTickSectionDivider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (style.useScenePlateBubbleGeometry) {
+      return const SizedBox(height: 10);
+    }
     final color = (style.systemMessageTextStyle.color ?? Colors.white)
         .withValues(alpha: 0.16);
     return Padding(

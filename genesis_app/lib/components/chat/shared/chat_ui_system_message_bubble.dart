@@ -9,6 +9,10 @@ class ChatSystemMessage extends StatelessWidget {
     this.singleLine = false,
     this.textAlign = TextAlign.center,
     this.leadingIconAsset,
+    this.backgroundColor,
+    this.textStyle,
+    this.leadingIconColor,
+    this.softItalic = false,
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
     this.onLongPressStart,
     this.style,
@@ -20,6 +24,10 @@ class ChatSystemMessage extends StatelessWidget {
   final bool singleLine;
   final TextAlign textAlign;
   final String? leadingIconAsset;
+  final Color? backgroundColor;
+  final TextStyle? textStyle;
+  final Color? leadingIconColor;
+  final bool softItalic;
   final Key bubbleKey;
   final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
@@ -29,13 +37,15 @@ class ChatSystemMessage extends StatelessWidget {
     final style = this.style ?? ChatUiStyleConfig.standard;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxBubbleWidth = fullWidth || useFullAvailableWidth
+        final fillsSceneColumn = style.useScenePlateBubbleGeometry;
+        final maxBubbleWidth =
+            fullWidth || useFullAvailableWidth || fillsSceneColumn
             ? constraints.maxWidth
             : _normalBubbleMaxWidthForWidth(constraints.maxWidth, style);
         return Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              minWidth: fullWidth ? maxBubbleWidth : 0,
+              minWidth: fullWidth || fillsSceneColumn ? maxBubbleWidth : 0,
               maxWidth: maxBubbleWidth,
             ),
             child: GestureDetector(
@@ -45,7 +55,7 @@ class ChatSystemMessage extends StatelessWidget {
                 margin: style.systemMessageMargin,
                 padding: style.systemMessagePadding,
                 decoration: BoxDecoration(
-                  color: style.systemMessageBackgroundColor,
+                  color: backgroundColor ?? style.systemMessageBackgroundColor,
                   borderRadius: BorderRadius.circular(
                     style.systemMessageBorderRadius,
                   ),
@@ -56,13 +66,17 @@ class ChatSystemMessage extends StatelessWidget {
                         maxLines: singleLine ? 1 : null,
                         overflow: singleLine ? TextOverflow.ellipsis : null,
                         textAlign: textAlign,
-                        style: style.systemMessageTextStyle,
+                        style: textStyle ?? style.systemMessageTextStyle,
+                        softItalic: softItalic,
                       )
                     : _SystemMessageWithLeadingIcon(
                         iconAsset: leadingIconAsset!,
                         text: text,
                         textAlign: textAlign,
                         style: style,
+                        textStyle: textStyle,
+                        iconColor: leadingIconColor,
+                        softItalic: softItalic,
                       ),
               ),
             ),
@@ -79,16 +93,24 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
     required this.text,
     required this.textAlign,
     required this.style,
+    this.textStyle,
+    this.iconColor,
+    this.softItalic = false,
   });
 
   final String iconAsset;
   final String text;
   final TextAlign textAlign;
   final ChatUiStyleConfig style;
+  final TextStyle? textStyle;
+  final Color? iconColor;
+  final bool softItalic;
 
   @override
   Widget build(BuildContext context) {
-    final iconColor = style.systemMessageTextStyle.color ?? Colors.white;
+    final resolvedTextStyle = textStyle ?? style.systemMessageTextStyle;
+    final resolvedIconColor =
+        iconColor ?? resolvedTextStyle.color ?? Colors.white;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -96,19 +118,20 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
           padding: const EdgeInsets.only(top: 3),
           child: SvgPicture.asset(
             iconAsset,
-            width: 14,
-            height: 14,
+            width: 13,
+            height: 13,
             fit: BoxFit.contain,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
+            colorFilter: ColorFilter.mode(resolvedIconColor, BlendMode.srcIn),
             excludeFromSemantics: true,
           ),
         ),
-        const SizedBox(width: 6),
+        const SizedBox(width: 9),
         Expanded(
           child: _InlineMarkdownText(
             text: text,
             textAlign: textAlign,
-            style: style.systemMessageTextStyle,
+            style: resolvedTextStyle,
+            softItalic: softItalic,
           ),
         ),
       ],

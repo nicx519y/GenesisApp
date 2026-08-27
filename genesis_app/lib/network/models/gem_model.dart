@@ -1,5 +1,39 @@
 import '../json_utils.dart';
 
+const String kSelectedModelCodeUserInfoKey = 'selected_model_code';
+const String kSelectedModelTitlesUserInfoKey = 'selected_model_titles';
+
+Map<String, String> gemModelTitlesFromUserInfo(Map<String, dynamic> userInfo) {
+  final raw = userInfo[kSelectedModelTitlesUserInfoKey];
+  if (raw is! Map) return const <String, String>{};
+  final titles = <String, String>{};
+  for (final entry in raw.entries) {
+    final code = asString(entry.key).trim();
+    final title = asString(entry.value).trim();
+    if (code.isEmpty || title.isEmpty) continue;
+    titles[code] = title;
+  }
+  return titles;
+}
+
+Map<String, dynamic> userInfoWithSelectedGemModel(
+  Map<String, dynamic>? currentUserInfo, {
+  String selectedModelCode = '',
+  Map<String, String> titlesByCode = const <String, String>{},
+}) {
+  final current = currentUserInfo ?? const <String, dynamic>{};
+  final merged = <String, String>{
+    ...gemModelTitlesFromUserInfo(current),
+    ...titlesByCode,
+  }..removeWhere((code, title) => code.isEmpty || title.isEmpty);
+  final code = selectedModelCode.trim();
+  return <String, dynamic>{
+    ...current,
+    if (code.isNotEmpty) kSelectedModelCodeUserInfoKey: code,
+    if (merged.isNotEmpty) kSelectedModelTitlesUserInfoKey: merged,
+  };
+}
+
 class GemModelCatalog {
   const GemModelCatalog({
     required this.selectedModelCode,
@@ -21,6 +55,19 @@ class GemModelCatalog {
 
   final String selectedModelCode;
   final List<GemModelGroup> groups;
+
+  Map<String, String> titlesByCode() {
+    final titles = <String, String>{};
+    for (final group in groups) {
+      for (final model in group.models) {
+        final code = model.modelCode.trim();
+        final title = model.title.trim();
+        if (code.isEmpty || title.isEmpty) continue;
+        titles[code] = title;
+      }
+    }
+    return titles;
+  }
 
   GemModelCatalog copyWith({String? selectedModelCode}) {
     return GemModelCatalog(

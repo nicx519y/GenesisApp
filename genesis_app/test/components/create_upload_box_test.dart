@@ -154,6 +154,29 @@ void main() {
     },
   );
 
+  testWidgets('CreateTextFieldBlock cursor matches its input text', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CreateTextFieldBlock(
+            label: 'Name',
+            controller: controller,
+            hintText: 'Worldo Name',
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+
+    final input = tester.widget<TextField>(find.byType(TextField));
+    expect(input.cursorColor, input.style?.color);
+    expect(input.cursorColor, createFormText);
+  });
+
   testWidgets('CreateTextFieldBlock advances focus on done', (
     WidgetTester tester,
   ) async {

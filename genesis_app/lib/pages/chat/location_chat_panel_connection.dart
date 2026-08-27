@@ -35,6 +35,13 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     await service.dispose();
   }
 
+  String get _selectedModelLabel {
+    if (_selectedModelTitle.isNotEmpty) return _selectedModelTitle;
+    if (_selectedModelCode.isEmpty) return 'Model';
+    return _selectedModelCode[0].toUpperCase() +
+        _selectedModelCode.substring(1);
+  }
+
   Future<void> _loadSelectedModelCodeFromCache() async {
     final generation = ++_selectedModelLoadGeneration;
     try {
@@ -42,13 +49,44 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
           await AppServicesScope.read(context).sessionStore.readUserInfo() ??
           const <String, dynamic>{};
       final modelCode = selectedModelCodeFromUserInfo(userInfo);
+      final modelTitle = selectedModelTitleFromUserInfo(userInfo, modelCode);
       if (!mounted || generation != _selectedModelLoadGeneration) return;
-      if (modelCode == _selectedModelCode) return;
-      _setLocationChatState(() => _selectedModelCode = modelCode);
+      if (modelCode != _selectedModelCode ||
+          modelTitle != _selectedModelTitle) {
+        _setLocationChatState(() {
+          _selectedModelCode = modelCode;
+          _selectedModelTitle = modelTitle;
+        });
+      }
+      if (modelTitle.isEmpty) {
+        unawaited(_backfillSelectedModelTitle(modelCode));
+      }
     } catch (error) {
       debugPrint(
         '[WorldChat][Model] load cached selected model failed: $error',
       );
+    }
+  }
+
+  Future<void> _backfillSelectedModelTitle(String modelCode) async {
+    final code = modelCode.trim();
+    if (code.isEmpty || code == _selectedModelTitleLookupCode) return;
+    _selectedModelTitleLookupCode = code;
+    final services = AppServicesScope.read(context);
+    try {
+      final catalog = await services.api.v1.gem.models(worldId: widget.worldId);
+      final titlesByCode = catalog.titlesByCode();
+      final title = titlesByCode[code] ?? '';
+      if (title.isEmpty) return;
+      final current = await services.sessionStore.readUserInfo();
+      await services.sessionStore.saveUserInfo(
+        userInfoWithSelectedGemModel(current, titlesByCode: titlesByCode),
+      );
+      if (!mounted || code != _selectedModelCode) return;
+      _setLocationChatState(() => _selectedModelTitle = title);
+    } catch (error) {
+      _selectedModelTitleLookupCode = '';
+      debugPrint('[WorldChat][Model] resolve model title failed: $error');
     }
   }
 
@@ -73,8 +111,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         return;
       }
       if (normalized != _selectedModelCode) {
-        _setLocationChatState(() => _selectedModelCode = normalized);
+        _setLocationChatState(() {
+          _selectedModelCode = normalized;
+          _selectedModelTitle = '';
+        });
       }
+      unawaited(_loadSelectedModelCodeFromCache());
     } finally {
       _openingModelPage = false;
     }

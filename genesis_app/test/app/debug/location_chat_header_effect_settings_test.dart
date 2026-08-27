@@ -10,6 +10,11 @@ void main() {
 
   tearDown(locationChatHeaderEffectSettings.resetForTesting);
 
+  test('defaults to a transparent surface', () {
+    expect(LocationChatHeaderEffectSettings.defaultTransparencyStrength, 0);
+    expect(locationChatHeaderEffectSettings.value.transparencyStrength, 0);
+  });
+
   test('loads and clamps persisted LocationChat header effects', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       LocationChatHeaderEffectSettingsController.transparencyStorageKey: -1.0,

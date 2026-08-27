@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -21,7 +22,6 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
-import '../../icons/custom_icon_assets.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_message_type.dart';
 import '../../network/chatroom/chatroom_models.dart';
@@ -29,10 +29,12 @@ import '../../network/chatroom/chatroom_timeline_payload.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../network/models/gem_model.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
+import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../utils/display_name_formatter.dart';
@@ -142,6 +144,7 @@ class LocationChatPage extends StatefulWidget {
     this.recentChatLocationPathIds = const <String>[],
     this.worldName,
     this.locationName,
+    this.parentLocationName,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
     this.renderBackgroundImage = true,
@@ -157,6 +160,7 @@ class LocationChatPage extends StatefulWidget {
   final List<String> recentChatLocationPathIds;
   final String? worldName;
   final String? locationName;
+  final String? parentLocationName;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
   final bool renderBackgroundImage;
@@ -242,6 +246,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
       recentChatLocationPathIds: widget.recentChatLocationPathIds,
       worldName: widget.worldName,
       locationName: widget.locationName,
+      parentLocationName: widget.parentLocationName,
       backgroundImageUrl: widget.backgroundImageUrl,
       backgroundPreviewImageUrl: widget.backgroundPreviewImageUrl,
       renderBackgroundImage: widget.renderBackgroundImage,
@@ -268,6 +273,7 @@ class LocationChatPanel extends StatefulWidget {
     this.recentChatLocationPathIds = const <String>[],
     this.worldName,
     this.locationName,
+    this.parentLocationName,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
     this.renderBackgroundImage = true,
@@ -300,6 +306,7 @@ class LocationChatPanel extends StatefulWidget {
   final List<String> recentChatLocationPathIds;
   final String? worldName;
   final String? locationName;
+  final String? parentLocationName;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
   final bool renderBackgroundImage;
@@ -333,12 +340,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   ScrollController get _scrollController => _scrollCoordinator.controller;
   final _textController = TextEditingController();
   final _composerFocusNode = FocusNode();
+  final Object _rosterTapRegionGroup = Object();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
   final Map<String, _LocationChatTimelineVmCacheEntry> _timelineVmCache =
       <String, _LocationChatTimelineVmCacheEntry>{};
-  double _composerHeight = 0;
-
   WorldChatroomService? _service;
   StreamSubscription<WorldChatroomState>? _stateSubscription;
   StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
@@ -351,11 +357,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   String _mySenderName = '';
   String _myAvatarUrl = '';
   String _selectedModelCode = '';
+  String _selectedModelTitle = '';
+  String _selectedModelTitleLookupCode = '';
   double _devicePixelRatio = 1;
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _joiningLocation = false;
   bool _sending = false;
+  bool _rosterOpen = false;
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
   bool _loadingOlderMessages = false;
@@ -504,6 +513,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         oldWidget.locationId != widget.locationId;
     final becameActive = !oldWidget.active && widget.active;
     final becameInactive = oldWidget.active && !widget.active;
+    if (changedChatTarget || becameInactive) {
+      _rosterOpen = false;
+    }
     final worldTickProgressChanged =
         oldWidget.worldTickInProgress != widget.worldTickInProgress;
     final worldTickProgressFailed =
@@ -599,74 +611,107 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final realUsers = _realUsersForCurrentLocation(_chatroomState);
-    final aiRoleNames = resolveLocationChatAiRoleNamesForTesting(
-      _chatroomState,
-      _currentLocationIds(),
-    );
+    final occupants = _roomOccupantsForCurrentLocation(_chatroomState);
+    final selfOccupantId = firstNonEmpty([_myUserId, _mySenderId]);
     final title = firstNonEmpty([widget.locationName, widget.locationId]);
-    final subtitle = aiRoleNames.join(', ');
     final joined = _chatroomState.joinedLocationId == widget.locationId;
     final connecting =
         _chatroomState.reconnecting ||
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final baseStyle = resolveLocationChatHeaderEffectStyle(
+    final style = resolveLocationChatHeaderEffectStyle(
       baseStyle: widget.style ?? kLocationChatStyle,
       settings: locationChatHeaderEffectSettings.value,
     );
-    final style = baseStyle.copyWith(
-      headerSubtitleTextStyle: baseStyle.headerSubtitleTextStyle.copyWith(
-        fontSize: 12,
-      ),
-      headerStatusIconSize: 12,
-    );
     final replacementComposer = widget.composerReplacement;
-    final composer = replacementComposer == null
-        ? ChatComposer(
-            controller: _textController,
-            focusNode: _composerFocusNode,
-            inputEnabled: widget.active,
-            sendEnabled:
-                widget.active &&
-                joined &&
-                _hasDraftText &&
-                !_sending &&
-                !_sendAwaitingResponse &&
-                !inputBlocked,
-            sending: false,
-            onSend: _send,
-            sendLabel: 'Send',
-            style: style,
-            onHeightChanged: _handleComposerHeightChanged,
-          )
-        : _LocationChatMeasuredComposer(
-            onHeightChanged: _handleComposerHeightChanged,
-            child: replacementComposer,
-          );
+    final composer =
+        replacementComposer ??
+        ChatComposer(
+          controller: _textController,
+          focusNode: _composerFocusNode,
+          hintText: 'Text...',
+          inputEnabled: widget.active,
+          sendEnabled:
+              widget.active &&
+              joined &&
+              _hasDraftText &&
+              !_sending &&
+              !_sendAwaitingResponse &&
+              !inputBlocked,
+          sending: false,
+          onSend: _send,
+          sendIcon: ChatComposerSendIcon.arrowUp,
+          style: style,
+        );
+    final headerForeground =
+        style.headerTitleTextStyle.color ?? style.headerTitleIconColor;
+    final occupantCountLabel = '${occupants.length}';
+    final occupantPill = TapRegion(
+      groupId: _rosterTapRegionGroup,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: occupants.isEmpty
+            ? null
+            : () => setState(() => _rosterOpen = !_rosterOpen),
+        child: Container(
+          key: const ValueKey<String>('location-chat-occupant-pill'),
+          height: 18,
+          padding: const EdgeInsets.fromLTRB(6, 0, 5, 0),
+          decoration: BoxDecoration(
+            color: headerForeground.withValues(alpha: 0.14),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                occupantCountLabel,
+                maxLines: 1,
+                style: style.headerTitleTextStyle.copyWith(
+                  color: headerForeground.withValues(alpha: 0.73),
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  height: 1,
+                ),
+              ),
+              const SizedBox(width: 3),
+              _OccupantChevron(
+                color: headerForeground.withValues(alpha: 0.8),
+                pointUp: _rosterOpen,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
     final header = ChatHeader(
-      title: '$title (${realUsers.length})',
-      subtitle: subtitle,
+      title: title,
+      titleOverline: widget.parentLocationName,
+      titleSuffix: occupantPill,
+      titleSuffixSemanticsLabel: occupantCountLabel,
+      subtitle: '',
       connected: joined,
       connecting: connecting,
-      subtitleIconAsset: locationChatCharacterIconAsset,
       alignContentLeft: true,
       onBack: widget.onBack ?? () => Navigator.of(context).maybePop(),
-      showSubtitle: widget.showConnectionStatus && aiRoleNames.isNotEmpty,
+      showTitleIcon: true,
+      showSubtitle: false,
       showMoreButton: widget.showMoreButton,
+      trailingVerticallyCentered: true,
       trailing: _retainModelEntryInHeader
-          ? ExcludeSemantics(
-              excluding: !widget.active,
-              child: IgnorePointer(
-                ignoring: !widget.active,
-                child: MemoryModelEntryButton(
-                  modelLabel: _selectedModelCode.isEmpty
-                      ? 'Model'
-                      : _selectedModelCode,
-                  darkHeader: true,
-                  compact: true,
-                  onTap: () => unawaited(_openMemoryModelPage()),
+          ? Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: ExcludeSemantics(
+                excluding: !widget.active,
+                child: IgnorePointer(
+                  ignoring: !widget.active,
+                  child: MemoryModelEntryButton(
+                    modelLabel: _selectedModelLabel,
+                    variant: MemoryModelEntryButtonVariant.roomHeader,
+                    onTap: () => unawaited(_openMemoryModelPage()),
+                  ),
                 ),
               ),
             )
@@ -674,14 +719,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       style: style,
     );
     final headerHeight = _locationChatHeaderHeight(style);
-    final composerHeight = _locationChatComposerHeight(style);
-    final listStyle = style.copyWith(
-      messageListPadding: _locationChatMessageListPadding(
-        style,
-        headerHeight: headerHeight,
-        composerHeight: composerHeight,
-      ),
-    );
     final displayMessages = _locationChatDisplayMessages();
     final managesKeyboardInset = locationChatManagesKeyboardInsetForTesting(
       platform: Theme.of(context).platform,
@@ -710,7 +747,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             },
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       showDateDividers: false,
-      style: listStyle,
+      style: style,
     );
 
     return GenesisBottomSystemBarStyleScope(
@@ -738,8 +775,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   ),
                   managesKeyboardInset: managesKeyboardInset,
                   bottomSafeAreaInset: bottomSafeAreaInset,
-                  shouldFollowLatest: () =>
-                      _scrollCoordinator.shouldFollowLatest,
                   onKeyboardMotionTraceSettled: kDebugMode
                       ? (samples) {
                           if (!LocationChatDebugSlice.enabled) return;
@@ -768,7 +803,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                         Positioned(
                           left: 0,
                           right: 0,
-                          bottom: composerHeight + 12,
+                          bottom: 12,
                           child: Center(
                             child: _LocationChatNewMessageNotice(
                               count: _unseenIncomingCount,
@@ -802,6 +837,26 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   onHorizontalDragCancel: _resetEdgeSwipeBack,
                 ),
               ),
+            if (_rosterOpen)
+              Positioned(
+                key: const ValueKey<String>('location-chat-roster-layer'),
+                left: 16,
+                right: 16,
+                top: headerHeight + 4,
+                child: TapRegion(
+                  groupId: _rosterTapRegionGroup,
+                  onTapOutside: (_) {
+                    if (mounted && _rosterOpen) {
+                      setState(() => _rosterOpen = false);
+                    }
+                  },
+                  child: _LocationChatRoster(
+                    key: const ValueKey<String>('location-chat-roster'),
+                    occupants: occupants,
+                    selfOccupantId: selfOccupantId,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -815,12 +870,206 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   }
 }
 
+class _LocationChatRoster extends StatelessWidget {
+  const _LocationChatRoster({
+    super.key,
+    required this.occupants,
+    required this.selfOccupantId,
+  });
+
+  static const double _blurSigma = 14;
+
+  final List<WorldChatroomEntity> occupants;
+  final String selfOccupantId;
+
+  bool _isSelf(WorldChatroomEntity entity) {
+    final id = selfOccupantId.trim();
+    return id.isNotEmpty && entity.id.trim() == id;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const accent = Color(0xFFFF2442);
+    const accentSoft = Color(0xFFFF8A9A);
+    const softWhite = Color(0xFFF4F3F6);
+    const white = Colors.white;
+    final radius = BorderRadius.circular(14);
+    return Material(
+      type: MaterialType.transparency,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x80000000),
+              blurRadius: 38,
+              offset: Offset(0, 18),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: radius,
+          child: Stack(
+            fit: StackFit.passthrough,
+            children: [
+              Positioned.fill(
+                child: BackdropFilter(
+                  blendMode: BlendMode.srcOver,
+                  filter: ImageFilter.blur(
+                    sigmaX: _blurSigma,
+                    sigmaY: _blurSigma,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: white.withValues(alpha: 0.12),
+                  borderRadius: radius,
+                  border: Border.all(color: white.withValues(alpha: 0.16)),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(7),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final entity in occupants)
+                        Builder(
+                          builder: (context) {
+                            final isSelf = _isSelf(entity);
+                            return Container(
+                              height: 34,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isSelf
+                                    ? white.withValues(alpha: 0.08)
+                                    : null,
+                                borderRadius: BorderRadius.circular(9),
+                              ),
+                              child: Row(
+                                children: [
+                                  GenesisCharacterAvatar(
+                                    url: entity.avatarUrl,
+                                    name: entity.name,
+                                    size: 22,
+                                    border: isSelf
+                                        ? Border.all(color: accent, width: 1.5)
+                                        : null,
+                                    showFallbackWhileLoading: false,
+                                    maxDevicePixelRatio:
+                                        MediaQuery.devicePixelRatioOf(context),
+                                  ),
+                                  const SizedBox(width: 9),
+                                  Expanded(
+                                    child: Text(
+                                      entity.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: isSelf
+                                            ? softWhite
+                                            : white.withValues(alpha: 0.73),
+                                        fontSize: 12,
+                                        height: 1,
+                                        fontWeight: isSelf
+                                            ? FontWeight.w600
+                                            : FontWeight.w400,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelf) ...[
+                                    const SizedBox(width: 8),
+                                    const Text(
+                                      'YOU',
+                                      style: TextStyle(
+                                        color: accentSoft,
+                                        fontSize: 9.5,
+                                        height: 1,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.57,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _OccupantChevron extends StatelessWidget {
+  const _OccupantChevron({required this.color, required this.pointUp});
+
+  final Color color;
+  final bool pointUp;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox.square(
+      dimension: 8,
+      child: CustomPaint(
+        painter: _OccupantChevronPainter(color: color, pointUp: pointUp),
+      ),
+    );
+  }
+}
+
+class _OccupantChevronPainter extends CustomPainter {
+  const _OccupantChevronPainter({required this.color, required this.pointUp});
+
+  final Color color;
+  final bool pointUp;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 12;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path()
+      ..moveTo(2.2 * scale, 7.4 * scale)
+      ..lineTo(6 * scale, 3.6 * scale)
+      ..lineTo(9.8 * scale, 7.4 * scale);
+    if (pointUp) {
+      canvas.drawPath(path, paint);
+      return;
+    }
+    canvas
+      ..save()
+      ..translate(size.width / 2, size.height / 2)
+      ..rotate(math.pi)
+      ..translate(-size.width / 2, -size.height / 2)
+      ..drawPath(path, paint)
+      ..restore();
+  }
+
+  @override
+  bool shouldRepaint(_OccupantChevronPainter oldDelegate) {
+    return oldDelegate.color != color || oldDelegate.pointUp != pointUp;
+  }
+}
+
 class _LocationChatKeyboardInsetLayout extends StatefulWidget {
   const _LocationChatKeyboardInsetLayout({
     super.key,
     required this.managesKeyboardInset,
     required this.bottomSafeAreaInset,
-    required this.shouldFollowLatest,
     this.onKeyboardMotionTraceSettled,
     required this.messageViewport,
     required this.header,
@@ -829,7 +1078,6 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
 
   final bool managesKeyboardInset;
   final double bottomSafeAreaInset;
-  final ValueGetter<bool> shouldFollowLatest;
   final ValueChanged<List<Map<String, Object?>>>? onKeyboardMotionTraceSettled;
   final Widget messageViewport;
   final Widget header;
@@ -845,7 +1093,6 @@ class _LocationChatKeyboardInsetLayoutState
     with WidgetsBindingObserver {
   int _keyboardMetricsGeneration = 0;
   double _liveKeyboardInset = 0;
-  double _layoutKeyboardInset = 0;
   List<Map<String, Object?>>? _keyboardMotionSamples;
   Stopwatch? _keyboardMotionStopwatch;
 
@@ -888,21 +1135,13 @@ class _LocationChatKeyboardInsetLayoutState
     _keyboardMetricsGeneration += 1;
     _clearKeyboardMotionTrace();
     _liveKeyboardInset = 0;
-    _layoutKeyboardInset = 0;
   }
 
   void _updateLiveKeyboardInset(double nextInset) {
     if ((_liveKeyboardInset - nextInset).abs() <= precisionErrorTolerance) {
       return;
     }
-    final keyboardIsLowering = nextInset < _liveKeyboardInset;
     _liveKeyboardInset = nextInset;
-
-    // Expand once when dismissal starts. Subsequent keyboard frames only
-    // update transforms, so the message viewport is not laid out every frame.
-    if (keyboardIsLowering && _layoutKeyboardInset > 0) {
-      _layoutKeyboardInset = 0;
-    }
 
     _recordKeyboardMotionSample(nextInset);
     final generation = ++_keyboardMetricsGeneration;
@@ -924,12 +1163,6 @@ class _LocationChatKeyboardInsetLayoutState
         return;
       }
 
-      final needsLayoutCommit =
-          (_layoutKeyboardInset - _liveKeyboardInset).abs() >
-          precisionErrorTolerance;
-      if (needsLayoutCommit) {
-        setState(() => _layoutKeyboardInset = _liveKeyboardInset);
-      }
       _finishKeyboardMotionTrace();
     });
   }
@@ -989,37 +1222,22 @@ class _LocationChatKeyboardInsetLayoutState
   @override
   Widget build(BuildContext context) {
     final liveKeyboardInset = _effectiveKeyboardInset(_liveKeyboardInset);
-    final layoutKeyboardInset = _effectiveKeyboardInset(_layoutKeyboardInset);
-    final messageTranslation = widget.shouldFollowLatest()
-        ? layoutKeyboardInset - liveKeyboardInset
-        : 0.0;
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned.fill(
-          bottom: layoutKeyboardInset,
-          child: Transform.translate(
-            key: const ValueKey<String>(
-              'location-chat-message-keyboard-transform',
+    return Padding(
+      padding: EdgeInsets.only(bottom: liveKeyboardInset),
+      child: Column(
+        children: [
+          widget.header,
+          Expanded(
+            child: ClipRect(
+              key: const ValueKey<String>(
+                'location-chat-message-viewport-clip',
+              ),
+              child: RepaintBoundary(child: widget.messageViewport),
             ),
-            offset: Offset(0, messageTranslation),
-            child: RepaintBoundary(child: widget.messageViewport),
           ),
-        ),
-        Positioned(left: 0, right: 0, top: 0, child: widget.header),
-        Positioned(
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: Transform.translate(
-            key: const ValueKey<String>(
-              'location-chat-composer-keyboard-transform',
-            ),
-            offset: Offset(0, -liveKeyboardInset),
-            child: widget.composer,
-          ),
-        ),
-      ],
+          widget.composer,
+        ],
+      ),
     );
   }
 }

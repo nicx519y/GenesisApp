@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/utils/entity_deleted.dart';
 
 void main() {
@@ -137,6 +138,27 @@ void main() {
 
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
+    expect(tester.widget<Text>(find.text('User')).style?.fontSize, 20);
+    final uidText = find.text('UID: u_user');
+    final followingCount = find.text('12');
+    expect(uidText, findsOneWidget);
+    expect(followingCount, findsOneWidget);
+    expect(
+      tester.getTopLeft(followingCount).dx,
+      moreOrLessEquals(tester.getTopLeft(uidText).dx),
+    );
+    expect(
+      tester.getTopLeft(followingCount).dy,
+      greaterThan(tester.getBottomLeft(uidText).dy),
+    );
+    expect(
+      tester
+          .getBottomLeft(
+            find.byKey(const ValueKey<String>('user-profile-follow-stats')),
+          )
+          .dy,
+      moreOrLessEquals(tester.getBottomLeft(find.byType(GenesisAvatar)).dy),
+    );
     expect(
       find.byKey(const ValueKey('user-profile-gems-entry')),
       findsOneWidget,

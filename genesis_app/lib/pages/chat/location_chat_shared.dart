@@ -1,5 +1,14 @@
 part of 'location_chat_page.dart';
 
+String selectedModelTitleFromUserInfo(
+  Map<String, dynamic> userInfo,
+  String modelCode,
+) {
+  final code = modelCode.trim();
+  if (code.isEmpty) return '';
+  return gemModelTitlesFromUserInfo(userInfo)[code] ?? '';
+}
+
 String selectedModelCodeFromUserInfo(Map<String, dynamic> userInfo) {
   final direct = asString(userInfo['selected_model_code']).trim();
   if (direct.isNotEmpty) return direct;

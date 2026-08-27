@@ -92,10 +92,16 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     final sessionStore = AppServicesScope.read(context).sessionStore;
     return (modelCode) async {
       final current = await sessionStore.readUserInfo();
-      await sessionStore.saveUserInfo({
-        if (current != null) ...current,
-        'selected_model_code': modelCode,
-      });
+      final title = _catalog?.titlesByCode()[modelCode] ?? '';
+      await sessionStore.saveUserInfo(
+        userInfoWithSelectedGemModel(
+          current,
+          selectedModelCode: modelCode,
+          titlesByCode: title.isEmpty
+              ? const <String, String>{}
+              : <String, String>{modelCode: title},
+        ),
+      );
     };
   }
 

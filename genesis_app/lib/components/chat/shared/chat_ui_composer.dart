@@ -1,5 +1,7 @@
 part of 'chat_ui_library.dart';
 
+enum ChatComposerSendIcon { send, arrowUp }
+
 class ChatComposer extends StatelessWidget {
   const ChatComposer({
     super.key,
@@ -15,6 +17,7 @@ class ChatComposer extends StatelessWidget {
     this.bottomSafeAreaInset,
     this.focusNode,
     this.onInputTap,
+    this.sendIcon = ChatComposerSendIcon.send,
   });
 
   final TextEditingController controller;
@@ -29,6 +32,7 @@ class ChatComposer extends StatelessWidget {
   final double? bottomSafeAreaInset;
   final FocusNode? focusNode;
   final VoidCallback? onInputTap;
+  final ChatComposerSendIcon sendIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -72,12 +76,15 @@ class ChatComposer extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: style.inputBackgroundColor,
                         borderRadius: BorderRadius.circular(
-                          style.systemMessageBorderRadius,
+                          style.inputBorderRadius,
                         ),
                       ),
                       child: TextField(
                         controller: controller,
                         focusNode: focusNode,
+                        cursorColor:
+                            style.inputTextStyle.color ??
+                            GenesisColors.textPrimary,
                         enabled: inputEnabled,
                         minLines: style.inputMinLines,
                         maxLines: style.inputMaxLines,
@@ -131,6 +138,7 @@ class ChatComposer extends StatelessWidget {
                       sending: sending,
                       onPressed: sendEnabled ? onSend : null,
                       label: sendLabel,
+                      icon: sendIcon,
                       style: style,
                     ),
                   ],
@@ -247,12 +255,14 @@ class _ComposerSendButton extends StatelessWidget {
     required this.sending,
     required this.onPressed,
     required this.style,
+    required this.icon,
     this.label,
   });
 
   final bool sending;
   final VoidCallback? onPressed;
   final ChatUiStyleConfig style;
+  final ChatComposerSendIcon icon;
   final String? label;
 
   @override
@@ -265,59 +275,129 @@ class _ComposerSendButton extends StatelessWidget {
       key: const ValueKey('chat-composer-send-button'),
       width: style.composerSendButtonWidth,
       height: style.composerSendButtonHeight,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: background,
-          borderRadius: BorderRadius.circular(style.systemMessageBorderRadius),
-        ),
-        child: TextButton(
-          style: TextButton.styleFrom(
-            fixedSize: Size(
-              style.composerSendButtonWidth,
-              style.composerSendButtonHeight,
-            ),
-            minimumSize: Size(
-              style.composerSendButtonWidth,
-              style.composerSendButtonHeight,
-            ),
-            padding: EdgeInsets.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            foregroundColor: style.composerSendButtonIconColor,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(
-                style.systemMessageBorderRadius,
-              ),
+      child: _ComposerSendButtonSurface(
+        blurSigma: style.composerSendButtonBackdropBlurSigma,
+        borderRadius: style.composerSendButtonBorderRadius,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: background,
+            borderRadius: BorderRadius.circular(
+              style.composerSendButtonBorderRadius,
             ),
           ),
-          onPressed: enabled ? onPressed : null,
-          child: sending
-              ? SizedBox(
-                  width: style.composerSendButtonLoadingSize,
-                  height: style.composerSendButtonLoadingSize,
-                  child: CircularProgressIndicator(
-                    strokeWidth: style.composerSendButtonLoadingStrokeWidth,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      style.composerSendButtonIconColor,
+          child: TextButton(
+            style: TextButton.styleFrom(
+              fixedSize: Size(
+                style.composerSendButtonWidth,
+                style.composerSendButtonHeight,
+              ),
+              minimumSize: Size(
+                style.composerSendButtonWidth,
+                style.composerSendButtonHeight,
+              ),
+              padding: EdgeInsets.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              foregroundColor: style.composerSendButtonIconColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(
+                  style.composerSendButtonBorderRadius,
+                ),
+              ),
+            ),
+            onPressed: enabled ? onPressed : null,
+            child: sending
+                ? SizedBox(
+                    width: style.composerSendButtonLoadingSize,
+                    height: style.composerSendButtonLoadingSize,
+                    child: CircularProgressIndicator(
+                      strokeWidth: style.composerSendButtonLoadingStrokeWidth,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        style.composerSendButtonIconColor,
+                      ),
+                    ),
+                  )
+                : label == null
+                ? icon == ChatComposerSendIcon.arrowUp
+                      ? CustomPaint(
+                          size: Size.square(style.composerSendButtonIconSize),
+                          painter: _ComposerUpArrowPainter(
+                            color: style.composerSendButtonIconColor,
+                          ),
+                        )
+                      : Icon(
+                          Icons.send,
+                          color: style.composerSendButtonIconColor,
+                          size: style.composerSendButtonIconSize,
+                        )
+                : Text(
+                    genesisDisplaySafeText(label!),
+                    maxLines: 1,
+                    overflow: TextOverflow.clip,
+                    style: TextStyle(
+                      color: style.composerSendButtonIconColor,
+                      fontSize: 14,
                     ),
                   ),
-                )
-              : label == null
-              ? Icon(
-                  Icons.send,
-                  color: style.composerSendButtonIconColor,
-                  size: style.composerSendButtonIconSize,
-                )
-              : Text(
-                  genesisDisplaySafeText(label!),
-                  maxLines: 1,
-                  overflow: TextOverflow.clip,
-                  style: TextStyle(
-                    color: style.composerSendButtonIconColor,
-                    fontSize: 14,
-                  ),
-                ),
+          ),
         ),
       ),
     );
+  }
+}
+
+class _ComposerSendButtonSurface extends StatelessWidget {
+  const _ComposerSendButtonSurface({
+    required this.blurSigma,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  final double blurSigma;
+  final double borderRadius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (blurSigma <= 0) return child;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(borderRadius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: child,
+      ),
+    );
+  }
+}
+
+class _ComposerUpArrowPainter extends CustomPainter {
+  const _ComposerUpArrowPainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.width / 16;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.51 * scale
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    Offset point(double x, double y) => Offset(x * scale, y * scale);
+    canvas
+      ..drawLine(point(8, 13.2), point(8, 3.2), paint)
+      ..drawPath(
+        Path()
+          ..moveTo(3.9 * scale, 7.3 * scale)
+          ..lineTo(8 * scale, 3.2 * scale)
+          ..lineTo(12.1 * scale, 7.3 * scale),
+        paint,
+      );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ComposerUpArrowPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }

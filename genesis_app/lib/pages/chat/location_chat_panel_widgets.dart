@@ -1,5 +1,17 @@
 part of 'location_chat_page.dart';
 
+const LinearGradient _locationChatBackgroundOverlayGradient = LinearGradient(
+  begin: Alignment.topCenter,
+  end: Alignment.bottomCenter,
+  stops: <double>[0, 0.32, 0.64, 1],
+  colors: <Color>[
+    Color(0xCC131215),
+    Color(0x80131215),
+    Color(0x80131215),
+    Color(0xCC131215),
+  ],
+);
+
 class _LocationChatBackground extends StatelessWidget {
   const _LocationChatBackground({
     required this.imageUrl,
@@ -15,36 +27,49 @@ class _LocationChatBackground extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final imageLayer = enabled
+        ? LayoutBuilder(
+            builder: (context, constraints) {
+              final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+              final fullUrl = _resolveLocationChatBackgroundUrl(
+                imageUrl,
+                previewImageUrl: previewImageUrl,
+                logicalWidth: constraints.maxWidth,
+                logicalHeight: constraints.maxHeight,
+                devicePixelRatio: devicePixelRatio,
+              );
+              final previewUrl = resolveLocationChatBackgroundPreviewUrl(
+                imageUrl,
+                previewImageUrl: previewImageUrl,
+              );
+              return _LocationChatBackgroundImage(
+                previewUrl: previewUrl,
+                fullUrl: fullUrl,
+              );
+            },
+          )
+        : const SizedBox.expand(
+            key: ValueKey<String>('location-chat-background-disabled'),
+          );
     return RepaintBoundary(
       key: const ValueKey<String>('location-chat-background'),
       child: ColoredBox(
         color: color,
-        child: enabled
-            ? LayoutBuilder(
-                builder: (context, constraints) {
-                  final devicePixelRatio = MediaQuery.devicePixelRatioOf(
-                    context,
-                  );
-                  final fullUrl = _resolveLocationChatBackgroundUrl(
-                    imageUrl,
-                    previewImageUrl: previewImageUrl,
-                    logicalWidth: constraints.maxWidth,
-                    logicalHeight: constraints.maxHeight,
-                    devicePixelRatio: devicePixelRatio,
-                  );
-                  final previewUrl = resolveLocationChatBackgroundPreviewUrl(
-                    imageUrl,
-                    previewImageUrl: previewImageUrl,
-                  );
-                  return _LocationChatBackgroundImage(
-                    previewUrl: previewUrl,
-                    fullUrl: fullUrl,
-                  );
-                },
-              )
-            : const SizedBox.expand(
-                key: ValueKey<String>('location-chat-background-disabled'),
+        child: Stack(
+          key: const ValueKey<String>('location-chat-background-layers'),
+          fit: StackFit.expand,
+          children: [
+            imageLayer,
+            const IgnorePointer(
+              child: DecoratedBox(
+                key: ValueKey<String>('location-chat-background-overlay'),
+                decoration: BoxDecoration(
+                  gradient: _locationChatBackgroundOverlayGradient,
+                ),
               ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -106,6 +131,7 @@ String _resizeLocationChatBackgroundImageUrl(
   required double devicePixelRatio,
 }) {
   final resolved = resolveAssetUrl(selected);
+  if (resolved == _locationChatDefaultBackgroundAsset) return '';
   if (resolved.startsWith('assets/')) return resolved;
   final resized = resizeGenesisImageUrl(
     resolved,
@@ -114,7 +140,7 @@ String _resizeLocationChatBackgroundImageUrl(
   );
   if (resized.isNotEmpty) return resized;
   if (resolved.isNotEmpty) return resolved;
-  return _locationChatDefaultBackgroundAsset;
+  return '';
 }
 
 class _LocationChatBackgroundImage extends StatefulWidget {
@@ -320,60 +346,6 @@ class _LocationChatComposerExtension extends StatelessWidget {
       return gradient.colors.last;
     }
     return style.composerBackgroundColor;
-  }
-}
-
-class _LocationChatMeasuredComposer extends StatefulWidget {
-  const _LocationChatMeasuredComposer({
-    required this.child,
-    required this.onHeightChanged,
-  });
-
-  final Widget child;
-  final ValueChanged<double> onHeightChanged;
-
-  @override
-  State<_LocationChatMeasuredComposer> createState() =>
-      _LocationChatMeasuredComposerState();
-}
-
-class _LocationChatMeasuredComposerState
-    extends State<_LocationChatMeasuredComposer> {
-  final _key = GlobalKey();
-  double _lastHeight = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-  }
-
-  @override
-  void didUpdateWidget(covariant _LocationChatMeasuredComposer oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-  }
-
-  void _measure() {
-    if (!mounted) return;
-    final context = _key.currentContext;
-    final renderObject = context?.findRenderObject();
-    if (renderObject is! RenderBox || !renderObject.hasSize) return;
-    final height = renderObject.size.height;
-    if ((_lastHeight - height).abs() <= 0.5) return;
-    _lastHeight = height;
-    widget.onHeightChanged(height);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return NotificationListener<SizeChangedLayoutNotification>(
-      onNotification: (_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
-        return false;
-      },
-      child: SizeChangedLayoutNotifier(key: _key, child: widget.child),
-    );
   }
 }
 

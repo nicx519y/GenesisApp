@@ -80,16 +80,12 @@ class _DeveloperWorldHistoryWatermarkPanel extends StatelessWidget {
           const SizedBox(height: 10),
           _DeveloperWorldHistoryReadOnlyValue(
             field: 'stored_high_watermark',
-            value: settings == null
-                ? '—'
-                : '${settings!.storedHighWatermark}',
+            value: settings == null ? '—' : '${settings!.storedHighWatermark}',
           ),
           const SizedBox(height: 6),
           _DeveloperWorldHistoryReadOnlyValue(
             field: 'stored_low_watermark',
-            value: settings == null
-                ? '—'
-                : '${settings!.storedLowWatermark}',
+            value: settings == null ? '—' : '${settings!.storedLowWatermark}',
           ),
           const SizedBox(height: 6),
           _DeveloperWorldHistoryReadOnlyValue(
@@ -108,9 +104,7 @@ class _DeveloperWorldHistoryWatermarkPanel extends StatelessWidget {
                 child: OutlinedButton(
                   key: const ValueKey<String>('developer-world-history-fetch'),
                   onPressed: enabled ? onFetch : null,
-                  style: _worldHistoryActionButtonStyle(
-                    _worldHistoryGetColor,
-                  ),
+                  style: _worldHistoryActionButtonStyle(_worldHistoryGetColor),
                   child: _worldHistoryActionButtonContent(
                     label: 'Get',
                     loading: busyAction == 'fetch',
@@ -175,10 +169,7 @@ Widget _worldHistoryActionButtonContent({
   return SizedBox.square(
     key: loadingKey,
     dimension: 16,
-    child: CircularProgressIndicator(
-      strokeWidth: 2,
-      color: color,
-    ),
+    child: CircularProgressIndicator(strokeWidth: 2, color: color),
   );
 }
 
@@ -209,6 +200,9 @@ class _DeveloperWorldHistoryWatermarkInput extends StatelessWidget {
       key: fieldKey,
       controller: controller,
       enabled: enabled,
+      cursorColor:
+          Theme.of(context).textTheme.bodyLarge?.color ??
+          const Color(0xFF111111),
       keyboardType: TextInputType.number,
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.digitsOnly,
@@ -249,10 +243,7 @@ class _DeveloperWorldHistoryReadOnlyValue extends StatelessWidget {
         Expanded(
           child: Text(
             field,
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF555555),
-            ),
+            style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
           ),
         ),
         const SizedBox(width: 12),
@@ -745,6 +736,7 @@ class _DeveloperVersionField extends StatelessWidget {
     return TextField(
       controller: controller,
       enabled: enabled,
+      cursorColor: Colors.black,
       keyboardType: digitsOnly ? TextInputType.number : TextInputType.text,
       inputFormatters: digitsOnly
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
