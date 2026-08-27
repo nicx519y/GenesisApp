@@ -3326,6 +3326,44 @@ void main() {
     expect(find.byType(StatItem), findsNWidgets(7));
   });
 
+  testWidgets('search page reruns the active query after session change', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    AppStartupCoordinator.configure(
+      appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+    );
+    final transport = _RecordingSearchTransport();
+    final sessionStore = MemoryUserSessionStore();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialUid: null,
+      sessionStoreOverride: sessionStore,
+    );
+    await tester.pumpWidget(GenesisApp(services: services));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Explore').first);
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'reborn');
+    await tester.pump(const Duration(milliseconds: 600));
+    await tester.pumpAndSettle();
+    expect(transport.requestsFor('/api/v1/search'), hasLength(1));
+
+    await sessionStore.saveUid('u_logged_in');
+    await sessionStore.saveAuthToken('backend-token');
+    services.notifySessionChanged();
+    await tester.pumpAndSettle();
+
+    final requests = transport.requestsFor('/api/v1/search');
+    expect(requests, hasLength(2));
+    expect(requests.last.uri.queryParameters['keyword'], 'reborn');
+    expect(requests.last.uri.queryParameters['pn'], '1');
+    expect(find.text('#Search Origin'), findsOneWidget);
+  });
+
   testWidgets('search page renders local mock Chinese user results', (
     WidgetTester tester,
   ) async {
@@ -5367,6 +5405,68 @@ void main() {
     expect(feedRequests, hasLength(1));
     expect(find.text('#Origin 1'), findsOneWidget);
   });
+
+  testWidgets(
+    'session change reloads Worldo first page and resets its scroll position',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      AppStartupCoordinator.configure(
+        appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+      );
+      GenesisTelemetry.setSinkForTesting(_CapturingTelemetrySink());
+      addTearDown(GenesisTelemetry.resetForTesting);
+      final transport = _RecordingV1ListTransport();
+      final sessionStore = MemoryUserSessionStore();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: null,
+        sessionStoreOverride: sessionStore,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const AppShellPage(initialIndex: 1),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final feedFinder = find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      );
+      ScrollableState currentScrollable() => tester.state<ScrollableState>(
+        find.descendant(of: feedFinder, matching: find.byType(Scrollable)),
+      );
+
+      final anonymousScrollable = currentScrollable();
+      await tester.drag(feedFinder, const Offset(0, -500));
+      await tester.pumpAndSettle();
+      expect(anonymousScrollable.position.pixels, greaterThan(0));
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+
+      await tester.tap(find.text('Me'));
+      await tester.pumpAndSettle();
+      await sessionStore.saveUid('u_logged_in');
+      await sessionStore.saveAuthToken('backend-token');
+      services.notifySessionChanged();
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Worldo'));
+      await tester.pumpAndSettle();
+
+      final signedInScrollable = currentScrollable();
+      final feedRequests = transport.requestsFor('/api/v1/origin/feed');
+      expect(feedRequests, hasLength(2));
+      expect(feedRequests.last.uri.queryParameters, {
+        'start_score': '0',
+        'rn': '10',
+      });
+      expect(identical(signedInScrollable, anonymousScrollable), isFalse);
+      expect(signedInScrollable.position.pixels, 0);
+    },
+  );
 
   testWidgets('reselecting Worldo returns For you feed and header to top', (
     WidgetTester tester,

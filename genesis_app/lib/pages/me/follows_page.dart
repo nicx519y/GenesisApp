@@ -10,6 +10,7 @@ import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../platform/session/session_revision_subscription.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../utils/api_error_message.dart';
 import '../../utils/display_name_formatter.dart';
@@ -35,6 +36,7 @@ class FollowsPage extends StatefulWidget {
 class _FollowsPageState extends State<FollowsPage>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late final SessionRevisionSubscription _sessionRevision;
   Future<List<_FollowUserItem>>? _followingFuture;
   Future<List<_FollowUserItem>>? _followersFuture;
   final Set<String> _loadingUids = <String>{};
@@ -44,6 +46,7 @@ class _FollowsPageState extends State<FollowsPage>
   bool _didLoad = false;
   int? _followingTotal;
   int? _followersTotal;
+  var _loadGeneration = 0;
 
   @override
   void initState() {
@@ -54,39 +57,62 @@ class _FollowsPageState extends State<FollowsPage>
       vsync: this,
       initialIndex: widget.initialIndex.clamp(0, 1),
     );
+    _sessionRevision = SessionRevisionSubscription(_handleSessionChanged);
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _sessionRevision.bind(AppServicesScope.of(context).sessionRevision);
     if (_didLoad) return;
     _didLoad = true;
-    unawaited(_loadCachedTotals());
-    _followingFuture = _startUsersLoad(_FollowListType.following);
-    _followersFuture = _startUsersLoad(_FollowListType.followers);
-    unawaited(_loadCanToggleFollow());
+    _reloadForSession();
+  }
+
+  void _handleSessionChanged() {
+    if (!mounted) return;
+    _reloadForSession();
+  }
+
+  void _reloadForSession() {
+    final generation = ++_loadGeneration;
+    final following = _startUsersLoad(_FollowListType.following, generation);
+    final followers = _startUsersLoad(_FollowListType.followers, generation);
+    setState(() {
+      _loadingUids.clear();
+      _followStateOverrides.clear();
+      _followingTotal = null;
+      _followersTotal = null;
+      _canToggleFollow = false;
+      _title = _cleanTitle(widget.initialTitle) ?? 'Follows';
+      _followingFuture = following;
+      _followersFuture = followers;
+    });
+    unawaited(_loadCachedTotals(generation));
+    unawaited(_loadCanToggleFollow(generation));
     if (_cleanTitle(widget.initialTitle) == null) {
-      _loadTitle();
+      unawaited(_loadTitle(generation));
     }
   }
 
-  Future<void> _loadCanToggleFollow() async {
+  Future<void> _loadCanToggleFollow(int generation) async {
     final uid = widget.uid.trim();
     if (uid.isEmpty) return;
     final localUid =
         (await AppServicesScope.read(context).sessionStore.readUid())?.trim() ??
         '';
-    if (!mounted) return;
+    if (!mounted || generation != _loadGeneration) return;
     setState(() => _canToggleFollow = localUid.isNotEmpty && localUid == uid);
   }
 
   @override
   void dispose() {
+    _sessionRevision.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadCachedTotals() async {
+  Future<void> _loadCachedTotals(int generation) async {
     final uid = widget.uid.trim();
     if (uid.isEmpty) return;
     final sessionStore = AppServicesScope.read(context).sessionStore;
@@ -98,7 +124,9 @@ class _FollowsPageState extends State<FollowsPage>
     final matchesCurrentUser =
         (localUid.isNotEmpty && localUid == uid) ||
         (cachedUid.isNotEmpty && cachedUid == uid);
-    if (!matchesCurrentUser || !mounted) return;
+    if (!matchesCurrentUser || !mounted || generation != _loadGeneration) {
+      return;
+    }
 
     setState(() {
       _followingTotal =
@@ -108,7 +136,7 @@ class _FollowsPageState extends State<FollowsPage>
     });
   }
 
-  Future<void> _loadTitle() async {
+  Future<void> _loadTitle(int generation) async {
     final uid = widget.uid.trim();
     if (uid.isEmpty) return;
     try {
@@ -120,12 +148,15 @@ class _FollowsPageState extends State<FollowsPage>
           _mapString(user, 'name') ??
           _mapString(user, 'display_name') ??
           _mapString(user, 'nickname');
-      if (!mounted || title == null) return;
+      if (!mounted || generation != _loadGeneration || title == null) return;
       setState(() => _title = title);
     } catch (_) {}
   }
 
-  Future<List<_FollowUserItem>> _loadUsers(_FollowListType type) async {
+  Future<List<_FollowUserItem>> _loadUsers(
+    _FollowListType type,
+    int generation,
+  ) async {
     final uid = widget.uid.trim();
     if (uid.isEmpty) return const <_FollowUserItem>[];
 
@@ -139,7 +170,7 @@ class _FollowsPageState extends State<FollowsPage>
         .where((item) => item.uid.trim().isNotEmpty)
         .toList(growable: false);
     final total = _mapInt(response, 'total', fallback: items.length);
-    if (mounted) {
+    if (mounted && generation == _loadGeneration) {
       setState(() {
         if (type == _FollowListType.following) {
           _followingTotal = total;
@@ -151,8 +182,11 @@ class _FollowsPageState extends State<FollowsPage>
     return items;
   }
 
-  Future<List<_FollowUserItem>> _startUsersLoad(_FollowListType type) {
-    final load = _loadUsers(type);
+  Future<List<_FollowUserItem>> _startUsersLoad(
+    _FollowListType type,
+    int generation,
+  ) {
+    final load = _loadUsers(type, generation);
     // Both tab requests start before TabBarView necessarily mounts each
     // FutureBuilder. Attach an error handler immediately; the original future
     // still retains its error for the owning FutureBuilder to render.
@@ -165,6 +199,7 @@ class _FollowsPageState extends State<FollowsPage>
     if (uid.isEmpty || _loadingUids.contains(uid)) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
+    final generation = _loadGeneration;
 
     setState(() => _loadingUids.add(uid));
     try {
@@ -174,7 +209,7 @@ class _FollowsPageState extends State<FollowsPage>
       } else {
         await api.follow(uid: uid);
       }
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         final nextFollowed = !isFollowed;
         _followStateOverrides[uid] = nextFollowed;
@@ -187,7 +222,7 @@ class _FollowsPageState extends State<FollowsPage>
         }
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() => _loadingUids.remove(uid));
       showGenesisToast(context, apiErrorMessage(error));
     }
@@ -197,9 +232,9 @@ class _FollowsPageState extends State<FollowsPage>
     late final Future<List<_FollowUserItem>> refresh;
     setState(() {
       if (type == _FollowListType.following) {
-        refresh = _followingFuture = _startUsersLoad(type);
+        refresh = _followingFuture = _startUsersLoad(type, _loadGeneration);
       } else {
-        refresh = _followersFuture = _startUsersLoad(type);
+        refresh = _followersFuture = _startUsersLoad(type, _loadGeneration);
       }
     });
     try {
@@ -233,6 +268,7 @@ class _FollowsPageState extends State<FollowsPage>
             ),
             Expanded(
               child: TabBarView(
+                key: ValueKey<String>('follows-session-$_loadGeneration'),
                 controller: _tabController,
                 children: [
                   _FollowUsersPane(
