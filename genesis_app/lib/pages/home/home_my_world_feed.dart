@@ -32,13 +32,15 @@ class _MyWorldFeed extends StatefulWidget {
 }
 
 class _MyWorldFeedState extends State<_MyWorldFeed>
-    with AutomaticKeepAliveClientMixin<_MyWorldFeed> {
+    with AutomaticKeepAliveClientMixin<_MyWorldFeed>, WidgetsBindingObserver {
   static const _pageViewAction = 'home_my_worlds';
   static const _pageSize = 10;
   static const _loadMoreThreshold = 700.0;
+  static const _scrollToTopDuration = Duration(milliseconds: 240);
 
   TabController? _tabController;
   final ScrollController _scrollController = ScrollController();
+  final _statusBarTapClock = Stopwatch()..start();
   final List<WorldListItem> _items = <WorldListItem>[];
   final Set<String> _deletingWorldIds = <String>{};
   final Set<String> _collapsingWorldIds = <String>{};
@@ -67,10 +69,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
   var _firstScreenRequestAttempt = 0;
   var _firstScreenRenderCompleted = false;
+  Duration? _lastStatusBarTap;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _firstScreenRequestAttempt = widget.initialPageRequestAttempt;
     _activeFirstScreenRenderOperation = widget.initialPageRenderOperation;
     _hydrateInitialPageDataIfAvailable();
@@ -129,6 +133,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     unawaited(_activeFirstScreenRenderOperation?.cancel());
     worldActivityTagStore.listenable.removeListener(_handleActivityTagsChanged);
     worldDeletionEvents.removeListener(_handleExternalWorldDeleted);
+    WidgetsBinding.instance.removeObserver(this);
     widget.activationListenable?.removeListener(_handlePageActivated);
     widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
@@ -136,6 +141,31 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       ..removeListener(_handleScroll)
       ..dispose();
     super.dispose();
+  }
+
+  @override
+  void handleStatusBarTap() {
+    if (defaultTargetPlatform != TargetPlatform.iOS || !_isPageActive) return;
+    final now = _statusBarTapClock.elapsed;
+    final lastTap = _lastStatusBarTap;
+    if (lastTap != null && now - lastTap <= kDoubleTapTimeout) {
+      _lastStatusBarTap = null;
+      unawaited(_scrollToTop());
+      return;
+    }
+    _lastStatusBarTap = now;
+  }
+
+  Future<void> _scrollToTop() async {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    final minExtent = position.minScrollExtent;
+    if (position.pixels <= minExtent) return;
+    await position.animateTo(
+      minExtent,
+      duration: _scrollToTopDuration,
+      curve: Curves.easeOutCubic,
+    );
   }
 
   Future<void> _loadWorldActivityTags() async {

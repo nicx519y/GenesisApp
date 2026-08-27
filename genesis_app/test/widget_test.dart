@@ -5424,6 +5424,64 @@ void main() {
     },
   );
 
+  testWidgets('Home My Worlds returns to top after two iOS status bar taps', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    try {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'backend-token',
+            ),
+            child: const Scaffold(primary: false, body: HomePage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final feedFinder = find.byKey(
+        const PageStorageKey<String>('home-feed-my-world'),
+      );
+      final feedScrollableFinder = find.descendant(
+        of: feedFinder,
+        matching: find.byType(Scrollable),
+      );
+      final scrollableState = tester.state<ScrollableState>(
+        feedScrollableFinder,
+      );
+      expect(scrollableState.position.maxScrollExtent, greaterThan(0));
+      scrollableState.position.jumpTo(scrollableState.position.maxScrollExtent);
+      await tester.pump();
+
+      Future<void> sendStatusBarTap() {
+        return tester.binding.defaultBinaryMessenger.handlePlatformMessage(
+          SystemChannels.statusBar.name,
+          SystemChannels.statusBar.codec.encodeMethodCall(
+            const MethodCall('handleScrollToTop'),
+          ),
+          (_) {},
+        );
+      }
+
+      await sendStatusBarTap();
+      await tester.pump();
+      expect(scrollableState.position.pixels, greaterThan(0));
+
+      await sendStatusBarTap();
+      await tester.pumpAndSettle();
+      expect(scrollableState.position.pixels, 0);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump(const Duration(seconds: 1));
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('Origin returns to top after two iOS status bar taps', (
     WidgetTester tester,
   ) async {
