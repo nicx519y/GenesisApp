@@ -22,6 +22,8 @@ abstract final class GenesisTheme {
     return ThemeData(
       // The standard color system consumed by Flutter Material components.
       colorScheme: colorScheme,
+      fontFamily: GenesisTypography.fontFamily,
+      fontFamilyFallback: GenesisTypography.fontFamilyFallback,
       // Product interactions use state changes rather than Material ripple,
       // pressed, hover, or focus overlays.
       splashFactory: NoSplash.splashFactory,

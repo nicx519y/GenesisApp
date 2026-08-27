@@ -2699,12 +2699,15 @@ void main() {
         ),
       );
       expect(text.textSpan?.toPlainText(), rendered);
-      expect(text.textSpan?.style?.fontFamily, isNull);
-      expect(text.textSpan?.style?.fontFamilyFallback, isNull);
+      expect(text.textSpan?.style?.fontFamily, GenesisTypography.fontFamily);
+      expect(
+        text.textSpan?.style?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
     },
   );
 
-  testWidgets('chat message bubble uses soft markdown emphasis on iOS', (
+  testWidgets('chat message bubble uses Inter markdown emphasis on iOS', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2726,7 +2729,7 @@ void main() {
       ),
     );
 
-    final style = _firstSkewedWidgetFragmentStyle(
+    final style = _firstTextFragmentStyle(
       tester.widgetList<Text>(
         find.descendant(
           of: find.byType(ChatMessageBubble),
@@ -2735,11 +2738,18 @@ void main() {
       ),
       'quietly',
     );
-    expect(style?.fontStyle, FontStyle.normal);
+    expect(style?.fontStyle, FontStyle.italic);
     expect(style?.color, const Color(0xFF888888));
+    expect(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Transform),
+      ),
+      findsNothing,
+    );
   });
 
-  testWidgets('chat message bubble skews iOS markdown emphasis per token', (
+  testWidgets('chat message bubble keeps iOS emphasis in one Inter span', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2761,17 +2771,24 @@ void main() {
       ),
     );
 
-    final pieces = _skewedWidgetFragmentTexts(
+    final style = _firstTextFragmentStyle(
       tester.widgetList<Text>(
         find.descendant(
           of: find.byType(ChatMessageBubble),
           matching: find.byType(Text),
         ),
       ),
+      'quietly now',
     );
 
-    expect(pieces, containsAll(<String>['quietly', 'now']));
-    expect(pieces, isNot(contains('quietly now')));
+    expect(style?.fontStyle, FontStyle.italic);
+    expect(
+      find.descendant(
+        of: find.byType(ChatMessageBubble),
+        matching: find.byType(Transform),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('chat rows reserve matching avatar space on both sides', (
@@ -3468,12 +3485,8 @@ void main() {
       expect(find.text('Global'), findsNothing);
       expect(globalText, findsOneWidget);
       expect(
-        _skewedWidgetFragmentTexts(
-          tester.widgetList<Text>(
-            find.descendant(of: globalSection, matching: find.byType(Text)),
-          ),
-        ),
-        containsAll(<String>['The', 'promise-shaped', 'key', 'pulses.']),
+        tester.widget<Text>(globalText).textSpan?.style?.fontStyle,
+        FontStyle.italic,
       );
       expect(find.byIcon(Icons.schedule_rounded), findsNothing);
       final tickBubble = tester.widget<Container>(
@@ -3520,18 +3533,7 @@ void main() {
         Colors.white.withValues(alpha: 0.73),
       );
       expect(
-        tester.widget<Text>(globalText).textSpan?.style?.fontStyle,
-        FontStyle.normal,
-      );
-      expect(
-        find.ancestor(
-          of: globalText,
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Transform &&
-                _matchesIosInlineEmphasisSkew(widget.transform),
-          ),
-        ),
+        find.descendant(of: globalSection, matching: find.byType(Transform)),
         findsNothing,
       );
       expect(find.text('Event'), findsNothing);
@@ -3557,18 +3559,11 @@ void main() {
       expect(clueText, findsOneWidget);
       expect(
         tester.widget<Text>(clueText).textSpan?.style?.fontStyle,
-        FontStyle.normal,
+        FontStyle.italic,
       );
       expect(
-        find.ancestor(
-          of: clueText,
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Transform &&
-                _matchesIosInlineEmphasisSkew(widget.transform),
-          ),
-        ),
-        findsOneWidget,
+        find.ancestor(of: clueText, matching: find.byType(Transform)),
+        findsNothing,
       );
       expect(find.text('Character destinations'), findsNothing);
       expect(movementRow, findsOneWidget);
@@ -3650,7 +3645,7 @@ void main() {
     },
   );
 
-  testWidgets('tick global skews iOS multiline content per token', (
+  testWidgets('tick global uses Inter italic for iOS multiline content', (
     WidgetTester tester,
   ) async {
     const globalValue =
@@ -3693,28 +3688,18 @@ void main() {
     );
     expect(richText, findsOneWidget);
     expect(tester.getSize(richText).height, greaterThan(30));
-    expect(tester.widget<Text>(richText).semanticsLabel, globalValue);
+    expect(tester.widget<Text>(richText).semanticsLabel, isNull);
     expect(
-      find.ancestor(
-        of: richText,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Transform &&
-              _matchesIosInlineEmphasisSkew(widget.transform),
-        ),
-      ),
+      tester.widget<Text>(richText).textSpan?.style?.fontStyle,
+      FontStyle.italic,
+    );
+    expect(
+      find.ancestor(of: richText, matching: find.byType(Transform)),
       findsNothing,
     );
     expect(
-      find.descendant(
-        of: globalSection,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is Transform &&
-              _matchesIosInlineEmphasisSkew(widget.transform),
-        ),
-      ),
-      findsWidgets,
+      find.descendant(of: globalSection, matching: find.byType(Transform)),
+      findsNothing,
     );
   });
 
@@ -3861,8 +3846,11 @@ void main() {
 
     expect(controller.text, raw);
     final input = tester.widget<TextField>(find.byType(TextField));
-    expect(input.style?.fontFamily, isNull);
-    expect(input.style?.fontFamilyFallback, isNull);
+    expect(input.style?.fontFamily, GenesisTypography.fontFamily);
+    expect(
+      input.style?.fontFamilyFallback,
+      GenesisTypography.fontFamilyFallback,
+    );
   });
 
   testWidgets('chat composer send button keeps text field focused', (
@@ -4450,73 +4438,10 @@ TextStyle? _textFragmentStyle(Text text, String value) {
   return style;
 }
 
-TextStyle? _firstSkewedWidgetFragmentStyle(Iterable<Text> texts, String value) {
+TextStyle? _firstTextFragmentStyle(Iterable<Text> texts, String value) {
   for (final text in texts) {
-    final style = _skewedWidgetFragmentStyle(text.textSpan, value);
+    final style = _textFragmentStyle(text, value);
     if (style != null) return style;
   }
   return null;
-}
-
-List<String> _skewedWidgetFragmentTexts(Iterable<Text> texts) {
-  final values = <String>[];
-  for (final text in texts) {
-    _collectSkewedWidgetFragmentTexts(text.textSpan, values);
-  }
-  return values;
-}
-
-void _collectSkewedWidgetFragmentTexts(InlineSpan? span, List<String> values) {
-  if (span == null) return;
-  span.visitChildren((child) {
-    if (child is WidgetSpan) {
-      final value = _skewedTextValue(child.child);
-      if (value != null) values.add(value);
-    }
-    return true;
-  });
-}
-
-TextStyle? _skewedWidgetFragmentStyle(InlineSpan? span, String value) {
-  if (span == null) return null;
-  TextStyle? style;
-  span.visitChildren((child) {
-    if (child is WidgetSpan) {
-      final childStyle = _skewedTextStyle(child.child, value);
-      if (childStyle != null) {
-        style = childStyle;
-        return false;
-      }
-    }
-    return true;
-  });
-  return style;
-}
-
-String? _skewedTextValue(Widget widget) {
-  if (widget is! Transform) return null;
-  if (!_matchesIosInlineEmphasisSkew(widget.transform)) return null;
-  final child = widget.child;
-  if (child is Text) return child.data;
-  return null;
-}
-
-TextStyle? _skewedTextStyle(Widget widget, String value) {
-  if (widget is! Transform) return null;
-  if (!_matchesIosInlineEmphasisSkew(widget.transform)) return null;
-  final child = widget.child;
-  if (child is Text && child.data == value) {
-    return child.style;
-  }
-  return null;
-}
-
-bool _matchesIosInlineEmphasisSkew(Matrix4 transform) {
-  final expected = Matrix4.skewX(GenesisTypography.iosInlineEmphasisSkew);
-  for (var index = 0; index < transform.storage.length; index += 1) {
-    if ((transform.storage[index] - expected.storage[index]).abs() > 0.0001) {
-      return false;
-    }
-  }
-  return true;
 }

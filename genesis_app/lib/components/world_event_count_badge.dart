@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../ui/tokens/genesis_typography.dart';
+
 /// Compact event count shown at the top-right of a map location label.
 class WorldEventCountBadge extends StatelessWidget {
   const WorldEventCountBadge({super.key, required this.count});
@@ -27,6 +29,8 @@ class WorldEventCountBadge extends StatelessWidget {
         count > 99 ? '99+' : '$count',
         style: const TextStyle(
           inherit: false,
+          fontFamily: GenesisTypography.fontFamily,
+          fontFamilyFallback: GenesisTypography.fontFamilyFallback,
           color: Colors.white,
           fontSize: fontSize,
           height: 1,

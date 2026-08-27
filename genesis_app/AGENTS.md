@@ -150,10 +150,10 @@ HTTP 映射层的图片规则：
 
 ## iOS 字体倾斜规则
 
-- iOS 用户可见的斜体统一使用 `GenesisSoftItalicText`，或在富文本场景使用同一文件提供的 `genesisSoftItalicStyle` 与 `genesisSoftItalicForPlatform`；实现为正常字形加 `GenesisTypography.iosInlineEmphasisSkew` 轻倾斜。
-- 页面和共享组件不得直接为用户可见文字设置 `FontStyle.italic`。iOS 系统标准 italic 倾斜过大，会影响阅读；非 iOS 平台由统一组件回退到标准 italic。
-- Markdown 的 `*emphasis*` 继续复用 `_InlineMarkdownText`/统一轻斜体链路，不要在 caller 额外叠加 italic 或 Transform。
-- 修改斜体展示时，测试必须分别断言 iOS 使用正常字形与轻倾斜 Transform，并确认非 iOS 仍使用标准 italic。
+- 用户可见的斜体统一使用 `GenesisSoftItalicText`，或在富文本场景使用同一文件提供的 `genesisSoftItalicStyle` 与 `genesisSoftItalicForPlatform`；当前 iOS 和非 iOS 默认都使用内置的 Inter Italic 字形。
+- 旧版 iOS 正常字形加 `GenesisTypography.iosInlineEmphasisSkew` 的轻倾斜实现必须保留，通过 `GenesisTypography.useIosSoftItalicSkew` 集中控制；当前默认值为 `false`，以后需要恢复时只改该开关，不在 caller 增加局部 Transform。
+- 页面和共享组件不得直接为用户可见文字设置 `FontStyle.italic`，Markdown 的 `*emphasis*` 继续复用 `_InlineMarkdownText`/统一斜体链路。
+- 修改斜体展示时，测试必须断言 iOS 和非 iOS 的默认 Inter Italic，并保留旧版 iOS 轻倾斜代码路径的可恢复性测试。
 
 ## 共享组件边界
 

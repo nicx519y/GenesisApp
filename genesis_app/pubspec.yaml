@@ -113,6 +113,11 @@ flutter:
     - assets/custom-icons/svg/
 
   fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/InterVariable.ttf
+        - asset: assets/fonts/InterVariable-Italic.ttf
+          style: italic
     - family: MyFlutterApp
       fonts:
         - asset: assets/custom-icons/fonts/MyFlutterApp.ttf

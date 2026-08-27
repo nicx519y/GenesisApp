@@ -6,7 +6,6 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
   testWidgets(
@@ -265,17 +264,10 @@ void main() {
         findsOneWidget,
       );
       final clueText = find.text('Follow the light toward the gate.');
-      expect(tester.widget<Text>(clueText).style?.fontStyle, FontStyle.normal);
+      expect(tester.widget<Text>(clueText).style?.fontStyle, FontStyle.italic);
       expect(
-        find.ancestor(
-          of: clueText,
-          matching: find.byWidgetPredicate(
-            (widget) =>
-                widget is Transform &&
-                _matchesIosInlineEmphasisSkew(widget.transform),
-          ),
-        ),
-        findsOneWidget,
+        find.ancestor(of: clueText, matching: find.byType(Transform)),
+        findsNothing,
       );
       expect(
         tester
@@ -494,16 +486,6 @@ void main() {
     expect(find.text('Previous sub tick 1 body'), findsNothing);
     expect(tester.getTopLeft(find.byKey(latestPreviousSubTickKey)).dy, 0);
   });
-}
-
-bool _matchesIosInlineEmphasisSkew(Matrix4 transform) {
-  final expected = Matrix4.skewX(GenesisTypography.iosInlineEmphasisSkew);
-  for (var index = 0; index < transform.storage.length; index += 1) {
-    if ((transform.storage[index] - expected.storage[index]).abs() > 0.0001) {
-      return false;
-    }
-  }
-  return true;
 }
 
 WorldDetail _worldDetail({

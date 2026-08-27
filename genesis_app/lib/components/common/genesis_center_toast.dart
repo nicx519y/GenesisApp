@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../ui/tokens/genesis_typography.dart';
+
 OverlayEntry? _currentGenesisToast;
 Timer? _currentGenesisToastTimer;
 
@@ -52,6 +54,8 @@ void showGenesisToastInOverlay(
                     textAlign: TextAlign.center,
                     style: const TextStyle(
                       inherit: false,
+                      fontFamily: GenesisTypography.fontFamily,
+                      fontFamilyFallback: GenesisTypography.fontFamilyFallback,
                       color: Colors.white,
                       fontSize: 12,
                       fontWeight: FontWeight.w400,

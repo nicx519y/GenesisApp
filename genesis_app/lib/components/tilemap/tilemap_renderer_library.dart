@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import '../../app/config/genesis_image_config.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/components/recent_chat_marker.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../legacy_world_map/legacy_world_map_gesture.dart';
 import '../world_event_count_badge.dart';
 import '../world_map_contract.dart';

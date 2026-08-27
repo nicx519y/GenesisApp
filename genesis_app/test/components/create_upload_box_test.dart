@@ -129,7 +129,7 @@ void main() {
     expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
   });
 
-  testWidgets('CreateFormNote uses soft markdown emphasis on iOS', (
+  testWidgets('CreateFormNote uses Inter markdown emphasis on iOS', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -141,21 +141,27 @@ void main() {
       ),
     );
 
-    final style = _firstSkewedWidgetFragmentStyle(
-      tester.widgetList<RichText>(find.byType(RichText)),
-      'gentle',
-    );
+    final richText = tester
+        .widgetList<RichText>(find.byType(RichText))
+        .firstWhere((text) => text.text.toPlainText().contains('gentle'));
+    final style = _textFragmentStyle(richText.text, 'gentle');
+    var hasWidgetSpan = false;
+    richText.text.visitChildren((child) {
+      hasWidgetSpan = hasWidgetSpan || child is WidgetSpan;
+      return !hasWidgetSpan;
+    });
 
-    expect(style?.fontStyle, FontStyle.normal);
+    expect(style?.fontStyle, FontStyle.italic);
+    expect(richText.text.style?.fontFamily, GenesisTypography.fontFamily);
+    expect(hasWidgetSpan, isFalse);
   });
 
   testWidgets(
-    'CreateTextFieldBlock uses decorative unicode visual fallback input',
+    'CreateTextFieldBlock uses Inter without rewriting decorative unicode',
     (WidgetTester tester) async {
       final controller = TextEditingController();
       addTearDown(controller.dispose);
       const raw = '☛ ˙۵ও⃢♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀〬𓈒ֹ⁠꙳';
-      const rendered = '☛ ˙۵▤▤▤♥︎ ━  𝙏ᶦⁿᶦᵗᵃ 🍓|🎀°ₒ✩';
 
       await tester.pumpWidget(
         MaterialApp(
@@ -173,16 +179,22 @@ void main() {
       await tester.enterText(find.byType(TextField), raw);
       await tester.pump();
 
-      expect(controller.text, rendered);
+      expect(controller.text, raw);
       final input = tester.widget<TextField>(find.byType(TextField));
-      expect(input.style?.fontFamily, isNull);
-      expect(input.style?.fontFamilyFallback, isNull);
-      expect(input.decoration?.hintStyle?.fontFamilyFallback, isNull);
+      expect(input.style?.fontFamily, GenesisTypography.fontFamily);
+      expect(
+        input.style?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
+      expect(
+        input.decoration?.hintStyle?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
 
       controller.text = raw;
       await tester.pump();
 
-      expect(controller.text, rendered);
+      expect(controller.text, raw);
     },
   );
 
@@ -298,48 +310,14 @@ void main() {
   });
 }
 
-TextStyle? _firstSkewedWidgetFragmentStyle(
-  Iterable<RichText> texts,
-  String value,
-) {
-  for (final text in texts) {
-    final style = _skewedWidgetFragmentStyle(text.text, value);
-    if (style != null) return style;
-  }
-  return null;
-}
-
-TextStyle? _skewedWidgetFragmentStyle(InlineSpan span, String value) {
+TextStyle? _textFragmentStyle(InlineSpan span, String value) {
   TextStyle? style;
   span.visitChildren((child) {
-    if (child is WidgetSpan) {
-      final childStyle = _skewedTextStyle(child.child, value);
-      if (childStyle != null) {
-        style = childStyle;
-        return false;
-      }
+    if (child is TextSpan && child.text == value) {
+      style = child.style;
+      return false;
     }
     return true;
   });
   return style;
-}
-
-TextStyle? _skewedTextStyle(Widget widget, String value) {
-  if (widget is! Transform) return null;
-  if (!_matchesIosInlineEmphasisSkew(widget.transform)) return null;
-  final child = widget.child;
-  if (child is Text && child.data == value) {
-    return child.style;
-  }
-  return null;
-}
-
-bool _matchesIosInlineEmphasisSkew(Matrix4 transform) {
-  final expected = Matrix4.skewX(GenesisTypography.iosInlineEmphasisSkew);
-  for (var index = 0; index < transform.storage.length; index += 1) {
-    if ((transform.storage[index] - expected.storage[index]).abs() > 0.0001) {
-      return false;
-    }
-  }
-  return true;
 }

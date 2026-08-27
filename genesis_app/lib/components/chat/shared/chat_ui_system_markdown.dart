@@ -22,6 +22,9 @@ class _InlineMarkdownText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final platform = Theme.of(context).platform;
+    final usesIosSoftItalicSkew =
+        platform == TargetPlatform.iOS &&
+        GenesisTypography.useIosSoftItalicSkew;
     final usesSoftItalic = softItalic || softItalicPerToken;
     final textStyle = usesSoftItalic
         ? genesisSoftItalicStyle(style, platform: platform)
@@ -34,15 +37,14 @@ class _InlineMarkdownText extends StatelessWidget {
           displayText,
           textStyle,
           platform,
-          suppressIosEmphasisSkew: softItalic && platform == TargetPlatform.iOS,
-          softItalicPlainText:
-              softItalicPerToken && platform == TargetPlatform.iOS,
+          suppressIosEmphasisSkew: softItalic && usesIosSoftItalicSkew,
+          softItalicPlainText: softItalicPerToken && usesIosSoftItalicSkew,
         ),
       ),
       maxLines: maxLines,
       overflow: overflow,
       textAlign: textAlign,
-      semanticsLabel: softItalicPerToken && platform == TargetPlatform.iOS
+      semanticsLabel: softItalicPerToken && usesIosSoftItalicSkew
           ? displayText
           : null,
     );
@@ -124,7 +126,8 @@ List<InlineSpan> _inlineEmphasisSpans(
     platform: platform,
     color: color,
   );
-  if (platform != TargetPlatform.iOS) {
+  if (platform != TargetPlatform.iOS ||
+      !GenesisTypography.useIosSoftItalicSkew) {
     return <InlineSpan>[TextSpan(text: text, style: style)];
   }
 

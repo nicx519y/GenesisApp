@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/recent_chat_marker.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../world_map_avatar_logic.dart';
@@ -85,6 +86,8 @@ const double _worldPointAvatarTopGap = 10;
 const double _worldPointTapTargetPadding = 6;
 const TextStyle _worldPointLabelTextStyle = TextStyle(
   inherit: false,
+  fontFamily: GenesisTypography.fontFamily,
+  fontFamilyFallback: GenesisTypography.fontFamilyFallback,
   fontSize: 12,
   height: 1.2,
   leadingDistribution: TextLeadingDistribution.even,

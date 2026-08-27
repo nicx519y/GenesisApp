@@ -477,8 +477,8 @@ class _CreateFormNoteText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final baseStyle = createFormSupportTextStyle.copyWith(
-      color: createFormNote,
+    final baseStyle = GenesisTypography.withFallback(
+      createFormSupportTextStyle.copyWith(color: createFormNote),
     );
     if (!markdown) {
       return Text(note, softWrap: true, style: baseStyle);
@@ -553,7 +553,8 @@ List<InlineSpan> _inlineEmphasisSpans(String text, TargetPlatform platform) {
     const TextStyle(),
     platform: platform,
   );
-  if (platform != TargetPlatform.iOS) {
+  if (platform != TargetPlatform.iOS ||
+      !GenesisTypography.useIosSoftItalicSkew) {
     return <InlineSpan>[TextSpan(text: text, style: style)];
   }
 

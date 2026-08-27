@@ -28,8 +28,14 @@ void main() {
       materialApp.theme?.textTheme.bodyMedium?.fontSize,
       GenesisTypography.body.fontSize,
     );
-    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamilyFallback, isNull);
-    expect(materialApp.theme?.textTheme.bodyMedium?.fontFamily, isNull);
+    expect(
+      materialApp.theme?.textTheme.bodyMedium?.fontFamilyFallback,
+      GenesisTypography.fontFamilyFallback,
+    );
+    expect(
+      materialApp.theme?.textTheme.bodyMedium?.fontFamily,
+      GenesisTypography.fontFamily,
+    );
   });
 
   test('GenesisTheme uses the default text color and red selection handle', () {
@@ -76,7 +82,13 @@ void main() {
     );
   });
 
-  test('GenesisTypography keeps text styles on the system font path', () {
+  test('GenesisTypography applies the Worldo Inter font stack', () {
+    expect(GenesisTypography.fontFamily, 'Inter');
+    expect(GenesisTypography.fontFamilyFallback, const <String>[
+      'PingFang SC',
+      'Noto Sans CJK SC',
+      'Noto Sans SC',
+    ]);
     for (final style in <TextStyle>[
       GenesisTypography.pageTitle,
       GenesisTypography.body,
@@ -84,8 +96,8 @@ void main() {
       GenesisTypography.supporting,
       GenesisTypography.tabLabel,
     ]) {
-      expect(style.fontFamily, isNull);
-      expect(style.fontFamilyFallback, isNull);
+      expect(style.fontFamily, GenesisTypography.fontFamily);
+      expect(style.fontFamilyFallback, GenesisTypography.fontFamilyFallback);
     }
   });
 
@@ -212,9 +224,15 @@ void main() {
       final input = tester.widget<TextField>(find.byType(TextField));
       expect(input.cursorColor, input.style?.color);
       expect(input.cursorColor, const Color(0xFF123456));
-      expect(input.style?.fontFamily, isNull);
-      expect(input.style?.fontFamilyFallback, isNull);
-      expect(input.decoration?.hintStyle?.fontFamilyFallback, isNull);
+      expect(input.style?.fontFamily, GenesisTypography.fontFamily);
+      expect(
+        input.style?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
+      expect(
+        input.decoration?.hintStyle?.fontFamilyFallback,
+        GenesisTypography.fontFamilyFallback,
+      );
     },
   );
 

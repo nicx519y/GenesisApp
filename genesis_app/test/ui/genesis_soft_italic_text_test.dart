@@ -4,7 +4,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_soft_italic_text.d
 import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
-  testWidgets('soft italic uses a normal font plus light skew on iOS', (
+  testWidgets('soft italic uses the bundled Inter italic on iOS', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -19,10 +19,13 @@ void main() {
 
     expect(
       tester.widget<Text>(find.text('Readable emphasis')).style?.fontStyle,
-      FontStyle.normal,
+      FontStyle.italic,
     );
-    final transform = tester.widget<Transform>(find.byType(Transform));
-    expect(_matchesIosInlineEmphasisSkew(transform.transform), isTrue);
+    expect(
+      tester.widget<Text>(find.text('Readable emphasis')).style?.fontFamily,
+      GenesisTypography.fontFamily,
+    );
+    expect(find.byType(Transform), findsNothing);
   });
 
   testWidgets('soft italic uses standard italic away from iOS', (tester) async {
@@ -41,6 +44,32 @@ void main() {
       FontStyle.italic,
     );
     expect(find.byType(Transform), findsNothing);
+  });
+
+  testWidgets('former iOS light skew remains available behind the switch', (
+    tester,
+  ) async {
+    final style = genesisSoftItalicStyle(
+      const TextStyle(fontSize: 14),
+      platform: TargetPlatform.iOS,
+      useIosSkew: true,
+    );
+    final child = genesisSoftItalicForPlatform(
+      platform: TargetPlatform.iOS,
+      useIosSkew: true,
+      child: Text('Restorable emphasis', style: style),
+    );
+
+    await tester.pumpWidget(
+      Directionality(textDirection: TextDirection.ltr, child: child),
+    );
+
+    expect(
+      tester.widget<Text>(find.text('Restorable emphasis')).style?.fontStyle,
+      FontStyle.normal,
+    );
+    final transform = tester.widget<Transform>(find.byType(Transform));
+    expect(_matchesIosInlineEmphasisSkew(transform.transform), isTrue);
   });
 }
 

@@ -24,6 +24,8 @@ const double _tilemapLocationActivityIconExtraWidth =
     _tilemapLocationActivityIconGap + kRecentChatMapBadgeSize;
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   inherit: false,
+  fontFamily: GenesisTypography.fontFamily,
+  fontFamilyFallback: GenesisTypography.fontFamilyFallback,
   color: Colors.white,
   fontSize: 12,
   height: 1.2,
@@ -32,6 +34,8 @@ const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
 );
 const TextStyle _tilemapEmptyLocationLabelTextStyle = TextStyle(
   inherit: false,
+  fontFamily: GenesisTypography.fontFamily,
+  fontFamilyFallback: GenesisTypography.fontFamilyFallback,
   color: Color(0xBAFFFFFF),
   fontSize: 12,
   height: 1.2,

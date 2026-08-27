@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_center_toast.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 
 void main() {
   testWidgets('shows centered translucent toast with 12px text', (
@@ -27,6 +28,11 @@ void main() {
 
     final text = tester.widget<Text>(toastText);
     expect(text.style?.inherit, isFalse);
+    expect(text.style?.fontFamily, GenesisTypography.fontFamily);
+    expect(
+      text.style?.fontFamilyFallback,
+      GenesisTypography.fontFamilyFallback,
+    );
     expect(text.style?.fontSize, 12);
     expect(text.style?.color, Colors.white);
     expect(text.style?.decoration, TextDecoration.none);
