@@ -1,11 +1,9 @@
 part of 'search_page.dart';
 
 class _SearchTabResults {
-  _SearchTabResults(this.tab);
+  _SearchTabResults();
 
-  final _SearchTab tab;
   final List<_SearchResultItem> items = <_SearchResultItem>[];
-  final Map<_SearchTab, int> sectionTotals = <_SearchTab, int>{};
   int total = 0;
   int nextPage = 1;
   bool hasMore = true;
@@ -17,7 +15,6 @@ class _SearchTabResults {
 
   void reset() {
     items.clear();
-    sectionTotals.clear();
     total = 0;
     nextPage = 1;
     hasMore = true;
@@ -27,31 +24,20 @@ class _SearchTabResults {
     requestToken = 0;
     error = null;
   }
-
-  int sectionTotalFor(_SearchTab section) {
-    return sectionTotals[section] ??
-        items.where((item) => item.tab == section).length;
-  }
-
-  void replaceSectionTotals(Map<_SearchTab, int> totals) {
-    sectionTotals
-      ..clear()
-      ..addAll(totals);
-  }
 }
 
 class _SearchPageResult {
   const _SearchPageResult({
     required this.items,
     required this.total,
-    required this.sectionTotals,
     required this.hasMore,
+    required this.tabTotals,
   });
 
   final List<_SearchResultItem> items;
   final int total;
-  final Map<_SearchTab, int> sectionTotals;
   final bool hasMore;
+  final Map<_SearchTab, int> tabTotals;
 }
 
 class _SearchResultItem {
@@ -68,144 +54,76 @@ class _SearchResultItem {
     required this.characterCount,
     required this.playerCount,
     required this.memberCount,
+    this.originV2,
+    this.worldV2,
+    this.userV2,
     this.deleted = false,
   });
 
-  factory _SearchResultItem.fromJson(
-    Map<String, dynamic> json, {
-    required _SearchTab fallbackTab,
-  }) {
-    final type = asString(json['type']);
-    final tab = switch (type) {
-      'origin' => _SearchTab.origin,
-      'world' => _SearchTab.world,
-      'user' => _SearchTab.user,
-      _ => fallbackTab,
-    };
-    final title = asString(json['title']);
-    final shortCode = asString(json['short_code']);
-    final entityId = asString(json['entity_id'], fallback: shortCode);
+  factory _SearchResultItem.fromV2Origin(SearchV2OriginItem origin) {
+    final originator = formatUidForDisplay(origin.owner.name, fallback: '-');
     return _SearchResultItem(
-      tab: tab,
-      entityId: entityId,
-      shortCode: shortCode,
-      title: title,
-      subtitle: switch (tab) {
-        _SearchTab.origin => _originSearchSubtitle(json, fallbackId: entityId),
-        _SearchTab.world => _worldSearchSubtitle(json, fallbackId: entityId),
-        _ => asString(json['subtitle']),
-      },
-      coverImage: asImageUrl(json['cover_image']),
-      copyCount: asInt(json['copy_cnt']),
-      connectCount: asInt(json['connect_cnt']),
-      tickCount: asInt(json['tick_cnt']),
-      characterCount: asInt(json['character_cnt']),
-      playerCount: asInt(json['player_cnt']),
-      memberCount: asInt(json['member_cnt'], fallback: asInt(json['user_cnt'])),
-      deleted: switch (tab) {
-        _SearchTab.origin => entityDeleted(
-          json['deleted'],
-          fallback: json['origin_deleted'],
-        ),
-        _SearchTab.world => entityDeleted(
-          json['world_deleted'],
-          fallback: json['deleted'],
-        ),
-        _SearchTab.user => entityDeleted(json['deleted']),
-        _SearchTab.all => entityDeleted(json['deleted']),
-      },
+      tab: _SearchTab.origin,
+      entityId: origin.originId,
+      shortCode: origin.originId,
+      title: origin.originName,
+      subtitle:
+          'OID: ${_dashOrValue(origin.originId)}  '
+          'Originator: $originator\n'
+          'Brief: ${_dashOrValue(origin.brief)}\n'
+          'Latest Version: ${_originVersionLabel(origin.originVersion)}',
+      coverImage: asImageUrl(origin.cover),
+      copyCount: origin.stats.copyCount,
+      connectCount: origin.stats.connectCount,
+      tickCount: origin.stats.maxTickCount,
+      characterCount: origin.stats.characterCount,
+      playerCount: 0,
+      memberCount: origin.stats.locationCount,
+      originV2: origin,
+      deleted: false,
     );
   }
 
-  factory _SearchResultItem.fromContractJson(
-    Map<String, dynamic> json, {
-    required _SearchTab fallbackTab,
-  }) {
-    final user = json['user'] is Map ? asJsonMap(json['user']) : null;
-    if (fallbackTab == _SearchTab.user || user != null) {
-      final raw = user ?? json;
-      final uid = asString(raw['uid']);
-      final title = formatUidForDisplay(
-        asString(raw['name']),
-        fallback: formatUidForDisplay(uid),
-      );
-      return _SearchResultItem(
-        tab: _SearchTab.user,
-        entityId: uid,
-        shortCode: uid,
-        title: title,
-        subtitle: asString(raw['bio']),
-        coverImage: asImageUrl(raw['avatar']),
-        copyCount: 0,
-        connectCount: 0,
-        tickCount: 0,
-        characterCount: 0,
-        playerCount: 0,
-        memberCount: 0,
-        deleted: entityDeleted(raw['deleted']),
-      );
-    }
+  factory _SearchResultItem.fromV2World(SearchV2WorldItem world) {
+    final owner = formatUidForDisplay(world.owner.name, fallback: '-');
+    return _SearchResultItem(
+      tab: _SearchTab.world,
+      entityId: world.worldId,
+      shortCode: world.worldId,
+      title: world.worldName,
+      subtitle: 'WID: ${_dashOrValue(world.worldId)}  Owner: $owner',
+      coverImage: asImageUrl(world.cover),
+      copyCount: 0,
+      connectCount: 0,
+      tickCount: 0,
+      characterCount: 0,
+      playerCount: 0,
+      memberCount: 0,
+      worldV2: world,
+      deleted: false,
+    );
+  }
 
-    final info = json['info'] is Map
-        ? asJsonMap(json['info'])
-        : const <String, dynamic>{};
-    final stats = json['stats'] is Map
-        ? asJsonMap(json['stats'])
-        : const <String, dynamic>{};
-    if (fallbackTab == _SearchTab.world ||
-        info.containsKey('world_id') ||
-        info.containsKey('wid')) {
-      final worldId = asString(
-        info['world_id'],
-        fallback: asString(info['wid']),
-      );
-      return _SearchResultItem(
-        tab: _SearchTab.world,
-        entityId: worldId,
-        shortCode: worldId,
-        title: asString(
-          info['world_name'],
-          fallback: asString(info['name'], fallback: worldId),
-        ),
-        subtitle: _worldSearchSubtitle(info, fallbackId: worldId),
-        coverImage: asImageUrl(info['cover']),
-        copyCount: 0,
-        connectCount: asInt(stats['connect_cnt']),
-        tickCount: asInt(stats['tick_cnt']),
-        characterCount: asInt(stats['character_cnt']),
-        playerCount: asInt(stats['player_cnt']),
-        memberCount: asInt(stats['location_cnt']),
-        deleted: entityDeleted(
-          json['world_deleted'],
-          fallback: entityDeleted(
-            info['world_deleted'],
-            fallback: info['deleted'],
-          ),
-        ),
-      );
-    }
-
-    final originId = asString(
-      info['origin_id'],
-      fallback: asString(info['oid']),
+  factory _SearchResultItem.fromV2User(SearchV2UserItem user) {
+    final title = formatUidForDisplay(
+      user.name,
+      fallback: formatUidForDisplay(user.uid),
     );
     return _SearchResultItem(
-      tab: _SearchTab.origin,
-      entityId: originId,
-      shortCode: originId,
-      title: asString(
-        info['origin_name'],
-        fallback: asString(info['name'], fallback: originId),
-      ),
-      subtitle: _originSearchSubtitle(info, fallbackId: originId),
-      coverImage: asImageUrl(info['cover']),
-      copyCount: asInt(stats['copy_cnt']),
-      connectCount: asInt(stats['connect_cnt']),
-      tickCount: asInt(stats['tick_cnt']),
-      characterCount: asInt(stats['character_cnt']),
+      tab: _SearchTab.user,
+      entityId: user.uid,
+      shortCode: user.uid,
+      title: title,
+      subtitle: '',
+      coverImage: asImageUrl(user.avatar),
+      copyCount: 0,
+      connectCount: 0,
+      tickCount: 0,
+      characterCount: 0,
       playerCount: 0,
-      memberCount: asInt(stats['location_cnt']),
-      deleted: entityDeleted(info['deleted'], fallback: info['origin_deleted']),
+      memberCount: 0,
+      userV2: user,
+      deleted: false,
     );
   }
 
@@ -221,6 +139,9 @@ class _SearchResultItem {
   final int characterCount;
   final int playerCount;
   final int memberCount;
+  final SearchV2OriginItem? originV2;
+  final SearchV2WorldItem? worldV2;
+  final SearchV2UserItem? userV2;
   final bool deleted;
 
   String get displayTitle {
@@ -246,186 +167,17 @@ class _SearchResultItem {
   }
 }
 
-String _originSearchSubtitle(
-  Map<dynamic, dynamic> raw, {
-  required String fallbackId,
-}) {
-  final oid = _firstSearchString(raw, const ['oid', 'origin_id']);
-  final displayOid = oid.trim().isEmpty ? _dashOrValue(fallbackId) : oid;
-  final originator = _searchOwnerDisplayName(
-    raw,
-    ownerKeys: const [
-      'owner_name',
-      'created_user_name',
-      'originator',
-      'owner_uid',
-      'created_uid',
-    ],
-  );
-  final versionNum = _firstSearchInt(raw, const [
-    'version_num',
-    'origin_version',
-    'origin_version_num',
-    'latest_version',
-    'latest_version_num',
-    'latest_origin_version',
-    'latest_origin_version_num',
-    'latestVersion',
-    'latestVersionNum',
-    'latestOriginVersion',
-    'latestOriginVersionNum',
-    'version',
-    'version_no',
-    'versionNo',
-  ]);
-  final version = _originVersionLabel(raw, fallbackVersionNum: versionNum);
-  return 'OID: $displayOid  Originator: $originator\n'
-      'Latest Version: $version';
-}
-
-String _originVersionLabel(
-  Map<dynamic, dynamic> raw, {
-  required int fallbackVersionNum,
-}) {
-  if (fallbackVersionNum > 0) return 'V$fallbackVersionNum';
-  final directValue = _firstSearchVersionLabel(raw, const [
-    'version_num',
-    'origin_version',
-    'origin_version_num',
-    'latest_version',
-    'latest_version_num',
-    'latest_origin_version',
-    'latest_origin_version_num',
-    'latestVersion',
-    'latestVersionNum',
-    'latestOriginVersion',
-    'latestOriginVersionNum',
-    'version',
-    'version_no',
-    'versionNo',
-  ]);
-  if (directValue.isNotEmpty) return directValue;
-
-  for (final key in const [
-    'latest_version',
-    'latestVersion',
-    'latest_origin_version',
-    'latestOriginVersion',
-    'origin_version_info',
-    'originVersionInfo',
-    'version_info',
-    'versionInfo',
-  ]) {
-    final value = raw[key];
-    if (value is Map) {
-      final nestedLabel = _firstSearchVersionLabel(value, const [
-        'version_num',
-        'versionNum',
-        'origin_version',
-        'originVersion',
-        'origin_version_num',
-        'originVersionNum',
-        'latest_version',
-        'latestVersion',
-        'num',
-        'version',
-        'version_no',
-        'versionNo',
-        'label',
-        'name',
-      ]);
-      if (nestedLabel.isNotEmpty) return nestedLabel;
-    }
-  }
-
-  return '-';
-}
-
-String _firstSearchVersionLabel(Map<dynamic, dynamic> raw, List<String> keys) {
-  for (final key in keys) {
-    final label = _searchVersionLabelFromValue(raw[key]);
-    if (label.isNotEmpty) return label;
-  }
-  return '';
-}
-
-String _searchVersionLabelFromValue(Object? raw) {
-  if (raw is Map || raw is List) return '';
-  final value = asString(raw).trim();
-  if (_isBlankSearchValue(value) || value == '0') return '';
-  final numeric = int.tryParse(value);
-  if (numeric != null) return numeric <= 0 ? '' : 'V$numeric';
-  final prefixedVersion = RegExp(r'^[vV]\s*(\d+)$').firstMatch(value);
-  if (prefixedVersion != null) return 'V${prefixedVersion.group(1)}';
-  return value;
-}
-
-String _worldSearchSubtitle(
-  Map<dynamic, dynamic> raw, {
-  required String fallbackId,
-}) {
-  final wid = _firstSearchString(raw, const ['wid', 'world_id']);
-  final displayWid = wid.trim().isEmpty ? _dashOrValue(fallbackId) : wid;
-  final owner = _searchOwnerDisplayName(
-    raw,
-    ownerKeys: const [
-      'owner_name',
-      'created_user_name',
-      'owner_uid',
-      'created_uid',
-    ],
-  );
-  return 'WID: $displayWid  Owner: $owner';
-}
-
-String _searchOwnerDisplayName(
-  Map<dynamic, dynamic> raw, {
-  required List<String> ownerKeys,
-}) {
-  final ownerUser = raw['owner_user'] is Map
-      ? asJsonMap(raw['owner_user'])
-      : const <String, dynamic>{};
-  if (entityDeleted(ownerUser['deleted'])) return deletedEntityDisplayText;
-
-  final owner = _firstSearchString(raw, ownerKeys);
-  if (owner.isNotEmpty) return formatUidForDisplay(owner, fallback: '-');
-
-  final ownerUserName = _firstSearchString(ownerUser, const [
-    'name',
-    'user_name',
-    'username',
-    'uid',
-  ]);
-  return formatUidForDisplay(ownerUserName, fallback: '-');
-}
-
-String _firstSearchString(Map<dynamic, dynamic> raw, List<String> keys) {
-  for (final key in keys) {
-    final value = asString(raw[key]).trim();
-    if (!_isBlankSearchValue(value)) return value;
-  }
-  return '';
-}
-
-int _firstSearchInt(Map<dynamic, dynamic> raw, List<String> keys) {
-  for (final key in keys) {
-    final value = asInt(raw[key], fallback: -1);
-    if (value > 0) return value;
-  }
-  return 0;
-}
-
 String _dashOrValue(String value) {
   final trimmed = value.trim();
   return trimmed.isEmpty ? '-' : trimmed;
 }
 
-bool _isBlankSearchValue(String value) {
-  final normalized = value.trim().toLowerCase();
-  return normalized.isEmpty ||
-      normalized == '-' ||
-      normalized == '--' ||
-      normalized == 'null' ||
-      normalized == 'none' ||
-      normalized == 'n/a';
+String _originVersionLabel(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty || trimmed == '0') return '-';
+  final numeric = int.tryParse(trimmed);
+  if (numeric != null) return numeric > 0 ? 'V$numeric' : '-';
+  final prefixed = RegExp(r'^[vV]\s*(\d+)$').firstMatch(trimmed);
+  if (prefixed != null) return 'V${prefixed.group(1)}';
+  return trimmed;
 }

@@ -8,6 +8,7 @@ class SecendTabs extends StatelessWidget {
   const SecendTabs({
     super.key,
     required this.labels,
+    this.labelWidgets,
     this.controller,
     this.horizontalPadding = 8,
     this.labelPadding = const EdgeInsets.symmetric(horizontal: 8),
@@ -27,6 +28,7 @@ class SecendTabs extends StatelessWidget {
   });
 
   final List<String> labels;
+  final List<Widget>? labelWidgets;
   final TabController? controller;
   final double horizontalPadding;
   final EdgeInsets labelPadding;
@@ -50,6 +52,7 @@ class SecendTabs extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: verticalPadding),
       child: GenesisTabBar(
         labels: labels,
+        labelWidgets: labelWidgets,
         controller: controller,
         horizontalPadding: horizontalPadding,
         labelPadding: labelPadding,

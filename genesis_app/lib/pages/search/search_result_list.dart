@@ -8,7 +8,6 @@ class _SearchResultList extends StatefulWidget {
     required this.onRetry,
     required this.onLoadMore,
     required this.onOpen,
-    required this.onOpenMore,
     required this.onDismissKeyboard,
   });
 
@@ -17,7 +16,6 @@ class _SearchResultList extends StatefulWidget {
   final VoidCallback onRetry;
   final VoidCallback onLoadMore;
   final ValueChanged<_SearchResultItem> onOpen;
-  final ValueChanged<_SearchTab> onOpenMore;
   final VoidCallback onDismissKeyboard;
 
   @override
@@ -62,7 +60,9 @@ class _SearchResultListState extends State<_SearchResultList>
     final state = widget.state;
 
     if (state.isInitialLoading) {
-      return const Center(child: CircularProgressIndicator());
+      return GenesisSearchResultLoadingSkeleton.list(
+        type: _searchSkeletonType(widget.tab),
+      );
     }
 
     if (state.error != null && state.items.isEmpty) {
@@ -78,8 +78,7 @@ class _SearchResultListState extends State<_SearchResultList>
       );
     }
 
-    final rows = _displayRows(widget.tab, state.items);
-    if (rows.isEmpty) {
+    if (state.items.isEmpty) {
       return const Center(
         child: Text(
           'No results.',
@@ -92,7 +91,7 @@ class _SearchResultListState extends State<_SearchResultList>
       );
     }
 
-    final itemCount = rows.length + (state.isLoadingMore ? 1 : 0);
+    final itemCount = state.items.length + (state.isLoadingMore ? 1 : 0);
     return ListView.builder(
       controller: _scrollController,
       primary: false,
@@ -104,8 +103,9 @@ class _SearchResultListState extends State<_SearchResultList>
       ),
       itemCount: itemCount,
       itemBuilder: (context, index) {
-        if (index >= rows.length) {
+        if (index >= state.items.length) {
           return const Padding(
+            key: ValueKey<String>('search-result-load-more'),
             padding: EdgeInsets.symmetric(vertical: 18),
             child: Center(
               child: SizedBox.square(
@@ -115,82 +115,25 @@ class _SearchResultListState extends State<_SearchResultList>
             ),
           );
         }
-        final row = rows[index];
-        return switch (row) {
-          _SearchSectionRow(:final title) => _SectionTitle(title),
-          _SearchItemRow(:final item) => Padding(
-            padding: const EdgeInsets.only(bottom: 22),
-            child: _SearchResultTile(
-              item: item,
-              onTap: item.deleted ? null : () => widget.onOpen(item),
-            ),
+        final item = state.items[index];
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 22),
+          child: _SearchResultTile(
+            item: item,
+            onTap: item.deleted ? null : () => widget.onOpen(item),
           ),
-          _SearchMoreRow(:final tab) => _SearchMoreButton(
-            onTap: () => widget.onOpenMore(tab),
-          ),
-        };
+        );
       },
     );
   }
-
-  List<_SearchDisplayRow> _displayRows(
-    _SearchTab tab,
-    List<_SearchResultItem> items,
-  ) {
-    if (tab != _SearchTab.all) {
-      if (items.isEmpty) return const [];
-      return [
-        _SearchSectionRow(tab.sectionTitle),
-        ...items.map(_SearchItemRow.new),
-      ];
-    }
-
-    final rows = <_SearchDisplayRow>[];
-    for (final section in const [
-      _SearchTab.origin,
-      _SearchTab.world,
-      _SearchTab.user,
-    ]) {
-      final sectionItems = items
-          .where((item) => item.tab == section)
-          .toList(growable: false);
-      if (sectionItems.isEmpty) continue;
-      rows.add(_SearchSectionRow(section.sectionTitle));
-      rows.addAll(
-        sectionItems
-            .take(_SearchPageState._allTabSectionLimit)
-            .map(_SearchItemRow.new),
-      );
-      final sectionTotal = widget.state.sectionTotalFor(section);
-      if (sectionTotal > _SearchPageState._allTabSectionLimit ||
-          sectionItems.length > _SearchPageState._allTabSectionLimit) {
-        rows.add(_SearchMoreRow(section));
-      }
-    }
-    return rows;
-  }
 }
 
-sealed class _SearchDisplayRow {
-  const _SearchDisplayRow();
-}
-
-class _SearchSectionRow extends _SearchDisplayRow {
-  const _SearchSectionRow(this.title);
-
-  final String title;
-}
-
-class _SearchItemRow extends _SearchDisplayRow {
-  const _SearchItemRow(this.item);
-
-  final _SearchResultItem item;
-}
-
-class _SearchMoreRow extends _SearchDisplayRow {
-  const _SearchMoreRow(this.tab);
-
-  final _SearchTab tab;
+GenesisSearchResultSkeletonType _searchSkeletonType(_SearchTab tab) {
+  return switch (tab) {
+    _SearchTab.origin => GenesisSearchResultSkeletonType.origin,
+    _SearchTab.world => GenesisSearchResultSkeletonType.world,
+    _SearchTab.user => GenesisSearchResultSkeletonType.user,
+  };
 }
 
 // The following classes are adapted from WorldDetailsPanel and WorldDetailsShell to be used in the search page result details.

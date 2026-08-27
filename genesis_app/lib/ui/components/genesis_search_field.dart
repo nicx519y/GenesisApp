@@ -130,7 +130,8 @@ class GenesisSearchField extends StatelessWidget {
               child: SizedBox(
                 width: height,
                 height: height,
-                child: Center(
+                child: Align(
+                  alignment: Alignment.centerRight,
                   child: Icon(
                     Icons.close,
                     size: 18,

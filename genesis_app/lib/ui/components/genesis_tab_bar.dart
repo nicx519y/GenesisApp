@@ -11,6 +11,7 @@ class GenesisTabBar extends StatelessWidget {
   const GenesisTabBar({
     super.key,
     required this.labels,
+    this.labelWidgets,
     this.controller,
     this.horizontalPadding = GenesisSpacing.md,
     this.labelPadding = const EdgeInsets.symmetric(
@@ -31,6 +32,7 @@ class GenesisTabBar extends StatelessWidget {
   });
 
   final List<String> labels;
+  final List<Widget>? labelWidgets;
   final TabController? controller;
   final double horizontalPadding;
   final EdgeInsets labelPadding;
@@ -49,6 +51,7 @@ class GenesisTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    assert(labelWidgets == null || labelWidgets!.length == labels.length);
     final uiTheme = GenesisUiTheme.of(context);
     final resolvedLabelStyle =
         labelStyle ??
@@ -87,8 +90,11 @@ class GenesisTabBar extends StatelessWidget {
         labelStyle: resolvedLabelStyle,
         unselectedLabelStyle: resolvedUnselectedLabelStyle,
         tabs: [
-          for (final label in labels)
-            Tab(height: genesisTabHeight, text: label),
+          for (var index = 0; index < labels.length; index += 1)
+            Tab(
+              height: genesisTabHeight,
+              child: labelWidgets?[index] ?? Text(labels[index]),
+            ),
         ],
       ),
     );

@@ -6,17 +6,20 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/copyable_id_label.dart';
+import '../../components/common/list_loading_skeleton.dart';
 import '../../components/origin/stat_item.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/json_utils.dart';
+import '../../network/models/search_v2.dart';
 import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/secend_tabs.dart';
-import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/tokens/genesis_origin_card_geometry.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/stat_count_formatter.dart';
@@ -27,18 +30,17 @@ part 'search_history_panel.dart';
 part 'search_result_list.dart';
 part 'search_result_tiles.dart';
 part 'search_result_models.dart';
+part 'search_tab_label.dart';
 
 enum _SearchTab {
-  all('', 'All', 'Results'),
-  origin('origin', 'Worldo', 'Worldos'),
-  world('world', 'World', 'Worlds'),
-  user('user', 'User', 'Users');
+  origin('origin', 'Worldo'),
+  world('world', 'World'),
+  user('user', 'User');
 
-  const _SearchTab(this.apiType, this.label, this.sectionTitle);
+  const _SearchTab(this.apiType, this.label);
 
   final String apiType;
   final String label;
-  final String sectionTitle;
 }
 
 class SearchPage extends StatefulWidget {
@@ -55,18 +57,19 @@ class _SearchPageState extends State<SearchPage>
   ); // API rate limit is 1 request per second, so 600ms is a good balance between responsiveness and reducing unnecessary requests.
   static const int _pageSize = 20;
   static const int _minSearchLength = 2;
-  static const int _allTabSectionLimit = 3;
 
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   late final TabController _tabController;
   late final Map<_SearchTab, _SearchTabResults> _results;
   late final SessionRevisionSubscription _sessionRevision;
+  final Map<_SearchTab, int> _tabTotals = <_SearchTab, int>{};
 
   Timer? _debounceTimer;
   int _requestToken = 0;
   String _activeQuery = '';
   bool _hasInput = false;
+  bool _isSelectingDefaultTab = false;
   List<String> _searchHistory = <String>[];
   var _sessionListGeneration = 0;
   var _didLoadSessionData = false;
@@ -78,9 +81,7 @@ class _SearchPageState extends State<SearchPage>
       length: _SearchTab.values.length,
       vsync: this,
     )..addListener(_handleTabChanged);
-    _results = {
-      for (final tab in _SearchTab.values) tab: _SearchTabResults(tab),
-    };
+    _results = {for (final tab in _SearchTab.values) tab: _SearchTabResults()};
     _sessionRevision = SessionRevisionSubscription(_handleSessionChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _focusNode.requestFocus();
@@ -172,7 +173,9 @@ class _SearchPageState extends State<SearchPage>
 
     setState(() {
       _hasInput = true;
-      _tabController.index = _SearchTab.all.index;
+      _isSelectingDefaultTab = true;
+      _tabController.index = _defaultSearchTab(query).index;
+      _isSelectingDefaultTab = false;
     });
 
     _debounceTimer = Timer(_debounceDuration, () {
@@ -186,12 +189,14 @@ class _SearchPageState extends State<SearchPage>
   }
 
   void _resetAllTabs() {
+    _tabTotals.clear();
     for (final state in _results.values) {
       state.reset();
     }
   }
 
   void _markAllTabsStale() {
+    _tabTotals.clear();
     for (final state in _results.values) {
       state.hasRequested = false;
       state.isInitialLoading = false;
@@ -208,7 +213,7 @@ class _SearchPageState extends State<SearchPage>
   _SearchTab get _selectedTab => _SearchTab.values[_tabController.index];
 
   void _handleTabChanged() {
-    if (_tabController.indexIsChanging) return;
+    if (_isSelectingDefaultTab || _tabController.indexIsChanging) return;
     final tab = _selectedTab;
     final state = _results[tab]!;
     if (_activeQuery.isEmpty || state.hasRequested) return;
@@ -243,10 +248,10 @@ class _SearchPageState extends State<SearchPage>
           ..items.addAll(page.items)
           ..total = page.total
           ..nextPage = 2
-          ..hasMore = tab != _SearchTab.all && page.hasMore
+          ..hasMore = page.hasMore
           ..isInitialLoading = false
           ..error = null;
-        state.replaceSectionTotals(page.sectionTotals);
+        _tabTotals.addAll(page.tabTotals);
       });
     } catch (error) {
       if (kDebugMode) {
@@ -269,7 +274,6 @@ class _SearchPageState extends State<SearchPage>
     final query = _activeQuery;
     final token = _requestToken;
     if (query.isEmpty ||
-        tab == _SearchTab.all ||
         !state.hasMore ||
         state.isInitialLoading ||
         state.isLoadingMore) {
@@ -304,7 +308,7 @@ class _SearchPageState extends State<SearchPage>
           ..hasMore = page.hasMore
           ..isLoadingMore = false
           ..error = null;
-        state.replaceSectionTotals(page.sectionTotals);
+        _tabTotals.addAll(page.tabTotals);
       });
     } catch (error) {
       if (kDebugMode) {
@@ -331,121 +335,43 @@ class _SearchPageState extends State<SearchPage>
     required String query,
     required int pageNumber,
   }) async {
-    final data = await AppServicesScope.of(context).api.v1.search.search(
+    final response = await AppServicesScope.of(context).api.v1.search.search(
       query: query,
       type: tab.apiType,
       pn: pageNumber,
       rn: _pageSize,
     );
-    final contractResult = _parseSearchEnvelope(data, tab, pageNumber);
-    if (contractResult != null) return contractResult;
-
-    final groups = data['groups'] is List
-        ? asJsonList(data['groups'])
-        : const <Object?>[];
-    final items = <_SearchResultItem>[];
-    final sectionTotals = <_SearchTab, int>{};
-    var total = 0;
-
-    for (final rawGroup in groups) {
-      final group = asJsonMap(rawGroup);
-      final type = asString(group['type']);
-      final searchTab = _tabFromApiType(type);
-      if (searchTab == null) continue;
-      if (tab != _SearchTab.all && tab != searchTab) continue;
-
-      final list = group['list'] is List
-          ? asJsonList(group['list'])
-          : const <Object?>[];
-      final sectionTotal = asInt(group['total'], fallback: list.length);
-      sectionTotals[searchTab] = sectionTotal;
-      total += sectionTotal;
-      for (final rawItem in list) {
-        items.add(
-          _SearchResultItem.fromJson(
-            asJsonMap(rawItem),
-            fallbackTab: searchTab,
-          ),
-        );
-      }
-    }
-
-    return _SearchPageResult(
-      items: items,
-      total: total,
-      sectionTotals: sectionTotals,
-      hasMore: items.isNotEmpty && pageNumber * _pageSize < total,
-    );
-  }
-
-  _SearchPageResult? _parseSearchEnvelope(
-    Map<String, dynamic> data,
-    _SearchTab tab,
-    int pageNumber,
-  ) {
-    final sectionKeys = tab == _SearchTab.all
-        ? const {
-            _SearchTab.origin: 'origins',
-            _SearchTab.world: 'worlds',
-            _SearchTab.user: 'users',
-          }
-        : {tab: _searchSectionKey(tab)};
-    final items = <_SearchResultItem>[];
-    final sectionTotals = <_SearchTab, int>{};
-    var total = 0;
-    var hasMore = false;
-    var matchedSection = false;
-
-    for (final entry in sectionKeys.entries) {
-      final section = data[entry.value];
-      if (section is! Map) continue;
-      matchedSection = true;
-      final sectionMap = asJsonMap(section);
-      final list = sectionMap['list'] is List
-          ? asJsonList(sectionMap['list'])
-          : const <Object?>[];
-      final sectionTotal = asInt(sectionMap['total'], fallback: list.length);
-      final sectionPage = asInt(sectionMap['pn'], fallback: pageNumber);
-      final sectionPageSize = asInt(sectionMap['rn'], fallback: _pageSize);
-      sectionTotals[entry.key] = sectionTotal;
-      total += sectionTotal;
-      hasMore =
-          hasMore ||
-          (list.isNotEmpty && sectionPage * sectionPageSize < sectionTotal);
-
-      for (final rawItem in list) {
-        items.add(
-          _SearchResultItem.fromContractJson(
-            asJsonMap(rawItem),
-            fallbackTab: entry.key,
-          ),
-        );
-      }
-    }
-
-    if (!matchedSection) return null;
-    return _SearchPageResult(
-      items: items,
-      total: total,
-      sectionTotals: sectionTotals,
-      hasMore: hasMore,
-    );
-  }
-
-  String _searchSectionKey(_SearchTab tab) {
-    return switch (tab) {
-      _SearchTab.origin => 'origins',
-      _SearchTab.world => 'worlds',
-      _SearchTab.user => 'users',
-      _SearchTab.all => '',
+    final tabTotals = <_SearchTab, int>{
+      _SearchTab.origin: response.origins.total,
+      _SearchTab.world: response.worlds.total,
+      _SearchTab.user: response.users.total,
     };
-  }
-
-  _SearchTab? _tabFromApiType(String type) {
-    for (final tab in _SearchTab.values) {
-      if (tab.apiType == type && tab != _SearchTab.all) return tab;
-    }
-    return null;
+    return switch (tab) {
+      _SearchTab.origin => _SearchPageResult(
+        items: response.origins.items
+            .map(_SearchResultItem.fromV2Origin)
+            .toList(growable: false),
+        total: response.origins.total,
+        hasMore: response.origins.hasMore,
+        tabTotals: tabTotals,
+      ),
+      _SearchTab.world => _SearchPageResult(
+        items: response.worlds.items
+            .map(_SearchResultItem.fromV2World)
+            .toList(growable: false),
+        total: response.worlds.total,
+        hasMore: response.worlds.hasMore,
+        tabTotals: tabTotals,
+      ),
+      _SearchTab.user => _SearchPageResult(
+        items: response.users.items
+            .map(_SearchResultItem.fromV2User)
+            .toList(growable: false),
+        total: response.users.total,
+        hasMore: response.users.hasMore,
+        tabTotals: tabTotals,
+      ),
+    };
   }
 
   @override
@@ -505,8 +431,16 @@ class _SearchPageState extends State<SearchPage>
               SecendTabs(
                 controller: _tabController,
                 labels: [for (final tab in _SearchTab.values) tab.label],
+                labelWidgets: [
+                  for (final tab in _SearchTab.values)
+                    _SearchTabLabel(
+                      key: ValueKey<String>('search-tab-${tab.name}'),
+                      tab: tab,
+                      total: _tabTotals[tab],
+                    ),
+                ],
                 horizontalPadding: 16,
-                labelPadding: const EdgeInsets.symmetric(horizontal: 15),
+                labelPadding: const EdgeInsets.only(right: 30),
                 verticalPadding: 0,
               ),
             Expanded(
@@ -547,17 +481,10 @@ class _SearchPageState extends State<SearchPage>
             onRetry: () => _refreshTab(tab, token: _requestToken),
             onLoadMore: () => _loadNextPage(tab),
             onOpen: _openResult,
-            onOpenMore: _openTabFromAllResults,
             onDismissKeyboard: _dismissKeyboard,
           ),
       ],
     );
-  }
-
-  void _openTabFromAllResults(_SearchTab tab) {
-    if (tab == _SearchTab.all) return;
-    _tabController.index = tab.index;
-    _handleTabChanged();
   }
 
   void _searchFromHistory(String query) {
@@ -598,8 +525,6 @@ class _SearchPageState extends State<SearchPage>
         Navigator.of(
           context,
         ).pushNamed(RouteNames.userInfo, arguments: {'uid': item.entityId});
-      case _SearchTab.all:
-        break;
     }
   }
 
@@ -607,6 +532,7 @@ class _SearchPageState extends State<SearchPage>
     final worldId = rawWorldId.trim();
     if (worldId.isEmpty) return;
     setState(() {
+      var removedAny = false;
       for (final state in _results.values) {
         final previousLength = state.items.length;
         state.items.removeWhere(
@@ -615,18 +541,18 @@ class _SearchPageState extends State<SearchPage>
         );
         final removedCount = previousLength - state.items.length;
         if (removedCount == 0) continue;
+        removedAny = true;
 
         state.total = state.total > removedCount
             ? state.total - removedCount
             : 0;
-        final worldTotal = state.sectionTotals[_SearchTab.world];
+        state.hasMore = state.items.length < state.total;
+      }
+      if (removedAny) {
+        final worldTotal = _tabTotals[_SearchTab.world];
         if (worldTotal != null) {
-          state.sectionTotals[_SearchTab.world] = worldTotal > removedCount
-              ? worldTotal - removedCount
-              : 0;
+          _tabTotals[_SearchTab.world] = worldTotal > 0 ? worldTotal - 1 : 0;
         }
-        state.hasMore =
-            state.tab != _SearchTab.all && state.items.length < state.total;
       }
     });
   }
@@ -634,6 +560,13 @@ class _SearchPageState extends State<SearchPage>
   void _dismissKeyboard() {
     FocusManager.instance.primaryFocus?.unfocus();
   }
+}
+
+_SearchTab _defaultSearchTab(String query) {
+  final normalized = query.trimLeft().toLowerCase();
+  if (normalized.startsWith('u_')) return _SearchTab.user;
+  if (normalized.startsWith('w_')) return _SearchTab.world;
+  return _SearchTab.origin;
 }
 
 int _searchableCharacterCount(String query) {

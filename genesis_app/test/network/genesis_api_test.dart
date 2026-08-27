@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
+import 'package:genesis_flutter_android/network/models/search_v2.dart';
 import 'package:genesis_flutter_android/network/models/tilemap_definition.dart';
 import 'package:genesis_flutter_android/network/v1/upload_api.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
@@ -1731,6 +1732,232 @@ void main() {
       expect(((edit['characters'] as List).single as Map)['is_recommend'], 1);
     },
   );
+
+  test('search upgrades the request path to /api/v2/search', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'keyword': 'Alice',
+            'type': 'origin',
+            'origins': {
+              'list': [
+                {
+                  'origin_id': 'o_1',
+                  'origin_name': 'Alice Origin',
+                  'origin_version': '3',
+                  'brief': 'A😀Alice',
+                  'language': 'en',
+                  'cover': {
+                    'sm_url': 'https://cdn.example.com/o_1_sm.webp',
+                    'xl_url': 'https://cdn.example.com/o_1_xl.webp',
+                    'object_key': 'origin/o_1.webp',
+                  },
+                  'tags': ['romance', 'campus'],
+                  'characters': [
+                    {'character_id': 'c_1', 'name': 'Alice'},
+                  ],
+                  'owner': {
+                    'uid': 'u_owner',
+                    'name': 'Owner',
+                    'avatar': {
+                      'sm_url': 'https://cdn.example.com/u_sm.webp',
+                      'xl_url': 'https://cdn.example.com/u_xl.webp',
+                      'object_key': 'user/u_owner.webp',
+                    },
+                  },
+                  'stats': {
+                    'copy_cnt': 1,
+                    'discuss_cnt': 2,
+                    'character_cnt': 3,
+                    'connect_cnt': 4,
+                    'location_cnt': 5,
+                    'max_tick_cnt': 6,
+                  },
+                  'matches': [
+                    {
+                      'field': 'origin_name',
+                      'highlight_ranges': [
+                        {'start': 0, 'length': 5},
+                      ],
+                    },
+                    {
+                      'field': 'character_name',
+                      'character_id': 'c_1',
+                      'highlight_ranges': [
+                        {'start': 0, 'length': 5},
+                      ],
+                    },
+                    {
+                      'field': 'brief',
+                      'highlight_ranges': [
+                        {'start': 3, 'length': 5},
+                      ],
+                    },
+                  ],
+                  'matches_truncated': false,
+                },
+              ],
+              'total': 1,
+              'pn': 2,
+              'rn': 10,
+            },
+            'worlds': {
+              'list': [
+                {
+                  'world_id': 'w_1',
+                  'world_name': 'Alice World',
+                  'origin_id': 'o_1',
+                  'language': 'en',
+                  'cover': {
+                    'sm_url': 'https://cdn.example.com/w_sm.webp',
+                    'xl_url': 'https://cdn.example.com/w_xl.webp',
+                    'object_key': 'world/w_1.webp',
+                  },
+                  'owner': {
+                    'uid': 'u_owner',
+                    'name': 'Owner',
+                    'avatar': {
+                      'sm_url': 'https://cdn.example.com/u_sm.webp',
+                      'xl_url': 'https://cdn.example.com/u_xl.webp',
+                      'object_key': 'user/u_owner.webp',
+                    },
+                  },
+                  'created_at': 1770000000,
+                  'matches': [
+                    {
+                      'field': 'world_name',
+                      'highlight_ranges': [
+                        {'start': 0, 'length': 5},
+                      ],
+                    },
+                  ],
+                },
+              ],
+              'total': 1,
+              'pn': 2,
+              'rn': 10,
+            },
+            'users': {
+              'list': [
+                {
+                  'uid': 'u_1',
+                  'name': 'Alice',
+                  'avatar': {
+                    'sm_url': 'https://cdn.example.com/a_sm.webp',
+                    'xl_url': 'https://cdn.example.com/a_xl.webp',
+                    'object_key': 'user/u_1.webp',
+                  },
+                  'matches': [
+                    {
+                      'field': 'user_name',
+                      'highlight_ranges': [
+                        {'start': 0, 'length': 5},
+                      ],
+                    },
+                  ],
+                },
+              ],
+              'total': 1,
+              'pn': 2,
+              'rn': 10,
+            },
+          },
+        }),
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+
+    final api = _apiWith(apiTransport, healthTransport);
+    final result = await api.v1.search.search(
+      query: 'Alice',
+      type: 'origin',
+      pn: 2,
+      rn: 10,
+    );
+
+    final request = apiTransport.lastRequest!;
+    expect(request.method, 'GET');
+    expect(request.uri.path, '/api/v2/search');
+    expect(request.uri.queryParameters, {
+      'keyword': 'Alice',
+      'type': 'origin',
+      'pn': '2',
+      'rn': '10',
+    });
+    expect(result.keyword, 'Alice');
+    expect(result.type, 'origin');
+    expect(result.origins.pageNumber, 2);
+    expect(result.origins.pageSize, 10);
+    expect(result.origins.total, 1);
+
+    final origin = result.origins.items.single;
+    expect(origin.originId, 'o_1');
+    expect(origin.originName, 'Alice Origin');
+    expect(origin.originVersion, '3');
+    expect(origin.brief, 'A😀Alice');
+    expect(origin.language, 'en');
+    expect(origin.cover.smUrl, 'https://cdn.example.com/o_1_sm.webp');
+    expect(origin.cover.xlUrl, 'https://cdn.example.com/o_1_xl.webp');
+    expect(origin.cover.objectKey, 'origin/o_1.webp');
+    expect(origin.tags, ['romance', 'campus']);
+    expect(origin.characters.single.characterId, 'c_1');
+    expect(origin.characters.single.name, 'Alice');
+    expect(origin.owner.uid, 'u_owner');
+    expect(origin.owner.name, 'Owner');
+    expect(origin.owner.avatar.objectKey, 'user/u_owner.webp');
+    expect(origin.stats.copyCount, 1);
+    expect(origin.stats.discussCount, 2);
+    expect(origin.stats.characterCount, 3);
+    expect(origin.stats.connectCount, 4);
+    expect(origin.stats.locationCount, 5);
+    expect(origin.stats.maxTickCount, 6);
+    expect(origin.matches, hasLength(3));
+    expect(origin.matches.first, isA<SearchV2TextMatch>());
+    expect(origin.matches.first.field, 'origin_name');
+    expect(origin.matches.first.highlightRanges.single.start, 0);
+    expect(origin.matches.first.highlightRanges.single.length, 5);
+    expect(origin.matches[1], isA<SearchV2CharacterMatch>());
+    expect(origin.matches[1].field, 'character_name');
+    expect((origin.matches[1] as SearchV2CharacterMatch).characterId, 'c_1');
+    expect(origin.matches.last, isA<SearchV2TextMatch>());
+    expect(origin.matches.last.field, 'brief');
+    expect(origin.matches.last.highlightRanges.single.start, 3);
+    expect(origin.matches.last.highlightRanges.single.length, 5);
+    expect(origin.matchesTruncated, isFalse);
+
+    final world = result.worlds.items.single;
+    expect(world.worldId, 'w_1');
+    expect(world.worldName, 'Alice World');
+    expect(world.originId, 'o_1');
+    expect(world.language, 'en');
+    expect(world.cover.objectKey, 'world/w_1.webp');
+    expect(world.owner.uid, 'u_owner');
+    expect(world.createdAt, 1770000000);
+    expect(world.matches.single, isA<SearchV2WorldNameMatch>());
+    expect(world.matches.single.field, 'world_name');
+    expect(world.matches.single.highlightRanges.single.start, 0);
+    expect(world.matches.single.highlightRanges.single.length, 5);
+
+    final user = result.users.items.single;
+    expect(user.uid, 'u_1');
+    expect(user.name, 'Alice');
+    expect(user.avatar.objectKey, 'user/u_1.webp');
+    expect(user.matches.single, isA<SearchV2UserNameMatch>());
+    expect(user.matches.single.field, 'user_name');
+    expect(user.matches.single.highlightRanges.single.start, 0);
+    expect(user.matches.single.highlightRanges.single.length, 5);
+  });
 
   test('createOrigin posts latest Apifox origin create body', () async {
     final apiTransport = _FakeTransport(

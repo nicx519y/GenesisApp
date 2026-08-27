@@ -76,7 +76,7 @@ Origin detail 增量核对时间：2026-08-05
 | chatroom | GET | `/aitown-chat/internal/tick/progress` | 轮询 Tick 进度 |
 | chatroom | POST | `/aitown-chat/internal/tick/unlock` | 解锁 World |
 | chatroom | POST | `/aitown-chat/internal/narrator/write` | 写入旁白消息 |
-| search | GET | `/api/v1/search` | 全局搜索 |
+| search | GET | `/api/v2/search` | Meilisearch 全局搜索 |
 | origin | GET | `/api/v1/origin/list` | Origin 模板列表 |
 | origin | GET | `/api/v1/origin/feed` | 按设备去重的 For you 推荐流 |
 | origin | POST | `/api/v1/origin/feed/exposure` | 上报 For you 可见项 |
@@ -1547,9 +1547,18 @@ JSON body：
 
 ## Search 接口
 
-### GET `/api/v1/search`
+### GET `/api/v2/search`
 
-全局搜索。新契约使用 `keyword` 作为搜索词，不再使用旧实现里的 `query`；`type` 为空字符串时表示同时搜索 origin、world、user 三类。
+Meilisearch 全局搜索。请求参数和响应 envelope 沿用 v1；`type` 为空字符串时表示同时搜索 origin、world、user 三类。
+
+相较 `/api/v1/search`：
+
+- 在线请求完全使用 Meilisearch，不再回查 MySQL。
+- Origin 搜索范围增加人物姓名，原有 Origin 名称和 brief 继续支持；World 仍搜索名称，User 仍搜索姓名。
+- `keyword` trim 后少于 3 个 Unicode 字符仍返回空结果。
+- 当 `keyword` 以小写 `o_`、`w_`、`u_` 开头且 Unicode 长度至少为 8 时，只在对应索引做 ID 精确匹配，不再同时返回文本模糊结果。
+- ID 精确匹配时，显式 `type` 必须为空或与 ID 前缀一致，否则返回 `4004 ErrorParamInvalid`。
+- `keyword/type/pn/rn`、`x-system-language`、`SearchEnvelope` 以及 `origins/worlds/users` 三段响应结构保持不变。
 
 Query：
 
@@ -1558,36 +1567,70 @@ Query：
 - `pn`: integer，页码，从 1 开始
 - `rn`: integer，每页条数
 
-响应 `data`：
+响应是 `SearchV2Envelope`，HTTP 状态始终为 200，通过 `err_no` 区分结果：
+
+- 成功 `SearchV2SuccessEnvelope`：`err_no*=0`、`err_msg*`、`data*: SearchV2Resp`
+- 失败 `SearchV2ErrorEnvelope`：`err_no*!=0`、`err_msg*`、`data*={}`；`data` 不允许额外字段
+
+`SearchV2Resp`：
 
 - `keyword*`: string，回显搜索词
 - `type*`: string，回显搜索类型；空字符串表示三类都搜
-- `origins*`: `SearchOriginResult`
-- `worlds*`: `SearchWorldResult`
-- `users*`: `SearchUserResult`
+- `origins*`: `SearchV2OriginResult`
+- `worlds*`: `SearchV2WorldResult`
+- `users*`: `SearchV2UserResult`
 
-`SearchOriginResult`：
+三个 Result 都完整保留 `list/total/pn/rn`：`total` 是 int64、最大 20；`pn` 最小 1；`rn` 最小 1、最大 40。`list` 的 item 类型分别为 `SearchV2OriginItem`、`SearchV2WorldItem`、`SearchV2UserItem`。
 
-- `list*`: `{ info: OriginInfo, stats: OriginStats }[]`
-- `total*`: integer
-- `pn*`: integer
-- `rn*`: integer
+`SearchV2OriginItem`（全部必填；`origin_version` 为客户端按产品确认新增，远端 Apifox schema 待同步）：
 
-`SearchWorldResult`：
+- `origin_id/origin_name/origin_version/brief/language`: string；`origin_version` 与 `origin_name` 同级
+- `cover`: `ImageResource`
+- `tags`: string[]
+- `characters`: `SearchV2OriginCharacter[]`
+- `owner`: `SearchV2Owner`
+- `stats`: `SearchV2OriginStats`
+- `matches`: `SearchV2Match[]`，最多 7 项
+- `matches_truncated`: boolean；只表示人物姓名命中超过 5 项被截断，不表示 `origin_name` 或 `brief` 被截断
 
-- `list*`: `{ info: WorldInfo, stats: WorldStats, last_tick: Tick }[]`
-- `total*`: integer
-- `pn*`: integer
-- `rn*`: integer
+`SearchV2WorldItem`（全部必填）：
 
-`SearchUserResult`：
+- `world_id/world_name/origin_id/language`: string
+- `cover`: `ImageResource`
+- `owner`: `SearchV2Owner`
+- `created_at`: int64
+- `matches`: `SearchV2WorldNameMatch[]`，最多 1 项
 
-- `list*`: `{ user: UserInfo, relation: UserRelation }[]`
-- `total*`: integer
-- `pn*`: integer
-- `rn*`: integer
+`SearchV2UserItem`（全部必填）：
 
-实现状态：`SearchV1Api.search({query, type, pn, rn})` 保留 Dart 层 `query` 参数名，但请求已改为发送 `keyword`；`SearchPage` 已消费 `origins/worlds/users` 三段结果，并兼容旧 mock 的 `groups` 结构作为过渡兜底。
+- `uid/name`: string
+- `avatar`: `ImageResource`
+- `matches`: `SearchV2UserNameMatch[]`，最多 1 项
+
+共享子模型：
+
+- `ImageResource`: `sm_url* / xl_url* / object_key*`，均为 string
+- `SearchV2Owner`: `uid* / name* / avatar*`；契约中没有 `deleted`
+- `SearchV2OriginCharacter`: `character_id* / name*`
+- `SearchV2OriginStats`: `copy_cnt* / discuss_cnt* / character_cnt* / connect_cnt* / location_cnt* / max_tick_cnt*`，均为 integer
+- `SearchV2HighlightRange`: `start*` 最小 0，`length*` 最小 1；二者均以 UTF-16 code unit 为单位，例如 `A😀B` 中 `B` 的 `start=3`
+
+Origin 的 `SearchV2Match` 是严格的 `oneOf`：
+
+- `SearchV2TextMatch`: `field*=origin_name | brief`、`highlight_ranges*`，没有 `character_id`
+- `SearchV2CharacterMatch`: `field*=character_name`、`character_id*`、`highlight_ranges*`
+- 每个 `highlight_ranges` 至少 1 项并按 `start` 升序；`origin_name`、`brief` 和 `character_name` 的范围分别作用于完整 `origin_name`、完整 `brief`、`character_id` 对应人物的完整 `name`
+- 一个 Origin 最多返回 1 个 `origin_name`、5 个 `character_name`、1 个 `brief`，合计最多 7 项
+
+World 与 User 使用独立命中模型，二者都没有 `character_id`：
+
+- `SearchV2WorldNameMatch`: `field*=world_name`，范围作用于完整 `world_name`
+- `SearchV2UserNameMatch`: `field*=user_name`，范围作用于 User item 的完整 `name`
+- 两种模型都有必填 `highlight_ranges`，至少 1 项并按 `start` 升序
+
+所有 match 都不返回原文或 HTML。客户端保留目标原始字符串和 UTF-16 范围，后续自行渲染高亮。
+
+实现状态：保留 `SearchV1Api.search({query, type, pn, rn})` 调用入口，请求实际发送到 `/api/v2/search`。公共 envelope 仍由 `handleV1ResponseErrNo` 统一消费：成功时把 `data` 解析为 typed `SearchV2Response`（对应文档的 `SearchV2Resp`），失败时抛出带 `err_no/err_msg` 的业务异常。页面展示模型同时持有三类原始 typed item，不丢弃 `matches`。
 
 ## Discuss 接口
 
@@ -2165,7 +2208,7 @@ query：
 | `GET /aitown-chat/internal/tick/progress` | 已新增 `ChatroomHttpApi.tickProgress(worldId)`，响应消费 `progress/pending_messages/active_llm_calls`。 |
 | `POST /aitown-chat/internal/tick/unlock` | 已新增 `ChatroomHttpApi.unlockWorld(worldId)`，multipart form 发送 `world_id`，响应消费 `unlocked`。 |
 | `POST /aitown-chat/internal/narrator/write` | 已新增 `ChatroomHttpApi.writeNarrator(worldId,tickId,locationGroups)`，body 使用 `world_id/tick_id/location_groups`，响应消费 `message_id`；本地 mock 会写入 narrator 消息。 |
-| `GET /api/v1/search` | `SearchV1Api.search` 已改为发送 `keyword/type/pn/rn`；`type` 为空时不随 query 发送，表示全局搜索；`SearchPage` 已消费 `origins/worlds/users` 分类结果块。 |
+| `GET /api/v2/search` | `SearchV1Api.search` 保留调用入口但返回完整 `SearchV2Response`；继续发送 `keyword/type/pn/rn`，完整消费三类分页块及所有 item 字段；三类都保留 `matches[].field/highlight_ranges`，只有 Origin 的 `character_name` 命中带 `character_id`，Origin 额外保留 `characters` 和 `matches_truncated`；范围使用 UTF-16 code unit。 |
 | `GET /api/v1/origin/list` | `OriginV1Api.list` query 已使用 `scene/tag/tag_id/keyword/uid/pn/rn`；自有数据只传 `scene=mine`，指定用户数据传 `scene=uid&uid=...`，标签数据传 `scene=tag&tag=...`；origin 页面和主 `getOrigins/getMyLaunchedOrigins` 可消费 `list[].info + stats`；首页 popular 会优先消费 `list[].discusses` 作为最新 2 条讨论预览，本地 mock 仅默认/`popular` 场景返回该字段。 |
 | `GET /api/v1/origin/feed` | `OriginV1Api.feed` 使用 `start_score/rn`；Origin 页仅 For you 使用该接口，刷新传 `0`，分页严格复用响应 `next_score`，并以 `has_more` 和游标前进共同决定是否继续。 |
 | `POST /api/v1/origin/feed/exposure` | `OriginV1Api.reportFeedExposure` 提交 `origin_ids`；Origin 页仅在封面成功渲染后，按列表真实内容视口内 30% 可见面积和连续 1.5 秒可见时长采集；占位、加载中、加载失败、低于阈值或快速经过均不采集，本地按页面生命周期去重。 |
