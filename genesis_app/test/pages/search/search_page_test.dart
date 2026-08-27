@@ -249,6 +249,36 @@ void main() {
     expect(userSizedBoxes.any((box) => box.height == 5), isTrue);
   });
 
+  testWidgets('uses the full screen DPR for every search result image', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 3;
+    tester.view.physicalSize = const Size(1290, 4200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final listImages = tester.widgetList<GenesisListImage>(
+      find.byType(GenesisListImage),
+    );
+    final userAvatars = tester.widgetList<GenesisAvatar>(
+      find.byType(GenesisAvatar),
+    );
+
+    expect(listImages, isNotEmpty);
+    expect(listImages.every((image) => image.maxDevicePixelRatio == 3), isTrue);
+    expect(userAvatars, isNotEmpty);
+    expect(
+      userAvatars.every((avatar) => avatar.maxDevicePixelRatio == 3),
+      isTrue,
+    );
+  });
+
   testWidgets('removes deleted world from search results after detail closes', (
     tester,
   ) async {

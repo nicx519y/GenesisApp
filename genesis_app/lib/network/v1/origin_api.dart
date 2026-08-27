@@ -35,6 +35,42 @@ class OriginV1Api extends V1ApiResource {
         .toList(growable: false);
   }
 
+  /// GET /api/v1/origin/feed
+  ///
+  /// `start_score` is an exclusive cursor. Refreshes start at `0`, while
+  /// subsequent requests must pass the previous response's `next_score`.
+  Future<Map<String, dynamic>> feed({required int startScore, int rn = 10}) {
+    if (startScore < 0) {
+      throw ArgumentError.value(startScore, 'startScore', 'must be >= 0');
+    }
+    if (rn < 1 || rn > 100) {
+      throw ArgumentError.value(rn, 'rn', 'must be between 1 and 100');
+    }
+    return getMap('origin/feed', {'start_score': startScore, 'rn': rn});
+  }
+
+  /// POST /api/v1/origin/feed/exposure
+  ///
+  /// The endpoint is idempotent and accepts at most 100 origin ids per call.
+  Future<int> reportFeedExposure(List<String> originIds) async {
+    final normalizedIds = originIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+    if (normalizedIds.isEmpty || normalizedIds.length > 100) {
+      throw ArgumentError.value(
+        originIds,
+        'originIds',
+        'must contain between 1 and 100 non-empty ids',
+      );
+    }
+    final data = await postMap('origin/feed/exposure', {
+      'origin_ids': normalizedIds,
+    });
+    return asInt(data['recorded_count']);
+  }
+
   /// GET /api/v1/origin/my_launch_preset_characters
   ///
   /// Returns preset characters that the current user previously selected when launching the specified origin and that still exist.

@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class OriginFeedCacheStore {
   const OriginFeedCacheStore({String? ownerUid}) : _ownerUid = ownerUid;
 
-  static const String storageKey = 'origin_feed_cache_v1';
+  static const String storageKey = 'origin_feed_cache_v2';
   static const String anonymousOwnerUid = '__anonymous__';
 
   final String? _ownerUid;

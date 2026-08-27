@@ -123,9 +123,10 @@ class OriginListItem {
 }
 
 class OriginItemCard extends StatelessWidget {
-  const OriginItemCard({super.key, required this.item});
+  const OriginItemCard({super.key, required this.item, this.onCoverLoaded});
 
   final OriginListItem item;
+  final VoidCallback? onCoverLoaded;
 
   @override
   Widget build(BuildContext context) {
@@ -142,6 +143,7 @@ class OriginItemCard extends StatelessWidget {
                   child: GenesisListImage(
                     imageUrl: item.cover,
                     maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+                    onImageLoaded: onCoverLoaded,
                   ),
                 ),
                 Positioned(

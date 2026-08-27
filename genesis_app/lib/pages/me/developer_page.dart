@@ -31,6 +31,7 @@ import '../../network/genesis_api.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../network/models/gem_wallet.dart';
+import '../../network/models/world_history_settings.dart';
 import '../../network/network_capture.dart';
 import '../../network/websocket_capture.dart';
 import '../../platform/app/app_metadata_service.dart';
@@ -49,6 +50,7 @@ part 'developer_components.dart';
 part 'developer_capture_components.dart';
 part 'developer_network_tab.dart';
 part 'developer_websocket_tab.dart';
+part 'developer_world_history_actions.dart';
 
 const String _buildModeLabel = kReleaseMode
     ? 'release'
@@ -185,6 +187,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   late final TextEditingController _chatroomWsBaseUrlController;
   late final TextEditingController _versionNameController;
   late final TextEditingController _versionCodeController;
+  late final TextEditingController _worldHistoryHighWatermarkController;
+  late final TextEditingController _worldHistoryLowWatermarkController;
   late final TabController _tabController;
   late int _selectedTabIndex;
   bool _clearingDirectMessageCache = false;
@@ -201,6 +205,10 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   final Set<TelemetryChannel> _savingTelemetryChannels = <TelemetryChannel>{};
   bool _showTilemapSettingsButton = tilemapSettingsButtonVisibility.value;
   bool _dailyCheckInPreviewClaimed = false;
+  bool _loadingWorldHistoryAccess = true;
+  bool _hasWorldHistoryAccess = false;
+  String? _worldHistoryBusyAction;
+  WorldHistorySettings? _worldHistorySettings;
   String? _gatewaySignatureVerifyResult;
 
   @override
@@ -230,11 +238,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     _chatroomWsBaseUrlController = TextEditingController();
     _versionNameController = TextEditingController();
     _versionCodeController = TextEditingController();
+    _worldHistoryHighWatermarkController = TextEditingController();
+    _worldHistoryLowWatermarkController = TextEditingController();
     _apiBaseUrlController.addListener(_handleEndpointTextChanged);
     _gatewayApiBaseUrlController.addListener(_handleEndpointTextChanged);
     _chatroomWsBaseUrlController.addListener(_handleEndpointTextChanged);
     _loadEndpointOverrides();
     unawaited(_loadVersionOverrides());
+    unawaited(_loadWorldHistoryAccess());
     unawaited(_loadTilemapSettingsButtonVisibility());
     unawaited(locationChatHeaderEffectSettings.load());
     unawaited(AppServicesScope.read(context).gemWallet.refresh());
@@ -252,6 +263,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     _chatroomWsBaseUrlController.dispose();
     _versionNameController.dispose();
     _versionCodeController.dispose();
+    _worldHistoryHighWatermarkController.dispose();
+    _worldHistoryLowWatermarkController.dispose();
     super.dispose();
   }
 
@@ -613,6 +626,21 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       ),
       keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       children: [
+        if (!_loadingEndpointOverrides &&
+            !_loadingWorldHistoryAccess &&
+            _isUsingTestEndpointHost &&
+            _hasWorldHistoryAccess) ...[
+          _DeveloperWorldHistoryWatermarkPanel(
+            highWatermarkController: _worldHistoryHighWatermarkController,
+            lowWatermarkController: _worldHistoryLowWatermarkController,
+            busyAction: _worldHistoryBusyAction,
+            settings: _worldHistorySettings,
+            onFetch: _fetchWorldHistorySettings,
+            onUpdate: _updateWorldHistorySettings,
+            onDelete: _resetWorldHistorySettings,
+          ),
+          const SizedBox(height: 18),
+        ],
         ValueListenableBuilder<TelemetryUploadState>(
           valueListenable: TelemetryUploadPolicy.state,
           builder: (context, telemetry, _) {

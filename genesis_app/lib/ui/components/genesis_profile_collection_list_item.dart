@@ -79,6 +79,7 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                   width: 52,
                   height: 52,
                   borderRadius: GenesisImageRadii.content,
+                  maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
                 ),
                 const SizedBox(width: 10),
                 Expanded(

@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:visibility_detector/visibility_detector.dart';
 
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
@@ -42,6 +43,7 @@ import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_p
 import 'package:genesis_flutter_android/components/bottom_tabs.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
+import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/components/origin/origin_role_launch_sheet.dart';
 import 'package:genesis_flutter_android/components/me/signed_out_me_view.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap.dart';
@@ -143,6 +145,35 @@ Finder _richTextWithPlainText(String text) {
 bool _hasListenersForTest(ChangeNotifier notifier) {
   // ignore: invalid_use_of_protected_member
   return notifier.hasListeners;
+}
+
+Set<String> _visibleOriginIds(
+  WidgetTester tester,
+  Finder scrollable, {
+  double minimumVisibleRatio = 0.3,
+}) {
+  final viewportRect = tester.getRect(scrollable);
+  final visibleIds = <String>{};
+  for (final element in find.byType(OriginItemCard).evaluate()) {
+    final card = element.widget as OriginItemCard;
+    final cardRect = tester.getRect(find.byWidget(card));
+    final intersection = cardRect.intersect(viewportRect);
+    final visibleArea = intersection.isEmpty
+        ? 0.0
+        : intersection.width * intersection.height;
+    final cardArea = cardRect.width * cardRect.height;
+    if (cardArea > 0 && visibleArea / cardArea >= minimumVisibleRatio) {
+      visibleIds.add(card.item.oid);
+    }
+  }
+  return visibleIds;
+}
+
+void _markRenderedOriginCoversLoaded() {
+  for (final element in find.byType(OriginItemCard).evaluate()) {
+    final card = element.widget as OriginItemCard;
+    card.onCoverLoaded?.call();
+  }
 }
 
 void _expectRichTextSpanColor(
@@ -547,6 +578,8 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.originDefinitionVersion = 1,
     this.worldDefinitionVersion = 1,
     this.originShowOpeningSheet = false,
+    this.originExposureFailuresRemaining = 0,
+    this.originCover = '',
   });
 
   final requests = <TransportRequest>[];
@@ -587,6 +620,8 @@ class _RecordingV1ListTransport implements HttpTransport {
   final int originDefinitionVersion;
   final int worldDefinitionVersion;
   final bool originShowOpeningSheet;
+  final String originCover;
+  int originExposureFailuresRemaining;
   int _worldDetailRequestIndex = 0;
   int _tickLockStatusRequestIndex = 0;
 
@@ -816,6 +851,45 @@ class _RecordingV1ListTransport implements HttpTransport {
         'data': {'world_id': 'w_launched_from_origin'},
       });
     }
+    if (request.method == 'POST' &&
+        request.uri.path.endsWith('/origin/feed/exposure')) {
+      if (originExposureFailuresRemaining > 0) {
+        originExposureFailuresRemaining -= 1;
+        return _jsonResponse({
+          'err_no': 5000,
+          'err_msg': 'Redis unavailable',
+          'data': <String, Object?>{},
+        });
+      }
+      final body = decodedBody(request);
+      final originIds = body['origin_ids'];
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'recorded_count': originIds is List ? originIds.length : 0},
+      });
+    }
+    if (request.method == 'GET' && request.uri.path.endsWith('/origin/feed')) {
+      final pendingResponse = originListCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
+      final startScore =
+          int.tryParse(request.uri.queryParameters['start_score'] ?? '') ?? 0;
+      final rn = int.tryParse(request.uri.queryParameters['rn'] ?? '') ?? 10;
+      final start = startScore.clamp(0, total);
+      final end = (start + rn).clamp(0, total);
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'list': [
+            for (var index = start; index < end; index += 1) _originItem(index),
+          ],
+          'rn': rn,
+          'next_score': end,
+          'has_more': end < total,
+        },
+      });
+    }
     if (request.method == 'GET' && request.uri.path.endsWith('/hot_tags')) {
       final pendingResponse = hotTagsCompleter;
       if (pendingResponse != null) return pendingResponse.future;
@@ -1018,7 +1092,7 @@ class _RecordingV1ListTransport implements HttpTransport {
       'status': 2,
       'version_num': 1 + index % 3,
       'name': 'Origin $seq',
-      'cover': '',
+      'cover': originCover,
       'display_subtitle': 'Origin subtitle $seq',
       'world_view': 'Origin world view $seq',
       'created_uid': 'u_test',
@@ -1418,8 +1492,8 @@ class _QueuedOriginRefreshTransport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
-    if (request.uri.path.endsWith('/origin/list')) {
-      if (requestsFor('/api/v1/origin/list').length == 1) {
+    if (request.uri.path.endsWith('/origin/feed')) {
+      if (requestsFor('/api/v1/origin/feed').length == 1) {
         return _originListResponse(0);
       }
       return refreshResponse;
@@ -1437,9 +1511,98 @@ class _QueuedOriginRefreshTransport implements HttpTransport {
       'err_str': 'success',
       'data': {
         'list': [_delegate._originItem(startIndex)],
-        'total': 1,
+        'rn': 10,
+        'next_score': startIndex + 1,
+        'has_more': false,
       },
     });
+  }
+}
+
+class _NonAdvancingOriginFeedTransport extends _RecordingV1ListTransport {
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.method == 'GET' &&
+        request.uri.path == '/api/v1/origin/feed' &&
+        requestsFor('/api/v1/origin/feed').isNotEmpty) {
+      requests.add(request);
+      final startScore =
+          int.tryParse(request.uri.queryParameters['start_score'] ?? '') ?? 0;
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'list': [_originItem(20)],
+          'rn': 10,
+          'next_score': startScore,
+          'has_more': true,
+        },
+      });
+    }
+    return super.send(request);
+  }
+}
+
+class _SparseOriginFeedTransport extends _RecordingV1ListTransport {
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.method == 'GET' && request.uri.path == '/api/v1/origin/feed') {
+      final startScore =
+          int.tryParse(request.uri.queryParameters['start_score'] ?? '') ?? 0;
+      if (startScore == 10) {
+        requests.add(request);
+        return _jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'list': <Object?>[],
+            'rn': 10,
+            'next_score': 20,
+            'has_more': 'true',
+          },
+        });
+      }
+      if (startScore == 20) {
+        requests.add(request);
+        return _jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {
+            'list': [_originItem(20)],
+            'rn': 10,
+            'next_score': 21,
+            'has_more': false,
+          },
+        });
+      }
+    }
+    return super.send(request);
+  }
+}
+
+class _ReplacingOriginFeedTransport extends _RecordingV1ListTransport {
+  var _feedRequestCount = 0;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.method == 'GET' && request.uri.path == '/api/v1/origin/feed') {
+      requests.add(request);
+      final startIndex = _feedRequestCount++ == 0 ? 0 : 20;
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'list': [
+            for (var index = startIndex; index < startIndex + 10; index += 1)
+              _originItem(index),
+          ],
+          'rn': 10,
+          'next_score': startIndex + 10,
+          'has_more': false,
+        },
+      });
+    }
+    return super.send(request);
   }
 }
 
@@ -1450,7 +1613,7 @@ class _OriginPermissionPromptTransport extends _RecordingV1ListTransport {
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
-    if (request.uri.path == '/api/v1/origin/list') {
+    if (request.uri.path == '/api/v1/origin/feed') {
       originListRequestCount += 1;
       if (originListRequestCount == 1) {
         requests.add(request);
@@ -5113,8 +5276,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    var originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(1));
+    var feedRequests = transport.requestsFor('/api/v1/origin/feed');
+    expect(feedRequests, hasLength(1));
     expect(find.text('#Origin 1'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
@@ -5124,12 +5287,12 @@ void main() {
     await tester.tap(find.text('#Worldo'));
     await tester.pumpAndSettle();
 
-    originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(1));
+    feedRequests = transport.requestsFor('/api/v1/origin/feed');
+    expect(feedRequests, hasLength(1));
     expect(find.text('#Origin 1'), findsOneWidget);
   });
 
-  testWidgets('Origin tab requests v1 origin list scene on enter', (
+  testWidgets('Origin tab requests cursor feed then tag list', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
@@ -5145,20 +5308,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    var originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(1));
-    expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
-    expect(originRequests.single.uri.queryParameters['pn'], '1');
-    expect(originRequests.single.uri.queryParameters['rn'], '20');
-    expect(originRequests.single.uri.queryParameters.containsKey('tag'), false);
+    final feedRequests = transport.requestsFor('/api/v1/origin/feed');
+    expect(feedRequests, hasLength(1));
+    expect(feedRequests.single.uri.queryParameters['start_score'], '0');
+    expect(feedRequests.single.uri.queryParameters['rn'], '10');
 
     await tester.tap(find.text('Destroyed'));
     await tester.pumpAndSettle();
 
-    originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(2));
-    expect(originRequests.last.uri.queryParameters['scene'], 'tag');
-    expect(originRequests.last.uri.queryParameters['tag'], 'Destroyed');
+    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    expect(originRequests, hasLength(1));
+    expect(originRequests.single.uri.queryParameters['scene'], 'tag');
+    expect(originRequests.single.uri.queryParameters['tag'], 'Destroyed');
   });
 
   testWidgets(
@@ -5295,18 +5456,17 @@ void main() {
     await tester.pump();
 
     expect(transport.requestsFor('/api/v1/origin/hot_tags'), hasLength(1));
-    var originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(1));
-    expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
+    var feedRequests = transport.requestsFor('/api/v1/origin/feed');
+    expect(feedRequests, hasLength(1));
     final hotTagsIndex = transport.requests.indexWhere(
       (request) => request.uri.path == '/api/v1/origin/hot_tags',
     );
-    final listIndex = transport.requests.indexWhere(
-      (request) => request.uri.path == '/api/v1/origin/list',
+    final feedIndex = transport.requests.indexWhere(
+      (request) => request.uri.path == '/api/v1/origin/feed',
     );
     expect(hotTagsIndex, isNonNegative);
-    expect(listIndex, isNonNegative);
-    expect(hotTagsIndex, lessThan(listIndex));
+    expect(feedIndex, isNonNegative);
+    expect(hotTagsIndex, lessThan(feedIndex));
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Destroyed'), findsNothing);
 
@@ -5322,9 +5482,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Destroyed'), findsOneWidget);
-    originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(1));
-    expect(originRequests.single.uri.queryParameters['scene'], 'foryou');
+    feedRequests = transport.requestsFor('/api/v1/origin/feed');
+    expect(feedRequests, hasLength(1));
   });
 
   testWidgets('Origin renders cached hot tags then syncs latest tags', (
@@ -5352,7 +5511,7 @@ void main() {
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Cached'), findsOneWidget);
     expect(find.text('Remote'), findsNothing);
-    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+    expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
     expect(transport.requestsFor('/api/v1/origin/hot_tags'), hasLength(1));
 
     hotTagsCompleter.complete(
@@ -5383,7 +5542,9 @@ void main() {
     const cacheStore = OriginFeedCacheStore(ownerUid: 'u_mock');
     await cacheStore.saveForYouFirstPage(<String, dynamic>{
       'list': <Map<String, Object?>>[transport._originItem(50)],
-      'total': 1,
+      'rn': 10,
+      'next_score': 1,
+      'has_more': false,
     });
 
     await tester.pumpWidget(
@@ -5412,7 +5573,7 @@ void main() {
 
     expect(find.text('#Origin 51'), findsOneWidget);
     expect(forYouFirstPageReadyCount, 1);
-    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+    expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
 
     originListCompleter.complete(
       transport._jsonResponse({
@@ -5420,7 +5581,9 @@ void main() {
         'err_str': 'success',
         'data': {
           'list': <Map<String, Object?>>[transport._originItem(0)],
-          'total': 1,
+          'rn': 10,
+          'next_score': 1,
+          'has_more': false,
         },
       }),
     );
@@ -5852,6 +6015,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await tester.ensureVisible(find.text('#Origin 1'));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('#Origin 1'));
     await tester.pumpAndSettle();
 
@@ -10302,10 +10467,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
 
-    final originRequests = transport.requestsFor('/api/v1/origin/list');
+    final originRequests = transport.requestsFor('/api/v1/origin/feed');
     expect(originRequests, hasLength(2));
-    expect(originRequests.last.uri.queryParameters['pn'], '1');
-    expect(originRequests.last.uri.queryParameters['rn'], '20');
+    expect(originRequests.last.uri.queryParameters['start_score'], '0');
+    expect(originRequests.last.uri.queryParameters['rn'], '10');
     await tester.pump();
     final loadEvents = telemetry.events
         .where((event) => event.name == 'worldo_list_load')
@@ -10314,6 +10479,45 @@ void main() {
     expect(loadEvents.single.data['object1'], 'refresh');
     expect(loadEvents.single.data['object2'], 1);
   });
+
+  testWidgets(
+    'Origin refresh replacement keeps the masonry grid in two columns',
+    (WidgetTester tester) async {
+      final transport = _ReplacingOriginFeedTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final grid = find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      );
+      void expectTwoColumns() {
+        final columnOffsets = find
+            .descendant(of: grid, matching: find.byType(OriginItemCard))
+            .evaluate()
+            .map(
+              (element) =>
+                  tester.getTopLeft(find.byWidget(element.widget)).dx.round(),
+            )
+            .toSet();
+        expect(columnOffsets, hasLength(2));
+      }
+
+      expectTwoColumns();
+      tester.state<RefreshIndicatorState>(find.byType(RefreshIndicator)).show();
+      await tester.pumpAndSettle();
+
+      expect(find.text('#Origin 21'), findsOneWidget);
+      expect(find.text('#Origin 1'), findsNothing);
+      expectTwoColumns();
+    },
+  );
 
   testWidgets('Origin For you pagination tracks the requested next page', (
     WidgetTester tester,
@@ -10343,7 +10547,9 @@ void main() {
     originFeedScroll.position.jumpTo(originFeedScroll.position.maxScrollExtent);
     await tester.pumpAndSettle();
 
-    expect(transport.requestsFor('/api/v1/origin/list').length, greaterThan(1));
+    final feedRequests = transport.requestsFor('/api/v1/origin/feed');
+    expect(feedRequests.length, greaterThan(1));
+    expect(feedRequests[1].uri.queryParameters['start_score'], '10');
     await tester.pump();
     final loadEvents = telemetry.events
         .where((event) => event.name == 'worldo_list_load')
@@ -10351,6 +10557,260 @@ void main() {
     expect(loadEvents, hasLength(1));
     expect(loadEvents.single.data['object1'], 'load_more');
     expect(loadEvents.single.data['object2'], 2);
+  });
+
+  testWidgets(
+    'Origin For you keeps advancing sparse cursor pages while still at bottom',
+    (WidgetTester tester) async {
+      final transport = _SparseOriginFeedTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final scrollable = find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('origin-feed-For you-foryou'),
+        ),
+        matching: find.byType(Scrollable),
+      );
+      await tester.drag(scrollable, const Offset(0, -3000));
+      await tester.pumpAndSettle();
+
+      final requests = transport.requestsFor('/api/v1/origin/feed');
+      expect(requests, hasLength(3));
+      expect(requests[0].uri.queryParameters['start_score'], '0');
+      expect(requests[1].uri.queryParameters['start_score'], '10');
+      expect(requests[2].uri.queryParameters['start_score'], '20');
+      final scrollState = tester.state<ScrollableState>(scrollable);
+      scrollState.position.jumpTo(scrollState.position.maxScrollExtent);
+      await tester.pump();
+      expect(find.text('#Origin 21'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Origin For you stops when next score does not advance', (
+    WidgetTester tester,
+  ) async {
+    final transport = _NonAdvancingOriginFeedTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('origin-feed-For you-foryou'),
+        ),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(2));
+
+    scrollable.position.jumpTo(
+      (scrollable.position.maxScrollExtent - 1).clamp(
+        0,
+        scrollable.position.maxScrollExtent,
+      ),
+    );
+    await tester.pump();
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(2));
+  });
+
+  testWidgets('Origin For you reports only cards at least 30 percent visible', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originCover: 'https://cache.test/origin-cover.png',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final scrollable = find.descendant(
+      of: find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      ),
+      matching: find.byType(Scrollable),
+    );
+    final expectedVisibleIds = _visibleOriginIds(tester, scrollable);
+
+    const exposurePath = '/api/v1/origin/feed/exposure';
+    expect(find.byType(VisibilityDetector), findsWidgets);
+    expect(transport.requestsFor(exposurePath), isEmpty);
+    await tester.pump(const Duration(milliseconds: 1600));
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(
+      transport.requestsFor(exposurePath),
+      isEmpty,
+      reason: 'A visible placeholder must not start exposure timing.',
+    );
+
+    _markRenderedOriginCoversLoaded();
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump(const Duration(milliseconds: 20));
+
+    final exposureRequests = transport.requestsFor(exposurePath);
+    expect(exposureRequests, hasLength(1));
+    final reportedIds =
+        (transport.decodedBody(exposureRequests.single)['origin_ids'] as List)
+            .cast<String>()
+            .toSet();
+    expect(reportedIds, expectedVisibleIds);
+    expect(reportedIds.length, lessThan(10));
+
+    tester.state<RefreshIndicatorState>(find.byType(RefreshIndicator)).show();
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump();
+    expect(transport.requestsFor(exposurePath), hasLength(1));
+  });
+
+  testWidgets(
+    'Origin For you ignores fast passes and reports continuously visible cards',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        originCover: 'https://cache.test/origin-cover.png',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _markRenderedOriginCoversLoaded();
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(milliseconds: 20));
+
+      final exposurePath = '/api/v1/origin/feed/exposure';
+      final initialExposureCount = transport.requestsFor(exposurePath).length;
+      final initiallyReportedIds =
+          (transport.decodedBody(
+                    transport.requestsFor(exposurePath).single,
+                  )['origin_ids']
+                  as List)
+              .cast<String>()
+              .toSet();
+      final scrollable = find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('origin-feed-For you-foryou'),
+        ),
+        matching: find.byType(Scrollable),
+      );
+      final gesture = await tester.startGesture(tester.getCenter(scrollable));
+      var visibleAfterFastScroll = <String>{};
+      for (var index = 0; index < 12; index += 1) {
+        await gesture.moveBy(const Offset(0, -150));
+        await tester.pump(const Duration(milliseconds: 50));
+        _markRenderedOriginCoversLoaded();
+        visibleAfterFastScroll = _visibleOriginIds(tester, scrollable);
+        if (visibleAfterFastScroll
+            .difference(initiallyReportedIds)
+            .isNotEmpty) {
+          break;
+        }
+      }
+
+      final scrollState = tester.state<ScrollableState>(scrollable);
+      expect(scrollState.position.pixels, greaterThan(0));
+      expect(
+        visibleAfterFastScroll.difference(initiallyReportedIds),
+        isNotEmpty,
+      );
+      expect(
+        transport.requestsFor(exposurePath),
+        hasLength(initialExposureCount),
+      );
+
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(milliseconds: 20));
+      final exposureRequests = transport.requestsFor(exposurePath);
+      expect(exposureRequests.length, greaterThan(initialExposureCount));
+      final newlyReportedIds = exposureRequests
+          .expand(
+            (request) => (transport.decodedBody(request)['origin_ids'] as List)
+                .cast<String>(),
+          )
+          .toSet()
+          .difference(initiallyReportedIds);
+      expect(newlyReportedIds, isNotEmpty);
+      expect(
+        newlyReportedIds.difference(_visibleOriginIds(tester, scrollable)),
+        isEmpty,
+      );
+
+      await gesture.up();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('Origin For you waits for post-fling visibility duration', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originCover: 'https://cache.test/origin-cover.png',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _markRenderedOriginCoversLoaded();
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump(const Duration(milliseconds: 20));
+
+    const exposurePath = '/api/v1/origin/feed/exposure';
+    final initialExposureCount = transport.requestsFor(exposurePath).length;
+    final scrollable = find.descendant(
+      of: find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      ),
+      matching: find.byType(Scrollable),
+    );
+
+    await tester.fling(scrollable, const Offset(0, -1600), 3200);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      transport.requestsFor(exposurePath),
+      hasLength(initialExposureCount),
+    );
+
+    await tester.pumpAndSettle();
+    _markRenderedOriginCoversLoaded();
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(
+      transport.requestsFor(exposurePath).length,
+      greaterThan(initialExposureCount),
+    );
   });
 
   testWidgets('Origin pull refresh keeps current list until response returns', (
@@ -10378,7 +10838,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
-    expect(transport.requestsFor('/api/v1/origin/list'), hasLength(2));
+    expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(2));
     expect(find.text('#Origin 1'), findsOneWidget);
     expect(find.byType(RefreshProgressIndicator), findsOneWidget);
 
@@ -10404,20 +10864,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    var feedRequests = transport.requestsFor('/api/v1/origin/feed');
     var originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(1));
+    expect(feedRequests, hasLength(1));
+    expect(originRequests, isEmpty);
     expect(find.text('#Origin 1'), findsOneWidget);
 
     await tester.tap(find.text('Destroyed'));
     await tester.pumpAndSettle();
     originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(2));
+    expect(originRequests, hasLength(1));
 
     await tester.tap(find.text('For you'));
     await tester.pumpAndSettle();
 
     originRequests = transport.requestsFor('/api/v1/origin/list');
-    expect(originRequests, hasLength(2));
+    feedRequests = transport.requestsFor('/api/v1/origin/feed');
+    expect(feedRequests, hasLength(1));
+    expect(originRequests, hasLength(1));
     expect(find.text('#Origin 1'), findsOneWidget);
   });
 
@@ -11177,6 +11641,35 @@ void main() {
           .imageUrl,
       'https://cdn.example.com/new.png',
     );
+  });
+
+  testWidgets('Origin For you retries exposure error 5000 up to success', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(
+      originExposureFailuresRemaining: 2,
+      originCover: 'https://cache.test/origin-cover.png',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    _markRenderedOriginCoversLoaded();
+    await tester.pump(const Duration(milliseconds: 1500));
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/origin/feed/exposure'), hasLength(3));
+    expect(find.byType(OriginItemCard), findsWidgets);
   });
 
   testWidgets(
@@ -18093,6 +18586,257 @@ void main() {
       isTrue,
     );
   });
+
+  testWidgets(
+    'developer test page gets updates and resets World History watermarks',
+    (WidgetTester tester) async {
+      await AppEndpointOverrideStore.clear();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              initialUid: 'u_watermark_test',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('test'));
+      await tester.pumpAndSettle();
+
+      final panel = find.byKey(
+        const ValueKey<String>('developer-world-history-watermark-panel'),
+      );
+      final highWatermarkInput = find.byKey(
+        const ValueKey<String>('developer-world-history-high-watermark-input'),
+      );
+      final lowWatermarkInput = find.byKey(
+        const ValueKey<String>('developer-world-history-low-watermark-input'),
+      );
+      expect(panel, findsOneWidget);
+      expect(highWatermarkInput, findsOneWidget);
+      expect(lowWatermarkInput, findsOneWidget);
+      expect(find.text('high_watermark · 20–30'), findsOneWidget);
+      expect(find.text('low_watermark · 10–20'), findsOneWidget);
+      expect(
+        find.text('Ranges: high_watermark 20–30, low_watermark 10–20.'),
+        findsNothing,
+      );
+      expect(
+        tester.widget<TextField>(highWatermarkInput).controller?.text,
+        isEmpty,
+      );
+      expect(
+        tester.widget<TextField>(lowWatermarkInput).controller?.text,
+        isEmpty,
+      );
+      final fetchButton = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('developer-world-history-fetch')),
+      );
+      final updateButton = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('developer-world-history-update')),
+      );
+      final deleteButton = tester.widget<OutlinedButton>(
+        find.byKey(const ValueKey<String>('developer-world-history-delete')),
+      );
+      expect(
+        fetchButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+        Colors.transparent,
+      );
+      expect(
+        updateButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+        Colors.transparent,
+      );
+      expect(
+        deleteButton.style?.backgroundColor?.resolve(<WidgetState>{}),
+        Colors.transparent,
+      );
+      expect(
+        fetchButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+        isNot(updateButton.style?.foregroundColor?.resolve(<WidgetState>{})),
+      );
+      expect(
+        updateButton.style?.foregroundColor?.resolve(<WidgetState>{}),
+        isNot(deleteButton.style?.foregroundColor?.resolve(<WidgetState>{})),
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-world-history-fetch')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(highWatermarkInput).controller?.text,
+        '25',
+      );
+      expect(
+        tester.widget<TextField>(lowWatermarkInput).controller?.text,
+        '15',
+      );
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      expect(
+        find.descendant(
+          of: panel,
+          matching: find.text('stored_high_watermark'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-stored_high_watermark-value',
+                ),
+              ),
+            )
+            .data,
+        '0',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-stored_low_watermark-value',
+                ),
+              ),
+            )
+            .data,
+        '0',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>('developer-world-history-source-value'),
+              ),
+            )
+            .data,
+        'default',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-degraded-value',
+                ),
+              ),
+            )
+            .data,
+        'false',
+      );
+
+      await tester.enterText(highWatermarkInput, '28');
+      await tester.enterText(lowWatermarkInput, '12');
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-world-history-update')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(highWatermarkInput).controller?.text,
+        '28',
+      );
+      expect(
+        tester.widget<TextField>(lowWatermarkInput).controller?.text,
+        '12',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-stored_high_watermark-value',
+                ),
+              ),
+            )
+            .data,
+        '28',
+      );
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(
+                const ValueKey<String>(
+                  'developer-world-history-stored_low_watermark-value',
+                ),
+              ),
+            )
+            .data,
+        '12',
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey<String>('developer-world-history-delete')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(highWatermarkInput).controller?.text,
+        '25',
+      );
+      expect(
+        tester.widget<TextField>(lowWatermarkInput).controller?.text,
+        '15',
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
+    'developer World History controls require test environment and login',
+    (WidgetTester tester) async {
+      await AppEndpointOverrideStore.clear();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(initialAuthToken: null),
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('test'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const ValueKey<String>('developer-world-history-watermark-panel'),
+        ),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await AppEndpointOverrideStore.save(
+        const AppEndpointOverrides(
+          apiBaseUrl: 'https://api.worldo.ai/api/',
+          gatewayApiBaseUrl: 'https://api.worldo.ai/apix/',
+          chatroomHttpBaseUrl: 'https://api.worldo.ai/',
+          chatroomWsBaseUrl: 'wss://api.worldo.ai/aitown-chat/ws',
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(initialAuthToken: 'backend-token'),
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('test'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(
+          const ValueKey<String>('developer-world-history-watermark-panel'),
+        ),
+        findsNothing,
+      );
+      await AppEndpointOverrideStore.clear();
+    },
+  );
 
   testWidgets('developer test tab controls telemetry debug upload', (
     WidgetTester tester,

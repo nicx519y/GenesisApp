@@ -6,6 +6,37 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
+  testWidgets('uses the full screen DPR for profile collection images', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(devicePixelRatio: 3),
+          child: Scaffold(
+            body: ProfileCollectionList(
+              items: const [
+                GenesisProfileCollectionItemData(
+                  imageUrl: '',
+                  title: 'Origin',
+                  subtitle: 'World seed',
+                ),
+              ],
+              emptyText: 'Empty',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester
+          .widget<GenesisListImage>(find.byType(GenesisListImage))
+          .maxDevicePixelRatio,
+      3,
+    );
+  });
+
   testWidgets('renders collection items without borders', (
     WidgetTester tester,
   ) async {

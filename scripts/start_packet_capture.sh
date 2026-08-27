@@ -94,7 +94,7 @@ done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 app_dir="$repo_root/genesis_app"
-apk_path="$app_dir/build/app/outputs/flutter-apk/app-debug.apk"
+apk_path="$app_dir/build/app/outputs/flutter-apk/app-production-debug.apk"
 proxy_define="GENESIS_DEBUG_PROXY=127.0.0.1:${proxy_port}"
 
 echo "Device: ${device_id}"
@@ -137,27 +137,42 @@ fi
 
 echo "Building debug APK with ${proxy_define}..."
 cd "$app_dir"
-flutter build apk --debug --dart-define "$proxy_define"
+flutter build apk --debug --flavor production --dart-define "$proxy_define"
+
+if [[ ! -f "$apk_path" ]]; then
+  echo "Built APK was not found: $apk_path" >&2
+  exit 1
+fi
 
 echo "Installing debug APK..."
 adb -s "$device_id" install -r "$apk_path" &
 install_pid=$!
 elapsed=0
+install_timed_out=0
 while kill -0 "$install_pid" >/dev/null 2>&1; do
   if ((elapsed >= install_timeout_seconds)); then
-    echo "Install timed out after ${install_timeout_seconds}s; keeping adb reverse and launching current app." >&2
+    echo "Install timed out after ${install_timeout_seconds}s." >&2
     kill "$install_pid" >/dev/null 2>&1 || true
-    wait "$install_pid" >/dev/null 2>&1 || true
+    install_timed_out=1
     break
   fi
   sleep 1
   elapsed=$((elapsed + 1))
 done
 
-if kill -0 "$install_pid" >/dev/null 2>&1; then
-  wait "$install_pid"
+if wait "$install_pid"; then
+  install_status=0
 else
-  wait "$install_pid" || true
+  install_status=$?
+fi
+
+if ((install_timed_out)); then
+  exit 1
+fi
+
+if ((install_status != 0)); then
+  echo "APK install failed with status ${install_status}." >&2
+  exit "$install_status"
 fi
 
 echo "Launching ${package_name}..."
