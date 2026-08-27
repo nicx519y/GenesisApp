@@ -97,13 +97,14 @@ class OriginWorldPage extends StatefulWidget {
 const double originDetailSheetHorizontalPaddingForTesting = 12;
 
 @visibleForTesting
-const double originDetailSheetHeaderHeightForTesting = 30;
+const double originDetailSheetHeaderHeightForTesting =
+    GenesisRadii.sheetTopRadiusValue + 6;
 
 @visibleForTesting
 const double originDetailSheetHeaderBodyGapForTesting = 0;
 
 @visibleForTesting
-const double originDetailSheetHandleTopOffsetForTesting = 2;
+const double originDetailSheetPageIndicatorTopOffsetForTesting = 4;
 
 @visibleForTesting
 const double originDetailSectionGapForTesting = 24;
@@ -122,6 +123,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _OriginWorldPageRenderStage.framework;
   bool _contentMountScheduled = false;
   int _originLoadGeneration = 0;
+  int _copyWorldProgressLoadGeneration = 0;
+  List<WorldSummaryLatestItem> _copyWorldProgressSummaries =
+      const <WorldSummaryLatestItem>[];
   FirebasePerformanceOperation? _initialRequestPerformanceOperation;
   FirebasePerformanceOperation? _initialRenderPerformanceOperation;
   var _initialRequestPerformanceAttempt = 0;
@@ -190,7 +194,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _launchedPresetRolesCacheKey = '';
       _launchedPresetRolesPreloadScheduledForOriginId = '';
       _originLoadGeneration += 1;
+      _copyWorldProgressLoadGeneration += 1;
       _origin = null;
+      _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
       _initialLoadError = null;
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
@@ -223,6 +229,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     unawaited(_initialRequestPerformanceOperation?.cancel());
     unawaited(_initialRenderPerformanceOperation?.cancel());
     _originLoadGeneration += 1;
+    _copyWorldProgressLoadGeneration += 1;
     _cachedProfileRoleLoadGeneration += 1;
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _locationChatBackgroundPreloader.dispose();
@@ -529,7 +536,34 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       }
       _precacheRoleCardAvatarImages(origin);
       _scheduleLaunchedPresetRolesPreload();
+      unawaited(_loadCopyWorldProgress(origin.oid));
     });
+  }
+
+  Future<void> _loadCopyWorldProgress(String originId) async {
+    final resolvedOriginId = originId.trim();
+    if (resolvedOriginId.isEmpty) return;
+    final generation = ++_copyWorldProgressLoadGeneration;
+    try {
+      final summaries = await AppServicesScope.read(
+        context,
+      ).api.getLatestWorldSummaries(originId: resolvedOriginId);
+      if (!mounted ||
+          generation != _copyWorldProgressLoadGeneration ||
+          widget.oid.trim() != resolvedOriginId) {
+        return;
+      }
+      setState(() => _copyWorldProgressSummaries = summaries);
+    } catch (error) {
+      if (!mounted ||
+          generation != _copyWorldProgressLoadGeneration ||
+          widget.oid.trim() != resolvedOriginId) {
+        return;
+      }
+      debugPrint(
+        '[OriginWorldPage] copy world progress preload failed: $error',
+      );
+    }
   }
 
   void _scheduleLaunchedPresetRolesPreload() {
@@ -1159,6 +1193,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
               origin: origin,
+              copyWorldProgressSummaries: _copyWorldProgressSummaries,
               minChildSize: minChildSize,
               expandRequest: _detailSheetExpandRequest,
               autoExpansionPending: _waitingForOpeningSheetExpansion,

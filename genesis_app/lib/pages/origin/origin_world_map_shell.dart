@@ -218,16 +218,6 @@ class _OriginDetailLoadingSheet extends StatelessWidget {
                 children: [
                   const SizedBox(
                     height: originDetailSheetHeaderHeightForTesting,
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top: originDetailSheetHandleTopOffsetForTesting,
-                          child: _OriginSheetDragHandle(),
-                        ),
-                      ],
-                    ),
                   ),
                   Expanded(
                     child: hasInitialDialogue

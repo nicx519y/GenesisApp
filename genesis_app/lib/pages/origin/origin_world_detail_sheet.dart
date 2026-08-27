@@ -6,6 +6,7 @@ const int _originInfoSheetPageIndex = 1;
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
+    required this.copyWorldProgressSummaries,
     required this.minChildSize,
     required this.expandRequest,
     required this.autoExpansionPending,
@@ -23,6 +24,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   static const double defaultInitialChildSize = 0.35;
 
   final OriginDetail origin;
+  final List<WorldSummaryLatestItem> copyWorldProgressSummaries;
   final double minChildSize;
   final int expandRequest;
   final bool autoExpansionPending;
@@ -434,7 +436,7 @@ class _OriginDetailDraggableSheetState
         final page = _pageController.hasClients
             ? _pageController.page ?? _currentPage.toDouble()
             : _currentPage.toDouble();
-        return _OriginSheetDragHandle(page: page);
+        return _OriginSheetPageIndicator(page: page);
       },
     );
   }
@@ -523,7 +525,10 @@ class _OriginDetailDraggableSheetState
     }
     children.addAll([
       const SizedBox(height: originDetailSectionGapForTesting),
-      CopyWorldProgressSection(originId: widget.origin.oid),
+      CopyWorldProgressSection(
+        originId: widget.origin.oid,
+        summaries: widget.copyWorldProgressSummaries,
+      ),
       const SizedBox(height: originDetailSectionGapForTesting),
       _DiscussSection(origin: widget.origin, controller: discussController),
       const SizedBox(height: originDetailSectionGapForTesting),
@@ -710,7 +715,8 @@ class _OriginDetailDraggableSheetState
                         Positioned(
                           left: 0,
                           right: 0,
-                          top: originDetailSheetHandleTopOffsetForTesting,
+                          top:
+                              originDetailSheetPageIndicatorTopOffsetForTesting,
                           child: IgnorePointer(
                             child: _buildAnimatedPageIndicator(),
                           ),
@@ -813,38 +819,17 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
   }
 }
 
-class _OriginSheetDragHandle extends StatelessWidget {
-  const _OriginSheetDragHandle({this.page});
+class _OriginSheetPageIndicator extends StatelessWidget {
+  const _OriginSheetPageIndicator({required this.page});
 
   static const Color _activeColor = Color(0xFF666666);
-  static const Color _inactiveDotColor = Color(0xFFB7B7B7);
-  static const Color _loadingHandleColor = Color(0xFFD2D2D2);
+  static const Color _inactiveColor = Color(0xFFB7B7B7);
 
-  final double? page;
-
-  Widget _buildHandle({required Color color, Key? key}) {
-    return Container(
-      key: key,
-      width: 40,
-      height: 5,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(3),
-      ),
-    );
-  }
+  final double page;
 
   @override
   Widget build(BuildContext context) {
-    final currentPage = page;
-    if (currentPage == null) {
-      return SizedBox(
-        height: 14,
-        child: Center(child: _buildHandle(color: _loadingHandleColor)),
-      );
-    }
-
-    final infoProgress = currentPage.clamp(0.0, 1.0);
+    final infoProgress = page.clamp(0.0, 1.0);
     final infoSelected = infoProgress >= 0.5;
 
     return SizedBox(
@@ -857,8 +842,8 @@ class _OriginSheetDragHandle extends StatelessWidget {
             _OriginSheetPageIndicatorSegment(
               containerKey: ValueKey<String>(
                 infoSelected
-                    ? 'origin-sheet-page-dot'
-                    : 'origin-sheet-page-handle',
+                    ? 'origin-sheet-page-inactive-segment'
+                    : 'origin-sheet-page-active-segment',
               ),
               selectionProgress: 1 - infoProgress,
             ),
@@ -866,8 +851,8 @@ class _OriginSheetDragHandle extends StatelessWidget {
             _OriginSheetPageIndicatorSegment(
               containerKey: ValueKey<String>(
                 infoSelected
-                    ? 'origin-sheet-page-handle'
-                    : 'origin-sheet-page-dot',
+                    ? 'origin-sheet-page-active-segment'
+                    : 'origin-sheet-page-inactive-segment',
               ),
               selectionProgress: infoProgress,
             ),
@@ -900,8 +885,8 @@ class _OriginSheetPageIndicatorSegment extends StatelessWidget {
       height: 5,
       decoration: BoxDecoration(
         color: Color.lerp(
-          _OriginSheetDragHandle._inactiveDotColor,
-          _OriginSheetDragHandle._activeColor,
+          _OriginSheetPageIndicator._inactiveColor,
+          _OriginSheetPageIndicator._activeColor,
           progress,
         ),
         borderRadius: BorderRadius.circular(3),
