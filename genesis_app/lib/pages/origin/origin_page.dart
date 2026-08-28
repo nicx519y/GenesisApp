@@ -1238,6 +1238,10 @@ class _OriginFeedState extends State<_OriginFeed>
                                           'originId': 0,
                                           'oid': item.oid,
                                           'initialName': item.name,
+                                          'initialDefinitionVersion':
+                                              item.definitionVersion,
+                                          'initialMapLocationId':
+                                              item.defaultMapLocationId,
                                         },
                                       );
                                     },

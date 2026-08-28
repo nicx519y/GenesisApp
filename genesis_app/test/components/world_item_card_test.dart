@@ -7,6 +7,19 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_avatar_radii.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_image_radii.dart';
 
 void main() {
+  test('parses default Tilemap metadata from world list info', () {
+    final item = WorldListItem.fromJson(const <String, dynamic>{
+      'info': {
+        'world_id': 'w_map',
+        'definition_version': 2,
+        'default_map_location_id': 'loc_world_map',
+      },
+    });
+
+    expect(item.definitionVersion, 2);
+    expect(item.defaultMapLocationId, 'loc_world_map');
+  });
+
   testWidgets('renders the compact four-row My Worlds card', (
     WidgetTester tester,
   ) async {

@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dar
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
+import 'package:genesis_flutter_android/network/models/search_v2.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 
 void main() {
@@ -556,6 +557,15 @@ void main() {
     final firstPopularOrigin = (popularOrigins['list'] as List).first as Map;
     expect(firstPopularOrigin['discusses'], isA<List>());
     expect(firstPopularOrigin['discusses'], hasLength(2));
+    final firstPopularOriginInfo = firstPopularOrigin['info'] as Map;
+    expect(firstPopularOriginInfo['definition_version'], 2);
+    expect(firstPopularOriginInfo['default_map_location_id'], 'root');
+
+    final originFeed = await api.v1.origin.feed(startScore: 0, rn: 10);
+    final firstOriginFeedItem = (originFeed['list'] as List).first as Map;
+    final firstOriginFeedInfo = firstOriginFeedItem['info'] as Map;
+    expect(firstOriginFeedInfo['definition_version'], 2);
+    expect(firstOriginFeedInfo['default_map_location_id'], 'root');
 
     final uidOrigins = await api.v1.origin.list(
       scene: 'uid',
@@ -871,6 +881,8 @@ void main() {
     expect(firstWorldStats['connect_cnt'], greaterThanOrEqualTo(1000));
     expect(firstWorldInfo['last_active_at'], isA<int>());
     expect(firstWorldInfo['last_active_at'], greaterThan(0));
+    expect(firstWorldInfo['definition_version'], 2);
+    expect(firstWorldInfo['default_map_location_id'], 'root');
     final myWorlds = await api.v1.world.list(
       scene: 'uid',
       uid: 'u_mock_001',
@@ -1280,6 +1292,15 @@ void main() {
     final search = await api.v1.search.search(query: 'steam');
     expect(search.origins.items, isNotEmpty);
     expect(search.origins.items.first.originVersion, isNotEmpty);
+    expect(
+      search.origins.items.first.matches.whereType<SearchV2TagMatch>(),
+      isNotEmpty,
+    );
+    expect(search.worlds.items.first.tags, isNotEmpty);
+    expect(
+      search.worlds.items.first.matches.whereType<SearchV2TagMatch>(),
+      isNotEmpty,
+    );
     await api.v1.search.suggest(query: 'steam', limit: 10);
 
     final rebornSearch = await api.v1.search.search(query: '重生', pn: 1, rn: 20);
@@ -1287,6 +1308,11 @@ void main() {
     expect(rebornSearch.origins.items, isNotEmpty);
     expect(rebornSearch.worlds.total, greaterThan(0));
     expect(rebornSearch.worlds.items, isNotEmpty);
+    final rebornWorldStats = rebornSearch.worlds.items.first.stats;
+    expect(rebornWorldStats.tickCount, greaterThan(0));
+    expect(rebornWorldStats.connectCount, greaterThan(0));
+    expect(rebornWorldStats.characterCount, greaterThan(0));
+    expect(rebornWorldStats.playerCount, greaterThan(0));
 
     final userSearch = await api.v1.search.search(
       query: '老肖',

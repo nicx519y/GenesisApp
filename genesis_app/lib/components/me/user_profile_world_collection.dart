@@ -108,7 +108,12 @@ class _WorldProfileCollectionListState
     );
     final result = await Navigator.of(context).pushNamed<WorldPageResult>(
       RouteNames.world,
-      arguments: {'wid': item.wid, 'initialName': item.title},
+      arguments: {
+        'wid': item.wid,
+        'initialName': item.title,
+        'initialDefinitionVersion': item.definitionVersion,
+        'initialMapLocationId': item.defaultMapLocationId,
+      },
     );
     if (!mounted || result == null) return;
     final deletedWorldId = result.deletedWorldId.trim();
@@ -142,6 +147,8 @@ class UserProfileOriginItem {
     required this.originId,
     required this.oid,
     required this.title,
+    this.definitionVersion = 0,
+    this.defaultMapLocationId = '',
     required this.subtitle,
     this.deleted = false,
     required this.imageUrl,
@@ -153,6 +160,8 @@ class UserProfileOriginItem {
   final int originId;
   final String oid;
   final String title;
+  final int definitionVersion;
+  final String defaultMapLocationId;
   final String subtitle;
   final bool deleted;
   final String imageUrl;
@@ -165,6 +174,8 @@ class UserProfileWorldItem {
   const UserProfileWorldItem({
     required this.wid,
     required this.title,
+    this.definitionVersion = 0,
+    this.defaultMapLocationId = '',
     required this.subtitle,
     this.deleted = false,
     required this.imageUrl,
@@ -178,6 +189,8 @@ class UserProfileWorldItem {
 
   final String wid;
   final String title;
+  final int definitionVersion;
+  final String defaultMapLocationId;
   final String subtitle;
   final bool deleted;
   final String imageUrl;

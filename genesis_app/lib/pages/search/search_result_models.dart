@@ -53,7 +53,6 @@ class _SearchResultItem {
     required this.copyCount,
     required this.connectCount,
     required this.tickCount,
-    this.subTickNo = 0,
     required this.characterCount,
     required this.playerCount,
     required this.memberCount,
@@ -99,8 +98,7 @@ class _SearchResultItem {
       copyCount: 0,
       connectCount: world.stats.connectCount,
       tickCount: world.stats.tickCount,
-      subTickNo: world.stats.subTickNo,
-      characterCount: 0,
+      characterCount: world.stats.characterCount,
       playerCount: world.stats.playerCount,
       memberCount: 0,
       worldV2: world,
@@ -140,7 +138,6 @@ class _SearchResultItem {
   final int copyCount;
   final int connectCount;
   final int tickCount;
-  final int subTickNo;
   final int characterCount;
   final int playerCount;
   final int memberCount;

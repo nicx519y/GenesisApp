@@ -1079,7 +1079,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","definition_version":2,"default_map_location_id":"loc_origin","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
           );
         }
         if (request.uri.path.endsWith('/v1/world/list')) {
@@ -1087,7 +1087,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":1}}',
           );
         }
         return const TransportResponse(
@@ -1128,9 +1128,13 @@ void main() {
 
     expect(origins.data.single.oid, 'o_1');
     expect(origins.data.single.originator, 'Origin Owner');
+    expect(origins.data.single.definitionVersion, 2);
+    expect(origins.data.single.defaultMapLocationId, 'loc_origin');
     expect(worlds.single.wid, 'w_1');
     expect(worlds.single.progressCount, 4);
     expect(worlds.single.subTickNo, 2);
+    expect(worlds.single.definitionVersion, 2);
+    expect(worlds.single.defaultMapLocationId, 'loc_world');
     expect(
       worlds.single.updatedAtText,
       DateTime.fromMillisecondsSinceEpoch(1717000000 * 1000).toIso8601String(),
@@ -1804,6 +1808,13 @@ void main() {
                         {'start': 3, 'length': 5},
                       ],
                     },
+                    {
+                      'field': 'tag',
+                      'tag_index': 0,
+                      'highlight_ranges': [
+                        {'start': 0, 'length': 7},
+                      ],
+                    },
                   ],
                   'matches_truncated': false,
                 },
@@ -1824,6 +1835,7 @@ void main() {
                     'xl_url': 'https://cdn.example.com/w_xl.webp',
                     'object_key': 'world/w_1.webp',
                   },
+                  'tags': ['fantasy', 'campus'],
                   'owner': {
                     'uid': 'u_owner',
                     'name': 'Owner',
@@ -1835,17 +1847,23 @@ void main() {
                   },
                   'stats': {
                     'tick_cnt': 7,
-                    'sub_tick_no': 0,
-                    'connect_cnt': 12,
-                    'player_cnt': 2,
+                    'connect_cnt': 8,
+                    'character_cnt': 9,
+                    'player_cnt': 10,
                   },
-                  'last_tick': {'tick_no': 7, 'sub_tick_no': 3},
                   'created_at': 1770000000,
                   'matches': [
                     {
                       'field': 'world_name',
                       'highlight_ranges': [
                         {'start': 0, 'length': 5},
+                      ],
+                    },
+                    {
+                      'field': 'tag',
+                      'tag_index': 1,
+                      'highlight_ranges': [
+                        {'start': 0, 'length': 6},
                       ],
                     },
                   ],
@@ -1935,7 +1953,7 @@ void main() {
     expect(origin.stats.connectCount, 4);
     expect(origin.stats.locationCount, 5);
     expect(origin.stats.maxTickCount, 6);
-    expect(origin.matches, hasLength(3));
+    expect(origin.matches, hasLength(4));
     expect(origin.matches.first, isA<SearchV2TextMatch>());
     expect(origin.matches.first.field, 'origin_name');
     expect(origin.matches.first.highlightRanges.single.start, 0);
@@ -1943,10 +1961,14 @@ void main() {
     expect(origin.matches[1], isA<SearchV2CharacterMatch>());
     expect(origin.matches[1].field, 'character_name');
     expect((origin.matches[1] as SearchV2CharacterMatch).characterId, 'c_1');
-    expect(origin.matches.last, isA<SearchV2TextMatch>());
-    expect(origin.matches.last.field, 'brief');
-    expect(origin.matches.last.highlightRanges.single.start, 3);
-    expect(origin.matches.last.highlightRanges.single.length, 5);
+    final briefMatch = origin.matches.whereType<SearchV2TextMatch>().last;
+    expect(briefMatch.field, 'brief');
+    expect(briefMatch.highlightRanges.single.start, 3);
+    expect(briefMatch.highlightRanges.single.length, 5);
+    final originTagMatch = origin.matches.whereType<SearchV2TagMatch>().single;
+    expect(originTagMatch.field, 'tag');
+    expect(originTagMatch.tagIndex, 0);
+    expect(originTagMatch.highlightRanges.single.length, 7);
     expect(origin.matchesTruncated, isFalse);
 
     final world = result.worlds.items.single;
@@ -1955,16 +1977,23 @@ void main() {
     expect(world.originId, 'o_1');
     expect(world.language, 'en');
     expect(world.cover.objectKey, 'world/w_1.webp');
+    expect(world.tags, ['fantasy', 'campus']);
     expect(world.owner.uid, 'u_owner');
     expect(world.stats.tickCount, 7);
-    expect(world.stats.subTickNo, 3);
-    expect(world.stats.connectCount, 12);
-    expect(world.stats.playerCount, 2);
+    expect(world.stats.connectCount, 8);
+    expect(world.stats.characterCount, 9);
+    expect(world.stats.playerCount, 10);
     expect(world.createdAt, 1770000000);
-    expect(world.matches.single, isA<SearchV2WorldNameMatch>());
-    expect(world.matches.single.field, 'world_name');
-    expect(world.matches.single.highlightRanges.single.start, 0);
-    expect(world.matches.single.highlightRanges.single.length, 5);
+    final worldNameMatch = world.matches
+        .whereType<SearchV2WorldNameMatch>()
+        .single;
+    expect(worldNameMatch.field, 'world_name');
+    expect(worldNameMatch.highlightRanges.single.start, 0);
+    expect(worldNameMatch.highlightRanges.single.length, 5);
+    final worldTagMatch = world.matches.whereType<SearchV2TagMatch>().single;
+    expect(worldTagMatch.field, 'tag');
+    expect(worldTagMatch.tagIndex, 1);
+    expect(worldTagMatch.highlightRanges.single.length, 6);
 
     final user = result.users.items.single;
     expect(user.uid, 'u_1');
@@ -3804,6 +3833,45 @@ void main() {
     );
     expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '2');
     expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '10');
+  });
+
+  test('v1 list and feed responses preserve map metadata in info', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: request.uri.path.endsWith('/origin/list')
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","definition_version":2,"default_map_location_id":"loc_origin"},"stats":{}}],"total":1,"pn":1,"rn":10}}'
+            : request.uri.path.endsWith('/origin/feed')
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_feed","definition_version":2,"default_map_location_id":"loc_feed"},"stats":{}}],"rn":10,"next_score":1,"has_more":false}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","definition_version":2,"default_map_location_id":"loc_world"},"stats":{}}],"total":1,"pn":1,"rn":10}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+    final api = _apiWith(apiTransport, healthTransport);
+
+    final originData = await api.v1.origin.list(scene: 'popular');
+    final originFeedData = await api.v1.origin.feed(startScore: 0);
+    final worldData = await api.v1.world.list(scene: 'mine');
+    final originInfo =
+        ((originData['list'] as List).single as Map)['info'] as Map;
+    final worldInfo =
+        ((worldData['list'] as List).single as Map)['info'] as Map;
+    final originFeedInfo =
+        ((originFeedData['list'] as List).single as Map)['info'] as Map;
+
+    expect(originInfo['definition_version'], 2);
+    expect(originInfo['default_map_location_id'], 'loc_origin');
+    expect(originFeedInfo['definition_version'], 2);
+    expect(originFeedInfo['default_map_location_id'], 'loc_feed');
+    expect(worldInfo['definition_version'], 2);
+    expect(worldInfo['default_map_location_id'], 'loc_world');
   });
 
   test('v1 origin hot tags uses Apifox response format', () async {

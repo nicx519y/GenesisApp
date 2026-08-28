@@ -66,6 +66,8 @@ class WorldPage extends StatefulWidget {
     this.initiallyLaunched = false,
     this.initialName = '',
     this.initialLocationId = '',
+    this.initialDefinitionVersion = 0,
+    this.initialMapLocationId = '',
   });
 
   final String wid;
@@ -74,6 +76,8 @@ class WorldPage extends StatefulWidget {
   final bool initiallyLaunched;
   final String initialName;
   final String initialLocationId;
+  final int initialDefinitionVersion;
+  final String initialMapLocationId;
 
   @override
   State<WorldPage> createState() => _WorldPageState();
@@ -112,6 +116,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       <String, WorldLocationChatPanelDescriptor>{};
   final _locationChatPageCache = WorldLocationChatPageCache();
   final _tilemapRestorationController = TilemapRestorationController();
+  final GlobalKey _tilemapImplementationKey = GlobalKey(
+    debugLabel: 'world-detail-tilemap',
+  );
   TilemapVisualMode _tilemapVisualMode = tilemapVisualModeController.value;
   late final Future<void> _tilemapVisualModeLoad;
   bool _tilemapVisualModeReady = false;
@@ -521,9 +528,15 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       currentUid: _currentUid,
     );
     final processedLocationTree = world.processedLocationTree;
+    final preferredInitialMapLocationId =
+        world.definitionVersion == 2 &&
+            widget.initialDefinitionVersion == world.definitionVersion
+        ? widget.initialMapLocationId
+        : '';
     final initialTilemapLocationId = processedLocationTree
         .initialTilemapLocationId(
           syntheticRootId: worldSyntheticRootLocationId,
+          preferredLocationId: preferredInitialMapLocationId,
         );
     final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
     final rootMapImageUrl = _rootMapImageUrlForWorld(world);
@@ -617,9 +630,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               : null,
         ),
         tilemap: WorldMapTilemapOptions(
-          implementationKey: PageStorageKey<String>(
-            'world-tilemap-${widget.wid}',
-          ),
+          implementationKey: _tilemapImplementationKey,
           locationId: initialTilemapLocationId,
           locationNodes: listLocationNodes,
           preferredFocusLocationId:

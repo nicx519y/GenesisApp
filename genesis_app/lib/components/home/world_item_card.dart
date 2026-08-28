@@ -27,6 +27,8 @@ class WorldListItem {
     required this.originVersionNum,
     required this.originVersionCreateAt,
     required this.wid,
+    this.definitionVersion = 0,
+    this.defaultMapLocationId = '',
     required this.status,
     required this.name,
     this.deleted = false,
@@ -78,6 +80,8 @@ class WorldListItem {
         fallback: asString(info['origin_version_time']),
       ),
       wid: wid,
+      definitionVersion: asInt(info['definition_version']),
+      defaultMapLocationId: asString(info['default_map_location_id']),
       status: asInt(info['status']),
       name: name.trim().isEmpty ? wid : name,
       deleted: entityDeleted(
@@ -141,6 +145,8 @@ class WorldListItem {
   final int originVersionNum;
   final String originVersionCreateAt;
   final String wid;
+  final int definitionVersion;
+  final String defaultMapLocationId;
   final int status;
   final String name;
   final bool deleted;

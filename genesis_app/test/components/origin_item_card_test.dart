@@ -27,6 +27,19 @@ void main() {
       ..clearLiveImages();
   });
 
+  test('parses default Tilemap metadata from origin list or feed info', () {
+    final item = OriginListItem.fromJson({
+      'info': {
+        'origin_id': 'o_map',
+        'definition_version': 2,
+        'default_map_location_id': 'loc_origin_map',
+      },
+    });
+
+    expect(item.definitionVersion, 2);
+    expect(item.defaultMapLocationId, 'loc_origin_map');
+  });
+
   test('preserves returned UGC backslashes for origin cards', () {
     final item = OriginListItem.fromJson({
       'info': {

@@ -4001,6 +4001,25 @@ class _MockState {
     final pageSize = _positiveInt(query['rn'], fallback: 20);
     bool matches(Object? value) =>
         normalized.isEmpty || '$value'.toLowerCase().contains(normalized);
+    List<Map<String, dynamic>> tagMatches(Object? value) {
+      if (normalized.isEmpty || value is! List) {
+        return const <Map<String, dynamic>>[];
+      }
+      final result = <Map<String, dynamic>>[];
+      for (var index = 0; index < value.length; index += 1) {
+        final tag = '${value[index]}';
+        final start = tag.toLowerCase().indexOf(normalized);
+        if (start < 0) continue;
+        result.add({
+          'field': 'tag',
+          'tag_index': index,
+          'highlight_ranges': [
+            {'start': start, 'length': normalized.length},
+          ],
+        });
+      }
+      return result;
+    }
 
     final originResults = _v1Origins
         .where(
@@ -4033,7 +4052,7 @@ class _MockState {
                 .toList(growable: false),
             'owner': _searchV2Owner(info['owner_user']),
             'stats': contract['stats'],
-            'matches': const <Map<String, dynamic>>[],
+            'matches': tagMatches(info['tags']),
             'matches_truncated': false,
           };
         })
@@ -4051,6 +4070,7 @@ class _MockState {
         .map((world) {
           final contract = _v1WorldContractItem(world);
           final info = _mapFromObject(contract['info']);
+          final stats = _mapFromObject(contract['stats']);
           final ownerUid = '${info['owner_uid'] ?? ''}';
           return <String, dynamic>{
             'world_id': info['world_id'],
@@ -4058,14 +4078,21 @@ class _MockState {
             'origin_id': info['origin_id'],
             'language': world['language'] ?? '',
             'cover': info['cover'],
+            'tags': world['tags'] ?? const <String>[],
             'owner': _searchV2Owner(
               _contractPublicUser(
                 ownerUid,
                 fallbackName: '${info['owner_name'] ?? ''}',
               ),
             ),
+            'stats': {
+              'tick_cnt': stats['tick_cnt'],
+              'connect_cnt': stats['connect_cnt'],
+              'character_cnt': stats['character_cnt'],
+              'player_cnt': stats['player_cnt'],
+            },
             'created_at': info['created_at'],
-            'matches': const <Map<String, dynamic>>[],
+            'matches': tagMatches(world['tags']),
           };
         })
         .toList();
@@ -4433,6 +4460,7 @@ class _MockState {
         'origin_version': '${origin['version_num'] ?? 1}',
         'origin_version_time': _mockEpoch(origin['updated_at']),
         'definition_version': origin['definition_version'] ?? 2,
+        'default_map_location_id': origin['default_map_location_id'] ?? 'root',
         'language': origin['language'] ?? 'en',
         'current_time': origin['current_time'] ?? 'Day 3, 09:20',
         'owner_uid': ownerUid,
@@ -4472,6 +4500,7 @@ class _MockState {
         'origin_version': '${world['origin_version_num'] ?? 1}',
         'origin_version_time': world['origin_version_create_at'],
         'definition_version': world['definition_version'] ?? 2,
+        'default_map_location_id': world['default_map_location_id'] ?? 'root',
         'owner_uid': world['owner_uid'],
         'owner_name': world['owner_name'],
         'brief': world['display_subtitle'],

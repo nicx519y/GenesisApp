@@ -83,12 +83,16 @@ class OriginWorldPage extends StatefulWidget {
     required this.oid,
     required this.originId,
     this.initialName = '',
+    this.initialDefinitionVersion = 0,
+    this.initialMapLocationId = '',
     this.showOpeningSheetOnEntry = false,
   });
 
   final String oid;
   final int originId;
   final String initialName;
+  final int initialDefinitionVersion;
+  final String initialMapLocationId;
   final bool showOpeningSheetOnEntry;
 
   @override
@@ -153,6 +157,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   _OriginLocationChatDescriptor? _activeChatLocation;
   final LocationChatBackgroundPreloader _locationChatBackgroundPreloader =
       LocationChatBackgroundPreloader();
+  final _tilemapRestorationController = TilemapRestorationController();
+  final GlobalKey _tilemapImplementationKey = GlobalKey(
+    debugLabel: 'origin-detail-tilemap',
+  );
   Set<String> _currentTilemapLocationIds = const <String>{};
 
   SystemUiOverlayStyle get _baseStatusBarStyle => _transparentStatusBarStyle;
@@ -203,6 +211,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _contentMountScheduled = false;
       _activeChatLocation = null;
       _currentTilemapLocationIds = const <String>{};
+      _tilemapRestorationController.clear();
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
       _waitingForOpeningSheetExpansion = widget.showOpeningSheetOnEntry;
       _detailSheetRaisedNotifier.value = false;
@@ -232,6 +241,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     _cachedProfileRoleLoadGeneration += 1;
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _locationChatBackgroundPreloader.dispose();
+    _tilemapRestorationController.dispose();
     _detailSheetRaisedNotifier.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     super.dispose();
@@ -1041,9 +1051,15 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     }
 
     final processedLocationTree = origin.processedLocationTree;
+    final preferredInitialMapLocationId =
+        origin.definitionVersion == 2 &&
+            widget.initialDefinitionVersion == origin.definitionVersion
+        ? widget.initialMapLocationId
+        : '';
     final initialTilemapLocationId = processedLocationTree
         .initialTilemapLocationId(
           syntheticRootId: originSyntheticRootLocationId,
+          preferredLocationId: preferredInitialMapLocationId,
         );
     final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
     final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
@@ -1117,7 +1133,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
         : points;
     final deferTilemapRendering =
-        origin.definitionVersion == 2 && _waitingForOpeningSheetExpansion;
+        origin.definitionVersion == 2 &&
+        _waitingForOpeningSheetExpansion &&
+        widget.initialMapLocationId.trim().isEmpty;
     final Widget map = deferTilemapRendering
         ? ColoredBox(
             key: const ValueKey<String>('origin-opening-sheet-map-background'),
@@ -1152,9 +1170,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 overlayTop: topPadding + 8 + 48,
               ),
               tilemap: WorldMapTilemapOptions(
-                implementationKey: PageStorageKey<String>(
-                  'origin-tilemap-${origin.oid}',
-                ),
+                implementationKey: _tilemapImplementationKey,
                 locationId: initialTilemapLocationId,
                 locationNodes: listLocationNodes,
                 preferredFocusLocationId:
@@ -1166,6 +1182,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 visualModeToggleTop:
                     topPadding + 8 + genesisSearchFieldHeight + 8,
                 visualModeToggleRight: 12,
+                restorationController: _tilemapRestorationController,
                 onMapTap: () => _recordWorldoTilemapClick(origin),
                 onCurrentLocationsChanged:
                     _handleCurrentTilemapLocationsChanged,

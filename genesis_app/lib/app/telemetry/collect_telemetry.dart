@@ -82,6 +82,7 @@ class CollectEvent {
     required this.object1,
     required this.object2,
     required this.object3,
+    this.object4 = '',
     this.appEnvironment = '',
     this.platform = '',
     this.appVersion = '',
@@ -98,6 +99,7 @@ class CollectEvent {
   final String object1;
   final String object2;
   final String object3;
+  final String object4;
   final String appEnvironment;
   final String platform;
   final String appVersion;
@@ -115,6 +117,7 @@ class CollectEvent {
       'object1': object1,
       'object2': object2,
       'object3': object3,
+      'object4': object4,
     };
   }
 }
@@ -178,7 +181,7 @@ class SqfliteCollectEventStore implements CollectEventStore {
     return factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 3,
+        version: 4,
         onCreate: (db, _) async {
           await db.execute(_createCollectEventsSql);
           await db.execute(_createCollectEventsStateIndexSql);
@@ -195,6 +198,9 @@ class SqfliteCollectEventStore implements CollectEventStore {
             await db.execute(_addCollectUserIdSql);
             await db.execute(_addCollectContextCapturedSql);
             await db.execute(_createCollectEventsUploadContextIndexSql);
+          }
+          if (oldVersion < 4) {
+            await db.execute(_addCollectObject4Sql);
           }
         },
       ),
@@ -645,6 +651,7 @@ class CollectTelemetryUploader {
         object1: _boundedString(payload['object1'], 2048),
         object2: _boundedString(payload['object2'], 2048),
         object3: _boundedString(payload['object3'], 2048),
+        object4: _boundedString(payload['object4'], 2048),
         appEnvironment: _context.appEnvironment.trim(),
         platform: _context.platform.trim(),
         appVersion: _context.appVersion.trim(),
@@ -983,6 +990,7 @@ Map<String, Object?> _eventToRow(CollectEvent event) {
     'object1': event.object1,
     'object2': event.object2,
     'object3': event.object3,
+    'object4': event.object4,
     'app_environment': event.appEnvironment,
     'platform': event.platform,
     'app_version': event.appVersion,
@@ -1004,6 +1012,7 @@ CollectEvent _eventFromRow(Map<String, Object?> row) {
     object1: '${row['object1'] ?? ''}',
     object2: '${row['object2'] ?? ''}',
     object3: '${row['object3'] ?? ''}',
+    object4: '${row['object4'] ?? ''}',
     appEnvironment: '${row['app_environment'] ?? ''}',
     platform: '${row['platform'] ?? ''}',
     appVersion: '${row['app_version'] ?? ''}',
@@ -1110,6 +1119,7 @@ const _createCollectEventsSql = '''
     object1 TEXT NOT NULL,
     object2 TEXT NOT NULL,
     object3 TEXT NOT NULL,
+    object4 TEXT NOT NULL DEFAULT '',
     app_environment TEXT NOT NULL DEFAULT '',
     platform TEXT NOT NULL DEFAULT '',
     app_version TEXT NOT NULL DEFAULT '',
@@ -1170,4 +1180,9 @@ const _addCollectUserIdSql = '''
 const _addCollectContextCapturedSql = '''
   ALTER TABLE collect_events
   ADD COLUMN context_captured INTEGER NOT NULL DEFAULT 0
+''';
+
+const _addCollectObject4Sql = '''
+  ALTER TABLE collect_events
+  ADD COLUMN object4 TEXT NOT NULL DEFAULT ''
 ''';

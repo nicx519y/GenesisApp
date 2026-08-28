@@ -39,6 +39,8 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// `start_score` is an exclusive cursor. Refreshes start at `0`, while
   /// subsequent requests must pass the previous response's `next_score`.
+  /// Every `list[].info` includes `definition_version` and
+  /// `default_map_location_id` for default Tilemap prefetching.
   Future<Map<String, dynamic>> feed({required int startScore, int rn = 10}) {
     if (startScore < 0) {
       throw ArgumentError.value(startScore, 'startScore', 'must be >= 0');
@@ -99,7 +101,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"string","origin_name":"string","brief":"string","cover":{},"status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"discusses":[]}],"total":0,"pn":1,"rn":10}}
+  /// {"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"string","origin_name":"string","definition_version":2,"default_map_location_id":"root","brief":"string","cover":{},"status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0},"discusses":[]}],"total":0,"pn":1,"rn":10}}
   /// ```
   Future<Map<String, dynamic>> list({
     String? scene,

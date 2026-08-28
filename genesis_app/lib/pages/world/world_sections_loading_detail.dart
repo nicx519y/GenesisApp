@@ -63,7 +63,7 @@ class WorldInfoHeaderLoadingSkeleton extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         WorldLoadingBone(width: 74, height: 13),
-                        SizedBox(height: 6),
+                        SizedBox(height: 2),
                         WorldLoadingBone(width: 58, height: 12),
                       ],
                     ),

@@ -126,6 +126,8 @@ bool _sameOriginItems(
     if (a.originId != b.originId ||
         a.oid != b.oid ||
         a.title != b.title ||
+        a.definitionVersion != b.definitionVersion ||
+        a.defaultMapLocationId != b.defaultMapLocationId ||
         a.subtitle != b.subtitle ||
         a.deleted != b.deleted ||
         a.imageUrl != b.imageUrl ||
@@ -149,6 +151,8 @@ bool _sameWorldItems(
     final b = next[index];
     if (a.wid != b.wid ||
         a.title != b.title ||
+        a.definitionVersion != b.definitionVersion ||
+        a.defaultMapLocationId != b.defaultMapLocationId ||
         a.subtitle != b.subtitle ||
         a.deleted != b.deleted ||
         a.imageUrl != b.imageUrl ||
@@ -169,6 +173,8 @@ UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {
     originId: item.id,
     oid: item.oid,
     title: item.name.trim().isEmpty ? item.oid : item.name.trim(),
+    definitionVersion: item.definitionVersion,
+    defaultMapLocationId: item.defaultMapLocationId,
     subtitle: _originSubtitle(item),
     deleted: item.deleted,
     imageUrl: resolveAssetUrl(item.mapImage),
@@ -182,6 +188,8 @@ UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
   return UserProfileWorldItem(
     wid: item.wid,
     title: item.name.trim().isEmpty ? item.wid : item.name.trim(),
+    definitionVersion: item.definitionVersion,
+    defaultMapLocationId: item.defaultMapLocationId,
     subtitle: _worldSubtitle(item.wid, item.ownerName, deleted: item.deleted),
     deleted: item.deleted,
     imageUrl: resolveAssetUrl(item.snapshotCoverUrl),

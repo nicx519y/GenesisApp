@@ -494,6 +494,41 @@ void main() {
     );
   });
 
+  test('initial Tilemap location accepts a valid list response preference', () {
+    final tree = buildLocationTree(
+      [
+        {'location_id': 'top', 'location_pid': ''},
+        {'location_id': 'branch', 'location_pid': 'top'},
+        {'location_id': 'leaf', 'location_pid': 'branch'},
+      ],
+      idOf: (location) => '${location['location_id']}',
+      parentIdOf: (location) => '${location['location_pid']}',
+    );
+    final processed = processLocationTree(tree);
+
+    expect(
+      processed.initialTilemapLocationId(
+        syntheticRootId: '__synthetic__',
+        preferredLocationId: 'top',
+      ),
+      'top',
+    );
+    expect(
+      processed.initialTilemapLocationId(
+        syntheticRootId: '__synthetic__',
+        preferredLocationId: 'root',
+      ),
+      'root',
+    );
+    expect(
+      processed.initialTilemapLocationId(
+        syntheticRootId: '__synthetic__',
+        preferredLocationId: 'stale_location',
+      ),
+      'branch',
+    );
+  });
+
   test('initial Tilemap location includes the synthetic root', () {
     final tree = buildLocationTree(
       [

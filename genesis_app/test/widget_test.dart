@@ -7801,6 +7801,153 @@ void main() {
   );
 
   testWidgets(
+    'origin detail reuses valid default map location from list metadata',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originLocations: const [
+          {'location_id': 'top', 'location_pid': ''},
+          {'location_id': 'branch_a', 'location_pid': 'top'},
+          {'location_id': 'leaf_a1', 'location_pid': 'branch_a'},
+          {'location_id': 'leaf_a2', 'location_pid': 'branch_a'},
+          {'location_id': 'branch_b', 'location_pid': 'top'},
+          {'location_id': 'leaf_b1', 'location_pid': 'branch_b'},
+          {'location_id': 'leaf_b2', 'location_pid': 'branch_b'},
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              initialDefinitionVersion: 2,
+              initialMapLocationId: 'branch_a',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final requests = transport.requestsFor('/api/v1/origin/map');
+      expect(requests, hasLength(1));
+      expect(requests.single.uri.queryParameters, {
+        'origin_id': 'o_test_1',
+        'location_id': 'branch_a',
+      });
+    },
+  );
+
+  testWidgets(
+    'origin renders a non-interactive Tilemap before detail completes',
+    (WidgetTester tester) async {
+      final tileImage = await _createOriginItemTestImage();
+      debugGenesisStaticNetworkImageCompleter = (_) =>
+          OneFrameImageStreamCompleter(
+            SynchronousFuture<ImageInfo>(ImageInfo(image: tileImage.clone())),
+          );
+      addTearDown(() {
+        debugGenesisStaticNetworkImageCompleter = null;
+        tileImage.dispose();
+      });
+      final detailResponse = Completer<TransportResponse>();
+      final mapResponse = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originDefinitionVersion: 2,
+        originDetailCompleter: detailResponse,
+        originMapCompleter: mapResponse,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              initialDefinitionVersion: 2,
+              initialMapLocationId: 'root',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('origin-initial-tilemap-preview')),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<Tilemap>(find.byType(Tilemap)).locationNodes,
+        isEmpty,
+      );
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+      expect(transport.requestsFor('/api/v1/origin/detail'), hasLength(1));
+      expect(
+        transport.requests.indexWhere(
+          (request) => request.uri.path.endsWith('/origin/map'),
+        ),
+        lessThan(
+          transport.requests.indexWhere(
+            (request) => request.uri.path.endsWith('/origin/detail'),
+          ),
+        ),
+      );
+
+      mapResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'tile_types': <String, Object?>{
+              'ground': 'https://example.invalid/ground.png',
+            },
+            'map_json': {
+              'width': 1,
+              'height': 1,
+              'tiles': <Object?>[
+                {'x': 0, 'y': 0, 'type': 'ground', 'location_id': 'root'},
+              ],
+            },
+          },
+        }),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-grid')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-detail-loading-sheet')),
+        findsOneWidget,
+      );
+
+      detailResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._originDetail('o_test_1'),
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('origin-initial-tilemap-preview')),
+        findsNothing,
+      );
+      expect(
+        tester.widget<Tilemap>(find.byType(Tilemap)).locationNodes,
+        isNotEmpty,
+      );
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
+    },
+  );
+
+  testWidgets(
     'origin Tilemap navigation always reserves settings button space',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
@@ -22832,6 +22979,248 @@ void main() {
     });
   });
 
+  testWidgets(
+    'world detail reuses valid default map location from list metadata',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'anonymous',
+        worldDefinitionVersion: 2,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: WorldPage(
+              wid: 'w_test_1',
+              initialDefinitionVersion: 2,
+              initialMapLocationId: 'l_w_test_1_child',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final requests = transport.requestsFor('/api/v1/world/map');
+      expect(requests, hasLength(1));
+      expect(requests.single.uri.queryParameters, {
+        'world_id': 'w_test_1',
+        'location_id': 'l_w_test_1_child',
+      });
+    },
+  );
+
+  testWidgets(
+    'world renders a non-interactive Tilemap before detail completes',
+    (WidgetTester tester) async {
+      final tileImage = await _createOriginItemTestImage();
+      debugGenesisStaticNetworkImageCompleter = (_) =>
+          OneFrameImageStreamCompleter(
+            SynchronousFuture<ImageInfo>(ImageInfo(image: tileImage.clone())),
+          );
+      addTearDown(() {
+        debugGenesisStaticNetworkImageCompleter = null;
+        tileImage.dispose();
+      });
+      final detailResponse = Completer<TransportResponse>();
+      final mapResponse = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'anonymous',
+        worldDefinitionVersion: 2,
+        worldDetailCompleter: detailResponse,
+        worldMapCompleter: mapResponse,
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: WorldPage(
+              wid: 'w_test_1',
+              initialDefinitionVersion: 2,
+              initialMapLocationId: 'root',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(
+        find.byKey(const ValueKey<String>('world-initial-tilemap-preview')),
+        findsOneWidget,
+      );
+      expect(
+        tester.widget<Tilemap>(find.byType(Tilemap)).locationNodes,
+        isEmpty,
+      );
+      expect(transport.requestsFor('/api/v1/world/map'), hasLength(1));
+      expect(transport.requestsFor('/api/v1/world/detail'), hasLength(1));
+      expect(
+        transport.requests.indexWhere(
+          (request) => request.uri.path.endsWith('/world/map'),
+        ),
+        lessThan(
+          transport.requests.indexWhere(
+            (request) => request.uri.path.endsWith('/world/detail'),
+          ),
+        ),
+      );
+
+      mapResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'tile_types': <String, Object?>{
+              'ground': 'https://example.invalid/ground.png',
+            },
+            'map_json': {
+              'width': 1,
+              'height': 1,
+              'tiles': <Object?>[
+                {'x': 0, 'y': 0, 'type': 'ground', 'location_id': 'root'},
+              ],
+            },
+          },
+        }),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-grid')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('world-initial-tilemap-preview')),
+        findsOneWidget,
+      );
+
+      detailResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._worldDetail('w_test_1'),
+        }),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey<String>('world-initial-tilemap-preview')),
+        findsNothing,
+      );
+      expect(
+        tester.widget<Tilemap>(find.byType(Tilemap)).locationNodes,
+        isNotEmpty,
+      );
+      expect(transport.requestsFor('/api/v1/world/map'), hasLength(1));
+    },
+  );
+
+  testWidgets(
+    'prefetched Tilemap opens the real chat while local messages are pending',
+    (WidgetTester tester) async {
+      final tileImage = await _createOriginItemTestImage();
+      debugGenesisStaticNetworkImageCompleter = (_) =>
+          OneFrameImageStreamCompleter(
+            SynchronousFuture<ImageInfo>(ImageInfo(image: tileImage.clone())),
+          );
+      addTearDown(() {
+        debugGenesisStaticNetworkImageCompleter = null;
+        tileImage.dispose();
+      });
+      final detailResponse = Completer<TransportResponse>();
+      final mapResponse = Completer<TransportResponse>();
+      final messageStorage = _BlockingChatroomMessageStorage();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldDefinitionVersion: 2,
+        worldDetailCompleter: detailResponse,
+        worldMapCompleter: mapResponse,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            chatroom: _FakeChatroomClient(),
+            chatroomMessages: messageStorage,
+          ),
+          child: const MaterialApp(
+            home: WorldPage(
+              wid: 'w_test_1',
+              initialDefinitionVersion: 2,
+              initialMapLocationId: 'root',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      mapResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'tile_types': <String, Object?>{
+              'ground': 'https://example.invalid/ground.png',
+            },
+            'map_json': {
+              'width': 1,
+              'height': 1,
+              'tiles': <Object?>[
+                {
+                  'x': 0,
+                  'y': 0,
+                  'type': 'ground',
+                  'location_id': 'l_w_test_1_child',
+                },
+              ],
+            },
+          },
+        }),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      detailResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._worldDetail('w_test_1'),
+        }),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      final renderer = tester.widget<TilemapRenderer>(
+        find.byType(TilemapRenderer),
+      );
+      expect(renderer.onTileAction, isNotNull);
+      await renderer.onTileAction!(renderer.config.tiles.single);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is TextField && widget.enabled == true,
+        ),
+        findsOneWidget,
+      );
+
+      messageStorage.completePendingLoads();
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
   testWidgets('world Tilemap prefers the last chat location on first entry', (
     WidgetTester tester,
   ) async {
@@ -23119,6 +23508,18 @@ void main() {
       tester.widget<Scaffold>(pageScaffold).backgroundColor,
       expectedMapBackground,
     );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('world-panel-info-row')))
+          .height,
+      worldLaunchedInfoHeaderHeight,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('world-loading-action')),
+      ),
+      const Size(92, 34),
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     worldDetailCompleter.complete(transport._jsonResponse({}));
@@ -23312,14 +23713,14 @@ void main() {
     );
     final loadingInfoRect = tester.getRect(panelInfoRow);
     final loadingBottomTagsRect = tester.getRect(bottomTagsOverlay);
-    expect(loadingInfoRect.height, worldInfoHeaderHeight);
+    expect(loadingInfoRect.height, worldLaunchedInfoHeaderHeight);
     expect(loadingBottomTagsRect.height, worldMainTabsHeight);
     expect(tester.widget<IgnorePointer>(bottomTagsOverlay).ignoring, isTrue);
     expect(
       tester.getSize(
         find.byKey(const ValueKey<String>('world-loading-action')),
       ),
-      const Size(140, worldInfoHeaderContentHeight),
+      const Size(92, 34),
     );
     expect(find.byType(WorldInfoHeader), findsNothing);
 
@@ -23334,8 +23735,8 @@ void main() {
     expect(find.byType(WorldFeedContent), findsOneWidget);
     expect(find.byType(WorldMap), findsOneWidget);
     expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
-    expect(tester.getRect(panelInfoRow), loadingInfoRect);
-    expect(tester.getRect(bottomTagsOverlay), loadingBottomTagsRect);
+    expect(tester.getRect(panelInfoRow).height, worldInfoHeaderHeight);
+    expect(tester.getRect(bottomTagsOverlay).height, worldMainTabsHeight);
     expect(tester.widget<IgnorePointer>(bottomTagsOverlay).ignoring, isFalse);
     expect(find.byType(WorldInfoHeader), findsOneWidget);
     expect(
@@ -24853,6 +25254,45 @@ void main() {
       expect(_visibleText('Child Location (1)'), findsNothing);
     },
   );
+
+  testWidgets('world chat remains usable when local cache hydration fails', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+      chatroomMessages: _ThrowingChatroomMessageStorage(),
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+    final childPoint =
+        worldMap.common.locationNodes.single.children.single.point;
+    await worldMap.common.onPointTap!(childPoint);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+    expect(find.byType(LocationChatPanel), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.enabled == true,
+      ),
+      findsOneWidget,
+    );
+    expect(chatroom.session.joinCount, 1);
+  });
 
   testWidgets(
     'world location chat opens inline and reuses cached panel state',
@@ -27493,6 +27933,39 @@ class _RecordingChatroomMessageStorage extends MemoryChatroomMessageStorage {
       locationId: locationId,
       limit: limit,
     );
+  }
+}
+
+class _BlockingChatroomMessageStorage extends MemoryChatroomMessageStorage {
+  final Completer<List<Map<String, dynamic>>> _pendingLoads =
+      Completer<List<Map<String, dynamic>>>();
+
+  void completePendingLoads() {
+    if (!_pendingLoads.isCompleted) {
+      _pendingLoads.complete(const <Map<String, dynamic>>[]);
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadLatestMessages({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int limit,
+  }) {
+    return _pendingLoads.future;
+  }
+}
+
+class _ThrowingChatroomMessageStorage extends MemoryChatroomMessageStorage {
+  @override
+  Future<List<Map<String, dynamic>>> loadLatestMessages({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int limit,
+  }) {
+    throw StateError('test local chat cache failure');
   }
 }
 
