@@ -250,6 +250,7 @@ class ServiceRegistry {
             platform: billingPlatform,
             pendingPurchaseStore: SqfliteBillingPendingPurchaseStore(),
             loadBillingAccountId: () async {
+              await api.ensureUid();
               final userInfo = await api.v1.user.info();
               await cacheCurrentUserInfoResponse(
                 sessionStore: sessionStore,

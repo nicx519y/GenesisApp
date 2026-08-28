@@ -39,6 +39,7 @@ import '../../platform/app/app_metadata_service.dart';
 import '../../platform/app/app_version_override_store.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../gems/gem_wallet_page.dart';
 import '../../ui/genesis_ui.dart';

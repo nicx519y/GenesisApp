@@ -75,8 +75,9 @@ class _MemoryGatewayRegistrationStore implements GatewayRegistrationStore {
 
 GenesisApi _apiWith(
   _FakeTransport apiTransport,
-  _FakeTransport healthTransport,
-) {
+  _FakeTransport healthTransport, {
+  MemoryUserSessionStore? sessionStore,
+}) {
   final apiClient = ApiClient(
     baseUrl: 'http://localhost:8080/api/',
     defaultHeaders: const {
@@ -94,13 +95,16 @@ GenesisApi _apiWith(
     responseProcessor: (r) => ApiClient.defaultResponseProcessor(r),
   );
 
-  final sessionStore = MemoryUserSessionStore();
-  sessionStore.saveUid('u_1');
+  final resolvedSessionStore = sessionStore ?? MemoryUserSessionStore();
+  if (sessionStore == null) {
+    resolvedSessionStore.saveUid('u_1');
+    resolvedSessionStore.saveAuthToken('test-auth-token');
+  }
   return GenesisApi(
     apiClient: apiClient,
     healthClient: healthClient,
     deviceIdService: const _TestDeviceIdService(),
-    sessionStore: sessionStore,
+    sessionStore: resolvedSessionStore,
   );
 }
 
@@ -636,7 +640,7 @@ void main() {
     },
   );
 
-  test('bindDevice uses GET /v1/user/info', () async {
+  test('bindDevice validates a complete local session with user info', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
@@ -653,7 +657,14 @@ void main() {
       ),
     );
 
-    final api = _apiWith(apiTransport, healthTransport);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_1');
+    await sessionStore.saveAuthToken('backend-token');
+    final api = _apiWith(
+      apiTransport,
+      healthTransport,
+      sessionStore: sessionStore,
+    );
     final user = await api.bindDevice(did: 'd1');
 
     expect(apiTransport.lastRequest!.method, 'GET');
@@ -662,6 +673,29 @@ void main() {
       'http://localhost:8080/api/v1/user/info',
     );
     expect(user.uid, 'u_1');
+  });
+
+  test('bindDevice skips user info when uid is missing', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => throw StateError('user info must not be requested'),
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveAuthToken('orphaned-token');
+    await sessionStore.saveUserInfo({'name': 'stale user'});
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+    );
+
+    final user = await api.bindDevice(did: 'd1');
+
+    expect(user.uid, isEmpty);
+    expect(apiTransport.requests, isEmpty);
+    expect(await sessionStore.readUid(), isNull);
+    expect(await sessionStore.readAuthToken(), isNull);
+    expect(await sessionStore.readUserInfo(), isNull);
   });
 
   test('v1 user info keeps UUID and selected model alongside user', () async {
@@ -693,6 +727,112 @@ void main() {
       (response['user'] as Map).containsKey('selected_model_code'),
       isFalse,
     );
+  });
+
+  test('current user info skips transport when local uid is missing', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => throw StateError('user info must not be requested'),
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveAuthToken('orphaned-token');
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+    );
+
+    await expectLater(
+      api.v1.user.info(),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.message,
+          'message',
+          'Authentication is required',
+        ),
+      ),
+    );
+
+    expect(apiTransport.requests, isEmpty);
+    expect(await sessionStore.readAuthToken(), isNull);
+  });
+
+  test(
+    'current user info skips transport when auth token is missing',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => throw StateError('user info must not be requested'),
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_orphaned');
+      await sessionStore.saveUserInfo({'uid': 'u_orphaned'});
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+      );
+
+      await expectLater(
+        api.v1.user.info(),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.message,
+            'message',
+            'Authentication is required',
+          ),
+        ),
+      );
+
+      expect(apiTransport.requests, isEmpty);
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
+    },
+  );
+
+  test(
+    'current user info does not clear session when storage read fails',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => throw StateError('user info must not be requested'),
+      );
+      final sessionStore = _ThrowingAuthTokenSessionStore();
+      await sessionStore.saveUid('u_1');
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+      );
+
+      await expectLater(api.v1.user.info(), throwsStateError);
+
+      expect(apiTransport.requests, isEmpty);
+      expect(sessionStore.clearCount, 0);
+      expect(await sessionStore.readUid(), 'u_1');
+    },
+  );
+
+  test('public user info remains available with an explicit uid', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_public"}}}',
+      ),
+    );
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: MemoryUserSessionStore(),
+    );
+
+    await api.v1.user.info(uid: 'u_public');
+
+    expect(apiTransport.requests, hasLength(1));
+    expect(apiTransport.requests.single.uri.queryParameters['uid'], 'u_public');
   });
 
   test('v1 user World History settings use GET PUT and DELETE contract', () async {
@@ -816,6 +956,7 @@ void main() {
       ),
     );
     final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveAuthToken('orphaned-token');
     final apiClient = ApiClient(
       baseUrl: 'http://localhost:8080/api/',
       defaultHeaders: const {
@@ -840,6 +981,8 @@ void main() {
 
     expect(api.ensureUid(), throwsA(isA<ApiException>()));
     expect(await sessionStore.readUid(), isNull);
+    expect(await sessionStore.readAuthToken(), isNull);
+    expect(apiTransport.requests, isEmpty);
   });
 
   test(
@@ -854,11 +997,14 @@ void main() {
               '{"err_no":10001,"err_msg":"Your account was logged in elsewhere.","data":{}}',
         ),
       );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_1');
+      await sessionStore.saveAuthToken('test-auth-token');
       final api = GenesisApi(
         transport: apiTransport,
         useMock: false,
         deviceIdService: const _TestDeviceIdService(),
-        sessionStore: MemoryUserSessionStore(),
+        sessionStore: sessionStore,
         onSessionExpired: (message) async {
           if (!expired.isCompleted) expired.complete(message);
         },
@@ -893,11 +1039,14 @@ void main() {
         body: '{"err_no":1404,"err_msg":"missing","data":{}}',
       ),
     );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_1');
+    await sessionStore.saveAuthToken('test-auth-token');
     final api = GenesisApi(
       transport: apiTransport,
       useMock: false,
       deviceIdService: const _TestDeviceIdService(),
-      sessionStore: MemoryUserSessionStore(),
+      sessionStore: sessionStore,
       onPageNotFound: (message) async {
         if (!notFound.isCompleted) notFound.complete(message);
       },
@@ -924,11 +1073,14 @@ void main() {
         body: '{"error":"missing"}',
       ),
     );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_1');
+    await sessionStore.saveAuthToken('test-auth-token');
     final api = GenesisApi(
       transport: apiTransport,
       useMock: false,
       deviceIdService: const _TestDeviceIdService(),
-      sessionStore: MemoryUserSessionStore(),
+      sessionStore: sessionStore,
       onPageNotFound: (message) async {
         if (!notFound.isCompleted) notFound.complete(message);
       },
@@ -3254,6 +3406,43 @@ void main() {
   });
 
   test(
+    'session check clears incomplete local state without requesting user info',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => throw StateError('user info must not be requested'),
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveAuthToken('orphaned-backend-token');
+      await sessionStore.saveUserInfo({
+        'name': 'Stale User',
+        'login_provider': 'google',
+      });
+      final identityAuth = _FakeIdentityAuthService(
+        refreshSession: const AuthSession(
+          provider: IdentityProvider.google,
+          providerIdToken: 'provider-token',
+          displayName: 'Stale User',
+          photoUrl: '',
+        ),
+      );
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+        identityAuthService: identityAuth,
+      );
+
+      expect(await api.hasAuthenticatedSession(), isFalse);
+      expect(apiTransport.requests, isEmpty);
+      expect(identityAuth.refreshCount, 0);
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
+    },
+  );
+
+  test(
     'expired Google session silently reuses the original OAuth endpoint',
     () async {
       var userInfoCount = 0;
@@ -3472,6 +3661,57 @@ void main() {
       expect(identityAuth.signOutCount, 1);
       expect(await sessionStore.readUid(), isNull);
       expect(await sessionStore.readAuthToken(), isNull);
+    },
+  );
+
+  test(
+    'loginWithIdentity clears incomplete state when backend omits auth token',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (request) {
+          if (request.uri.path.endsWith('/v1/user/oauth/apple')) {
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body:
+                  '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_without_token"}}}',
+            );
+          }
+          throw StateError('unexpected request');
+        },
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('stale-uid');
+      await sessionStore.saveAuthToken('stale-token');
+      await sessionStore.saveUserInfo({'uid': 'stale-uid'});
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+      );
+
+      await expectLater(
+        api.loginWithIdentity(
+          const AuthSession(
+            provider: IdentityProvider.apple,
+            providerIdToken: 'apple-token',
+            displayName: '',
+            photoUrl: '',
+          ),
+        ),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.message,
+            'message',
+            'Login response missing auth token',
+          ),
+        ),
+      );
+
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
     },
   );
 
@@ -4665,6 +4905,21 @@ class _TestDeviceIdService implements DeviceIdService {
 
   @override
   Future<String> getDeviceId() async => 'test-device-id';
+}
+
+class _ThrowingAuthTokenSessionStore extends MemoryUserSessionStore {
+  var clearCount = 0;
+
+  @override
+  Future<String?> readAuthToken() async {
+    throw StateError('auth token storage unavailable');
+  }
+
+  @override
+  Future<void> clearUid() async {
+    clearCount += 1;
+    await super.clearUid();
+  }
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../platform/auth/auth_session.dart';
+import '../../platform/session/user_session_store.dart';
 import '../login_sheet.dart';
 
 Future<bool> ensureGenesisLogin(BuildContext context) async {
@@ -24,9 +25,7 @@ Future<bool> ensureGenesisLogin(BuildContext context) async {
 
 Future<bool> hasGenesisLoginSession(BuildContext context) async {
   final services = AppServicesScope.read(context);
-  final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-  final authToken = (await services.sessionStore.readAuthToken())?.trim() ?? '';
-  return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+  return await services.sessionStore.readCompleteSession() != null;
 }
 
 Future<bool> _loginWithProvider(

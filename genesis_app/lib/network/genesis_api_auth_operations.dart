@@ -5,17 +5,15 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
 
   @override
   Future<String> _ensureUid() async {
-    final cached = (await _sessionStore.readUid())?.trim() ?? '';
-    if (cached.isNotEmpty && !cached.startsWith('guest_')) return cached;
-    if (cached.startsWith('guest_')) await _sessionStore.clearUid();
-    final user = await bindDevice();
-    final uid = user.uid.trim();
-    if (uid.isNotEmpty) return uid;
-    throw ApiException(message: 'User uid is unavailable');
+    final session = await _sessionStore.readCompleteSession();
+    if (session != null) return session.uid;
+    throw ApiException(message: 'Authentication is required');
   }
 
   Future<User> bindDevice({String? did}) async {
     final deviceId = did ?? await _deviceIdService.getDeviceId();
+    final session = await _readCompleteLocalSession();
+    if (session == null) return _signedOutUser(deviceId);
 
     try {
       final profileEnvelope = await v1.user.info();
@@ -26,14 +24,7 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       ).trim();
       if (uid.isEmpty || uid.startsWith('guest_')) {
         await _sessionStore.clearUid();
-        return User(
-          id: 0,
-          uid: '',
-          did: deviceId,
-          nickname: '',
-          avatar: '',
-          createdAt: null,
-        );
+        return _signedOutUser(deviceId);
       }
       final user = User(
         id: _stableInt(uid),
@@ -53,18 +44,12 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       return user;
     } catch (_) {
       await _sessionStore.clearUid();
-      return User(
-        id: 0,
-        uid: '',
-        did: deviceId,
-        nickname: '',
-        avatar: '',
-        createdAt: null,
-      );
+      return _signedOutUser(deviceId);
     }
   }
 
   Future<bool> hasAuthenticatedSession({bool tryAutoRefresh = true}) async {
+    if (await _readCompleteLocalSession() == null) return false;
     try {
       final profileEnvelope = await v1.user.info();
       final profile = asJsonMap(profileEnvelope['user']);
@@ -130,6 +115,7 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
   }
 
   Future<String> getDisplayUserCode() async {
+    await _ensureUid();
     final profileEnvelope = await v1.user.info();
     final profile = asJsonMap(profileEnvelope['user']);
     return asString(
@@ -232,6 +218,14 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       await _sessionStore.clearUid();
       throw ApiException(message: 'Login response missing user uid');
     }
+    final authToken = asString(
+      map['token'],
+      fallback: asString(map['access_token'], fallback: asString(map['jwt'])),
+    ).trim();
+    if (authToken.isEmpty) {
+      await _sessionStore.clearUid();
+      throw ApiException(message: 'Login response missing auth token');
+    }
     final user = User(
       id: _stableInt(uid),
       uid: uid,
@@ -246,9 +240,6 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       ),
       createdAt: null,
     );
-    if (user.uid.trim().isNotEmpty) {
-      await _sessionStore.saveUid(user.uid);
-    }
     final cachedUserInfo = Map<String, dynamic>.from(userMap);
     cachedUserInfo['uid'] = user.uid;
     if (user.nickname.trim().isNotEmpty) {
@@ -257,14 +248,29 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
     if (user.avatar.trim().isNotEmpty) {
       cachedUserInfo.putIfAbsent('avatar', () => user.avatar);
     }
-    await _sessionStore.saveUserInfo(cachedUserInfo);
-    final authToken = asString(
-      map['token'],
-      fallback: asString(map['access_token'], fallback: asString(map['jwt'])),
-    ).trim();
-    if (authToken.isNotEmpty) {
+    try {
+      await _sessionStore.saveUid(user.uid);
       await _sessionStore.saveAuthToken(authToken);
+      await _sessionStore.saveUserInfo(cachedUserInfo);
+    } catch (_) {
+      await _sessionStore.clearUid();
+      rethrow;
     }
     return user;
+  }
+
+  Future<({String uid, String authToken})?> _readCompleteLocalSession() async {
+    return _sessionStore.readCompleteSession();
+  }
+
+  User _signedOutUser(String deviceId) {
+    return User(
+      id: 0,
+      uid: '',
+      did: deviceId,
+      nickname: '',
+      avatar: '',
+      createdAt: null,
+    );
   }
 }

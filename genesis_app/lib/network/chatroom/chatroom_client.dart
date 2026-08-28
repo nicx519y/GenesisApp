@@ -55,15 +55,16 @@ class ChatroomClient {
     if (resolvedWorldId.isEmpty) {
       throw const ChatroomProtocolException('worldId is required');
     }
-    final resolvedUserId = (userId ?? await _sessionStore.readUid())?.trim();
-    if (resolvedUserId == null || resolvedUserId.isEmpty) {
+    final localSession = await _sessionStore.readCompleteSession();
+    if (localSession == null) {
+      throw const ChatroomProtocolException('authToken is required');
+    }
+    final resolvedUserId = (userId ?? localSession.uid).trim();
+    if (resolvedUserId.isEmpty) {
       throw const ChatroomProtocolException('userId is required');
     }
 
-    final authToken = (await _sessionStore.readAuthToken())?.trim();
-    if (authToken == null || authToken.isEmpty) {
-      throw const ChatroomProtocolException('authToken is required');
-    }
+    final authToken = localSession.authToken;
     final resolvedSenderId = senderId?.trim().isNotEmpty == true
         ? senderId!.trim()
         : resolvedUserId;

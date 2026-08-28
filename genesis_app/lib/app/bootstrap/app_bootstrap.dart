@@ -15,6 +15,7 @@ import '../../network/genesis_http_transport_pool.dart';
 import '../../network/network_runtime_factory.dart';
 import '../../network/network_capture.dart';
 import '../../network/websocket_capture.dart';
+import '../../platform/session/user_session_store.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -22,7 +23,6 @@ class AppBootstrap {
 
   static const _gatewayPrepareTimeout = Duration(seconds: 8);
   static const _sessionReadTimeout = Duration(seconds: 2);
-  static const _guestBindTimeout = Duration(seconds: 8);
   static Future<void>? _firebasePerformanceInitialization;
 
   static AppServices createInitialServices({
@@ -95,32 +95,20 @@ class AppBootstrap {
       debugPrint('[GatewayAuth] stacktrace:\n$st');
     }
 
-    String? uid;
+    CompleteUserSession? session;
     try {
-      uid = await services.sessionStore.readUid().timeout(_sessionReadTimeout);
+      session = await services.sessionStore.readCompleteSession().timeout(
+        _sessionReadTimeout,
+      );
     } catch (e, st) {
       debugPrint('[Auth][Bootstrap] session read failed: $e');
       debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
     }
-    final normalizedUid = uid?.trim() ?? '';
-    var reportUid = '';
-    if (normalizedUid.isNotEmpty && !normalizedUid.startsWith('guest_')) {
-      reportUid = normalizedUid;
-      GenesisTelemetry.setUserId(normalizedUid);
+    final reportUid = session?.uid ?? '';
+    if (session != null) {
+      GenesisTelemetry.setUserId(session.uid);
     } else {
-      if (normalizedUid.startsWith('guest_')) {
-        await services.sessionStore.clearUid();
-      }
-      try {
-        final user = await services.api.bindDevice().timeout(_guestBindTimeout);
-        reportUid = user.uid.trim();
-        if (reportUid.isNotEmpty && !reportUid.startsWith('guest_')) {
-          GenesisTelemetry.setUserId(reportUid);
-        }
-      } catch (e, st) {
-        debugPrint('[Auth][Bootstrap] guest bind failed: $e');
-        debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
-      }
+      GenesisTelemetry.clearUser();
     }
     unawaited(services.deviceInfoTelemetry.reportStartup(uid: reportUid));
   }

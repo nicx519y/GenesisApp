@@ -359,4 +359,55 @@ void main() {
 
     expect(await events(), isEmpty);
   });
+
+  test('continuous message polling paths are excluded', () async {
+    final requests = <Uri>[];
+    final client = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      transport: _FakeTransport(
+        handler: (request) {
+          requests.add(request.uri);
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":0,"data":{}}',
+          );
+        },
+      ),
+    );
+
+    await client.get<Object?>('v1/message/unread');
+    await client.get<Object?>('v1/direct_message/conversations');
+    await client.get<Object?>('v1/direct_message/list');
+
+    expect(requests.map((uri) => uri.path), <String>[
+      '/api/v1/message/unread',
+      '/api/v1/direct_message/conversations',
+      '/api/v1/direct_message/list',
+    ]);
+    expect(await events(), isEmpty);
+  });
+
+  test('non-polling direct message actions remain tracked', () async {
+    final client = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      transport: _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"data":{}}',
+        ),
+      ),
+    );
+
+    await client.post<Object?>(
+      'v1/direct_message/send',
+      body: const {'peer_uid': 'user-1', 'content': 'hello'},
+    );
+
+    expect((await events()).map((event) => event.action), <String>[
+      'api_request_start',
+      'api_request_success',
+    ]);
+  });
 }

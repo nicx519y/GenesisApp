@@ -501,6 +501,8 @@ Apple 登录。请求和响应结构与 Google 登录一致。
 
 ### GET `/api/v1/user/info`
 
+客户端不使用本接口反查或恢复 UID。当前账号查询前会先校验本地 UID；UID 缺失或为 `guest_` UID 时，直接清除 UID、Token 和缓存用户资料并按未登录处理。启动和会话校验还会同时检查 `auth token`，登录态不完整时同样清理。查看公开用户资料时继续显式传 `uid`。
+
 查询用户信息。`uid` 不传时可理解为当前用户；传入时查询指定用户。
 
 Query：
@@ -2128,6 +2130,7 @@ query：
 - `events[].object2*`: string，第二个业务对象；无值传 `""`
 - `events[].object3*`: string，第三个业务对象；无值传 `""`
 - `events[].object4*`: string，第四个业务对象；无值传 `""`。`api_request_success` 和 `api_request_failed` 使用不带单位后缀的整数毫秒字符串记录最终一次 HTTP attempt 的耗时；`api_request_start` 传 `""`
+- 持续后台轮询接口不产生 `api_request_start/api_request_success/api_request_failed`：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`。接口请求与业务逻辑不受影响，其他主动消息操作继续上报。
 
 请求示例：
 

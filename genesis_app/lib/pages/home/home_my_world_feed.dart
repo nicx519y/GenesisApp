@@ -439,12 +439,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   Future<HomeFeedCacheStore?> _cacheStoreForActiveSession() async {
     final services = AppServicesScope.of(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty || uid.startsWith('guest_')) return null;
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    if (authToken.isEmpty) return null;
-    return HomeFeedCacheStore(ownerUid: uid);
+    final session = await services.sessionStore.readCompleteSession();
+    if (session == null) return null;
+    return HomeFeedCacheStore(ownerUid: session.uid);
   }
 
   Future<bool> _loadCachedItemsOnce() {
@@ -700,11 +697,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty || uid.startsWith('guest_')) return false;
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return authToken.isNotEmpty;
+    return await services.sessionStore.readCompleteSession() != null;
   }
 
   Future<void> _loadNextPage() async {

@@ -15,6 +15,7 @@ import 'app/telemetry/telemetry_runtime_controller.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
 import 'network/websocket_capture.dart';
+import 'platform/session/user_session_store.dart';
 import 'ui/system/genesis_system_ui.dart';
 
 export 'app/genesis_app.dart';
@@ -87,11 +88,7 @@ Future<void> _loadAppGlobalConfig(AppServices services) async {
 
 Future<int> _resolveInitialBottomTab(AppServices services) async {
   try {
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty || uid.startsWith('guest_')) return 1;
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return authToken.isEmpty ? 1 : 0;
+    return await services.sessionStore.readCompleteSession() == null ? 1 : 0;
   } catch (_) {
     return 1;
   }
