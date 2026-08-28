@@ -306,18 +306,101 @@ void main() {
     ]);
   });
 
+  test('request preparation failures report the failing stage', () async {
+    final headersClient = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      requestHeaderProvider: () async => throw StateError('headers failed'),
+      transport: _FakeTransport(
+        handler: (_) => throw StateError('transport must not run'),
+      ),
+    );
+    await expectLater(
+      headersClient.get<Object?>('v1/profile'),
+      throwsStateError,
+    );
+
+    final bodyClient = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      transport: _FakeTransport(
+        handler: (_) => throw StateError('transport must not run'),
+      ),
+    );
+    await expectLater(
+      bodyClient.post<Object?>('v1/profile', body: _ThrowingBody()),
+      throwsStateError,
+    );
+
+    final apiUnknownClient = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      requestHeaderProvider: () async =>
+          throw ApiException(message: 'unclassified API failure'),
+      transport: _FakeTransport(
+        handler: (_) => throw StateError('transport must not run'),
+      ),
+    );
+    await expectLater(
+      apiUnknownClient.get<Object?>('v1/profile'),
+      throwsA(isA<ApiException>()),
+    );
+
+    final failures = (await events())
+        .where((event) => event.action == 'api_request_failed')
+        .toList();
+    expect(failures.map((event) => event.object3), <String>[
+      'request_headers',
+      'request_body',
+      'api_unknown',
+    ]);
+  });
+
   test(
-    'certificate and unknown transport failures stay distinguishable',
+    'formerly unknown transport failures use stable subcategories',
     () async {
-      for (final testCase in <({String message, String reason})>[
-        (message: 'certificate handshake failed', reason: 'bad_certificate'),
-        (message: 'unexpected transport failure', reason: 'unknown'),
+      for (final testCase in <({Object error, String reason})>[
+        (
+          error: Exception('certificate handshake failed'),
+          reason: 'bad_certificate',
+        ),
+        (
+          error: Exception(
+            'HTTPS requires HTTP/2 or HTTP/3, but negotiated HTTP/1.1.',
+          ),
+          reason: 'http_protocol',
+        ),
+        (
+          error: Exception(
+            'QuicException: protocol error, quicDetailedErrorCode=42',
+          ),
+          reason: 'http3_quic_42',
+        ),
+        (
+          error: Exception('NetworkClientException: errorCode=6'),
+          reason: 'cronet_6',
+        ),
+        (
+          error: Exception('NSErrorClientException: code=-1009'),
+          reason: 'ios_network_-1009',
+        ),
+        (
+          error: Exception('DioException [connection error]: failed'),
+          reason: 'dio_connection',
+        ),
+        (
+          error: Exception('ClientException: invalid response'),
+          reason: 'http_client',
+        ),
+        (
+          error: StateError('transport state failed'),
+          reason: 'transport_internal',
+        ),
+        (
+          error: Exception('unexpected transport failure'),
+          reason: 'transport_unknown',
+        ),
       ]) {
         final client = ApiClient(
           baseUrl: 'https://example.test/api/',
-          transport: _FakeTransport(
-            handler: (_) => throw Exception(testCase.message),
-          ),
+          transport: _FakeTransport(handler: (_) => throw testCase.error),
         );
         await expectLater(
           client.get<Object?>('v1/profile'),
@@ -330,7 +413,14 @@ void main() {
           .toList();
       expect(failures.map((event) => event.object3), <String>[
         'bad_certificate',
-        'unknown',
+        'http_protocol',
+        'http3_quic_42',
+        'cronet_6',
+        'ios_network_-1009',
+        'dio_connection',
+        'http_client',
+        'transport_internal',
+        'transport_unknown',
       ]);
     },
   );
@@ -410,4 +500,9 @@ void main() {
       'api_request_success',
     ]);
   });
+}
+
+class _ThrowingBody {
+  @override
+  String toString() => throw StateError('body encoding failed');
 }

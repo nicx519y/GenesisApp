@@ -292,6 +292,7 @@ class ApiClient {
     final collectRequest = _BusinessApiCollectRequest.maybeStart(uri);
 
     late final TransportRequest request;
+    var requestPreparationFailureReason = 'request_headers';
     try {
       final runtimeHeaders = await _resolveRequestHeaders();
       final mergedHeaders = <String, String>{
@@ -299,6 +300,7 @@ class ApiClient {
         ...runtimeHeaders,
         ...?headers,
       };
+      requestPreparationFailureReason = 'request_body';
       final prepared = _prepareBody(body, mergedHeaders);
 
       request = TransportRequest(
@@ -325,7 +327,10 @@ class ApiClient {
       rethrow;
     } catch (_) {
       stopwatch.stop();
-      collectRequest?.failure('unknown', duration: stopwatch.elapsed);
+      collectRequest?.failure(
+        requestPreparationFailureReason,
+        duration: stopwatch.elapsed,
+      );
       rethrow;
     }
 
@@ -754,8 +759,79 @@ String _businessApiFailureReason(Object error, {ApiResponse? response}) {
     case ApiExceptionKind.cancelled:
       return 'cancelled';
     case ApiExceptionKind.transport:
+      return _unknownTransportFailureReason(error);
     case ApiExceptionKind.unknown:
-      return 'unknown';
+      return 'api_unknown';
+  }
+}
+
+String _unknownTransportFailureReason(ApiException error) {
+  final cause = error.error;
+  if (cause == null) return 'transport_unknown';
+
+  final type = cause.runtimeType.toString().toLowerCase();
+  final text = _safeErrorText(cause);
+  final signature = '$type $text';
+
+  final mentionsHttpProtocol =
+      signature.contains('http/2') ||
+      signature.contains('http2') ||
+      signature.contains('http/3') ||
+      signature.contains('http3');
+  final describesProtocolFailure =
+      signature.contains('protocol') ||
+      signature.contains('negotiat') ||
+      signature.contains('requires http') ||
+      signature.contains('not support');
+  if (mentionsHttpProtocol && describesProtocolFailure) {
+    return 'http_protocol';
+  }
+
+  if (signature.contains('quic')) {
+    final code = _errorCode(text, 'quicDetailedErrorCode');
+    return code == null ? 'http3_quic' : 'http3_quic_$code';
+  }
+
+  if (signature.contains('cronet') ||
+      signature.contains('networkclientexception') ||
+      signature.contains('callbackexception')) {
+    final code = _errorCode(text, 'errorCode');
+    return code == null ? 'cronet' : 'cronet_$code';
+  }
+
+  if (signature.contains('nserrorclientexception')) {
+    final code = _errorCode(text, 'code');
+    return code == null ? 'ios_network' : 'ios_network_$code';
+  }
+
+  if (signature.contains('dioexception')) {
+    if (signature.contains('[connection error]')) return 'dio_connection';
+    if (signature.contains('[bad response]')) return 'dio_response';
+    return 'dio_unknown';
+  }
+
+  if (signature.contains('clientexception')) return 'http_client';
+  if (cause is StateError ||
+      cause is ArgumentError ||
+      cause is UnsupportedError) {
+    return 'transport_internal';
+  }
+  return 'transport_unknown';
+}
+
+String? _errorCode(String text, String field) {
+  final match = RegExp(
+    '${RegExp.escape(field)}=(-?\\d+)',
+    caseSensitive: false,
+  ).firstMatch(text);
+  return match?.group(1);
+}
+
+String _safeErrorText(Object error) {
+  try {
+    return error.toString().toLowerCase();
+  } catch (_) {
+    return '';
   }
 }
 
@@ -803,7 +879,7 @@ ApiException _transportApiException(Object error, Uri uri) {
 
 TransportErrorKind _transportErrorKind(Object error) {
   if (error is TimeoutException) return TransportErrorKind.timeout;
-  final text = error.toString().toLowerCase();
+  final text = _safeErrorText(error);
   if (text.contains('timeout')) return TransportErrorKind.timeout;
   if (text.contains('cancel')) return TransportErrorKind.cancelled;
   if (text.contains('certificate') || text.contains('handshake')) {
