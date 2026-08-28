@@ -28,7 +28,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  testWidgets('does not request search before two letters or chinese chars', (
+  testWidgets('does not request search before three letters or chinese chars', (
     tester,
   ) async {
     final transport = _SearchPageTransport();
@@ -46,12 +46,17 @@ void main() {
 
     await tester.enterText(find.byType(TextField), 'ab');
     await tester.pump(const Duration(milliseconds: 700));
+
+    expect(transport.searchRequests, isEmpty);
+
+    await tester.enterText(find.byType(TextField), 'abc');
+    await tester.pump(const Duration(milliseconds: 700));
     await tester.pump();
 
     expect(transport.searchRequests, hasLength(1));
     expect(
       transport.searchRequests.single.uri.queryParameters['keyword'],
-      'ab',
+      'abc',
     );
     expect(
       transport.searchRequests.single.uri.queryParameters['type'],
@@ -71,7 +76,7 @@ void main() {
     );
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pump();
 
@@ -107,7 +112,7 @@ void main() {
     );
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pump();
 
@@ -134,7 +139,7 @@ void main() {
     );
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
@@ -181,7 +186,7 @@ void main() {
     );
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -222,7 +227,7 @@ void main() {
     );
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump();
     final tabRectsBeforeTotals = {
       for (final tab in const ['origin', 'world', 'user'])
@@ -309,7 +314,7 @@ void main() {
     final transport = _SearchPageTransport(paginated: true);
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -349,7 +354,7 @@ void main() {
     final transport = _SearchPageTransport(originNameMatchOnly: true);
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -369,7 +374,7 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -422,7 +427,7 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -442,7 +447,7 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -504,7 +509,7 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -549,7 +554,7 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -566,7 +571,7 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -589,7 +594,7 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -696,7 +701,7 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
@@ -728,7 +733,7 @@ void main() {
     final transport = _SearchPageTransport(longOriginContent: true);
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 

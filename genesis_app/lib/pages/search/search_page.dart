@@ -56,7 +56,7 @@ class _SearchPageState extends State<SearchPage>
     milliseconds: 600,
   ); // API rate limit is 1 request per second, so 600ms is a good balance between responsiveness and reducing unnecessary requests.
   static const int _pageSize = 20;
-  static const int _minSearchLength = 2;
+  static const int _minSearchLength = 3;
 
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
