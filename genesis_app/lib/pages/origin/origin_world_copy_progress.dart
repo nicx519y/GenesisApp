@@ -68,6 +68,7 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
       final right = b[index];
       if (left.worldId != right.worldId ||
           left.tickNo != right.tickNo ||
+          left.subTickNo != right.subTickNo ||
           left.tickTime != right.tickTime ||
           left.createdAt != right.createdAt ||
           left.summary != right.summary ||
@@ -112,11 +113,7 @@ class _CopyWorldProgressSectionState extends State<CopyWorldProgressSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
-          icon: MyFlutterApp.lastProgress,
-          iconColor: Color(0xFFFF2442),
-          title: 'Copy World Progress',
-        ),
+        const _SectionTitle(title: 'Launched World Progress'),
         const SizedBox(height: 8),
         _CopyWorldProgressCard(summary: summary, onOpen: _openWorld),
       ],
@@ -199,6 +196,8 @@ class _CopyWorldProgressMeta extends StatelessWidget {
     final timestamp = _formatSummaryTimestamp(
       item.tickTime == 0 ? item.createdAt : item.tickTime,
     );
+    final tickLabel =
+        'Tick ${item.tickNo}${item.subTickNo > 0 ? '-${item.subTickNo}' : ''}';
     return LayoutBuilder(
       key: const ValueKey('copy-world-progress-meta'),
       builder: (context, constraints) {
@@ -231,8 +230,29 @@ class _CopyWorldProgressMeta extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  DiscussStoryBadge(count: item.tickNo),
+                  const SizedBox(width: 6),
+                  const Text(
+                    '·',
+                    key: ValueKey('copy-world-progress-separator'),
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    tickLabel,
+                    key: const ValueKey('copy-world-progress-tick'),
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.2,
+                      fontWeight: FontWeight.w400,
+                      color: Color(0xFF666666),
+                    ),
+                  ),
                 ],
               ),
             ),

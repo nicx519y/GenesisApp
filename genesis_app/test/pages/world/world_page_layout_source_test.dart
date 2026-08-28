@@ -169,6 +169,10 @@ void main() {
       bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
       bottomSheet.indexOf('class WorldSingleSectionSheetHeader'),
     );
+    final sheetHeader = bottomSheet.substring(
+      bottomSheet.indexOf('class WorldSingleSectionSheetHeader'),
+      bottomSheet.indexOf('class WorldSheetPageIndicator'),
+    );
     final sectionListView = worldSectionsSource.substring(
       worldSectionsSource.indexOf('class WorldSectionListView'),
       worldSectionsSource.indexOf('class WorldEventsSection'),
@@ -209,6 +213,10 @@ void main() {
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
     expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));
+    expect(
+      sheetHeader,
+      contains('widget.item.kind != WorldBottomSheetKind.detail'),
+    );
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(sectionListView, contains('worldSheetVisibleContentTopGap'));
     expect(sectionListView, contains('ListView.builder('));
@@ -243,8 +251,8 @@ void main() {
 
     expect(detailSection, contains('final String currentUid;'));
     expect(castIndex, greaterThan(briefIndex));
-    expect(detailSection, contains('asset: worldSectionCastIconAsset'));
-    expect(detailSection, contains('iconSize: 17'));
+    expect(detailSection, isNot(contains('worldSectionCastIconAsset')));
+    expect(detailSection, isNot(contains('MyFlutterApp.eye')));
     expect(detailSection, contains('currentUid: currentUid'));
     expect(detailSection, contains("label: 'Invite'"));
     expect(detailSection, contains('width: 92'));
@@ -255,10 +263,9 @@ void main() {
     expect(detailSection, contains('Link copied. Share it with your friends.'));
     expect(
       detailSection,
-      contains(
-        'WorldDetailSectionTitle(\n          asset: worldSectionCastIconAsset',
-      ),
+      contains("WorldDetailSectionTitle(title: 'World Brief')"),
     );
+    expect(detailSection, contains("WorldDetailSectionTitle(title: 'Cast')"));
     expect(
       detailSection,
       contains(

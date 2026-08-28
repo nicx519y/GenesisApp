@@ -2910,6 +2910,7 @@ class _MockState {
         'world_id': candidateWorldId,
         'origin_id': '${candidate['oid'] ?? ''}',
         'tick_no': asInt(candidate['tick_cnt']),
+        'sub_tick_no': asInt(candidate['sub_tick_no']),
         'summary': summary,
         'tick_time': tickTime,
         'created_at': tickTime + 10,

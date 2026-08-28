@@ -492,11 +492,10 @@ void main() {
 
     final author = tester.widget<Text>(find.text('User 1'));
     expect(author.style?.fontSize, 12);
-    expect(author.style?.fontWeight, FontWeight.w500);
-    expect(author.style?.color, const Color(0xFF888888));
-    final authorCenter = tester.getCenter(find.text('User 1'));
-    final badgeCenter = tester.getCenter(find.byType(DiscussStoryBadge));
-    expect((authorCenter.dy - badgeCenter.dy).abs(), lessThan(1));
+    expect(author.style?.height, 1.2);
+    expect(author.style?.fontWeight, FontWeight.w600);
+    expect(author.style?.color, const Color(0xFF666666));
+    expect(find.byType(DiscussStoryBadge), findsNothing);
     final metaBottom = tester
         .getBottomLeft(find.byKey(const ValueKey('origin-discuss-meta-dis_1')))
         .dy;
@@ -549,10 +548,7 @@ void main() {
     expect(avatar.borderRadius, 8);
     expect(find.text('09:07'), findsOneWidget);
     expect(find.text('${today.month}-${today.day} 09:07'), findsNothing);
-    expect(
-      tester.getTopRight(find.text('09:07')).dx,
-      greaterThan(tester.getTopRight(find.byType(DiscussStoryBadge)).dx),
-    );
+    expect(find.byType(DiscussStoryBadge), findsNothing);
     final rowRight = tester
         .getTopRight(find.byKey(const ValueKey('origin-discuss-meta-dis_1')))
         .dx;

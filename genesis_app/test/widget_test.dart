@@ -6732,7 +6732,7 @@ void main() {
     await tester.dragFrom(const Offset(400, 510), const Offset(0, -420));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
-      find.text('View More >'),
+      find.text('View all >'),
       300,
       scrollable: find.byType(Scrollable).last,
     );
@@ -6742,7 +6742,10 @@ void main() {
     expect(discussRequests.length, previousDiscussRequestCount);
     expect(find.widgetWithText(TextField, 'Write a post'), findsNothing);
     expect(find.text('Discuss preview for o_test_1'), findsOneWidget);
-    expect(find.text('View More >'), findsOneWidget);
+    expect(find.text('View More >'), findsNothing);
+    final viewAll = tester.widget<Text>(find.text('View all >'));
+    expect(viewAll.style?.fontSize, 10);
+    expect(viewAll.style?.color, const Color(0xFF666666));
   });
 
   testWidgets('origin route opens without a forward slide on Android', (
@@ -7332,7 +7335,7 @@ void main() {
       matching: find.byKey(const ValueKey<String>('origin-info-title')),
     );
     final infoTitle = tester.widget<Text>(infoTitleFinder);
-    expect(infoTitle.data, 'Info');
+    expect(infoTitle.data, 'Detail');
     expect(infoTitle.style?.fontSize, 16);
     expect(infoTitle.style?.fontWeight, FontWeight.w600);
     expect(
@@ -7654,13 +7657,12 @@ void main() {
     expect(briefTitle.style?.fontSize, 14);
     expect(
       find.descendant(of: brief, matching: find.byIcon(MyFlutterApp.eye)),
-      findsOneWidget,
+      findsNothing,
     );
-    final briefIcon = tester.widget<Icon>(
+    expect(
       find.byKey(const ValueKey<String>('origin-opening-worldo-brief-icon')),
+      findsNothing,
     );
-    expect(briefIcon.size, 14);
-    expect(briefIcon.color, const Color(0xFFFF2442));
     expect(find.text('Origin detail subtitle'), findsOneWidget);
     expect(
       tester
@@ -8889,11 +8891,10 @@ void main() {
       tester.getTopLeft(recommendedRole).dx,
       lessThan(tester.getTopLeft(regularRole).dx),
     );
-    final roleTitleLaunchIcon = tester.widget<SvgPicture>(
+    expect(
       find.byKey(const ValueKey<String>('origin-setup-role-title-launch-icon')),
+      findsNothing,
     );
-    expect(roleTitleLaunchIcon.width, 14);
-    expect(roleTitleLaunchIcon.height, 14);
     final suggestedLabel = find.byKey(
       const ValueKey<String>('origin-setup-role-suggested-label-c_recommended'),
     );
@@ -10470,6 +10471,7 @@ void main() {
                       worldId: 'w_summary_1',
                       originId: 'o_test_1',
                       tickNo: 4,
+                      subTickNo: 2,
                       summary:
                           'First copied world progress summary for o_test_1.',
                       tickTime: 1771420800000,
@@ -10499,11 +10501,19 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('WID: w_summary_1'), findsOneWidget);
-      expect(find.text('4'), findsWidgets);
-      expect(find.byType(DiscussStoryBadge), findsOneWidget);
+      expect(find.text('Launched World Progress'), findsOneWidget);
+      expect(find.text('Tick 4-2'), findsOneWidget);
+      expect(find.byType(DiscussStoryBadge), findsNothing);
       final widRight = tester.getTopRight(find.text('WID: w_summary_1')).dx;
-      final chipLeft = tester.getTopLeft(find.byType(DiscussStoryBadge)).dx;
-      expect(chipLeft - widRight, closeTo(8, 0.1));
+      final separator = find.byKey(
+        const ValueKey('copy-world-progress-separator'),
+      );
+      expect(tester.widget<Text>(separator).data, '·');
+      expect(tester.getTopLeft(separator).dx - widRight, closeTo(6, 0.1));
+      final tickLeft = tester
+          .getTopLeft(find.byKey(const ValueKey('copy-world-progress-tick')))
+          .dx;
+      expect(tickLeft - tester.getTopRight(separator).dx, closeTo(6, 0.1));
       expect(
         tester
             .getSize(find.byKey(const ValueKey('copy-world-progress-body')))

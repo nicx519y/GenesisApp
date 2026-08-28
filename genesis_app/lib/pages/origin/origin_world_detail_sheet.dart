@@ -1087,7 +1087,7 @@ class _OriginInfoTitleRow extends StatelessWidget {
       children: [
         const Expanded(
           child: Text(
-            'Info',
+            'Detail',
             key: ValueKey<String>('origin-info-title'),
             style: TextStyle(
               fontSize: 16,

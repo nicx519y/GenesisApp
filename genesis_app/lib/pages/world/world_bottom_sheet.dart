@@ -767,8 +767,10 @@ class WorldSingleSectionSheetHeaderState
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    WorldSheetHeaderIcon(item: widget.item),
-                    const SizedBox(width: 6),
+                    if (widget.item.kind != WorldBottomSheetKind.detail) ...[
+                      WorldSheetHeaderIcon(item: widget.item),
+                      const SizedBox(width: 6),
+                    ],
                     Expanded(
                       child: Text(
                         widget.item.label,

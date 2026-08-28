@@ -10,7 +10,6 @@ import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/discuss/discuss_page_comment_list.dart';
 import '../../components/discuss/origin_discuss_list.dart';
-import '../../components/discuss/story_badge.dart';
 import '../../components/page_header.dart';
 import '../../network/json_utils.dart';
 import '../../platform/session/session_revision_subscription.dart';
@@ -402,20 +401,11 @@ class _PostReplyRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              data.authorName,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: _postDetailNameStyle,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          DiscussStoryBadge(count: data.storyCount),
-                        ],
+                      child: Text(
+                        data.authorName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: _postDetailNameStyle,
                       ),
                     ),
                     if (data.dateLabel.isNotEmpty) ...[
@@ -721,7 +711,6 @@ class _ReplyViewData {
     required this.avatar,
     required this.content,
     required this.worldId,
-    required this.storyCount,
     required this.likeCount,
     required this.replyCount,
     required this.isLiked,
@@ -755,10 +744,6 @@ class _ReplyViewData {
           fallback: asString(json['display_wid_str']),
         ),
       ),
-      storyCount: asInt(
-        json['story_cnt'],
-        fallback: asInt(json['tick_cnt'], fallback: asInt(json['connect_cnt'])),
-      ),
       likeCount: asInt(json['like_cnt'], fallback: asInt(json['like_count'])),
       replyCount: asInt(json['reply_cnt']),
       isLiked: asBool(json['is_liked']),
@@ -774,7 +759,6 @@ class _ReplyViewData {
   final String avatar;
   final String content;
   final String worldId;
-  final int storyCount;
   final int likeCount;
   final int replyCount;
   final bool isLiked;

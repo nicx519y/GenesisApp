@@ -46,6 +46,7 @@ class WorldSummaryLatestItem {
     required this.originId,
     this.deleted = false,
     required this.tickNo,
+    this.subTickNo = 0,
     required this.summary,
     required this.tickTime,
     required this.createdAt,
@@ -55,6 +56,7 @@ class WorldSummaryLatestItem {
   final String originId;
   final bool deleted;
   final int tickNo;
+  final int subTickNo;
   final String summary;
   final int tickTime;
   final int createdAt;

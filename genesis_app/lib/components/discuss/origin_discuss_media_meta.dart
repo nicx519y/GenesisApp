@@ -39,25 +39,16 @@ class _DiscussPreviewMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authorMeta = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: Text(
-            item.authorName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 12,
-              height: 1.18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        DiscussStoryBadge(count: item.storyCount),
-      ],
+    final authorMeta = Text(
+      item.authorName,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Color(0xFF666666),
+        fontSize: 12,
+        height: 1.2,
+        fontWeight: FontWeight.w600,
+      ),
     );
     final authorTap = onAuthorTap;
     final canOpenAuthor =
