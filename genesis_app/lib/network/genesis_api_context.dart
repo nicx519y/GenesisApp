@@ -85,7 +85,10 @@ abstract class _GenesisApiContext {
           transport: resolvedTransport,
           responseProcessor: _processGenesisResponse,
         );
-    v1 = GenesisV1Api(_apiClient);
+    v1 = GenesisV1Api(
+      _apiClient,
+      currentUserInfoGuard: _canRequestCurrentUserInfo,
+    );
     v2 = GenesisV2Api(_apiClient);
     chatroomHttp = ChatroomHttpApi(_chatroomHttpClient);
   }
@@ -113,6 +116,13 @@ abstract class _GenesisApiContext {
           : 'Bearer $authToken';
     }
     return headers;
+  }
+
+  Future<bool> _canRequestCurrentUserInfo() async {
+    final uid = (await _sessionStore.readUid())?.trim() ?? '';
+    if (uid.isNotEmpty && !uid.startsWith('guest_')) return true;
+    await _sessionStore.clearUid();
+    return false;
   }
 
   Future<Map<String, String>> _safeAppHeaders() async {

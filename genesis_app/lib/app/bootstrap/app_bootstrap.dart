@@ -22,7 +22,6 @@ class AppBootstrap {
 
   static const _gatewayPrepareTimeout = Duration(seconds: 8);
   static const _sessionReadTimeout = Duration(seconds: 2);
-  static const _guestBindTimeout = Duration(seconds: 8);
   static Future<void>? _firebasePerformanceInitialization;
 
   static AppServices createInitialServices({
@@ -96,29 +95,34 @@ class AppBootstrap {
     }
 
     String? uid;
+    String? authToken;
     try {
-      uid = await services.sessionStore.readUid().timeout(_sessionReadTimeout);
+      final session = await Future.wait<String?>([
+        services.sessionStore.readUid(),
+        services.sessionStore.readAuthToken(),
+      ]).timeout(_sessionReadTimeout);
+      uid = session[0];
+      authToken = session[1];
     } catch (e, st) {
       debugPrint('[Auth][Bootstrap] session read failed: $e');
       debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
     }
     final normalizedUid = uid?.trim() ?? '';
+    final normalizedAuthToken = authToken?.trim() ?? '';
     var reportUid = '';
-    if (normalizedUid.isNotEmpty && !normalizedUid.startsWith('guest_')) {
+    final hasCompleteSession =
+        normalizedUid.isNotEmpty &&
+        !normalizedUid.startsWith('guest_') &&
+        normalizedAuthToken.isNotEmpty;
+    if (hasCompleteSession) {
       reportUid = normalizedUid;
       GenesisTelemetry.setUserId(normalizedUid);
     } else {
-      if (normalizedUid.startsWith('guest_')) {
-        await services.sessionStore.clearUid();
-      }
+      GenesisTelemetry.clearUser();
       try {
-        final user = await services.api.bindDevice().timeout(_guestBindTimeout);
-        reportUid = user.uid.trim();
-        if (reportUid.isNotEmpty && !reportUid.startsWith('guest_')) {
-          GenesisTelemetry.setUserId(reportUid);
-        }
+        await services.sessionStore.clearUid();
       } catch (e, st) {
-        debugPrint('[Auth][Bootstrap] guest bind failed: $e');
+        debugPrint('[Auth][Bootstrap] invalid session cleanup failed: $e');
         debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
       }
     }

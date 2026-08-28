@@ -1,9 +1,15 @@
 import '../json_utils.dart';
+import '../api_exception.dart';
 import '../models/world_history_settings.dart';
 import 'v1_api_resource.dart';
 
+typedef CurrentUserInfoGuard = Future<bool> Function();
+
 class UserV1Api extends V1ApiResource {
-  const UserV1Api(super.client);
+  const UserV1Api(super.client, {CurrentUserInfoGuard? currentUserInfoGuard})
+    : _currentUserInfoGuard = currentUserInfoGuard;
+
+  final CurrentUserInfoGuard? _currentUserInfoGuard;
 
   /// POST /api/v1/user/oauth/google
   ///
@@ -106,7 +112,12 @@ class UserV1Api extends V1ApiResource {
   ///
   /// For the current account, UUID and selected model code are siblings of
   /// `user` in this result.
-  Future<Map<String, dynamic>> info({String? uid}) {
+  Future<Map<String, dynamic>> info({String? uid}) async {
+    final resolvedUid = uid?.trim() ?? '';
+    final guard = _currentUserInfoGuard;
+    if (resolvedUid.isEmpty && guard != null && !await guard()) {
+      throw ApiException(message: 'Authentication is required');
+    }
     return getMap('user/info', v1Query({'uid': uid}));
   }
 

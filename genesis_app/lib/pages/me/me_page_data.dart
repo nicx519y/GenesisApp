@@ -345,6 +345,7 @@ extension _MePageData on _MePageState {
     required String fallbackUid,
   }) async {
     try {
+      await api.ensureUid();
       final userInfo = await api.v1.user.info();
       return cacheCurrentUserInfoResponse(
         sessionStore: sessionStore,

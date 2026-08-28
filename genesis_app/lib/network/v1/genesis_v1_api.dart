@@ -16,9 +16,9 @@ import 'user_api.dart';
 import 'world_api.dart';
 
 class GenesisV1Api {
-  GenesisV1Api(ApiClient client)
+  GenesisV1Api(ApiClient client, {CurrentUserInfoGuard? currentUserInfoGuard})
     : app = AppV1Api(client),
-      user = UserV1Api(client),
+      user = UserV1Api(client, currentUserInfoGuard: currentUserInfoGuard),
       origin = OriginV1Api(client),
       world = WorldV1Api(client),
       messages = MessagesV1Api(client),
