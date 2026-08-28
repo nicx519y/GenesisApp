@@ -13,6 +13,7 @@ class GenesisProfileCollectionItemData {
     required this.imageUrl,
     required this.title,
     required this.subtitle,
+    this.statsText = '',
     this.stats = const <GenesisProfileCollectionStat>[],
     this.isCollapsing = false,
     this.showPressedBackground = true,
@@ -27,6 +28,7 @@ class GenesisProfileCollectionItemData {
   final String imageUrl;
   final String title;
   final String subtitle;
+  final String statsText;
   final List<GenesisProfileCollectionStat> stats;
   final bool isCollapsing;
   final bool showPressedBackground;
@@ -121,7 +123,20 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
                           height: 1.3,
                         ),
                       ),
-                      if (item.stats.isNotEmpty) ...[
+                      if (item.statsText.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          item.statsText,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.black,
+                            fontSize: 12,
+                            height: 1,
+                            fontWeight: FontWeight.w400,
+                          ),
+                        ),
+                      ] else if (item.stats.isNotEmpty) ...[
                         const SizedBox(height: 8),
                         _StatsRow(stats: item.stats),
                       ],

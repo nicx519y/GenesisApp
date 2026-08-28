@@ -23,6 +23,7 @@ class MyWorldSummary {
     required this.updatedAtText,
     required this.ownerName,
     required this.progressCount,
+    this.subTickNo = 0,
     required this.interactCount,
     required this.characterCount,
     required this.playerCount,
@@ -35,6 +36,7 @@ class MyWorldSummary {
   final String updatedAtText;
   final String ownerName;
   final int progressCount;
+  final int subTickNo;
   final int interactCount;
   final int characterCount;
   final int playerCount;

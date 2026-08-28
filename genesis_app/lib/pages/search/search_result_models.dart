@@ -53,6 +53,7 @@ class _SearchResultItem {
     required this.copyCount,
     required this.connectCount,
     required this.tickCount,
+    this.subTickNo = 0,
     required this.characterCount,
     required this.playerCount,
     required this.memberCount,
@@ -96,10 +97,11 @@ class _SearchResultItem {
       subtitle: 'WID: ${_dashOrValue(world.worldId)}  Owner: $owner',
       coverImage: asImageUrl(world.cover),
       copyCount: 0,
-      connectCount: 0,
-      tickCount: 0,
+      connectCount: world.stats.connectCount,
+      tickCount: world.stats.tickCount,
+      subTickNo: world.stats.subTickNo,
       characterCount: 0,
-      playerCount: 0,
+      playerCount: world.stats.playerCount,
       memberCount: 0,
       worldV2: world,
       deleted: false,
@@ -138,6 +140,7 @@ class _SearchResultItem {
   final int copyCount;
   final int connectCount;
   final int tickCount;
+  final int subTickNo;
   final int characterCount;
   final int playerCount;
   final int memberCount;

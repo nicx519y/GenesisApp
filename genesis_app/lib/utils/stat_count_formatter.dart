@@ -24,6 +24,23 @@ String formatMessageCountLabel(num value) {
   return '${formatStatCount(value)} $unit';
 }
 
+String formatPlayerCountLabel(num value) {
+  final unit = value == 0 || value == 1 ? 'Player' : 'Players';
+  return '${formatStatCount(value)} $unit';
+}
+
+String formatWorldStatsLabel({
+  required int tickNo,
+  required int subTickNo,
+  required int messageCount,
+  required int playerCount,
+}) {
+  final subTickLabel = subTickNo > 0 ? '-$subTickNo' : '';
+  return 'Tick $tickNo$subTickLabel'
+      ' · ${formatMessageCountLabel(messageCount)}'
+      ' · ${formatPlayerCountLabel(playerCount)}';
+}
+
 String _trimDecimal(String value) {
   return value.endsWith('.0') ? value.substring(0, value.length - 2) : value;
 }

@@ -466,6 +466,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
             deleted: item.deleted,
             imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
             progressCount: item.progressCount,
+            subTickNo: item.subTickNo,
             interactCount: item.interactCount,
             characterCount: item.characterCount,
             playerCount: item.playerCount,

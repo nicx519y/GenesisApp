@@ -153,6 +153,7 @@ bool _sameWorldItems(
         a.deleted != b.deleted ||
         a.imageUrl != b.imageUrl ||
         a.progressCount != b.progressCount ||
+        a.subTickNo != b.subTickNo ||
         a.interactCount != b.interactCount ||
         a.characterCount != b.characterCount ||
         a.playerCount != b.playerCount ||
@@ -185,6 +186,7 @@ UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
     deleted: item.deleted,
     imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
     progressCount: item.progressCount,
+    subTickNo: item.subTickNo,
     interactCount: item.interactCount,
     characterCount: item.characterCount,
     playerCount: item.playerCount,

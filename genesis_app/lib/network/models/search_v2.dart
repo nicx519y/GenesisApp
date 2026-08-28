@@ -169,11 +169,13 @@ class SearchV2WorldItem {
     required this.language,
     required this.cover,
     required this.owner,
+    required this.stats,
     required this.createdAt,
     required this.matches,
   });
 
   factory SearchV2WorldItem.fromJson(Map<String, dynamic> json) {
+    final lastTick = asJsonMap(json['last_tick']);
     return SearchV2WorldItem(
       worldId: _rawString(json['world_id']),
       worldName: _rawString(json['world_name']),
@@ -181,6 +183,10 @@ class SearchV2WorldItem {
       language: _rawString(json['language']),
       cover: GenesisImageResource.fromJson(json['cover']),
       owner: SearchV2Owner.fromJson(asJsonMap(json['owner'])),
+      stats: SearchV2WorldStats.fromJson(
+        asJsonMap(json['stats']),
+        lastTick: lastTick,
+      ),
       createdAt: asInt(json['created_at']),
       matches: _mapList(json['matches'], SearchV2WorldNameMatch.fromJson),
     );
@@ -192,8 +198,39 @@ class SearchV2WorldItem {
   final String language;
   final GenesisImageResource cover;
   final SearchV2Owner owner;
+  final SearchV2WorldStats stats;
   final int createdAt;
   final List<SearchV2WorldNameMatch> matches;
+}
+
+@immutable
+class SearchV2WorldStats {
+  const SearchV2WorldStats({
+    required this.tickCount,
+    required this.subTickNo,
+    required this.connectCount,
+    required this.playerCount,
+  });
+
+  factory SearchV2WorldStats.fromJson(
+    Map<String, dynamic> json, {
+    Map<String, dynamic> lastTick = const <String, dynamic>{},
+  }) {
+    final statsSubTickNo = asInt(json['sub_tick_no']);
+    return SearchV2WorldStats(
+      tickCount: asInt(json['tick_cnt'], fallback: asInt(lastTick['tick_no'])),
+      subTickNo: statsSubTickNo > 0
+          ? statsSubTickNo
+          : asInt(lastTick['sub_tick_no']),
+      connectCount: asInt(json['connect_cnt']),
+      playerCount: asInt(json['player_cnt']),
+    );
+  }
+
+  final int tickCount;
+  final int subTickNo;
+  final int connectCount;
+  final int playerCount;
 }
 
 @immutable

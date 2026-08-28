@@ -1601,6 +1601,8 @@ Query：
 - `world_id/world_name/origin_id/language`: string
 - `cover`: `ImageResource`
 - `owner`: `SearchV2Owner`
+- `stats`: `SearchV2WorldStats`
+- `last_tick`: 当前 Tick 信息；`stats.sub_tick_no` 缺失或为 0 时，客户端回退读取 `last_tick.sub_tick_no`
 - `created_at`: int64
 - `matches`: `SearchV2WorldNameMatch[]`，最多 1 项
 
@@ -1616,6 +1618,7 @@ Query：
 - `SearchV2Owner`: `uid* / name* / avatar*`；契约中没有 `deleted`
 - `SearchV2OriginCharacter`: `character_id* / name*`
 - `SearchV2OriginStats`: `copy_cnt* / discuss_cnt* / character_cnt* / connect_cnt* / location_cnt* / max_tick_cnt*`，均为 integer
+- `SearchV2WorldStats`: `tick_cnt* / sub_tick_no* / connect_cnt* / player_cnt*`，均为 integer
 - `SearchV2HighlightRange`: `start*` 最小 0，`length*` 最小 1；二者均以 UTF-16 code unit 为单位，例如 `A😀B` 中 `B` 的 `start=3`
 
 Origin 的 `SearchV2Match` 是严格的 `oneOf`：

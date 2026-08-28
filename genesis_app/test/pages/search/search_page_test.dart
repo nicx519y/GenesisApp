@@ -164,6 +164,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(find.text('World 1'), findsOneWidget);
+    expect(find.text('Tick 1-2 · 11 Messages · 3 Players'), findsOneWidget);
   });
 
   testWidgets('uses the shared list progress style while loading next page', (
@@ -1121,6 +1122,13 @@ Map<String, dynamic> _item(
       'language': 'en',
       'cover': '',
       'owner': {'uid': 'owner_$index', 'name': 'Owner $index', 'avatar': ''},
+      'stats': {
+        'tick_cnt': index,
+        'sub_tick_no': 0,
+        'connect_cnt': index + 10,
+        'player_cnt': index + 2,
+      },
+      'last_tick': {'tick_no': index, 'sub_tick_no': index + 1},
       'created_at': 1777680000 + index,
       'matches': [
         {

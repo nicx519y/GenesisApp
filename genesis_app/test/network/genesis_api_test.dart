@@ -1087,7 +1087,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"player_cnt":5}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":1}}',
           );
         }
         return const TransportResponse(
@@ -1129,6 +1129,8 @@ void main() {
     expect(origins.data.single.oid, 'o_1');
     expect(origins.data.single.originator, 'Origin Owner');
     expect(worlds.single.wid, 'w_1');
+    expect(worlds.single.progressCount, 4);
+    expect(worlds.single.subTickNo, 2);
     expect(
       worlds.single.updatedAtText,
       DateTime.fromMillisecondsSinceEpoch(1717000000 * 1000).toIso8601String(),
@@ -1831,6 +1833,13 @@ void main() {
                       'object_key': 'user/u_owner.webp',
                     },
                   },
+                  'stats': {
+                    'tick_cnt': 7,
+                    'sub_tick_no': 0,
+                    'connect_cnt': 12,
+                    'player_cnt': 2,
+                  },
+                  'last_tick': {'tick_no': 7, 'sub_tick_no': 3},
                   'created_at': 1770000000,
                   'matches': [
                     {
@@ -1947,6 +1956,10 @@ void main() {
     expect(world.language, 'en');
     expect(world.cover.objectKey, 'world/w_1.webp');
     expect(world.owner.uid, 'u_owner');
+    expect(world.stats.tickCount, 7);
+    expect(world.stats.subTickNo, 3);
+    expect(world.stats.connectCount, 12);
+    expect(world.stats.playerCount, 2);
     expect(world.createdAt, 1770000000);
     expect(world.matches.single, isA<SearchV2WorldNameMatch>());
     expect(world.matches.single.field, 'world_name');

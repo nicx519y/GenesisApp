@@ -17,4 +17,25 @@ void main() {
     expect(formatMessageCountLabel(2), '2 Messages');
     expect(formatMessageCountLabel(1200), '1.2K Messages');
   });
+
+  test('formatWorldStatsLabel renders text-only world statistics', () {
+    expect(
+      formatWorldStatsLabel(
+        tickNo: 4,
+        subTickNo: 2,
+        messageCount: 1,
+        playerCount: 1200,
+      ),
+      'Tick 4-2 · 1 Message · 1.2K Players',
+    );
+    expect(
+      formatWorldStatsLabel(
+        tickNo: 0,
+        subTickNo: 0,
+        messageCount: 0,
+        playerCount: 0,
+      ),
+      'Tick 0 · 0 Message · 0 Player',
+    );
+  });
 }
