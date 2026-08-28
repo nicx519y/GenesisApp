@@ -73,7 +73,10 @@ void main() {
       expect(recorded.first.object2, isNotEmpty);
       expect(recorded.last.object2, recorded.first.object2);
       expect(recorded.first.object3, '');
+      expect(recorded.first.object4, '');
       expect(recorded.last.object3, 'attempt_1');
+      expect(int.tryParse(recorded.last.object4), isNotNull);
+      expect(int.parse(recorded.last.object4), greaterThanOrEqualTo(0));
       expect(
         recorded
             .expand(
@@ -91,9 +94,13 @@ void main() {
       baseUrl: 'https://example.test/api/',
       retryPolicy: ApiRetryPolicy.safe,
       transport: _FakeTransport(
-        handler: (_) {
+        handler: (_) async {
           attempts += 1;
-          if (attempts == 1) throw TimeoutException('slow');
+          if (attempts == 1) {
+            await Future<void>.delayed(const Duration(milliseconds: 250));
+            throw TimeoutException('slow');
+          }
+          await Future<void>.delayed(const Duration(milliseconds: 20));
           return const TransportResponse(
             statusCode: 200,
             headers: {'content-type': 'application/json'},
@@ -113,6 +120,9 @@ void main() {
     ]);
     expect(recorded.last.object3, 'attempt_2');
     expect(recorded.last.object2, recorded.first.object2);
+    final finalAttemptDurationMs = int.parse(recorded.last.object4);
+    expect(finalAttemptDurationMs, greaterThanOrEqualTo(10));
+    expect(finalAttemptDurationMs, lessThan(200));
   });
 
   test('a page-level retry starts a new request id at attempt_1', () async {
@@ -146,7 +156,9 @@ void main() {
       'api_request_success',
     ]);
     expect(recorded[1].object3, 'connection');
+    expect(int.tryParse(recorded[1].object4), isNotNull);
     expect(recorded[3].object3, 'attempt_1');
+    expect(int.tryParse(recorded[3].object4), isNotNull);
     expect(recorded[0].object2, recorded[1].object2);
     expect(recorded[2].object2, recorded[3].object2);
     expect(recorded[2].object2, isNot(recorded[0].object2));
@@ -177,6 +189,7 @@ void main() {
       'api_request_failed',
     ]);
     expect(recorded.last.object3, 'timeout');
+    expect(int.tryParse(recorded.last.object4), isNotNull);
     expect(recorded.last.object2, recorded.first.object2);
   });
 

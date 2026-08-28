@@ -95,10 +95,15 @@ void main() {
         'final collapsedPanelHeight = worldCollapsedPanelHeightFor(\n'
         '      context,\n'
         '      world: world,\n'
-        '      assumeLaunched: assumeLaunched,\n'
+        '      assumeLaunched: true,\n'
         '    );',
       ),
     );
+    expect(
+      loadingShell,
+      contains('const infoHeaderHeight = worldLaunchedInfoHeaderHeight;'),
+    );
+    expect(loadingShell, contains('useCompactAction: true'));
     expect(
       loadingShell,
       contains('fixedCollapsedPanelHeight: collapsedPanelHeight'),

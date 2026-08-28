@@ -313,20 +313,28 @@ class ApiClient {
         cancellationToken: cancellationToken,
       );
     } on NetworkRequestCancelledException {
-      collectRequest?.failure('cancelled');
+      stopwatch.stop();
+      collectRequest?.failure('cancelled', duration: stopwatch.elapsed);
       rethrow;
     } on ApiException catch (error) {
-      collectRequest?.failure(_businessApiFailureReason(error));
+      stopwatch.stop();
+      collectRequest?.failure(
+        _businessApiFailureReason(error),
+        duration: stopwatch.elapsed,
+      );
       rethrow;
     } catch (_) {
-      collectRequest?.failure('unknown');
+      stopwatch.stop();
+      collectRequest?.failure('unknown', duration: stopwatch.elapsed);
       rethrow;
     }
 
     TransportResponse transportResponse;
+    late Stopwatch attemptStopwatch;
     var attempt = 1;
     var retryCount = 0;
     while (true) {
+      attemptStopwatch = Stopwatch()..start();
       try {
         final interceptor = _requestInterceptor;
         transportResponse = interceptor == null
@@ -334,8 +342,12 @@ class ApiClient {
             : await interceptor(request, _send);
         break;
       } on NetworkRequestCancelledException catch (e) {
+        attemptStopwatch.stop();
         stopwatch.stop();
-        collectRequest?.failure('cancelled');
+        collectRequest?.failure(
+          'cancelled',
+          duration: attemptStopwatch.elapsed,
+        );
         _recordHttpTelemetry(
           request: request,
           duration: stopwatch.elapsed,
@@ -352,6 +364,7 @@ class ApiClient {
           error: error,
           attempt: attempt,
         )) {
+          attemptStopwatch.stop();
           retryCount += 1;
           _recordHttpRetryTelemetry(
             request: request,
@@ -362,8 +375,12 @@ class ApiClient {
           attempt += 1;
           continue;
         }
+        attemptStopwatch.stop();
         stopwatch.stop();
-        collectRequest?.failure(_businessApiFailureReason(error));
+        collectRequest?.failure(
+          _businessApiFailureReason(error),
+          duration: attemptStopwatch.elapsed,
+        );
         _recordHttpTelemetry(
           request: request,
           duration: stopwatch.elapsed,
@@ -383,6 +400,7 @@ class ApiClient {
           error: apiError,
           attempt: attempt,
         )) {
+          attemptStopwatch.stop();
           retryCount += 1;
           _recordHttpRetryTelemetry(
             request: request,
@@ -393,8 +411,12 @@ class ApiClient {
           attempt += 1;
           continue;
         }
+        attemptStopwatch.stop();
         stopwatch.stop();
-        collectRequest?.failure(_businessApiFailureReason(apiError));
+        collectRequest?.failure(
+          _businessApiFailureReason(apiError),
+          duration: attemptStopwatch.elapsed,
+        );
         _recordHttpTelemetry(
           request: request,
           duration: stopwatch.elapsed,
@@ -439,13 +461,15 @@ class ApiClient {
     collectRequest?.inspectResponse(
       response: apiResponse,
       responseType: responseType,
+      duration: attemptStopwatch.elapsed,
     );
 
     final processor = responseProcessor ?? _responseProcessor;
     try {
       final processed = processor(apiResponse);
+      attemptStopwatch.stop();
       stopwatch.stop();
-      collectRequest?.success(attempt);
+      collectRequest?.success(attempt, duration: attemptStopwatch.elapsed);
       _recordHttpTelemetry(
         request: request,
         response: apiResponse,
@@ -456,9 +480,11 @@ class ApiClient {
       );
       return processed as T;
     } on Object catch (error) {
+      attemptStopwatch.stop();
       stopwatch.stop();
       collectRequest?.failure(
         _businessApiFailureReason(error, response: apiResponse),
+        duration: attemptStopwatch.elapsed,
       );
       _recordHttpTelemetry(
         request: request,
@@ -606,7 +632,7 @@ class _BusinessApiCollectRequest {
         path: uri.path,
         requestId: newCollectEventId(),
       );
-      request._record(action: 'api_request_start', object3: '');
+      request._record(action: 'api_request_start', object3: '', object4: '');
       return request;
     } catch (_) {
       // Telemetry must never prevent the business request from running.
@@ -618,37 +644,50 @@ class _BusinessApiCollectRequest {
   final String requestId;
   bool _terminalRecorded = false;
 
-  void success(int attempt) {
+  void success(int attempt, {required Duration duration}) {
     if (_terminalRecorded) return;
     _terminalRecorded = true;
-    _record(action: 'api_request_success', object3: 'attempt_$attempt');
+    _record(
+      action: 'api_request_success',
+      object3: 'attempt_$attempt',
+      object4: duration.inMilliseconds.toString(),
+    );
   }
 
-  void failure(String reason) {
+  void failure(String reason, {required Duration duration}) {
     if (_terminalRecorded) return;
     _terminalRecorded = true;
-    _record(action: 'api_request_failed', object3: reason);
+    _record(
+      action: 'api_request_failed',
+      object3: reason,
+      object4: duration.inMilliseconds.toString(),
+    );
   }
 
   void inspectResponse({
     required ApiResponse response,
     required ApiResponseType responseType,
+    required Duration duration,
   }) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      failure('http_${response.statusCode}');
+      failure('http_${response.statusCode}', duration: duration);
       return;
     }
     if (_isMalformedJsonResponse(responseType, response.body)) {
-      failure('decode');
+      failure('decode', duration: duration);
       return;
     }
     final errNo = _apiErrNo(response.data);
     if (errNo != null && errNo != 0) {
-      failure('business_$errNo');
+      failure('business_$errNo', duration: duration);
     }
   }
 
-  void _record({required String action, required String object3}) {
+  void _record({
+    required String action,
+    required String object3,
+    required String object4,
+  }) {
     try {
       GenesisTelemetry.collectLog(
         actionType: 'event',
@@ -656,6 +695,7 @@ class _BusinessApiCollectRequest {
         object1: path,
         object2: requestId,
         object3: object3,
+        object4: object4,
       );
     } catch (_) {
       // Telemetry must never change the business request result.

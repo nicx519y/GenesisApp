@@ -384,6 +384,7 @@ class GenesisTelemetry {
     Object? object1,
     Object? object2,
     Object? object3,
+    Object? object4,
   }) {
     unawaited(
       collectLogAndWait(
@@ -392,6 +393,7 @@ class GenesisTelemetry {
         object1: object1,
         object2: object2,
         object3: object3,
+        object4: object4,
       ),
     );
   }
@@ -402,6 +404,7 @@ class GenesisTelemetry {
     Object? object1,
     Object? object2,
     Object? object3,
+    Object? object4,
   }) async {
     final normalizedActionType = actionType.trim();
     final normalizedAction = action.trim();
@@ -414,6 +417,7 @@ class GenesisTelemetry {
       'object1': object1,
       'object2': object2,
       'object3': object3,
+      'object4': object4,
     };
     final enqueued = await _collectUploader.enqueuePayloadWithResult(payload);
     unawaited(

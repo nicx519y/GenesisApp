@@ -2127,6 +2127,7 @@ query：
 - `events[].object1*`: string，第一个业务对象；无值传 `""`
 - `events[].object2*`: string，第二个业务对象；无值传 `""`
 - `events[].object3*`: string，第三个业务对象；无值传 `""`
+- `events[].object4*`: string，第四个业务对象；无值传 `""`。`api_request_success` 和 `api_request_failed` 使用不带单位后缀的整数毫秒字符串记录最终一次 HTTP attempt 的耗时；`api_request_start` 传 `""`
 
 请求示例：
 
@@ -2140,7 +2141,8 @@ query：
       "app_timestamp": 1784692855123,
       "object1": "",
       "object2": "",
-      "object3": ""
+      "object3": "",
+      "object4": ""
     }
   ]
 }
