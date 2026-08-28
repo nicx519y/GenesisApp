@@ -119,10 +119,7 @@ abstract class _GenesisApiContext {
   }
 
   Future<bool> _canRequestCurrentUserInfo() async {
-    final uid = (await _sessionStore.readUid())?.trim() ?? '';
-    if (uid.isNotEmpty && !uid.startsWith('guest_')) return true;
-    await _sessionStore.clearUid();
-    return false;
+    return await _sessionStore.readCompleteSession() != null;
   }
 
   Future<Map<String, String>> _safeAppHeaders() async {

@@ -17,6 +17,7 @@ import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -712,13 +713,8 @@ class _OriginFeedState extends State<_OriginFeed>
 
   Future<OriginFeedCacheStore> _cacheStoreForCurrentOwner() async {
     final services = AppServicesScope.of(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    final ownerUid =
-        uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty
-        ? uid
-        : OriginFeedCacheStore.anonymousOwnerUid;
+    final session = await services.sessionStore.readCompleteSession();
+    final ownerUid = session?.uid ?? OriginFeedCacheStore.anonymousOwnerUid;
     return OriginFeedCacheStore(ownerUid: ownerUid);
   }
 

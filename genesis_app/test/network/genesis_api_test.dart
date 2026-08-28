@@ -96,7 +96,10 @@ GenesisApi _apiWith(
   );
 
   final resolvedSessionStore = sessionStore ?? MemoryUserSessionStore();
-  if (sessionStore == null) resolvedSessionStore.saveUid('u_1');
+  if (sessionStore == null) {
+    resolvedSessionStore.saveUid('u_1');
+    resolvedSessionStore.saveAuthToken('test-auth-token');
+  }
   return GenesisApi(
     apiClient: apiClient,
     healthClient: healthClient,
@@ -754,6 +757,62 @@ void main() {
     expect(await sessionStore.readAuthToken(), isNull);
   });
 
+  test(
+    'current user info skips transport when auth token is missing',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => throw StateError('user info must not be requested'),
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('u_orphaned');
+      await sessionStore.saveUserInfo({'uid': 'u_orphaned'});
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+      );
+
+      await expectLater(
+        api.v1.user.info(),
+        throwsA(
+          isA<ApiException>().having(
+            (error) => error.message,
+            'message',
+            'Authentication is required',
+          ),
+        ),
+      );
+
+      expect(apiTransport.requests, isEmpty);
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readUserInfo(), isNull);
+    },
+  );
+
+  test(
+    'current user info does not clear session when storage read fails',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => throw StateError('user info must not be requested'),
+      );
+      final sessionStore = _ThrowingAuthTokenSessionStore();
+      await sessionStore.saveUid('u_1');
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+      );
+
+      await expectLater(api.v1.user.info(), throwsStateError);
+
+      expect(apiTransport.requests, isEmpty);
+      expect(sessionStore.clearCount, 0);
+      expect(await sessionStore.readUid(), 'u_1');
+    },
+  );
+
   test('public user info remains available with an explicit uid', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -940,6 +999,7 @@ void main() {
       );
       final sessionStore = MemoryUserSessionStore();
       await sessionStore.saveUid('u_1');
+      await sessionStore.saveAuthToken('test-auth-token');
       final api = GenesisApi(
         transport: apiTransport,
         useMock: false,
@@ -981,6 +1041,7 @@ void main() {
     );
     final sessionStore = MemoryUserSessionStore();
     await sessionStore.saveUid('u_1');
+    await sessionStore.saveAuthToken('test-auth-token');
     final api = GenesisApi(
       transport: apiTransport,
       useMock: false,
@@ -1014,6 +1075,7 @@ void main() {
     );
     final sessionStore = MemoryUserSessionStore();
     await sessionStore.saveUid('u_1');
+    await sessionStore.saveAuthToken('test-auth-token');
     final api = GenesisApi(
       transport: apiTransport,
       useMock: false,
@@ -4841,6 +4903,21 @@ class _TestDeviceIdService implements DeviceIdService {
 
   @override
   Future<String> getDeviceId() async => 'test-device-id';
+}
+
+class _ThrowingAuthTokenSessionStore extends MemoryUserSessionStore {
+  var clearCount = 0;
+
+  @override
+  Future<String?> readAuthToken() async {
+    throw StateError('auth token storage unavailable');
+  }
+
+  @override
+  Future<void> clearUid() async {
+    clearCount += 1;
+    await super.clearUid();
+  }
 }
 
 class _FakeIdentityAuthService implements IdentityAuthService {

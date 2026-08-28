@@ -41,6 +41,7 @@ import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../../platform/auth/auth_session.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
@@ -254,11 +255,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   Future<void> _refreshCachedProfileRole() async {
     final generation = ++_cachedProfileRoleLoadGeneration;
     final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
+    final session = await services.sessionStore.readCompleteSession();
     OriginCustomRoleDraft? nextRole;
-    if (uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty) {
+    if (session != null) {
+      final uid = session.uid;
       final userInfo = await services.sessionStore.readUserInfo();
       final cachedName = userInfo == null
           ? ''
@@ -847,16 +847,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     if (originId.isEmpty) return const <OriginMyLaunchPresetCharacter>[];
     try {
       final services = AppServicesScope.read(context);
-      final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-      final authToken =
-          (await services.sessionStore.readAuthToken())?.trim() ?? '';
-      if (!mounted ||
-          widget.oid.trim() != originId ||
-          uid.isEmpty ||
-          uid.startsWith('guest_') ||
-          authToken.isEmpty) {
+      final session = await services.sessionStore.readCompleteSession();
+      if (!mounted || widget.oid.trim() != originId || session == null) {
         return const <OriginMyLaunchPresetCharacter>[];
       }
+      final uid = session.uid;
 
       final cacheKey = '$originId::$uid';
       final cachedFuture = _launchedPresetRolesFuture;
@@ -984,10 +979,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+    return await services.sessionStore.readCompleteSession() != null;
   }
 
   Future<bool> _loginWithProvider(IdentityProvider provider) async {

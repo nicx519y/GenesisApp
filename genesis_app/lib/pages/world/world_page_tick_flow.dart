@@ -376,10 +376,7 @@ extension _WorldPageTickFlow on _WorldPageState {
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+    return await services.sessionStore.readCompleteSession() != null;
   }
 
   Future<bool> _loginWithProvider(IdentityProvider provider) async {

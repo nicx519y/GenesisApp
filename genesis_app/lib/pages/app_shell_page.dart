@@ -16,6 +16,7 @@ import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/billing/billing_models.dart';
 import '../platform/privacy/app_tracking_transparency_service.dart';
+import '../platform/session/user_session_store.dart';
 import '../ui/system/genesis_system_ui.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_feed_cache_store.dart';
@@ -291,13 +292,10 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<bool> _hasMyWorldsCacheForLocalSession() async {
     final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty || uid.startsWith('guest_')) return false;
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    if (authToken.isEmpty) return false;
+    final session = await services.sessionStore.readCompleteSession();
+    if (session == null) return false;
     final cached = await HomeFeedCacheStore(
-      ownerUid: uid,
+      ownerUid: session.uid,
     ).load(HomeFeedCacheKind.myWorlds);
     if (cached == null) return false;
     final list = cached['list'];
@@ -397,10 +395,7 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    final authToken =
-        (await services.sessionStore.readAuthToken())?.trim() ?? '';
-    return uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+    return await services.sessionStore.readCompleteSession() != null;
   }
 
   Future<bool> _loginWithProvider(IdentityProvider provider) async {
@@ -566,12 +561,13 @@ class _AppShellPageState extends State<AppShellPage>
     try {
       if (!mounted) return;
       final services = AppServicesScope.read(context);
-      final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+      final session = await services.sessionStore.readCompleteSession();
       if (!mounted) return;
-      if (uid.isEmpty || uid.startsWith('guest_')) {
+      if (session == null) {
         _lastBillingRecoveryUid = null;
         return;
       }
+      final uid = session.uid;
       if (onlyIfUidChanged && uid == _lastBillingRecoveryUid) return;
       await services.billing?.recover(source);
       if (!mounted) return;

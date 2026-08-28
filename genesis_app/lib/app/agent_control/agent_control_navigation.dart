@@ -218,13 +218,13 @@ Future<_WorldPickResult> _pickHomeWorld(
 }
 
 Future<void> _requireAuthenticatedAgentSession(AppServices services) async {
-  final token = (await services.sessionStore.readAuthToken())?.trim() ?? '';
-  if (token.isNotEmpty) return;
-  final uid = (await services.sessionStore.readUid())?.trim() ?? '';
+  final session = await services.sessionStore.readCompleteSession();
+  if (session != null) return;
   throw AgentControlException(
     code: 'auth_required',
-    message: 'Auth token is empty. Please log in in the app, then retry.',
-    details: {'uid': _redactedValue(uid), 'hasAuthToken': false},
+    message:
+        'Authentication is required. Please log in in the app, then retry.',
+    details: const {'hasCompleteSession': false},
   );
 }
 

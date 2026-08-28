@@ -11,6 +11,7 @@ import '../../network/genesis_http_cache_manager.dart';
 import '../../network/models/world.dart';
 import '../../pages/world/world_navigation.dart';
 import '../../platform/app/app_metadata_service.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../bootstrap/app_services_scope.dart';
 import '../bootstrap/service_registry.dart';

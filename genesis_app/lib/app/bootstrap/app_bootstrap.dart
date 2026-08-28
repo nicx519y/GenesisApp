@@ -15,6 +15,7 @@ import '../../network/genesis_http_transport_pool.dart';
 import '../../network/network_runtime_factory.dart';
 import '../../network/network_capture.dart';
 import '../../network/websocket_capture.dart';
+import '../../platform/session/user_session_store.dart';
 import 'service_registry.dart';
 
 class AppBootstrap {
@@ -94,37 +95,20 @@ class AppBootstrap {
       debugPrint('[GatewayAuth] stacktrace:\n$st');
     }
 
-    String? uid;
-    String? authToken;
+    CompleteUserSession? session;
     try {
-      final session = await Future.wait<String?>([
-        services.sessionStore.readUid(),
-        services.sessionStore.readAuthToken(),
-      ]).timeout(_sessionReadTimeout);
-      uid = session[0];
-      authToken = session[1];
+      session = await services.sessionStore.readCompleteSession().timeout(
+        _sessionReadTimeout,
+      );
     } catch (e, st) {
       debugPrint('[Auth][Bootstrap] session read failed: $e');
       debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
     }
-    final normalizedUid = uid?.trim() ?? '';
-    final normalizedAuthToken = authToken?.trim() ?? '';
-    var reportUid = '';
-    final hasCompleteSession =
-        normalizedUid.isNotEmpty &&
-        !normalizedUid.startsWith('guest_') &&
-        normalizedAuthToken.isNotEmpty;
-    if (hasCompleteSession) {
-      reportUid = normalizedUid;
-      GenesisTelemetry.setUserId(normalizedUid);
+    final reportUid = session?.uid ?? '';
+    if (session != null) {
+      GenesisTelemetry.setUserId(session.uid);
     } else {
       GenesisTelemetry.clearUser();
-      try {
-        await services.sessionStore.clearUid();
-      } catch (e, st) {
-        debugPrint('[Auth][Bootstrap] invalid session cleanup failed: $e');
-        debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
-      }
     }
     unawaited(services.deviceInfoTelemetry.reportStartup(uid: reportUid));
   }

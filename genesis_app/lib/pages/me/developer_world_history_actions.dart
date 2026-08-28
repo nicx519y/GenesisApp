@@ -3,12 +3,10 @@ part of 'developer_page.dart';
 extension _DeveloperWorldHistoryActions on _DeveloperPageContentState {
   Future<void> _loadWorldHistoryAccess() async {
     final sessionStore = AppServicesScope.read(context).sessionStore;
-    final uid = (await sessionStore.readUid())?.trim() ?? '';
-    final authToken = (await sessionStore.readAuthToken())?.trim() ?? '';
+    final session = await sessionStore.readCompleteSession();
     if (!mounted) return;
     _updateState(() {
-      _hasWorldHistoryAccess =
-          uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty;
+      _hasWorldHistoryAccess = session != null;
       _loadingWorldHistoryAccess = false;
     });
   }

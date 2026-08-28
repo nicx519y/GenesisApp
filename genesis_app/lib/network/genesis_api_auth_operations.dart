@@ -5,9 +5,8 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
 
   @override
   Future<String> _ensureUid() async {
-    final uid = (await _sessionStore.readUid())?.trim() ?? '';
-    if (uid.isNotEmpty && !uid.startsWith('guest_')) return uid;
-    await _sessionStore.clearUid();
+    final session = await _sessionStore.readCompleteSession();
+    if (session != null) return session.uid;
     throw ApiException(message: 'Authentication is required');
   }
 
@@ -261,13 +260,7 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
   }
 
   Future<({String uid, String authToken})?> _readCompleteLocalSession() async {
-    final uid = (await _sessionStore.readUid())?.trim() ?? '';
-    final authToken = (await _sessionStore.readAuthToken())?.trim() ?? '';
-    if (uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty) {
-      return (uid: uid, authToken: authToken);
-    }
-    await _sessionStore.clearUid();
-    return null;
+    return _sessionStore.readCompleteSession();
   }
 
   User _signedOutUser(String deviceId) {
