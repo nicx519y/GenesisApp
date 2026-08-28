@@ -1184,6 +1184,7 @@ void main() {
             locationNameForTile: (_) => 'High School',
             showRecentChatForTile: (_) => true,
             showEventForTile: (_) => true,
+            showLocationImageFlow: true,
           ),
         ),
       ),
@@ -1217,10 +1218,10 @@ void main() {
       ),
     );
     expect(eventRect.size, const Size(20, 16));
-    expect(eventRect.left, closeTo(labelRect.right - 4, 0.01));
-    expect(eventRect.top, closeTo(labelRect.top - 12, 0.01));
-    expect(eventRect.bottom, closeTo(labelRect.top + 4, 0.01));
-    expect(eventRect.center.dy, lessThan(recentRect.center.dy));
+    expect(eventRect.left, closeTo(labelRect.right + 3, 0.01));
+    expect(eventRect.center.dy, closeTo(labelRect.center.dy, 0.01));
+    expect(recentRect.left, closeTo(eventRect.right + 3, 0.01));
+    expect(recentRect.center.dy, closeTo(labelRect.center.dy, 0.01));
     expect(
       find.descendant(
         of: find.byKey(

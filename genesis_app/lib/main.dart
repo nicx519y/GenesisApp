@@ -8,6 +8,7 @@ import 'app/bootstrap/app_bootstrap.dart';
 import 'app/bootstrap/service_registry.dart';
 import 'app/config/app_config.dart';
 import 'app/config/app_endpoint_overrides.dart';
+import 'app/debug/origin_world_sheet_debug_settings.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
@@ -43,6 +44,9 @@ Future<void> main() async {
           webSocketCaptureController.loadSettings(),
         ])
       : Future<List<bool>>.value(const <bool>[]);
+  final originWorldSheetDebugSettingsLoad = kDebugMode
+      ? originWorldSheetDebugSettings.load()
+      : Future<bool>.value(false);
   final appConfig = await AppEndpointOverrideStore.loadConfig().timeout(
     const Duration(seconds: 2),
     onTimeout: () {
@@ -56,6 +60,7 @@ Future<void> main() async {
   await Future.wait<Object?>(<Future<Object?>>[
     tilemapSettingsLoad,
     captureSettingsLoad,
+    originWorldSheetDebugSettingsLoad,
   ]);
   // Native Firebase collection is disabled for every build. Enable it only
   // after the actual runtime endpoints and persisted debug override are known.

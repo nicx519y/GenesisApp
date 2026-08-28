@@ -421,31 +421,20 @@ class _ChatStoryEventVisibility extends StatelessWidget {
         .map((role) => role.name.trim())
         .where((name) => name.isNotEmpty)
         .toList(growable: false);
-    final userNames = visibleRoles
+    final playerNames = visibleRoles
         .where((role) => !role.isAi)
         .map((role) => role.name.trim())
         .where((name) => name.isNotEmpty)
         .toList();
-    if (aiNames.isEmpty && userNames.isEmpty && label.trim().isNotEmpty) {
-      userNames.add(label.trim());
+    final names = <String>[...aiNames, ...playerNames];
+    if (names.isEmpty && label.trim().isNotEmpty) {
+      names.add(label.trim());
     }
-    return Wrap(
-      spacing: 8,
-      runSpacing: 5,
-      children: [
-        if (aiNames.isNotEmpty)
-          _ChatStoryEventVisibleRoleGroup(
-            iconAsset: locationChatCharacterIconAsset,
-            names: aiNames,
-            textColor: badgeColor,
-          ),
-        if (userNames.isNotEmpty)
-          _ChatStoryEventVisibleRoleGroup(
-            iconAsset: userStatIconAsset,
-            names: userNames,
-            textColor: badgeColor,
-          ),
-      ],
+    if (names.isEmpty) return const SizedBox.shrink();
+    return _ChatStoryEventVisibleRoleGroup(
+      iconAsset: characterStatIconAsset,
+      names: names,
+      textColor: badgeColor,
     );
   }
 }
@@ -475,12 +464,10 @@ class _ChatStoryEventVisibleRoleGroup extends StatelessWidget {
             height: 12,
             fit: BoxFit.contain,
             excludeFromSemantics: true,
-            colorFilter: iconAsset == userStatIconAsset
-                ? ColorFilter.mode(
-                    textColor.withValues(alpha: 1),
-                    BlendMode.srcIn,
-                  )
-                : null,
+            colorFilter: ColorFilter.mode(
+              textColor.withValues(alpha: 1),
+              BlendMode.srcIn,
+            ),
           ),
         ),
         const SizedBox(width: 4),

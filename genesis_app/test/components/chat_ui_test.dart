@@ -443,15 +443,14 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Day 2, 10:15'), findsOneWidget);
-    expect(find.text('Mateo'), findsOneWidget);
-    expect(find.text('Iris'), findsOneWidget);
+    expect(find.text('Mateo, Iris'), findsOneWidget);
+    expect(find.text('Mateo'), findsNothing);
+    expect(find.text('Iris'), findsNothing);
     expect(
       find.byWidgetPredicate(
         (widget) =>
             widget is SvgPicture &&
-            widget.bytesLoader.toString().contains(
-              locationChatCharacterIconAsset,
-            ),
+            widget.bytesLoader.toString().contains(characterStatIconAsset),
       ),
       findsOneWidget,
     );
@@ -461,7 +460,7 @@ void main() {
             widget is SvgPicture &&
             widget.bytesLoader.toString().contains(userStatIconAsset),
       ),
-      findsOneWidget,
+      findsNothing,
     );
     expect(find.text('Alice found a ticket.'), findsOneWidget);
     expect(find.text('The date is three years ago.'), findsOneWidget);
@@ -495,12 +494,9 @@ void main() {
     final timestampText = tester.widget<Text>(firstTimestamp);
     expect(timestampText.style?.fontSize, 11);
     expect(timestampText.style?.color, Colors.white.withValues(alpha: 0.72));
-    final aiRoleText = tester.widget<Text>(find.text('Mateo'));
-    final userRoleText = tester.widget<Text>(find.text('Iris'));
-    expect(aiRoleText.style?.fontSize, 13);
-    expect(aiRoleText.style?.height, 1.3);
-    expect(userRoleText.style?.fontSize, 13);
-    expect(userRoleText.style?.height, 1.3);
+    final visibleRolesText = tester.widget<Text>(find.text('Mateo, Iris'));
+    expect(visibleRolesText.style?.fontSize, 13);
+    expect(visibleRolesText.style?.height, 1.3);
     expect(
       tester.getCenter(firstVisibility).dx,
       greaterThan(tester.getCenter(firstTimestamp).dx),
@@ -2053,7 +2049,7 @@ void main() {
             connecting: false,
             onBack: () {},
             style: kLocationChatStyle,
-            subtitleIconAsset: locationChatCharacterIconAsset,
+            subtitleIconAsset: characterStatIconAsset,
           ),
         ),
       ),
@@ -2063,9 +2059,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is SvgPicture &&
-            widget.bytesLoader.toString().contains(
-              locationChatCharacterIconAsset,
-            ),
+            widget.bytesLoader.toString().contains(characterStatIconAsset),
       ),
       findsOneWidget,
     );
@@ -2350,7 +2344,7 @@ void main() {
             onBack: () {},
             alignContentLeft: true,
             style: kLocationChatStyle,
-            subtitleIconAsset: locationChatCharacterIconAsset,
+            subtitleIconAsset: characterStatIconAsset,
             trailing: MemoryModelEntryButton(
               modelLabel: 'top_pick_v3_5',
               darkHeader: true,
@@ -2367,9 +2361,7 @@ void main() {
       find.byWidgetPredicate(
         (widget) =>
             widget is SvgPicture &&
-            widget.bytesLoader.toString().contains(
-              locationChatCharacterIconAsset,
-            ),
+            widget.bytesLoader.toString().contains(characterStatIconAsset),
       ),
     );
     final titleRect = tester.getRect(find.text('Googleplex园区 (1)'));

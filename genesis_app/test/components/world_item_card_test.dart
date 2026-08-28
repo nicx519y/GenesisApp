@@ -51,6 +51,15 @@ void main() {
     expect(find.text('2998-1-1'), findsNothing);
     expect(find.text('Tick 3-2 · 4 Messages'), findsOneWidget);
     expect(find.text('Self Hero'), findsOneWidget);
+    expect(
+      tester
+          .widget<Text>(
+            find.byKey(const ValueKey<String>('world-card-character-name')),
+          )
+          .style
+          ?.fontWeight,
+      FontWeight.w400,
+    );
 
     final tickMessages = tester.widget<Text>(
       find.byKey(const ValueKey<String>('world-card-tick-messages')),

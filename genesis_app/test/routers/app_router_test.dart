@@ -27,6 +27,44 @@ void main() {
     expect(route, isA<MaterialPageRoute<void>>());
   });
 
+  test('debug Worldo sheet entry uses the local developer setting', () {
+    expect(
+      originWorldSheetShouldExpandOnEntry(
+        globalConfigEnabled: true,
+        debugSettingEnabled: false,
+        isDebugBuild: true,
+      ),
+      isFalse,
+    );
+    expect(
+      originWorldSheetShouldExpandOnEntry(
+        globalConfigEnabled: false,
+        debugSettingEnabled: true,
+        isDebugBuild: true,
+      ),
+      isTrue,
+    );
+  });
+
+  test('non-debug Worldo sheet entry keeps using global config', () {
+    expect(
+      originWorldSheetShouldExpandOnEntry(
+        globalConfigEnabled: true,
+        debugSettingEnabled: false,
+        isDebugBuild: false,
+      ),
+      isTrue,
+    );
+    expect(
+      originWorldSheetShouldExpandOnEntry(
+        globalConfigEnabled: false,
+        debugSettingEnabled: true,
+        isDebugBuild: false,
+      ),
+      isFalse,
+    );
+  });
+
   testWidgets('page not found route shows text without retry', (
     WidgetTester tester,
   ) async {

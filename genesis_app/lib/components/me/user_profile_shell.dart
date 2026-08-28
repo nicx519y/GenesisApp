@@ -296,23 +296,14 @@ class _UserProfileContentState extends State<UserProfileContent>
                             : formatUidForDisplay(data.uid),
                         enabled: !data.deleted,
                       ),
-                      if (data.isSelf) ...[
-                        const SizedBox(height: 12),
-                        _buildFollowStats(data, followerCount),
-                      ],
+                      const SizedBox(height: 12),
+                      _buildFollowStats(data, followerCount),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          if (!data.isSelf) ...[
-            const SizedBox(height: 12),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: _buildFollowStats(data, followerCount),
-            ),
-          ],
           if (data.isSelf) ...[
             const SizedBox(height: 20),
             Padding(

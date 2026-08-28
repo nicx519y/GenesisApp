@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../ui/tokens/genesis_typography.dart';
 
-/// Compact event count shown at the top-right of a map location label.
+/// Compact event count shown beside a map location label.
 class WorldEventCountBadge extends StatelessWidget {
   const WorldEventCountBadge({super.key, required this.count});
 
@@ -40,9 +40,3 @@ class WorldEventCountBadge extends StatelessWidget {
     );
   }
 }
-
-// Keep a 4 × 4px seam with the label corner: this is the prior 3px seam moved
-// one pixel farther into the label on both axes. The badge otherwise sits
-// outside the label so it cannot cover the location name.
-const double worldMapLocationEventBadgeRight = -16;
-const double worldMapLocationEventBadgeTop = -12;

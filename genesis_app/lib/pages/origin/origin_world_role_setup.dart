@@ -412,26 +412,14 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                             'origin-setup-custom-launch',
                           ),
                           label: 'Launch',
-                          leadingIcon: widget.launching
-                              ? null
-                              : SvgPicture.asset(
-                                  launchIconAsset,
-                                  width: 14,
-                                  height: 14,
-                                  colorFilter: const ColorFilter.mode(
-                                    Colors.white,
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                          iconGap: 6,
-                          onPressed: widget.launching
+                          onPressed: !widget.launching && _inlineCustomReady
+                              ? _launchInlineCustomRole
+                              : null,
+                          onDisabledPressed: widget.launching
                               ? null
                               : _launchInlineCustomRole,
                           isLoading: widget.launching,
                           height: 35,
-                          backgroundColor: _inlineCustomReady
-                              ? GenesisColors.brand
-                              : const Color(0xFFC8D9D1),
                           foregroundColor: Colors.white,
                           fontWeight: FontWeight.w600,
                         ),

@@ -21,6 +21,7 @@ import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
+import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
@@ -2476,6 +2477,7 @@ void main() {
     tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
     locationChatHeaderEffectSettings.resetForTesting();
+    originWorldSheetDebugSettings.resetForTesting();
     networkCaptureController.resetForTesting();
     webSocketCaptureController.resetForTesting();
     resetDeveloperPageTabForTesting();
@@ -7011,10 +7013,13 @@ void main() {
           bottomSafeArea: 24,
         ),
       );
-      final expectedSheetTop = viewportSize.height * 0.65 - 24;
+      final expectedCollapsedSheetHeight = originWorldCollapsedSheetHeightFor(
+        viewportHeight: viewportSize.height,
+        bottomSafeArea: 24,
+      );
+      final expectedSheetTop =
+          viewportSize.height - expectedCollapsedSheetHeight;
       final expectedMapHeight = expectedSheetTop + originWorldMapSheetUnderlap;
-      final expectedCollapsedSheetHeight =
-          viewportSize.height - expectedSheetTop;
       expect(loadingMapRect.height, expectedMapHeight);
       expect(
         loadingSheetRect.top,
@@ -8281,7 +8286,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('Origin route snapshots global opening sheet config', (
+  testWidgets('Origin debug route defaults to a collapsed sheet', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -8318,7 +8323,7 @@ void main() {
       tester
           .widget<OriginWorldPage>(find.byType(OriginWorldPage))
           .showOpeningSheetOnEntry,
-      isTrue,
+      isFalse,
     );
   });
 
@@ -8336,6 +8341,7 @@ void main() {
       loadConfig: () async => const <String, dynamic>{},
       initialValue: const AppGlobalConfig(showOpeningSheet: true),
     );
+    await originWorldSheetDebugSettings.setExpandOnEntry(true);
     await tester.pumpWidget(
       AppServicesScope(
         services: await _testServices(
@@ -9724,6 +9730,18 @@ void main() {
     final nameController = tester.widget<TextField>(fields.first).controller!;
     expect(nameController.text, 'Profile Hero');
     expect(nameController.selection, const TextSelection.collapsed(offset: 0));
+    final customLaunch = find.byKey(
+      const ValueKey<String>('origin-setup-custom-launch'),
+    );
+    expect(tester.widget<GenesisPrimaryButton>(customLaunch).onPressed, isNull);
+    expect(
+      tester.widget<GenesisPrimaryButton>(customLaunch).leadingIcon,
+      isNull,
+    );
+    expect(
+      tester.widget<GenesisPrimaryButton>(customLaunch).onDisabledPressed,
+      isNotNull,
+    );
     await tester.pumpAndSettle();
     expect(nameController.text, 'Profile Hero');
     expect(nameController.selection, const TextSelection.collapsed(offset: 0));
@@ -9793,11 +9811,11 @@ void main() {
     await tester.enterText(fields.at(2), 'Inline profile biography');
     await tester.pump();
 
-    tester
-        .widget<GenesisPrimaryButton>(
-          find.byKey(const ValueKey<String>('origin-setup-custom-launch')),
-        )
-        .onPressed!();
+    expect(
+      tester.widget<GenesisPrimaryButton>(customLaunch).onPressed,
+      isNotNull,
+    );
+    tester.widget<GenesisPrimaryButton>(customLaunch).onPressed!();
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
@@ -11172,7 +11190,11 @@ void main() {
     final sheetContext = tester.element(find.byType(DraggableScrollableSheet));
     final height = MediaQuery.sizeOf(sheetContext).height;
     final bottomSafeArea = GenesisSafeAreaInsets.bottom(sheetContext);
-    final expectedSheetTop = height * 0.65 - bottomSafeArea;
+    final expectedCollapsedSheetHeight = originWorldCollapsedSheetHeightFor(
+      viewportHeight: height,
+      bottomSafeArea: bottomSafeArea,
+    );
+    final expectedSheetTop = height - expectedCollapsedSheetHeight;
     final expectedMapHeight = expectedSheetTop + originWorldMapSheetUnderlap;
     expect(
       tester
@@ -19843,6 +19865,40 @@ void main() {
     );
   });
 
+  testWidgets('developer page controls the debug Worldo sheet entry state', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('test'));
+    await tester.pumpAndSettle();
+    final expandSwitch = find.byKey(
+      const ValueKey<String>('developer-origin-world-sheet-expand-switch'),
+    );
+    expect(expandSwitch, findsOneWidget);
+    expect(tester.widget<Switch>(expandSwitch).value, isFalse);
+    expect(originWorldSheetDebugSettings.expandOnEntry, isFalse);
+
+    await tester.tap(expandSwitch);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(expandSwitch).value, isTrue);
+    expect(originWorldSheetDebugSettings.expandOnEntry, isTrue);
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getBool(OriginWorldSheetDebugSettingsController.storageKey),
+      isTrue,
+    );
+  });
+
   testWidgets(
     'developer test page gets updates and resets World History watermarks',
     (WidgetTester tester) async {
@@ -21141,6 +21197,23 @@ void main() {
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('17'), findsOneWidget);
     expect(find.text('Followers'), findsOneWidget);
+    expect(find.text('Worldo 30'), findsOneWidget);
+    expect(find.text('Playing 30'), findsOneWidget);
+    expect(find.text('#Worldo'), findsNothing);
+    expect(tester.widget<Text>(find.text('Following')).style?.fontSize, 14);
+    expect(tester.widget<Text>(find.text('Followers')).style?.fontSize, 14);
+    final followStats = find.byKey(
+      const ValueKey<String>('user-profile-follow-stats'),
+    );
+    final uidLabel = find.text('UID: u_mock_peer');
+    expect(
+      tester.getTopLeft(followStats).dx,
+      moreOrLessEquals(tester.getTopLeft(uidLabel).dx),
+    );
+    expect(
+      tester.getBottomLeft(followStats).dy,
+      moreOrLessEquals(tester.getBottomLeft(find.byType(GenesisAvatar)).dy),
+    );
     expect(find.byIcon(Icons.chevron_right), findsNothing);
     final originRequests = transport.requestsFor('/api/v1/origin/list');
     expect(originRequests, hasLength(1));
@@ -21151,7 +21224,7 @@ void main() {
       false,
     );
 
-    await tester.tap(find.text('World'));
+    await tester.tap(find.text('Playing 30'));
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.chevron_right), findsNothing);

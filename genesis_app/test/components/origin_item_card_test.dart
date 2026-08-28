@@ -166,13 +166,13 @@ void main() {
     final connectIcon = tester.widget<SvgPicture>(
       _assetSvgFinder(connectStatIconAsset),
     );
-    expect(connectIcon.width, 12);
-    expect(connectIcon.height, 12);
+    expect(connectIcon.width, 10);
+    expect(connectIcon.height, 10);
     final copyIcon = tester.widget<SvgPicture>(
       _assetSvgFinder(copyStatIconAsset),
     );
-    expect(copyIcon.width, 11);
-    expect(copyIcon.height, 11);
+    expect(copyIcon.width, 10);
+    expect(copyIcon.height, 10);
     expect(find.text('99.9K'), findsOneWidget);
     expect(find.text('99.9M'), findsOneWidget);
     expect(find.text('8'), findsOneWidget);

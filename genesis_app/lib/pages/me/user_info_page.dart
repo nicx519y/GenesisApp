@@ -555,6 +555,10 @@ class _UserInfoPageState extends State<UserInfoPage> {
                 onRefreshOrigins: _refreshOrigins,
                 onRefreshWorlds: _refreshWorlds,
                 onCollapsedChanged: _handleProfileCollapsedChanged,
+                originTabLabel: 'Worldo',
+                worldTabLabel: 'Playing',
+                showCollectionCounts: true,
+                tabLabelFontSize: 14,
                 isBlocking: _isBlockingUser,
                 isBlocked: _profileBlocked,
               );

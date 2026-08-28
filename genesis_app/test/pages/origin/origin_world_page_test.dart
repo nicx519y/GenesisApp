@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_world_layout.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 
@@ -25,6 +26,30 @@ void main() {
 
   test('origin detail sheet uses main ui horizontal padding', () {
     expect(originDetailSheetHorizontalPaddingForTesting, 12);
+  });
+
+  test('origin collapsed sheet caps content height before safe area', () {
+    expect(
+      originWorldCollapsedSheetHeightFor(
+        viewportHeight: 667,
+        bottomSafeArea: 0,
+      ),
+      closeTo(233.45, 0.001),
+    );
+    expect(
+      originWorldCollapsedSheetHeightFor(
+        viewportHeight: 780,
+        bottomSafeArea: 15,
+      ),
+      285,
+    );
+    expect(
+      originWorldCollapsedSheetHeightFor(
+        viewportHeight: 932,
+        bottomSafeArea: 34,
+      ),
+      304,
+    );
   });
 
   test('origin detail sheet header sizing matches design', () {

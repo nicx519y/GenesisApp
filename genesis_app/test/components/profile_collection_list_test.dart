@@ -124,8 +124,8 @@ void main() {
     );
 
     final svg = tester.widget<SvgPicture>(find.byType(SvgPicture));
-    expect(svg.width, moreOrLessEquals(13.75));
-    expect(svg.height, moreOrLessEquals(13.75));
+    expect(svg.width, moreOrLessEquals(11));
+    expect(svg.height, moreOrLessEquals(11));
     expect(find.text('7'), findsOneWidget);
   });
 

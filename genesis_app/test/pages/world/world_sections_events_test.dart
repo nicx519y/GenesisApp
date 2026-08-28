@@ -284,6 +284,7 @@ void main() {
   ) async {
     const aiRoleName =
         'Oracle With A Very Long Ceremonial Name That Wraps Below';
+    const visibleRoleNames = '$aiRoleName, Iris';
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -336,18 +337,15 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Day 4, 20:25'), findsOneWidget);
-    expect(find.text(aiRoleName), findsOneWidget);
-    expect(find.text('Iris'), findsOneWidget);
+    expect(find.text(visibleRoleNames), findsOneWidget);
+    expect(find.text(aiRoleName), findsNothing);
+    expect(find.text('Iris'), findsNothing);
     expect(
       tester.widget<Text>(find.text('Day 4, 20:25')).style?.color,
       const Color(0xFF666666),
     );
     expect(
-      tester.widget<Text>(find.text(aiRoleName)).style?.color,
-      const Color(0xFF666666),
-    );
-    expect(
-      tester.widget<Text>(find.text('Iris')).style?.color,
+      tester.widget<Text>(find.text(visibleRoleNames)).style?.color,
       const Color(0xFF666666),
     );
     final aiIcon = find.byWidgetPredicate(
@@ -361,20 +359,16 @@ void main() {
           widget.bytesLoader.toString().contains(userStatIconAsset),
     );
     expect(aiIcon, findsOneWidget);
-    expect(userIcon, findsOneWidget);
+    expect(userIcon, findsNothing);
     expect(
       tester.getTopLeft(find.text('Day 4, 20:25')).dy,
-      closeTo(tester.getTopLeft(find.text(aiRoleName)).dy, 2),
+      closeTo(tester.getTopLeft(find.text(visibleRoleNames)).dy, 2),
     );
-    expect(tester.getSize(find.text(aiRoleName)).width, greaterThan(224));
-    expect(tester.getSize(find.text(aiRoleName)).height, greaterThan(20));
+    expect(tester.getSize(find.text(visibleRoleNames)).width, greaterThan(224));
+    expect(tester.getSize(find.text(visibleRoleNames)).height, greaterThan(20));
     expect(
       tester.getTopLeft(aiIcon).dy,
-      closeTo(tester.getTopLeft(find.text(aiRoleName)).dy + 2, 0.1),
-    );
-    expect(
-      tester.getTopLeft(find.text('Iris')).dy,
-      greaterThan(tester.getTopLeft(find.text(aiRoleName)).dy),
+      closeTo(tester.getTopLeft(find.text(visibleRoleNames)).dy + 2, 0.1),
     );
   });
 

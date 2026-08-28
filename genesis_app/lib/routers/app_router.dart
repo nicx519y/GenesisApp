@@ -1,7 +1,9 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app/bootstrap/app_services_scope.dart';
+import '../app/debug/origin_world_sheet_debug_settings.dart';
 import '../pages/app_shell_page.dart';
 import '../pages/create/create_origin_page.dart';
 import '../pages/common/page_not_found_page.dart';
@@ -51,6 +53,15 @@ sealed class RouteNames {
   static const gemRecords = '/gems/records';
   static const memoryModel = '/memory_model';
   static const pageNotFound = '/page_not_found';
+}
+
+@visibleForTesting
+bool originWorldSheetShouldExpandOnEntry({
+  required bool globalConfigEnabled,
+  required bool debugSettingEnabled,
+  bool isDebugBuild = kDebugMode,
+}) {
+  return isDebugBuild ? debugSettingEnabled : globalConfigEnabled;
 }
 
 class _RouteArgs {
@@ -480,14 +491,21 @@ sealed class AppRouter {
         final args = _OriginWorldRouteArgs.from(settings.arguments);
         return _OriginWorldPageRoute(
           settings: settings,
-          builder: (context) => OriginWorldPage(
-            oid: args.oid,
-            originId: args.originId,
-            initialName: args.initialName,
-            showOpeningSheetOnEntry: AppServicesScope.read(
+          builder: (context) {
+            final globalConfig = AppServicesScope.read(
               context,
-            ).appGlobalConfig.value.showOpeningSheet,
-          ),
+            ).appGlobalConfig.value;
+            return OriginWorldPage(
+              oid: args.oid,
+              originId: args.originId,
+              initialName: args.initialName,
+              showOpeningSheetOnEntry: originWorldSheetShouldExpandOnEntry(
+                globalConfigEnabled: globalConfig.showOpeningSheet,
+                debugSettingEnabled:
+                    originWorldSheetDebugSettings.expandOnEntry,
+              ),
+            );
+          },
         );
       case RouteNames.discuss:
         final args = _DiscussRouteArgs.from(settings.arguments);
