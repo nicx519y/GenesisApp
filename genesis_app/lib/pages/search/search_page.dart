@@ -113,7 +113,7 @@ class _SearchPageState extends State<SearchPage>
     if (!mounted) return;
     _debounceTimer?.cancel();
     final query = _controller.text.trim();
-    final searchable = _searchableCharacterCount(query) >= _minSearchLength;
+    final searchable = _isSearchableQuery(query);
     final token = ++_requestToken;
     setState(() {
       _sessionListGeneration += 1;
@@ -162,7 +162,7 @@ class _SearchPageState extends State<SearchPage>
     final token = _requestToken;
     final query = raw.trim();
 
-    if (_searchableCharacterCount(query) < _minSearchLength) {
+    if (!_isSearchableQuery(query)) {
       setState(() {
         _activeQuery = '';
         _hasInput = false;
@@ -567,10 +567,24 @@ class _SearchPageState extends State<SearchPage>
 }
 
 _SearchTab _defaultSearchTab(String query) {
-  final normalized = query.trimLeft().toLowerCase();
-  if (normalized.startsWith('u_')) return _SearchTab.user;
-  if (normalized.startsWith('w_')) return _SearchTab.world;
-  return _SearchTab.origin;
+  return _entityIdSearchTab(query) ?? _SearchTab.origin;
+}
+
+bool _isSearchableQuery(String query) {
+  return _entityIdSearchTab(query) != null ||
+      _searchableCharacterCount(query) >= _SearchPageState._minSearchLength;
+}
+
+_SearchTab? _entityIdSearchTab(String query) {
+  final normalized = query.trim().toLowerCase();
+  if (normalized.length != 8 || normalized[1] != '_') return null;
+  if (!normalized.substring(2).runes.every(_isAsciiLetterOrDigit)) return null;
+
+  return switch (normalized[0]) {
+    'u' => _SearchTab.user,
+    'w' => _SearchTab.world,
+    _ => null,
+  };
 }
 
 int _searchableCharacterCount(String query) {
@@ -583,6 +597,10 @@ int _searchableCharacterCount(String query) {
 
 bool _isAsciiLetter(int rune) {
   return (rune >= 0x41 && rune <= 0x5A) || (rune >= 0x61 && rune <= 0x7A);
+}
+
+bool _isAsciiLetterOrDigit(int rune) {
+  return _isAsciiLetter(rune) || (rune >= 0x30 && rune <= 0x39);
 }
 
 bool _isCjkIdeograph(int rune) {

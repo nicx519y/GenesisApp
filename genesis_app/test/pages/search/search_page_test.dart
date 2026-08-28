@@ -272,7 +272,7 @@ void main() {
     expect(transport.searchRequests, hasLength(3));
   });
 
-  testWidgets('selects the default tab from the case-insensitive id prefix', (
+  testWidgets('selects a typed tab only for a complete six-character id', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -282,19 +282,33 @@ void main() {
     final transport = _SearchPageTransport();
     await _pumpSearchPage(tester, transport);
 
-    await tester.enterText(find.byType(TextField), 'U_test');
+    await tester.enterText(find.byType(TextField), 'U_a1B2c3');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
     expect(find.text('User 1'), findsOneWidget);
     expect(find.text('#Origin 1'), findsNothing);
     expect(transport.searchRequests.last.uri.queryParameters['type'], 'user');
 
-    await tester.enterText(find.byType(TextField), 'w_TEST');
+    await tester.enterText(find.byType(TextField), 'w_1A2b3C');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
     expect(find.text('World 1'), findsOneWidget);
     expect(find.text('User 1'), findsNothing);
     expect(transport.searchRequests.last.uri.queryParameters['type'], 'world');
+
+    await tester.enterText(find.byType(TextField), 'u_ab12');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.text('User 1'), findsNothing);
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'origin');
+
+    await tester.enterText(find.byType(TextField), 'w_abcdefg');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.text('World 1'), findsNothing);
+    expect(transport.searchRequests.last.uri.queryParameters['type'], 'origin');
 
     await tester.enterText(find.byType(TextField), 'anything');
     await tester.pump(const Duration(milliseconds: 700));
@@ -838,7 +852,7 @@ void main() {
       },
     );
 
-    await tester.enterText(find.byType(TextField), 'w_test');
+    await tester.enterText(find.byType(TextField), 'w_abc123');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
