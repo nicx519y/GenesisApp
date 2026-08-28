@@ -10,19 +10,53 @@ pipeline {
     }
 
     parameters {
-        choice(name: 'PLATFORM', choices: ['android', 'ios', 'both'], description: '要构建的平台')
-        string(name: 'BRANCH', defaultValue: 'main', trim: true, description: 'origin 上的分支名')
-        string(name: 'ANDROID_VERSION_NAME', defaultValue: '0.4.3', trim: true, description: 'Android versionName，例如 0.4.3')
-        string(name: 'ANDROID_VERSION_CODE', defaultValue: '48', trim: true, description: 'Android versionCode，正整数')
-        string(name: 'IOS_VERSION_NAME', defaultValue: '0.4.3', trim: true, description: 'iOS CFBundleShortVersionString，例如 0.4.3')
-        string(name: 'IOS_BUILD_NUMBER', defaultValue: '48', trim: true, description: 'iOS CFBundleVersion，正整数')
+        choice(name: 'PLATFORM', choices: ['android', 'ios'], description: '选择 Android 或 iOS，默认 Android')
+        gitParameter(
+            name: 'BRANCH',
+            type: 'PT_BRANCH',
+            branchFilter: 'origin/(.*)',
+            defaultValue: 'main',
+            selectedValue: 'DEFAULT',
+            sortMode: 'ASCENDING_SMART',
+            quickFilterEnabled: false,
+            listSize: '0',
+            description: 'origin 上的全部远端分支，默认 main'
+        )
+        reactiveChoice(
+            name: 'BUILD_TYPE',
+            choiceType: 'PT_SINGLE_SELECT',
+            referencedParameters: 'PLATFORM',
+            randomName: 'choice-parameter-810391082008041',
+            filterable: false,
+            filterLength: 1,
+            description: '选择需要生成的安装包或发布包',
+            script: groovyScript(
+                script: [
+                    classpath: [],
+                    oldScript: '',
+                    sandbox: true,
+                    script: '''if (PLATFORM == 'ios') {
+                        return ['TestFlight Release IPA:selected']
+                    }
+                    return ['Release APK (arm64-v8a):selected', 'Debug APK (arm64-v8a)', 'Google Play Release AAB']'''
+                ],
+                fallbackScript: [
+                    classpath: [],
+                    oldScript: '',
+                    sandbox: true,
+                    script: "return ['Release APK (arm64-v8a):selected']"
+                ]
+            )
+        )
+        string(name: 'VERSION_NAME', defaultValue: '0.4.3', trim: true)
+        string(name: 'VERSION_CODE', defaultValue: '48', trim: true)
     }
 
     environment {
         PATH = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${env.PATH}"
         LANG = 'en_US.UTF-8'
         LC_ALL = 'en_US.UTF-8'
-        RELEASE_ARTIFACT_DIR = "${WORKSPACE}/release_artifacts"
+        OUTPUT_DIR = "${WORKSPACE}/outputs"
     }
 
     stages {
@@ -30,8 +64,8 @@ pipeline {
             steps {
                 sh '''#!/bin/bash
                     set -euo pipefail
-                    [[ "$(uname -s)" == "Darwin" ]] || { echo "ERROR: Android+iOS 打包机必须运行在 macOS。" >&2; exit 1; }
-                    for tool in git flutter java python3 shasum unzip; do
+                    [[ "$(uname -s)" == "Darwin" ]] || { echo "ERROR: Android/iOS 打包机必须运行在 macOS。" >&2; exit 1; }
+                    for tool in git flutter python3 shasum unzip; do
                       command -v "$tool" >/dev/null || { echo "ERROR: 缺少命令: $tool" >&2; exit 1; }
                     done
                     [[ "$BRANCH" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "ERROR: 分支名包含不安全字符。" >&2; exit 1; }
@@ -43,29 +77,48 @@ pipeline {
             }
         }
 
-        stage('Clean checkout from origin') {
+        stage('Checkout tooling and selected branch') {
             steps {
                 deleteDir()
                 script {
                     try {
-                        checkout([
-                            $class: 'GitSCM',
-                            branches: [[name: "refs/heads/${params.BRANCH}"]],
-                            doGenerateSubmoduleConfigurations: false,
-                            extensions: [
-                                [$class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true],
-                                [$class: 'CloneOption', depth: 1, noTags: true, reference: '', shallow: true, timeout: 20]
-                            ],
-                            userRemoteConfigs: [[
-                                credentialsId: 'genesisapp-readonly',
-                                url: 'git@github.com:nicx519y/GenesisApp.git'
-                            ]]
-                        ])
+                        dir('.jenkins-tooling') {
+                            checkout([
+                                $class: 'GitSCM',
+                                branches: [[name: 'refs/heads/main']],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [
+                                    [$class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true],
+                                    [$class: 'CloneOption', depth: 1, noTags: true, reference: '', shallow: true, timeout: 20]
+                                ],
+                                userRemoteConfigs: [[
+                                    credentialsId: 'genesisapp-readonly',
+                                    url: 'git@github.com:nicx519y/GenesisApp.git'
+                                ]]
+                            ])
+                        }
+                        dir('source') {
+                            checkout([
+                                $class: 'GitSCM',
+                                branches: [[name: "refs/heads/${params.BRANCH}"]],
+                                doGenerateSubmoduleConfigurations: false,
+                                extensions: [
+                                    [$class: 'CleanBeforeCheckout', deleteUntrackedNestedRepositories: true],
+                                    [$class: 'CloneOption', depth: 1, noTags: true, reference: '', shallow: true, timeout: 20]
+                                ],
+                                userRemoteConfigs: [[
+                                    credentialsId: 'genesisapp-readonly',
+                                    url: 'git@github.com:nicx519y/GenesisApp.git'
+                                ]]
+                            ])
+                        }
                     } catch (Exception checkoutError) {
                         error("无法检出 origin/${params.BRANCH}：请确认分支存在，并检查 genesisapp-readonly 凭据。原始错误：${checkoutError.message}")
                     }
                 }
-                sh 'git checkout --detach HEAD && echo "构建提交: $(git rev-parse HEAD)"'
+                dir('source') {
+                    sh 'git checkout --detach HEAD && echo "构建提交: $(git rev-parse HEAD)"'
+                }
             }
         }
 
@@ -73,41 +126,150 @@ pipeline {
             steps {
                 sh '''#!/bin/bash
                     set -euo pipefail
-                    tools/jenkins/local_release.sh \
+                    case "$BUILD_TYPE" in
+                      "Release APK (arm64-v8a)"|"TestFlight Release IPA") internal_build_type="release" ;;
+                      "Debug APK (arm64-v8a)") internal_build_type="debug" ;;
+                      "Google Play Release AAB") internal_build_type="aab" ;;
+                      *) echo "ERROR: 未知的构建类型: $BUILD_TYPE" >&2; exit 1 ;;
+                    esac
+                    "$WORKSPACE/.jenkins-tooling/tools/jenkins/local_release.sh" \
                       --platform "$PLATFORM" \
+                      --build-type "$internal_build_type" \
                       --branch "$BRANCH" \
-                      --android-version-name "$ANDROID_VERSION_NAME" \
-                      --android-version-code "$ANDROID_VERSION_CODE" \
-                      --ios-version-name "$IOS_VERSION_NAME" \
-                      --ios-build-number "$IOS_BUILD_NUMBER" \
-                      --repo-dir "$WORKSPACE" \
-                      --artifact-dir "$RELEASE_ARTIFACT_DIR"
+                      --version-name "$VERSION_NAME" \
+                      --version-code "$VERSION_CODE" \
+                      --repo-dir "$WORKSPACE/source" \
+                      --artifact-dir "$OUTPUT_DIR"
                 '''
+            }
+        }
+
+        stage('Upload APK to Pgyer') {
+            when {
+                allOf {
+                    expression { params.PLATFORM == 'android' }
+                    expression {
+                        params.BUILD_TYPE == 'Release APK (arm64-v8a)' ||
+                            params.BUILD_TYPE == 'Debug APK (arm64-v8a)'
+                    }
+                }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'pgyer-api-key', variable: 'PGYER_API_KEY')]) {
+                    sh '''#!/bin/bash
+                        set -euo pipefail
+                        metadata_files=()
+                        while IFS= read -r metadata_file; do
+                          metadata_files+=("$metadata_file")
+                        done < <(find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2 -type f -name release-metadata.json -print)
+                        [[ ${#metadata_files[@]} -eq 1 ]] || {
+                          echo "ERROR: 期望找到 1 个 release-metadata.json，实际找到 ${#metadata_files[@]} 个" >&2
+                          exit 1
+                        }
+                        metadata_file="${metadata_files[0]}"
+                        artifact_name="$(python3 - "$metadata_file" <<'PY'
+import json
+import sys
+print(json.load(open(sys.argv[1], encoding="utf-8"))["android"]["artifact"])
+PY
+)"
+                        apk_path="$(dirname "$metadata_file")/$artifact_name"
+                        "$WORKSPACE/.jenkins-tooling/tools/jenkins/upload_pgyer.sh" \
+                          --apk "$apk_path" \
+                          --metadata "$metadata_file"
+                    '''
+                }
+            }
+        }
+
+        stage('Notify Feishu') {
+            when {
+                allOf {
+                    expression { params.PLATFORM == 'android' }
+                    expression {
+                        params.BUILD_TYPE == 'Release APK (arm64-v8a)' ||
+                            params.BUILD_TYPE == 'Debug APK (arm64-v8a)'
+                    }
+                }
+            }
+            steps {
+                withCredentials([
+                    string(credentialsId: 'feishu-webhook-url', variable: 'FEISHU_WEBHOOK_URL'),
+                    string(credentialsId: 'feishu-signing-secret', variable: 'FEISHU_SIGNING_SECRET')
+                ]) {
+                    sh '''#!/bin/bash
+                        set -euo pipefail
+                        pgyer_files=()
+                        while IFS= read -r pgyer_file; do
+                          pgyer_files+=("$pgyer_file")
+                        done < <(find "$OUTPUT_DIR" -mindepth 2 -maxdepth 2 -type f -name pgyer-upload.json -print)
+                        [[ ${#pgyer_files[@]} -eq 1 ]] || {
+                          echo "ERROR: 期望找到 1 个 pgyer-upload.json，实际找到 ${#pgyer_files[@]} 个" >&2
+                          exit 1
+                        }
+                        pgyer_file="${pgyer_files[0]}"
+                        metadata_file="$(dirname "$pgyer_file")/release-metadata.json"
+                        IFS=$'\t' read -r artifact_name build_type version_name version_code branch source_commit download_url < <(
+                          python3 - "$metadata_file" "$pgyer_file" <<'PY'
+import json
+import sys
+
+metadata = json.load(open(sys.argv[1], encoding="utf-8"))
+pgyer = json.load(open(sys.argv[2], encoding="utf-8"))
+android = metadata["android"]
+values = [
+    android["artifact"],
+    android["requested_build_type"],
+    android["version_name"],
+    str(android["version_code"]),
+    metadata["branch"],
+    metadata["source_commit"],
+    pgyer["install_url"],
+]
+if any("\t" in value or "\n" in value for value in values):
+    raise SystemExit("ERROR: 飞书通知字段包含非法控制字符")
+print("\t".join(values))
+PY
+                        )
+                        "$WORKSPACE/.jenkins-tooling/tools/jenkins/notify_feishu.py" \
+                          --artifact-name "$artifact_name" \
+                          --platform android \
+                          --build-type "$build_type" \
+                          --version-name "$version_name" \
+                          --version-code "$version_code" \
+                          --branch "$branch" \
+                          --commit "$source_commit" \
+                          --jenkins-build-number "$BUILD_NUMBER" \
+                          --download-url "$download_url"
+                    '''
+                }
             }
         }
 
         stage('Confirm no Git changes') {
             steps {
-                sh '''#!/bin/bash
-                    set -euo pipefail
-                    git diff --exit-code
-                    git diff --cached --exit-code
-                    if [[ -n "$(git status --short --untracked-files=no)" ]]; then
-                      echo "ERROR: 构建过程修改了受 Git 跟踪的文件。" >&2
-                      git status --short --untracked-files=no
-                      exit 1
-                    fi
-                '''
+                dir('source') {
+                    sh '''#!/bin/bash
+                        set -euo pipefail
+                        git diff --exit-code
+                        git diff --cached --exit-code
+                        if [[ -n "$(git status --short --untracked-files=no)" ]]; then
+                          echo "ERROR: 构建过程修改了受 Git 跟踪的文件。" >&2
+                          git status --short --untracked-files=no
+                          exit 1
+                        fi
+                    '''
+                }
             }
         }
     }
 
     post {
         always {
-            archiveArtifacts artifacts: 'release_artifacts/**/*', allowEmptyArchive: true, fingerprint: true
+            archiveArtifacts artifacts: 'outputs/**/*', allowEmptyArchive: true, fingerprint: true
         }
         success {
-            echo '构建与校验完成；本阶段没有 commit、push、tag 或商店上传。'
+            echo '构建与校验完成；符合条件的 Android Release/Debug APK 已上传蒲公英。流水线不会 commit、push 或 tag。'
         }
         failure {
             echo '构建失败；请查看 Console Output。远端 Git 和应用商店均未被修改。'
