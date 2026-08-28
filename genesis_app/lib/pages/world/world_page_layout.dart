@@ -118,7 +118,9 @@ extension _WorldPageLayout on _WorldPageState {
               worldMapTabsHeight +
               worldMapIdentityHorizontalGap;
           final maxIdentityWidth =
-              (constraints.maxWidth - sideReservedWidth * 2)
+              (constraints.maxWidth -
+                      sideReservedWidth -
+                      worldMapBackButtonLeft)
                   .clamp(worldTimePillMinWidth, constraints.maxWidth)
                   .toDouble();
           return Stack(

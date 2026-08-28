@@ -678,7 +678,10 @@ class _OriginDetailDraggableSheetState
             snapAnimationDuration: _snapAnimationDuration,
             builder: (context, scrollController) {
               _handleSheetScrollControllerReady(scrollController);
-              final bottomInset = GenesisSafeAreaInsets.bottom(context);
+              final bottomInset = GenesisSafeAreaInsets.bottom(
+                context,
+                minimum: 24,
+              );
               final keyboardInset = MediaQuery.viewInsetsOf(
                 context,
               ).bottom.clamp(0.0, MediaQuery.sizeOf(context).height).toDouble();
@@ -784,9 +787,9 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: const [
-            Color(0xFF151517),
-            Color(0xFF151517),
-            Color(0x00151517),
+            Color(0xFFF7F5F2),
+            Color(0xFFF7F5F2),
+            Color(0x00F7F5F2),
           ],
           stops: const [0, 0.55, 1],
         ),
@@ -800,7 +803,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
         onVerticalDragEnd: onVerticalDragEnd,
         onVerticalDragCancel: onVerticalDragCancel,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -810,7 +813,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
                 width: 14,
                 height: 8,
                 colorFilter: const ColorFilter.mode(
-                  Color(0x8CFFFFFF),
+                  Color(0x8C131215),
                   BlendMode.srcIn,
                 ),
               ),
@@ -819,7 +822,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
                 'Select your role',
                 key: ValueKey<String>('origin-opening-select-role-label'),
                 style: TextStyle(
-                  color: Color(0xB8FFFFFF),
+                  color: Color(0xB8131215),
                   fontSize: 11,
                   height: 1,
                   fontWeight: FontWeight.w600,

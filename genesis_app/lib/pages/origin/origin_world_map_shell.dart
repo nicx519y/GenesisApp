@@ -135,7 +135,6 @@ class _OriginWorldNameOverlay extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 48),
         ],
       ),
     );

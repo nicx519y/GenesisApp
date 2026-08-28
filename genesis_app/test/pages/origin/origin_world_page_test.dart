@@ -487,6 +487,129 @@ void main() {
     expect(bubbles.single.content, 'Open before sunrise.');
   });
 
+  test('origin map bubbles use init location dialogue first', () {
+    final origin = _originDetail(
+      characters: [
+        OriginCharacter(
+          id: 7,
+          characterId: 'char_1',
+          originId: 1,
+          name: 'Casey',
+          avatar: '',
+          tags: '',
+          currentLocationId: 12,
+          initialLocationId: 12,
+          createdAt: null,
+          updatedAt: null,
+        ),
+      ],
+      locations: [
+        OriginLocation.fromJson(const {
+          'id': 12,
+          'origin_id': 1,
+          'location_id': 'loc_1',
+          'location_name': 'Town Square',
+          'dialogue': <Object?>[
+            <String, Object?>{
+              'char_id': 'char_1',
+              'content': 'Legacy location line.',
+            },
+          ],
+        }),
+      ],
+      initLocationGroup: const OriginInitLocationGroup(
+        locationId: 'loc_1',
+        initialDialogue: [
+          OriginDialogueLine(
+            charId: 'char_1',
+            charName: 'Casey',
+            content: '*Casey checks the street.* 「The coast is clear.」',
+          ),
+          OriginDialogueLine(
+            charId: 'nar',
+            charName: 'Narrator',
+            content: 'Narration should not show.',
+          ),
+        ],
+      ),
+    );
+
+    final bubbles = originMapMessageBubblesForTesting(origin);
+
+    expect(bubbles, hasLength(2));
+    expect(bubbles.first.characterId, '7');
+    expect(bubbles.map((bubble) => bubble.content), [
+      'The coast is clear.',
+      'Legacy location line.',
+    ]);
+  });
+
+  test('origin map bubbles do not read tick opening dialogue', () {
+    final origin = _originDetail(
+      characters: [
+        OriginCharacter(
+          id: 7,
+          characterId: 'char_1',
+          originId: 1,
+          name: 'Casey',
+          avatar: '',
+          tags: '',
+          currentLocationId: 12,
+          initialLocationId: 12,
+          createdAt: null,
+          updatedAt: null,
+        ),
+      ],
+      locations: [
+        OriginLocation.fromJson(const {
+          'id': 12,
+          'origin_id': 1,
+          'location_id': 'loc_1',
+          'location_name': 'Town Square',
+        }),
+      ],
+      ticks: const [
+        {
+          'tick_no': 1,
+          'tick_result': {
+            'location_groups': [
+              {
+                'location_id': 'loc_1',
+                'initial_dialogue': [
+                  {
+                    'char_id': 'char_1',
+                    'char_name': 'Casey',
+                    'content': 'The fallback line is visible.',
+                  },
+                ],
+              },
+            ],
+          },
+        },
+      ],
+    );
+
+    final bubbles = originMapMessageBubblesForTesting(origin);
+
+    expect(bubbles, isEmpty);
+  });
+
+  test('origin character resolves string current location ids', () {
+    final character = OriginCharacter.fromJson(const {
+      'id': 7,
+      'character_id': 'char_1',
+      'name': 'Casey',
+      'current_location_id': 'loc_1',
+    });
+    final location = OriginLocation.fromJson(const {
+      'location_id': 'loc_1',
+      'location_name': 'Town Square',
+    });
+
+    expect(character.currentLocationBusinessId, 'loc_1');
+    expect(character.currentLocationId, location.id);
+  });
+
   test('origin map avatars have no AI star marker or white frame trigger', () {
     final avatar = originMapAvatarForTesting(
       OriginCharacter(

@@ -226,7 +226,17 @@ bool _originCharacterIsAtLocation(
   OriginLocation location,
 ) {
   final characterLocationId = _originCharacterMapLocationId(character);
-  return characterLocationId > 0 && characterLocationId == location.id;
+  if (characterLocationId > 0 && characterLocationId == location.id) {
+    return true;
+  }
+  final characterBusinessId =
+      character.currentLocationBusinessId.trim().isNotEmpty
+      ? character.currentLocationBusinessId.trim()
+      : character.initialLocationBusinessId.trim();
+  final locationBusinessId = location.locationId.trim();
+  return characterBusinessId.isNotEmpty &&
+      locationBusinessId.isNotEmpty &&
+      characterBusinessId == locationBusinessId;
 }
 
 List<WorldMapMessageBubble> _originMapMessageBubbles(OriginDetail origin) {
@@ -246,11 +256,15 @@ List<WorldMapMessageBubble> originMapMessageBubblesForTesting(
   if (charactersByCharId.isEmpty) return const <WorldMapMessageBubble>[];
 
   final bubbles = <WorldMapMessageBubble>[];
+  final seenBubbles = <String>{};
   final locations = origin.allLocations.isNotEmpty
       ? origin.allLocations
       : _flattenOriginLocations(origin.locations);
-  for (final location in locations) {
-    for (final line in location.dialogue) {
+  void appendLines(
+    Iterable<OriginDialogueLine> lines, {
+    required bool Function(OriginCharacter character) isAtLocation,
+  }) {
+    for (final line in lines) {
       final charId = line.charId.trim();
       final normalizedCharId = charId.toLowerCase();
       if (normalizedCharId.isEmpty ||
@@ -260,15 +274,39 @@ List<WorldMapMessageBubble> originMapMessageBubblesForTesting(
       }
       final character = charactersByCharId[normalizedCharId];
       if (character == null) continue;
-      if (!_originCharacterIsAtLocation(character, location)) continue;
+      if (!isAtLocation(character)) continue;
       final content = worldMapBubbleDisplayContent(line.content);
       if (content.isEmpty) continue;
       final avatarId = _originCharacterMapAvatarId(character);
       if (avatarId.isEmpty) continue;
+      if (!seenBubbles.add('$avatarId\u{1f}$content')) continue;
       bubbles.add(
         WorldMapMessageBubble(characterId: avatarId, content: content),
       );
     }
+  }
+
+  final initLocationGroup = origin.initLocationGroup;
+  if (initLocationGroup != null) {
+    final initLocationId = initLocationGroup.locationId.trim();
+    final initLocation = locations
+        .where((location) => location.locationId.trim() == initLocationId)
+        .firstOrNull;
+    if (initLocation != null) {
+      appendLines(
+        initLocationGroup.initialDialogue,
+        isAtLocation: (character) =>
+            _originCharacterIsAtLocation(character, initLocation),
+      );
+    }
+  }
+
+  for (final location in locations) {
+    appendLines(
+      location.dialogue,
+      isAtLocation: (character) =>
+          _originCharacterIsAtLocation(character, location),
+    );
   }
   return List<WorldMapMessageBubble>.unmodifiable(bubbles);
 }

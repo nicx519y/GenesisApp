@@ -7283,7 +7283,11 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.text('Select your role')).style?.color,
-      const Color(0xB8FFFFFF),
+      const Color(0xB8131215),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-opening-select-role-blur')),
+      findsNothing,
     );
     final selectRoleDecoration =
         tester.widget<Container>(selectRoleGradient).decoration
@@ -7291,11 +7295,12 @@ void main() {
     final selectRoleBackground =
         selectRoleDecoration.gradient! as LinearGradient;
     expect(selectRoleBackground.colors, const [
-      Color(0xFF151517),
-      Color(0xFF151517),
-      Color(0x00151517),
+      Color(0xFFF7F5F2),
+      Color(0xFFF7F5F2),
+      Color(0x00F7F5F2),
     ]);
     expect(selectRoleBackground.stops, const [0, 0.55, 1]);
+    expect(tester.getSize(selectRoleGradient).height, 76);
     final openingBriefTitleTop = tester
         .getTopLeft(
           find.descendant(

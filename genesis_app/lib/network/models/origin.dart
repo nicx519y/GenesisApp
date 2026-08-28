@@ -545,9 +545,10 @@ class OriginCharacter {
 
   factory OriginCharacter.fromJson(Map<String, dynamic> json) {
     final currentLocation = json['current_location'];
+    final rawCurrentLocationId = json['current_location_id'];
     int currentLocationId = 0;
-    if (json['current_location_id'] != null) {
-      currentLocationId = asInt(json['current_location_id']);
+    if (rawCurrentLocationId != null) {
+      currentLocationId = asInt(rawCurrentLocationId);
     } else if (currentLocation is int) {
       currentLocationId = currentLocation;
     } else if (currentLocation is Map) {
@@ -563,7 +564,14 @@ class OriginCharacter {
     final avatarResource = GenesisImageResourceRegistry.register(
       GenesisImageResource.fromJson(json['avatar']),
     );
-    final currentLocationBusinessId = asString(json['location_id']);
+    final currentLocationBusinessId = asString(
+      json['location_id'],
+      fallback:
+          rawCurrentLocationId is String &&
+              int.tryParse(rawCurrentLocationId.trim()) == null
+          ? rawCurrentLocationId
+          : '',
+    );
     final initialLocationBusinessId = asString(json['initial_location_id']);
     if (currentLocationId == 0) {
       currentLocationId = _originStableInt(
