@@ -1806,6 +1806,13 @@ void main() {
                         {'start': 3, 'length': 5},
                       ],
                     },
+                    {
+                      'field': 'tag',
+                      'tag_index': 0,
+                      'highlight_ranges': [
+                        {'start': 0, 'length': 7},
+                      ],
+                    },
                   ],
                   'matches_truncated': false,
                 },
@@ -1826,6 +1833,7 @@ void main() {
                     'xl_url': 'https://cdn.example.com/w_xl.webp',
                     'object_key': 'world/w_1.webp',
                   },
+                  'tags': ['fantasy', 'campus'],
                   'owner': {
                     'uid': 'u_owner',
                     'name': 'Owner',
@@ -1835,12 +1843,25 @@ void main() {
                       'object_key': 'user/u_owner.webp',
                     },
                   },
+                  'stats': {
+                    'tick_cnt': 7,
+                    'connect_cnt': 8,
+                    'character_cnt': 9,
+                    'player_cnt': 10,
+                  },
                   'created_at': 1770000000,
                   'matches': [
                     {
                       'field': 'world_name',
                       'highlight_ranges': [
                         {'start': 0, 'length': 5},
+                      ],
+                    },
+                    {
+                      'field': 'tag',
+                      'tag_index': 1,
+                      'highlight_ranges': [
+                        {'start': 0, 'length': 6},
                       ],
                     },
                   ],
@@ -1930,7 +1951,7 @@ void main() {
     expect(origin.stats.connectCount, 4);
     expect(origin.stats.locationCount, 5);
     expect(origin.stats.maxTickCount, 6);
-    expect(origin.matches, hasLength(3));
+    expect(origin.matches, hasLength(4));
     expect(origin.matches.first, isA<SearchV2TextMatch>());
     expect(origin.matches.first.field, 'origin_name');
     expect(origin.matches.first.highlightRanges.single.start, 0);
@@ -1938,10 +1959,14 @@ void main() {
     expect(origin.matches[1], isA<SearchV2CharacterMatch>());
     expect(origin.matches[1].field, 'character_name');
     expect((origin.matches[1] as SearchV2CharacterMatch).characterId, 'c_1');
-    expect(origin.matches.last, isA<SearchV2TextMatch>());
-    expect(origin.matches.last.field, 'brief');
-    expect(origin.matches.last.highlightRanges.single.start, 3);
-    expect(origin.matches.last.highlightRanges.single.length, 5);
+    final briefMatch = origin.matches.whereType<SearchV2TextMatch>().last;
+    expect(briefMatch.field, 'brief');
+    expect(briefMatch.highlightRanges.single.start, 3);
+    expect(briefMatch.highlightRanges.single.length, 5);
+    final originTagMatch = origin.matches.whereType<SearchV2TagMatch>().single;
+    expect(originTagMatch.field, 'tag');
+    expect(originTagMatch.tagIndex, 0);
+    expect(originTagMatch.highlightRanges.single.length, 7);
     expect(origin.matchesTruncated, isFalse);
 
     final world = result.worlds.items.single;
@@ -1950,12 +1975,23 @@ void main() {
     expect(world.originId, 'o_1');
     expect(world.language, 'en');
     expect(world.cover.objectKey, 'world/w_1.webp');
+    expect(world.tags, ['fantasy', 'campus']);
     expect(world.owner.uid, 'u_owner');
+    expect(world.stats.tickCount, 7);
+    expect(world.stats.connectCount, 8);
+    expect(world.stats.characterCount, 9);
+    expect(world.stats.playerCount, 10);
     expect(world.createdAt, 1770000000);
-    expect(world.matches.single, isA<SearchV2WorldNameMatch>());
-    expect(world.matches.single.field, 'world_name');
-    expect(world.matches.single.highlightRanges.single.start, 0);
-    expect(world.matches.single.highlightRanges.single.length, 5);
+    final worldNameMatch = world.matches
+        .whereType<SearchV2WorldNameMatch>()
+        .single;
+    expect(worldNameMatch.field, 'world_name');
+    expect(worldNameMatch.highlightRanges.single.start, 0);
+    expect(worldNameMatch.highlightRanges.single.length, 5);
+    final worldTagMatch = world.matches.whereType<SearchV2TagMatch>().single;
+    expect(worldTagMatch.field, 'tag');
+    expect(worldTagMatch.tagIndex, 1);
+    expect(worldTagMatch.highlightRanges.single.length, 6);
 
     final user = result.users.items.single;
     expect(user.uid, 'u_1');

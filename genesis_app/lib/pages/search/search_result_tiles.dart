@@ -49,17 +49,7 @@ class _SearchResultTile extends StatelessWidget {
                       style: CopyableIdLabel.textStyle,
                     )
                   else
-                    Text(
-                      item.displaySubtitle,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Color(0xFF888888),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w400,
-                        height: 1.3,
-                      ),
-                    ),
+                    _WorldSearchMetadata(item: item),
                   if (!isUser) ...[
                     const SizedBox(height: 8),
                     _ResultStats(item: item),
@@ -118,6 +108,10 @@ class _OriginSearchMetadata extends StatelessWidget {
         if (showBrief)
           _SearchBriefExcerpt(text: brief, highlightRanges: briefRanges),
         if (showCharacters) _OriginCharactersExcerpt(origin: origin),
+        _MatchedTagsLine(
+          tags: origin.tags,
+          matches: origin.matches.whereType<SearchV2TagMatch>(),
+        ),
         Text(
           'Latest Version: ${_originVersionLabel(origin.originVersion)}',
           maxLines: 1,
@@ -127,6 +121,94 @@ class _OriginSearchMetadata extends StatelessWidget {
       ],
     );
   }
+}
+
+class _WorldSearchMetadata extends StatelessWidget {
+  const _WorldSearchMetadata({required this.item});
+
+  final _SearchResultItem item;
+
+  @override
+  Widget build(BuildContext context) {
+    final world = item.worldV2!;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          item.displaySubtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: _searchMetadataStyle,
+        ),
+        _MatchedTagsLine(
+          tags: world.tags,
+          matches: world.matches.whereType<SearchV2TagMatch>(),
+        ),
+      ],
+    );
+  }
+}
+
+class _MatchedTagsLine extends StatelessWidget {
+  const _MatchedTagsLine({required this.tags, required this.matches});
+
+  final List<String> tags;
+  final Iterable<SearchV2TagMatch> matches;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = _matchedTagEntries(tags, matches);
+    if (entries.isEmpty) return const SizedBox.shrink();
+    return Text.rich(
+      TextSpan(
+        children: [
+          const TextSpan(text: 'Tags: '),
+          for (var index = 0; index < entries.length; index += 1) ...[
+            if (index > 0) const TextSpan(text: ', '),
+            _highlightedSearchSpan(
+              entries[index].tag,
+              entries[index].highlightRanges,
+            ),
+          ],
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: _searchMetadataStyle,
+    );
+  }
+}
+
+List<_MatchedTagEntry> _matchedTagEntries(
+  List<String> tags,
+  Iterable<SearchV2TagMatch> matches,
+) {
+  final rangesByIndex = <int, List<SearchV2HighlightRange>>{};
+  for (final match in matches) {
+    final tagIndex = match.tagIndex;
+    if (match.field != 'tag' || tagIndex < 0 || tagIndex >= tags.length) {
+      continue;
+    }
+    (rangesByIndex[tagIndex] ??= <SearchV2HighlightRange>[]).addAll(
+      match.highlightRanges,
+    );
+  }
+  final indexes = rangesByIndex.keys.toList(growable: false)..sort();
+  return [
+    for (final index in indexes)
+      _MatchedTagEntry(
+        tag: tags[index],
+        highlightRanges: rangesByIndex[index]!,
+      ),
+  ];
+}
+
+class _MatchedTagEntry {
+  const _MatchedTagEntry({required this.tag, required this.highlightRanges});
+
+  final String tag;
+  final List<SearchV2HighlightRange> highlightRanges;
 }
 
 class _OriginCharactersExcerpt extends StatelessWidget {

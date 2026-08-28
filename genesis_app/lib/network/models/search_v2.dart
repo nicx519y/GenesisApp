@@ -168,7 +168,9 @@ class SearchV2WorldItem {
     required this.originId,
     required this.language,
     required this.cover,
+    required this.tags,
     required this.owner,
+    required this.stats,
     required this.createdAt,
     required this.matches,
   });
@@ -180,9 +182,11 @@ class SearchV2WorldItem {
       originId: _rawString(json['origin_id']),
       language: _rawString(json['language']),
       cover: GenesisImageResource.fromJson(json['cover']),
+      tags: _stringList(json['tags']),
       owner: SearchV2Owner.fromJson(asJsonMap(json['owner'])),
+      stats: SearchV2WorldStats.fromJson(asJsonMap(json['stats'])),
       createdAt: asInt(json['created_at']),
-      matches: _mapList(json['matches'], SearchV2WorldNameMatch.fromJson),
+      matches: _mapList(json['matches'], SearchV2WorldMatch.fromJson),
     );
   }
 
@@ -191,9 +195,11 @@ class SearchV2WorldItem {
   final String originId;
   final String language;
   final GenesisImageResource cover;
+  final List<String> tags;
   final SearchV2Owner owner;
+  final SearchV2WorldStats stats;
   final int createdAt;
-  final List<SearchV2WorldNameMatch> matches;
+  final List<SearchV2WorldMatch> matches;
 }
 
 @immutable
@@ -272,6 +278,30 @@ class SearchV2OriginStats {
 }
 
 @immutable
+class SearchV2WorldStats {
+  const SearchV2WorldStats({
+    required this.tickCount,
+    required this.connectCount,
+    required this.characterCount,
+    required this.playerCount,
+  });
+
+  factory SearchV2WorldStats.fromJson(Map<String, dynamic> json) {
+    return SearchV2WorldStats(
+      tickCount: asInt(json['tick_cnt']),
+      connectCount: asInt(json['connect_cnt']),
+      characterCount: asInt(json['character_cnt']),
+      playerCount: asInt(json['player_cnt']),
+    );
+  }
+
+  final int tickCount;
+  final int connectCount;
+  final int characterCount;
+  final int playerCount;
+}
+
+@immutable
 class SearchV2OriginCharacter {
   const SearchV2OriginCharacter({
     required this.characterId,
@@ -295,14 +325,31 @@ sealed class SearchV2Match {
   const SearchV2Match({required this.field, required this.highlightRanges});
 
   factory SearchV2Match.fromJson(Map<String, dynamic> json) {
-    if (_rawString(json['field']) == 'character_name') {
-      return SearchV2CharacterMatch.fromJson(json);
-    }
-    return SearchV2TextMatch.fromJson(json);
+    return switch (_rawString(json['field'])) {
+      'character_name' => SearchV2CharacterMatch.fromJson(json),
+      'tag' => SearchV2TagMatch.fromJson(json),
+      _ => SearchV2TextMatch.fromJson(json),
+    };
   }
 
   final String field;
   final List<SearchV2HighlightRange> highlightRanges;
+}
+
+/// The `oneOf` match model used only by World search items.
+@immutable
+sealed class SearchV2WorldMatch {
+  const SearchV2WorldMatch();
+
+  factory SearchV2WorldMatch.fromJson(Map<String, dynamic> json) {
+    if (_rawString(json['field']) == 'tag') {
+      return SearchV2TagMatch.fromJson(json);
+    }
+    return SearchV2WorldNameMatch.fromJson(json);
+  }
+
+  String get field;
+  List<SearchV2HighlightRange> get highlightRanges;
 }
 
 /// Origin name or brief match. It never contains `character_id`.
@@ -347,8 +394,32 @@ final class SearchV2CharacterMatch extends SearchV2Match {
   final String characterId;
 }
 
+/// Tag match shared by Origin and World search items.
 @immutable
-class SearchV2WorldNameMatch {
+final class SearchV2TagMatch extends SearchV2Match
+    implements SearchV2WorldMatch {
+  const SearchV2TagMatch({
+    required super.field,
+    required this.tagIndex,
+    required super.highlightRanges,
+  });
+
+  factory SearchV2TagMatch.fromJson(Map<String, dynamic> json) {
+    return SearchV2TagMatch(
+      field: _rawString(json['field']),
+      tagIndex: asInt(json['tag_index'], fallback: -1),
+      highlightRanges: _mapList(
+        json['highlight_ranges'],
+        SearchV2HighlightRange.fromJson,
+      ),
+    );
+  }
+
+  final int tagIndex;
+}
+
+@immutable
+final class SearchV2WorldNameMatch extends SearchV2WorldMatch {
   const SearchV2WorldNameMatch({
     required this.field,
     required this.highlightRanges,
@@ -364,7 +435,9 @@ class SearchV2WorldNameMatch {
     );
   }
 
+  @override
   final String field;
+  @override
   final List<SearchV2HighlightRange> highlightRanges;
 }
 

@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dar
 import 'package:genesis_flutter_android/network/mock_data/mock_v1_data.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
+import 'package:genesis_flutter_android/network/models/search_v2.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 
 void main() {
@@ -1291,6 +1292,15 @@ void main() {
     final search = await api.v1.search.search(query: 'steam');
     expect(search.origins.items, isNotEmpty);
     expect(search.origins.items.first.originVersion, isNotEmpty);
+    expect(
+      search.origins.items.first.matches.whereType<SearchV2TagMatch>(),
+      isNotEmpty,
+    );
+    expect(search.worlds.items.first.tags, isNotEmpty);
+    expect(
+      search.worlds.items.first.matches.whereType<SearchV2TagMatch>(),
+      isNotEmpty,
+    );
     await api.v1.search.suggest(query: 'steam', limit: 10);
 
     final rebornSearch = await api.v1.search.search(query: '重生', pn: 1, rn: 20);
@@ -1298,6 +1308,11 @@ void main() {
     expect(rebornSearch.origins.items, isNotEmpty);
     expect(rebornSearch.worlds.total, greaterThan(0));
     expect(rebornSearch.worlds.items, isNotEmpty);
+    final rebornWorldStats = rebornSearch.worlds.items.first.stats;
+    expect(rebornWorldStats.tickCount, greaterThan(0));
+    expect(rebornWorldStats.connectCount, greaterThan(0));
+    expect(rebornWorldStats.characterCount, greaterThan(0));
+    expect(rebornWorldStats.playerCount, greaterThan(0));
 
     final userSearch = await api.v1.search.search(
       query: '老肖',
