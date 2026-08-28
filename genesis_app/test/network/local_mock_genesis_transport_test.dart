@@ -1287,6 +1287,11 @@ void main() {
     expect(rebornSearch.origins.items, isNotEmpty);
     expect(rebornSearch.worlds.total, greaterThan(0));
     expect(rebornSearch.worlds.items, isNotEmpty);
+    final rebornWorldStats = rebornSearch.worlds.items.first.stats;
+    expect(rebornWorldStats.tickCount, greaterThan(0));
+    expect(rebornWorldStats.connectCount, greaterThan(0));
+    expect(rebornWorldStats.characterCount, greaterThan(0));
+    expect(rebornWorldStats.playerCount, greaterThan(0));
 
     final userSearch = await api.v1.search.search(
       query: '老肖',

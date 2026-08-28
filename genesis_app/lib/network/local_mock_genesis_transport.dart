@@ -4050,6 +4050,7 @@ class _MockState {
         .map((world) {
           final contract = _v1WorldContractItem(world);
           final info = _mapFromObject(contract['info']);
+          final stats = _mapFromObject(contract['stats']);
           final ownerUid = '${info['owner_uid'] ?? ''}';
           return <String, dynamic>{
             'world_id': info['world_id'],
@@ -4063,6 +4064,12 @@ class _MockState {
                 fallbackName: '${info['owner_name'] ?? ''}',
               ),
             ),
+            'stats': {
+              'tick_cnt': stats['tick_cnt'],
+              'connect_cnt': stats['connect_cnt'],
+              'character_cnt': stats['character_cnt'],
+              'player_cnt': stats['player_cnt'],
+            },
             'created_at': info['created_at'],
             'matches': const <Map<String, dynamic>>[],
           };

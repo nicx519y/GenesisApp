@@ -1831,6 +1831,12 @@ void main() {
                       'object_key': 'user/u_owner.webp',
                     },
                   },
+                  'stats': {
+                    'tick_cnt': 7,
+                    'connect_cnt': 8,
+                    'character_cnt': 9,
+                    'player_cnt': 10,
+                  },
                   'created_at': 1770000000,
                   'matches': [
                     {
@@ -1947,6 +1953,10 @@ void main() {
     expect(world.language, 'en');
     expect(world.cover.objectKey, 'world/w_1.webp');
     expect(world.owner.uid, 'u_owner');
+    expect(world.stats.tickCount, 7);
+    expect(world.stats.connectCount, 8);
+    expect(world.stats.characterCount, 9);
+    expect(world.stats.playerCount, 10);
     expect(world.createdAt, 1770000000);
     expect(world.matches.single, isA<SearchV2WorldNameMatch>());
     expect(world.matches.single.field, 'world_name');

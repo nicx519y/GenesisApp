@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
@@ -377,6 +378,13 @@ void main() {
     expect(find.text('World 1'), findsOneWidget);
     expect(find.textContaining('WID: world_1'), findsOneWidget);
     expect(find.textContaining('Owner: Owner 1'), findsOneWidget);
+    expect(
+      tester
+          .widgetList<StatItem>(find.byType(StatItem))
+          .map((item) => item.text)
+          .take(4),
+      ['11', '21', '31', '41'],
+    );
   });
 
   testWidgets('shows the origin version returned by v2 search', (tester) async {
@@ -1121,6 +1129,12 @@ Map<String, dynamic> _item(
       'language': 'en',
       'cover': '',
       'owner': {'uid': 'owner_$index', 'name': 'Owner $index', 'avatar': ''},
+      'stats': {
+        'tick_cnt': index + 10,
+        'connect_cnt': index + 20,
+        'character_cnt': index + 30,
+        'player_cnt': index + 40,
+      },
       'created_at': 1777680000 + index,
       'matches': [
         {

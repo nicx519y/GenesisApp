@@ -169,6 +169,7 @@ class SearchV2WorldItem {
     required this.language,
     required this.cover,
     required this.owner,
+    required this.stats,
     required this.createdAt,
     required this.matches,
   });
@@ -181,6 +182,7 @@ class SearchV2WorldItem {
       language: _rawString(json['language']),
       cover: GenesisImageResource.fromJson(json['cover']),
       owner: SearchV2Owner.fromJson(asJsonMap(json['owner'])),
+      stats: SearchV2WorldStats.fromJson(asJsonMap(json['stats'])),
       createdAt: asInt(json['created_at']),
       matches: _mapList(json['matches'], SearchV2WorldNameMatch.fromJson),
     );
@@ -192,6 +194,7 @@ class SearchV2WorldItem {
   final String language;
   final GenesisImageResource cover;
   final SearchV2Owner owner;
+  final SearchV2WorldStats stats;
   final int createdAt;
   final List<SearchV2WorldNameMatch> matches;
 }
@@ -269,6 +272,30 @@ class SearchV2OriginStats {
   final int connectCount;
   final int locationCount;
   final int maxTickCount;
+}
+
+@immutable
+class SearchV2WorldStats {
+  const SearchV2WorldStats({
+    required this.tickCount,
+    required this.connectCount,
+    required this.characterCount,
+    required this.playerCount,
+  });
+
+  factory SearchV2WorldStats.fromJson(Map<String, dynamic> json) {
+    return SearchV2WorldStats(
+      tickCount: asInt(json['tick_cnt']),
+      connectCount: asInt(json['connect_cnt']),
+      characterCount: asInt(json['character_cnt']),
+      playerCount: asInt(json['player_cnt']),
+    );
+  }
+
+  final int tickCount;
+  final int connectCount;
+  final int characterCount;
+  final int playerCount;
 }
 
 @immutable
