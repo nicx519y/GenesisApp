@@ -470,6 +470,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
             deleted: item.deleted,
             imageUrl: resolveAssetUrl(item.snapshotCoverUrl),
             progressCount: item.progressCount,
+            subTickNo: item.subTickNo,
             interactCount: item.interactCount,
             characterCount: item.characterCount,
             playerCount: item.playerCount,
@@ -559,6 +560,10 @@ class _UserInfoPageState extends State<UserInfoPage> {
                 onRefreshOrigins: _refreshOrigins,
                 onRefreshWorlds: _refreshWorlds,
                 onCollapsedChanged: _handleProfileCollapsedChanged,
+                originTabLabel: 'Worldo',
+                worldTabLabel: 'Playing',
+                showCollectionCounts: true,
+                tabLabelFontSize: 14,
                 isBlocking: _isBlockingUser,
                 isBlocked: _profileBlocked,
               );

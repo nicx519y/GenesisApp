@@ -165,6 +165,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(find.text('World 1'), findsOneWidget);
+    expect(find.text('Tick 11 · 21 Messages · 41 Players'), findsOneWidget);
   });
 
   testWidgets('uses the shared list progress style while loading next page', (
@@ -378,13 +379,7 @@ void main() {
     expect(find.text('World 1'), findsOneWidget);
     expect(find.textContaining('WID: world_1'), findsOneWidget);
     expect(find.textContaining('Owner: Owner 1'), findsOneWidget);
-    expect(
-      tester
-          .widgetList<StatItem>(find.byType(StatItem))
-          .map((item) => item.text)
-          .take(4),
-      ['11', '21', '31', '41'],
-    );
+    expect(find.text('Tick 11 · 21 Messages · 41 Players'), findsOneWidget);
   });
 
   testWidgets('shows a highlighted Tags row only for matched tags', (
@@ -415,9 +410,7 @@ void main() {
     expect(_highlightedTextParts(worldTags), ['tag']);
     expect(
       tester.getTopLeft(find.text('Tags: world-tag-1')).dy,
-      greaterThan(
-        tester.getTopLeft(find.textContaining('WID: world_1')).dy,
-      ),
+      greaterThan(tester.getTopLeft(find.textContaining('WID: world_1')).dy),
     );
   });
 

@@ -416,18 +416,16 @@ class _ChatHeaderSubtitleAssetIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Transform.translate(
-      offset: Offset(
-        0,
-        customCharacterIconVerticalOffset(style.headerStatusIconSize),
+    return SvgPicture.asset(
+      asset,
+      width: style.headerStatusIconSize,
+      height: style.headerStatusIconSize,
+      fit: BoxFit.contain,
+      colorFilter: ColorFilter.mode(
+        style.headerStatusIconColor,
+        BlendMode.srcIn,
       ),
-      child: SvgPicture.asset(
-        asset,
-        width: customCharacterIconRenderSize(style.headerStatusIconSize),
-        height: customCharacterIconRenderSize(style.headerStatusIconSize),
-        fit: BoxFit.contain,
-        excludeFromSemantics: true,
-      ),
+      excludeFromSemantics: true,
     );
   }
 }

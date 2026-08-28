@@ -15,6 +15,7 @@ import '../../app/config/app_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
+import '../../app/debug/origin_world_sheet_debug_settings.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_modal_routes.dart';
@@ -202,8 +203,12 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _hasVersionOverrides = false;
   bool _loadingTilemapSettingsButtonVisibility = true;
   bool _savingTilemapSettingsButtonVisibility = false;
+  bool _loadingOriginWorldSheetDebugSettings = kDebugMode;
+  bool _savingOriginWorldSheetDebugSettings = false;
   final Set<TelemetryChannel> _savingTelemetryChannels = <TelemetryChannel>{};
   bool _showTilemapSettingsButton = tilemapSettingsButtonVisibility.value;
+  bool _expandOriginWorldSheetOnEntry =
+      originWorldSheetDebugSettings.expandOnEntry;
   bool _dailyCheckInPreviewClaimed = false;
   bool _loadingWorldHistoryAccess = true;
   bool _hasWorldHistoryAccess = false;
@@ -247,6 +252,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     unawaited(_loadVersionOverrides());
     unawaited(_loadWorldHistoryAccess());
     unawaited(_loadTilemapSettingsButtonVisibility());
+    if (kDebugMode) {
+      unawaited(_loadOriginWorldSheetDebugSettings());
+    }
     unawaited(locationChatHeaderEffectSettings.load());
     unawaited(AppServicesScope.read(context).gemWallet.refresh());
   }
@@ -306,6 +314,38 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } finally {
       if (mounted) {
         _updateState(() => _savingTilemapSettingsButtonVisibility = false);
+      }
+    }
+  }
+
+  Future<void> _loadOriginWorldSheetDebugSettings() async {
+    final enabled = await originWorldSheetDebugSettings.load();
+    if (!mounted) return;
+    _updateState(() {
+      _expandOriginWorldSheetOnEntry = enabled;
+      _loadingOriginWorldSheetDebugSettings = false;
+    });
+  }
+
+  Future<void> _setOriginWorldSheetExpandOnEntry(bool enabled) async {
+    if (_loadingOriginWorldSheetDebugSettings ||
+        _savingOriginWorldSheetDebugSettings) {
+      return;
+    }
+    final previousValue = _expandOriginWorldSheetOnEntry;
+    _updateState(() {
+      _expandOriginWorldSheetOnEntry = enabled;
+      _savingOriginWorldSheetDebugSettings = true;
+    });
+    try {
+      await originWorldSheetDebugSettings.setExpandOnEntry(enabled);
+    } catch (error) {
+      if (!mounted) return;
+      _updateState(() => _expandOriginWorldSheetOnEntry = previousValue);
+      showGenesisToast(context, 'Save failed: $error');
+    } finally {
+      if (mounted) {
+        _updateState(() => _savingOriginWorldSheetDebugSettings = false);
       }
     }
   }
@@ -671,6 +711,26 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
             },
           ),
         ),
+        if (kDebugMode) ...[
+          const SizedBox(height: 18),
+          _DeveloperTestSectionPanel(
+            key: const ValueKey<String>('developer-origin-world-sheet-panel'),
+            child: _DeveloperToggleRow(
+              sectionTitle: 'Worldo detail',
+              label: 'Expand sheet on entry',
+              value: _expandOriginWorldSheetOnEntry,
+              enabled:
+                  !_loadingOriginWorldSheetDebugSettings &&
+                  !_savingOriginWorldSheetDebugSettings,
+              switchKey: const ValueKey<String>(
+                'developer-origin-world-sheet-expand-switch',
+              ),
+              onChanged: (value) {
+                unawaited(_setOriginWorldSheetExpandOnEntry(value));
+              },
+            ),
+          ),
+        ],
         const SizedBox(height: 18),
         ValueListenableBuilder<LocationChatHeaderEffectSettings>(
           valueListenable: locationChatHeaderEffectSettings,

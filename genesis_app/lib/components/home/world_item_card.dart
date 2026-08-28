@@ -346,6 +346,7 @@ class _WorldSummary extends StatelessWidget {
               Expanded(
                 child: Text(
                   characterName,
+                  key: const ValueKey<String>('world-card-character-name'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

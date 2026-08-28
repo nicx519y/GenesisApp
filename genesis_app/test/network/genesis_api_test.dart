@@ -1087,7 +1087,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"player_cnt":5}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":1}}',
           );
         }
         return const TransportResponse(
@@ -1131,6 +1131,8 @@ void main() {
     expect(origins.data.single.definitionVersion, 2);
     expect(origins.data.single.defaultMapLocationId, 'loc_origin');
     expect(worlds.single.wid, 'w_1');
+    expect(worlds.single.progressCount, 4);
+    expect(worlds.single.subTickNo, 2);
     expect(worlds.single.definitionVersion, 2);
     expect(worlds.single.defaultMapLocationId, 'loc_world');
     expect(

@@ -22,6 +22,8 @@ const double _tilemapLocationLabelVerticalPadding = 4;
 const double _tilemapLocationActivityIconGap = 3;
 const double _tilemapLocationActivityIconExtraWidth =
     _tilemapLocationActivityIconGap + kRecentChatMapBadgeSize;
+const double _tilemapLocationEventBadgeExtraWidth =
+    _tilemapLocationActivityIconGap + WorldEventCountBadge.minWidth;
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   inherit: false,
   fontFamily: GenesisTypography.fontFamily,
@@ -211,9 +213,9 @@ class _TilemapLocationBubble extends StatelessWidget {
       name,
       occupied: occupied,
     );
-    final activityIconCount = showRecentChat ? 1 : 0;
     final activityIconsWidth =
-        activityIconCount * _tilemapLocationActivityIconExtraWidth;
+        (showEvent ? _tilemapLocationEventBadgeExtraWidth : 0.0) +
+        (showRecentChat ? _tilemapLocationActivityIconExtraWidth : 0.0);
     return Positioned(
       left: anchor.dx,
       top: anchor.dy,
@@ -238,7 +240,7 @@ class _TilemapLocationBubble extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (activityIconCount > 0)
+                    if (activityIconsWidth > 0)
                       SizedBox(width: activityIconsWidth),
                     SizedBox(
                       width: labelLayout.bubbleWidth,
@@ -303,37 +305,35 @@ class _TilemapLocationBubble extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (showEvent)
-                            const Positioned(
-                              right: worldMapLocationEventBadgeRight,
-                              top: worldMapLocationEventBadgeTop,
-                              child: WorldEventCountBadge(
+                        ],
+                      ),
+                    ),
+                    if (activityIconsWidth > 0)
+                      SizedBox(
+                        width: activityIconsWidth,
+                        child: Row(
+                          children: [
+                            if (showEvent) ...[
+                              const SizedBox(
+                                width: _tilemapLocationActivityIconGap,
+                              ),
+                              const WorldEventCountBadge(
                                 key: ValueKey<String>(
                                   'world-map-location-event-count',
                                 ),
                                 count: 1,
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (activityIconCount > 0)
-                      SizedBox(
-                        width: activityIconsWidth,
-                        child: Row(
-                          children: [
-                            if (showRecentChat)
+                            ],
+                            if (showRecentChat) ...[
                               const SizedBox(
-                                width: _tilemapLocationActivityIconExtraWidth,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: RecentChatMapBadge(
-                                    badgeKey: ValueKey<String>(
-                                      'tilemap-recent-chat-icon',
-                                    ),
-                                  ),
+                                width: _tilemapLocationActivityIconGap,
+                              ),
+                              const RecentChatMapBadge(
+                                badgeKey: ValueKey<String>(
+                                  'tilemap-recent-chat-icon',
                                 ),
                               ),
+                            ],
                           ],
                         ),
                       ),

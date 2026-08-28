@@ -1132,8 +1132,6 @@ class _OriginInfoStat extends StatelessWidget {
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 12,
-      iconAssetScale: 1,
-      iconVerticalOffset: 0,
       iconColor: const Color(0xFF111111),
       gap: 4,
       text: formatStatCount(value),

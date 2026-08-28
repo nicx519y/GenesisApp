@@ -181,10 +181,11 @@ void main() {
           title: 'World One',
           subtitle: '',
           imageUrl: '',
-          progressCount: 0,
-          interactCount: 0,
+          progressCount: 4,
+          subTickNo: 2,
+          interactCount: 1,
           characterCount: 0,
-          playerCount: 0,
+          playerCount: 1200,
           ownerName: 'User',
         ),
         UserProfileWorldItem(
@@ -205,6 +206,12 @@ void main() {
 
     expect(find.text('Worldo 1'), findsOneWidget);
     expect(find.text('Playing 2'), findsOneWidget);
+
+    await tester.tap(find.text('Playing 2'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tick 4-2 · 1 Message · 1.2K Players'), findsOneWidget);
+    expect(find.text('Tick 0 · 0 Message · 0 Player'), findsOneWidget);
   });
 
   testWidgets('self Worldo edit icon opens the edit page directly', (

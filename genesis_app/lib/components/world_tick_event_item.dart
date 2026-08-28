@@ -468,33 +468,20 @@ class _EventMetadata extends StatelessWidget {
         .where((role) => !role.isAi)
         .map((role) => role.name)
         .toList(growable: false);
-    final roleGroups = Wrap(
-      crossAxisAlignment: WrapCrossAlignment.start,
-      spacing: 8,
-      runSpacing: 4,
-      children: [
-        if (aiNames.isNotEmpty)
-          _VisibleRoleGroup(
-            iconAsset: characterStatIconAsset,
-            names: aiNames,
-            style: style,
-          ),
-        if (userNames.isNotEmpty)
-          _VisibleRoleGroup(
-            iconAsset: userStatIconAsset,
-            names: userNames,
-            style: style,
-          ),
-      ],
+    final roleNames = <String>[...aiNames, ...userNames];
+    final roleGroup = _VisibleRoleGroup(
+      iconAsset: characterStatIconAsset,
+      names: roleNames,
+      style: style,
     );
-    if (timestamp == null) return roleGroups;
-    if (visibleRoles.isEmpty) return timestamp!;
+    if (visibleRoles.isEmpty) return timestamp ?? const SizedBox.shrink();
+    if (timestamp == null) return roleGroup;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         timestamp!,
         const SizedBox(width: 8),
-        Expanded(child: roleGroups),
+        Expanded(child: roleGroup),
       ],
     );
   }

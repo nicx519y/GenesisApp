@@ -61,6 +61,12 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
 MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
   final world = raw['info'] is Map ? asJsonMap(raw['info']) : raw;
   final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : world;
+  final lastTick = raw['last_tick'] is Map
+      ? asJsonMap(raw['last_tick'])
+      : world['last_tick'] is Map
+      ? asJsonMap(world['last_tick'])
+      : const <String, dynamic>{};
+  final statsSubTickNo = asInt(stats['sub_tick_no']);
   final wid = asString(world['wid'], fallback: asString(world['world_id']));
   final name = asString(
     world['name'],
@@ -91,7 +97,13 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
       world['owner_name'],
       fallback: asString(world['created_user_name']),
     ),
-    progressCount: asInt(stats['tick_cnt']),
+    progressCount: asInt(
+      stats['tick_cnt'],
+      fallback: asInt(lastTick['tick_no']),
+    ),
+    subTickNo: statsSubTickNo > 0
+        ? statsSubTickNo
+        : asInt(lastTick['sub_tick_no']),
     interactCount: asInt(stats['connect_cnt']),
     characterCount: asInt(
       stats['ai_character_cnt'],

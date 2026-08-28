@@ -694,6 +694,24 @@ class _ResultStats extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (item.tab == _SearchTab.world) {
+      return Text(
+        formatWorldStatsLabel(
+          tickNo: item.tickCount,
+          subTickNo: 0,
+          messageCount: item.connectCount,
+          playerCount: item.playerCount,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.black,
+          fontSize: 12,
+          height: 1,
+          fontWeight: FontWeight.w400,
+        ),
+      );
+    }
     final stats = item.tab == _SearchTab.origin
         ? [
             _StatData(iconAsset: copyStatIconAsset, value: item.copyCount),
@@ -707,19 +725,7 @@ class _ResultStats extends StatelessWidget {
               value: item.characterCount,
             ),
           ]
-        : [
-            _StatData(iconAsset: tickStatIconAsset, value: item.tickCount),
-            _StatData(
-              iconAsset: connectStatIconAsset,
-              value: item.connectCount,
-            ),
-            _StatData(
-              iconAsset: characterStatIconAsset,
-              preserveIconAssetColor: true,
-              value: item.characterCount,
-            ),
-            _StatData(iconAsset: userStatIconAsset, value: item.playerCount),
-          ];
+        : const <_StatData>[];
 
     return Wrap(
       spacing: 10,

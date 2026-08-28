@@ -15,8 +15,6 @@ class StatItem extends StatelessWidget {
     this.iconSize = 14,
     this.iconColor,
     this.gap = 4,
-    this.iconAssetScale = 1.25,
-    this.iconVerticalOffset = -0.8,
     this.textStyle = const TextStyle(
       fontSize: 12,
       fontWeight: FontWeight.w400,
@@ -33,41 +31,27 @@ class StatItem extends StatelessWidget {
   final double iconSize;
   final Color? iconColor;
   final double gap;
-  final double iconAssetScale;
-  final double iconVerticalOffset;
   final TextStyle textStyle;
 
   @override
   Widget build(BuildContext context) {
     final color = iconColor ?? Colors.black.withValues(alpha: 0.75);
     final asset = iconAsset;
-    final isCharacterAsset = _isCharacterAsset(asset);
-    final visualSize = isCharacterAsset
-        ? customCharacterIconRenderSize(iconSize)
-        : asset == null
-        ? iconSize
-        : customIconAssetRenderSize(asset, iconSize);
-    final verticalOffset = isCharacterAsset
-        ? customCharacterIconVerticalOffset(iconSize)
-        : iconVerticalOffset;
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: crossAxisAlignment,
       children: [
         if (asset case final asset?)
           preserveIconAssetColor
-              ? Transform.translate(
-                  offset: Offset(0, verticalOffset),
-                  child: _StatAssetIcon(
-                    asset: asset,
-                    size: visualSize,
-                    color: null,
-                    colorMapper: iconColorMapper,
-                  ),
+              ? _StatAssetIcon(
+                  asset: asset,
+                  size: iconSize,
+                  color: null,
+                  colorMapper: iconColorMapper,
                 )
               : _StatAssetIcon(
                   asset: asset,
-                  size: visualSize,
+                  size: iconSize,
                   color: color,
                   colorMapper: iconColorMapper,
                 )
@@ -78,10 +62,6 @@ class StatItem extends StatelessWidget {
       ],
     );
   }
-}
-
-bool _isCharacterAsset(String? asset) {
-  return asset == characterStatIconAsset;
 }
 
 class _StatAssetIcon extends StatelessWidget {

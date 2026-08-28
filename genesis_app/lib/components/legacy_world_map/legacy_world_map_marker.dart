@@ -74,6 +74,8 @@ const double _worldPointMaxLabelTextWidth = 135;
 const double _worldPointActivityIconGap = 3;
 const double _worldPointActivityIconExtraWidth =
     _worldPointActivityIconGap + kRecentChatMapBadgeSize;
+const double _worldPointEventBadgeExtraWidth =
+    _worldPointActivityIconGap + WorldEventCountBadge.minWidth;
 const double _worldPointMaxLabelBoxWidth =
     _worldPointMaxLabelTextWidth + _worldPointLabelHorizontalPadding;
 const double _worldPointDotSize = 8;
@@ -150,9 +152,10 @@ _WorldPointMarkerGeometry _geometryForPoint(
   required bool showEventIcon,
 }) {
   final users = worldMapVisibleAvatarsForPoint(point);
-  final activityIconCount = showRecentChatIcon ? 1 : 0;
   final activityIconsWidth =
-      activityIconCount * _worldPointActivityIconExtraWidth * 2;
+      ((showEventIcon ? _worldPointEventBadgeExtraWidth : 0.0) +
+          (showRecentChatIcon ? _worldPointActivityIconExtraWidth : 0.0)) *
+      2;
   final labelMaxWidth = math.min(
     _worldPointMaxLabelBoxWidth,
     math.max(0.0, width - activityIconsWidth),
@@ -482,9 +485,9 @@ class _WorldPointMarker extends StatelessWidget {
   Widget build(BuildContext context) {
     final hasUsers = users.isNotEmpty;
     final avatars = users;
-    final activityIconCount = showRecentChatIcon ? 1 : 0;
     final activityIconsWidth =
-        activityIconCount * _worldPointActivityIconExtraWidth;
+        (showEventIcon ? _worldPointEventBadgeExtraWidth : 0.0) +
+        (showRecentChatIcon ? _worldPointActivityIconExtraWidth : 0.0);
 
     return SizedBox(
       width: markerWidth,
@@ -504,7 +507,7 @@ class _WorldPointMarker extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    if (activityIconCount > 0)
+                    if (activityIconsWidth > 0)
                       SizedBox(width: activityIconsWidth),
                     SizedBox(
                       width: labelLayout.bubbleWidth,
@@ -551,37 +554,31 @@ class _WorldPointMarker extends StatelessWidget {
                               ),
                             ),
                           ),
-                          if (showEventIcon)
-                            const Positioned(
-                              right: worldMapLocationEventBadgeRight,
-                              top: worldMapLocationEventBadgeTop,
-                              child: WorldEventCountBadge(
+                        ],
+                      ),
+                    ),
+                    if (activityIconsWidth > 0)
+                      SizedBox(
+                        width: activityIconsWidth,
+                        child: Row(
+                          children: [
+                            if (showEventIcon) ...[
+                              const SizedBox(width: _worldPointActivityIconGap),
+                              const WorldEventCountBadge(
                                 key: ValueKey<String>(
                                   'world-map-location-event-count',
                                 ),
                                 count: 1,
                               ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    if (activityIconCount > 0)
-                      SizedBox(
-                        width: activityIconsWidth,
-                        child: Row(
-                          children: [
-                            if (showRecentChatIcon)
-                              const SizedBox(
-                                width: _worldPointActivityIconExtraWidth,
-                                child: Align(
-                                  alignment: Alignment.centerRight,
-                                  child: RecentChatMapBadge(
-                                    badgeKey: ValueKey<String>(
-                                      'world-map-recent-chat-icon',
-                                    ),
-                                  ),
+                            ],
+                            if (showRecentChatIcon) ...[
+                              const SizedBox(width: _worldPointActivityIconGap),
+                              const RecentChatMapBadge(
+                                badgeKey: ValueKey<String>(
+                                  'world-map-recent-chat-icon',
                                 ),
                               ),
+                            ],
                           ],
                         ),
                       ),

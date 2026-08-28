@@ -52,6 +52,11 @@ OriginSummary _originSummaryFromSearchItem(Map<String, dynamic> raw) {
 }
 
 MyWorldSummary _worldSummaryFromSearchItem(Map<String, dynamic> raw) {
+  final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : raw;
+  final lastTick = raw['last_tick'] is Map
+      ? asJsonMap(raw['last_tick'])
+      : const <String, dynamic>{};
+  final statsSubTickNo = asInt(stats['sub_tick_no']);
   return MyWorldSummary(
     wid: asString(
       raw['world_instance_id'],
@@ -68,13 +73,19 @@ MyWorldSummary _worldSummaryFromSearchItem(Map<String, dynamic> raw) {
       raw['owner_name'],
       fallback: asString(raw['created_user_name']),
     ),
-    progressCount: asInt(raw['tick_cnt']),
-    interactCount: asInt(raw['connect_cnt']),
-    characterCount: asInt(
-      raw['ai_character_cnt'],
-      fallback: asInt(raw['character_cnt']),
+    progressCount: asInt(
+      stats['tick_cnt'],
+      fallback: asInt(lastTick['tick_no']),
     ),
-    playerCount: asInt(raw['player_cnt']),
+    subTickNo: statsSubTickNo > 0
+        ? statsSubTickNo
+        : asInt(lastTick['sub_tick_no']),
+    interactCount: asInt(stats['connect_cnt']),
+    characterCount: asInt(
+      stats['ai_character_cnt'],
+      fallback: asInt(stats['character_cnt']),
+    ),
+    playerCount: asInt(stats['player_cnt']),
   );
 }
 

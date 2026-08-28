@@ -73,28 +73,15 @@ class _WorldProfileCollectionListState
               imageUrl: item.imageUrl,
               title: item.title,
               subtitle: item.subtitle,
+              statsText: formatWorldStatsLabel(
+                tickNo: item.progressCount,
+                subTickNo: item.subTickNo,
+                messageCount: item.interactCount,
+                playerCount: item.playerCount,
+              ),
               isCollapsing: _collapsingWorldIds.contains(item.wid),
               showPressedBackground: false,
               enableFeedback: false,
-              stats: [
-                GenesisProfileCollectionStat(
-                  iconAsset: tickStatIconAsset,
-                  value: item.progressCount,
-                ),
-                GenesisProfileCollectionStat(
-                  iconAsset: connectStatIconAsset,
-                  value: item.interactCount,
-                ),
-                GenesisProfileCollectionStat(
-                  iconAsset: characterStatIconAsset,
-                  preserveIconAssetColor: true,
-                  value: item.characterCount,
-                ),
-                GenesisProfileCollectionStat(
-                  iconAsset: userStatIconAsset,
-                  value: item.playerCount,
-                ),
-              ],
               onTap:
                   item.deleted ||
                       _deletingWorldIds.contains(item.wid) ||
@@ -193,6 +180,7 @@ class UserProfileWorldItem {
     this.deleted = false,
     required this.imageUrl,
     required this.progressCount,
+    this.subTickNo = 0,
     required this.interactCount,
     required this.characterCount,
     required this.playerCount,
@@ -207,6 +195,7 @@ class UserProfileWorldItem {
   final bool deleted;
   final String imageUrl;
   final int progressCount;
+  final int subTickNo;
   final int interactCount;
   final int characterCount;
   final int playerCount;
