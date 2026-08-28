@@ -1633,7 +1633,7 @@ Query：
 - `SearchV2Owner`: `uid* / name* / avatar*`；契约中没有 `deleted`
 - `SearchV2OriginCharacter`: `character_id* / name*`
 - `SearchV2OriginStats`: `copy_cnt* / discuss_cnt* / character_cnt* / connect_cnt* / location_cnt* / max_tick_cnt*`，均为 integer
-- `SearchV2WorldStats`: `tick_cnt* / connect_cnt* / character_cnt* / player_cnt*`，均为 integer；依次表示当前主线 Tick 序号、累计 Connect 数、当前 Character 数和当前 Player 数
+- `SearchV2WorldStats`: `tick_cnt* / sub_tick_no* / connect_cnt* / character_cnt* / player_cnt*`，均为 integer；依次表示当前主线 Tick 序号、当前子 Tick 序号、累计 Connect 数、当前 Character 数和当前 Player 数
 - `SearchV2TagMatch`: `field*=tag`、`tag_index*`、`highlight_ranges*`；`tag_index` 定位当前 item 的完整 `tags[]` 元素
 - `SearchV2HighlightRange`: `start*` 最小 0，`length*` 最小 1；二者均以 UTF-16 code unit 为单位，例如 `A😀B` 中 `B` 的 `start=3`
 

@@ -121,7 +121,9 @@ class _SearchResultListState extends State<_SearchResultList>
         }
         final item = state.items[index];
         return Padding(
-          padding: const EdgeInsets.only(bottom: 22),
+          padding: EdgeInsets.only(
+            bottom: widget.tab == _SearchTab.user ? 22 : 30,
+          ),
           child: _SearchResultTile(
             item: item,
             onTap: item.deleted ? null : () => widget.onOpen(item),

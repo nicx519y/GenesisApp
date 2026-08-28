@@ -85,7 +85,7 @@ void main() {
       find.byType(GenesisListImage).first,
     );
     expect(cover.width, 60);
-    expect(cover.height, 80);
+    expect(cover.height, 90);
     expect(
       cover.borderRadius,
       BorderRadius.circular(GenesisImageRadii.contentValue),

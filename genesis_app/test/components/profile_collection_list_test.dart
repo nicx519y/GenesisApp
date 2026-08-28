@@ -92,6 +92,115 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('supports the shared My Worlds card geometry', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            height: 180,
+            child: ProfileCollectionList(
+              topPadding: 10,
+              itemSpacing: 30,
+              items: [
+                GenesisProfileCollectionItemData(
+                  imageUrl: '',
+                  title: 'World One',
+                  subtitle: 'WID: wid_1\nOwner: Owner One',
+                  statsText: 'Tick 1 · 2 Messages',
+                  useWorldCardLayout: true,
+                ),
+              ],
+              emptyText: 'Empty',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<GenesisListImage>(
+      find.byType(GenesisListImage),
+    );
+    expect(image.width, 60);
+    expect(image.height, 90);
+    final subtitle = tester.widget<Text>(find.text('Owner: Owner One'));
+    expect(subtitle.style?.fontSize, 12);
+    expect(subtitle.style?.height, 1.2);
+    expect(subtitle.style?.color, const Color(0xFF888888));
+    final stats = tester.widget<Text>(find.text('Tick 1 · 2 Messages'));
+    expect(stats.style?.fontSize, 12);
+    expect(stats.style?.height, 1.2);
+    expect(stats.style?.color, const Color(0xFF666666));
+    final list = tester.widget<ListView>(find.byType(ListView));
+    expect(
+      list.padding,
+      const EdgeInsets.only(
+        top: 10,
+        bottom: 16 + ProfileCollectionList.minSystemNavigationBottomPadding,
+      ),
+    );
+    final boxes = tester.widgetList<SizedBox>(find.byType(SizedBox));
+    expect(boxes.any((box) => box.width == 14), isTrue);
+    expect(boxes.where((box) => box.height == 4), hasLength(3));
+  });
+
+  testWidgets('supports the shared Worldo card geometry', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            height: 180,
+            child: GenesisProfileCollectionListItem(
+              item: GenesisProfileCollectionItemData(
+                imageUrl: '',
+                title: 'Worldo One',
+                subtitle: 'OID: oid_1\nLatest Version: V1',
+                stats: [
+                  GenesisProfileCollectionStat(
+                    iconAsset: characterStatIconAsset,
+                    value: 1,
+                  ),
+                ],
+                useOriginCardLayout: true,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final image = tester.widget<GenesisListImage>(
+      find.byType(GenesisListImage),
+    );
+    expect(image.width, 60);
+    expect(image.height, 90);
+    final oid = tester.widget<Text>(find.text('OID: oid_1'));
+    expect(find.textContaining('Originator:'), findsNothing);
+    final version = tester.widget<Text>(find.text('Latest Version: V1'));
+    expect(oid.style?.color, const Color(0xFF888888));
+    expect(oid.style?.height, 1.2);
+    expect(version.style?.color, const Color(0xFF888888));
+    expect(version.style?.height, 1.2);
+    final stat = tester.widget<Text>(find.text('1'));
+    expect(stat.style?.color, const Color(0xFF666666));
+    expect(stat.style?.height, 1.2);
+    final statIcon = tester.widget<SvgPicture>(find.byType(SvgPicture));
+    expect(statIcon.width, 12);
+    expect(statIcon.height, 12);
+    expect(
+      statIcon.colorFilter,
+      const ColorFilter.mode(Color(0xFF666666), BlendMode.srcIn),
+    );
+    final boxes = tester.widgetList<SizedBox>(find.byType(SizedBox));
+    expect(boxes.any((box) => box.width == 14), isTrue);
+    expect(boxes.where((box) => box.height == 4), hasLength(3));
+  });
+
   testWidgets('renders profile collection stat assets through svg', (
     WidgetTester tester,
   ) async {

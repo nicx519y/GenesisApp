@@ -136,18 +136,30 @@ class _UserProfileContentState extends State<UserProfileContent>
 
   Widget _buildCollectionTabs(UserProfileData data) {
     Widget buildTabs(int originCount, int worldCount) {
+      final labels = [widget.originTabLabel, widget.worldTabLabel];
       return GenesisTabBar(
         controller: _tabController,
-        labels: [
-          widget.showCollectionCounts
-              ? '${widget.originTabLabel} $originCount'
-              : widget.originTabLabel,
-          widget.showCollectionCounts
-              ? '${widget.worldTabLabel} $worldCount'
-              : widget.worldTabLabel,
-        ],
+        labels: labels,
+        labelWidgets: widget.showCollectionCounts
+            ? [
+                _ProfileCollectionTabLabel(
+                  key: const ValueKey<String>('profile-tab-origin'),
+                  label: widget.originTabLabel,
+                  count: originCount,
+                  countKey: const ValueKey<String>('profile-tab-count-origin'),
+                ),
+                _ProfileCollectionTabLabel(
+                  key: const ValueKey<String>('profile-tab-world'),
+                  label: widget.worldTabLabel,
+                  count: worldCount,
+                  countKey: const ValueKey<String>('profile-tab-count-world'),
+                ),
+              ]
+            : null,
         horizontalPadding: 8,
-        labelPadding: const EdgeInsets.symmetric(horizontal: 8),
+        labelPadding: widget.showCollectionCounts
+            ? const EdgeInsets.only(left: 8, right: 24)
+            : const EdgeInsets.symmetric(horizontal: 8),
         labelFontSize: widget.tabLabelFontSize,
         onTap: _reportCollectionTab,
       );
@@ -501,6 +513,72 @@ class _GemsBalanceEntry extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ProfileCollectionTabLabel extends StatelessWidget {
+  const _ProfileCollectionTabLabel({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.countKey,
+  });
+
+  final String label;
+  final int count;
+  final Key countKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final labelStyle = DefaultTextStyle.of(context).style;
+    final countStyle = labelStyle.copyWith(fontWeight: FontWeight.w400);
+    final labelMetrics = _measure(context, label, labelStyle);
+    final countText = '$count';
+    final countMetrics = _measure(context, countText, countStyle);
+    return SizedBox(
+      width: labelMetrics.size.width,
+      height: labelMetrics.size.height,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(child: Text(label, maxLines: 1)),
+          Positioned(
+            left: labelMetrics.size.width + 4,
+            top: labelMetrics.baseline - countMetrics.baseline,
+            child: KeyedSubtree(
+              key: countKey,
+              child: Text(countText, maxLines: 1, style: countStyle),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  _ProfileTabTextMetrics _measure(
+    BuildContext context,
+    String text,
+    TextStyle style,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+      maxLines: 1,
+    )..layout();
+    return _ProfileTabTextMetrics(
+      size: painter.size,
+      baseline: painter.computeDistanceToActualBaseline(
+        TextBaseline.alphabetic,
+      ),
+    );
+  }
+}
+
+class _ProfileTabTextMetrics {
+  const _ProfileTabTextMetrics({required this.size, required this.baseline});
+
+  final Size size;
+  final double baseline;
 }
 
 String _formatGemBalance(int value) {

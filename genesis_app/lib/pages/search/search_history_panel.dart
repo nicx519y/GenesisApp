@@ -74,7 +74,7 @@ class _SearchHistoryTag extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: const Color(0xFFF1F3F6),
-            borderRadius: BorderRadius.circular(15),
+            borderRadius: BorderRadius.circular(8),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -87,7 +87,7 @@ class _SearchHistoryTag extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Color(0xFF888888),
+                    color: Color(0xFF666666),
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                   ),

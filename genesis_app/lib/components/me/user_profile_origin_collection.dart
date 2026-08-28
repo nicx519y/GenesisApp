@@ -45,6 +45,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
               imageUrl: item.imageUrl,
               title: originDisplayName(item.title),
               subtitle: item.subtitle,
+              useOriginCardLayout: true,
               showPressedBackground: false,
               stats: [
                 GenesisProfileCollectionStat(
@@ -57,7 +58,6 @@ class _OriginProfileCollectionList extends StatelessWidget {
                 ),
                 GenesisProfileCollectionStat(
                   iconAsset: characterStatIconAsset,
-                  preserveIconAssetColor: true,
                   value: item.characterCount,
                 ),
               ],
@@ -107,6 +107,8 @@ class _OriginProfileCollectionList extends StatelessWidget {
       loadingKey: const ValueKey('profile-origin-list-loading'),
       onRefresh: onRefresh,
       refreshKey: const ValueKey('profile-origin-list-refresh'),
+      topPadding: 10,
+      itemSpacing: 30,
     );
   }
 }

@@ -1,11 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
-import 'package:genesis_flutter_android/components/origin/stat_item.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
@@ -18,6 +18,7 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_avatar_radii.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_origin_card_geometry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -57,6 +58,29 @@ void main() {
       transport.searchRequests.single.uri.queryParameters['type'],
       'origin',
     );
+  });
+
+  testWidgets('uses the compact Search History capsule style', (tester) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'search_recent_queries_v1': <String>['history query'],
+    });
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+    await tester.pumpAndSettle();
+
+    final historyText = tester.widget<Text>(find.text('history query'));
+    expect(historyText.style?.color, const Color(0xFF666666));
+    final capsule = tester.widget<DecoratedBox>(
+      find
+          .ancestor(
+            of: find.text('history query'),
+            matching: find.byType(DecoratedBox),
+          )
+          .first,
+    );
+    final decoration = capsule.decoration as BoxDecoration;
+    expect(decoration.color, const Color(0xFFF1F3F6));
+    expect(decoration.borderRadius, BorderRadius.circular(8));
   });
 
   testWidgets('uses card skeletons instead of progress rings while loading', (
@@ -165,7 +189,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
     expect(find.text('World 1'), findsOneWidget);
-    expect(find.text('Tick 11 · 21 Messages · 41 Players'), findsOneWidget);
+    expect(find.text('Tick 11-2 · 21 Messages · 41 Players'), findsOneWidget);
   });
 
   testWidgets('uses the shared list progress style while loading next page', (
@@ -189,6 +213,8 @@ void main() {
     final scrollable = tester.state<ScrollableState>(
       find.descendant(of: resultsList, matching: find.byType(Scrollable)),
     );
+    scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
+    await tester.pump();
     scrollable.position.jumpTo(scrollable.position.maxScrollExtent);
     await tester.pump();
 
@@ -218,7 +244,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     final transport = _SearchPageTransport(
-      sectionTotals: const {'origin': 14, 'world': 24, 'user': 34},
+      sectionTotals: const {'origin': 114, 'world': 99, 'user': 34},
     );
     await _pumpSearchPage(tester, transport);
 
@@ -238,12 +264,20 @@ void main() {
         entry.value,
       );
     }
-    expect(_searchTabCount('origin', '14'), findsOneWidget);
-    expect(_searchTabCount('world', '24'), findsOneWidget);
+    expect(_searchTabCount('origin', '99+'), findsOneWidget);
+    expect(_searchTabCount('world', '99'), findsOneWidget);
     expect(_searchTabCount('user', '34'), findsOneWidget);
-    final originCount = tester.widget<Text>(_searchTabCount('origin', '14'));
-    expect(originCount.style?.fontSize, 10);
-    expect(originCount.style?.color, const Color(0xFFFF2442));
+    final originCount = tester.widget<Text>(_searchTabCount('origin', '99+'));
+    final originLabel = find.descendant(
+      of: find.byKey(const ValueKey<String>('search-tab-origin')),
+      matching: find.text('Worldo'),
+    );
+    final originLabelStyle = DefaultTextStyle.of(
+      tester.element(originLabel),
+    ).style;
+    expect(originCount.style?.fontSize, originLabelStyle.fontSize);
+    expect(originCount.style?.color, originLabelStyle.color);
+    expect(originCount.style?.fontWeight, FontWeight.w400);
     expect(find.text('All'), findsNothing);
     expect(find.text('#Origin 4'), findsOneWidget);
     expect(
@@ -253,15 +287,28 @@ void main() {
 
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
-    expect(_searchTabCount('origin', '14'), findsOneWidget);
-    expect(_searchTabCount('world', '24'), findsOneWidget);
+    expect(_searchTabCount('origin', '99+'), findsOneWidget);
+    expect(_searchTabCount('world', '99'), findsOneWidget);
     expect(_searchTabCount('user', '34'), findsOneWidget);
+    final worldCount = tester.widget<Text>(_searchTabCount('world', '99'));
+    final worldLabel = find.descendant(
+      of: find.byKey(const ValueKey<String>('search-tab-world')),
+      matching: find.text('World'),
+    );
+    final worldLabelStyle = DefaultTextStyle.of(
+      tester.element(worldLabel),
+    ).style;
+    expect(worldCount.style?.fontSize, worldLabelStyle.fontSize);
+    expect(worldCount.style?.color, worldLabelStyle.color);
+    expect(worldCount.style?.fontWeight, FontWeight.w400);
+    final tabBar = tester.widget<TabBar>(find.byType(TabBar));
+    expect(tabBar.labelPadding, const EdgeInsets.only(right: 42));
     expect(transport.searchRequests.last.uri.queryParameters['type'], 'world');
 
     await tester.tap(find.text('User'));
     await tester.pumpAndSettle();
-    expect(_searchTabCount('origin', '14'), findsOneWidget);
-    expect(_searchTabCount('world', '24'), findsOneWidget);
+    expect(_searchTabCount('origin', '99+'), findsOneWidget);
+    expect(_searchTabCount('world', '99'), findsOneWidget);
     expect(_searchTabCount('user', '34'), findsOneWidget);
     expect(transport.searchRequests.last.uri.queryParameters['type'], 'user');
     expect(transport.searchRequests, hasLength(3));
@@ -339,7 +386,7 @@ void main() {
     }
   });
 
-  testWidgets('only shows optional Worldo metadata selected by matches', (
+  testWidgets('shows default Worldo brief when no summary field matches', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -354,9 +401,21 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.text('OID: origin_1'), findsOneWidget);
+    expect(find.text('Originator: Deleted User'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Originator: Deleted User')).dy,
+      greaterThan(tester.getTopLeft(find.text('OID: origin_1')).dy),
+    );
     expect(find.textContaining('Brief:'), findsNothing);
     expect(find.textContaining('Characters:'), findsNothing);
-    expect(find.textContaining('Latest Version: V1'), findsOneWidget);
+    expect(find.textContaining('Latest Version:'), findsNothing);
+    final brief = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('origin-summary-brief')).first,
+    );
+    expect(brief.textSpan?.toPlainText(), 'Origin brief 1');
+    expect(brief.maxLines, 2);
+    expect(brief.style?.color, const Color(0xFF666666));
   });
 
   testWidgets('renders world fields from the v2 search contract', (
@@ -377,41 +436,57 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('World 1'), findsOneWidget);
-    expect(find.textContaining('WID: world_1'), findsOneWidget);
-    expect(find.textContaining('Owner: Owner 1'), findsOneWidget);
-    expect(find.text('Tick 11 · 21 Messages · 41 Players'), findsOneWidget);
+    expect(find.text('WID: world_1'), findsOneWidget);
+    expect(find.text('Owner: Owner 1'), findsOneWidget);
+    expect(find.text('Tick 11-2 · 21 Messages · 41 Players'), findsOneWidget);
   });
 
-  testWidgets('shows a highlighted Tags row only for matched tags', (
+  testWidgets('shows matched Tags only for Worldo and never for World', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1800);
     addTearDown(tester.view.reset);
 
-    final transport = _SearchPageTransport(includeTagMatches: true);
+    final transport = _SearchPageTransport(
+      originNameMatchOnly: true,
+      includeTagMatches: true,
+    );
     await _pumpSearchPage(tester, transport);
 
     await tester.enterText(find.byType(TextField), 'tag');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    final originTags = tester.widget<Text>(find.text('Tags: tag-1'));
+    final originTags = tester.widget<Text>(find.text('tag-1'));
     expect(_highlightedTextParts(originTags), ['tag']);
+    final tagsBox = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('origin-summary-tags')).first,
+    );
+    final tagsDecoration = tagsBox.decoration as BoxDecoration;
+    expect(tagsDecoration.color, const Color(0xFFF1F3F6));
+    expect(tagsDecoration.borderRadius, BorderRadius.circular(4));
+    expect(originTags.style?.color, const Color(0xFF666666));
+    final tagsPadding = tester.widget<Padding>(
+      find.descendant(
+        of: find.byKey(const ValueKey<String>('origin-summary-tags')).first,
+        matching: find.byType(Padding),
+      ),
+    );
+    expect(tagsPadding.padding, const EdgeInsets.symmetric(horizontal: 8));
     expect(
-      tester.getTopLeft(find.text('Tags: tag-1')).dy,
-      lessThan(tester.getTopLeft(find.text('Latest Version: V1')).dy),
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('origin-summary-tags')).first,
+          )
+          .height,
+      20,
     );
 
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
 
-    final worldTags = tester.widget<Text>(find.text('Tags: world-tag-1'));
-    expect(_highlightedTextParts(worldTags), ['tag']);
-    expect(
-      tester.getTopLeft(find.text('Tags: world-tag-1')).dy,
-      greaterThan(tester.getTopLeft(find.textContaining('WID: world_1')).dy),
-    );
+    expect(find.textContaining('Tags:'), findsNothing);
   });
 
   testWidgets('does not show a Tags row without a tag match', (tester) async {
@@ -434,29 +509,46 @@ void main() {
     expect(find.textContaining('Tags:'), findsNothing);
   });
 
-  testWidgets('shows the origin version returned by v2 search', (tester) async {
+  testWidgets('orders Worldo summaries as character then brief', (
+    tester,
+  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1200);
     addTearDown(tester.view.reset);
 
-    final transport = _SearchPageTransport();
+    final transport = _SearchPageTransport(includeTagMatches: true);
     await _pumpSearchPage(tester, transport);
 
     await tester.enterText(find.byType(TextField), 'ab');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    final brief = tester.widget<Text>(
-      find.textContaining('Brief: Origin brief 1'),
+    final briefFinder = find.byKey(
+      const ValueKey<String>('origin-summary-brief'),
     );
-    expect(brief.textSpan?.toPlainText(), 'Brief: Origin brief 1');
+    final brief = tester.widget<Text>(briefFinder.first);
+    expect(brief.textSpan?.toPlainText(), 'Origin brief 1');
     expect(brief.maxLines, 2);
     expect(brief.textSpan?.toPlainText(), isNot(contains('…')));
-    expect(
-      find.textContaining('Characters: Character 1, Supporting 1'),
-      findsOneWidget,
+    final charactersFinder = find.byKey(
+      const ValueKey<String>('origin-summary-characters'),
     );
-    expect(find.textContaining('Latest Version: V1'), findsOneWidget);
+    final charactersText = tester.widget<Text>(
+      find.descendant(
+        of: charactersFinder.first,
+        matching: find.text('Character 1, Supporting 1'),
+      ),
+    );
+    expect(charactersText.style?.color, const Color(0xFF666666));
+    expect(
+      tester.getTopLeft(charactersFinder.first).dy,
+      lessThan(tester.getTopLeft(briefFinder.first).dy),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-summary-tags')),
+      findsNothing,
+    );
+    expect(find.textContaining('Latest Version:'), findsNothing);
   });
 
   testWidgets('keeps a prefix before a complete trailing Brief match', (
@@ -473,13 +565,15 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    final briefFinder = find.textContaining('Brief:');
+    final briefFinder = find.byKey(
+      const ValueKey<String>('origin-summary-brief'),
+    );
     final brief = tester.widget<Text>(briefFinder.first);
     final displayedBrief = brief.textSpan!.toPlainText();
     expect(brief.maxLines, 2);
     expect(displayedBrief, contains('…'));
-    expect(displayedBrief, startsWith('Brief: Two'));
-    expect(displayedBrief, isNot(startsWith('Brief: …')));
+    expect(displayedBrief, startsWith('Two'));
+    expect(displayedBrief, isNot(startsWith('…')));
     expect(displayedBrief, contains('rooftop'));
     expect(displayedBrief, endsWith('rooftop'));
     expect(_highlightedTextParts(brief), contains('rooftop'));
@@ -513,15 +607,15 @@ void main() {
     ]);
     expect(
       _highlightedTextParts(
-        tester.widget<Text>(find.textContaining('Brief: Origin brief 1')),
+        tester.widget<Text>(
+          find.byKey(const ValueKey<String>('origin-summary-brief')).first,
+        ),
       ),
       ['Origin', 'brief'],
     );
     expect(
       _highlightedTextParts(
-        tester.widget<Text>(
-          find.textContaining('Characters: Character 1, Supporting 1'),
-        ),
+        tester.widget<Text>(find.text('Character 1, Supporting 1')),
       ),
       ['Character', 'Supporting'],
     );
@@ -537,6 +631,79 @@ void main() {
     expect(_highlightedTextParts(tester.widget<Text>(find.text('User 1'))), [
       'User',
     ]);
+  });
+
+  testWidgets('highlights matched OID WID and UID text', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(includeIdMatches: true);
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'id-query');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(
+      _highlightedTextParts(
+        tester.widget<Text>(find.textContaining('OID: origin_1')),
+      ),
+      ['origin_1'],
+    );
+
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+    expect(
+      _highlightedTextParts(tester.widget<Text>(find.text('WID: world_1'))),
+      ['world_1'],
+    );
+
+    await tester.tap(find.text('User'));
+    await tester.pumpAndSettle();
+    expect(
+      _highlightedTextParts(tester.widget<Text>(find.text('UID: user_1'))),
+      ['user_1'],
+    );
+  });
+
+  testWidgets('highlights ID query when backend omits ID match ranges', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'origin_1');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(
+      _highlightedTextParts(
+        tester.widget<Text>(find.textContaining('OID: origin_1')),
+      ),
+      ['origin_1'],
+    );
+
+    await tester.enterText(find.byType(TextField), 'world_1');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+    expect(
+      _highlightedTextParts(tester.widget<Text>(find.text('WID: world_1'))),
+      ['world_1'],
+    );
+
+    await tester.enterText(find.byType(TextField), 'USER_1');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.tap(find.text('User'));
+    await tester.pumpAndSettle();
+    expect(
+      _highlightedTextParts(tester.widget<Text>(find.text('UID: user_1'))),
+      ['user_1'],
+    );
   });
 
   testWidgets('shows the documented origin owner name in search results', (
@@ -611,27 +778,54 @@ void main() {
         )
         .toList();
     expect(
-      originSizedBoxes.any((box) => box.width == 10),
+      originSizedBoxes.any((box) => box.width == 14),
       isTrue,
-      reason: 'Origin image-to-text gap should match Me collection rows.',
+      reason: 'Worldo image-to-text gap should match the shared list layout.',
     );
     expect(
-      originSizedBoxes.any((box) => box.height == 5),
+      originSizedBoxes.any((box) => box.height == 4),
       isTrue,
-      reason: 'Origin title-to-subtitle gap should match Me collection rows.',
+      reason: 'Every Worldo content-row gap should be 4px.',
     );
     expect(
-      originSizedBoxes.any((box) => box.height == 8),
-      isTrue,
-      reason: 'Origin subtitle-to-stats gap should match Me collection rows.',
+      originSizedBoxes.any((box) => box.height == 5 || box.height == 8),
+      isFalse,
+      reason: 'Worldo should not retain the old 5px or 8px row gaps.',
     );
     final originSubtitle = tester.widget<Text>(
       find.descendant(
         of: originTile,
-        matching: find.textContaining('Latest Version'),
+        matching: find.textContaining('OID: origin_1'),
       ),
     );
-    expect(originSubtitle.style?.height, 1.3);
+    expect(originSubtitle.style?.height, 1.2);
+    expect(originSubtitle.style?.color, const Color(0xFF888888));
+    final originStatTexts = tester.widgetList<Text>(
+      find.descendant(of: originTile, matching: find.text('1')),
+    );
+    expect(originStatTexts, isNotEmpty);
+    expect(
+      originStatTexts.every(
+        (text) => text.style?.color == const Color(0xFF666666),
+      ),
+      isTrue,
+    );
+    final originStatIcons = tester.widgetList<SvgPicture>(
+      find.descendant(of: originTile, matching: find.byType(SvgPicture)),
+    );
+    expect(originStatIcons, isNotEmpty);
+    expect(
+      originStatIcons.every((icon) => icon.width == 12 && icon.height == 12),
+      isTrue,
+    );
+    expect(
+      originStatIcons.every(
+        (icon) =>
+            icon.colorFilter ==
+            const ColorFilter.mode(Color(0xFF666666), BlendMode.srcIn),
+      ),
+      isTrue,
+    );
 
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
@@ -646,7 +840,37 @@ void main() {
       find.descendant(of: worldTile, matching: find.byType(GenesisListImage)),
     );
     expect(worldImage.width, 60);
-    expect(worldImage.height, 60);
+    expect(worldImage.height, 90);
+    final worldSizedBoxes = tester
+        .widgetList<SizedBox>(
+          find.descendant(of: worldTile, matching: find.byType(SizedBox)),
+        )
+        .toList();
+    expect(
+      worldSizedBoxes.any((box) => box.width == 14),
+      isTrue,
+      reason: 'World image-to-text gap should match My Worlds cards.',
+    );
+    expect(
+      worldSizedBoxes.where((box) => box.height == 4),
+      hasLength(3),
+      reason: 'World result rows should use 4px vertical gaps.',
+    );
+    final worldMetadata = tester.widget<Text>(
+      find.descendant(of: worldTile, matching: find.text('WID: world_1')),
+    );
+    expect(worldMetadata.style?.fontSize, 12);
+    expect(worldMetadata.style?.height, 1.2);
+    expect(worldMetadata.style?.color, const Color(0xFF888888));
+    final worldStats = tester.widget<Text>(
+      find.descendant(
+        of: worldTile,
+        matching: find.text('Tick 11-2 · 21 Messages · 41 Players'),
+      ),
+    );
+    expect(worldStats.style?.fontSize, 12);
+    expect(worldStats.style?.height, 1.2);
+    expect(worldStats.style?.color, const Color(0xFF666666));
 
     await tester.tap(find.text('User'));
     await tester.pumpAndSettle();
@@ -660,8 +884,8 @@ void main() {
     final userAvatar = tester.widget<GenesisAvatar>(
       find.descendant(of: userTile, matching: find.byType(GenesisAvatar)),
     );
-    expect(userAvatar.size, 60);
-    expect(userAvatar.borderRadius, 30);
+    expect(userAvatar.size, 52);
+    expect(userAvatar.borderRadius, GenesisAvatarRadii.user);
 
     final userAvatarRect = tester.getRect(
       find.descendant(of: userTile, matching: find.byType(GenesisAvatar)),
@@ -669,13 +893,12 @@ void main() {
     final userNameRect = tester.getRect(
       find.descendant(of: userTile, matching: find.text('User 1')),
     );
-    final userIdRect = tester.getRect(
-      find.descendant(of: userTile, matching: find.textContaining('UID:')),
+    expect(userNameRect.top, closeTo(userAvatarRect.top, 1));
+
+    final userUid = tester.widget<Text>(
+      find.descendant(of: userTile, matching: find.text('UID: user_1')),
     );
-    expect(
-      (userNameRect.top + userIdRect.bottom) / 2,
-      closeTo(userAvatarRect.center.dy, 1),
-    );
+    expect(userUid.style?.color, const Color(0xFF888888));
 
     final userSizedBoxes = tester
         .widgetList<SizedBox>(
@@ -738,14 +961,19 @@ void main() {
           matching: find.byType(GestureDetector),
         )
         .first;
-    final brief = tester.widget<Text>(find.textContaining('Brief:'));
-    final characters = find.textContaining('Characters:');
-    final charactersText = tester.widget<Text>(characters);
+    final brief = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('origin-summary-brief')),
+    );
+    final characters = find.byKey(
+      const ValueKey<String>('origin-summary-characters'),
+    );
+    final charactersText = tester.widget<Text>(
+      find.descendant(
+        of: characters,
+        matching: find.text('Extra Character 12'),
+      ),
+    );
     final charactersValue = charactersText.textSpan!.toPlainText();
-    final displayedCharacterTokens = charactersValue
-        .replaceFirst('Characters: ', '')
-        .split(', ');
-    final latestVersion = find.textContaining('Latest Version: V1');
 
     expect(brief.maxLines, 2);
     expect(brief.textSpan?.toPlainText(), contains('…'));
@@ -753,59 +981,23 @@ void main() {
     expect(_highlightedTextParts(brief), contains('Latest Version visible'));
     expect(characters, findsOneWidget);
     expect(charactersText.maxLines, 2);
-    expect(charactersValue, contains('…'));
-    expect(charactersValue, isNot(startsWith('Characters: …')));
-    expect(charactersValue, contains('Character 1'));
-    expect(charactersValue, contains('Extra Character 12'));
+    expect(charactersValue, 'Extra Character 12');
     expect(
       _highlightedTextParts(charactersText),
       contains('Extra Character 12'),
     );
     expect(
-      displayedCharacterTokens.where((token) => token != '…'),
-      everyElement(
-        isIn(const [
-          'Character 1',
-          'Supporting 1',
-          'Extra Character 3',
-          'Extra Character 4',
-          'Extra Character 5',
-          'Extra Character 6',
-          'Extra Character 7',
-          'Extra Character 8',
-          'Extra Character 9',
-          'Extra Character 10',
-          'Extra Character 11',
-          'Extra Character 12',
-        ]),
+      tester.getTopLeft(characters).dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('origin-summary-brief')),
+            )
+            .dy,
       ),
     );
-    final charactersPainter =
-        TextPainter(
-          text: TextSpan(
-            style: charactersText.style,
-            children: [charactersText.textSpan!],
-          ),
-          maxLines: 2,
-          ellipsis: '…',
-          textDirection: TextDirection.ltr,
-        )..layout(
-          maxWidth: tester
-              .renderObject<RenderBox>(characters)
-              .constraints
-              .maxWidth,
-        );
-    expect(charactersPainter.didExceedMaxLines, isFalse);
-    expect(latestVersion, findsOneWidget);
-    expect(tester.getSize(tile).height, greaterThan(120));
-    expect(
-      tester.getTopLeft(latestVersion).dy,
-      greaterThan(tester.getTopLeft(characters).dy),
-    );
-    expect(
-      tester.getBottomRight(latestVersion).dy,
-      lessThanOrEqualTo(tester.getBottomRight(tile).dy),
-    );
+    expect(find.textContaining('Latest Version:'), findsNothing);
+    expect(tester.getSize(tile).height, greaterThan(90));
   });
 
   testWidgets('removes deleted world from search results after detail closes', (
@@ -929,6 +1121,7 @@ class _SearchPageTransport implements HttpTransport {
     this.originNameMatchOnly = false,
     this.trailingBriefMatch = false,
     this.includeTagMatches = false,
+    this.includeIdMatches = false,
     this.paginated = false,
     this.sectionTotals = const <String, int>{},
     this.searchDelay = Duration.zero,
@@ -940,6 +1133,7 @@ class _SearchPageTransport implements HttpTransport {
   final bool originNameMatchOnly;
   final bool trailingBriefMatch;
   final bool includeTagMatches;
+  final bool includeIdMatches;
   final bool paginated;
   final Map<String, int> sectionTotals;
   final Duration searchDelay;
@@ -985,6 +1179,7 @@ class _SearchPageTransport implements HttpTransport {
           originNameMatchOnly: originNameMatchOnly,
           trailingBriefMatch: trailingBriefMatch,
           includeTagMatches: includeTagMatches,
+          includeIdMatches: includeIdMatches,
           paginated: paginated,
           pageNumber: pageNumber,
         ),
@@ -993,6 +1188,7 @@ class _SearchPageTransport implements HttpTransport {
           request.uri.queryParameters['type'],
           total: sectionTotals['world'],
           includeTagMatches: includeTagMatches,
+          includeIdMatches: includeIdMatches,
           paginated: paginated,
           pageNumber: pageNumber,
         ),
@@ -1000,6 +1196,7 @@ class _SearchPageTransport implements HttpTransport {
           'user',
           request.uri.queryParameters['type'],
           total: sectionTotals['user'],
+          includeIdMatches: includeIdMatches,
           paginated: paginated,
           pageNumber: pageNumber,
         ),
@@ -1021,6 +1218,7 @@ Map<String, dynamic> _section(
   bool originNameMatchOnly = false,
   bool trailingBriefMatch = false,
   bool includeTagMatches = false,
+  bool includeIdMatches = false,
   bool paginated = false,
   int pageNumber = 1,
 }) {
@@ -1055,6 +1253,7 @@ Map<String, dynamic> _section(
           originNameMatchOnly: originNameMatchOnly,
           trailingBriefMatch: trailingBriefMatch,
           includeTagMatches: includeTagMatches,
+          includeIdMatches: includeIdMatches,
         ),
     ],
     'total': total ?? (paginated ? 21 : itemCount),
@@ -1079,6 +1278,7 @@ Map<String, dynamic> _item(
   bool originNameMatchOnly = false,
   bool trailingBriefMatch = false,
   bool includeTagMatches = false,
+  bool includeIdMatches = false,
 }) {
   return switch (type) {
     'origin' => {
@@ -1122,6 +1322,13 @@ Map<String, dynamic> _item(
         'max_tick_cnt': index + 30,
       },
       'matches': [
+        if (includeIdMatches)
+          {
+            'field': 'origin_id',
+            'highlight_ranges': [
+              {'start': 0, 'length': 'origin_1'.length},
+            ],
+          },
         {
           'field': 'origin_name',
           'highlight_ranges': [
@@ -1172,15 +1379,15 @@ Map<String, dynamic> _item(
                 {'start': 0, 'length': 'Extra Character 12'.length},
               ],
             },
-          if (includeTagMatches)
-            {
-              'field': 'tag',
-              'tag_index': 0,
-              'highlight_ranges': [
-                {'start': 0, 'length': 3},
-              ],
-            },
         ],
+        if (includeTagMatches)
+          {
+            'field': 'tag',
+            'tag_index': 0,
+            'highlight_ranges': [
+              {'start': 0, 'length': 3},
+            ],
+          },
       ],
       'matches_truncated': false,
     },
@@ -1194,12 +1401,20 @@ Map<String, dynamic> _item(
       'owner': {'uid': 'owner_$index', 'name': 'Owner $index', 'avatar': ''},
       'stats': {
         'tick_cnt': index + 10,
+        'sub_tick_no': index + 1,
         'connect_cnt': index + 20,
         'character_cnt': index + 30,
         'player_cnt': index + 40,
       },
       'created_at': 1777680000 + index,
       'matches': [
+        if (includeIdMatches)
+          {
+            'field': 'world_id',
+            'highlight_ranges': [
+              {'start': 0, 'length': 'world_1'.length},
+            ],
+          },
         {
           'field': 'world_name',
           'highlight_ranges': [
@@ -1221,6 +1436,13 @@ Map<String, dynamic> _item(
       'name': 'User $index',
       'avatar': '',
       'matches': [
+        if (includeIdMatches)
+          {
+            'field': 'uid',
+            'highlight_ranges': [
+              {'start': 0, 'length': 'user_1'.length},
+            ],
+          },
         {
           'field': 'user_name',
           'highlight_ranges': [

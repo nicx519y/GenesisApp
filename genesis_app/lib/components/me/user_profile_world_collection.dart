@@ -79,6 +79,7 @@ class _WorldProfileCollectionListState
                 messageCount: item.interactCount,
                 playerCount: item.playerCount,
               ),
+              useWorldCardLayout: true,
               isCollapsing: _collapsingWorldIds.contains(item.wid),
               showPressedBackground: false,
               enableFeedback: false,
@@ -97,6 +98,8 @@ class _WorldProfileCollectionListState
       loadingKey: const ValueKey('profile-world-list-loading'),
       onRefresh: widget.onRefresh,
       refreshKey: const ValueKey('profile-world-list-refresh'),
+      topPadding: 10,
+      itemSpacing: 30,
     );
   }
 

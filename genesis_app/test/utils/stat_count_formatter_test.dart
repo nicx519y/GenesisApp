@@ -35,7 +35,16 @@ void main() {
         messageCount: 0,
         playerCount: 0,
       ),
-      'Tick 0 · 0 Message · 0 Player',
+      'Tick 0 · 0 Message',
+    );
+    expect(
+      formatWorldStatsLabel(
+        tickNo: 1,
+        subTickNo: 0,
+        messageCount: 3,
+        playerCount: 1,
+      ),
+      'Tick 1 · 3 Messages',
     );
   });
 }

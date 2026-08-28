@@ -53,16 +53,21 @@ class _SearchResultItem {
     required this.copyCount,
     required this.connectCount,
     required this.tickCount,
+    required this.subTickNo,
     required this.characterCount,
     required this.playerCount,
     required this.memberCount,
+    required this.searchQuery,
     this.originV2,
     this.worldV2,
     this.userV2,
     this.deleted = false,
   });
 
-  factory _SearchResultItem.fromV2Origin(SearchV2OriginItem origin) {
+  factory _SearchResultItem.fromV2Origin(
+    SearchV2OriginItem origin, {
+    required String searchQuery,
+  }) {
     final originator = formatUidForDisplay(origin.owner.name, fallback: '-');
     return _SearchResultItem(
       tab: _SearchTab.origin,
@@ -78,35 +83,45 @@ class _SearchResultItem {
       copyCount: origin.stats.copyCount,
       connectCount: origin.stats.connectCount,
       tickCount: origin.stats.maxTickCount,
+      subTickNo: 0,
       characterCount: origin.stats.characterCount,
       playerCount: 0,
       memberCount: origin.stats.locationCount,
+      searchQuery: searchQuery,
       originV2: origin,
       deleted: false,
     );
   }
 
-  factory _SearchResultItem.fromV2World(SearchV2WorldItem world) {
+  factory _SearchResultItem.fromV2World(
+    SearchV2WorldItem world, {
+    required String searchQuery,
+  }) {
     final owner = formatUidForDisplay(world.owner.name, fallback: '-');
     return _SearchResultItem(
       tab: _SearchTab.world,
       entityId: world.worldId,
       shortCode: world.worldId,
       title: world.worldName,
-      subtitle: 'WID: ${_dashOrValue(world.worldId)}  Owner: $owner',
+      subtitle: 'WID: ${_dashOrValue(world.worldId)}\nOwner: $owner',
       coverImage: asImageUrl(world.cover),
       copyCount: 0,
       connectCount: world.stats.connectCount,
       tickCount: world.stats.tickCount,
+      subTickNo: world.stats.subTickNo,
       characterCount: world.stats.characterCount,
       playerCount: world.stats.playerCount,
       memberCount: 0,
+      searchQuery: searchQuery,
       worldV2: world,
       deleted: false,
     );
   }
 
-  factory _SearchResultItem.fromV2User(SearchV2UserItem user) {
+  factory _SearchResultItem.fromV2User(
+    SearchV2UserItem user, {
+    required String searchQuery,
+  }) {
     final title = formatUidForDisplay(
       user.name,
       fallback: formatUidForDisplay(user.uid),
@@ -121,9 +136,11 @@ class _SearchResultItem {
       copyCount: 0,
       connectCount: 0,
       tickCount: 0,
+      subTickNo: 0,
       characterCount: 0,
       playerCount: 0,
       memberCount: 0,
+      searchQuery: searchQuery,
       userV2: user,
       deleted: false,
     );
@@ -138,9 +155,11 @@ class _SearchResultItem {
   final int copyCount;
   final int connectCount;
   final int tickCount;
+  final int subTickNo;
   final int characterCount;
   final int playerCount;
   final int memberCount;
+  final String searchQuery;
   final SearchV2OriginItem? originV2;
   final SearchV2WorldItem? worldV2;
   final SearchV2UserItem? userV2;

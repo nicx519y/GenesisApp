@@ -36,9 +36,12 @@ String formatWorldStatsLabel({
   required int playerCount,
 }) {
   final subTickLabel = subTickNo > 0 ? '-$subTickNo' : '';
-  return 'Tick $tickNo$subTickLabel'
-      ' · ${formatMessageCountLabel(messageCount)}'
-      ' · ${formatPlayerCountLabel(playerCount)}';
+  final parts = <String>[
+    'Tick $tickNo$subTickLabel',
+    formatMessageCountLabel(messageCount),
+    if (playerCount >= 2) formatPlayerCountLabel(playerCount),
+  ];
+  return parts.join(' · ');
 }
 
 String _trimDecimal(String value) {
