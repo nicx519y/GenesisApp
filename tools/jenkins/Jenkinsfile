@@ -126,12 +126,16 @@ pipeline {
             steps {
                 sh '''#!/bin/bash
                     set -euo pipefail
+                    notification_state_file="$WORKSPACE/.worldo-notification-stage"
                     case "$BUILD_TYPE" in
                       "Release APK (arm64-v8a)"|"TestFlight Release IPA") internal_build_type="release" ;;
                       "Debug APK (arm64-v8a)") internal_build_type="debug" ;;
                       "Google Play Release AAB") internal_build_type="aab" ;;
                       *) echo "ERROR: 未知的构建类型: $BUILD_TYPE" >&2; exit 1 ;;
                     esac
+                    if [[ "$PLATFORM" == "android" && "$internal_build_type" != "aab" ]]; then
+                      printf '%s\n' build >"$notification_state_file"
+                    fi
                     "$WORKSPACE/.jenkins-tooling/tools/jenkins/local_release.sh" \
                       --platform "$PLATFORM" \
                       --build-type "$internal_build_type" \
@@ -140,6 +144,9 @@ pipeline {
                       --version-code "$VERSION_CODE" \
                       --repo-dir "$WORKSPACE/source" \
                       --artifact-dir "$OUTPUT_DIR"
+                    if [[ "$PLATFORM" == "android" && "$internal_build_type" != "aab" ]]; then
+                      printf '%s\n' pgyer >"$notification_state_file"
+                    fi
                 '''
             }
         }
@@ -177,6 +184,7 @@ PY
                         "$WORKSPACE/.jenkins-tooling/tools/jenkins/upload_pgyer.sh" \
                           --apk "$apk_path" \
                           --metadata "$metadata_file"
+                        printf '%s\n' complete >"$WORKSPACE/.worldo-notification-stage"
                     '''
                 }
             }
@@ -209,7 +217,7 @@ PY
                         }
                         pgyer_file="${pgyer_files[0]}"
                         metadata_file="$(dirname "$pgyer_file")/release-metadata.json"
-                        IFS=$'\t' read -r artifact_name build_type version_name version_code branch source_commit download_url < <(
+                        IFS=$'\t' read -r artifact_name build_type version_name version_code branch download_url < <(
                           python3 - "$metadata_file" "$pgyer_file" <<'PY'
 import json
 import sys
@@ -223,7 +231,6 @@ values = [
     android["version_name"],
     str(android["version_code"]),
     metadata["branch"],
-    metadata["source_commit"],
     pgyer["install_url"],
 ]
 if any("\t" in value or "\n" in value for value in values):
@@ -238,8 +245,6 @@ PY
                           --version-name "$version_name" \
                           --version-code "$version_code" \
                           --branch "$branch" \
-                          --commit "$source_commit" \
-                          --jenkins-build-number "$BUILD_NUMBER" \
                           --download-url "$download_url"
                     '''
                 }
@@ -272,7 +277,42 @@ PY
             echo '构建与校验完成；符合条件的 Android Release/Debug APK 已上传蒲公英。流水线不会 commit、push 或 tag。'
         }
         failure {
-            echo '构建失败；请查看 Console Output。远端 Git 和应用商店均未被修改。'
+            script {
+                echo '构建失败；请查看 Console Output。远端 Git 和应用商店均未被修改。'
+                def isAndroidApk = params.PLATFORM == 'android' && (
+                    params.BUILD_TYPE == 'Release APK (arm64-v8a)' ||
+                    params.BUILD_TYPE == 'Debug APK (arm64-v8a)'
+                )
+                def notificationState = fileExists('.worldo-notification-stage')
+                    ? readFile('.worldo-notification-stage').trim()
+                    : ''
+                if (isAndroidApk && (notificationState == 'build' || notificationState == 'pgyer') &&
+                    fileExists('.jenkins-tooling/tools/jenkins/notify_feishu.py')) {
+                    def internalBuildType = params.BUILD_TYPE == 'Debug APK (arm64-v8a)' ? 'debug' : 'release'
+                    def failureStatus = notificationState == 'build' ? 'build_failed' : 'pgyer_failed'
+                    withCredentials([
+                        string(credentialsId: 'feishu-webhook-url', variable: 'FEISHU_WEBHOOK_URL'),
+                        string(credentialsId: 'feishu-signing-secret', variable: 'FEISHU_SIGNING_SECRET')
+                    ]) {
+                        withEnv([
+                            "FEISHU_FAILURE_STATUS=${failureStatus}",
+                            "INTERNAL_BUILD_TYPE=${internalBuildType}"
+                        ]) {
+                            sh '''#!/bin/bash
+                                set -euo pipefail
+                                "$WORKSPACE/.jenkins-tooling/tools/jenkins/notify_feishu.py" \
+                                  --artifact-name "Worldo-arm64-v8a-${VERSION_NAME}-${VERSION_CODE}-${INTERNAL_BUILD_TYPE}.apk" \
+                                  --platform android \
+                                  --build-type "$INTERNAL_BUILD_TYPE" \
+                                  --status "$FEISHU_FAILURE_STATUS" \
+                                  --version-name "$VERSION_NAME" \
+                                  --version-code "$VERSION_CODE" \
+                                  --branch "$BRANCH"
+                            '''
+                        }
+                    }
+                }
+            }
         }
     }
 }

@@ -46,12 +46,23 @@ class Handler(BaseHTTPRequestHandler):
             ).digest()
         ).decode()
         assert payload["sign"] == expected_sign
-        assert payload["msg_type"] == "post"
-        post = payload["content"]["post"]["zh_cn"]
-        serialized = json.dumps(post, ensure_ascii=False)
-        assert "Worldo" in post["title"]
-        assert "Worldo-arm64-v8a-1.2.3-123-release.apk" in serialized
-        assert "https://download.worldo.example/apk/build/mock/Worldo-arm64-v8a-1.2.3-123-release.apk" in serialized
+        assert payload["msg_type"] == "text"
+        message = payload["content"]["text"]
+        expected_success = "\n".join((
+                "Worldo-Android",
+                "打包分支：main",
+                "版本信息：1.2.3+123",
+                "构建类型：release",
+                "下载链接：https://download.worldo.example/apk/build/mock/Worldo-arm64-v8a-1.2.3-123-release.apk",
+            ))
+        expected_failure = "\n".join((
+                "Worldo-Android",
+                "打包分支：main",
+                "版本信息：1.2.3+123",
+                "构建类型：release",
+                "当前状态：打包失败",
+            ))
+        assert message in {expected_success, expected_failure}
         request_file.write_bytes(body)
         response = json.dumps({"code": 0, "msg": "success"}).encode()
         self.send_response(200)
@@ -83,12 +94,24 @@ output="$(
     --version-name 1.2.3 \
     --version-code 123 \
     --branch main \
-    --commit 1234567890abcdef \
-    --jenkins-build-number 9 \
     --download-url 'https://download.worldo.example/apk/build/mock/Worldo-arm64-v8a-1.2.3-123-release.apk'
 )"
 
+failure_output="$(
+  FEISHU_WEBHOOK_URL="http://127.0.0.1:$port/hook/test" \
+  FEISHU_SIGNING_SECRET='test-signing-secret' \
+  "$notifier" \
+    --artifact-name 'Worldo-arm64-v8a-1.2.3-123-release.apk' \
+    --platform android \
+    --build-type release \
+    --status build_failed \
+    --version-name 1.2.3 \
+    --version-code 123 \
+    --branch main
+)"
+
 grep -Fq '飞书通知发送成功: Worldo-arm64-v8a-1.2.3-123-release.apk' <<<"$output"
+grep -Fq '飞书通知发送成功: Worldo-arm64-v8a-1.2.3-123-release.apk' <<<"$failure_output"
 [[ -s "$temp_dir/request.json" ]]
 if grep -Fq 'test-signing-secret' "$temp_dir/request.json"; then
   echo "ERROR: 飞书签名密钥不应写入请求正文" >&2

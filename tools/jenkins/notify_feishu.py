@@ -16,12 +16,15 @@ def parse_args():
     parser.add_argument("--artifact-name", required=True)
     parser.add_argument("--platform", required=True, choices=("android", "ios"))
     parser.add_argument("--build-type", required=True)
+    parser.add_argument(
+        "--status",
+        choices=("success", "build_failed", "pgyer_failed"),
+        default="success",
+    )
     parser.add_argument("--version-name", required=True)
     parser.add_argument("--version-code", required=True)
     parser.add_argument("--branch", required=True)
-    parser.add_argument("--commit", required=True)
-    parser.add_argument("--download-url", required=True)
-    parser.add_argument("--jenkins-build-number", default="")
+    parser.add_argument("--download-url", default="")
     return parser.parse_args()
 
 
@@ -31,37 +34,28 @@ def generate_signature(timestamp, secret):
     return base64.b64encode(digest).decode("ascii")
 
 
-def text_row(text):
-    return [{"tag": "text", "text": text}]
-
-
 def build_payload(args, secret):
     timestamp = int(time.time())
-    type_label = args.build_type.capitalize()
-    title = f"Worldo {args.platform.capitalize()} {type_label} 构建成功"
-    content = [
-        text_row(f"文件：{args.artifact_name}"),
-        text_row(f"版本：{args.version_name} ({args.version_code})"),
-        text_row(f"类型：{args.build_type}"),
-        text_row(f"分支：{args.branch}"),
-        text_row(f"提交：{args.commit[:12]}"),
+    platform_label = "Android" if args.platform == "android" else "iOS"
+    lines = [
+        f"Worldo-{platform_label}",
+        f"打包分支：{args.branch}",
+        f"版本信息：{args.version_name}+{args.version_code}",
+        f"构建类型：{args.build_type}",
     ]
-    if args.jenkins_build_number:
-        content.append(text_row(f"Jenkins：#{args.jenkins_build_number}"))
-    content.append([{"tag": "a", "text": "下载 APK", "href": args.download_url}])
+    if args.status == "success":
+        lines.append(f"下载链接：{args.download_url}")
+    elif args.status == "build_failed":
+        lines.append("当前状态：打包失败")
+    else:
+        lines.append("当前状态：蒲公英上传失败")
+    message = "\n".join(lines)
 
     return {
         "timestamp": str(timestamp),
         "sign": generate_signature(timestamp, secret),
-        "msg_type": "post",
-        "content": {
-            "post": {
-                "zh_cn": {
-                    "title": title,
-                    "content": content,
-                }
-            }
-        },
+        "msg_type": "text",
+        "content": {"text": message},
     }
 
 
@@ -81,7 +75,7 @@ def main():
         raise SystemExit("ERROR: 未注入 Jenkins 凭据 feishu-webhook-url")
     if not signing_secret:
         raise SystemExit("ERROR: 未注入 Jenkins 凭据 feishu-signing-secret")
-    if not args.download_url.startswith("https://"):
+    if args.status == "success" and not args.download_url.startswith("https://"):
         raise SystemExit("ERROR: 飞书下载链接必须使用 HTTPS")
 
     body = json.dumps(
