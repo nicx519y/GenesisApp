@@ -193,6 +193,7 @@ void main() {
       'action_type': 'pageview',
       'action': 'home_my_worlds',
       'object1': 'w_1',
+      'object4': '321',
     });
 
     final event = store.eventsForTesting.single;
@@ -204,6 +205,7 @@ void main() {
       'object1': 'w_1',
       'object2': '',
       'object3': '',
+      'object4': '321',
     });
     expect(event.platform, 'android');
     expect(event.appVersion, '1.2.3');
@@ -973,6 +975,82 @@ void main() {
     expect(event?.deviceId, isEmpty);
     expect(event?.userId, isEmpty);
     expect(event?.contextCaptured, isFalse);
+    expect(event?.object4, isEmpty);
+  });
+
+  test('SQLite version 3 queue migrates with an object4 column', () async {
+    sqfliteFfiInit();
+    final tempDirectory = await Directory.systemTemp.createTemp(
+      'genesis-collect-object4-migration-test-',
+    );
+    final databasePath = '${tempDirectory.path}/collect.db';
+    final legacyDatabase = await databaseFactoryFfi.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 3,
+        onCreate: (db, _) async {
+          await db.execute('''
+            CREATE TABLE collect_events (
+              sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+              event_id TEXT NOT NULL UNIQUE,
+              action_type TEXT NOT NULL,
+              action TEXT NOT NULL,
+              app_timestamp INTEGER NOT NULL,
+              object1 TEXT NOT NULL,
+              object2 TEXT NOT NULL,
+              object3 TEXT NOT NULL,
+              app_environment TEXT NOT NULL DEFAULT '',
+              platform TEXT NOT NULL DEFAULT '',
+              app_version TEXT NOT NULL DEFAULT '',
+              device_id TEXT NOT NULL DEFAULT '',
+              user_id TEXT NOT NULL DEFAULT '',
+              include_identity_headers INTEGER NOT NULL,
+              context_captured INTEGER NOT NULL DEFAULT 0,
+              state TEXT NOT NULL,
+              batch_id TEXT
+            )
+          ''');
+        },
+      ),
+    );
+    await legacyDatabase.insert('collect_events', <String, Object?>{
+      'event_id': 'version-3-event',
+      'action_type': 'event',
+      'action': 'version_3',
+      'app_timestamp': 3,
+      'object1': '',
+      'object2': '',
+      'object3': '',
+      'app_environment': 'production',
+      'platform': 'android',
+      'app_version': '0.4.3',
+      'device_id': 'device-3',
+      'user_id': 'user-3',
+      'include_identity_headers': 1,
+      'context_captured': 1,
+      'state': 'pending',
+      'batch_id': null,
+    });
+    await legacyDatabase.close();
+
+    final migratedStore = SqfliteCollectEventStore(
+      databaseFactoryOverride: databaseFactoryFfi,
+      databasePath: databasePath,
+    );
+    addTearDown(() async {
+      await migratedStore.close();
+      if (tempDirectory.existsSync()) {
+        await tempDirectory.delete(recursive: true);
+      }
+    });
+
+    final batch = await migratedStore.claimPending(limit: 500);
+    final event = batch?.events.single;
+
+    expect(event?.eventId, 'version-3-event');
+    expect(event?.object4, isEmpty);
+    expect(event?.deviceId, 'device-3');
+    expect(event?.userId, 'user-3');
   });
 
   test('concurrent checks do not overlap an active request', () async {

@@ -23435,6 +23435,18 @@ void main() {
       tester.widget<Scaffold>(pageScaffold).backgroundColor,
       expectedMapBackground,
     );
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('world-panel-info-row')))
+          .height,
+      worldLaunchedInfoHeaderHeight,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey<String>('world-loading-action')),
+      ),
+      const Size(92, 34),
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     worldDetailCompleter.complete(transport._jsonResponse({}));
@@ -23628,14 +23640,14 @@ void main() {
     );
     final loadingInfoRect = tester.getRect(panelInfoRow);
     final loadingBottomTagsRect = tester.getRect(bottomTagsOverlay);
-    expect(loadingInfoRect.height, worldInfoHeaderHeight);
+    expect(loadingInfoRect.height, worldLaunchedInfoHeaderHeight);
     expect(loadingBottomTagsRect.height, worldMainTabsHeight);
     expect(tester.widget<IgnorePointer>(bottomTagsOverlay).ignoring, isTrue);
     expect(
       tester.getSize(
         find.byKey(const ValueKey<String>('world-loading-action')),
       ),
-      const Size(140, worldInfoHeaderContentHeight),
+      const Size(92, 34),
     );
     expect(find.byType(WorldInfoHeader), findsNothing);
 
@@ -23650,8 +23662,8 @@ void main() {
     expect(find.byType(WorldFeedContent), findsOneWidget);
     expect(find.byType(WorldMap), findsOneWidget);
     expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
-    expect(tester.getRect(panelInfoRow), loadingInfoRect);
-    expect(tester.getRect(bottomTagsOverlay), loadingBottomTagsRect);
+    expect(tester.getRect(panelInfoRow).height, worldInfoHeaderHeight);
+    expect(tester.getRect(bottomTagsOverlay).height, worldMainTabsHeight);
     expect(tester.widget<IgnorePointer>(bottomTagsOverlay).ignoring, isFalse);
     expect(find.byType(WorldInfoHeader), findsOneWidget);
     expect(

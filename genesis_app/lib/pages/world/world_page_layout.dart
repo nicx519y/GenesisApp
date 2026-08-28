@@ -29,12 +29,9 @@ extension _WorldPageLayout on _WorldPageState {
     final collapsedPanelHeight = worldCollapsedPanelHeightFor(
       context,
       world: world,
-      assumeLaunched: assumeLaunched,
+      assumeLaunched: true,
     );
-    final infoHeaderHeight = worldInfoHeaderHeightFor(
-      world,
-      assumeLaunched: assumeLaunched,
-    );
+    const infoHeaderHeight = worldLaunchedInfoHeaderHeight;
     return Stack(
       children: [
         WorldDetailsPageScaffold(
@@ -62,8 +59,7 @@ extension _WorldPageLayout on _WorldPageState {
           slivers: [
             WorldDetailsLoadingContent(
               infoHeaderHeight: infoHeaderHeight,
-              useCompactAction:
-                  infoHeaderHeight == worldLaunchedInfoHeaderHeight,
+              useCompactAction: true,
             ),
           ],
         ),
