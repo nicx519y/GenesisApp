@@ -20,6 +20,7 @@ void main() {
     'lib/pages/origin/origin_world_sections.dart',
     'lib/pages/origin/origin_world_role_setup.dart',
     'lib/pages/origin/origin_world_characters.dart',
+    'lib/pages/origin/origin_world_copy_progress.dart',
   ].map((path) => File(path).readAsStringSync()).join('\n');
 
   test('origin detail sheet uses main ui horizontal padding', () {
@@ -39,6 +40,43 @@ void main() {
   test('origin detail sections use main ui spacing', () {
     expect(originDetailSectionGapForTesting, 24);
     expect(originDetailSectionTitleIconGapForTesting, 8);
+  });
+
+  test('origin info section titles do not render leading icons', () {
+    final titleWidget = originSectionsSource.substring(
+      originSectionsSource.indexOf('class _SectionTitle'),
+    );
+    expect(titleWidget, isNot(contains('SvgPicture.asset')));
+    expect(titleWidget, isNot(contains('Image.asset')));
+    expect(titleWidget, isNot(contains('Icon(icon')));
+    expect(originSectionsSource, contains("title: 'Worldo Brief'"));
+    expect(originSectionsSource, contains("title: 'Launch Preview'"));
+    expect(originSectionsSource, contains("title: 'Launched World Progress'"));
+    expect(originSectionsSource, contains("title: 'Characters ("));
+  });
+
+  test('origin opening brief and role titles do not render leading icons', () {
+    expect(
+      originSectionsSource,
+      isNot(contains('origin-opening-worldo-brief-icon')),
+    );
+    expect(
+      originSectionsSource,
+      isNot(contains('origin-setup-role-title-launch-icon')),
+    );
+    expect(originSectionsSource, contains("'Worldo Brief'"));
+    expect(originSectionsSource, contains("'Select Your Role'"));
+  });
+
+  test('origin detail discuss uses a title-row View all action', () {
+    expect(originSectionsSource, contains("'View all >'"));
+    expect(originSectionsSource, contains('fontSize: 10'));
+    expect(originSectionsSource, contains('color: Color(0xFF666666)'));
+    expect(originSectionsSource, contains('enableViewMore: false'));
+    expect(
+      originSectionsSource,
+      isNot(contains('onViewMoreTap: () => _openDiscussPage(context)')),
+    );
   });
 
   test('origin detail loads and passes copy world progress summaries', () {

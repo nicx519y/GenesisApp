@@ -15,6 +15,7 @@ import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.dart';
+import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 
 void main() {
   testWidgets('shows skeleton instead of progress indicator while loading', (
@@ -143,6 +144,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.byType(DiscussStoryBadge), findsNothing);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('origin-discuss-reply-dis_1')),
@@ -199,6 +201,8 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    expect(find.byType(DiscussStoryBadge), findsNothing);
+
     await tester.tap(find.text('Reply User: Reply target'));
     await tester.pumpAndSettle();
 
@@ -210,6 +214,7 @@ void main() {
     );
     expect(find.text('Reply User: Reply target'), findsNothing);
     expect(find.text('Reply target'), findsOneWidget);
+    expect(find.byType(DiscussStoryBadge), findsNothing);
     expect(find.widgetWithText(TextField, 'Write a reply'), findsOneWidget);
 
     await tester.tap(find.widgetWithText(TextField, 'Write a reply'));
@@ -257,6 +262,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
+    expect(find.byType(DiscussStoryBadge), findsNothing);
 
     await tester.tap(
       find.byKey(const ValueKey<String>('post-detail-reply-report-reply_1')),

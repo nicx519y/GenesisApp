@@ -12,11 +12,7 @@ class _WorldViewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
-          icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFFF2442),
-          title: 'Worldo Brief',
-        ),
+        const _SectionTitle(title: 'Worldo Brief'),
         const SizedBox(height: 8),
         Text(body, style: _bodyTextStyle),
       ],
@@ -127,11 +123,7 @@ class _LaunchPreviewSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const _SectionTitle(
-          icon: Icons.auto_awesome,
-          iconColor: Color(0xFF6554FF),
-          title: 'Launch Preview',
-        ),
+        const _SectionTitle(title: 'Launch Preview'),
         const SizedBox(height: 8),
         WorldTickEventItem(
           tick: previewTick,
@@ -214,9 +206,29 @@ class _DiscussSection extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _SectionTitle(
-                      iconAsset: discussIconAsset,
-                      title: 'Discuss (${origin.discussCount})',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _SectionTitle(
+                            title: 'Discuss (${origin.discussCount})',
+                          ),
+                        ),
+                        if (hasDiscussContent)
+                          GestureDetector(
+                            key: const ValueKey('origin-discuss-view-all'),
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => unawaited(_openDiscussPage(context)),
+                            child: const Text(
+                              'View all >',
+                              style: TextStyle(
+                                fontSize: 10,
+                                height: 1.2,
+                                fontWeight: FontWeight.w400,
+                                color: Color(0xFF666666),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     if (showDiscussList) ...[
                       const SizedBox(height: 8),
@@ -225,10 +237,10 @@ class _DiscussSection extends StatelessWidget {
                         count: origin.discussCount,
                         contentLineHeight: 1.4,
                         showHeader: false,
+                        enableViewMore: false,
                         showActions: false,
                         showReplies: false,
                         disableAvatarProfileTap: true,
-                        onViewMoreTap: () => _openDiscussPage(context),
                       ),
                     ],
                   ],
@@ -346,30 +358,17 @@ List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
-              children: [
-                Icon(
-                  MyFlutterApp.eye,
-                  key: ValueKey<String>('origin-opening-worldo-brief-icon'),
-                  size: 14,
-                  color: Color(0xFFFF2442),
-                ),
-                SizedBox(width: originDetailSectionTitleIconGapForTesting),
-                Flexible(
-                  child: Text(
-                    'Worldo Brief',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF111111),
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                ),
-              ],
+            const Text(
+              'Worldo Brief',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF111111),
+                decoration: TextDecoration.none,
+              ),
             ),
             const SizedBox(height: 8),
             Text(

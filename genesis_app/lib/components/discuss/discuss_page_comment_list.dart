@@ -16,7 +16,6 @@ import '../common/genesis_image_viewer_overlay.dart';
 import '../common/genesis_report_actions.dart';
 import '../common/genesis_timestamp_text.dart';
 import 'origin_discuss_list.dart';
-import 'story_badge.dart';
 
 class DiscussPageCommentList extends StatelessWidget {
   const DiscussPageCommentList({
@@ -98,7 +97,6 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
   static const double _avatarTextGap = 14;
   static const double _metaBodyGap = 6;
   static const double _bodyImageGap = 8;
-  static const double _storyBadgeOffsetY = 0;
   static const double _progressPrefetchExtent = 600;
 
   ScrollPosition? _scrollPosition;
@@ -272,28 +270,16 @@ class _DiscussPageMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tappableMeta = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: Text(
-            item.authorName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Color(0xFF666666),
-              fontSize: 14,
-              height: 1.18,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Transform.translate(
-          offset: const Offset(0, _DiscussPagePostRowState._storyBadgeOffsetY),
-          child: DiscussStoryBadge(count: item.storyCount),
-        ),
-      ],
+    final tappableMeta = Text(
+      item.authorName,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Color(0xFF666666),
+        fontSize: 14,
+        height: 1.18,
+        fontWeight: FontWeight.w600,
+      ),
     );
     final canOpenProfile =
         item.authorUid.trim().isNotEmpty && !item.authorDeleted;

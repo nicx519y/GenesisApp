@@ -20,7 +20,6 @@ import '../common/genesis_image_viewer_overlay.dart';
 import '../common/genesis_timestamp_text.dart';
 import 'discuss_post_input.dart';
 import 'origin_discuss_replies_list.dart';
-import 'story_badge.dart';
 import '../auth/login_guard.dart';
 
 part 'origin_discuss_models.dart';

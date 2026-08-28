@@ -15,10 +15,7 @@ class _OriginCharactersSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionTitle(
-          iconAsset: characterStatIconAsset,
-          title: 'Characters (${characters.length})',
-        ),
+        _SectionTitle(title: 'Characters (${characters.length})'),
         const SizedBox(height: 14),
         if (characters.isEmpty)
           const Text('No characters', style: _mutedBodyTextStyle)
@@ -297,61 +294,22 @@ bool _originPreviewParagraphHasText(Map<String, dynamic> paragraph) {
 }
 
 class _SectionTitle extends StatelessWidget {
-  const _SectionTitle({
-    this.icon,
-    this.iconAsset,
-    this.iconColor,
-    required this.title,
-  }) : assert(icon != null || iconAsset != null);
+  const _SectionTitle({required this.title});
 
-  final IconData? icon;
-  final String? iconAsset;
-  final Color? iconColor;
   final String title;
 
   @override
   Widget build(BuildContext context) {
-    final asset = iconAsset;
-    final isCharacterIcon = asset == characterStatIconAsset;
-    const assetSize = 16.0;
-    return Row(
-      children: [
-        if (asset case final asset?)
-          Transform.translate(
-            offset: Offset(0, isCharacterIcon ? -1.2 : 0),
-            child: asset.endsWith('.svg')
-                ? SvgPicture.asset(
-                    asset,
-                    width: assetSize,
-                    height: assetSize,
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
-                  )
-                : Image.asset(
-                    asset,
-                    width: assetSize,
-                    height: assetSize,
-                    fit: BoxFit.contain,
-                    excludeFromSemantics: true,
-                  ),
-          )
-        else
-          Icon(icon, size: 14, color: iconColor),
-        const SizedBox(width: originDetailSectionTitleIconGapForTesting),
-        Flexible(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
-            ),
-          ),
-        ),
-      ],
+    return Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 14,
+        height: 1.2,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF111111),
+      ),
     );
   }
 }

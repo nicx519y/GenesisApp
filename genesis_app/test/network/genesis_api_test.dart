@@ -4165,7 +4165,7 @@ void main() {
           statusCode: 200,
           headers: {'content-type': 'application/json'},
           body:
-              '{"errNo":0,"errStr":"success","data":{"list":[{"worldId":"w_peer","originId":"o_1","tickNo":12,"summary":"latest summary","tickTime":1780000000,"createdAt":1780000010}]}}',
+              '{"errNo":0,"errStr":"success","data":{"list":[{"worldId":"w_peer","originId":"o_1","tickNo":12,"subTickNo":3,"summary":"latest summary","tickTime":1780000000,"createdAt":1780000010}]}}',
         ),
       );
       final healthTransport = _FakeTransport(
@@ -4203,6 +4203,7 @@ void main() {
       expect(result.single.worldId, 'w_peer');
       expect(result.single.originId, 'o_1');
       expect(result.single.tickNo, 12);
+      expect(result.single.subTickNo, 3);
       expect(result.single.summary, 'latest summary');
       expect(result.single.tickTime, 1780000000);
       expect(result.single.createdAt, 1780000010);

@@ -103,6 +103,7 @@ WorldSummaryLatestItem _worldSummaryLatestItemFromV1(Map<String, dynamic> raw) {
     originId: asString(raw['origin_id']),
     deleted: entityDeleted(raw['world_deleted'], fallback: raw['deleted']),
     tickNo: asInt(raw['tick_no']),
+    subTickNo: asInt(raw['sub_tick_no']),
     summary: asString(raw['summary']),
     tickTime: asInt(raw['tick_time']),
     createdAt: asInt(raw['created_at']),

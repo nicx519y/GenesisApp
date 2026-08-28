@@ -319,20 +319,11 @@ class WorldDetailSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 24),
-        const WorldDetailSectionTitle(
-          icon: MyFlutterApp.eye,
-          iconColor: Color(0xFFFF2442),
-          title: 'World Brief',
-        ),
+        const WorldDetailSectionTitle(title: 'World Brief'),
         const SizedBox(height: 8),
         Text(brief, style: worldDetailBodyTextStyle),
         const SizedBox(height: 24),
-        const WorldDetailSectionTitle(
-          asset: worldSectionCastIconAsset,
-          iconSize: 17,
-          iconColor: Color(0xFF666666),
-          title: 'Cast',
-        ),
+        const WorldDetailSectionTitle(title: 'Cast'),
         const SizedBox(height: 8),
         if (showCharacters)
           WorldCharactersSection(world: world, currentUid: currentUid),
@@ -528,49 +519,22 @@ class _WorldNewUserJoinNoticeText extends StatelessWidget {
 }
 
 class WorldDetailSectionTitle extends StatelessWidget {
-  const WorldDetailSectionTitle({
-    this.icon,
-    this.asset,
-    this.iconSize = 14,
-    required this.iconColor,
-    required this.title,
-  }) : assert(icon != null || asset != null);
+  const WorldDetailSectionTitle({required this.title});
 
-  final IconData? icon;
-  final String? asset;
-  final double iconSize;
-  final Color iconColor;
   final String title;
 
   @override
   Widget build(BuildContext context) {
-    final asset = this.asset;
-    return Row(
-      children: [
-        if (asset != null)
-          SvgPicture.asset(
-            asset,
-            width: iconSize,
-            height: iconSize,
-            colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-          )
-        else
-          Icon(icon, size: iconSize, color: iconColor),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
-            ),
-          ),
-        ),
-      ],
+    return Text(
+      title,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontSize: 14,
+        height: 1.2,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF111111),
+      ),
     );
   }
 }
