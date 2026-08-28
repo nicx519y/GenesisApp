@@ -50,10 +50,12 @@ extension _WorldPageLayout on _WorldPageState {
             tickIndex: world?.tickCount ?? -1,
             subTickNo: world?.subTickNo ?? 0,
           ),
-          map: ColoredBox(
-            key: const ValueKey<String>('world-map-loading-background'),
-            color: _tilemapLoadingBackgroundColor,
-          ),
+          map:
+              _buildInitialTilemapPreview(topPadding) ??
+              ColoredBox(
+                key: const ValueKey<String>('world-map-loading-background'),
+                color: _tilemapLoadingBackgroundColor,
+              ),
           fixedCollapsedPanelHeight: collapsedPanelHeight,
           fixedCollapsedPanelHeightIncludesBottomSafeArea: true,
           contentBottomPaddingOverride: 0,
@@ -70,6 +72,34 @@ extension _WorldPageLayout on _WorldPageState {
           interactive: false,
         ),
       ],
+    );
+  }
+
+  Widget? _buildInitialTilemapPreview(double topPadding) {
+    final locationId = widget.initialMapLocationId.trim();
+    if (widget.initialDefinitionVersion != 2 || locationId.isEmpty) {
+      return null;
+    }
+    return IgnorePointer(
+      key: const ValueKey<String>('world-initial-tilemap-preview'),
+      child: WorldMap.world(
+        definitionVersion: 2,
+        worldId: widget.wid,
+        common: WorldMapCommonConfig(
+          drillExitTop:
+              topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
+        ),
+        legacy: const LegacyWorldMapConfig(points: <WorldPoint>[]),
+        tilemap: WorldMapTilemapOptions(
+          implementationKey: _tilemapImplementationKey,
+          locationId: locationId,
+          centerContentInitially: true,
+          showVisualModeToggle: false,
+          restorationController: _tilemapRestorationController,
+          onDisplayReadinessChanged: _handleTilemapDisplayReadinessChanged,
+          onDisplayError: _handleTilemapDisplayError,
+        ),
+      ),
     );
   }
 

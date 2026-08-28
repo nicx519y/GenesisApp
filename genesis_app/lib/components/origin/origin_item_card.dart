@@ -31,6 +31,8 @@ class OriginListItem {
   const OriginListItem({
     required this.oid,
     this.wid = '',
+    this.definitionVersion = 0,
+    this.defaultMapLocationId = '',
     required this.status,
     required this.versionNum,
     this.tickCount = 0,
@@ -65,6 +67,8 @@ class OriginListItem {
     return OriginListItem(
       oid: oid,
       wid: asString(info['wid'], fallback: asString(info['world_id'])),
+      definitionVersion: asInt(info['definition_version']),
+      defaultMapLocationId: asString(info['default_map_location_id']),
       status: asInt(info['status']),
       versionNum: asInt(
         info['version_num'],
@@ -104,6 +108,8 @@ class OriginListItem {
 
   final String oid;
   final String wid;
+  final int definitionVersion;
+  final String defaultMapLocationId;
   final int status;
   final int versionNum;
   final int tickCount;

@@ -76,6 +76,9 @@ class _OriginProfileCollectionList extends StatelessWidget {
                               'originId': item.originId,
                               'oid': item.oid,
                               'initialName': item.title,
+                              'initialDefinitionVersion':
+                                  item.definitionVersion,
+                              'initialMapLocationId': item.defaultMapLocationId,
                             },
                           )
                           .then((_) {

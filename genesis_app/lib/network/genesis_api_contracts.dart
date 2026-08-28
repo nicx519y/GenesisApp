@@ -18,6 +18,8 @@ class MyWorldSummary {
   const MyWorldSummary({
     required this.wid,
     required this.name,
+    this.definitionVersion = 0,
+    this.defaultMapLocationId = '',
     this.deleted = false,
     required this.snapshotCoverUrl,
     required this.updatedAtText,
@@ -30,6 +32,8 @@ class MyWorldSummary {
 
   final String wid;
   final String name;
+  final int definitionVersion;
+  final String defaultMapLocationId;
   final bool deleted;
   final String snapshotCoverUrl;
   final String updatedAtText;

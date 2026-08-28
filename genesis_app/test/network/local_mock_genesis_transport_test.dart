@@ -556,6 +556,15 @@ void main() {
     final firstPopularOrigin = (popularOrigins['list'] as List).first as Map;
     expect(firstPopularOrigin['discusses'], isA<List>());
     expect(firstPopularOrigin['discusses'], hasLength(2));
+    final firstPopularOriginInfo = firstPopularOrigin['info'] as Map;
+    expect(firstPopularOriginInfo['definition_version'], 2);
+    expect(firstPopularOriginInfo['default_map_location_id'], 'root');
+
+    final originFeed = await api.v1.origin.feed(startScore: 0, rn: 10);
+    final firstOriginFeedItem = (originFeed['list'] as List).first as Map;
+    final firstOriginFeedInfo = firstOriginFeedItem['info'] as Map;
+    expect(firstOriginFeedInfo['definition_version'], 2);
+    expect(firstOriginFeedInfo['default_map_location_id'], 'root');
 
     final uidOrigins = await api.v1.origin.list(
       scene: 'uid',
@@ -871,6 +880,8 @@ void main() {
     expect(firstWorldStats['connect_cnt'], greaterThanOrEqualTo(1000));
     expect(firstWorldInfo['last_active_at'], isA<int>());
     expect(firstWorldInfo['last_active_at'], greaterThan(0));
+    expect(firstWorldInfo['definition_version'], 2);
+    expect(firstWorldInfo['default_map_location_id'], 'root');
     final myWorlds = await api.v1.world.list(
       scene: 'uid',
       uid: 'u_mock_001',

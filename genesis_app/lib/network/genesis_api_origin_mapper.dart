@@ -18,6 +18,8 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
       origin['name'],
       fallback: asString(origin['origin_name'], fallback: oid),
     ),
+    definitionVersion: asInt(origin['definition_version']),
+    defaultMapLocationId: asString(origin['default_map_location_id']),
     description: asString(
       origin['display_subtitle'],
       fallback: asString(
@@ -72,6 +74,8 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
   return MyWorldSummary(
     wid: wid,
     name: name,
+    definitionVersion: asInt(world['definition_version']),
+    defaultMapLocationId: asString(world['default_map_location_id']),
     deleted: entityDeleted(
       raw['world_deleted'],
       fallback: entityDeleted(

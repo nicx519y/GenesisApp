@@ -1079,7 +1079,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","definition_version":2,"default_map_location_id":"loc_origin","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
           );
         }
         if (request.uri.path.endsWith('/v1/world/list')) {
@@ -1087,7 +1087,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"player_cnt":5}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"player_cnt":5}}],"total":1}}',
           );
         }
         return const TransportResponse(
@@ -1128,7 +1128,11 @@ void main() {
 
     expect(origins.data.single.oid, 'o_1');
     expect(origins.data.single.originator, 'Origin Owner');
+    expect(origins.data.single.definitionVersion, 2);
+    expect(origins.data.single.defaultMapLocationId, 'loc_origin');
     expect(worlds.single.wid, 'w_1');
+    expect(worlds.single.definitionVersion, 2);
+    expect(worlds.single.defaultMapLocationId, 'loc_world');
     expect(
       worlds.single.updatedAtText,
       DateTime.fromMillisecondsSinceEpoch(1717000000 * 1000).toIso8601String(),
@@ -3791,6 +3795,45 @@ void main() {
     );
     expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '2');
     expect(apiTransport.lastRequest!.uri.queryParameters['rn'], '10');
+  });
+
+  test('v1 list and feed responses preserve map metadata in info', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) => TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: request.uri.path.endsWith('/origin/list')
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","definition_version":2,"default_map_location_id":"loc_origin"},"stats":{}}],"total":1,"pn":1,"rn":10}}'
+            : request.uri.path.endsWith('/origin/feed')
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_feed","definition_version":2,"default_map_location_id":"loc_feed"},"stats":{}}],"rn":10,"next_score":1,"has_more":false}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","definition_version":2,"default_map_location_id":"loc_world"},"stats":{}}],"total":1,"pn":1,"rn":10}}',
+      ),
+    );
+    final healthTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"status":"ok"}',
+      ),
+    );
+    final api = _apiWith(apiTransport, healthTransport);
+
+    final originData = await api.v1.origin.list(scene: 'popular');
+    final originFeedData = await api.v1.origin.feed(startScore: 0);
+    final worldData = await api.v1.world.list(scene: 'mine');
+    final originInfo =
+        ((originData['list'] as List).single as Map)['info'] as Map;
+    final worldInfo =
+        ((worldData['list'] as List).single as Map)['info'] as Map;
+    final originFeedInfo =
+        ((originFeedData['list'] as List).single as Map)['info'] as Map;
+
+    expect(originInfo['definition_version'], 2);
+    expect(originInfo['default_map_location_id'], 'loc_origin');
+    expect(originFeedInfo['definition_version'], 2);
+    expect(originFeedInfo['default_map_location_id'], 'loc_feed');
+    expect(worldInfo['definition_version'], 2);
+    expect(worldInfo['default_map_location_id'], 'loc_world');
   });
 
   test('v1 origin hot tags uses Apifox response format', () async {

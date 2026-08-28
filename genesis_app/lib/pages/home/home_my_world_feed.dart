@@ -788,6 +788,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         'wid': item.wid,
         'initialName': item.name,
         'initiallyLaunched': true,
+        'initialDefinitionVersion': item.definitionVersion,
+        'initialMapLocationId': item.defaultMapLocationId,
       },
     );
     if (!mounted || result == null) return;

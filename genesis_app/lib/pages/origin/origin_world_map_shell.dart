@@ -78,13 +78,38 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
     return _buildMapOnlyScaffold(
       topPadding: topPadding,
       mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
-      map: ColoredBox(
-        key: const ValueKey<String>('origin-map-loading-background'),
-        color: _tilemapLoadingBackgroundColor,
-      ),
+      map:
+          _buildInitialTilemapPreview(topPadding) ??
+          ColoredBox(
+            key: const ValueKey<String>('origin-map-loading-background'),
+            color: _tilemapLoadingBackgroundColor,
+          ),
       bottomSheetOverlayBuilder: (minChildSize) => _OriginDetailLoadingSheet(
         minChildSize: minChildSize,
         initiallyExpanded: widget.showOpeningSheetOnEntry,
+      ),
+    );
+  }
+
+  Widget? _buildInitialTilemapPreview(double topPadding) {
+    final locationId = widget.initialMapLocationId.trim();
+    if (widget.initialDefinitionVersion != 2 || locationId.isEmpty) {
+      return null;
+    }
+    return IgnorePointer(
+      key: const ValueKey<String>('origin-initial-tilemap-preview'),
+      child: WorldMap.origin(
+        definitionVersion: 2,
+        originId: widget.oid,
+        common: WorldMapCommonConfig(drillExitTop: topPadding + 68),
+        legacy: const LegacyWorldMapConfig(points: <WorldPoint>[]),
+        tilemap: WorldMapTilemapOptions(
+          implementationKey: _tilemapImplementationKey,
+          locationId: locationId,
+          centerContentInitially: true,
+          showVisualModeToggle: false,
+          restorationController: _tilemapRestorationController,
+        ),
       ),
     );
   }

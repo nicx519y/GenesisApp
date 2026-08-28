@@ -59,7 +59,14 @@ class ProcessedLocationTree<T> {
   List<LocationTreeNode<T>> get flattenedRenderNodes =>
       flattenLocationTree(renderRoots);
 
-  String initialTilemapLocationId({required String syntheticRootId}) {
+  String initialTilemapLocationId({
+    required String syntheticRootId,
+    String preferredLocationId = '',
+  }) {
+    final preferredId = preferredLocationId.trim();
+    if (preferredId == 'root' || _nodesById.containsKey(preferredId)) {
+      return preferredId;
+    }
     final initialNode = _resolveInitialTilemapLocationNode(roots);
     final initialNodeId = initialNode?.id.trim() ?? '';
     if (initialNodeId.isEmpty || initialNodeId == syntheticRootId.trim()) {

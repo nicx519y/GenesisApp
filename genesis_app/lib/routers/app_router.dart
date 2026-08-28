@@ -149,6 +149,8 @@ class _OriginWorldRouteArgs {
     required this.oid,
     required this.originId,
     required this.initialName,
+    required this.initialDefinitionVersion,
+    required this.initialMapLocationId,
   });
 
   factory _OriginWorldRouteArgs.from(Object? raw) {
@@ -164,12 +166,22 @@ class _OriginWorldRouteArgs {
         'origin_name',
         'name',
       ]),
+      initialDefinitionVersion: args.integer(const [
+        'initial_definition_version',
+        'initialDefinitionVersion',
+      ]),
+      initialMapLocationId: args.string(const [
+        'initial_map_location_id',
+        'initialMapLocationId',
+      ]),
     );
   }
 
   final String oid;
   final int originId;
   final String initialName;
+  final int initialDefinitionVersion;
+  final String initialMapLocationId;
 }
 
 class _DiscussRouteArgs {
@@ -211,6 +223,8 @@ class _WorldRouteArgs {
     required this.initiallyLaunched,
     required this.initialName,
     required this.initialLocationId,
+    required this.initialDefinitionVersion,
+    required this.initialMapLocationId,
   });
 
   factory _WorldRouteArgs.from(Object? raw) {
@@ -240,6 +254,14 @@ class _WorldRouteArgs {
         'initial_location_id',
         'initialLocationId',
       ]),
+      initialDefinitionVersion: args.integer(const [
+        'initial_definition_version',
+        'initialDefinitionVersion',
+      ]),
+      initialMapLocationId: args.string(const [
+        'initial_map_location_id',
+        'initialMapLocationId',
+      ]),
     );
   }
 
@@ -249,6 +271,8 @@ class _WorldRouteArgs {
   final bool initiallyLaunched;
   final String initialName;
   final String initialLocationId;
+  final int initialDefinitionVersion;
+  final String initialMapLocationId;
 }
 
 class _ChatRouteArgs {
@@ -484,6 +508,8 @@ sealed class AppRouter {
             oid: args.oid,
             originId: args.originId,
             initialName: args.initialName,
+            initialDefinitionVersion: args.initialDefinitionVersion,
+            initialMapLocationId: args.initialMapLocationId,
             showOpeningSheetOnEntry: AppServicesScope.read(
               context,
             ).appGlobalConfig.value.showOpeningSheet,
@@ -512,6 +538,8 @@ sealed class AppRouter {
             initiallyLaunched: args.initiallyLaunched,
             initialName: args.initialName,
             initialLocationId: args.initialLocationId,
+            initialDefinitionVersion: args.initialDefinitionVersion,
+            initialMapLocationId: args.initialMapLocationId,
           ),
         );
       case RouteNames.chat:

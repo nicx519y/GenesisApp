@@ -46,6 +46,8 @@ class OriginSummary {
     required this.id,
     required this.oid,
     required this.name,
+    this.definitionVersion = 0,
+    this.defaultMapLocationId = '',
     required this.description,
     required this.mapImage,
     required this.worldMap,
@@ -66,6 +68,8 @@ class OriginSummary {
   final int id;
   final String oid;
   final String name;
+  final int definitionVersion;
+  final String defaultMapLocationId;
   final String description;
   final String mapImage;
   final String worldMap;
@@ -88,6 +92,8 @@ class OriginSummary {
       id: asInt(json['id']),
       oid: asString(json['oid']),
       name: decodeGenesisUgcTextForDisplay(asString(json['name'])),
+      definitionVersion: asInt(json['definition_version']),
+      defaultMapLocationId: asString(json['default_map_location_id']),
       description: decodeGenesisUgcTextForDisplay(
         asString(json['description']),
       ),

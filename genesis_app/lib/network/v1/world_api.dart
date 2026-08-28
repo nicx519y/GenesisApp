@@ -12,7 +12,7 @@ class WorldV1Api extends V1ApiResource {
   ///
   /// Response:
   /// ```json
-  /// {"err_no":0,"err_str":"success","data":{"list":[{"info":{"world_id":"string","world_name":"string","created_at":0,"last_active_at":0},"stats":{"tick_cnt":0,"connect_cnt":0,"character_cnt":0,"player_cnt":0}}],"total":0}}
+  /// {"err_no":0,"err_str":"success","data":{"list":[{"info":{"world_id":"string","world_name":"string","definition_version":2,"default_map_location_id":"root","created_at":0,"last_active_at":0},"stats":{"tick_cnt":0,"connect_cnt":0,"character_cnt":0,"player_cnt":0}}],"total":0}}
   /// ```
   Future<Map<String, dynamic>> list({
     String? scene,
