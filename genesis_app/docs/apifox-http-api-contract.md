@@ -1557,10 +1557,10 @@ Meilisearch 全局搜索。请求参数和响应 envelope 沿用 v1；`type` 为
 相较 `/api/v1/search`：
 
 - 在线请求完全使用 Meilisearch，不再回查 MySQL。
-- Origin 搜索范围增加人物姓名，原有 Origin 名称和 brief 继续支持；World 仍搜索名称，User 仍搜索姓名。
+- Origin 搜索范围包含名称、brief、人物姓名和 Tag；World 搜索名称和 Tag；User 搜索姓名。Tag 优先级最低，支持完整词、词项和前缀命中，但不允许 typo。
 - `keyword` trim 后少于 3 个 Unicode 字符仍返回空结果。
-- 当 `keyword` 以小写 `o_`、`w_`、`u_` 开头且 Unicode 长度至少为 8 时，只在对应索引做 ID 精确匹配，不再同时返回文本模糊结果。
-- ID 精确匹配时，显式 `type` 必须为空或与 ID 前缀一致，否则返回 `4004 ErrorParamInvalid`。
+- 当 `keyword` 以小写 `o_`、`w_`、`u_` 开头且 Unicode 长度恰好为 8 时，只在对应索引做 ID 精确匹配；其他长度按普通文本搜索。
+- ID 精确匹配时，显式 `type` 与 ID 前缀不一致会返回成功 envelope 和三类空结果；不支持的 `type` 也按相同方式返回空结果。
 - `keyword/type/pn/rn`、`x-system-language`、`SearchEnvelope` 以及 `origins/worlds/users` 三段响应结构保持不变。
 
 Query：
@@ -1578,14 +1578,14 @@ Query：
 `SearchV2Resp`：
 
 - `keyword*`: string，回显搜索词
-- `type*`: string，回显搜索类型；空字符串表示三类都搜
+- `type*`: string，回显搜索类型；空字符串表示三类各以 `pn=1/rn=3` 返回预览
 - `origins*`: `SearchV2OriginResult`
 - `worlds*`: `SearchV2WorldResult`
 - `users*`: `SearchV2UserResult`
 
-三个 Result 都完整保留 `list/total/pn/rn`：`total` 是 int64、最大 20；`pn` 最小 1；`rn` 最小 1、最大 40。`list` 的 item 类型分别为 `SearchV2OriginItem`、`SearchV2WorldItem`、`SearchV2UserItem`。
+三个 Result 都完整保留 `list/total/pn/rn`：`total` 是 int64、最大 20；`pn` 最小 1；`rn` 最小 1、最大 20。`type` 为空时忽略请求 `pn/rn` 并分别返回三类最多 3 条；显式指定类型时只有选中类型返回 list，但三类都返回实际 total。`list` 的 item 类型分别为 `SearchV2OriginItem`、`SearchV2WorldItem`、`SearchV2UserItem`。
 
-`SearchV2OriginItem`（全部必填；`origin_version` 为客户端按产品确认新增，远端 Apifox schema 待同步）：
+`SearchV2OriginItem`（全部必填）：
 
 - `origin_id/origin_name/origin_version/brief/language`: string；`origin_version` 与 `origin_name` 同级
 - `cover`: `ImageResource`
@@ -1593,17 +1593,18 @@ Query：
 - `characters`: `SearchV2OriginCharacter[]`
 - `owner`: `SearchV2Owner`
 - `stats`: `SearchV2OriginStats`
-- `matches`: `SearchV2Match[]`，最多 7 项
+- `matches`: `SearchV2Match[]`，包含名称、brief、最多 5 个人物及所有 Tag 命中
 - `matches_truncated`: boolean；只表示人物姓名命中超过 5 项被截断，不表示 `origin_name` 或 `brief` 被截断
 
 `SearchV2WorldItem`（全部必填）：
 
 - `world_id/world_name/origin_id/language`: string
 - `cover`: `ImageResource`
+- `tags`: string[]
 - `owner`: `SearchV2Owner`
 - `stats`: `SearchV2WorldStats`
 - `created_at`: int64
-- `matches`: `SearchV2WorldNameMatch[]`，最多 1 项
+- `matches`: `SearchV2WorldMatch[]`，包含 World 名称及所有 Tag 命中
 
 `SearchV2UserItem`（全部必填）：
 
@@ -1618,20 +1619,23 @@ Query：
 - `SearchV2OriginCharacter`: `character_id* / name*`
 - `SearchV2OriginStats`: `copy_cnt* / discuss_cnt* / character_cnt* / connect_cnt* / location_cnt* / max_tick_cnt*`，均为 integer
 - `SearchV2WorldStats`: `tick_cnt* / connect_cnt* / character_cnt* / player_cnt*`，均为 integer；依次表示当前主线 Tick 序号、累计 Connect 数、当前 Character 数和当前 Player 数
+- `SearchV2TagMatch`: `field*=tag`、`tag_index*`、`highlight_ranges*`；`tag_index` 定位当前 item 的完整 `tags[]` 元素
 - `SearchV2HighlightRange`: `start*` 最小 0，`length*` 最小 1；二者均以 UTF-16 code unit 为单位，例如 `A😀B` 中 `B` 的 `start=3`
 
 Origin 的 `SearchV2Match` 是严格的 `oneOf`：
 
 - `SearchV2TextMatch`: `field*=origin_name | brief`、`highlight_ranges*`，没有 `character_id`
 - `SearchV2CharacterMatch`: `field*=character_name`、`character_id*`、`highlight_ranges*`
+- `SearchV2TagMatch`: `field*=tag`、`tag_index*`、`highlight_ranges*`
 - 每个 `highlight_ranges` 至少 1 项并按 `start` 升序；`origin_name`、`brief` 和 `character_name` 的范围分别作用于完整 `origin_name`、完整 `brief`、`character_id` 对应人物的完整 `name`
-- 一个 Origin 最多返回 1 个 `origin_name`、5 个 `character_name`、1 个 `brief`，合计最多 7 项
+- Origin 最多返回 1 个 `origin_name`、5 个 `character_name`、1 个 `brief`，同时返回所有 Tag 命中；`matches_truncated` 只表示人物姓名被截断
 
 World 与 User 使用独立命中模型，二者都没有 `character_id`：
 
 - `SearchV2WorldNameMatch`: `field*=world_name`，范围作用于完整 `world_name`
+- `SearchV2WorldMatch`: `SearchV2WorldNameMatch | SearchV2TagMatch`
 - `SearchV2UserNameMatch`: `field*=user_name`，范围作用于 User item 的完整 `name`
-- 两种模型都有必填 `highlight_ranges`，至少 1 项并按 `start` 升序
+- 所有模型都有必填 `highlight_ranges`，至少 1 项并按 `start` 升序
 
 所有 match 都不返回原文或 HTML。客户端保留目标原始字符串和 UTF-16 范围，后续自行渲染高亮。
 

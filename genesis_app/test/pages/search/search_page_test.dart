@@ -387,6 +387,60 @@ void main() {
     );
   });
 
+  testWidgets('shows a highlighted Tags row only for matched tags', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1800);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(includeTagMatches: true);
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'tag');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final originTags = tester.widget<Text>(find.text('Tags: tag-1'));
+    expect(_highlightedTextParts(originTags), ['tag']);
+    expect(
+      tester.getTopLeft(find.text('Tags: tag-1')).dy,
+      lessThan(tester.getTopLeft(find.text('Latest Version: V1')).dy),
+    );
+
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+
+    final worldTags = tester.widget<Text>(find.text('Tags: world-tag-1'));
+    expect(_highlightedTextParts(worldTags), ['tag']);
+    expect(
+      tester.getTopLeft(find.text('Tags: world-tag-1')).dy,
+      greaterThan(
+        tester.getTopLeft(find.textContaining('WID: world_1')).dy,
+      ),
+    );
+  });
+
+  testWidgets('does not show a Tags row without a tag match', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1800);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport();
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'ab');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Tags:'), findsNothing);
+
+    await tester.tap(find.text('World'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Tags:'), findsNothing);
+  });
+
   testWidgets('shows the origin version returned by v2 search', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(430, 1200);
@@ -881,6 +935,7 @@ class _SearchPageTransport implements HttpTransport {
     this.longOriginContent = false,
     this.originNameMatchOnly = false,
     this.trailingBriefMatch = false,
+    this.includeTagMatches = false,
     this.paginated = false,
     this.sectionTotals = const <String, int>{},
     this.searchDelay = Duration.zero,
@@ -891,6 +946,7 @@ class _SearchPageTransport implements HttpTransport {
   final bool longOriginContent;
   final bool originNameMatchOnly;
   final bool trailingBriefMatch;
+  final bool includeTagMatches;
   final bool paginated;
   final Map<String, int> sectionTotals;
   final Duration searchDelay;
@@ -935,6 +991,7 @@ class _SearchPageTransport implements HttpTransport {
           longOriginContent: longOriginContent,
           originNameMatchOnly: originNameMatchOnly,
           trailingBriefMatch: trailingBriefMatch,
+          includeTagMatches: includeTagMatches,
           paginated: paginated,
           pageNumber: pageNumber,
         ),
@@ -942,6 +999,7 @@ class _SearchPageTransport implements HttpTransport {
           'world',
           request.uri.queryParameters['type'],
           total: sectionTotals['world'],
+          includeTagMatches: includeTagMatches,
           paginated: paginated,
           pageNumber: pageNumber,
         ),
@@ -969,6 +1027,7 @@ Map<String, dynamic> _section(
   bool longOriginContent = false,
   bool originNameMatchOnly = false,
   bool trailingBriefMatch = false,
+  bool includeTagMatches = false,
   bool paginated = false,
   int pageNumber = 1,
 }) {
@@ -1002,6 +1061,7 @@ Map<String, dynamic> _section(
           longOriginContent: longOriginContent,
           originNameMatchOnly: originNameMatchOnly,
           trailingBriefMatch: trailingBriefMatch,
+          includeTagMatches: includeTagMatches,
         ),
     ],
     'total': total ?? (paginated ? 21 : itemCount),
@@ -1025,6 +1085,7 @@ Map<String, dynamic> _item(
   bool longOriginContent = false,
   bool originNameMatchOnly = false,
   bool trailingBriefMatch = false,
+  bool includeTagMatches = false,
 }) {
   return switch (type) {
     'origin' => {
@@ -1118,6 +1179,14 @@ Map<String, dynamic> _item(
                 {'start': 0, 'length': 'Extra Character 12'.length},
               ],
             },
+          if (includeTagMatches)
+            {
+              'field': 'tag',
+              'tag_index': 0,
+              'highlight_ranges': [
+                {'start': 0, 'length': 3},
+              ],
+            },
         ],
       ],
       'matches_truncated': false,
@@ -1128,6 +1197,7 @@ Map<String, dynamic> _item(
       'origin_id': 'origin_$index',
       'language': 'en',
       'cover': '',
+      'tags': ['world-tag-$index'],
       'owner': {'uid': 'owner_$index', 'name': 'Owner $index', 'avatar': ''},
       'stats': {
         'tick_cnt': index + 10,
@@ -1143,6 +1213,14 @@ Map<String, dynamic> _item(
             {'start': 0, 'length': 5},
           ],
         },
+        if (includeTagMatches)
+          {
+            'field': 'tag',
+            'tag_index': 0,
+            'highlight_ranges': [
+              {'start': 6, 'length': 3},
+            ],
+          },
       ],
     },
     _ => {
