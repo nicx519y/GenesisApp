@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -341,6 +340,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final _textController = TextEditingController();
   final _composerFocusNode = FocusNode();
   final Object _rosterTapRegionGroup = Object();
+  final BackdropKey _surfaceBackdropKey = BackdropKey();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
   final Map<String, _LocationChatTimelineVmCacheEntry> _timelineVmCache =
@@ -659,6 +659,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           onSend: _send,
           sendIcon: ChatComposerSendIcon.arrowUp,
           style: style,
+          backdropGroupKey: _surfaceBackdropKey,
         );
     final headerForeground =
         style.headerTitleTextStyle.color ?? style.headerTitleIconColor;
@@ -733,6 +734,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             )
           : null,
       style: style,
+      backdropGroupKey: _surfaceBackdropKey,
     );
     final headerHeight = _locationChatHeaderHeight(style);
     final displayMessages = _locationChatDisplayMessages();
@@ -931,9 +933,10 @@ class _LocationChatRoster extends StatelessWidget {
               Positioned.fill(
                 child: BackdropFilter(
                   blendMode: BlendMode.srcOver,
-                  filter: ImageFilter.blur(
+                  filterConfig: ImageFilterConfig.blur(
                     sigmaX: _blurSigma,
                     sigmaY: _blurSigma,
+                    bounded: false,
                   ),
                   child: const SizedBox.expand(),
                 ),

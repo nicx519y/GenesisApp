@@ -819,7 +819,7 @@ void main() {
       return MaterialApp(
         home: Scaffold(
           body: SizedBox(
-            height: 640,
+            height: 360,
             child: LocationChatAnchoredMessageList(
               coordinator: coordinator,
               topTitle: '',
@@ -835,7 +835,9 @@ void main() {
 
     await tester.pumpWidget(build(loading: false));
     await tester.pumpAndSettle();
+    coordinator.controller.jumpTo(0);
     coordinator.deactivate();
+    await tester.pump();
     final noticeSize = tester.getSize(find.byType(ChatOldestEdgeContent));
     final firstMessage = find.byKey(const ValueKey<String>('m1'));
     final firstMessageTop = tester.getTopLeft(firstMessage).dy;
@@ -1439,6 +1441,45 @@ void main() {
     },
   );
 
+  testWidgets('anchored message list lazily builds the visible window', (
+    WidgetTester tester,
+  ) async {
+    final coordinator = locationChatCoordinator(ScrollController());
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 360,
+            child: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              messages: chatMessages(1, 200),
+              topTitle: '',
+              showDateDividers: false,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey<String>('m1')), findsNothing);
+    expect(find.byKey(const ValueKey<String>('m200')), findsOneWidget);
+    expect(
+      find.byType(ChatMessageRow).evaluate().length,
+      lessThanOrEqualTo(15),
+    );
+
+    final position = coordinator.controller.position;
+    position.jumpTo(position.maxScrollExtent / 2);
+    await tester.pumpAndSettle();
+    final middleMountedMessageCount = find
+        .byType(ChatMessageRow)
+        .evaluate()
+        .length;
+    expect(middleMountedMessageCount, lessThanOrEqualTo(15));
+  });
+
   testWidgets(
     'history waits for the loading collapse before prepending without a jump',
     (WidgetTester tester) async {
@@ -1511,10 +1552,14 @@ void main() {
       expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
 
       await tester.pump();
-      expect(prependedMessage, findsOneWidget);
+      expect(prependedMessage, findsNothing);
       expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
       expect(controller.jumpToCallCount, 0);
       expect(collapseCount, 1);
+
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(prependedMessage, findsOneWidget);
     },
   );
 
@@ -1550,7 +1595,7 @@ void main() {
       final ordinaryMessages = chatMessages(1, 30);
       await tester.pumpWidget(build(ordinaryMessages));
       await tester.pumpAndSettle();
-      controller.jumpTo(120);
+      controller.jumpTo(40);
       coordinator.deactivate();
       await tester.pump();
       controller.resetJumpToCallCount();
@@ -1629,10 +1674,17 @@ void main() {
 
       await tester.pump();
 
-      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('m81')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('m1')), findsNothing);
+      expect(find.byKey(const ValueKey<String>('m81')), findsNothing);
       expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
       expect(controller.jumpToCallCount, 0);
+
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
+      controller.jumpTo(controller.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey<String>('m81')), findsOneWidget);
     },
   );
 
@@ -1774,9 +1826,13 @@ void main() {
         build(messages: chatMessages(1, 80), loading: false),
       );
 
-      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('m1')), findsNothing);
       expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
       expect(controller.jumpToCallCount, 0);
+
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
     },
   );
 
@@ -1818,9 +1874,13 @@ void main() {
 
       await tester.pumpWidget(build(chatMessages(1, 80)));
 
-      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('m1')), findsNothing);
       expect(tester.getTopLeft(retainedMessage).dy, closeTo(baselineTop, 1));
       expect(controller.jumpToCallCount, 0);
+
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey<String>('m1')), findsOneWidget);
     },
   );
 
@@ -1919,6 +1979,8 @@ void main() {
       await tester.pumpWidget(build(chatMessages(1, 80)));
       await tester.pumpAndSettle();
       final retainedMessage = find.byKey(const ValueKey<String>('m30'));
+      controller.jumpTo(controller.position.maxScrollExtent * 29 / 80);
+      await tester.pumpAndSettle();
       await tester.ensureVisible(retainedMessage);
       await tester.pumpAndSettle();
       coordinator.deactivate();
@@ -2012,6 +2074,7 @@ void main() {
   testWidgets('location chat header is transparent with blur four', (
     WidgetTester tester,
   ) async {
+    final backdropGroupKey = BackdropKey();
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -2022,6 +2085,7 @@ void main() {
             connecting: false,
             onBack: () {},
             style: kLocationChatStyle,
+            backdropGroupKey: backdropGroupKey,
           ),
         ),
       ),
@@ -2030,18 +2094,24 @@ void main() {
     expect(kLocationChatStyle.headerBackdropBlurSigma, 4);
     expect(kLocationChatStyle.headerBackgroundGradient, isNull);
     expect(kLocationChatStyle.headerBackgroundColor.a, 0);
-    expect(
+    final headerBackdrop = tester.widget<BackdropFilter>(
       find.descendant(
         of: find.byType(ChatHeader),
         matching: find.byType(BackdropFilter),
       ),
-      findsOneWidget,
+    );
+    expect(headerBackdrop.backdropGroupKey, same(backdropGroupKey));
+    expect(headerBackdrop.filter, isNull);
+    expect(
+      headerBackdrop.filterConfig,
+      const ImageFilterConfig.blur(sigmaX: 4, sigmaY: 4, bounded: false),
     );
   });
 
   testWidgets('location chat composer is transparent with blur four', (
     WidgetTester tester,
   ) async {
+    final backdropGroupKey = BackdropKey();
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -2052,6 +2122,7 @@ void main() {
             sending: false,
             onSend: () async {},
             style: kLocationChatStyle,
+            backdropGroupKey: backdropGroupKey,
           ),
         ),
       ),
@@ -2064,12 +2135,58 @@ void main() {
     final input = tester.widget<TextField>(find.byType(TextField));
     expect(input.cursorColor, kLocationChatStyle.inputTextStyle.color);
     expect(input.cursorColor, Colors.white);
+    final composerBackdrops = tester
+        .widgetList<BackdropFilter>(
+          find.descendant(
+            of: find.byType(ChatComposer),
+            matching: find.byType(BackdropFilter),
+          ),
+        )
+        .toList(growable: false);
+    expect(composerBackdrops, hasLength(3));
     expect(
-      find.descendant(
-        of: find.byType(ChatComposer),
-        matching: find.byType(BackdropFilter),
-      ),
-      findsNWidgets(3),
+      composerBackdrops
+          .where((backdrop) => backdrop.backdropGroupKey == backdropGroupKey)
+          .length,
+      1,
+    );
+    expect(
+      composerBackdrops
+          .where((backdrop) => backdrop.backdropGroupKey == null)
+          .length,
+      2,
+    );
+    expect(
+      composerBackdrops.every((backdrop) => backdrop.filter == null),
+      isTrue,
+    );
+    expect(
+      composerBackdrops
+          .where(
+            (backdrop) =>
+                backdrop.filterConfig ==
+                const ImageFilterConfig.blur(
+                  sigmaX: 4,
+                  sigmaY: 4,
+                  bounded: false,
+                ),
+          )
+          .length,
+      2,
+    );
+    expect(
+      composerBackdrops
+          .where(
+            (backdrop) =>
+                backdrop.filterConfig ==
+                const ImageFilterConfig.blur(
+                  sigmaX: 14,
+                  sigmaY: 14,
+                  bounded: false,
+                ),
+          )
+          .length,
+      1,
     );
   });
 
@@ -2185,7 +2302,18 @@ void main() {
         bottomLeft: Radius.circular(14),
       ),
     );
-    expect(find.byType(BackdropFilter), findsNWidgets(2));
+    final bubbleBackdrops = tester
+        .widgetList<BackdropFilter>(find.byType(BackdropFilter))
+        .toList(growable: false);
+    expect(bubbleBackdrops, hasLength(2));
+    for (final backdrop in bubbleBackdrops) {
+      expect(backdrop.filter, isNull);
+      expect(
+        backdrop.filterConfig,
+        const ImageFilterConfig.blur(sigmaX: 14, sigmaY: 14, bounded: false),
+      );
+      expect(backdrop.child, isA<Container>());
+    }
 
     final aiName = tester.widget<Text>(
       find.byKey(const ValueKey<String>('chat-sender-name-scene-ai')),

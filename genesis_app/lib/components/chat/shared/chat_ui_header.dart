@@ -20,6 +20,7 @@ class ChatHeader extends StatelessWidget {
     this.subtitleIconAsset,
     this.trailing,
     this.style,
+    this.backdropGroupKey,
   });
 
   final String title;
@@ -39,6 +40,9 @@ class ChatHeader extends StatelessWidget {
   final String? subtitleIconAsset;
   final Widget? trailing;
   final ChatUiStyleConfig? style;
+
+  /// Groups this header blur with non-overlapping backdrop filters.
+  final BackdropKey? backdropGroupKey;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +75,7 @@ class ChatHeader extends StatelessWidget {
     return ClipRect(
       child: _ChatHeaderBackdropFilter(
         sigma: style.headerBackdropBlurSigma,
+        backdropGroupKey: backdropGroupKey,
         child: Container(
           height: topInset + style.headerHeight,
           padding: const EdgeInsets.symmetric(horizontal: 0),
@@ -375,16 +380,26 @@ class _ChatHeaderOverlineChevronPainter extends CustomPainter {
 }
 
 class _ChatHeaderBackdropFilter extends StatelessWidget {
-  const _ChatHeaderBackdropFilter({required this.sigma, required this.child});
+  const _ChatHeaderBackdropFilter({
+    required this.sigma,
+    required this.backdropGroupKey,
+    required this.child,
+  });
 
   final double sigma;
+  final BackdropKey? backdropGroupKey;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
     if (sigma <= 0) return child;
     return BackdropFilter(
-      filter: ImageFilter.blur(sigmaX: sigma, sigmaY: sigma),
+      backdropGroupKey: backdropGroupKey,
+      filterConfig: ImageFilterConfig.blur(
+        sigmaX: sigma,
+        sigmaY: sigma,
+        bounded: false,
+      ),
       child: child,
     );
   }
