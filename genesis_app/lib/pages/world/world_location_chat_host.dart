@@ -370,33 +370,37 @@ class WorldLocationChatRouterHostState
             child: TickerMode(
               enabled: visible,
               child: SizedBox.expand(
-                child: WorldLocationChatNestedRouterPage(
+                child: _WorldLocationChatFirstFrameReady(
                   key: ValueKey(
-                    'world-location-chat-router-${descriptor.locationId}',
+                    'world-location-chat-first-frame-${descriptor.locationId}',
                   ),
-                  worldId: widget.worldId,
-                  chatroom: widget.chatroom,
-                  worldTickInProgress: widget.worldTickInProgress,
-                  worldTickProgressFailureRevision:
-                      widget.worldTickProgressFailureRevision,
-                  descriptor: descriptor,
-                  active: active,
-                  renderBackgroundImage: visible,
-                  messageQueueInitializationCovered: widget
-                      .isMessageQueueInitializationCovered(
-                        descriptor.locationId,
-                      ),
-                  onBack: widget.onBack,
-                  onInitialContentReady: () =>
-                      widget.onPanelReady(descriptor.locationId),
-                  initialDraftText: widget.cache.draftTextFor(
-                    descriptor.locationId,
+                  onReady: () => widget.onPanelReady(descriptor.locationId),
+                  child: WorldLocationChatNestedRouterPage(
+                    key: ValueKey(
+                      'world-location-chat-router-${descriptor.locationId}',
+                    ),
+                    worldId: widget.worldId,
+                    chatroom: widget.chatroom,
+                    worldTickInProgress: widget.worldTickInProgress,
+                    worldTickProgressFailureRevision:
+                        widget.worldTickProgressFailureRevision,
+                    descriptor: descriptor,
+                    active: active,
+                    renderBackgroundImage: visible,
+                    messageQueueInitializationCovered: widget
+                        .isMessageQueueInitializationCovered(
+                          descriptor.locationId,
+                        ),
+                    onBack: widget.onBack,
+                    initialDraftText: widget.cache.draftTextFor(
+                      descriptor.locationId,
+                    ),
+                    onDraftTextChanged: (text) {
+                      widget.cache.updateDraftText(descriptor.locationId, text);
+                    },
+                    onCharactersMovedLocationTap:
+                        widget.onCharactersMovedLocationTap,
                   ),
-                  onDraftTextChanged: (text) {
-                    widget.cache.updateDraftText(descriptor.locationId, text);
-                  },
-                  onCharactersMovedLocationTap:
-                      widget.onCharactersMovedLocationTap,
                 ),
               ),
             ),
@@ -405,6 +409,35 @@ class WorldLocationChatRouterHostState
       ),
     );
   }
+}
+
+class _WorldLocationChatFirstFrameReady extends StatefulWidget {
+  const _WorldLocationChatFirstFrameReady({
+    super.key,
+    required this.onReady,
+    required this.child,
+  });
+
+  final VoidCallback onReady;
+  final Widget child;
+
+  @override
+  State<_WorldLocationChatFirstFrameReady> createState() =>
+      _WorldLocationChatFirstFrameReadyState();
+}
+
+class _WorldLocationChatFirstFrameReadyState
+    extends State<_WorldLocationChatFirstFrameReady> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.onReady();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class WorldLocationChatNestedRouterPage extends StatelessWidget {
@@ -416,7 +449,6 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.active,
     required this.renderBackgroundImage,
     required this.onBack,
-    required this.onInitialContentReady,
     required this.initialDraftText,
     required this.onDraftTextChanged,
     required this.messageQueueInitializationCovered,
@@ -431,7 +463,6 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final bool active;
   final bool renderBackgroundImage;
   final VoidCallback onBack;
-  final VoidCallback onInitialContentReady;
   final String initialDraftText;
   final ValueChanged<String> onDraftTextChanged;
   final bool messageQueueInitializationCovered;
@@ -470,7 +501,6 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             systemUiOverlayStyle: kChatDarkHeaderSystemUiOverlayStyle,
             style: kLocationChatStyle,
             onBack: onBack,
-            onInitialContentReady: onInitialContentReady,
             initialDraftText: initialDraftText,
             onDraftTextChanged: onDraftTextChanged,
             onCharactersMovedLocationTap: onCharactersMovedLocationTap,

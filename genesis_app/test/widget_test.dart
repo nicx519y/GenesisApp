@@ -23044,6 +23044,110 @@ void main() {
     },
   );
 
+  testWidgets(
+    'prefetched Tilemap opens the real chat while local messages are pending',
+    (WidgetTester tester) async {
+      final tileImage = await _createOriginItemTestImage();
+      debugGenesisStaticNetworkImageCompleter = (_) =>
+          OneFrameImageStreamCompleter(
+            SynchronousFuture<ImageInfo>(ImageInfo(image: tileImage.clone())),
+          );
+      addTearDown(() {
+        debugGenesisStaticNetworkImageCompleter = null;
+        tileImage.dispose();
+      });
+      final detailResponse = Completer<TransportResponse>();
+      final mapResponse = Completer<TransportResponse>();
+      final messageStorage = _BlockingChatroomMessageStorage();
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldDefinitionVersion: 2,
+        worldDetailCompleter: detailResponse,
+        worldMapCompleter: mapResponse,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            chatroom: _FakeChatroomClient(),
+            chatroomMessages: messageStorage,
+          ),
+          child: const MaterialApp(
+            home: WorldPage(
+              wid: 'w_test_1',
+              initialDefinitionVersion: 2,
+              initialMapLocationId: 'root',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      mapResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'tile_types': <String, Object?>{
+              'ground': 'https://example.invalid/ground.png',
+            },
+            'map_json': {
+              'width': 1,
+              'height': 1,
+              'tiles': <Object?>[
+                {
+                  'x': 0,
+                  'y': 0,
+                  'type': 'ground',
+                  'location_id': 'l_w_test_1_child',
+                },
+              ],
+            },
+          },
+        }),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      detailResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': transport._worldDetail('w_test_1'),
+        }),
+      );
+      for (var frame = 0; frame < 8; frame += 1) {
+        await tester.pump();
+      }
+
+      final renderer = tester.widget<TilemapRenderer>(
+        find.byType(TilemapRenderer),
+      );
+      expect(renderer.onTileAction, isNotNull);
+      await renderer.onTileAction!(renderer.config.tiles.single);
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is TextField && widget.enabled == true,
+        ),
+        findsOneWidget,
+      );
+
+      messageStorage.completePendingLoads();
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    },
+  );
+
   testWidgets('world Tilemap prefers the last chat location on first entry', (
     WidgetTester tester,
   ) async {
@@ -25065,6 +25169,45 @@ void main() {
       expect(_visibleText('Child Location (1)'), findsNothing);
     },
   );
+
+  testWidgets('world chat remains usable when local cache hydration fails', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldRelationStatus: 'joined');
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+      chatroomMessages: _ThrowingChatroomMessageStorage(),
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+    final childPoint =
+        worldMap.common.locationNodes.single.children.single.point;
+    await worldMap.common.onPointTap!(childPoint);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+    expect(find.byType(LocationChatPanel), findsOneWidget);
+    expect(
+      find.byWidgetPredicate(
+        (widget) => widget is TextField && widget.enabled == true,
+      ),
+      findsOneWidget,
+    );
+    expect(chatroom.session.joinCount, 1);
+  });
 
   testWidgets(
     'world location chat opens inline and reuses cached panel state',
@@ -27705,6 +27848,39 @@ class _RecordingChatroomMessageStorage extends MemoryChatroomMessageStorage {
       locationId: locationId,
       limit: limit,
     );
+  }
+}
+
+class _BlockingChatroomMessageStorage extends MemoryChatroomMessageStorage {
+  final Completer<List<Map<String, dynamic>>> _pendingLoads =
+      Completer<List<Map<String, dynamic>>>();
+
+  void completePendingLoads() {
+    if (!_pendingLoads.isCompleted) {
+      _pendingLoads.complete(const <Map<String, dynamic>>[]);
+    }
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> loadLatestMessages({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int limit,
+  }) {
+    return _pendingLoads.future;
+  }
+}
+
+class _ThrowingChatroomMessageStorage extends MemoryChatroomMessageStorage {
+  @override
+  Future<List<Map<String, dynamic>>> loadLatestMessages({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int limit,
+  }) {
+    throw StateError('test local chat cache failure');
   }
 }
 

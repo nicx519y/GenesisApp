@@ -492,8 +492,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         },
       );
       _notifyReadyOrRefreshLatestMessages(service, generation);
-    } on ChatroomProtocolException catch (error) {
-      if (_isDisposedServiceError(service, error, generation)) {
+    } catch (error, stackTrace) {
+      if (error is ChatroomProtocolException &&
+          _isDisposedServiceError(service, error, generation)) {
         _logPanelMetric(
           'hydrateLocal ignored stale service elapsed=${stopwatch?.elapsedMilliseconds}ms',
         );
@@ -503,7 +504,25 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         );
         return;
       }
-      rethrow;
+      if (!_isCurrentService(service, generation)) return;
+      _logPanelMetric(
+        'hydrateLocal failed but panel remains usable '
+        'elapsed=${stopwatch?.elapsedMilliseconds}ms error=$error',
+      );
+      _recordPanelDebug(
+        action: 'hydrateLocalFailed',
+        details: {
+          'elapsedMs': stopwatch?.elapsedMilliseconds,
+          'error': '$error',
+        },
+      );
+      if (kDebugMode) {
+        debugPrint(
+          '[LocationChat] local message hydration failed: '
+          '$error\n$stackTrace',
+        );
+      }
+      _notifyInitialContentReady();
     }
   }
 
@@ -548,7 +567,21 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
               return;
             }
             if (!_isCurrentService(service, generation)) return;
-            Error.throwWithStackTrace(error, stackTrace);
+            _logPanelMetric(
+              'initial history refresh failed but panel remains usable '
+              'reason=$refreshReason error=$error',
+            );
+            _recordPanelDebug(
+              action: 'initialHistoryRefreshFailed',
+              details: {'reason': refreshReason, 'error': '$error'},
+            );
+            if (kDebugMode) {
+              debugPrint(
+                '[LocationChat] initial history refresh failed: '
+                '$error\n$stackTrace',
+              );
+            }
+            _notifyInitialContentReady();
           }),
     );
   }
