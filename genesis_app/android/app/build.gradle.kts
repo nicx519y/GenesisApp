@@ -33,15 +33,6 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-
-        providers.gradleProperty("worldoTargetAbi").orNull
-            ?.takeIf { it.isNotBlank() }
-            ?.let { targetAbi ->
-                ndk {
-                    abiFilters.clear()
-                    abiFilters.add(targetAbi)
-                }
-            }
     }
 
     flavorDimensions += "app"
