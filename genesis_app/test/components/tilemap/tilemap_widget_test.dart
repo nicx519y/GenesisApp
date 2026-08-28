@@ -35,6 +35,13 @@ Finder _tilemapRendererForMap(String mapId) {
   );
 }
 
+Finder _tilemapExitButtonFinder() {
+  return find.descendant(
+    of: find.byKey(const ValueKey<String>('tilemap-exit-location')),
+    matching: find.byType(InkWell),
+  );
+}
+
 void main() {
   setUp(() {
     PaintingBinding.instance.imageCache.clear();
@@ -1947,9 +1954,7 @@ void main() {
       tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
       'world:w_1:branch_b',
     );
-    await tester.tap(
-      find.byKey(const ValueKey<String>('tilemap-exit-location')),
-    );
+    await tester.tap(_tilemapExitButtonFinder());
     for (var frame = 0; frame < 5; frame += 1) {
       await tester.pump();
     }
@@ -2425,9 +2430,7 @@ void main() {
         findsNothing,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey<String>('tilemap-exit-location')),
-      );
+      await tester.tap(_tilemapExitButtonFinder());
       await tester.pump();
 
       expect(
@@ -3513,17 +3516,13 @@ void main() {
     expect(transport.requestCount('subbranch'), 2);
     expect(transport.requestCount('branch'), 2);
 
-    await tester.tap(
-      find.byKey(const ValueKey<String>('tilemap-exit-location')),
-    );
+    await tester.tap(_tilemapExitButtonFinder());
     await tester.pump();
     expect(
       tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,
       'world:w_1:branch',
     );
-    await tester.tap(
-      find.byKey(const ValueKey<String>('tilemap-exit-location')),
-    );
+    await tester.tap(_tilemapExitButtonFinder());
     for (var frame = 0; frame < 10; frame += 1) {
       await tester.pump();
     }
@@ -3797,9 +3796,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey<String>('tilemap-exit-location')),
-      );
+      await tester.tap(_tilemapExitButtonFinder());
       await tester.pump();
       await tester.pump();
 
@@ -3890,9 +3887,7 @@ void main() {
         findsOneWidget,
       );
 
-      await tester.tap(
-        find.byKey(const ValueKey<String>('tilemap-exit-location')),
-      );
+      await tester.tap(_tilemapExitButtonFinder());
       await tester.pump();
       expect(
         tester.widget<TilemapRenderer>(_liveTilemapRendererFinder()).config.id,

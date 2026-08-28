@@ -783,10 +783,10 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
-          colors: [
-            originWorldDetailSheetBackgroundColor,
-            originWorldDetailSheetBackgroundColor,
-            originWorldDetailSheetBackgroundColor.withValues(alpha: 0),
+          colors: const [
+            Color(0xFF151517),
+            Color(0xFF151517),
+            Color(0x00151517),
           ],
           stops: const [0, 0.55, 1],
         ),
@@ -810,7 +810,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
                 width: 14,
                 height: 8,
                 colorFilter: const ColorFilter.mode(
-                  Color(0xFF111111),
+                  Color(0x8CFFFFFF),
                   BlendMode.srcIn,
                 ),
               ),
@@ -819,7 +819,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
                 'Select your role',
                 key: ValueKey<String>('origin-opening-select-role-label'),
                 style: TextStyle(
-                  color: Color(0xFF111111),
+                  color: Color(0xB8FFFFFF),
                   fontSize: 11,
                   height: 1,
                   fontWeight: FontWeight.w600,

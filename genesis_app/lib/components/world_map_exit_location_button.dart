@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 class WorldMapExitLocationButton extends StatelessWidget {
@@ -15,76 +13,55 @@ class WorldMapExitLocationButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final displayLabel = label.trim();
-    const textStyle = TextStyle(
-      color: Colors.black,
-      fontSize: 13,
-      height: 1.2,
-      fontWeight: FontWeight.w600,
-    );
-
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final textWidth = displayLabel.isEmpty
-            ? 0.0
-            : (TextPainter(
-                text: TextSpan(text: displayLabel, style: textStyle),
-                maxLines: 1,
-                textDirection: Directionality.of(context),
-              )..layout()).width;
-        final desiredWidth =
-            36.0 + (displayLabel.isEmpty ? 0.0 : textWidth + 12);
-        final maxWidth = constraints.hasBoundedWidth
-            ? constraints.maxWidth
-            : desiredWidth;
-        final buttonWidth = math.min(desiredWidth, maxWidth);
-
-        return SizedBox(
-          width: buttonWidth,
-          height: 36,
-          child: Container(
-            padding: EdgeInsets.only(
-              left: 0,
-              right: displayLabel.isEmpty ? 0 : 12,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 34,
+          height: 34,
+          child: Material(
+            color: const Color(0x99151517),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(11),
+              side: const BorderSide(color: Color(0x29FFFFFF), width: 0.5),
             ),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.82),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: InkWell(
-                borderRadius: BorderRadius.circular(12),
-                onTap: onPressed,
-                child: Row(
-                  children: [
-                    const SizedBox(
-                      width: 36,
-                      height: 36,
-                      child: Icon(
-                        Icons.subdirectory_arrow_left,
-                        color: Colors.black,
-                        size: 18,
-                      ),
-                    ),
-                    if (displayLabel.isNotEmpty)
-                      Expanded(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Text(
-                            displayLabel,
-                            maxLines: 1,
-                            style: textStyle,
-                          ),
-                        ),
-                      ),
-                  ],
+            clipBehavior: Clip.antiAlias,
+            child: InkWell(
+              onTap: onPressed,
+              child: const Center(
+                child: Icon(
+                  Icons.subdirectory_arrow_left,
+                  color: Colors.white,
+                  size: 13,
                 ),
               ),
             ),
           ),
-        );
-      },
+        ),
+        if (displayLabel.isNotEmpty) ...[
+          const SizedBox(width: 9),
+          Flexible(
+            child: Text(
+              displayLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFF4F3F6),
+                fontSize: 12,
+                height: 1,
+                fontWeight: FontWeight.w600,
+                shadows: <Shadow>[
+                  Shadow(
+                    color: Color(0xD9000000),
+                    offset: Offset(0, 1),
+                    blurRadius: 5,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

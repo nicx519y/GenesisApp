@@ -7283,7 +7283,7 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.text('Select your role')).style?.color,
-      const Color(0xFF111111),
+      const Color(0xB8FFFFFF),
     );
     final selectRoleDecoration =
         tester.widget<Container>(selectRoleGradient).decoration
@@ -7291,9 +7291,9 @@ void main() {
     final selectRoleBackground =
         selectRoleDecoration.gradient! as LinearGradient;
     expect(selectRoleBackground.colors, const [
-      Color(0xFFEDEDED),
-      Color(0xFFEDEDED),
-      Color(0x00EDEDED),
+      Color(0xFF151517),
+      Color(0xFF151517),
+      Color(0x00151517),
     ]);
     expect(selectRoleBackground.stops, const [0, 0.55, 1]);
     final openingBriefTitleTop = tester
@@ -11391,7 +11391,7 @@ void main() {
         ),
         matching: find.text('World Location'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
 
     await tester.tap(find.text('Location (2)'));
