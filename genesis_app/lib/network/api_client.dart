@@ -627,6 +627,7 @@ class _BusinessApiCollectRequest {
 
   static _BusinessApiCollectRequest? maybeStart(Uri uri) {
     if (!uri.path.startsWith('/api/')) return null;
+    if (_businessApiCollectExcludedPaths.contains(uri.path)) return null;
     try {
       final request = _BusinessApiCollectRequest._(
         path: uri.path,
@@ -702,6 +703,12 @@ class _BusinessApiCollectRequest {
     }
   }
 }
+
+const Set<String> _businessApiCollectExcludedPaths = <String>{
+  '/api/v1/message/unread',
+  '/api/v1/direct_message/conversations',
+  '/api/v1/direct_message/list',
+};
 
 bool _isMalformedJsonResponse(ApiResponseType responseType, String body) {
   if (responseType != ApiResponseType.json || body.trim().isEmpty) return false;

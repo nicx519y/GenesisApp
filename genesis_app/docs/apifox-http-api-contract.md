@@ -2128,6 +2128,7 @@ query：
 - `events[].object2*`: string，第二个业务对象；无值传 `""`
 - `events[].object3*`: string，第三个业务对象；无值传 `""`
 - `events[].object4*`: string，第四个业务对象；无值传 `""`。`api_request_success` 和 `api_request_failed` 使用不带单位后缀的整数毫秒字符串记录最终一次 HTTP attempt 的耗时；`api_request_start` 传 `""`
+- 持续后台轮询接口不产生 `api_request_start/api_request_success/api_request_failed`：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`。接口请求与业务逻辑不受影响，其他主动消息操作继续上报。
 
 请求示例：
 
