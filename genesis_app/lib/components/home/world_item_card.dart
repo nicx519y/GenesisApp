@@ -4,7 +4,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_character_avatar.dart';
-import '../../ui/components/genesis_list_image.dart';
+import '../../ui/components/genesis_world_list_card_layout.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
@@ -238,18 +238,10 @@ class WorldItemCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _WorldImage(
-          imageUrl: item.cover,
-          width: 60,
-          height: 80,
-          borderRadius: thumbnailBorderRadius,
-        ),
-        const SizedBox(width: 14),
-        Expanded(child: _WorldSummary(item: item)),
-      ],
+    return GenesisWorldListCardLayout(
+      imageUrl: item.cover,
+      thumbnailBorderRadius: thumbnailBorderRadius,
+      content: _WorldSummary(item: item),
     );
   }
 }
@@ -361,31 +353,6 @@ class _WorldSummary extends StatelessWidget {
           ),
         ],
       ],
-    );
-  }
-}
-
-class _WorldImage extends StatelessWidget {
-  const _WorldImage({
-    required this.imageUrl,
-    required this.height,
-    this.width,
-    this.borderRadius = 8,
-  });
-
-  final String imageUrl;
-  final double height;
-  final double? width;
-  final double borderRadius;
-
-  @override
-  Widget build(BuildContext context) {
-    return GenesisListImage(
-      imageUrl: imageUrl,
-      width: width,
-      height: height,
-      borderRadius: BorderRadius.circular(borderRadius),
-      maxDevicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
   }
 }

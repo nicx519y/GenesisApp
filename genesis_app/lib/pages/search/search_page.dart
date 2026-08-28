@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -17,6 +18,8 @@ import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/components/genesis_origin_list_card_layout.dart';
+import '../../ui/components/genesis_world_list_card_layout.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_origin_card_geometry.dart';
@@ -353,7 +356,10 @@ class _SearchPageState extends State<SearchPage>
     return switch (tab) {
       _SearchTab.origin => _SearchPageResult(
         items: response.origins.items
-            .map(_SearchResultItem.fromV2Origin)
+            .map(
+              (item) =>
+                  _SearchResultItem.fromV2Origin(item, searchQuery: query),
+            )
             .toList(growable: false),
         total: response.origins.total,
         hasMore: response.origins.hasMore,
@@ -361,7 +367,9 @@ class _SearchPageState extends State<SearchPage>
       ),
       _SearchTab.world => _SearchPageResult(
         items: response.worlds.items
-            .map(_SearchResultItem.fromV2World)
+            .map(
+              (item) => _SearchResultItem.fromV2World(item, searchQuery: query),
+            )
             .toList(growable: false),
         total: response.worlds.total,
         hasMore: response.worlds.hasMore,
@@ -369,7 +377,9 @@ class _SearchPageState extends State<SearchPage>
       ),
       _SearchTab.user => _SearchPageResult(
         items: response.users.items
-            .map(_SearchResultItem.fromV2User)
+            .map(
+              (item) => _SearchResultItem.fromV2User(item, searchQuery: query),
+            )
             .toList(growable: false),
         total: response.users.total,
         hasMore: response.users.hasMore,
@@ -444,7 +454,7 @@ class _SearchPageState extends State<SearchPage>
                     ),
                 ],
                 horizontalPadding: 16,
-                labelPadding: const EdgeInsets.only(right: 30),
+                labelPadding: const EdgeInsets.only(right: 42),
                 verticalPadding: 0,
               ),
             Expanded(

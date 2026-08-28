@@ -15,51 +15,66 @@ class _SearchResultTile extends StatelessWidget {
       height: 1.1,
       fontWeight: FontWeight.w600,
     );
+    final content = Padding(
+      padding: EdgeInsets.zero,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text.rich(
+            _searchResultTitleSpan(item),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: titleStyle,
+          ),
+          SizedBox(height: isUser ? 7 : 4),
+          if (item.tab == _SearchTab.origin)
+            _OriginSearchMetadata(item: item)
+          else if (isUser)
+            Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: 'UID: '),
+                  _highlightedSearchSpan(
+                    formatCopyableIdValue(item.displaySubtitle),
+                    _userIdRanges(item.userV2!, item.searchQuery),
+                  ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: CopyableIdLabel.textStyle.copyWith(
+                color: const Color(0xFF888888),
+              ),
+            )
+          else
+            _WorldSearchMetadata(item: item),
+          if (!isUser) ...[const SizedBox(height: 4), _ResultStats(item: item)],
+        ],
+      ),
+    );
+    final tile = item.tab == _SearchTab.world
+        ? GenesisWorldListCardLayout(
+            imageUrl: item.coverImage,
+            content: content,
+          )
+        : item.tab == _SearchTab.origin
+        ? GenesisOriginListCardLayout(
+            imageUrl: item.coverImage,
+            content: content,
+          )
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ResultThumb(item: item),
+              const SizedBox(width: 10),
+              Expanded(child: content),
+            ],
+          );
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: Row(
-        crossAxisAlignment: isUser
-            ? CrossAxisAlignment.center
-            : CrossAxisAlignment.start,
-        children: [
-          _ResultThumb(item: item),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsets.zero,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text.rich(
-                    _searchResultTitleSpan(item),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: titleStyle,
-                  ),
-                  SizedBox(height: isUser ? 7 : 5),
-                  if (item.tab == _SearchTab.origin)
-                    _OriginSearchMetadata(item: item)
-                  else if (isUser)
-                    Text(
-                      'UID: ${formatCopyableIdValue(item.displaySubtitle)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: CopyableIdLabel.textStyle,
-                    )
-                  else
-                    _WorldSearchMetadata(item: item),
-                  if (!isUser) ...[
-                    const SizedBox(height: 8),
-                    _ResultStats(item: item),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: tile,
     );
   }
 }
@@ -68,7 +83,21 @@ const _searchMetadataStyle = TextStyle(
   color: Color(0xFF888888),
   fontSize: 12,
   fontWeight: FontWeight.w400,
-  height: 1.3,
+  height: 1.2,
+);
+
+const _searchSummaryStyle = TextStyle(
+  color: Color(0xFF666666),
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  height: 1.2,
+);
+
+const _worldSearchMetadataStyle = TextStyle(
+  color: Color(0xFF888888),
+  fontSize: 12,
+  fontWeight: FontWeight.w400,
+  height: 1.2,
 );
 
 const _searchMatchStyle = TextStyle(
@@ -94,30 +123,53 @@ class _OriginSearchMetadata extends StatelessWidget {
     final showCharacters = origin.matches
         .whereType<SearchV2CharacterMatch>()
         .any((match) => match.field == 'character_name');
+    final tagMatches = origin.matches.whereType<SearchV2TagMatch>();
+    final showTags = _matchedTagEntries(origin.tags, tagMatches).isNotEmpty;
+    final summaries = <Widget>[
+      if (showCharacters) _OriginCharactersSummary(origin: origin),
+      if (showBrief)
+        _SearchBriefExcerpt(text: brief, highlightRanges: briefRanges),
+      if (showTags) _MatchedTagsSummary(tags: origin.tags, matches: tagMatches),
+    ];
+    if (summaries.isEmpty) {
+      summaries.add(
+        _SearchBriefExcerpt(
+          text: brief,
+          highlightRanges: const <SearchV2HighlightRange>[],
+        ),
+      );
+    }
+    final rows = <Widget>[
+      Text.rich(
+        TextSpan(
+          children: [
+            const TextSpan(text: 'OID: '),
+            _highlightedSearchSpan(
+              _dashOrValue(origin.originId),
+              _originIdRanges(origin, item.searchQuery),
+            ),
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _searchMetadataStyle,
+      ),
+      Text(
+        'Originator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: _searchMetadataStyle,
+      ),
+      ...summaries.take(2),
+    ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'OID: ${_dashOrValue(origin.originId)}  '
-          'Originator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: _searchMetadataStyle,
-        ),
-        if (showBrief)
-          _SearchBriefExcerpt(text: brief, highlightRanges: briefRanges),
-        if (showCharacters) _OriginCharactersExcerpt(origin: origin),
-        _MatchedTagsLine(
-          tags: origin.tags,
-          matches: origin.matches.whereType<SearchV2TagMatch>(),
-        ),
-        Text(
-          'Latest Version: ${_originVersionLabel(origin.originVersion)}',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: _searchMetadataStyle,
-        ),
+        for (var index = 0; index < rows.length; index += 1) ...[
+          if (index > 0) const SizedBox(height: 4),
+          rows[index],
+        ],
       ],
     );
   }
@@ -131,27 +183,39 @@ class _WorldSearchMetadata extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final world = item.worldV2!;
+    final owner = formatUidForDisplay(world.owner.name, fallback: '-');
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          item.displaySubtitle,
-          maxLines: 2,
+        Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(text: 'WID: '),
+              _highlightedSearchSpan(
+                _dashOrValue(world.worldId),
+                _worldIdRanges(world, item.searchQuery),
+              ),
+            ],
+          ),
+          maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: _searchMetadataStyle,
+          style: _worldSearchMetadataStyle,
         ),
-        _MatchedTagsLine(
-          tags: world.tags,
-          matches: world.matches.whereType<SearchV2TagMatch>(),
+        const SizedBox(height: 4),
+        Text(
+          'Owner: $owner',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _worldSearchMetadataStyle,
         ),
       ],
     );
   }
 }
 
-class _MatchedTagsLine extends StatelessWidget {
-  const _MatchedTagsLine({required this.tags, required this.matches});
+class _MatchedTagsSummary extends StatelessWidget {
+  const _MatchedTagsSummary({required this.tags, required this.matches});
 
   final List<String> tags;
   final Iterable<SearchV2TagMatch> matches;
@@ -160,22 +224,37 @@ class _MatchedTagsLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final entries = _matchedTagEntries(tags, matches);
     if (entries.isEmpty) return const SizedBox.shrink();
-    return Text.rich(
-      TextSpan(
-        children: [
-          const TextSpan(text: 'Tags: '),
-          for (var index = 0; index < entries.length; index += 1) ...[
-            if (index > 0) const TextSpan(text: ', '),
-            _highlightedSearchSpan(
-              entries[index].tag,
-              entries[index].highlightRanges,
-            ),
-          ],
-        ],
+    return DecoratedBox(
+      key: const ValueKey<String>('origin-summary-tags'),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F3F6),
+        borderRadius: BorderRadius.circular(4),
       ),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: _searchMetadataStyle,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: SizedBox(
+          height: 20,
+          child: Center(
+            widthFactor: 1,
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  for (var index = 0; index < entries.length; index += 1) ...[
+                    if (index > 0) const TextSpan(text: ', '),
+                    _highlightedSearchSpan(
+                      entries[index].tag,
+                      entries[index].highlightRanges,
+                    ),
+                  ],
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: _searchSummaryStyle,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -211,127 +290,69 @@ class _MatchedTagEntry {
   final List<SearchV2HighlightRange> highlightRanges;
 }
 
-class _OriginCharactersExcerpt extends StatelessWidget {
-  const _OriginCharactersExcerpt({required this.origin});
+class _OriginCharactersSummary extends StatelessWidget {
+  const _OriginCharactersSummary({required this.origin});
 
   final SearchV2OriginItem origin;
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final visibleIndexes = _originCharacterIndexesForWidth(
-          context,
-          origin: origin,
-          maxWidth: constraints.maxWidth,
-        );
-        return Text.rich(
-          _originCharactersSpan(origin, visibleIndexes: visibleIndexes),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          softWrap: true,
-          style: _searchMetadataStyle,
-        );
-      },
+    final matchesByCharacterId = <String, List<SearchV2HighlightRange>>{};
+    for (final match in origin.matches.whereType<SearchV2CharacterMatch>()) {
+      if (match.field != 'character_name') continue;
+      (matchesByCharacterId[match.characterId] ??= <SearchV2HighlightRange>[])
+          .addAll(match.highlightRanges);
+    }
+    final matchedCharacters = origin.characters
+        .where(
+          (character) =>
+              matchesByCharacterId.containsKey(character.characterId),
+        )
+        .toList(growable: false);
+    if (matchedCharacters.isEmpty) return const SizedBox.shrink();
+    return Row(
+      key: const ValueKey<String>('origin-summary-characters'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 1),
+          child: SvgPicture.asset(
+            characterStatIconAsset,
+            width: 12,
+            height: 12,
+            colorFilter: const ColorFilter.mode(
+              Color(0xFF666666),
+              BlendMode.srcIn,
+            ),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              children: [
+                for (
+                  var index = 0;
+                  index < matchedCharacters.length;
+                  index += 1
+                ) ...[
+                  if (index > 0) const TextSpan(text: ', '),
+                  _highlightedSearchSpan(
+                    _dashOrValue(matchedCharacters[index].name),
+                    matchesByCharacterId[matchedCharacters[index].characterId]!,
+                  ),
+                ],
+              ],
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            softWrap: true,
+            style: _searchSummaryStyle,
+          ),
+        ),
+      ],
     );
   }
-}
-
-List<int> _originCharacterIndexesForWidth(
-  BuildContext context, {
-  required SearchV2OriginItem origin,
-  required double maxWidth,
-}) {
-  final allIndexes = List<int>.generate(
-    origin.characters.length,
-    (index) => index,
-  );
-  if (!maxWidth.isFinite ||
-      _originCharactersFit(
-        context,
-        origin: origin,
-        visibleIndexes: allIndexes,
-        maxWidth: maxWidth,
-      )) {
-    return allIndexes;
-  }
-
-  final matchedCharacterIds = origin.matches
-      .whereType<SearchV2CharacterMatch>()
-      .where((match) => match.field == 'character_name')
-      .map((match) => match.characterId)
-      .toSet();
-  final matchedIndexes = allIndexes
-      .where(
-        (index) =>
-            matchedCharacterIds.contains(origin.characters[index].characterId),
-      )
-      .toList(growable: false);
-  final visibleIndexes = <int>[...matchedIndexes];
-  if (allIndexes.isNotEmpty && !visibleIndexes.contains(0)) {
-    final withFirstName = <int>[0, ...visibleIndexes]..sort();
-    if (_originCharactersFit(
-      context,
-      origin: origin,
-      visibleIndexes: withFirstName,
-      maxWidth: maxWidth,
-    )) {
-      visibleIndexes
-        ..clear()
-        ..addAll(withFirstName);
-    }
-  }
-  final referenceIndexes = matchedIndexes.isEmpty
-      ? const <int>[0]
-      : matchedIndexes;
-  final remainingIndexes =
-      allIndexes.where((index) => !visibleIndexes.contains(index)).toList()
-        ..sort((left, right) {
-          int distanceToMatch(int index) => referenceIndexes
-              .map((matchedIndex) => (matchedIndex - index).abs())
-              .reduce((a, b) => a < b ? a : b);
-          final byDistance = distanceToMatch(
-            left,
-          ).compareTo(distanceToMatch(right));
-          return byDistance != 0 ? byDistance : left.compareTo(right);
-        });
-
-  for (final index in remainingIndexes) {
-    final candidate = [...visibleIndexes, index]..sort();
-    if (!_originCharactersFit(
-      context,
-      origin: origin,
-      visibleIndexes: candidate,
-      maxWidth: maxWidth,
-    )) {
-      continue;
-    }
-    visibleIndexes
-      ..clear()
-      ..addAll(candidate);
-  }
-  visibleIndexes.sort();
-  return visibleIndexes;
-}
-
-bool _originCharactersFit(
-  BuildContext context, {
-  required SearchV2OriginItem origin,
-  required List<int> visibleIndexes,
-  required double maxWidth,
-}) {
-  final painter = TextPainter(
-    text: TextSpan(
-      style: _searchMetadataStyle,
-      children: [_originCharactersSpan(origin, visibleIndexes: visibleIndexes)],
-    ),
-    maxLines: 2,
-    ellipsis: '…',
-    textDirection: Directionality.of(context),
-    textScaler: MediaQuery.textScalerOf(context),
-    locale: Localizations.localeOf(context),
-  )..layout(maxWidth: maxWidth);
-  return !painter.didExceedMaxLines;
 }
 
 class _SearchBriefExcerpt extends StatelessWidget {
@@ -357,14 +378,14 @@ class _SearchBriefExcerpt extends StatelessWidget {
         return Text.rich(
           TextSpan(
             children: [
-              const TextSpan(text: 'Brief: '),
               _highlightedSearchSpan(excerpt.text, excerpt.highlightRanges),
             ],
           ),
+          key: const ValueKey<String>('origin-summary-brief'),
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           softWrap: true,
-          style: _searchMetadataStyle,
+          style: _searchSummaryStyle,
         );
       },
     );
@@ -420,11 +441,8 @@ bool _searchBriefFits(
 }) {
   final painter = TextPainter(
     text: TextSpan(
-      style: _searchMetadataStyle,
-      children: [
-        const TextSpan(text: 'Brief: '),
-        _highlightedSearchSpan(excerpt.text, excerpt.highlightRanges),
-      ],
+      style: _searchSummaryStyle,
+      children: [_highlightedSearchSpan(excerpt.text, excerpt.highlightRanges)],
     ),
     maxLines: 2,
     ellipsis: '…',
@@ -543,44 +561,6 @@ TextSpan _searchResultTitleSpan(_SearchResultItem item) {
   }
 }
 
-TextSpan _originCharactersSpan(
-  SearchV2OriginItem origin, {
-  List<int>? visibleIndexes,
-}) {
-  if (origin.characters.isEmpty) {
-    return const TextSpan(text: 'Characters: -');
-  }
-  final indexes =
-      visibleIndexes ??
-      List<int>.generate(origin.characters.length, (index) => index);
-  final spans = <InlineSpan>[const TextSpan(text: 'Characters: ')];
-  if (indexes.isEmpty) {
-    spans.add(const TextSpan(text: '…'));
-    return TextSpan(children: spans);
-  }
-  for (var visibleIndex = 0; visibleIndex < indexes.length; visibleIndex += 1) {
-    final index = indexes[visibleIndex];
-    if (visibleIndex > 0 && index > indexes[visibleIndex - 1] + 1) {
-      spans.add(const TextSpan(text: ', …, '));
-    } else if (visibleIndex > 0) {
-      spans.add(const TextSpan(text: ', '));
-    }
-    final character = origin.characters[index];
-    final name = character.name.isEmpty ? '-' : character.name;
-    final ranges = character.name.isEmpty
-        ? const <SearchV2HighlightRange>[]
-        : origin.matches
-              .whereType<SearchV2CharacterMatch>()
-              .where((match) => match.characterId == character.characterId)
-              .expand((match) => match.highlightRanges);
-    spans.add(_highlightedSearchSpan(name, ranges));
-  }
-  if (indexes.last < origin.characters.length - 1) {
-    spans.add(const TextSpan(text: ', …'));
-  }
-  return TextSpan(children: spans);
-}
-
 Iterable<SearchV2HighlightRange> _originRanges(
   SearchV2OriginItem origin,
   String field,
@@ -589,6 +569,57 @@ Iterable<SearchV2HighlightRange> _originRanges(
       .whereType<SearchV2TextMatch>()
       .where((match) => match.field == field)
       .expand((match) => match.highlightRanges);
+}
+
+Iterable<SearchV2HighlightRange> _originIdRanges(
+  SearchV2OriginItem origin,
+  String query,
+) sync* {
+  yield* origin.matches
+      .whereType<SearchV2TextMatch>()
+      .where((match) => const {'origin_id', 'oid'}.contains(match.field))
+      .expand((match) => match.highlightRanges);
+  yield* _localIdQueryRanges(origin.originId, query);
+}
+
+Iterable<SearchV2HighlightRange> _worldIdRanges(
+  SearchV2WorldItem world,
+  String query,
+) sync* {
+  yield* world.matches
+      .where((match) => const {'world_id', 'wid'}.contains(match.field))
+      .expand((match) => match.highlightRanges);
+  yield* _localIdQueryRanges(world.worldId, query);
+}
+
+Iterable<SearchV2HighlightRange> _userIdRanges(
+  SearchV2UserItem user,
+  String query,
+) sync* {
+  yield* user.matches
+      .where((match) => const {'uid', 'user_id'}.contains(match.field))
+      .expand((match) => match.highlightRanges);
+  yield* _localIdQueryRanges(user.uid, query);
+}
+
+Iterable<SearchV2HighlightRange> _localIdQueryRanges(
+  String id,
+  String rawQuery,
+) sync* {
+  final query = rawQuery.trim();
+  if (id.isEmpty || query.isEmpty) return;
+  final normalizedId = id.toLowerCase();
+  final normalizedQuery = query.toLowerCase();
+  var start = 0;
+  while (start < normalizedId.length) {
+    final matchStart = normalizedId.indexOf(normalizedQuery, start);
+    if (matchStart < 0) return;
+    yield SearchV2HighlightRange(
+      start: matchStart,
+      length: normalizedQuery.length,
+    );
+    start = matchStart + normalizedQuery.length;
+  }
 }
 
 TextSpan _highlightedSearchSpan(
@@ -663,7 +694,7 @@ class _ResultThumb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const userAvatarSize = 60.0;
+    const userAvatarSize = 52.0;
     const resultCoverWidth = 60.0;
     final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     if (item.tab == _SearchTab.user) {
@@ -671,7 +702,6 @@ class _ResultThumb extends StatelessWidget {
         url: item.coverImage,
         name: item.title,
         size: userAvatarSize,
-        borderRadius: userAvatarSize / 2,
         maxDevicePixelRatio: devicePixelRatio,
       );
     }
@@ -698,16 +728,16 @@ class _ResultStats extends StatelessWidget {
       return Text(
         formatWorldStatsLabel(
           tickNo: item.tickCount,
-          subTickNo: 0,
+          subTickNo: item.subTickNo,
           messageCount: item.connectCount,
           playerCount: item.playerCount,
         ),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: const TextStyle(
-          color: Colors.black,
+          color: Color(0xFF666666),
           fontSize: 12,
-          height: 1,
+          height: 1.2,
           fontWeight: FontWeight.w400,
         ),
       );
@@ -721,7 +751,6 @@ class _ResultStats extends StatelessWidget {
             ),
             _StatData(
               iconAsset: characterStatIconAsset,
-              preserveIconAssetColor: true,
               value: item.characterCount,
             ),
           ]
@@ -737,14 +766,14 @@ class _ResultStats extends StatelessWidget {
             icon: stat.icon,
             iconAsset: stat.iconAsset,
             preserveIconAssetColor: stat.preserveIconAssetColor,
-            iconSize: 11,
-            iconColor: Colors.black,
+            iconSize: 12,
+            iconColor: const Color(0xFF666666),
             gap: 4,
             text: formatStatCount(stat.value),
             textStyle: const TextStyle(
-              color: Colors.black,
+              color: Color(0xFF666666),
               fontSize: 12,
-              height: 1,
+              height: 1.2,
               fontWeight: FontWeight.w400,
             ),
           ),

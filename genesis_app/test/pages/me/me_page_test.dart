@@ -98,14 +98,42 @@ void main() {
       const Size.square(24),
     );
 
-    expect(find.text('Worldo 0'), findsOneWidget);
-    expect(find.text('Playing 0'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('Playing'), findsOneWidget);
+    expect(_profileTabCount('origin', '0'), findsOneWidget);
+    expect(_profileTabCount('world', '0'), findsOneWidget);
     expect(find.text('#Worldo'), findsNothing);
     expect(find.text('World'), findsNothing);
+    final originCount = tester.widget<Text>(_profileTabCount('origin', '0'));
+    final originLabelStyle = DefaultTextStyle.of(
+      tester.element(find.text('Worldo')),
+    ).style;
+    expect(originCount.style?.fontSize, originLabelStyle.fontSize);
+    expect(originCount.style?.color, originLabelStyle.color);
+    expect(originCount.style?.fontWeight, FontWeight.w400);
+    final originLabelBox = tester.getRect(
+      find.byKey(const ValueKey<String>('profile-tab-origin')),
+    );
+    final originLabelText = tester.getRect(find.text('Worldo'));
+    expect(originLabelBox.width, closeTo(originLabelText.width, 0.1));
+    expect(originLabelBox.center.dx, closeTo(originLabelText.center.dx, 0.1));
+    expect(
+      tester.getRect(_profileTabCount('origin', '0')).left,
+      greaterThan(originLabelText.right),
+    );
+    expect(
+      tester.getRect(find.text('Playing')).left -
+          tester.getRect(_profileTabCount('origin', '0')).right,
+      lessThanOrEqualTo(24),
+    );
+    expect(
+      tester.widget<TabBar>(find.byType(TabBar)).indicatorSize,
+      TabBarIndicatorSize.label,
+    );
 
-    await tester.tap(find.text('Playing 0'));
+    await tester.tap(find.text('Playing'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Worldo 0'));
+    await tester.tap(find.text('Worldo'));
     await tester.pumpAndSettle();
 
     expect(selectedIndexes, <int>[1, 0]);
@@ -155,8 +183,8 @@ void main() {
       ),
     );
 
-    expect(find.text('Worldo 0'), findsOneWidget);
-    expect(find.text('Playing 0'), findsOneWidget);
+    expect(_profileTabCount('origin', '0'), findsOneWidget);
+    expect(_profileTabCount('world', '0'), findsOneWidget);
 
     originsState.value =
         const UserProfileCollectionState<UserProfileOriginItem>(
@@ -204,14 +232,14 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('Worldo 1'), findsOneWidget);
-    expect(find.text('Playing 2'), findsOneWidget);
+    expect(_profileTabCount('origin', '1'), findsOneWidget);
+    expect(_profileTabCount('world', '2'), findsOneWidget);
 
-    await tester.tap(find.text('Playing 2'));
+    await tester.tap(find.text('Playing'));
     await tester.pumpAndSettle();
 
     expect(find.text('Tick 4-2 · 1 Message · 1.2K Players'), findsOneWidget);
-    expect(find.text('Tick 0 · 0 Message · 0 Player'), findsOneWidget);
+    expect(find.text('Tick 0 · 0 Message'), findsOneWidget);
   });
 
   testWidgets('self Worldo edit icon opens the edit page directly', (
@@ -364,4 +392,11 @@ void main() {
 
     expect(openedRoute, '/gems');
   });
+}
+
+Finder _profileTabCount(String tab, String count) {
+  return find.descendant(
+    of: find.byKey(ValueKey<String>('profile-tab-count-$tab')),
+    matching: find.text(count),
+  );
 }

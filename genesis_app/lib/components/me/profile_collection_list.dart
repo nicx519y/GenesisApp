@@ -14,6 +14,8 @@ class ProfileCollectionList extends StatefulWidget {
     this.loadingKey,
     this.onRefresh,
     this.refreshKey,
+    this.topPadding = 12,
+    this.itemSpacing = 24,
   });
 
   static const double minSystemNavigationBottomPadding = 56;
@@ -24,6 +26,8 @@ class ProfileCollectionList extends StatefulWidget {
   final Key? loadingKey;
   final Future<void> Function()? onRefresh;
   final Key? refreshKey;
+  final double topPadding;
+  final double itemSpacing;
 
   @override
   State<ProfileCollectionList> createState() => _ProfileCollectionListState();
@@ -53,7 +57,7 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       ProfileCollectionList.minSystemNavigationBottomPadding,
     ].reduce((a, b) => a > b ? a : b);
     final listPadding = EdgeInsets.only(
-      top: 12,
+      top: widget.topPadding,
       bottom: 16 + bottomInset + _collapseCompensation,
     );
 
@@ -95,7 +99,9 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
         return _AnimatedProfileCollectionListItem(
           key: ValueKey<Object>(animationKey),
           item: item,
-          bottomSpacing: index == widget.items.length - 1 ? 0 : 24,
+          bottomSpacing: index == widget.items.length - 1
+              ? 0
+              : widget.itemSpacing,
           onCollapseCompensationChanged: (value) =>
               _setCollapseCompensation(animationKey, value),
         );

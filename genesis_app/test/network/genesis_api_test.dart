@@ -1999,6 +1999,7 @@ void main() {
                   },
                   'stats': {
                     'tick_cnt': 7,
+                    'sub_tick_no': 3,
                     'connect_cnt': 8,
                     'character_cnt': 9,
                     'player_cnt': 10,
@@ -2132,6 +2133,7 @@ void main() {
     expect(world.tags, ['fantasy', 'campus']);
     expect(world.owner.uid, 'u_owner');
     expect(world.stats.tickCount, 7);
+    expect(world.stats.subTickNo, 3);
     expect(world.stats.connectCount, 8);
     expect(world.stats.characterCount, 9);
     expect(world.stats.playerCount, 10);

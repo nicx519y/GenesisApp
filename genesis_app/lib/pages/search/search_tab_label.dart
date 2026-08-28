@@ -3,27 +3,22 @@ part of 'search_page.dart';
 class _SearchTabLabel extends StatelessWidget {
   const _SearchTabLabel({super.key, required this.tab, required this.total});
 
-  static const TextStyle _countStyle = TextStyle(
-    color: GenesisColors.danger,
-    fontSize: 10,
-    height: 1,
-    fontWeight: FontWeight.w400,
-  );
-
   final _SearchTab tab;
   final int? total;
 
   @override
   Widget build(BuildContext context) {
-    final labelMetrics = _measureText(
-      context,
-      tab.label,
-      DefaultTextStyle.of(context).style,
-    );
-    final countText = total?.toString();
+    final labelStyle = DefaultTextStyle.of(context).style;
+    final countStyle = labelStyle.copyWith(fontWeight: FontWeight.w400);
+    final labelMetrics = _measureText(context, tab.label, labelStyle);
+    final countText = switch (total) {
+      null => null,
+      final value when value > 99 => '99+',
+      final value => '$value',
+    };
     final countMetrics = countText == null
         ? null
-        : _measureText(context, countText, _countStyle);
+        : _measureText(context, countText, countStyle);
 
     return SizedBox(
       width: labelMetrics.size.width,
@@ -38,7 +33,7 @@ class _SearchTabLabel extends StatelessWidget {
               top: labelMetrics.baseline - countMetrics.baseline,
               child: KeyedSubtree(
                 key: ValueKey<String>('search-tab-count-${tab.name}'),
-                child: Text(countText, maxLines: 1, style: _countStyle),
+                child: Text(countText, maxLines: 1, style: countStyle),
               ),
             ),
         ],

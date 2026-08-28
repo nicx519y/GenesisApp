@@ -281,6 +281,7 @@ class SearchV2OriginStats {
 class SearchV2WorldStats {
   const SearchV2WorldStats({
     required this.tickCount,
+    required this.subTickNo,
     required this.connectCount,
     required this.characterCount,
     required this.playerCount,
@@ -289,6 +290,7 @@ class SearchV2WorldStats {
   factory SearchV2WorldStats.fromJson(Map<String, dynamic> json) {
     return SearchV2WorldStats(
       tickCount: asInt(json['tick_cnt']),
+      subTickNo: asInt(json['sub_tick_no']),
       connectCount: asInt(json['connect_cnt']),
       characterCount: asInt(json['character_cnt']),
       playerCount: asInt(json['player_cnt']),
@@ -296,6 +298,7 @@ class SearchV2WorldStats {
   }
 
   final int tickCount;
+  final int subTickNo;
   final int connectCount;
   final int characterCount;
   final int playerCount;
