@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_cover_gradient_painter.dart';
+import 'package:genesis_flutter_android/components/origin/origin_item_cover_throttled_image_provider.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_origin_card_geometry.dart';
 
@@ -313,6 +314,63 @@ void main() {
       findsOneWidget,
     );
     expect(coverLoaded, isTrue);
+  });
+
+  testWidgets('retries a queued cover superseded before loading', (
+    WidgetTester tester,
+  ) async {
+    final sourceImage = await _solidImage(const Color(0xFF00AAFF));
+    addTearDown(sourceImage.dispose);
+    var attempts = 0;
+    debugOriginItemCoverImageProvider = (_) {
+      attempts += 1;
+      return _CompletingTestImageProvider(
+        attempts == 1
+            ? Future<ImageInfo>.error(
+                const OriginItemCoverLoadCancelledException(),
+              )
+            : Future<ImageInfo>.value(ImageInfo(image: sourceImage.clone())),
+      );
+    };
+
+    const item = OriginListItem(
+      oid: 'o_retried',
+      status: 1,
+      versionNum: 1,
+      name: 'Retried Origin',
+      cover: '',
+      displaySubtitle: 'Retry the cover',
+      worldView: '',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>[],
+      copyCnt: 0,
+      connectCnt: 0,
+      discussCnt: 0,
+      characterCnt: 0,
+      locationCnt: 0,
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 220, child: OriginItemCard(item: item)),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-loading-cancelled')),
+      findsOneWidget,
+    );
+
+    await tester.pump(const Duration(milliseconds: 150));
+    await _pumpUntilOriginCardReady(tester);
+
+    expect(attempts, greaterThanOrEqualTo(2));
+    expect(find.text('#Retried Origin'), findsOneWidget);
   });
 
   testWidgets('does not render origin tags', (WidgetTester tester) async {

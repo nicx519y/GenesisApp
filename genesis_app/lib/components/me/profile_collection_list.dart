@@ -15,7 +15,7 @@ class ProfileCollectionList extends StatefulWidget {
     this.onRefresh,
     this.refreshKey,
     this.sliverMode = false,
-    this.boxMode = false,
+    this.alwaysScrollable = false,
     this.topPadding = 12,
     this.itemSpacing = 24,
   });
@@ -29,7 +29,7 @@ class ProfileCollectionList extends StatefulWidget {
   final Future<void> Function()? onRefresh;
   final Key? refreshKey;
   final bool sliverMode;
-  final bool boxMode;
+  final bool alwaysScrollable;
   final double topPadding;
   final double itemSpacing;
 
@@ -88,19 +88,6 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       return _buildPlaceholder(context, empty);
     }
 
-    if (widget.boxMode) {
-      return Padding(
-        padding: listPadding,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (var index = 0; index < widget.items.length; index += 1)
-              _buildItem(context, index),
-          ],
-        ),
-      );
-    }
-
     if (widget.sliverMode) {
       return SliverPadding(
         padding: listPadding,
@@ -115,11 +102,9 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
 
     final list = ListView.builder(
       itemCount: widget.items.length,
-      physics: widget.onRefresh == null
-          ? const BouncingScrollPhysics()
-          : const BouncingScrollPhysics(
-              parent: AlwaysScrollableScrollPhysics(),
-            ),
+      physics: widget.onRefresh != null || widget.alwaysScrollable
+          ? const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
+          : const BouncingScrollPhysics(),
       clipBehavior: Clip.hardEdge,
       padding: listPadding,
       itemBuilder: _buildItem,
@@ -161,31 +146,28 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
   }
 
   Widget _buildPlaceholder(BuildContext context, Widget child) {
-    if (widget.boxMode) {
-      return SizedBox(
-        height: MediaQuery.sizeOf(context).height * 0.45,
-        child: Center(child: child),
-      );
-    }
     if (widget.sliverMode) {
       return SliverFillRemaining(
         hasScrollBody: false,
         child: Center(child: child),
       );
     }
-    if (widget.onRefresh == null) return Center(child: child);
+    if (widget.onRefresh == null && !widget.alwaysScrollable) {
+      return Center(child: child);
+    }
 
-    return _wrapRefreshIndicator(
-      ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        children: [
-          SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.45,
-            child: Center(child: child),
-          ),
-        ],
+    final list = ListView(
+      physics: const BouncingScrollPhysics(
+        parent: AlwaysScrollableScrollPhysics(),
       ),
+      children: [
+        SizedBox(
+          height: MediaQuery.sizeOf(context).height * 0.45,
+          child: Center(child: child),
+        ),
+      ],
     );
+    return widget.onRefresh == null ? list : _wrapRefreshIndicator(list);
   }
 
   Widget _wrapRefreshIndicator(Widget child) {

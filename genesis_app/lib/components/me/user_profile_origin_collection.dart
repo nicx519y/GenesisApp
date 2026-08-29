@@ -7,7 +7,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
     required this.listenable,
     required this.onRefresh,
     required this.sliverMode,
-    this.boxMode = false,
+    this.alwaysScrollable = false,
     required this.canEditOrigins,
   });
 
@@ -17,7 +17,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
   listenable;
   final Future<void> Function()? onRefresh;
   final bool sliverMode;
-  final bool boxMode;
+  final bool alwaysScrollable;
   final bool canEditOrigins;
 
   @override
@@ -112,7 +112,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
       onRefresh: onRefresh,
       refreshKey: const ValueKey('profile-origin-list-refresh'),
       sliverMode: sliverMode,
-      boxMode: boxMode,
+      alwaysScrollable: alwaysScrollable,
       topPadding: 10,
       itemSpacing: 30,
     );

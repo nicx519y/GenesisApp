@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/components/me/user_profile_content.dart'
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_profile_collection_list_item.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/utils/entity_deleted.dart';
 
@@ -282,6 +283,128 @@ void main() {
 
     expect(find.text('Tick 4-2 · 1 Message · 1.2K Players'), findsOneWidget);
     expect(find.text('Tick 0 · 0 Message'), findsOneWidget);
+  });
+
+  testWidgets('profile collection pages keep a 10px gap while swiping', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: UserProfileContent(
+            data: UserProfileData(
+              avatarUrl: '',
+              displayName: 'User',
+              uid: 'u_user',
+              followingCount: 0,
+              followerCount: 0,
+              origins: <UserProfileOriginItem>[
+                UserProfileOriginItem(
+                  originId: 1,
+                  oid: 'oid_1',
+                  title: 'Editable Worldo',
+                  subtitle: '',
+                  imageUrl: '',
+                  copyCount: 0,
+                  interactCount: 0,
+                  characterCount: 0,
+                ),
+              ],
+              worlds: <UserProfileWorldItem>[
+                UserProfileWorldItem(
+                  wid: 'wid_1',
+                  title: 'Playing World',
+                  subtitle: '',
+                  imageUrl: '',
+                  progressCount: 0,
+                  interactCount: 0,
+                  characterCount: 0,
+                  playerCount: 0,
+                  ownerName: 'User',
+                ),
+              ],
+            ),
+            originTabLabel: 'Worldo',
+            worldTabLabel: 'Playing',
+          ),
+        ),
+      ),
+    );
+
+    final tabBarView = find.byType(TabBarView);
+    final worldoPage = find.byKey(
+      const ValueKey<String>('profile-origin-collection-page'),
+      skipOffstage: false,
+    );
+    expect(tester.getRect(worldoPage), tester.getRect(tabBarView));
+
+    final gesture = await tester.startGesture(tester.getCenter(tabBarView));
+    await gesture.moveBy(const Offset(-20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-180, 0));
+    await tester.pump();
+
+    final playingPage = find.byKey(
+      const ValueKey<String>('profile-world-collection-page'),
+      skipOffstage: false,
+    );
+    expect(worldoPage, findsOneWidget);
+    expect(playingPage, findsOneWidget);
+    expect(
+      tester.getRect(playingPage).left - tester.getRect(worldoPage).right,
+      closeTo(10, 0.1),
+    );
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Playing'));
+    await tester.pumpAndSettle();
+    expect(tester.getRect(playingPage), tester.getRect(tabBarView));
+  });
+
+  testWidgets('self profile keeps collection cards virtualized', (
+    tester,
+  ) async {
+    final origins = List<UserProfileOriginItem>.generate(
+      100,
+      (index) => UserProfileOriginItem(
+        originId: index,
+        oid: 'oid_$index',
+        title: 'Worldo $index',
+        subtitle: 'Subtitle $index',
+        imageUrl: '',
+        copyCount: 0,
+        interactCount: 0,
+        characterCount: 0,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UserProfileContent(
+            data: UserProfileData(
+              avatarUrl: '',
+              displayName: 'User',
+              uid: 'u_user',
+              followingCount: 0,
+              followerCount: 0,
+              origins: origins,
+              worlds: const <UserProfileWorldItem>[],
+            ),
+            onRefresh: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('#Worldo 0'), findsOneWidget);
+    expect(find.text('#Worldo 99'), findsNothing);
+    expect(
+      find.byType(GenesisProfileCollectionListItem).evaluate().length,
+      lessThan(origins.length),
+    );
   });
 
   testWidgets('self Worldo edit icon opens the edit page directly', (

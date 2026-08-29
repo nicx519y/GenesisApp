@@ -1,5 +1,7 @@
 part of 'user_profile_library.dart';
 
+const double _profileCollectionPageGap = 10;
+
 class UserProfileContent extends StatefulWidget {
   const UserProfileContent({
     super.key,
@@ -123,42 +125,13 @@ class _UserProfileContentState extends State<UserProfileContent>
     });
 
     final refresh = widget.onRefresh;
-    if (refresh != null) {
-      final scrollView = CustomScrollView(
-        controller: _scrollController,
-        physics: const BouncingScrollPhysics(
-          parent: AlwaysScrollableScrollPhysics(),
-        ),
-        slivers: [
-          SliverToBoxAdapter(
-            child: _buildProfileHeader(data, isFollowed, followerCount),
-          ),
-          if (!widget.isBlocking && !widget.isBlocked)
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _ProfileTabsHeaderDelegate(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _buildCollectionTabs(data),
-                ),
-              ),
-            ),
-          _buildCollectionPagerSliver(data),
-        ],
-      );
-      return KeyedSubtree(
-        key: const ValueKey<String>('profile-page-refresh'),
-        child: RefreshIndicator(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          notificationPredicate: _pageRefreshNotificationPredicate,
-          onRefresh: refresh,
-          child: scrollView,
-        ),
-      );
-    }
-
-    return NestedScrollView(
+    final scrollView = NestedScrollView(
       controller: _scrollController,
+      physics: refresh == null
+          ? null
+          : const BouncingScrollPhysics(
+              parent: AlwaysScrollableScrollPhysics(),
+            ),
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
           SliverToBoxAdapter(
@@ -177,6 +150,17 @@ class _UserProfileContentState extends State<UserProfileContent>
         ];
       },
       body: _buildCollectionBody(data),
+    );
+    if (refresh == null) return scrollView;
+
+    return KeyedSubtree(
+      key: const ValueKey<String>('profile-page-refresh'),
+      child: RefreshIndicator(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        notificationPredicate: _pageRefreshNotificationPredicate,
+        onRefresh: refresh,
+        child: scrollView,
+      ),
     );
   }
 
@@ -273,91 +257,61 @@ class _UserProfileContentState extends State<UserProfileContent>
       child: TabBarView(
         controller: _tabController,
         children: [
-          _OriginProfileCollectionList(
-            items: data.origins,
-            isLoading: widget.originsLoading,
-            listenable: widget.originsListenable,
-            onRefresh: widget.onRefresh == null
-                ? widget.onRefreshOrigins
-                : null,
-            sliverMode: false,
-            canEditOrigins: data.isSelf,
-          ),
-          _WorldProfileCollectionList(
-            items: data.worlds,
-            isLoading: widget.worldsLoading,
-            listenable: widget.worldsListenable,
-            onRefresh: widget.onRefresh == null ? widget.onRefreshWorlds : null,
-            sliverMode: false,
-            canDeleteWorlds: data.isSelf,
-            onWorldDeleted: widget.onWorldDeleted,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCollectionPagerSliver(UserProfileData data) {
-    if (widget.isBlocking) {
-      return const SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2.4),
-          ),
-        ),
-      );
-    }
-    if (widget.isBlocked) {
-      return const SliverFillRemaining(
-        hasScrollBody: false,
-        child: Center(
-          child: Text(
-            'User blocked',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Color(0xFF888888),
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return SliverToBoxAdapter(
-      child: _ProfileCollectionPager(
-        controller: _tabController,
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          _buildCollectionPage(
+            index: 0,
+            pageKey: const ValueKey<String>('profile-origin-collection-page'),
             child: _OriginProfileCollectionList(
               items: data.origins,
               isLoading: widget.originsLoading,
               listenable: widget.originsListenable,
-              onRefresh: null,
+              onRefresh: widget.onRefresh == null
+                  ? widget.onRefreshOrigins
+                  : null,
               sliverMode: false,
-              boxMode: true,
+              alwaysScrollable: widget.onRefresh != null,
               canEditOrigins: data.isSelf,
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+          _buildCollectionPage(
+            index: 1,
+            pageKey: const ValueKey<String>('profile-world-collection-page'),
             child: _WorldProfileCollectionList(
               items: data.worlds,
               isLoading: widget.worldsLoading,
               listenable: widget.worldsListenable,
-              onRefresh: null,
+              onRefresh: widget.onRefresh == null
+                  ? widget.onRefreshWorlds
+                  : null,
               sliverMode: false,
-              boxMode: true,
+              alwaysScrollable: widget.onRefresh != null,
               canDeleteWorlds: data.isSelf,
               onWorldDeleted: widget.onWorldDeleted,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCollectionPage({
+    required int index,
+    required Key pageKey,
+    required Widget child,
+  }) {
+    final animation = _tabController.animation;
+    final page = SizedBox.expand(key: pageKey, child: child);
+    if (animation == null) return page;
+
+    return AnimatedBuilder(
+      animation: animation,
+      child: page,
+      builder: (context, child) {
+        final distanceFromRest = animation.value - index;
+        return Transform.translate(
+          offset: Offset(-_profileCollectionPageGap * distanceFromRest, 0),
+          child: child,
+        );
+      },
     );
   }
 
@@ -486,9 +440,10 @@ class _UserProfileContentState extends State<UserProfileContent>
   }
 
   bool _pageRefreshNotificationPredicate(ScrollNotification notification) {
-    if (notification.depth != 0) return false;
+    if (notification.metrics.axis != Axis.vertical) return false;
     if (notification is ScrollStartNotification) {
       _refreshGestureStartedAtPageTop =
+          (!_scrollController.hasClients || _scrollController.offset <= 0.5) &&
           notification.metrics.extentBefore <= 0.5;
     }
     final shouldHandle = _refreshGestureStartedAtPageTop;
@@ -737,116 +692,6 @@ class _GemsBalanceEntry extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _ProfileCollectionPager extends StatefulWidget {
-  const _ProfileCollectionPager({
-    required this.controller,
-    required this.children,
-  });
-
-  final TabController controller;
-  final List<Widget> children;
-
-  @override
-  State<_ProfileCollectionPager> createState() =>
-      _ProfileCollectionPagerState();
-}
-
-class _ProfileCollectionPagerState extends State<_ProfileCollectionPager> {
-  final Map<int, double> _pageHeights = <int, double>{};
-
-  @override
-  Widget build(BuildContext context) {
-    final animation = widget.controller.animation;
-    if (animation == null) return const SizedBox.shrink();
-    final fallbackHeight = MediaQuery.sizeOf(context).height * 0.55;
-    return AnimatedBuilder(
-      animation: animation,
-      builder: (context, _) {
-        final value = animation.value.clamp(
-          0.0,
-          (widget.children.length - 1).toDouble(),
-        );
-        final fromIndex = value.floor();
-        final toIndex = value.ceil();
-        final fromHeight = _pageHeights[fromIndex] ?? fallbackHeight;
-        final toHeight = _pageHeights[toIndex] ?? fromHeight;
-        final progress = value - fromIndex;
-        final height = fromHeight + (toHeight - fromHeight) * progress;
-        return SizedBox(
-          height: height,
-          child: TabBarView(
-            controller: widget.controller,
-            children: [
-              for (var index = 0; index < widget.children.length; index += 1)
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    return OverflowBox(
-                      alignment: Alignment.topCenter,
-                      minWidth: constraints.maxWidth,
-                      maxWidth: constraints.maxWidth,
-                      minHeight: 0,
-                      maxHeight: double.infinity,
-                      child: _ProfilePageSizeReporter(
-                        onSizeChanged: (size) =>
-                            _updatePageHeight(index, size.height),
-                        child: widget.children[index],
-                      ),
-                    );
-                  },
-                ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
-  void _updatePageHeight(int index, double height) {
-    if (!height.isFinite || height <= 0) return;
-    final previous = _pageHeights[index];
-    if (previous != null && (previous - height).abs() <= 0.5) return;
-    if (!mounted) return;
-    setState(() => _pageHeights[index] = height);
-  }
-}
-
-class _ProfilePageSizeReporter extends SingleChildRenderObjectWidget {
-  const _ProfilePageSizeReporter({
-    required this.onSizeChanged,
-    required super.child,
-  });
-
-  final ValueChanged<Size> onSizeChanged;
-
-  @override
-  RenderObject createRenderObject(BuildContext context) {
-    return _RenderProfilePageSizeReporter(onSizeChanged);
-  }
-
-  @override
-  void updateRenderObject(
-    BuildContext context,
-    covariant _RenderProfilePageSizeReporter renderObject,
-  ) {
-    renderObject.onSizeChanged = onSizeChanged;
-  }
-}
-
-class _RenderProfilePageSizeReporter extends RenderProxyBox {
-  _RenderProfilePageSizeReporter(this.onSizeChanged);
-
-  ValueChanged<Size> onSizeChanged;
-  Size? _lastSize;
-
-  @override
-  void performLayout() {
-    super.performLayout();
-    if (_lastSize == size) return;
-    _lastSize = size;
-    WidgetsBinding.instance.addPostFrameCallback((_) => onSizeChanged(size));
   }
 }
 

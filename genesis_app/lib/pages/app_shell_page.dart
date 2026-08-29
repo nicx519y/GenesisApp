@@ -679,8 +679,8 @@ class _AppShellPageState extends State<AppShellPage>
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kGenesisDefaultSystemUiOverlayStyle,
       child: Scaffold(
-        // Home and Origin own the iOS status-bar gesture so they can require
-        // two taps before scrolling their active list to the top.
+        // Home and Origin own the iOS status-bar gesture so they can route it
+        // to their explicitly controlled active list.
         primary: _selectedIndex != 0 && _selectedIndex != 1,
         body: PageStorage(
           bucket: _sessionPageStorageBucket,

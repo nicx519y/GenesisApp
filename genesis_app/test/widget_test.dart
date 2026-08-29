@@ -6379,7 +6379,7 @@ void main() {
     },
   );
 
-  testWidgets('Home My Worlds returns to top after two iOS status bar taps', (
+  testWidgets('Home My Worlds returns to top after one iOS status bar tap', (
     WidgetTester tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -6424,10 +6424,6 @@ void main() {
       }
 
       await sendStatusBarTap();
-      await tester.pump();
-      expect(scrollableState.position.pixels, greaterThan(0));
-
-      await sendStatusBarTap();
       await tester.pumpAndSettle();
       expect(scrollableState.position.pixels, 0);
     } finally {
@@ -6437,7 +6433,7 @@ void main() {
     }
   });
 
-  testWidgets('Origin returns to top after two iOS status bar taps', (
+  testWidgets('Origin returns to top after one iOS status bar tap', (
     WidgetTester tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
@@ -6478,10 +6474,6 @@ void main() {
           (_) {},
         );
       }
-
-      await sendStatusBarTap();
-      await tester.pump();
-      expect(scrollableState.position.pixels, greaterThan(0));
 
       await sendStatusBarTap();
       await tester.pumpAndSettle();
@@ -13421,10 +13413,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(transport.originListRequests, 1);
-    final pageScroll = find.byType(CustomScrollView);
-    final scrollable = tester.state<ScrollableState>(
-      find.descendant(of: pageScroll, matching: find.byType(Scrollable)).first,
-    );
+    final pageScroll = find.byType(NestedScrollView);
+    final nestedScroll = tester.state<NestedScrollViewState>(pageScroll);
+    final scrollable = nestedScroll.outerController;
 
     await tester.drag(pageScroll, const Offset(0, -180));
     await tester.pumpAndSettle();

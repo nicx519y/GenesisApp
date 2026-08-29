@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_svg/flutter_svg.dart';
@@ -56,7 +55,6 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
 
   final _hotTagsCache = const _OriginHotTagsCache();
   final _iosPrimaryScrollController = ScrollController();
-  final _statusBarTapClock = Stopwatch()..start();
   final Map<_OriginCategory, GlobalKey<_OriginFeedState>> _feedKeys = {};
   List<_OriginCategory> _categories = const [_forYouCategory];
   TabController? _categoryTabController;
@@ -65,8 +63,6 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   var _hotTagsSyncInFlight = false;
   var _retryHotTagsOnResume = false;
   AppLifecycleState? _lifecycleState;
-  Duration? _lastStatusBarTap;
-
   bool get _isPageActive => widget.isActiveListenable?.value ?? true;
 
   @override
@@ -148,14 +144,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   @override
   void handleStatusBarTap() {
     if (defaultTargetPlatform != TargetPlatform.iOS || !_isPageActive) return;
-    final now = _statusBarTapClock.elapsed;
-    final lastTap = _lastStatusBarTap;
-    if (lastTap != null && now - lastTap <= kDoubleTapTimeout) {
-      _lastStatusBarTap = null;
-      _scrollCurrentCategoryToTop();
-      return;
-    }
-    _lastStatusBarTap = now;
+    _scrollCurrentCategoryToTop();
   }
 
   @override

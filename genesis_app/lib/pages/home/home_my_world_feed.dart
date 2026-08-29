@@ -44,7 +44,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   TabController? _tabController;
   final ScrollController _scrollController = ScrollController();
-  final _statusBarTapClock = Stopwatch()..start();
   final List<WorldListItem> _items = <WorldListItem>[];
   final Set<String> _deletingWorldIds = <String>{};
   final Set<String> _collapsingWorldIds = <String>{};
@@ -71,8 +70,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
   var _firstScreenRequestAttempt = 0;
   var _firstScreenRenderCompleted = false;
-  Duration? _lastStatusBarTap;
-
   @override
   void initState() {
     super.initState();
@@ -151,14 +148,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void handleStatusBarTap() {
     if (defaultTargetPlatform != TargetPlatform.iOS || !_isPageActive) return;
-    final now = _statusBarTapClock.elapsed;
-    final lastTap = _lastStatusBarTap;
-    if (lastTap != null && now - lastTap <= kDoubleTapTimeout) {
-      _lastStatusBarTap = null;
-      unawaited(_scrollToTop());
-      return;
-    }
-    _lastStatusBarTap = now;
+    unawaited(_scrollToTop());
   }
 
   Future<void> _scrollToTop() async {
