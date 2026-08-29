@@ -3350,7 +3350,10 @@ void main() {
   testWidgets('Home Gem entry opens Buy Gems', (WidgetTester tester) async {
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(useMock: true),
+        services: await _testServices(
+          useMock: true,
+          initialAuthToken: 'backend-token',
+        ),
         child: MaterialApp(
           home: const HomePage(),
           routes: {
@@ -3367,6 +3370,31 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Buy Gems'), findsOneWidget);
+  });
+
+  testWidgets('Home Gem entry asks for login while signed out', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(useMock: true, initialUid: null),
+        child: MaterialApp(
+          home: const HomePage(),
+          routes: {
+            RouteNames.gemWallet: (_) => const Scaffold(body: Text('Buy Gems')),
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('home-gem-wallet-entry')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Buy Gems'), findsNothing);
   });
 
   testWidgets('Home keeps its feed when returning from Buy Gems', (
