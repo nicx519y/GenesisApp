@@ -1220,7 +1220,7 @@ void main() {
     expect(eventRect.size, const Size(20, 16));
     expect(eventRect.left, closeTo(labelRect.right + 3, 0.01));
     expect(eventRect.center.dy, closeTo(labelRect.center.dy, 0.01));
-    expect(recentRect.left, closeTo(eventRect.right + 3, 0.01));
+    expect(recentRect.right, closeTo(labelRect.left - 3, 0.01));
     expect(recentRect.center.dy, closeTo(labelRect.center.dy, 0.01));
     expect(
       find.descendant(

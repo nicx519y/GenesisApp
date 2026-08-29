@@ -17,6 +17,8 @@ class ChatComposer extends StatelessWidget {
     this.bottomSafeAreaInset,
     this.focusNode,
     this.onInputTap,
+    this.leadingShortcutLabel,
+    this.onLeadingShortcutPressed,
     this.sendIcon = ChatComposerSendIcon.send,
     this.backdropGroupKey,
   });
@@ -33,6 +35,8 @@ class ChatComposer extends StatelessWidget {
   final double? bottomSafeAreaInset;
   final FocusNode? focusNode;
   final VoidCallback? onInputTap;
+  final String? leadingShortcutLabel;
+  final VoidCallback? onLeadingShortcutPressed;
   final ChatComposerSendIcon sendIcon;
 
   /// Groups only the outer composer blur with non-overlapping filters.
@@ -64,7 +68,9 @@ class ChatComposer extends StatelessWidget {
             ),
             child: TextFieldTapRegion(
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: leadingShortcutLabel == null
+                    ? CrossAxisAlignment.center
+                    : CrossAxisAlignment.start,
                 children: [
                   if (style.showComposerVoiceButton) ...[
                     _ComposerIconButton(
@@ -79,50 +85,72 @@ class ChatComposer extends StatelessWidget {
                       blurSigma: style.inputBackdropBlurSigma,
                       borderRadius: style.inputBorderRadius,
                       child: Container(
-                        constraints: BoxConstraints(
-                          minHeight: style.inputMinHeight,
-                          maxHeight: style.inputMaxHeight,
-                        ),
                         decoration: BoxDecoration(
                           color: style.inputBackgroundColor,
                           borderRadius: BorderRadius.circular(
                             style.inputBorderRadius,
                           ),
                         ),
-                        child: TextField(
-                          controller: controller,
-                          focusNode: focusNode,
-                          cursorColor:
-                              style.inputTextStyle.color ??
-                              GenesisColors.textPrimary,
-                          enabled: inputEnabled,
-                          minLines: style.inputMinLines,
-                          maxLines: style.inputMaxLines,
-                          keyboardType: submitFromKeyboard
-                              ? TextInputType.text
-                              : TextInputType.multiline,
-                          textInputAction: submitFromKeyboard
-                              ? TextInputAction.send
-                              : TextInputAction.newline,
-                          onTapOutside: (_) =>
-                              FocusManager.instance.primaryFocus?.unfocus(),
-                          onTap: onInputTap,
-                          onSubmitted: submitFromKeyboard
-                              ? (_) {
-                                  if (sendEnabled) unawaited(onSend());
-                                }
-                              : null,
-                          style: GenesisTypography.withFallback(
-                            style.inputTextStyle,
-                          ),
-                          decoration: InputDecoration(
-                            border: InputBorder.none,
-                            hintText: hintText,
-                            contentPadding: EdgeInsets.symmetric(
-                              horizontal: style.inputHorizontalPadding,
-                              vertical: style.inputVerticalPadding,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                minHeight: style.inputMinHeight,
+                                maxHeight: style.inputMaxHeight,
+                              ),
+                              child: TextField(
+                                key: const ValueKey<String>(
+                                  'chat-composer-input',
+                                ),
+                                controller: controller,
+                                focusNode: focusNode,
+                                cursorColor:
+                                    style.inputTextStyle.color ??
+                                    GenesisColors.textPrimary,
+                                enabled: inputEnabled,
+                                minLines: style.inputMinLines,
+                                maxLines: style.inputMaxLines,
+                                keyboardType: submitFromKeyboard
+                                    ? TextInputType.text
+                                    : TextInputType.multiline,
+                                textInputAction: submitFromKeyboard
+                                    ? TextInputAction.send
+                                    : TextInputAction.newline,
+                                onTapOutside: (_) => FocusManager
+                                    .instance
+                                    .primaryFocus
+                                    ?.unfocus(),
+                                onTap: onInputTap,
+                                onSubmitted: submitFromKeyboard
+                                    ? (_) {
+                                        if (sendEnabled) unawaited(onSend());
+                                      }
+                                    : null,
+                                style: GenesisTypography.withFallback(
+                                  style.inputTextStyle,
+                                ),
+                                decoration: InputDecoration(
+                                  border: InputBorder.none,
+                                  hintText: hintText,
+                                  contentPadding: EdgeInsets.symmetric(
+                                    horizontal: style.inputHorizontalPadding,
+                                    vertical: style.inputVerticalPadding,
+                                  ),
+                                ),
+                              ),
                             ),
-                          ),
+                            if (leadingShortcutLabel != null)
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
+                                child: _ComposerShortcutButton(
+                                  label: leadingShortcutLabel!,
+                                  onPressed: onLeadingShortcutPressed,
+                                  style: style,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ),
@@ -158,6 +186,50 @@ class ChatComposer extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ComposerShortcutButton extends StatelessWidget {
+  const _ComposerShortcutButton({
+    required this.label,
+    required this.onPressed,
+    required this.style,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final ChatUiStyleConfig style;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseColor = style.inputTextStyle.color ?? style.composerIconColor;
+    final iconColor = baseColor.withValues(
+      alpha: onPressed == null ? 0.35 : 0.72,
+    );
+    return SizedBox.square(
+      key: const ValueKey<String>('chat-composer-leading-shortcut'),
+      dimension: 26,
+      child: TextButton(
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: iconColor,
+          backgroundColor: baseColor.withValues(alpha: 0.13),
+          disabledForegroundColor: iconColor,
+          disabledBackgroundColor: baseColor.withValues(alpha: 0.08),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        onPressed: onPressed,
+        child: label == '*'
+            ? GenesisAsteriskIcon(color: iconColor)
+            : Text(
+                label,
+                style: GenesisTypography.withFallback(
+                  style.inputTextStyle.copyWith(color: iconColor),
+                ),
+              ),
       ),
     );
   }

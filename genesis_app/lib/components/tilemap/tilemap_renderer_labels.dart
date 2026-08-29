@@ -241,7 +241,24 @@ class _TilemapLocationBubble extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (activityIconsWidth > 0)
-                      SizedBox(width: activityIconsWidth),
+                      SizedBox(
+                        width: activityIconsWidth,
+                        child: showRecentChat
+                            ? const Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  RecentChatMapBadge(
+                                    badgeKey: ValueKey<String>(
+                                      'tilemap-recent-chat-icon',
+                                    ),
+                                  ),
+                                  SizedBox(
+                                    width: _tilemapLocationActivityIconGap,
+                                  ),
+                                ],
+                              )
+                            : null,
+                      ),
                     SizedBox(
                       width: labelLayout.bubbleWidth,
                       height: labelLayout.height,
@@ -322,16 +339,6 @@ class _TilemapLocationBubble extends StatelessWidget {
                                   'world-map-location-event-count',
                                 ),
                                 count: 1,
-                              ),
-                            ],
-                            if (showRecentChat) ...[
-                              const SizedBox(
-                                width: _tilemapLocationActivityIconGap,
-                              ),
-                              const RecentChatMapBadge(
-                                badgeKey: ValueKey<String>(
-                                  'tilemap-recent-chat-icon',
-                                ),
                               ),
                             ],
                           ],

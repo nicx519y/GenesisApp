@@ -271,7 +271,7 @@ void main() {
       find.byKey(const ValueKey<String>('world-map-location-dot')),
     );
 
-    expect(iconRect.left, closeTo(labelRect.right + 3, 0.01));
+    expect(iconRect.right, closeTo(labelRect.left - 3, 0.01));
     expect(iconRect.center.dy, closeTo(labelRect.center.dy, 0.01));
     expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
     expect(iconRect.size, const Size.square(16));
@@ -280,7 +280,7 @@ void main() {
     );
     expect(
       (iconBadge.decoration as BoxDecoration).color,
-      kRecentChatMarkerBackgroundColor,
+      kRecentChatMapBadgeBackgroundColor,
     );
   });
 
@@ -320,7 +320,7 @@ void main() {
     expect(eventRect.size, const Size(20, 16));
     expect(eventRect.left, closeTo(labelRect.right + 3, 0.01));
     expect(eventRect.center.dy, closeTo(labelRect.center.dy, 0.01));
-    expect(recentRect.left, closeTo(eventRect.right + 3, 0.01));
+    expect(recentRect.right, closeTo(labelRect.left - 3, 0.01));
     expect(recentRect.center.dy, closeTo(labelRect.center.dy, 0.01));
     expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
     expect(

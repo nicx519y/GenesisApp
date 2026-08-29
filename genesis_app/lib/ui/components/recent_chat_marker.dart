@@ -6,6 +6,7 @@ import '../tokens/genesis_colors.dart';
 
 const Color kRecentChatMarkerColor = GenesisColors.brand;
 const Color kRecentChatMarkerBackgroundColor = Color(0xFFFFF0F2);
+const Color kRecentChatMapBadgeBackgroundColor = Color(0xD9FFFFFF);
 const Color kWorldEventMarkerColor = GenesisColors.brand;
 const Color kWorldEventMarkerBackgroundColor = Color(0xFFFFF0F2);
 const double kRecentChatMapBadgeSize = 16;
@@ -22,7 +23,7 @@ class RecentChatMapBadge extends StatelessWidget {
     return DecoratedBox(
       key: badgeKey,
       decoration: const BoxDecoration(
-        color: kRecentChatMarkerBackgroundColor,
+        color: kRecentChatMapBadgeBackgroundColor,
         borderRadius: BorderRadius.all(Radius.circular(4)),
       ),
       child: const SizedBox.square(

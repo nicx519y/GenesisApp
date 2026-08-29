@@ -4790,6 +4790,81 @@ void main() {
       [10, 20, 40, 50],
     );
   });
+
+  testWidgets('location chat shortcut inserts one asterisk at the caret', (
+    WidgetTester tester,
+  ) async {
+    final harness = await _connectedLocationChatTestService();
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: harness.service,
+            leaveOnInactive: false,
+          ),
+        ),
+      ),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.service.state.joinedLocationId == 'location-current',
+    );
+
+    final shortcut = find.byKey(
+      const ValueKey<String>('chat-composer-leading-shortcut'),
+    );
+    expect(shortcut, findsNothing);
+
+    final input = find.byKey(const ValueKey<String>('chat-composer-input'));
+    final unfocusedInputWidth = tester.getSize(input).width;
+    await tester.showKeyboard(input);
+    await tester.pump();
+
+    expect(shortcut, findsOneWidget);
+    expect(tester.getSize(input).width, closeTo(unfocusedInputWidth, 0.01));
+    expect(tester.getSize(shortcut), const Size.square(26));
+    expect(
+      tester.getTopLeft(shortcut).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(input).dy),
+    );
+    expect(
+      find.descendant(
+        of: shortcut,
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint && widget.size == const Size.square(12),
+        ),
+      ),
+      findsOneWidget,
+    );
+
+    final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+    composer.controller.value = const TextEditingValue(
+      text: 'hello',
+      selection: TextSelection.collapsed(offset: 2),
+    );
+    await tester.tap(shortcut);
+    await tester.pump();
+
+    expect(composer.controller.text, 'he*llo');
+    expect(
+      composer.controller.selection,
+      const TextSelection.collapsed(offset: 3),
+    );
+    expect(composer.focusNode?.hasFocus, isTrue);
+
+    composer.focusNode?.unfocus();
+    await tester.pump();
+    expect(shortcut, findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(harness.service.dispose());
+  });
 }
 
 WorldChatroomMessage _message({

@@ -379,6 +379,26 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _initialContentReadyNotified = false;
   Future<void>? _initialLatestMessagesRefresh;
   final Set<String> _unseenIncomingMessageLocalIds = <String>{};
+
+  void _insertAsteriskShortcut() {
+    final value = _textController.value;
+    final selection = value.selection;
+    final textLength = value.text.length;
+    final hasUsableSelection =
+        selection.isValid &&
+        selection.start <= textLength &&
+        selection.end <= textLength;
+    final start = hasUsableSelection ? selection.start : textLength;
+    final end = hasUsableSelection ? selection.end : textLength;
+    final updatedText = value.text.replaceRange(start, end, '*');
+
+    _textController.value = TextEditingValue(
+      text: updatedText,
+      selection: TextSelection.collapsed(offset: start + 1),
+    );
+    _composerFocusNode.requestFocus();
+  }
+
   int get _unseenIncomingCount => _unseenIncomingMessageLocalIds.length;
   int _clientMsgCounter = 0;
   final Set<String> _messageGapFillKeys = <String>{};
@@ -659,6 +679,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           onSend: _send,
           sendIcon: ChatComposerSendIcon.arrowUp,
           style: style,
+          leadingShortcutLabel: widget.active && _composerFocusNode.hasFocus
+              ? '*'
+              : null,
+          onLeadingShortcutPressed: widget.active && _composerFocusNode.hasFocus
+              ? _insertAsteriskShortcut
+              : null,
           backdropGroupKey: _surfaceBackdropKey,
         );
     final headerForeground =
