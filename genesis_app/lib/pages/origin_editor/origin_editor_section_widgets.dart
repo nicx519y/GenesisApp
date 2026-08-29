@@ -60,7 +60,7 @@ class _SectionRow extends StatelessWidget {
                                     style: const TextStyle(
                                       color: Colors.black,
                                       fontSize: 16,
-                                      fontWeight: FontWeight.w400,
+                                      fontWeight: FontWeight.w600,
                                       height: 1.2,
                                     ),
                                   ),

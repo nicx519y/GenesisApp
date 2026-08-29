@@ -10,6 +10,7 @@ class _TaskActionButton extends StatelessWidget {
     required this.height,
     required this.borderRadius,
     required this.textHeight,
+    this.alignment = Alignment.center,
   });
 
   final GemTask task;
@@ -20,6 +21,7 @@ class _TaskActionButton extends StatelessWidget {
   final double height;
   final double borderRadius;
   final double textHeight;
+  final AlignmentGeometry alignment;
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +50,7 @@ class _TaskActionButton extends StatelessWidget {
         child: Container(
           width: width,
           height: height,
-          alignment: Alignment.center,
+          alignment: alignment,
           decoration: BoxDecoration(
             color: Colors.transparent,
             borderRadius: BorderRadius.circular(borderRadius),

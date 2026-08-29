@@ -62,7 +62,7 @@ class _HomeHeader extends StatelessWidget {
     return GenesisTopSafeArea(
       backgroundColor: Colors.white,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: SizedBox(
           height: kGenesisTopBarHeight + 4,
           child: Align(
@@ -73,8 +73,8 @@ class _HomeHeader extends StatelessWidget {
                 offset: const Offset(0, 5),
                 child: Row(
                   children: [
-                    const GenesisLogo(height: 32),
-                    const SizedBox(width: 12),
+                    const _HomeGemWalletEntry(),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: SearchBarPlaceholder(
                         hintText: 'Explore',
@@ -86,6 +86,35 @@ class _HomeHeader extends StatelessWidget {
                   ],
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HomeGemWalletEntry extends StatelessWidget {
+  const _HomeGemWalletEntry();
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Top up Gems',
+      child: GestureDetector(
+        key: const ValueKey<String>('home-gem-wallet-entry'),
+        behavior: HitTestBehavior.opaque,
+        onTap: () => Navigator.of(context).pushNamed(RouteNames.gemWallet),
+        child: SizedBox(
+          width: 36,
+          height: 36,
+          child: Center(
+            child: SizedBox(
+              key: const ValueKey<String>('home-gem-wallet-icon'),
+              width: 36,
+              height: 30,
+              child: SvgPicture.asset(gemStackIconAsset, fit: BoxFit.contain),
             ),
           ),
         ),

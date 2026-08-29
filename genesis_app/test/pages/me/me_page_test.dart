@@ -6,6 +6,7 @@ import 'package:genesis_flutter_android/components/me/user_profile_content.dart'
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/utils/entity_deleted.dart';
 
 void main() {
@@ -95,8 +96,49 @@ void main() {
     expect(find.text('--'), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('user-profile-gem-icon'))),
-      const Size.square(24),
+      const Size(16, 24),
     );
+    final balanceFinder = find.byKey(
+      const ValueKey('user-profile-gems-balance'),
+    );
+    final unitFinder = find.byKey(const ValueKey('user-profile-gems-unit'));
+    expect(
+      tester.getBottomLeft(unitFinder).dy,
+      closeTo(tester.getBottomLeft(balanceFinder).dy, 0.1),
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('user-profile-gems-entry')),
+        matching: find.text('Balance'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Top Up'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('user-profile-gems-pattern')),
+      findsOneWidget,
+    );
+    final backgroundDecoration =
+        tester
+                .widget<Container>(
+                  find.byKey(const ValueKey('user-profile-gems-background')),
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(backgroundDecoration.color, isNull);
+    expect((backgroundDecoration.gradient! as LinearGradient).colors, const [
+      Color(0xFF7F1021),
+      Color(0xFFB8172E),
+    ]);
+    expect(backgroundDecoration.border, isNull);
+    final topUpDecoration =
+        tester
+                .widget<Container>(
+                  find.byKey(const ValueKey('user-profile-gems-top-up')),
+                )
+                .decoration!
+            as BoxDecoration;
+    expect(topUpDecoration.color, GenesisColors.brand);
 
     expect(find.text('Worldo'), findsOneWidget);
     expect(find.text('Playing'), findsOneWidget);

@@ -27,6 +27,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/components/secend_tabs.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
+import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
@@ -2955,77 +2956,78 @@ void main() {
     },
   );
 
-  testWidgets('Home refreshes on tab reentry, foreground, and route return', (
-    WidgetTester tester,
-  ) async {
-    AppStartupCoordinator.resetForTesting();
-    addTearDown(AppStartupCoordinator.resetForTesting);
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      GenesisApp(
-        initialIndex: 1,
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialUid: 'u_test',
-          initialAuthToken: 'backend-token',
+  testWidgets(
+    'Home refreshes on tab reentry and foreground, not route return',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        GenesisApp(
+          initialIndex: 1,
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: 'u_test',
+            initialAuthToken: 'backend-token',
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Home'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
 
-    final initialRequestCount = transport
-        .requestsFor('/api/v1/world/list')
-        .length;
-    expect(initialRequestCount, greaterThan(0));
+      final initialRequestCount = transport
+          .requestsFor('/api/v1/world/list')
+          .length;
+      expect(initialRequestCount, greaterThan(0));
 
-    await tester.tap(find.text('Worldo'));
-    await tester.pumpAndSettle();
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount),
-    );
+      await tester.tap(find.text('Worldo'));
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount),
+      );
 
-    await tester.tap(find.text('Home'));
-    await tester.pumpAndSettle();
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount + 1),
-    );
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 1),
+      );
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pumpAndSettle();
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount + 2),
-    );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 2),
+      );
 
-    final shellContext = tester.element(find.byType(AppShellPage));
-    Navigator.of(shellContext).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const Scaffold(body: Text('Covered Home')),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount + 2),
-    );
+      final shellContext = tester.element(find.byType(AppShellPage));
+      Navigator.of(shellContext).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Covered Home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 2),
+      );
 
-    Navigator.of(tester.element(find.text('Covered Home'))).pop();
-    await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.text('Covered Home'))).pop();
+      await tester.pumpAndSettle();
 
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount + 3),
-    );
-    await tester.pumpWidget(const SizedBox.shrink());
-    AppStartupCoordinator.resetForTesting();
-  });
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 2),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      AppStartupCoordinator.resetForTesting();
+    },
+  );
 
   testWidgets('AppShell contains background billing recovery failures', (
     WidgetTester tester,
@@ -3312,9 +3314,97 @@ void main() {
 
     final searchRect = tester.getRect(find.byType(SearchBarPlaceholder));
     final headerRect = tester.getRect(find.byType(GenesisTopSafeArea));
+    final gemEntryFinder = find.byKey(
+      const ValueKey<String>('home-gem-wallet-entry'),
+    );
 
     expect(searchRect.top, 12);
+    expect(searchRect.left, 62);
     expect(headerRect.bottom - searchRect.bottom, 6);
+    expect(tester.getSize(gemEntryFinder), const Size.square(36));
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('home-gem-wallet-icon')))
+          .height,
+      30,
+    );
+  });
+
+  testWidgets('Home Gem entry opens Buy Gems', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(useMock: true),
+        child: MaterialApp(
+          home: const HomePage(),
+          routes: {
+            RouteNames.gemWallet: (_) => const Scaffold(body: Text('Buy Gems')),
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('home-gem-wallet-entry')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Buy Gems'), findsOneWidget);
+  });
+
+  testWidgets('Home keeps its feed when returning from Buy Gems', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport(worldListTotal: 1);
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+        'list': [transport._worldItem(0)],
+        'total': 1,
+      }),
+    });
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          navigatorObservers: [genesisPageRouteObserver],
+          home: const AppShellPage(initialIndex: 0),
+          routes: {
+            RouteNames.gemWallet: (_) => const Scaffold(body: Text('Buy Gems')),
+          },
+        ),
+      ),
+    );
+
+    for (
+      var i = 0;
+      i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    final homeStateBeforeWallet = tester.state(find.byType(HomePage));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('home-gem-wallet-entry')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Buy Gems'), findsOneWidget);
+
+    Navigator.of(tester.element(find.text('Buy Gems'))).pop();
+    await tester.pumpAndSettle();
+
+    expect(tester.state(find.byType(HomePage)), same(homeStateBeforeWallet));
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+    AppStartupCoordinator.resetForTesting();
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('search bar placeholder stays single line with ellipsis', (
@@ -5698,7 +5788,7 @@ void main() {
     expect(originRequests.single.uri.queryParameters['tag'], 'Destroyed');
   });
 
-  testWidgets('Origin header only displays the full-width search field', (
+  testWidgets('Origin header displays the compact full logo before search', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -5711,12 +5801,14 @@ void main() {
 
     final searchFinder = find.byType(SearchBarPlaceholder);
     final searchRect = tester.getRect(searchFinder);
+    final logoFinder = find.byKey(const ValueKey<String>('origin-brand-logo'));
 
     expect(
       find.byKey(const ValueKey<String>('origin-gem-wallet-entry')),
       findsNothing,
     );
-    expect(searchRect.left, 16);
+    expect(tester.getSize(logoFinder), const Size(96, 26));
+    expect(searchRect.left, 122);
     expect(
       searchRect.right,
       tester.getSize(find.byType(OriginPage)).width - 16,
@@ -15474,6 +15566,10 @@ void main() {
       ),
     );
     expect(charactersTitle, findsOneWidget);
+    expect(
+      tester.widget<Text>(charactersTitle).style?.fontWeight,
+      FontWeight.w600,
+    );
     expect(charactersCompleted, findsNothing);
     expect(
       tester.getTopRight(find.text('1 characters: Tff')).dx,

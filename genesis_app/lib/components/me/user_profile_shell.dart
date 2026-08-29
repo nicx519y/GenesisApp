@@ -470,44 +470,129 @@ class _GemsBalanceEntry extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.of(context).pushNamed(RouteNames.gemWallet),
       child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        key: const ValueKey('user-profile-gems-background'),
+        height: 64,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF4F6),
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Color(0xFF7F1021), Color(0xFFB8172E)],
+          ),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFFFE0E6)),
         ),
-        child: Row(
+        child: Stack(
           children: [
-            SvgPicture.asset(
-              gemIconAsset,
-              key: const ValueKey('user-profile-gem-icon'),
-              width: gemLargeIconSize,
-              height: gemLargeIconSize,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              balance == null ? '0' : _formatGemBalance(balance),
-              key: const ValueKey('user-profile-gems-balance'),
-              style: const TextStyle(
-                fontSize: 16,
-                height: 20 / 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+            Positioned(
+              top: -16,
+              right: 54,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0.18,
+                  child: SvgPicture.asset(
+                    gemStackIconAsset,
+                    key: const ValueKey('user-profile-gems-pattern'),
+                    width: 112,
+                    height: 92,
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 4),
-            const Text(
-              'Gems',
-              style: TextStyle(
-                fontSize: 12,
-                height: 18 / 12,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF666666),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Balance',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 14 / 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFFD4DA),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            SizedBox(
+                              key: const ValueKey('user-profile-gem-icon'),
+                              width: 16,
+                              height: 24,
+                              child: SvgPicture.asset(
+                                gemIconAsset,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      balance == null
+                                          ? '0'
+                                          : _formatGemBalance(balance),
+                                      key: const ValueKey(
+                                        'user-profile-gems-balance',
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        height: 22 / 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Gems',
+                                    key: ValueKey('user-profile-gems-unit'),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      height: 14 / 11,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFFFFD4DA),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    key: const ValueKey('user-profile-gems-top-up'),
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: GenesisColors.brand,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Top Up',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 16 / 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Spacer(),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF999999)),
           ],
         ),
       ),

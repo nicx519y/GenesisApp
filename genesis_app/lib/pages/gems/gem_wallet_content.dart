@@ -189,22 +189,33 @@ class _JoinUsTaskRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Text(
-              '+${formatGemInteger(task.rewardGems)}',
-              maxLines: 1,
-              style: const TextStyle(
-                fontSize: 14,
-                height: 16 / 14,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
+            SizedBox(
+              key: ValueKey<String>('gem-task-reward-${task.taskCode}'),
+              width: 64,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '+${formatGemInteger(task.rewardGems)}',
+                    maxLines: 1,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 16 / 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF111111),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  SvgPicture.asset(
+                    gemIconAsset,
+                    key: ValueKey<String>(
+                      'gem-task-reward-icon-${task.taskCode}',
+                    ),
+                    width: gemSmallIconSize,
+                    height: gemSmallIconSize,
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(width: 4),
-            SvgPicture.asset(
-              gemIconAsset,
-              key: ValueKey<String>('gem-task-reward-icon-${task.taskCode}'),
-              width: gemSmallIconSize,
-              height: gemSmallIconSize,
             ),
             const SizedBox(width: 10),
             _TaskActionButton(
@@ -281,12 +292,13 @@ class _TaskRow extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           SizedBox(
+            key: ValueKey<String>('gem-task-reward-${task.taskCode}'),
             width: 64,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
                       '+${formatGemInteger(task.rewardGems)}',
@@ -318,6 +330,7 @@ class _TaskRow extends StatelessWidget {
                   height: 24,
                   borderRadius: 10,
                   textHeight: 14 / 12,
+                  alignment: Alignment.centerRight,
                 ),
               ],
             ),
