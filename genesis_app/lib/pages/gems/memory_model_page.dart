@@ -230,6 +230,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     }
     if (catalog == null || catalog.groups.isEmpty) {
       return RefreshIndicator(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         onRefresh: () => _refresh(preserveContent: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -247,6 +248,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     }
 
     return RefreshIndicator(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       onRefresh: () => _refresh(preserveContent: true),
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),

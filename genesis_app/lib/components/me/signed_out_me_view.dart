@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -12,10 +13,12 @@ class SignedOutMeView extends StatefulWidget {
     super.key,
     required this.loggingInProvider,
     required this.onLogin,
+    this.reselectionListenable,
   });
 
   final IdentityProvider? loggingInProvider;
   final ValueChanged<IdentityProvider> onLogin;
+  final ValueListenable<int>? reselectionListenable;
 
   @override
   State<SignedOutMeView> createState() => _SignedOutMeViewState();
@@ -25,6 +28,43 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
   static const int _debugButtonUnlockTapCount = 10;
 
   int _topTapCount = 0;
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    widget.reselectionListenable?.addListener(_handleMainNavReselected);
+  }
+
+  @override
+  void didUpdateWidget(covariant SignedOutMeView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reselectionListenable == widget.reselectionListenable) {
+      return;
+    }
+    oldWidget.reselectionListenable?.removeListener(_handleMainNavReselected);
+    widget.reselectionListenable?.addListener(_handleMainNavReselected);
+  }
+
+  @override
+  void dispose() {
+    widget.reselectionListenable?.removeListener(_handleMainNavReselected);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _handleMainNavReselected() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels <= position.minScrollExtent) return;
+    unawaited(
+      position.animateTo(
+        position.minScrollExtent,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
 
   void _handleTopTap() {
     final nextCount = _topTapCount + 1;
@@ -43,6 +83,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           return SingleChildScrollView(
+            controller: _scrollController,
             padding: const EdgeInsets.symmetric(horizontal: 38),
             child: ConstrainedBox(
               constraints: BoxConstraints(minHeight: constraints.maxHeight),

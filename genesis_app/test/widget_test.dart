@@ -5758,6 +5758,278 @@ void main() {
     AppStartupCoordinator.resetForTesting();
   });
 
+  testWidgets('reselecting Home returns My Worlds to top without refreshing', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport();
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+        'list': [
+          for (var index = 0; index < 10; index++) transport._worldItem(index),
+        ],
+        'total': 100,
+      }),
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final feedFinder = find.byKey(
+      const PageStorageKey<String>('home-feed-my-world'),
+    );
+    final scrollableState = tester.state<ScrollableState>(
+      find.descendant(of: feedFinder, matching: find.byType(Scrollable)),
+    );
+    await tester.drag(feedFinder, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(scrollableState.position.pixels, greaterThan(0));
+    final requestCount = transport.requestsFor('/api/v1/world/list').length;
+
+    await tester.tap(
+      find.descendant(of: find.byType(BottomTabs), matching: find.text('Home')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(scrollableState.position.pixels, 0);
+    expect(
+      transport.requestsFor('/api/v1/world/list'),
+      hasLength(requestCount),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    AppStartupCoordinator.resetForTesting();
+  });
+
+  testWidgets(
+    'Home activation keeps its position when first-page order is unchanged',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(worldListTotal: 30);
+      final activation = ValueNotifier<int>(0);
+      addTearDown(activation.dispose);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: MaterialApp(
+            home: HomePage(
+              activationListenable: activation,
+              initialMyWorldsData: {
+                'list': [
+                  for (var index = 0; index < 30; index++)
+                    transport._worldItem(index),
+                ],
+                'total': 30,
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final feedFinder = find.byKey(
+        const PageStorageKey<String>('home-feed-my-world'),
+      );
+      final scrollableState = tester.state<ScrollableState>(
+        find.descendant(of: feedFinder, matching: find.byType(Scrollable)),
+      );
+      scrollableState.position.jumpTo(scrollableState.position.maxScrollExtent);
+      await tester.pump();
+      expect(scrollableState.position.pixels, greaterThan(0));
+      activation.value += 1;
+      await tester.pumpAndSettle();
+
+      expect(
+        transport
+            .requestsFor('/api/v1/world/list')
+            .where((request) => request.uri.queryParameters['pn'] == '1'),
+        hasLength(1),
+      );
+      expect(scrollableState.position.pixels, greaterThan(0));
+    },
+  );
+
+  testWidgets('Home activation refreshes when existing World order changes', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldListTotal: 30);
+    final activation = ValueNotifier<int>(0);
+    addTearDown(activation.dispose);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          home: HomePage(
+            activationListenable: activation,
+            initialMyWorldsData: {
+              'list': [
+                transport._worldItem(1),
+                transport._worldItem(0),
+                for (var index = 2; index < 30; index++)
+                  transport._worldItem(index),
+              ],
+              'total': 30,
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final feedFinder = find.byKey(
+      const PageStorageKey<String>('home-feed-my-world'),
+    );
+    final scrollableState = tester.state<ScrollableState>(
+      find.descendant(of: feedFinder, matching: find.byType(Scrollable)),
+    );
+    scrollableState.position.jumpTo(scrollableState.position.maxScrollExtent);
+    await tester.pump();
+    expect(scrollableState.position.pixels, greaterThan(0));
+
+    activation.value += 1;
+    await tester.pumpAndSettle();
+
+    expect(
+      transport
+          .requestsFor('/api/v1/world/list')
+          .where((request) => request.uri.queryParameters['pn'] == '1'),
+      hasLength(1),
+    );
+    expect(scrollableState.position.pixels, 0);
+  });
+
+  testWidgets('reselecting Inbox returns the conversation list to top', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    await sessionStore.saveAuthToken('backend-token');
+    final storage = MemoryDirectMessageConversationStorage();
+    await storage.mergeConversations(
+      ownerUid: 'u_mock',
+      conversations: [
+        for (var index = 0; index < 20; index++)
+          _dmConversationJson(
+            convId: 'inbox_$index',
+            peerName: 'Inbox Peer $index',
+            messageId: 'inbox_message_$index',
+            message: 'Inbox preview $index',
+            minutesAgo: index,
+          ),
+      ],
+      nextAfterMessageId: 'inbox_cursor',
+    );
+    final api = GenesisApi(
+      useMock: true,
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+    );
+    final conversationStore = DirectMessageConversationStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: storage,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            sessionStoreOverride: sessionStore,
+            directMessageConversations: conversationStore,
+          ),
+          child: const AppShellPage(initialIndex: 3),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final listFinder = find.byType(ListView).last;
+    final scrollableState = tester.state<ScrollableState>(
+      find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+    );
+    await tester.drag(listFinder, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(scrollableState.position.pixels, greaterThan(0));
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomTabs),
+        matching: find.text('Inbox'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(scrollableState.position.pixels, 0);
+    await tester.pump(const Duration(seconds: 1));
+    AppStartupCoordinator.resetForTesting();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('reselecting Me returns the profile page to top', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+            initialUserInfo: {
+              'uid': 'u_mock',
+              'name': 'Me Scroll User',
+              'avatar': '',
+              'following_cnt': 1,
+              'follower_cnt': 2,
+            },
+          ),
+          child: const AppShellPage(initialIndex: 4),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nestedScrollViewFinder = find.byType(NestedScrollView);
+    expect(nestedScrollViewFinder, findsOneWidget);
+    final nestedScrollState = tester.state<NestedScrollViewState>(
+      nestedScrollViewFinder,
+    );
+    await tester.drag(nestedScrollViewFinder, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(nestedScrollState.outerController.position.pixels, greaterThan(0));
+
+    await tester.tap(
+      find.descendant(of: find.byType(BottomTabs), matching: find.text('Me')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(nestedScrollState.outerController.position.pixels, 0);
+    await tester.pump(const Duration(seconds: 1));
+    AppStartupCoordinator.resetForTesting();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Origin tab requests cursor feed then tag list', (
     WidgetTester tester,
   ) async {

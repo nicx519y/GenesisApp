@@ -1189,6 +1189,7 @@ class _OriginFeedState extends State<_OriginFeed>
     }
 
     return RefreshIndicator(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       onRefresh: _refreshFromPull,
       child: _items.isEmpty
           ? CustomScrollView(

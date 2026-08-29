@@ -7,6 +7,7 @@ class _MyWorldFeed extends StatefulWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     this.activationListenable,
+    this.reselectionListenable,
     this.isActiveListenable,
     this.isFirstPageViewReported,
     this.onFirstPageViewReady,
@@ -20,6 +21,7 @@ class _MyWorldFeed extends StatefulWidget {
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<int>? reselectionListenable;
   final ValueListenable<bool>? isActiveListenable;
   final bool Function(String action)? isFirstPageViewReported;
   final void Function(String action)? onFirstPageViewReady;
@@ -78,6 +80,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _hydrateInitialPageDataIfAvailable();
     _scheduleInitialPageRenderCompletionIfNeeded();
     widget.activationListenable?.addListener(_handlePageActivated);
+    widget.reselectionListenable?.addListener(_handleMainNavReselected);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
     worldDeletionEvents.addListener(_handleExternalWorldDeleted);
   }
@@ -109,6 +112,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       oldWidget.activationListenable?.removeListener(_handlePageActivated);
       widget.activationListenable?.addListener(_handlePageActivated);
     }
+    if (oldWidget.reselectionListenable != widget.reselectionListenable) {
+      oldWidget.reselectionListenable?.removeListener(_handleMainNavReselected);
+      widget.reselectionListenable?.addListener(_handleMainNavReselected);
+    }
     if (oldWidget.networkRequestsAllowed != widget.networkRequestsAllowed) {
       oldWidget.networkRequestsAllowed.removeListener(
         _handleNetworkRequestsAllowed,
@@ -130,6 +137,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     worldDeletionEvents.removeListener(_handleExternalWorldDeleted);
     WidgetsBinding.instance.removeObserver(this);
     widget.activationListenable?.removeListener(_handlePageActivated);
+    widget.reselectionListenable?.removeListener(_handleMainNavReselected);
     widget.networkRequestsAllowed.removeListener(_handleNetworkRequestsAllowed);
     _tabController?.removeListener(_handleTabChange);
     _scrollController
@@ -161,6 +169,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       duration: _scrollToTopDuration,
       curve: Curves.easeOutCubic,
     );
+  }
+
+  void _handleMainNavReselected() {
+    if (!_isPageActive) return;
+    unawaited(_scrollToTop());
   }
 
   void _handleExternalWorldDeleted() {
@@ -298,7 +311,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       } else {
         _tryRecordFirstPageView();
       }
-      unawaited(_refreshItems());
+      unawaited(
+        _refreshItems(onlyIfFirstPageChanged: true, scrollToTopOnUpdate: true),
+      );
     }
   }
 
@@ -511,7 +526,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     );
   }
 
-  Future<void> _refreshItems({bool force = false}) async {
+  Future<void> _refreshItems({
+    bool force = false,
+    bool onlyIfFirstPageChanged = false,
+    bool scrollToTopOnUpdate = false,
+  }) async {
     if (!widget.networkRequestsAllowed.value) return;
     if ((!force && _isInitialLoading) || _isRefreshing) return;
     final hasSession = await _hasLocalLoginSession();
@@ -569,6 +588,13 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       unawaited(requestOperation?.succeed());
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
+      if (onlyIfFirstPageChanged && !_firstPageWorldOrderChanged(page)) {
+        setState(() {
+          _isInitialLoading = false;
+          _isRefreshing = false;
+        });
+        return;
+      }
       final shouldReplaceItems = !_worldPageMatchesCurrent(page);
       FirebasePerformanceOperation? renderOperation;
       if (shouldTrackFirstScreen &&
@@ -604,6 +630,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _markInitialContentReady();
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
+      }
+      if (scrollToTopOnUpdate) {
+        await WidgetsBinding.instance.endOfFrame;
+        if (mounted) await _scrollToTop();
       }
     } catch (error) {
       if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
@@ -641,6 +671,17 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       }
     }
     return true;
+  }
+
+  bool _firstPageWorldOrderChanged(_WorldListPage page) {
+    final currentFirstPageLength = _items.length < _pageSize
+        ? _items.length
+        : _pageSize;
+    if (page.items.length != currentFirstPageLength) return true;
+    for (var index = 0; index < page.items.length; index += 1) {
+      if (page.items[index].wid.trim() != _items[index].wid.trim()) return true;
+    }
+    return false;
   }
 
   String _worldItemSignature(WorldListItem item) {
@@ -859,6 +900,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     }
 
     return RefreshIndicator(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       onRefresh: _refreshItems,
       child: _items.isEmpty
           ? emptyListView

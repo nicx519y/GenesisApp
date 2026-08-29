@@ -60,6 +60,9 @@ class _AppShellPageState extends State<AppShellPage>
   late final ValueNotifier<int> _homeTabActivationNotifier;
   late final ValueNotifier<int> _worldoTabActivationNotifier;
   late final ValueNotifier<int> _meTabActivationNotifier;
+  late final ValueNotifier<int> _homeTabReselectionNotifier;
+  late final ValueNotifier<int> _messagesTabReselectionNotifier;
+  late final ValueNotifier<int> _meTabReselectionNotifier;
   late final bool _shouldResolveColdStartHomeTarget;
   var _coldStartHomeTargetResolved = true;
   var _hasRecordedInitialTabPageView = false;
@@ -100,6 +103,9 @@ class _AppShellPageState extends State<AppShellPage>
     _homeTabActivationNotifier = ValueNotifier<int>(0);
     _worldoTabActivationNotifier = ValueNotifier<int>(0);
     _meTabActivationNotifier = ValueNotifier<int>(0);
+    _homeTabReselectionNotifier = ValueNotifier<int>(0);
+    _messagesTabReselectionNotifier = ValueNotifier<int>(0);
+    _meTabReselectionNotifier = ValueNotifier<int>(0);
     _shouldResolveColdStartHomeTarget = widget.initialIndex == 0;
     _coldStartHomeTargetResolved = !_shouldResolveColdStartHomeTarget;
     _visitedTabIndexes = _coldStartHomeTargetResolved
@@ -133,6 +139,10 @@ class _AppShellPageState extends State<AppShellPage>
     _worldoTabActiveNotifier.dispose();
     _homeTabActivationNotifier.dispose();
     _worldoTabActivationNotifier.dispose();
+    _meTabActivationNotifier.dispose();
+    _homeTabReselectionNotifier.dispose();
+    _messagesTabReselectionNotifier.dispose();
+    _meTabReselectionNotifier.dispose();
     _unreadSummaryNotifier.dispose();
     super.dispose();
   }
@@ -325,7 +335,10 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<void> _onTapNav(int index) async {
     if (index == 0) {
-      if (_selectedIndex == 0) return;
+      if (_selectedIndex == 0) {
+        _homeTabReselectionNotifier.value += 1;
+        return;
+      }
       _selectTab(0);
       return;
     }
@@ -351,14 +364,20 @@ class _AppShellPageState extends State<AppShellPage>
     if (index == 3) {
       if (!await _ensureMainTabLogin()) return;
       if (!mounted) return;
-      if (_selectedIndex == 3) return;
+      if (_selectedIndex == 3) {
+        _messagesTabReselectionNotifier.value += 1;
+        return;
+      }
       _selectTab(3);
       unawaited(_messagesPoller.runNow());
       return;
     }
 
     if (index == 4) {
-      if (_selectedIndex == 4) return;
+      if (_selectedIndex == 4) {
+        _meTabReselectionNotifier.value += 1;
+        return;
+      }
       _selectTab(4);
       return;
     }
@@ -588,6 +607,7 @@ class _AppShellPageState extends State<AppShellPage>
         0 => HomePage(
           key: ValueKey<String>('home-session-$_sessionTabGeneration'),
           activationListenable: _homeTabActivationNotifier,
+          reselectionListenable: _homeTabReselectionNotifier,
           isActiveListenable: _homeTabActiveNotifier,
           isFirstPageViewReported: _isFirstContentPageViewReported,
           onFirstPageViewReady: _recordFirstContentPageView,
@@ -607,6 +627,7 @@ class _AppShellPageState extends State<AppShellPage>
               unreadSummary: unreadSummary,
               onMessagesDataRefresh: _messagesPoller.runNow,
               isActiveListenable: _messagesTabActiveNotifier,
+              reselectionListenable: _messagesTabReselectionNotifier,
             );
           },
         ),
@@ -616,6 +637,7 @@ class _AppShellPageState extends State<AppShellPage>
           onLogin: _loginWithProvider,
           onLoginCompleted: () => showDailyCheckInAfterLogin(context),
           activationListenable: _meTabActivationNotifier,
+          reselectionListenable: _meTabReselectionNotifier,
           isActiveListenable: _meTabActiveNotifier,
         ),
         _ => const SizedBox.shrink(),

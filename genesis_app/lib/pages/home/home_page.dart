@@ -76,6 +76,7 @@ class HomePage extends StatefulWidget {
     super.key,
     this.initialMyWorldsData,
     this.activationListenable,
+    this.reselectionListenable,
     this.isActiveListenable,
     this.isFirstPageViewReported,
     this.onFirstPageViewReady,
@@ -84,6 +85,7 @@ class HomePage extends StatefulWidget {
 
   final Map<String, dynamic>? initialMyWorldsData;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<int>? reselectionListenable;
   final ValueListenable<bool>? isActiveListenable;
   final bool Function(String action)? isFirstPageViewReported;
   final void Function(String action)? onFirstPageViewReady;
@@ -114,6 +116,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return _HomeScaffold(
       activationListenable: widget.activationListenable,
+      reselectionListenable: widget.reselectionListenable,
       isActiveListenable: widget.isActiveListenable,
       isFirstPageViewReported: widget.isFirstPageViewReported,
       onFirstPageViewReady: widget.onFirstPageViewReady,

@@ -152,6 +152,7 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
     if (refresh == null) return child;
     return RefreshIndicator(
       key: widget.refreshKey,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       onRefresh: refresh,
       child: child,
     );

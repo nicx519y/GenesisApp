@@ -380,6 +380,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       backgroundColor: Colors.white,
       appBar: GenesisBackAppBar(pageName: widget.title),
       body: RefreshIndicator(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         onRefresh: _loadFirstPage,
         child: _buildBody(context),
       ),

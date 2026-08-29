@@ -3,6 +3,7 @@ part of 'home_page.dart';
 class _HomeScaffold extends StatelessWidget {
   const _HomeScaffold({
     required this.activationListenable,
+    required this.reselectionListenable,
     required this.isActiveListenable,
     required this.isFirstPageViewReported,
     required this.onFirstPageViewReady,
@@ -15,6 +16,7 @@ class _HomeScaffold extends StatelessWidget {
   });
 
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<int>? reselectionListenable;
   final ValueListenable<bool>? isActiveListenable;
   final bool Function(String action)? isFirstPageViewReported;
   final void Function(String action)? onFirstPageViewReady;
@@ -36,6 +38,7 @@ class _HomeScaffold extends StatelessWidget {
             child: _MyWorldFeed(
               index: 0,
               activationListenable: activationListenable,
+              reselectionListenable: reselectionListenable,
               isActiveListenable: isActiveListenable,
               isFirstPageViewReported: isFirstPageViewReported,
               onFirstPageViewReady: onFirstPageViewReady,

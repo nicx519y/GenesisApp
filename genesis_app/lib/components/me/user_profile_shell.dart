@@ -13,6 +13,7 @@ class UserProfileContent extends StatefulWidget {
     this.displayNameListenable,
     this.isUpdatingProfileListenable,
     this.gemWalletStateListenable,
+    this.reselectionListenable,
     this.onEditAvatar,
     this.onEditDisplayName,
     this.onRefreshOrigins,
@@ -41,6 +42,7 @@ class UserProfileContent extends StatefulWidget {
   final ValueListenable<String>? displayNameListenable;
   final ValueListenable<bool>? isUpdatingProfileListenable;
   final ValueListenable<GemWalletState>? gemWalletStateListenable;
+  final ValueListenable<int>? reselectionListenable;
   final VoidCallback? onEditAvatar;
   final VoidCallback? onEditDisplayName;
   final Future<void> Function()? onRefreshOrigins;
@@ -80,11 +82,16 @@ class _UserProfileContentState extends State<UserProfileContent>
     _tabController.addListener(_handleTabControllerChanged);
     _scrollController = ScrollController();
     _scrollController.addListener(_updateCollapsedState);
+    widget.reselectionListenable?.addListener(_handleMainNavReselected);
   }
 
   @override
   void didUpdateWidget(covariant UserProfileContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.reselectionListenable != widget.reselectionListenable) {
+      oldWidget.reselectionListenable?.removeListener(_handleMainNavReselected);
+      widget.reselectionListenable?.addListener(_handleMainNavReselected);
+    }
     if (oldWidget.data.uid != widget.data.uid) {
       _isFollowedOverride = null;
       _followerCountOverride = null;
@@ -96,6 +103,7 @@ class _UserProfileContentState extends State<UserProfileContent>
   void dispose() {
     _tabController.removeListener(_handleTabControllerChanged);
     _scrollController.removeListener(_updateCollapsedState);
+    widget.reselectionListenable?.removeListener(_handleMainNavReselected);
     _scrollController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -369,6 +377,19 @@ class _UserProfileContentState extends State<UserProfileContent>
     if (collapsed == _lastCollapsed) return;
     _lastCollapsed = collapsed;
     widget.onCollapsedChanged?.call(collapsed);
+  }
+
+  void _handleMainNavReselected() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels <= position.minScrollExtent) return;
+    unawaited(
+      position.animateTo(
+        position.minScrollExtent,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _handleTabControllerChanged() {

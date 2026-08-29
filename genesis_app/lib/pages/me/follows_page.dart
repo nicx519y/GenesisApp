@@ -351,6 +351,7 @@ class _FollowUsersPane extends StatelessWidget {
         }
         if (items.isEmpty) {
           return RefreshIndicator(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             onRefresh: onRefresh,
             child: ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -373,6 +374,7 @@ class _FollowUsersPane extends StatelessWidget {
           );
         }
         return RefreshIndicator(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           onRefresh: onRefresh,
           child: ListView.builder(
             // ignore: deprecated_member_use

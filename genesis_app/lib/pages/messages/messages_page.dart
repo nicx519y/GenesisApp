@@ -24,12 +24,14 @@ class MessagesPage extends StatefulWidget {
     this.unreadSummary = UnreadSummary.zero,
     this.onMessagesDataRefresh,
     this.isActiveListenable,
+    this.reselectionListenable,
     this.nowProvider,
   });
 
   final UnreadSummary unreadSummary;
   final Future<void> Function()? onMessagesDataRefresh;
   final ValueListenable<bool>? isActiveListenable;
+  final ValueListenable<int>? reselectionListenable;
   @visibleForTesting
   final DateTime Function()? nowProvider;
 
@@ -54,6 +56,7 @@ class _MessagesPageState extends State<MessagesPage> {
     ).directMessageConversations;
     _timeLabelNow = _now();
     widget.isActiveListenable?.addListener(_handleActiveChanged);
+    widget.reselectionListenable?.addListener(_handleMainNavReselected);
     _timeRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _refreshTimeLabels();
     });
@@ -69,15 +72,21 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   void didUpdateWidget(covariant MessagesPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isActiveListenable == widget.isActiveListenable) return;
-    oldWidget.isActiveListenable?.removeListener(_handleActiveChanged);
-    widget.isActiveListenable?.addListener(_handleActiveChanged);
-    if (_isActive) _refreshTimeLabels();
+    if (oldWidget.isActiveListenable != widget.isActiveListenable) {
+      oldWidget.isActiveListenable?.removeListener(_handleActiveChanged);
+      widget.isActiveListenable?.addListener(_handleActiveChanged);
+      if (_isActive) _refreshTimeLabels();
+    }
+    if (oldWidget.reselectionListenable != widget.reselectionListenable) {
+      oldWidget.reselectionListenable?.removeListener(_handleMainNavReselected);
+      widget.reselectionListenable?.addListener(_handleMainNavReselected);
+    }
   }
 
   @override
   void dispose() {
     widget.isActiveListenable?.removeListener(_handleActiveChanged);
+    widget.reselectionListenable?.removeListener(_handleMainNavReselected);
     _conversationPoller?.stop();
     _timeRefreshTimer?.cancel();
     _scrollController.dispose();
@@ -88,6 +97,19 @@ class _MessagesPageState extends State<MessagesPage> {
 
   void _handleActiveChanged() {
     if (_isActive) _refreshTimeLabels();
+  }
+
+  void _handleMainNavReselected() {
+    if (!_isActive || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels <= position.minScrollExtent) return;
+    unawaited(
+      position.animateTo(
+        position.minScrollExtent,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _refreshTimeLabels() {
@@ -227,6 +249,7 @@ class _MessagesPageState extends State<MessagesPage> {
                   return const Center(child: CircularProgressIndicator());
                 }
                 return RefreshIndicator(
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   onRefresh: _refreshMessagesData,
                   child: conversationIds.isEmpty
                       ? const _NoMessagesFooter()
