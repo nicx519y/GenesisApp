@@ -79,7 +79,7 @@ class _OpeningInitialCharacters extends StatelessWidget {
       key: const ValueKey<String>('opening-initial-characters'),
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        SvgPicture.asset(characterStatIconAsset, width: 14, height: 14),
+        SvgPicture.asset(characterStatIconAsset, width: 12, height: 12),
         const SizedBox(width: 6),
         Expanded(
           child: Text(
@@ -88,8 +88,9 @@ class _OpeningInitialCharacters extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: createFormText,
-              fontSize: 13,
-              height: 1.3,
+              fontSize: 12,
+              height: 1.1,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),
