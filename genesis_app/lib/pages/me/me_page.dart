@@ -223,6 +223,7 @@ class _MePageState extends State<MePage> {
                   reselectionListenable: widget.reselectionListenable,
                   onEditAvatar: _editAvatar,
                   onEditDisplayName: _editNickName,
+                  onRefresh: _refreshCurrentCollection,
                   onRefreshOrigins: _refreshOrigins,
                   onRefreshWorlds: _refreshWorlds,
                   onWorldDeleted: _handleWorldDeleted,
@@ -249,5 +250,11 @@ class _MePageState extends State<MePage> {
         .where((world) => world.wid.trim() != worldId)
         .toList(growable: false);
     _setWorldsState(nextItems, isLoading: current.isLoading);
+  }
+
+  Future<void> _refreshCurrentCollection() {
+    return _selectedCollectionTabIndex == 0
+        ? _refreshOrigins()
+        : _refreshWorlds();
   }
 }

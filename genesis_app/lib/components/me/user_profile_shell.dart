@@ -16,6 +16,7 @@ class UserProfileContent extends StatefulWidget {
     this.reselectionListenable,
     this.onEditAvatar,
     this.onEditDisplayName,
+    this.onRefresh,
     this.onRefreshOrigins,
     this.onRefreshWorlds,
     this.onWorldDeleted,
@@ -45,6 +46,7 @@ class UserProfileContent extends StatefulWidget {
   final ValueListenable<int>? reselectionListenable;
   final VoidCallback? onEditAvatar;
   final VoidCallback? onEditDisplayName;
+  final Future<void> Function()? onRefresh;
   final Future<void> Function()? onRefreshOrigins;
   final Future<void> Function()? onRefreshWorlds;
   final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
@@ -71,6 +73,8 @@ class _UserProfileContentState extends State<UserProfileContent>
   int? _followerCountOverride;
   bool _followLoading = false;
   bool _lastCollapsed = false;
+  bool _refreshGestureStartedAtPageTop = false;
+  double _horizontalDragDistance = 0;
   int _lastReportedTabIndex = 0;
   double _profileHeaderHeight = 0;
 
@@ -118,6 +122,50 @@ class _UserProfileContentState extends State<UserProfileContent>
       _measureProfileHeader();
       _updateCollapsedState();
     });
+
+    final refresh = widget.onRefresh;
+    if (refresh != null) {
+      final scrollView = CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: _buildProfileHeader(data, isFollowed, followerCount),
+          ),
+          if (!widget.isBlocking && !widget.isBlocked)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _ProfileTabsHeaderDelegate(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _buildCollectionTabs(data),
+                ),
+              ),
+            ),
+          _buildCollectionSliver(data),
+        ],
+      );
+      return GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onHorizontalDragStart: (_) => _horizontalDragDistance = 0,
+        onHorizontalDragUpdate: (details) {
+          _horizontalDragDistance += details.primaryDelta ?? 0;
+        },
+        onHorizontalDragEnd: _handleHorizontalDragEnd,
+        onHorizontalDragCancel: () => _horizontalDragDistance = 0,
+        child: KeyedSubtree(
+          key: const ValueKey<String>('profile-page-refresh'),
+          child: RefreshIndicator(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            notificationPredicate: _pageRefreshNotificationPredicate,
+            onRefresh: refresh,
+            child: scrollView,
+          ),
+        ),
+      );
+    }
 
     return NestedScrollView(
       controller: _scrollController,
@@ -239,19 +287,77 @@ class _UserProfileContentState extends State<UserProfileContent>
             items: data.origins,
             isLoading: widget.originsLoading,
             listenable: widget.originsListenable,
-            onRefresh: widget.onRefreshOrigins,
+            onRefresh: widget.onRefresh == null
+                ? widget.onRefreshOrigins
+                : null,
+            sliverMode: false,
             canEditOrigins: data.isSelf,
           ),
           _WorldProfileCollectionList(
             items: data.worlds,
             isLoading: widget.worldsLoading,
             listenable: widget.worldsListenable,
-            onRefresh: widget.onRefreshWorlds,
+            onRefresh: widget.onRefresh == null ? widget.onRefreshWorlds : null,
+            sliverMode: false,
             canDeleteWorlds: data.isSelf,
             onWorldDeleted: widget.onWorldDeleted,
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCollectionSliver(UserProfileData data) {
+    if (widget.isBlocking) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+        ),
+      );
+    }
+    if (widget.isBlocked) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            'User blocked',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF888888),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final collection = _tabController.index == 0
+        ? _OriginProfileCollectionList(
+            items: data.origins,
+            isLoading: widget.originsLoading,
+            listenable: widget.originsListenable,
+            onRefresh: null,
+            sliverMode: true,
+            canEditOrigins: data.isSelf,
+          )
+        : _WorldProfileCollectionList(
+            items: data.worlds,
+            isLoading: widget.worldsLoading,
+            listenable: widget.worldsListenable,
+            onRefresh: null,
+            sliverMode: true,
+            canDeleteWorlds: data.isSelf,
+            onWorldDeleted: widget.onWorldDeleted,
+          );
+    return SliverPadding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      sliver: collection,
     );
   }
 
@@ -379,6 +485,33 @@ class _UserProfileContentState extends State<UserProfileContent>
     widget.onCollapsedChanged?.call(collapsed);
   }
 
+  bool _pageRefreshNotificationPredicate(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    if (notification is ScrollStartNotification) {
+      _refreshGestureStartedAtPageTop =
+          notification.metrics.extentBefore <= 0.5;
+    }
+    final shouldHandle = _refreshGestureStartedAtPageTop;
+    if (notification is ScrollEndNotification) {
+      _refreshGestureStartedAtPageTop = false;
+    }
+    return shouldHandle;
+  }
+
+  void _handleHorizontalDragEnd(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    final isFling = velocity.abs() >= 300;
+    final shouldMove = _horizontalDragDistance.abs() >= 40 || isFling;
+    if (shouldMove) {
+      final swipeLeft = isFling ? velocity < 0 : _horizontalDragDistance < 0;
+      final nextIndex = swipeLeft ? 1 : 0;
+      if (nextIndex != _tabController.index) {
+        _tabController.animateTo(nextIndex);
+      }
+    }
+    _horizontalDragDistance = 0;
+  }
+
   void _handleMainNavReselected() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
@@ -394,6 +527,7 @@ class _UserProfileContentState extends State<UserProfileContent>
 
   void _handleTabControllerChanged() {
     if (_tabController.indexIsChanging) return;
+    if (widget.onRefresh != null && mounted) setState(() {});
     _reportCollectionTab(_tabController.index);
   }
 

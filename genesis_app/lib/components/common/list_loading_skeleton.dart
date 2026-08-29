@@ -277,7 +277,7 @@ class _OriginGridSkeleton extends StatelessWidget {
       ),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
+          padding: const EdgeInsets.fromLTRB(2, 5, 2, 0),
           sliver: SliverMasonryGrid.count(
             crossAxisCount: 2,
             mainAxisSpacing: 2,

@@ -33,6 +33,10 @@ void main() {
       find.byKey(const ValueKey<String>('genesis-origin-grid-skeleton')),
       findsOneWidget,
     );
+    final originGridPadding = tester.widget<SliverPadding>(
+      find.byType(SliverPadding),
+    );
+    expect(originGridPadding.padding, const EdgeInsets.fromLTRB(2, 5, 2, 0));
     final firstItem = find
         .byKey(const ValueKey<String>('genesis-origin-grid-item-skeleton'))
         .first;

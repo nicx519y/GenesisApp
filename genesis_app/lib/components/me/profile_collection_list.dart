@@ -14,6 +14,7 @@ class ProfileCollectionList extends StatefulWidget {
     this.loadingKey,
     this.onRefresh,
     this.refreshKey,
+    this.sliverMode = false,
     this.topPadding = 12,
     this.itemSpacing = 24,
   });
@@ -26,6 +27,7 @@ class ProfileCollectionList extends StatefulWidget {
   final Key? loadingKey;
   final Future<void> Function()? onRefresh;
   final Key? refreshKey;
+  final bool sliverMode;
   final double topPadding;
   final double itemSpacing;
 
@@ -68,7 +70,7 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
         height: 24,
         child: const CircularProgressIndicator(strokeWidth: 2.4),
       );
-      return _buildRefreshablePlaceholder(context, loading);
+      return _buildPlaceholder(context, loading);
     }
 
     if (widget.items.isEmpty) {
@@ -81,7 +83,19 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
         ),
         textAlign: TextAlign.center,
       );
-      return _buildRefreshablePlaceholder(context, empty);
+      return _buildPlaceholder(context, empty);
+    }
+
+    if (widget.sliverMode) {
+      return SliverPadding(
+        padding: listPadding,
+        sliver: SliverList(
+          delegate: SliverChildBuilderDelegate(
+            _buildItem,
+            childCount: widget.items.length,
+          ),
+        ),
+      );
     }
 
     final list = ListView.builder(
@@ -93,21 +107,21 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
             ),
       clipBehavior: Clip.hardEdge,
       padding: listPadding,
-      itemBuilder: (context, index) {
-        final item = widget.items[index];
-        final animationKey = item.animationKey ?? index;
-        return _AnimatedProfileCollectionListItem(
-          key: ValueKey<Object>(animationKey),
-          item: item,
-          bottomSpacing: index == widget.items.length - 1
-              ? 0
-              : widget.itemSpacing,
-          onCollapseCompensationChanged: (value) =>
-              _setCollapseCompensation(animationKey, value),
-        );
-      },
+      itemBuilder: _buildItem,
     );
     return _wrapRefreshIndicator(list);
+  }
+
+  Widget _buildItem(BuildContext context, int index) {
+    final item = widget.items[index];
+    final animationKey = item.animationKey ?? index;
+    return _AnimatedProfileCollectionListItem(
+      key: ValueKey<Object>(animationKey),
+      item: item,
+      bottomSpacing: index == widget.items.length - 1 ? 0 : widget.itemSpacing,
+      onCollapseCompensationChanged: (value) =>
+          _setCollapseCompensation(animationKey, value),
+    );
   }
 
   double get _collapseCompensation {
@@ -131,7 +145,13 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
     });
   }
 
-  Widget _buildRefreshablePlaceholder(BuildContext context, Widget child) {
+  Widget _buildPlaceholder(BuildContext context, Widget child) {
+    if (widget.sliverMode) {
+      return SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(child: child),
+      );
+    }
     if (widget.onRefresh == null) return Center(child: child);
 
     return _wrapRefreshIndicator(

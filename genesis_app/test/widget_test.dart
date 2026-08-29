@@ -1385,6 +1385,9 @@ class _RecordingV1ListTransport implements HttpTransport {
 }
 
 class _UserInfoRefreshTransport implements HttpTransport {
+  _UserInfoRefreshTransport({this.initialItemCount = 1});
+
+  final int initialItemCount;
   final requests = <TransportRequest>[];
   final Completer<TransportResponse> _originRefreshCompleter =
       Completer<TransportResponse>();
@@ -1417,8 +1420,14 @@ class _UserInfoRefreshTransport implements HttpTransport {
       originListRequests += 1;
       if (originListRequests == 1) {
         return _v1Response({
-          'list': [_originListItem('o_old', 'Origin Old')],
-          'total': 1,
+          'list': [
+            for (var index = 0; index < initialItemCount; index += 1)
+              _originListItem(
+                index == 0 ? 'o_old' : 'o_old_$index',
+                index == 0 ? 'Origin Old' : 'Origin Old $index',
+              ),
+          ],
+          'total': initialItemCount,
         });
       }
       return _originRefreshCompleter.future;
@@ -1427,8 +1436,14 @@ class _UserInfoRefreshTransport implements HttpTransport {
       worldListRequests += 1;
       if (worldListRequests == 1) {
         return _v1Response({
-          'list': [_worldListItem('w_old', 'World Old')],
-          'total': 1,
+          'list': [
+            for (var index = 0; index < initialItemCount; index += 1)
+              _worldListItem(
+                index == 0 ? 'w_old' : 'w_old_$index',
+                index == 0 ? 'World Old' : 'World Old $index',
+              ),
+          ],
+          'total': initialItemCount,
         });
       }
       return _worldRefreshCompleter.future;
@@ -3636,12 +3651,14 @@ void main() {
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
-    expect(find.text('Private chats'), findsNothing);
+    expect(find.text('Private Chats'), findsNothing);
   });
 
   testWidgets('messages tab shows action buttons and section title', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
 
     await tester.tap(find.text('Inbox'));
@@ -3649,21 +3666,31 @@ void main() {
 
     expect(find.text('Inbox'), findsNWidgets(2));
     expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('New followers'), findsOneWidget);
+    expect(find.text('New\nFollowers'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
-    expect(find.text('Private chats'), findsOneWidget);
+    expect(find.text('Private Chats'), findsOneWidget);
     expect(
       find.image(const AssetImage('assets/custom-icons/png/notification.png')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.image(const AssetImage('assets/custom-icons/png/following.png')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.image(const AssetImage('assets/custom-icons/png/comment.png')),
-      findsOneWidget,
+      findsNothing,
     );
+    final notificationsCard = find.byKey(
+      const ValueKey<String>('message-menu-/message/notifications'),
+    );
+    expect(tester.getSize(notificationsCard).height, 48);
+    final notificationsLabel = tester.widget<Text>(find.text('Notifications'));
+    expect(notificationsLabel.style?.fontSize, 13);
+    expect(notificationsLabel.style?.fontWeight, FontWeight.w600);
+    await tester.pump(const Duration(seconds: 1));
+    AppStartupCoordinator.resetForTesting();
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('messages data polling is skipped while signed out', (
@@ -4348,7 +4375,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsOneWidget);
-    expect(find.text('Private chats'), findsNothing);
+    expect(find.text('Private Chats'), findsNothing);
   });
 
   testWidgets('messages action button navigates to list page', (
@@ -4380,7 +4407,7 @@ void main() {
     await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('New followers').first);
+    await tester.tap(find.text('New\nFollowers').first);
     await tester.pumpAndSettle();
 
     expect(find.text('New followers'), findsWidgets);
@@ -13120,10 +13147,12 @@ void main() {
     expect(find.text('#Origin Old'), findsOneWidget);
     expect(find.text('#Origin New'), findsNothing);
 
+    final pageRefresh = find.descendant(
+      of: find.byKey(const ValueKey('profile-page-refresh')),
+      matching: find.byType(RefreshIndicator),
+    );
     var refreshFuture = tester
-        .widget<RefreshIndicator>(
-          find.byKey(const ValueKey('profile-origin-list-refresh')),
-        )
+        .widget<RefreshIndicator>(pageRefresh)
         .onRefresh();
     await tester.pump();
 
@@ -13138,29 +13167,118 @@ void main() {
     expect(find.text('#Origin Old'), findsNothing);
     expect(find.text('#Origin New'), findsOneWidget);
 
-    await tester.tap(find.text('World'));
+    await tester.tap(find.text('Playing'));
     await tester.pumpAndSettle();
 
-    expect(find.text('#World Old'), findsOneWidget);
-    expect(find.text('#World New'), findsNothing);
+    expect(find.text('World Old'), findsOneWidget);
+    expect(find.text('World New'), findsNothing);
 
-    refreshFuture = tester
-        .widget<RefreshIndicator>(
-          find.byKey(const ValueKey('profile-world-list-refresh')),
-        )
-        .onRefresh();
+    refreshFuture = tester.widget<RefreshIndicator>(pageRefresh).onRefresh();
     await tester.pump();
 
-    expect(transport.worldListRequests, 2);
-    expect(find.text('#World Old'), findsOneWidget);
-    expect(find.text('#World New'), findsNothing);
+    expect(transport.worldListRequests, 3);
+    expect(find.text('World Old'), findsOneWidget);
+    expect(find.text('World New'), findsNothing);
 
     transport.completeWorldRefresh();
     await tester.pumpAndSettle();
     await refreshFuture;
 
-    expect(find.text('#World Old'), findsNothing);
-    expect(find.text('#World New'), findsOneWidget);
+    expect(find.text('World Old'), findsNothing);
+    expect(find.text('World New'), findsOneWidget);
+  });
+
+  testWidgets('Me pull gesture refreshes from the whole profile top', (
+    WidgetTester tester,
+  ) async {
+    final transport = _UserInfoRefreshTransport(initialItemCount: 8);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: 'u_me_refresh',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const MePage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(transport.originListRequests, 1);
+    final pageScroll = find.byType(CustomScrollView);
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: pageScroll, matching: find.byType(Scrollable)).first,
+    );
+
+    await tester.drag(pageScroll, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(scrollable.position.pixels, greaterThan(0));
+
+    var gesture = await tester.startGesture(tester.getCenter(pageScroll));
+    await gesture.moveBy(const Offset(0, 40));
+    await tester.pump();
+    scrollable.position.jumpTo(0);
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 300));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(scrollable.position.pixels, closeTo(0, 0.5));
+    expect(transport.originListRequests, 1);
+
+    gesture = await tester.startGesture(tester.getCenter(pageScroll));
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 500));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(transport.originListRequests, 2);
+    transport.completeOriginRefresh();
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin New'), findsOneWidget);
+  });
+
+  testWidgets('Me collection tabs still switch with horizontal swipes', (
+    WidgetTester tester,
+  ) async {
+    final transport = _UserInfoRefreshTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: 'u_me_refresh',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const MePage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final page = find.byKey(const ValueKey('profile-page-refresh'));
+    expect(find.text('#Origin Old'), findsOneWidget);
+
+    await tester.drag(page, const Offset(-300, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('World Old'), findsOneWidget);
+
+    await tester.drag(page, const Offset(300, 0));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin Old'), findsOneWidget);
   });
 
   test('remote user info with same rendered fields is ignored', () {

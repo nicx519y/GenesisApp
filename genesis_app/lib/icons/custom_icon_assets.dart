@@ -7,7 +7,6 @@ const String paragraphIconAsset = 'assets/custom-icons/svg/paragraph_icon.svg';
 const String eventsIconAsset = 'assets/custom-icons/svg/events.svg';
 const String clueIconAsset = 'assets/custom-icons/svg/clue.svg';
 const String routeIconAsset = 'assets/custom-icons/svg/route.svg';
-const String tickStatIconAsset = 'assets/custom-icons/svg/tick_icon.svg';
 const String connectStatIconAsset = 'assets/custom-icons/svg/connect_icon.svg';
 const String characterStatIconAsset =
     'assets/custom-icons/svg/character_icon.svg';
@@ -26,8 +25,6 @@ const String refreshModifiedIconAsset = 'assets/custom-icons/svg/refresh_2.svg';
 const String editPencilLineIconAsset =
     'assets/custom-icons/svg/edit_pencil_line.svg';
 const String checkLineIconAsset = 'assets/custom-icons/svg/check_line.svg';
-const String saveLineIconAsset = 'assets/custom-icons/svg/save_line.svg';
-
 const String bottomNavHomeIconAsset =
     'assets/custom-icons/svg/bottom_nav_home.svg';
 const String bottomNavHomePressIconAsset =
