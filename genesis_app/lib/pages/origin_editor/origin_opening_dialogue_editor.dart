@@ -449,6 +449,7 @@ class _OpeningCharacterEditor extends StatelessWidget {
                       style: style.bubbleTextStyle,
                       insertTextColor: const Color(0xFF666666),
                       insertBackgroundColor: const Color(0xFFF4F4F6),
+                      showAsteriskInsert: true,
                       onChanged: onChanged,
                       focusNode: focusNode,
                     ),
@@ -481,6 +482,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
     required this.style,
     required this.insertTextColor,
     required this.insertBackgroundColor,
+    this.showAsteriskInsert = false,
     required this.onChanged,
     required this.focusNode,
   });
@@ -490,12 +492,13 @@ class _OpeningDialogueTextField extends StatelessWidget {
   final TextStyle style;
   final Color insertTextColor;
   final Color insertBackgroundColor;
+  final bool showAsteriskInsert;
   final VoidCallback onChanged;
   final FocusNode focusNode;
 
   static const int _maxCharacterCount = 500;
 
-  void _insertToken(String token, {int? caretOffset}) {
+  void _insertToken(String token) {
     final value = item.controller.value;
     final text = value.text;
     final selection = value.selection;
@@ -524,9 +527,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
     }
     item.controller.value = TextEditingValue(
       text: updatedText,
-      selection: TextSelection.collapsed(
-        offset: replaceStart + (caretOffset ?? token.length),
-      ),
+      selection: TextSelection.collapsed(offset: replaceStart + token.length),
     );
     focusNode.requestFocus();
     onChanged();
@@ -590,14 +591,18 @@ class _OpeningDialogueTextField extends StatelessWidget {
                           backgroundColor: insertBackgroundColor,
                           onTap: () => _insertToken('{{user}}'),
                         ),
-                        const SizedBox(width: 10),
-                        _OpeningDialogueInsertButton(
-                          buttonKey: ValueKey<String>('${item.id}-insert-bold'),
-                          label: '* *',
-                          textColor: insertTextColor,
-                          backgroundColor: insertBackgroundColor,
-                          onTap: () => _insertToken('**', caretOffset: 1),
-                        ),
+                        if (showAsteriskInsert) ...[
+                          const SizedBox(width: 10),
+                          _OpeningDialogueInsertButton(
+                            buttonKey: ValueKey<String>(
+                              '${item.id}-insert-asterisk',
+                            ),
+                            label: '*',
+                            textColor: insertTextColor,
+                            backgroundColor: insertBackgroundColor,
+                            onTap: () => _insertToken('*'),
+                          ),
+                        ],
                       ],
                     ),
                   ),

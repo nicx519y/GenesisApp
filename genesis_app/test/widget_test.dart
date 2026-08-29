@@ -15367,7 +15367,10 @@ void main() {
       final narratorUser = find.byKey(
         const ValueKey<String>('opening-dialogue-0-insert-user'),
       );
-      final narratorBold = find.byKey(
+      final narratorAsterisk = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-insert-asterisk'),
+      );
+      final narratorLegacyBold = find.byKey(
         const ValueKey<String>('opening-dialogue-0-insert-bold'),
       );
       final narratorTextField = tester.widget<TextField>(narratorField);
@@ -15375,7 +15378,8 @@ void main() {
       expect(narratorTextField.decoration?.counterText, isEmpty);
       expect(narratorTextField.readOnly, isFalse);
       expect(narratorUser, findsOneWidget);
-      expect(narratorBold, findsOneWidget);
+      expect(narratorAsterisk, findsNothing);
+      expect(narratorLegacyBold, findsNothing);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-save-edit')),
         findsNothing,
@@ -15390,7 +15394,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(narratorField).readOnly, isFalse);
       expect(narratorUser, findsOneWidget);
-      expect(narratorBold, findsOneWidget);
+      expect(narratorAsterisk, findsNothing);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
         findsOneWidget,
@@ -15406,22 +15410,9 @@ void main() {
         tester.widget<Row>(narratorActions).mainAxisSize,
         MainAxisSize.min,
       );
-      expect(
-        tester.getTopLeft(narratorUser).dy,
-        closeTo(tester.getTopLeft(narratorBold).dy, 0.01),
-      );
-      expect(
-        tester.getTopLeft(narratorBold).dx -
-            tester.getTopRight(narratorUser).dx,
-        closeTo(10, 0.01),
-      );
       final narratorUserLabel = find.descendant(
         of: narratorUser,
         matching: find.text('{{user}}'),
-      );
-      final narratorBoldLabel = find.descendant(
-        of: narratorBold,
-        matching: find.text('* *'),
       );
       final narratorButtonDecoration =
           tester
@@ -15449,18 +15440,8 @@ void main() {
         closeTo(12, 0.01),
       );
       expect(
-        tester.getSize(narratorBold).width -
-            tester.getSize(narratorBoldLabel).width,
-        closeTo(12, 0.01),
-      );
-      expect(
         tester.getSize(narratorUser).height -
             tester.getSize(narratorUserLabel).height,
-        closeTo(8, 0.01),
-      );
-      expect(
-        tester.getSize(narratorBold).height -
-            tester.getSize(narratorBoldLabel).height,
         closeTo(8, 0.01),
       );
 
@@ -15478,29 +15459,13 @@ void main() {
       expect(narratorController.selection.extentOffset, 14);
       expect(find.text('19/500'), findsOneWidget);
 
-      narratorController.value = const TextEditingValue(
-        text: 'Hello world',
-        selection: TextSelection.collapsed(offset: 6),
-      );
-      await tester.tap(narratorBold);
-      await tester.pump();
-      expect(narratorController.text, 'Hello **world');
-      expect(narratorController.selection.baseOffset, 7);
-      expect(narratorController.selection.extentOffset, 7);
-      expect(find.text('13/500'), findsOneWidget);
-
       final maxLengthText = List<String>.filled(501, 'a').join();
       await tester.enterText(narratorField, maxLengthText);
       await tester.pump();
       expect(narratorController.text.characters.length, 500);
       expect(find.text('500/500'), findsOneWidget);
-      await tester.tap(narratorBold);
-      await tester.pump();
-      expect(narratorController.text.characters.length, 500);
-      expect(narratorController.selection.baseOffset, 500);
-      expect(narratorController.selection.extentOffset, 500);
       expect(narratorUser, findsOneWidget);
-      expect(narratorBold, findsOneWidget);
+      expect(narratorAsterisk, findsNothing);
       expect(tester.widget<TextField>(narratorField).readOnly, isFalse);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
@@ -15521,13 +15486,13 @@ void main() {
       final characterUser = find.byKey(
         const ValueKey<String>('opening-dialogue-1-insert-user'),
       );
-      final characterBold = find.byKey(
-        const ValueKey<String>('opening-dialogue-1-insert-bold'),
+      final characterAsterisk = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-insert-asterisk'),
       );
       expect(tester.widget<TextField>(characterField).maxLength, 500);
       expect(tester.widget<TextField>(characterField).readOnly, isFalse);
       expect(characterUser, findsOneWidget);
-      expect(characterBold, findsOneWidget);
+      expect(characterAsterisk, findsOneWidget);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
         findsOneWidget,
@@ -15537,7 +15502,7 @@ void main() {
       await tester.tap(characterField);
       await tester.pump();
       expect(characterUser, findsOneWidget);
-      expect(characterBold, findsOneWidget);
+      expect(characterAsterisk, findsOneWidget);
       expect(tester.widget<TextField>(characterField).readOnly, isFalse);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-1-save-edit')),
@@ -15548,7 +15513,7 @@ void main() {
         findsOneWidget,
       );
       expect(narratorUser, findsOneWidget);
-      expect(narratorBold, findsOneWidget);
+      expect(narratorAsterisk, findsNothing);
       expect(
         find.byKey(
           const ValueKey<String>('opening-dialogue-1-character-count'),
@@ -15589,12 +15554,17 @@ void main() {
         text: 'Hi',
         selection: TextSelection.collapsed(offset: 2),
       );
-      await tester.tap(characterBold);
+      final characterAsteriskLabel = find.descendant(
+        of: characterAsterisk,
+        matching: find.text('*'),
+      );
+      expect(characterAsteriskLabel, findsOneWidget);
+      await tester.tap(characterAsterisk);
       await tester.pump();
-      expect(characterController.text, 'Hi**');
+      expect(characterController.text, 'Hi*');
       expect(characterController.selection.baseOffset, 3);
       expect(characterController.selection.extentOffset, 3);
-      expect(find.text('4/500'), findsOneWidget);
+      expect(find.text('3/500'), findsOneWidget);
     },
   );
 
