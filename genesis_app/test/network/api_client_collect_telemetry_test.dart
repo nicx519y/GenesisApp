@@ -47,55 +47,27 @@ void main() {
     return store.eventsForTesting;
   }
 
-  test(
-    'business request reports path-only start and first-attempt success',
-    () async {
-      final client = ApiClient(
-        baseUrl: 'https://example.test/api/',
-        transport: _FakeTransport(
-          handler: (_) => const TransportResponse(
-            statusCode: 200,
-            headers: {'content-type': 'application/json'},
-            body: '{"err_no":0,"data":{"ok":true}}',
-          ),
+  test('successful business request does not emit collect events', () async {
+    final client = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      transport: _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":0,"data":{"ok":true}}',
         ),
-      );
+      ),
+    );
 
-      await client.get<Object?>(
-        'v1/world/list',
-        query: const {'token': 'secret', 'page': 2},
-      );
+    await client.get<Object?>(
+      'v1/world/list',
+      query: const {'token': 'secret', 'page': 2},
+    );
 
-      final recorded = await events();
-      expect(recorded.map((event) => event.action), <String>[
-        'api_request_start',
-        'api_request_success',
-      ]);
-      expect(recorded.map((event) => event.actionType).toSet(), {'event'});
-      expect(recorded.map((event) => event.object1).toSet(), {
-        '/api/v1/world/list',
-      });
-      expect(recorded.first.object2, isNotEmpty);
-      expect(recorded.last.object2, recorded.first.object2);
-      expect(recorded.first.object3, '');
-      expect(recorded.first.object4, '');
-      expect(recorded.first.extData, '');
-      expect(recorded.last.object3, 'attempt_1');
-      expect(int.tryParse(recorded.last.object4), isNotNull);
-      expect(recorded.last.extData, '');
-      expect(int.parse(recorded.last.object4), greaterThanOrEqualTo(0));
-      expect(
-        recorded
-            .expand(
-              (event) => <String>[event.object1, event.object2, event.object3],
-            )
-            .join(' '),
-        isNot(contains('secret')),
-      );
-    },
-  );
+    expect(await events(), isEmpty);
+  });
 
-  test('automatic retry reports one start and one attempt_2 success', () async {
+  test('automatic retry followed by success does not emit events', () async {
     var attempts = 0;
     final client = ApiClient(
       baseUrl: 'https://example.test/api/',
@@ -119,20 +91,11 @@ void main() {
 
     await client.get<Object?>('v1/profile');
 
-    final recorded = await events();
     expect(attempts, 2);
-    expect(recorded.map((event) => event.action), <String>[
-      'api_request_start',
-      'api_request_success',
-    ]);
-    expect(recorded.last.object3, 'attempt_2');
-    expect(recorded.last.object2, recorded.first.object2);
-    final finalAttemptDurationMs = int.parse(recorded.last.object4);
-    expect(finalAttemptDurationMs, greaterThanOrEqualTo(10));
-    expect(finalAttemptDurationMs, lessThan(200));
+    expect(await events(), isEmpty);
   });
 
-  test('a page-level retry starts a new request id at attempt_1', () async {
+  test('a page-level retry records only the failed request', () async {
     var shouldFail = true;
     final client = ApiClient(
       baseUrl: 'https://example.test/api/',
@@ -157,18 +120,12 @@ void main() {
 
     final recorded = await events();
     expect(recorded.map((event) => event.action), <String>[
-      'api_request_start',
       'api_request_failed',
-      'api_request_start',
-      'api_request_success',
     ]);
-    expect(recorded[1].object3, 'connection');
-    expect(int.tryParse(recorded[1].object4), isNotNull);
-    expect(recorded[3].object3, 'attempt_1');
-    expect(int.tryParse(recorded[3].object4), isNotNull);
-    expect(recorded[0].object2, recorded[1].object2);
-    expect(recorded[2].object2, recorded[3].object2);
-    expect(recorded[2].object2, isNot(recorded[0].object2));
+    expect(recorded.single.eventId, 'collect-event-1');
+    expect(recorded.single.object2, isEmpty);
+    expect(recorded.single.object3, 'connection');
+    expect(int.tryParse(recorded.single.object4), isNotNull);
   });
 
   test('exhausted automatic retry reports one timeout failure', () async {
@@ -192,12 +149,11 @@ void main() {
     final recorded = await events();
     expect(attempts, 2);
     expect(recorded.map((event) => event.action), <String>[
-      'api_request_start',
       'api_request_failed',
     ]);
-    expect(recorded.last.object3, 'timeout');
-    expect(int.tryParse(recorded.last.object4), isNotNull);
-    expect(recorded.last.object2, recorded.first.object2);
+    expect(recorded.single.object2, isEmpty);
+    expect(recorded.single.object3, 'timeout');
+    expect(int.tryParse(recorded.single.object4), isNotNull);
   });
 
   test('HTTP and business failures use queryable scalar reasons', () async {
@@ -230,6 +186,11 @@ void main() {
       'http_500',
       'business_1001',
     ]);
+    expect(failures.map((event) => event.object2).toSet(), <String>{''});
+    expect(failures.map((event) => event.eventId).toSet(), <String>{
+      'collect-event-1',
+      'collect-event-2',
+    });
     expect(_extData(failures[0]), <String, Object?>{
       'error_type': 'http_status',
       'status_code': 500,
@@ -515,7 +476,7 @@ void main() {
     expect(await events(), isEmpty);
   });
 
-  test('non-polling direct message actions remain tracked', () async {
+  test('successful non-polling direct message action is not tracked', () async {
     final client = ApiClient(
       baseUrl: 'https://example.test/api/',
       transport: _FakeTransport(
@@ -532,10 +493,7 @@ void main() {
       body: const {'peer_uid': 'user-1', 'content': 'hello'},
     );
 
-    expect((await events()).map((event) => event.action), <String>[
-      'api_request_start',
-      'api_request_success',
-    ]);
+    expect(await events(), isEmpty);
   });
 }
 
