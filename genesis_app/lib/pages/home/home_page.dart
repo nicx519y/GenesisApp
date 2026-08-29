@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../components/auth/login_guard.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/gems/gem_assets.dart';
 import '../../components/home/world_item_card.dart';

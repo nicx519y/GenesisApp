@@ -289,7 +289,7 @@ class ApiClient {
   }) async {
     final stopwatch = Stopwatch()..start();
     final uri = _resolveUri(path, query);
-    final collectRequest = _BusinessApiCollectRequest.maybeStart(uri);
+    final collectRequest = _BusinessApiCollectRequest.maybeCreate(uri);
 
     late final TransportRequest request;
     var requestPreparationFailureReason = 'request_headers';
@@ -483,7 +483,6 @@ class ApiClient {
       final processed = processor(apiResponse);
       attemptStopwatch.stop();
       stopwatch.stop();
-      collectRequest?.success(attempt, duration: attemptStopwatch.elapsed);
       _recordHttpTelemetry(
         request: request,
         response: apiResponse,
@@ -639,18 +638,13 @@ int? _apiErrNo(Object? data) {
 }
 
 class _BusinessApiCollectRequest {
-  _BusinessApiCollectRequest._({required this.path, required this.requestId});
+  _BusinessApiCollectRequest._({required this.path});
 
-  static _BusinessApiCollectRequest? maybeStart(Uri uri) {
+  static _BusinessApiCollectRequest? maybeCreate(Uri uri) {
     if (!uri.path.startsWith('/api/')) return null;
     if (_businessApiCollectExcludedPaths.contains(uri.path)) return null;
     try {
-      final request = _BusinessApiCollectRequest._(
-        path: uri.path,
-        requestId: newCollectEventId(),
-      );
-      request._record(action: 'api_request_start', object3: '', object4: '');
-      return request;
+      return _BusinessApiCollectRequest._(path: uri.path);
     } catch (_) {
       // Telemetry must never prevent the business request from running.
       return null;
@@ -658,18 +652,7 @@ class _BusinessApiCollectRequest {
   }
 
   final String path;
-  final String requestId;
   bool _terminalRecorded = false;
-
-  void success(int attempt, {required Duration duration}) {
-    if (_terminalRecorded) return;
-    _terminalRecorded = true;
-    _record(
-      action: 'api_request_success',
-      object3: 'attempt_$attempt',
-      object4: duration.inMilliseconds.toString(),
-    );
-  }
 
   void failure(
     String reason, {
@@ -729,10 +712,10 @@ class _BusinessApiCollectRequest {
   }) {
     try {
       GenesisTelemetry.collectLog(
-        actionType: 'event',
+        actionType: 'monitor',
         action: action,
         object1: path,
-        object2: requestId,
+        object2: '',
         object3: object3,
         object4: object4,
         extData: extData,

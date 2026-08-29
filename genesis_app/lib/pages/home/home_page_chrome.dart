@@ -111,7 +111,12 @@ class _HomeGemWalletEntry extends StatelessWidget {
       child: GestureDetector(
         key: const ValueKey<String>('home-gem-wallet-entry'),
         behavior: HitTestBehavior.opaque,
-        onTap: () => Navigator.of(context).pushNamed(RouteNames.gemWallet),
+        onTap: () async {
+          final navigator = Navigator.of(context);
+          if (!await ensureGenesisLogin(navigator.context)) return;
+          if (!navigator.mounted) return;
+          navigator.pushNamed(RouteNames.gemWallet);
+        },
         child: SizedBox(
           width: 36,
           height: 36,

@@ -2123,15 +2123,15 @@ query：
 
 - `events*`: array，本批事件，按本地入队顺序排列，最多 500 条
 - `events[].event_id*`: string，客户端生成的 UUID v4；重试保持不变，供服务端幂等去重
-- `events[].action_type*`: string，事件类型，例如 `pageview`、`event`、`pay_event`
+- `events[].action_type*`: string，事件类型，例如 `pageview`、`event`、`monitor`、`pay_event`；`api_request_failed` 使用 `monitor`
 - `events[].action*`: string，页面名或事件名
 - `events[].app_timestamp*`: integer，事件发生时的本地 Unix 毫秒时间戳，不是上传时间
 - `events[].object1*`: string，第一个业务对象；无值传 `""`
-- `events[].object2*`: string，第二个业务对象；无值传 `""`
+- `events[].object2*`: string，第二个业务对象；无值传 `""`。`api_request_failed` 固定传 `""`，单条失败事件由 `event_id` 唯一标识
 - `events[].object3*`: string，第三个业务对象；无值传 `""`
-- `events[].object4*`: string，第四个业务对象；无值传 `""`。`api_request_success` 和 `api_request_failed` 使用不带单位后缀的整数毫秒字符串记录最终一次 HTTP attempt 的耗时；`api_request_start` 传 `""`
+- `events[].object4*`: string，第四个业务对象；无值传 `""`。`api_request_failed` 使用不带单位后缀的整数毫秒字符串记录最终一次 HTTP attempt 的耗时
 - `events[].ext_data*`: string，扩展信息；无值传 `""`。`api_request_failed` 传脱敏后的 JSON 字符串，包含错误类型、错误码、错误消息、HTTP 状态码及可用的原生网络错误信息；不得包含请求 header、query、body、完整响应 body 或 stack trace
-- 持续后台轮询接口不产生 `api_request_start/api_request_success/api_request_failed`：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`。接口请求与业务逻辑不受影响，其他主动消息操作继续上报。
+- 客户端接口监控只上报 `api_request_failed`，不产生 `api_request_start` 或 `api_request_success`。持续后台轮询接口不产生 `api_request_failed`：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`。接口请求与业务逻辑不受影响，其他主动消息操作只在失败时上报。
 
 请求示例：
 
