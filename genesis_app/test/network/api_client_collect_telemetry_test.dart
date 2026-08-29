@@ -122,6 +122,7 @@ void main() {
     expect(recorded.map((event) => event.action), <String>[
       'api_request_failed',
     ]);
+    expect(recorded.single.actionType, 'monitor');
     expect(recorded.single.eventId, 'collect-event-1');
     expect(recorded.single.object2, isEmpty);
     expect(recorded.single.object3, 'connection');

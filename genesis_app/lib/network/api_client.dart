@@ -712,7 +712,7 @@ class _BusinessApiCollectRequest {
   }) {
     try {
       GenesisTelemetry.collectLog(
-        actionType: 'event',
+        actionType: 'monitor',
         action: action,
         object1: path,
         object2: '',

@@ -2123,7 +2123,7 @@ query：
 
 - `events*`: array，本批事件，按本地入队顺序排列，最多 500 条
 - `events[].event_id*`: string，客户端生成的 UUID v4；重试保持不变，供服务端幂等去重
-- `events[].action_type*`: string，事件类型，例如 `pageview`、`event`、`pay_event`
+- `events[].action_type*`: string，事件类型，例如 `pageview`、`event`、`monitor`、`pay_event`；`api_request_failed` 使用 `monitor`
 - `events[].action*`: string，页面名或事件名
 - `events[].app_timestamp*`: integer，事件发生时的本地 Unix 毫秒时间戳，不是上传时间
 - `events[].object1*`: string，第一个业务对象；无值传 `""`
