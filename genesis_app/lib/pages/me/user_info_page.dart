@@ -41,6 +41,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
   bool _profileBlocked = false;
   bool _isBlockingUser = false;
   bool _profileCollapsed = false;
+  int _selectedCollectionTabIndex = 0;
   final ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>
   _originsState =
       ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
@@ -161,6 +162,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       _profileBlocked = false;
       _isBlockingUser = false;
       _profileCollapsed = false;
+      _selectedCollectionTabIndex = 0;
       _future = refresh;
     });
   }
@@ -264,6 +266,12 @@ class _UserInfoPageState extends State<UserInfoPage> {
         isLoading: false,
       );
     }
+  }
+
+  Future<void> _refreshCurrentCollection() {
+    return _selectedCollectionTabIndex == 0
+        ? _refreshOrigins()
+        : _refreshWorlds();
   }
 
   void _handleProfileCollapsedChanged(bool collapsed) {
@@ -557,8 +565,10 @@ class _UserInfoPageState extends State<UserInfoPage> {
                 gemWalletStateListenable: data.isSelf
                     ? AppServicesScope.of(context).gemWallet.state
                     : null,
-                onRefreshOrigins: _refreshOrigins,
-                onRefreshWorlds: _refreshWorlds,
+                onRefresh: _refreshCurrentCollection,
+                onCollectionTabChanged: (index) {
+                  _selectedCollectionTabIndex = index;
+                },
                 onCollapsedChanged: _handleProfileCollapsedChanged,
                 originTabLabel: 'Worldo',
                 worldTabLabel: 'Playing',

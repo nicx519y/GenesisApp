@@ -13435,9 +13435,19 @@ void main() {
     expect(transport.originListRequests, 1);
 
     gesture = await tester.startGesture(tester.getCenter(pageScroll));
+    final profileHeader = find.byKey(
+      const ValueKey<String>('user-profile-follow-stats'),
+    );
+    final profileHeaderTopBefore = tester.getTopLeft(profileHeader).dy;
     await gesture.moveBy(const Offset(0, 20));
     await tester.pump();
-    await gesture.moveBy(const Offset(0, 500));
+    await gesture.moveBy(const Offset(0, 180));
+    await tester.pump();
+    expect(
+      tester.getTopLeft(profileHeader).dy,
+      greaterThan(profileHeaderTopBefore),
+    );
+    await gesture.moveBy(const Offset(0, 320));
     await tester.pump();
     await gesture.up();
     await tester.pump();
@@ -22182,7 +22192,7 @@ void main() {
 
       expect(find.text('#Origin 1'), findsOneWidget);
 
-      await tester.tap(find.text('World'));
+      await tester.tap(find.text('Playing'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 500));
       expect(
@@ -22257,10 +22267,22 @@ void main() {
       expect(find.text('#Origin Old'), findsOneWidget);
       expect(find.text('#Origin New'), findsNothing);
 
+      final pageRefresh = find.descendant(
+        of: find.byKey(const ValueKey('profile-page-refresh')),
+        matching: find.byType(RefreshIndicator),
+      );
+      expect(pageRefresh, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('profile-origin-list-refresh')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('profile-world-list-refresh')),
+        findsNothing,
+      );
+
       var refreshFuture = tester
-          .widget<RefreshIndicator>(
-            find.byKey(const ValueKey('profile-origin-list-refresh')),
-          )
+          .widget<RefreshIndicator>(pageRefresh)
           .onRefresh();
       await tester.pump();
 
@@ -22275,17 +22297,13 @@ void main() {
       expect(find.text('#Origin Old'), findsNothing);
       expect(find.text('#Origin New'), findsOneWidget);
 
-      await tester.tap(find.text('World'));
+      await tester.tap(find.text('Playing'));
       await tester.pumpAndSettle();
 
       expect(find.text('World Old'), findsOneWidget);
       expect(find.text('World New'), findsNothing);
 
-      refreshFuture = tester
-          .widget<RefreshIndicator>(
-            find.byKey(const ValueKey('profile-world-list-refresh')),
-          )
-          .onRefresh();
+      refreshFuture = tester.widget<RefreshIndicator>(pageRefresh).onRefresh();
       await tester.pump();
 
       expect(transport.worldListRequests, 2);
