@@ -16,14 +16,14 @@ const TextStyle kChatScenePlateBubbleTextStyle = TextStyle(
   fontWeight: FontWeight.w400,
 );
 const BorderRadius kChatScenePlateAiBubbleBorderRadius = BorderRadius.only(
-  topLeft: Radius.circular(6),
+  topLeft: Radius.circular(2),
   topRight: Radius.circular(14),
   bottomRight: Radius.circular(14),
   bottomLeft: Radius.circular(14),
 );
 const BorderRadius kChatScenePlateSelfBubbleBorderRadius = BorderRadius.only(
   topLeft: Radius.circular(14),
-  topRight: Radius.circular(6),
+  topRight: Radius.circular(2),
   bottomRight: Radius.circular(14),
   bottomLeft: Radius.circular(14),
 );

@@ -433,8 +433,11 @@ class _OpeningCharacterEditor extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: style.otherBubbleColor,
                       border: Border.all(color: createFormBorder),
-                      borderRadius: BorderRadius.circular(
-                        style.bubbleBorderRadius,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(2),
+                        topRight: Radius.circular(style.bubbleBorderRadius),
+                        bottomRight: Radius.circular(style.bubbleBorderRadius),
+                        bottomLeft: Radius.circular(style.bubbleBorderRadius),
                       ),
                     ),
                     child: _OpeningDialogueTextField(

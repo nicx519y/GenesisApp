@@ -2190,16 +2190,17 @@ void main() {
   });
 
   test(
-    'opening dialogue uses opaque bubbles without changing location chat',
+    'opening dialogue uses its light-surface palette without changing location chat',
     () {
       final openingStyle = kOpeningDialogueStyle;
       final locationStyle = kLocationChatStyle;
 
-      expect(openingStyle.otherBubbleColor, const Color(0xFF3A3942));
+      expect(openingStyle.otherBubbleColor, Colors.white);
+      expect(openingStyle.bubbleTextStyle.color, Colors.black);
       expect(openingStyle.selfBubbleColor, const Color(0xFFC41F2E));
       expect(
         openingStyle.systemMessageBackgroundColor,
-        const Color(0xFF151517),
+        const Color(0xE6111111),
       );
       expect(
         openingStyle.systemMessageTextStyle.color,
@@ -2219,7 +2220,7 @@ void main() {
     },
   );
 
-  testWidgets('opening narrator renders its configured opaque surface', (
+  testWidgets('opening narrator renders its configured dark surface', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -2245,7 +2246,17 @@ void main() {
     final bubble = tester.widget<Container>(
       find.byKey(const ValueKey('chat-system-message-bubble')),
     );
-    expect((bubble.decoration as BoxDecoration).color, const Color(0xFF151517));
+    expect((bubble.decoration as BoxDecoration).color, const Color(0xE6111111));
+    final narratorIcon = tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byType(ChatSystemMessage),
+        matching: find.byType(SvgPicture),
+      ),
+    );
+    expect(
+      narratorIcon.colorFilter,
+      const ColorFilter.mode(Color(0xBAFFFFFF), BlendMode.srcIn),
+    );
     expect(find.byType(BackdropFilter), findsNothing);
   });
 
@@ -2329,7 +2340,7 @@ void main() {
       self.borderRadius,
       const BorderRadius.only(
         topLeft: Radius.circular(14),
-        topRight: Radius.circular(6),
+        topRight: Radius.circular(2),
         bottomRight: Radius.circular(14),
         bottomLeft: Radius.circular(14),
       ),
@@ -2339,7 +2350,7 @@ void main() {
     expect(
       ai.borderRadius,
       const BorderRadius.only(
-        topLeft: Radius.circular(6),
+        topLeft: Radius.circular(2),
         topRight: Radius.circular(14),
         bottomRight: Radius.circular(14),
         bottomLeft: Radius.circular(14),

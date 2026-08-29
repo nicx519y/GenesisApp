@@ -38,7 +38,9 @@ class ChatNarratorMessageBubble extends StatelessWidget {
                   )
           : null,
       leadingIconColor: usesScenePlate
-          ? Colors.white.withValues(alpha: 0.60)
+          ? usesConfiguredSystemStyle
+                ? style.systemMessageTextStyle.color
+                : Colors.white.withValues(alpha: 0.60)
           : null,
       softItalic: usesScenePlate,
       style: style,

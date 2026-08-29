@@ -152,10 +152,13 @@ ChatUiStyleConfig get kOpeningDialogueStyle => kLocationChatStyle.copyWith(
     color: const Color(0xFF111111),
   ),
   selfBubbleColor: const Color(0xFFC41F2E),
-  otherBubbleColor: const Color(0xFF3A3942),
+  otherBubbleColor: Colors.white,
+  bubbleTextStyle: kLocationChatStyle.bubbleTextStyle.copyWith(
+    color: Colors.black,
+  ),
   bubbleBackdropBlurSigma: 0,
   useConfiguredScenePlateSystemStyle: true,
-  systemMessageBackgroundColor: const Color(0xFF151517),
+  systemMessageBackgroundColor: const Color(0xE6111111),
   systemMessageTextStyle: const TextStyle(
     color: Color(0xBAFFFFFF),
     fontSize: 13,
