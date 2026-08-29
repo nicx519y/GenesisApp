@@ -407,6 +407,65 @@ void main() {
     );
   });
 
+  testWidgets('whole-profile pull moves the header with the collection', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: UserProfileContent(
+            data: const UserProfileData(
+              avatarUrl: '',
+              displayName: 'User',
+              uid: 'u_user',
+              followingCount: 0,
+              followerCount: 0,
+              origins: <UserProfileOriginItem>[
+                UserProfileOriginItem(
+                  originId: 1,
+                  oid: 'oid_1',
+                  title: 'Worldo One',
+                  subtitle: '',
+                  imageUrl: '',
+                  copyCount: 0,
+                  interactCount: 0,
+                  characterCount: 0,
+                ),
+              ],
+              worlds: <UserProfileWorldItem>[],
+            ),
+            onRefresh: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final page = find.byType(NestedScrollView);
+    final header = find.byKey(
+      const ValueKey<String>('user-profile-follow-stats'),
+    );
+    final headerTopBefore = tester.getTopLeft(header).dy;
+    final gesture = await tester.startGesture(tester.getCenter(page));
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 120));
+    await tester.pump();
+    await tester.pump();
+
+    final nestedState = tester.state<NestedScrollViewState>(page);
+    expect(
+      nestedState.innerController.positions.any(
+        (position) => position.pixels < 0,
+      ),
+      isTrue,
+    );
+    expect(tester.getTopLeft(header).dy, greaterThan(headerTopBefore));
+
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('self Worldo edit icon opens the edit page directly', (
     tester,
   ) async {
