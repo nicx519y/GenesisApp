@@ -70,6 +70,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   late final ScrollController _scrollController;
+  final ValueNotifier<double> _profilePullOffset = ValueNotifier<double>(0);
   final GlobalKey _profileHeaderKey = GlobalKey();
   bool? _isFollowedOverride;
   int? _followerCountOverride;
@@ -109,6 +110,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     _tabController.removeListener(_handleTabControllerChanged);
     _scrollController.removeListener(_updateCollapsedState);
     widget.reselectionListenable?.removeListener(_handleMainNavReselected);
+    _profilePullOffset.dispose();
     _scrollController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -135,12 +137,16 @@ class _UserProfileContentState extends State<UserProfileContent>
       headerSliverBuilder: (context, innerBoxIsScrolled) {
         return [
           SliverToBoxAdapter(
-            child: _buildProfileHeader(data, isFollowed, followerCount),
+            child: _ProfilePullOffsetTransition(
+              offsetListenable: _profilePullOffset,
+              child: _buildProfileHeader(data, isFollowed, followerCount),
+            ),
           ),
           if (!widget.isBlocking && !widget.isBlocked)
             SliverPersistentHeader(
               pinned: true,
               delegate: _ProfileTabsHeaderDelegate(
+                pullOffsetListenable: _profilePullOffset,
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: _buildCollectionTabs(data),
@@ -153,13 +159,16 @@ class _UserProfileContentState extends State<UserProfileContent>
     );
     if (refresh == null) return scrollView;
 
-    return KeyedSubtree(
-      key: const ValueKey<String>('profile-page-refresh'),
-      child: RefreshIndicator(
-        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        notificationPredicate: _pageRefreshNotificationPredicate,
-        onRefresh: refresh,
-        child: scrollView,
+    return NotificationListener<ScrollNotification>(
+      onNotification: _handleProfilePullNotification,
+      child: KeyedSubtree(
+        key: const ValueKey<String>('profile-page-refresh'),
+        child: RefreshIndicator(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          notificationPredicate: _pageRefreshNotificationPredicate,
+          onRefresh: refresh,
+          child: scrollView,
+        ),
       ),
     );
   }
@@ -451,6 +460,18 @@ class _UserProfileContentState extends State<UserProfileContent>
       _refreshGestureStartedAtPageTop = false;
     }
     return shouldHandle;
+  }
+
+  bool _handleProfilePullNotification(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    final offset =
+        (notification.metrics.minScrollExtent - notification.metrics.pixels)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+    if ((_profilePullOffset.value - offset).abs() > 0.1) {
+      _profilePullOffset.value = offset;
+    }
+    return false;
   }
 
   void _handleMainNavReselected() {
@@ -772,11 +793,36 @@ String _formatGemBalance(int value) {
   return buffer.toString();
 }
 
+class _ProfilePullOffsetTransition extends StatelessWidget {
+  const _ProfilePullOffsetTransition({
+    required this.offsetListenable,
+    required this.child,
+  });
+
+  final ValueListenable<double> offsetListenable;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: offsetListenable,
+      child: child,
+      builder: (context, offset, child) {
+        return Transform.translate(offset: Offset(0, offset), child: child);
+      },
+    );
+  }
+}
+
 class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _ProfileTabsHeaderDelegate({required this.child});
+  const _ProfileTabsHeaderDelegate({
+    required this.pullOffsetListenable,
+    required this.child,
+  });
 
   static const double _height = 5 + genesisTabHeight;
 
+  final ValueListenable<double> pullOffsetListenable;
   final Widget child;
 
   @override
@@ -791,19 +837,23 @@ class _ProfileTabsHeaderDelegate extends SliverPersistentHeaderDelegate {
     double shrinkOffset,
     bool overlapsContent,
   ) {
-    return ColoredBox(
-      color: Colors.white,
-      child: Column(
-        children: [
-          const SizedBox(height: 5),
-          SizedBox(height: genesisTabHeight, child: child),
-        ],
+    return _ProfilePullOffsetTransition(
+      offsetListenable: pullOffsetListenable,
+      child: ColoredBox(
+        color: Colors.white,
+        child: Column(
+          children: [
+            const SizedBox(height: 5),
+            SizedBox(height: genesisTabHeight, child: child),
+          ],
+        ),
       ),
     );
   }
 
   @override
   bool shouldRebuild(covariant _ProfileTabsHeaderDelegate oldDelegate) {
-    return child != oldDelegate.child;
+    return child != oldDelegate.child ||
+        pullOffsetListenable != oldDelegate.pullOffsetListenable;
   }
 }
