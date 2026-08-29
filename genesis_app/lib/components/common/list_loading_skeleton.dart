@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../ui/tokens/genesis_origin_card_geometry.dart';
@@ -278,12 +277,26 @@ class _OriginGridSkeleton extends StatelessWidget {
       slivers: [
         SliverPadding(
           padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
-          sliver: SliverMasonryGrid.count(
-            crossAxisCount: 2,
-            mainAxisSpacing: 2,
-            crossAxisSpacing: 2,
-            childCount: itemCount,
-            itemBuilder: (context, index) => const _OriginGridSkeletonItem(),
+          sliver: SliverLayoutBuilder(
+            builder: (context, constraints) {
+              const crossAxisSpacing = 2.0;
+              final itemWidth =
+                  (constraints.crossAxisExtent - crossAxisSpacing) / 2;
+              final itemHeight =
+                  itemWidth / genesisOriginCoverAspectRatio +
+                  genesisOriginCardBottomExtension;
+              return SliverGrid.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 2,
+                  crossAxisSpacing: crossAxisSpacing,
+                  mainAxisExtent: itemHeight,
+                ),
+                itemCount: itemCount,
+                itemBuilder: (context, index) =>
+                    const _OriginGridSkeletonItem(),
+              );
+            },
           ),
         ),
       ],
@@ -296,17 +309,9 @@ class _OriginGridSkeletonItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final itemHeight =
-            constraints.maxWidth / genesisOriginCoverAspectRatio +
-            genesisOriginCardBottomExtension;
-        return _SkeletonBone(
-          key: const ValueKey<String>('genesis-origin-grid-item-skeleton'),
-          height: itemHeight,
-          borderRadius: GenesisImageRadii.contentValue,
-        );
-      },
+    return const _SkeletonBone(
+      key: ValueKey<String>('genesis-origin-grid-item-skeleton'),
+      borderRadius: GenesisImageRadii.contentValue,
     );
   }
 }

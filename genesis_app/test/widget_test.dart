@@ -9,7 +9,6 @@ import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -2472,6 +2471,7 @@ void main() {
   setUp(() {
     debugOriginItemCoverImageProvider = (_) =>
         _SynchronousTestImageProvider(originItemTestImage);
+    debugOriginExposureVisibilityUpdateInterval = Duration.zero;
     FirebaseAnalyticsMonitoring.resetForTesting();
     FirebasePerformanceMonitoring.resetForTesting();
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -2488,6 +2488,7 @@ void main() {
 
   tearDown(() async {
     debugOriginItemCoverImageProvider = null;
+    debugOriginExposureVisibilityUpdateInterval = null;
     FirebaseAnalyticsMonitoring.resetForTesting();
     FirebasePerformanceMonitoring.resetForTesting();
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
@@ -5781,7 +5782,7 @@ void main() {
         feedScrollView.scrollCacheExtent,
         const ScrollCacheExtent.viewport(2),
       );
-      final virtualGrid = tester.widget<SliverMasonryGrid>(
+      final virtualGrid = tester.widget<SliverGrid>(
         find.byKey(const ValueKey<String>('origin-feed-virtual-grid')),
       );
       final virtualDelegate =
@@ -11937,7 +11938,7 @@ void main() {
     expect(loadEvents.single.data['object2'], 2);
   });
 
-  testWidgets('Origin load-more indicator is centered below the masonry grid', (
+  testWidgets('Origin load-more indicator is centered below the grid', (
     WidgetTester tester,
   ) async {
     final transport = _BlockingOriginPaginationTransport();
@@ -11954,6 +11955,10 @@ void main() {
     final feedFinder = find.byKey(
       const PageStorageKey<String>('origin-feed-For you-foryou'),
     );
+    final virtualGrid = tester.widget<SliverGrid>(
+      find.byKey(const ValueKey<String>('origin-feed-virtual-grid')),
+    );
+    expect(virtualGrid.delegate.estimatedChildCount, 10);
     await tester.drag(feedFinder, const Offset(0, -10000));
     await tester.pump();
 
@@ -11976,21 +11981,13 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.ancestor(
-        of: loadMoreFinder,
-        matching: find.byType(SliverMasonryGrid),
-      ),
+      find.ancestor(of: loadMoreFinder, matching: find.byType(SliverGrid)),
       findsNothing,
     );
     expect(
       tester.getCenter(loadMoreFinder).dx,
       closeTo(tester.getCenter(feedFinder).dx, 0.1),
     );
-    final virtualGrid = tester.widget<SliverMasonryGrid>(
-      find.byKey(const ValueKey<String>('origin-feed-virtual-grid')),
-    );
-    expect(virtualGrid.delegate.estimatedChildCount, 10);
-
     transport.completeSecondPage();
     await tester.pumpAndSettle();
     expect(loadMoreFinder, findsNothing);
