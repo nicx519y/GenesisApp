@@ -322,6 +322,33 @@ Future<void> _pumpGenesisApp(
   );
 }
 
+class _SessionRebuildingHomeApp extends StatelessWidget {
+  const _SessionRebuildingHomeApp({required this.services});
+
+  final AppServices services;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: services.sessionRevision,
+      builder: (context, sessionRevision, _) {
+        return AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: HomePage(
+              key: ValueKey<String>('home-session-$sessionRevision'),
+            ),
+            routes: {
+              RouteNames.gemWallet: (_) =>
+                  const Scaffold(body: Text('Buy Gems')),
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
 class _FakeDeviceIdService implements DeviceIdService {
   const _FakeDeviceIdService();
 
@@ -3395,6 +3422,58 @@ void main() {
 
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(find.text('Buy Gems'), findsNothing);
+  });
+
+  testWidgets('Home Gem entry continues to Buy Gems after login', (
+    WidgetTester tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+      loginUser: const User(
+        id: 42,
+        uid: 'backend_uid',
+        did: '',
+        nickname: 'Backend User',
+        avatar: '',
+        createdAt: null,
+      ),
+    );
+    final services = await _testServices(
+      initialUid: null,
+      sessionStoreOverride: sessionStore,
+      identityAuth: const _FakeIdentityAuthService(
+        signInSession: AuthSession(
+          provider: IdentityProvider.google,
+          providerIdToken: 'google-token',
+          displayName: 'Identity User',
+          photoUrl: '',
+        ),
+      ),
+      backendAuth: backendAuth,
+      transport: _RecordingV1ListTransport(),
+      useMock: false,
+    );
+
+    await tester.pumpWidget(_SessionRebuildingHomeApp(services: services));
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('home-gem-wallet-entry')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Continue with Google'));
+    for (
+      var i = 0;
+      i < 40 && find.text('Buy Gems').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+
+    expect(backendAuth.loginCount, 1);
+    expect(find.text('Buy Gems'), findsOneWidget);
   });
 
   testWidgets('Home keeps its feed when returning from Buy Gems', (
