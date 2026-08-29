@@ -147,6 +147,10 @@ class _OpeningLocationOptionRow extends StatelessWidget {
                           characterStatIconAsset,
                           width: 14,
                           height: 14,
+                          colorFilter: const ColorFilter.mode(
+                            Color(0xFF666666),
+                            BlendMode.srcIn,
+                          ),
                         ),
                         const SizedBox(width: 6),
                       ],
