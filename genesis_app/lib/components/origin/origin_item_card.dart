@@ -18,6 +18,7 @@ import '../../utils/genesis_ugc_text.dart';
 import '../../utils/stat_count_formatter.dart';
 import '../common/list_loading_skeleton.dart';
 import 'origin_item_cover_gradient_painter.dart';
+import 'origin_item_cover_throttled_image_provider.dart';
 import 'stat_item.dart';
 
 const double _coverDetailsTransitionHeight = 50;
@@ -274,11 +275,13 @@ ImageProvider<Object> _originCoverProvider(
 }) {
   if (imageUrl.isEmpty) return const AssetImage(genesisDefaultListImageAsset);
   if (imageUrl.startsWith('assets/')) return AssetImage(imageUrl);
-  return GenesisStaticNetworkImageProvider(
-    imageUrl: imageUrl,
-    cacheWidth: outputWidth,
-    cacheHeight: outputHeight,
-    fit: BoxFit.cover,
+  return OriginItemCoverThrottledImageProvider(
+    sourceProvider: GenesisStaticNetworkImageProvider(
+      imageUrl: imageUrl,
+      cacheWidth: outputWidth,
+      cacheHeight: outputHeight,
+      fit: BoxFit.cover,
+    ),
   );
 }
 

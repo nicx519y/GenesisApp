@@ -1224,7 +1224,7 @@ class _OriginFeedState extends State<_OriginFeed>
                   key: scrollKey,
                   controller: _scrollController,
                   primary: false,
-                  scrollCacheExtent: const ScrollCacheExtent.viewport(2),
+                  scrollCacheExtent: const ScrollCacheExtent.viewport(1),
                   physics: physics,
                   slivers: [
                     SliverPadding(
