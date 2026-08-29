@@ -15,6 +15,7 @@ class ProfileCollectionList extends StatefulWidget {
     this.onRefresh,
     this.refreshKey,
     this.sliverMode = false,
+    this.boxMode = false,
     this.topPadding = 12,
     this.itemSpacing = 24,
   });
@@ -28,6 +29,7 @@ class ProfileCollectionList extends StatefulWidget {
   final Future<void> Function()? onRefresh;
   final Key? refreshKey;
   final bool sliverMode;
+  final bool boxMode;
   final double topPadding;
   final double itemSpacing;
 
@@ -84,6 +86,19 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
         textAlign: TextAlign.center,
       );
       return _buildPlaceholder(context, empty);
+    }
+
+    if (widget.boxMode) {
+      return Padding(
+        padding: listPadding,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var index = 0; index < widget.items.length; index += 1)
+              _buildItem(context, index),
+          ],
+        ),
+      );
     }
 
     if (widget.sliverMode) {
@@ -146,6 +161,12 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
   }
 
   Widget _buildPlaceholder(BuildContext context, Widget child) {
+    if (widget.boxMode) {
+      return SizedBox(
+        height: MediaQuery.sizeOf(context).height * 0.45,
+        child: Center(child: child),
+      );
+    }
     if (widget.sliverMode) {
       return SliverFillRemaining(
         hasScrollBody: false,

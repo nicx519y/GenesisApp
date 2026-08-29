@@ -74,7 +74,6 @@ class _UserProfileContentState extends State<UserProfileContent>
   bool _followLoading = false;
   bool _lastCollapsed = false;
   bool _refreshGestureStartedAtPageTop = false;
-  double _horizontalDragDistance = 0;
   int _lastReportedTabIndex = 0;
   double _profileHeaderHeight = 0;
 
@@ -144,25 +143,16 @@ class _UserProfileContentState extends State<UserProfileContent>
                 ),
               ),
             ),
-          _buildCollectionSliver(data),
+          _buildCollectionPagerSliver(data),
         ],
       );
-      return GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onHorizontalDragStart: (_) => _horizontalDragDistance = 0,
-        onHorizontalDragUpdate: (details) {
-          _horizontalDragDistance += details.primaryDelta ?? 0;
-        },
-        onHorizontalDragEnd: _handleHorizontalDragEnd,
-        onHorizontalDragCancel: () => _horizontalDragDistance = 0,
-        child: KeyedSubtree(
-          key: const ValueKey<String>('profile-page-refresh'),
-          child: RefreshIndicator(
-            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            notificationPredicate: _pageRefreshNotificationPredicate,
-            onRefresh: refresh,
-            child: scrollView,
-          ),
+      return KeyedSubtree(
+        key: const ValueKey<String>('profile-page-refresh'),
+        child: RefreshIndicator(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          notificationPredicate: _pageRefreshNotificationPredicate,
+          onRefresh: refresh,
+          child: scrollView,
         ),
       );
     }
@@ -307,7 +297,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     );
   }
 
-  Widget _buildCollectionSliver(UserProfileData data) {
+  Widget _buildCollectionPagerSliver(UserProfileData data) {
     if (widget.isBlocking) {
       return const SliverFillRemaining(
         hasScrollBody: false,
@@ -337,27 +327,37 @@ class _UserProfileContentState extends State<UserProfileContent>
       );
     }
 
-    final collection = _tabController.index == 0
-        ? _OriginProfileCollectionList(
-            items: data.origins,
-            isLoading: widget.originsLoading,
-            listenable: widget.originsListenable,
-            onRefresh: null,
-            sliverMode: true,
-            canEditOrigins: data.isSelf,
-          )
-        : _WorldProfileCollectionList(
-            items: data.worlds,
-            isLoading: widget.worldsLoading,
-            listenable: widget.worldsListenable,
-            onRefresh: null,
-            sliverMode: true,
-            canDeleteWorlds: data.isSelf,
-            onWorldDeleted: widget.onWorldDeleted,
-          );
-    return SliverPadding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      sliver: collection,
+    return SliverToBoxAdapter(
+      child: _ProfileCollectionPager(
+        controller: _tabController,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _OriginProfileCollectionList(
+              items: data.origins,
+              isLoading: widget.originsLoading,
+              listenable: widget.originsListenable,
+              onRefresh: null,
+              sliverMode: false,
+              boxMode: true,
+              canEditOrigins: data.isSelf,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _WorldProfileCollectionList(
+              items: data.worlds,
+              isLoading: widget.worldsLoading,
+              listenable: widget.worldsListenable,
+              onRefresh: null,
+              sliverMode: false,
+              boxMode: true,
+              canDeleteWorlds: data.isSelf,
+              onWorldDeleted: widget.onWorldDeleted,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -498,20 +498,6 @@ class _UserProfileContentState extends State<UserProfileContent>
     return shouldHandle;
   }
 
-  void _handleHorizontalDragEnd(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    final isFling = velocity.abs() >= 300;
-    final shouldMove = _horizontalDragDistance.abs() >= 40 || isFling;
-    if (shouldMove) {
-      final swipeLeft = isFling ? velocity < 0 : _horizontalDragDistance < 0;
-      final nextIndex = swipeLeft ? 1 : 0;
-      if (nextIndex != _tabController.index) {
-        _tabController.animateTo(nextIndex);
-      }
-    }
-    _horizontalDragDistance = 0;
-  }
-
   void _handleMainNavReselected() {
     if (!_scrollController.hasClients) return;
     final position = _scrollController.position;
@@ -527,7 +513,6 @@ class _UserProfileContentState extends State<UserProfileContent>
 
   void _handleTabControllerChanged() {
     if (_tabController.indexIsChanging) return;
-    if (widget.onRefresh != null && mounted) setState(() {});
     _reportCollectionTab(_tabController.index);
   }
 
@@ -752,6 +737,116 @@ class _GemsBalanceEntry extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _ProfileCollectionPager extends StatefulWidget {
+  const _ProfileCollectionPager({
+    required this.controller,
+    required this.children,
+  });
+
+  final TabController controller;
+  final List<Widget> children;
+
+  @override
+  State<_ProfileCollectionPager> createState() =>
+      _ProfileCollectionPagerState();
+}
+
+class _ProfileCollectionPagerState extends State<_ProfileCollectionPager> {
+  final Map<int, double> _pageHeights = <int, double>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final animation = widget.controller.animation;
+    if (animation == null) return const SizedBox.shrink();
+    final fallbackHeight = MediaQuery.sizeOf(context).height * 0.55;
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final value = animation.value.clamp(
+          0.0,
+          (widget.children.length - 1).toDouble(),
+        );
+        final fromIndex = value.floor();
+        final toIndex = value.ceil();
+        final fromHeight = _pageHeights[fromIndex] ?? fallbackHeight;
+        final toHeight = _pageHeights[toIndex] ?? fromHeight;
+        final progress = value - fromIndex;
+        final height = fromHeight + (toHeight - fromHeight) * progress;
+        return SizedBox(
+          height: height,
+          child: TabBarView(
+            controller: widget.controller,
+            children: [
+              for (var index = 0; index < widget.children.length; index += 1)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minWidth: constraints.maxWidth,
+                      maxWidth: constraints.maxWidth,
+                      minHeight: 0,
+                      maxHeight: double.infinity,
+                      child: _ProfilePageSizeReporter(
+                        onSizeChanged: (size) =>
+                            _updatePageHeight(index, size.height),
+                        child: widget.children[index],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _updatePageHeight(int index, double height) {
+    if (!height.isFinite || height <= 0) return;
+    final previous = _pageHeights[index];
+    if (previous != null && (previous - height).abs() <= 0.5) return;
+    if (!mounted) return;
+    setState(() => _pageHeights[index] = height);
+  }
+}
+
+class _ProfilePageSizeReporter extends SingleChildRenderObjectWidget {
+  const _ProfilePageSizeReporter({
+    required this.onSizeChanged,
+    required super.child,
+  });
+
+  final ValueChanged<Size> onSizeChanged;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderProfilePageSizeReporter(onSizeChanged);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderProfilePageSizeReporter renderObject,
+  ) {
+    renderObject.onSizeChanged = onSizeChanged;
+  }
+}
+
+class _RenderProfilePageSizeReporter extends RenderProxyBox {
+  _RenderProfilePageSizeReporter(this.onSizeChanged);
+
+  ValueChanged<Size> onSizeChanged;
+  Size? _lastSize;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_lastSize == size) return;
+    _lastSize = size;
+    WidgetsBinding.instance.addPostFrameCallback((_) => onSizeChanged(size));
   }
 }
 

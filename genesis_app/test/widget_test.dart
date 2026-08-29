@@ -13269,14 +13269,24 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final page = find.byKey(const ValueKey('profile-page-refresh'));
+    final page = find.byType(TabBarView);
     expect(find.text('#Origin Old'), findsOneWidget);
 
-    await tester.drag(page, const Offset(-300, 0));
+    final tabView = tester.widget<TabBarView>(page);
+    final tabController = tabView.controller!;
+    final gesture = await tester.startGesture(tester.getCenter(page));
+    await gesture.moveBy(const Offset(-20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-160, 0));
+    await tester.pump();
+    expect(tabController.animation!.value, greaterThan(0));
+    expect(tabController.animation!.value, lessThan(1));
+    await gesture.moveBy(const Offset(-350, 0));
+    await gesture.up();
     await tester.pumpAndSettle();
     expect(find.text('World Old'), findsOneWidget);
 
-    await tester.drag(page, const Offset(300, 0));
+    await tester.fling(page, const Offset(500, 0), 1000);
     await tester.pumpAndSettle();
     expect(find.text('#Origin Old'), findsOneWidget);
   });
