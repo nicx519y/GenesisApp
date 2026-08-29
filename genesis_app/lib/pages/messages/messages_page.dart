@@ -209,7 +209,7 @@ class _MessagesPageState extends State<MessagesPage> {
                       const SliverToBoxAdapter(child: SizedBox(height: 10)),
                       SliverToBoxAdapter(
                         child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          padding: const EdgeInsets.symmetric(horizontal: 18),
                           child: Row(
                             children: [
                               Expanded(
@@ -223,7 +223,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                       widget.onMessagesDataRefresh,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 14),
                               Expanded(
                                 child: _MessageMenuButton(
                                   label: 'Followers',
@@ -235,7 +235,7 @@ class _MessagesPageState extends State<MessagesPage> {
                                       widget.onMessagesDataRefresh,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 14),
                               Expanded(
                                 child: _MessageMenuButton(
                                   label: 'Comments',

@@ -3687,6 +3687,18 @@ void main() {
       const ValueKey<String>('message-menu-/message/notifications'),
     );
     expect(tester.getSize(notificationsCard).height, 48);
+    expect(
+      tester.getTopLeft(notificationsCard).dx,
+      closeTo(tester.getTopLeft(find.text('Private Chats')).dx, 0.01),
+    );
+    final followersCard = find.byKey(
+      const ValueKey<String>('message-menu-/messages/new_followers'),
+    );
+    expect(
+      tester.getTopLeft(followersCard).dx -
+          tester.getTopRight(notificationsCard).dx,
+      closeTo(14, 0.01),
+    );
     final notificationsLabel = tester.widget<Text>(find.text('Notifications'));
     expect(notificationsLabel.style?.fontSize, 13);
     expect(notificationsLabel.style?.fontWeight, FontWeight.w600);
