@@ -4353,8 +4353,8 @@ void main() {
                   senderId: 'nar_pic',
                   senderName: 'Narrator',
                   senderType: 'image',
-                  imageUrl: 'assets/images/my_worlds_empty_worldo_launch.jpg',
-                  text: 'assets/images/my_worlds_empty_worldo_launch.jpg',
+                  imageUrl: 'assets/images/default_list_image.png',
+                  text: 'assets/images/default_list_image.png',
                   isMe: false,
                   status: 'sent',
                 ),
@@ -4459,12 +4459,11 @@ void main() {
       );
     }
 
-    final landscape = await pumpImage(
-      'landscape',
-      'assets/images/my_worlds_empty_worldo_launch.jpg',
+    final square = await pumpImage(
+      'square',
+      'assets/images/default_list_image.png',
     );
-    expect(landscape.width, closeTo(250, 0.01));
-    expect(landscape.height, closeTo(250 * 619 / 1253, 0.01));
+    expect(square, const Size.square(250));
 
     final portrait = await pumpImage(
       'portrait',

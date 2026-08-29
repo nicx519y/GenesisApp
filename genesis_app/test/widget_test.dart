@@ -3323,6 +3323,20 @@ void main() {
 
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 0);
     expect(find.text('Popular'), findsNothing);
+
+    final emptyAction = find.byKey(
+      const ValueKey<String>('home-my-worlds-empty-action'),
+    );
+    for (var i = 0; i < 20 && emptyAction.evaluate().isEmpty; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(emptyAction, findsOneWidget);
+
+    await tester.tap(emptyAction);
+    await tester.pump();
+
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
+    expect(find.text('For you'), findsOneWidget);
   });
 
   testWidgets('tap header search bar opens search page', (
@@ -3366,6 +3380,11 @@ void main() {
     expect(searchRect.left, 62);
     expect(headerRect.bottom - searchRect.bottom, 6);
     expect(tester.getSize(gemEntryFinder), const Size.square(36));
+    final gemArtworkRect = tester.getRect(
+      find.byKey(const ValueKey<String>('home-gem-wallet-artwork')),
+    );
+    expect(gemArtworkRect.height, closeTo(33.75, 0.01));
+    expect(gemArtworkRect.center.dy, closeTo(searchRect.center.dy - 3.2, 0.01));
     expect(
       tester
           .getSize(find.byKey(const ValueKey<String>('home-gem-wallet-icon')))
@@ -3757,7 +3776,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('登录后可使用该功能'), findsNothing);
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign up to continue'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
     expect(find.text('Private Chats'), findsNothing);
@@ -3794,6 +3813,18 @@ void main() {
       const ValueKey<String>('message-menu-/message/notifications'),
     );
     expect(tester.getSize(notificationsCard).height, 48);
+    expect(
+      tester.getTopLeft(notificationsCard).dx,
+      closeTo(tester.getTopLeft(find.text('Private Chats')).dx, 0.01),
+    );
+    final followersCard = find.byKey(
+      const ValueKey<String>('message-menu-/messages/new_followers'),
+    );
+    expect(
+      tester.getTopLeft(followersCard).dx -
+          tester.getTopRight(notificationsCard).dx,
+      closeTo(14, 0.01),
+    );
     final notificationsLabel = tester.widget<Text>(find.text('Notifications'));
     expect(notificationsLabel.style?.fontSize, 13);
     expect(notificationsLabel.style?.fontWeight, FontWeight.w600);
@@ -3828,7 +3859,7 @@ void main() {
 
     await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign up to continue'), findsOneWidget);
     expect(transport.count('/api/v1/message/unread'), 0);
     expect(transport.count('/api/v1/direct_message/conversations'), 0);
   });
@@ -4483,7 +4514,7 @@ void main() {
     await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign up to continue'), findsOneWidget);
     expect(find.text('Private Chats'), findsNothing);
   });
 
@@ -5625,6 +5656,10 @@ void main() {
             'assets/images/my_worlds_empty_worldo_launch.jpg',
           ),
         ),
+        findsNothing,
+      );
+      expect(
+        _richTextFinder('Launch a #Worldo to generate\nyour own World'),
         findsOneWidget,
       );
     },
@@ -7011,6 +7046,19 @@ void main() {
       ),
       findsOneWidget,
     );
+    expect(
+      _richTextFinder('Launch a #Worldo to generate\nyour own World'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'home-my-worlds-empty-image:'
+          'assets/images/my_worlds_empty_worldo_launch.jpg',
+        ),
+      ),
+      findsNothing,
+    );
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
   });
 
@@ -7046,14 +7094,9 @@ void main() {
     for (
       var i = 0;
       i < 10 &&
-          find
-              .byKey(
-                const ValueKey<String>(
-                  'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
-                ),
-              )
-              .evaluate()
-              .isEmpty;
+          _richTextFinder(
+            'Launch a #Worldo to generate\nyour own World',
+          ).evaluate().isEmpty;
       i += 1
     ) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -7127,7 +7170,7 @@ void main() {
     },
   );
 
-  testWidgets('Home My World signed-out state uses launch image', (
+  testWidgets('Home My World signed-out state uses text without launch image', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -7155,14 +7198,9 @@ void main() {
     for (
       var i = 0;
       i < 10 &&
-          find
-              .byKey(
-                const ValueKey<String>(
-                  'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
-                ),
-              )
-              .evaluate()
-              .isEmpty;
+          _richTextFinder(
+            'Launch a #Worldo to generate\nyour own World',
+          ).evaluate().isEmpty;
       i += 1
     ) {
       await tester.pump(const Duration(milliseconds: 100));
@@ -7182,6 +7220,10 @@ void main() {
           'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
         ),
       ),
+      findsNothing,
+    );
+    expect(
+      _richTextFinder('Launch a #Worldo to generate\nyour own World'),
       findsOneWidget,
     );
     expect(find.text('World tick narrator 1'), findsNothing);
@@ -10655,7 +10697,7 @@ void main() {
 
     await _openOriginRoleSheetFromLocation(tester);
 
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign up to continue'), findsOneWidget);
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
     expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
   });
@@ -11741,7 +11783,7 @@ void main() {
 
     await _openOriginRoleSheetFromLocation(tester);
 
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign up to continue'), findsOneWidget);
     expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
   });
 
@@ -12874,7 +12916,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
-    expect(find.text('Sign up and get 200 Gems!'), findsOneWidget);
+    expect(
+      find.text(
+        'Play world, create worldo, invite friends,\n'
+        'and continue them anywhere.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Sign up and get 250 Gems!'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
   });
@@ -12913,12 +12962,19 @@ void main() {
     final logo = find.byKey(const Key('signed_out_worldo_logo'));
     expect(logo, findsOneWidget);
     expect(find.text('LIVE YOUR WORLD'), findsOneWidget);
+    expect(
+      find.text(
+        'Play world, create worldo, invite friends,\n'
+        'and continue them anywhere.',
+      ),
+      findsOneWidget,
+    );
     final gemsPromo = tester.widget<Text>(
       find.byKey(const ValueKey<String>('signed-out-gems-promo')),
     );
-    expect(gemsPromo.data, 'Sign up and get 200 Gems!');
+    expect(gemsPromo.data, 'Sign up and get 250 Gems!');
     expect(gemsPromo.style?.color, const Color(0xFFFF2442));
-    expect(gemsPromo.style?.fontSize, 13);
+    expect(gemsPromo.style?.fontSize, 14);
     expect(
       tester
               .getTopLeft(
@@ -13038,19 +13094,18 @@ void main() {
     expect(find.byIcon(Icons.close), findsOneWidget);
     expect(find.text('Cancel'), findsNothing);
     expect(_loginLegalTextFinder(), findsOneWidget);
-    expect(
-      find.text('Create worldo, launch worlds and invite friends'),
-      findsOneWidget,
-    );
-    final title = tester.widget<Text>(find.text('Sign in to continue'));
+    expect(find.text('Sign up and get 250 Gems!'), findsOneWidget);
+    final title = tester.widget<Text>(find.text('Sign up to continue'));
     final subtitle = tester.widget<Text>(
-      find.text('Create worldo, launch worlds and invite friends'),
+      find.text('Sign up and get 250 Gems!'),
     );
     final googleLabel = tester.widget<Text>(find.text('Continue with Google'));
     expect(title.style?.fontSize, 18);
     expect(title.style?.fontWeight, FontWeight.w600);
     expect(subtitle.style?.fontSize, 14);
-    expect(subtitle.style?.color, const Color(0xFF666666));
+    expect(subtitle.style?.fontWeight, FontWeight.w600);
+    expect(subtitle.style?.color, const Color(0xFFFF2442));
+    expect(subtitle.textAlign, TextAlign.center);
     expect(googleLabel.style?.fontSize, 14);
     expect(googleLabel.style?.fontWeight, FontWeight.w400);
     final googleIcon = find.byWidgetPredicate(
@@ -13105,7 +13160,7 @@ void main() {
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign in to continue'), findsNothing);
+    expect(find.text('Sign up to continue'), findsNothing);
     expect(find.text('Load failed'), findsNothing);
     expect(find.text('Cached User'), findsOneWidget);
     expect(find.text('11'), findsOneWidget);
@@ -14026,7 +14081,7 @@ void main() {
 
     await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign up to continue'), findsOneWidget);
 
     await tester.tap(find.text('Continue with Google').last);
     await tester.pumpAndSettle();
@@ -14131,7 +14186,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('bottom-nav-Create')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Sign in to continue'), findsOneWidget);
+    expect(find.text('Sign up to continue'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
     expect(find.text('Create Worldo'), findsNothing);
