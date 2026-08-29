@@ -265,15 +265,7 @@ List<Widget> _originInitialDialogueSlivers(
   OriginDetail origin,
   _OriginInitialDialoguePreview preview,
 ) {
-  final style = kLocationChatStyle.copyWith(
-    headerTitleTextStyle: kLocationChatStyle.headerTitleTextStyle.copyWith(
-      color: const Color(0xFF111111),
-    ),
-    headerTitleIconColor: const Color(0xFF111111),
-    senderNameTextStyle: kLocationChatStyle.senderNameTextStyle.copyWith(
-      color: const Color(0xFF111111),
-    ),
-  );
+  final style = kOpeningDialogueStyle;
   final padding = style.messageListPadding;
   final brief = _originWorldoBrief(origin);
   return <Widget>[

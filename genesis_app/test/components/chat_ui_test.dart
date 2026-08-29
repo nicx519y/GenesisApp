@@ -2189,6 +2189,77 @@ void main() {
     expect(kLocationChatStyle.systemMessageMargin.bottom, 14);
   });
 
+  test(
+    'opening dialogue uses its light-surface palette without changing location chat',
+    () {
+      final openingStyle = kOpeningDialogueStyle;
+      final locationStyle = kLocationChatStyle;
+
+      expect(openingStyle.otherBubbleColor, Colors.white);
+      expect(openingStyle.bubbleTextStyle.color, Colors.black);
+      expect(openingStyle.selfBubbleColor, const Color(0xFFC41F2E));
+      expect(
+        openingStyle.systemMessageBackgroundColor,
+        const Color(0xE6111111),
+      );
+      expect(
+        openingStyle.systemMessageTextStyle.color,
+        const Color(0xBAFFFFFF),
+      );
+      expect(openingStyle.bubbleBackdropBlurSigma, 0);
+      expect(openingStyle.useConfiguredScenePlateSystemStyle, isTrue);
+
+      expect(locationStyle.otherBubbleColor, const Color(0x993A3942));
+      expect(locationStyle.selfBubbleColor, const Color(0x99C41F2E));
+      expect(
+        locationStyle.systemMessageBackgroundColor,
+        const Color(0x14FFFFFF),
+      );
+      expect(locationStyle.bubbleBackdropBlurSigma, 14);
+      expect(locationStyle.useConfiguredScenePlateSystemStyle, isFalse);
+    },
+  );
+
+  testWidgets('opening narrator renders its configured dark surface', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'opening-narrator',
+              senderId: 'narrator',
+              senderName: 'Narrator',
+              senderType: 'narrator',
+              text: 'The story begins.',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+            style: kOpeningDialogueStyle,
+          ),
+        ),
+      ),
+    );
+
+    final bubble = tester.widget<Container>(
+      find.byKey(const ValueKey('chat-system-message-bubble')),
+    );
+    expect((bubble.decoration as BoxDecoration).color, const Color(0xE6111111));
+    final narratorIcon = tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byType(ChatSystemMessage),
+        matching: find.byType(SvgPicture),
+      ),
+    );
+    expect(
+      narratorIcon.colorFilter,
+      const ColorFilter.mode(Color(0xBAFFFFFF), BlendMode.srcIn),
+    );
+    expect(find.byType(BackdropFilter), findsNothing);
+  });
+
   testWidgets('location chat uses the scene bubble palette and geometry', (
     WidgetTester tester,
   ) async {
@@ -2269,7 +2340,7 @@ void main() {
       self.borderRadius,
       const BorderRadius.only(
         topLeft: Radius.circular(14),
-        topRight: Radius.circular(6),
+        topRight: Radius.circular(2),
         bottomRight: Radius.circular(14),
         bottomLeft: Radius.circular(14),
       ),
@@ -2279,7 +2350,7 @@ void main() {
     expect(
       ai.borderRadius,
       const BorderRadius.only(
-        topLeft: Radius.circular(6),
+        topLeft: Radius.circular(2),
         topRight: Radius.circular(14),
         bottomRight: Radius.circular(14),
         bottomLeft: Radius.circular(14),

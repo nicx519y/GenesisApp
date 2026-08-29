@@ -214,6 +214,7 @@ class _GemWalletPageState extends State<GemWalletPage>
     }
     return RefreshIndicator(
       color: kGemAccentColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       onRefresh: () => _refreshAll(silent: true),
       child: _GemWalletContent(
         products: _products,

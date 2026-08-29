@@ -216,17 +216,47 @@ void main() {
       ),
       const Size(64, 24),
     );
+    expect(
+      tester.getRect(find.text('Go')).right,
+      closeTo(
+        tester
+            .getRect(
+              find.byKey(
+                const ValueKey<String>('gem-task-action-create_first_worldo'),
+              ),
+            )
+            .right,
+        0.1,
+      ),
+    );
     final taskRewardStyle = tester.widget<Text>(find.text('+50')).style;
     expect(taskRewardStyle?.fontSize, 14);
     expect(taskRewardStyle?.fontWeight, FontWeight.w600);
     expect(taskRewardStyle?.color, const Color(0xFF111111));
-    expect(
-      tester.getSize(
-        find.byKey(
-          const ValueKey<String>('gem-task-reward-icon-create_first_worldo'),
-        ),
+    final taskRewardIconSize = tester.getSize(
+      find.byKey(
+        const ValueKey<String>('gem-task-reward-icon-create_first_worldo'),
       ),
-      const Size.square(14),
+    );
+    expect(taskRewardIconSize.width, closeTo(16 * 164 / 256, 0.1));
+    expect(taskRewardIconSize.height, 16);
+    expect(
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>('gem-task-reward-create_first_worldo'),
+            ),
+          )
+          .right,
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>(
+                'gem-task-reward-icon-create_first_worldo',
+              ),
+            ),
+          )
+          .right,
     );
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -260,13 +290,26 @@ void main() {
     expect(joinUsRewardStyle?.fontSize, 14);
     expect(joinUsRewardStyle?.fontWeight, FontWeight.w600);
     expect(joinUsRewardStyle?.color, const Color(0xFF111111));
+    final followRewardIconSize = tester.getSize(
+      find.byKey(const ValueKey<String>('gem-task-reward-icon-discord_follow')),
+    );
+    expect(followRewardIconSize.width, closeTo(16 * 164 / 256, 0.1));
+    expect(followRewardIconSize.height, 16);
     expect(
-      tester.getSize(
-        find.byKey(
-          const ValueKey<String>('gem-task-reward-icon-discord_follow'),
-        ),
-      ),
-      const Size.square(14),
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>('gem-task-reward-discord_follow'),
+            ),
+          )
+          .right,
+      tester
+          .getRect(
+            find.byKey(
+              const ValueKey<String>('gem-task-reward-icon-discord_follow'),
+            ),
+          )
+          .right,
     );
 
     final followStyle = tester.widget<Text>(find.text('Follow')).style;
@@ -1550,7 +1593,7 @@ void main() {
     expect(claimedButtonDecoration.border, isNull);
     expect(
       tester.widget<Text>(find.text('Claimed')).style?.color,
-      const Color(0xFFD47B89),
+      const Color(0xFF999999),
     );
 
     await tester.tap(

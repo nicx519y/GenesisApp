@@ -89,12 +89,11 @@ void main() {
             as BoxDecoration;
     expect(priceDecoration.color, Colors.white);
     expect(priceDecoration.border, isNotNull);
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey<String>('gem-product-icon-gem_pack_500')),
-      ),
-      const Size(28, 24),
+    final productIconSize = tester.getSize(
+      find.byKey(const ValueKey<String>('gem-product-icon-gem_pack_500')),
     );
+    expect(productIconSize.width, closeTo(44 * 308 / 252, 0.1));
+    expect(productIconSize.height, 44);
   });
 
   testWidgets('balance panel uses the Gem Wallet typography', (tester) async {
@@ -104,7 +103,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const ValueKey('gem-balance-panel'))).height,
-      88,
+      95,
     );
     final labelStyle = tester.widget<Text>(find.text('My Balance')).style;
     expect(labelStyle?.fontSize, 14);
@@ -117,10 +116,11 @@ void main() {
     expect(balanceStyle?.height, 40 / 30);
     expect(balanceStyle?.fontWeight, FontWeight.w600);
     expect(balanceStyle?.color, const Color(0xFF333333));
-    expect(
-      tester.getSize(find.byKey(const ValueKey('gem-balance-icon'))),
-      const Size.square(24),
+    final balanceIconSize = tester.getSize(
+      find.byKey(const ValueKey('gem-balance-icon')),
     );
+    expect(balanceIconSize.width, closeTo(31 * 164 / 256, 0.1));
+    expect(balanceIconSize.height, 31);
     final panelRect = tester.getRect(
       find.byKey(const ValueKey('gem-balance-panel')),
     );

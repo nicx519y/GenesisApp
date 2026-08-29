@@ -13,8 +13,10 @@ class UserProfileContent extends StatefulWidget {
     this.displayNameListenable,
     this.isUpdatingProfileListenable,
     this.gemWalletStateListenable,
+    this.reselectionListenable,
     this.onEditAvatar,
     this.onEditDisplayName,
+    this.onRefresh,
     this.onRefreshOrigins,
     this.onRefreshWorlds,
     this.onWorldDeleted,
@@ -41,8 +43,10 @@ class UserProfileContent extends StatefulWidget {
   final ValueListenable<String>? displayNameListenable;
   final ValueListenable<bool>? isUpdatingProfileListenable;
   final ValueListenable<GemWalletState>? gemWalletStateListenable;
+  final ValueListenable<int>? reselectionListenable;
   final VoidCallback? onEditAvatar;
   final VoidCallback? onEditDisplayName;
+  final Future<void> Function()? onRefresh;
   final Future<void> Function()? onRefreshOrigins;
   final Future<void> Function()? onRefreshWorlds;
   final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
@@ -69,6 +73,7 @@ class _UserProfileContentState extends State<UserProfileContent>
   int? _followerCountOverride;
   bool _followLoading = false;
   bool _lastCollapsed = false;
+  bool _refreshGestureStartedAtPageTop = false;
   int _lastReportedTabIndex = 0;
   double _profileHeaderHeight = 0;
 
@@ -80,11 +85,16 @@ class _UserProfileContentState extends State<UserProfileContent>
     _tabController.addListener(_handleTabControllerChanged);
     _scrollController = ScrollController();
     _scrollController.addListener(_updateCollapsedState);
+    widget.reselectionListenable?.addListener(_handleMainNavReselected);
   }
 
   @override
   void didUpdateWidget(covariant UserProfileContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.reselectionListenable != widget.reselectionListenable) {
+      oldWidget.reselectionListenable?.removeListener(_handleMainNavReselected);
+      widget.reselectionListenable?.addListener(_handleMainNavReselected);
+    }
     if (oldWidget.data.uid != widget.data.uid) {
       _isFollowedOverride = null;
       _followerCountOverride = null;
@@ -96,6 +106,7 @@ class _UserProfileContentState extends State<UserProfileContent>
   void dispose() {
     _tabController.removeListener(_handleTabControllerChanged);
     _scrollController.removeListener(_updateCollapsedState);
+    widget.reselectionListenable?.removeListener(_handleMainNavReselected);
     _scrollController.dispose();
     _tabController.dispose();
     super.dispose();
@@ -110,6 +121,41 @@ class _UserProfileContentState extends State<UserProfileContent>
       _measureProfileHeader();
       _updateCollapsedState();
     });
+
+    final refresh = widget.onRefresh;
+    if (refresh != null) {
+      final scrollView = CustomScrollView(
+        controller: _scrollController,
+        physics: const BouncingScrollPhysics(
+          parent: AlwaysScrollableScrollPhysics(),
+        ),
+        slivers: [
+          SliverToBoxAdapter(
+            child: _buildProfileHeader(data, isFollowed, followerCount),
+          ),
+          if (!widget.isBlocking && !widget.isBlocked)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _ProfileTabsHeaderDelegate(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _buildCollectionTabs(data),
+                ),
+              ),
+            ),
+          _buildCollectionPagerSliver(data),
+        ],
+      );
+      return KeyedSubtree(
+        key: const ValueKey<String>('profile-page-refresh'),
+        child: RefreshIndicator(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          notificationPredicate: _pageRefreshNotificationPredicate,
+          onRefresh: refresh,
+          child: scrollView,
+        ),
+      );
+    }
 
     return NestedScrollView(
       controller: _scrollController,
@@ -231,16 +277,84 @@ class _UserProfileContentState extends State<UserProfileContent>
             items: data.origins,
             isLoading: widget.originsLoading,
             listenable: widget.originsListenable,
-            onRefresh: widget.onRefreshOrigins,
+            onRefresh: widget.onRefresh == null
+                ? widget.onRefreshOrigins
+                : null,
+            sliverMode: false,
             canEditOrigins: data.isSelf,
           ),
           _WorldProfileCollectionList(
             items: data.worlds,
             isLoading: widget.worldsLoading,
             listenable: widget.worldsListenable,
-            onRefresh: widget.onRefreshWorlds,
+            onRefresh: widget.onRefresh == null ? widget.onRefreshWorlds : null,
+            sliverMode: false,
             canDeleteWorlds: data.isSelf,
             onWorldDeleted: widget.onWorldDeleted,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCollectionPagerSliver(UserProfileData data) {
+    if (widget.isBlocking) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+        ),
+      );
+    }
+    if (widget.isBlocked) {
+      return const SliverFillRemaining(
+        hasScrollBody: false,
+        child: Center(
+          child: Text(
+            'User blocked',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Color(0xFF888888),
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SliverToBoxAdapter(
+      child: _ProfileCollectionPager(
+        controller: _tabController,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _OriginProfileCollectionList(
+              items: data.origins,
+              isLoading: widget.originsLoading,
+              listenable: widget.originsListenable,
+              onRefresh: null,
+              sliverMode: false,
+              boxMode: true,
+              canEditOrigins: data.isSelf,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: _WorldProfileCollectionList(
+              items: data.worlds,
+              isLoading: widget.worldsLoading,
+              listenable: widget.worldsListenable,
+              onRefresh: null,
+              sliverMode: false,
+              boxMode: true,
+              canDeleteWorlds: data.isSelf,
+              onWorldDeleted: widget.onWorldDeleted,
+            ),
           ),
         ],
       ),
@@ -371,6 +485,32 @@ class _UserProfileContentState extends State<UserProfileContent>
     widget.onCollapsedChanged?.call(collapsed);
   }
 
+  bool _pageRefreshNotificationPredicate(ScrollNotification notification) {
+    if (notification.depth != 0) return false;
+    if (notification is ScrollStartNotification) {
+      _refreshGestureStartedAtPageTop =
+          notification.metrics.extentBefore <= 0.5;
+    }
+    final shouldHandle = _refreshGestureStartedAtPageTop;
+    if (notification is ScrollEndNotification) {
+      _refreshGestureStartedAtPageTop = false;
+    }
+    return shouldHandle;
+  }
+
+  void _handleMainNavReselected() {
+    if (!_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels <= position.minScrollExtent) return;
+    unawaited(
+      position.animateTo(
+        position.minScrollExtent,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+  }
+
   void _handleTabControllerChanged() {
     if (_tabController.indexIsChanging) return;
     _reportCollectionTab(_tabController.index);
@@ -470,48 +610,243 @@ class _GemsBalanceEntry extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => Navigator.of(context).pushNamed(RouteNames.gemWallet),
       child: Container(
-        height: 44,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        key: const ValueKey('user-profile-gems-background'),
+        height: 64,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF4F6),
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Color(0xFF7F1021), Color(0xFFB8172E)],
+          ),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFFFE0E6)),
         ),
-        child: Row(
+        child: Stack(
           children: [
-            SvgPicture.asset(
-              gemIconAsset,
-              key: const ValueKey('user-profile-gem-icon'),
-              width: gemLargeIconSize,
-              height: gemLargeIconSize,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              balance == null ? '0' : _formatGemBalance(balance),
-              key: const ValueKey('user-profile-gems-balance'),
-              style: const TextStyle(
-                fontSize: 16,
-                height: 20 / 16,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
+            Positioned(
+              top: -16,
+              right: 54,
+              child: IgnorePointer(
+                child: Opacity(
+                  opacity: 0.18,
+                  child: SvgPicture.asset(
+                    gemStackIconAsset,
+                    key: const ValueKey('user-profile-gems-pattern'),
+                    width: 112,
+                    height: 92,
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
             ),
-            const SizedBox(width: 4),
-            const Text(
-              'Gems',
-              style: TextStyle(
-                fontSize: 12,
-                height: 18 / 12,
-                fontWeight: FontWeight.w500,
-                color: Color(0xFF666666),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Balance',
+                          style: TextStyle(
+                            fontSize: 12,
+                            height: 14 / 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFFFFD4DA),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            SizedBox(
+                              key: const ValueKey('user-profile-gem-icon'),
+                              width: 16,
+                              height: 24,
+                              child: SvgPicture.asset(
+                                gemIconAsset,
+                                fit: BoxFit.contain,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            Flexible(
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      balance == null
+                                          ? '0'
+                                          : _formatGemBalance(balance),
+                                      key: const ValueKey(
+                                        'user-profile-gems-balance',
+                                      ),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        height: 22 / 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'Gems',
+                                    key: ValueKey('user-profile-gems-unit'),
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      height: 14 / 11,
+                                      fontWeight: FontWeight.w400,
+                                      color: Color(0xFFFFD4DA),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    key: const ValueKey('user-profile-gems-top-up'),
+                    height: 32,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: GenesisColors.brand,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Text(
+                      'Top Up',
+                      style: TextStyle(
+                        fontSize: 13,
+                        height: 16 / 13,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-            const Spacer(),
-            const Icon(Icons.chevron_right, size: 22, color: Color(0xFF999999)),
           ],
         ),
       ),
     );
+  }
+}
+
+class _ProfileCollectionPager extends StatefulWidget {
+  const _ProfileCollectionPager({
+    required this.controller,
+    required this.children,
+  });
+
+  final TabController controller;
+  final List<Widget> children;
+
+  @override
+  State<_ProfileCollectionPager> createState() =>
+      _ProfileCollectionPagerState();
+}
+
+class _ProfileCollectionPagerState extends State<_ProfileCollectionPager> {
+  final Map<int, double> _pageHeights = <int, double>{};
+
+  @override
+  Widget build(BuildContext context) {
+    final animation = widget.controller.animation;
+    if (animation == null) return const SizedBox.shrink();
+    final fallbackHeight = MediaQuery.sizeOf(context).height * 0.55;
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) {
+        final value = animation.value.clamp(
+          0.0,
+          (widget.children.length - 1).toDouble(),
+        );
+        final fromIndex = value.floor();
+        final toIndex = value.ceil();
+        final fromHeight = _pageHeights[fromIndex] ?? fallbackHeight;
+        final toHeight = _pageHeights[toIndex] ?? fromHeight;
+        final progress = value - fromIndex;
+        final height = fromHeight + (toHeight - fromHeight) * progress;
+        return SizedBox(
+          height: height,
+          child: TabBarView(
+            controller: widget.controller,
+            children: [
+              for (var index = 0; index < widget.children.length; index += 1)
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    return OverflowBox(
+                      alignment: Alignment.topCenter,
+                      minWidth: constraints.maxWidth,
+                      maxWidth: constraints.maxWidth,
+                      minHeight: 0,
+                      maxHeight: double.infinity,
+                      child: _ProfilePageSizeReporter(
+                        onSizeChanged: (size) =>
+                            _updatePageHeight(index, size.height),
+                        child: widget.children[index],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _updatePageHeight(int index, double height) {
+    if (!height.isFinite || height <= 0) return;
+    final previous = _pageHeights[index];
+    if (previous != null && (previous - height).abs() <= 0.5) return;
+    if (!mounted) return;
+    setState(() => _pageHeights[index] = height);
+  }
+}
+
+class _ProfilePageSizeReporter extends SingleChildRenderObjectWidget {
+  const _ProfilePageSizeReporter({
+    required this.onSizeChanged,
+    required super.child,
+  });
+
+  final ValueChanged<Size> onSizeChanged;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) {
+    return _RenderProfilePageSizeReporter(onSizeChanged);
+  }
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderProfilePageSizeReporter renderObject,
+  ) {
+    renderObject.onSizeChanged = onSizeChanged;
+  }
+}
+
+class _RenderProfilePageSizeReporter extends RenderProxyBox {
+  _RenderProfilePageSizeReporter(this.onSizeChanged);
+
+  ValueChanged<Size> onSizeChanged;
+  Size? _lastSize;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_lastSize == size) return;
+    _lastSize = size;
+    WidgetsBinding.instance.addPostFrameCallback((_) => onSizeChanged(size));
   }
 }
 

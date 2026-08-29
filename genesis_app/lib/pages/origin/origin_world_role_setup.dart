@@ -798,7 +798,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                fontSize: 16,
+                                                fontSize: 14,
                                                 height: 1,
                                                 fontWeight: FontWeight.w600,
                                                 color: Colors.white.withValues(

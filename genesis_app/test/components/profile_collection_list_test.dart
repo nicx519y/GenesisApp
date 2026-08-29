@@ -6,6 +6,30 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
+  testWidgets('pull to refresh uses the page surface and keeps its shadow', (
+    WidgetTester tester,
+  ) async {
+    const pageSurface = Color(0xFFF8F8F8);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(scaffoldBackgroundColor: pageSurface),
+        home: Scaffold(
+          body: ProfileCollectionList(
+            items: const [],
+            emptyText: 'Empty',
+            onRefresh: () async {},
+          ),
+        ),
+      ),
+    );
+
+    final indicator = tester.widget<RefreshIndicator>(
+      find.byType(RefreshIndicator),
+    );
+    expect(indicator.backgroundColor, pageSurface);
+    expect(indicator.elevation, greaterThan(0));
+  });
+
   testWidgets('uses the full screen DPR for profile collection images', (
     WidgetTester tester,
   ) async {

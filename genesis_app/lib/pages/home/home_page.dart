@@ -4,12 +4,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
-import '../../components/genesis_logo.dart';
+import '../../components/gems/gem_assets.dart';
 import '../../components/home/world_item_card.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
@@ -75,6 +76,7 @@ class HomePage extends StatefulWidget {
     super.key,
     this.initialMyWorldsData,
     this.activationListenable,
+    this.reselectionListenable,
     this.isActiveListenable,
     this.isFirstPageViewReported,
     this.onFirstPageViewReady,
@@ -83,6 +85,7 @@ class HomePage extends StatefulWidget {
 
   final Map<String, dynamic>? initialMyWorldsData;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<int>? reselectionListenable;
   final ValueListenable<bool>? isActiveListenable;
   final bool Function(String action)? isFirstPageViewReported;
   final void Function(String action)? onFirstPageViewReady;
@@ -113,6 +116,7 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return _HomeScaffold(
       activationListenable: widget.activationListenable,
+      reselectionListenable: widget.reselectionListenable,
       isActiveListenable: widget.isActiveListenable,
       isFirstPageViewReported: widget.isFirstPageViewReported,
       onFirstPageViewReady: widget.onFirstPageViewReady,

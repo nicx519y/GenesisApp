@@ -7,7 +7,7 @@ import '../../platform/billing/billing_models.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
-const double kGemProductCardHeight = 132;
+const double kGemProductCardHeight = 140;
 const double kGemPriceButtonHeight = 24;
 
 class GemPurchaseCatalogSection extends StatelessWidget {
@@ -50,7 +50,7 @@ class GemBalancePanel extends StatelessWidget {
     return SizedBox(
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
-      height: 88,
+      height: 95,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -221,7 +221,7 @@ class GemProductCard extends StatelessWidget {
                       ),
                     ),
                   Positioned(
-                    top: 30,
+                    top: 18,
                     left: 0,
                     right: 0,
                     child: Center(
@@ -236,7 +236,7 @@ class GemProductCard extends StatelessWidget {
                     ),
                   ),
                   Positioned(
-                    top: 60,
+                    top: 68,
                     left: 8,
                     right: 8,
                     child: FittedBox(
@@ -255,7 +255,7 @@ class GemProductCard extends StatelessWidget {
                   ),
                   if (hasBonusGems)
                     Positioned(
-                      top: 80,
+                      top: 88,
                       bottom: 38,
                       left: 8,
                       right: 8,

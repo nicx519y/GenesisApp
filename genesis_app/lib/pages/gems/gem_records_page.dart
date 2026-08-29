@@ -212,6 +212,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     if (state.records.isEmpty) {
       return RefreshIndicator(
         color: kGemAccentColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         onRefresh: () => _loadFirstPage(index: index, refreshing: true),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -221,6 +222,7 @@ class _GemRecordsPageState extends State<GemRecordsPage>
     }
     return RefreshIndicator(
       color: kGemAccentColor,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       onRefresh: () => _loadFirstPage(index: index, refreshing: true),
       child: ListView.separated(
         controller: state.scrollController,

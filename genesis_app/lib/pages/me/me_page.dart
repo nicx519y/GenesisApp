@@ -43,6 +43,7 @@ class MePage extends StatefulWidget {
     this.onLogin,
     this.onLoginCompleted,
     this.activationListenable,
+    this.reselectionListenable,
     this.isActiveListenable,
   });
 
@@ -50,6 +51,7 @@ class MePage extends StatefulWidget {
   final Future<bool> Function(IdentityProvider provider)? onLogin;
   final Future<void> Function()? onLoginCompleted;
   final ValueListenable<int>? activationListenable;
+  final ValueListenable<int>? reselectionListenable;
   final ValueListenable<bool>? isActiveListenable;
 
   @override
@@ -165,6 +167,7 @@ class _MePageState extends State<MePage> {
           return SignedOutMeView(
             loggingInProvider: _loggingInProvider,
             onLogin: _login,
+            reselectionListenable: widget.reselectionListenable,
           );
         }
         final data = content.data!;
@@ -217,8 +220,10 @@ class _MePageState extends State<MePage> {
                   displayNameListenable: _displayName,
                   isUpdatingProfileListenable: _isUpdatingProfile,
                   gemWalletStateListenable: gemWalletState,
+                  reselectionListenable: widget.reselectionListenable,
                   onEditAvatar: _editAvatar,
                   onEditDisplayName: _editNickName,
+                  onRefresh: _refreshCurrentCollection,
                   onRefreshOrigins: _refreshOrigins,
                   onRefreshWorlds: _refreshWorlds,
                   onWorldDeleted: _handleWorldDeleted,
@@ -245,5 +250,11 @@ class _MePageState extends State<MePage> {
         .where((world) => world.wid.trim() != worldId)
         .toList(growable: false);
     _setWorldsState(nextItems, isLoading: current.isLoading);
+  }
+
+  Future<void> _refreshCurrentCollection() {
+    return _selectedCollectionTabIndex == 0
+        ? _refreshOrigins()
+        : _refreshWorlds();
   }
 }

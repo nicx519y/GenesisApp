@@ -6,6 +6,8 @@ class _WorldProfileCollectionList extends StatefulWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    required this.sliverMode,
+    this.boxMode = false,
     required this.canDeleteWorlds,
     required this.onWorldDeleted,
   });
@@ -15,6 +17,8 @@ class _WorldProfileCollectionList extends StatefulWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final bool sliverMode;
+  final bool boxMode;
   final bool canDeleteWorlds;
   final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
 
@@ -98,6 +102,8 @@ class _WorldProfileCollectionListState
       loadingKey: const ValueKey('profile-world-list-loading'),
       onRefresh: widget.onRefresh,
       refreshKey: const ValueKey('profile-world-list-refresh'),
+      sliverMode: widget.sliverMode,
+      boxMode: widget.boxMode,
       topPadding: 10,
       itemSpacing: 30,
     );

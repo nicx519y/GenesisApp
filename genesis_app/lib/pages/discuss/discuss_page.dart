@@ -171,6 +171,7 @@ class _DiscussPageState extends State<DiscussPage> {
             children: [
               Positioned.fill(
                 child: RefreshIndicator(
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   onRefresh: _refresh,
                   child: NotificationListener<ScrollNotification>(
                     onNotification: _handleScrollNotification,

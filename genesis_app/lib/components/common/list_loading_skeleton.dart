@@ -276,7 +276,7 @@ class _OriginGridSkeleton extends StatelessWidget {
       ),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
+          padding: const EdgeInsets.fromLTRB(2, 5, 2, 0),
           sliver: SliverLayoutBuilder(
             builder: (context, constraints) {
               const crossAxisSpacing = 2.0;

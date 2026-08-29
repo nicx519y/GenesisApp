@@ -26,6 +26,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/components/secend_tabs.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
+import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
@@ -1383,6 +1384,9 @@ class _RecordingV1ListTransport implements HttpTransport {
 }
 
 class _UserInfoRefreshTransport implements HttpTransport {
+  _UserInfoRefreshTransport({this.initialItemCount = 1});
+
+  final int initialItemCount;
   final requests = <TransportRequest>[];
   final Completer<TransportResponse> _originRefreshCompleter =
       Completer<TransportResponse>();
@@ -1416,8 +1420,14 @@ class _UserInfoRefreshTransport implements HttpTransport {
       originListRequests += 1;
       if (originListRequests == 1) {
         return _v1Response({
-          'list': [_originListItem('o_old', 'Origin Old')],
-          'total': 1,
+          'list': [
+            for (var index = 0; index < initialItemCount; index += 1)
+              _originListItem(
+                index == 0 ? 'o_old' : 'o_old_$index',
+                index == 0 ? 'Origin Old' : 'Origin Old $index',
+              ),
+          ],
+          'total': initialItemCount,
         });
       }
       return _originRefreshCompleter.future;
@@ -1426,8 +1436,14 @@ class _UserInfoRefreshTransport implements HttpTransport {
       worldListRequests += 1;
       if (worldListRequests == 1) {
         return _v1Response({
-          'list': [_worldListItem('w_old', 'World Old')],
-          'total': 1,
+          'list': [
+            for (var index = 0; index < initialItemCount; index += 1)
+              _worldListItem(
+                index == 0 ? 'w_old' : 'w_old_$index',
+                index == 0 ? 'World Old' : 'World Old $index',
+              ),
+          ],
+          'total': initialItemCount,
         });
       }
       return _worldRefreshCompleter.future;
@@ -2957,77 +2973,78 @@ void main() {
     },
   );
 
-  testWidgets('Home refreshes on tab reentry, foreground, and route return', (
-    WidgetTester tester,
-  ) async {
-    AppStartupCoordinator.resetForTesting();
-    addTearDown(AppStartupCoordinator.resetForTesting);
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      GenesisApp(
-        initialIndex: 1,
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialUid: 'u_test',
-          initialAuthToken: 'backend-token',
+  testWidgets(
+    'Home refreshes on tab reentry and foreground, not route return',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        GenesisApp(
+          initialIndex: 1,
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialUid: 'u_test',
+            initialAuthToken: 'backend-token',
+          ),
         ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Home'));
-    await tester.pumpAndSettle();
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
 
-    final initialRequestCount = transport
-        .requestsFor('/api/v1/world/list')
-        .length;
-    expect(initialRequestCount, greaterThan(0));
+      final initialRequestCount = transport
+          .requestsFor('/api/v1/world/list')
+          .length;
+      expect(initialRequestCount, greaterThan(0));
 
-    await tester.tap(find.text('Worldo'));
-    await tester.pumpAndSettle();
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount),
-    );
+      await tester.tap(find.text('Worldo'));
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount),
+      );
 
-    await tester.tap(find.text('Home'));
-    await tester.pumpAndSettle();
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount + 1),
-    );
+      await tester.tap(find.text('Home'));
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 1),
+      );
 
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
-    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pumpAndSettle();
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount + 2),
-    );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 2),
+      );
 
-    final shellContext = tester.element(find.byType(AppShellPage));
-    Navigator.of(shellContext).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const Scaffold(body: Text('Covered Home')),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount + 2),
-    );
+      final shellContext = tester.element(find.byType(AppShellPage));
+      Navigator.of(shellContext).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Covered Home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 2),
+      );
 
-    Navigator.of(tester.element(find.text('Covered Home'))).pop();
-    await tester.pumpAndSettle();
+      Navigator.of(tester.element(find.text('Covered Home'))).pop();
+      await tester.pumpAndSettle();
 
-    expect(
-      transport.requestsFor('/api/v1/world/list'),
-      hasLength(initialRequestCount + 3),
-    );
-    await tester.pumpWidget(const SizedBox.shrink());
-    AppStartupCoordinator.resetForTesting();
-  });
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 2),
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      AppStartupCoordinator.resetForTesting();
+    },
+  );
 
   testWidgets('AppShell contains background billing recovery failures', (
     WidgetTester tester,
@@ -3314,9 +3331,97 @@ void main() {
 
     final searchRect = tester.getRect(find.byType(SearchBarPlaceholder));
     final headerRect = tester.getRect(find.byType(GenesisTopSafeArea));
+    final gemEntryFinder = find.byKey(
+      const ValueKey<String>('home-gem-wallet-entry'),
+    );
 
     expect(searchRect.top, 12);
+    expect(searchRect.left, 62);
     expect(headerRect.bottom - searchRect.bottom, 6);
+    expect(tester.getSize(gemEntryFinder), const Size.square(36));
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey<String>('home-gem-wallet-icon')))
+          .height,
+      30,
+    );
+  });
+
+  testWidgets('Home Gem entry opens Buy Gems', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(useMock: true),
+        child: MaterialApp(
+          home: const HomePage(),
+          routes: {
+            RouteNames.gemWallet: (_) => const Scaffold(body: Text('Buy Gems')),
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('home-gem-wallet-entry')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Buy Gems'), findsOneWidget);
+  });
+
+  testWidgets('Home keeps its feed when returning from Buy Gems', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport(worldListTotal: 1);
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+        'list': [transport._worldItem(0)],
+        'total': 1,
+      }),
+    });
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          navigatorObservers: [genesisPageRouteObserver],
+          home: const AppShellPage(initialIndex: 0),
+          routes: {
+            RouteNames.gemWallet: (_) => const Scaffold(body: Text('Buy Gems')),
+          },
+        ),
+      ),
+    );
+
+    for (
+      var i = 0;
+      i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    final homeStateBeforeWallet = tester.state(find.byType(HomePage));
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('home-gem-wallet-entry')),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Buy Gems'), findsOneWidget);
+
+    Navigator.of(tester.element(find.text('Buy Gems'))).pop();
+    await tester.pumpAndSettle();
+
+    expect(tester.state(find.byType(HomePage)), same(homeStateBeforeWallet));
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+    AppStartupCoordinator.resetForTesting();
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('search bar placeholder stays single line with ellipsis', (
@@ -3548,12 +3653,14 @@ void main() {
     expect(find.text('Sign in to continue'), findsOneWidget);
     expect(find.text('Continue with Google'), findsOneWidget);
     expect(find.text('Continue with Apple'), findsOneWidget);
-    expect(find.text('Private chats'), findsNothing);
+    expect(find.text('Private Chats'), findsNothing);
   });
 
   testWidgets('messages tab shows action buttons and section title', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
     await _pumpGenesisApp(tester, initialAuthToken: 'backend-token');
 
     await tester.tap(find.text('Inbox'));
@@ -3561,21 +3668,31 @@ void main() {
 
     expect(find.text('Inbox'), findsNWidgets(2));
     expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('New followers'), findsOneWidget);
+    expect(find.text('Followers'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
-    expect(find.text('Private chats'), findsOneWidget);
+    expect(find.text('Private Chats'), findsOneWidget);
     expect(
       find.image(const AssetImage('assets/custom-icons/png/notification.png')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.image(const AssetImage('assets/custom-icons/png/following.png')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.image(const AssetImage('assets/custom-icons/png/comment.png')),
-      findsOneWidget,
+      findsNothing,
     );
+    final notificationsCard = find.byKey(
+      const ValueKey<String>('message-menu-/message/notifications'),
+    );
+    expect(tester.getSize(notificationsCard).height, 48);
+    final notificationsLabel = tester.widget<Text>(find.text('Notifications'));
+    expect(notificationsLabel.style?.fontSize, 13);
+    expect(notificationsLabel.style?.fontWeight, FontWeight.w600);
+    await tester.pump(const Duration(seconds: 1));
+    AppStartupCoordinator.resetForTesting();
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('messages data polling is skipped while signed out', (
@@ -4260,7 +4377,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Sign in to continue'), findsOneWidget);
-    expect(find.text('Private chats'), findsNothing);
+    expect(find.text('Private Chats'), findsNothing);
   });
 
   testWidgets('messages action button navigates to list page', (
@@ -4292,10 +4409,10 @@ void main() {
     await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('New followers').first);
+    await tester.tap(find.text('Followers').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('New followers'), findsWidgets);
+    expect(find.text('Followers'), findsWidgets);
     expect(find.text('Penny Hardaway'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('message-follow-action-u_mock_peer')),
@@ -5670,6 +5787,278 @@ void main() {
     AppStartupCoordinator.resetForTesting();
   });
 
+  testWidgets('reselecting Home returns My Worlds to top without refreshing', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport();
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+        'list': [
+          for (var index = 0; index < 10; index++) transport._worldItem(index),
+        ],
+        'total': 100,
+      }),
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final feedFinder = find.byKey(
+      const PageStorageKey<String>('home-feed-my-world'),
+    );
+    final scrollableState = tester.state<ScrollableState>(
+      find.descendant(of: feedFinder, matching: find.byType(Scrollable)),
+    );
+    await tester.drag(feedFinder, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(scrollableState.position.pixels, greaterThan(0));
+    final requestCount = transport.requestsFor('/api/v1/world/list').length;
+
+    await tester.tap(
+      find.descendant(of: find.byType(BottomTabs), matching: find.text('Home')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(scrollableState.position.pixels, 0);
+    expect(
+      transport.requestsFor('/api/v1/world/list'),
+      hasLength(requestCount),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+    AppStartupCoordinator.resetForTesting();
+  });
+
+  testWidgets(
+    'Home activation keeps its position when first-page order is unchanged',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(worldListTotal: 30);
+      final activation = ValueNotifier<int>(0);
+      addTearDown(activation.dispose);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: MaterialApp(
+            home: HomePage(
+              activationListenable: activation,
+              initialMyWorldsData: {
+                'list': [
+                  for (var index = 0; index < 30; index++)
+                    transport._worldItem(index),
+                ],
+                'total': 30,
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final feedFinder = find.byKey(
+        const PageStorageKey<String>('home-feed-my-world'),
+      );
+      final scrollableState = tester.state<ScrollableState>(
+        find.descendant(of: feedFinder, matching: find.byType(Scrollable)),
+      );
+      scrollableState.position.jumpTo(scrollableState.position.maxScrollExtent);
+      await tester.pump();
+      expect(scrollableState.position.pixels, greaterThan(0));
+      activation.value += 1;
+      await tester.pumpAndSettle();
+
+      expect(
+        transport
+            .requestsFor('/api/v1/world/list')
+            .where((request) => request.uri.queryParameters['pn'] == '1'),
+        hasLength(1),
+      );
+      expect(scrollableState.position.pixels, greaterThan(0));
+    },
+  );
+
+  testWidgets('Home activation refreshes when existing World order changes', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldListTotal: 30);
+    final activation = ValueNotifier<int>(0);
+    addTearDown(activation.dispose);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          home: HomePage(
+            activationListenable: activation,
+            initialMyWorldsData: {
+              'list': [
+                transport._worldItem(1),
+                transport._worldItem(0),
+                for (var index = 2; index < 30; index++)
+                  transport._worldItem(index),
+              ],
+              'total': 30,
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final feedFinder = find.byKey(
+      const PageStorageKey<String>('home-feed-my-world'),
+    );
+    final scrollableState = tester.state<ScrollableState>(
+      find.descendant(of: feedFinder, matching: find.byType(Scrollable)),
+    );
+    scrollableState.position.jumpTo(scrollableState.position.maxScrollExtent);
+    await tester.pump();
+    expect(scrollableState.position.pixels, greaterThan(0));
+
+    activation.value += 1;
+    await tester.pumpAndSettle();
+
+    expect(
+      transport
+          .requestsFor('/api/v1/world/list')
+          .where((request) => request.uri.queryParameters['pn'] == '1'),
+      hasLength(1),
+    );
+    expect(scrollableState.position.pixels, 0);
+  });
+
+  testWidgets('reselecting Inbox returns the conversation list to top', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_mock');
+    await sessionStore.saveAuthToken('backend-token');
+    final storage = MemoryDirectMessageConversationStorage();
+    await storage.mergeConversations(
+      ownerUid: 'u_mock',
+      conversations: [
+        for (var index = 0; index < 20; index++)
+          _dmConversationJson(
+            convId: 'inbox_$index',
+            peerName: 'Inbox Peer $index',
+            messageId: 'inbox_message_$index',
+            message: 'Inbox preview $index',
+            minutesAgo: index,
+          ),
+      ],
+      nextAfterMessageId: 'inbox_cursor',
+    );
+    final api = GenesisApi(
+      useMock: true,
+      deviceIdService: const _FakeDeviceIdService(),
+      sessionStore: sessionStore,
+    );
+    final conversationStore = DirectMessageConversationStore(
+      api: api,
+      sessionStore: sessionStore,
+      storage: storage,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            sessionStoreOverride: sessionStore,
+            directMessageConversations: conversationStore,
+          ),
+          child: const AppShellPage(initialIndex: 3),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final listFinder = find.byType(ListView).last;
+    final scrollableState = tester.state<ScrollableState>(
+      find.descendant(of: listFinder, matching: find.byType(Scrollable)),
+    );
+    await tester.drag(listFinder, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(scrollableState.position.pixels, greaterThan(0));
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(BottomTabs),
+        matching: find.text('Inbox'),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(scrollableState.position.pixels, 0);
+    await tester.pump(const Duration(seconds: 1));
+    AppStartupCoordinator.resetForTesting();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('reselecting Me returns the profile page to top', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+            initialUserInfo: {
+              'uid': 'u_mock',
+              'name': 'Me Scroll User',
+              'avatar': '',
+              'following_cnt': 1,
+              'follower_cnt': 2,
+            },
+          ),
+          child: const AppShellPage(initialIndex: 4),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final nestedScrollViewFinder = find.byType(NestedScrollView);
+    expect(nestedScrollViewFinder, findsOneWidget);
+    final nestedScrollState = tester.state<NestedScrollViewState>(
+      nestedScrollViewFinder,
+    );
+    await tester.drag(nestedScrollViewFinder, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    expect(nestedScrollState.outerController.position.pixels, greaterThan(0));
+
+    await tester.tap(
+      find.descendant(of: find.byType(BottomTabs), matching: find.text('Me')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(nestedScrollState.outerController.position.pixels, 0);
+    await tester.pump(const Duration(seconds: 1));
+    AppStartupCoordinator.resetForTesting();
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('Origin tab requests cursor feed then tag list', (
     WidgetTester tester,
   ) async {
@@ -5700,7 +6089,7 @@ void main() {
     expect(originRequests.single.uri.queryParameters['tag'], 'Destroyed');
   });
 
-  testWidgets('Origin header only displays the full-width search field', (
+  testWidgets('Origin header displays the compact full logo before search', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -5713,12 +6102,14 @@ void main() {
 
     final searchFinder = find.byType(SearchBarPlaceholder);
     final searchRect = tester.getRect(searchFinder);
+    final logoFinder = find.byKey(const ValueKey<String>('origin-brand-logo'));
 
     expect(
       find.byKey(const ValueKey<String>('origin-gem-wallet-entry')),
       findsNothing,
     );
-    expect(searchRect.left, 16);
+    expect(tester.getSize(logoFinder), const Size(96, 26));
+    expect(searchRect.left, 122);
     expect(
       searchRect.right,
       tester.getSize(find.byType(OriginPage)).width - 16,
@@ -9324,7 +9715,7 @@ void main() {
         matching: find.text('Select to Launch'),
       ),
     );
-    expect(selectLabel.style?.fontSize, 16);
+    expect(selectLabel.style?.fontSize, 14);
     expect(selectLabel.style?.fontWeight, FontWeight.w600);
     expect(
       find.descendant(of: roleToggle, matching: find.byType(InkWell)),
@@ -12805,10 +13196,12 @@ void main() {
     expect(find.text('#Origin Old'), findsOneWidget);
     expect(find.text('#Origin New'), findsNothing);
 
+    final pageRefresh = find.descendant(
+      of: find.byKey(const ValueKey('profile-page-refresh')),
+      matching: find.byType(RefreshIndicator),
+    );
     var refreshFuture = tester
-        .widget<RefreshIndicator>(
-          find.byKey(const ValueKey('profile-origin-list-refresh')),
-        )
+        .widget<RefreshIndicator>(pageRefresh)
         .onRefresh();
     await tester.pump();
 
@@ -12823,29 +13216,128 @@ void main() {
     expect(find.text('#Origin Old'), findsNothing);
     expect(find.text('#Origin New'), findsOneWidget);
 
-    await tester.tap(find.text('World'));
+    await tester.tap(find.text('Playing'));
     await tester.pumpAndSettle();
 
-    expect(find.text('#World Old'), findsOneWidget);
-    expect(find.text('#World New'), findsNothing);
+    expect(find.text('World Old'), findsOneWidget);
+    expect(find.text('World New'), findsNothing);
 
-    refreshFuture = tester
-        .widget<RefreshIndicator>(
-          find.byKey(const ValueKey('profile-world-list-refresh')),
-        )
-        .onRefresh();
+    refreshFuture = tester.widget<RefreshIndicator>(pageRefresh).onRefresh();
     await tester.pump();
 
-    expect(transport.worldListRequests, 2);
-    expect(find.text('#World Old'), findsOneWidget);
-    expect(find.text('#World New'), findsNothing);
+    expect(transport.worldListRequests, 3);
+    expect(find.text('World Old'), findsOneWidget);
+    expect(find.text('World New'), findsNothing);
 
     transport.completeWorldRefresh();
     await tester.pumpAndSettle();
     await refreshFuture;
 
-    expect(find.text('#World Old'), findsNothing);
-    expect(find.text('#World New'), findsOneWidget);
+    expect(find.text('World Old'), findsNothing);
+    expect(find.text('World New'), findsOneWidget);
+  });
+
+  testWidgets('Me pull gesture refreshes from the whole profile top', (
+    WidgetTester tester,
+  ) async {
+    final transport = _UserInfoRefreshTransport(initialItemCount: 8);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: 'u_me_refresh',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const MePage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(transport.originListRequests, 1);
+    final pageScroll = find.byType(CustomScrollView);
+    final scrollable = tester.state<ScrollableState>(
+      find.descendant(of: pageScroll, matching: find.byType(Scrollable)).first,
+    );
+
+    await tester.drag(pageScroll, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(scrollable.position.pixels, greaterThan(0));
+
+    var gesture = await tester.startGesture(tester.getCenter(pageScroll));
+    await gesture.moveBy(const Offset(0, 40));
+    await tester.pump();
+    scrollable.position.jumpTo(0);
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 300));
+    await tester.pump();
+    await gesture.up();
+    await tester.pumpAndSettle();
+
+    expect(scrollable.position.pixels, closeTo(0, 0.5));
+    expect(transport.originListRequests, 1);
+
+    gesture = await tester.startGesture(tester.getCenter(pageScroll));
+    await gesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await gesture.moveBy(const Offset(0, 500));
+    await tester.pump();
+    await gesture.up();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump();
+
+    expect(transport.originListRequests, 2);
+    transport.completeOriginRefresh();
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin New'), findsOneWidget);
+  });
+
+  testWidgets('Me collection tabs still switch with horizontal swipes', (
+    WidgetTester tester,
+  ) async {
+    final transport = _UserInfoRefreshTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: 'u_me_refresh',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const MePage(),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final page = find.byType(TabBarView);
+    expect(find.text('#Origin Old'), findsOneWidget);
+
+    final tabView = tester.widget<TabBarView>(page);
+    final tabController = tabView.controller!;
+    final gesture = await tester.startGesture(tester.getCenter(page));
+    await gesture.moveBy(const Offset(-20, 0));
+    await tester.pump();
+    await gesture.moveBy(const Offset(-160, 0));
+    await tester.pump();
+    expect(tabController.animation!.value, greaterThan(0));
+    expect(tabController.animation!.value, lessThan(1));
+    await gesture.moveBy(const Offset(-350, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(find.text('World Old'), findsOneWidget);
+
+    await tester.fling(page, const Offset(500, 0), 1000);
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin Old'), findsOneWidget);
   });
 
   test('remote user info with same rendered fields is ignored', () {
@@ -14346,7 +14838,7 @@ void main() {
       );
       final narratorColor =
           (narratorContainer.decoration as BoxDecoration).color!;
-      expect(narratorColor, kLocationChatStyle.systemMessageBackgroundColor);
+      expect(narratorColor, kOpeningDialogueStyle.systemMessageBackgroundColor);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
         findsOneWidget,
@@ -14872,7 +15364,10 @@ void main() {
       final narratorUser = find.byKey(
         const ValueKey<String>('opening-dialogue-0-insert-user'),
       );
-      final narratorBold = find.byKey(
+      final narratorAsterisk = find.byKey(
+        const ValueKey<String>('opening-dialogue-0-insert-asterisk'),
+      );
+      final narratorLegacyBold = find.byKey(
         const ValueKey<String>('opening-dialogue-0-insert-bold'),
       );
       final narratorTextField = tester.widget<TextField>(narratorField);
@@ -14880,7 +15375,8 @@ void main() {
       expect(narratorTextField.decoration?.counterText, isEmpty);
       expect(narratorTextField.readOnly, isFalse);
       expect(narratorUser, findsOneWidget);
-      expect(narratorBold, findsOneWidget);
+      expect(narratorAsterisk, findsNothing);
+      expect(narratorLegacyBold, findsNothing);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-save-edit')),
         findsNothing,
@@ -14895,7 +15391,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<TextField>(narratorField).readOnly, isFalse);
       expect(narratorUser, findsOneWidget);
-      expect(narratorBold, findsOneWidget);
+      expect(narratorAsterisk, findsNothing);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
         findsOneWidget,
@@ -14911,22 +15407,9 @@ void main() {
         tester.widget<Row>(narratorActions).mainAxisSize,
         MainAxisSize.min,
       );
-      expect(
-        tester.getTopLeft(narratorUser).dy,
-        closeTo(tester.getTopLeft(narratorBold).dy, 0.01),
-      );
-      expect(
-        tester.getTopLeft(narratorBold).dx -
-            tester.getTopRight(narratorUser).dx,
-        closeTo(10, 0.01),
-      );
       final narratorUserLabel = find.descendant(
         of: narratorUser,
         matching: find.text('{{user}}'),
-      );
-      final narratorBoldLabel = find.descendant(
-        of: narratorBold,
-        matching: find.text('* *'),
       );
       final narratorButtonDecoration =
           tester
@@ -14954,18 +15437,8 @@ void main() {
         closeTo(12, 0.01),
       );
       expect(
-        tester.getSize(narratorBold).width -
-            tester.getSize(narratorBoldLabel).width,
-        closeTo(12, 0.01),
-      );
-      expect(
         tester.getSize(narratorUser).height -
             tester.getSize(narratorUserLabel).height,
-        closeTo(8, 0.01),
-      );
-      expect(
-        tester.getSize(narratorBold).height -
-            tester.getSize(narratorBoldLabel).height,
         closeTo(8, 0.01),
       );
 
@@ -14983,29 +15456,13 @@ void main() {
       expect(narratorController.selection.extentOffset, 14);
       expect(find.text('19/500'), findsOneWidget);
 
-      narratorController.value = const TextEditingValue(
-        text: 'Hello world',
-        selection: TextSelection.collapsed(offset: 6),
-      );
-      await tester.tap(narratorBold);
-      await tester.pump();
-      expect(narratorController.text, 'Hello **world');
-      expect(narratorController.selection.baseOffset, 7);
-      expect(narratorController.selection.extentOffset, 7);
-      expect(find.text('13/500'), findsOneWidget);
-
       final maxLengthText = List<String>.filled(501, 'a').join();
       await tester.enterText(narratorField, maxLengthText);
       await tester.pump();
       expect(narratorController.text.characters.length, 500);
       expect(find.text('500/500'), findsOneWidget);
-      await tester.tap(narratorBold);
-      await tester.pump();
-      expect(narratorController.text.characters.length, 500);
-      expect(narratorController.selection.baseOffset, 500);
-      expect(narratorController.selection.extentOffset, 500);
       expect(narratorUser, findsOneWidget);
-      expect(narratorBold, findsOneWidget);
+      expect(narratorAsterisk, findsNothing);
       expect(tester.widget<TextField>(narratorField).readOnly, isFalse);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
@@ -15026,13 +15483,13 @@ void main() {
       final characterUser = find.byKey(
         const ValueKey<String>('opening-dialogue-1-insert-user'),
       );
-      final characterBold = find.byKey(
-        const ValueKey<String>('opening-dialogue-1-insert-bold'),
+      final characterAsterisk = find.byKey(
+        const ValueKey<String>('opening-dialogue-1-insert-asterisk'),
       );
       expect(tester.widget<TextField>(characterField).maxLength, 500);
       expect(tester.widget<TextField>(characterField).readOnly, isFalse);
       expect(characterUser, findsOneWidget);
-      expect(characterBold, findsOneWidget);
+      expect(characterAsterisk, findsOneWidget);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-1-delete')),
         findsOneWidget,
@@ -15042,7 +15499,7 @@ void main() {
       await tester.tap(characterField);
       await tester.pump();
       expect(characterUser, findsOneWidget);
-      expect(characterBold, findsOneWidget);
+      expect(characterAsterisk, findsOneWidget);
       expect(tester.widget<TextField>(characterField).readOnly, isFalse);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-1-save-edit')),
@@ -15053,7 +15510,7 @@ void main() {
         findsOneWidget,
       );
       expect(narratorUser, findsOneWidget);
-      expect(narratorBold, findsOneWidget);
+      expect(narratorAsterisk, findsNothing);
       expect(
         find.byKey(
           const ValueKey<String>('opening-dialogue-1-character-count'),
@@ -15094,12 +15551,17 @@ void main() {
         text: 'Hi',
         selection: TextSelection.collapsed(offset: 2),
       );
-      await tester.tap(characterBold);
+      final characterAsteriskLabel = find.descendant(
+        of: characterAsterisk,
+        matching: find.text('*'),
+      );
+      expect(characterAsteriskLabel, findsOneWidget);
+      await tester.tap(characterAsterisk);
       await tester.pump();
-      expect(characterController.text, 'Hi**');
+      expect(characterController.text, 'Hi*');
       expect(characterController.selection.baseOffset, 3);
       expect(characterController.selection.extentOffset, 3);
-      expect(find.text('4/500'), findsOneWidget);
+      expect(find.text('3/500'), findsOneWidget);
     },
   );
 
@@ -15528,6 +15990,10 @@ void main() {
       ),
     );
     expect(charactersTitle, findsOneWidget);
+    expect(
+      tester.widget<Text>(charactersTitle).style?.fontWeight,
+      FontWeight.w600,
+    );
     expect(charactersCompleted, findsNothing);
     expect(
       tester.getTopRight(find.text('1 characters: Tff')).dx,

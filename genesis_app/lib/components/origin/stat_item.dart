@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../icons/custom_icon_assets.dart';
-
 class StatItem extends StatelessWidget {
   const StatItem({
     super.key,

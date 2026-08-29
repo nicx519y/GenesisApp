@@ -14,6 +14,7 @@ import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_unread_badge.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
+import '../../ui/tokens/genesis_colors.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import 'message_category_list_page.dart';
@@ -24,12 +25,14 @@ class MessagesPage extends StatefulWidget {
     this.unreadSummary = UnreadSummary.zero,
     this.onMessagesDataRefresh,
     this.isActiveListenable,
+    this.reselectionListenable,
     this.nowProvider,
   });
 
   final UnreadSummary unreadSummary;
   final Future<void> Function()? onMessagesDataRefresh;
   final ValueListenable<bool>? isActiveListenable;
+  final ValueListenable<int>? reselectionListenable;
   @visibleForTesting
   final DateTime Function()? nowProvider;
 
@@ -54,6 +57,7 @@ class _MessagesPageState extends State<MessagesPage> {
     ).directMessageConversations;
     _timeLabelNow = _now();
     widget.isActiveListenable?.addListener(_handleActiveChanged);
+    widget.reselectionListenable?.addListener(_handleMainNavReselected);
     _timeRefreshTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       _refreshTimeLabels();
     });
@@ -69,15 +73,21 @@ class _MessagesPageState extends State<MessagesPage> {
   @override
   void didUpdateWidget(covariant MessagesPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.isActiveListenable == widget.isActiveListenable) return;
-    oldWidget.isActiveListenable?.removeListener(_handleActiveChanged);
-    widget.isActiveListenable?.addListener(_handleActiveChanged);
-    if (_isActive) _refreshTimeLabels();
+    if (oldWidget.isActiveListenable != widget.isActiveListenable) {
+      oldWidget.isActiveListenable?.removeListener(_handleActiveChanged);
+      widget.isActiveListenable?.addListener(_handleActiveChanged);
+      if (_isActive) _refreshTimeLabels();
+    }
+    if (oldWidget.reselectionListenable != widget.reselectionListenable) {
+      oldWidget.reselectionListenable?.removeListener(_handleMainNavReselected);
+      widget.reselectionListenable?.addListener(_handleMainNavReselected);
+    }
   }
 
   @override
   void dispose() {
     widget.isActiveListenable?.removeListener(_handleActiveChanged);
+    widget.reselectionListenable?.removeListener(_handleMainNavReselected);
     _conversationPoller?.stop();
     _timeRefreshTimer?.cancel();
     _scrollController.dispose();
@@ -88,6 +98,19 @@ class _MessagesPageState extends State<MessagesPage> {
 
   void _handleActiveChanged() {
     if (_isActive) _refreshTimeLabels();
+  }
+
+  void _handleMainNavReselected() {
+    if (!_isActive || !_scrollController.hasClients) return;
+    final position = _scrollController.position;
+    if (position.pixels <= position.minScrollExtent) return;
+    unawaited(
+      position.animateTo(
+        position.minScrollExtent,
+        duration: const Duration(milliseconds: 240),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _refreshTimeLabels() {
@@ -168,75 +191,138 @@ class _MessagesPageState extends State<MessagesPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const PageHeader(pageName: 'Inbox', showSearchBar: false),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _MessageMenuButton(
-                  iconAsset: 'assets/custom-icons/png/notification.png',
-                  backgroundColor: Color(0xFFDDF2EF),
-                  label: 'Notifications',
-                  routeName: RouteNames.notifications,
-                  block: 'world_apply',
-                  emptyText: 'No notifications yet.',
-                  unreadCount: unreadSummary.systemUnread,
-                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
-                ),
-                _MessageMenuButton(
-                  iconAsset: 'assets/custom-icons/png/following.png',
-                  backgroundColor: Color(0xFFFFF0D8),
-                  label: 'New followers',
-                  routeName: RouteNames.newFollowers,
-                  block: 'follow',
-                  emptyText: 'No new followers yet.',
-                  unreadCount: unreadSummary.followerUnread,
-                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
-                ),
-                _MessageMenuButton(
-                  iconAsset: 'assets/custom-icons/png/comment.png',
-                  backgroundColor: Color(0xFFE9F0FF),
-                  label: 'Comments',
-                  routeName: RouteNames.comments,
-                  block: 'interaction',
-                  emptyText: 'No comments yet.',
-                  unreadCount: unreadSummary.commentUnread,
-                  onMessagesDataRefresh: widget.onMessagesDataRefresh,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 18),
-            child: const Text(
-              'Private chats',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-            ),
-          ),
-          const SizedBox(height: 8),
           Expanded(
             child: ValueListenableBuilder<List<String>>(
               valueListenable: _conversationStore.orderedConversationIds,
               builder: (context, conversationIds, _) {
-                if (!_loadedLocalConversations) {
-                  return const Center(child: CircularProgressIndicator());
-                }
                 return RefreshIndicator(
+                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
                   onRefresh: _refreshMessagesData,
-                  child: conversationIds.isEmpty
-                      ? const _NoMessagesFooter()
-                      : _ConversationList(
-                          controller: _scrollController,
-                          conversationIds: conversationIds,
-                          conversationStore: _conversationStore,
-                          onTap: _openConversation,
-                          timeLabelNow: _timeLabelNow,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const BouncingScrollPhysics(
+                      parent: AlwaysScrollableScrollPhysics(),
+                    ),
+                    slivers: [
+                      const SliverToBoxAdapter(child: SizedBox(height: 10)),
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _MessageMenuButton(
+                                  label: 'Notifications',
+                                  routeName: RouteNames.notifications,
+                                  block: 'world_apply',
+                                  emptyText: 'No notifications yet.',
+                                  unreadCount: unreadSummary.systemUnread,
+                                  onMessagesDataRefresh:
+                                      widget.onMessagesDataRefresh,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _MessageMenuButton(
+                                  label: 'Followers',
+                                  routeName: RouteNames.newFollowers,
+                                  block: 'follow',
+                                  emptyText: 'No new followers yet.',
+                                  unreadCount: unreadSummary.followerUnread,
+                                  onMessagesDataRefresh:
+                                      widget.onMessagesDataRefresh,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _MessageMenuButton(
+                                  label: 'Comments',
+                                  routeName: RouteNames.comments,
+                                  block: 'interaction',
+                                  emptyText: 'No comments yet.',
+                                  unreadCount: unreadSummary.commentUnread,
+                                  onMessagesDataRefresh:
+                                      widget.onMessagesDataRefresh,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                      const SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 18),
+                          child: Text(
+                            'Private Chats',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SliverToBoxAdapter(child: SizedBox(height: 8)),
+                      if (!_loadedLocalConversations)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (conversationIds.isEmpty)
+                        const SliverFillRemaining(
+                          hasScrollBody: false,
+                          child: Center(
+                            key: ValueKey('direct-messages-empty-state'),
+                            child: Text(
+                              'Chat with your friends on Worldo.',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Color(0xFF8A8A8A),
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        )
+                      else
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(
+                            18,
+                            0,
+                            18,
+                            18 + GenesisSafeAreaInsets.bottom(context),
+                          ),
+                          sliver: SliverList(
+                            delegate: SliverChildBuilderDelegate((
+                              context,
+                              index,
+                            ) {
+                              final conversationId = conversationIds[index];
+                              final listenable = _conversationStore
+                                  .rowListenable(conversationId);
+                              if (listenable == null) {
+                                return const SizedBox.shrink();
+                              }
+                              return ValueListenableBuilder<
+                                DirectMessageConversationRecord
+                              >(
+                                key: ValueKey(conversationId),
+                                valueListenable: listenable,
+                                builder: (context, item, _) =>
+                                    _ConversationTile(
+                                      item: item,
+                                      onTap: _openConversation,
+                                      displayTime: item.lastMessageAtTime,
+                                      displayTimeFallback: item.lastMessageAt,
+                                      displayTimeNow: _timeLabelNow,
+                                    ),
+                              );
+                            }, childCount: conversationIds.length),
+                          ),
+                        ),
+                    ],
+                  ),
                 );
               },
             ),
@@ -249,8 +335,6 @@ class _MessagesPageState extends State<MessagesPage> {
 
 class _MessageMenuButton extends StatelessWidget {
   const _MessageMenuButton({
-    required this.iconAsset,
-    required this.backgroundColor,
     required this.label,
     required this.routeName,
     required this.block,
@@ -259,8 +343,6 @@ class _MessageMenuButton extends StatelessWidget {
     required this.onMessagesDataRefresh,
   });
 
-  final String iconAsset;
-  final Color backgroundColor;
   final String label;
   final String routeName;
   final String block;
@@ -270,11 +352,12 @@ class _MessageMenuButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 96,
-      height: 80,
+    return Material(
+      key: ValueKey<String>('message-menu-$routeName'),
+      color: GenesisColors.surfacePanel,
+      borderRadius: BorderRadius.circular(8),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             settings: RouteSettings(name: routeName),
@@ -286,113 +369,40 @@ class _MessageMenuButton extends StatelessWidget {
             ),
           ),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 46,
-              height: 46,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  Container(
-                    width: 46,
-                    height: 46,
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    alignment: Alignment.center,
-                    child: Image.asset(
-                      iconAsset,
-                      width: 24,
-                      height: 24,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
-                    ),
+        child: SizedBox(
+          height: 48,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  softWrap: false,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF111111),
                   ),
-                  Positioned(
-                    top: 0,
-                    right: 0,
-                    child: Transform.translate(
-                      offset: const Offset(4, -4),
-                      child: GenesisUnreadBadge(
-                        key: ValueKey('message-menu-$routeName-unread-badge'),
-                        count: unreadCount,
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: const TextStyle(
-                fontSize: 12,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                color: Colors.black87,
+              Positioned(
+                top: -5,
+                right: -5,
+                child: GenesisUnreadBadge(
+                  key: ValueKey('message-menu-$routeName-unread-badge'),
+                  count: unreadCount,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    );
-  }
-}
-
-class _ConversationList extends StatelessWidget {
-  const _ConversationList({
-    required this.controller,
-    required this.conversationIds,
-    required this.conversationStore,
-    required this.onTap,
-    required this.timeLabelNow,
-  });
-
-  final ScrollController controller;
-  final List<String> conversationIds;
-  final DirectMessageConversationStore conversationStore;
-  final Future<void> Function(DirectMessageConversationRecord item) onTap;
-  final DateTime timeLabelNow;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView.separated(
-      controller: controller,
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      padding: EdgeInsets.only(
-        left: 18,
-        right: 18,
-        top: 0,
-        bottom: 18 + GenesisSafeAreaInsets.bottom(context),
-      ),
-      itemCount: conversationIds.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 0),
-      itemBuilder: (context, index) {
-        final conversationId = conversationIds[index];
-        final listenable = conversationStore.rowListenable(conversationId);
-        if (listenable == null) return const SizedBox.shrink();
-        return ValueListenableBuilder<DirectMessageConversationRecord>(
-          key: ValueKey(conversationId),
-          valueListenable: listenable,
-          builder: (context, item, _) => _ConversationTile(
-            item: item,
-            onTap: onTap,
-            displayTime: item.lastMessageAtTime,
-            displayTimeFallback: item.lastMessageAt,
-            displayTimeNow: timeLabelNow,
-          ),
-        );
-      },
     );
   }
 }
@@ -552,33 +562,6 @@ class _Avatar extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _NoMessagesFooter extends StatelessWidget {
-  const _NoMessagesFooter();
-
-  @override
-  Widget build(BuildContext context) {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      children: [
-        SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.45 - 4,
-          child: const Center(
-            key: ValueKey('direct-messages-empty-state'),
-            child: Text(
-              'Chat with your friends on Worldo.',
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF8A8A8A),
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

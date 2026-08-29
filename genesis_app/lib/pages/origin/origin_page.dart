@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
@@ -259,6 +260,19 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                               offset: const Offset(0, 5),
                               child: Row(
                                 children: [
+                                  SizedBox(
+                                    key: const ValueKey<String>(
+                                      'origin-brand-logo',
+                                    ),
+                                    width: 96,
+                                    height: 26,
+                                    child: SvgPicture.asset(
+                                      'assets/svg/worldo-logo.svg',
+                                      fit: BoxFit.contain,
+                                      semanticsLabel: 'Worldo',
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
                                   Expanded(
                                     child: SearchBarPlaceholder(
                                       onTap: () {
@@ -1200,6 +1214,7 @@ class _OriginFeedState extends State<_OriginFeed>
     }
 
     return RefreshIndicator(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       onRefresh: _refreshFromPull,
       child: _items.isEmpty
           ? CustomScrollView(

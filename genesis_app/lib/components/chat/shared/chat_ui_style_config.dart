@@ -147,6 +147,8 @@ class ChatUiStyleConfig {
     required this.bubbleTextStyle,
     // Whether messages use the Location Chat scene-plate geometry.
     this.useScenePlateBubbleGeometry = false,
+    // Whether scene-plate narrator messages use the configured system colors.
+    this.useConfiguredScenePlateSystemStyle = false,
     // Backdrop blur for Location Chat message plates.
     this.bubbleBackdropBlurSigma = 0,
     // Avatar size.
@@ -527,6 +529,8 @@ class ChatUiStyleConfig {
   final TextStyle bubbleTextStyle;
   // Whether messages use the Location Chat scene-plate geometry.
   final bool useScenePlateBubbleGeometry;
+  // Whether scene-plate narrator messages use the configured system colors.
+  final bool useConfiguredScenePlateSystemStyle;
   // Backdrop blur for Location Chat message plates.
   final double bubbleBackdropBlurSigma;
   // Avatar size.
@@ -605,6 +609,7 @@ class ChatUiStyleConfig {
     Color? otherBubbleColor,
     TextStyle? bubbleTextStyle,
     bool? useScenePlateBubbleGeometry,
+    bool? useConfiguredScenePlateSystemStyle,
     double? bubbleBackdropBlurSigma,
     TextStyle? avatarTextStyle,
     EdgeInsets? systemMessageMargin,
@@ -724,6 +729,9 @@ class ChatUiStyleConfig {
       bubbleTextStyle: bubbleTextStyle ?? this.bubbleTextStyle,
       useScenePlateBubbleGeometry:
           useScenePlateBubbleGeometry ?? this.useScenePlateBubbleGeometry,
+      useConfiguredScenePlateSystemStyle:
+          useConfiguredScenePlateSystemStyle ??
+          this.useConfiguredScenePlateSystemStyle,
       bubbleBackdropBlurSigma:
           bubbleBackdropBlurSigma ?? this.bubbleBackdropBlurSigma,
       avatarSize: avatarSize ?? this.avatarSize,
