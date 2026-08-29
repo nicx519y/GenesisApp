@@ -3667,7 +3667,7 @@ void main() {
 
     expect(find.text('Inbox'), findsNWidgets(2));
     expect(find.text('Notifications'), findsOneWidget);
-    expect(find.text('New\nFollowers'), findsOneWidget);
+    expect(find.text('Followers'), findsOneWidget);
     expect(find.text('Comments'), findsOneWidget);
     expect(find.text('Private Chats'), findsOneWidget);
     expect(
@@ -4408,10 +4408,10 @@ void main() {
     await tester.tap(find.text('Inbox'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('New\nFollowers').first);
+    await tester.tap(find.text('Followers').first);
     await tester.pumpAndSettle();
 
-    expect(find.text('New followers'), findsWidgets);
+    expect(find.text('Followers'), findsWidgets);
     expect(find.text('Penny Hardaway'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('message-follow-action-u_mock_peer')),

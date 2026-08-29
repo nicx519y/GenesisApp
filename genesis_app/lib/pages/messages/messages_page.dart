@@ -226,8 +226,7 @@ class _MessagesPageState extends State<MessagesPage> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: _MessageMenuButton(
-                                  label: 'New followers',
-                                  displayLabel: 'New\nFollowers',
+                                  label: 'Followers',
                                   routeName: RouteNames.newFollowers,
                                   block: 'follow',
                                   emptyText: 'No new followers yet.',
@@ -337,7 +336,6 @@ class _MessagesPageState extends State<MessagesPage> {
 class _MessageMenuButton extends StatelessWidget {
   const _MessageMenuButton({
     required this.label,
-    this.displayLabel,
     required this.routeName,
     required this.block,
     required this.emptyText,
@@ -346,7 +344,6 @@ class _MessageMenuButton extends StatelessWidget {
   });
 
   final String label;
-  final String? displayLabel;
   final String routeName;
   final String block;
   final String emptyText;
@@ -381,11 +378,11 @@ class _MessageMenuButton extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: Text(
-                  displayLabel ?? label,
+                  label,
                   textAlign: TextAlign.center,
-                  maxLines: displayLabel == null ? 1 : 2,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  softWrap: displayLabel != null,
+                  softWrap: false,
                   style: const TextStyle(
                     fontSize: 13,
                     height: 1.2,
