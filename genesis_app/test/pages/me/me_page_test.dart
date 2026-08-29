@@ -466,6 +466,84 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets(
+    'switching from a pinned long collection resets a short collection to top',
+    (tester) async {
+      tester.view.physicalSize = const Size(480, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final origins = List<UserProfileOriginItem>.generate(
+        12,
+        (index) => UserProfileOriginItem(
+          originId: index,
+          oid: 'oid_$index',
+          title: 'Worldo $index',
+          subtitle: '',
+          imageUrl: '',
+          copyCount: 0,
+          interactCount: 0,
+          characterCount: 0,
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: UserProfileContent(
+              data: UserProfileData(
+                avatarUrl: '',
+                displayName: 'User',
+                uid: 'u_user',
+                followingCount: 0,
+                followerCount: 0,
+                origins: origins,
+                worlds: const <UserProfileWorldItem>[
+                  UserProfileWorldItem(
+                    wid: 'wid_short',
+                    title: 'Short World',
+                    subtitle: '',
+                    imageUrl: '',
+                    progressCount: 0,
+                    interactCount: 0,
+                    characterCount: 0,
+                    playerCount: 0,
+                    ownerName: 'User',
+                  ),
+                ],
+              ),
+              originTabLabel: 'Worldo',
+              worldTabLabel: 'Playing',
+              onRefresh: () async {},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final page = find.byType(NestedScrollView);
+      await tester.drag(page, const Offset(0, -520));
+      await tester.pumpAndSettle();
+
+      final tabBar = find.byType(TabBar);
+      expect(tester.getTopLeft(tabBar).dy, closeTo(5, 0.1));
+
+      await tester.tap(find.text('Playing'));
+      await tester.pumpAndSettle();
+
+      final shortCard = find.ancestor(
+        of: find.text('Short World'),
+        matching: find.byType(GenesisProfileCollectionListItem),
+      );
+      expect(shortCard, findsOneWidget);
+      expect(
+        tester.getTopLeft(shortCard).dy,
+        greaterThanOrEqualTo(tester.getBottomLeft(tabBar).dy + 9.5),
+      );
+    },
+  );
+
   testWidgets('self Worldo edit icon opens the edit page directly', (
     tester,
   ) async {

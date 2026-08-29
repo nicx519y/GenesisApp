@@ -15,6 +15,7 @@ class ProfileCollectionList extends StatefulWidget {
     this.onRefresh,
     this.refreshKey,
     this.sliverMode = false,
+    this.injectNestedOverlap = false,
     this.alwaysScrollable = false,
     this.topPadding = 12,
     this.itemSpacing = 24,
@@ -29,6 +30,7 @@ class ProfileCollectionList extends StatefulWidget {
   final Future<void> Function()? onRefresh;
   final Key? refreshKey;
   final bool sliverMode;
+  final bool injectNestedOverlap;
   final bool alwaysScrollable;
   final double topPadding;
   final double itemSpacing;
@@ -100,15 +102,37 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       );
     }
 
-    final list = ListView.builder(
-      itemCount: widget.items.length,
-      physics: widget.onRefresh != null || widget.alwaysScrollable
-          ? const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
-          : const BouncingScrollPhysics(),
-      clipBehavior: Clip.hardEdge,
-      padding: listPadding,
-      itemBuilder: _buildItem,
-    );
+    final physics = widget.onRefresh != null || widget.alwaysScrollable
+        ? const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics())
+        : const BouncingScrollPhysics();
+    final list = widget.injectNestedOverlap
+        ? CustomScrollView(
+            physics: physics,
+            clipBehavior: Clip.hardEdge,
+            slivers: [
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
+                ),
+              ),
+              SliverPadding(
+                padding: listPadding,
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    _buildItem,
+                    childCount: widget.items.length,
+                  ),
+                ),
+              ),
+            ],
+          )
+        : ListView.builder(
+            itemCount: widget.items.length,
+            physics: physics,
+            clipBehavior: Clip.hardEdge,
+            padding: listPadding,
+            itemBuilder: _buildItem,
+          );
     return _wrapRefreshIndicator(list);
   }
 
@@ -156,17 +180,26 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       return Center(child: child);
     }
 
-    final list = ListView(
-      physics: const BouncingScrollPhysics(
-        parent: AlwaysScrollableScrollPhysics(),
-      ),
-      children: [
-        SizedBox(
-          height: MediaQuery.sizeOf(context).height * 0.45,
-          child: Center(child: child),
-        ),
-      ],
+    const physics = BouncingScrollPhysics(
+      parent: AlwaysScrollableScrollPhysics(),
     );
+    final placeholder = SizedBox(
+      height: MediaQuery.sizeOf(context).height * 0.45,
+      child: Center(child: child),
+    );
+    final list = widget.injectNestedOverlap
+        ? CustomScrollView(
+            physics: physics,
+            slivers: [
+              SliverOverlapInjector(
+                handle: NestedScrollView.sliverOverlapAbsorberHandleFor(
+                  context,
+                ),
+              ),
+              SliverToBoxAdapter(child: placeholder),
+            ],
+          )
+        : ListView(physics: physics, children: [placeholder]);
     return widget.onRefresh == null ? list : _wrapRefreshIndicator(list);
   }
 

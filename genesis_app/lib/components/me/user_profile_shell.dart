@@ -143,13 +143,16 @@ class _UserProfileContentState extends State<UserProfileContent>
             ),
           ),
           if (!widget.isBlocking && !widget.isBlocked)
-            SliverPersistentHeader(
-              pinned: true,
-              delegate: _ProfileTabsHeaderDelegate(
-                pullOffsetListenable: _profilePullOffset,
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: _buildCollectionTabs(data),
+            SliverOverlapAbsorber(
+              handle: NestedScrollView.sliverOverlapAbsorberHandleFor(context),
+              sliver: SliverPersistentHeader(
+                pinned: true,
+                delegate: _ProfileTabsHeaderDelegate(
+                  pullOffsetListenable: _profilePullOffset,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _buildCollectionTabs(data),
+                  ),
                 ),
               ),
             ),
@@ -277,6 +280,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                   ? widget.onRefreshOrigins
                   : null,
               sliverMode: false,
+              injectNestedOverlap: true,
               alwaysScrollable: widget.onRefresh != null,
               canEditOrigins: data.isSelf,
             ),
@@ -292,6 +296,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                   ? widget.onRefreshWorlds
                   : null,
               sliverMode: false,
+              injectNestedOverlap: true,
               alwaysScrollable: widget.onRefresh != null,
               canDeleteWorlds: data.isSelf,
               onWorldDeleted: widget.onWorldDeleted,

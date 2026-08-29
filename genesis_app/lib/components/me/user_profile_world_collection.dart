@@ -7,6 +7,7 @@ class _WorldProfileCollectionList extends StatefulWidget {
     required this.listenable,
     required this.onRefresh,
     required this.sliverMode,
+    required this.injectNestedOverlap,
     this.alwaysScrollable = false,
     required this.canDeleteWorlds,
     required this.onWorldDeleted,
@@ -18,6 +19,7 @@ class _WorldProfileCollectionList extends StatefulWidget {
   listenable;
   final Future<void> Function()? onRefresh;
   final bool sliverMode;
+  final bool injectNestedOverlap;
   final bool alwaysScrollable;
   final bool canDeleteWorlds;
   final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
@@ -103,6 +105,7 @@ class _WorldProfileCollectionListState
       onRefresh: widget.onRefresh,
       refreshKey: const ValueKey('profile-world-list-refresh'),
       sliverMode: widget.sliverMode,
+      injectNestedOverlap: widget.injectNestedOverlap,
       alwaysScrollable: widget.alwaysScrollable,
       topPadding: 10,
       itemSpacing: 30,
