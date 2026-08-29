@@ -609,6 +609,7 @@ class _OpeningDialogueTextField extends StatelessWidget {
                             label: '*',
                             textColor: insertTextColor,
                             backgroundColor: insertBackgroundColor,
+                            square: true,
                             onTap: () => _insertToken('*'),
                           ),
                         ],
@@ -646,6 +647,7 @@ class _OpeningDialogueInsertButton extends StatelessWidget {
     required this.textColor,
     required this.backgroundColor,
     required this.onTap,
+    this.square = false,
   });
 
   final Key buttonKey;
@@ -653,6 +655,7 @@ class _OpeningDialogueInsertButton extends StatelessWidget {
   final Color textColor;
   final Color backgroundColor;
   final VoidCallback onTap;
+  final bool square;
 
   @override
   Widget build(BuildContext context) {
@@ -674,17 +677,35 @@ class _OpeningDialogueInsertButton extends StatelessWidget {
             color: backgroundColor,
             borderRadius: BorderRadius.circular(6),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            child: Text(
-              label,
-              maxLines: 1,
-              softWrap: false,
-              overflow: TextOverflow.visible,
-              textAlign: TextAlign.center,
-              style: labelStyle,
-            ),
-          ),
+          child: square
+              ? SizedBox.square(
+                  dimension: 26,
+                  child: Center(
+                    child: label == '*'
+                        ? GenesisAsteriskIcon(color: textColor)
+                        : Text(
+                            label,
+                            maxLines: 1,
+                            softWrap: false,
+                            textAlign: TextAlign.center,
+                            style: labelStyle,
+                          ),
+                  ),
+                )
+              : Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.visible,
+                    textAlign: TextAlign.center,
+                    style: labelStyle,
+                  ),
+                ),
         ),
       ),
     );

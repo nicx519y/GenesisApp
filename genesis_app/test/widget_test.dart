@@ -15554,11 +15554,15 @@ void main() {
         text: 'Hi',
         selection: TextSelection.collapsed(offset: 2),
       );
-      final characterAsteriskLabel = find.descendant(
+      final characterAsteriskIcon = find.descendant(
         of: characterAsterisk,
-        matching: find.text('*'),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is CustomPaint && widget.size == const Size.square(12),
+        ),
       );
-      expect(characterAsteriskLabel, findsOneWidget);
+      expect(characterAsteriskIcon, findsOneWidget);
+      expect(tester.getSize(characterAsterisk), const Size.square(26));
       await tester.tap(characterAsterisk);
       await tester.pump();
       expect(characterController.text, 'Hi*');

@@ -34,6 +34,23 @@ void main() {
       ),
     );
     expect((svg.bytesLoader as SvgAssetLoader).assetName, connectStatIconAsset);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: RecentChatMapBadge(
+            badgeKey: ValueKey<String>('recent-chat-map-badge'),
+          ),
+        ),
+      ),
+    );
+    final mapBadge = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('recent-chat-map-badge')),
+    );
+    expect(
+      (mapBadge.decoration as BoxDecoration).color,
+      kRecentChatMapBadgeBackgroundColor,
+    );
   });
 }
 

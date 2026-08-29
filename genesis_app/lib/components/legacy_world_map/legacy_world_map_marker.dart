@@ -508,7 +508,22 @@ class _WorldPointMarker extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     if (activityIconsWidth > 0)
-                      SizedBox(width: activityIconsWidth),
+                      SizedBox(
+                        width: activityIconsWidth,
+                        child: showRecentChatIcon
+                            ? const Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  RecentChatMapBadge(
+                                    badgeKey: ValueKey<String>(
+                                      'world-map-recent-chat-icon',
+                                    ),
+                                  ),
+                                  SizedBox(width: _worldPointActivityIconGap),
+                                ],
+                              )
+                            : null,
+                      ),
                     SizedBox(
                       width: labelLayout.bubbleWidth,
                       height: labelLayout.height,
@@ -569,14 +584,6 @@ class _WorldPointMarker extends StatelessWidget {
                                   'world-map-location-event-count',
                                 ),
                                 count: 1,
-                              ),
-                            ],
-                            if (showRecentChatIcon) ...[
-                              const SizedBox(width: _worldPointActivityIconGap),
-                              const RecentChatMapBadge(
-                                badgeKey: ValueKey<String>(
-                                  'world-map-recent-chat-icon',
-                                ),
                               ),
                             ],
                           ],
