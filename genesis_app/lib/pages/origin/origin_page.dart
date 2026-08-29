@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kDoubleTapTimeout;
-import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter_svg/flutter_svg.dart';
@@ -22,7 +21,11 @@ import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
+import '../../ui/tokens/genesis_origin_card_geometry.dart';
 import 'origin_feed_cache_store.dart';
+
+@visibleForTesting
+Duration? debugOriginExposureVisibilityUpdateInterval;
 
 class OriginPage extends StatefulWidget {
   const OriginPage({
@@ -418,6 +421,7 @@ class _OriginFeedState extends State<_OriginFeed>
   static const _loadMoreThreshold = 700.0;
   static const _minimumExposureRatio = 0.3;
   static const _minimumExposureDuration = Duration(milliseconds: 1500);
+  static const _exposureVisibilityUpdateInterval = Duration(milliseconds: 100);
   static const _exposureBatchCoalescingDuration = Duration(milliseconds: 16);
   static const _maxExposureBatchSize = 100;
   static const _maxExposureAttempts = 3;
@@ -436,6 +440,7 @@ class _OriginFeedState extends State<_OriginFeed>
   final Set<String> _inFlightExposureIds = <String>{};
   final Set<String> _reportedExposureIds = <String>{};
   Timer? _exposureQueueFlushTimer;
+  Timer? _exposureViewportValidationTimer;
   var _nextPage = 1;
   var _nextScore = 0;
   var _total = 0;
@@ -443,7 +448,6 @@ class _OriginFeedState extends State<_OriginFeed>
   var _hasMore = true;
   var _hasRequested = false;
   var _scrollListenerAttached = false;
-  var _exposureViewportValidationScheduled = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
   var _isRefreshing = false;
@@ -510,7 +514,9 @@ class _OriginFeedState extends State<_OriginFeed>
   void initState() {
     super.initState();
     if (_isForYouFeed) {
-      VisibilityDetectorController.instance.updateInterval = Duration.zero;
+      VisibilityDetectorController.instance.updateInterval =
+          debugOriginExposureVisibilityUpdateInterval ??
+          _exposureVisibilityUpdateInterval;
     }
     WidgetsBinding.instance.addObserver(this);
   }
@@ -994,6 +1000,8 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _clearExposureCandidates() {
+    _exposureViewportValidationTimer?.cancel();
+    _exposureViewportValidationTimer = null;
     for (final timer in _exposureTimers.values) {
       timer.cancel();
     }
@@ -1076,19 +1084,23 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _scheduleExposureViewportValidation() {
-    if (!_isForYouFeed || _exposureViewportValidationScheduled) return;
-    _exposureViewportValidationScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _exposureViewportValidationScheduled = false;
-      if (!mounted) return;
-      final activeIds = _exposureTimers.keys.toList(growable: false);
-      for (final oid in activeIds) {
-        final cover = _renderedExposureCovers[oid] ?? '';
-        if (!_qualifiesForExposure(oid, cover)) {
-          _exposureTimers.remove(oid)?.cancel();
-        }
-      }
-    });
+    if (!_isForYouFeed || _exposureViewportValidationTimer != null) return;
+    _exposureViewportValidationTimer = Timer(
+      _exposureVisibilityUpdateInterval,
+      () {
+        _exposureViewportValidationTimer = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final activeIds = _exposureTimers.keys.toList(growable: false);
+          for (final oid in activeIds) {
+            final cover = _renderedExposureCovers[oid] ?? '';
+            if (!_qualifiesForExposure(oid, cover)) {
+              _exposureTimers.remove(oid)?.cancel();
+            }
+          }
+        });
+      },
+    );
   }
 
   void _enqueueExposures(Iterable<String> originIds) {
@@ -1227,74 +1239,88 @@ class _OriginFeedState extends State<_OriginFeed>
                   key: scrollKey,
                   controller: _scrollController,
                   primary: false,
-                  scrollCacheExtent: const ScrollCacheExtent.viewport(2),
+                  scrollCacheExtent: const ScrollCacheExtent.viewport(1),
                   physics: physics,
                   slivers: [
                     SliverPadding(
                       padding: const EdgeInsets.fromLTRB(2, 5, 2, 0),
-                      sliver: SliverMasonryGrid(
-                        key: const ValueKey<String>('origin-feed-virtual-grid'),
-                        gridDelegate:
-                            const SliverSimpleGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
+                      sliver: SliverLayoutBuilder(
+                        builder: (context, constraints) {
+                          const crossAxisSpacing = 2.0;
+                          final itemWidth =
+                              (constraints.crossAxisExtent - crossAxisSpacing) /
+                              2;
+                          final itemHeight =
+                              itemWidth / genesisOriginCoverAspectRatio +
+                              genesisOriginCardBottomExtension;
+                          return SliverGrid(
+                            key: const ValueKey<String>(
+                              'origin-feed-virtual-grid',
                             ),
-                        mainAxisSpacing: 2,
-                        crossAxisSpacing: 2,
-                        delegate: SliverChildBuilderDelegate(
-                          (context, index) {
-                            final item = _items[index];
-                            final card = GestureDetector(
-                              key: ValueKey<String>(
-                                'origin-feed-item-${item.oid}',
-                              ),
-                              behavior: HitTestBehavior.opaque,
-                              onTap: item.deleted
-                                  ? null
-                                  : () {
-                                      GenesisTelemetry.collectLog(
-                                        actionType: 'event',
-                                        action: 'worldo_list_click',
-                                        object1: item.oid,
-                                      );
-                                      Navigator.of(context).pushNamed(
-                                        RouteNames.originWorld,
-                                        arguments: {
-                                          'originId': 0,
-                                          'oid': item.oid,
-                                          'initialName': item.name,
-                                          'initialDefinitionVersion':
-                                              item.definitionVersion,
-                                          'initialMapLocationId':
-                                              item.defaultMapLocationId,
+                            gridDelegate:
+                                SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: 2,
+                                  mainAxisSpacing: 2,
+                                  crossAxisSpacing: crossAxisSpacing,
+                                  mainAxisExtent: itemHeight,
+                                ),
+                            delegate: SliverChildBuilderDelegate(
+                              (context, index) {
+                                final item = _items[index];
+                                final card = GestureDetector(
+                                  key: ValueKey<String>(
+                                    'origin-feed-item-${item.oid}',
+                                  ),
+                                  behavior: HitTestBehavior.opaque,
+                                  onTap: item.deleted
+                                      ? null
+                                      : () {
+                                          GenesisTelemetry.collectLog(
+                                            actionType: 'event',
+                                            action: 'worldo_list_click',
+                                            object1: item.oid,
+                                          );
+                                          Navigator.of(context).pushNamed(
+                                            RouteNames.originWorld,
+                                            arguments: {
+                                              'originId': 0,
+                                              'oid': item.oid,
+                                              'initialName': item.name,
+                                              'initialDefinitionVersion':
+                                                  item.definitionVersion,
+                                              'initialMapLocationId':
+                                                  item.defaultMapLocationId,
+                                            },
+                                          );
                                         },
-                                      );
-                                    },
-                              child: OriginItemCard(
-                                item: item,
-                                onCoverLoaded: _isForYouFeed
-                                    ? () => _handleCoverLoaded(
+                                  child: OriginItemCard(
+                                    item: item,
+                                    onCoverLoaded: _isForYouFeed
+                                        ? () => _handleCoverLoaded(
+                                            item.oid,
+                                            item.cover,
+                                          )
+                                        : null,
+                                  ),
+                                );
+                                if (!_isForYouFeed) return card;
+                                return VisibilityDetector(
+                                  key: _exposureCardKey(item.oid),
+                                  onVisibilityChanged: (info) =>
+                                      _handleItemVisibilityChanged(
                                         item.oid,
                                         item.cover,
-                                      )
-                                    : null,
-                              ),
-                            );
-                            if (!_isForYouFeed) return card;
-                            return VisibilityDetector(
-                              key: _exposureCardKey(item.oid),
-                              onVisibilityChanged: (info) =>
-                                  _handleItemVisibilityChanged(
-                                    item.oid,
-                                    item.cover,
-                                    info,
-                                  ),
-                              child: card,
-                            );
-                          },
-                          childCount: _items.length,
-                          addAutomaticKeepAlives: false,
-                          addRepaintBoundaries: true,
-                        ),
+                                        info,
+                                      ),
+                                  child: card,
+                                );
+                              },
+                              childCount: _items.length,
+                              addAutomaticKeepAlives: false,
+                              addRepaintBoundaries: true,
+                            ),
+                          );
+                        },
                       ),
                     ),
                     if (_isLoadingMore)

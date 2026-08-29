@@ -3,13 +3,11 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../common/list_loading_skeleton.dart';
-import 'origin_item_cover_image_provider.dart';
-import 'stat_item.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../ui/tokens/genesis_origin_card_geometry.dart';
 import '../../utils/display_name_formatter.dart';
@@ -18,12 +16,16 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
 import '../../utils/genesis_ugc_text.dart';
 import '../../utils/stat_count_formatter.dart';
+import '../common/list_loading_skeleton.dart';
+import 'origin_item_cover_gradient_painter.dart';
+import 'origin_item_cover_throttled_image_provider.dart';
+import 'stat_item.dart';
 
 const double _coverDetailsTransitionHeight = 50;
 const Color _cardFooterColor = Color(0xFF111111);
 
 @visibleForTesting
-ImageProvider<Object> Function(OriginItemCoverImageProvider provider)?
+ImageProvider<Object> Function(ImageProvider<Object> provider)?
 debugOriginItemCoverImageProvider;
 
 @immutable
@@ -188,32 +190,27 @@ class _OriginItemCardState extends State<OriginItemCard> {
           devicePixelRatio: effectiveDevicePixelRatio,
           maxDevicePixelRatio: effectiveDevicePixelRatio,
         ).trim();
-        final compositeCoverProvider = OriginItemCoverImageProvider.fromUrl(
-          imageUrl: resolvedImageUrl,
-          fallbackAsset: genesisDefaultListImageAsset,
+        final sourceProvider = _originCoverProvider(
+          resolvedImageUrl,
           outputWidth: math.max(1, (width * effectiveDevicePixelRatio).ceil()),
           outputHeight: math.max(
             1,
             (coverHeight * effectiveDevicePixelRatio).ceil(),
           ),
-          transitionHeight: math.max(
-            1,
-            (_coverDetailsTransitionHeight * effectiveDevicePixelRatio).ceil(),
-          ),
         );
         final ImageProvider<Object> coverProvider =
-            debugOriginItemCoverImageProvider?.call(compositeCoverProvider) ??
-            compositeCoverProvider;
+            debugOriginItemCoverImageProvider?.call(sourceProvider) ??
+            sourceProvider;
         final totalHeight = coverHeight + genesisOriginCardBottomExtension;
 
         return ClipRRect(
           borderRadius: GenesisImageRadii.content,
           child: Image(
-            key: const ValueKey<String>('origin-item-card-composite-loader'),
+            key: const ValueKey<String>('origin-item-card-cover-loader'),
             image: coverProvider,
             width: width,
             height: coverHeight,
-            fit: BoxFit.fill,
+            fit: BoxFit.cover,
             gaplessPlayback: false,
             filterQuality: FilterQuality.medium,
             frameBuilder: (context, cover, frame, wasSynchronouslyLoaded) {
@@ -226,19 +223,66 @@ class _OriginItemCardState extends State<OriginItemCard> {
                 );
               }
               _notifyCoverLoaded();
-              return _LoadedOriginItemCard(item: widget.item, cover: cover);
+              return _LoadedOriginItemCard(
+                item: widget.item,
+                cover: _paintCoverGradient(cover),
+              );
             },
-            errorBuilder: (context, error, stackTrace) => SizedBox(
-              key: const ValueKey<String>('origin-item-card-loading-error'),
+            errorBuilder: (context, error, stackTrace) => Image.asset(
+              genesisDefaultListImageAsset,
               width: width,
-              height: totalHeight,
-              child: const GenesisListLoadingBone(borderRadius: 0),
+              height: coverHeight,
+              fit: BoxFit.cover,
+              frameBuilder: (context, cover, frame, wasSynchronouslyLoaded) {
+                if (!wasSynchronouslyLoaded && frame == null) {
+                  return SizedBox(
+                    key: const ValueKey<String>(
+                      'origin-item-card-loading-error',
+                    ),
+                    width: width,
+                    height: totalHeight,
+                    child: const GenesisListLoadingBone(borderRadius: 0),
+                  );
+                }
+                _notifyCoverLoaded();
+                return _LoadedOriginItemCard(
+                  item: widget.item,
+                  cover: _paintCoverGradient(cover),
+                );
+              },
             ),
           ),
         );
       },
     );
   }
+
+  Widget _paintCoverGradient(Widget cover) {
+    return CustomPaint(
+      key: const ValueKey<String>('origin-item-card-painted-cover'),
+      foregroundPainter: const OriginItemCoverGradientPainter(
+        transitionHeight: _coverDetailsTransitionHeight,
+      ),
+      child: cover,
+    );
+  }
+}
+
+ImageProvider<Object> _originCoverProvider(
+  String imageUrl, {
+  required int outputWidth,
+  required int outputHeight,
+}) {
+  if (imageUrl.isEmpty) return const AssetImage(genesisDefaultListImageAsset);
+  if (imageUrl.startsWith('assets/')) return AssetImage(imageUrl);
+  return OriginItemCoverThrottledImageProvider(
+    sourceProvider: GenesisStaticNetworkImageProvider(
+      imageUrl: imageUrl,
+      cacheWidth: outputWidth,
+      cacheHeight: outputHeight,
+      fit: BoxFit.cover,
+    ),
+  );
 }
 
 class _LoadedOriginItemCard extends StatelessWidget {
@@ -257,7 +301,7 @@ class _LoadedOriginItemCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             KeyedSubtree(
-              key: const ValueKey<String>('origin-item-card-composited-cover'),
+              key: const ValueKey<String>('origin-item-card-rendered-cover'),
               child: cover,
             ),
             const SizedBox(
