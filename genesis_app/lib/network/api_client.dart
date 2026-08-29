@@ -292,6 +292,7 @@ class ApiClient {
     final collectRequest = _BusinessApiCollectRequest.maybeStart(uri);
 
     late final TransportRequest request;
+    var requestPreparationFailureReason = 'request_headers';
     try {
       final runtimeHeaders = await _resolveRequestHeaders();
       final mergedHeaders = <String, String>{
@@ -299,6 +300,7 @@ class ApiClient {
         ...runtimeHeaders,
         ...?headers,
       };
+      requestPreparationFailureReason = 'request_body';
       final prepared = _prepareBody(body, mergedHeaders);
 
       request = TransportRequest(
@@ -312,20 +314,29 @@ class ApiClient {
         onReceiveProgress: onReceiveProgress,
         cancellationToken: cancellationToken,
       );
-    } on NetworkRequestCancelledException {
+    } on NetworkRequestCancelledException catch (error) {
       stopwatch.stop();
-      collectRequest?.failure('cancelled', duration: stopwatch.elapsed);
+      collectRequest?.failure(
+        'cancelled',
+        duration: stopwatch.elapsed,
+        error: error,
+      );
       rethrow;
     } on ApiException catch (error) {
       stopwatch.stop();
       collectRequest?.failure(
         _businessApiFailureReason(error),
         duration: stopwatch.elapsed,
+        error: error,
       );
       rethrow;
-    } catch (_) {
+    } catch (error) {
       stopwatch.stop();
-      collectRequest?.failure('unknown', duration: stopwatch.elapsed);
+      collectRequest?.failure(
+        requestPreparationFailureReason,
+        duration: stopwatch.elapsed,
+        error: error,
+      );
       rethrow;
     }
 
@@ -347,6 +358,7 @@ class ApiClient {
         collectRequest?.failure(
           'cancelled',
           duration: attemptStopwatch.elapsed,
+          error: e,
         );
         _recordHttpTelemetry(
           request: request,
@@ -380,6 +392,7 @@ class ApiClient {
         collectRequest?.failure(
           _businessApiFailureReason(error),
           duration: attemptStopwatch.elapsed,
+          error: error,
         );
         _recordHttpTelemetry(
           request: request,
@@ -416,6 +429,7 @@ class ApiClient {
         collectRequest?.failure(
           _businessApiFailureReason(apiError),
           duration: attemptStopwatch.elapsed,
+          error: apiError,
         );
         _recordHttpTelemetry(
           request: request,
@@ -485,6 +499,8 @@ class ApiClient {
       collectRequest?.failure(
         _businessApiFailureReason(error, response: apiResponse),
         duration: attemptStopwatch.elapsed,
+        error: error,
+        response: apiResponse,
       );
       _recordHttpTelemetry(
         request: request,
@@ -655,13 +671,25 @@ class _BusinessApiCollectRequest {
     );
   }
 
-  void failure(String reason, {required Duration duration}) {
+  void failure(
+    String reason, {
+    required Duration duration,
+    Object? error,
+    ApiResponse? response,
+    String? errorMessage,
+  }) {
     if (_terminalRecorded) return;
     _terminalRecorded = true;
     _record(
       action: 'api_request_failed',
       object3: reason,
       object4: duration.inMilliseconds.toString(),
+      extData: _apiRequestFailureExtData(
+        reason: reason,
+        error: error,
+        response: response,
+        errorMessage: errorMessage,
+      ),
     );
   }
 
@@ -671,16 +699,25 @@ class _BusinessApiCollectRequest {
     required Duration duration,
   }) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      failure('http_${response.statusCode}', duration: duration);
+      failure(
+        'http_${response.statusCode}',
+        duration: duration,
+        response: response,
+      );
       return;
     }
     if (_isMalformedJsonResponse(responseType, response.body)) {
-      failure('decode', duration: duration);
+      failure(
+        'decode',
+        duration: duration,
+        response: response,
+        errorMessage: 'Response body is not valid JSON.',
+      );
       return;
     }
     final errNo = _apiErrNo(response.data);
     if (errNo != null && errNo != 0) {
-      failure('business_$errNo', duration: duration);
+      failure('business_$errNo', duration: duration, response: response);
     }
   }
 
@@ -688,6 +725,7 @@ class _BusinessApiCollectRequest {
     required String action,
     required String object3,
     required String object4,
+    String extData = '',
   }) {
     try {
       GenesisTelemetry.collectLog(
@@ -697,6 +735,7 @@ class _BusinessApiCollectRequest {
         object2: requestId,
         object3: object3,
         object4: object4,
+        extData: extData,
       );
     } catch (_) {
       // Telemetry must never change the business request result.
@@ -754,8 +793,185 @@ String _businessApiFailureReason(Object error, {ApiResponse? response}) {
     case ApiExceptionKind.cancelled:
       return 'cancelled';
     case ApiExceptionKind.transport:
+      return _unknownTransportFailureReason(error);
     case ApiExceptionKind.unknown:
-      return 'unknown';
+      return 'api_unknown';
+  }
+}
+
+String _apiRequestFailureExtData({
+  required String reason,
+  Object? error,
+  ApiResponse? response,
+  String? errorMessage,
+}) {
+  try {
+    final apiError = error is ApiException ? error : null;
+    final cause = apiError?.error;
+    final causeText = cause == null ? '' : _safeRawErrorText(cause);
+    final responseErrorCode = _apiErrNo(response?.data);
+    final responseErrorMessage = _responseErrorMessage(response?.data);
+    final resolvedMessage = errorMessage?.trim().isNotEmpty == true
+        ? errorMessage!
+        : apiError?.message.trim().isNotEmpty == true
+        ? apiError!.message
+        : error != null
+        ? _safeRawErrorText(error)
+        : responseErrorMessage;
+    final nativeErrorCode = cause == null
+        ? null
+        : _errorCode(causeText, 'quicDetailedErrorCode') ??
+              _errorCode(causeText, 'errorCode') ??
+              _errorCode(causeText, 'code');
+
+    final details = <String, Object?>{
+      'error_type': _apiFailureErrorType(reason, error),
+      if (apiError?.code ?? responseErrorCode case final code?)
+        'error_code': code,
+      if (apiError?.statusCode ?? response?.statusCode case final statusCode?)
+        'status_code': statusCode,
+      if (resolvedMessage != null && resolvedMessage.trim().isNotEmpty)
+        'error_message': _sanitizeErrorMessage(resolvedMessage),
+      if (error != null) 'exception_type': error.runtimeType.toString(),
+      if (apiError != null) 'exception_kind': apiError.kind.name,
+      if (apiError?.transportErrorKind case final transportKind?)
+        'transport_error_kind': transportKind.name,
+      if (cause != null) 'native_error_type': cause.runtimeType.toString(),
+      if (nativeErrorCode != null) 'native_error_code': nativeErrorCode,
+      if (causeText.trim().isNotEmpty)
+        'native_error_message': _sanitizeErrorMessage(causeText),
+    };
+    return jsonEncode(details);
+  } catch (_) {
+    return '{"error_type":"ext_data_build_failed"}';
+  }
+}
+
+String _apiFailureErrorType(String reason, Object? error) {
+  if (error is ApiException) return error.kind.name;
+  if (reason.startsWith('business_')) return 'business';
+  if (reason.startsWith('http_')) return 'http_status';
+  if (reason == 'decode') return 'response_decode';
+  if (reason.startsWith('request_')) return 'request_prepare';
+  if (reason == 'cancelled') return 'cancelled';
+  if (reason == 'response') return 'response';
+  return 'transport';
+}
+
+String? _responseErrorMessage(Object? data) {
+  if (data is! Map) return null;
+  for (final key in <String>[
+    'err_msg',
+    'errMsg',
+    'err_str',
+    'errStr',
+    'error',
+    'message',
+    'detail',
+  ]) {
+    final value = data[key];
+    if (value is String && value.trim().isNotEmpty) return value;
+    if (value is num || value is bool) return value.toString();
+  }
+  return null;
+}
+
+String _sanitizeErrorMessage(String input) {
+  var value = input.trim().replaceAll(RegExp(r'[\r\n\t]+'), ' ');
+  value = value.replaceAll(
+    RegExp(r'https?://[^\s,\])}]+', caseSensitive: false),
+    '<url>',
+  );
+  value = value.replaceAll(
+    RegExp(r'\bbearer\s+[^\s,;}]+', caseSensitive: false),
+    'Bearer <redacted>',
+  );
+  value = value.replaceAllMapped(
+    RegExp(
+      r'\b(authorization|access[_-]?token|refresh[_-]?token|id[_-]?token|password|secret|cookie)\b\s*[:=]\s*[^\s,;}]+',
+      caseSensitive: false,
+    ),
+    (match) => '${match.group(1)}=<redacted>',
+  );
+  value = value.replaceAll(
+    RegExp(r'\b[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\.[A-Za-z0-9_-]{16,}\b'),
+    '<redacted-jwt>',
+  );
+  const maxLength = 1024;
+  return value.length <= maxLength ? value : value.substring(0, maxLength);
+}
+
+String _unknownTransportFailureReason(ApiException error) {
+  final cause = error.error;
+  if (cause == null) return 'transport_unknown';
+
+  final type = cause.runtimeType.toString().toLowerCase();
+  final text = _safeErrorText(cause);
+  final signature = '$type $text';
+
+  final mentionsHttpProtocol =
+      signature.contains('http/2') ||
+      signature.contains('http2') ||
+      signature.contains('http/3') ||
+      signature.contains('http3');
+  final describesProtocolFailure =
+      signature.contains('protocol') ||
+      signature.contains('negotiat') ||
+      signature.contains('requires http') ||
+      signature.contains('not support');
+  if (mentionsHttpProtocol && describesProtocolFailure) {
+    return 'http_protocol';
+  }
+
+  if (signature.contains('quic')) {
+    final code = _errorCode(text, 'quicDetailedErrorCode');
+    return code == null ? 'http3_quic' : 'http3_quic_$code';
+  }
+
+  if (signature.contains('cronet') ||
+      signature.contains('networkclientexception') ||
+      signature.contains('callbackexception')) {
+    final code = _errorCode(text, 'errorCode');
+    return code == null ? 'cronet' : 'cronet_$code';
+  }
+
+  if (signature.contains('nserrorclientexception')) {
+    final code = _errorCode(text, 'code');
+    return code == null ? 'ios_network' : 'ios_network_$code';
+  }
+
+  if (signature.contains('dioexception')) {
+    if (signature.contains('[connection error]')) return 'dio_connection';
+    if (signature.contains('[bad response]')) return 'dio_response';
+    return 'dio_unknown';
+  }
+
+  if (signature.contains('clientexception')) return 'http_client';
+  if (cause is StateError ||
+      cause is ArgumentError ||
+      cause is UnsupportedError) {
+    return 'transport_internal';
+  }
+  return 'transport_unknown';
+}
+
+String? _errorCode(String text, String field) {
+  final match = RegExp(
+    '${RegExp.escape(field)}=(-?\\d+)',
+    caseSensitive: false,
+  ).firstMatch(text);
+  return match?.group(1);
+}
+
+String _safeErrorText(Object error) {
+  return _safeRawErrorText(error).toLowerCase();
+}
+
+String _safeRawErrorText(Object error) {
+  try {
+    return error.toString();
+  } catch (_) {
+    return '';
   }
 }
 
@@ -803,7 +1019,7 @@ ApiException _transportApiException(Object error, Uri uri) {
 
 TransportErrorKind _transportErrorKind(Object error) {
   if (error is TimeoutException) return TransportErrorKind.timeout;
-  final text = error.toString().toLowerCase();
+  final text = _safeErrorText(error);
   if (text.contains('timeout')) return TransportErrorKind.timeout;
   if (text.contains('cancel')) return TransportErrorKind.cancelled;
   if (text.contains('certificate') || text.contains('handshake')) {

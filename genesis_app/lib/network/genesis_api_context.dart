@@ -87,7 +87,7 @@ abstract class _GenesisApiContext {
         );
     v1 = GenesisV1Api(
       _apiClient,
-      currentUserInfoGuard: _canRequestCurrentUserInfo,
+      currentUserInfoSessionProvider: _readCurrentUserInfoSession,
     );
     v2 = GenesisV2Api(_apiClient);
     chatroomHttp = ChatroomHttpApi(_chatroomHttpClient);
@@ -118,8 +118,11 @@ abstract class _GenesisApiContext {
     return headers;
   }
 
-  Future<bool> _canRequestCurrentUserInfo() async {
-    return await _sessionStore.readCompleteSession() != null;
+  Future<({String uid, String authToken})?>
+  _readCurrentUserInfoSession() async {
+    final session = await _sessionStore.readCompleteSession();
+    if (session == null) return null;
+    return (uid: session.uid, authToken: session.authToken);
   }
 
   Future<Map<String, String>> _safeAppHeaders() async {

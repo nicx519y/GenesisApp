@@ -1401,16 +1401,17 @@ class _UserInfoRefreshTransport implements HttpTransport {
     requests.add(request);
     final path = request.uri.path;
     if (path == '/api/v1/user/info') {
+      final uid = request.uri.queryParameters['uid'] ?? 'u_refresh_peer';
       return _v1Response({
         'user': {
-          'uid': request.uri.queryParameters['uid'] ?? 'u_refresh_peer',
+          'uid': uid,
           'name': 'Refresh Peer',
           'avatar': '',
           'following_cnt': 2,
           'follower_cnt': 3,
         },
         'relation': {
-          'is_self': false,
+          'is_self': uid == 'u_me_refresh',
           'is_followed': false,
           'i_followed': false,
         },
@@ -12512,6 +12513,57 @@ void main() {
   });
 
   testWidgets(
+    'Origin For you restarts visible exposure timing after pull refresh',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport(
+        originCover: 'https://cache.test/origin-cover.png',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _markRenderedOriginCoversLoaded();
+      await tester.pump();
+
+      const exposurePath = '/api/v1/origin/feed/exposure';
+      expect(transport.requestsFor(exposurePath), isEmpty);
+
+      final refreshFuture = tester
+          .state<RefreshIndicatorState>(find.byType(RefreshIndicator))
+          .show();
+      await tester.pumpAndSettle();
+      await refreshFuture;
+      _markRenderedOriginCoversLoaded();
+      await tester.pump();
+
+      final scrollable = find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('origin-feed-For you-foryou'),
+        ),
+        matching: find.byType(Scrollable),
+      );
+      final expectedVisibleIds = _visibleOriginIds(tester, scrollable);
+
+      await tester.pump(const Duration(milliseconds: 1500));
+      await tester.pump(const Duration(milliseconds: 20));
+
+      final exposureRequests = transport.requestsFor(exposurePath);
+      expect(exposureRequests, hasLength(1));
+      expect(
+        (transport.decodedBody(exposureRequests.single)['origin_ids'] as List)
+            .cast<String>()
+            .toSet(),
+        expectedVisibleIds,
+      );
+    },
+  );
+
+  testWidgets(
     'Origin For you ignores fast passes and reports continuously visible cards',
     (WidgetTester tester) async {
       final transport = _RecordingV1ListTransport(
@@ -13437,6 +13489,11 @@ void main() {
             'avatar': '',
             'following_cnt': 13,
             'follower_cnt': 17,
+          },
+          'relation': {
+            'is_self': true,
+            'is_followed': false,
+            'i_followed': false,
           },
         },
       }),

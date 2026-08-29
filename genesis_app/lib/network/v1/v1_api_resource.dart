@@ -15,6 +15,20 @@ abstract class V1ApiResource {
     return data == null ? <String, dynamic>{} : asJsonMap(data);
   }
 
+  Future<Map<String, dynamic>> getMapWithHeaders(
+    String path, {
+    Map<String, Object?>? query,
+    Map<String, String>? headers,
+  }) async {
+    final json = await client.get<Object?>(
+      'v1/$path',
+      query: query,
+      headers: headers,
+    );
+    final data = handleV1ResponseErrNo(json);
+    return data == null ? <String, dynamic>{} : asJsonMap(data);
+  }
+
   Future<Map<String, dynamic>> getMapPreservingKeys(
     String path, [
     Map<String, Object?>? query,

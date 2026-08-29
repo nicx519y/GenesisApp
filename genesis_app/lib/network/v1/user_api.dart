@@ -3,13 +3,17 @@ import '../api_exception.dart';
 import '../models/world_history_settings.dart';
 import 'v1_api_resource.dart';
 
-typedef CurrentUserInfoGuard = Future<bool> Function();
+typedef CurrentUserInfoSession = ({String uid, String authToken});
+typedef CurrentUserInfoSessionProvider =
+    Future<CurrentUserInfoSession?> Function();
 
 class UserV1Api extends V1ApiResource {
-  const UserV1Api(super.client, {CurrentUserInfoGuard? currentUserInfoGuard})
-    : _currentUserInfoGuard = currentUserInfoGuard;
+  const UserV1Api(
+    super.client, {
+    CurrentUserInfoSessionProvider? currentUserInfoSessionProvider,
+  }) : _currentUserInfoSessionProvider = currentUserInfoSessionProvider;
 
-  final CurrentUserInfoGuard? _currentUserInfoGuard;
+  final CurrentUserInfoSessionProvider? _currentUserInfoSessionProvider;
 
   /// POST /api/v1/user/oauth/google
   ///
@@ -114,11 +118,49 @@ class UserV1Api extends V1ApiResource {
   /// `user` in this result.
   Future<Map<String, dynamic>> info({String? uid}) async {
     final resolvedUid = uid?.trim() ?? '';
-    final guard = _currentUserInfoGuard;
-    if (resolvedUid.isEmpty && guard != null && !await guard()) {
+    if (resolvedUid.isNotEmpty) {
+      return getMap('user/info', v1Query({'uid': resolvedUid}));
+    }
+
+    final session = await _currentUserInfoSessionProvider?.call();
+    if (session == null) {
       throw ApiException(message: 'Authentication is required');
     }
-    return getMap('user/info', v1Query({'uid': uid}));
+
+    final response = await getMapWithHeaders(
+      'user/info',
+      query: {'uid': session.uid},
+      headers: {'authorization': _bearerToken(session.authToken)},
+    );
+    _validateCurrentUserInfo(response, expectedUid: session.uid);
+    return response;
+  }
+
+  String _bearerToken(String token) {
+    return token.toLowerCase().startsWith('bearer ') ? token : 'Bearer $token';
+  }
+
+  void _validateCurrentUserInfo(
+    Map<String, dynamic> response, {
+    required String expectedUid,
+  }) {
+    final user = response['user'] is Map
+        ? asJsonMap(response['user'])
+        : const <String, dynamic>{};
+    final relation = response['relation'] is Map
+        ? asJsonMap(response['relation'])
+        : const <String, dynamic>{};
+    final responseUid = asString(
+      user['uid'],
+      fallback: asString(user['id']),
+    ).trim();
+    if (responseUid == expectedUid && asBool(relation['is_self'])) return;
+
+    throw ApiException(
+      message: 'Current user session could not be verified',
+      statusCode: 401,
+      kind: ApiExceptionKind.gatewayAuth,
+    );
   }
 
   /// POST /api/v1/user/update

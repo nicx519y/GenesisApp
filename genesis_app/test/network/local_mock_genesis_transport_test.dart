@@ -226,6 +226,7 @@ void main() {
 
   test('local mock persists Gem model selection per world', () async {
     final api = GenesisApi(useMock: true);
+    await api.loginWithGoogle(idToken: 'google-token');
 
     final initialUserInfo = await api.v1.user.info();
     final initial = await api.v1.gem.models(worldId: 'W_MODEL_TEST');
@@ -357,6 +358,7 @@ void main() {
   test('local mock supports origin world and chat flow', () async {
     final api = GenesisApi(useMock: true);
 
+    await api.loginWithGoogle(idToken: 'google-token');
     await api.bindDevice(did: 'device_mock_1');
 
     final search = await api.search(query: 'steam', limit: 20);
@@ -532,6 +534,7 @@ void main() {
 
   test('local mock supports v1 debug API surface', () async {
     final api = GenesisApi(useMock: true);
+    await api.loginWithGoogle(idToken: 'google-token');
 
     final user = await api.v1.user.info();
     expect((user['user'] as Map)['uid'], 'u_mock_001');

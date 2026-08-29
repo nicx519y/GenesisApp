@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
@@ -15,6 +16,10 @@ class _FakeTransport implements HttpTransport {
   Future<TransportResponse> send(TransportRequest request) async {
     return handler(request);
   }
+}
+
+Map<String, Object?> _extData(CollectEvent event) {
+  return Map<String, Object?>.from(jsonDecode(event.extData) as Map);
 }
 
 void main() {
@@ -74,8 +79,10 @@ void main() {
       expect(recorded.last.object2, recorded.first.object2);
       expect(recorded.first.object3, '');
       expect(recorded.first.object4, '');
+      expect(recorded.first.extData, '');
       expect(recorded.last.object3, 'attempt_1');
       expect(int.tryParse(recorded.last.object4), isNotNull);
+      expect(recorded.last.extData, '');
       expect(int.parse(recorded.last.object4), greaterThanOrEqualTo(0));
       expect(
         recorded
@@ -223,6 +230,17 @@ void main() {
       'http_500',
       'business_1001',
     ]);
+    expect(_extData(failures[0]), <String, Object?>{
+      'error_type': 'http_status',
+      'status_code': 500,
+      'error_message': 'server error',
+    });
+    expect(_extData(failures[1]), <String, Object?>{
+      'error_type': 'business',
+      'error_code': 1001,
+      'status_code': 200,
+      'error_message': 'denied',
+    });
     expect(
       recorded.where((event) => event.action == 'api_request_success'),
       isEmpty,
@@ -263,6 +281,16 @@ void main() {
         'decode',
         'response',
       ]);
+      expect(_extData(failures[0])['error_type'], 'response_decode');
+      expect(
+        _extData(failures[0])['error_message'],
+        'Response body is not valid JSON.',
+      );
+      expect(_extData(failures[1])['exception_type'], 'StateError');
+      expect(
+        _extData(failures[1])['error_message'],
+        contains('mapping failed'),
+      );
     },
   );
 
@@ -306,18 +334,106 @@ void main() {
     ]);
   });
 
+  test('request preparation failures report the failing stage', () async {
+    final headersClient = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      requestHeaderProvider: () async => throw StateError('headers failed'),
+      transport: _FakeTransport(
+        handler: (_) => throw StateError('transport must not run'),
+      ),
+    );
+    await expectLater(
+      headersClient.get<Object?>('v1/profile'),
+      throwsStateError,
+    );
+
+    final bodyClient = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      transport: _FakeTransport(
+        handler: (_) => throw StateError('transport must not run'),
+      ),
+    );
+    await expectLater(
+      bodyClient.post<Object?>('v1/profile', body: _ThrowingBody()),
+      throwsStateError,
+    );
+
+    final apiUnknownClient = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      requestHeaderProvider: () async =>
+          throw ApiException(message: 'unclassified API failure'),
+      transport: _FakeTransport(
+        handler: (_) => throw StateError('transport must not run'),
+      ),
+    );
+    await expectLater(
+      apiUnknownClient.get<Object?>('v1/profile'),
+      throwsA(isA<ApiException>()),
+    );
+
+    final failures = (await events())
+        .where((event) => event.action == 'api_request_failed')
+        .toList();
+    expect(failures.map((event) => event.object3), <String>[
+      'request_headers',
+      'request_body',
+      'api_unknown',
+    ]);
+    expect(_extData(failures[0])['exception_type'], 'StateError');
+    expect(_extData(failures[0])['error_message'], contains('headers failed'));
+    expect(_extData(failures[1])['error_message'], contains('body encoding'));
+    expect(_extData(failures[2])['exception_kind'], 'unknown');
+  });
+
   test(
-    'certificate and unknown transport failures stay distinguishable',
+    'formerly unknown transport failures use stable subcategories',
     () async {
-      for (final testCase in <({String message, String reason})>[
-        (message: 'certificate handshake failed', reason: 'bad_certificate'),
-        (message: 'unexpected transport failure', reason: 'unknown'),
+      for (final testCase in <({Object error, String reason})>[
+        (
+          error: Exception('certificate handshake failed'),
+          reason: 'bad_certificate',
+        ),
+        (
+          error: Exception(
+            'HTTPS requires HTTP/2 or HTTP/3, but negotiated HTTP/1.1; '
+            'uri=https://example.test/api/v1/profile?token=secret',
+          ),
+          reason: 'http_protocol',
+        ),
+        (
+          error: Exception(
+            'QuicException: protocol error, quicDetailedErrorCode=42',
+          ),
+          reason: 'http3_quic_42',
+        ),
+        (
+          error: Exception('NetworkClientException: errorCode=6'),
+          reason: 'cronet_6',
+        ),
+        (
+          error: Exception('NSErrorClientException: code=-1009'),
+          reason: 'ios_network_-1009',
+        ),
+        (
+          error: Exception('DioException [connection error]: failed'),
+          reason: 'dio_connection',
+        ),
+        (
+          error: Exception('ClientException: invalid response'),
+          reason: 'http_client',
+        ),
+        (
+          error: StateError('transport state failed'),
+          reason: 'transport_internal',
+        ),
+        (
+          error: Exception('unexpected transport failure'),
+          reason: 'transport_unknown',
+        ),
       ]) {
         final client = ApiClient(
           baseUrl: 'https://example.test/api/',
-          transport: _FakeTransport(
-            handler: (_) => throw Exception(testCase.message),
-          ),
+          transport: _FakeTransport(handler: (_) => throw testCase.error),
         );
         await expectLater(
           client.get<Object?>('v1/profile'),
@@ -330,8 +446,19 @@ void main() {
           .toList();
       expect(failures.map((event) => event.object3), <String>[
         'bad_certificate',
-        'unknown',
+        'http_protocol',
+        'http3_quic_42',
+        'cronet_6',
+        'ios_network_-1009',
+        'dio_connection',
+        'http_client',
+        'transport_internal',
+        'transport_unknown',
       ]);
+      expect(_extData(failures[1])['native_error_message'], contains('<url>'));
+      expect(_extData(failures[2])['native_error_code'], '42');
+      expect(_extData(failures[3])['native_error_code'], '6');
+      expect(_extData(failures[4])['native_error_code'], '-1009');
     },
   );
 
@@ -410,4 +537,9 @@ void main() {
       'api_request_success',
     ]);
   });
+}
+
+class _ThrowingBody {
+  @override
+  String toString() => throw StateError('body encoding failed');
 }

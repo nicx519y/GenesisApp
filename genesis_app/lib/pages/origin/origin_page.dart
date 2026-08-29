@@ -849,6 +849,7 @@ class _OriginFeedState extends State<_OriginFeed>
       });
       _pruneExposureCandidates();
       _scheduleFeedPaginationContinuation();
+      _scheduleVisibilityFlush();
       widget.onFirstPageReady?.call();
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
@@ -961,7 +962,19 @@ class _OriginFeedState extends State<_OriginFeed>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_isCurrentTabSettled) return;
       VisibilityDetectorController.instance.notifyNow();
+      _resampleVisibleExposureCandidates();
     });
+  }
+
+  void _resampleVisibleExposureCandidates() {
+    if (!_canTrackExposure) return;
+    for (final item in _items) {
+      final cardContext = _exposureCardKeys[item.oid]?.currentContext;
+      if (cardContext == null) continue;
+      final visibleFraction = _actualExposureVisibleFraction(item.oid);
+      _visibleExposureFractions[item.oid] = visibleFraction;
+      _updateExposureCandidate(item.oid, item.cover);
+    }
   }
 
   bool get _canTrackExposure {
