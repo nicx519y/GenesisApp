@@ -1397,16 +1397,17 @@ class _UserInfoRefreshTransport implements HttpTransport {
     requests.add(request);
     final path = request.uri.path;
     if (path == '/api/v1/user/info') {
+      final uid = request.uri.queryParameters['uid'] ?? 'u_refresh_peer';
       return _v1Response({
         'user': {
-          'uid': request.uri.queryParameters['uid'] ?? 'u_refresh_peer',
+          'uid': uid,
           'name': 'Refresh Peer',
           'avatar': '',
           'following_cnt': 2,
           'follower_cnt': 3,
         },
         'relation': {
-          'is_self': false,
+          'is_self': uid == 'u_me_refresh',
           'is_followed': false,
           'i_followed': false,
         },
@@ -12945,6 +12946,11 @@ void main() {
             'avatar': '',
             'following_cnt': 13,
             'follower_cnt': 17,
+          },
+          'relation': {
+            'is_self': true,
+            'is_followed': false,
+            'i_followed': false,
           },
         },
       }),

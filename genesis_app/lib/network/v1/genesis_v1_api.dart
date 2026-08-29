@@ -16,22 +16,27 @@ import 'user_api.dart';
 import 'world_api.dart';
 
 class GenesisV1Api {
-  GenesisV1Api(ApiClient client, {CurrentUserInfoGuard? currentUserInfoGuard})
-    : app = AppV1Api(client),
-      user = UserV1Api(client, currentUserInfoGuard: currentUserInfoGuard),
-      origin = OriginV1Api(client),
-      world = WorldV1Api(client),
-      messages = MessagesV1Api(client),
-      dm = DmV1Api(client),
-      feedback = FeedbackV1Api(client),
-      follow = FollowV1Api(client),
-      discuss = DiscussV1Api(client),
-      report = ReportV1Api(client),
-      search = SearchV1Api(client),
-      home = HomeV1Api(client),
-      gem = GemV1Api(client),
-      upload = UploadV1Api(client),
-      common = CommonV1Api(client);
+  GenesisV1Api(
+    ApiClient client, {
+    CurrentUserInfoSessionProvider? currentUserInfoSessionProvider,
+  }) : app = AppV1Api(client),
+       user = UserV1Api(
+         client,
+         currentUserInfoSessionProvider: currentUserInfoSessionProvider,
+       ),
+       origin = OriginV1Api(client),
+       world = WorldV1Api(client),
+       messages = MessagesV1Api(client),
+       dm = DmV1Api(client),
+       feedback = FeedbackV1Api(client),
+       follow = FollowV1Api(client),
+       discuss = DiscussV1Api(client),
+       report = ReportV1Api(client),
+       search = SearchV1Api(client),
+       home = HomeV1Api(client),
+       gem = GemV1Api(client),
+       upload = UploadV1Api(client),
+       common = CommonV1Api(client);
 
   final AppV1Api app;
   final UserV1Api user;

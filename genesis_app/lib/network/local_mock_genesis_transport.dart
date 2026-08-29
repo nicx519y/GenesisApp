@@ -116,6 +116,7 @@ class LocalMockGenesisTransport implements HttpTransport {
         query,
         body,
         _requestDeviceId(request),
+        _requestHasAuthorization(request),
       );
     }
 
@@ -391,6 +392,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, String> query,
     Map<String, dynamic> body,
     String deviceId,
+    bool requestHasAuthorization,
   ) async {
     if (method == 'POST' && path == 'app/version/check') {
       return _v1Ok({
@@ -427,7 +429,15 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'user/info') {
-      return _v1Ok(_state.v1UserInfo(query['uid']));
+      final uid = (query['uid'] ?? '').trim();
+      final viewerAuthenticated =
+          _state.isAuthenticated || requestHasAuthorization;
+      if (uid.isEmpty && !viewerAuthenticated) {
+        return _v1Error(4004, 'ErrorParamInvalid');
+      }
+      return _v1Ok(
+        _state.v1UserInfo(uid, viewerAuthenticated: viewerAuthenticated),
+      );
     }
 
     if (method == 'POST' && path == 'user/update') {
@@ -1059,6 +1069,14 @@ class LocalMockGenesisTransport implements HttpTransport {
       }
     }
     return 'local-mock-device';
+  }
+
+  bool _requestHasAuthorization(TransportRequest request) {
+    for (final entry in request.headers.entries) {
+      if (entry.key.toLowerCase() != 'authorization') continue;
+      return entry.value.trim().isNotEmpty;
+    }
+    return false;
   }
 
   Map<String, dynamic> _decodeMultipartFields(String input) {
@@ -1868,11 +1886,14 @@ class _MockState {
   }
 
   Map<String, dynamic> v1AuthPayload() {
-    return v1UserInfo(null);
+    return v1UserInfo(null, viewerAuthenticated: true);
   }
 
-  Map<String, dynamic> v1UserInfo(String? uid) {
-    final profile = v1UserProfile(uid);
+  Map<String, dynamic> v1UserInfo(String? uid, {bool? viewerAuthenticated}) {
+    final profile = v1UserProfile(
+      uid,
+      viewerAuthenticated: viewerAuthenticated ?? _authenticated,
+    );
     return {'token': 'mock-v1-token', ...profile};
   }
 
@@ -2263,10 +2284,15 @@ class _MockState {
     };
   }
 
-  Map<String, dynamic> v1UserProfile(String? uid) {
+  Map<String, dynamic> v1UserProfile(
+    String? uid, {
+    bool viewerAuthenticated = false,
+  }) {
     final normalizedUid = uid?.trim() ?? '';
-    final isSelf = normalizedUid.isEmpty || normalizedUid == _v1User['uid'];
-    final user = isSelf ? _v1User : _v1UserForUid(normalizedUid);
+    final targetsCurrentUser =
+        normalizedUid.isEmpty || normalizedUid == _v1User['uid'];
+    final isSelf = viewerAuthenticated && targetsCurrentUser;
+    final user = targetsCurrentUser ? _v1User : _v1UserForUid(normalizedUid);
     final profile = <String, dynamic>{
       'user': _v1UserPayload(user),
       'relation': _deepCopyMap(

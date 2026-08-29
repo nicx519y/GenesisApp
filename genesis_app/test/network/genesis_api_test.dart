@@ -646,7 +646,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n","avatar":"a"},"uuid":"4b74ec68-7abc-4cce-a223-e997e31dc811"}}',
+            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n","avatar":"a"},"relation":{"is_self":true},"uuid":"4b74ec68-7abc-4cce-a223-e997e31dc811"}}',
       ),
     );
     final healthTransport = _FakeTransport(
@@ -670,7 +670,11 @@ void main() {
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(
       apiTransport.lastRequest!.uri.toString(),
-      'http://localhost:8080/api/v1/user/info',
+      'http://localhost:8080/api/v1/user/info?uid=u_1',
+    );
+    expect(
+      apiTransport.lastRequest!.headers['authorization'],
+      'Bearer backend-token',
     );
     expect(user.uid, 'u_1');
   });
@@ -704,7 +708,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n"},"uuid":"4b74ec68-7abc-4cce-a223-e997e31dc811","selected_model_code":"top_pick_v3"}}',
+            '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1","name":"n"},"relation":{"is_self":true},"uuid":"4b74ec68-7abc-4cce-a223-e997e31dc811","selected_model_code":"top_pick_v3"}}',
       ),
     );
     final api = _apiWith(
@@ -727,7 +731,84 @@ void main() {
       (response['user'] as Map).containsKey('selected_model_code'),
       isFalse,
     );
+    expect(apiTransport.lastRequest!.uri.queryParameters['uid'], 'u_1');
+    expect(
+      apiTransport.lastRequest!.headers['authorization'],
+      'Bearer test-auth-token',
+    );
   });
+
+  test(
+    'current user info keeps uid and authorization from one session snapshot',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_snapshot"},"relation":{"is_self":true}}}',
+        ),
+      );
+      final sessionStore = _SecondAuthTokenReadThrowsSessionStore();
+      await sessionStore.saveUid('u_snapshot');
+      await sessionStore.saveAuthToken('snapshot-token');
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+      );
+
+      final response = await api.v1.user.info();
+
+      expect((response['user'] as Map)['uid'], 'u_snapshot');
+      expect(
+        apiTransport.lastRequest!.uri.queryParameters['uid'],
+        'u_snapshot',
+      );
+      expect(
+        apiTransport.lastRequest!.headers['authorization'],
+        'Bearer snapshot-token',
+      );
+    },
+  );
+
+  test(
+    'current user info rejects an anonymous public profile response',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_1"},"relation":{"is_self":false}}}',
+        ),
+      );
+      final api = _apiWith(
+        apiTransport,
+        _FakeTransport(
+          handler: (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"status":"ok"}',
+          ),
+        ),
+      );
+
+      await expectLater(
+        api.v1.user.info(),
+        throwsA(
+          isA<ApiException>()
+              .having((error) => error.statusCode, 'statusCode', 401)
+              .having(
+                (error) => error.kind,
+                'kind',
+                ApiExceptionKind.gatewayAuth,
+              ),
+        ),
+      );
+    },
+  );
 
   test('current user info skips transport when local uid is missing', () async {
     final apiTransport = _FakeTransport(
@@ -3452,16 +3533,17 @@ void main() {
             userInfoCount += 1;
             if (userInfoCount == 1) {
               return const TransportResponse(
-                statusCode: 401,
+                statusCode: 200,
                 headers: {'content-type': 'application/json'},
-                body: '{"err_no":401,"err_msg":"expired","data":{}}',
+                body:
+                    '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_google"},"relation":{"is_self":false}}}',
               );
             }
             return const TransportResponse(
               statusCode: 200,
               headers: {'content-type': 'application/json'},
               body:
-                  '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_google"}}}',
+                  '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_google"},"relation":{"is_self":true}}}',
             );
           }
           if (request.uri.path.endsWith('/v1/user/oauth/google')) {
@@ -4919,6 +5001,19 @@ class _ThrowingAuthTokenSessionStore extends MemoryUserSessionStore {
   Future<void> clearUid() async {
     clearCount += 1;
     await super.clearUid();
+  }
+}
+
+class _SecondAuthTokenReadThrowsSessionStore extends MemoryUserSessionStore {
+  var _readCount = 0;
+
+  @override
+  Future<String?> readAuthToken() async {
+    _readCount += 1;
+    if (_readCount > 1) {
+      throw StateError('auth token storage unavailable');
+    }
+    return super.readAuthToken();
   }
 }
 
