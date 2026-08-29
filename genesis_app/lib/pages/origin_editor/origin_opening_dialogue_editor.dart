@@ -21,7 +21,7 @@ class _OpeningDialogueEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = kLocationChatStyle;
+    final style = kOpeningDialogueStyle;
     final namedCharacters = characters
         .where((character) => character.name.trim().isNotEmpty)
         .toList(growable: false);

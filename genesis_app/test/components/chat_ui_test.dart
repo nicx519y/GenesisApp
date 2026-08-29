@@ -2189,6 +2189,66 @@ void main() {
     expect(kLocationChatStyle.systemMessageMargin.bottom, 14);
   });
 
+  test(
+    'opening dialogue uses opaque bubbles without changing location chat',
+    () {
+      final openingStyle = kOpeningDialogueStyle;
+      final locationStyle = kLocationChatStyle;
+
+      expect(openingStyle.otherBubbleColor, const Color(0xFF3A3942));
+      expect(openingStyle.selfBubbleColor, const Color(0xFFC41F2E));
+      expect(
+        openingStyle.systemMessageBackgroundColor,
+        const Color(0xFF151517),
+      );
+      expect(
+        openingStyle.systemMessageTextStyle.color,
+        const Color(0xBAFFFFFF),
+      );
+      expect(openingStyle.bubbleBackdropBlurSigma, 0);
+      expect(openingStyle.useConfiguredScenePlateSystemStyle, isTrue);
+
+      expect(locationStyle.otherBubbleColor, const Color(0x993A3942));
+      expect(locationStyle.selfBubbleColor, const Color(0x99C41F2E));
+      expect(
+        locationStyle.systemMessageBackgroundColor,
+        const Color(0x14FFFFFF),
+      );
+      expect(locationStyle.bubbleBackdropBlurSigma, 14);
+      expect(locationStyle.useConfiguredScenePlateSystemStyle, isFalse);
+    },
+  );
+
+  testWidgets('opening narrator renders its configured opaque surface', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'opening-narrator',
+              senderId: 'narrator',
+              senderName: 'Narrator',
+              senderType: 'narrator',
+              text: 'The story begins.',
+              isMe: false,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+            style: kOpeningDialogueStyle,
+          ),
+        ),
+      ),
+    );
+
+    final bubble = tester.widget<Container>(
+      find.byKey(const ValueKey('chat-system-message-bubble')),
+    );
+    expect((bubble.decoration as BoxDecoration).color, const Color(0xFF151517));
+    expect(find.byType(BackdropFilter), findsNothing);
+  });
+
   testWidgets('location chat uses the scene bubble palette and geometry', (
     WidgetTester tester,
   ) async {

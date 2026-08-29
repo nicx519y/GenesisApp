@@ -9714,7 +9714,7 @@ void main() {
         matching: find.text('Select to Launch'),
       ),
     );
-    expect(selectLabel.style?.fontSize, 16);
+    expect(selectLabel.style?.fontSize, 14);
     expect(selectLabel.style?.fontWeight, FontWeight.w600);
     expect(
       find.descendant(of: roleToggle, matching: find.byType(InkWell)),
@@ -14841,7 +14841,7 @@ void main() {
       );
       final narratorColor =
           (narratorContainer.decoration as BoxDecoration).color!;
-      expect(narratorColor, kLocationChatStyle.systemMessageBackgroundColor);
+      expect(narratorColor, kOpeningDialogueStyle.systemMessageBackgroundColor);
       expect(
         find.byKey(const ValueKey<String>('opening-dialogue-0-delete')),
         findsOneWidget,

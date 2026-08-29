@@ -142,3 +142,24 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
     fontWeight: FontWeight.w400,
   ),
 );
+
+ChatUiStyleConfig get kOpeningDialogueStyle => kLocationChatStyle.copyWith(
+  headerTitleTextStyle: kLocationChatStyle.headerTitleTextStyle.copyWith(
+    color: const Color(0xFF111111),
+  ),
+  headerTitleIconColor: const Color(0xFF111111),
+  senderNameTextStyle: kLocationChatStyle.senderNameTextStyle.copyWith(
+    color: const Color(0xFF111111),
+  ),
+  selfBubbleColor: const Color(0xFFC41F2E),
+  otherBubbleColor: const Color(0xFF3A3942),
+  bubbleBackdropBlurSigma: 0,
+  useConfiguredScenePlateSystemStyle: true,
+  systemMessageBackgroundColor: const Color(0xFF151517),
+  systemMessageTextStyle: const TextStyle(
+    color: Color(0xBAFFFFFF),
+    fontSize: 13,
+    height: 1.3,
+    fontWeight: FontWeight.w400,
+  ),
+);
