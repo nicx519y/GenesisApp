@@ -98,6 +98,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   Object? _tasksError;
   bool _productsLoading = false;
   bool _tasksLoading = false;
+  bool _primaryLoading = true;
   BillingService? _billingService;
   StreamSubscription<BillingUiEvent>? _billingEvents;
   PageRoute<dynamic>? _subscribedRoute;
@@ -206,7 +207,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   }
 
   Widget _buildBody(ValueListenable<GemWalletState> walletStateListenable) {
-    if (!_hasPageData && (_productsLoading || _tasksLoading)) {
+    if (_primaryLoading) {
       return const _GemWalletLoading();
     }
     if (!_hasPageData && _productsError != null && _tasksError != null) {

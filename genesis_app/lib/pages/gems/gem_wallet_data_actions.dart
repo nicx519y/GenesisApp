@@ -2,11 +2,19 @@ part of 'gem_wallet_page.dart';
 
 extension _GemWalletDataActions on _GemWalletPageState {
   Future<void> _refreshAll({bool silent = false}) async {
-    unawaited(_walletStore.refresh());
+    if (!silent) {
+      _updateState(() => _primaryLoading = true);
+    }
+    final tasksFuture = _refreshTasks(silent: silent);
     await Future.wait<void>([
+      _walletStore.refresh(),
       _refreshProducts(silent: silent),
-      _refreshTasks(silent: silent),
     ]);
+    if (!mounted) return;
+    if (!silent) {
+      _updateState(() => _primaryLoading = false);
+    }
+    await tasksFuture;
   }
 
   Future<void> _refreshTasksAndWallet() async {

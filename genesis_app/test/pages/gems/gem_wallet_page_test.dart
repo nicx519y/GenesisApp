@@ -503,12 +503,18 @@ void main() {
     expect(find.text('520'), findsOneWidget);
   });
 
-  testWidgets('GemWalletPage shows zero until wallet balance arrives', (
+  testWidgets('loads all data together but only gates on products and wallet', (
     tester,
   ) async {
-    final result = Completer<GemWallet>();
+    final walletResult = Completer<GemWallet>();
+    final productsResult = Completer<List<GemProduct>>();
+    final tasksResult = Completer<List<GemTaskGroup>>();
+    final requests = <String>[];
     final walletStore = GemWalletStore(
-      loadWallet: () => result.future,
+      loadWallet: () {
+        requests.add('wallet');
+        return walletResult.future;
+      },
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -517,30 +523,46 @@ void main() {
       MaterialApp(
         home: GemWalletPage(
           walletStore: walletStore,
-          productsLoader: (_) async => _products(),
-          tasksLoader: (_) async => _taskGroups(),
+          productsLoader: (_) {
+            requests.add('products');
+            return productsResult.future;
+          },
+          tasksLoader: (_) {
+            requests.add('tasks');
+            return tasksResult.future;
+          },
         ),
       ),
     );
     await tester.pump();
     await tester.pump();
 
-    expect(
-      tester
-          .widget<Text>(find.byKey(const ValueKey('gem-wallet-balance')))
-          .data,
-      '0',
-    );
+    expect(requests, containsAll(<String>['products', 'wallet', 'tasks']));
+    expect(find.byType(GemPurchaseCatalogSection), findsNothing);
 
-    result.complete(const GemWallet(balance: 430));
-    await tester.pumpAndSettle();
+    productsResult.complete(_products());
+    await tester.pump();
 
+    expect(find.byType(GemPurchaseCatalogSection), findsNothing);
+
+    walletResult.complete(const GemWallet(balance: 430));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(GemPurchaseCatalogSection), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(
       tester
           .widget<Text>(find.byKey(const ValueKey('gem-wallet-balance')))
           .data,
       '430',
     );
+    expect(find.text('Starter'), findsNothing);
+
+    tasksResult.complete(_taskGroups());
+    await tester.pumpAndSettle();
+
+    expect(find.text('Starter'), findsOneWidget);
   });
 
   testWidgets('GemWalletPage hides original amount without bonus gems', (
@@ -912,7 +934,7 @@ void main() {
 
     expect(productsLoadCount, 2);
     expect(tasksLoadCount, 2);
-    expect(walletLoadCount, 1);
+    expect(walletLoadCount, 2);
     _expectGrantedSuccessDialog(tester);
     await tester.pump(const Duration(seconds: 3));
   });

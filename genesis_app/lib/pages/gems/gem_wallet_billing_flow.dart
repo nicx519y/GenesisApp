@@ -72,8 +72,7 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
         return;
       case BillingUiEventKind.success:
         _showBillingPurchaseSuccess(event);
-        unawaited(_refreshProducts(silent: true));
-        unawaited(_refreshTasks(silent: true));
+        unawaited(_refreshAll(silent: true));
         return;
       case BillingUiEventKind.accepted:
       case BillingUiEventKind.failure:
