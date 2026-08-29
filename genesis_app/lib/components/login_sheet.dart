@@ -7,6 +7,7 @@ import 'login_provider_button.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/auth_session.dart';
+import '../ui/tokens/genesis_colors.dart';
 
 class LoginSheet extends StatefulWidget {
   const LoginSheet({super.key, required this.onLogin});
@@ -62,7 +63,7 @@ class _LoginSheetState extends State<LoginSheet> {
     final targetHeight = maxHeight < 342 ? maxHeight : 342.0;
 
     return GenesisBottomSheetPanel(
-      title: 'Sign in to continue',
+      title: 'Sign up to continue',
       height: targetHeight,
       trailing: GenesisBottomSheetCloseButton(
         onPressed: _submittingProvider != null
@@ -79,12 +80,17 @@ class _LoginSheetState extends State<LoginSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Create worldo, launch worlds and invite friends',
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF666666),
-              height: 1.35,
+          const SizedBox(
+            width: double.infinity,
+            child: Text(
+              'Sign up and get 250 Gems!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: GenesisColors.brand,
+                height: 1.35,
+              ),
             ),
           ),
           const SizedBox(height: 12),

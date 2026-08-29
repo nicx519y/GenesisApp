@@ -11,6 +11,7 @@ class _MyWorldFeed extends StatefulWidget {
     this.isActiveListenable,
     this.isFirstPageViewReported,
     this.onFirstPageViewReady,
+    this.onOpenWorldo,
     this.initialPageData,
     this.initialPageRenderOperation,
     this.initialPageRequestAttempt = 0,
@@ -25,6 +26,7 @@ class _MyWorldFeed extends StatefulWidget {
   final ValueListenable<bool>? isActiveListenable;
   final bool Function(String action)? isFirstPageViewReported;
   final void Function(String action)? onFirstPageViewReady;
+  final VoidCallback? onOpenWorldo;
   final Map<String, dynamic>? initialPageData;
   final FirebasePerformanceOperation? initialPageRenderOperation;
   final int initialPageRequestAttempt;
@@ -890,7 +892,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.62,
-          child: const _MyWorldsEmptyState(),
+          child: _MyWorldsEmptyState(onTap: widget.onOpenWorldo),
         ),
       ],
     );

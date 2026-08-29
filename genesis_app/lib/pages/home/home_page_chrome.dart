@@ -7,6 +7,7 @@ class _HomeScaffold extends StatelessWidget {
     required this.isActiveListenable,
     required this.isFirstPageViewReported,
     required this.onFirstPageViewReady,
+    required this.onOpenWorldo,
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
@@ -20,6 +21,7 @@ class _HomeScaffold extends StatelessWidget {
   final ValueListenable<bool>? isActiveListenable;
   final bool Function(String action)? isFirstPageViewReported;
   final void Function(String action)? onFirstPageViewReady;
+  final VoidCallback? onOpenWorldo;
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
@@ -42,6 +44,7 @@ class _HomeScaffold extends StatelessWidget {
               isActiveListenable: isActiveListenable,
               isFirstPageViewReported: isFirstPageViewReported,
               onFirstPageViewReady: onFirstPageViewReady,
+              onOpenWorldo: onOpenWorldo,
               networkRequestsAllowed: networkRequestsAllowed,
               keepInitialNetworkFailureLoading:
                   keepInitialNetworkFailureLoading,
@@ -117,7 +120,17 @@ class _HomeGemWalletEntry extends StatelessWidget {
               key: const ValueKey<String>('home-gem-wallet-icon'),
               width: 36,
               height: 30,
-              child: SvgPicture.asset(gemStackIconAsset, fit: BoxFit.contain),
+              child: Transform.translate(
+                offset: const Offset(0, -3.2),
+                child: Transform.scale(
+                  scale: 1.125,
+                  child: SvgPicture.asset(
+                    gemStackIconAsset,
+                    key: const ValueKey<String>('home-gem-wallet-artwork'),
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
             ),
           ),
         ),

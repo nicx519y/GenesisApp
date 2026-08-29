@@ -54,8 +54,29 @@ void main() {
       ),
     );
 
-    final title = tester.widget<Text>(find.text('Sign in to continue'));
+    final title = tester.widget<Text>(find.text('Sign up to continue'));
     expect(title.style, GenesisBottomSheetPanel.titleStyle);
+  });
+
+  testWidgets('login sheet centers the branded Gems signup promo', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LoginSheet(onLogin: (_) async => false)),
+      ),
+    );
+
+    final promoFinder = find.text('Sign up and get 250 Gems!');
+    final promo = tester.widget<Text>(promoFinder);
+    expect(promo.style?.fontSize, 14);
+    expect(promo.style?.fontWeight, FontWeight.w600);
+    expect(promo.style?.color, const Color(0xFFFF2442));
+    expect(promo.textAlign, TextAlign.center);
+    expect(
+      tester.getCenter(promoFinder).dx,
+      closeTo(tester.getCenter(find.byType(LoginSheet)).dx, 0.01),
+    );
   });
 
   testWidgets('login sheet keeps the global transparent status bar style', (

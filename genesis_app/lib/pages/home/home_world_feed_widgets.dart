@@ -118,10 +118,9 @@ class _AnimatedHomeWorldListItemState extends State<_AnimatedHomeWorldListItem>
 }
 
 class _MyWorldsEmptyState extends StatelessWidget {
-  const _MyWorldsEmptyState();
+  const _MyWorldsEmptyState({required this.onTap});
 
-  static const launchImageAsset =
-      'assets/images/my_worlds_empty_worldo_launch.jpg';
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -131,50 +130,51 @@ class _MyWorldsEmptyState extends StatelessWidget {
       alignment: const Alignment(0, -0.2),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Image.asset(
-              launchImageAsset,
-              key: ValueKey<String>(
-                'home-my-worlds-empty-image:$launchImageAsset',
-              ),
-              width: MediaQuery.sizeOf(context).width.clamp(0, 360) * 0.82,
-              fit: BoxFit.contain,
-            ),
-            const SizedBox(height: 22),
-            Text.rich(
-              TextSpan(
-                children: const [
-                  TextSpan(text: 'Launch a '),
+        child: Semantics(
+          button: true,
+          label: 'Open Worldo',
+          child: GestureDetector(
+            key: const ValueKey<String>('home-my-worlds-empty-action'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text.rich(
                   TextSpan(
-                    text: '#Worldo',
-                    style: TextStyle(color: Color(0xFF4B6192)),
+                    children: const [
+                      TextSpan(text: 'Launch a '),
+                      TextSpan(
+                        text: '#Worldo',
+                        style: TextStyle(color: Color(0xFF4B6192)),
+                      ),
+                      TextSpan(text: ' to generate\n'),
+                      TextSpan(text: 'your own World'),
+                    ],
                   ),
-                  TextSpan(text: ' to generate your own World'),
-                ],
-              ),
-              textAlign: TextAlign.center,
-              style: textTheme.titleMedium?.copyWith(
-                color: GenesisColors.textPrimary,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                height: 1.25,
-                letterSpacing: 0,
-              ),
+                  textAlign: TextAlign.center,
+                  style: textTheme.titleMedium?.copyWith(
+                    color: GenesisColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1.25,
+                    letterSpacing: 0,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: const Color(0xFF666666),
+                    fontSize: 14,
+                    height: 1.25,
+                    letterSpacing: 0,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
-            Text(
-              'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
-              textAlign: TextAlign.center,
-              style: textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF666666),
-                fontSize: 14,
-                height: 1.25,
-                letterSpacing: 0,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

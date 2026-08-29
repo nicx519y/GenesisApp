@@ -80,6 +80,7 @@ class HomePage extends StatefulWidget {
     this.isActiveListenable,
     this.isFirstPageViewReported,
     this.onFirstPageViewReady,
+    this.onOpenWorldo,
     this.initialRequestMetricWindow = Duration.zero,
   });
 
@@ -89,6 +90,7 @@ class HomePage extends StatefulWidget {
   final ValueListenable<bool>? isActiveListenable;
   final bool Function(String action)? isFirstPageViewReported;
   final void Function(String action)? onFirstPageViewReady;
+  final VoidCallback? onOpenWorldo;
   final Duration initialRequestMetricWindow;
 
   @override
@@ -120,6 +122,7 @@ class _HomePageState extends State<HomePage> {
       isActiveListenable: widget.isActiveListenable,
       isFirstPageViewReported: widget.isFirstPageViewReported,
       onFirstPageViewReady: widget.onFirstPageViewReady,
+      onOpenWorldo: widget.onOpenWorldo,
       networkRequestsAllowed: _homeNetworkRequestsAllowed,
       keepInitialNetworkFailureLoading: false,
       initialRequestMetricWindow: widget.initialRequestMetricWindow,

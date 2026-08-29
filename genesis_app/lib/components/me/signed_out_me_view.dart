@@ -120,8 +120,8 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                           ),
                           const SizedBox(height: 18),
                           const Text(
-                            'Launch world, create worldo, invite\n'
-                            'friends, and continue them anywhere.',
+                            'Play world, create worldo, invite friends,\n'
+                            'and continue them anywhere.',
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 12,
@@ -135,12 +135,12 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                     Column(
                       children: [
                         const Text(
-                          'Sign up and get 200 Gems!',
+                          'Sign up and get 250 Gems!',
                           key: ValueKey<String>('signed-out-gems-promo'),
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             color: Color(0xFFFF2442),
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: FontWeight.w600,
                           ),
                         ),

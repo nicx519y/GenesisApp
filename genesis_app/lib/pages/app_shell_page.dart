@@ -611,6 +611,7 @@ class _AppShellPageState extends State<AppShellPage>
           isActiveListenable: _homeTabActiveNotifier,
           isFirstPageViewReported: _isFirstContentPageViewReported,
           onFirstPageViewReady: _recordFirstContentPageView,
+          onOpenWorldo: () => unawaited(_onTapNav(1)),
         ),
         1 => OriginPage(
           key: ValueKey<String>('worldo-session-$_sessionTabGeneration'),
