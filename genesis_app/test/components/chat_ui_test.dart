@@ -3951,6 +3951,46 @@ void main() {
     expect(reportedHeights.last, closeTo(tenLineHeight, 1));
   });
 
+  testWidgets('chat composer can keep send action pinned while input grows', (
+    WidgetTester tester,
+  ) async {
+    final controller = TextEditingController(text: 'one');
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.bottomCenter,
+            child: ChatComposer(
+              controller: controller,
+              inputEnabled: true,
+              sendEnabled: true,
+              sending: false,
+              onSend: () async {},
+              leadingShortcutLabel: '*',
+              onLeadingShortcutPressed: () {},
+              sendIcon: ChatComposerSendIcon.arrowUp,
+              pinActionsToBottom: true,
+              style: kLocationChatStyle,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final sendButton = find.byKey(
+      const ValueKey<String>('chat-composer-send-button'),
+    );
+    final initialBottom = tester.getBottomLeft(sendButton).dy;
+
+    await tester.enterText(find.byType(TextField), 'one\ntwo\nthree\nfour');
+    await tester.pump();
+
+    expect(tester.getBottomLeft(sendButton).dy, closeTo(initialBottom, 0.01));
+  });
+
   testWidgets('chat composer default only shows send action button', (
     WidgetTester tester,
   ) async {

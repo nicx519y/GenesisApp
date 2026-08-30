@@ -20,6 +20,7 @@ class ChatComposer extends StatelessWidget {
     this.leadingShortcutLabel,
     this.onLeadingShortcutPressed,
     this.sendIcon = ChatComposerSendIcon.send,
+    this.pinActionsToBottom = false,
     this.backdropGroupKey,
   });
 
@@ -38,6 +39,7 @@ class ChatComposer extends StatelessWidget {
   final String? leadingShortcutLabel;
   final VoidCallback? onLeadingShortcutPressed;
   final ChatComposerSendIcon sendIcon;
+  final bool pinActionsToBottom;
 
   /// Groups only the outer composer blur with non-overlapping filters.
   ///
@@ -68,7 +70,9 @@ class ChatComposer extends StatelessWidget {
             ),
             child: TextFieldTapRegion(
               child: Row(
-                crossAxisAlignment: leadingShortcutLabel == null
+                crossAxisAlignment: pinActionsToBottom
+                    ? CrossAxisAlignment.end
+                    : leadingShortcutLabel == null
                     ? CrossAxisAlignment.center
                     : CrossAxisAlignment.start,
                 children: [
