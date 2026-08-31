@@ -61,12 +61,12 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       await _sessionStore.saveUid(uid);
       return true;
     } on ApiException catch (e) {
-      if (!tryAutoRefresh || !_isAuthFailureStatus(e.statusCode)) {
+      if (!tryAutoRefresh || !_isRecoverableAuthStatus(e)) {
         return false;
       }
 
       debugPrint(
-        '[Auth][GenesisApi] session check failed with ${e.statusCode}, trying silent refresh',
+        '[Auth][GenesisApi] session check failed with HTTP ${e.statusCode}, trying silent refresh',
       );
 
       final session = await _identityAuthService.refreshSilently();

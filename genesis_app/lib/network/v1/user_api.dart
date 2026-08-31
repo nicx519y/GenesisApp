@@ -158,7 +158,6 @@ class UserV1Api extends V1ApiResource {
 
     throw ApiException(
       message: 'Current user session could not be verified',
-      statusCode: 401,
       kind: ApiExceptionKind.gatewayAuth,
     );
   }
