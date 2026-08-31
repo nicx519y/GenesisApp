@@ -25,6 +25,7 @@ import '../../components/tilemap/tilemap_settings_store.dart';
 import '../../components/world_details_shell.dart';
 import '../../components/world_map.dart';
 import '../../components/world_tick1_wait_dialog.dart';
+import '../../network/api_client.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/world_chatroom_service.dart';

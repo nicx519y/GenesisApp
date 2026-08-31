@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../app/telemetry/genesis_telemetry.dart';
+import 'api_request_trace_sampling.dart';
 import 'api_exception.dart';
 import 'genesis_http_transport_pool.dart';
 import 'http_transport.dart';
@@ -26,6 +27,8 @@ class ApiResponse {
 }
 
 enum ApiResponseType { json, text, bytes }
+
+enum ApiRequestTracePolicy { standard, always, excluded }
 
 typedef ApiResponseProcessor = Object? Function(ApiResponse response);
 typedef RequestHeaderProvider = Future<Map<String, String>> Function();
@@ -141,6 +144,7 @@ class ApiClient {
     NetworkProgressCallback? onSendProgress,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     return request<T>(
       'GET',
@@ -151,6 +155,7 @@ class ApiClient {
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
+      tracePolicy: tracePolicy,
     );
   }
 
@@ -160,6 +165,7 @@ class ApiClient {
     Map<String, String>? headers,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     return request<List<int>>(
       'GET',
@@ -169,6 +175,7 @@ class ApiClient {
       responseType: ApiResponseType.bytes,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
+      tracePolicy: tracePolicy,
     );
   }
 
@@ -178,6 +185,7 @@ class ApiClient {
     Map<String, String>? headers,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     return request<String>(
       'GET',
@@ -187,6 +195,7 @@ class ApiClient {
       responseType: ApiResponseType.text,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
+      tracePolicy: tracePolicy,
     );
   }
 
@@ -196,6 +205,7 @@ class ApiClient {
     Map<String, String>? headers,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     return getBytes(
       path,
@@ -203,6 +213,7 @@ class ApiClient {
       headers: headers,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
+      tracePolicy: tracePolicy,
     );
   }
 
@@ -215,6 +226,7 @@ class ApiClient {
     NetworkProgressCallback? onSendProgress,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     return request<T>(
       'POST',
@@ -226,6 +238,7 @@ class ApiClient {
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
+      tracePolicy: tracePolicy,
     );
   }
 
@@ -238,6 +251,7 @@ class ApiClient {
     NetworkProgressCallback? onSendProgress,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     return request<T>(
       'PUT',
@@ -249,6 +263,7 @@ class ApiClient {
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
+      tracePolicy: tracePolicy,
     );
   }
 
@@ -261,6 +276,7 @@ class ApiClient {
     NetworkProgressCallback? onSendProgress,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     return request<T>(
       'DELETE',
@@ -272,6 +288,7 @@ class ApiClient {
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
+      tracePolicy: tracePolicy,
     );
   }
 
@@ -286,10 +303,15 @@ class ApiClient {
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
     ApiResponseType responseType = ApiResponseType.json,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) async {
     final stopwatch = Stopwatch()..start();
     final uri = _resolveUri(path, query);
-    final collectRequest = _BusinessApiCollectRequest.maybeCreate(uri);
+    final collectRequest = _BusinessApiCollectRequest.maybeCreate(
+      uri,
+      method: method,
+      tracePolicy: tracePolicy,
+    );
 
     late final TransportRequest request;
     var requestPreparationFailureReason = 'request_headers';
@@ -318,24 +340,27 @@ class ApiClient {
       stopwatch.stop();
       collectRequest?.failure(
         'cancelled',
-        duration: stopwatch.elapsed,
+        duration: Duration.zero,
         error: error,
+        attemptCount: 0,
       );
       rethrow;
     } on ApiException catch (error) {
       stopwatch.stop();
       collectRequest?.failure(
         _businessApiFailureReason(error),
-        duration: stopwatch.elapsed,
+        duration: Duration.zero,
         error: error,
+        attemptCount: 0,
       );
       rethrow;
     } catch (error) {
       stopwatch.stop();
       collectRequest?.failure(
         requestPreparationFailureReason,
-        duration: stopwatch.elapsed,
+        duration: Duration.zero,
         error: error,
+        attemptCount: 0,
       );
       rethrow;
     }
@@ -359,6 +384,7 @@ class ApiClient {
           'cancelled',
           duration: attemptStopwatch.elapsed,
           error: e,
+          attemptCount: attempt,
         );
         _recordHttpTelemetry(
           request: request,
@@ -393,6 +419,7 @@ class ApiClient {
           _businessApiFailureReason(error),
           duration: attemptStopwatch.elapsed,
           error: error,
+          attemptCount: attempt,
         );
         _recordHttpTelemetry(
           request: request,
@@ -430,6 +457,7 @@ class ApiClient {
           _businessApiFailureReason(apiError),
           duration: attemptStopwatch.elapsed,
           error: apiError,
+          attemptCount: attempt,
         );
         _recordHttpTelemetry(
           request: request,
@@ -445,6 +473,7 @@ class ApiClient {
         throw apiError;
       }
     }
+    attemptStopwatch.stop();
 
     final bodyBytes = transportResponse.bodyBytes.isEmpty
         ? utf8.encode(transportResponse.body)
@@ -476,13 +505,14 @@ class ApiClient {
       response: apiResponse,
       responseType: responseType,
       duration: attemptStopwatch.elapsed,
+      attemptCount: attempt,
     );
 
     final processor = responseProcessor ?? _responseProcessor;
     try {
       final processed = processor(apiResponse);
-      attemptStopwatch.stop();
       stopwatch.stop();
+      collectRequest?.success(duration: attemptStopwatch.elapsed);
       _recordHttpTelemetry(
         request: request,
         response: apiResponse,
@@ -500,6 +530,7 @@ class ApiClient {
         duration: attemptStopwatch.elapsed,
         error: error,
         response: apiResponse,
+        attemptCount: attempt,
       );
       _recordHttpTelemetry(
         request: request,
@@ -638,13 +669,35 @@ int? _apiErrNo(Object? data) {
 }
 
 class _BusinessApiCollectRequest {
-  _BusinessApiCollectRequest._({required this.path});
+  _BusinessApiCollectRequest._({
+    required this.path,
+    required this.method,
+    required this.requestId,
+  }) {
+    _record(action: 'api_request_start', object3: '', object4: '0');
+  }
 
-  static _BusinessApiCollectRequest? maybeCreate(Uri uri) {
+  static _BusinessApiCollectRequest? maybeCreate(
+    Uri uri, {
+    required String method,
+    required ApiRequestTracePolicy tracePolicy,
+  }) {
     if (!uri.path.startsWith('/api/')) return null;
-    if (_businessApiCollectExcludedPaths.contains(uri.path)) return null;
+    if (uri.path == _businessApiCollectPath) return null;
+    final isGlobalConfig = uri.path == _appGlobalConfigPath;
+    if (!isGlobalConfig) {
+      if (tracePolicy == ApiRequestTracePolicy.excluded) return null;
+      if (tracePolicy == ApiRequestTracePolicy.standard &&
+          !ApiRequestTraceSampling.enabledForLaunch) {
+        return null;
+      }
+    }
     try {
-      return _BusinessApiCollectRequest._(path: uri.path);
+      return _BusinessApiCollectRequest._(
+        path: uri.path,
+        method: method.trim().toUpperCase(),
+        requestId: newCollectEventId(),
+      );
     } catch (_) {
       // Telemetry must never prevent the business request from running.
       return null;
@@ -652,11 +705,24 @@ class _BusinessApiCollectRequest {
   }
 
   final String path;
+  final String method;
+  final String requestId;
   bool _terminalRecorded = false;
+
+  void success({required Duration duration}) {
+    if (_terminalRecorded) return;
+    _terminalRecorded = true;
+    _record(
+      action: 'api_request_success',
+      object3: '',
+      object4: duration.inMilliseconds.toString(),
+    );
+  }
 
   void failure(
     String reason, {
     required Duration duration,
+    required int attemptCount,
     Object? error,
     ApiResponse? response,
     String? errorMessage,
@@ -665,10 +731,12 @@ class _BusinessApiCollectRequest {
     _terminalRecorded = true;
     _record(
       action: 'api_request_failed',
-      object3: reason,
+      object3: _apiRequestFailureStatusCode(error, response),
       object4: duration.inMilliseconds.toString(),
       extData: _apiRequestFailureExtData(
         reason: reason,
+        method: method,
+        attemptCount: attemptCount,
         error: error,
         response: response,
         errorMessage: errorMessage,
@@ -680,12 +748,14 @@ class _BusinessApiCollectRequest {
     required ApiResponse response,
     required ApiResponseType responseType,
     required Duration duration,
+    required int attemptCount,
   }) {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       failure(
         'http_${response.statusCode}',
         duration: duration,
         response: response,
+        attemptCount: attemptCount,
       );
       return;
     }
@@ -695,12 +765,18 @@ class _BusinessApiCollectRequest {
         duration: duration,
         response: response,
         errorMessage: 'Response body is not valid JSON.',
+        attemptCount: attemptCount,
       );
       return;
     }
     final errNo = _apiErrNo(response.data);
     if (errNo != null && errNo != 0) {
-      failure('business_$errNo', duration: duration, response: response);
+      failure(
+        'business_$errNo',
+        duration: duration,
+        response: response,
+        attemptCount: attemptCount,
+      );
     }
   }
 
@@ -715,7 +791,7 @@ class _BusinessApiCollectRequest {
         actionType: 'monitor',
         action: action,
         object1: path,
-        object2: '',
+        object2: requestId,
         object3: object3,
         object4: object4,
         extData: extData,
@@ -726,11 +802,8 @@ class _BusinessApiCollectRequest {
   }
 }
 
-const Set<String> _businessApiCollectExcludedPaths = <String>{
-  '/api/v1/message/unread',
-  '/api/v1/direct_message/conversations',
-  '/api/v1/direct_message/list',
-};
+const String _appGlobalConfigPath = '/api/v1/app/config';
+const String _businessApiCollectPath = '/api/v1/collect';
 
 bool _isMalformedJsonResponse(ApiResponseType responseType, String body) {
   if (responseType != ApiResponseType.json || body.trim().isEmpty) return false;
@@ -784,6 +857,8 @@ String _businessApiFailureReason(Object error, {ApiResponse? response}) {
 
 String _apiRequestFailureExtData({
   required String reason,
+  required String method,
+  required int attemptCount,
   Object? error,
   ApiResponse? response,
   String? errorMessage,
@@ -809,6 +884,9 @@ String _apiRequestFailureExtData({
 
     final details = <String, Object?>{
       'error_type': _apiFailureErrorType(reason, error),
+      'failure_reason': reason,
+      'method': method,
+      'attempt_count': attemptCount,
       if (apiError?.code ?? responseErrorCode case final code?)
         'error_code': code,
       if (apiError?.statusCode ?? response?.statusCode case final statusCode?)
@@ -828,6 +906,12 @@ String _apiRequestFailureExtData({
   } catch (_) {
     return '{"error_type":"ext_data_build_failed"}';
   }
+}
+
+String _apiRequestFailureStatusCode(Object? error, ApiResponse? response) {
+  final statusCode =
+      response?.statusCode ?? (error is ApiException ? error.statusCode : null);
+  return statusCode?.toString() ?? '';
 }
 
 String _apiFailureErrorType(String reason, Object? error) {

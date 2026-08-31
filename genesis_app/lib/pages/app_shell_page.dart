@@ -11,6 +11,7 @@ import '../app/startup/app_startup_coordinator.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../components/bottom_tabs.dart';
 import '../components/login_sheet.dart';
+import '../network/api_client.dart';
 import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/billing/billing_models.dart';
@@ -311,7 +312,9 @@ class _AppShellPageState extends State<AppShellPage>
       final services = AppServicesScope.read(context);
       final requests = <Future<void>>[
         _refreshUnreadSummary(),
-        services.directMessageConversations.syncConversations(),
+        services.directMessageConversations.syncConversations(
+          tracePolicy: ApiRequestTracePolicy.excluded,
+        ),
       ];
       await Future.wait(requests);
     } catch (e, st) {
@@ -322,9 +325,8 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<void> _refreshUnreadSummary() async {
     try {
-      final summary = await AppServicesScope.read(
-        context,
-      ).api.v1.messages.unreadSummary();
+      final summary = await AppServicesScope.read(context).api.v1.messages
+          .unreadSummary(tracePolicy: ApiRequestTracePolicy.excluded);
       if (!mounted) return;
       _unreadSummaryNotifier.value = summary;
     } catch (e, st) {

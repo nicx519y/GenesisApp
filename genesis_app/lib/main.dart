@@ -14,6 +14,7 @@ import 'app/startup/app_startup_coordinator.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
+import 'network/api_request_trace_sampling.dart';
 import 'network/websocket_capture.dart';
 import 'platform/session/user_session_store.dart';
 import 'ui/system/genesis_system_ui.dart';
@@ -56,7 +57,6 @@ Future<void> main() async {
     },
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
-  final appGlobalConfigLoad = _loadAppGlobalConfig(services);
   final initialIndexFuture = _resolveInitialBottomTab(services);
   await Future.wait<Object?>(<Future<Object?>>[
     tilemapSettingsLoad,
@@ -66,6 +66,7 @@ Future<void> main() async {
   // Native Firebase collection is disabled for every build. Enable it only
   // after the actual runtime endpoints and persisted debug override are known.
   await TelemetryRuntimeController.initialize(appConfig);
+  final appGlobalConfigLoad = _loadAppGlobalConfig(services);
 
   AppStartupCoordinator.recordStartupFirstReport();
   AppStartupCoordinator.configure();
@@ -78,6 +79,9 @@ Future<void> _loadAppGlobalConfig(AppServices services) async {
   try {
     await services.appGlobalConfig.refresh().timeout(
       const Duration(seconds: 3),
+    );
+    ApiRequestTraceSampling.configureForLaunch(
+      services.appGlobalConfig.value.apiTraceSamplingRate,
     );
   } catch (error) {
     debugPrint(

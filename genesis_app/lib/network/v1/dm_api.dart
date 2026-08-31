@@ -1,3 +1,4 @@
+import '../api_client.dart';
 import 'v1_api_resource.dart';
 
 class DmV1Api extends V1ApiResource {
@@ -18,13 +19,15 @@ class DmV1Api extends V1ApiResource {
     int? pn,
     int? rn,
     String? afterMessageId,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
     final cursor = afterMessageId?.trim();
-    return getMap(
+    return getMapWithTracePolicy(
       'direct_message/conversations',
-      cursor == null || cursor.isEmpty
+      query: cursor == null || cursor.isEmpty
           ? v1Query({'pn': pn, 'rn': rn})
           : v1Query({'after_message_id': cursor}),
+      tracePolicy: tracePolicy,
     );
   }
 
@@ -43,10 +46,12 @@ class DmV1Api extends V1ApiResource {
     required String peerUid,
     int? pn,
     int? rn,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
   }) {
-    return getMap(
+    return getMapWithTracePolicy(
       'direct_message/list',
-      v1Query({'peer_uid': peerUid, 'pn': pn, 'rn': rn}),
+      query: v1Query({'peer_uid': peerUid, 'pn': pn, 'rn': rn}),
+      tracePolicy: tracePolicy,
     );
   }
 

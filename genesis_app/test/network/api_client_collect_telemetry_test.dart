@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
+import 'package:genesis_flutter_android/network/api_request_trace_sampling.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 
 class _FakeTransport implements HttpTransport {
@@ -28,6 +29,8 @@ void main() {
 
   setUp(() {
     GenesisTelemetry.resetForTesting();
+    ApiRequestTraceSampling.resetForTesting();
+    ApiRequestTraceSampling.configureForLaunch(1, randomValue: 0);
     store = MemoryCollectEventStore();
     var nextEventId = 1;
     uploader = CollectTelemetryUploader(
@@ -39,6 +42,7 @@ void main() {
 
   tearDown(() async {
     await uploader.waitForPendingWrites();
+    ApiRequestTraceSampling.resetForTesting();
     GenesisTelemetry.resetForTesting();
   });
 
@@ -47,7 +51,7 @@ void main() {
     return store.eventsForTesting;
   }
 
-  test('successful business request does not emit collect events', () async {
+  test('successful business request emits start and success', () async {
     final client = ApiClient(
       baseUrl: 'https://example.test/api/',
       transport: _FakeTransport(
@@ -64,70 +68,99 @@ void main() {
       query: const {'token': 'secret', 'page': 2},
     );
 
-    expect(await events(), isEmpty);
-  });
-
-  test('automatic retry followed by success does not emit events', () async {
-    var attempts = 0;
-    final client = ApiClient(
-      baseUrl: 'https://example.test/api/',
-      retryPolicy: ApiRetryPolicy.safe,
-      transport: _FakeTransport(
-        handler: (_) async {
-          attempts += 1;
-          if (attempts == 1) {
-            await Future<void>.delayed(const Duration(milliseconds: 250));
-            throw TimeoutException('slow');
-          }
-          await Future<void>.delayed(const Duration(milliseconds: 20));
-          return const TransportResponse(
-            statusCode: 200,
-            headers: {'content-type': 'application/json'},
-            body: '{"err_no":0,"data":{}}',
-          );
-        },
-      ),
-    );
-
-    await client.get<Object?>('v1/profile');
-
-    expect(attempts, 2);
-    expect(await events(), isEmpty);
-  });
-
-  test('a page-level retry records only the failed request', () async {
-    var shouldFail = true;
-    final client = ApiClient(
-      baseUrl: 'https://example.test/api/',
-      transport: _FakeTransport(
-        handler: (_) {
-          if (shouldFail) throw Exception('connection reset');
-          return const TransportResponse(
-            statusCode: 200,
-            headers: {'content-type': 'application/json'},
-            body: '{"err_no":0,"data":{}}',
-          );
-        },
-      ),
-    );
-
-    await expectLater(
-      client.get<Object?>('v1/profile'),
-      throwsA(isA<ApiException>()),
-    );
-    shouldFail = false;
-    await client.get<Object?>('v1/profile');
-
     final recorded = await events();
     expect(recorded.map((event) => event.action), <String>[
-      'api_request_failed',
+      'api_request_start',
+      'api_request_success',
     ]);
-    expect(recorded.single.actionType, 'monitor');
-    expect(recorded.single.eventId, 'collect-event-1');
-    expect(recorded.single.object2, isEmpty);
-    expect(recorded.single.object3, 'connection');
-    expect(int.tryParse(recorded.single.object4), isNotNull);
+    expect(recorded.map((event) => event.object1).toSet(), {
+      '/api/v1/world/list',
+    });
+    expect(recorded.first.object2, isNotEmpty);
+    expect(recorded.last.object2, recorded.first.object2);
+    expect(recorded.first.object3, isEmpty);
+    expect(recorded.first.object4, '0');
+    expect(recorded.last.object3, isEmpty);
+    expect(int.tryParse(recorded.last.object4), isNotNull);
   });
+
+  test(
+    'automatic retry followed by success emits one terminal event',
+    () async {
+      var attempts = 0;
+      final client = ApiClient(
+        baseUrl: 'https://example.test/api/',
+        retryPolicy: ApiRetryPolicy.safe,
+        transport: _FakeTransport(
+          handler: (_) async {
+            attempts += 1;
+            if (attempts == 1) {
+              await Future<void>.delayed(const Duration(milliseconds: 300));
+              throw TimeoutException('slow');
+            }
+            await Future<void>.delayed(const Duration(milliseconds: 20));
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body: '{"err_no":0,"data":{}}',
+            );
+          },
+        ),
+      );
+
+      await client.get<Object?>('v1/profile');
+
+      expect(attempts, 2);
+      final recorded = await events();
+      expect(recorded.map((event) => event.action), <String>[
+        'api_request_start',
+        'api_request_success',
+      ]);
+      expect(recorded.last.object2, recorded.first.object2);
+      expect(int.parse(recorded.last.object4), lessThan(200));
+    },
+  );
+
+  test(
+    'a page-level retry records each logical request independently',
+    () async {
+      var shouldFail = true;
+      final client = ApiClient(
+        baseUrl: 'https://example.test/api/',
+        transport: _FakeTransport(
+          handler: (_) {
+            if (shouldFail) throw Exception('connection reset');
+            return const TransportResponse(
+              statusCode: 200,
+              headers: {'content-type': 'application/json'},
+              body: '{"err_no":0,"data":{}}',
+            );
+          },
+        ),
+      );
+
+      await expectLater(
+        client.get<Object?>('v1/profile'),
+        throwsA(isA<ApiException>()),
+      );
+      shouldFail = false;
+      await client.get<Object?>('v1/profile');
+
+      final recorded = await events();
+      expect(recorded.map((event) => event.action), <String>[
+        'api_request_start',
+        'api_request_failed',
+        'api_request_start',
+        'api_request_success',
+      ]);
+      final failure = recorded[1];
+      expect(failure.actionType, 'monitor');
+      expect(failure.object2, recorded.first.object2);
+      expect(failure.object3, isEmpty);
+      expect(int.tryParse(failure.object4), isNotNull);
+      expect(_extData(failure)['failure_reason'], 'connection');
+    },
+  );
 
   test('exhausted automatic retry reports one timeout failure', () async {
     var attempts = 0;
@@ -150,11 +183,13 @@ void main() {
     final recorded = await events();
     expect(attempts, 2);
     expect(recorded.map((event) => event.action), <String>[
+      'api_request_start',
       'api_request_failed',
     ]);
-    expect(recorded.single.object2, isEmpty);
-    expect(recorded.single.object3, 'timeout');
-    expect(int.tryParse(recorded.single.object4), isNotNull);
+    expect(recorded.last.object2, recorded.first.object2);
+    expect(recorded.last.object3, isEmpty);
+    expect(int.tryParse(recorded.last.object4), isNotNull);
+    expect(_extData(recorded.last)['failure_reason'], 'timeout');
   });
 
   test('HTTP and business failures use queryable scalar reasons', () async {
@@ -183,22 +218,22 @@ void main() {
     final failures = recorded
         .where((event) => event.action == 'api_request_failed')
         .toList();
-    expect(failures.map((event) => event.object3), <String>[
-      'http_500',
-      'business_1001',
-    ]);
-    expect(failures.map((event) => event.object2).toSet(), <String>{''});
-    expect(failures.map((event) => event.eventId).toSet(), <String>{
-      'collect-event-1',
-      'collect-event-2',
-    });
+    expect(failures.map((event) => event.object3), <String>['500', '200']);
+    expect(failures.every((event) => event.object2.isNotEmpty), isTrue);
+    expect(failures.map((event) => event.object2).toSet(), hasLength(2));
     expect(_extData(failures[0]), <String, Object?>{
       'error_type': 'http_status',
+      'failure_reason': 'http_500',
+      'method': 'GET',
+      'attempt_count': 1,
       'status_code': 500,
       'error_message': 'server error',
     });
     expect(_extData(failures[1]), <String, Object?>{
       'error_type': 'business',
+      'failure_reason': 'business_1001',
+      'method': 'GET',
+      'attempt_count': 1,
       'error_code': 1001,
       'status_code': 200,
       'error_message': 'denied',
@@ -239,10 +274,11 @@ void main() {
       final failures = (await events())
           .where((event) => event.action == 'api_request_failed')
           .toList();
-      expect(failures.map((event) => event.object3), <String>[
+      expect(failures.map((event) => _extData(event)['failure_reason']), [
         'decode',
         'response',
       ]);
+      expect(failures.map((event) => event.object3), <String>['200', '200']);
       expect(_extData(failures[0])['error_type'], 'response_decode');
       expect(
         _extData(failures[0])['error_message'],
@@ -290,10 +326,11 @@ void main() {
     final failures = (await events())
         .where((event) => event.action == 'api_request_failed')
         .toList();
-    expect(failures.map((event) => event.object3), <String>[
+    expect(failures.map((event) => _extData(event)['failure_reason']), [
       'gateway_auth',
       'cancelled',
     ]);
+    expect(failures.every((event) => event.object3.isEmpty), isTrue);
   });
 
   test('request preparation failures report the failing stage', () async {
@@ -336,11 +373,12 @@ void main() {
     final failures = (await events())
         .where((event) => event.action == 'api_request_failed')
         .toList();
-    expect(failures.map((event) => event.object3), <String>[
+    expect(failures.map((event) => _extData(event)['failure_reason']), [
       'request_headers',
       'request_body',
       'api_unknown',
     ]);
+    expect(failures.every((event) => event.object3.isEmpty), isTrue);
     expect(_extData(failures[0])['exception_type'], 'StateError');
     expect(_extData(failures[0])['error_message'], contains('headers failed'));
     expect(_extData(failures[1])['error_message'], contains('body encoding'));
@@ -406,7 +444,7 @@ void main() {
       final failures = (await events())
           .where((event) => event.action == 'api_request_failed')
           .toList();
-      expect(failures.map((event) => event.object3), <String>[
+      expect(failures.map((event) => _extData(event)['failure_reason']), [
         'bad_certificate',
         'http_protocol',
         'http3_quic_42',
@@ -417,6 +455,7 @@ void main() {
         'transport_internal',
         'transport_unknown',
       ]);
+      expect(failures.every((event) => event.object3.isEmpty), isTrue);
       expect(_extData(failures[1])['native_error_message'], contains('<url>'));
       expect(_extData(failures[2])['native_error_code'], '42');
       expect(_extData(failures[3])['native_error_code'], '6');
@@ -465,9 +504,18 @@ void main() {
       ),
     );
 
-    await client.get<Object?>('v1/message/unread');
-    await client.get<Object?>('v1/direct_message/conversations');
-    await client.get<Object?>('v1/direct_message/list');
+    await client.get<Object?>(
+      'v1/message/unread',
+      tracePolicy: ApiRequestTracePolicy.excluded,
+    );
+    await client.get<Object?>(
+      'v1/direct_message/conversations',
+      tracePolicy: ApiRequestTracePolicy.excluded,
+    );
+    await client.get<Object?>(
+      'v1/direct_message/list',
+      tracePolicy: ApiRequestTracePolicy.excluded,
+    );
 
     expect(requests.map((uri) => uri.path), <String>[
       '/api/v1/message/unread',
@@ -477,7 +525,7 @@ void main() {
     expect(await events(), isEmpty);
   });
 
-  test('successful non-polling direct message action is not tracked', () async {
+  test('successful non-polling direct message action is tracked', () async {
     final client = ApiClient(
       baseUrl: 'https://example.test/api/',
       transport: _FakeTransport(
@@ -494,8 +542,76 @@ void main() {
       body: const {'peer_uid': 'user-1', 'content': 'hello'},
     );
 
-    expect(await events(), isEmpty);
+    expect((await events()).map((event) => event.action), <String>[
+      'api_request_start',
+      'api_request_success',
+    ]);
   });
+
+  test(
+    'ordinary requests are excluded when launch sampling is disabled',
+    () async {
+      ApiRequestTraceSampling.resetForTesting();
+      final client = ApiClient(
+        baseUrl: 'https://example.test/api/',
+        transport: _FakeTransport(
+          handler: (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":0,"data":{}}',
+          ),
+        ),
+      );
+
+      await client.get<Object?>('v1/world/list');
+
+      expect(await events(), isEmpty);
+    },
+  );
+
+  test(
+    'global config is always tracked when launch sampling is disabled',
+    () async {
+      ApiRequestTraceSampling.resetForTesting();
+      final client = ApiClient(
+        baseUrl: 'https://example.test/api/',
+        transport: _FakeTransport(
+          handler: (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":0,"data":{"apiTraceSamplingRate":1}}',
+          ),
+        ),
+      );
+
+      await client.get<Object?>('v1/app/config');
+
+      expect((await events()).map((event) => event.action), <String>[
+        'api_request_start',
+        'api_request_success',
+      ]);
+    },
+  );
+
+  test(
+    'collect endpoint is always excluded from API request tracing',
+    () async {
+      final client = ApiClient(
+        baseUrl: 'https://example.test/api/',
+        transport: _FakeTransport(
+          handler: (_) => const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":0,"data":{}}',
+          ),
+        ),
+      );
+
+      await client.post<Object?>('v1/collect', body: const {'events': []});
+
+      expect(await events(), isEmpty);
+    },
+  );
 }
 
 class _ThrowingBody {

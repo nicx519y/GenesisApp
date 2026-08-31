@@ -1,3 +1,4 @@
+import '../api_client.dart';
 import 'v1_api_resource.dart';
 
 class WorldV1Api extends V1ApiResource {
@@ -50,12 +51,19 @@ class WorldV1Api extends V1ApiResource {
   /// ```json
   /// {"err_no":0,"err_msg":"succ","data":{"info":{"world_id":"string","world_name":"string","origin_id":"string","origin_version":"1","origin_version_time":"string","definition_version":2,"current_time":"Day 7, 19:10","last_chat_location_id":"loc_1_2","owner_uid":"string","owner_name":"string","brief":"string","metric":{},"created_at":0,"cover":"string","map_url":"string","status":10},"stats":{"character_cnt":0,"connect_cnt":0,"location_cnt":0,"tick_cnt":0,"sub_tick_no":3,"player_cnt":0},"relation_status":"owner","characters":[],"locations":[]}}
   /// ```
-  Future<Map<String, dynamic>> detail({required String worldId}) {
+  Future<Map<String, dynamic>> detail({
+    required String worldId,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) {
     final resolvedWorldId = worldId.trim();
     if (resolvedWorldId.isEmpty) {
       throw ArgumentError.value(worldId, 'worldId', 'must not be empty');
     }
-    return getMap('world/detail', {'world_id': resolvedWorldId});
+    return getMapWithTracePolicy(
+      'world/detail',
+      query: {'world_id': resolvedWorldId},
+      tracePolicy: tracePolicy,
+    );
   }
 
   /// GET /api/v1/world/map

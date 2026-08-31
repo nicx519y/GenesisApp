@@ -29,6 +29,20 @@ abstract class V1ApiResource {
     return data == null ? <String, dynamic>{} : asJsonMap(data);
   }
 
+  Future<Map<String, dynamic>> getMapWithTracePolicy(
+    String path, {
+    Map<String, Object?>? query,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) async {
+    final json = await client.get<Object?>(
+      'v1/$path',
+      query: query,
+      tracePolicy: tracePolicy,
+    );
+    final data = handleV1ResponseErrNo(json);
+    return data == null ? <String, dynamic>{} : asJsonMap(data);
+  }
+
   Future<Map<String, dynamic>> getMapPreservingKeys(
     String path, [
     Map<String, Object?>? query,

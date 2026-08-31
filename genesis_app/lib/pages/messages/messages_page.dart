@@ -7,6 +7,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/polling_scheduler.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../components/page_header.dart';
+import '../../network/api_client.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/models/unread_summary.dart';
 import '../../routers/app_router.dart';
@@ -65,7 +66,8 @@ class _MessagesPageState extends State<MessagesPage> {
     if (widget.onMessagesDataRefresh == null) {
       _conversationPoller = GenesisPollingScheduler(
         interval: const Duration(seconds: 30),
-        onTick: _syncConversations,
+        onTick: () =>
+            _syncConversations(tracePolicy: ApiRequestTracePolicy.excluded),
       )..start(immediately: false);
     }
   }
@@ -136,11 +138,13 @@ class _MessagesPageState extends State<MessagesPage> {
     }
   }
 
-  Future<void> _syncConversations() async {
+  Future<void> _syncConversations({
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) async {
     if (_syncingConversations) return;
     setState(() => _syncingConversations = true);
     try {
-      await _conversationStore.syncConversations();
+      await _conversationStore.syncConversations(tracePolicy: tracePolicy);
     } catch (error, stackTrace) {
       debugPrint('[Messages][DM] sync failed: $error');
       debugPrint('[Messages][DM] stacktrace:\n$stackTrace');

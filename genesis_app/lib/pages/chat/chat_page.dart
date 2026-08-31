@@ -9,6 +9,7 @@ import '../../app/bootstrap/polling_scheduler.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../network/api_client.dart';
 import '../../network/api_exception.dart';
 import '../../network/direct_message_conversation_store.dart';
 import '../../network/direct_message_message_store.dart';
@@ -76,7 +77,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     _textController.addListener(_handleDraftTextChanged);
     _poller = GenesisPollingScheduler(
       interval: const Duration(seconds: 5),
-      onTick: _syncLatest,
+      onTick: () => _syncLatest(tracePolicy: ApiRequestTracePolicy.excluded),
     )..start(immediately: false);
     unawaited(_bootstrap());
   }
@@ -180,7 +181,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _syncLatest() async {
+  Future<void> _syncLatest({
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) async {
     if (_syncing || _peerUid.isEmpty) return;
     final hasScrollClients = _scrollController.hasClients;
     final wasNearBottom = hasScrollClients && _isNearBottom();
@@ -190,7 +193,7 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     );
     setState(() => _syncing = true);
     try {
-      await _messageStore.syncLatest(_peerUid);
+      await _messageStore.syncLatest(_peerUid, tracePolicy: tracePolicy);
       final newIncomingIds = _newIncomingMessageIds(previousIncomingIds);
       if (newIncomingIds.isNotEmpty) {
         _handleNewIncomingMessages(
