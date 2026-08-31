@@ -215,7 +215,7 @@ class OriginItemCoverThrottledImageProvider
     OriginItemCoverThrottledImageProvider key,
     ImageDecoderCallback decode,
   ) {
-    return OneFrameImageStreamCompleter(
+    final completer = OneFrameImageStreamCompleter(
       key.loadLimiter.schedule(
         () => key._loadFirstFrame(decode),
         cancellationToken: key.cancellationToken,
@@ -233,6 +233,12 @@ class OriginItemCoverThrottledImageProvider
         DiagnosticsProperty<Duration>('Load timeout', key.loadTimeout),
       ],
     );
+    completer.addEphemeralErrorListener((_, _) {
+      scheduleMicrotask(() {
+        PaintingBinding.instance.imageCache.evict(key);
+      });
+    });
+    return completer;
   }
 
   Future<ImageInfo> _loadFirstFrame(ImageDecoderCallback decode) async {

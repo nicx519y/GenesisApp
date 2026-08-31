@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/common/list_loading_skeleton.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_cover_gradient_painter.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_cover_throttled_image_provider.dart';
@@ -321,6 +322,7 @@ void main() {
   ) async {
     final sourceImage = await _solidImage(const Color(0xFF00AAFF));
     addTearDown(sourceImage.dispose);
+    final retriedFrame = Completer<ImageInfo>();
     var attempts = 0;
     debugOriginItemCoverImageProvider = (_) {
       attempts += 1;
@@ -329,7 +331,7 @@ void main() {
             ? Future<ImageInfo>.error(
                 const OriginItemCoverLoadCancelledException(),
               )
-            : Future<ImageInfo>.value(ImageInfo(image: sourceImage.clone())),
+            : retriedFrame.future,
       );
     };
 
@@ -365,8 +367,23 @@ void main() {
       find.byKey(const ValueKey<String>('origin-item-card-loading-cancelled')),
       findsOneWidget,
     );
+    final loadingBoneElement = find
+        .byType(GenesisListLoadingBone)
+        .evaluate()
+        .single;
 
     await tester.pump(const Duration(milliseconds: 150));
+    expect(attempts, greaterThanOrEqualTo(2));
+    expect(
+      identical(
+        find.byType(GenesisListLoadingBone).evaluate().single,
+        loadingBoneElement,
+      ),
+      isTrue,
+      reason: 'The shimmer must keep animating across a cover retry.',
+    );
+
+    retriedFrame.complete(ImageInfo(image: sourceImage.clone()));
     await _pumpUntilOriginCardReady(tester);
 
     expect(attempts, greaterThanOrEqualTo(2));
@@ -489,7 +506,10 @@ Future<void> _pumpUntilOriginCardReady(WidgetTester tester) async {
       () => Future<void>.delayed(const Duration(milliseconds: 1)),
     );
     await tester.pump();
-    if (readyFinder.evaluate().isNotEmpty) return;
+    if (readyFinder.evaluate().isNotEmpty) {
+      await tester.pump();
+      return;
+    }
   }
   fail('Origin item cover image did not become ready.');
 }
