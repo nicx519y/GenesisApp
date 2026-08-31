@@ -20,6 +20,7 @@ class _FakeTransport implements HttpTransport {
 }
 
 Map<String, Object?> _extData(CollectEvent event) {
+  if (event.extData.isEmpty) return const <String, Object?>{};
   return Map<String, Object?>.from(jsonDecode(event.extData) as Map);
 }
 
@@ -70,8 +71,8 @@ void main() {
 
     final recorded = await events();
     expect(recorded.map((event) => event.action), <String>[
-      'api_request_start',
-      'api_request_success',
+      'api_req_start',
+      'api_req_success',
     ]);
     expect(recorded.map((event) => event.object1).toSet(), {
       '/api/v1/world/list',
@@ -113,8 +114,8 @@ void main() {
       expect(attempts, 2);
       final recorded = await events();
       expect(recorded.map((event) => event.action), <String>[
-        'api_request_start',
-        'api_request_success',
+        'api_req_start',
+        'api_req_success',
       ]);
       expect(recorded.last.object2, recorded.first.object2);
       expect(int.parse(recorded.last.object4), lessThan(200));
@@ -148,17 +149,17 @@ void main() {
 
       final recorded = await events();
       expect(recorded.map((event) => event.action), <String>[
-        'api_request_start',
-        'api_request_failed',
-        'api_request_start',
-        'api_request_success',
+        'api_req_start',
+        'api_req_fail_tech',
+        'api_req_start',
+        'api_req_success',
       ]);
       final failure = recorded[1];
       expect(failure.actionType, 'monitor');
       expect(failure.object2, recorded.first.object2);
-      expect(failure.object3, isEmpty);
+      expect(failure.object3, 'tech_client_1013');
       expect(int.tryParse(failure.object4), isNotNull);
-      expect(_extData(failure)['failure_reason'], 'connection');
+      expect(_extData(failure), isEmpty);
     },
   );
 
@@ -183,13 +184,13 @@ void main() {
     final recorded = await events();
     expect(attempts, 2);
     expect(recorded.map((event) => event.action), <String>[
-      'api_request_start',
-      'api_request_failed',
+      'api_req_start',
+      'api_req_fail_tech',
     ]);
     expect(recorded.last.object2, recorded.first.object2);
-    expect(recorded.last.object3, isEmpty);
+    expect(recorded.last.object3, 'tech_client_1004');
     expect(int.tryParse(recorded.last.object4), isNotNull);
-    expect(_extData(recorded.last)['failure_reason'], 'timeout');
+    expect(_extData(recorded.last), <String, Object?>{'retry_count': 1});
   });
 
   test('HTTP and business failures use queryable scalar reasons', () async {
@@ -215,31 +216,28 @@ void main() {
     await client.get<Object?>('v1/world/detail');
 
     final recorded = await events();
-    final failures = recorded
-        .where((event) => event.action == 'api_request_failed')
+    final technicalFailures = recorded
+        .where((event) => event.action == 'api_req_fail_tech')
         .toList();
-    expect(failures.map((event) => event.object3), <String>['500', '200']);
-    expect(failures.every((event) => event.object2.isNotEmpty), isTrue);
-    expect(failures.map((event) => event.object2).toSet(), hasLength(2));
-    expect(_extData(failures[0]), <String, Object?>{
-      'error_type': 'http_status',
-      'failure_reason': 'http_500',
-      'method': 'GET',
-      'attempt_count': 1,
-      'status_code': 500,
-      'error_message': 'server error',
+    final businessFailures = recorded
+        .where((event) => event.action == 'api_req_fail_biz')
+        .toList();
+    expect(technicalFailures.single.object3, 'tech_http_500');
+    expect(businessFailures.single.object3, 'biz_1001');
+    expect(technicalFailures.single.object2, isNotEmpty);
+    expect(businessFailures.single.object2, isNotEmpty);
+    expect({
+      technicalFailures.single.object2,
+      businessFailures.single.object2,
+    }, hasLength(2));
+    expect(_extData(technicalFailures.single), <String, Object?>{
+      'message': 'server error',
     });
-    expect(_extData(failures[1]), <String, Object?>{
-      'error_type': 'business',
-      'failure_reason': 'business_1001',
-      'method': 'GET',
-      'attempt_count': 1,
-      'error_code': 1001,
-      'status_code': 200,
-      'error_message': 'denied',
+    expect(_extData(businessFailures.single), <String, Object?>{
+      'message': 'denied',
     });
     expect(
-      recorded.where((event) => event.action == 'api_request_success'),
+      recorded.where((event) => event.action == 'api_req_success'),
       isEmpty,
     );
   });
@@ -272,25 +270,74 @@ void main() {
       );
 
       final failures = (await events())
-          .where((event) => event.action == 'api_request_failed')
+          .where((event) => event.action == 'api_req_fail_tech')
           .toList();
-      expect(failures.map((event) => _extData(event)['failure_reason']), [
-        'decode',
-        'response',
+      expect(failures.map((event) => _extData(event)['reason']), [
+        'json_decode',
+        'response_processing',
       ]);
-      expect(failures.map((event) => event.object3), <String>['200', '200']);
-      expect(_extData(failures[0])['error_type'], 'response_decode');
-      expect(
-        _extData(failures[0])['error_message'],
-        'Response body is not valid JSON.',
-      );
-      expect(_extData(failures[1])['exception_type'], 'StateError');
-      expect(
-        _extData(failures[1])['error_message'],
-        contains('mapping failed'),
-      );
+      expect(failures.map((event) => event.object3), <String>[
+        'tech_http_200',
+        'tech_http_200',
+      ]);
+      expect(_extData(failures[0]), <String, Object?>{'reason': 'json_decode'});
+      expect(_extData(failures[1])['message'], contains('mapping failed'));
     },
   );
+
+  test('HTTP 200 invalid envelopes are technical failures', () async {
+    var response = const TransportResponse(
+      statusCode: 200,
+      headers: {'content-type': 'application/json'},
+      body: '{"data":{}}',
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      transport: _FakeTransport(handler: (_) => response),
+    );
+
+    await client.get<Object?>('v1/world/list');
+    response = const TransportResponse(
+      statusCode: 200,
+      headers: {'content-type': 'application/json'},
+      body: '{"err_no":"invalid","data":{}}',
+    );
+    await client.get<Object?>('v1/world/list');
+
+    final failures = (await events())
+        .where((event) => event.action == 'api_req_fail_tech')
+        .toList();
+    expect(failures.map((event) => event.object3), <String>[
+      'tech_http_200',
+      'tech_http_200',
+    ]);
+    expect(failures.map((event) => _extData(event)['reason']), <String>[
+      'missing_err_no',
+      'invalid_err_no',
+    ]);
+  });
+
+  test('HTTP failure takes precedence over a body err_no', () async {
+    final client = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      transport: _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 503,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":10001,"err_msg":"not logged in"}',
+        ),
+      ),
+    );
+
+    await expectLater(
+      client.get<Object?>('v1/profile'),
+      throwsA(isA<ApiException>()),
+    );
+
+    final terminal = (await events()).last;
+    expect(terminal.action, 'api_req_fail_tech');
+    expect(terminal.object3, 'tech_http_503');
+  });
 
   test('gateway auth and cancellation use their dedicated reasons', () async {
     final authClient = ApiClient(
@@ -324,13 +371,16 @@ void main() {
     );
 
     final failures = (await events())
-        .where((event) => event.action == 'api_request_failed')
+        .where((event) => event.action == 'api_req_fail_tech')
         .toList();
-    expect(failures.map((event) => _extData(event)['failure_reason']), [
-      'gateway_auth',
-      'cancelled',
+    expect(failures.map((event) => event.object3), [
+      'tech_client_1399',
+      'tech_client_1030',
     ]);
-    expect(failures.every((event) => event.object3.isEmpty), isTrue);
+    expect(_extData(failures[0]), <String, Object?>{
+      'message': 'auth unavailable',
+    });
+    expect(_extData(failures[1]), isEmpty);
   });
 
   test('request preparation failures report the failing stage', () async {
@@ -371,18 +421,39 @@ void main() {
     );
 
     final failures = (await events())
-        .where((event) => event.action == 'api_request_failed')
+        .where((event) => event.action == 'api_req_fail_tech')
         .toList();
-    expect(failures.map((event) => _extData(event)['failure_reason']), [
-      'request_headers',
-      'request_body',
-      'api_unknown',
+    expect(failures.map((event) => event.object3), [
+      'tech_client_1102',
+      'tech_client_1103',
+      'tech_client_1999',
     ]);
-    expect(failures.every((event) => event.object3.isEmpty), isTrue);
-    expect(_extData(failures[0])['exception_type'], 'StateError');
-    expect(_extData(failures[0])['error_message'], contains('headers failed'));
-    expect(_extData(failures[1])['error_message'], contains('body encoding'));
-    expect(_extData(failures[2])['exception_kind'], 'unknown');
+    expect(_extData(failures[0]), isEmpty);
+    expect(_extData(failures[1]), isEmpty);
+    expect(_extData(failures[2])['message'], 'unclassified API failure');
+  });
+
+  test('URI construction failures use their dedicated client code', () async {
+    final client = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      transport: _FakeTransport(
+        handler: (_) => throw StateError('transport must not run'),
+      ),
+    );
+
+    await expectLater(
+      client.get<Object?>('v1/profile', query: {'bad': _ThrowingQueryValue()}),
+      throwsStateError,
+    );
+
+    final recorded = await events();
+    expect(recorded.map((event) => event.action), <String>[
+      'api_req_start',
+      'api_req_fail_tech',
+    ]);
+    expect(recorded.last.object1, '/api/v1/profile');
+    expect(recorded.last.object3, 'tech_client_1101');
+    expect(_extData(recorded.last), isEmpty);
   });
 
   test(
@@ -442,24 +513,24 @@ void main() {
       }
 
       final failures = (await events())
-          .where((event) => event.action == 'api_request_failed')
+          .where((event) => event.action == 'api_req_fail_tech')
           .toList();
-      expect(failures.map((event) => _extData(event)['failure_reason']), [
-        'bad_certificate',
-        'http_protocol',
-        'http3_quic_42',
-        'cronet_6',
-        'ios_network_-1009',
-        'dio_connection',
-        'http_client',
-        'transport_internal',
-        'transport_unknown',
+      expect(failures.map((event) => event.object3), [
+        'tech_client_1021',
+        'tech_client_1015',
+        'tech_client_1015',
+        'tech_client_1019',
+        'tech_client_1011',
+        'tech_client_1019',
+        'tech_client_1019',
+        'tech_client_1999',
+        'tech_client_1999',
       ]);
-      expect(failures.every((event) => event.object3.isEmpty), isTrue);
-      expect(_extData(failures[1])['native_error_message'], contains('<url>'));
-      expect(_extData(failures[2])['native_error_code'], '42');
-      expect(_extData(failures[3])['native_error_code'], '6');
-      expect(_extData(failures[4])['native_error_code'], '-1009');
+      expect(_extData(failures[1]), isEmpty);
+      expect(_extData(failures[2])['native_code'], '42');
+      expect(_extData(failures[3])['native_code'], '6');
+      expect(_extData(failures[4])['native_code'], '-1009');
+      expect(_extData(failures[7])['message'], contains('transport state'));
     },
   );
 
@@ -543,8 +614,8 @@ void main() {
     );
 
     expect((await events()).map((event) => event.action), <String>[
-      'api_request_start',
-      'api_request_success',
+      'api_req_start',
+      'api_req_success',
     ]);
   });
 
@@ -587,8 +658,8 @@ void main() {
       await client.get<Object?>('v1/app/config');
 
       expect((await events()).map((event) => event.action), <String>[
-        'api_request_start',
-        'api_request_success',
+        'api_req_start',
+        'api_req_success',
       ]);
     },
   );
@@ -608,6 +679,10 @@ void main() {
       );
 
       await client.post<Object?>('v1/collect', body: const {'events': []});
+      await client.post<Object?>(
+        '/api/v1/collect/',
+        body: const {'events': []},
+      );
 
       expect(await events(), isEmpty);
     },
@@ -617,4 +692,9 @@ void main() {
 class _ThrowingBody {
   @override
   String toString() => throw StateError('body encoding failed');
+}
+
+class _ThrowingQueryValue {
+  @override
+  String toString() => throw StateError('query encoding failed');
 }
