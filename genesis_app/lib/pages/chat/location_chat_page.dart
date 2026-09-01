@@ -798,6 +798,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           sending: false,
           onSend: _send,
           sendIcon: ChatComposerSendIcon.arrowUp,
+          pinActionsToBottom: true,
           style: style,
           leadingShortcutLabel: showComposerShortcuts ? '*' : null,
           onLeadingShortcutPressed: widget.active && _composerFocusNode.hasFocus
