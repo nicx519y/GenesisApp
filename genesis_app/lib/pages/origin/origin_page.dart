@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
@@ -571,6 +572,12 @@ class _OriginFeedState extends State<_OriginFeed>
 
   @override
   void dispose() {
+    if (_activeFirstScreenRequestOperation != null) {
+      AppStartupCoordinator.recordLaunchRequestEnd(
+        page: 'worldo',
+        result: 'cancelled',
+      );
+    }
     unawaited(_activeFirstScreenRequestOperation?.cancel());
     unawaited(_activeFirstScreenRenderOperation?.cancel());
     WidgetsBinding.instance.removeObserver(this);
@@ -634,6 +641,14 @@ class _OriginFeedState extends State<_OriginFeed>
       _activeFirstScreenRenderOperation = null;
       _firstScreenRenderCompleted = true;
       unawaited(operation.succeed());
+    });
+  }
+
+  void _scheduleLaunchRender(String result) {
+    if (!_isPrimaryFeed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isCurrentTab) return;
+      AppStartupCoordinator.recordLaunchRender(page: 'worldo', result: result);
     });
   }
 
@@ -758,6 +773,7 @@ class _OriginFeedState extends State<_OriginFeed>
     _pruneExposureCandidates();
     _scheduleFeedPaginationContinuation();
     widget.onFirstPageReady?.call();
+    _scheduleLaunchRender('cache');
   }
 
   Future<void> _saveFirstPageCache(Map<String, dynamic> data) async {
@@ -796,6 +812,9 @@ class _OriginFeedState extends State<_OriginFeed>
       _activeFirstScreenRequestOperation = requestOperation;
     }
 
+    if (shouldTrackFirstScreen) {
+      AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
+    }
     try {
       final page = await _fetchPage(1, startScore: 0);
       if (!mounted) {
@@ -806,6 +825,10 @@ class _OriginFeedState extends State<_OriginFeed>
         _activeFirstScreenRequestOperation = null;
       }
       unawaited(requestOperation?.succeed());
+      AppStartupCoordinator.recordLaunchRequestEnd(
+        page: 'worldo',
+        result: 'success',
+      );
       _hasCompletedFirstPageNetworkRequest = true;
       if (_usesFirstPageCache) {
         unawaited(_saveFirstPageCache(page.rawData));
@@ -846,6 +869,7 @@ class _OriginFeedState extends State<_OriginFeed>
       _scheduleFeedPaginationContinuation();
       _scheduleVisibilityFlush();
       widget.onFirstPageReady?.call();
+      _scheduleLaunchRender(page.items.isEmpty ? 'network_empty' : 'network');
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
       }
@@ -860,6 +884,10 @@ class _OriginFeedState extends State<_OriginFeed>
       }
       unawaited(
         requestOperation?.fail(errorType: firebasePerformanceErrorType(error)),
+      );
+      AppStartupCoordinator.recordLaunchRequestEnd(
+        page: 'worldo',
+        result: 'failure',
       );
       if (!mounted) return;
       final shouldRetryAfterResume = _retryInitialLoadWhenFinished;
@@ -883,6 +911,7 @@ class _OriginFeedState extends State<_OriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      _scheduleLaunchRender('network_error');
       if (_items.isNotEmpty) _scheduleVisibilityFlush();
       if (shouldRetryAfterResume && mounted) {
         _hasRetriedInitialStartup = true;

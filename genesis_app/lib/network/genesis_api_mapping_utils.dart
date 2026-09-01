@@ -180,8 +180,8 @@ bool? _mockEnabledByApiEnvironment(String value) {
   return null;
 }
 
-bool _isAuthFailureStatus(int? statusCode) {
-  return statusCode == 401 || statusCode == 403;
+bool _isRecoverableAuthStatus(ApiException error) {
+  return error.kind == ApiExceptionKind.httpStatus && error.statusCode == 401;
 }
 
 Object? _defaultGenesisProcessor(ApiResponse response) {

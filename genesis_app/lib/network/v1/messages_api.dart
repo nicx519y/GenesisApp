@@ -1,4 +1,5 @@
 import '../models/unread_summary.dart';
+import '../api_client.dart';
 import 'v1_api_resource.dart';
 
 class MessagesV1Api extends V1ApiResource {
@@ -14,11 +15,13 @@ class MessagesV1Api extends V1ApiResource {
   /// ```json
   /// {"err_no":0,"err_msg":"succ","data":{"total_unread":12,"world_apply_unread":2,"follow_unread":3,"interaction_unread":4,"direct_message_unread":3}}
   /// ```
-  Future<UnreadSummary> unreadSummary() {
+  Future<UnreadSummary> unreadSummary({
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) {
     final inFlight = _unreadSummaryInFlight;
     if (inFlight != null) return inFlight;
     late final Future<UnreadSummary> request;
-    request = _fetchUnreadSummary().whenComplete(() {
+    request = _fetchUnreadSummary(tracePolicy).whenComplete(() {
       if (identical(_unreadSummaryInFlight, request)) {
         _unreadSummaryInFlight = null;
       }
@@ -27,8 +30,12 @@ class MessagesV1Api extends V1ApiResource {
     return request;
   }
 
-  Future<UnreadSummary> _fetchUnreadSummary() async {
-    return UnreadSummary.fromJson(await getMap('message/unread'));
+  Future<UnreadSummary> _fetchUnreadSummary(
+    ApiRequestTracePolicy tracePolicy,
+  ) async {
+    return UnreadSummary.fromJson(
+      await getMapWithTracePolicy('message/unread', tracePolicy: tracePolicy),
+    );
   }
 
   /// GET /api/v1/message/notifications

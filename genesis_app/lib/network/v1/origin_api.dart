@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../json_utils.dart';
+import '../api_client.dart';
 import 'v1_api_resource.dart';
 
 class OriginV1Api extends V1ApiResource {
@@ -186,7 +187,11 @@ class OriginV1Api extends V1ApiResource {
   /// ```json
   /// {"err_no":0,"err_msg":"succ","data":{"info":{"origin_id":"string","origin_name":"string","brief":"string","cover":{},"status":10},"stats":{"copy_cnt":0,"discuss_cnt":0,"character_cnt":0,"connect_cnt":0,"location_cnt":0,"max_tick_cnt":0}}}
   /// ```
-  Future<Map<String, dynamic>> info({String? originId, String? oid}) {
+  Future<Map<String, dynamic>> info({
+    String? originId,
+    String? oid,
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();
     if (resolvedOriginId.isEmpty) {
       throw ArgumentError.value(
@@ -195,7 +200,11 @@ class OriginV1Api extends V1ApiResource {
         'must not be empty',
       );
     }
-    return getMap('origin/info', {'origin_id': resolvedOriginId});
+    return getMapWithTracePolicy(
+      'origin/info',
+      query: {'origin_id': resolvedOriginId},
+      tracePolicy: tracePolicy,
+    );
   }
 
   /// POST /api/v1/origin/create

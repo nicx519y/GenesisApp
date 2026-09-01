@@ -6,6 +6,7 @@ import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/genesis_logo.dart';
 import '../../components/page_header.dart';
+import '../../network/api_client.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
 import '../../utils/display_name_formatter.dart';
@@ -126,7 +127,10 @@ class _EditOriginPageState extends State<EditOriginPage> {
         );
       });
       await _pendingCoordinator.ensurePublishingPolling(
-        loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
+        loadOriginInfo: (originId) => api.v1.origin.info(
+          originId: originId,
+          tracePolicy: ApiRequestTracePolicy.excluded,
+        ),
         context: context,
       );
       _syncSubmitStatus();
@@ -303,7 +307,10 @@ class _EditOriginPageState extends State<EditOriginPage> {
       await _pendingCoordinator.startPublishing(
         originId: updatedOriginId,
         originName: draft.basics.originName,
-        loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
+        loadOriginInfo: (originId) => api.v1.origin.info(
+          originId: originId,
+          tracePolicy: ApiRequestTracePolicy.excluded,
+        ),
       );
       return const OriginSubmitResult(message: '', showMessage: false);
     } catch (_) {

@@ -489,6 +489,7 @@ class GatewayAuthCoordinator {
       throw ApiException(
         message: 'Gateway registration is unavailable',
         kind: ApiExceptionKind.gatewayAuth,
+        clientFailureCode: ApiClientFailureCode.gatewayRegistration,
       );
     }
     return GatewaySigningContext(
@@ -563,6 +564,7 @@ class GatewayAuthCoordinator {
         throw ApiException(
           message: 'Gateway time response missing server_time_ms',
           kind: ApiExceptionKind.gatewayAuth,
+          clientFailureCode: ApiClientFailureCode.gatewayTimeSync,
         );
       }
       final offset = serverTimeMs - DateTime.now().millisecondsSinceEpoch;
@@ -590,7 +592,11 @@ class GatewayAuthCoordinator {
         },
         level: GenesisTelemetryLevel.warning,
       );
-      rethrow;
+      throw _gatewayFailure(
+        error,
+        code: ApiClientFailureCode.gatewayTimeSync,
+        message: 'Gateway time synchronization failed',
+      );
     }
   }
 
@@ -663,7 +669,11 @@ class GatewayAuthCoordinator {
         },
         level: GenesisTelemetryLevel.warning,
       );
-      rethrow;
+      throw _gatewayFailure(
+        error,
+        code: ApiClientFailureCode.gatewayRegistration,
+        message: 'Gateway challenge failed',
+      );
     }
     final challengeData = asJsonMap(_unwrapGatewayData(challengeJson));
     final registerId = asString(challengeData['register_id']);
@@ -671,6 +681,7 @@ class GatewayAuthCoordinator {
       throw ApiException(
         message: 'Gateway challenge response missing register_id',
         kind: ApiExceptionKind.gatewayAuth,
+        clientFailureCode: ApiClientFailureCode.gatewayRegistration,
       );
     }
 
@@ -712,7 +723,11 @@ class GatewayAuthCoordinator {
         },
         level: GenesisTelemetryLevel.warning,
       );
-      rethrow;
+      throw _gatewayFailure(
+        error,
+        code: ApiClientFailureCode.gatewayRegistration,
+        message: 'Gateway registration failed',
+      );
     }
     final registerData = asJsonMap(_unwrapGatewayData(registerJson));
     final keyId = asString(registerData['key_id']);
@@ -720,6 +735,7 @@ class GatewayAuthCoordinator {
       throw ApiException(
         message: 'Gateway register response missing key_id',
         kind: ApiExceptionKind.gatewayAuth,
+        clientFailureCode: ApiClientFailureCode.gatewayRegistration,
       );
     }
     return keyId;
@@ -747,6 +763,7 @@ class GatewayAuthCoordinator {
       throw ApiException(
         message: 'Gateway identity headers are incomplete',
         kind: ApiExceptionKind.gatewayAuth,
+        clientFailureCode: ApiClientFailureCode.gatewayIdentity,
       );
     }
     return GatewayIdentity(
@@ -771,6 +788,22 @@ void _gatewayTelemetry(
     category: 'network.gateway',
     data: <String, Object?>{'gateway_phase': phase, ...data},
     level: level,
+  );
+}
+
+ApiException _gatewayFailure(
+  Object error, {
+  required ApiClientFailureCode code,
+  required String message,
+}) {
+  final apiError = error is ApiException ? error : null;
+  return ApiException(
+    message: message,
+    statusCode: apiError?.statusCode,
+    error: error,
+    uri: apiError?.uri,
+    kind: ApiExceptionKind.gatewayAuth,
+    clientFailureCode: code,
   );
 }
 
@@ -880,6 +913,7 @@ class NativeGatewayDeviceKeyStore implements GatewayDeviceKeyStore {
       throw ApiException(
         message: 'Gateway public key is unavailable',
         kind: ApiExceptionKind.gatewayAuth,
+        clientFailureCode: ApiClientFailureCode.gatewayLocalKey,
       );
     }
     return normalized;
@@ -896,6 +930,7 @@ class NativeGatewayDeviceKeyStore implements GatewayDeviceKeyStore {
       throw ApiException(
         message: 'Gateway signature is unavailable',
         kind: ApiExceptionKind.gatewayAuth,
+        clientFailureCode: ApiClientFailureCode.gatewaySigning,
       );
     }
     return normalized;

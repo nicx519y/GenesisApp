@@ -478,7 +478,15 @@ extension _LocationChatMentionActions on _LocationChatPanelState {
         _textController.text[triggerOffset] != '@') {
       return;
     }
-    _mentionSheetOpen = true;
+    final view = View.maybeOf(context);
+    final keyboardInset = view == null || view.devicePixelRatio <= 0
+        ? 0.0
+        : view.viewInsets.bottom / view.devicePixelRatio;
+    _setLocationChatState(() {
+      _mentionSheetKeyboardInset = keyboardInset;
+      _mentionSheetOpen = true;
+      _mentionComposerPositionFrozen = true;
+    });
     _composerFocusNode.unfocus();
     final selected = await showGenesisModalBottomSheet<ChatMentionEntry>(
       context: context,
@@ -489,7 +497,9 @@ extension _LocationChatMentionActions on _LocationChatPanelState {
           LocationChatMentionSheet(catalog: _textController.catalog),
     );
     if (!mounted) return;
-    _mentionSheetOpen = false;
+    _setLocationChatState(() {
+      _mentionSheetOpen = false;
+    });
     if (selected != null) {
       final triggerStillExists =
           triggerOffset < _textController.text.length &&
@@ -506,6 +516,30 @@ extension _LocationChatMentionActions on _LocationChatPanelState {
       );
     }
     _composerFocusNode.requestFocus();
+    _releaseMentionComposerPositionIfKeyboardRestored();
+  }
+
+  void _releaseMentionComposerPositionIfKeyboardRestored() {
+    if (!_mentionComposerPositionFrozen || _mentionSheetOpen) return;
+    final view = View.maybeOf(context);
+    final keyboardInset = view == null || view.devicePixelRatio <= 0
+        ? 0.0
+        : view.viewInsets.bottom / view.devicePixelRatio;
+    if (_mentionSheetKeyboardInset > 0 &&
+        keyboardInset + 0.5 < _mentionSheetKeyboardInset) {
+      return;
+    }
+    _handleMentionKeyboardInsetRestored();
+  }
+
+  void _handleMentionKeyboardInsetRestored() {
+    if (!mounted || !_mentionComposerPositionFrozen || _mentionSheetOpen) {
+      return;
+    }
+    _setLocationChatState(() {
+      _mentionComposerPositionFrozen = false;
+      _mentionSheetKeyboardInset = 0;
+    });
   }
 }
 
@@ -680,19 +714,29 @@ class _LocationChatMentionThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sourceUrl = entry.imageUrl.trim();
+    final cdnLogicalWidth = entry.type == ChatMentionType.character
+        ? worldCharacterAvatarLogicalSize
+        : worldLocationCoverLogicalSize;
+    final resizedUrl = resizeGenesisImageUrl(
+      sourceUrl,
+      logicalWidth: cdnLogicalWidth,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
+    final imageUrl = resizedUrl.isNotEmpty ? resizedUrl : sourceUrl;
     if (entry.type == ChatMentionType.character) {
       return GenesisCharacterAvatar(
-        url: entry.imageUrl,
+        url: imageUrl,
         name: entry.name,
         size: _locationChatAvatarLogicalSize,
-        borderRadius: _locationChatAvatarLogicalSize / 2,
+        borderRadius: 8,
       );
     }
     return GenesisListImage(
-      imageUrl: entry.imageUrl,
+      imageUrl: imageUrl,
       width: _locationChatAvatarLogicalSize,
       height: _locationChatAvatarLogicalSize,
-      borderRadius: BorderRadius.circular(_locationChatAvatarLogicalSize / 2),
+      borderRadius: BorderRadius.circular(8),
     );
   }
 }

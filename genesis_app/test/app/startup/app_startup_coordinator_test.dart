@@ -45,6 +45,7 @@ class _FakeCollectClient implements CollectTelemetryClient {
 
   final VoidCallback? onCollect;
   final List<Map<String, String>> headers = <Map<String, String>>[];
+  final List<List<CollectEvent>> batches = <List<CollectEvent>>[];
 
   @override
   Future<void> collectBatch(
@@ -53,6 +54,7 @@ class _FakeCollectClient implements CollectTelemetryClient {
   }) async {
     onCollect?.call();
     this.headers.add(Map<String, String>.of(headers));
+    batches.add(List<CollectEvent>.of(events));
   }
 }
 
@@ -201,6 +203,56 @@ void main() {
     expect(deviceIdService.calls, 2);
     expect(client.headers.last['X-Device-ID'], 'device-recovered');
     expect(client.headers.last['X-UID'], 'user-after-start');
+  });
+
+  test('records the agreed launch funnel fields once', () async {
+    AppStartupCoordinator.beginLaunchTracking(startupId: 'startup-test-1');
+    final client = await initializeWith(MemoryUserSessionStore());
+
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'worldo',
+      reason: 'no_session',
+    );
+    AppStartupCoordinator.recordLaunchPage();
+    AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
+    AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
+    AppStartupCoordinator.recordLaunchRequestEnd(
+      page: 'worldo',
+      result: 'success',
+    );
+    AppStartupCoordinator.recordLaunchRender(page: 'worldo', result: 'network');
+    await GenesisTelemetry.waitForCollectWritesForTesting();
+    await uploader.checkNow(force: true);
+
+    final events = client.batches.expand((batch) => batch).toList();
+    final launchEvents = events
+        .where((event) => event.action.startsWith('launch_'))
+        .toList();
+    expect(launchEvents.map((event) => event.action), <String>[
+      'launch_startup',
+      'launch_page',
+      'launch_req_start',
+      'launch_req_end',
+      'launch_render',
+    ]);
+    expect(
+      launchEvents.every((event) => event.object1 == 'startup-test-1'),
+      isTrue,
+    );
+    expect(launchEvents.first.object2, 'launch');
+    expect(launchEvents.first.object3, '0');
+    expect(launchEvents.first.object4, 'started');
+    expect(launchEvents[1].object2, 'worldo');
+    expect(launchEvents[1].object4, 'no_session');
+    expect(launchEvents[2].object4, 'started');
+    expect(launchEvents[3].object4, 'success');
+    expect(launchEvents[4].object4, 'network');
+    expect(
+      launchEvents
+          .skip(1)
+          .every((event) => int.tryParse(event.object3) != null),
+      isTrue,
+    );
   });
 }
 

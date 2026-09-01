@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/components/world_location_list.dart'
+    show worldLocationCoverLogicalSize;
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/world/world_constants.dart'
+    show worldCharacterAvatarLogicalSize;
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_list_image.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_tab_bar.dart';
+import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 
 void main() {
   testWidgets('mention sheet reuses Genesis tabs and swipes between lists', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
+    tester.view.devicePixelRatio = 2;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     final catalog = ChatMentionCatalog(
@@ -20,6 +25,7 @@ void main() {
           id: 'char-1',
           name: 'Alice',
           type: ChatMentionType.character,
+          imageUrl: 'https://cdn.example.com/alice.webp',
         ),
       ],
       locations: const <ChatMentionEntry>[
@@ -27,6 +33,7 @@ void main() {
           id: 'loc-1',
           name: 'Moon Harbor',
           type: ChatMentionType.location,
+          imageUrl: 'https://cdn.example.com/moon-harbor.webp',
         ),
       ],
     );
@@ -50,11 +57,18 @@ void main() {
           .hitTestable(),
       findsOneWidget,
     );
+    final characterAvatar = tester.widget<GenesisCharacterAvatar>(
+      find.byType(GenesisCharacterAvatar),
+    );
+    expect(characterAvatar.size, 40);
+    expect(characterAvatar.borderRadius, 8);
     expect(
-      tester
-          .widget<GenesisCharacterAvatar>(find.byType(GenesisCharacterAvatar))
-          .size,
-      40,
+      characterAvatar.url,
+      resizeGenesisImageUrl(
+        'https://cdn.example.com/alice.webp',
+        logicalWidth: worldCharacterAvatarLogicalSize,
+        devicePixelRatio: 2,
+      ),
     );
     expect(tester.widget<Text>(find.text('Alice')).style?.fontSize, 14);
 
@@ -86,6 +100,15 @@ void main() {
     );
     expect(locationImage.width, 40);
     expect(locationImage.height, 40);
+    expect(locationImage.borderRadius, BorderRadius.circular(8));
+    expect(
+      locationImage.imageUrl,
+      resizeGenesisImageUrl(
+        'https://cdn.example.com/moon-harbor.webp',
+        logicalWidth: worldLocationCoverLogicalSize,
+        devicePixelRatio: 2,
+      ),
+    );
     expect(tester.widget<Text>(find.text('Moon Harbor')).style?.fontSize, 14);
   });
 }

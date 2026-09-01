@@ -44,8 +44,13 @@ mixin _GenesisApiWorldOperations on _GenesisApiContext {
     );
   }
 
-  Future<WorldDetail> getWorld(String wid) async {
-    return _worldDetailFromV1(await v1.world.detail(worldId: wid));
+  Future<WorldDetail> getWorld(
+    String wid, {
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) async {
+    return _worldDetailFromV1(
+      await v1.world.detail(worldId: wid, tracePolicy: tracePolicy),
+    );
   }
 
   Future<TilemapDefinition> getWorldMap({

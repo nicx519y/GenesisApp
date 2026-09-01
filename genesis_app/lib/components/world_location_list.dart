@@ -14,6 +14,7 @@ import 'world_point.dart';
 
 const String _locationDefaultImageAsset =
     'assets/images/map_default/location_default.webp';
+const double worldLocationCoverLogicalSize = 64;
 
 typedef WorldLocationNodeHeaderBuilder =
     Widget? Function(BuildContext context, WorldPoint point, int level);
@@ -911,8 +912,8 @@ class _PointListCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64,
-      height: 64,
+      width: worldLocationCoverLogicalSize,
+      height: worldLocationCoverLogicalSize,
       child: _LocationCoverImage(point: point),
     );
   }
@@ -926,8 +927,8 @@ class _LocationCardCover extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 64,
-      height: 64,
+      width: worldLocationCoverLogicalSize,
+      height: worldLocationCoverLogicalSize,
       child: _LocationCoverImage(point: point),
     );
   }
@@ -944,10 +945,10 @@ class _LocationCoverImage extends StatelessWidget {
       builder: (context, constraints) {
         final logicalWidth = constraints.maxWidth.isFinite
             ? constraints.maxWidth
-            : 64.0;
+            : worldLocationCoverLogicalSize;
         final logicalHeight = constraints.maxHeight.isFinite
             ? constraints.maxHeight
-            : 64.0;
+            : worldLocationCoverLogicalSize;
         final localBytes = point.iconBytes;
         if (localBytes != null && localBytes.isNotEmpty) {
           final cacheWidth =

@@ -7,6 +7,7 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/genesis_logo.dart';
+import '../../network/api_client.dart';
 import '../../network/json_utils.dart';
 import '../../utils/display_name_formatter.dart';
 import '../origin_editor/origin_debug_tools.dart';
@@ -153,7 +154,10 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
       await _pendingCoordinator.startCreating(
         originId: originId,
         originName: draft.basics.originName,
-        loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
+        loadOriginInfo: (originId) => api.v1.origin.info(
+          originId: originId,
+          tracePolicy: ApiRequestTracePolicy.excluded,
+        ),
       );
       return const OriginSubmitResult(message: '', showMessage: false);
     } catch (_) {
@@ -167,7 +171,10 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
     unawaited(_loadPendingCreateWaitLines());
     unawaited(
       _pendingCoordinator.ensureCreatingPolling(
-        loadOriginInfo: (originId) => api.v1.origin.info(originId: originId),
+        loadOriginInfo: (originId) => api.v1.origin.info(
+          originId: originId,
+          tracePolicy: ApiRequestTracePolicy.excluded,
+        ),
         context: context,
       ),
     );

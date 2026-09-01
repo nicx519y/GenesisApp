@@ -6,15 +6,32 @@ import '../../network/json_utils.dart';
 
 @immutable
 class AppGlobalConfig {
-  const AppGlobalConfig({this.showOpeningSheet = false});
+  const AppGlobalConfig({
+    this.showOpeningSheet = false,
+    this.apiTraceSamplingRate = 0,
+  });
 
   factory AppGlobalConfig.fromJson(Map<String, dynamic> json) {
     return AppGlobalConfig(
       showOpeningSheet: asBool(json['show_opening_sheet']),
+      apiTraceSamplingRate: _samplingRate(
+        json['apiTraceSamplingRate'] ?? json['api_trace_sampling_rate'],
+      ),
     );
   }
 
   final bool showOpeningSheet;
+  final double apiTraceSamplingRate;
+}
+
+double _samplingRate(Object? value) {
+  final parsed = switch (value) {
+    num value => value.toDouble(),
+    String value => double.tryParse(value),
+    _ => null,
+  };
+  if (parsed == null || !parsed.isFinite) return 0;
+  return parsed.clamp(0.0, 1.0).toDouble();
 }
 
 class AppGlobalConfigStore extends ValueNotifier<AppGlobalConfig> {

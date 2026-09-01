@@ -1023,13 +1023,15 @@ App 启动时尽早请求的全局配置。客户端在首个 Flutter 页面展�
 响应 `data`：
 
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
+- `apiTraceSamplingRate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口自身固定监控，轮询接口和 `/api/v1/collect` 不参与接口请求监控。
 
 ```json
 {
   "err_no": 0,
   "err_msg": "succ",
   "data": {
-    "show_opening_sheet": false
+    "show_opening_sheet": false,
+    "apiTraceSamplingRate": 1.0
   }
 }
 ```

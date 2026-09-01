@@ -95,7 +95,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (isGatewayApiPath) {
-      return _v1Error(
+      return _error(
         404,
         'mock gateway route not found: $method /apix/$apiPath',
       );
@@ -345,7 +345,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.writeChatroomNarrator(body));
     }
 
-    return _v1Error(404, 'mock chatroom route not found: $method /$path');
+    return _error(404, 'mock chatroom route not found: $method /$path');
   }
 
   Future<TransportResponse> _handleV2(
@@ -383,7 +383,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(_state.updateV2Origin(body));
     }
 
-    return _v1Error(404, 'mock v2 route not found: $method /api/v2/$path');
+    return _error(404, 'mock v2 route not found: $method /api/v2/$path');
   }
 
   Future<TransportResponse> _handleV1(
@@ -433,7 +433,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       final viewerAuthenticated =
           _state.isAuthenticated || requestHasAuthorization;
       if (uid.isEmpty && !viewerAuthenticated) {
-        return _v1Error(4004, 'ErrorParamInvalid');
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
       }
       return _v1Ok(
         _state.v1UserInfo(uid, viewerAuthenticated: viewerAuthenticated),
@@ -446,14 +446,18 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'POST' && path == 'user/block') {
       final targetUid = '${body['target_uid'] ?? ''}'.trim();
-      if (targetUid.isEmpty) return _v1Error(4004, 'ErrorParamInvalid');
+      if (targetUid.isEmpty) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
       _state.blockV1User(targetUid);
       return _v1Ok(<String, dynamic>{});
     }
 
     if (method == 'POST' && path == 'user/unblock') {
       final targetUid = '${body['target_uid'] ?? ''}'.trim();
-      if (targetUid.isEmpty) return _v1Error(4004, 'ErrorParamInvalid');
+      if (targetUid.isEmpty) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
       _state.unblockV1User(targetUid);
       return _v1Ok(<String, dynamic>{});
     }
@@ -567,7 +571,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'app/config') {
-      return _v1Ok({'show_opening_sheet': false});
+      return _v1Ok({'show_opening_sheet': false, 'apiTraceSamplingRate': 1.0});
     }
 
     if (method == 'GET' && path == 'origin/my_launch_preset_characters') {
@@ -596,7 +600,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       final originId = (query['origin_id'] ?? '').trim();
       final locationId = (query['location_id'] ?? '').trim();
       if (originId.isEmpty || locationId.isEmpty) {
-        return _v1Error(4004, 'origin_id and location_id required');
+        return _v1BusinessError(4004, 'origin_id and location_id required');
       }
       return _v1Ok(_state.v1OriginMap(originId, locationId));
     }
@@ -644,7 +648,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     if (method == 'GET' && path == 'world/summary/latest') {
       if ((query['origin_id'] ?? '').trim().isEmpty &&
           (query['world_id'] ?? '').trim().isEmpty) {
-        return _v1Error(4004, 'origin_id or world_id required');
+        return _v1BusinessError(4004, 'origin_id or world_id required');
       }
       return _v1Ok(_state.v1WorldSummaryLatest(query));
     }
@@ -657,7 +661,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       final worldId = (query['world_id'] ?? '').trim();
       final locationId = (query['location_id'] ?? '').trim();
       if (worldId.isEmpty || locationId.isEmpty) {
-        return _v1Error(4004, 'world_id and location_id required');
+        return _v1BusinessError(4004, 'world_id and location_id required');
       }
       return _v1Ok(_state.v1WorldMap(worldId, locationId));
     }
@@ -892,13 +896,13 @@ class LocalMockGenesisTransport implements HttpTransport {
         'user',
       };
       if (!supportedTypes.contains(targetType)) {
-        return _v1Error(20801, 'ErrorReportTargetTypeInvalid');
+        return _v1BusinessError(20801, 'ErrorReportTargetTypeInvalid');
       }
       if (targetId.isEmpty || content.isEmpty) {
-        return _v1Error(4004, 'ErrorParamInvalid');
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
       }
       if (content.length > 1000) {
-        return _v1Error(20802, 'ErrorReportContentTooLong');
+        return _v1BusinessError(20802, 'ErrorReportContentTooLong');
       }
       return _v1Ok({
         'report_id': 'rpt_mock_${DateTime.now().microsecondsSinceEpoch}',
@@ -908,10 +912,10 @@ class LocalMockGenesisTransport implements HttpTransport {
     if (method == 'POST' && path == 'feedback/create') {
       final content = '${body['content'] ?? ''}'.trim();
       if (content.isEmpty) {
-        return _v1Error(4004, 'ErrorParamInvalid');
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
       }
       if (content.length > 1000) {
-        return _v1Error(20901, 'ErrorFeedbackContentTooLong');
+        return _v1BusinessError(20901, 'ErrorFeedbackContentTooLong');
       }
       return _v1Ok({
         'feedback_id': 'fbk_mock_${DateTime.now().microsecondsSinceEpoch}',
@@ -974,7 +978,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(<String, dynamic>{});
     }
 
-    return _v1Error(404, 'mock v1 route not found: $method /api/v1/$path');
+    return _error(404, 'mock v1 route not found: $method /api/v1/$path');
   }
 
   TransportResponse _ok(Map<String, dynamic> data) {
@@ -995,14 +999,6 @@ class LocalMockGenesisTransport implements HttpTransport {
 
   TransportResponse _v1Ok(Object? data) {
     return _ok({'err_no': 0, 'err_msg': 'succ', 'data': data});
-  }
-
-  TransportResponse _v1Error(int code, String message) {
-    return TransportResponse(
-      statusCode: code,
-      headers: const {'content-type': 'application/json'},
-      body: jsonEncode({'err_no': code, 'err_msg': message, 'data': {}}),
-    );
   }
 
   TransportResponse _v1BusinessError(int code, String message) {

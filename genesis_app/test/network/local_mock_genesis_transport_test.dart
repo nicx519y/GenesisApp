@@ -265,7 +265,10 @@ void main() {
 
     final config = await api.v1.app.config();
 
-    expect(config, {'show_opening_sheet': false});
+    expect(config, {
+      'show_opening_sheet': false,
+      'api_trace_sampling_rate': 1.0,
+    });
   });
 
   test(
