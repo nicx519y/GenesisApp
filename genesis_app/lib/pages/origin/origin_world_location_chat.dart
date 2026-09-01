@@ -356,6 +356,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.roleMutedColor = const Color(0x99FFFFFF),
     this.roleBackgroundColor = const Color(0xCC151517),
     this.onInputDockHeightChanged,
+    this.onHeightChanged,
   });
 
   final bool launching;
@@ -369,6 +370,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final Color roleMutedColor;
   final Color roleBackgroundColor;
   final ValueChanged<double>? onInputDockHeightChanged;
+  final ValueChanged<double>? onHeightChanged;
 
   @override
   State<_OriginLocationChatLaunchComposer> createState() =>
@@ -433,22 +435,75 @@ class _OriginLocationChatLaunchComposerState
       sendIcon: ChatComposerSendIcon.arrowUp,
       style: composerStyle,
     );
+    final Widget content;
     if (!widget.showRoleSelector) {
-      return composer;
+      content = composer;
+    } else {
+      final roleRegion = _OriginLocationChatRoleRegion(
+        role: widget.role,
+        enabled: !widget.launching,
+        onTap: widget.onSelectRole,
+        style: style,
+        foregroundColor: widget.roleForegroundColor,
+        mutedColor: widget.roleMutedColor,
+        backgroundColor: widget.roleBackgroundColor,
+      );
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [roleRegion, composer],
+      );
     }
-    final roleRegion = _OriginLocationChatRoleRegion(
-      role: widget.role,
-      enabled: !widget.launching,
-      onTap: widget.onSelectRole,
-      style: style,
-      foregroundColor: widget.roleForegroundColor,
-      mutedColor: widget.roleMutedColor,
-      backgroundColor: widget.roleBackgroundColor,
+    final onHeightChanged = widget.onHeightChanged;
+    if (onHeightChanged == null) return content;
+    return _OriginLocationChatComposerHeightObserver(
+      onHeightChanged: onHeightChanged,
+      child: content,
     );
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [roleRegion, composer],
+  }
+}
+
+class _OriginLocationChatComposerHeightObserver extends StatefulWidget {
+  const _OriginLocationChatComposerHeightObserver({
+    required this.child,
+    required this.onHeightChanged,
+  });
+
+  final Widget child;
+  final ValueChanged<double> onHeightChanged;
+
+  @override
+  State<_OriginLocationChatComposerHeightObserver> createState() =>
+      _OriginLocationChatComposerHeightObserverState();
+}
+
+class _OriginLocationChatComposerHeightObserverState
+    extends State<_OriginLocationChatComposerHeightObserver> {
+  double? _lastHeight;
+  var _reportScheduled = false;
+
+  void _scheduleReport() {
+    if (_reportScheduled) return;
+    _reportScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _reportScheduled = false;
+      if (!mounted) return;
+      final height = context.size?.height;
+      if (height == null || height <= 0 || height == _lastHeight) return;
+      _lastHeight = height;
+      widget.onHeightChanged(height);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _scheduleReport();
+    return NotificationListener<SizeChangedLayoutNotification>(
+      onNotification: (_) {
+        _scheduleReport();
+        return false;
+      },
+      child: SizeChangedLayoutNotifier(child: widget.child),
     );
   }
 }

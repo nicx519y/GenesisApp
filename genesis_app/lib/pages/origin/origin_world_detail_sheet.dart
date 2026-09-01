@@ -95,6 +95,7 @@ class _OriginDetailDraggableSheetState
   var _autoExpansionPaintCompletionScheduled = false;
   var _openingRoleAnchorMeasureScheduled = false;
   var _expandedInputDockHeight = 0.0;
+  var _expandedComposerMeasuredHeight = 0.0;
   double? _openingRoleAnchorContentY;
   Timer? _extentSettleTimer;
   Completer<void>? _extentSettleCompleter;
@@ -108,10 +109,14 @@ class _OriginDetailDraggableSheetState
     ).clamp(_minChildSize, _absoluteMaxChildSize).toDouble();
   }
 
-  double get _expandedComposerHeight =>
-      _expandedInputDockHeight +
-      _originDetailSheetChatComposerStyle.composerPadding.top +
-      _originLocationChatRolePillHeight;
+  double get _expandedComposerHeight {
+    if (_expandedComposerMeasuredHeight > 0) {
+      return _expandedComposerMeasuredHeight;
+    }
+    return _expandedInputDockHeight +
+        _originDetailSheetChatComposerStyle.composerPadding.top +
+        _originLocationChatRolePillHeight;
+  }
 
   @override
   void initState() {
@@ -127,8 +132,26 @@ class _OriginDetailDraggableSheetState
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _openingRoleAnchorContentY = null;
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _openingRoleAnchorContentY = null;
+    _expandedComposerMeasuredHeight = 0;
+    _scheduleOpeningRoleAnchorMeasurement();
+  }
+
+  @override
   void didUpdateWidget(covariant _OriginDetailDraggableSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.launchedPresetRoles, widget.launchedPresetRoles) ||
+        oldWidget.autoExpansionPending != widget.autoExpansionPending) {
+      _openingRoleAnchorContentY = null;
+    }
     if (!identical(oldWidget.origin, widget.origin)) {
       _openingRoleAnchorContentY = null;
       _initialDialoguePreview = _originFirstInitialDialoguePreview(
@@ -539,6 +562,7 @@ class _OriginDetailDraggableSheetState
           roleMutedColor: GenesisColors.textTertiary,
           roleBackgroundColor: GenesisColors.surface,
           onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
+          onHeightChanged: _handleExpandedComposerHeightChanged,
         ),
       ),
       builder: (context, child) {
@@ -576,6 +600,15 @@ class _OriginDetailDraggableSheetState
     if ((_expandedInputDockHeight - height).abs() < 0.5) return;
     setState(() {
       _expandedInputDockHeight = height;
+      _openingRoleAnchorContentY = null;
+    });
+    _scheduleOpeningRoleAnchorMeasurement();
+  }
+
+  void _handleExpandedComposerHeightChanged(double height) {
+    if ((_expandedComposerMeasuredHeight - height).abs() < 0.5) return;
+    setState(() {
+      _expandedComposerMeasuredHeight = height;
       _openingRoleAnchorContentY = null;
     });
     _scheduleOpeningRoleAnchorMeasurement();
@@ -871,6 +904,33 @@ class _OriginDetailDraggableSheetState
                     child: LayoutBuilder(
                       builder: (context, stackConstraints) {
                         final stackHeight = stackConstraints.maxHeight;
+                        final pageContent =
+                            NotificationListener<ScrollEndNotification>(
+                              onNotification: _handlePageScrollEnd,
+                              child: PageView.builder(
+                                key: const ValueKey<String>(
+                                  'origin-detail-sheet-pages',
+                                ),
+                                controller: _pageController,
+                                itemCount: 2,
+                                physics: const PageScrollPhysics(),
+                                itemBuilder: (context, page) {
+                                  final pageScrollController =
+                                      page == _currentPage
+                                      ? scrollController
+                                      : page == _originOpeningSheetPageIndex
+                                      ? _openingPreviewScrollController
+                                      : _infoPreviewScrollController;
+                                  return page == _originOpeningSheetPageIndex
+                                      ? _buildOpeningPage(
+                                          pageScrollController,
+                                          initialDialoguePreview,
+                                          locationChatLocationId,
+                                        )
+                                      : _buildInfoPage(pageScrollController);
+                                },
+                              ),
+                            );
                         return Stack(
                           key: _sheetContentStackKey,
                           children: [
@@ -890,45 +950,14 @@ class _OriginDetailDraggableSheetState
                                           ? scrollController.offset
                                           : 0,
                                     );
-                                return NotificationListener<
-                                  ScrollEndNotification
-                                >(
-                                  onNotification: _handlePageScrollEnd,
-                                  child: Padding(
-                                    key: const ValueKey<String>(
-                                      'origin-detail-sheet-keyboard-safe-content',
-                                    ),
-                                    padding: EdgeInsets.only(
-                                      bottom: keyboardInset + composerReserve,
-                                    ),
-                                    child: PageView.builder(
-                                      key: const ValueKey<String>(
-                                        'origin-detail-sheet-pages',
-                                      ),
-                                      controller: _pageController,
-                                      itemCount: 2,
-                                      physics: const PageScrollPhysics(),
-                                      itemBuilder: (context, page) {
-                                        final pageScrollController =
-                                            page == _currentPage
-                                            ? scrollController
-                                            : page ==
-                                                  _originOpeningSheetPageIndex
-                                            ? _openingPreviewScrollController
-                                            : _infoPreviewScrollController;
-                                        return page ==
-                                                _originOpeningSheetPageIndex
-                                            ? _buildOpeningPage(
-                                                pageScrollController,
-                                                initialDialoguePreview,
-                                                locationChatLocationId,
-                                              )
-                                            : _buildInfoPage(
-                                                pageScrollController,
-                                              );
-                                      },
-                                    ),
+                                return Padding(
+                                  key: const ValueKey<String>(
+                                    'origin-detail-sheet-keyboard-safe-content',
                                   ),
+                                  padding: EdgeInsets.only(
+                                    bottom: keyboardInset + composerReserve,
+                                  ),
+                                  child: pageContent,
                                 );
                               },
                             ),
@@ -956,8 +985,10 @@ class _OriginDetailDraggableSheetState
                                   _pageController,
                                   scrollController,
                                 ]),
-                                child: _buildExpandedOpeningComposer(
-                                  locationChatLocationId,
+                                child: RepaintBoundary(
+                                  child: _buildExpandedOpeningComposer(
+                                    locationChatLocationId,
+                                  ),
                                 ),
                                 builder: (context, child) {
                                   final top = _expandedComposerTop(

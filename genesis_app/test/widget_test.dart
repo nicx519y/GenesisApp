@@ -11028,6 +11028,10 @@ void main() {
   testWidgets(
     'Origin expanded sheet pins role composer and sends after launch',
     (WidgetTester tester) async {
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
       AppStartupCoordinator.resetForTesting();
       addTearDown(AppStartupCoordinator.resetForTesting);
       final transport = _RecordingV1ListTransport(
@@ -11186,6 +11190,24 @@ void main() {
       expect(
         find.descendant(of: expandedComposer, matching: find.text('Nikos')),
         findsOneWidget,
+      );
+
+      final openingScroll = find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+        ),
+        matching: find.byType(Scrollable),
+      );
+      final selectRoleTitle = find.text('Select Your Role');
+      await tester.scrollUntilVisible(
+        selectRoleTitle,
+        120,
+        scrollable: openingScroll.first,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(selectRoleTitle).dy,
+        closeTo(tester.getBottomLeft(expandedComposer).dy, 1),
       );
 
       await tester.tap(
