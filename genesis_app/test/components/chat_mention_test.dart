@@ -62,6 +62,8 @@ void main() {
         (locationContainer.decoration! as BoxDecoration).color,
         Colors.transparent,
       );
+      expect(ChatCharacterMentionTag.textColor, const Color(0xFF39FF14));
+      expect(ChatLocationMentionTag.textColor, const Color(0xFF5AC8FA));
       expect(
         tester.widget<Text>(find.text('@Alice')).style,
         const TextStyle(
@@ -83,7 +85,7 @@ void main() {
     },
   );
 
-  test('mention catalog uses world character and flattened location order', () {
+  test('mention catalog includes only location leaves in tree order', () {
     final catalog = locationChatMentionCatalogForState(
       WorldChatroomState(world: _mentionWorld()),
     );
@@ -92,14 +94,11 @@ void main() {
       'char-1',
       'char-2',
     ]);
-    expect(catalog.locations.map((entry) => entry.id), <String>[
-      'loc-root',
-      'loc-leaf',
-    ]);
+    expect(catalog.locations.map((entry) => entry.id), <String>['loc-leaf']);
     expect(catalog.locations.map((entry) => entry.name), <String>[
-      'Root Hall',
       'Moon Harbor',
     ]);
+    expect(catalog.entryForId('loc-root'), isNull);
   });
 
   test('mention parser recognizes known ids and leaves unknown ids raw', () {

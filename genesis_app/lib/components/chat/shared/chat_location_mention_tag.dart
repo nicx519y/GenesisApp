@@ -4,7 +4,7 @@ class ChatLocationMentionTag extends StatelessWidget {
   const ChatLocationMentionTag({super.key, required this.name});
 
   static const Color backgroundColor = Colors.transparent;
-  static const Color textColor = Color(0xFF3478F6);
+  static const Color textColor = Color(0xFF5AC8FA);
 
   final String name;
 

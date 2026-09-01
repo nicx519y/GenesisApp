@@ -36,14 +36,10 @@ ChatMentionCatalog locationChatMentionCatalogForState(
     );
   }
 
-  final nodes = world.processedLocationTree.flattened;
-  final locationValues = nodes.isNotEmpty
-      ? <({String nodeId, Map<String, dynamic> value})>[
-          for (final node in nodes) (nodeId: node.id, value: node.value),
-        ]
-      : <({String nodeId, Map<String, dynamic> value})>[
-          for (final location in world.locations) (nodeId: '', value: location),
-        ];
+  final locationValues = <({String nodeId, Map<String, dynamic> value})>[
+    for (final node in world.processedLocationTree.flattened)
+      if (node.children.isEmpty) (nodeId: node.id, value: node.value),
+  ];
   final locationIds = <String>{};
   final locations = <ChatMentionEntry>[];
   for (final item in locationValues) {
