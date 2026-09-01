@@ -79,7 +79,6 @@ class _OriginDetailDraggableSheetState
   late final PageController _pageController;
   late final ScrollController _openingPreviewScrollController;
   late final ScrollController _infoPreviewScrollController;
-  final GlobalKey _expandedComposerMeasureKey = GlobalKey();
   final Completer<void> _sheetReady = Completer<void>();
   ScrollController? _sheetScrollController;
   OriginDiscussListController? _discussController;
@@ -92,8 +91,7 @@ class _OriginDetailDraggableSheetState
   var _sheetReadyCheckScheduled = false;
   var _autoExpansionInterruptionScheduled = false;
   var _autoExpansionPaintCompletionScheduled = false;
-  var _expandedComposerMeasureScheduled = false;
-  var _expandedComposerHeight = 0.0;
+  var _expandedInputDockHeight = 0.0;
   Timer? _extentSettleTimer;
   Completer<void>? _extentSettleCompleter;
 
@@ -508,37 +506,25 @@ class _OriginDetailDraggableSheetState
   }
 
   Widget _buildExpandedOpeningComposer(String locationId) {
-    _scheduleExpandedComposerMeasurement();
     return AnimatedBuilder(
       animation: Listenable.merge([_sheetController, _pageController]),
-      child: NotificationListener<SizeChangedLayoutNotification>(
-        onNotification: (_) {
-          _scheduleExpandedComposerMeasurement();
-          return false;
-        },
-        child: SizeChangedLayoutNotifier(
-          child: SizedBox(
-            key: _expandedComposerMeasureKey,
-            child: KeyedSubtree(
-              key: const ValueKey<String>('origin-expanded-opening-composer'),
-              child: _OriginLocationChatLaunchComposer(
-                key: ValueKey<String>(
-                  'origin-sheet-chat-composer-${widget.origin.oid}-'
-                  '$locationId',
-                ),
-                launching: widget.launching,
-                role: widget.locationChatRole,
-                onSelectRole: widget.onSelectLocationChatRole,
-                onSend: (message) =>
-                    widget.onSendLocationChatMessage(locationId, message),
-                style: _originDetailSheetChatComposerStyle,
-                inputDockBackgroundColor: originWorldDetailSheetBackgroundColor,
-                roleForegroundColor: GenesisColors.textPrimary,
-                roleMutedColor: GenesisColors.textTertiary,
-                roleBackgroundColor: GenesisColors.surface,
-              ),
-            ),
+      child: KeyedSubtree(
+        key: const ValueKey<String>('origin-expanded-opening-composer'),
+        child: _OriginLocationChatLaunchComposer(
+          key: ValueKey<String>(
+            'origin-sheet-chat-composer-${widget.origin.oid}-$locationId',
           ),
+          launching: widget.launching,
+          role: widget.locationChatRole,
+          onSelectRole: widget.onSelectLocationChatRole,
+          onSend: (message) =>
+              widget.onSendLocationChatMessage(locationId, message),
+          style: _originDetailSheetChatComposerStyle,
+          inputDockBackgroundColor: originWorldDetailSheetBackgroundColor,
+          roleForegroundColor: GenesisColors.textPrimary,
+          roleMutedColor: GenesisColors.textTertiary,
+          roleBackgroundColor: GenesisColors.surface,
+          onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
         ),
       ),
       builder: (context, child) {
@@ -572,20 +558,9 @@ class _OriginDetailDraggableSheetState
     return expandedProgress * openingProgress;
   }
 
-  void _scheduleExpandedComposerMeasurement() {
-    if (_expandedComposerMeasureScheduled) return;
-    _expandedComposerMeasureScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _expandedComposerMeasureScheduled = false;
-      if (!mounted) return;
-      final renderObject = _expandedComposerMeasureKey.currentContext
-          ?.findRenderObject();
-      if (renderObject is! RenderBox || !renderObject.hasSize) return;
-      final height = renderObject.size.height;
-      if ((_expandedComposerHeight - height).abs() < 0.5) return;
-      setState(() => _expandedComposerHeight = height);
-    });
-    WidgetsBinding.instance.ensureVisualUpdate();
+  void _handleExpandedInputDockHeightChanged(double height) {
+    if ((_expandedInputDockHeight - height).abs() < 0.5) return;
+    setState(() => _expandedInputDockHeight = height);
   }
 
   OriginDiscussListController _ensureDiscussController() {
@@ -810,7 +785,7 @@ class _OriginDetailDraggableSheetState
                           ]),
                           builder: (context, _) {
                             final composerReserve =
-                                _expandedComposerHeight *
+                                _expandedInputDockHeight *
                                 _expandedOpeningComposerProgress(context);
                             return NotificationListener<ScrollEndNotification>(
                               onNotification: _handlePageScrollEnd,

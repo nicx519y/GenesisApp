@@ -11082,7 +11082,7 @@ void main() {
       expect(sheetPages, findsOneWidget);
       expect(
         tester.getBottomLeft(sheetPages).dy,
-        closeTo(tester.getTopLeft(expandedComposer).dy, 1),
+        closeTo(tester.getTopLeft(sheetComposer).dy, 1),
       );
       final rolePill = find.descendant(
         of: expandedComposer,

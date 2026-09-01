@@ -351,6 +351,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.roleForegroundColor = const Color(0xFFF4F3F6),
     this.roleMutedColor = const Color(0x99FFFFFF),
     this.roleBackgroundColor = const Color(0xCC151517),
+    this.onInputDockHeightChanged,
   });
 
   final bool launching;
@@ -363,6 +364,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final Color roleForegroundColor;
   final Color roleMutedColor;
   final Color roleBackgroundColor;
+  final ValueChanged<double>? onInputDockHeightChanged;
 
   @override
   State<_OriginLocationChatLaunchComposer> createState() =>
@@ -422,6 +424,7 @@ class _OriginLocationChatLaunchComposerState
       sendEnabled: !widget.launching && _hasText,
       sending: widget.launching,
       onSend: _send,
+      onHeightChanged: widget.onInputDockHeightChanged,
       composerHeader: null,
       sendIcon: ChatComposerSendIcon.arrowUp,
       style: composerStyle,
