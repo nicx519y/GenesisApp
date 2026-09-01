@@ -11,6 +11,7 @@ import '../app/startup/app_startup_coordinator.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../components/bottom_tabs.dart';
 import '../components/login_sheet.dart';
+import '../network/api_client.dart';
 import '../network/models/unread_summary.dart';
 import '../platform/auth/auth_session.dart';
 import '../platform/billing/billing_models.dart';
@@ -118,6 +119,9 @@ class _AppShellPageState extends State<AppShellPage>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startAppRuntime();
       _startColdStartHomeTargetResolutionIfNeeded();
+      if (!_shouldResolveColdStartHomeTarget) {
+        AppStartupCoordinator.recordLaunchPage();
+      }
       _startPostLaunchWorkIfAllowed();
       _startInitialBillingRecoveryIfReady();
       _scheduleAttRequest();
@@ -264,12 +268,33 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   Future<void> _resolveColdStartHomeTarget() async {
-    final hasSession = await _hasLocalLoginSession();
-    final hasMyWorldsCache = hasSession
-        ? await _hasMyWorldsCacheForLocalSession()
-        : false;
+    var hasSession = false;
+    var sessionReadFailed = false;
+    try {
+      hasSession = await _hasLocalLoginSession();
+    } catch (_) {
+      sessionReadFailed = true;
+    }
+    var hasMyWorldsCache = false;
+    if (hasSession) {
+      try {
+        hasMyWorldsCache = await _hasMyWorldsCacheForLocalSession();
+      } catch (_) {
+        hasMyWorldsCache = false;
+      }
+    }
     if (!mounted) return;
     final openHome = hasSession && hasMyWorldsCache;
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: openHome ? 'home' : 'worldo',
+      reason: sessionReadFailed
+          ? 'session_error'
+          : !hasSession
+          ? 'no_session'
+          : hasMyWorldsCache
+          ? 'session_cache_hit'
+          : 'session_cache_miss',
+    );
     setState(() {
       _selectedIndex = openHome ? 0 : 1;
       _visitedTabIndexes
@@ -281,6 +306,9 @@ class _AppShellPageState extends State<AppShellPage>
     _meTabActiveNotifier.value = _selectedIndex == 4;
     _homeTabActiveNotifier.value = _selectedIndex == 0;
     _worldoTabActiveNotifier.value = _selectedIndex == 1;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) AppStartupCoordinator.recordLaunchPage();
+    });
     _startPostLaunchWorkIfAllowed();
   }
 
@@ -311,7 +339,9 @@ class _AppShellPageState extends State<AppShellPage>
       final services = AppServicesScope.read(context);
       final requests = <Future<void>>[
         _refreshUnreadSummary(),
-        services.directMessageConversations.syncConversations(),
+        services.directMessageConversations.syncConversations(
+          tracePolicy: ApiRequestTracePolicy.excluded,
+        ),
       ];
       await Future.wait(requests);
     } catch (e, st) {
@@ -322,9 +352,8 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<void> _refreshUnreadSummary() async {
     try {
-      final summary = await AppServicesScope.read(
-        context,
-      ).api.v1.messages.unreadSummary();
+      final summary = await AppServicesScope.read(context).api.v1.messages
+          .unreadSummary(tracePolicy: ApiRequestTracePolicy.excluded);
       if (!mounted) return;
       _unreadSummaryNotifier.value = summary;
     } catch (e, st) {

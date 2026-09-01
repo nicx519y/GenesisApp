@@ -7,6 +7,7 @@ import '../platform/platform_services.dart';
 import '../utils/genesis_timestamp_formatter.dart';
 import '../utils/genesis_ugc_text.dart';
 import 'direct_message_database.dart';
+import 'api_client.dart';
 import 'genesis_api.dart';
 import 'json_utils.dart';
 
@@ -252,13 +253,15 @@ class DirectMessageConversationStore {
     _applyRecords(records);
   }
 
-  Future<void> syncConversations() {
+  Future<void> syncConversations({
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) {
     final inFlight = _syncFuture;
     if (inFlight != null) return inFlight;
     final stopwatch = _dmConversationMetricsEnabled
         ? (Stopwatch()..start())
         : null;
-    final future = _syncConversations().whenComplete(() {
+    final future = _syncConversations(tracePolicy).whenComplete(() {
       if (stopwatch == null) return;
       debugPrint(
         '[Messages][DM] syncConversations '
@@ -315,20 +318,23 @@ class DirectMessageConversationStore {
     }
   }
 
-  Future<void> _syncConversations() async {
+  Future<void> _syncConversations(ApiRequestTracePolicy tracePolicy) async {
     final ownerUid = await _ownerUid();
     _resetIfOwnerChanged(ownerUid);
     final cursor = await _storage.readCursor(ownerUid);
     if (cursor == null || cursor.isEmpty) {
-      await _fullSync(ownerUid);
+      await _fullSync(ownerUid, tracePolicy);
     } else {
-      await _deltaSync(ownerUid, cursor);
+      await _deltaSync(ownerUid, cursor, tracePolicy);
     }
     final records = await _storage.loadConversations(ownerUid);
     _applyRecords(records);
   }
 
-  Future<void> _fullSync(String ownerUid) async {
+  Future<void> _fullSync(
+    String ownerUid,
+    ApiRequestTracePolicy tracePolicy,
+  ) async {
     final all = <Map<String, dynamic>>[];
     String? nextAfterMessageId;
     var page = 1;
@@ -336,6 +342,7 @@ class DirectMessageConversationStore {
       final data = await _api.v1.dm.conversations(
         pn: page,
         rn: _fullSyncPageSize,
+        tracePolicy: tracePolicy,
       );
       final items = _conversationItems(data);
       all.addAll(items);
@@ -353,8 +360,15 @@ class DirectMessageConversationStore {
     );
   }
 
-  Future<void> _deltaSync(String ownerUid, String cursor) async {
-    final data = await _api.v1.dm.conversations(afterMessageId: cursor);
+  Future<void> _deltaSync(
+    String ownerUid,
+    String cursor,
+    ApiRequestTracePolicy tracePolicy,
+  ) async {
+    final data = await _api.v1.dm.conversations(
+      afterMessageId: cursor,
+      tracePolicy: tracePolicy,
+    );
     await _storage.mergeConversations(
       ownerUid: ownerUid,
       conversations: _conversationItems(data),

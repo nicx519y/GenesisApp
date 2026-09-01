@@ -6,6 +6,7 @@ import 'package:sqflite/sqflite.dart';
 import '../platform/platform_services.dart';
 import '../utils/genesis_timestamp_formatter.dart';
 import 'direct_message_database.dart';
+import 'api_client.dart';
 import 'genesis_api.dart';
 import 'json_utils.dart';
 
@@ -617,7 +618,10 @@ class DirectMessageMessageStore {
     await _storage.clearDraft(ownerUid: ownerUid, peerUid: cleanPeerUid);
   }
 
-  Future<void> syncLatest(String peerUid) async {
+  Future<void> syncLatest(
+    String peerUid, {
+    ApiRequestTracePolicy tracePolicy = ApiRequestTracePolicy.standard,
+  }) async {
     final ownerUid = await _ownerUid();
     final cleanPeerUid = peerUid.trim();
     final inFlight = _syncFuture;
@@ -630,8 +634,12 @@ class DirectMessageMessageStore {
     _syncFuturePeerUid = cleanPeerUid;
     final stopwatch = _dmMessageMetricsEnabled ? (Stopwatch()..start()) : null;
     late final Future<void> trackedFuture;
-    trackedFuture = _syncLatest(ownerUid: ownerUid, peerUid: cleanPeerUid)
-        .whenComplete(() {
+    trackedFuture =
+        _syncLatest(
+          ownerUid: ownerUid,
+          peerUid: cleanPeerUid,
+          tracePolicy: tracePolicy,
+        ).whenComplete(() {
           if (stopwatch != null) {
             debugPrint(
               '[ChatPage][DM] syncLatest peer=$cleanPeerUid '
@@ -800,9 +808,15 @@ class DirectMessageMessageStore {
   Future<void> _syncLatest({
     required String ownerUid,
     required String peerUid,
+    required ApiRequestTracePolicy tracePolicy,
   }) async {
     _resetIfTargetChanged(ownerUid, peerUid);
-    final data = await _api.v1.dm.list(peerUid: peerUid, pn: 1, rn: pageSize);
+    final data = await _api.v1.dm.list(
+      peerUid: peerUid,
+      pn: 1,
+      rn: pageSize,
+      tracePolicy: tracePolicy,
+    );
     final messages = _messageItems(data).take(pageSize).toList(growable: false);
     await _storage.mergeMessages(
       ownerUid: ownerUid,

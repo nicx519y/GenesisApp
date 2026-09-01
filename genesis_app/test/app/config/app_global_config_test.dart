@@ -6,18 +6,57 @@ import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 void main() {
   test('AppGlobalConfig defaults opening sheet to false', () {
     expect(const AppGlobalConfig().showOpeningSheet, isFalse);
+    expect(const AppGlobalConfig().apiTraceSamplingRate, 0);
     expect(AppGlobalConfig.fromJson(const {}).showOpeningSheet, isFalse);
+    expect(AppGlobalConfig.fromJson(const {}).apiTraceSamplingRate, 0);
+  });
+
+  test('AppGlobalConfig parses and clamps API trace sampling rate', () {
+    expect(
+      AppGlobalConfig.fromJson(const {
+        'apiTraceSamplingRate': 0.25,
+      }).apiTraceSamplingRate,
+      0.25,
+    );
+    expect(
+      AppGlobalConfig.fromJson(const {
+        'api_trace_sampling_rate': 0.75,
+      }).apiTraceSamplingRate,
+      0.75,
+    );
+    expect(
+      AppGlobalConfig.fromJson(const {
+        'apiTraceSamplingRate': 2,
+      }).apiTraceSamplingRate,
+      1,
+    );
+    expect(
+      AppGlobalConfig.fromJson(const {
+        'apiTraceSamplingRate': -1,
+      }).apiTraceSamplingRate,
+      0,
+    );
+    expect(
+      AppGlobalConfig.fromJson(const {
+        'apiTraceSamplingRate': 'invalid',
+      }).apiTraceSamplingRate,
+      0,
+    );
   });
 
   test('AppGlobalConfigStore loads and publishes app config', () async {
     final store = AppGlobalConfigStore(
-      loadConfig: () async => {'show_opening_sheet': true},
+      loadConfig: () async => {
+        'show_opening_sheet': true,
+        'apiTraceSamplingRate': 0.5,
+      },
     );
     addTearDown(store.dispose);
 
     await store.refresh();
 
     expect(store.value.showOpeningSheet, isTrue);
+    expect(store.value.apiTraceSamplingRate, 0.5);
   });
 
   test('AppGlobalConfigStore deduplicates concurrent refreshes', () async {

@@ -327,6 +327,8 @@ extension _WorldPageDetailSync on _WorldPageState {
   }
 
   Future<WorldDetail> _loadWorldForTick1Wait() async {
-    return AppServicesScope.read(context).api.getWorld(widget.wid);
+    return AppServicesScope.read(
+      context,
+    ).api.getWorld(widget.wid, tracePolicy: ApiRequestTracePolicy.excluded);
   }
 }

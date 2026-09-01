@@ -143,9 +143,10 @@ abstract class _GenesisApiContext {
   }
 
   Object? _processGenesisResponse(ApiResponse response) {
+    final data = _defaultGenesisProcessor(response);
     _throwIfSessionExpired(response);
     _throwIfPageNotFound(response);
-    return _defaultGenesisProcessor(response);
+    return data;
   }
 
   void _throwIfSessionExpired(ApiResponse response) {
@@ -182,7 +183,7 @@ abstract class _GenesisApiContext {
     } else {
       errNo = null;
     }
-    if (errNo != 1404 && response.statusCode != 1404) return;
+    if (errNo != 1404) return;
 
     const message = 'Page not found.';
     final handler = _onPageNotFound;
