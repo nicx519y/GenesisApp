@@ -287,7 +287,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               ? ''
               : _resolvedProfileAvatar(userInfo, ''),
           name: cachedName.isEmpty ? uid : cachedName,
-          identity: '',
+          identity: userInfo == null
+              ? ''
+              : _mapString(userInfo, const ['identity']),
         );
       }
       if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
@@ -1188,6 +1190,14 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               onSelectProfileRole: (profileRole) =>
                   _selectAndLaunchProfileRole(origin, profileRole),
               onFillProfileRole: _customRoleFromProfile,
+              locationChatRole: _locationChatRoleOption(origin),
+              onSelectLocationChatRole: () => _selectLocationChatRole(origin),
+              onSendLocationChatMessage: (locationId, message) =>
+                  _launchLocationChatMessage(
+                    origin,
+                    locationId: locationId,
+                    message: message,
+                  ),
             ),
         topOverlay: _buildLocationChatOverlay(origin),
         map: WorldKeepAlivePage(child: map),

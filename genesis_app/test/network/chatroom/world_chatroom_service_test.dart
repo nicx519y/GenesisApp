@@ -538,6 +538,25 @@ void main() {
     },
   );
 
+  test('silent initial entry joins without user_enter_location', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+    );
+
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final join = service.join(locationId: 'loc-1', announceUserEntry: false);
+    await _waitFor(() => socket.sentTypes.contains('join'));
+
+    expect(socket.sentTypes, isNot(contains('user_enter_location')));
+    socket.serverJoinAck();
+    await join;
+    expect(service.state.joinedLocationId, 'loc-1');
+    expect(socket.sentTypes, isNot(contains('user_enter_location')));
+
+    await service.dispose();
+  });
+
   test('user_enter_location send failure does not fail join', () async {
     final socket = _FakeChatroomSocket()..failUserEnterLocationSend = true;
     final service = await _service(

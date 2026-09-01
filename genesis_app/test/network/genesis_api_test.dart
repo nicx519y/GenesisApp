@@ -2772,6 +2772,7 @@ void main() {
     expect(location['location_summary'], '');
     expect(location['location_description'], 'Gate fallback description.');
     expect(location['location_paragraph'], 'Current Tick event.');
+    expect(location['is_new'], false);
     expect(world.relationStatus, 'owner');
     expect(world.metric['label'], 'Goal Progress');
     expect(world.definitionVersion, 2);
@@ -3013,6 +3014,7 @@ void main() {
                   'name': 'Iris',
                   'avatar': image('avatar'),
                   'location_id': 'loc_1',
+                  'is_new': 1,
                 },
               ],
               'locations': [
@@ -3021,6 +3023,7 @@ void main() {
                   'location_name': 'Gate',
                   'image': image('location'),
                   'map_url': 'https://cdn.example.com/location_map.png',
+                  'is_new': true,
                 },
               ],
               'ticks': const <Object?>[],
@@ -3054,8 +3057,11 @@ void main() {
       expect(mapCharacter['player_uid'], 'u_1');
       expect(mapCharacter['player_username'], 'Tester');
       expect(mapCharacter['player_deleted'], false);
+      expect(character['is_new'], true);
+      expect(mapCharacter['is_new'], true);
       expect(location['icon'], 'https://cdn.example.com/location_800_600.webp');
       expect(location['map_url'], 'https://cdn.example.com/location_map.png');
+      expect(location['is_new'], true);
     },
   );
 

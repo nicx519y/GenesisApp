@@ -365,6 +365,7 @@ class LocationChatPanel extends StatefulWidget {
     this.onBack,
     this.onInitialContentReady,
     this.composerReplacement,
+    this.composerTopOverlay,
     this.showConnectionStatus = true,
     this.showMoreButton = false,
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
@@ -399,6 +400,7 @@ class LocationChatPanel extends StatefulWidget {
   final VoidCallback? onBack;
   final VoidCallback? onInitialContentReady;
   final Widget? composerReplacement;
+  final Widget? composerTopOverlay;
   final bool showConnectionStatus;
   final bool showMoreButton;
   final SystemUiOverlayStyle systemUiOverlayStyle;
@@ -1006,6 +1008,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                     ],
                   ),
                   header: header,
+                  composerTopOverlay: widget.composerTopOverlay,
                   composer: RepaintBoundary(
                     child: _LocationChatComposerExtension(
                       style: style,
@@ -1269,6 +1272,7 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
     this.onKeyboardMotionTraceSettled,
     required this.messageViewport,
     required this.header,
+    this.composerTopOverlay,
     required this.composer,
   });
 
@@ -1280,6 +1284,7 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
   final ValueChanged<List<Map<String, Object?>>>? onKeyboardMotionTraceSettled;
   final Widget messageViewport;
   final Widget header;
+  final Widget? composerTopOverlay;
   final Widget composer;
 
   @override
@@ -1478,11 +1483,26 @@ class _LocationChatKeyboardInsetLayoutState
         children: [
           widget.header,
           Expanded(
-            child: ClipRect(
-              key: const ValueKey<String>(
-                'location-chat-message-viewport-clip',
-              ),
-              child: RepaintBoundary(child: widget.messageViewport),
+            child: Stack(
+              children: [
+                Positioned.fill(
+                  child: ClipRect(
+                    key: const ValueKey<String>(
+                      'location-chat-message-viewport-clip',
+                    ),
+                    child: RepaintBoundary(child: widget.messageViewport),
+                  ),
+                ),
+                if (widget.composerTopOverlay != null)
+                  Positioned(
+                    key: const ValueKey<String>(
+                      'location-chat-composer-top-overlay',
+                    ),
+                    left: 0,
+                    bottom: 0,
+                    child: widget.composerTopOverlay!,
+                  ),
+              ],
             ),
           ),
           widget.composer,

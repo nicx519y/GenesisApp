@@ -280,6 +280,7 @@ Map<String, dynamic>? _worldCharacterPositionFromV1(Map<String, dynamic> raw) {
       'tagline': asString(raw['brief']),
       'description': asString(raw['description']),
       'avatar': _resolveImageAssetUrl(raw['avatar']),
+      'is_new': asBool(raw['is_new']),
     },
   };
 }
@@ -307,6 +308,7 @@ Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
     'description': asString(raw['description']),
     'goal': asString(raw['goal']),
     'avatar': _resolveImageAssetUrl(raw['avatar']),
+    'is_new': asBool(raw['is_new']),
     'initial_location_id': asString(raw['initial_location_id']),
     'location_id': asString(raw['location_id']),
     'player_joined_at': asInt(raw['player_joined_at']),

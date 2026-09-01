@@ -35,6 +35,9 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onSelectRole,
     required this.onSelectProfileRole,
     required this.onFillProfileRole,
+    required this.locationChatRole,
+    required this.onSelectLocationChatRole,
+    required this.onSendLocationChatMessage,
   });
 
   static const double defaultInitialChildSize = 0.35;
@@ -55,6 +58,10 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final Future<void> Function(OriginCharacter character) onSelectRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
   final OriginRoleProfileLoader? onFillProfileRole;
+  final _OriginLocationChatRoleOption locationChatRole;
+  final VoidCallback onSelectLocationChatRole;
+  final Future<void> Function(String locationId, String message)
+  onSendLocationChatMessage;
 
   @override
   State<_OriginDetailDraggableSheet> createState() =>
@@ -72,6 +79,8 @@ class _OriginDetailDraggableSheetState
   late final PageController _pageController;
   late final ScrollController _openingPreviewScrollController;
   late final ScrollController _infoPreviewScrollController;
+  final GlobalKey _sheetContentStackKey = GlobalKey();
+  final GlobalKey _openingRoleComposerAnchorKey = GlobalKey();
   final Completer<void> _sheetReady = Completer<void>();
   ScrollController? _sheetScrollController;
   OriginDiscussListController? _discussController;
@@ -84,6 +93,10 @@ class _OriginDetailDraggableSheetState
   var _sheetReadyCheckScheduled = false;
   var _autoExpansionInterruptionScheduled = false;
   var _autoExpansionPaintCompletionScheduled = false;
+  var _openingRoleAnchorMeasureScheduled = false;
+  var _expandedInputDockHeight = 0.0;
+  var _expandedComposerMeasuredHeight = 0.0;
+  double? _openingRoleAnchorContentY;
   Timer? _extentSettleTimer;
   Completer<void>? _extentSettleCompleter;
 
@@ -94,6 +107,15 @@ class _OriginDetailDraggableSheetState
       context,
       minChildSize: _minChildSize,
     ).clamp(_minChildSize, _absoluteMaxChildSize).toDouble();
+  }
+
+  double get _expandedComposerHeight {
+    if (_expandedComposerMeasuredHeight > 0) {
+      return _expandedComposerMeasuredHeight;
+    }
+    return _expandedInputDockHeight +
+        _originDetailSheetChatComposerStyle.composerPadding.top +
+        _originLocationChatRolePillHeight;
   }
 
   @override
@@ -110,9 +132,28 @@ class _OriginDetailDraggableSheetState
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _openingRoleAnchorContentY = null;
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _openingRoleAnchorContentY = null;
+    _expandedComposerMeasuredHeight = 0;
+    _scheduleOpeningRoleAnchorMeasurement();
+  }
+
+  @override
   void didUpdateWidget(covariant _OriginDetailDraggableSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.launchedPresetRoles, widget.launchedPresetRoles) ||
+        oldWidget.autoExpansionPending != widget.autoExpansionPending) {
+      _openingRoleAnchorContentY = null;
+    }
     if (!identical(oldWidget.origin, widget.origin)) {
+      _openingRoleAnchorContentY = null;
       _initialDialoguePreview = _originFirstInitialDialoguePreview(
         widget.origin,
       );
@@ -342,6 +383,9 @@ class _OriginDetailDraggableSheetState
   }
 
   bool _handleSheetScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis == Axis.vertical) {
+      _scheduleOpeningRoleAnchorMeasurement();
+    }
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
       _extentCommandGeneration += 1;
@@ -419,6 +463,7 @@ class _OriginDetailDraggableSheetState
   void _handleSheetScrollControllerReady(ScrollController scrollController) {
     _sheetScrollController = scrollController;
     _scheduleSheetReadyCheck();
+    _scheduleOpeningRoleAnchorMeasurement();
   }
 
   bool _handlePageScrollEnd(ScrollEndNotification notification) {
@@ -468,9 +513,7 @@ class _OriginDetailDraggableSheetState
             : widget.initiallyExpanded
             ? _expandedChildSize(context)
             : _minChildSize;
-        final raisedProgress = ((sheetExtent - _minChildSize) / 0.04)
-            .clamp(0.0, 1.0)
-            .toDouble();
+        final raisedProgress = _openingComposerRaisedProgress(sheetExtent);
         final page = _pageController.hasClients
             ? _pageController.page ?? _currentPage.toDouble()
             : _currentPage.toDouble();
@@ -495,6 +538,112 @@ class _OriginDetailDraggableSheetState
         );
       },
     );
+  }
+
+  double _openingComposerRaisedProgress(double sheetExtent) {
+    return ((sheetExtent - _minChildSize) / 0.04).clamp(0.0, 1.0).toDouble();
+  }
+
+  Widget _buildExpandedOpeningComposer(String locationId) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_sheetController, _pageController]),
+      child: KeyedSubtree(
+        key: const ValueKey<String>('origin-expanded-opening-composer'),
+        child: _OriginLocationChatLaunchComposer(
+          key: ValueKey<String>(
+            'origin-sheet-chat-composer-${widget.origin.oid}-$locationId',
+          ),
+          launching: widget.launching,
+          role: widget.locationChatRole,
+          onSelectRole: widget.onSelectLocationChatRole,
+          onSend: (message) =>
+              widget.onSendLocationChatMessage(locationId, message),
+          style: _originDetailSheetChatComposerStyle,
+          inputDockBackgroundColor: originWorldDetailSheetBackgroundColor,
+          roleForegroundColor: GenesisColors.textPrimary,
+          roleMutedColor: GenesisColors.textTertiary,
+          roleBackgroundColor: GenesisColors.surface,
+          onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
+          onHeightChanged: _handleExpandedComposerHeightChanged,
+        ),
+      ),
+      builder: (context, child) {
+        final opacity = _expandedOpeningComposerProgress(context);
+        return IgnorePointer(
+          key: const ValueKey<String>(
+            'origin-expanded-opening-composer-visibility',
+          ),
+          ignoring: opacity < 0.99,
+          child: Opacity(opacity: opacity, child: child),
+        );
+      },
+    );
+  }
+
+  double _expandedOpeningComposerProgress(BuildContext context) {
+    final sheetExtent = _sheetController.isAttached
+        ? _sheetController.size
+        : widget.initiallyExpanded
+        ? _expandedChildSize(context)
+        : _minChildSize;
+    final raisedProgress = _openingComposerRaisedProgress(sheetExtent);
+    final page = _pageController.hasClients
+        ? _pageController.page ?? _currentPage.toDouble()
+        : _currentPage.toDouble();
+    final openingProgress = (1.0 - page.clamp(0.0, 1.0)).toDouble();
+    if (widget.autoExpansionPending) return 0;
+    return raisedProgress * openingProgress;
+  }
+
+  void _handleExpandedInputDockHeightChanged(double height) {
+    if ((_expandedInputDockHeight - height).abs() < 0.5) return;
+    setState(() {
+      _expandedInputDockHeight = height;
+      _openingRoleAnchorContentY = null;
+    });
+    _scheduleOpeningRoleAnchorMeasurement();
+  }
+
+  void _handleExpandedComposerHeightChanged(double height) {
+    if ((_expandedComposerMeasuredHeight - height).abs() < 0.5) return;
+    setState(() {
+      _expandedComposerMeasuredHeight = height;
+      _openingRoleAnchorContentY = null;
+    });
+    _scheduleOpeningRoleAnchorMeasurement();
+  }
+
+  void _scheduleOpeningRoleAnchorMeasurement() {
+    if (_openingRoleAnchorMeasureScheduled) return;
+    _openingRoleAnchorMeasureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openingRoleAnchorMeasureScheduled = false;
+      if (!mounted || _currentPage != _originOpeningSheetPageIndex) return;
+      final scrollController = _sheetScrollController;
+      final anchorRenderObject = _openingRoleComposerAnchorKey.currentContext
+          ?.findRenderObject();
+      final stackRenderObject = _sheetContentStackKey.currentContext
+          ?.findRenderObject();
+      if (scrollController == null ||
+          !scrollController.hasClients ||
+          anchorRenderObject is! RenderBox ||
+          !anchorRenderObject.hasSize ||
+          stackRenderObject is! RenderBox ||
+          !stackRenderObject.hasSize) {
+        return;
+      }
+      final anchorGlobal = anchorRenderObject.localToGlobal(
+        Offset(0, anchorRenderObject.size.height),
+      );
+      final anchorLocal = stackRenderObject.globalToLocal(anchorGlobal);
+      final contentY = scrollController.offset + anchorLocal.dy;
+      if (_openingRoleAnchorContentY != null &&
+          (_openingRoleAnchorContentY! - contentY).abs() < 0.5) {
+        return;
+      }
+      setState(() => _openingRoleAnchorContentY = contentY);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   OriginDiscussListController _ensureDiscussController() {
@@ -571,6 +720,7 @@ class _OriginDetailDraggableSheetState
   Widget _buildOpeningPage(
     ScrollController scrollController,
     _OriginInitialDialoguePreview? initialDialoguePreview,
+    String locationChatLocationId,
   ) {
     return KeyedSubtree(
       key: const ValueKey<String>('origin-detail-sheet-page-Opening'),
@@ -581,9 +731,8 @@ class _OriginDetailDraggableSheetState
         ),
         physics: const ClampingScrollPhysics(),
         slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: const _OriginSheetHeaderDelegate(topPadding: 0),
+          const PinnedHeaderSliver(
+            child: _OriginSheetPinnedHeader(topPadding: 0),
           ),
           if (widget.autoExpansionPending)
             SliverFillRemaining(
@@ -607,6 +756,17 @@ class _OriginDetailDraggableSheetState
                 widget.origin,
                 initialDialoguePreview,
               ),
+            SliverToBoxAdapter(
+              child: KeyedSubtree(
+                key: const ValueKey<String>(
+                  'origin-opening-role-composer-anchor',
+                ),
+                child: SizedBox(
+                  key: _openingRoleComposerAnchorKey,
+                  height: _expandedComposerHeight,
+                ),
+              ),
+            ),
             SliverToBoxAdapter(
               child: _OriginSetupRoleSection(
                 characters: widget.origin.characters,
@@ -634,9 +794,8 @@ class _OriginDetailDraggableSheetState
         ),
         physics: const ClampingScrollPhysics(),
         slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: const _OriginSheetHeaderDelegate(topPadding: 0),
+          const PinnedHeaderSliver(
+            child: _OriginSheetPinnedHeader(topPadding: 0),
           ),
           ..._originInfoSlivers(),
         ],
@@ -665,6 +824,38 @@ class _OriginDetailDraggableSheetState
     });
   }
 
+  double _expandedComposerTop({
+    required double stackHeight,
+    required double keyboardInset,
+    required double scrollOffset,
+  }) {
+    final pinnedTop = stackHeight - keyboardInset - _expandedComposerHeight;
+    final anchorContentY = _openingRoleAnchorContentY;
+    if (anchorContentY == null) return pinnedTop;
+    final naturalTop = anchorContentY - scrollOffset - _expandedComposerHeight;
+    return math.min(pinnedTop, naturalTop);
+  }
+
+  double _expandedInputDockReserve({
+    required BuildContext context,
+    required double stackHeight,
+    required double keyboardInset,
+    required double scrollOffset,
+  }) {
+    if (_expandedInputDockHeight <= 0) return 0;
+    final progress = _expandedOpeningComposerProgress(context);
+    if (progress <= 0) return 0;
+    final pinnedTop = stackHeight - keyboardInset - _expandedComposerHeight;
+    final anchorContentY = _openingRoleAnchorContentY;
+    if (anchorContentY == null) return _expandedInputDockHeight * progress;
+    final naturalTop = anchorContentY - scrollOffset - _expandedComposerHeight;
+    final distanceFromBottom = math.max(0.0, pinnedTop - naturalTop);
+    final reserve = (_expandedInputDockHeight - distanceFromBottom)
+        .clamp(0.0, _expandedInputDockHeight)
+        .toDouble();
+    return reserve * progress;
+  }
+
   @override
   Widget build(BuildContext context) {
     final minChildSize = _minChildSize;
@@ -674,6 +865,7 @@ class _OriginDetailDraggableSheetState
             .clamp(minChildSize, maxChildSize)
             .toDouble();
     final initialDialoguePreview = _initialDialoguePreview;
+    final locationChatLocationId = _originLaunchChatLocationId(widget.origin);
     return IgnorePointer(
       ignoring: widget.autoExpansionPending,
       child: NotificationListener<DraggableScrollableNotification>(
@@ -708,55 +900,114 @@ class _OriginDetailDraggableSheetState
                     behavior: ScrollConfiguration.of(
                       context,
                     ).copyWith(overscroll: false),
-                    child: Stack(
-                      children: [
-                        NotificationListener<ScrollEndNotification>(
-                          onNotification: _handlePageScrollEnd,
-                          child: Padding(
-                            key: const ValueKey<String>(
-                              'origin-detail-sheet-keyboard-safe-content',
-                            ),
-                            padding: EdgeInsets.only(bottom: keyboardInset),
-                            child: PageView.builder(
-                              key: const ValueKey<String>(
-                                'origin-detail-sheet-pages',
+                    child: LayoutBuilder(
+                      builder: (context, stackConstraints) {
+                        final stackHeight = stackConstraints.maxHeight;
+                        final pageContent =
+                            NotificationListener<ScrollEndNotification>(
+                              onNotification: _handlePageScrollEnd,
+                              child: PageView.builder(
+                                key: const ValueKey<String>(
+                                  'origin-detail-sheet-pages',
+                                ),
+                                controller: _pageController,
+                                itemCount: 2,
+                                physics: const PageScrollPhysics(),
+                                itemBuilder: (context, page) {
+                                  final pageScrollController =
+                                      page == _currentPage
+                                      ? scrollController
+                                      : page == _originOpeningSheetPageIndex
+                                      ? _openingPreviewScrollController
+                                      : _infoPreviewScrollController;
+                                  return page == _originOpeningSheetPageIndex
+                                      ? _buildOpeningPage(
+                                          pageScrollController,
+                                          initialDialoguePreview,
+                                          locationChatLocationId,
+                                        )
+                                      : _buildInfoPage(pageScrollController);
+                                },
                               ),
-                              controller: _pageController,
-                              itemCount: 2,
-                              physics: const PageScrollPhysics(),
-                              itemBuilder: (context, page) {
-                                final pageScrollController =
-                                    page == _currentPage
-                                    ? scrollController
-                                    : page == _originOpeningSheetPageIndex
-                                    ? _openingPreviewScrollController
-                                    : _infoPreviewScrollController;
-                                return page == _originOpeningSheetPageIndex
-                                    ? _buildOpeningPage(
-                                        pageScrollController,
-                                        initialDialoguePreview,
-                                      )
-                                    : _buildInfoPage(pageScrollController);
+                            );
+                        return Stack(
+                          key: _sheetContentStackKey,
+                          children: [
+                            AnimatedBuilder(
+                              animation: Listenable.merge([
+                                _sheetController,
+                                _pageController,
+                                scrollController,
+                              ]),
+                              builder: (context, _) {
+                                final composerReserve =
+                                    _expandedInputDockReserve(
+                                      context: context,
+                                      stackHeight: stackHeight,
+                                      keyboardInset: keyboardInset,
+                                      scrollOffset: scrollController.hasClients
+                                          ? scrollController.offset
+                                          : 0,
+                                    );
+                                return Padding(
+                                  key: const ValueKey<String>(
+                                    'origin-detail-sheet-keyboard-safe-content',
+                                  ),
+                                  padding: EdgeInsets.only(
+                                    bottom: keyboardInset + composerReserve,
+                                  ),
+                                  child: pageContent,
+                                );
                               },
                             ),
-                          ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top:
-                              originDetailSheetPageIndicatorTopOffsetForTesting,
-                          child: IgnorePointer(
-                            child: _buildAnimatedPageIndicator(),
-                          ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: _buildCollapsedOpeningRoleAction(bottomInset),
-                        ),
-                      ],
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top:
+                                  originDetailSheetPageIndicatorTopOffsetForTesting,
+                              child: IgnorePointer(
+                                child: _buildAnimatedPageIndicator(),
+                              ),
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: _buildCollapsedOpeningRoleAction(
+                                bottomInset,
+                              ),
+                            ),
+                            if (locationChatLocationId.isNotEmpty)
+                              AnimatedBuilder(
+                                animation: Listenable.merge([
+                                  _sheetController,
+                                  _pageController,
+                                  scrollController,
+                                ]),
+                                child: RepaintBoundary(
+                                  child: _buildExpandedOpeningComposer(
+                                    locationChatLocationId,
+                                  ),
+                                ),
+                                builder: (context, child) {
+                                  final top = _expandedComposerTop(
+                                    stackHeight: stackHeight,
+                                    keyboardInset: keyboardInset,
+                                    scrollOffset: scrollController.hasClients
+                                        ? scrollController.offset
+                                        : 0,
+                                  );
+                                  return Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    top: top,
+                                    child: child!,
+                                  );
+                                },
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -924,31 +1175,17 @@ class _OriginSheetPageIndicatorSegment extends StatelessWidget {
   }
 }
 
-class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _OriginSheetHeaderDelegate({required this.topPadding});
+class _OriginSheetPinnedHeader extends StatelessWidget {
+  const _OriginSheetPinnedHeader({required this.topPadding});
 
   final double topPadding;
 
   @override
-  double get minExtent => topPadding + originDetailSheetHeaderHeightForTesting;
-
-  @override
-  double get maxExtent => topPadding + originDetailSheetHeaderHeightForTesting;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return const SizedBox.expand(
-      child: ColoredBox(color: originWorldDetailSheetBackgroundColor),
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: topPadding + originDetailSheetHeaderHeightForTesting,
+      child: const ColoredBox(color: originWorldDetailSheetBackgroundColor),
     );
-  }
-
-  @override
-  bool shouldRebuild(covariant _OriginSheetHeaderDelegate oldDelegate) {
-    return oldDelegate.topPadding != topPadding;
   }
 }
 
