@@ -614,6 +614,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
 
   void _handleChatroomState(WorldChatroomState state) {
     if (!mounted) return;
+    final mentionCatalogChanged = _textController.updateCatalog(
+      locationChatMentionCatalogForState(state),
+    );
     if (state.joinedLocationId == widget.locationId) {
       _optimisticSelfOccupancy = false;
     }
@@ -664,6 +667,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final shouldRebuild =
         changedMessages ||
         changedHasMoreOlder ||
+        mentionCatalogChanged ||
         tickProgressStarted ||
         tickProgressResolved ||
         _hasVisibleChatroomStateChange(_chatroomState, state);
