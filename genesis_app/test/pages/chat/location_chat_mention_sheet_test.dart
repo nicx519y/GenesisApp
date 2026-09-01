@@ -35,6 +35,7 @@ void main() {
           type: ChatMentionType.location,
           subtitle: 'Silver Coast',
           imageUrl: 'https://cdn.example.com/moon-harbor.webp',
+          isCurrentLocation: true,
         ),
       ],
     );
@@ -53,6 +54,10 @@ void main() {
           .height,
       closeTo(844 / 2 * 0.8, 0.01),
     );
+    final sheet = tester.widget<Material>(
+      find.byKey(const ValueKey<String>('location-chat-mention-sheet')),
+    );
+    expect(sheet.color, const Color(0xFF1F1D24));
     final header = find.byKey(
       const ValueKey<String>('location-chat-mention-header'),
     );
@@ -60,7 +65,7 @@ void main() {
     final title = tester.widget<Text>(find.text('Mention'));
     expect(title.style?.fontSize, 16);
     expect(title.style?.height, 1.6);
-    expect(title.style?.color, Colors.white);
+    expect(title.style?.color, const Color(0xF2FFFFFF));
     expect(
       tester.getCenter(find.text('Mention')).dx,
       closeTo(
@@ -89,8 +94,25 @@ void main() {
     );
     expect(collapseIcon.icon, Icons.keyboard_arrow_down_rounded);
     expect(collapseIcon.size, 18);
-    expect(find.byType(GenesisTabBar), findsOneWidget);
+    final mentionTabBar = tester.widget<GenesisTabBar>(
+      find.byType(GenesisTabBar),
+    );
+    expect(mentionTabBar.labelColor, const Color(0xF2FFFFFF));
+    expect(mentionTabBar.unselectedLabelColor, const Color(0xB8FFFFFF));
     expect(find.byType(GenesisBottomSheetDragDismissArea), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'location-chat-mention-tab-scroll-configuration',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      tester.widget<TabBarView>(find.byType(TabBarView)).physics,
+      isA<ClampingScrollPhysics>(),
+    );
+    expect(find.byType(StretchingOverscrollIndicator), findsNothing);
     final indicator =
         tester.widget<TabBar>(find.byType(TabBar)).indicator!
             as GenesisFixedUnderlineIndicator;
@@ -99,6 +121,8 @@ void main() {
     expect(indicator.color, GenesisColors.danger);
     expect(find.text('Characters'), findsOneWidget);
     expect(find.text('Locations'), findsOneWidget);
+    expect(find.byIcon(Icons.person_outline_rounded), findsNothing);
+    expect(find.byIcon(Icons.place_outlined), findsNothing);
     expect(find.byType(TextField), findsNothing);
     expect(find.textContaining('Everyone'), findsNothing);
     expect(
@@ -122,7 +146,10 @@ void main() {
         devicePixelRatio: 2,
       ),
     );
-    expect(tester.widget<Text>(find.text('Alice')).style?.fontSize, 14);
+    final characterName = tester.widget<Text>(find.text('Alice'));
+    expect(characterName.style?.fontSize, 14);
+    expect(characterName.style?.height, 1.4);
+    expect(characterName.style?.color, const Color(0xF2FFFFFF));
 
     await tester.tap(find.text('Locations'));
     await tester.pumpAndSettle();
@@ -154,6 +181,25 @@ void main() {
     expect(locationSubtitle.style?.fontWeight, FontWeight.w600);
     expect(locationSubtitle.style?.color, const Color(0x73FFFFFF));
     expect(tester.widget<Text>(find.text('Moon Harbor')).style?.fontSize, 14);
+    final hereLabel = tester.widget<Text>(find.text('Here'));
+    expect(hereLabel.style?.fontSize, 12);
+    expect(hereLabel.style?.fontWeight, FontWeight.w600);
+    expect(hereLabel.style?.color, const Color(0x73FFFFFF));
+    expect(
+      tester.getCenter(find.text('Here')).dx,
+      greaterThan(tester.getCenter(find.text('Moon Harbor')).dx),
+    );
+    final locationNameRow = find
+        .ancestor(of: find.text('Here'), matching: find.byType(Row))
+        .first;
+    expect(
+      tester.widget<Row>(locationNameRow).crossAxisAlignment,
+      CrossAxisAlignment.baseline,
+    );
+    expect(
+      find.descendant(of: locationNameRow, matching: find.text('Moon Harbor')),
+      findsOneWidget,
+    );
     expect(
       tester
           .widgetList<ListView>(find.byType(ListView))
@@ -193,6 +239,114 @@ void main() {
       findsNothing,
     );
     expect(find.text('Northern Range >'), findsOneWidget);
+  });
+
+  testWidgets('mention lists repeat featured entries under section titles', (
+    tester,
+  ) async {
+    const here = ChatMentionEntry(
+      id: 'char-here',
+      name: 'Here Character',
+      type: ChatMentionType.character,
+    );
+    final catalog = ChatMentionCatalog(
+      characters: const <ChatMentionEntry>[
+        here,
+        ChatMentionEntry(
+          id: 'char-away',
+          name: 'Away Character',
+          type: ChatMentionType.character,
+        ),
+      ],
+      currentLocationCharacters: const <ChatMentionEntry>[here],
+      locations: const <ChatMentionEntry>[
+        ChatMentionEntry(
+          id: 'location-new',
+          name: 'New Harbor',
+          subtitle: 'Silver Coast',
+          type: ChatMentionType.location,
+          isNew: true,
+        ),
+        ChatMentionEntry(
+          id: 'location-old',
+          name: 'Old Harbor',
+          subtitle: 'Silver Coast',
+          type: ChatMentionType.location,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LocationChatMentionSheet(catalog: catalog)),
+      ),
+    );
+
+    expect(find.text('Here'), findsOneWidget);
+    expect(find.text('Here Character'), findsNWidgets(2));
+    expect(find.text('Away Character'), findsOneWidget);
+    final hereTitle = tester.widget<Text>(find.text('Here'));
+    expect(hereTitle.style?.fontSize, 14);
+    expect(hereTitle.style?.fontWeight, FontWeight.w600);
+    expect(hereTitle.style?.color, const Color(0xB8FFFFFF));
+    final characterDividerContainer = find.byKey(
+      const ValueKey<String>('location-chat-mention-section-divider'),
+    );
+    final characterDivider = tester.widget<ColoredBox>(
+      characterDividerContainer,
+    );
+    expect(characterDivider.color, const Color(0xFF151517));
+    expect(tester.getSize(characterDividerContainer).height, 8);
+    expect(
+      tester.getSize(characterDividerContainer).width,
+      tester
+          .getSize(
+            find.byKey(const ValueKey<String>('location-chat-mention-sheet')),
+          )
+          .width,
+    );
+
+    await tester.tap(find.text('Locations'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('New'), findsOneWidget);
+    expect(find.text('New Harbor'), findsNWidgets(2));
+    expect(find.text('Old Harbor'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('location-chat-mention-section-divider'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Here section stays hidden without current location characters', (
+    tester,
+  ) async {
+    final catalog = ChatMentionCatalog(
+      characters: const <ChatMentionEntry>[
+        ChatMentionEntry(
+          id: 'char-away',
+          name: 'Away Character',
+          type: ChatMentionType.character,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LocationChatMentionSheet(catalog: catalog)),
+      ),
+    );
+
+    expect(find.text('Here'), findsNothing);
+    expect(find.text('Away Character'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('location-chat-mention-section-divider'),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('mention lists sort by name and render without dividers', (

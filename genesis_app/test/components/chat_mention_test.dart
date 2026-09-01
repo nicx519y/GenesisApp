@@ -89,6 +89,7 @@ void main() {
     final catalog = locationChatMentionCatalogForState(
       WorldChatroomState(world: _mentionWorld()),
       currentUserIds: const <String>['user-me'],
+      currentLocationIds: const <String>['loc-leaf'],
     );
 
     expect(catalog.characters.map((entry) => entry.id), <String>[
@@ -102,6 +103,9 @@ void main() {
       true,
     ]);
     expect(catalog.entryForId('char-self'), isNull);
+    expect(catalog.currentLocationCharacters.map((entry) => entry.id), <String>[
+      'char-1',
+    ]);
     expect(catalog.locations.map((entry) => entry.id), <String>['loc-leaf']);
     expect(catalog.locations.map((entry) => entry.name), <String>[
       'Moon Harbor',
@@ -109,6 +113,7 @@ void main() {
     expect(catalog.locations.map((entry) => entry.subtitle), <String>[
       'Silver Coast',
     ]);
+    expect(catalog.locations.single.isCurrentLocation, isTrue);
     expect(catalog.entryForId('loc-root'), isNull);
     expect(catalog.entryForId('loc-parent'), isNull);
   });
@@ -332,7 +337,12 @@ WorldDetail _mentionWorld() {
     ticks: const <Map<String, dynamic>>[],
     locations: const <Map<String, dynamic>>[],
     locationTree: const <LocationTreeNode<Map<String, dynamic>>>[root],
-    characterPositions: const <Map<String, dynamic>>[],
+    characterPositions: const <Map<String, dynamic>>[
+      {
+        'location_id': 'loc-leaf',
+        'character': {'id': 'char-1', 'name': 'Alice'},
+      },
+    ],
     userPositions: const <Map<String, dynamic>>[],
   );
 }

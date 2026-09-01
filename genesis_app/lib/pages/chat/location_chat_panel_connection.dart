@@ -665,6 +665,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         state,
         currentUserIds: _myUserIdKeys,
         currentSenderIds: _mySenderIdKeys,
+        currentLocationIds: _currentLocationIds(),
       ),
     );
     final tickProgressResolved = _resolveTickProgressMessageIfAvailable();

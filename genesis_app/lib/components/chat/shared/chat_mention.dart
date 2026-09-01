@@ -17,6 +17,8 @@ class ChatMentionEntry {
     this.subtitle = '',
     this.imageUrl = '',
     this.isPlayerControlled = false,
+    this.isNew = false,
+    this.isCurrentLocation = false,
   });
 
   final String id;
@@ -25,6 +27,8 @@ class ChatMentionEntry {
   final String subtitle;
   final String imageUrl;
   final bool isPlayerControlled;
+  final bool isNew;
+  final bool isCurrentLocation;
 
   String get serializedText => '@$name<$id>';
 }
@@ -33,15 +37,25 @@ class ChatMentionEntry {
 class ChatMentionCatalog {
   ChatMentionCatalog({
     Iterable<ChatMentionEntry> characters = const <ChatMentionEntry>[],
+    Iterable<ChatMentionEntry> currentLocationCharacters =
+        const <ChatMentionEntry>[],
     Iterable<ChatMentionEntry> locations = const <ChatMentionEntry>[],
   }) : characters = List<ChatMentionEntry>.unmodifiable(characters),
+       currentLocationCharacters = List<ChatMentionEntry>.unmodifiable(
+         currentLocationCharacters,
+       ),
        locations = List<ChatMentionEntry>.unmodifiable(locations),
+       newLocations = List<ChatMentionEntry>.unmodifiable(
+         locations.where((entry) => entry.isNew),
+       ),
        _byId = _buildLookup(characters, locations);
 
   static final ChatMentionCatalog empty = ChatMentionCatalog();
 
   final List<ChatMentionEntry> characters;
+  final List<ChatMentionEntry> currentLocationCharacters;
   final List<ChatMentionEntry> locations;
+  final List<ChatMentionEntry> newLocations;
   final Map<String, ChatMentionEntry> _byId;
 
   bool get isEmpty => characters.isEmpty && locations.isEmpty;
