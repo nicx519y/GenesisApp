@@ -10,6 +10,8 @@ class ChatMessageRow extends StatelessWidget {
     this.onMessageLongPressStart,
     this.onFailedMessageTap,
     this.onCharactersMovedLocationTap,
+    this.selfMessageBubbleMaxWidthCap,
+    this.otherMessageBubbleMaxWidthCap,
     this.style,
   });
 
@@ -20,6 +22,8 @@ class ChatMessageRow extends StatelessWidget {
   final ChatMessageLongPressStart? onMessageLongPressStart;
   final ChatMessageTap? onFailedMessageTap;
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
+  final double? selfMessageBubbleMaxWidthCap;
+  final double? otherMessageBubbleMaxWidthCap;
   final ChatUiStyleConfig? style;
 
   @override
@@ -89,12 +93,14 @@ class ChatMessageRow extends StatelessWidget {
         ? ChatSelfMessageBubble(
             message: message,
             style: style,
+            maxWidthCap: selfMessageBubbleMaxWidthCap,
             onLongPressStart: onLongPressStart,
             onFailedMessageTap: onFailedMessageTap,
           )
         : ChatOtherMessageBubble(
             message: message,
             style: style,
+            maxWidthCap: otherMessageBubbleMaxWidthCap,
             onAvatarTap: onAvatarTap,
             onLongPressStart: onLongPressStart,
           );

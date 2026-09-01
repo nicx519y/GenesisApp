@@ -19,6 +19,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
@@ -2520,6 +2521,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
+    locationChatBubbleLayoutSettings.resetForTesting();
     locationChatHeaderEffectSettings.resetForTesting();
     originWorldSheetDebugSettings.resetForTesting();
     networkCaptureController.resetForTesting();
@@ -21078,10 +21080,20 @@ void main() {
     final blurFinder = find.byKey(
       const ValueKey<String>('developer-location-chat-header-blur-slider'),
     );
+    final crowdedWidthFinder = find.byKey(
+      const ValueKey<String>('developer-location-chat-crowded-width-slider'),
+    );
     expect(transparencyFinder, findsOneWidget);
     expect(blurFinder, findsOneWidget);
-    expect(tester.widget<Slider>(transparencyFinder).value, 0.9);
+    expect(crowdedWidthFinder, findsOneWidget);
+    expect(
+      tester.widget<Slider>(transparencyFinder).value,
+      LocationChatHeaderEffectSettings.defaultTransparencyStrength,
+    );
     expect(tester.widget<Slider>(blurFinder).value, 4);
+    expect(tester.widget<Slider>(crowdedWidthFinder).value, 410);
+    expect(find.text('Self & character message bubbles'), findsOneWidget);
+    expect(find.text('Crowded width threshold'), findsOneWidget);
 
     tester.widget<Slider>(transparencyFinder).onChanged!(0);
     await tester.pump();
@@ -21091,6 +21103,11 @@ void main() {
     tester.widget<Slider>(blurFinder).onChanged!(0);
     await tester.pump();
     tester.widget<Slider>(blurFinder).onChangeEnd!(0);
+    await tester.pumpAndSettle();
+
+    tester.widget<Slider>(crowdedWidthFinder).onChanged!(375);
+    await tester.pump();
+    tester.widget<Slider>(crowdedWidthFinder).onChangeEnd!(375);
     await tester.pumpAndSettle();
 
     expect(
@@ -21112,6 +21129,13 @@ void main() {
         LocationChatHeaderEffectSettingsController.blurSigmaStorageKey,
       ),
       0,
+    );
+    expect(
+      prefs.getDouble(
+        LocationChatBubbleLayoutSettingsController
+            .crowdedEffectiveWidthThresholdStorageKey,
+      ),
+      375,
     );
   });
 

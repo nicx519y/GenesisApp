@@ -232,6 +232,8 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.onOldestEdgeLoadingCollapsed,
     this.showDateDividers = true,
     this.messageLayoutId,
+    this.selfMessageBubbleMaxWidthCap,
+    this.otherMessageBubbleMaxWidthCap,
     this.style,
   });
 
@@ -248,6 +250,8 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final VoidCallback? onOldestEdgeLoadingCollapsed;
   final bool showDateDividers;
   final String Function(ChatMessageVm message)? messageLayoutId;
+  final double? selfMessageBubbleMaxWidthCap;
+  final double? otherMessageBubbleMaxWidthCap;
   final ChatUiStyleConfig? style;
 
   @override
@@ -973,6 +977,8 @@ class _LocationChatAnchoredMessageListState
         message: current,
         imageViewerMessages: _renderedMessages,
         style: style,
+        selfMessageBubbleMaxWidthCap: widget.selfMessageBubbleMaxWidthCap,
+        otherMessageBubbleMaxWidthCap: widget.otherMessageBubbleMaxWidthCap,
         onMessageLongPressStart: widget.onMessageLongPressStart,
         onFailedMessageTap: widget.onFailedMessageTap,
         onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap,
