@@ -331,7 +331,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         _mySenderName = firstNonEmpty([_mySenderName, 'Me']);
       }
       if (_myUserId.isEmpty) _rememberMyUserId(_mySenderId);
-      await service.join(locationId: widget.locationId);
+      await service.join(
+        locationId: widget.locationId,
+        announceUserEntry: !_initialMessageSendPending,
+      );
       _joinedLocation = true;
       _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinDone');

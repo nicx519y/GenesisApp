@@ -11296,6 +11296,7 @@ void main() {
       expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
       expect(launchedWorldPage.initialMessageToSend, message);
       expect(chatroom.session.sentMessages, [message]);
+      expect(chatroom.session.sentUserEnterLocationIds, isEmpty);
       final clientMsgId = chatroom.session.sentClientMsgIds.single;
       chatroom.session.emit(
         ChatroomUserMessage(
@@ -11594,6 +11595,7 @@ void main() {
       );
       expect(chatroom.session.joinLocationId, 'l_o_test_1');
       expect(chatroom.session.sentMessages, [message]);
+      expect(chatroom.session.sentUserEnterLocationIds, isEmpty);
       final clientMsgId = chatroom.session.sentClientMsgIds.single;
       chatroom.session.emit(
         ChatroomUserMessage(
@@ -29244,6 +29246,7 @@ class _FakeChatroomSession implements ChatroomSession {
 
   final sentMessages = <String>[];
   final sentClientMsgIds = <String>[];
+  final sentUserEnterLocationIds = <String>[];
   final pendingSendAcks = <String, Completer<ChatroomAck>>{};
   String? joinLocationId;
   int joinCount = 0;
@@ -29335,7 +29338,9 @@ class _FakeChatroomSession implements ChatroomSession {
   Future<void> heartbeat() async {}
 
   @override
-  Future<void> sendUserEnterLocation({required String locationId}) async {}
+  Future<void> sendUserEnterLocation({required String locationId}) async {
+    sentUserEnterLocationIds.add(locationId);
+  }
 
   @override
   Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
