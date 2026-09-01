@@ -20,6 +20,7 @@ void main() {
   final originSectionsSource = [
     'lib/pages/origin/origin_world_sections.dart',
     'lib/pages/origin/origin_world_role_setup.dart',
+    'lib/pages/origin/origin_world_launched_worlds.dart',
     'lib/pages/origin/origin_world_characters.dart',
     'lib/pages/origin/origin_world_copy_progress.dart',
   ].map((path) => File(path).readAsStringSync()).join('\n');
@@ -65,6 +66,17 @@ void main() {
   test('origin detail sections use main ui spacing', () {
     expect(originDetailSectionGapForTesting, 24);
     expect(originDetailSectionTitleIconGapForTesting, 8);
+  });
+
+  test('origin launched world rows use compact character avatars', () {
+    expect(originLaunchedWorldAvatarSizeForTesting, 44);
+    expect(originSectionsSource, isNot(contains("'Your Launched Worlds'")));
+    expect(originSectionsSource, contains("'Launched Before'"));
+    expect(originSectionsSource, isNot(contains("'Launch another World'")));
+    expect(originSectionsSource, isNot(contains('color: GenesisColors.brand')));
+    expect(originSectionsSource, isNot(contains("'Enter'")));
+    expect(originSectionsSource, contains('SizedBox(height: 6)'));
+    expect(originSectionsSource, contains(r"'$worldId · $progressText'"));
   });
 
   test('origin info section titles do not render leading icons', () {

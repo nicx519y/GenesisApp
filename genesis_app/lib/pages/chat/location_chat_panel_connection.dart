@@ -335,6 +335,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       _joinedLocation = true;
       _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinDone');
+      _maybeSendInitialMessage();
     } catch (e) {
       _joinedLocation = false;
       _optimisticSelfOccupancy = false;
@@ -704,6 +705,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
     );
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
+    _maybeSendInitialMessage();
     if (changedMessages && wasFollowingLatest) {
       _clearUnseenIncomingCount();
     } else if (changedMessages) {

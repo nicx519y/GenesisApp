@@ -21,6 +21,7 @@ class ChatComposer extends StatelessWidget {
     this.onLeadingShortcutPressed,
     this.secondaryLeadingShortcutLabel,
     this.onSecondaryLeadingShortcutPressed,
+    this.composerHeader,
     this.sendIcon = ChatComposerSendIcon.send,
     this.pinActionsToBottom = false,
     this.backdropGroupKey,
@@ -42,6 +43,7 @@ class ChatComposer extends StatelessWidget {
   final VoidCallback? onLeadingShortcutPressed;
   final String? secondaryLeadingShortcutLabel;
   final VoidCallback? onSecondaryLeadingShortcutPressed;
+  final Widget? composerHeader;
   final ChatComposerSendIcon sendIcon;
   final bool pinActionsToBottom;
 
@@ -73,146 +75,167 @@ class ChatComposer extends StatelessWidget {
               gradient: style.composerBackgroundGradient,
             ),
             child: TextFieldTapRegion(
-              child: Row(
-                crossAxisAlignment: pinActionsToBottom
-                    ? CrossAxisAlignment.end
-                    : leadingShortcutLabel == null &&
-                          secondaryLeadingShortcutLabel == null
-                    ? CrossAxisAlignment.center
-                    : CrossAxisAlignment.start,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (style.showComposerVoiceButton) ...[
-                    _ComposerIconButton(
-                      icon: MyFlutterApp.voice,
-                      onPressed: inputEnabled ? () {} : null,
-                      style: style,
-                    ),
-                    SizedBox(width: style.composerLeadingGap),
-                  ],
-                  Expanded(
-                    child: _ComposerInputSurface(
-                      blurSigma: style.inputBackdropBlurSigma,
-                      borderRadius: style.inputBorderRadius,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: style.inputBackgroundColor,
-                          borderRadius: BorderRadius.circular(
-                            style.inputBorderRadius,
-                          ),
+                  if (composerHeader != null) composerHeader!,
+                  Row(
+                    crossAxisAlignment: pinActionsToBottom
+                        ? CrossAxisAlignment.end
+                        : leadingShortcutLabel == null &&
+                              secondaryLeadingShortcutLabel == null
+                        ? CrossAxisAlignment.center
+                        : CrossAxisAlignment.start,
+                    children: [
+                      if (style.showComposerVoiceButton) ...[
+                        _ComposerIconButton(
+                          icon: MyFlutterApp.voice,
+                          onPressed: inputEnabled ? () {} : null,
+                          style: style,
                         ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight: style.inputMinHeight,
-                                maxHeight: style.inputMaxHeight,
-                              ),
-                              child: TextField(
-                                key: const ValueKey<String>(
-                                  'chat-composer-input',
-                                ),
-                                controller: controller,
-                                focusNode: focusNode,
-                                cursorColor:
-                                    style.inputTextStyle.color ??
-                                    GenesisColors.textPrimary,
-                                enabled: inputEnabled,
-                                minLines: style.inputMinLines,
-                                maxLines: style.inputMaxLines,
-                                keyboardType: submitFromKeyboard
-                                    ? TextInputType.text
-                                    : TextInputType.multiline,
-                                textInputAction: submitFromKeyboard
-                                    ? TextInputAction.send
-                                    : TextInputAction.newline,
-                                onTapOutside: (_) => FocusManager
-                                    .instance
-                                    .primaryFocus
-                                    ?.unfocus(),
-                                onTap: onInputTap,
-                                onSubmitted: submitFromKeyboard
-                                    ? (_) {
-                                        if (sendEnabled) unawaited(onSend());
-                                      }
-                                    : null,
-                                style: GenesisTypography.withFallback(
-                                  style.inputTextStyle,
-                                ),
-                                decoration: InputDecoration(
-                                  border: InputBorder.none,
-                                  hintText: hintText,
-                                  contentPadding: EdgeInsets.symmetric(
-                                    horizontal: style.inputHorizontalPadding,
-                                    vertical: style.inputVerticalPadding,
-                                  ),
-                                ),
+                        SizedBox(width: style.composerLeadingGap),
+                      ],
+                      Expanded(
+                        child: _ComposerInputSurface(
+                          blurSigma: style.inputBackdropBlurSigma,
+                          borderRadius: style.inputBorderRadius,
+                          child: Container(
+                            key: const ValueKey<String>(
+                              'chat-composer-input-surface',
+                            ),
+                            decoration: BoxDecoration(
+                              color: style.inputBackgroundColor,
+                              borderRadius: BorderRadius.circular(
+                                style.inputBorderRadius,
                               ),
                             ),
-                            if (leadingShortcutLabel != null ||
-                                secondaryLeadingShortcutLabel != null)
-                              Padding(
-                                padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    if (leadingShortcutLabel != null)
-                                      _ComposerShortcutButton(
-                                        buttonKey: const ValueKey<String>(
-                                          'chat-composer-leading-shortcut',
-                                        ),
-                                        label: leadingShortcutLabel!,
-                                        onPressed: onLeadingShortcutPressed,
-                                        style: style,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: style.inputMinHeight,
+                                    maxHeight: style.inputMaxHeight,
+                                  ),
+                                  child: TextField(
+                                    key: const ValueKey<String>(
+                                      'chat-composer-input',
+                                    ),
+                                    controller: controller,
+                                    focusNode: focusNode,
+                                    cursorColor:
+                                        style.inputTextStyle.color ??
+                                        GenesisColors.textPrimary,
+                                    enabled: inputEnabled,
+                                    minLines: style.inputMinLines,
+                                    maxLines: style.inputMaxLines,
+                                    keyboardType: submitFromKeyboard
+                                        ? TextInputType.text
+                                        : TextInputType.multiline,
+                                    textInputAction: submitFromKeyboard
+                                        ? TextInputAction.send
+                                        : TextInputAction.newline,
+                                    onTapOutside: (_) => FocusManager
+                                        .instance
+                                        .primaryFocus
+                                        ?.unfocus(),
+                                    onTap: onInputTap,
+                                    onSubmitted: submitFromKeyboard
+                                        ? (_) {
+                                            if (sendEnabled) {
+                                              unawaited(onSend());
+                                            }
+                                          }
+                                        : null,
+                                    style: GenesisTypography.withFallback(
+                                      style.inputTextStyle,
+                                    ),
+                                    decoration: InputDecoration(
+                                      border: InputBorder.none,
+                                      hintText: hintText,
+                                      contentPadding: EdgeInsets.symmetric(
+                                        horizontal:
+                                            style.inputHorizontalPadding,
+                                        vertical: style.inputVerticalPadding,
                                       ),
-                                    if (leadingShortcutLabel != null &&
-                                        secondaryLeadingShortcutLabel != null)
-                                      const SizedBox(width: 6),
-                                    if (secondaryLeadingShortcutLabel != null)
-                                      _ComposerShortcutButton(
-                                        buttonKey: const ValueKey<String>(
-                                          'chat-composer-secondary-leading-shortcut',
-                                        ),
-                                        label: secondaryLeadingShortcutLabel!,
-                                        onPressed:
-                                            onSecondaryLeadingShortcutPressed,
-                                        style: style,
-                                      ),
-                                  ],
+                                    ),
+                                  ),
                                 ),
-                              ),
-                          ],
+                                if (leadingShortcutLabel != null ||
+                                    secondaryLeadingShortcutLabel != null)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      8,
+                                      0,
+                                      0,
+                                      8,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        if (leadingShortcutLabel != null)
+                                          _ComposerShortcutButton(
+                                            buttonKey: const ValueKey<String>(
+                                              'chat-composer-leading-shortcut',
+                                            ),
+                                            label: leadingShortcutLabel!,
+                                            onPressed: onLeadingShortcutPressed,
+                                            style: style,
+                                          ),
+                                        if (leadingShortcutLabel != null &&
+                                            secondaryLeadingShortcutLabel !=
+                                                null)
+                                          const SizedBox(width: 6),
+                                        if (secondaryLeadingShortcutLabel !=
+                                            null)
+                                          _ComposerShortcutButton(
+                                            buttonKey: const ValueKey<String>(
+                                              'chat-composer-secondary-leading-shortcut',
+                                            ),
+                                            label:
+                                                secondaryLeadingShortcutLabel!,
+                                            onPressed:
+                                                onSecondaryLeadingShortcutPressed,
+                                            style: style,
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      if (style.showComposerStickerButton) ...[
+                        SizedBox(width: style.composerActionGap),
+                        _ComposerIconButton(
+                          icon: MyFlutterApp.sticker,
+                          onPressed: inputEnabled ? () {} : null,
+                          style: style,
+                        ),
+                      ],
+                      if (style.showComposerAddButton) ...[
+                        SizedBox(width: style.composerActionGap),
+                        _ComposerIconButton(
+                          icon: MyFlutterApp.add2,
+                          onPressed: inputEnabled ? () {} : null,
+                          style: style,
+                        ),
+                      ],
+                      if (style.showComposerSendButton) ...[
+                        SizedBox(width: style.composerActionGap),
+                        _ComposerSendButton(
+                          sending: sending,
+                          onPressed: sendEnabled ? onSend : null,
+                          label: sendLabel,
+                          icon: sendIcon,
+                          style: style,
+                        ),
+                      ],
+                    ],
                   ),
-                  if (style.showComposerStickerButton) ...[
-                    SizedBox(width: style.composerActionGap),
-                    _ComposerIconButton(
-                      icon: MyFlutterApp.sticker,
-                      onPressed: inputEnabled ? () {} : null,
-                      style: style,
-                    ),
-                  ],
-                  if (style.showComposerAddButton) ...[
-                    SizedBox(width: style.composerActionGap),
-                    _ComposerIconButton(
-                      icon: MyFlutterApp.add2,
-                      onPressed: inputEnabled ? () {} : null,
-                      style: style,
-                    ),
-                  ],
-                  if (style.showComposerSendButton) ...[
-                    SizedBox(width: style.composerActionGap),
-                    _ComposerSendButton(
-                      sending: sending,
-                      onPressed: sendEnabled ? onSend : null,
-                      label: sendLabel,
-                      icon: sendIcon,
-                      style: style,
-                    ),
-                  ],
                 ],
               ),
             ),

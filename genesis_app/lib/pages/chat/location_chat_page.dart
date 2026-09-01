@@ -373,6 +373,7 @@ class LocationChatPanel extends StatefulWidget {
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
     this.style,
     this.initialDraftText = '',
+    this.initialMessageToSend = '',
     this.onDraftTextChanged,
     this.messageQueueInitializationCovered = false,
     this.unauthorizedHandledByOwner = false,
@@ -406,6 +407,7 @@ class LocationChatPanel extends StatefulWidget {
   final SystemUiOverlayStyle systemUiOverlayStyle;
   final ChatUiStyleConfig? style;
   final String initialDraftText;
+  final String initialMessageToSend;
   final ValueChanged<String>? onDraftTextChanged;
   final bool messageQueueInitializationCovered;
   final bool unauthorizedHandledByOwner;
@@ -455,6 +457,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _mentionSheetSchedulePending = false;
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
+  bool _initialMessageSendPending = false;
+  bool _initialMessageSendScheduled = false;
   bool _loadingOlderMessages = false;
   Timer? _olderMessagesLoadIdleTimer;
   bool _showOlderMessagesLoading = false;
@@ -561,11 +565,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         widget.service?.state ?? _chatroomState,
       ),
     );
-    final initialDraftText = widget.initialDraftText;
+    final initialMessageToSend = widget.initialMessageToSend;
+    final initialDraftText = initialMessageToSend.trim().isNotEmpty
+        ? initialMessageToSend
+        : widget.initialDraftText;
     if (initialDraftText.isNotEmpty) {
       _textController.setSerializedText(initialDraftText);
       _hasDraftText = initialDraftText.trim().isNotEmpty;
     }
+    _initialMessageSendPending = initialMessageToSend.trim().isNotEmpty;
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',

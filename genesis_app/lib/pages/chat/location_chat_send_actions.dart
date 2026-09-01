@@ -1,6 +1,36 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatSendActions on _LocationChatPanelState {
+  void _maybeSendInitialMessage() {
+    if (!_initialMessageSendPending || _initialMessageSendScheduled) return;
+    if (!widget.active ||
+        _service == null ||
+        _chatroomState.joinedLocationId != widget.locationId ||
+        _chatroomState.inputBlocked ||
+        _sendAwaitingResponse ||
+        _sending ||
+        isGenesisUgcTextBlank(_textController.serializedText)) {
+      return;
+    }
+    _initialMessageSendScheduled = true;
+    scheduleMicrotask(() async {
+      _initialMessageSendScheduled = false;
+      if (!mounted ||
+          !_initialMessageSendPending ||
+          !widget.active ||
+          _service == null ||
+          _chatroomState.joinedLocationId != widget.locationId ||
+          _chatroomState.inputBlocked ||
+          _sendAwaitingResponse ||
+          _sending ||
+          isGenesisUgcTextBlank(_textController.serializedText)) {
+        return;
+      }
+      _initialMessageSendPending = false;
+      await _send();
+    });
+  }
+
   Future<void> _send() async {
     final service = _service;
     if (service == null ||

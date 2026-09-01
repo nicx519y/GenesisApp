@@ -29,6 +29,8 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onAutoExpansionInterrupted,
     required this.onOriginChanged,
     required this.launching,
+    required this.launchedPresetRoles,
+    required this.onEnterLaunchedWorld,
     required this.profileRole,
     required this.onSelectRole,
     required this.onSelectProfileRole,
@@ -47,6 +49,8 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final VoidCallback onAutoExpansionInterrupted;
   final VoidCallback onOriginChanged;
   final bool launching;
+  final List<OriginMyLaunchPresetCharacter>? launchedPresetRoles;
+  final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
   final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
@@ -590,6 +594,13 @@ class _OriginDetailDraggableSheetState
               ),
             )
           else ...[
+            if (widget.launchedPresetRoles?.isNotEmpty == true)
+              SliverToBoxAdapter(
+                child: _OriginLaunchedWorldsSection(
+                  roles: widget.launchedPresetRoles!,
+                  onEnterWorld: widget.onEnterLaunchedWorld,
+                ),
+              ),
             ..._originWorldoBriefSlivers(widget.origin),
             if (initialDialoguePreview != null)
               ..._originInitialDialogueSlivers(
