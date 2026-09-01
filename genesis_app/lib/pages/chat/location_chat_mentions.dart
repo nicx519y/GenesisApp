@@ -230,6 +230,7 @@ class LocationChatMentionEditingController extends TextEditingController {
         id: entry.id,
         name: entry.name,
         entry: entry,
+        ownsTrailingSpace: true,
       ),
     );
     final replacedText = text.replaceRange(
@@ -241,12 +242,12 @@ class LocationChatMentionEditingController extends TextEditingController {
     final hasTrailingSpace =
         mentionEnd < replacedText.length && replacedText[mentionEnd] == ' ';
     final nextText = hasTrailingSpace
-        ? replacedText
-        : replacedText.replaceRange(mentionEnd, mentionEnd, ' ');
+        ? replacedText.replaceRange(mentionEnd, mentionEnd + 1, '')
+        : replacedText;
     _setInternalValue(
       TextEditingValue(
         text: nextText,
-        selection: TextSelection.collapsed(offset: mentionEnd + 1),
+        selection: TextSelection.collapsed(offset: mentionEnd),
       ),
     );
   }
@@ -342,6 +343,7 @@ class LocationChatMentionEditingController extends TextEditingController {
                 entry: mention.entry,
               ),
               style: style,
+              includeTrailingSpace: mention.ownsTrailingSpace,
             ),
           );
         }
@@ -386,14 +388,16 @@ class LocationChatMentionEditingController extends TextEditingController {
     for (final token in tokens) {
       buffer.write(rawText.substring(offset, token.start));
       buffer.write(_locationChatMentionPlaceholder);
+      final ownsTrailingSpace = _mentionTokenHasTrailingSpace(rawText, token);
       mentions.add(
         _LocationChatComposerMention(
           id: token.id,
           name: token.name,
           entry: token.entry,
+          ownsTrailingSpace: ownsTrailingSpace,
         ),
       );
-      offset = token.end;
+      offset = token.end + (ownsTrailingSpace ? 1 : 0);
     }
     buffer.write(rawText.substring(offset));
     final internalText = buffer.toString();
@@ -451,13 +455,19 @@ class _LocationChatComposerMention {
     required this.id,
     required this.name,
     required this.entry,
+    required this.ownsTrailingSpace,
   });
 
   final String id;
   final String name;
   final ChatMentionEntry entry;
+  final bool ownsTrailingSpace;
 
-  String get serializedText => '@$name<$id>';
+  String get serializedText => '@$name<$id>${ownsTrailingSpace ? ' ' : ''}';
+}
+
+bool _mentionTokenHasTrailingSpace(String text, ChatMentionToken token) {
+  return token.end < text.length && text[token.end] == ' ';
 }
 
 ({int oldStart, int oldEnd, int newStart, int newEnd}) _singleTextDifference(
@@ -524,13 +534,15 @@ int _serializedOffsetToInternal(
   var sourceOffset = 0;
   var internalOffset = 0;
   for (final token in tokens) {
+    final sourceEnd =
+        token.end + (_mentionTokenHasTrailingSpace(rawText, token) ? 1 : 0);
     if (target <= token.start) {
       return internalOffset + target - sourceOffset;
     }
     internalOffset += token.start - sourceOffset;
-    if (target < token.end) return internalOffset + 1;
+    if (target <= sourceEnd) return internalOffset + 1;
     internalOffset += 1;
-    sourceOffset = token.end;
+    sourceOffset = sourceEnd;
   }
   return internalOffset + target - sourceOffset;
 }

@@ -125,7 +125,7 @@ void main() {
     controller.setSerializedText('Ask @Alice<char-1> now');
 
     expect(controller.serializedText, 'Ask @Alice<char-1> now');
-    expect(controller.text.length, 'Ask  now'.length + 1);
+    expect(controller.text, 'Ask \uFFFCnow');
 
     final placeholderOffset = controller.text.indexOf('\uFFFC');
     controller.value = TextEditingValue(
@@ -137,8 +137,8 @@ void main() {
       selection: TextSelection.collapsed(offset: placeholderOffset),
     );
 
-    expect(controller.text, 'Ask  now');
-    expect(controller.serializedText, 'Ask  now');
+    expect(controller.text, 'Ask now');
+    expect(controller.serializedText, 'Ask now');
   });
 
   test(
@@ -156,26 +156,30 @@ void main() {
       expect(controller.takeInsertedAtOffset(), 4);
       controller.insertMention(_character, replaceStart: 4, replaceEnd: 5);
       expect(controller.serializedText, 'Ask @Alice<char-1> now');
-      expect(controller.selection, const TextSelection.collapsed(offset: 6));
+      expect(controller.text, 'Ask \uFFFCnow');
+      expect(controller.selection, const TextSelection.collapsed(offset: 5));
     },
   );
 
-  test('mention insertion appends one space and places the caret after it', () {
-    final controller = LocationChatMentionEditingController(
-      catalog: _catalog(),
-    );
-    addTearDown(controller.dispose);
-    controller.value = const TextEditingValue(
-      text: '@',
-      selection: TextSelection.collapsed(offset: 1),
-    );
+  test(
+    'mention insertion owns one space and places the caret after the atom',
+    () {
+      final controller = LocationChatMentionEditingController(
+        catalog: _catalog(),
+      );
+      addTearDown(controller.dispose);
+      controller.value = const TextEditingValue(
+        text: '@',
+        selection: TextSelection.collapsed(offset: 1),
+      );
 
-    controller.insertMention(_character, replaceStart: 0, replaceEnd: 1);
+      controller.insertMention(_character, replaceStart: 0, replaceEnd: 1);
 
-    expect(controller.text, '\uFFFC ');
-    expect(controller.serializedText, '@Alice<char-1> ');
-    expect(controller.selection, const TextSelection.collapsed(offset: 2));
-  });
+      expect(controller.text, '\uFFFC');
+      expect(controller.serializedText, '@Alice<char-1> ');
+      expect(controller.selection, const TextSelection.collapsed(offset: 1));
+    },
+  );
 
   testWidgets('mention controller renders its edit atom as a tag', (
     tester,
