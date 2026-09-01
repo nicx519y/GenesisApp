@@ -11076,6 +11076,14 @@ void main() {
       final expandedComposer = find.byKey(
         const ValueKey<String>('origin-expanded-opening-composer'),
       );
+      final sheetPages = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-pages'),
+      );
+      expect(sheetPages, findsOneWidget);
+      expect(
+        tester.getBottomLeft(sheetPages).dy,
+        closeTo(tester.getTopLeft(expandedComposer).dy, 1),
+      );
       final rolePill = find.descendant(
         of: expandedComposer,
         matching: find.byKey(const ValueKey('origin-location-chat-role-pill')),
