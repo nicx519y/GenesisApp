@@ -680,19 +680,29 @@ class _LocationChatMentionThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final sourceUrl = entry.imageUrl.trim();
+    final cdnLogicalWidth = entry.type == ChatMentionType.character
+        ? worldCharacterAvatarLogicalSize
+        : worldLocationCoverLogicalSize;
+    final resizedUrl = resizeGenesisImageUrl(
+      sourceUrl,
+      logicalWidth: cdnLogicalWidth,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    );
+    final imageUrl = resizedUrl.isNotEmpty ? resizedUrl : sourceUrl;
     if (entry.type == ChatMentionType.character) {
       return GenesisCharacterAvatar(
-        url: entry.imageUrl,
+        url: imageUrl,
         name: entry.name,
         size: _locationChatAvatarLogicalSize,
-        borderRadius: _locationChatAvatarLogicalSize / 2,
+        borderRadius: 8,
       );
     }
     return GenesisListImage(
-      imageUrl: entry.imageUrl,
+      imageUrl: imageUrl,
       width: _locationChatAvatarLogicalSize,
       height: _locationChatAvatarLogicalSize,
-      borderRadius: BorderRadius.circular(_locationChatAvatarLogicalSize / 2),
+      borderRadius: BorderRadius.circular(8),
     );
   }
 }

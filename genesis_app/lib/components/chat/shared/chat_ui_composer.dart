@@ -19,6 +19,8 @@ class ChatComposer extends StatelessWidget {
     this.onInputTap,
     this.leadingShortcutLabel,
     this.onLeadingShortcutPressed,
+    this.secondaryLeadingShortcutLabel,
+    this.onSecondaryLeadingShortcutPressed,
     this.sendIcon = ChatComposerSendIcon.send,
     this.backdropGroupKey,
   });
@@ -37,6 +39,8 @@ class ChatComposer extends StatelessWidget {
   final VoidCallback? onInputTap;
   final String? leadingShortcutLabel;
   final VoidCallback? onLeadingShortcutPressed;
+  final String? secondaryLeadingShortcutLabel;
+  final VoidCallback? onSecondaryLeadingShortcutPressed;
   final ChatComposerSendIcon sendIcon;
 
   /// Groups only the outer composer blur with non-overlapping filters.
@@ -68,7 +72,9 @@ class ChatComposer extends StatelessWidget {
             ),
             child: TextFieldTapRegion(
               child: Row(
-                crossAxisAlignment: leadingShortcutLabel == null
+                crossAxisAlignment:
+                    leadingShortcutLabel == null &&
+                        secondaryLeadingShortcutLabel == null
                     ? CrossAxisAlignment.center
                     : CrossAxisAlignment.start,
                 children: [
@@ -141,13 +147,36 @@ class ChatComposer extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            if (leadingShortcutLabel != null)
+                            if (leadingShortcutLabel != null ||
+                                secondaryLeadingShortcutLabel != null)
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(8, 0, 0, 8),
-                                child: _ComposerShortcutButton(
-                                  label: leadingShortcutLabel!,
-                                  onPressed: onLeadingShortcutPressed,
-                                  style: style,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (leadingShortcutLabel != null)
+                                      _ComposerShortcutButton(
+                                        buttonKey: const ValueKey<String>(
+                                          'chat-composer-leading-shortcut',
+                                        ),
+                                        label: leadingShortcutLabel!,
+                                        onPressed: onLeadingShortcutPressed,
+                                        style: style,
+                                      ),
+                                    if (leadingShortcutLabel != null &&
+                                        secondaryLeadingShortcutLabel != null)
+                                      const SizedBox(width: 6),
+                                    if (secondaryLeadingShortcutLabel != null)
+                                      _ComposerShortcutButton(
+                                        buttonKey: const ValueKey<String>(
+                                          'chat-composer-secondary-leading-shortcut',
+                                        ),
+                                        label: secondaryLeadingShortcutLabel!,
+                                        onPressed:
+                                            onSecondaryLeadingShortcutPressed,
+                                        style: style,
+                                      ),
+                                  ],
                                 ),
                               ),
                           ],
@@ -193,11 +222,13 @@ class ChatComposer extends StatelessWidget {
 
 class _ComposerShortcutButton extends StatelessWidget {
   const _ComposerShortcutButton({
+    required this.buttonKey,
     required this.label,
     required this.onPressed,
     required this.style,
   });
 
+  final Key buttonKey;
   final String label;
   final VoidCallback? onPressed;
   final ChatUiStyleConfig style;
@@ -208,8 +239,31 @@ class _ComposerShortcutButton extends StatelessWidget {
     final iconColor = baseColor.withValues(
       alpha: onPressed == null ? 0.35 : 0.72,
     );
+    final Widget labelWidget;
+    if (label == '*') {
+      labelWidget = GenesisAsteriskIcon(color: iconColor);
+    } else {
+      final text = Text(
+        label,
+        style: GenesisTypography.withFallback(
+          style.inputTextStyle.copyWith(
+            color: iconColor,
+            height: label == '@' ? 1 : style.inputTextStyle.height,
+          ),
+        ),
+      );
+      labelWidget = label == '@'
+          ? Transform.translate(
+              key: const ValueKey<String>(
+                'chat-composer-mention-shortcut-label-alignment',
+              ),
+              offset: const Offset(0, -1),
+              child: text,
+            )
+          : text;
+    }
     return SizedBox.square(
-      key: const ValueKey<String>('chat-composer-leading-shortcut'),
+      key: buttonKey,
       dimension: 26,
       child: TextButton(
         style: TextButton.styleFrom(
@@ -222,14 +276,7 @@ class _ComposerShortcutButton extends StatelessWidget {
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         onPressed: onPressed,
-        child: label == '*'
-            ? GenesisAsteriskIcon(color: iconColor)
-            : Text(
-                label,
-                style: GenesisTypography.withFallback(
-                  style.inputTextStyle.copyWith(color: iconColor),
-                ),
-              ),
+        child: labelWidget,
       ),
     );
   }

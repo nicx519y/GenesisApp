@@ -23,6 +23,8 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
+import '../../components/world_location_list.dart'
+    show worldLocationCoverLogicalSize;
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_message_type.dart';
 import '../../network/chatroom/chatroom_models.dart';
@@ -45,6 +47,7 @@ import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
 import 'location_chat_scroll_coordinator.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
+import '../world/world_constants.dart' show worldCharacterAvatarLogicalSize;
 
 part 'location_chat_panel_connection.dart';
 part 'location_chat_message_reconciler.dart';
@@ -387,7 +390,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   Future<void>? _initialLatestMessagesRefresh;
   final Set<String> _unseenIncomingMessageLocalIds = <String>{};
 
-  void _insertAsteriskShortcut() {
+  void _insertComposerShortcut(String shortcut) {
     final value = _textController.value;
     final selection = value.selection;
     final textLength = value.text.length;
@@ -397,14 +400,18 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         selection.end <= textLength;
     final start = hasUsableSelection ? selection.start : textLength;
     final end = hasUsableSelection ? selection.end : textLength;
-    final updatedText = value.text.replaceRange(start, end, '*');
+    final updatedText = value.text.replaceRange(start, end, shortcut);
 
     _textController.value = TextEditingValue(
       text: updatedText,
-      selection: TextSelection.collapsed(offset: start + 1),
+      selection: TextSelection.collapsed(offset: start + shortcut.length),
     );
     _composerFocusNode.requestFocus();
   }
+
+  void _insertAsteriskShortcut() => _insertComposerShortcut('*');
+
+  void _insertMentionShortcut() => _insertComposerShortcut('@');
 
   int get _unseenIncomingCount => _unseenIncomingMessageLocalIds.length;
   int _clientMsgCounter = 0;
@@ -693,6 +700,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               : null,
           onLeadingShortcutPressed: widget.active && _composerFocusNode.hasFocus
               ? _insertAsteriskShortcut
+              : null,
+          secondaryLeadingShortcutLabel:
+              widget.active && _composerFocusNode.hasFocus ? '@' : null,
+          onSecondaryLeadingShortcutPressed:
+              widget.active && _composerFocusNode.hasFocus
+              ? _insertMentionShortcut
               : null,
           backdropGroupKey: _surfaceBackdropKey,
         );

@@ -4791,7 +4791,7 @@ void main() {
     );
   });
 
-  testWidgets('location chat shortcut inserts one asterisk at the caret', (
+  testWidgets('location chat * and @ shortcuts work at caret', (
     WidgetTester tester,
   ) async {
     final harness = await _connectedLocationChatTestService();
@@ -4817,7 +4817,11 @@ void main() {
     final shortcut = find.byKey(
       const ValueKey<String>('chat-composer-leading-shortcut'),
     );
+    final mentionShortcut = find.byKey(
+      const ValueKey<String>('chat-composer-secondary-leading-shortcut'),
+    );
     expect(shortcut, findsNothing);
+    expect(mentionShortcut, findsNothing);
 
     final input = find.byKey(const ValueKey<String>('chat-composer-input'));
     final unfocusedInputWidth = tester.getSize(input).width;
@@ -4825,8 +4829,22 @@ void main() {
     await tester.pump();
 
     expect(shortcut, findsOneWidget);
+    expect(mentionShortcut, findsOneWidget);
     expect(tester.getSize(input).width, closeTo(unfocusedInputWidth, 0.01));
     expect(tester.getSize(shortcut), const Size.square(26));
+    expect(tester.getSize(mentionShortcut), const Size.square(26));
+    final mentionLabelAlignment = tester.widget<Transform>(
+      find.byKey(
+        const ValueKey<String>(
+          'chat-composer-mention-shortcut-label-alignment',
+        ),
+      ),
+    );
+    expect(mentionLabelAlignment.transform.getTranslation().y, -1);
+    expect(
+      tester.getTopLeft(mentionShortcut).dx,
+      greaterThan(tester.getTopRight(shortcut).dx),
+    );
     expect(
       tester.getTopLeft(shortcut).dy,
       greaterThanOrEqualTo(tester.getBottomLeft(input).dy),
@@ -4857,9 +4875,23 @@ void main() {
     );
     expect(composer.focusNode?.hasFocus, isTrue);
 
-    composer.focusNode?.unfocus();
-    await tester.pump();
-    expect(shortcut, findsNothing);
+    await tester.tap(mentionShortcut);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey<String>('location-chat-mention-sheet')),
+      findsOneWidget,
+    );
+    expect(composer.controller.text, 'he*@llo');
+    expect(
+      composer.controller.selection,
+      const TextSelection.collapsed(offset: 4),
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('location-chat-mention-close')),
+    );
+    await tester.pumpAndSettle();
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
