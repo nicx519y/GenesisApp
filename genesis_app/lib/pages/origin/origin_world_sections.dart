@@ -270,9 +270,8 @@ List<Widget> _originInitialDialogueSlivers(
   final brief = _originWorldoBrief(origin);
   final locationTopPadding = brief.isEmpty ? 6.0 : 0.0;
   return <Widget>[
-    SliverPersistentHeader(
-      pinned: true,
-      delegate: _OriginOpeningLocationHeaderDelegate(
+    PinnedHeaderSliver(
+      child: _OriginOpeningLocationHeader(
         locationName: preview.locationName,
         horizontalPadding: padding,
         topPadding: locationTopPadding,
@@ -314,9 +313,8 @@ List<Widget> _originInitialDialogueSlivers(
   ];
 }
 
-class _OriginOpeningLocationHeaderDelegate
-    extends SliverPersistentHeaderDelegate {
-  const _OriginOpeningLocationHeaderDelegate({
+class _OriginOpeningLocationHeader extends StatelessWidget {
+  const _OriginOpeningLocationHeader({
     required this.locationName,
     required this.horizontalPadding,
     required this.topPadding,
@@ -335,57 +333,38 @@ class _OriginOpeningLocationHeaderDelegate
   final TextStyle textStyle;
 
   @override
-  double get minExtent => topPadding + _contentHeight;
-
-  @override
-  double get maxExtent => minExtent;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return ColoredBox(
-      color: originWorldDetailSheetBackgroundColor,
-      child: Padding(
-        key: const ValueKey<String>('origin-opening-location'),
-        padding: EdgeInsets.fromLTRB(
-          horizontalPadding.left,
-          topPadding,
-          horizontalPadding.right,
-          8,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Icon(Icons.place_outlined, size: 14, color: iconColor),
-            SizedBox(width: iconGap),
-            Expanded(
-              child: Text(
-                locationName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.left,
-                style: textStyle,
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: topPadding + _contentHeight,
+      child: ColoredBox(
+        color: originWorldDetailSheetBackgroundColor,
+        child: Padding(
+          key: const ValueKey<String>('origin-opening-location'),
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding.left,
+            topPadding,
+            horizontalPadding.right,
+            8,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              Icon(Icons.place_outlined, size: 14, color: iconColor),
+              SizedBox(width: iconGap),
+              Expanded(
+                child: Text(
+                  locationName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.left,
+                  style: textStyle,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
-  }
-
-  @override
-  bool shouldRebuild(
-    covariant _OriginOpeningLocationHeaderDelegate oldDelegate,
-  ) {
-    return oldDelegate.locationName != locationName ||
-        oldDelegate.horizontalPadding != horizontalPadding ||
-        oldDelegate.topPadding != topPadding ||
-        oldDelegate.iconColor != iconColor ||
-        oldDelegate.iconGap != iconGap ||
-        oldDelegate.textStyle != textStyle;
   }
 }
 

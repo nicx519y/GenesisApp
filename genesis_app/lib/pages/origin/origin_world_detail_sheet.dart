@@ -648,9 +648,8 @@ class _OriginDetailDraggableSheetState
         ),
         physics: const ClampingScrollPhysics(),
         slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: const _OriginSheetHeaderDelegate(topPadding: 0),
+          const PinnedHeaderSliver(
+            child: _OriginSheetPinnedHeader(topPadding: 0),
           ),
           if (widget.autoExpansionPending)
             SliverFillRemaining(
@@ -701,9 +700,8 @@ class _OriginDetailDraggableSheetState
         ),
         physics: const ClampingScrollPhysics(),
         slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: const _OriginSheetHeaderDelegate(topPadding: 0),
+          const PinnedHeaderSliver(
+            child: _OriginSheetPinnedHeader(topPadding: 0),
           ),
           ..._originInfoSlivers(),
         ],
@@ -1015,31 +1013,17 @@ class _OriginSheetPageIndicatorSegment extends StatelessWidget {
   }
 }
 
-class _OriginSheetHeaderDelegate extends SliverPersistentHeaderDelegate {
-  const _OriginSheetHeaderDelegate({required this.topPadding});
+class _OriginSheetPinnedHeader extends StatelessWidget {
+  const _OriginSheetPinnedHeader({required this.topPadding});
 
   final double topPadding;
 
   @override
-  double get minExtent => topPadding + originDetailSheetHeaderHeightForTesting;
-
-  @override
-  double get maxExtent => topPadding + originDetailSheetHeaderHeightForTesting;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    return const SizedBox.expand(
-      child: ColoredBox(color: originWorldDetailSheetBackgroundColor),
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: topPadding + originDetailSheetHeaderHeightForTesting,
+      child: const ColoredBox(color: originWorldDetailSheetBackgroundColor),
     );
-  }
-
-  @override
-  bool shouldRebuild(covariant _OriginSheetHeaderDelegate oldDelegate) {
-    return oldDelegate.topPadding != topPadding;
   }
 }
 

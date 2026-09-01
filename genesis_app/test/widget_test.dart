@@ -8295,21 +8295,46 @@ void main() {
         .widget<CustomScrollView>(openingScrollView)
         .controller!;
     expect(openingScrollController.position.maxScrollExtent, greaterThan(0));
+    final sheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    final pinnedLocationTop =
+        tester.getTopLeft(sheetSurface).dy +
+        originDetailSheetHeaderHeightForTesting;
+    final pinOffset =
+        openingScrollController.offset +
+        tester.getTopLeft(openingLocation).dy -
+        pinnedLocationTop;
+    expect(
+      pinOffset,
+      inInclusiveRange(2, openingScrollController.position.maxScrollExtent - 2),
+    );
+    openingScrollController.jumpTo(pinOffset - 1);
+    await tester.pump();
+    expect(
+      tester.getTopLeft(openingLocation).dy,
+      closeTo(pinnedLocationTop + 1, 0.5),
+    );
+    openingScrollController.jumpTo(pinOffset);
+    await tester.pump();
+    expect(
+      tester.getTopLeft(openingLocation).dy,
+      closeTo(pinnedLocationTop, 0.5),
+    );
+    openingScrollController.jumpTo(pinOffset + 1);
+    await tester.pump();
+    expect(
+      tester.getTopLeft(openingLocation).dy,
+      closeTo(pinnedLocationTop, 0.5),
+    );
     openingScrollController.jumpTo(
       openingScrollController.position.maxScrollExtent,
     );
     await tester.pump();
     await tester.pump();
-    final sheetSurface = find.byKey(
-      const ValueKey<String>('origin-detail-sheet-surface'),
-    );
     expect(
       tester.getTopLeft(openingLocation).dy,
-      closeTo(
-        tester.getTopLeft(sheetSurface).dy +
-            originDetailSheetHeaderHeightForTesting,
-        1,
-      ),
+      closeTo(pinnedLocationTop, 1),
     );
   });
 
