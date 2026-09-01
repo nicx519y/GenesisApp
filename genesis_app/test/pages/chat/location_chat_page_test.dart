@@ -4794,12 +4794,16 @@ void main() {
   testWidgets('location chat * and @ shortcuts work at caret', (
     WidgetTester tester,
   ) async {
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewInsets);
     final harness = await _connectedLocationChatTestService();
 
     await tester.pumpWidget(
       AppServicesScope(
         services: harness.services,
         child: MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
           home: LocationChatPanel(
             worldId: 'world-current',
             locationId: 'location-current',
@@ -4875,7 +4879,15 @@ void main() {
     );
     expect(composer.focusNode?.hasFocus, isTrue);
 
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    final composerTopWithKeyboard = tester
+        .getTopLeft(find.byType(ChatComposer))
+        .dy;
+
     await tester.tap(mentionShortcut);
+    await tester.pump();
+    tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
 
     expect(
@@ -4887,11 +4899,39 @@ void main() {
       composer.controller.selection,
       const TextSelection.collapsed(offset: 4),
     );
+    expect(
+      tester.getTopLeft(find.byType(ChatComposer)).dy,
+      closeTo(composerTopWithKeyboard, 0.1),
+    );
 
     await tester.tap(
       find.byKey(const ValueKey<String>('location-chat-mention-close')),
     );
     await tester.pumpAndSettle();
+
+    for (final keyboardInset in <double>[100, 200, 299]) {
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+      await tester.pump();
+      expect(
+        tester.getTopLeft(find.byType(ChatComposer)).dy,
+        closeTo(composerTopWithKeyboard, 0.1),
+      );
+    }
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pump();
+    await tester.pump();
+    expect(
+      tester.getTopLeft(find.byType(ChatComposer)).dy,
+      closeTo(composerTopWithKeyboard, 0.1),
+    );
+
+    tester.view.viewInsets = const FakeViewPadding(bottom: 200);
+    await tester.pump();
+    expect(
+      tester.getTopLeft(find.byType(ChatComposer)).dy,
+      greaterThan(composerTopWithKeyboard),
+    );
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();

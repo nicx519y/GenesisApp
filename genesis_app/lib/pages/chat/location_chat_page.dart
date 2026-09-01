@@ -377,6 +377,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _sending = false;
   bool _rosterOpen = false;
   bool _mentionSheetOpen = false;
+  bool _mentionComposerPositionFrozen = false;
+  double _mentionSheetKeyboardInset = 0;
   bool _mentionSheetSchedulePending = false;
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
@@ -677,6 +679,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       settings: locationChatHeaderEffectSettings.value,
     );
     final replacementComposer = widget.composerReplacement;
+    final showComposerShortcuts =
+        widget.active &&
+        (_composerFocusNode.hasFocus || _mentionComposerPositionFrozen);
     final composer =
         replacementComposer ??
         ChatComposer(
@@ -695,14 +700,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           onSend: _send,
           sendIcon: ChatComposerSendIcon.arrowUp,
           style: style,
-          leadingShortcutLabel: widget.active && _composerFocusNode.hasFocus
-              ? '*'
-              : null,
+          leadingShortcutLabel: showComposerShortcuts ? '*' : null,
           onLeadingShortcutPressed: widget.active && _composerFocusNode.hasFocus
               ? _insertAsteriskShortcut
               : null,
-          secondaryLeadingShortcutLabel:
-              widget.active && _composerFocusNode.hasFocus ? '@' : null,
+          secondaryLeadingShortcutLabel: showComposerShortcuts ? '@' : null,
           onSecondaryLeadingShortcutPressed:
               widget.active && _composerFocusNode.hasFocus
               ? _insertMentionShortcut
@@ -839,12 +841,18 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               child: Scaffold(
                 backgroundColor: Colors.transparent,
                 resizeToAvoidBottomInset:
-                    !managesKeyboardInset && _composerFocusNode.hasFocus,
+                    !managesKeyboardInset &&
+                    _composerFocusNode.hasFocus &&
+                    !_mentionComposerPositionFrozen,
                 body: _LocationChatKeyboardInsetLayout(
                   key: const ValueKey<String>(
                     'location-chat-ios-keyboard-inset',
                   ),
                   managesKeyboardInset: managesKeyboardInset,
+                  freezeKeyboardInset: _mentionComposerPositionFrozen,
+                  frozenKeyboardInset: _mentionSheetKeyboardInset,
+                  onFrozenKeyboardInsetRestored:
+                      _handleMentionKeyboardInsetRestored,
                   bottomSafeAreaInset: bottomSafeAreaInset,
                   onKeyboardMotionTraceSettled: kDebugMode
                       ? (samples) {
@@ -1141,6 +1149,9 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
   const _LocationChatKeyboardInsetLayout({
     super.key,
     required this.managesKeyboardInset,
+    required this.freezeKeyboardInset,
+    required this.frozenKeyboardInset,
+    required this.onFrozenKeyboardInsetRestored,
     required this.bottomSafeAreaInset,
     this.onKeyboardMotionTraceSettled,
     required this.messageViewport,
@@ -1149,6 +1160,9 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
   });
 
   final bool managesKeyboardInset;
+  final bool freezeKeyboardInset;
+  final double frozenKeyboardInset;
+  final VoidCallback onFrozenKeyboardInsetRestored;
   final double bottomSafeAreaInset;
   final ValueChanged<List<Map<String, Object?>>>? onKeyboardMotionTraceSettled;
   final Widget messageViewport;
@@ -1165,6 +1179,7 @@ class _LocationChatKeyboardInsetLayoutState
     with WidgetsBindingObserver {
   int _keyboardMetricsGeneration = 0;
   double _liveKeyboardInset = 0;
+  double _frozenKeyboardInset = 0;
   List<Map<String, Object?>>? _keyboardMotionSamples;
   Stopwatch? _keyboardMotionStopwatch;
 
@@ -1178,18 +1193,41 @@ class _LocationChatKeyboardInsetLayoutState
   void didChangeDependencies() {
     super.didChangeDependencies();
     _updateLiveKeyboardInset(
-      widget.managesKeyboardInset ? _viewKeyboardInset() : 0,
+      widget.managesKeyboardInset || widget.freezeKeyboardInset
+          ? _viewKeyboardInset()
+          : 0,
     );
+    if (widget.freezeKeyboardInset) {
+      _frozenKeyboardInset = math.max(
+        widget.frozenKeyboardInset,
+        math.max(_frozenKeyboardInset, _liveKeyboardInset),
+      );
+    }
   }
 
   @override
   void didChangeMetrics() {
-    if (!mounted || !widget.managesKeyboardInset) return;
+    if (!mounted ||
+        !widget.managesKeyboardInset && !widget.freezeKeyboardInset) {
+      return;
+    }
     final nextInset = _viewKeyboardInset();
     if ((_liveKeyboardInset - nextInset).abs() <= precisionErrorTolerance) {
+      _scheduleFrozenKeyboardInsetRestored(nextInset);
       return;
     }
     setState(() => _updateLiveKeyboardInset(nextInset));
+    _scheduleFrozenKeyboardInsetRestored(nextInset);
+  }
+
+  void _scheduleFrozenKeyboardInsetRestored(double keyboardInset) {
+    if (!widget.freezeKeyboardInset || widget.frozenKeyboardInset <= 0) return;
+    if (keyboardInset + 0.5 < widget.frozenKeyboardInset) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !widget.freezeKeyboardInset) return;
+      if (_viewKeyboardInset() + 0.5 < widget.frozenKeyboardInset) return;
+      widget.onFrozenKeyboardInsetRestored();
+    });
   }
 
   @override
@@ -1198,10 +1236,28 @@ class _LocationChatKeyboardInsetLayoutState
     if (widget.onKeyboardMotionTraceSettled == null) {
       _clearKeyboardMotionTrace();
     }
-    if (widget.managesKeyboardInset) {
-      if (!oldWidget.managesKeyboardInset) {
-        _updateLiveKeyboardInset(_viewKeyboardInset());
-      }
+    final wasTrackingInset =
+        oldWidget.managesKeyboardInset || oldWidget.freezeKeyboardInset;
+    final tracksInset =
+        widget.managesKeyboardInset || widget.freezeKeyboardInset;
+    if (tracksInset && !wasTrackingInset) {
+      _updateLiveKeyboardInset(_viewKeyboardInset());
+    }
+    if (widget.freezeKeyboardInset && !oldWidget.freezeKeyboardInset) {
+      _frozenKeyboardInset = math.max(
+        widget.frozenKeyboardInset,
+        math.max(_liveKeyboardInset, _viewKeyboardInset()),
+      );
+    } else if (widget.freezeKeyboardInset &&
+        widget.frozenKeyboardInset != oldWidget.frozenKeyboardInset) {
+      _frozenKeyboardInset = math.max(
+        _frozenKeyboardInset,
+        widget.frozenKeyboardInset,
+      );
+    } else if (!widget.freezeKeyboardInset && oldWidget.freezeKeyboardInset) {
+      _frozenKeyboardInset = 0;
+    }
+    if (tracksInset) {
       return;
     }
     _keyboardMetricsGeneration += 1;
@@ -1246,7 +1302,10 @@ class _LocationChatKeyboardInsetLayoutState
     if (samples.length == _locationChatKeyboardMotionTraceMaxSamples) {
       samples.removeAt(0);
     }
-    final effectiveKeyboardInset = _effectiveKeyboardInset(rawKeyboardInset);
+    final layoutKeyboardInset = widget.freezeKeyboardInset
+        ? _frozenKeyboardInset
+        : rawKeyboardInset;
+    final effectiveKeyboardInset = _effectiveKeyboardInset(layoutKeyboardInset);
     samples.add(<String, Object?>{
       'elapsedMicros': stopwatch.elapsedMicroseconds,
       'rawInset': rawKeyboardInset,
@@ -1293,7 +1352,13 @@ class _LocationChatKeyboardInsetLayoutState
 
   @override
   Widget build(BuildContext context) {
-    final liveKeyboardInset = _effectiveKeyboardInset(_liveKeyboardInset);
+    final layoutKeyboardInset = widget.freezeKeyboardInset
+        ? _frozenKeyboardInset
+        : _liveKeyboardInset;
+    final liveKeyboardInset =
+        widget.managesKeyboardInset || widget.freezeKeyboardInset
+        ? _effectiveKeyboardInset(layoutKeyboardInset)
+        : 0.0;
     return Padding(
       padding: EdgeInsets.only(bottom: liveKeyboardInset),
       child: Column(
