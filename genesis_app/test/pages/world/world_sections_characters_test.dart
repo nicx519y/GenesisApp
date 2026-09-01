@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    worldNewContentDebugSettings.resetForTesting();
+  });
+
+  tearDown(worldNewContentDebugSettings.resetForTesting);
+
   testWidgets('World Detail and Status use role ownership avatar styling', (
     tester,
   ) async {
@@ -146,6 +155,34 @@ void main() {
     expect(
       find.byKey(const ValueKey('world-character-new-badge-old')),
       findsNothing,
+    );
+  });
+
+  testWidgets('WorldCharacterRow honors the force-new debug override', (
+    tester,
+  ) async {
+    await worldNewContentDebugSettings.setForceNewBadges(true);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: WorldCharacterRow(
+            character: {
+              'char_id': 'server-old',
+              'name': 'Server Old',
+              'is_new': false,
+            },
+            currentUid: 'user-self',
+            subtitle: '',
+            subtitleColor: Color(0xFF666666),
+            showCharacterDetails: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-server-old')),
+      findsOneWidget,
     );
   });
 }

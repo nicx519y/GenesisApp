@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/world_map.dart';
@@ -219,6 +220,9 @@ class WorldSingleSectionBottomSheetState
     widget.newUserJoinNoticesListenable.addListener(
       _handleNewUserJoinNoticesChanged,
     );
+    worldNewContentDebugSettings.listenable.addListener(
+      _handleWorldNewContentDebugSettingsChanged,
+    );
   }
 
   @override
@@ -263,6 +267,9 @@ class WorldSingleSectionBottomSheetState
     widget.newUserJoinNoticesListenable.removeListener(
       _handleNewUserJoinNoticesChanged,
     );
+    worldNewContentDebugSettings.listenable.removeListener(
+      _handleWorldNewContentDebugSettingsChanged,
+    );
     _pageController.dispose();
     super.dispose();
   }
@@ -273,6 +280,16 @@ class WorldSingleSectionBottomSheetState
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld();
     }
+    if (mounted) setState(() {});
+  }
+
+  void _handleWorldNewContentDebugSettingsChanged() {
+    _cachedLocationListData = null;
+    _cachedProcessedLocationTree = null;
+    _cachedLocations = null;
+    _cachedCharacterPositions = null;
+    _cachedUserPositions = null;
+    _cachedLocationListCurrentUid = '';
     if (mounted) setState(() {});
   }
 

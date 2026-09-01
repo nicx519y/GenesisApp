@@ -1,9 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
 import 'package:genesis_flutter_android/network/models/location_tree.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_map_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    worldNewContentDebugSettings.resetForTesting();
+  });
+
+  tearDown(worldNewContentDebugSettings.resetForTesting);
+
   test('uses first root location map image', () {
     final roots = [
       const LocationTreeNode<Map<String, dynamic>>(
@@ -112,4 +121,31 @@ void main() {
     expect(data.points, isEmpty);
     expect(data.locationNodes, isEmpty);
   });
+
+  test(
+    'debug override marks every map location and character as new',
+    () async {
+      await worldNewContentDebugSettings.setForceNewBadges(true);
+      final avatars = worldAvatarsByLocationFromCharacterPositions([
+        {
+          'location_id': 'location-1',
+          'character': {'id': 'character-1', 'name': 'Ada', 'is_new': false},
+        },
+      ], currentUid: 'current-user');
+      final points = worldPointsFromLocations([
+        {
+          'location_id': 'location-1',
+          'location_name': 'Library',
+          'is_new': false,
+        },
+      ], avatars);
+    final fallbackPoints = worldPointsFromLocationIds([
+      'fallback-location',
+    ], const {});
+
+      expect(avatars['location-1']!.single.isNew, isTrue);
+      expect(points.single.isNew, isTrue);
+      expect(fallbackPoints.single.isNew, isTrue);
+    },
+  );
 }

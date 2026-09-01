@@ -22,6 +22,7 @@ import 'package:genesis_flutter_android/app/config/platform_config.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_settings.dart';
+import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
@@ -2525,6 +2526,7 @@ void main() {
     locationChatBubbleLayoutSettings.resetForTesting();
     locationChatHeaderEffectSettings.resetForTesting();
     originWorldSheetDebugSettings.resetForTesting();
+    worldNewContentDebugSettings.resetForTesting();
     networkCaptureController.resetForTesting();
     webSocketCaptureController.resetForTesting();
     resetDeveloperPageTabForTesting();
@@ -21217,6 +21219,50 @@ void main() {
     expect(
       preferences.getBool(OriginWorldSheetDebugSettingsController.storageKey),
       isTrue,
+    );
+  });
+
+  testWidgets('developer page controls forced world is_new state', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('test'));
+    await tester.pumpAndSettle();
+    final forceNewSwitch = find.byKey(
+      const ValueKey<String>('developer-world-force-new-switch'),
+    );
+    expect(forceNewSwitch, findsOneWidget);
+    expect(tester.widget<Switch>(forceNewSwitch).value, isFalse);
+    expect(worldNewContentDebugSettings.forceNewBadges, isFalse);
+
+    await tester.tap(forceNewSwitch);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(forceNewSwitch).value, isTrue);
+    expect(worldNewContentDebugSettings.forceNewBadges, isTrue);
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getBool(WorldNewContentDebugSettingsController.storageKey),
+      isTrue,
+    );
+
+    await tester.tap(forceNewSwitch);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(forceNewSwitch).value, isFalse);
+    expect(worldNewContentDebugSettings.forceNewBadges, isFalse);
+    expect(
+      preferences.getBool(WorldNewContentDebugSettingsController.storageKey),
+      isFalse,
     );
   });
 

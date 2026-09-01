@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../components/world_map.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
@@ -189,7 +190,7 @@ Map<String, List<UserAvatar>> worldAvatarsByLocationFromCharacterPositions(
         name: name,
         avatarUrl: avatar,
         isPlayerControlledRole: isPlayerControlledRole,
-        isNew: asBool(c['is_new']),
+        isNew: shouldMarkWorldContentAsNew(asBool(c['is_new'])),
       ),
     );
   }
@@ -300,7 +301,7 @@ List<WorldPoint> worldPointsFromLocations(
       isLeafLocation: isLeafLocations == null || i >= isLeafLocations.length
           ? true
           : isLeafLocations[i],
-      isNew: asBool(l['is_new']),
+      isNew: shouldMarkWorldContentAsNew(asBool(l['is_new'])),
     );
   });
 }
@@ -345,6 +346,7 @@ List<WorldPoint> worldPointsFromLocationIds(
       sceneId: id,
       pointId: id,
       description: '',
+      isNew: shouldMarkWorldContentAsNew(false),
     );
   });
 }

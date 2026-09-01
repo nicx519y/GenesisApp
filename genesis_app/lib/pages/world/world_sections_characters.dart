@@ -163,7 +163,7 @@ class WorldCharacterRow extends StatelessWidget {
       playerDeleted: playerDeleted,
     );
     final isCharacterRole = worldIsCharacterRole(character);
-    final isNew = asBool(character['is_new']);
+    final isNew = shouldMarkWorldContentAsNew(asBool(character['is_new']));
     final roleLabel = isCharacterRole ? 'Character' : 'Player';
     final showAiCharacterDetails = showCharacterDetails && isCharacterRole;
     final identity = worldMapString(character, const ['identity']);

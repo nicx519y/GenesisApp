@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/chat/shared/chat_scene_plate_tokens.dart';
 import '../../components/common/copyable_id_label.dart';

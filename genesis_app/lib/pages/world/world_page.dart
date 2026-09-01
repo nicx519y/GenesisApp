@@ -8,6 +8,7 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
+import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
@@ -399,6 +400,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    worldNewContentDebugSettings.listenable.addListener(
+      _handleWorldNewContentDebugSettingsChanged,
+    );
     tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
     _pendingInitialLocationId = widget.initialLocationId.trim();
@@ -461,6 +465,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     unawaited(_initialRequestPerformanceOperation?.cancel());
     unawaited(_initialRenderPerformanceOperation?.cancel());
     _stopWorldTickLockPolling();
+    worldNewContentDebugSettings.listenable.removeListener(
+      _handleWorldNewContentDebugSettingsChanged,
+    );
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     _mainTabController.removeListener(_handleWorldMainTabChanged);
     _worldBottomSheetSelection.removeListener(
@@ -486,6 +493,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _worldBottomSheetSelection.dispose();
     _newUserJoinNoticesNotifier.dispose();
     super.dispose();
+  }
+
+  void _handleWorldNewContentDebugSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
