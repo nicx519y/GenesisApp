@@ -7,6 +7,7 @@ class _TilemapLocationLabelData {
     required this.avatars,
     required this.showRecentChat,
     required this.showEvent,
+    required this.showNew,
   });
 
   final TilemapCell tile;
@@ -14,6 +15,7 @@ class _TilemapLocationLabelData {
   final List<UserAvatar> avatars;
   final bool showRecentChat;
   final bool showEvent;
+  final bool showNew;
 }
 
 const double _tilemapLocationLabelMaxWidth = 141;
@@ -24,6 +26,8 @@ const double _tilemapLocationActivityIconExtraWidth =
     _tilemapLocationActivityIconGap + kRecentChatMapBadgeSize;
 const double _tilemapLocationEventBadgeExtraWidth =
     _tilemapLocationActivityIconGap + WorldEventCountBadge.minWidth;
+const double _tilemapLocationNewBadgeExtraWidth =
+    _tilemapLocationActivityIconGap + WorldNewBadge.compactWidth;
 const TextStyle _tilemapLocationLabelTextStyle = TextStyle(
   inherit: false,
   fontFamily: GenesisTypography.fontFamily,
@@ -189,6 +193,8 @@ class _TilemapLocationBubble extends StatelessWidget {
     required this.avatars,
     required this.showRecentChat,
     required this.showEvent,
+    required this.showNew,
+    required this.newBadgeKey,
     required this.onLabelTap,
     required this.onAvatarTap,
     required this.anchor,
@@ -198,6 +204,8 @@ class _TilemapLocationBubble extends StatelessWidget {
   final List<UserAvatar> avatars;
   final bool showRecentChat;
   final bool showEvent;
+  final bool showNew;
+  final Key newBadgeKey;
   final VoidCallback? onLabelTap;
   final VoidCallback? onAvatarTap;
   final Offset anchor;
@@ -215,7 +223,8 @@ class _TilemapLocationBubble extends StatelessWidget {
     );
     final activityIconsWidth =
         (showEvent ? _tilemapLocationEventBadgeExtraWidth : 0.0) +
-        (showRecentChat ? _tilemapLocationActivityIconExtraWidth : 0.0);
+        (showRecentChat ? _tilemapLocationActivityIconExtraWidth : 0.0) +
+        (showNew ? _tilemapLocationNewBadgeExtraWidth : 0.0);
     return Positioned(
       left: anchor.dx,
       top: anchor.dy,
@@ -340,6 +349,12 @@ class _TilemapLocationBubble extends StatelessWidget {
                                 ),
                                 count: 1,
                               ),
+                            ],
+                            if (showNew) ...[
+                              const SizedBox(
+                                width: _tilemapLocationActivityIconGap,
+                              ),
+                              WorldNewBadge(key: newBadgeKey, compact: true),
                             ],
                           ],
                         ),

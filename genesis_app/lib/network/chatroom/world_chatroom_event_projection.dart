@@ -487,6 +487,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         'tagline': _firstString(character, const ['brief', 'tagline']),
         'description': _firstString(character, const ['description']),
         'avatar': _firstImageUrl(character, const ['avatar', 'avatar_url']),
+        'is_new': asBool(character['is_new']),
       },
     };
   }

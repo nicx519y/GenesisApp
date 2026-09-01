@@ -62,4 +62,90 @@ void main() {
       isEmpty,
     );
   });
+
+  testWidgets('WorldCharacterRow robustly shows New beside the name', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                WorldCharacterRow(
+                  character: {
+                    'char_id': 'bool-new',
+                    'name': 'Bool New',
+                    'player_uid': '',
+                    'avatar': '',
+                    'is_new': true,
+                  },
+                  currentUid: 'user-self',
+                  subtitle: '',
+                  subtitleColor: Color(0xFF666666),
+                  showCharacterDetails: false,
+                ),
+                WorldCharacterRow(
+                  character: {
+                    'char_id': 'number-new',
+                    'name': 'Number New',
+                    'player_uid': '',
+                    'avatar': '',
+                    'is_new': 1,
+                  },
+                  currentUid: 'user-self',
+                  subtitle: '',
+                  subtitleColor: Color(0xFF666666),
+                  showCharacterDetails: false,
+                ),
+                WorldCharacterRow(
+                  character: {
+                    'char_id': 'string-new',
+                    'name': 'String New',
+                    'player_uid': '',
+                    'avatar': '',
+                    'is_new': 'true',
+                  },
+                  currentUid: 'user-self',
+                  subtitle: '',
+                  subtitleColor: Color(0xFF666666),
+                  showCharacterDetails: false,
+                ),
+                WorldCharacterRow(
+                  character: {
+                    'char_id': 'old',
+                    'name': 'Old Character',
+                    'player_uid': '',
+                    'avatar': '',
+                    'is_new': false,
+                  },
+                  currentUid: 'user-self',
+                  subtitle: '',
+                  subtitleColor: Color(0xFF666666),
+                  showCharacterDetails: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-bool-new')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-number-new')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-string-new')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-old')),
+      findsNothing,
+    );
+  });
 }

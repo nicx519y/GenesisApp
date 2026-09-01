@@ -225,4 +225,152 @@ void main() {
     );
     expect(find.text('Location 79'), findsOneWidget);
   });
+
+  testWidgets('new location badge is shown for flat, branch, and leaf rows', (
+    tester,
+  ) async {
+    const newFlat = WorldPoint(
+      id: 'new-flat',
+      name: 'New Flat',
+      type: WorldPointType.castle,
+      position: Offset.zero,
+      users: <UserAvatar>[],
+      isNew: true,
+    );
+    const oldFlat = WorldPoint(
+      id: 'old-flat',
+      name: 'Old Flat',
+      type: WorldPointType.castle,
+      position: Offset.zero,
+      users: <UserAvatar>[],
+    );
+    const newBranchPoint = WorldPoint(
+      id: 'new-branch',
+      name: 'New Branch',
+      type: WorldPointType.castle,
+      position: Offset.zero,
+      users: <UserAvatar>[],
+      isLeafLocation: false,
+      isNew: true,
+    );
+    const newLeafPoint = WorldPoint(
+      id: 'new-leaf',
+      name: 'New Leaf',
+      type: WorldPointType.castle,
+      position: Offset.zero,
+      users: <UserAvatar>[],
+      isNew: true,
+    );
+    const oldLeafPoint = WorldPoint(
+      id: 'old-leaf',
+      name: 'Old Leaf',
+      type: WorldPointType.castle,
+      position: Offset.zero,
+      users: <UserAvatar>[],
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              Expanded(
+                child: WorldLocationList(
+                  points: <WorldPoint>[newFlat, oldFlat],
+                  enableOuterScrollHandoff: false,
+                ),
+              ),
+              Expanded(
+                child: WorldLocationList(
+                  points: <WorldPoint>[],
+                  locationNodes: <WorldMapLocationNode>[
+                    WorldMapLocationNode(
+                      id: 'new-branch',
+                      point: newBranchPoint,
+                      children: <WorldMapLocationNode>[
+                        WorldMapLocationNode(
+                          id: 'new-leaf',
+                          point: newLeafPoint,
+                        ),
+                        WorldMapLocationNode(
+                          id: 'old-leaf',
+                          point: oldLeafPoint,
+                        ),
+                      ],
+                    ),
+                  ],
+                  enableOuterScrollHandoff: false,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('world-location-new-badge-new-flat')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('world-location-new-badge-new-branch')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('world-location-new-badge-new-leaf')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('world-location-new-badge-old-flat')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('world-location-new-badge-old-leaf')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('new character badge is shown beside the character name', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: WorldLocationList(
+            points: <WorldPoint>[
+              WorldPoint(
+                id: 'location-with-characters',
+                name: 'Location',
+                type: WorldPointType.castle,
+                position: Offset.zero,
+                users: <UserAvatar>[
+                  UserAvatar(
+                    'NC',
+                    id: 'new-character',
+                    name: 'New Character',
+                    isNew: true,
+                  ),
+                  UserAvatar('OC', id: 'old-character', name: 'Old Character'),
+                ],
+              ),
+            ],
+            enableOuterScrollHandoff: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(
+        const ValueKey('world-location-character-new-badge-new-character'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('world-location-character-new-badge-old-character'),
+      ),
+      findsNothing,
+    );
+  });
 }

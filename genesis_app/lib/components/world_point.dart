@@ -36,6 +36,7 @@ class WorldPoint {
     this.locationDescription = '',
     this.depth = 0,
     this.isLeafLocation = true,
+    this.isNew = false,
   });
 
   final String id;
@@ -52,6 +53,7 @@ class WorldPoint {
   final String locationDescription;
   final int depth;
   final bool isLeafLocation;
+  final bool isNew;
 }
 
 class UserAvatar {
@@ -62,6 +64,7 @@ class UserAvatar {
     this.avatarUrl = '',
     this.showStar = false,
     this.isPlayerControlledRole = false,
+    this.isNew = false,
   });
 
   final String initials;
@@ -70,6 +73,7 @@ class UserAvatar {
   final String avatarUrl;
   final bool showStar;
   final bool isPlayerControlledRole;
+  final bool isNew;
 }
 
 enum WorldPointType { castle, shop, portal, tavern, camp }

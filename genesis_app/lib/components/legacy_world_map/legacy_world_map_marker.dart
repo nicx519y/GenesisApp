@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
 import '../world_event_count_badge.dart';
+import '../world_new_badge.dart';
 import '../world_point.dart';
 import 'legacy_world_map_background.dart';
 import 'legacy_world_map_bubble.dart';
@@ -76,6 +77,8 @@ const double _worldPointActivityIconExtraWidth =
     _worldPointActivityIconGap + kRecentChatMapBadgeSize;
 const double _worldPointEventBadgeExtraWidth =
     _worldPointActivityIconGap + WorldEventCountBadge.minWidth;
+const double _worldPointNewBadgeExtraWidth =
+    _worldPointActivityIconGap + WorldNewBadge.compactWidth;
 const double _worldPointMaxLabelBoxWidth =
     _worldPointMaxLabelTextWidth + _worldPointLabelHorizontalPadding;
 const double _worldPointDotSize = 8;
@@ -154,7 +157,8 @@ _WorldPointMarkerGeometry _geometryForPoint(
   final users = worldMapVisibleAvatarsForPoint(point);
   final activityIconsWidth =
       ((showEventIcon ? _worldPointEventBadgeExtraWidth : 0.0) +
-          (showRecentChatIcon ? _worldPointActivityIconExtraWidth : 0.0)) *
+          (showRecentChatIcon ? _worldPointActivityIconExtraWidth : 0.0) +
+          (point.isNew ? _worldPointNewBadgeExtraWidth : 0.0)) *
       2;
   final labelMaxWidth = math.min(
     _worldPointMaxLabelBoxWidth,
@@ -487,7 +491,8 @@ class _WorldPointMarker extends StatelessWidget {
     final avatars = users;
     final activityIconsWidth =
         (showEventIcon ? _worldPointEventBadgeExtraWidth : 0.0) +
-        (showRecentChatIcon ? _worldPointActivityIconExtraWidth : 0.0);
+        (showRecentChatIcon ? _worldPointActivityIconExtraWidth : 0.0) +
+        (point.isNew ? _worldPointNewBadgeExtraWidth : 0.0);
 
     return SizedBox(
       width: markerWidth,
@@ -584,6 +589,15 @@ class _WorldPointMarker extends StatelessWidget {
                                   'world-map-location-event-count',
                                 ),
                                 count: 1,
+                              ),
+                            ],
+                            if (point.isNew) ...[
+                              const SizedBox(width: _worldPointActivityIconGap),
+                              WorldNewBadge(
+                                key: ValueKey<String>(
+                                  'world-map-location-new-badge-${point.id}',
+                                ),
+                                compact: true,
                               ),
                             ],
                           ],
@@ -713,12 +727,30 @@ class _PositionedMapAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final avatar = _MapAvatarImage(
-      key: ValueKey<String>('map-avatar-${worldMapAvatarStableId(user)}'),
-      url: user.avatarUrl,
-      name: (user.name ?? user.initials).trim(),
-      showStar: user.showStar,
-      isPlayerControlledRole: user.isPlayerControlledRole,
+    final stableId = worldMapAvatarStableId(user);
+    final avatar = SizedBox.square(
+      dimension: _worldPointAvatarSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          _MapAvatarImage(
+            key: ValueKey<String>('map-avatar-$stableId'),
+            url: user.avatarUrl,
+            name: (user.name ?? user.initials).trim(),
+            showStar: user.showStar,
+            isPlayerControlledRole: user.isPlayerControlledRole,
+          ),
+          if (user.isNew)
+            Positioned(
+              top: -4,
+              right: -4,
+              child: WorldNewBadge(
+                key: ValueKey<String>('world-map-avatar-new-badge-$stableId'),
+                compact: true,
+              ),
+            ),
+        ],
+      ),
     );
     return Positioned(
       left: left,

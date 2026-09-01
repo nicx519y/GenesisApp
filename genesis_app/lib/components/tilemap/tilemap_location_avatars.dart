@@ -6,6 +6,7 @@ import '../../app/config/genesis_image_config.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../world_map_avatar_logic.dart';
+import '../world_new_badge.dart';
 import '../world_point.dart';
 
 const double tilemapLocationAvatarSize = 36;
@@ -92,6 +93,7 @@ class _TilemapLocationAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final stableId = worldMapAvatarStableId(avatar);
     final borderColor = worldMapAvatarBorderColor(
       isPlayerControlledRole: avatar.isPlayerControlledRole,
       showAiMarker: avatar.showStar,
@@ -99,35 +101,52 @@ class _TilemapLocationAvatar extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: GenesisCharacterAvatar(
-        url: avatar.avatarUrl,
-        name: (avatar.name ?? avatar.initials).trim(),
-        size: tilemapLocationAvatarSize,
-        borderRadius: GenesisAvatarRadii.character,
-        showStar: avatar.showStar,
-        showFallbackWhileLoading: false,
-        showFallbackWhenUnavailable: true,
-        maxDevicePixelRatio:
-            GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.26),
-            blurRadius: 10,
-            spreadRadius: 1,
-            offset: const Offset(0, 6),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: borderColor == null
-            ? null
-            : Border.all(
-                color: borderColor,
-                width: avatar.isPlayerControlledRole ? 2 : 1,
+      child: SizedBox.square(
+        dimension: tilemapLocationAvatarSize,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            GenesisCharacterAvatar(
+              url: avatar.avatarUrl,
+              name: (avatar.name ?? avatar.initials).trim(),
+              size: tilemapLocationAvatarSize,
+              borderRadius: GenesisAvatarRadii.character,
+              showStar: avatar.showStar,
+              showFallbackWhileLoading: false,
+              showFallbackWhenUnavailable: true,
+              maxDevicePixelRatio:
+                  GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.26),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 3,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: borderColor == null
+                  ? null
+                  : Border.all(
+                      color: borderColor,
+                      width: avatar.isPlayerControlledRole ? 2 : 1,
+                    ),
+            ),
+            if (avatar.isNew)
+              Positioned(
+                top: -4,
+                right: -4,
+                child: WorldNewBadge(
+                  key: ValueKey<String>('tilemap-avatar-new-badge-$stableId'),
+                  compact: true,
+                ),
               ),
+          ],
+        ),
       ),
     );
   }

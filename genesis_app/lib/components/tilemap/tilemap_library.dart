@@ -1517,6 +1517,13 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     return sceneId.isNotEmpty && eventLocationIds.contains(sceneId);
   }
 
+  bool _showNewForTile(TilemapCell tile) {
+    final locationId = tile.locationId?.trim() ?? '';
+    if (locationId.isEmpty) return false;
+    final node = findWorldMapLocationNode(widget.locationNodes, locationId);
+    return node?.point.isNew ?? false;
+  }
+
   List<UserAvatar> _locationAvatarsForTile(TilemapCell tile) {
     final locationId = tile.locationId?.trim() ?? '';
     if (locationId.isEmpty) return const <UserAvatar>[];
@@ -1867,6 +1874,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       locationAvatarsForTile: _locationAvatarsForTile,
       showRecentChatForTile: _showRecentChatForTile,
       showEventForTile: _showEventForTile,
+      showNewForTile: _showNewForTile,
       preferredFocusLocationId: _preferredVisibleFocusLocationId(config),
       centerContentInitially: widget.centerContentInitially,
       messageBubbles: includeLiveContent
@@ -2093,6 +2101,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       avatar.avatarUrl,
       avatar.showStar,
       avatar.isPlayerControlledRole,
+      avatar.isNew,
     );
   }
 
@@ -2111,6 +2120,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       point.locationDescription,
       point.depth,
       point.isLeafLocation,
+      point.isNew,
       Object.hashAll(point.users.map(_userAvatarEnvironmentHash)),
     ]);
   }

@@ -13,6 +13,7 @@ import '../../ui/tokens/genesis_typography.dart';
 import '../legacy_world_map/legacy_world_map_gesture.dart';
 import '../world_event_count_badge.dart';
 import '../world_map_contract.dart';
+import '../world_new_badge.dart';
 import '../world_point.dart';
 import 'tilemap_fog.dart';
 import 'tilemap_location_avatars.dart';
@@ -114,6 +115,7 @@ typedef TilemapLocationAvatarsResolver =
     List<UserAvatar> Function(TilemapCell tile);
 typedef TilemapRecentChatResolver = bool Function(TilemapCell tile);
 typedef TilemapEventResolver = bool Function(TilemapCell tile);
+typedef TilemapNewLocationResolver = bool Function(TilemapCell tile);
 
 enum TilemapVisualMode { light, dark }
 

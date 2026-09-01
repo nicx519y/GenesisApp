@@ -334,6 +334,48 @@ void main() {
     );
   });
 
+  testWidgets('world map renders New for new locations and characters', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const <WorldPoint>[
+        WorldPoint(
+          id: 'new-point',
+          name: 'New Gate',
+          type: WorldPointType.portal,
+          position: _pointPosition,
+          isNew: true,
+          users: <UserAvatar>[
+            UserAvatar('AA', id: 'new-character', name: 'Ada', isNew: true),
+          ],
+        ),
+      ],
+    );
+
+    final labelRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-label-new-point')),
+    );
+    final badgeRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('world-map-location-new-badge-new-point'),
+      ),
+    );
+    final dotRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-dot')),
+    );
+    expect(badgeRect.left, closeTo(labelRect.right + 3, 0.01));
+    expect(badgeRect.center.dy, closeTo(labelRect.center.dy, 0.01));
+    expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
+    expect(
+      find.byKey(
+        const ValueKey<String>('world-map-avatar-new-badge-new-character'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('world map renders generated avatar when avatar URL is empty', (
     tester,
   ) async {

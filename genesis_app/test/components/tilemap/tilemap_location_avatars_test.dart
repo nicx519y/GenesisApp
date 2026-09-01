@@ -13,7 +13,7 @@ void main() {
           home: Center(
             child: TilemapLocationAvatars(
               avatars: [
-                UserAvatar('AI', id: 'ai', name: 'AI Role'),
+                UserAvatar('AI', id: 'ai', name: 'AI Role', isNew: true),
                 UserAvatar(
                   'PR',
                   id: 'player',
@@ -45,6 +45,14 @@ void main() {
       final playerBorder = playerAvatar.border! as Border;
       expect(playerBorder.top.color, const Color(0xFFFF2442));
       expect(playerBorder.top.width, 2);
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-avatar-new-badge-ai')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('tilemap-avatar-new-badge-player')),
+        findsNothing,
+      );
     },
   );
 }

@@ -36,6 +36,7 @@ void main() {
           'name': 'Other',
           'player_uid': 'uid-other',
           'avatar': 'assets/other.webp',
+          'is_new': 1,
         },
       },
     ], currentUid: 'uid-self');
@@ -44,6 +45,7 @@ void main() {
     expect(avatars['loc-1']?.single.name, 'Other');
     expect(avatars['loc-1']?.single.showStar, isFalse);
     expect(avatars['loc-1']?.single.isPlayerControlledRole, isTrue);
+    expect(avatars['loc-1']?.single.isNew, isTrue);
   });
 
   test('builds fallback map points from location ids', () {
@@ -65,6 +67,7 @@ void main() {
             'sm_url': 'https://cdn.example.com/root-sm.webp',
             'xl_url': 'https://cdn.example.com/root-xl.webp',
           },
+          'is_new': 'true',
         },
         {
           'location_id': 'child',
@@ -90,7 +93,9 @@ void main() {
       (point) => point.sceneId == 'child',
     );
     expect(rootPoint.iconUrl, 'https://cdn.example.com/root-xl.webp');
+    expect(rootPoint.isNew, isTrue);
     expect(childPoint.iconUrl, 'https://cdn.example.com/child-legacy.webp');
+    expect(childPoint.isNew, isFalse);
     expect(data.locationNodes, hasLength(1));
     expect(data.locationNodes.single.id, '__world_root__');
     final rootNode = data.locationNodes.single.children.single;

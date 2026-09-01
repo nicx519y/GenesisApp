@@ -21221,6 +21221,57 @@ void main() {
   });
 
   testWidgets(
+    'developer World History action labels stay on one line on narrow screens',
+    (WidgetTester tester) async {
+      await tester.binding.setSurfaceSize(const Size(350, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await AppEndpointOverrideStore.clear();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              initialUid: 'u_watermark_layout_test',
+              initialAuthToken: 'backend-token',
+            ),
+            child: const DeveloperPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('test'));
+      await tester.pumpAndSettle();
+
+      final getLabel = find.descendant(
+        of: find.byKey(const ValueKey<String>('developer-world-history-fetch')),
+        matching: find.text('Get'),
+      );
+      final updateLabel = find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('developer-world-history-update'),
+        ),
+        matching: find.text('Update'),
+      );
+      final deleteLabel = find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('developer-world-history-delete'),
+        ),
+        matching: find.text('Delete'),
+      );
+
+      expect(tester.widget<Text>(updateLabel).maxLines, 1);
+      expect(tester.widget<Text>(updateLabel).softWrap, isFalse);
+      expect(
+        tester.getSize(updateLabel).height,
+        tester.getSize(getLabel).height,
+      );
+      expect(
+        tester.getSize(deleteLabel).height,
+        tester.getSize(getLabel).height,
+      );
+    },
+  );
+
+  testWidgets(
     'developer test page gets updates and resets World History watermarks',
     (WidgetTester tester) async {
       await AppEndpointOverrideStore.clear();

@@ -189,6 +189,7 @@ Map<String, List<UserAvatar>> worldAvatarsByLocationFromCharacterPositions(
         name: name,
         avatarUrl: avatar,
         isPlayerControlledRole: isPlayerControlledRole,
+        isNew: asBool(c['is_new']),
       ),
     );
   }
@@ -299,6 +300,7 @@ List<WorldPoint> worldPointsFromLocations(
       isLeafLocation: isLeafLocations == null || i >= isLeafLocations.length
           ? true
           : isLeafLocations[i],
+      isNew: asBool(l['is_new']),
     );
   });
 }

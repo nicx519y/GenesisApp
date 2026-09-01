@@ -511,6 +511,7 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
       locationDescription: point.locationDescription,
       depth: point.depth,
       isLeafLocation: point.isLeafLocation,
+      isNew: point.isNew,
     );
   }
 

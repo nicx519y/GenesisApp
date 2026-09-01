@@ -165,7 +165,9 @@ Widget _worldHistoryActionButtonContent({
   required Color color,
   required Key loadingKey,
 }) {
-  if (!loading) return Text(label);
+  if (!loading) {
+    return Text(label, maxLines: 1, softWrap: false);
+  }
   return SizedBox.square(
     key: loadingKey,
     dimension: 16,
@@ -177,6 +179,7 @@ ButtonStyle _worldHistoryActionButtonStyle(Color foregroundColor) {
   return OutlinedButton.styleFrom(
     foregroundColor: foregroundColor,
     backgroundColor: Colors.transparent,
+    padding: const EdgeInsets.symmetric(horizontal: 12),
     side: const BorderSide(color: Color(0xFFD0D0D4)),
   );
 }
