@@ -14,13 +14,17 @@ class ChatMentionEntry {
     required this.id,
     required this.name,
     required this.type,
+    this.subtitle = '',
     this.imageUrl = '',
+    this.isPlayerControlled = false,
   });
 
   final String id;
   final String name;
   final ChatMentionType type;
+  final String subtitle;
   final String imageUrl;
+  final bool isPlayerControlled;
 
   String get serializedText => '@$name<$id>';
 }

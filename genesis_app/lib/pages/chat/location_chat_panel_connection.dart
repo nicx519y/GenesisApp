@@ -615,14 +615,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
 
   void _handleChatroomState(WorldChatroomState state) {
     if (!mounted) return;
-    final mentionCatalogChanged = _textController.updateCatalog(
-      locationChatMentionCatalogForState(state),
-    );
+    final service = _service;
+    if (service != null) _syncSenderIdentity(service);
     if (state.joinedLocationId == widget.locationId) {
       _optimisticSelfOccupancy = false;
     }
-    final service = _service;
-    if (service != null) _syncSenderIdentity(service);
     if (widget.active &&
         (state.joinedLocationId == widget.locationId ||
             _optimisticSelfOccupancy)) {
@@ -662,6 +659,13 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final changedMessages = _reconcileMessages(
       nextSource,
       identityState: state,
+    );
+    final mentionCatalogChanged = _textController.updateCatalog(
+      locationChatMentionCatalogForState(
+        state,
+        currentUserIds: _myUserIdKeys,
+        currentSenderIds: _mySenderIdKeys,
+      ),
     );
     final tickProgressResolved = _resolveTickProgressMessageIfAvailable();
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);

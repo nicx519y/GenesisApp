@@ -47,7 +47,7 @@ extension _WorldPageSheets on _WorldPageState {
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        enableDrag: false,
+        enableDrag: true,
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.18),
         builder: (context) {

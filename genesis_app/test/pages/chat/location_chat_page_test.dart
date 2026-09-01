@@ -4943,7 +4943,7 @@ void main() {
     );
 
     await tester.tap(
-      find.byKey(const ValueKey<String>('location-chat-mention-close')),
+      find.byKey(const ValueKey<String>('location-chat-mention-collapse')),
     );
     await tester.pumpAndSettle();
 
