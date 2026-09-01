@@ -217,6 +217,82 @@ double tilemapResolvedInitialScale(double initialScale) {
       .toDouble();
 }
 
+double? tilemapNearestTopDownLocationDistanceTiles(
+  Iterable<TilemapCell> tiles,
+) {
+  final locationTiles = tiles
+      .where((tile) => tile.isLocationTile)
+      .toList(growable: false);
+  if (locationTiles.length < 2) return null;
+
+  var shortestSquaredDistance = double.infinity;
+  for (
+    var firstIndex = 0;
+    firstIndex < locationTiles.length - 1;
+    firstIndex++
+  ) {
+    final first = locationTiles[firstIndex];
+    for (
+      var secondIndex = firstIndex + 1;
+      secondIndex < locationTiles.length;
+      secondIndex++
+    ) {
+      final second = locationTiles[secondIndex];
+      final deltaX = first.x - second.x;
+      final deltaY = first.y - second.y;
+      final squaredDistance = (deltaX * deltaX + deltaY * deltaY).toDouble();
+      if (squaredDistance < shortestSquaredDistance) {
+        shortestSquaredDistance = squaredDistance;
+      }
+    }
+  }
+  return math.sqrt(shortestSquaredDistance);
+}
+
+double tilemapAutomaticInitialScaleForTiles({
+  required Iterable<TilemapCell> tiles,
+  double nearbyDistanceTiles = tilemapDefaultNearbyLocationDistanceTiles,
+  double distantDistanceTiles = tilemapDefaultDistantLocationDistanceTiles,
+  double nearbyScale = tilemapDefaultNearbyLocationInitialScale,
+  double distantScale = tilemapDefaultDistantLocationInitialScale,
+}) {
+  final resolvedNearbyDistance = nearbyDistanceTiles
+      .clamp(
+        tilemapLocationDistanceThresholdMin,
+        tilemapLocationDistanceThresholdMax -
+            tilemapLocationDistanceThresholdStep,
+      )
+      .toDouble();
+  final resolvedDistantDistance = distantDistanceTiles
+      .clamp(
+        resolvedNearbyDistance + tilemapLocationDistanceThresholdStep,
+        tilemapLocationDistanceThresholdMax,
+      )
+      .toDouble();
+  final resolvedDistantScale = distantScale
+      .clamp(
+        tilemapDistantLocationInitialScaleMin,
+        tilemapDistantLocationInitialScaleMax,
+      )
+      .toDouble();
+  final resolvedNearbyScale = nearbyScale
+      .clamp(
+        math.max(tilemapNearbyLocationInitialScaleMin, resolvedDistantScale),
+        tilemapNearbyLocationInitialScaleMax,
+      )
+      .toDouble();
+  final shortestDistance = tilemapNearestTopDownLocationDistanceTiles(tiles);
+  if (shortestDistance == null) return resolvedDistantScale;
+
+  final progress =
+      ((shortestDistance - resolvedNearbyDistance) /
+              (resolvedDistantDistance - resolvedNearbyDistance))
+          .clamp(0.0, 1.0)
+          .toDouble();
+  return resolvedNearbyScale +
+      (resolvedDistantScale - resolvedNearbyScale) * progress;
+}
+
 TilemapCell? tilemapInitialFocusLocationTile({
   required Iterable<TilemapCell> tiles,
   TilemapLocationAvatarsResolver? locationAvatarsForTile,

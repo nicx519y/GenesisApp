@@ -48,7 +48,10 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.locationImageFlowOpacity,
     required this.locationImageFlowDurationSeconds,
     required this.locationImageFlowBlendMode,
-    required this.initialScale,
+    required this.nearbyLocationDistanceTiles,
+    required this.distantLocationDistanceTiles,
+    required this.nearbyLocationInitialScale,
+    required this.distantLocationInitialScale,
     required this.dragBoundaryPaddingTiles,
     required this.onVisualModeChanged,
     required this.onLoadingStyleChanged,
@@ -62,7 +65,10 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.onLocationImageFlowOpacityChanged,
     required this.onLocationImageFlowDurationSecondsChanged,
     required this.onLocationImageFlowBlendModeChanged,
-    required this.onInitialScaleChanged,
+    required this.onNearbyLocationDistanceChanged,
+    required this.onDistantLocationDistanceChanged,
+    required this.onNearbyLocationInitialScaleChanged,
+    required this.onDistantLocationInitialScaleChanged,
     required this.onDragBoundaryPaddingTilesChanged,
     required this.onCopySettings,
     required this.onResetSettings,
@@ -82,7 +88,10 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final double locationImageFlowOpacity;
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
-  final double initialScale;
+  final double nearbyLocationDistanceTiles;
+  final double distantLocationDistanceTiles;
+  final double nearbyLocationInitialScale;
+  final double distantLocationInitialScale;
   final double dragBoundaryPaddingTiles;
   final ValueChanged<TilemapVisualMode> onVisualModeChanged;
   final ValueChanged<TilemapLoadingStyle> onLoadingStyleChanged;
@@ -98,7 +107,10 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final ValueChanged<double> onLocationImageFlowDurationSecondsChanged;
   final ValueChanged<TilemapLocationImageFlowBlendMode>
   onLocationImageFlowBlendModeChanged;
-  final ValueChanged<double> onInitialScaleChanged;
+  final ValueChanged<double> onNearbyLocationDistanceChanged;
+  final ValueChanged<double> onDistantLocationDistanceChanged;
+  final ValueChanged<double> onNearbyLocationInitialScaleChanged;
+  final ValueChanged<double> onDistantLocationInitialScaleChanged;
   final ValueChanged<double> onDragBoundaryPaddingTilesChanged;
   final VoidCallback onCopySettings;
   final VoidCallback onResetSettings;
@@ -226,7 +238,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'Initial zoom',
+              'Automatic initial zoom',
               style: TextStyle(
                 color: foregroundColor,
                 fontSize: 12,
@@ -234,23 +246,80 @@ class _TilemapSettingsPanel extends StatelessWidget {
               ),
             ),
             Text(
-              'The fixed zoom level used when the map opens.',
+              'Uses the nearest top-down location distance and linearly interpolates between both endpoints.',
               style: TextStyle(color: secondaryColor, fontSize: 10),
             ),
             _TilemapSettingsSlider(
-              label: 'Scale',
-              value: initialScale,
-              min: tilemapInitialScaleMin,
-              max: tilemapInitialScaleMax,
-              divisions: (tilemapInitialScaleMax - tilemapInitialScaleMin)
-                  .round(),
-              valueLabel: '${initialScale.round()}×',
+              label: 'Nearby distance',
+              value: nearbyLocationDistanceTiles,
+              min: tilemapLocationDistanceThresholdMin,
+              max: tilemapLocationDistanceThresholdMax,
+              divisions:
+                  ((tilemapLocationDistanceThresholdMax -
+                              tilemapLocationDistanceThresholdMin) /
+                          tilemapLocationDistanceThresholdStep)
+                      .round(),
+              valueLabel:
+                  '${nearbyLocationDistanceTiles.toStringAsFixed(2)} tiles',
               sliderKey: const ValueKey<String>(
-                'tilemap-settings-initial-scale',
+                'tilemap-settings-nearby-location-distance',
               ),
               foregroundColor: foregroundColor,
               secondaryColor: secondaryColor,
-              onChanged: onInitialScaleChanged,
+              onChanged: onNearbyLocationDistanceChanged,
+            ),
+            _TilemapSettingsSlider(
+              label: 'Distant distance',
+              value: distantLocationDistanceTiles,
+              min: tilemapLocationDistanceThresholdMin,
+              max: tilemapLocationDistanceThresholdMax,
+              divisions:
+                  ((tilemapLocationDistanceThresholdMax -
+                              tilemapLocationDistanceThresholdMin) /
+                          tilemapLocationDistanceThresholdStep)
+                      .round(),
+              valueLabel:
+                  '${distantLocationDistanceTiles.toStringAsFixed(2)} tiles',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-distant-location-distance',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onDistantLocationDistanceChanged,
+            ),
+            _TilemapSettingsSlider(
+              label: 'Zoom at nearby distance',
+              value: nearbyLocationInitialScale,
+              min: tilemapNearbyLocationInitialScaleMin,
+              max: tilemapNearbyLocationInitialScaleMax,
+              divisions:
+                  (tilemapNearbyLocationInitialScaleMax -
+                          tilemapNearbyLocationInitialScaleMin)
+                      .round(),
+              valueLabel: '${nearbyLocationInitialScale.round()}×',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-nearby-location-scale',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onNearbyLocationInitialScaleChanged,
+            ),
+            _TilemapSettingsSlider(
+              label: 'Zoom at distant distance',
+              value: distantLocationInitialScale,
+              min: tilemapDistantLocationInitialScaleMin,
+              max: tilemapDistantLocationInitialScaleMax,
+              divisions:
+                  (tilemapDistantLocationInitialScaleMax -
+                          tilemapDistantLocationInitialScaleMin)
+                      .round(),
+              valueLabel: '${distantLocationInitialScale.round()}×',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-distant-location-scale',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onDistantLocationInitialScaleChanged,
             ),
             const SizedBox(height: 6),
             Text(

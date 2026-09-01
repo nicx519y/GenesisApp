@@ -65,7 +65,22 @@ void main() {
       settings.locationImageFlowBlendMode,
       tilemapDefaultLocationImageFlowBlendMode,
     );
-    expect(settings.initialScale, tilemapDefaultInitialScale);
+    expect(
+      settings.nearbyLocationDistanceTiles,
+      tilemapDefaultNearbyLocationDistanceTiles,
+    );
+    expect(
+      settings.distantLocationDistanceTiles,
+      tilemapDefaultDistantLocationDistanceTiles,
+    );
+    expect(
+      settings.nearbyLocationInitialScale,
+      tilemapDefaultNearbyLocationInitialScale,
+    );
+    expect(
+      settings.distantLocationInitialScale,
+      tilemapDefaultDistantLocationInitialScale,
+    );
     expect(
       settings.dragBoundaryPaddingTiles,
       tilemapDefaultDragBoundaryPaddingTiles,
@@ -95,7 +110,7 @@ void main() {
 
   test('declares the tuned Tilemap rendering parameters as defaults', () {
     expect(TilemapRenderSettings.defaults().toJson(), {
-      'schema_version': 2,
+      'schema_version': 3,
       'visual_mode': 'dark',
       'loading_style': 'disabled',
       'fog_control_points': [
@@ -120,7 +135,10 @@ void main() {
       'location_image_flow_opacity': 0.49,
       'location_image_flow_duration_seconds': 7.5,
       'location_image_flow_blend_mode': 'plus',
-      'initial_scale': 8.0,
+      'nearby_location_distance_tiles': 1.0,
+      'distant_location_distance_tiles': 2.5,
+      'nearby_location_initial_scale': 15.0,
+      'distant_location_initial_scale': 8.0,
       'drag_boundary_padding_tiles': 2.0,
     });
   });
@@ -167,7 +185,10 @@ void main() {
       locationImageFlowOpacity: 0.65,
       locationImageFlowDurationSeconds: 4.5,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
-      initialScale: 24,
+      nearbyLocationDistanceTiles: 2,
+      distantLocationDistanceTiles: 6,
+      nearbyLocationInitialScale: 20,
+      distantLocationInitialScale: 10,
       dragBoundaryPaddingTiles: 8,
     );
     const store = TilemapSettingsStore();
@@ -190,11 +211,14 @@ void main() {
       restored.locationImageFlowBlendMode,
       TilemapLocationImageFlowBlendMode.screen,
     );
-    expect(restored.initialScale, 24);
+    expect(restored.nearbyLocationDistanceTiles, 2);
+    expect(restored.distantLocationDistanceTiles, 6);
+    expect(restored.nearbyLocationInitialScale, 20);
+    expect(restored.distantLocationInitialScale, 10);
     expect(restored.dragBoundaryPaddingTiles, 8);
 
     final serialized = jsonDecode(settings.toSerializedJson());
-    expect(serialized['schema_version'], 2);
+    expect(serialized['schema_version'], 3);
     expect(serialized['visual_mode'], 'light');
     expect(serialized['loading_style'], 'coordinatePulse');
     expect(serialized['fog_control_points'], hasLength(5));
@@ -211,12 +235,15 @@ void main() {
     expect(serialized['location_image_flow_opacity'], 0.65);
     expect(serialized['location_image_flow_duration_seconds'], 4.5);
     expect(serialized['location_image_flow_blend_mode'], 'screen');
-    expect(serialized['initial_scale'], 24);
+    expect(serialized['nearby_location_distance_tiles'], 2);
+    expect(serialized['distant_location_distance_tiles'], 6);
+    expect(serialized['nearby_location_initial_scale'], 20);
+    expect(serialized['distant_location_initial_scale'], 10);
     expect(serialized['drag_boundary_padding_tiles'], 8);
   });
 
   test(
-    'release runtime fixes loading screen to Off and initial zoom to 12x',
+    'release runtime fixes loading screen to Off and keeps auto zoom settings',
     () {
       const cachedSettings = TilemapRenderSettings(
         visualMode: TilemapVisualMode.light,
@@ -232,7 +259,10 @@ void main() {
         locationImageFlowOpacity: 0.65,
         locationImageFlowDurationSeconds: 4.5,
         locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
-        initialScale: 24,
+        nearbyLocationDistanceTiles: 2,
+        distantLocationDistanceTiles: 6,
+        nearbyLocationInitialScale: 20,
+        distantLocationInitialScale: 10,
         dragBoundaryPaddingTiles: 8,
       );
 
@@ -244,7 +274,10 @@ void main() {
       );
 
       expect(releaseSettings.loadingStyle, TilemapLoadingStyle.disabled);
-      expect(releaseSettings.initialScale, 8);
+      expect(releaseSettings.nearbyLocationDistanceTiles, 2);
+      expect(releaseSettings.distantLocationDistanceTiles, 6);
+      expect(releaseSettings.nearbyLocationInitialScale, 20);
+      expect(releaseSettings.distantLocationInitialScale, 10);
       expect(releaseSettings.visualMode, cachedSettings.visualMode);
       expect(releaseSettings.cacheFogTileBitmaps, false);
       expect(releaseSettings.dragBoundaryPaddingTiles, 8);
@@ -271,7 +304,10 @@ void main() {
         'location_image_flow_opacity': 2,
         'location_image_flow_duration_seconds': 20,
         'location_image_flow_blend_mode': 'invalid',
-        'initial_scale': 40,
+        'nearby_location_distance_tiles': 7,
+        'distant_location_distance_tiles': 3,
+        'nearby_location_initial_scale': 7,
+        'distant_location_initial_scale': 31,
         'drag_boundary_padding_tiles': 40,
       }),
     });
@@ -305,7 +341,22 @@ void main() {
       settings.locationImageFlowBlendMode,
       tilemapDefaultLocationImageFlowBlendMode,
     );
-    expect(settings.initialScale, tilemapDefaultInitialScale);
+    expect(
+      settings.nearbyLocationDistanceTiles,
+      tilemapDefaultNearbyLocationDistanceTiles,
+    );
+    expect(
+      settings.distantLocationDistanceTiles,
+      tilemapDefaultDistantLocationDistanceTiles,
+    );
+    expect(
+      settings.nearbyLocationInitialScale,
+      tilemapDefaultNearbyLocationInitialScale,
+    );
+    expect(
+      settings.distantLocationInitialScale,
+      tilemapDefaultDistantLocationInitialScale,
+    );
     expect(
       settings.dragBoundaryPaddingTiles,
       tilemapDefaultDragBoundaryPaddingTiles,
@@ -317,7 +368,7 @@ void main() {
     () async {
       SharedPreferences.setMockInitialValues(<String, Object>{
         TilemapSettingsStore.storageKey: jsonEncode({
-          'schema_version': 1,
+          'schema_version': 2,
           'visual_mode': 'light',
           'fog_control_points': [
             for (final point in tilemapDefaultFogControlPoints)
@@ -325,7 +376,7 @@ void main() {
           ],
           'blend_fog_with_shadow_tiles': false,
           'show_shadow_zero_borders': true,
-          'initial_scale_factor': 1,
+          'initial_scale': 24,
         }),
       });
 
@@ -354,7 +405,22 @@ void main() {
         settings.locationImageFlowBlendMode,
         tilemapDefaultLocationImageFlowBlendMode,
       );
-      expect(settings.initialScale, tilemapDefaultInitialScale);
+      expect(
+        settings.nearbyLocationDistanceTiles,
+        tilemapDefaultNearbyLocationDistanceTiles,
+      );
+      expect(
+        settings.distantLocationDistanceTiles,
+        tilemapDefaultDistantLocationDistanceTiles,
+      );
+      expect(
+        settings.nearbyLocationInitialScale,
+        tilemapDefaultNearbyLocationInitialScale,
+      );
+      expect(
+        settings.distantLocationInitialScale,
+        tilemapDefaultDistantLocationInitialScale,
+      );
       expect(
         settings.dragBoundaryPaddingTiles,
         tilemapDefaultDragBoundaryPaddingTiles,
@@ -378,7 +444,10 @@ void main() {
       locationImageFlowOpacity: 0.5,
       locationImageFlowDurationSeconds: 6,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.overlay,
-      initialScale: 24,
+      nearbyLocationDistanceTiles: 2,
+      distantLocationDistanceTiles: 5,
+      nearbyLocationInitialScale: 20,
+      distantLocationInitialScale: 10,
       dragBoundaryPaddingTiles: 9,
     );
     await store.save(settings);

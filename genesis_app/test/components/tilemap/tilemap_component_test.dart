@@ -827,9 +827,76 @@ void main() {
     expect(tilemapResolvedInitialScale(40), tilemapInitialScaleMax);
     expect(tilemapResolvedInitialScale(double.nan), tilemapDefaultInitialScale);
     expect(tilemapDefaultInitialScale, 8);
-    expect(tilemapInitialScaleMin, 5);
+    expect(tilemapInitialScaleMin, 4);
     expect(tilemapInitialScaleMax, 30);
   });
+
+  test('nearest location distance uses top-down tile coordinates', () {
+    const tiles = [
+      TilemapCell(x: 0, y: 0, type: 'a', locationId: 'a'),
+      TilemapCell(x: 1, y: 1, type: 'a', locationId: 'b'),
+      TilemapCell(x: 8, y: 8, type: 'a', locationId: 'c'),
+    ];
+
+    expect(
+      tilemapNearestTopDownLocationDistanceTiles(tiles),
+      closeTo(math.sqrt(2), 0.000001),
+    );
+  });
+
+  test(
+    'automatic initial scale linearly follows nearest location distance',
+    () {
+      List<TilemapCell> locationPairAtDistance(int distance) => [
+        const TilemapCell(x: 0, y: 0, type: 'a', locationId: 'a'),
+        TilemapCell(x: distance, y: 0, type: 'a', locationId: 'b'),
+      ];
+
+      expect(
+        tilemapAutomaticInitialScaleForTiles(tiles: locationPairAtDistance(1)),
+        15,
+      );
+      expect(
+        tilemapAutomaticInitialScaleForTiles(tiles: locationPairAtDistance(2)),
+        closeTo(10.3333333, 0.000001),
+      );
+      expect(
+        tilemapAutomaticInitialScaleForTiles(tiles: locationPairAtDistance(4)),
+        8,
+      );
+      expect(
+        tilemapAutomaticInitialScaleForTiles(tiles: locationPairAtDistance(10)),
+        8,
+      );
+      expect(
+        tilemapAutomaticInitialScaleForTiles(
+          tiles: const [TilemapCell(x: 0, y: 0, type: 'a', locationId: 'only')],
+        ),
+        8,
+      );
+    },
+  );
+
+  test(
+    'automatic initial scale honors configured distance and zoom ranges',
+    () {
+      const tiles = [
+        TilemapCell(x: 0, y: 0, type: 'a', locationId: 'a'),
+        TilemapCell(x: 3, y: 0, type: 'a', locationId: 'b'),
+      ];
+
+      expect(
+        tilemapAutomaticInitialScaleForTiles(
+          tiles: tiles,
+          nearbyDistanceTiles: 2,
+          distantDistanceTiles: 6,
+          nearbyScale: 20,
+          distantScale: 10,
+        ),
+        17.5,
+      );
+    },
+  );
 
   test('initial focus uses the first location with the most avatars', () {
     const tiles = [
@@ -2115,6 +2182,7 @@ void main() {
             height: 480,
             child: TilemapRenderer(
               config: config,
+              showLocationImageFlow: true,
               locationNameForTile: (tile) => tile.locationId,
               locationAvatarsForTile: (tile) => tile.locationId == 'center'
                   ? const [UserAvatar('AA', id: 'a', name: 'Ada')]

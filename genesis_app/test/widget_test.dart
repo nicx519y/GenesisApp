@@ -21173,6 +21173,30 @@ void main() {
     expect(visibilitySwitch, findsOneWidget);
     expect(tester.widget<Switch>(visibilitySwitch).value, isFalse);
     expect(tilemapSettingsButtonVisibility.value, isFalse);
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-tilemap-nearby-distance-slider'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-tilemap-distant-distance-slider'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-tilemap-nearby-scale-slider'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-tilemap-distant-scale-slider'),
+      ),
+      findsNothing,
+    );
 
     await tester.tap(visibilitySwitch);
     await tester.pumpAndSettle();

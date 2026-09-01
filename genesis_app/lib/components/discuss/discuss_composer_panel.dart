@@ -10,6 +10,7 @@ class _DiscussComposerPanel extends StatelessWidget {
     required this.images,
     required this.submitting,
     required this.canSend,
+    required this.showImagePickerButton,
     required this.onPickImages,
     required this.onRemoveImage,
     required this.onSend,
@@ -23,6 +24,7 @@ class _DiscussComposerPanel extends StatelessWidget {
   final List<_DiscussImageAttachment> images;
   final bool submitting;
   final bool canSend;
+  final bool showImagePickerButton;
   final VoidCallback onPickImages;
   final ValueChanged<_DiscussImageAttachment> onRemoveImage;
   final VoidCallback onSend;
@@ -84,20 +86,21 @@ class _DiscussComposerPanel extends StatelessWidget {
               ],
               Row(
                 children: [
-                  IconButton(
-                    key: const ValueKey('discuss-image-picker-button'),
-                    onPressed: submitting ? null : onPickImages,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints.tightFor(
-                      width: 36,
-                      height: 36,
+                  if (showImagePickerButton)
+                    IconButton(
+                      key: const ValueKey('discuss-image-picker-button'),
+                      onPressed: submitting ? null : onPickImages,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints.tightFor(
+                        width: 36,
+                        height: 36,
+                      ),
+                      icon: const Icon(
+                        Icons.add_photo_alternate_outlined,
+                        size: 30,
+                        color: GenesisColors.createAdd,
+                      ),
                     ),
-                    icon: const Icon(
-                      Icons.add_photo_alternate_outlined,
-                      size: 30,
-                      color: GenesisColors.createAdd,
-                    ),
-                  ),
                   const Spacer(),
                   TextButton(
                     onPressed: canSend ? onSend : null,

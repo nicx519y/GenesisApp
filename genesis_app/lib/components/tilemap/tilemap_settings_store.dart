@@ -55,7 +55,13 @@ class TilemapRenderSettings {
     required this.locationImageFlowOpacity,
     required this.locationImageFlowDurationSeconds,
     required this.locationImageFlowBlendMode,
-    required this.initialScale,
+    this.nearbyLocationDistanceTiles =
+        tilemapDefaultNearbyLocationDistanceTiles,
+    this.distantLocationDistanceTiles =
+        tilemapDefaultDistantLocationDistanceTiles,
+    this.nearbyLocationInitialScale = tilemapDefaultNearbyLocationInitialScale,
+    this.distantLocationInitialScale =
+        tilemapDefaultDistantLocationInitialScale,
     required this.dragBoundaryPaddingTiles,
   });
 
@@ -76,7 +82,10 @@ class TilemapRenderSettings {
       locationImageFlowDurationSeconds:
           tilemapDefaultLocationImageFlowDurationSeconds,
       locationImageFlowBlendMode: tilemapDefaultLocationImageFlowBlendMode,
-      initialScale: tilemapDefaultInitialScale,
+      nearbyLocationDistanceTiles: tilemapDefaultNearbyLocationDistanceTiles,
+      distantLocationDistanceTiles: tilemapDefaultDistantLocationDistanceTiles,
+      nearbyLocationInitialScale: tilemapDefaultNearbyLocationInitialScale,
+      distantLocationInitialScale: tilemapDefaultDistantLocationInitialScale,
       dragBoundaryPaddingTiles: tilemapDefaultDragBoundaryPaddingTiles,
     );
   }
@@ -88,6 +97,47 @@ class TilemapRenderSettings {
       'dark' => TilemapVisualMode.dark,
       _ => defaults.visualMode,
     };
+    var nearbyLocationDistanceTiles =
+        _readDouble(
+          json['nearby_location_distance_tiles'],
+          min: tilemapLocationDistanceThresholdMin,
+          max:
+              tilemapLocationDistanceThresholdMax -
+              tilemapLocationDistanceThresholdStep,
+        ) ??
+        defaults.nearbyLocationDistanceTiles;
+    var distantLocationDistanceTiles =
+        _readDouble(
+          json['distant_location_distance_tiles'],
+          min:
+              tilemapLocationDistanceThresholdMin +
+              tilemapLocationDistanceThresholdStep,
+          max: tilemapLocationDistanceThresholdMax,
+        ) ??
+        defaults.distantLocationDistanceTiles;
+    if (distantLocationDistanceTiles - nearbyLocationDistanceTiles <
+        tilemapLocationDistanceThresholdStep) {
+      nearbyLocationDistanceTiles = defaults.nearbyLocationDistanceTiles;
+      distantLocationDistanceTiles = defaults.distantLocationDistanceTiles;
+    }
+    var nearbyLocationInitialScale =
+        _readDouble(
+          json['nearby_location_initial_scale'],
+          min: tilemapNearbyLocationInitialScaleMin,
+          max: tilemapNearbyLocationInitialScaleMax,
+        ) ??
+        defaults.nearbyLocationInitialScale;
+    var distantLocationInitialScale =
+        _readDouble(
+          json['distant_location_initial_scale'],
+          min: tilemapDistantLocationInitialScaleMin,
+          max: tilemapDistantLocationInitialScaleMax,
+        ) ??
+        defaults.distantLocationInitialScale;
+    if (nearbyLocationInitialScale < distantLocationInitialScale) {
+      nearbyLocationInitialScale = defaults.nearbyLocationInitialScale;
+      distantLocationInitialScale = defaults.distantLocationInitialScale;
+    }
     return TilemapRenderSettings(
       visualMode: visualMode,
       loadingStyle:
@@ -134,13 +184,10 @@ class TilemapRenderSettings {
             json['location_image_flow_blend_mode'],
           ) ??
           defaults.locationImageFlowBlendMode,
-      initialScale:
-          _readDouble(
-            json['initial_scale'],
-            min: tilemapInitialScaleMin,
-            max: tilemapInitialScaleMax,
-          ) ??
-          defaults.initialScale,
+      nearbyLocationDistanceTiles: nearbyLocationDistanceTiles,
+      distantLocationDistanceTiles: distantLocationDistanceTiles,
+      nearbyLocationInitialScale: nearbyLocationInitialScale,
+      distantLocationInitialScale: distantLocationInitialScale,
       dragBoundaryPaddingTiles:
           _readDouble(
             json['drag_boundary_padding_tiles'],
@@ -164,27 +211,71 @@ class TilemapRenderSettings {
   final double locationImageFlowOpacity;
   final double locationImageFlowDurationSeconds;
   final TilemapLocationImageFlowBlendMode locationImageFlowBlendMode;
-  final double initialScale;
+  final double nearbyLocationDistanceTiles;
+  final double distantLocationDistanceTiles;
+  final double nearbyLocationInitialScale;
+  final double distantLocationInitialScale;
   final double dragBoundaryPaddingTiles;
+
+  TilemapRenderSettings copyWith({
+    TilemapVisualMode? visualMode,
+    TilemapLoadingStyle? loadingStyle,
+    List<TilemapFogControlPoint>? fogControlPoints,
+    bool? blendFogWithShadowTiles,
+    bool? cacheFogTileBitmaps,
+    bool? showShadowZeroBorders,
+    bool? showLocationImageFlow,
+    double? locationImageFlowAngleDegrees,
+    List<TilemapLocationImageFlowGradientPoint>?
+    locationImageFlowGradientPoints,
+    double? locationImageFlowOpacity,
+    double? locationImageFlowDurationSeconds,
+    TilemapLocationImageFlowBlendMode? locationImageFlowBlendMode,
+    double? nearbyLocationDistanceTiles,
+    double? distantLocationDistanceTiles,
+    double? nearbyLocationInitialScale,
+    double? distantLocationInitialScale,
+    double? dragBoundaryPaddingTiles,
+  }) {
+    return TilemapRenderSettings(
+      visualMode: visualMode ?? this.visualMode,
+      loadingStyle: loadingStyle ?? this.loadingStyle,
+      fogControlPoints: fogControlPoints ?? this.fogControlPoints,
+      blendFogWithShadowTiles:
+          blendFogWithShadowTiles ?? this.blendFogWithShadowTiles,
+      cacheFogTileBitmaps: cacheFogTileBitmaps ?? this.cacheFogTileBitmaps,
+      showShadowZeroBorders:
+          showShadowZeroBorders ?? this.showShadowZeroBorders,
+      showLocationImageFlow:
+          showLocationImageFlow ?? this.showLocationImageFlow,
+      locationImageFlowAngleDegrees:
+          locationImageFlowAngleDegrees ?? this.locationImageFlowAngleDegrees,
+      locationImageFlowGradientPoints:
+          locationImageFlowGradientPoints ??
+          this.locationImageFlowGradientPoints,
+      locationImageFlowOpacity:
+          locationImageFlowOpacity ?? this.locationImageFlowOpacity,
+      locationImageFlowDurationSeconds:
+          locationImageFlowDurationSeconds ??
+          this.locationImageFlowDurationSeconds,
+      locationImageFlowBlendMode:
+          locationImageFlowBlendMode ?? this.locationImageFlowBlendMode,
+      nearbyLocationDistanceTiles:
+          nearbyLocationDistanceTiles ?? this.nearbyLocationDistanceTiles,
+      distantLocationDistanceTiles:
+          distantLocationDistanceTiles ?? this.distantLocationDistanceTiles,
+      nearbyLocationInitialScale:
+          nearbyLocationInitialScale ?? this.nearbyLocationInitialScale,
+      distantLocationInitialScale:
+          distantLocationInitialScale ?? this.distantLocationInitialScale,
+      dragBoundaryPaddingTiles:
+          dragBoundaryPaddingTiles ?? this.dragBoundaryPaddingTiles,
+    );
+  }
 
   TilemapRenderSettings resolveForRuntime({required bool releaseMode}) {
     if (!releaseMode) return this;
-    return TilemapRenderSettings(
-      visualMode: visualMode,
-      loadingStyle: TilemapLoadingStyle.disabled,
-      fogControlPoints: fogControlPoints,
-      blendFogWithShadowTiles: blendFogWithShadowTiles,
-      cacheFogTileBitmaps: cacheFogTileBitmaps,
-      showShadowZeroBorders: showShadowZeroBorders,
-      showLocationImageFlow: showLocationImageFlow,
-      locationImageFlowAngleDegrees: locationImageFlowAngleDegrees,
-      locationImageFlowGradientPoints: locationImageFlowGradientPoints,
-      locationImageFlowOpacity: locationImageFlowOpacity,
-      locationImageFlowDurationSeconds: locationImageFlowDurationSeconds,
-      locationImageFlowBlendMode: locationImageFlowBlendMode,
-      initialScale: tilemapDefaultInitialScale,
-      dragBoundaryPaddingTiles: dragBoundaryPaddingTiles,
-    );
+    return copyWith(loadingStyle: TilemapLoadingStyle.disabled);
   }
 
   String toSerializedJson() {
@@ -193,7 +284,7 @@ class TilemapRenderSettings {
 
   Map<String, dynamic> toJson() {
     return {
-      'schema_version': 2,
+      'schema_version': 3,
       'visual_mode': visualMode.name,
       'loading_style': loadingStyle.name,
       'fog_control_points': [
@@ -212,7 +303,10 @@ class TilemapRenderSettings {
       'location_image_flow_opacity': locationImageFlowOpacity,
       'location_image_flow_duration_seconds': locationImageFlowDurationSeconds,
       'location_image_flow_blend_mode': locationImageFlowBlendMode.name,
-      'initial_scale': initialScale,
+      'nearby_location_distance_tiles': nearbyLocationDistanceTiles,
+      'distant_location_distance_tiles': distantLocationDistanceTiles,
+      'nearby_location_initial_scale': nearbyLocationInitialScale,
+      'distant_location_initial_scale': distantLocationInitialScale,
       'drag_boundary_padding_tiles': dragBoundaryPaddingTiles,
     };
   }
