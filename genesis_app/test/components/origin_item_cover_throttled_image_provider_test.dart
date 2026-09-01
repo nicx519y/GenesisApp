@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,6 +8,18 @@ import 'package:genesis_flutter_android/components/origin/origin_item_cover_thro
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  setUp(() {
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+  });
+
+  tearDown(() {
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+  });
 
   test('limits Worldo cover loading to four concurrent operations', () async {
     final limiter = OriginItemCoverLoadLimiter(
@@ -180,6 +193,117 @@ void main() {
     await Future<void>.delayed(Duration.zero);
     expect(limiter.activeLoadCount, 0);
   });
+
+  test('evicts a cancelled image stream so the same cover can retry', () async {
+    final image = await _solidImage(const Color(0xFF00AAFF));
+    addTearDown(image.dispose);
+    final source = _CancelOnceImageProvider(image);
+    final limiter = OriginItemCoverLoadLimiter(
+      maxConcurrentLoads: 1,
+      maxPendingLoads: 1,
+    );
+    final firstProvider = OriginItemCoverThrottledImageProvider(
+      sourceProvider: source,
+      loadLimiter: limiter,
+      cancellationToken: OriginItemCoverLoadCancellationToken(),
+    );
+    final firstError = Completer<Object>();
+    final firstStream = firstProvider.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener firstListener;
+    firstListener = ImageStreamListener(
+      (image, synchronousCall) {},
+      onError: (Object error, StackTrace? stackTrace) {
+        if (!firstError.isCompleted) firstError.complete(error);
+      },
+    );
+    firstStream.addListener(firstListener);
+
+    expect(
+      await firstError.future,
+      isA<OriginItemCoverLoadCancelledException>(),
+    );
+    firstStream.removeListener(firstListener);
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+    expect(
+      PaintingBinding.instance.imageCache.statusForKey(firstProvider).untracked,
+      isTrue,
+    );
+
+    final secondProvider = OriginItemCoverThrottledImageProvider(
+      sourceProvider: source,
+      loadLimiter: limiter,
+      cancellationToken: OriginItemCoverLoadCancellationToken(),
+    );
+    final secondFrame = Completer<ImageInfo>();
+    final secondError = Completer<Object>();
+    final secondStream = secondProvider.resolve(ImageConfiguration.empty);
+    late final ImageStreamListener secondListener;
+    secondListener = ImageStreamListener(
+      (image, synchronousCall) {
+        if (!secondFrame.isCompleted) secondFrame.complete(image.clone());
+      },
+      onError: (Object error, StackTrace? stackTrace) {
+        if (!secondError.isCompleted) secondError.complete(error);
+      },
+    );
+    secondStream.addListener(secondListener);
+
+    final recoveredFrame = await Future.any<Object>([
+      secondFrame.future,
+      secondError.future,
+    ]);
+    expect(recoveredFrame, isA<ImageInfo>());
+    (recoveredFrame as ImageInfo).dispose();
+    secondStream.removeListener(secondListener);
+    expect(source.loadCount, 2);
+  });
+}
+
+Future<ui.Image> _solidImage(Color color) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.drawRect(const Rect.fromLTWH(0, 0, 8, 12), Paint()..color = color);
+  final picture = recorder.endRecording();
+  try {
+    return await picture.toImage(8, 12);
+  } finally {
+    picture.dispose();
+  }
+}
+
+@immutable
+class _CancelOnceImageProvider extends ImageProvider<_CancelOnceImageProvider> {
+  _CancelOnceImageProvider(this.image);
+
+  final ui.Image image;
+  final _LoadCounter _loadCounter = _LoadCounter();
+
+  int get loadCount => _loadCounter.value;
+
+  @override
+  Future<_CancelOnceImageProvider> obtainKey(ImageConfiguration configuration) {
+    return SynchronousFuture<_CancelOnceImageProvider>(this);
+  }
+
+  @override
+  ImageStreamCompleter loadImage(
+    _CancelOnceImageProvider key,
+    ImageDecoderCallback decode,
+  ) {
+    _loadCounter.value += 1;
+    return OneFrameImageStreamCompleter(
+      _loadCounter.value == 1
+          ? Future<ImageInfo>.error(
+              const OriginItemCoverLoadCancelledException(),
+            )
+          : Future<ImageInfo>.value(ImageInfo(image: image.clone())),
+    );
+  }
+}
+
+class _LoadCounter {
+  var value = 0;
 }
 
 @immutable

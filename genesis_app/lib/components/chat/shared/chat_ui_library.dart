@@ -25,8 +25,10 @@ import '../../../ui/tokens/genesis_typography.dart';
 import '../../../ui/text/genesis_text_input_formatters.dart';
 import '../../../utils/genesis_message_image.dart';
 import 'chat_scene_plate_tokens.dart';
+import 'chat_mention.dart';
 import 'chat_ui_style_config.dart';
 
+export 'chat_mention.dart';
 export 'chat_ui_style_config.dart';
 
 part 'chat_ui_message_model.dart';

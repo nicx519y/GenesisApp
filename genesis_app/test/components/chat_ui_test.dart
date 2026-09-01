@@ -3119,6 +3119,7 @@ void main() {
               senderType: 'narrator',
             ),
             showDateDivider: false,
+            style: kLocationChatStyle,
           ),
         ),
       ),
@@ -3132,7 +3133,16 @@ void main() {
       ),
     );
     expect(_textHasItalicFragment(systemText, 'cold'), isTrue);
-    expect(_textFragmentColor(systemText, 'cold'), const Color(0xFF888888));
+    expect(
+      _textFragmentColor(systemText, 'cold'),
+      systemText.textSpan?.style?.color,
+    );
+    expect(
+      _textFragmentColor(systemText, 'cold'),
+      isNot(const Color(0xFF888888)),
+    );
+    expect(systemText.textSpan?.style?.fontSize, 14);
+    expect(_textFragmentStyle(systemText, 'cold')?.fontSize, 14);
   });
 
   testWidgets('location chat keeps avatars aligned and bars one-third in', (

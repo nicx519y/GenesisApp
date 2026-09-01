@@ -9,6 +9,7 @@ class _InlineMarkdownText extends StatelessWidget {
     this.textAlign,
     this.softItalic = false,
     this.softItalicPerToken = false,
+    this.emphasisColor = const Color(0xFF888888),
   }) : assert(!softItalic || !softItalicPerToken);
 
   final String text;
@@ -18,6 +19,7 @@ class _InlineMarkdownText extends StatelessWidget {
   final TextAlign? textAlign;
   final bool softItalic;
   final bool softItalicPerToken;
+  final Color emphasisColor;
 
   @override
   Widget build(BuildContext context) {
@@ -30,6 +32,7 @@ class _InlineMarkdownText extends StatelessWidget {
         ? genesisSoftItalicStyle(style, platform: platform)
         : GenesisTypography.withFallback(style);
     final displayText = genesisDisplaySafeText(text);
+    final mentionCatalog = ChatMentionScope.maybeCatalogOf(context);
     final textWidget = Text.rich(
       TextSpan(
         style: textStyle,
@@ -37,6 +40,8 @@ class _InlineMarkdownText extends StatelessWidget {
           displayText,
           textStyle,
           platform,
+          mentionCatalog: mentionCatalog,
+          emphasisColor: emphasisColor,
           suppressIosEmphasisSkew: softItalic && usesIosSoftItalicSkew,
           softItalicPlainText: softItalicPerToken && usesIosSoftItalicSkew,
         ),
@@ -57,6 +62,8 @@ List<InlineSpan> _inlineMarkdownSpans(
   String text,
   TextStyle baseStyle,
   TargetPlatform platform, {
+  required ChatMentionCatalog? mentionCatalog,
+  required Color emphasisColor,
   bool suppressIosEmphasisSkew = false,
   bool softItalicPlainText = false,
 }) {
@@ -67,18 +74,20 @@ List<InlineSpan> _inlineMarkdownSpans(
   void flushPlain() {
     if (buffer.isEmpty) return;
     final plainText = buffer.toString();
-    if (softItalicPlainText) {
-      spans.addAll(
-        _inlineEmphasisSpans(
-          plainText,
-          baseStyle,
-          platform,
-          color: baseStyle.color,
-        ),
-      );
-    } else {
-      spans.add(TextSpan(text: plainText));
-    }
+    spans.addAll(
+      _chatMentionAwareSpans(
+        plainText,
+        mentionCatalog,
+        (piece) => softItalicPlainText
+            ? _inlineEmphasisSpans(
+                piece,
+                baseStyle,
+                platform,
+                color: baseStyle.color,
+              )
+            : <InlineSpan>[TextSpan(text: piece)],
+      ),
+    );
     buffer.clear();
   }
 
@@ -89,19 +98,23 @@ List<InlineSpan> _inlineMarkdownSpans(
       if (end != -1 && end > index + 1) {
         flushPlain();
         spans.addAll(
-          suppressIosEmphasisSkew
-              ? <InlineSpan>[
-                  TextSpan(
-                    text: text.substring(index + 1, end),
-                    style: baseStyle.copyWith(color: const Color(0xFF888888)),
+          _chatMentionAwareSpans(
+            text.substring(index + 1, end),
+            mentionCatalog,
+            (piece) => suppressIosEmphasisSkew
+                ? <InlineSpan>[
+                    TextSpan(
+                      text: piece,
+                      style: baseStyle.copyWith(color: emphasisColor),
+                    ),
+                  ]
+                : _inlineEmphasisSpans(
+                    piece,
+                    baseStyle,
+                    platform,
+                    color: emphasisColor,
                   ),
-                ]
-              : _inlineEmphasisSpans(
-                  text.substring(index + 1, end),
-                  baseStyle,
-                  platform,
-                  color: const Color(0xFF888888),
-                ),
+          ),
         );
         index = end + 1;
         continue;
@@ -112,6 +125,31 @@ List<InlineSpan> _inlineMarkdownSpans(
   }
 
   flushPlain();
+  return spans;
+}
+
+List<InlineSpan> _chatMentionAwareSpans(
+  String text,
+  ChatMentionCatalog? catalog,
+  List<InlineSpan> Function(String text) plainSpans,
+) {
+  if (text.isEmpty) return const <InlineSpan>[];
+  if (catalog == null || catalog.isEmpty) return plainSpans(text);
+  final mentions = parseKnownChatMentions(text, catalog);
+  if (mentions.isEmpty) return plainSpans(text);
+
+  final spans = <InlineSpan>[];
+  var offset = 0;
+  for (final mention in mentions) {
+    if (mention.start > offset) {
+      spans.addAll(plainSpans(text.substring(offset, mention.start)));
+    }
+    spans.add(chatMentionWidgetSpan(mention));
+    offset = mention.end;
+  }
+  if (offset < text.length) {
+    spans.addAll(plainSpans(text.substring(offset)));
+  }
   return spans;
 }
 
