@@ -159,7 +159,7 @@ class AppStartupCoordinator {
     final stopwatch = _launchStopwatch;
     if (startupId == null || stopwatch == null) return;
     GenesisTelemetry.collectLog(
-      actionType: 'event',
+      actionType: 'monitor',
       action: action,
       object1: startupId,
       object2: page,
