@@ -7442,7 +7442,11 @@ void main() {
       AppServicesScope(
         services: await _testServices(transport: transport, useMock: false),
         child: const MaterialApp(
-          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          home: OriginWorldPage(
+            oid: 'o_test_1',
+            originId: 0,
+            showOpeningSheetOnEntry: true,
+          ),
         ),
       ),
     );
@@ -7824,6 +7828,14 @@ void main() {
     expect(
       tester.widget<IgnorePointer>(selectRoleVisibility).ignoring,
       isFalse,
+    );
+    final expandedComposerVisibility = find.byKey(
+      const ValueKey<String>('origin-expanded-opening-composer-visibility'),
+    );
+    expect(expandedComposerVisibility, findsOneWidget);
+    expect(
+      tester.widget<IgnorePointer>(expandedComposerVisibility).ignoring,
+      isTrue,
     );
     expect(
       tester.widget<Text>(find.text('Select your role')).style?.color,
@@ -8267,8 +8279,38 @@ void main() {
               openingDelegate.estimatedChildCount! - 1,
             )
             as ChatMessageRow;
-    expect(firstOpeningRow.style?.rowBottomPadding, 24);
+    expect(
+      firstOpeningRow.style?.rowBottomPadding,
+      kOpeningDialogueStyle.rowBottomPadding,
+    );
     expect(lastOpeningRow.style?.rowBottomPadding, 0);
+
+    final openingScrollView = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>('origin-detail-sheet-page-Opening'),
+      ),
+      matching: find.byType(CustomScrollView),
+    );
+    final openingScrollController = tester
+        .widget<CustomScrollView>(openingScrollView)
+        .controller!;
+    expect(openingScrollController.position.maxScrollExtent, greaterThan(0));
+    openingScrollController.jumpTo(
+      openingScrollController.position.maxScrollExtent,
+    );
+    await tester.pump();
+    await tester.pump();
+    final sheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    expect(
+      tester.getTopLeft(openingLocation).dy,
+      closeTo(
+        tester.getTopLeft(sheetSurface).dy +
+            originDetailSheetHeaderHeightForTesting,
+        1,
+      ),
+    );
   });
 
   testWidgets('origin sheet shows Worldo brief without opening dialogue', (
@@ -10958,6 +11000,253 @@ void main() {
   });
 
   testWidgets(
+    'Origin expanded sheet pins role composer and sends after launch',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldLocations: const [
+          {
+            'location_id': 'l_o_test_1',
+            'location_name': 'Detail Location',
+            'location_summary': 'A location from detail.',
+            'image': '',
+            'map_url': '',
+            'x_percent': 30,
+            'y_percent': 40,
+          },
+        ],
+        worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
+        worldDetailTickCountsByRequest: const [0],
+      );
+      final chatroom = _FakeChatroomClient();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+            chatroom: chatroom,
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final visibility = find.byKey(
+        const ValueKey('origin-expanded-opening-composer-visibility'),
+      );
+      expect(visibility, findsOneWidget);
+      expect(tester.widget<IgnorePointer>(visibility).ignoring, isFalse);
+      final sheetComposer = find.descendant(
+        of: find.byKey(const ValueKey('origin-expanded-opening-composer')),
+        matching: find.byType(ChatComposer),
+      );
+      expect(sheetComposer, findsOneWidget);
+      final sheetComposerWidget = tester.widget<ChatComposer>(sheetComposer);
+      expect(
+        sheetComposerWidget.style?.composerBackgroundColor,
+        originWorldDetailSheetBackgroundColor,
+      );
+      expect(sheetComposerWidget.style?.composerBackgroundGradient, isNull);
+      expect(
+        sheetComposerWidget.style?.inputBackgroundColor,
+        GenesisColors.surface,
+      );
+      expect(
+        sheetComposerWidget.style?.composerSendButtonColor,
+        sheetComposerWidget.style?.inputBackgroundColor,
+      );
+      expect(
+        sheetComposerWidget.style?.composerSendButtonDisabledColor,
+        GenesisColors.surfaceMuted,
+      );
+      expect(
+        sheetComposerWidget.style?.composerSendButtonIconColor,
+        GenesisColors.textPrimary,
+      );
+      final expandedComposer = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer'),
+      );
+      final rolePill = find.descendant(
+        of: expandedComposer,
+        matching: find.byKey(const ValueKey('origin-location-chat-role-pill')),
+      );
+      final inputSurface = find.descendant(
+        of: sheetComposer,
+        matching: find.byKey(const ValueKey('chat-composer-input-surface')),
+      );
+      final dockRoleTranslation = find.descendant(
+        of: expandedComposer,
+        matching: find.byKey(
+          const ValueKey<String>('origin-location-chat-dock-role-translation'),
+        ),
+      );
+      final roleRegion = find.descendant(
+        of: expandedComposer,
+        matching: find.byKey(
+          const ValueKey<String>('origin-location-chat-role-region'),
+        ),
+      );
+      expect(rolePill, findsOneWidget);
+      expect(roleRegion, findsOneWidget);
+      expect(tester.widget<ColoredBox>(roleRegion).color, Colors.transparent);
+      expect(dockRoleTranslation, findsOneWidget);
+      expect(
+        tester
+            .widget<Transform>(dockRoleTranslation)
+            .transform
+            .getTranslation()
+            .y,
+        -2,
+      );
+      expect(sheetComposerWidget.style?.composerPadding.top, 4);
+      expect(
+        find.descendant(
+          of: expandedComposer,
+          matching: find.byKey(
+            const ValueKey<String>(
+              'origin-location-chat-input-dock-top-extension',
+            ),
+          ),
+        ),
+        findsNothing,
+      );
+      expect(
+        tester.getSize(rolePill).width,
+        lessThan(tester.getSize(inputSurface).width),
+      );
+      expect(tester.widget<Material>(rolePill).color, GenesisColors.surface);
+      final rolePillAvatar = find.descendant(
+        of: rolePill,
+        matching: find.byType(GenesisCharacterAvatar),
+      );
+      expect(rolePillAvatar, findsOneWidget);
+      expect(
+        tester
+            .widget<GenesisCharacterAvatar>(rolePillAvatar)
+            .showFallbackWhileLoading,
+        isFalse,
+      );
+      expect(
+        find.descendant(
+          of: expandedComposer,
+          matching: find.text('Your Profile'),
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(
+        find.descendant(
+          of: expandedComposer,
+          matching: find.byKey(
+            const ValueKey('origin-location-chat-role-selector'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(
+          const ValueKey('origin-location-chat-role-option-c_o_test_1'),
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('origin-location-chat-role-picker')),
+        findsOneWidget,
+      );
+      final selectedRoleIndicator = find.byKey(
+        const ValueKey<String>(
+          'origin-location-chat-role-option-indicator-c_o_test_1',
+        ),
+      );
+      expect(selectedRoleIndicator, findsOneWidget);
+      expect(
+        tester.widget<Icon>(selectedRoleIndicator).icon,
+        Icons.check_circle_rounded,
+      );
+      final previousRoleIndicator = find.byKey(
+        const ValueKey<String>(
+          'origin-location-chat-role-option-indicator-current-user',
+        ),
+      );
+      expect(previousRoleIndicator, findsOneWidget);
+      expect(
+        tester.widget<Icon>(previousRoleIndicator).icon,
+        Icons.circle_outlined,
+      );
+      await tester.pump(const Duration(milliseconds: 180));
+      await tester.pumpAndSettle();
+
+      const message = 'Send from the expanded sheet';
+      final input = find.descendant(
+        of: sheetComposer,
+        matching: find.byKey(const ValueKey('chat-composer-input')),
+      );
+      await tester.enterText(input, message);
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: sheetComposer,
+          matching: find.byKey(const ValueKey('chat-composer-send-button')),
+        ),
+      );
+      await tester.pump();
+      expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
+      for (var frame = 0; frame < 60; frame += 1) {
+        await tester.pump();
+        if (find.byType(WorldPage).evaluate().isNotEmpty &&
+            chatroom.session.sentMessages.isNotEmpty) {
+          break;
+        }
+      }
+
+      final launchedWorldPage = tester.widget<WorldPage>(
+        find.byType(WorldPage),
+      );
+      expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
+      expect(launchedWorldPage.initialMessageToSend, message);
+      expect(chatroom.session.sentMessages, [message]);
+      final clientMsgId = chatroom.session.sentClientMsgIds.single;
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'w_launched_from_origin',
+          locationId: 'l_o_test_1',
+          userId: 'u_mock',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: 43,
+          locationMessageId: 43,
+          conversationRoundId: 'round-sheet',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: 'u_mock',
+          senderName: 'Me',
+          content: message,
+          broadcast: true,
+          currentTime: '2026-09-01T00:00:00Z',
+          clientMsgId: clientMsgId,
+          createdAt: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
+      AppStartupCoordinator.resetForTesting();
+    },
+  );
+
+  testWidgets(
     'Origin preview composer launches then sends in the same location once',
     (WidgetTester tester) async {
       AppStartupCoordinator.resetForTesting();
@@ -11007,6 +11296,38 @@ void main() {
         matching: find.byType(ChatComposer),
       );
       expect(previewComposer, findsOneWidget);
+      final previewComposerWidget = tester.widget<ChatComposer>(
+        previewComposer,
+      );
+      expect(
+        previewComposerWidget.style?.composerBackgroundColor,
+        Colors.transparent,
+      );
+      expect(previewComposerWidget.style?.composerBackgroundGradient, isNull);
+      expect(
+        previewComposerWidget.style?.composerBackdropBlurSigma,
+        kLocationChatStyle.composerBackdropBlurSigma,
+      );
+      final previewRolePill = find.descendant(
+        of: chatPanel,
+        matching: find.byKey(
+          const ValueKey<String>('origin-location-chat-role-pill'),
+        ),
+      );
+      expect(previewRolePill, findsOneWidget);
+      expect(
+        tester.widget<Material>(previewRolePill).color,
+        previewComposerWidget.style?.inputBackgroundColor,
+      );
+      expect(
+        find.descendant(
+          of: chatPanel,
+          matching: find.byKey(
+            const ValueKey<String>('origin-location-chat-role-pill-backdrop'),
+          ),
+        ),
+        findsOneWidget,
+      );
       expect(find.text('Launch to send'), findsNothing);
       final previewInput = find.descendant(
         of: previewComposer,
@@ -11018,29 +11339,85 @@ void main() {
         matching: find.byKey(const ValueKey('chat-composer-input-surface')),
       );
       final previewRoleSelector = find.descendant(
-        of: previewComposer,
+        of: chatPanel,
         matching: find.byKey(
           const ValueKey('origin-location-chat-role-selector'),
         ),
       );
       expect(previewInputSurface, findsOneWidget);
+      expect(previewComposerWidget.style?.composerPadding.top, 4);
+      expect(
+        find.descendant(
+          of: chatPanel,
+          matching: find.byKey(
+            const ValueKey<String>(
+              'origin-location-chat-input-dock-top-extension',
+            ),
+          ),
+        ),
+        findsNothing,
+      );
       expect(previewRoleSelector, findsOneWidget);
+      expect(
+        tester.getSize(previewRolePill).width,
+        lessThan(tester.getSize(previewInputSurface).width),
+      );
+      final previewRoleRegion = find.descendant(
+        of: chatPanel,
+        matching: find.byKey(
+          const ValueKey<String>('origin-location-chat-role-region'),
+        ),
+      );
+      expect(previewRoleRegion, findsOneWidget);
+      expect(
+        tester.widget<ColoredBox>(previewRoleRegion).color,
+        Colors.transparent,
+      );
+      final previewRoleTranslation = find.descendant(
+        of: chatPanel,
+        matching: find.byKey(
+          const ValueKey<String>('origin-location-chat-dock-role-translation'),
+        ),
+      );
+      expect(previewRoleTranslation, findsOneWidget);
+      expect(
+        tester
+            .widget<Transform>(previewRoleTranslation)
+            .transform
+            .getTranslation()
+            .y,
+        -2,
+      );
+      final composerTopOverlay = find.byKey(
+        const ValueKey<String>('location-chat-composer-top-overlay'),
+      );
+      final messageViewport = find.byKey(
+        const ValueKey<String>('location-chat-message-viewport-clip'),
+      );
+      expect(composerTopOverlay, findsOneWidget);
+      expect(messageViewport, findsOneWidget);
+      expect(tester.widget<Positioned>(composerTopOverlay).right, isNull);
+      expect(
+        tester.getBottomLeft(composerTopOverlay).dy,
+        closeTo(tester.getBottomLeft(messageViewport).dy, 1),
+      );
+      expect(
+        tester.getTopLeft(previewRoleRegion).dy,
+        lessThan(tester.getBottomLeft(messageViewport).dy),
+      );
       expect(
         find.descendant(of: previewInputSurface, matching: previewRoleSelector),
         findsNothing,
       );
       expect(tester.widget<ChatComposer>(previewComposer).sendEnabled, isFalse);
       expect(
-        find.descendant(
-          of: previewComposer,
-          matching: find.text('Your Profile'),
-        ),
+        find.descendant(of: chatPanel, matching: find.text('Your Profile')),
         findsOneWidget,
       );
 
       await tester.tap(
         find.descendant(
-          of: previewComposer,
+          of: chatPanel,
           matching: find.byKey(
             const ValueKey('origin-location-chat-role-selector'),
           ),
@@ -11063,12 +11440,25 @@ void main() {
           const ValueKey('origin-location-chat-role-option-c_o_test_1'),
         ),
       );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('origin-location-chat-role-picker')),
+        findsOneWidget,
+      );
+      final selectedRoleIndicator = find.byKey(
+        const ValueKey<String>(
+          'origin-location-chat-role-option-indicator-c_o_test_1',
+        ),
+      );
+      expect(selectedRoleIndicator, findsOneWidget);
+      expect(
+        tester.widget<Icon>(selectedRoleIndicator).icon,
+        Icons.check_circle_rounded,
+      );
+      await tester.pump(const Duration(milliseconds: 180));
       await tester.pumpAndSettle();
       expect(
-        find.descendant(
-          of: previewComposer,
-          matching: find.text('Detail Character'),
-        ),
+        find.descendant(of: chatPanel, matching: find.text('Detail Character')),
         findsOneWidget,
       );
 

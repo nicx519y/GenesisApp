@@ -35,6 +35,9 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onSelectRole,
     required this.onSelectProfileRole,
     required this.onFillProfileRole,
+    required this.locationChatRole,
+    required this.onSelectLocationChatRole,
+    required this.onSendLocationChatMessage,
   });
 
   static const double defaultInitialChildSize = 0.35;
@@ -55,6 +58,10 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final Future<void> Function(OriginCharacter character) onSelectRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
   final OriginRoleProfileLoader? onFillProfileRole;
+  final _OriginLocationChatRoleOption locationChatRole;
+  final VoidCallback onSelectLocationChatRole;
+  final Future<void> Function(String locationId, String message)
+  onSendLocationChatMessage;
 
   @override
   State<_OriginDetailDraggableSheet> createState() =>
@@ -497,6 +504,50 @@ class _OriginDetailDraggableSheetState
     );
   }
 
+  Widget _buildExpandedOpeningComposer(String locationId) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_sheetController, _pageController]),
+      child: KeyedSubtree(
+        key: const ValueKey<String>('origin-expanded-opening-composer'),
+        child: _OriginLocationChatLaunchComposer(
+          key: ValueKey<String>(
+            'origin-sheet-chat-composer-${widget.origin.oid}-'
+            '$locationId',
+          ),
+          launching: widget.launching,
+          role: widget.locationChatRole,
+          onSelectRole: widget.onSelectLocationChatRole,
+          onSend: (message) =>
+              widget.onSendLocationChatMessage(locationId, message),
+          style: _originDetailSheetChatComposerStyle,
+          inputDockBackgroundColor: originWorldDetailSheetBackgroundColor,
+          roleForegroundColor: GenesisColors.textPrimary,
+          roleMutedColor: GenesisColors.textTertiary,
+          roleBackgroundColor: GenesisColors.surface,
+        ),
+      ),
+      builder: (context, child) {
+        final maxExtent = _expandedChildSize(context);
+        final sheetExtent = _sheetController.isAttached
+            ? _sheetController.size
+            : widget.initiallyExpanded
+            ? maxExtent
+            : _minChildSize;
+        final expandedProgress = ((sheetExtent - (maxExtent - 0.025)) / 0.025)
+            .clamp(0.0, 1.0)
+            .toDouble();
+        final opacity = widget.autoExpansionPending ? 0.0 : expandedProgress;
+        return IgnorePointer(
+          key: const ValueKey<String>(
+            'origin-expanded-opening-composer-visibility',
+          ),
+          ignoring: opacity < 0.99,
+          child: Opacity(opacity: opacity, child: child),
+        );
+      },
+    );
+  }
+
   OriginDiscussListController _ensureDiscussController() {
     final existing = _discussController;
     if (existing != null) return existing;
@@ -561,7 +612,7 @@ class _OriginDetailDraggableSheetState
           originDetailSheetHorizontalPaddingForTesting,
           6,
           originDetailSheetHorizontalPaddingForTesting,
-          24,
+          _originLaunchChatLocationId(widget.origin).isEmpty ? 24 : 160,
         ),
         sliver: SliverList(delegate: SliverChildListDelegate(children)),
       ),
@@ -571,6 +622,7 @@ class _OriginDetailDraggableSheetState
   Widget _buildOpeningPage(
     ScrollController scrollController,
     _OriginInitialDialoguePreview? initialDialoguePreview,
+    String locationChatLocationId,
   ) {
     return KeyedSubtree(
       key: const ValueKey<String>('origin-detail-sheet-page-Opening'),
@@ -618,6 +670,8 @@ class _OriginDetailDraggableSheetState
                 onBeginProfileRoleEditing: _expandOpeningRoleCards,
               ),
             ),
+            if (locationChatLocationId.isNotEmpty)
+              const SliverToBoxAdapter(child: SizedBox(height: 136)),
           ],
         ],
       ),
@@ -674,6 +728,7 @@ class _OriginDetailDraggableSheetState
             .clamp(minChildSize, maxChildSize)
             .toDouble();
     final initialDialoguePreview = _initialDialoguePreview;
+    final locationChatLocationId = _originLaunchChatLocationId(widget.origin);
     return IgnorePointer(
       ignoring: widget.autoExpansionPending,
       child: NotificationListener<DraggableScrollableNotification>(
@@ -735,6 +790,7 @@ class _OriginDetailDraggableSheetState
                                     ? _buildOpeningPage(
                                         pageScrollController,
                                         initialDialoguePreview,
+                                        locationChatLocationId,
                                       )
                                     : _buildInfoPage(pageScrollController);
                               },
@@ -756,6 +812,15 @@ class _OriginDetailDraggableSheetState
                           bottom: 0,
                           child: _buildCollapsedOpeningRoleAction(bottomInset),
                         ),
+                        if (locationChatLocationId.isNotEmpty)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: keyboardInset,
+                            child: _buildExpandedOpeningComposer(
+                              locationChatLocationId,
+                            ),
+                          ),
                       ],
                     ),
                   ),

@@ -1188,6 +1188,14 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               onSelectProfileRole: (profileRole) =>
                   _selectAndLaunchProfileRole(origin, profileRole),
               onFillProfileRole: _customRoleFromProfile,
+              locationChatRole: _locationChatRoleOption(origin),
+              onSelectLocationChatRole: () => _selectLocationChatRole(origin),
+              onSendLocationChatMessage: (locationId, message) =>
+                  _launchLocationChatMessage(
+                    origin,
+                    locationId: locationId,
+                    message: message,
+                  ),
             ),
         topOverlay: _buildLocationChatOverlay(origin),
         map: WorldKeepAlivePage(child: map),

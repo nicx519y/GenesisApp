@@ -589,6 +589,7 @@ class ChatUiStyleConfig {
     Gradient? composerBackgroundGradient,
     bool clearComposerBackgroundGradient = false,
     double? composerBackdropBlurSigma,
+    EdgeInsets? composerPadding,
     TextStyle? headerTitleTextStyle,
     TextStyle? headerSubtitleTextStyle,
     Color? headerTitleIconColor,
@@ -623,6 +624,7 @@ class ChatUiStyleConfig {
     double? composerSendButtonBorderRadius,
     Color? composerSendButtonColor,
     Color? composerSendButtonDisabledColor,
+    Color? composerSendButtonIconColor,
     double? composerSendButtonBackdropBlurSigma,
     double? composerSendButtonIconSize,
     double? composerActionGap,
@@ -663,7 +665,7 @@ class ChatUiStyleConfig {
       headerTrailingPlaceholderWidth: headerTrailingPlaceholderWidth,
       composerBackgroundColor:
           composerBackgroundColor ?? this.composerBackgroundColor,
-      composerPadding: composerPadding,
+      composerPadding: composerPadding ?? this.composerPadding,
       composerIconButtonSize: composerIconButtonSize,
       composerIconSize: composerIconSize,
       composerIconColor: composerIconColor,
@@ -686,7 +688,8 @@ class ChatUiStyleConfig {
       composerSendButtonBackdropBlurSigma:
           composerSendButtonBackdropBlurSigma ??
           this.composerSendButtonBackdropBlurSigma,
-      composerSendButtonIconColor: composerSendButtonIconColor,
+      composerSendButtonIconColor:
+          composerSendButtonIconColor ?? this.composerSendButtonIconColor,
       composerSendButtonIconSize:
           composerSendButtonIconSize ?? this.composerSendButtonIconSize,
       composerSendButtonLoadingSize: composerSendButtonLoadingSize,

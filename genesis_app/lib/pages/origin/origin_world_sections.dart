@@ -268,36 +268,17 @@ List<Widget> _originInitialDialogueSlivers(
   final style = kOpeningDialogueStyle;
   final padding = style.messageListPadding;
   final brief = _originWorldoBrief(origin);
+  final locationTopPadding = brief.isEmpty ? 6.0 : 0.0;
   return <Widget>[
-    SliverToBoxAdapter(
-      child: Padding(
-        key: const ValueKey<String>('origin-opening-location'),
-        padding: EdgeInsets.fromLTRB(
-          padding.left,
-          brief.isEmpty ? 6 : 0,
-          padding.right,
-          8,
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.place_outlined,
-              size: 14,
-              color: style.headerTitleIconColor,
-            ),
-            SizedBox(width: style.headerTitleIconGap),
-            Expanded(
-              child: Text(
-                preview.locationName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.left,
-                style: style.headerTitleTextStyle.copyWith(fontSize: 14),
-              ),
-            ),
-          ],
-        ),
+    SliverPersistentHeader(
+      pinned: true,
+      delegate: _OriginOpeningLocationHeaderDelegate(
+        locationName: preview.locationName,
+        horizontalPadding: padding,
+        topPadding: locationTopPadding,
+        iconColor: style.headerTitleIconColor,
+        iconGap: style.headerTitleIconGap,
+        textStyle: style.headerTitleTextStyle.copyWith(fontSize: 14),
       ),
     ),
     SliverPadding(
@@ -331,6 +312,81 @@ List<Widget> _originInitialDialogueSlivers(
       ),
     ),
   ];
+}
+
+class _OriginOpeningLocationHeaderDelegate
+    extends SliverPersistentHeaderDelegate {
+  const _OriginOpeningLocationHeaderDelegate({
+    required this.locationName,
+    required this.horizontalPadding,
+    required this.topPadding,
+    required this.iconColor,
+    required this.iconGap,
+    required this.textStyle,
+  });
+
+  static const double _contentHeight = 25;
+
+  final String locationName;
+  final EdgeInsets horizontalPadding;
+  final double topPadding;
+  final Color iconColor;
+  final double iconGap;
+  final TextStyle textStyle;
+
+  @override
+  double get minExtent => topPadding + _contentHeight;
+
+  @override
+  double get maxExtent => minExtent;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return ColoredBox(
+      color: originWorldDetailSheetBackgroundColor,
+      child: Padding(
+        key: const ValueKey<String>('origin-opening-location'),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding.left,
+          topPadding,
+          horizontalPadding.right,
+          8,
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Icon(Icons.place_outlined, size: 14, color: iconColor),
+            SizedBox(width: iconGap),
+            Expanded(
+              child: Text(
+                locationName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.left,
+                style: textStyle,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(
+    covariant _OriginOpeningLocationHeaderDelegate oldDelegate,
+  ) {
+    return oldDelegate.locationName != locationName ||
+        oldDelegate.horizontalPadding != horizontalPadding ||
+        oldDelegate.topPadding != topPadding ||
+        oldDelegate.iconColor != iconColor ||
+        oldDelegate.iconGap != iconGap ||
+        oldDelegate.textStyle != textStyle;
+  }
 }
 
 List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
