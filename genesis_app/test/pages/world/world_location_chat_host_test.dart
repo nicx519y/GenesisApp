@@ -25,6 +25,15 @@ void main() {
     expect(cache.markReady('loc_1'), isFalse);
   });
 
+  test('initial message handoff can be claimed only once', () {
+    final cache = WorldLocationChatPageCache();
+
+    cache.queueInitialMessageToSend('loc_1', 'Hello after launch');
+
+    expect(cache.takeInitialMessageToSend('loc_1'), 'Hello after launch');
+    expect(cache.takeInitialMessageToSend('loc_1'), isEmpty);
+  });
+
   test('descriptor uses the XL background URL for both CDN sizes', () {
     final descriptor = WorldLocationChatPanelDescriptor.fromNode(
       const LocationTreeNode<Map<String, dynamic>>(

@@ -5,18 +5,23 @@ class ChatSelfMessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.style,
+    this.maxWidthCap,
     this.onLongPressStart,
     this.onFailedMessageTap,
   });
 
   final ChatMessageVm message;
   final ChatUiStyleConfig style;
+  final double? maxWidthCap;
   final GestureLongPressStartCallback? onLongPressStart;
   final ChatMessageTap? onFailedMessageTap;
 
   @override
   Widget build(BuildContext context) {
-    final maxBubbleWidth = _normalBubbleMaxWidth(context, style);
+    final defaultMaxBubbleWidth = _normalBubbleMaxWidth(context, style);
+    final maxBubbleWidth = maxWidthCap == null
+        ? defaultMaxBubbleWidth
+        : math.min(defaultMaxBubbleWidth, maxWidthCap!);
     final showFailedBadge = message.status == 'failed';
     final showSendingBadge = message.status == 'sending';
     final showStatusText =

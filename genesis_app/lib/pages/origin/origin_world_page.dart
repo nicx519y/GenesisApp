@@ -20,7 +20,6 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
-import '../../components/discuss/story_badge.dart';
 import '../../components/login_sheet.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/origin_character_form.dart';
@@ -32,10 +31,8 @@ import '../../components/world_map.dart';
 import '../../network/genesis_http_cache_manager.dart';
 import '../../components/world_tick_event_item.dart';
 import '../../icons/custom_icon_assets.dart';
-import '../../icons/my_flutter_app_icons.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../ui/components/genesis_static_network_image.dart';
-import '../../ui/system/genesis_system_ui.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
@@ -44,6 +41,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
+import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_map_top_glass_bar.dart';
 import '../../ui/components/genesis_primary_button.dart';
@@ -52,6 +50,7 @@ import '../../ui/components/genesis_search_field.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_radii.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../utils/entity_deleted.dart';
@@ -73,6 +72,7 @@ part 'origin_world_map_shell.dart';
 part 'origin_world_detail_sheet.dart';
 part 'origin_world_sections.dart';
 part 'origin_world_role_setup.dart';
+part 'origin_world_launched_worlds.dart';
 part 'origin_world_characters.dart';
 part 'origin_world_copy_progress.dart';
 part 'origin_world_location_chat.dart';
@@ -122,6 +122,7 @@ const double originDetailSectionTitleIconGapForTesting = 8;
 enum _OriginWorldPageRenderStage { framework, detailShell, content }
 
 class _OriginWorldPageState extends State<OriginWorldPage> {
+  static const String _profileLocationChatRoleId = 'current-user';
   static const SystemUiOverlayStyle _transparentStatusBarStyle =
       kGenesisLightStatusIconsSystemUiOverlayStyle;
   OriginDetail? _origin;
@@ -148,6 +149,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   String _launchedPresetRolesPreloadScheduledForOriginId = '';
   ValueListenable<int>? _userInfoRevisionListenable;
   OriginCustomRoleDraft? _cachedProfileRole;
+  String _selectedLocationChatRoleId = _profileLocationChatRoleId;
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
   bool _launching = false;
@@ -211,6 +213,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
       _activeChatLocation = null;
+      _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
       _tilemapRestorationController.clear();
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
@@ -250,37 +253,59 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
   void _handleCachedUserInfoChanged() {
     unawaited(_refreshCachedProfileRole());
+    if (!mounted) return;
+    setState(() {
+      _launchedPresetRolesFuture = null;
+      _launchedPresetRolesPreparationFuture = null;
+      _launchedPresetRolesData = null;
+      _launchedPresetRolesCacheKey = '';
+      _launchedPresetRolesPreloadScheduledForOriginId = '';
+    });
+    _scheduleLaunchedPresetRolesPreload();
   }
 
   Future<void> _refreshCachedProfileRole() async {
     final generation = ++_cachedProfileRoleLoadGeneration;
-    final services = AppServicesScope.read(context);
-    final session = await services.sessionStore.readCompleteSession();
-    OriginCustomRoleDraft? nextRole;
-    if (session != null) {
-      final uid = session.uid;
-      final userInfo = await services.sessionStore.readUserInfo();
-      final cachedName = userInfo == null
-          ? ''
-          : _mapString(userInfo, const [
-              'name',
-              'nickname',
-              'user_name',
-              'displayName',
-              'display_name',
-            ]);
-      nextRole = OriginCustomRoleDraft(
-        avatarUrl: userInfo == null ? '' : _resolvedProfileAvatar(userInfo, ''),
-        name: cachedName.isEmpty ? uid : cachedName,
-        identity: '',
+    try {
+      final services = AppServicesScope.read(context);
+      final session = await services.sessionStore.readCompleteSession();
+      OriginCustomRoleDraft? nextRole;
+      if (session != null) {
+        final uid = session.uid;
+        final userInfo = await services.sessionStore.readUserInfo();
+        final cachedName = userInfo == null
+            ? ''
+            : _mapString(userInfo, const [
+                'name',
+                'nickname',
+                'user_name',
+                'displayName',
+                'display_name',
+              ]);
+        nextRole = OriginCustomRoleDraft(
+          avatarUrl: userInfo == null
+              ? ''
+              : _resolvedProfileAvatar(userInfo, ''),
+          name: cachedName.isEmpty ? uid : cachedName,
+          identity: '',
+        );
+      }
+      if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
+      if (nextRole != null) {
+        _precacheProfileRoleAvatar(nextRole);
+      }
+      if (_sameOriginProfileRole(_cachedProfileRole, nextRole)) return;
+      setState(() => _cachedProfileRole = nextRole);
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[OriginWorldPage] cached profile role preload failed: '
+        '$error\n$stackTrace',
       );
+      if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
+      if (_cachedProfileRole != null) {
+        setState(() => _cachedProfileRole = null);
+      }
     }
-    if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
-    if (nextRole != null) {
-      _precacheProfileRoleAvatar(nextRole);
-    }
-    if (_sameOriginProfileRole(_cachedProfileRole, nextRole)) return;
-    setState(() => _cachedProfileRole = nextRole);
   }
 
   void _precacheProfileRoleAvatar(OriginCustomRoleDraft profileRole) {
@@ -474,6 +499,15 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     OriginDetail origin,
     int generation,
   ) async {
+    if (!mounted ||
+        generation != _originLoadGeneration ||
+        !identical(_origin, origin) ||
+        _renderStage != _OriginWorldPageRenderStage.detailShell) {
+      _contentMountScheduled = false;
+      return;
+    }
+    _launchedPresetRolesPreloadScheduledForOriginId = widget.oid.trim();
+    await _ensureLaunchedPresetRolesLoaded();
     if (!mounted ||
         generation != _originLoadGeneration ||
         !identical(_origin, origin) ||
@@ -678,26 +712,14 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     setState(() => _activeChatLocation = null);
   }
 
+  void _setLocationChatRoleId(String roleId) {
+    if (roleId == _selectedLocationChatRoleId) return;
+    setState(() => _selectedLocationChatRoleId = roleId);
+  }
+
   void _handleOriginPopBlocked() {
     if (_activeChatLocation == null) return;
     _closeLocationChat();
-  }
-
-  Future<void> _showLaunchRoleSheet(
-    OriginDetail origin, {
-    bool initialCustomTab = false,
-    bool fillProfileOnOpen = false,
-    String initialLocationId = '',
-  }) async {
-    if (_launching) return;
-    if (!await ensureGenesisLogin(context)) return;
-    if (!mounted) return;
-    await _openLaunchRoleSheet(
-      origin,
-      initialCustomTab: initialCustomTab,
-      fillProfileOnOpen: fillProfileOnOpen,
-      initialLocationId: initialLocationId,
-    );
   }
 
   Future<void> _selectAndLaunchPresetRole(
@@ -754,65 +776,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
   }
 
-  Future<void> _openLaunchRoleSheet(
-    OriginDetail origin, {
-    bool initialCustomTab = false,
-    bool fillProfileOnOpen = false,
+  void _enterLaunchedWorld(
+    String worldId, {
     String initialLocationId = '',
-  }) async {
-    final launchedPresetRoles = _launchedPresetRolesData;
-    final launchLocationId = initialLocationId.trim();
-    GenesisTelemetry.collectLog(
-      actionType: 'pageview',
-      action: 'launch_sheet',
-      object1: origin.oid,
-    );
-    await showOriginRoleLaunchSheet(
-      context: context,
-      characters: origin.characters,
-      initialCustomTab: initialCustomTab,
-      fillProfileOnOpen: fillProfileOnOpen,
-      initialLaunchedTab:
-          !initialCustomTab && launchedPresetRoles?.isNotEmpty == true,
-      resolveAvatarUrl: _resolveAssetUrl,
-      onFillFromProfile: _customRoleFromProfile,
-      initialLaunchedPresetRoles: launchedPresetRoles,
-      launchedPresetRolesLoader: launchedPresetRoles == null
-          ? _ensureLaunchedPresetRolesLoaded
-          : null,
-      onLaunch: (roleSelection) async {
-        final existingWorldId = roleSelection.existingWorldId?.trim() ?? '';
-        if (existingWorldId.isNotEmpty) {
-          _enterLaunchedWorld(
-            existingWorldId,
-            initialLocationId: launchLocationId,
-          );
-          return OriginRoleLaunchHandlerResult.navigationHandled;
-        }
-        GenesisTelemetry.collectLog(
-          actionType: 'event',
-          action: 'worldo_launch_sheet',
-          object1: origin.oid,
-        );
-        final launchedWorldId = await _launchOrigin(
-          origin,
-          roleSelection,
-          enterWorldOnSuccess: false,
-        );
-        if (!mounted || launchedWorldId == null) {
-          return OriginRoleLaunchHandlerResult.failed;
-        }
-        _enterLaunchedWorld(
-          launchedWorldId,
-          initialLocationId: launchLocationId,
-        );
-        return OriginRoleLaunchHandlerResult.navigationHandled;
-      },
-      systemUiOverlayStyle: _baseStatusBarStyle,
-    );
-  }
-
-  void _enterLaunchedWorld(String worldId, {String initialLocationId = ''}) {
+    String initialMessageToSend = '',
+  }) {
     final navigator = Navigator.of(context);
     openWorldFromMyWorldsRoot(
       navigator,
@@ -820,6 +788,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         'wid': worldId,
         if (initialLocationId.trim().isNotEmpty)
           'initial_location_id': initialLocationId.trim(),
+        if (initialMessageToSend.trim().isNotEmpty)
+          'initial_message_to_send': initialMessageToSend,
       },
     );
   }
@@ -884,7 +854,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         context,
       ).api.getMyLaunchPresetCharacters(originId);
       if (mounted && _launchedPresetRolesCacheKey == cacheKey) {
-        _launchedPresetRolesData = roles;
+        setState(() => _launchedPresetRolesData = roles);
       }
       return roles;
     } catch (error, stackTrace) {
@@ -905,6 +875,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     OriginDetail origin,
     OriginRoleLaunchSelection roleSelection, {
     String initialLocationId = '',
+    String initialMessageToSend = '',
     bool enterWorldOnSuccess = true,
   }) async {
     if (_launching) return null;
@@ -930,6 +901,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _enterLaunchedWorld(
         launchedWorldId,
         initialLocationId: initialLocationId,
+        initialMessageToSend: initialMessageToSend,
       );
     }
     return launchedWorldId;
@@ -1204,6 +1176,12 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                   _handleOpeningSheetExpansionInterrupted,
               onOriginChanged: _refreshOriginDetail,
               launching: _launching,
+              launchedPresetRoles: _launchedPresetRolesData,
+              onEnterLaunchedWorld: (role) {
+                final worldId = role.worldId.trim();
+                if (worldId.isEmpty) return;
+                _enterLaunchedWorld(worldId);
+              },
               profileRole: _cachedProfileRole,
               onSelectRole: (character) =>
                   _selectAndLaunchPresetRole(origin, character),

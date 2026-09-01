@@ -11,6 +11,7 @@ import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
@@ -59,9 +60,46 @@ void main() {
     FirebaseAnalyticsMonitoring.resetForTesting();
     debugDefaultTargetPlatformOverride = null;
     resetAndroidSdkIntForTesting();
+    locationChatBubbleLayoutSettings.resetForTesting();
     locationChatHeaderEffectSettings.resetForTesting();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(GenesisMethodChannels.device, null);
+  });
+
+  test('location chat uses the symmetric ordinary bubble cap when crowded', () {
+    final caps = locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics(
+      logicalWidth: 390,
+      textScaler: TextScaler.noScaling,
+      bubbleFontSize: 14,
+      crowdedEffectiveWidthThreshold: LocationChatBubbleLayoutSettings
+          .defaultCrowdedEffectiveWidthThreshold,
+      avatarSize: 40,
+      avatarBubbleGap: 10,
+      avatarSideSpacerWidth: 40 / 3,
+      messageListHorizontalPadding: 20,
+    );
+
+    expect(caps.isCrowded, isTrue);
+    expect(caps.selfMessage, closeTo(306.667, 0.001));
+    expect(caps.otherMessage, closeTo(306.667, 0.001));
+  });
+
+  test('location chat uses the symmetric ordinary bubble cap when roomy', () {
+    final caps = locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics(
+      logicalWidth: 430,
+      textScaler: TextScaler.noScaling,
+      bubbleFontSize: 14,
+      crowdedEffectiveWidthThreshold: LocationChatBubbleLayoutSettings
+          .defaultCrowdedEffectiveWidthThreshold,
+      avatarSize: 40,
+      avatarBubbleGap: 10,
+      avatarSideSpacerWidth: 40 / 3,
+      messageListHorizontalPadding: 20,
+    );
+
+    expect(caps.isCrowded, isFalse);
+    expect(caps.selfMessage, 310);
+    expect(caps.otherMessage, 310);
   });
 
   test(

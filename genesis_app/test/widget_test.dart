@@ -19,6 +19,7 @@ import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 import 'package:genesis_flutter_android/app/config/app_endpoint_overrides.dart';
 import 'package:genesis_flutter_android/app/config/platform_config.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
@@ -2521,6 +2522,7 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     tilemapVisualModeController.resetForTesting();
     tilemapSettingsButtonVisibility.resetForTesting();
+    locationChatBubbleLayoutSettings.resetForTesting();
     locationChatHeaderEffectSettings.resetForTesting();
     originWorldSheetDebugSettings.resetForTesting();
     networkCaptureController.resetForTesting();
@@ -10006,51 +10008,93 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Launch'), findsNothing);
   });
 
-  testWidgets(
-    'Origin launch sheet opens while launched worlds preload is pending',
-    (WidgetTester tester) async {
-      final launchedWorldsCompleter = Completer<TransportResponse>();
-      final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'approved',
-        myLaunchPresetCharactersCompleter: launchedWorldsCompleter,
-      );
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialAuthToken: 'token',
-          ),
-          child: MaterialApp(
-            onGenerateRoute: AppRouter.onGenerateRoute,
-            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+  testWidgets('Origin sheet skeleton waits for launched worlds preload', (
+    WidgetTester tester,
+  ) async {
+    final launchedWorldsCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+      myLaunchPresetCharactersCompleter: launchedWorldsCompleter,
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(
+            oid: 'o_test_1',
+            originId: 0,
+            showOpeningSheetOnEntry: true,
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      expect(
-        transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
-        hasLength(1),
-      );
-      await _openOriginRoleSheetFromLocation(tester);
+    expect(
+      transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
+      hasLength(1),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-detail-loading-sheet')),
+      findsOneWidget,
+    );
+    expect(find.text('Launched Before'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('origin-opening-worldo-brief')),
+      findsNothing,
+    );
 
-      expect(find.byKey(const ValueKey('origin-role-sheet')), findsOneWidget);
-      expect(
-        transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
-        hasLength(1),
-      );
+    launchedWorldsCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'list': <Map<String, Object?>>[
+            <String, Object?>{
+              'char_id': 'char_pending_history',
+              'name': 'Pending History',
+              'world_id': 'w_pending_history',
+              'tick_no': 3,
+              'current_time': 'Day 2',
+            },
+          ],
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
 
-      launchedWorldsCompleter.complete(
-        transport._jsonResponse({
-          'err_no': 0,
-          'err_msg': 'succ',
-          'data': {'list': <Map<String, Object?>>[]},
-        }),
-      );
-      await tester.pumpAndSettle();
-    },
-  );
+    expect(
+      find.byKey(const ValueKey<String>('origin-detail-loading-sheet')),
+      findsNothing,
+    );
+    expect(find.text('Launched Before'), findsOneWidget);
+    expect(find.text('Pending History'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-opening-worldo-brief')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(
+              const ValueKey<String>('origin-launched-worlds-section'),
+            ),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('origin-opening-worldo-brief')),
+            )
+            .dy,
+      ),
+    );
+  });
 
   testWidgets('Origin launched roles preload ignores session read failures', (
     WidgetTester tester,
@@ -10081,31 +10125,29 @@ void main() {
   });
 
   testWidgets(
-    'Origin launched role tab uses my launch preset characters endpoint',
+    'Origin opening shows compact launched worlds and enters without launch',
     (WidgetTester tester) async {
       AppStartupCoordinator.resetForTesting();
       addTearDown(AppStartupCoordinator.resetForTesting);
-      final chatroom = _FakeChatroomClient();
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'approved',
         myLaunchPresetCharacters: const [
           {
-            'char_id': 'char_history_1',
+            'char_id': 'char_history_compact',
             'type': 'ai',
-            'name': 'History Mira',
-            'identity': 'Navigator',
-            'brief': 'Knows every route.',
-            'goal': 'Reach the hidden harbor.',
+            'name': 'Nikos',
+            'identity': 'Guide',
+            'brief': 'Knows the city.',
+            'goal': 'Find the truth.',
             'avatar': {
-              'sm_url': 'https://cdn.example.com/mira_400.webp',
-              'xl_url': 'https://cdn.example.com/mira_800.webp',
-              'object_key': 'uploads/mira_800.webp',
+              'sm_url': 'https://cdn.example.com/nikos_400.webp',
+              'xl_url': 'https://cdn.example.com/nikos_800.webp',
             },
-            'initial_location_id': 'loc_history_1',
+            'initial_location_id': 'loc_history_compact',
             'last_launched_at': 1785292800,
-            'world_id': 'w_history_1',
-            'tick_no': 7,
-            'current_time': 'Day 3',
+            'world_id': 'w_3XDXO1',
+            'tick_no': 0,
+            'current_time': 'Day 1, 14:00 p.m.',
           },
         ],
       );
@@ -10115,58 +10157,76 @@ void main() {
             transport: transport,
             useMock: false,
             initialAuthToken: 'token',
-            chatroom: chatroom,
           ),
           child: MaterialApp(
             onGenerateRoute: AppRouter.onGenerateRoute,
-            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+            home: const OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      expect(
-        transport.requestsFor('/api/v1/origin/my_launch_preset_characters'),
-        hasLength(1),
+      final row = find.byKey(
+        const ValueKey<String>('origin-launched-world-row-w_3XDXO1'),
       );
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-
-      await _openOriginRoleSheetFromLocation(tester);
-      await tester.tap(find.text('Launched'));
+      final launchedSection = find.byKey(
+        const ValueKey<String>('origin-launched-worlds-section'),
+      );
+      final briefSection = find.byKey(
+        const ValueKey<String>('origin-opening-worldo-brief'),
+      );
+      expect(launchedSection, findsOneWidget);
+      expect(briefSection, findsOneWidget);
+      expect(
+        tester.getTopLeft(launchedSection).dy,
+        lessThan(tester.getTopLeft(briefSection).dy),
+      );
+      await tester.scrollUntilVisible(
+        row,
+        220,
+        scrollable: find
+            .descendant(
+              of: find.byKey(
+                const PageStorageKey<String>(
+                  'origin-detail-bottom-sheet-o_test_1',
+                ),
+              ),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
       await tester.pumpAndSettle();
 
-      final historyRequests = transport.requestsFor(
-        '/api/v1/origin/my_launch_preset_characters',
-      );
-      expect(historyRequests, hasLength(1));
-      expect(historyRequests.single.uri.queryParameters, {
-        'origin_id': 'o_test_1',
-      });
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-
-      expect(find.text('Launched'), findsOneWidget);
-      expect(find.text('History Mira'), findsOneWidget);
-      expect(find.text('w_history_1'), findsOneWidget);
-      expect(find.text('Tick 7 · Day 3'), findsOneWidget);
+      expect(launchedSection, findsOneWidget);
+      expect(find.text('Your Launched Worlds'), findsNothing);
+      expect(find.text('Launched Before'), findsOneWidget);
+      final launchedTitle = tester.widget<Text>(find.text('Launched Before'));
+      expect(launchedTitle.style?.fontSize, 14);
+      expect(launchedTitle.style?.fontWeight, FontWeight.w600);
+      expect(launchedTitle.style?.color, GenesisColors.textPrimary);
+      expect(find.text('Nikos'), findsOneWidget);
       expect(
-        find.widgetWithText(GenesisPrimaryButton, 'Enter'),
+        find.text('w_3XDXO1 · Tick 0 · Day 1, 14:00 p.m.'),
         findsOneWidget,
       );
-
-      await tester.tap(
-        find.byKey(const ValueKey('origin-role-launched-w_history_1')),
+      expect(find.text('Launch another World'), findsNothing);
+      final avatar = tester.widget<GenesisCharacterAvatar>(
+        find.byKey(
+          const ValueKey<String>('origin-launched-world-avatar-w_3XDXO1'),
+        ),
       );
-      await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+      expect(avatar.size, 44);
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+
+      await tester.tap(row);
       await tester.pumpAndSettle();
 
-      final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-      expect(launchRequests, isEmpty);
-      final launchedWorldPage = tester.widget<WorldPage>(
-        find.byType(WorldPage),
-      );
-      expect(launchedWorldPage.wid, 'w_history_1');
-      expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
-      expect(find.byType(LocationChatPanel), findsNothing);
+      expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+      expect(tester.widget<WorldPage>(find.byType(WorldPage)).wid, 'w_3XDXO1');
       await tester.pump(const Duration(seconds: 2));
       AppStartupCoordinator.resetForTesting();
     },
@@ -10601,68 +10661,50 @@ void main() {
     },
   );
 
-  testWidgets('Origin location launch opens custom role sheet and launches', (
-    WidgetTester tester,
-  ) async {
-    AppStartupCoordinator.resetForTesting();
-    addTearDown(AppStartupCoordinator.resetForTesting);
-    final transport = _RecordingV1ListTransport(
-      worldRelationStatus: 'approved',
-    );
-    final chatroom = _FakeChatroomClient();
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialAuthToken: 'token',
-          chatroom: chatroom,
+  testWidgets(
+    'Origin location launch defaults to profile and skips role sheet',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'approved',
+      );
+      final chatroom = _FakeChatroomClient();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+            chatroom: chatroom,
+            initialUserInfo: const {
+              'name': 'Profile Hero',
+              'identity': 'Explorer',
+              'bio': 'Profile bio',
+            },
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
         ),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.pumpAndSettle();
 
-    await _openOriginRoleSheetFromLocation(tester);
+      await _sendOriginLocationPreviewMessage(tester);
 
-    expect(find.byKey(const ValueKey('origin-role-sheet')), findsOneWidget);
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('origin-role-sheet')),
-        matching: find.text('Custom'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final customForm = find.byKey(
-      const ValueKey<String>('origin-role-custom-tab'),
-    );
-    expect(customForm, findsOneWidget);
-    final fields = find.descendant(
-      of: customForm,
-      matching: find.byType(TextField),
-    );
-    expect(fields, findsNWidgets(3));
-    tester.widget<TextField>(fields.at(0)).controller!.text = 'Inline Hero';
-    tester.widget<TextField>(fields.at(1)).controller!.text = 'Explorer';
-    tester.widget<TextField>(fields.at(2)).controller!.text = 'Inline bio';
-    await tester.pump();
-
-    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pumpAndSettle();
-
-    expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
-    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-    expect(launchRequests, hasLength(1));
-    final launchBody = transport.decodedBody(launchRequests.single);
-    expect(launchBody['custom_role'], containsPair('name', 'Inline Hero'));
-    expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
-    expect(launchBody['custom_role'], containsPair('bio', 'Inline bio'));
-    await tester.pump(const Duration(seconds: 2));
-    AppStartupCoordinator.resetForTesting();
-  });
+      expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
+      final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+      expect(launchRequests, hasLength(1));
+      final launchBody = transport.decodedBody(launchRequests.single);
+      expect(launchBody.containsKey('preset_character_id'), isFalse);
+      expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
+      expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
+      expect(launchBody['custom_role'], containsPair('bio', 'Profile bio'));
+      await tester.pump(const Duration(seconds: 2));
+      AppStartupCoordinator.resetForTesting();
+    },
+  );
 
   testWidgets('Origin location launch asks for login when signed out', (
     WidgetTester tester,
@@ -10688,7 +10730,7 @@ void main() {
       findsNothing,
     );
 
-    await _openOriginRoleSheetFromLocation(tester);
+    await _sendOriginLocationPreviewMessage(tester);
 
     expect(find.text('Sign up to continue'), findsOneWidget);
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
@@ -10859,6 +10901,8 @@ void main() {
   testWidgets('Origin launch enters world without async confirmation polling', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
     final chatroom = _FakeChatroomClient();
     final transport = _RecordingV1ListTransport(
       worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
@@ -10881,14 +10925,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump();
 
-    await _openOriginRoleSheetFromLocation(tester);
-    await tester.tap(find.text('Preset'));
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(const ValueKey('origin-role-preset-c_o_test_1')),
-    );
-    await tester.pump();
-    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
+    await _sendOriginLocationPreviewMessage(tester, roleId: 'c_o_test_1');
     await tester.pumpAndSettle();
 
     final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
@@ -10918,11 +10955,14 @@ void main() {
         )
         .toList(growable: false);
     expect(worldRequests, hasLength(1));
+    AppStartupCoordinator.resetForTesting();
   });
 
   testWidgets(
-    'Origin Launch to send enters the same location and backs to map',
+    'Origin preview composer launches then sends in the same location once',
     (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'joined',
         worldLocations: const [
@@ -10963,37 +11003,136 @@ void main() {
       expect(chatroom.connectCount, 0);
       final chatPanel = find.byType(LocationChatPanel);
       expect(chatPanel, findsOneWidget);
+      final previewComposer = find.descendant(
+        of: chatPanel,
+        matching: find.byType(ChatComposer),
+      );
+      expect(previewComposer, findsOneWidget);
+      expect(find.text('Launch to send'), findsNothing);
+      final previewInput = find.descendant(
+        of: previewComposer,
+        matching: find.byKey(const ValueKey('chat-composer-input')),
+      );
+      expect(previewInput, findsOneWidget);
+      final previewInputSurface = find.descendant(
+        of: previewComposer,
+        matching: find.byKey(const ValueKey('chat-composer-input-surface')),
+      );
+      final previewRoleSelector = find.descendant(
+        of: previewComposer,
+        matching: find.byKey(
+          const ValueKey('origin-location-chat-role-selector'),
+        ),
+      );
+      expect(previewInputSurface, findsOneWidget);
+      expect(previewRoleSelector, findsOneWidget);
       expect(
-        find.descendant(of: chatPanel, matching: find.byType(TextField)),
+        find.descendant(of: previewInputSurface, matching: previewRoleSelector),
         findsNothing,
       );
-      final chatLaunch = find.descendant(
-        of: chatPanel,
-        matching: find.text('Launch to send'),
+      expect(tester.widget<ChatComposer>(previewComposer).sendEnabled, isFalse);
+      expect(
+        find.descendant(
+          of: previewComposer,
+          matching: find.text('Your Profile'),
+        ),
+        findsOneWidget,
       );
-      expect(chatLaunch, findsOneWidget);
-
-      await tester.tap(chatLaunch);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Setup Your Role'), findsOneWidget);
-      expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
 
       await tester.tap(
-        find.byKey(const ValueKey('origin-role-preset-c_o_test_1')),
+        find.descendant(
+          of: previewComposer,
+          matching: find.byKey(
+            const ValueKey('origin-location-chat-role-selector'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('origin-location-chat-role-picker')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('origin-location-chat-role-picker')),
+          matching: find.text('Select Your Role'),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(
+          const ValueKey('origin-location-chat-role-option-c_o_test_1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: previewComposer,
+          matching: find.text('Detail Character'),
+        ),
+        findsOneWidget,
+      );
+
+      const message = 'Start exploring this trail';
+      await tester.enterText(previewInput, message);
+      await tester.pump();
+      expect(tester.widget<ChatComposer>(previewComposer).sendEnabled, isTrue);
+      await tester.tap(
+        find.descendant(
+          of: previewComposer,
+          matching: find.byKey(const ValueKey('chat-composer-send-button')),
+        ),
       );
       await tester.pump();
-      await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-      for (var frame = 0; frame < 8; frame += 1) {
+      expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
+      for (var frame = 0; frame < 60; frame += 1) {
         await tester.pump();
+        if (find.byType(WorldPage).evaluate().isNotEmpty &&
+            chatroom.session.sentMessages.isNotEmpty) {
+          break;
+        }
       }
-      await tester.pumpAndSettle();
 
       final launchedWorldPage = tester.widget<WorldPage>(
         find.byType(WorldPage),
       );
       expect(launchedWorldPage.wid, 'w_launched_from_origin');
       expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
+      expect(launchedWorldPage.initialMessageToSend, message);
+      final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+      expect(launchRequests, hasLength(1));
+      expect(
+        transport.decodedBody(launchRequests.single),
+        containsPair('preset_character_id', 'c_o_test_1'),
+      );
+      expect(chatroom.session.joinLocationId, 'l_o_test_1');
+      expect(chatroom.session.sentMessages, [message]);
+      final clientMsgId = chatroom.session.sentClientMsgIds.single;
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'w_launched_from_origin',
+          locationId: 'l_o_test_1',
+          userId: 'u_mock',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: 42,
+          locationMessageId: 42,
+          conversationRoundId: 'round-1',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: 'u_mock',
+          senderName: 'Me',
+          content: message,
+          broadcast: true,
+          currentTime: '2026-09-01T00:00:00Z',
+          clientMsgId: clientMsgId,
+          createdAt: null,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(chatroom.session.sentMessages, [message]);
       final launchedLocationChat = find.byKey(
         const ValueKey('world-location-chat-l_o_test_1'),
       );
@@ -11009,6 +11148,8 @@ void main() {
 
       expect(find.byType(WorldPage), findsOneWidget);
       expect(launchedLocationChat, findsNothing);
+      await tester.pump(const Duration(seconds: 2));
+      AppStartupCoordinator.resetForTesting();
     },
   );
 
@@ -11523,130 +11664,6 @@ void main() {
     );
   });
 
-  testWidgets('Origin detail launch sheet sends custom role payload', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    final chatroom = _FakeChatroomClient();
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialAuthToken: 'token',
-          chatroom: chatroom,
-        ),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await _openOriginRoleSheetFromLocation(tester);
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('origin-role-sheet')),
-        matching: find.text('Custom'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.enterText(find.byType(TextField).at(0), 'Custom Hero');
-    await tester.enterText(find.byType(TextField).at(1), 'Time traveler');
-    await tester.enterText(find.byType(TextField).at(2), 'Knows too much.');
-    await tester.pump();
-
-    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pumpAndSettle();
-
-    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-    expect(launchRequests, hasLength(1));
-    final launchBody = transport.decodedBody(launchRequests.single);
-    expect(launchBody['origin_id'], 'o_test_1');
-    expect(launchBody.containsKey('oid'), isFalse);
-    expect(launchBody.containsKey('preset_character_id'), isFalse);
-    expect(launchBody['custom_role'], containsPair('name', 'Custom Hero'));
-    expect(
-      launchBody['custom_role'],
-      containsPair('identity', 'Time traveler'),
-    );
-    expect(launchBody['custom_role'], containsPair('bio', 'Knows too much.'));
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-  });
-
-  testWidgets('Origin detail custom role fills avatar from profile', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport(
-      worldRelationStatus: 'approved',
-    );
-    final chatroom = _FakeChatroomClient();
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialAuthToken: 'token',
-          chatroom: chatroom,
-          initialUserInfo: {
-            'name': 'Profile Hero',
-            'identity': 'Saved explorer',
-            'avatar': {
-              'sm_url':
-                  'https://lh3.googleusercontent.com/a/profile-avatar=s96-c',
-              'xl_url':
-                  'https://lh3.googleusercontent.com/a/profile-avatar=s96-c',
-              'object_key': '',
-            },
-            'bio': 'Profile biography',
-          },
-        ),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await _openOriginRoleSheetFromLocation(tester);
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('origin-role-sheet')),
-        matching: find.text('Custom'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Fill from my profile'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Fill from my profile'));
-    await tester.pump();
-
-    await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-    await tester.pumpAndSettle();
-
-    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-    expect(launchRequests, hasLength(1));
-    final launchBody = transport.decodedBody(launchRequests.single);
-    expect(
-      launchBody['custom_role'],
-      containsPair(
-        'avatar',
-        'https://lh3.googleusercontent.com/a/profile-avatar=s96-c',
-      ),
-    );
-    expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
-    expect(
-      launchBody['custom_role'],
-      containsPair('identity', 'Saved explorer'),
-    );
-    expect(launchBody['custom_role'], containsPair('bio', 'Profile biography'));
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-  });
-
   testWidgets('Origin detail profile fill respects custom role length limits', (
     WidgetTester tester,
   ) async {
@@ -11748,95 +11765,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(result?.existingWorldId, 'w_launched_1');
-    },
-  );
-
-  testWidgets('Origin detail profile fill asks for login when signed out', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialUid: null,
-          initialUserInfo: {
-            'name': 'Profile Hero',
-            'identity': 'Saved explorer',
-          },
-        ),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await _openOriginRoleSheetFromLocation(tester);
-
-    expect(find.text('Sign up to continue'), findsOneWidget);
-    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
-  });
-
-  testWidgets(
-    'Origin detail custom role keeps avatar empty when profile has no avatar',
-    (WidgetTester tester) async {
-      final chatroom = _FakeChatroomClient();
-      final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'approved',
-      );
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialAuthToken: 'token',
-            chatroom: chatroom,
-            initialUserInfo: {
-              'name': 'Profile Hero',
-              'identity': 'Saved explorer',
-              'bio': 'Profile biography',
-            },
-          ),
-          child: MaterialApp(
-            onGenerateRoute: AppRouter.onGenerateRoute,
-            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await _openOriginRoleSheetFromLocation(tester);
-      await tester.tap(
-        find.descendant(
-          of: find.byKey(const ValueKey('origin-role-sheet')),
-          matching: find.text('Custom'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.ensureVisible(find.text('Fill from my profile'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Fill from my profile'));
-      await tester.pump();
-
-      expect(find.text('AVATAR\n(Optional)'), findsOneWidget);
-
-      await tester.tap(find.byKey(const ValueKey('origin-role-launch')));
-      await tester.pumpAndSettle();
-
-      final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-      expect(launchRequests, hasLength(1));
-      final launchBody = transport.decodedBody(launchRequests.single);
-      expect(launchBody['custom_role'], isNot(contains('avatar')));
-      expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
-      expect(
-        launchBody['custom_role'],
-        containsPair('identity', 'Saved explorer'),
-      );
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
     },
   );
 
@@ -21079,10 +21007,20 @@ void main() {
     final blurFinder = find.byKey(
       const ValueKey<String>('developer-location-chat-header-blur-slider'),
     );
+    final crowdedWidthFinder = find.byKey(
+      const ValueKey<String>('developer-location-chat-crowded-width-slider'),
+    );
     expect(transparencyFinder, findsOneWidget);
     expect(blurFinder, findsOneWidget);
-    expect(tester.widget<Slider>(transparencyFinder).value, 0.9);
+    expect(crowdedWidthFinder, findsOneWidget);
+    expect(
+      tester.widget<Slider>(transparencyFinder).value,
+      LocationChatHeaderEffectSettings.defaultTransparencyStrength,
+    );
     expect(tester.widget<Slider>(blurFinder).value, 4);
+    expect(tester.widget<Slider>(crowdedWidthFinder).value, 410);
+    expect(find.text('Self & character message bubbles'), findsOneWidget);
+    expect(find.text('Crowded width threshold'), findsOneWidget);
 
     tester.widget<Slider>(transparencyFinder).onChanged!(0);
     await tester.pump();
@@ -21092,6 +21030,11 @@ void main() {
     tester.widget<Slider>(blurFinder).onChanged!(0);
     await tester.pump();
     tester.widget<Slider>(blurFinder).onChangeEnd!(0);
+    await tester.pumpAndSettle();
+
+    tester.widget<Slider>(crowdedWidthFinder).onChanged!(375);
+    await tester.pump();
+    tester.widget<Slider>(crowdedWidthFinder).onChangeEnd!(375);
     await tester.pumpAndSettle();
 
     expect(
@@ -21113,6 +21056,13 @@ void main() {
         LocationChatHeaderEffectSettingsController.blurSigmaStorageKey,
       ),
       0,
+    );
+    expect(
+      prefs.getDouble(
+        LocationChatBubbleLayoutSettingsController
+            .crowdedEffectiveWidthThresholdStorageKey,
+      ),
+      375,
     );
   });
 
@@ -28137,17 +28087,48 @@ class _SynchronousTestImageProvider
   int get hashCode => identityHashCode(image);
 }
 
-Future<void> _openOriginRoleSheetFromLocation(WidgetTester tester) async {
+Future<void> _sendOriginLocationPreviewMessage(
+  WidgetTester tester, {
+  String message = 'Hello from Worldo',
+  String? roleId,
+}) async {
   await tester.tap(find.text('Detail Location'), warnIfMissed: false);
   await tester.pumpAndSettle();
   final chatPanel = find.byType(LocationChatPanel);
   expect(chatPanel, findsOneWidget);
-  final launchAction = find.descendant(
+  final composer = find.descendant(
     of: chatPanel,
-    matching: find.text('Launch to send'),
+    matching: find.byType(ChatComposer),
   );
-  expect(launchAction, findsOneWidget);
-  await tester.tap(launchAction);
+  expect(composer, findsOneWidget);
+  final input = find.descendant(
+    of: composer,
+    matching: find.byKey(const ValueKey('chat-composer-input')),
+  );
+  if (roleId != null) {
+    await tester.tap(
+      find.descendant(
+        of: composer,
+        matching: find.byKey(
+          const ValueKey('origin-location-chat-role-selector'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(ValueKey<String>('origin-location-chat-role-option-$roleId')),
+    );
+    await tester.pumpAndSettle();
+  }
+  await tester.enterText(input, message);
+  await tester.pump();
+  expect(tester.widget<ChatComposer>(composer).sendEnabled, isTrue);
+  await tester.tap(
+    find.descendant(
+      of: composer,
+      matching: find.byKey(const ValueKey('chat-composer-send-button')),
+    ),
+  );
   await tester.pumpAndSettle();
 }
 

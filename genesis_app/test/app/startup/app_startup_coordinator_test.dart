@@ -236,6 +236,10 @@ void main() {
       'launch_render',
     ]);
     expect(
+      launchEvents.every((event) => event.actionType == 'monitor'),
+      isTrue,
+    );
+    expect(
       launchEvents.every((event) => event.object1 == 'startup-test-1'),
       isTrue,
     );

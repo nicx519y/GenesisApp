@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/config/genesis_image_config.dart';
+import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
@@ -92,6 +93,78 @@ bool locationChatShouldShowAiContentDisclaimerForTesting({
   required bool loadingOlderMessages,
 }) {
   return initialContentReady && !hasMoreOlderMessages && !loadingOlderMessages;
+}
+
+@visibleForTesting
+@immutable
+class LocationChatOrdinaryMessageBubbleMaxWidthCaps {
+  const LocationChatOrdinaryMessageBubbleMaxWidthCaps({
+    required this.isCrowded,
+    required this.selfMessage,
+    required this.otherMessage,
+  });
+
+  final bool isCrowded;
+  final double selfMessage;
+  final double otherMessage;
+}
+
+@visibleForTesting
+LocationChatOrdinaryMessageBubbleMaxWidthCaps
+locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics({
+  required double logicalWidth,
+  required TextScaler textScaler,
+  required double bubbleFontSize,
+  required double crowdedEffectiveWidthThreshold,
+  required double avatarSize,
+  required double avatarBubbleGap,
+  required double avatarSideSpacerWidth,
+  required double messageListHorizontalPadding,
+}) {
+  if (logicalWidth <= 0 || bubbleFontSize <= 0) {
+    return const LocationChatOrdinaryMessageBubbleMaxWidthCaps(
+      isCrowded: true,
+      selfMessage: 0,
+      otherMessage: 0,
+    );
+  }
+  final scaledFontSize = textScaler.scale(bubbleFontSize);
+  if (scaledFontSize <= 0) {
+    return const LocationChatOrdinaryMessageBubbleMaxWidthCaps(
+      isCrowded: true,
+      selfMessage: 0,
+      otherMessage: 0,
+    );
+  }
+  final effectiveWidth = logicalWidth / (scaledFontSize / bubbleFontSize);
+  final isCrowded = effectiveWidth < crowdedEffectiveWidthThreshold;
+  if (isCrowded) {
+    final crowdedMaxWidth = math.max(
+      0.0,
+      logicalWidth -
+          avatarSize -
+          avatarBubbleGap -
+          avatarSideSpacerWidth -
+          messageListHorizontalPadding,
+    );
+    return LocationChatOrdinaryMessageBubbleMaxWidthCaps(
+      isCrowded: true,
+      selfMessage: crowdedMaxWidth,
+      otherMessage: crowdedMaxWidth,
+    );
+  }
+  final roomyMaxWidth = math.max(
+    0.0,
+    logicalWidth -
+        avatarSize * 2 -
+        avatarBubbleGap * 2 -
+        messageListHorizontalPadding,
+  );
+  return LocationChatOrdinaryMessageBubbleMaxWidthCaps(
+    isCrowded: false,
+    selfMessage: roomyMaxWidth,
+    otherMessage: roomyMaxWidth,
+  );
 }
 
 @visibleForTesting
@@ -297,6 +370,7 @@ class LocationChatPanel extends StatefulWidget {
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
     this.style,
     this.initialDraftText = '',
+    this.initialMessageToSend = '',
     this.onDraftTextChanged,
     this.messageQueueInitializationCovered = false,
     this.unauthorizedHandledByOwner = false,
@@ -330,6 +404,7 @@ class LocationChatPanel extends StatefulWidget {
   final SystemUiOverlayStyle systemUiOverlayStyle;
   final ChatUiStyleConfig? style;
   final String initialDraftText;
+  final String initialMessageToSend;
   final ValueChanged<String>? onDraftTextChanged;
   final bool messageQueueInitializationCovered;
   final bool unauthorizedHandledByOwner;
@@ -379,6 +454,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _mentionSheetSchedulePending = false;
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
+  bool _initialMessageSendPending = false;
+  bool _initialMessageSendScheduled = false;
   bool _loadingOlderMessages = false;
   Timer? _olderMessagesLoadIdleTimer;
   bool _showOlderMessagesLoading = false;
@@ -471,6 +548,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     locationChatHeaderEffectSettings.addListener(
       _handleHeaderEffectSettingsChanged,
     );
+    locationChatBubbleLayoutSettings.addListener(
+      _handleBubbleLayoutSettingsChanged,
+    );
+    unawaited(locationChatBubbleLayoutSettings.load());
     unawaited(locationChatHeaderEffectSettings.load());
     _androidSdkInt = cachedAndroidSdkInt;
     _retainModelEntryInHeader = widget.active;
@@ -485,11 +566,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         currentSenderIds: _mySenderIdKeys,
       ),
     );
-    final initialDraftText = widget.initialDraftText;
+    final initialMessageToSend = widget.initialMessageToSend;
+    final initialDraftText = initialMessageToSend.trim().isNotEmpty
+        ? initialMessageToSend
+        : widget.initialDraftText;
     if (initialDraftText.isNotEmpty) {
       _textController.setSerializedText(initialDraftText);
       _hasDraftText = initialDraftText.trim().isNotEmpty;
     }
+    _initialMessageSendPending = initialMessageToSend.trim().isNotEmpty;
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -514,10 +599,18 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _setLocationChatState(() {});
   }
 
+  void _handleBubbleLayoutSettingsChanged() {
+    if (!mounted) return;
+    _setLocationChatState(() {});
+  }
+
   @override
   void dispose() {
     locationChatHeaderEffectSettings.removeListener(
       _handleHeaderEffectSettingsChanged,
+    );
+    locationChatBubbleLayoutSettings.removeListener(
+      _handleBubbleLayoutSettingsChanged,
     );
     _cancelOlderMessagesLoadSchedule();
     _selectedModelLoadGeneration++;
@@ -679,6 +772,20 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       baseStyle: widget.style ?? kLocationChatStyle,
       settings: locationChatHeaderEffectSettings.value,
     );
+    final logicalWidth = MediaQuery.sizeOf(context).width;
+    final ordinaryMessageBubbleMaxWidthCaps =
+        locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics(
+          logicalWidth: logicalWidth,
+          textScaler: MediaQuery.textScalerOf(context),
+          bubbleFontSize: style.bubbleTextStyle.fontSize ?? 14,
+          crowdedEffectiveWidthThreshold: locationChatBubbleLayoutSettings
+              .value
+              .crowdedEffectiveWidthThreshold,
+          avatarSize: style.avatarSize,
+          avatarBubbleGap: style.avatarBubbleGap,
+          avatarSideSpacerWidth: style.avatarSideSpacerWidth,
+          messageListHorizontalPadding: style.messageListPadding.horizontal,
+        );
     final replacementComposer = widget.composerReplacement;
     final showComposerShortcuts =
         widget.active &&
@@ -821,6 +928,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               },
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
         showDateDividers: false,
+        selfMessageBubbleMaxWidthCap:
+            ordinaryMessageBubbleMaxWidthCaps.selfMessage,
+        otherMessageBubbleMaxWidthCap:
+            ordinaryMessageBubbleMaxWidthCaps.otherMessage,
         style: style,
       ),
     );

@@ -234,6 +234,7 @@ class _WorldRouteArgs {
     required this.initiallyLaunched,
     required this.initialName,
     required this.initialLocationId,
+    required this.initialMessageToSend,
     required this.initialDefinitionVersion,
     required this.initialMapLocationId,
   });
@@ -265,6 +266,10 @@ class _WorldRouteArgs {
         'initial_location_id',
         'initialLocationId',
       ]),
+      initialMessageToSend: args.string(const [
+        'initial_message_to_send',
+        'initialMessageToSend',
+      ]),
       initialDefinitionVersion: args.integer(const [
         'initial_definition_version',
         'initialDefinitionVersion',
@@ -282,6 +287,7 @@ class _WorldRouteArgs {
   final bool initiallyLaunched;
   final String initialName;
   final String initialLocationId;
+  final String initialMessageToSend;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
 }
@@ -556,6 +562,7 @@ sealed class AppRouter {
             initiallyLaunched: args.initiallyLaunched,
             initialName: args.initialName,
             initialLocationId: args.initialLocationId,
+            initialMessageToSend: args.initialMessageToSend,
             initialDefinitionVersion: args.initialDefinitionVersion,
             initialMapLocationId: args.initialMapLocationId,
           ),

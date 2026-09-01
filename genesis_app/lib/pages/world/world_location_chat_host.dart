@@ -131,6 +131,8 @@ class WorldLocationChatPageCache {
   final Set<String> _cachedLocationIds = <String>{};
   final Set<String> _readyLocationIds = <String>{};
   final Map<String, String> _draftTextByLocation = <String, String>{};
+  final Map<String, String> _initialMessageToSendByLocation =
+      <String, String>{};
   Set<String> _currentTilemapLocationIds = const <String>{};
 
   String activeLocationId = '';
@@ -224,11 +226,22 @@ class WorldLocationChatPageCache {
     _draftTextByLocation[locationId] = text;
   }
 
+  void queueInitialMessageToSend(String locationId, String message) {
+    final resolvedLocationId = locationId.trim();
+    if (resolvedLocationId.isEmpty || message.trim().isEmpty) return;
+    _initialMessageToSendByLocation[resolvedLocationId] = message;
+  }
+
+  String takeInitialMessageToSend(String locationId) {
+    return _initialMessageToSendByLocation.remove(locationId.trim()) ?? '';
+  }
+
   void clear() {
     _descriptors.clear();
     _cachedLocationIds.clear();
     _readyLocationIds.clear();
     _draftTextByLocation.clear();
+    _initialMessageToSendByLocation.clear();
     _currentTilemapLocationIds = const <String>{};
     _backgroundPreloader.preload(const <Object?>[]);
     activeLocationId = '';
@@ -395,6 +408,9 @@ class WorldLocationChatRouterHostState
                     initialDraftText: widget.cache.draftTextFor(
                       descriptor.locationId,
                     ),
+                    initialMessageToSend: widget.cache.takeInitialMessageToSend(
+                      descriptor.locationId,
+                    ),
                     onDraftTextChanged: (text) {
                       widget.cache.updateDraftText(descriptor.locationId, text);
                     },
@@ -450,6 +466,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.renderBackgroundImage,
     required this.onBack,
     required this.initialDraftText,
+    required this.initialMessageToSend,
     required this.onDraftTextChanged,
     required this.messageQueueInitializationCovered,
     required this.onCharactersMovedLocationTap,
@@ -464,6 +481,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final bool renderBackgroundImage;
   final VoidCallback onBack;
   final String initialDraftText;
+  final String initialMessageToSend;
   final ValueChanged<String> onDraftTextChanged;
   final bool messageQueueInitializationCovered;
   final ChatCharacterMovementTap onCharactersMovedLocationTap;
@@ -502,6 +520,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             style: kLocationChatStyle,
             onBack: onBack,
             initialDraftText: initialDraftText,
+            initialMessageToSend: initialMessageToSend,
             onDraftTextChanged: onDraftTextChanged,
             onCharactersMovedLocationTap: onCharactersMovedLocationTap,
           ),

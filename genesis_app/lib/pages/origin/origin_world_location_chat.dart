@@ -49,16 +49,147 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                   leaveOnInactive: false,
                   showMoreButton: false,
                   onBack: _closeLocationChat,
-                  composerReplacement: _OriginLocationChatLaunchBar(
+                  composerReplacement: _OriginLocationChatLaunchComposer(
+                    key: ValueKey(
+                      'origin-location-chat-composer-${descriptor.locationId}',
+                    ),
                     launching: _launching,
-                    onLaunch: () => _showLaunchRoleSheet(
+                    role: _locationChatRoleOption(origin),
+                    onSelectRole: () => _selectLocationChatRole(origin),
+                    onSend: (message) => _launchLocationChatMessage(
                       origin,
-                      initialLocationId: descriptor.locationId,
+                      locationId: descriptor.locationId,
+                      message: message,
                     ),
                   ),
                 ),
               ),
       ),
+    );
+  }
+
+  _OriginLocationChatRoleOption _locationChatRoleOption(OriginDetail origin) {
+    final selectedId = _selectedLocationChatRoleId;
+    if (selectedId != _OriginWorldPageState._profileLocationChatRoleId) {
+      for (final character in origin.characters) {
+        if (_characterStableId(character) == selectedId) {
+          return _OriginLocationChatRoleOption(
+            id: selectedId,
+            name: character.name.trim().isEmpty
+                ? selectedId
+                : character.name.trim(),
+            subtitle: character.identity.trim(),
+            avatarUrl: _resolveAssetUrl(character.avatar),
+          );
+        }
+      }
+    }
+    final profileRole = _cachedProfileRole;
+    return _OriginLocationChatRoleOption(
+      id: _OriginWorldPageState._profileLocationChatRoleId,
+      name: 'Your Profile',
+      subtitle: profileRole?.name.trim() ?? '',
+      avatarUrl: profileRole == null
+          ? ''
+          : _resolveAssetUrl(profileRole.avatarUrl),
+    );
+  }
+
+  List<_OriginLocationChatRoleOption> _locationChatRoleOptions(
+    OriginDetail origin,
+  ) {
+    final profileRole = _cachedProfileRole;
+    return <_OriginLocationChatRoleOption>[
+      _OriginLocationChatRoleOption(
+        id: _OriginWorldPageState._profileLocationChatRoleId,
+        name: 'Your Profile',
+        subtitle: profileRole?.name.trim() ?? '',
+        avatarUrl: profileRole == null
+            ? ''
+            : _resolveAssetUrl(profileRole.avatarUrl),
+      ),
+      for (final character in originCharactersRecommendedFirst(
+        origin.characters,
+      ))
+        if (_characterStableId(character).isNotEmpty)
+          _OriginLocationChatRoleOption(
+            id: _characterStableId(character),
+            name: character.name.trim().isEmpty
+                ? _characterStableId(character)
+                : character.name.trim(),
+            subtitle: character.identity.trim(),
+            avatarUrl: _resolveAssetUrl(character.avatar),
+          ),
+    ];
+  }
+
+  Future<void> _selectLocationChatRole(OriginDetail origin) async {
+    if (_launching) return;
+    FocusManager.instance.primaryFocus?.unfocus();
+    final roleId = await showGenesisModalBottomSheet<String>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => _OriginLocationChatRolePicker(
+        roles: _locationChatRoleOptions(origin),
+        selectedRoleId: _locationChatRoleOption(origin).id,
+      ),
+    );
+    if (!mounted || roleId == null || roleId == _selectedLocationChatRoleId) {
+      return;
+    }
+    _setLocationChatRoleId(roleId);
+  }
+
+  Future<void> _launchLocationChatMessage(
+    OriginDetail origin, {
+    required String locationId,
+    required String message,
+  }) async {
+    if (_launching || message.trim().isEmpty) return;
+    if (!await ensureGenesisLogin(context) || !mounted) return;
+
+    final selectedRoleId = _selectedLocationChatRoleId;
+    OriginRoleLaunchSelection roleSelection;
+    String telemetryRoleId;
+    if (selectedRoleId == _OriginWorldPageState._profileLocationChatRoleId) {
+      final profileRole = await _customRoleFromProfile();
+      if (!mounted || profileRole == null) return;
+      roleSelection = OriginRoleLaunchSelection.custom(profileRole);
+      telemetryRoleId = 'current_user';
+    } else {
+      final character = origin.characters
+          .where((character) => _characterStableId(character) == selectedRoleId)
+          .firstOrNull;
+      if (character == null) {
+        showGenesisToast(context, 'This role is no longer available');
+        _setLocationChatRoleId(
+          _OriginWorldPageState._profileLocationChatRoleId,
+        );
+        return;
+      }
+      final characterId = _characterStableId(character);
+      roleSelection = OriginRoleLaunchSelection.preset(characterId);
+      telemetryRoleId = characterId;
+    }
+
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_setup_role_launch',
+      object1: origin.oid,
+      object2: telemetryRoleId,
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: 'worldo_launch_opening',
+      object1: origin.oid,
+    );
+    await _launchOrigin(
+      origin,
+      roleSelection,
+      initialLocationId: locationId,
+      initialMessageToSend: message,
     );
   }
 }
@@ -85,48 +216,279 @@ class _OriginLocationChatDescriptor {
   final List<WorldChatroomEntity> openingPreviewEntities;
 }
 
-class _OriginLocationChatLaunchBar extends StatelessWidget {
-  const _OriginLocationChatLaunchBar({
+class _OriginLocationChatLaunchComposer extends StatefulWidget {
+  const _OriginLocationChatLaunchComposer({
+    super.key,
     required this.launching,
-    required this.onLaunch,
+    required this.role,
+    required this.onSelectRole,
+    required this.onSend,
   });
 
   final bool launching;
-  final VoidCallback onLaunch;
+  final _OriginLocationChatRoleOption role;
+  final VoidCallback onSelectRole;
+  final Future<void> Function(String message) onSend;
+
+  @override
+  State<_OriginLocationChatLaunchComposer> createState() =>
+      _OriginLocationChatLaunchComposerState();
+}
+
+class _OriginLocationChatLaunchComposerState
+    extends State<_OriginLocationChatLaunchComposer> {
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
+  bool _hasText = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_handleTextChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_handleTextChanged);
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _handleTextChanged() {
+    final hasText = _controller.text.trim().isNotEmpty;
+    if (_hasText == hasText) return;
+    setState(() => _hasText = hasText);
+  }
+
+  Future<void> _send() async {
+    final message = _controller.text;
+    if (widget.launching || message.trim().isEmpty) return;
+    _focusNode.unfocus();
+    await widget.onSend(message);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final style = kLocationChatStyle;
-    final bottomInset = GenesisSafeAreaInsets.bottom(context);
-    return ClipRect(
-      child: BackdropFilter(
-        filter: ImageFilter.blur(
-          sigmaX: style.composerBackdropBlurSigma,
-          sigmaY: style.composerBackdropBlurSigma,
+    return ChatComposer(
+      controller: _controller,
+      focusNode: _focusNode,
+      hintText: 'Text...',
+      inputEnabled: !widget.launching,
+      sendEnabled: !widget.launching && _hasText,
+      sending: widget.launching,
+      onSend: _send,
+      composerHeader: _OriginLocationChatRoleSelector(
+        role: widget.role,
+        enabled: !widget.launching,
+        onTap: widget.onSelectRole,
+      ),
+      sendIcon: ChatComposerSendIcon.arrowUp,
+      style: kLocationChatStyle,
+    );
+  }
+}
+
+@immutable
+class _OriginLocationChatRoleOption {
+  const _OriginLocationChatRoleOption({
+    required this.id,
+    required this.name,
+    required this.subtitle,
+    required this.avatarUrl,
+  });
+
+  final String id;
+  final String name;
+  final String subtitle;
+  final String avatarUrl;
+}
+
+class _OriginLocationChatRoleSelector extends StatelessWidget {
+  const _OriginLocationChatRoleSelector({
+    required this.role,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final _OriginLocationChatRoleOption role;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Select Your Role',
+      child: InkWell(
+        key: const ValueKey<String>('origin-location-chat-role-selector'),
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 0, 8, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GenesisCharacterAvatar(
+                url: role.avatarUrl,
+                name: role.name,
+                size: 22,
+                borderRadius: 6,
+                showFallbackWhileLoading: true,
+              ),
+              const SizedBox(width: 7),
+              Flexible(
+                child: Text(
+                  role.name,
+                  key: const ValueKey<String>(
+                    'origin-location-chat-role-label',
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFFF4F3F6),
+                    fontSize: 12,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 2),
+              const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 17,
+                color: Color(0x99FFFFFF),
+              ),
+            ],
+          ),
         ),
-        child: Container(
-          padding: style.composerPadding.copyWith(
-            bottom: style.composerPadding.bottom + bottomInset,
-          ),
-          decoration: BoxDecoration(
-            color: style.composerBackgroundGradient == null
-                ? style.composerBackgroundColor
-                : null,
-            gradient: style.composerBackgroundGradient,
-          ),
-          child: Center(
-            child: SizedBox(
-              width: MediaQuery.sizeOf(context).width * 0.7,
-              child: GenesisPrimaryButton(
-                label: launching ? 'Launching...' : 'Launch to send',
-                onPressed: launching ? null : onLaunch,
-                height: style.inputMinHeight,
-                borderRadius: BorderRadius.circular(
-                  style.systemMessageBorderRadius,
+      ),
+    );
+  }
+}
+
+class _OriginLocationChatRolePicker extends StatelessWidget {
+  const _OriginLocationChatRolePicker({
+    required this.roles,
+    required this.selectedRoleId,
+  });
+
+  final List<_OriginLocationChatRoleOption> roles;
+  final String selectedRoleId;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.68;
+    return Container(
+      key: const ValueKey<String>('origin-location-chat-role-picker'),
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      decoration: const BoxDecoration(
+        color: GenesisColors.surface,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: SafeArea(
+        top: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(top: 10),
+                decoration: BoxDecoration(
+                  color: GenesisColors.borderStrong,
+                  borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
-          ),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 18, 20, 10),
+              child: Text(
+                'Select Your Role',
+                style: GenesisTypography.pageTitle,
+              ),
+            ),
+            Flexible(
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                itemCount: roles.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 4),
+                itemBuilder: (context, index) {
+                  final role = roles[index];
+                  final selected = role.id == selectedRoleId;
+                  return InkWell(
+                    key: ValueKey<String>(
+                      'origin-location-chat-role-option-${role.id}',
+                    ),
+                    onTap: () => Navigator.of(context).pop(role.id),
+                    borderRadius: BorderRadius.circular(14),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 160),
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? GenesisColors.surfacePanel
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: selected
+                              ? GenesisColors.borderStrong
+                              : Colors.transparent,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          GenesisCharacterAvatar(
+                            url: role.avatarUrl,
+                            name: role.name,
+                            size: 42,
+                            borderRadius: 11,
+                            showFallbackWhileLoading: true,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  role.name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: GenesisTypography.bodyStrong,
+                                ),
+                                if (role.subtitle.isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    role.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: GenesisTypography.supporting,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Icon(
+                            selected
+                                ? Icons.check_circle_rounded
+                                : Icons.circle_outlined,
+                            size: 22,
+                            color: selected
+                                ? GenesisColors.textPrimary
+                                : GenesisColors.borderStrong,
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );

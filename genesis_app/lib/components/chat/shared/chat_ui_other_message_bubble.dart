@@ -5,18 +5,23 @@ class ChatOtherMessageBubble extends StatelessWidget {
     super.key,
     required this.message,
     required this.style,
+    this.maxWidthCap,
     this.onAvatarTap,
     this.onLongPressStart,
   });
 
   final ChatMessageVm message;
   final ChatUiStyleConfig style;
+  final double? maxWidthCap;
   final VoidCallback? onAvatarTap;
   final GestureLongPressStartCallback? onLongPressStart;
 
   @override
   Widget build(BuildContext context) {
-    final maxBubbleWidth = _normalBubbleMaxWidth(context, style);
+    final defaultMaxBubbleWidth = _normalBubbleMaxWidth(context, style);
+    final maxBubbleWidth = maxWidthCap == null
+        ? defaultMaxBubbleWidth
+        : math.min(defaultMaxBubbleWidth, maxWidthCap!);
     final senderName = genesisDisplaySafeText(message.senderName);
     final currentTime = genesisDisplaySafeText(message.currentTime).trim();
     return Padding(

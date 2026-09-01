@@ -68,6 +68,7 @@ class WorldPage extends StatefulWidget {
     this.initiallyLaunched = false,
     this.initialName = '',
     this.initialLocationId = '',
+    this.initialMessageToSend = '',
     this.initialDefinitionVersion = 0,
     this.initialMapLocationId = '',
   });
@@ -78,6 +79,7 @@ class WorldPage extends StatefulWidget {
   final bool initiallyLaunched;
   final String initialName;
   final String initialLocationId;
+  final String initialMessageToSend;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
 
@@ -400,6 +402,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
     _pendingInitialLocationId = widget.initialLocationId.trim();
+    _locationChatPageCache.queueInitialMessageToSend(
+      _pendingInitialLocationId,
+      widget.initialMessageToSend,
+    );
     _initialLocationChatEntry = _pendingInitialLocationId.isNotEmpty;
     _locationChatTransitionsEnabled = !_initialLocationChatEntry;
     _mainTabController = TabController(length: worldMainPageCount, vsync: this);

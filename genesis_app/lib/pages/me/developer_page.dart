@@ -14,6 +14,7 @@ import '../../app/config/app_endpoint_overrides.dart';
 import '../../app/config/app_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
+import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/debug/origin_world_sheet_debug_settings.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -256,6 +257,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     if (kDebugMode) {
       unawaited(_loadOriginWorldSheetDebugSettings());
     }
+    unawaited(locationChatBubbleLayoutSettings.load());
     unawaited(locationChatHeaderEffectSettings.load());
     unawaited(AppServicesScope.read(context).gemWallet.refresh());
   }
@@ -375,6 +377,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   Future<void> _saveLocationChatHeaderEffectSettings() async {
     try {
       await locationChatHeaderEffectSettings.save();
+    } catch (error) {
+      if (mounted) showGenesisToast(context, 'Save failed: $error');
+    }
+  }
+
+  Future<void> _saveLocationChatBubbleLayoutSettings() async {
+    try {
+      await locationChatBubbleLayoutSettings.save();
     } catch (error) {
       if (mounted) showGenesisToast(context, 'Save failed: $error');
     }
@@ -733,61 +743,94 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           ),
         ],
         const SizedBox(height: 18),
-        ValueListenableBuilder<LocationChatHeaderEffectSettings>(
-          valueListenable: locationChatHeaderEffectSettings,
-          builder: (context, settings, _) {
-            final transparencyLabel = settings.transparencyStrength <= 0
-                ? 'Off'
-                : '${(settings.transparencyStrength * 100).round()}%';
-            final blurLabel = settings.blurSigma <= 0
-                ? 'Off'
-                : settings.blurSigma.toStringAsFixed(0);
-            return _DeveloperTestSectionPanel(
-              key: const ValueKey<String>('developer-location-chat-panel'),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _DeveloperSectionTitle(
-                    'Location chat header & input bar',
+        ValueListenableBuilder<LocationChatBubbleLayoutSettings>(
+          valueListenable: locationChatBubbleLayoutSettings,
+          builder: (context, bubbleLayoutSettings, _) {
+            return ValueListenableBuilder<LocationChatHeaderEffectSettings>(
+              valueListenable: locationChatHeaderEffectSettings,
+              builder: (context, headerEffectSettings, _) {
+                final transparencyLabel =
+                    headerEffectSettings.transparencyStrength <= 0
+                    ? 'Off'
+                    : '${(headerEffectSettings.transparencyStrength * 100).round()}%';
+                final blurLabel = headerEffectSettings.blurSigma <= 0
+                    ? 'Off'
+                    : headerEffectSettings.blurSigma.toStringAsFixed(0);
+                final crowdedWidthLabel = bubbleLayoutSettings
+                    .crowdedEffectiveWidthThreshold
+                    .toStringAsFixed(0);
+                return _DeveloperTestSectionPanel(
+                  key: const ValueKey<String>('developer-location-chat-panel'),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _DeveloperSectionTitle(
+                        'Location chat header & input bar',
+                      ),
+                      const SizedBox(height: 8),
+                      _DeveloperSliderControl(
+                        label: 'Surface opacity',
+                        valueLabel: transparencyLabel,
+                        value: headerEffectSettings.transparencyStrength,
+                        min: LocationChatHeaderEffectSettings
+                            .minTransparencyStrength,
+                        max: LocationChatHeaderEffectSettings
+                            .maxTransparencyStrength,
+                        divisions: 20,
+                        sliderKey: const ValueKey<String>(
+                          'developer-location-chat-header-transparency-slider',
+                        ),
+                        onChanged: locationChatHeaderEffectSettings
+                            .previewTransparencyStrength,
+                        onChangeEnd: (_) {
+                          unawaited(_saveLocationChatHeaderEffectSettings());
+                        },
+                      ),
+                      const SizedBox(height: _itemGap),
+                      _DeveloperSliderControl(
+                        label: 'Gaussian blur radius',
+                        valueLabel: blurLabel,
+                        value: headerEffectSettings.blurSigma,
+                        min: LocationChatHeaderEffectSettings.minBlurSigma,
+                        max: LocationChatHeaderEffectSettings.maxBlurSigma,
+                        divisions: 20,
+                        sliderKey: const ValueKey<String>(
+                          'developer-location-chat-header-blur-slider',
+                        ),
+                        onChanged:
+                            locationChatHeaderEffectSettings.previewBlurSigma,
+                        onChangeEnd: (_) {
+                          unawaited(_saveLocationChatHeaderEffectSettings());
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      const _DeveloperSectionTitle(
+                        'Self & character message bubbles',
+                      ),
+                      const SizedBox(height: 8),
+                      _DeveloperSliderControl(
+                        label: 'Crowded width threshold',
+                        valueLabel: '$crowdedWidthLabel logical px',
+                        value:
+                            bubbleLayoutSettings.crowdedEffectiveWidthThreshold,
+                        min: LocationChatBubbleLayoutSettings
+                            .minCrowdedEffectiveWidthThreshold,
+                        max: LocationChatBubbleLayoutSettings
+                            .maxCrowdedEffectiveWidthThreshold,
+                        divisions: 40,
+                        sliderKey: const ValueKey<String>(
+                          'developer-location-chat-crowded-width-slider',
+                        ),
+                        onChanged: locationChatBubbleLayoutSettings
+                            .previewCrowdedEffectiveWidthThreshold,
+                        onChangeEnd: (_) {
+                          unawaited(_saveLocationChatBubbleLayoutSettings());
+                        },
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  _DeveloperSliderControl(
-                    label: 'Surface opacity',
-                    valueLabel: transparencyLabel,
-                    value: settings.transparencyStrength,
-                    min: LocationChatHeaderEffectSettings
-                        .minTransparencyStrength,
-                    max: LocationChatHeaderEffectSettings
-                        .maxTransparencyStrength,
-                    divisions: 20,
-                    sliderKey: const ValueKey<String>(
-                      'developer-location-chat-header-transparency-slider',
-                    ),
-                    onChanged: locationChatHeaderEffectSettings
-                        .previewTransparencyStrength,
-                    onChangeEnd: (_) {
-                      unawaited(_saveLocationChatHeaderEffectSettings());
-                    },
-                  ),
-                  const SizedBox(height: _itemGap),
-                  _DeveloperSliderControl(
-                    label: 'Gaussian blur radius',
-                    valueLabel: blurLabel,
-                    value: settings.blurSigma,
-                    min: LocationChatHeaderEffectSettings.minBlurSigma,
-                    max: LocationChatHeaderEffectSettings.maxBlurSigma,
-                    divisions: 20,
-                    sliderKey: const ValueKey<String>(
-                      'developer-location-chat-header-blur-slider',
-                    ),
-                    onChanged:
-                        locationChatHeaderEffectSettings.previewBlurSigma,
-                    onChangeEnd: (_) {
-                      unawaited(_saveLocationChatHeaderEffectSettings());
-                    },
-                  ),
-                ],
-              ),
+                );
+              },
             );
           },
         ),

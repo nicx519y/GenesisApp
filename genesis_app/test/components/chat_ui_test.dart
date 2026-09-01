@@ -2395,6 +2395,81 @@ void main() {
     expect(playerName.style?.color, GenesisColors.create);
   });
 
+  testWidgets('ordinary bubble caps affect self and other but not system', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const longText =
+        'This is a deliberately long message that needs the full available '
+        'message column before it wraps onto additional lines.';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 420,
+            child: Column(
+              children: [
+                ChatMessageRow(
+                  message: ChatMessageVm(
+                    localId: 'capped-self',
+                    senderId: 'me',
+                    senderName: 'Me',
+                    text: longText,
+                    isMe: true,
+                    status: 'sent',
+                  ),
+                  showDateDivider: false,
+                  selfMessageBubbleMaxWidthCap: 180,
+                  otherMessageBubbleMaxWidthCap: 200,
+                  style: kLocationChatStyle,
+                ),
+                ChatMessageRow(
+                  message: ChatMessageVm(
+                    localId: 'uncapped-other',
+                    senderId: 'other',
+                    senderName: 'Other',
+                    text: longText,
+                    isMe: false,
+                    status: 'sent',
+                  ),
+                  showDateDivider: false,
+                  selfMessageBubbleMaxWidthCap: 180,
+                  otherMessageBubbleMaxWidthCap: 200,
+                  style: kLocationChatStyle,
+                ),
+                ChatMessageRow(
+                  message: ChatMessageVm.system(longText),
+                  showDateDivider: false,
+                  selfMessageBubbleMaxWidthCap: 180,
+                  otherMessageBubbleMaxWidthCap: 200,
+                  style: kLocationChatStyle,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final selfBubble = tester.getSize(
+      find.byKey(const ValueKey<String>('chat-message-bubble-capped-self')),
+    );
+    final otherBubble = tester.getSize(
+      find.byKey(const ValueKey<String>('chat-message-bubble-uncapped-other')),
+    );
+    final systemBubble = tester.getSize(
+      find.byKey(const ValueKey('chat-system-message-bubble')),
+    );
+
+    expect(selfBubble.width, closeTo(180, 0.01));
+    expect(otherBubble.width, closeTo(200, 0.01));
+    expect(systemBubble.width, greaterThan(200));
+  });
+
   testWidgets('location chat header left aligns title and subtitle rows', (
     WidgetTester tester,
   ) async {
