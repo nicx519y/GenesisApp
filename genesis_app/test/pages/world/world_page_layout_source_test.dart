@@ -209,26 +209,21 @@ void main() {
       contains('worldSheetVisibleContentTopGap - 5'),
     );
     expect(singleSectionSheet, contains('Expanded('));
-    expect(singleSectionSheet, contains('_buildDismissibleSheetContent()'));
-    expect(singleSectionSheet, contains('Listener('));
-    expect(
-      singleSectionSheet,
-      contains('NotificationListener<ScrollNotification>'),
-    );
+    expect(singleSectionSheet, contains('_buildSheetContent()'));
+    expect(singleSectionSheet, contains('GenesisBottomSheetDragDismissArea('));
+    expect(singleSectionSheet, isNot(contains('return Listener(')));
+    expect(singleSectionSheet, isNot(contains('PointerDownEvent')));
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
     expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));
-    expect(
-      sheetHeader,
-      contains('widget.item.kind != WorldBottomSheetKind.detail'),
-    );
+    expect(sheetHeader, contains('item.kind != WorldBottomSheetKind.detail'));
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(sectionListView, contains('worldSheetVisibleContentTopGap'));
     expect(sectionListView, contains('ListView.builder('));
     expect(source, isNot(contains('EdgeInsets.fromLTRB(24, 14, 24, 32)')));
     expect(bottomTags, isNot(contains('TabBar(')));
     expect(source, contains('_openWorldBottomSheet('));
-    expect(source, contains('enableDrag: false'));
+    expect(source, contains('enableDrag: true'));
     expect(bottomTagContent, contains('Color(0xFFEBEFF2)'));
     expect(bottomTagContent, contains('Color(0xFF666666)'));
     expect(
@@ -237,7 +232,8 @@ void main() {
     );
     expect(source, contains('class WorldSingleSectionBottomSheet'));
     expect(source, contains('class WorldSingleSectionSheetHeader'));
-    expect(source, contains('onVerticalDragEnd'));
+    expect(sheetHeader, isNot(contains('onVerticalDragEnd')));
+    expect(sheetHeader, isNot(contains('GestureDetector')));
     expect(source, contains('top: 5'));
     expect(source, contains('fontSize: 16'));
     expect(source, contains('fontWeight: FontWeight.w600'));

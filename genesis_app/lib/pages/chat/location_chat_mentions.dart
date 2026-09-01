@@ -4,10 +4,16 @@ const String _locationChatMentionPlaceholder = '\uFFFC';
 
 @visibleForTesting
 ChatMentionCatalog locationChatMentionCatalogForState(
-  WorldChatroomState state,
-) {
+  WorldChatroomState state, {
+  Iterable<String> currentUserIds = const <String>[],
+  Iterable<String> currentSenderIds = const <String>[],
+}) {
   final world = state.world;
   if (world == null) return ChatMentionCatalog.empty;
+  final currentIdentityKeys = <String>{
+    ...currentUserIds.map(_chatroomIdentityKey),
+    ...currentSenderIds.map(_chatroomIdentityKey),
+  }..remove('');
 
   final characterIds = <String>{};
   final characters = <ChatMentionEntry>[];
@@ -18,6 +24,19 @@ ChatMentionCatalog locationChatMentionCatalogForState(
       'id',
     ]).trim();
     if (id.isEmpty || characterIds.contains(id)) continue;
+    final playerIdentityKeys = <String>{
+      for (final key in const ['player_uid', 'user_id', 'uid'])
+        _chatroomIdentityKey(_mapString(character, key)),
+    }..remove('');
+    final isPlayerControlled = playerIdentityKeys.isNotEmpty;
+    final characterIdentityKeys = <String>{
+      _chatroomIdentityKey(id),
+      ...playerIdentityKeys,
+    }..remove('');
+    if (isPlayerControlled &&
+        characterIdentityKeys.any(currentIdentityKeys.contains)) {
+      continue;
+    }
     final name = _firstMapString(character, const [
       'name',
       'role_nickname',
@@ -32,39 +51,39 @@ ChatMentionCatalog locationChatMentionCatalogForState(
         name: normalizeGenesisUgcTextForDisplay(name),
         type: ChatMentionType.character,
         imageUrl: _firstMapImageUrl(character, const ['avatar', 'avatar_url']),
+        isPlayerControlled: isPlayerControlled,
       ),
     );
   }
 
-  final locationValues = <({String nodeId, Map<String, dynamic> value})>[
-    for (final node in world.processedLocationTree.flattened)
-      if (node.children.isEmpty) (nodeId: node.id, value: node.value),
-  ];
+  final locationTree = world.processedLocationTree;
+  final locationNodes = locationTree.flattened.where(
+    (node) => node.children.isEmpty,
+  );
   final locationIds = <String>{};
   final locations = <ChatMentionEntry>[];
-  for (final item in locationValues) {
+  for (final node in locationNodes) {
     final id = firstNonEmpty([
-      item.nodeId,
-      _firstMapString(item.value, const ['location_id', 'id']),
+      node.id,
+      _firstMapString(node.value, const ['location_id', 'id']),
     ]);
     if (id.isEmpty || locationIds.contains(id)) continue;
-    final name = _firstMapString(item.value, const [
+    final name = _firstMapString(node.value, const [
       'location_name',
       'name',
     ]).trim();
     if (name.isEmpty) continue;
+    final parent = locationTree.nodeById(node.parentId);
+    final parentName = parent == null
+        ? ''
+        : _firstMapString(parent.value, const ['location_name', 'name']).trim();
     locationIds.add(id);
     locations.add(
       ChatMentionEntry(
         id: id,
         name: normalizeGenesisUgcTextForDisplay(name),
         type: ChatMentionType.location,
-        imageUrl: _firstMapImageUrl(item.value, const [
-          'image',
-          'icon',
-          'map_url',
-          'mapUrl',
-        ]),
+        subtitle: normalizeGenesisUgcTextForDisplay(parentName),
       ),
     );
   }
@@ -454,7 +473,14 @@ int _catalogSignature(ChatMentionCatalog catalog) {
     for (final entry in <ChatMentionEntry>[
       ...catalog.characters,
       ...catalog.locations,
-    ]) ...[entry.id, entry.name, entry.type, entry.imageUrl],
+    ]) ...[
+      entry.id,
+      entry.name,
+      entry.type,
+      entry.subtitle,
+      entry.imageUrl,
+      entry.isPlayerControlled,
+    ],
   ]);
 }
 
@@ -568,7 +594,7 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
 
   @override
   Widget build(BuildContext context) {
-    final height = MediaQuery.sizeOf(context).height * 0.6;
+    final height = MediaQuery.sizeOf(context).height * 0.8;
     return Material(
       key: const ValueKey<String>('location-chat-mention-sheet'),
       color: const Color(0xFF151517),
@@ -580,27 +606,55 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
           height: height,
           child: Column(
             children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 10, 8),
-                child: Row(
+              SizedBox(
+                key: const ValueKey<String>('location-chat-mention-header'),
+                height: 48,
+                child: Stack(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'Mention',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          height: 24 / 18,
-                          fontWeight: FontWeight.w600,
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 15,
+                      child: SizedBox(
+                        height: 28,
+                        child: const Center(
+                          child: Text(
+                            'Mention',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              height: 1.6,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    IconButton(
-                      key: const ValueKey<String>(
-                        'location-chat-mention-close',
+                    Positioned(
+                      left: 16,
+                      top: 17,
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: TextButton(
+                          key: const ValueKey<String>(
+                            'location-chat-mention-collapse',
+                          ),
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            minimumSize: const Size(24, 24),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: const Color(0x1FFFFFFF),
+                            foregroundColor: Colors.white,
+                            shape: const CircleBorder(),
+                          ),
+                          child: const Icon(
+                            Icons.keyboard_arrow_down_rounded,
+                            size: 18,
+                          ),
+                        ),
                       ),
-                      onPressed: () => Navigator.of(context).pop(),
-                      icon: const Icon(Icons.close, color: Colors.white),
                     ),
                   ],
                 ),
@@ -613,30 +667,34 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
                 labelFontSize: 14,
                 labelColor: Colors.white,
                 unselectedLabelColor: const Color(0x99FFFFFF),
-                indicatorColor: Colors.white,
                 expanded: true,
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: TabBarView(
-                  key: const ValueKey<String>('location-chat-mention-tab-view'),
-                  controller: _tabController,
-                  children: [
-                    _LocationChatMentionList(
-                      key: const PageStorageKey<String>(
-                        'location-chat-character-mentions',
-                      ),
-                      entries: widget.catalog.characters,
-                      emptyLabel: 'No characters',
+                child: GenesisBottomSheetDragDismissArea(
+                  onDismiss: () => Navigator.of(context).pop(),
+                  child: TabBarView(
+                    key: const ValueKey<String>(
+                      'location-chat-mention-tab-view',
                     ),
-                    _LocationChatMentionList(
-                      key: const PageStorageKey<String>(
-                        'location-chat-location-mentions',
+                    controller: _tabController,
+                    children: [
+                      _LocationChatMentionList(
+                        key: const PageStorageKey<String>(
+                          'location-chat-character-mentions',
+                        ),
+                        entries: widget.catalog.characters,
+                        emptyLabel: 'No characters',
                       ),
-                      entries: widget.catalog.locations,
-                      emptyLabel: 'No locations',
-                    ),
-                  ],
+                      _LocationChatMentionList(
+                        key: const PageStorageKey<String>(
+                          'location-chat-location-mentions',
+                        ),
+                        entries: widget.catalog.locations,
+                        emptyLabel: 'No locations',
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -667,44 +725,116 @@ class _LocationChatMentionList extends StatelessWidget {
         ),
       );
     }
-    return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
-      itemCount: entries.length,
-      separatorBuilder: (_, _) =>
-          const Divider(height: 1, indent: 52, color: Color(0x1FFFFFFF)),
-      itemBuilder: (context, index) {
-        final entry = entries[index];
-        return InkWell(
-          key: ValueKey<String>(
-            'location-chat-mention-${entry.type.name}-${entry.id}',
-          ),
-          onTap: () => Navigator.of(context).pop(entry),
-          child: SizedBox(
-            height: 56,
-            child: Row(
-              children: [
-                _LocationChatMentionThumbnail(entry: entry),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    entry.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.3,
-                      fontWeight: FontWeight.w400,
-                    ),
-                  ),
-                ),
-              ],
+    final sortedEntries = entries.toList(growable: false)
+      ..sort(_compareLocationChatMentionEntries);
+    return ScrollConfiguration(
+      behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+      child: ListView.builder(
+        physics: const ClampingScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+        itemCount: sortedEntries.length,
+        itemBuilder: (context, index) {
+          final entry = sortedEntries[index];
+          return InkWell(
+            key: ValueKey<String>(
+              'location-chat-mention-${entry.type.name}-${entry.id}',
             ),
-          ),
-        );
-      },
+            onTap: () => Navigator.of(context).pop(entry),
+            child: SizedBox(
+              height: 56,
+              child: entry.type == ChatMentionType.character
+                  ? _LocationChatCharacterMentionRow(entry: entry)
+                  : _LocationChatLocationMentionRow(entry: entry),
+            ),
+          );
+        },
+      ),
     );
   }
+}
+
+class _LocationChatCharacterMentionRow extends StatelessWidget {
+  const _LocationChatCharacterMentionRow({required this.entry});
+
+  final ChatMentionEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _LocationChatMentionThumbnail(entry: entry),
+        const SizedBox(width: 12),
+        Expanded(child: _LocationChatMentionName(name: entry.name)),
+      ],
+    );
+  }
+}
+
+class _LocationChatLocationMentionRow extends StatelessWidget {
+  const _LocationChatLocationMentionRow({required this.entry});
+
+  final ChatMentionEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final subtitle = entry.subtitle.trim();
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (subtitle.isNotEmpty) ...[
+            Text(
+              '$subtitle >',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0x73FFFFFF),
+                fontSize: 12,
+                height: 1,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+          ],
+          _LocationChatMentionName(name: entry.name),
+        ],
+      ),
+    );
+  }
+}
+
+class _LocationChatMentionName extends StatelessWidget {
+  const _LocationChatMentionName({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      name,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 14,
+        height: 1.3,
+        fontWeight: FontWeight.w400,
+      ),
+    );
+  }
+}
+
+int _compareLocationChatMentionEntries(
+  ChatMentionEntry left,
+  ChatMentionEntry right,
+) {
+  final leftName = left.name.trim().toLowerCase();
+  final rightName = right.name.trim().toLowerCase();
+  final caseInsensitiveOrder = leftName.compareTo(rightName);
+  if (caseInsensitiveOrder != 0) return caseInsensitiveOrder;
+  return left.name.compareTo(right.name);
 }
 
 class _LocationChatMentionThumbnail extends StatelessWidget {
@@ -715,28 +845,20 @@ class _LocationChatMentionThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final sourceUrl = entry.imageUrl.trim();
-    final cdnLogicalWidth = entry.type == ChatMentionType.character
-        ? worldCharacterAvatarLogicalSize
-        : worldLocationCoverLogicalSize;
     final resizedUrl = resizeGenesisImageUrl(
       sourceUrl,
-      logicalWidth: cdnLogicalWidth,
+      logicalWidth: worldCharacterAvatarLogicalSize,
       devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
     );
     final imageUrl = resizedUrl.isNotEmpty ? resizedUrl : sourceUrl;
-    if (entry.type == ChatMentionType.character) {
-      return GenesisCharacterAvatar(
-        url: imageUrl,
-        name: entry.name,
-        size: _locationChatAvatarLogicalSize,
-        borderRadius: 8,
-      );
-    }
-    return GenesisListImage(
-      imageUrl: imageUrl,
-      width: _locationChatAvatarLogicalSize,
-      height: _locationChatAvatarLogicalSize,
-      borderRadius: BorderRadius.circular(8),
+    return GenesisCharacterAvatar(
+      url: imageUrl,
+      name: entry.name,
+      size: _locationChatAvatarLogicalSize,
+      borderRadius: 8,
+      border: entry.isPlayerControlled
+          ? Border.all(color: const Color(0xFFFF2442), width: 2)
+          : null,
     );
   }
 }

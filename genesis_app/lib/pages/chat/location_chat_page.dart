@@ -23,8 +23,6 @@ import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
-import '../../components/world_location_list.dart'
-    show worldLocationCoverLogicalSize;
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/chatroom/chatroom_message_type.dart';
 import '../../network/chatroom/chatroom_models.dart';
@@ -38,7 +36,6 @@ import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
-import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/components/genesis_tab_bar.dart';
@@ -479,9 +476,13 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _retainModelEntryInHeader = widget.active;
     _scrollCoordinator = LocationChatScrollCoordinator()
       ..addListener(_handleViewportCoordinatorChanged);
+    final initialService = widget.service;
+    if (initialService != null) _syncSenderIdentity(initialService);
     _textController = LocationChatMentionEditingController(
       catalog: locationChatMentionCatalogForState(
         widget.service?.state ?? _chatroomState,
+        currentUserIds: _myUserIdKeys,
+        currentSenderIds: _mySenderIdKeys,
       ),
     );
     final initialDraftText = widget.initialDraftText;

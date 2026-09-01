@@ -116,6 +116,7 @@ import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
+import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_location_chat_host.dart';
@@ -24042,8 +24043,26 @@ void main() {
       26,
     );
 
-    Navigator.of(tester.element(find.byType(WorldPage))).pop();
+    final returnToDetail = sheetPageController.animateToPage(
+      0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
     await tester.pumpAndSettle();
+    await returnToDetail;
+    final sheet = find.byKey(
+      const ValueKey<String>('world-single-section-bottom-sheet'),
+    );
+    final detailList = find
+        .descendant(of: sheet, matching: find.byType(ListView))
+        .hitTestable()
+        .first;
+    await tester.drag(detailList, const Offset(0, 500));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('world-single-section-bottom-sheet')),
+      findsNothing,
+    );
     expect(currentTilemap().animationsPaused, isFalse);
   });
 

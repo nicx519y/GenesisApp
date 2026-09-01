@@ -85,20 +85,32 @@ void main() {
     },
   );
 
-  test('mention catalog includes only location leaves in tree order', () {
+  test('mention catalog filters self and keeps other player characters', () {
     final catalog = locationChatMentionCatalogForState(
       WorldChatroomState(world: _mentionWorld()),
+      currentUserIds: const <String>['user-me'],
     );
 
     expect(catalog.characters.map((entry) => entry.id), <String>[
       'char-1',
       'char-2',
+      'char-other',
     ]);
+    expect(catalog.characters.map((entry) => entry.isPlayerControlled), <bool>[
+      false,
+      false,
+      true,
+    ]);
+    expect(catalog.entryForId('char-self'), isNull);
     expect(catalog.locations.map((entry) => entry.id), <String>['loc-leaf']);
     expect(catalog.locations.map((entry) => entry.name), <String>[
       'Moon Harbor',
     ]);
+    expect(catalog.locations.map((entry) => entry.subtitle), <String>[
+      'Silver Coast',
+    ]);
     expect(catalog.entryForId('loc-root'), isNull);
+    expect(catalog.entryForId('loc-parent'), isNull);
   });
 
   test('mention parser recognizes known ids and leaves unknown ids raw', () {
@@ -239,13 +251,23 @@ void main() {
 WorldDetail _mentionWorld() {
   const leaf = LocationTreeNode<Map<String, dynamic>>(
     id: 'loc-leaf',
-    parentId: 'loc-root',
-    depth: 1,
+    parentId: 'loc-parent',
+    depth: 2,
     value: <String, dynamic>{
       'location_id': 'loc-leaf',
       'location_name': 'Moon Harbor',
     },
     children: <LocationTreeNode<Map<String, dynamic>>>[],
+  );
+  const parent = LocationTreeNode<Map<String, dynamic>>(
+    id: 'loc-parent',
+    parentId: 'loc-root',
+    depth: 1,
+    value: <String, dynamic>{
+      'location_id': 'loc-parent',
+      'location_name': 'Silver Coast',
+    },
+    children: <LocationTreeNode<Map<String, dynamic>>>[leaf],
   );
   const root = LocationTreeNode<Map<String, dynamic>>(
     id: 'loc-root',
@@ -255,7 +277,7 @@ WorldDetail _mentionWorld() {
       'location_id': 'loc-root',
       'location_name': 'Root Hall',
     },
-    children: <LocationTreeNode<Map<String, dynamic>>>[leaf],
+    children: <LocationTreeNode<Map<String, dynamic>>>[parent],
   );
   return WorldDetail(
     id: 1,
@@ -265,7 +287,7 @@ WorldDetail _mentionWorld() {
     name: 'Mention World',
     tickCount: 0,
     connectCount: 0,
-    characterCount: 2,
+    characterCount: 4,
     playerCount: 0,
     currentTime: '',
     latestTickAt: null,
@@ -296,6 +318,16 @@ WorldDetail _mentionWorld() {
       {'char_id': 'char-1', 'name': 'Alice'},
       {'char_id': 'char-1', 'name': 'Duplicate Alice'},
       {'character_id': 'char-2', 'name': 'Bob'},
+      {
+        'character_id': 'char-self',
+        'name': 'My Character',
+        'player_uid': 'user-me',
+      },
+      {
+        'character_id': 'char-other',
+        'name': 'Other Player',
+        'player_uid': 'user-other',
+      },
     ],
     ticks: const <Map<String, dynamic>>[],
     locations: const <Map<String, dynamic>>[],

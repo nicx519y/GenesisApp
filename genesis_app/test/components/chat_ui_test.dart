@@ -2608,6 +2608,41 @@ void main() {
     );
   });
 
+  testWidgets('self player controlled chat avatar has no highlighted border', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(
+            message: ChatMessageVm(
+              localId: 'self-player-role',
+              senderId: 'me',
+              senderName: 'Me',
+              text: 'hello',
+              isMe: true,
+              isPlayerControlledRole: true,
+              status: 'sent',
+            ),
+            showDateDivider: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.descendant(
+        of: find.byType(ChatAvatar),
+        matching: find.byWidgetPredicate((widget) {
+          if (widget is! DecoratedBox) return false;
+          final decoration = widget.decoration;
+          return decoration is BoxDecoration && decoration.border != null;
+        }),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('player controlled chat sender name uses highlighted color', (
     WidgetTester tester,
   ) async {

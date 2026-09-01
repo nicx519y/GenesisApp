@@ -1330,8 +1330,8 @@ void main() {
     expect(levelTwoTitle, findsOneWidget);
     expect(find.byType(Divider), findsNWidgets(2));
     expect(find.byIcon(Icons.place_outlined), findsNWidgets(3));
-    expect(_assetSvgFinder(characterStatIconAsset), findsOneWidget);
-    expect(_assetSvgFinder(userStatIconAsset), findsOneWidget);
+    expect(_assetSvgFinder(characterStatIconAsset), findsNWidgets(2));
+    expect(_assetSvgFinder(userStatIconAsset), findsNothing);
     expect(find.byIcon(Icons.schedule), findsNothing);
     expect(find.text('Ada, Bert'), findsOneWidget);
     expect(find.text('Cara, Drew'), findsOneWidget);

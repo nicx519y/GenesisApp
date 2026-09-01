@@ -824,7 +824,7 @@ class _PointCharacterGroups extends StatelessWidget {
           const SizedBox(height: 2),
         if (nonAiNames.isNotEmpty)
           _PointCharacterGroupRow(
-            iconAsset: userStatIconAsset,
+            iconAsset: characterStatIconAsset,
             names: nonAiNames,
           ),
       ],
@@ -858,9 +858,6 @@ class _PointCharacterGroupRow extends StatelessWidget {
               height: 12,
               fit: BoxFit.contain,
               excludeFromSemantics: true,
-              colorFilter: iconAsset == userStatIconAsset
-                  ? const ColorFilter.mode(Colors.black, BlendMode.srcIn)
-                  : null,
             ),
           ),
         ),
