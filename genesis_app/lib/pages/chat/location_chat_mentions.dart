@@ -232,15 +232,21 @@ class LocationChatMentionEditingController extends TextEditingController {
         entry: entry,
       ),
     );
-    final nextText = text.replaceRange(
+    final replacedText = text.replaceRange(
       safeStart,
       safeEnd,
       _locationChatMentionPlaceholder,
     );
+    final mentionEnd = safeStart + 1;
+    final hasTrailingSpace =
+        mentionEnd < replacedText.length && replacedText[mentionEnd] == ' ';
+    final nextText = hasTrailingSpace
+        ? replacedText
+        : replacedText.replaceRange(mentionEnd, mentionEnd, ' ');
     _setInternalValue(
       TextEditingValue(
         text: nextText,
-        selection: TextSelection.collapsed(offset: safeStart + 1),
+        selection: TextSelection.collapsed(offset: mentionEnd + 1),
       ),
     );
   }
@@ -335,6 +341,7 @@ class LocationChatMentionEditingController extends TextEditingController {
                 id: mention.id,
                 entry: mention.entry,
               ),
+              style: style,
             ),
           );
         }

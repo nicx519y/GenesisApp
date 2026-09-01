@@ -74,10 +74,18 @@ List<InlineSpan> _inlineMarkdownSpans(
   void flushPlain() {
     if (buffer.isEmpty) return;
     final plainText = buffer.toString();
+    final mentionStyle = softItalicPlainText
+        ? GenesisTypography.inlineEmphasis(
+            baseStyle,
+            platform: platform,
+            color: baseStyle.color,
+          )
+        : baseStyle;
     spans.addAll(
       _chatMentionAwareSpans(
         plainText,
         mentionCatalog,
+        mentionStyle,
         (piece) => softItalicPlainText
             ? _inlineEmphasisSpans(
                 piece,
@@ -97,10 +105,18 @@ List<InlineSpan> _inlineMarkdownSpans(
       final end = _findInlineItalicEnd(text, index + 1, marker);
       if (end != -1 && end > index + 1) {
         flushPlain();
+        final mentionStyle = suppressIosEmphasisSkew
+            ? baseStyle.copyWith(color: emphasisColor)
+            : GenesisTypography.inlineEmphasis(
+                baseStyle,
+                platform: platform,
+                color: emphasisColor,
+              );
         spans.addAll(
           _chatMentionAwareSpans(
             text.substring(index + 1, end),
             mentionCatalog,
+            mentionStyle,
             (piece) => suppressIosEmphasisSkew
                 ? <InlineSpan>[
                     TextSpan(
@@ -131,6 +147,7 @@ List<InlineSpan> _inlineMarkdownSpans(
 List<InlineSpan> _chatMentionAwareSpans(
   String text,
   ChatMentionCatalog? catalog,
+  TextStyle mentionStyle,
   List<InlineSpan> Function(String text) plainSpans,
 ) {
   if (text.isEmpty) return const <InlineSpan>[];
@@ -144,13 +161,29 @@ List<InlineSpan> _chatMentionAwareSpans(
     if (mention.start > offset) {
       spans.addAll(plainSpans(text.substring(offset, mention.start)));
     }
-    spans.add(chatMentionWidgetSpan(mention));
+    spans.add(_chatMentionIconSpan(mention.entry.type, mentionStyle));
+    spans.addAll(plainSpans(mention.name));
     offset = mention.end;
   }
   if (offset < text.length) {
     spans.addAll(plainSpans(text.substring(offset)));
   }
   return spans;
+}
+
+InlineSpan _chatMentionIconSpan(ChatMentionType type, TextStyle style) {
+  return WidgetSpan(
+    alignment: PlaceholderAlignment.middle,
+    child: ExcludeSemantics(
+      child: Icon(
+        type == ChatMentionType.character
+            ? Icons.person_outline_rounded
+            : Icons.place_outlined,
+        size: style.fontSize ?? 14,
+        color: style.color,
+      ),
+    ),
+  );
 }
 
 List<InlineSpan> _inlineEmphasisSpans(

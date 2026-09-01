@@ -145,12 +145,13 @@ List<ChatMentionToken> parseKnownChatMentions(
   return tokens;
 }
 
-InlineSpan chatMentionWidgetSpan(ChatMentionToken token) {
+InlineSpan chatMentionWidgetSpan(ChatMentionToken token, {TextStyle? style}) {
   final child = token.entry.type == ChatMentionType.character
-      ? ChatCharacterMentionTag(name: token.name)
-      : ChatLocationMentionTag(name: token.name);
+      ? ChatCharacterMentionTag(name: token.name, style: style)
+      : ChatLocationMentionTag(name: token.name, style: style);
   return WidgetSpan(
-    alignment: PlaceholderAlignment.middle,
+    alignment: PlaceholderAlignment.baseline,
+    baseline: TextBaseline.alphabetic,
     child: Semantics(label: '@${token.name}', child: child),
   );
 }
