@@ -79,6 +79,8 @@ class _OriginDetailDraggableSheetState
   late final PageController _pageController;
   late final ScrollController _openingPreviewScrollController;
   late final ScrollController _infoPreviewScrollController;
+  final GlobalKey _sheetContentStackKey = GlobalKey();
+  final GlobalKey _openingRoleComposerAnchorKey = GlobalKey();
   final Completer<void> _sheetReady = Completer<void>();
   ScrollController? _sheetScrollController;
   OriginDiscussListController? _discussController;
@@ -91,7 +93,9 @@ class _OriginDetailDraggableSheetState
   var _sheetReadyCheckScheduled = false;
   var _autoExpansionInterruptionScheduled = false;
   var _autoExpansionPaintCompletionScheduled = false;
+  var _openingRoleAnchorMeasureScheduled = false;
   var _expandedInputDockHeight = 0.0;
+  double? _openingRoleAnchorContentY;
   Timer? _extentSettleTimer;
   Completer<void>? _extentSettleCompleter;
 
@@ -103,6 +107,11 @@ class _OriginDetailDraggableSheetState
       minChildSize: _minChildSize,
     ).clamp(_minChildSize, _absoluteMaxChildSize).toDouble();
   }
+
+  double get _expandedComposerHeight =>
+      _expandedInputDockHeight +
+      _originDetailSheetChatComposerStyle.composerPadding.top +
+      _originLocationChatRolePillHeight;
 
   @override
   void initState() {
@@ -121,6 +130,7 @@ class _OriginDetailDraggableSheetState
   void didUpdateWidget(covariant _OriginDetailDraggableSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.origin, widget.origin)) {
+      _openingRoleAnchorContentY = null;
       _initialDialoguePreview = _originFirstInitialDialoguePreview(
         widget.origin,
       );
@@ -350,6 +360,9 @@ class _OriginDetailDraggableSheetState
   }
 
   bool _handleSheetScrollNotification(ScrollNotification notification) {
+    if (notification.metrics.axis == Axis.vertical) {
+      _scheduleOpeningRoleAnchorMeasurement();
+    }
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
       _extentCommandGeneration += 1;
@@ -427,6 +440,7 @@ class _OriginDetailDraggableSheetState
   void _handleSheetScrollControllerReady(ScrollController scrollController) {
     _sheetScrollController = scrollController;
     _scheduleSheetReadyCheck();
+    _scheduleOpeningRoleAnchorMeasurement();
   }
 
   bool _handlePageScrollEnd(ScrollEndNotification notification) {
@@ -560,7 +574,44 @@ class _OriginDetailDraggableSheetState
 
   void _handleExpandedInputDockHeightChanged(double height) {
     if ((_expandedInputDockHeight - height).abs() < 0.5) return;
-    setState(() => _expandedInputDockHeight = height);
+    setState(() {
+      _expandedInputDockHeight = height;
+      _openingRoleAnchorContentY = null;
+    });
+    _scheduleOpeningRoleAnchorMeasurement();
+  }
+
+  void _scheduleOpeningRoleAnchorMeasurement() {
+    if (_openingRoleAnchorMeasureScheduled) return;
+    _openingRoleAnchorMeasureScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openingRoleAnchorMeasureScheduled = false;
+      if (!mounted || _currentPage != _originOpeningSheetPageIndex) return;
+      final scrollController = _sheetScrollController;
+      final anchorRenderObject = _openingRoleComposerAnchorKey.currentContext
+          ?.findRenderObject();
+      final stackRenderObject = _sheetContentStackKey.currentContext
+          ?.findRenderObject();
+      if (scrollController == null ||
+          !scrollController.hasClients ||
+          anchorRenderObject is! RenderBox ||
+          !anchorRenderObject.hasSize ||
+          stackRenderObject is! RenderBox ||
+          !stackRenderObject.hasSize) {
+        return;
+      }
+      final anchorGlobal = anchorRenderObject.localToGlobal(
+        Offset(0, anchorRenderObject.size.height),
+      );
+      final anchorLocal = stackRenderObject.globalToLocal(anchorGlobal);
+      final contentY = scrollController.offset + anchorLocal.dy;
+      if (_openingRoleAnchorContentY != null &&
+          (_openingRoleAnchorContentY! - contentY).abs() < 0.5) {
+        return;
+      }
+      setState(() => _openingRoleAnchorContentY = contentY);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   OriginDiscussListController _ensureDiscussController() {
@@ -674,6 +725,17 @@ class _OriginDetailDraggableSheetState
                 initialDialoguePreview,
               ),
             SliverToBoxAdapter(
+              child: KeyedSubtree(
+                key: const ValueKey<String>(
+                  'origin-opening-role-composer-anchor',
+                ),
+                child: SizedBox(
+                  key: _openingRoleComposerAnchorKey,
+                  height: _expandedComposerHeight,
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
               child: _OriginSetupRoleSection(
                 characters: widget.origin.characters,
                 launching: widget.launching,
@@ -730,6 +792,38 @@ class _OriginDetailDraggableSheetState
     });
   }
 
+  double _expandedComposerTop({
+    required double stackHeight,
+    required double keyboardInset,
+    required double scrollOffset,
+  }) {
+    final pinnedTop = stackHeight - keyboardInset - _expandedComposerHeight;
+    final anchorContentY = _openingRoleAnchorContentY;
+    if (anchorContentY == null) return pinnedTop;
+    final naturalTop = anchorContentY - scrollOffset - _expandedComposerHeight;
+    return math.min(pinnedTop, naturalTop);
+  }
+
+  double _expandedInputDockReserve({
+    required BuildContext context,
+    required double stackHeight,
+    required double keyboardInset,
+    required double scrollOffset,
+  }) {
+    if (_expandedInputDockHeight <= 0) return 0;
+    final progress = _expandedOpeningComposerProgress(context);
+    if (progress <= 0) return 0;
+    final pinnedTop = stackHeight - keyboardInset - _expandedComposerHeight;
+    final anchorContentY = _openingRoleAnchorContentY;
+    if (anchorContentY == null) return _expandedInputDockHeight * progress;
+    final naturalTop = anchorContentY - scrollOffset - _expandedComposerHeight;
+    final distanceFromBottom = math.max(0.0, pinnedTop - naturalTop);
+    final reserve = (_expandedInputDockHeight - distanceFromBottom)
+        .clamp(0.0, _expandedInputDockHeight)
+        .toDouble();
+    return reserve * progress;
+  }
+
   @override
   Widget build(BuildContext context) {
     final minChildSize = _minChildSize;
@@ -774,78 +868,116 @@ class _OriginDetailDraggableSheetState
                     behavior: ScrollConfiguration.of(
                       context,
                     ).copyWith(overscroll: false),
-                    child: Stack(
-                      children: [
-                        AnimatedBuilder(
-                          animation: Listenable.merge([
-                            _sheetController,
-                            _pageController,
-                          ]),
-                          builder: (context, _) {
-                            final composerReserve =
-                                _expandedInputDockHeight *
-                                _expandedOpeningComposerProgress(context);
-                            return NotificationListener<ScrollEndNotification>(
-                              onNotification: _handlePageScrollEnd,
-                              child: Padding(
-                                key: const ValueKey<String>(
-                                  'origin-detail-sheet-keyboard-safe-content',
-                                ),
-                                padding: EdgeInsets.only(
-                                  bottom: keyboardInset + composerReserve,
-                                ),
-                                child: PageView.builder(
-                                  key: const ValueKey<String>(
-                                    'origin-detail-sheet-pages',
+                    child: LayoutBuilder(
+                      builder: (context, stackConstraints) {
+                        final stackHeight = stackConstraints.maxHeight;
+                        return Stack(
+                          key: _sheetContentStackKey,
+                          children: [
+                            AnimatedBuilder(
+                              animation: Listenable.merge([
+                                _sheetController,
+                                _pageController,
+                                scrollController,
+                              ]),
+                              builder: (context, _) {
+                                final composerReserve =
+                                    _expandedInputDockReserve(
+                                      context: context,
+                                      stackHeight: stackHeight,
+                                      keyboardInset: keyboardInset,
+                                      scrollOffset: scrollController.hasClients
+                                          ? scrollController.offset
+                                          : 0,
+                                    );
+                                return NotificationListener<
+                                  ScrollEndNotification
+                                >(
+                                  onNotification: _handlePageScrollEnd,
+                                  child: Padding(
+                                    key: const ValueKey<String>(
+                                      'origin-detail-sheet-keyboard-safe-content',
+                                    ),
+                                    padding: EdgeInsets.only(
+                                      bottom: keyboardInset + composerReserve,
+                                    ),
+                                    child: PageView.builder(
+                                      key: const ValueKey<String>(
+                                        'origin-detail-sheet-pages',
+                                      ),
+                                      controller: _pageController,
+                                      itemCount: 2,
+                                      physics: const PageScrollPhysics(),
+                                      itemBuilder: (context, page) {
+                                        final pageScrollController =
+                                            page == _currentPage
+                                            ? scrollController
+                                            : page ==
+                                                  _originOpeningSheetPageIndex
+                                            ? _openingPreviewScrollController
+                                            : _infoPreviewScrollController;
+                                        return page ==
+                                                _originOpeningSheetPageIndex
+                                            ? _buildOpeningPage(
+                                                pageScrollController,
+                                                initialDialoguePreview,
+                                                locationChatLocationId,
+                                              )
+                                            : _buildInfoPage(
+                                                pageScrollController,
+                                              );
+                                      },
+                                    ),
                                   ),
-                                  controller: _pageController,
-                                  itemCount: 2,
-                                  physics: const PageScrollPhysics(),
-                                  itemBuilder: (context, page) {
-                                    final pageScrollController =
-                                        page == _currentPage
-                                        ? scrollController
-                                        : page == _originOpeningSheetPageIndex
-                                        ? _openingPreviewScrollController
-                                        : _infoPreviewScrollController;
-                                    return page == _originOpeningSheetPageIndex
-                                        ? _buildOpeningPage(
-                                            pageScrollController,
-                                            initialDialoguePreview,
-                                            locationChatLocationId,
-                                          )
-                                        : _buildInfoPage(pageScrollController);
-                                  },
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          top:
-                              originDetailSheetPageIndicatorTopOffsetForTesting,
-                          child: IgnorePointer(
-                            child: _buildAnimatedPageIndicator(),
-                          ),
-                        ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: _buildCollapsedOpeningRoleAction(bottomInset),
-                        ),
-                        if (locationChatLocationId.isNotEmpty)
-                          Positioned(
-                            left: 0,
-                            right: 0,
-                            bottom: keyboardInset,
-                            child: _buildExpandedOpeningComposer(
-                              locationChatLocationId,
+                                );
+                              },
                             ),
-                          ),
-                      ],
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              top:
+                                  originDetailSheetPageIndicatorTopOffsetForTesting,
+                              child: IgnorePointer(
+                                child: _buildAnimatedPageIndicator(),
+                              ),
+                            ),
+                            Positioned(
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              child: _buildCollapsedOpeningRoleAction(
+                                bottomInset,
+                              ),
+                            ),
+                            if (locationChatLocationId.isNotEmpty)
+                              AnimatedBuilder(
+                                animation: Listenable.merge([
+                                  _sheetController,
+                                  _pageController,
+                                  scrollController,
+                                ]),
+                                child: _buildExpandedOpeningComposer(
+                                  locationChatLocationId,
+                                ),
+                                builder: (context, child) {
+                                  final top = _expandedComposerTop(
+                                    stackHeight: stackHeight,
+                                    keyboardInset: keyboardInset,
+                                    scrollOffset: scrollController.hasClients
+                                        ? scrollController.offset
+                                        : 0,
+                                  );
+                                  return Positioned(
+                                    left: 0,
+                                    right: 0,
+                                    top: top,
+                                    child: child!,
+                                  );
+                                },
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                 ),

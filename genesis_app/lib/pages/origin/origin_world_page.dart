@@ -287,7 +287,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               ? ''
               : _resolvedProfileAvatar(userInfo, ''),
           name: cachedName.isEmpty ? uid : cachedName,
-          identity: '',
+          identity: userInfo == null
+              ? ''
+              : _mapString(userInfo, const ['identity']),
         );
       }
       if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;

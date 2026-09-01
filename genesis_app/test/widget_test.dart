@@ -11053,6 +11053,11 @@ void main() {
             transport: transport,
             useMock: false,
             initialAuthToken: 'token',
+            initialUserInfo: const {
+              'name': 'Nikos',
+              'identity': 'Adventure guide',
+              'avatar': '',
+            },
             chatroom: chatroom,
           ),
           child: MaterialApp(
@@ -11106,9 +11111,17 @@ void main() {
         const ValueKey<String>('origin-detail-sheet-pages'),
       );
       expect(sheetPages, findsOneWidget);
+      final composerAnchor = find.byKey(
+        const ValueKey<String>('origin-opening-role-composer-anchor'),
+      );
+      expect(composerAnchor, findsOneWidget);
       expect(
-        tester.getBottomLeft(sheetPages).dy,
-        closeTo(tester.getTopLeft(sheetComposer).dy, 1),
+        tester.getTopLeft(expandedComposer).dy,
+        closeTo(tester.getTopLeft(composerAnchor).dy, 1),
+      );
+      expect(
+        tester.getBottomLeft(expandedComposer).dy,
+        closeTo(tester.getBottomLeft(composerAnchor).dy, 1),
       );
       final rolePill = find.descendant(
         of: expandedComposer,
@@ -11171,10 +11184,7 @@ void main() {
         isFalse,
       );
       expect(
-        find.descendant(
-          of: expandedComposer,
-          matching: find.text('Your Profile'),
-        ),
+        find.descendant(of: expandedComposer, matching: find.text('Nikos')),
         findsOneWidget,
       );
 
@@ -11187,6 +11197,21 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
+      final profileRoleOption = find.byKey(
+        const ValueKey<String>('origin-location-chat-role-option-current-user'),
+      );
+      expect(profileRoleOption, findsOneWidget);
+      expect(
+        find.descendant(of: profileRoleOption, matching: find.text('Nikos')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: profileRoleOption,
+          matching: find.text('Adventure guide'),
+        ),
+        findsOneWidget,
+      );
       await tester.tap(
         find.byKey(
           const ValueKey('origin-location-chat-role-option-c_o_test_1'),
@@ -11445,7 +11470,7 @@ void main() {
       );
       expect(tester.widget<ChatComposer>(previewComposer).sendEnabled, isFalse);
       expect(
-        find.descendant(of: chatPanel, matching: find.text('Your Profile')),
+        find.descendant(of: chatPanel, matching: find.text('u_mock')),
         findsOneWidget,
       );
 
@@ -11468,6 +11493,23 @@ void main() {
           matching: find.text('Select Your Role'),
         ),
         findsOneWidget,
+      );
+      final profileRoleOption = find.byKey(
+        const ValueKey<String>('origin-location-chat-role-option-current-user'),
+      );
+      final profileRoleName = find.descendant(
+        of: profileRoleOption,
+        matching: find.text('u_mock'),
+      );
+      final profileRoleAvatar = find.descendant(
+        of: profileRoleOption,
+        matching: find.byType(GenesisCharacterAvatar),
+      );
+      expect(profileRoleName, findsOneWidget);
+      expect(profileRoleAvatar, findsOneWidget);
+      expect(
+        tester.getCenter(profileRoleName).dy,
+        closeTo(tester.getCenter(profileRoleAvatar).dy, 1),
       );
       await tester.tap(
         find.byKey(

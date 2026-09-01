@@ -23,6 +23,8 @@ ChatUiStyleConfig get _originLocationChatLaunchComposerStyle =>
     );
 
 const double _originLocationChatRolePillAvatarSize = 22;
+const double _originLocationChatRolePillHeight =
+    _originLocationChatRolePillAvatarSize + 12;
 const double _originLocationChatRoleInputGap = 4;
 const double _originLocationChatDockRoleOffsetY = -2;
 
@@ -151,10 +153,11 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       }
     }
     final profileRole = _cachedProfileRole;
+    final profileName = profileRole?.name.trim() ?? '';
     return _OriginLocationChatRoleOption(
       id: _OriginWorldPageState._profileLocationChatRoleId,
-      name: 'Your Profile',
-      subtitle: profileRole?.name.trim() ?? '',
+      name: profileName.isEmpty ? 'Your Profile' : profileName,
+      subtitle: profileRole?.identity.trim() ?? '',
       avatarUrl: profileRole == null
           ? ''
           : _resolveAssetUrl(profileRole.avatarUrl),
@@ -165,11 +168,12 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     OriginDetail origin,
   ) {
     final profileRole = _cachedProfileRole;
+    final profileName = profileRole?.name.trim() ?? '';
     return <_OriginLocationChatRoleOption>[
       _OriginLocationChatRoleOption(
         id: _OriginWorldPageState._profileLocationChatRoleId,
-        name: 'Your Profile',
-        subtitle: profileRole?.name.trim() ?? '',
+        name: profileName.isEmpty ? 'Your Profile' : profileName,
+        subtitle: profileRole?.identity.trim() ?? '',
         avatarUrl: profileRole == null
             ? ''
             : _resolveAssetUrl(profileRole.avatarUrl),
