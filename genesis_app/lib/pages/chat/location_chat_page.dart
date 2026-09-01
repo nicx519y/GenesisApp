@@ -17,7 +17,9 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
 import '../../components/chat/shared/chat_ui.dart';
+import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/gems/gem_balance_prompt.dart';
 import '../../components/gems/memory_model_entry_button.dart';
@@ -34,8 +36,10 @@ import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/genesis_static_network_image.dart';
+import '../../ui/components/genesis_tab_bar.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
@@ -46,6 +50,7 @@ part 'location_chat_panel_connection.dart';
 part 'location_chat_message_reconciler.dart';
 part 'location_chat_send_actions.dart';
 part 'location_chat_message_window.dart';
+part 'location_chat_mentions.dart';
 part 'location_chat_identity.dart';
 part 'location_chat_panel_actions.dart';
 part 'location_chat_layout.dart';
@@ -337,7 +342,7 @@ class LocationChatPanel extends StatefulWidget {
 class _LocationChatPanelState extends State<LocationChatPanel> {
   late final LocationChatScrollCoordinator _scrollCoordinator;
   ScrollController get _scrollController => _scrollCoordinator.controller;
-  final _textController = TextEditingController();
+  late final LocationChatMentionEditingController _textController;
   final _composerFocusNode = FocusNode();
   final Object _rosterTapRegionGroup = Object();
   final BackdropKey _surfaceBackdropKey = BackdropKey();
@@ -368,6 +373,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   List<WorldChatroomEntity>? _exitRetainedOccupants;
   bool _sending = false;
   bool _rosterOpen = false;
+  bool _mentionSheetOpen = false;
+  bool _mentionSheetSchedulePending = false;
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
   bool _loadingOlderMessages = false;
@@ -463,12 +470,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _retainModelEntryInHeader = widget.active;
     _scrollCoordinator = LocationChatScrollCoordinator()
       ..addListener(_handleViewportCoordinatorChanged);
+    _textController = LocationChatMentionEditingController(
+      catalog: locationChatMentionCatalogForState(
+        widget.service?.state ?? _chatroomState,
+      ),
+    );
     final initialDraftText = widget.initialDraftText;
     if (initialDraftText.isNotEmpty) {
-      _textController.text = initialDraftText;
-      _textController.selection = TextSelection.collapsed(
-        offset: initialDraftText.length,
-      );
+      _textController.setSerializedText(initialDraftText);
       _hasDraftText = initialDraftText.trim().isNotEmpty;
     }
     _logPanelMetric(
@@ -510,7 +519,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       unawaited(service.disconnect().catchError((Object _) {}));
     }
     unawaited(_closeChatroom());
-    widget.onDraftTextChanged?.call(_textController.text);
+    widget.onDraftTextChanged?.call(_textController.serializedText);
     _scrollController.removeListener(_handleMessageListScroll);
     _scrollCoordinator.removeListener(_handleViewportCoordinatorChanged);
     _scrollCoordinator.dispose();
@@ -770,29 +779,34 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       androidSdkInt: _androidSdkInt,
     );
     final bottomSafeAreaInset = GenesisSafeAreaInsets.bottom(context);
-    final messageList = LocationChatAnchoredMessageList(
-      key: const ValueKey<String>('location-chat-message-list'),
-      coordinator: _scrollCoordinator,
-      messages: displayMessages,
-      messageLayoutId: _locationChatMessageLayoutId,
-      topTitle: '',
-      oldestEdgeLoading: _showOlderMessagesLoading,
-      onOldestEdgeLoadingCollapsed: _handleOlderMessagesLoadingCollapsed,
-      onMessageLongPressStart: _showMessageActionMenu,
-      onFailedMessageTap: (message) => unawaited(_retryFailedMessage(message)),
-      onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap == null
-          ? null
-          : (movement) {
-              final targetLocationId = movement.toLocationId.trim();
-              if (targetLocationId.isEmpty ||
-                  targetLocationId == widget.locationId.trim()) {
-                return;
-              }
-              widget.onCharactersMovedLocationTap!(movement);
-            },
-      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-      showDateDividers: false,
-      style: style,
+    final messageList = ChatMentionScope(
+      catalog: _textController.catalog,
+      child: LocationChatAnchoredMessageList(
+        key: const ValueKey<String>('location-chat-message-list'),
+        coordinator: _scrollCoordinator,
+        messages: displayMessages,
+        messageLayoutId: _locationChatMessageLayoutId,
+        topTitle: '',
+        oldestEdgeLoading: _showOlderMessagesLoading,
+        onOldestEdgeLoadingCollapsed: _handleOlderMessagesLoadingCollapsed,
+        onMessageLongPressStart: _showMessageActionMenu,
+        onFailedMessageTap: (message) =>
+            unawaited(_retryFailedMessage(message)),
+        onCharactersMovedLocationTap:
+            widget.onCharactersMovedLocationTap == null
+            ? null
+            : (movement) {
+                final targetLocationId = movement.toLocationId.trim();
+                if (targetLocationId.isEmpty ||
+                    targetLocationId == widget.locationId.trim()) {
+                  return;
+                }
+                widget.onCharactersMovedLocationTap!(movement);
+              },
+        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+        showDateDividers: false,
+        style: style,
+      ),
     );
 
     return GenesisBottomSystemBarStyleScope(

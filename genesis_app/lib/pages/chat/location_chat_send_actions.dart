@@ -10,7 +10,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _sending) {
       return;
     }
-    final text = normalizeGenesisUgcTextForDisplay(_textController.text);
+    final text = normalizeGenesisUgcTextForDisplay(
+      _textController.serializedText,
+    );
     if (isGenesisUgcTextBlank(text)) return;
 
     final clientMsgId = _nextClientMsgId();
@@ -192,10 +194,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       _setLocationChatState(() {
         if (restoredDraft != null) {
           _hasDraftText = restoredDraft.trim().isNotEmpty;
-          _textController.value = TextEditingValue(
-            text: restoredDraft,
-            selection: TextSelection.collapsed(offset: restoredDraft.length),
-          );
+          _textController.setSerializedText(restoredDraft);
         } else if (!receiptReceived) {
           localMessage.status = 'failed';
           localMessage.error = e.toString();
