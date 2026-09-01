@@ -5,8 +5,8 @@ ChatUiStyleConfig get _originDetailSheetChatComposerStyle =>
       composerBackgroundColor: originWorldDetailSheetBackgroundColor,
       clearComposerBackgroundGradient: true,
       composerBackdropBlurSigma: 0,
-      composerSendButtonColor: GenesisColors.surface,
-      composerSendButtonDisabledColor: GenesisColors.surfaceMuted,
+      composerSendButtonColor: kLocationChatStyle.composerSendButtonColor,
+      composerSendButtonDisabledColor: GenesisColors.surface,
       composerSendButtonIconColor: GenesisColors.textPrimary,
       composerSendButtonBackdropBlurSigma: 0,
       inputBackgroundColor: GenesisColors.surface,
@@ -414,10 +414,14 @@ class _OriginLocationChatLaunchComposerState
   Widget build(BuildContext context) {
     final style = widget.style ?? kLocationChatStyle;
     final inputDockBackgroundColor = widget.inputDockBackgroundColor;
+    final sendEnabled = !widget.launching && _hasText;
     final composerStyle = style.copyWith(
       composerBackgroundColor:
           inputDockBackgroundColor ?? style.composerBackgroundColor,
       clearComposerBackgroundGradient: inputDockBackgroundColor != null,
+      composerSendButtonIconColor: widget.launching || _hasText
+          ? kLocationChatStyle.composerSendButtonIconColor
+          : style.composerSendButtonIconColor,
       composerPadding: style.composerPadding.copyWith(
         top: _originLocationChatRoleInputGap,
       ),
@@ -427,7 +431,7 @@ class _OriginLocationChatLaunchComposerState
       focusNode: _focusNode,
       hintText: 'Text...',
       inputEnabled: !widget.launching,
-      sendEnabled: !widget.launching && _hasText,
+      sendEnabled: sendEnabled,
       sending: widget.launching,
       onSend: _send,
       onHeightChanged: widget.onInputDockHeightChanged,
@@ -745,94 +749,101 @@ class _OriginLocationChatRolePickerState
               ),
             ),
             Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                itemCount: widget.roles.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 4),
-                itemBuilder: (context, index) {
-                  final role = widget.roles[index];
-                  final selected = role.id == _selectedRoleId;
-                  final deselectingPreviousRole =
-                      _selectionPending &&
-                      role.id == widget.selectedRoleId &&
-                      !selected;
-                  return InkWell(
-                    key: ValueKey<String>(
-                      'origin-location-chat-role-option-${role.id}',
-                    ),
-                    onTap: _selectionPending ? null : () => _selectRole(role),
-                    borderRadius: BorderRadius.circular(14),
-                    child: AnimatedContainer(
+              child: GenesisBottomSheetDragDismissArea(
+                key: const ValueKey<String>(
+                  'origin-location-chat-role-dismiss-area',
+                ),
+                onDismiss: () => Navigator.of(context).pop(),
+                child: ListView.separated(
+                  key: const ValueKey<String>('origin-location-chat-role-list'),
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  itemCount: widget.roles.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 4),
+                  itemBuilder: (context, index) {
+                    final role = widget.roles[index];
+                    final selected = role.id == _selectedRoleId;
+                    final deselectingPreviousRole =
+                        _selectionPending &&
+                        role.id == widget.selectedRoleId &&
+                        !selected;
+                    return InkWell(
                       key: ValueKey<String>(
-                        'origin-location-chat-role-option-surface-${role.id}',
+                        'origin-location-chat-role-option-${role.id}',
                       ),
-                      duration: deselectingPreviousRole
-                          ? Duration.zero
-                          : const Duration(milliseconds: 160),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? GenesisColors.surfacePanel
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: selected
-                              ? GenesisColors.borderStrong
-                              : Colors.transparent,
+                      onTap: _selectionPending ? null : () => _selectRole(role),
+                      borderRadius: BorderRadius.circular(14),
+                      child: AnimatedContainer(
+                        key: ValueKey<String>(
+                          'origin-location-chat-role-option-surface-${role.id}',
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          GenesisCharacterAvatar(
-                            url: role.avatarUrl,
-                            name: role.name,
-                            size: 42,
-                            borderRadius: 11,
-                            showFallbackWhileLoading: true,
+                        duration: deselectingPreviousRole
+                            ? Duration.zero
+                            : const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? GenesisColors.surfacePanel
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected
+                                ? GenesisColors.borderStrong
+                                : Colors.transparent,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  role.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GenesisTypography.bodyStrong,
-                                ),
-                                if (role.subtitle.isNotEmpty) ...[
-                                  const SizedBox(height: 2),
+                        ),
+                        child: Row(
+                          children: [
+                            GenesisCharacterAvatar(
+                              url: role.avatarUrl,
+                              name: role.name,
+                              size: 42,
+                              borderRadius: 11,
+                              showFallbackWhileLoading: true,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    role.subtitle,
+                                    role.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GenesisTypography.supporting,
+                                    style: GenesisTypography.bodyStrong,
                                   ),
+                                  if (role.subtitle.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      role.subtitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GenesisTypography.supporting,
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            key: ValueKey<String>(
-                              'origin-location-chat-role-option-indicator-'
-                              '${role.id}',
+                            const SizedBox(width: 12),
+                            Icon(
+                              key: ValueKey<String>(
+                                'origin-location-chat-role-option-indicator-'
+                                '${role.id}',
+                              ),
+                              selected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.circle_outlined,
+                              size: 22,
+                              color: selected
+                                  ? GenesisColors.textPrimary
+                                  : GenesisColors.borderStrong,
                             ),
-                            selected
-                                ? Icons.check_circle_rounded
-                                : Icons.circle_outlined,
-                            size: 22,
-                            color: selected
-                                ? GenesisColors.textPrimary
-                                : GenesisColors.borderStrong,
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ],

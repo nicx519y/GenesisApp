@@ -11098,11 +11098,11 @@ void main() {
       );
       expect(
         sheetComposerWidget.style?.composerSendButtonColor,
-        sheetComposerWidget.style?.inputBackgroundColor,
+        GenesisColors.brand,
       );
       expect(
         sheetComposerWidget.style?.composerSendButtonDisabledColor,
-        GenesisColors.surfaceMuted,
+        sheetComposerWidget.style?.inputBackgroundColor,
       );
       expect(
         sheetComposerWidget.style?.composerSendButtonIconColor,
@@ -11127,6 +11127,46 @@ void main() {
         tester.getBottomLeft(expandedComposer).dy,
         closeTo(tester.getBottomLeft(composerAnchor).dy, 1),
       );
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      final bottomGapBeforeDrag =
+          tester.getBottomLeft(sheetSurface).dy -
+          tester.getBottomLeft(expandedComposer).dy;
+      expect(
+        bottomGapBeforeDrag,
+        greaterThan(30),
+        reason: 'The fixture must keep the composer in its natural flow.',
+      );
+      final sheetTopBeforeDrag = tester.getTopLeft(sheetSurface).dy;
+      final sheetDrag = await tester.startGesture(
+        tester.getCenter(find.text('Worldo Brief')),
+      );
+      await sheetDrag.moveBy(const Offset(0, 20));
+      await tester.pump();
+      await sheetDrag.moveBy(const Offset(0, 30));
+      await tester.pump();
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        greaterThan(sheetTopBeforeDrag),
+      );
+      expect(
+        tester.getBottomLeft(sheetSurface).dy -
+            tester.getBottomLeft(expandedComposer).dy,
+        greaterThan(0),
+      );
+      expect(
+        tester.getTopLeft(expandedComposer).dy,
+        closeTo(tester.getTopLeft(composerAnchor).dy, 1),
+      );
+      final visibilityDuringSheetDrag = tester.widget<IgnorePointer>(
+        visibility,
+      );
+      expect(visibilityDuringSheetDrag.ignoring, isFalse);
+      expect((visibilityDuringSheetDrag.child! as Opacity).opacity, 1);
+      await sheetDrag.moveBy(const Offset(0, -30));
+      await sheetDrag.up();
+      await tester.pumpAndSettle();
       final rolePill = find.descendant(
         of: expandedComposer,
         matching: find.byKey(const ValueKey('origin-location-chat-role-pill')),
@@ -11210,18 +11250,36 @@ void main() {
         closeTo(tester.getBottomLeft(expandedComposer).dy, 1),
       );
 
-      await tester.tap(
-        find.descendant(
-          of: expandedComposer,
-          matching: find.byKey(
-            const ValueKey('origin-location-chat-role-selector'),
-          ),
+      final roleSelector = find.descendant(
+        of: expandedComposer,
+        matching: find.byKey(
+          const ValueKey('origin-location-chat-role-selector'),
         ),
       );
+      await tester.tap(roleSelector);
       await tester.pumpAndSettle();
       final profileRoleOption = find.byKey(
         const ValueKey<String>('origin-location-chat-role-option-current-user'),
       );
+      expect(profileRoleOption, findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>('origin-location-chat-role-dismiss-area'),
+        ),
+        findsOneWidget,
+      );
+      await tester.drag(
+        find.byKey(const ValueKey<String>('origin-location-chat-role-list')),
+        const Offset(0, 80),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('origin-location-chat-role-picker')),
+        findsNothing,
+      );
+
+      await tester.tap(roleSelector);
+      await tester.pumpAndSettle();
       expect(profileRoleOption, findsOneWidget);
       expect(
         find.descendant(of: profileRoleOption, matching: find.text('Nikos')),
@@ -11274,6 +11332,17 @@ void main() {
       );
       await tester.enterText(input, message);
       await tester.pump();
+      final enabledSheetComposerWidget = tester.widget<ChatComposer>(
+        sheetComposer,
+      );
+      expect(
+        enabledSheetComposerWidget.style?.composerSendButtonColor,
+        GenesisColors.brand,
+      );
+      expect(
+        enabledSheetComposerWidget.style?.composerSendButtonIconColor,
+        Colors.white,
+      );
       await tester.tap(
         find.descendant(
           of: sheetComposer,

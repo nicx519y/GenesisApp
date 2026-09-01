@@ -513,9 +513,7 @@ class _OriginDetailDraggableSheetState
             : widget.initiallyExpanded
             ? _expandedChildSize(context)
             : _minChildSize;
-        final raisedProgress = ((sheetExtent - _minChildSize) / 0.04)
-            .clamp(0.0, 1.0)
-            .toDouble();
+        final raisedProgress = _openingComposerRaisedProgress(sheetExtent);
         final page = _pageController.hasClients
             ? _pageController.page ?? _currentPage.toDouble()
             : _currentPage.toDouble();
@@ -540,6 +538,10 @@ class _OriginDetailDraggableSheetState
         );
       },
     );
+  }
+
+  double _openingComposerRaisedProgress(double sheetExtent) {
+    return ((sheetExtent - _minChildSize) / 0.04).clamp(0.0, 1.0).toDouble();
   }
 
   Widget _buildExpandedOpeningComposer(String locationId) {
@@ -579,21 +581,18 @@ class _OriginDetailDraggableSheetState
   }
 
   double _expandedOpeningComposerProgress(BuildContext context) {
-    final maxExtent = _expandedChildSize(context);
     final sheetExtent = _sheetController.isAttached
         ? _sheetController.size
         : widget.initiallyExpanded
-        ? maxExtent
+        ? _expandedChildSize(context)
         : _minChildSize;
-    final expandedProgress = ((sheetExtent - (maxExtent - 0.025)) / 0.025)
-        .clamp(0.0, 1.0)
-        .toDouble();
+    final raisedProgress = _openingComposerRaisedProgress(sheetExtent);
     final page = _pageController.hasClients
         ? _pageController.page ?? _currentPage.toDouble()
         : _currentPage.toDouble();
     final openingProgress = (1.0 - page.clamp(0.0, 1.0)).toDouble();
     if (widget.autoExpansionPending) return 0;
-    return expandedProgress * openingProgress;
+    return raisedProgress * openingProgress;
   }
 
   void _handleExpandedInputDockHeightChanged(double height) {
