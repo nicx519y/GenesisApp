@@ -17,6 +17,14 @@ class ChatNarratorMessageBubble extends StatelessWidget {
     final usesScenePlate = style.useScenePlateBubbleGeometry;
     final usesConfiguredSystemStyle =
         usesScenePlate && style.useConfiguredScenePlateSystemStyle;
+    final narratorTextStyle = usesScenePlate && !usesConfiguredSystemStyle
+        ? const TextStyle(
+            color: Color.fromRGBO(255, 255, 255, 0.73),
+            fontSize: 14,
+            height: 1.3,
+            fontWeight: FontWeight.w400,
+          )
+        : style.systemMessageTextStyle.copyWith(fontSize: 14);
     return ChatSystemMessage(
       text: message.text,
       fullWidth: true,
@@ -27,22 +35,14 @@ class ChatNarratorMessageBubble extends StatelessWidget {
                 ? style.systemMessageBackgroundColor
                 : const Color(0x80151517)
           : null,
-      textStyle: usesScenePlate
-          ? usesConfiguredSystemStyle
-                ? style.systemMessageTextStyle
-                : TextStyle(
-                    color: Colors.white.withValues(alpha: 0.73),
-                    fontSize: 13,
-                    height: 1.3,
-                    fontWeight: FontWeight.w400,
-                  )
-          : null,
+      textStyle: narratorTextStyle,
       leadingIconColor: usesScenePlate
           ? usesConfiguredSystemStyle
-                ? style.systemMessageTextStyle.color
+                ? narratorTextStyle.color
                 : Colors.white.withValues(alpha: 0.60)
           : null,
       softItalic: usesScenePlate,
+      markdownEmphasisColor: narratorTextStyle.color ?? Colors.white,
       style: style,
       onLongPressStart: onLongPressStart,
     );

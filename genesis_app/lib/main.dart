@@ -22,6 +22,7 @@ import 'ui/system/genesis_system_ui.dart';
 export 'app/genesis_app.dart';
 
 Future<void> main() async {
+  AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
   await GenesisSystemUi.initialize();
   unawaited(
@@ -57,7 +58,7 @@ Future<void> main() async {
     },
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
-  final initialIndexFuture = _resolveInitialBottomTab(services);
+  final initialTabFuture = _resolveInitialBottomTab(services);
   await Future.wait<Object?>(<Future<Object?>>[
     tilemapSettingsLoad,
     captureSettingsLoad,
@@ -70,9 +71,15 @@ Future<void> main() async {
 
   AppStartupCoordinator.recordStartupFirstReport();
   AppStartupCoordinator.configure();
-  final initialIndex = await initialIndexFuture;
+  final initialTab = await initialTabFuture;
+  if (initialTab.index == 1) {
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'worldo',
+      reason: initialTab.reason,
+    );
+  }
   await appGlobalConfigLoad;
-  runApp(GenesisApp(services: services, initialIndex: initialIndex));
+  runApp(GenesisApp(services: services, initialIndex: initialTab.index));
 }
 
 Future<void> _loadAppGlobalConfig(AppServices services) async {
@@ -90,10 +97,15 @@ Future<void> _loadAppGlobalConfig(AppServices services) async {
   }
 }
 
-Future<int> _resolveInitialBottomTab(AppServices services) async {
+Future<({int index, String reason})> _resolveInitialBottomTab(
+  AppServices services,
+) async {
   try {
-    return await services.sessionStore.readCompleteSession() == null ? 1 : 0;
+    final session = await services.sessionStore.readCompleteSession();
+    return session == null
+        ? (index: 1, reason: 'no_session')
+        : (index: 0, reason: 'session_pending');
   } catch (_) {
-    return 1;
+    return (index: 1, reason: 'session_error');
   }
 }

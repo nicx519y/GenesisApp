@@ -69,8 +69,13 @@ extension _LocationChatLayout on _LocationChatPanelState {
   }
 
   void _handleDraftTextChanged() {
-    final hasText = _textController.text.trim().isNotEmpty;
-    widget.onDraftTextChanged?.call(_textController.text);
+    final serializedText = _textController.serializedText;
+    final hasText = serializedText.trim().isNotEmpty;
+    widget.onDraftTextChanged?.call(serializedText);
+    final triggerOffset = _textController.takeInsertedAtOffset();
+    if (triggerOffset != null) {
+      _scheduleMentionSheet(triggerOffset);
+    }
     if (_hasDraftText == hasText) return;
     _setLocationChatState(() => _hasDraftText = hasText);
   }

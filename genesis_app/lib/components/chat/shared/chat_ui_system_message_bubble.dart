@@ -13,6 +13,7 @@ class ChatSystemMessage extends StatelessWidget {
     this.textStyle,
     this.leadingIconColor,
     this.softItalic = false,
+    this.markdownEmphasisColor = const Color(0xFF888888),
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
     this.onLongPressStart,
     this.style,
@@ -28,6 +29,7 @@ class ChatSystemMessage extends StatelessWidget {
   final TextStyle? textStyle;
   final Color? leadingIconColor;
   final bool softItalic;
+  final Color markdownEmphasisColor;
   final Key bubbleKey;
   final GestureLongPressStartCallback? onLongPressStart;
   final ChatUiStyleConfig? style;
@@ -68,6 +70,7 @@ class ChatSystemMessage extends StatelessWidget {
                         textAlign: textAlign,
                         style: textStyle ?? style.systemMessageTextStyle,
                         softItalic: softItalic,
+                        emphasisColor: markdownEmphasisColor,
                       )
                     : _SystemMessageWithLeadingIcon(
                         iconAsset: leadingIconAsset!,
@@ -77,6 +80,7 @@ class ChatSystemMessage extends StatelessWidget {
                         textStyle: textStyle,
                         iconColor: leadingIconColor,
                         softItalic: softItalic,
+                        markdownEmphasisColor: markdownEmphasisColor,
                       ),
               ),
             ),
@@ -96,6 +100,7 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
     this.textStyle,
     this.iconColor,
     this.softItalic = false,
+    this.markdownEmphasisColor = const Color(0xFF888888),
   });
 
   final String iconAsset;
@@ -105,6 +110,7 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
   final TextStyle? textStyle;
   final Color? iconColor;
   final bool softItalic;
+  final Color markdownEmphasisColor;
 
   @override
   Widget build(BuildContext context) {
@@ -132,6 +138,7 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
             textAlign: textAlign,
             style: resolvedTextStyle,
             softItalic: softItalic,
+            emphasisColor: markdownEmphasisColor,
           ),
         ),
       ],
