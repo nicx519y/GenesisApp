@@ -361,6 +361,13 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _tryRecordFirstPageView();
   }
 
+  void _scheduleLaunchRender(String result) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isPageActive) return;
+      AppStartupCoordinator.recordLaunchRender(page: 'home', result: result);
+    });
+  }
+
   void _handleScroll() {
     if (!_scrollController.hasClients ||
         _scrollController.position.extentAfter > _loadMoreThreshold) {
@@ -487,6 +494,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _isSignedOut = false;
     });
     _markInitialContentReady();
+    _scheduleLaunchRender('cache');
     return true;
   }
 

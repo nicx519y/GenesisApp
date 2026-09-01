@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../platform/app/app_metadata_service.dart';
 import '../bootstrap/app_bootstrap.dart';
@@ -18,6 +19,15 @@ class AppStartupCoordinator {
   static GenesisTelemetryLifecycleObserver? _telemetryLifecycleObserver;
   static Timer? _telemetryMetadataRetryTimer;
   static bool _startupFirstReportRecorded = false;
+  static Stopwatch? _launchStopwatch;
+  static String? _launchStartupId;
+  static String? _launchPage;
+  static String? _launchPageReason;
+  static bool _launchStartupRecorded = false;
+  static bool _launchPageRecorded = false;
+  static bool _launchRequestStarted = false;
+  static bool _launchRequestEnded = false;
+  static bool _launchRenderRecorded = false;
   static bool _attRequestClaimed = false;
   // Kept as a shared startup readiness signal for upgrade/polling work. It is
   // open from the beginning and is unrelated to ATT or network permission.
@@ -29,6 +39,134 @@ class AppStartupCoordinator {
       _postLaunchWorkAllowed;
 
   static bool get isPostLaunchWorkAllowed => _postLaunchWorkAllowed.value;
+
+  static bool get isLaunchTrackingActive => _launchStopwatch != null;
+
+  static void beginLaunchTracking({String? startupId}) {
+    if (_launchStopwatch != null) return;
+    _launchStartupId = startupId ?? const Uuid().v4().replaceAll('-', '');
+    _launchStopwatch = Stopwatch()..start();
+  }
+
+  static void setLaunchPageDecision({
+    required String page,
+    required String reason,
+  }) {
+    if (!isLaunchTrackingActive || _launchPageRecorded) return;
+    final normalizedPage = page.trim().toLowerCase();
+    final normalizedReason = reason.trim().toLowerCase();
+    if ((normalizedPage != 'home' && normalizedPage != 'worldo') ||
+        normalizedReason.isEmpty) {
+      return;
+    }
+    _launchPage = normalizedPage;
+    _launchPageReason = normalizedReason;
+  }
+
+  static void recordLaunchPage() {
+    final page = _launchPage;
+    final reason = _launchPageReason;
+    if (!isLaunchTrackingActive ||
+        _launchPageRecorded ||
+        page == null ||
+        reason == null) {
+      return;
+    }
+    _launchPageRecorded = true;
+    _collectLaunchEvent(action: 'launch_page', page: page, result: reason);
+  }
+
+  static void recordLaunchRequestStart({required String page}) {
+    final normalizedPage = page.trim().toLowerCase();
+    if (!isLaunchTrackingActive ||
+        _launchRequestStarted ||
+        _launchRenderRecorded ||
+        normalizedPage != _launchPage) {
+      return;
+    }
+    _launchRequestStarted = true;
+    _collectLaunchEvent(
+      action: 'launch_req_start',
+      page: normalizedPage,
+      result: 'started',
+    );
+  }
+
+  static void recordLaunchRequestEnd({
+    required String page,
+    required String result,
+  }) {
+    final normalizedPage = page.trim().toLowerCase();
+    final normalizedResult = result.trim().toLowerCase();
+    if (!isLaunchTrackingActive ||
+        !_launchRequestStarted ||
+        _launchRequestEnded ||
+        normalizedPage != _launchPage ||
+        (normalizedResult != 'success' &&
+            normalizedResult != 'failure' &&
+            normalizedResult != 'cancelled')) {
+      return;
+    }
+    _launchRequestEnded = true;
+    _collectLaunchEvent(
+      action: 'launch_req_end',
+      page: normalizedPage,
+      result: normalizedResult,
+    );
+  }
+
+  static void recordLaunchRender({
+    required String page,
+    required String result,
+  }) {
+    final normalizedPage = page.trim().toLowerCase();
+    final normalizedResult = result.trim().toLowerCase();
+    if (!isLaunchTrackingActive ||
+        _launchRenderRecorded ||
+        normalizedPage != _launchPage ||
+        (normalizedResult != 'cache' &&
+            normalizedResult != 'network' &&
+            normalizedResult != 'network_empty' &&
+            normalizedResult != 'network_error')) {
+      return;
+    }
+    _launchRenderRecorded = true;
+    _collectLaunchEvent(
+      action: 'launch_render',
+      page: normalizedPage,
+      result: normalizedResult,
+    );
+  }
+
+  static void _recordLaunchStartup() {
+    if (!isLaunchTrackingActive || _launchStartupRecorded) return;
+    _launchStartupRecorded = true;
+    _collectLaunchEvent(
+      action: 'launch_startup',
+      page: 'launch',
+      result: 'started',
+      elapsedMilliseconds: 0,
+    );
+  }
+
+  static void _collectLaunchEvent({
+    required String action,
+    required String page,
+    required String result,
+    int? elapsedMilliseconds,
+  }) {
+    final startupId = _launchStartupId;
+    final stopwatch = _launchStopwatch;
+    if (startupId == null || stopwatch == null) return;
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: action,
+      object1: startupId,
+      object2: page,
+      object3: elapsedMilliseconds ?? stopwatch.elapsedMilliseconds,
+      object4: result,
+    );
+  }
 
   static void configure({AppVersionInfo? appVersion}) {
     _appVersion = appVersion;
@@ -153,6 +291,7 @@ class AppStartupCoordinator {
       actionType: 'event',
       action: 'startup_first_report',
     );
+    _recordLaunchStartup();
   }
 
   @visibleForTesting
@@ -169,6 +308,16 @@ class AppStartupCoordinator {
       _telemetryLifecycleObserver = null;
     }
     _startupFirstReportRecorded = false;
+    _launchStopwatch?.stop();
+    _launchStopwatch = null;
+    _launchStartupId = null;
+    _launchPage = null;
+    _launchPageReason = null;
+    _launchStartupRecorded = false;
+    _launchPageRecorded = false;
+    _launchRequestStarted = false;
+    _launchRequestEnded = false;
+    _launchRenderRecorded = false;
     _attRequestClaimed = false;
     _postLaunchWorkAllowed.value = true;
   }
