@@ -4,6 +4,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -194,6 +195,8 @@ class WorldSingleSectionBottomSheetState
   static const double _extentUpdateEpsilon = 0.001;
   // Collapse once the sheet's top edge has crossed the middle of the screen.
   static const double _collapseSnapThreshold = 0.5;
+  static const double _minimumDownwardFlingVelocity = 650;
+  static const double _verticalFlingDirectionRatio = 1.2;
   static const _snapAnimationDuration = Duration(milliseconds: 260);
 
   late final DraggableScrollableController _sheetController;
@@ -203,6 +206,9 @@ class WorldSingleSectionBottomSheetState
   var _sheetHostHeight = 1.0;
   var _sheetMinChildSize = 0.08;
   var _sheetMaxChildSize = 1.0;
+  VelocityTracker? _sheetPointerVelocityTracker;
+  int? _sheetPointer;
+  double? _sheetPointerStartExtent;
   WorldLocationListData? _cachedLocationListData;
   ProcessedLocationTree<Map<String, dynamic>>? _cachedProcessedLocationTree;
   List<Map<String, dynamic>>? _cachedLocations;
@@ -648,16 +654,60 @@ class WorldSingleSectionBottomSheetState
     _sheetController.jumpTo(nextExtent);
   }
 
-  void _handleSheetPointerEnd(PointerEvent _) {
+  void _handleSheetPointerDown(PointerDownEvent event) {
+    if (_sheetPointer != null) return;
+    _sheetPointer = event.pointer;
+    _sheetPointerStartExtent = _sheetController.isAttached
+        ? _sheetController.size
+        : null;
+    _sheetPointerVelocityTracker = VelocityTracker.withKind(event.kind)
+      ..addPosition(event.timeStamp, event.localPosition);
+  }
+
+  void _handleSheetPointerMove(PointerMoveEvent event) {
+    if (_sheetPointer != event.pointer) return;
+    _sheetPointerVelocityTracker?.addPosition(
+      event.timeStamp,
+      event.localPosition,
+    );
+  }
+
+  void _handleSheetPointerUp(PointerUpEvent event) {
+    if (_sheetPointer != event.pointer) return;
+    final tracker = _sheetPointerVelocityTracker
+      ?..addPosition(event.timeStamp, event.localPosition);
+    final velocity = tracker?.getVelocity().pixelsPerSecond ?? Offset.zero;
+    final startExtent = _sheetPointerStartExtent;
+    final movedSheetDown =
+        startExtent != null &&
+        _sheetController.isAttached &&
+        _sheetController.size < startExtent - _extentUpdateEpsilon;
+    final isDownwardFling =
+        movedSheetDown &&
+        velocity.dy >= _minimumDownwardFlingVelocity &&
+        velocity.dy >= velocity.dx.abs() * _verticalFlingDirectionRatio;
+    _resetSheetPointerTracking();
+    _settleSheetFromCurrentExtent(isDownwardFling: isDownwardFling);
+  }
+
+  void _handleSheetPointerCancel(PointerCancelEvent event) {
+    if (_sheetPointer != event.pointer) return;
+    _resetSheetPointerTracking();
     _settleSheetFromCurrentExtent();
   }
 
-  void _settleSheetFromCurrentExtent() {
+  void _resetSheetPointerTracking() {
+    _sheetPointerVelocityTracker = null;
+    _sheetPointer = null;
+    _sheetPointerStartExtent = null;
+  }
+
+  void _settleSheetFromCurrentExtent({bool isDownwardFling = false}) {
     if (!_sheetController.isAttached) return;
     final collapseThreshold = _collapseSnapThreshold
         .clamp(_sheetMinChildSize, _sheetMaxChildSize)
         .toDouble();
-    if (_sheetController.size <= collapseThreshold) {
+    if (isDownwardFling || _sheetController.size <= collapseThreshold) {
       _collapseSheet(curve: Curves.linear);
       return;
     }
@@ -730,8 +780,10 @@ class WorldSingleSectionBottomSheetState
         return GenesisEdgeSwipeBack(
           onBack: () => Navigator.of(context).pop(),
           child: Listener(
-            onPointerUp: _handleSheetPointerEnd,
-            onPointerCancel: _handleSheetPointerEnd,
+            onPointerDown: _handleSheetPointerDown,
+            onPointerMove: _handleSheetPointerMove,
+            onPointerUp: _handleSheetPointerUp,
+            onPointerCancel: _handleSheetPointerCancel,
             child: DraggableScrollableSheet(
               controller: _sheetController,
               initialChildSize: maxChildSize,

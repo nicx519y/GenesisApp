@@ -8,6 +8,7 @@ import 'package:genesis_flutter_android/network/models/origin.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_layout.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
+import 'package:genesis_flutter_android/platform/keyboard/genesis_keyboard_animation.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_radii.dart';
 
 void main() {
@@ -16,6 +17,9 @@ void main() {
   ).readAsStringSync();
   final originWorldDetailSheetSource = File(
     'lib/pages/origin/origin_world_detail_sheet.dart',
+  ).readAsStringSync();
+  final originWorldSheetInteractionSource = File(
+    'lib/pages/origin/origin_world_sheet_interaction.dart',
   ).readAsStringSync();
   final originWorldMapShellSource = File(
     'lib/pages/origin/origin_world_map_shell.dart',
@@ -87,11 +91,288 @@ void main() {
     expect(originWorldDetailSheetSource, contains('showShortcuts: false'));
     expect(originWorldDetailSheetSource, contains('enableMentionSheet: false'));
     expect(originWorldDetailSheetSource, contains('roleBorderRadius: 8'));
+    expect(originWorldDetailSheetSource, contains('SliverLayoutBuilder('));
     expect(
       originWorldDetailSheetSource,
-      contains('locationChatEffectiveKeyboardInsetForTesting('),
+      contains(
+        'bottomNavigationBar: !composerLifted && _openingComposerDocked',
+      ),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('resizeToAvoidBottomInset: !_openingKeyboardMode'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(contains('origin-opening-keyboard-message-overlay')),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(contains('_openingKeyboardScrollController')),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('_OriginSliverPaintTranslation('),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(contains('_expandedOpeningComposerTop')),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(contains('_scheduleOpeningComposerPositionUpdate')),
     );
   });
+
+  test('origin sheet interaction is packaged outside the sheet UI', () {
+    expect(
+      originWorldPageSource,
+      contains("part 'origin_world_sheet_interaction.dart';"),
+    );
+    expect(
+      originWorldSheetInteractionSource,
+      contains('class _OriginWorldSheetInteractionController'),
+    );
+    expect(
+      originWorldSheetInteractionSource,
+      contains('void handleComposerFocusChanged(bool hasFocus)'),
+    );
+    expect(
+      originWorldSheetInteractionSource,
+      contains('bool handlePageScrollEnd(ScrollEndNotification notification)'),
+    );
+    expect(
+      originWorldSheetInteractionSource,
+      contains('void reportOpeningComposerDocked(bool docked)'),
+    );
+    expect(
+      originWorldSheetInteractionSource,
+      contains('bool isCollapsedRoleActionVisible'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(contains('void _updateOpeningKeyboardInset(double rawInset)')),
+    );
+    expect(originWorldDetailSheetSource, contains('DraggableScrollableSheet('));
+    expect(
+      originWorldDetailSheetSource,
+      contains('void _handleCollapsedRoleDragUpdate'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('Future<void> _animateToRequestedExtent'),
+    );
+  });
+
+  test('origin opening keyboard geometry follows system inset progress', () {
+    const startTop = 620.0;
+    const sheetHeight = 760.0;
+    const composerHeight = 100.0;
+    const keyboardInset = 300.0;
+
+    expect(
+      originOpeningKeyboardProgressForTesting(
+        currentInset: 0,
+        startInset: 0,
+        endInset: keyboardInset,
+      ),
+      0,
+    );
+    expect(
+      originOpeningKeyboardProgressForTesting(
+        currentInset: 150,
+        startInset: 0,
+        endInset: keyboardInset,
+      ),
+      0.5,
+    );
+    expect(
+      originOpeningKeyboardProgressForTesting(
+        currentInset: 150,
+        startInset: keyboardInset,
+        endInset: 0,
+      ),
+      0.5,
+    );
+    expect(
+      originOpeningKeyboardComposerTopForTesting(
+        startTop: startTop,
+        sheetHeight: sheetHeight,
+        composerHeight: composerHeight,
+        keyboardInset: keyboardInset,
+        progress: 0,
+      ),
+      startTop,
+    );
+    final finalTop = originOpeningKeyboardComposerTopForTesting(
+      startTop: startTop,
+      sheetHeight: sheetHeight,
+      composerHeight: composerHeight,
+      keyboardInset: keyboardInset,
+      progress: 1,
+    );
+    expect(finalTop + composerHeight, sheetHeight - keyboardInset);
+  });
+
+  test('origin opening keyboard distinguishes short and scrolled content', () {
+    expect(
+      originOpeningKeyboardContentTargetOffsetForTesting(
+        layoutOffset: 80,
+        preservedOffset: 80,
+        contentTop: 60,
+        contentBottom: 300,
+        composerTop: 500,
+        gap: 24,
+      ),
+      80,
+      reason: 'Short content keeps its original visual offset.',
+    );
+    expect(
+      originOpeningKeyboardContentTargetOffsetForTesting(
+        layoutOffset: 250,
+        preservedOffset: 250,
+        contentTop: -110,
+        contentBottom: 130,
+        composerTop: 500,
+        gap: 24,
+      ),
+      140,
+      reason:
+          'Short content that was scrolled above the viewport returns its '
+          'natural top edge to the sheet top.',
+    );
+    expect(
+      originOpeningKeyboardContentTargetOffsetForTesting(
+        layoutOffset: 80,
+        preservedOffset: 80,
+        contentTop: 60,
+        contentBottom: 620,
+        composerTop: 500,
+        gap: 24,
+      ),
+      224,
+      reason: 'Only the overflowing height is scrolled above the composer.',
+    );
+    expect(
+      originOpeningKeyboardContentTargetOffsetForTesting(
+        layoutOffset: 400,
+        preservedOffset: 400,
+        contentTop: -340,
+        contentBottom: 220,
+        composerTop: 500,
+        gap: 24,
+      ),
+      144,
+      reason:
+          'A tall content block remains tall after scrolling; its on-screen '
+          'top must not make it take the short-content path.',
+    );
+    expect(
+      originOpeningKeyboardAdditionalScrollExtentForTesting(
+        targetOffset: 140,
+        maxScrollExtent: 112,
+      ),
+      28,
+      reason:
+          'The keyboard list must add the exact missing extent required to '
+          'commit the short-content top alignment.',
+    );
+    expect(
+      originOpeningKeyboardAdditionalScrollExtentForTesting(
+        targetOffset: 140,
+        maxScrollExtent: 180,
+      ),
+      0,
+    );
+    expect(
+      originOpeningKeyboardSettledTargetInsetForTesting(
+        nativeTargetInset: 304,
+        actualInset: 300,
+        stableFrameCount: 1,
+      ),
+      304,
+      reason: 'The native target remains authoritative while IME is moving.',
+    );
+    expect(
+      originOpeningKeyboardSettledTargetInsetForTesting(
+        nativeTargetInset: 304,
+        actualInset: 300,
+        stableFrameCount: 2,
+      ),
+      300,
+      reason:
+          'The settled Flutter inset becomes the exact final keyboard edge.',
+    );
+  });
+
+  test('origin keyboard animation target rejects malformed native events', () {
+    expect(GenesisKeyboardAnimationTarget.tryParse(null), isNull);
+    expect(
+      GenesisKeyboardAnimationTarget.tryParse(const {
+        'generation': 2,
+        'phase': 'opening',
+        'startInset': 0,
+        'endInset': 301.5,
+        'durationMillis': 250,
+      }),
+      isA<GenesisKeyboardAnimationTarget>()
+          .having((event) => event.generation, 'generation', 2)
+          .having(
+            (event) => event.direction,
+            'direction',
+            GenesisKeyboardAnimationDirection.opening,
+          )
+          .having((event) => event.endInset, 'endInset', 301.5)
+          .having(
+            (event) => event.duration,
+            'duration',
+            const Duration(milliseconds: 250),
+          ),
+    );
+  });
+
+  test(
+    'origin opening composer docks when its own box leaves the viewport',
+    () {
+      expect(
+        originOpeningComposerShouldDockForTesting(
+          remainingPaintExtent: 80,
+          composerHeight: 80,
+          currentlyDocked: false,
+        ),
+        isFalse,
+        reason:
+            'A fully visible inline composer must stay in the content flow.',
+      );
+      expect(
+        originOpeningComposerShouldDockForTesting(
+          remainingPaintExtent: 79.4,
+          composerHeight: 80,
+          currentlyDocked: false,
+        ),
+        isTrue,
+        reason: 'Dock only after the inline composer itself starts leaving.',
+      );
+      expect(
+        originOpeningComposerShouldDockForTesting(
+          remainingPaintExtent: 80.4,
+          composerHeight: 80,
+          currentlyDocked: true,
+        ),
+        isTrue,
+        reason: 'Keep the docked state inside the boundary hysteresis.',
+      );
+      expect(
+        originOpeningComposerShouldDockForTesting(
+          remainingPaintExtent: 80.6,
+          composerHeight: 80,
+          currentlyDocked: true,
+        ),
+        isFalse,
+        reason: 'Return to flow after the composer is stably fully visible.',
+      );
+    },
+  );
 
   test('origin collapsed sheet caps content height before safe area', () {
     expect(

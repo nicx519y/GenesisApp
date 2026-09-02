@@ -272,8 +272,11 @@ class _DiscussSection extends StatelessWidget {
 List<Widget> _originInitialDialogueSlivers(
   BuildContext context,
   OriginDetail origin,
-  _OriginInitialDialoguePreview preview,
-) {
+  _OriginInitialDialoguePreview preview, {
+  Key? contentStartKey,
+  Key? messageEndKey,
+  bool eager = false,
+}) {
   final style = kLocationChatStyle.copyWith(bubbleBackdropBlurSigma: 0);
   final padding = style.messageListPadding;
   final bubbleWidthCaps =
@@ -291,10 +294,32 @@ List<Widget> _originInitialDialogueSlivers(
       );
   final brief = _originWorldoBrief(origin);
   final locationTopPadding = brief.isEmpty ? 6.0 : 0.0;
+  Widget buildMessage(BuildContext context, int index) {
+    final message = preview.messages[index];
+    final isLast = index == preview.messages.length - 1;
+    final messageStyle = isLast
+        ? style.copyWith(
+            rowBottomPadding: 0,
+            systemMessageMargin: style.systemMessageMargin.copyWith(bottom: 0),
+          )
+        : style;
+    final row = ChatMessageRow(
+      key: ValueKey<String>(message.localId),
+      message: message,
+      showDateDivider: false,
+      style: messageStyle,
+      selfMessageBubbleMaxWidthCap: bubbleWidthCaps.selfMessage,
+      otherMessageBubbleMaxWidthCap: bubbleWidthCaps.otherMessage,
+    );
+    if (!isLast || messageEndKey == null) return row;
+    return KeyedSubtree(key: messageEndKey, child: row);
+  }
+
   return <Widget>[
     SliverToBoxAdapter(
       child: _OriginOpeningLocationHeader(
         locationName: preview.locationName,
+        contentStartKey: contentStartKey,
         horizontalPadding: padding,
         topPadding: locationTopPadding,
         iconColor: originWorldDetailSheetPrimaryTextColor,
@@ -313,29 +338,25 @@ List<Widget> _originInitialDialogueSlivers(
         padding.right,
         originDetailSectionGapForTesting,
       ),
-      sliver: SliverList.builder(
-        itemCount: preview.messages.length,
-        itemBuilder: (context, index) {
-          final message = preview.messages[index];
-          final isLast = index == preview.messages.length - 1;
-          final messageStyle = isLast
-              ? style.copyWith(
-                  rowBottomPadding: 0,
-                  systemMessageMargin: style.systemMessageMargin.copyWith(
-                    bottom: 0,
-                  ),
-                )
-              : style;
-          return ChatMessageRow(
-            key: ValueKey<String>(message.localId),
-            message: message,
-            showDateDivider: false,
-            style: messageStyle,
-            selfMessageBubbleMaxWidthCap: bubbleWidthCaps.selfMessage,
-            otherMessageBubbleMaxWidthCap: bubbleWidthCaps.otherMessage,
-          );
-        },
-      ),
+      sliver: eager
+          ? SliverToBoxAdapter(
+              child: Column(
+                children: [
+                  for (
+                    var index = 0;
+                    index < preview.messages.length;
+                    index += 1
+                  )
+                    Builder(builder: (context) => buildMessage(context, index)),
+                ],
+              ),
+            )
+          : SliverList(
+              delegate: SliverChildBuilderDelegate(
+                buildMessage,
+                childCount: preview.messages.length,
+              ),
+            ),
     ),
   ];
 }
@@ -343,6 +364,7 @@ List<Widget> _originInitialDialogueSlivers(
 class _OriginOpeningLocationHeader extends StatelessWidget {
   const _OriginOpeningLocationHeader({
     required this.locationName,
+    this.contentStartKey,
     required this.horizontalPadding,
     required this.topPadding,
     required this.iconColor,
@@ -353,6 +375,7 @@ class _OriginOpeningLocationHeader extends StatelessWidget {
   static const double _contentHeight = 25;
 
   final String locationName;
+  final Key? contentStartKey;
   final EdgeInsets horizontalPadding;
   final double topPadding;
   final Color iconColor;
@@ -374,6 +397,7 @@ class _OriginOpeningLocationHeader extends StatelessWidget {
             8,
           ),
           child: Row(
+            key: contentStartKey,
             mainAxisAlignment: MainAxisAlignment.start,
             children: [
               Icon(Icons.place_outlined, size: 14, color: iconColor),
@@ -395,7 +419,10 @@ class _OriginOpeningLocationHeader extends StatelessWidget {
   }
 }
 
-List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
+List<Widget> _originWorldoBriefSlivers(
+  OriginDetail origin, {
+  Key? contentStartKey,
+}) {
   final brief = _originWorldoBrief(origin);
   if (brief.isEmpty) return const <Widget>[];
   final padding = kLocationChatStyle.messageListPadding;
@@ -412,8 +439,9 @@ List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'Worldo Brief',
+              key: contentStartKey,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(

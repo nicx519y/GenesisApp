@@ -8038,6 +8038,95 @@ void main() {
     expect(tester.widget<IgnorePointer>(selectRoleVisibility).ignoring, isTrue);
   });
 
+  testWidgets(
+    'Origin select role overlay requires settled Brief and collapsed sheet',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final visibility = find.byKey(
+        const ValueKey<String>('origin-opening-select-role-visibility'),
+      );
+      final action = find.byKey(
+        const ValueKey<String>('origin-opening-select-role-action'),
+      );
+      final sheetPages = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-pages'),
+      );
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      final collapsedSheetTop = tester.getTopLeft(sheetSurface).dy;
+      expect(tester.widget<IgnorePointer>(visibility).ignoring, isFalse);
+
+      var pagesRect = tester.getRect(sheetPages);
+      await tester.dragFrom(
+        Offset(pagesRect.right - 24, pagesRect.top + 16),
+        Offset(-pagesRect.width * 0.8, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<IgnorePointer>(visibility).ignoring, isTrue);
+
+      pagesRect = tester.getRect(sheetPages);
+      await tester.dragFrom(
+        Offset(pagesRect.left + 24, pagesRect.top + 16),
+        Offset(pagesRect.width * 0.8, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<IgnorePointer>(visibility).ignoring, isFalse);
+
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+      expect(tester.widget<IgnorePointer>(visibility).ignoring, isTrue);
+      final expandedSheetTop = tester.getTopLeft(sheetSurface).dy;
+      expect(expandedSheetTop, lessThan(collapsedSheetTop));
+
+      pagesRect = tester.getRect(sheetPages);
+      await tester.dragFrom(
+        Offset(pagesRect.right - 24, pagesRect.top + 16),
+        Offset(-pagesRect.width * 0.8, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.widget<IgnorePointer>(visibility).ignoring, isTrue);
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        closeTo(expandedSheetTop, 1),
+        reason: 'Opening Detail must preserve the expanded sheet extent.',
+      );
+
+      pagesRect = tester.getRect(sheetPages);
+      await tester.dragFrom(
+        Offset(pagesRect.left + 24, pagesRect.top + 16),
+        Offset(pagesRect.width * 0.8, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(sheetSurface).dy,
+        closeTo(expandedSheetTop, 1),
+        reason: 'Returning to Brief must preserve the expanded sheet extent.',
+      );
+      expect(
+        tester.widget<IgnorePointer>(visibility).ignoring,
+        isTrue,
+        reason:
+            'Returning to Worldo Brief must not show the collapsed-only '
+            'overlay while the sheet remains expanded.',
+      );
+    },
+  );
+
   testWidgets('origin detail sheet pauses all Tilemap animations', (
     WidgetTester tester,
   ) async {
@@ -8103,6 +8192,11 @@ void main() {
       find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
       findsNothing,
     );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
+    );
+    await tester.pumpAndSettle();
 
     final roleActionBar = find.byKey(
       const ValueKey<String>('origin-setup-role-action-bar-c_o_test_1'),
@@ -9659,6 +9753,11 @@ void main() {
           home: OriginWorldPage(oid: 'o_test_1', originId: 0),
         ),
       ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
     );
     await tester.pumpAndSettle();
 
@@ -11584,7 +11683,216 @@ void main() {
   });
 
   testWidgets(
-    'Origin expanded sheet keeps role composer at bottom and sends after launch',
+    'Origin opening composer stays stable when its inline box leaves the bottom',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      final dialogue = List<Map<String, Object?>>.generate(
+        24,
+        (index) => <String, Object?>{
+          'char_id': 'c_o_test_1',
+          'char_name': 'Detail Character',
+          'content': 'Composer docking line $index',
+        },
+        growable: false,
+      );
+      final transport = _RecordingV1ListTransport(
+        originTicks: <Map<String, Object?>>[
+          <String, Object?>{
+            'tick_no': 1,
+            'tick_result': <String, Object?>{
+              'location_groups': <Map<String, Object?>>[
+                <String, Object?>{
+                  'location_id': 'l_o_test_1',
+                  'initial_dialogue': dialogue,
+                },
+              ],
+            },
+          },
+        ],
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final visibility = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer-visibility'),
+      );
+      final surface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      final composer = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer'),
+      );
+      expect(find.text('Composer docking line 23'), findsNothing);
+      expect(tester.widget<IgnorePointer>(visibility).ignoring, isFalse);
+      expect(
+        tester.getBottomLeft(surface).dy - tester.getBottomLeft(composer).dy,
+        closeTo(0, 1),
+      );
+      for (var frame = 0; frame < 6; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(composer, findsOneWidget);
+        expect(
+          tester.getBottomLeft(surface).dy - tester.getBottomLeft(composer).dy,
+          closeTo(0, 1),
+          reason: 'The docked composer must not oscillate between two layouts.',
+        );
+      }
+      final normalOpeningList = find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      );
+      final normalOpeningScrollable = find.descendant(
+        of: normalOpeningList,
+        matching: find.byType(Scrollable),
+      );
+      final normalOpeningPosition = tester
+          .state<ScrollableState>(normalOpeningScrollable)
+          .position;
+      normalOpeningPosition.jumpTo(
+        700.0
+            .clamp(
+              normalOpeningPosition.minScrollExtent,
+              normalOpeningPosition.maxScrollExtent,
+            )
+            .toDouble(),
+      );
+      await tester.pump();
+      expect(normalOpeningPosition.pixels, greaterThan(0));
+
+      final normalRows = find.descendant(
+        of: normalOpeningList,
+        matching: find.byType(ChatMessageRow),
+      );
+      late Key visibleMessageKey;
+      late double visibleMessageTop;
+      var foundVisibleMessage = false;
+      final visibleContentTop = tester.getTopLeft(surface).dy;
+      final visibleContentBottom = tester.getTopLeft(composer).dy;
+      for (var index = 0; index < normalRows.evaluate().length; index += 1) {
+        final candidate = normalRows.at(index);
+        final rect = tester.getRect(candidate);
+        if (rect.bottom <= visibleContentTop ||
+            rect.top >= visibleContentBottom) {
+          continue;
+        }
+        visibleMessageKey = tester.widget<ChatMessageRow>(candidate).key!;
+        visibleMessageTop = rect.top;
+        foundVisibleMessage = true;
+        break;
+      }
+      expect(foundVisibleMessage, isTrue);
+      await tester.tap(
+        find.descendant(
+          of: composer,
+          matching: find.byKey(const ValueKey<String>('chat-composer-input')),
+        ),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: composer,
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasFocus,
+        isTrue,
+        reason: 'One tap keeps focus while the docked composer is prepared.',
+      );
+      await tester.pump();
+      await tester.pump();
+      final keyboardOverlay = find.byKey(
+        const ValueKey<String>('origin-opening-keyboard-message-overlay'),
+      );
+      expect(keyboardOverlay, findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('origin-detail-sheet-page-Opening'),
+          ),
+          matching: find.byType(CustomScrollView),
+        ),
+        findsOneWidget,
+        reason: 'Keyboard focus must keep the original opening scroll view.',
+      );
+      final focusedAnchorMessage = find.descendant(
+        of: normalOpeningList,
+        matching: find.byKey(visibleMessageKey),
+      );
+      expect(focusedAnchorMessage, findsOneWidget);
+      expect(
+        tester.getTopLeft(focusedAnchorMessage).dy,
+        closeTo(visibleMessageTop, 1),
+        reason:
+            'The original list must preserve the visible message position '
+            'when keyboard preparation starts.',
+      );
+      expect(
+        find.descendant(
+          of: normalOpeningList,
+          matching: find.text('Composer docking line 23'),
+        ),
+        findsOneWidget,
+        reason:
+            'The focused original list eagerly lays out every initial message '
+            'when the docked composer was focused from the top of the list.',
+      );
+      final openingViewportTop = tester.getTopLeft(normalOpeningList).dy;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 150);
+      await tester.pump();
+      expect(
+        tester.getTopLeft(normalOpeningList).dy,
+        closeTo(openingViewportTop, 0.1),
+        reason:
+            'Keyboard progress moves the sliver content, not the original '
+            'viewport itself.',
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump();
+      expect(
+        tester.getBottomLeft(composer).dy,
+        closeTo(480, 1),
+        reason: 'The docked focus path also ends at the keyboard top.',
+      );
+      expect(
+        tester.widget<CustomScrollView>(normalOpeningList).physics,
+        isA<ClampingScrollPhysics>(),
+        reason: 'The original message list becomes scrollable once open.',
+      );
+      final focusedRows = find.descendant(
+        of: normalOpeningList,
+        matching: find.byType(ChatMessageRow),
+      );
+      expect(
+        tester.getTopLeft(composer).dy -
+            tester.getBottomLeft(focusedRows.last).dy,
+        closeTo(originDetailSectionGapForTesting, 1),
+        reason:
+            'Focused layout preserves the normal flow gap above the composer.',
+      );
+    },
+  );
+
+  testWidgets(
+    'Origin opening composer follows dialogue and sends after launch',
     (WidgetTester tester) async {
       tester.view.padding = const FakeViewPadding(bottom: 24);
       tester.view.viewPadding = const FakeViewPadding(bottom: 24);
@@ -11694,9 +12002,9 @@ void main() {
           tester.getBottomLeft(sheetSurface).dy -
           tester.getBottomLeft(expandedComposer).dy;
       expect(
-        bottomGapBeforeDrag,
-        closeTo(0, 1),
-        reason: 'The expanded composer stays docked to the sheet bottom.',
+        bottomGapBeforeDrag.abs(),
+        greaterThan(1),
+        reason: 'The composer starts in the dialogue flow instead of docked.',
       );
       final visibilityDuringSheetDrag = tester.widget<IgnorePointer>(
         visibility,
@@ -11785,21 +12093,145 @@ void main() {
         of: sharedComposer,
         matching: find.byKey(const ValueKey('chat-composer-input')),
       );
+      final openingScroll = find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+        ),
+        matching: find.byType(Scrollable),
+      );
+      final openingPosition = tester
+          .state<ScrollableState>(openingScroll.first)
+          .position;
+      openingPosition.jumpTo(
+        80.0
+            .clamp(
+              openingPosition.minScrollExtent,
+              openingPosition.maxScrollExtent,
+            )
+            .toDouble(),
+      );
+      await tester.pump();
+      await tester.pump();
+      final sheetTop = tester.getTopLeft(sheetSurface).dy;
+      final briefTitle = find.text('Worldo Brief');
+      final normalBriefTop = tester.getTopLeft(briefTitle).dy;
+      expect(
+        normalBriefTop,
+        lessThan(sheetTop),
+        reason: 'The short content starts partially above the sheet viewport.',
+      );
+      final sheetHeightBeforeKeyboard = tester.getSize(sheetSurface).height;
       await tester.tap(sharedComposerInput);
       await tester.pump();
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: expandedComposer,
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasFocus,
+        isTrue,
+        reason:
+            'Preparing the keyboard transition must preserve the first focus.',
+      );
+      await tester.pump();
+      final keyboardMessageOverlay = find.byKey(
+        const ValueKey<String>('origin-opening-keyboard-message-overlay'),
+      );
+      expect(keyboardMessageOverlay, findsNothing);
+      final focusedOpeningList = find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      );
+      final focusedBrief = find.descendant(
+        of: focusedOpeningList,
+        matching: find.byKey(
+          const ValueKey<String>('origin-opening-worldo-brief'),
+        ),
+      );
+      expect(focusedBrief, findsOneWidget);
+      final focusedBriefTitle = find.descendant(
+        of: focusedBrief,
+        matching: find.text('Worldo Brief'),
+      );
+      expect(
+        tester.getTopLeft(focusedBriefTitle).dy,
+        closeTo(normalBriefTop, 1),
+        reason:
+            'Preparing the keyboard transition in the original list must not '
+            'move Brief.',
+      );
+      await tester.pump();
       expect(sharedComposerWidget.showShortcuts, isFalse);
+      expect(
+        tester.widget<PageView>(sheetPages).physics,
+        isA<NeverScrollableScrollPhysics>(),
+      );
+      expect(
+        tester
+            .widget<IgnorePointer>(
+              find.byKey(
+                const ValueKey<String>('origin-opening-select-role-visibility'),
+              ),
+            )
+            .ignoring,
+        isTrue,
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 150);
+      await tester.pump();
+      expect(
+        tester.getTopLeft(focusedBriefTitle).dy,
+        closeTo(sheetTop, 0.1),
+        reason:
+            'Scrolled short content returns its top edge to the sheet top '
+            'without attaching its bottom edge to the composer.',
+      );
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      await tester.pump();
       await tester.pump();
       final keyboardTop =
           (tester.view.physicalSize.height - 300) /
           tester.view.devicePixelRatio;
       expect(
-        tester.getBottomLeft(inputSurface).dy,
-        lessThanOrEqualTo(keyboardTop),
-        reason: 'The inline input stays above the keyboard.',
+        tester.getBottomLeft(expandedComposer).dy,
+        closeTo(keyboardTop, 1),
+        reason: 'The focused composer ends exactly at the keyboard top.',
+      );
+      expect(
+        tester.getSize(sheetSurface).height,
+        closeTo(sheetHeightBeforeKeyboard, 0.1),
+        reason: 'Keyboard focus must not resize the opening sheet.',
+      );
+      expect(
+        tester.getTopLeft(focusedBriefTitle).dy,
+        closeTo(sheetTop, 0.1),
+        reason:
+            'Short content stays exactly top-aligned when the keyboard is open.',
       );
       tester.view.viewInsets = FakeViewPadding.zero;
-      await tester.pump();
+      for (var frame = 0; frame < 4; frame += 1) {
+        await tester.pump();
+        expect(
+          tester.getTopLeft(focusedBriefTitle).dy,
+          closeTo(normalBriefTop, 1),
+          reason:
+              'Closing and restoring must not flash the original list back to '
+              'the committed keyboard offset.',
+        );
+      }
+      expect(keyboardMessageOverlay, findsNothing);
+      expect(
+        tester.widget<PageView>(sheetPages).physics,
+        isA<PageScrollPhysics>(),
+      );
+      expect(
+        tester.getTopLeft(briefTitle).dy,
+        closeTo(normalBriefTop, 1),
+        reason: 'Closing the keyboard restores the pre-focus content anchor.',
+      );
       expect(
         find.descendant(
           of: sharedComposer,
@@ -11820,17 +12252,13 @@ void main() {
         '@Detail Character<c_o_test_1> ',
       );
 
-      final openingScroll = find.descendant(
-        of: find.byKey(
-          const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
-        ),
-        matching: find.byType(Scrollable),
-      );
       final selectRoleTitle = find.text('Select Your Role');
       expect(
-        tester.getBottomLeft(sheetSurface).dy -
-            tester.getBottomLeft(expandedComposer).dy,
-        closeTo(0, 1),
+        (tester.getBottomLeft(sheetSurface).dy -
+                tester.getBottomLeft(expandedComposer).dy)
+            .abs(),
+        greaterThan(1),
+        reason: 'Scrolling upward keeps the composer in the content flow.',
       );
 
       final roleSelector = find.descendant(
@@ -25135,33 +25563,36 @@ void main() {
       ),
     );
     await tester.fling(detailList, const Offset(0, 150), 3000);
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(sheet, findsOneWidget);
     await tester.pumpAndSettle();
-    expect(
-      tester.getTopLeft(sheet).dy,
-      closeTo(
-        GenesisSafeAreaInsets.top(openedSheetContext) +
-            worldDetailSheetExpandedTopOffset,
-        1,
-      ),
+    expect(sheet, findsNothing);
+    expect(currentTilemap().animationsPaused, isFalse);
+
+    await tester.tap(detailTag);
+    await tester.pumpAndSettle();
+    final reopenedDraggableSheet = tester.widget<DraggableScrollableSheet>(
+      find.ancestor(of: sheet, matching: find.byType(DraggableScrollableSheet)),
     );
     final collapseGesture = await tester.startGesture(
       tester.getCenter(detailList),
     );
     await collapseGesture.moveBy(const Offset(0, 20));
     await tester.pump();
-    final collapseTargetExtent = (draggableSheet.minChildSize + 0.5) / 2;
+    final collapseTargetExtent =
+        (reopenedDraggableSheet.minChildSize + 0.5) / 2;
     final draggableHostHeight = tester
         .getSize(find.byType(DraggableScrollableSheet))
         .height;
     await collapseGesture.moveBy(
       Offset(
         0,
-        (draggableSheet.controller!.size - collapseTargetExtent) *
+        (reopenedDraggableSheet.controller!.size - collapseTargetExtent) *
             draggableHostHeight,
       ),
     );
     await tester.pump();
-    expect(draggableSheet.controller!.size, lessThan(0.5));
+    expect(reopenedDraggableSheet.controller!.size, lessThan(0.5));
     await collapseGesture.up();
     await tester.pump(const Duration(milliseconds: 100));
     expect(sheet, findsOneWidget);

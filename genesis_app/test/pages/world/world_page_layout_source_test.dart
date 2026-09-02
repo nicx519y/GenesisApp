@@ -225,18 +225,27 @@ void main() {
     );
     expect(singleSectionSheet, contains('snap: false'));
     expect(singleSectionSheet, contains('shouldCloseOnMinExtent: false'));
-    expect(singleSectionSheet, contains('onPointerUp: _handleSheetPointerEnd'));
     expect(
       singleSectionSheet,
-      contains('onPointerCancel: _handleSheetPointerEnd'),
+      contains('onPointerDown: _handleSheetPointerDown'),
+    );
+    expect(
+      singleSectionSheet,
+      contains('onPointerMove: _handleSheetPointerMove'),
+    );
+    expect(singleSectionSheet, contains('onPointerUp: _handleSheetPointerUp'));
+    expect(
+      singleSectionSheet,
+      contains('onPointerCancel: _handleSheetPointerCancel'),
     );
     expect(singleSectionSheet, contains('worldCollapsedPanelHeightFor('));
     expect(singleSectionSheet, contains('_collapseSnapThreshold = 0.5'));
+    expect(singleSectionSheet, contains('_minimumDownwardFlingVelocity = 650'));
     expect(
       singleSectionSheet,
       isNot(contains('GenesisBottomSheetDragDismissArea(')),
     );
-    expect(singleSectionSheet, isNot(contains('PointerDownEvent')));
+    expect(singleSectionSheet, contains('VelocityTracker.withKind'));
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
     expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));

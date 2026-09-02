@@ -23,7 +23,10 @@ import android.webkit.MimeTypeMap
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsAnimationCompat
+import androidx.core.view.WindowInsetsCompat
 import com.google.android.gms.ads.identifier.AdvertisingIdClient
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -31,6 +34,7 @@ import com.google.android.gms.common.api.ApiException
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
+import io.flutter.plugin.common.EventChannel
 import java.io.File
 import java.io.FileOutputStream
 import java.security.MessageDigest
@@ -50,6 +54,7 @@ import kotlin.math.sqrt
 class MainActivity : FlutterActivity() {
     private val channel = "com.worldo.ai/device"
     private val discussImagePickerChannel = "com.worldo.ai/discuss_image_picker"
+    private val keyboardAnimationChannel = "com.worldo.ai/keyboard_animation"
     private val discussImagePickerRequestCode = 43021
     private val googleSignInRequestCode = 43022
     private val uidKey = "uid"
@@ -65,6 +70,9 @@ class MainActivity : FlutterActivity() {
     private var pendingDiscussImagePickerLimit = 0
     private var pendingDiscussImagePickerNormalizeForUpload = false
     private var pendingGoogleSignInResult: MethodChannel.Result? = null
+    private var keyboardAnimationEventSink: EventChannel.EventSink? = null
+    private var keyboardAnimationGeneration = 0
+    private var lastImeInsetPx = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -74,6 +82,8 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        configureKeyboardAnimationChannel(flutterEngine)
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, channel).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -210,6 +220,76 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+    }
+
+    private fun configureKeyboardAnimationChannel(flutterEngine: FlutterEngine) {
+        EventChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            keyboardAnimationChannel,
+        ).setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                keyboardAnimationEventSink = events
+                lastImeInsetPx = ViewCompat.getRootWindowInsets(window.decorView)
+                    ?.getInsets(WindowInsetsCompat.Type.ime())
+                    ?.bottom ?: 0
+            }
+
+            override fun onCancel(arguments: Any?) {
+                keyboardAnimationEventSink = null
+            }
+        })
+
+        ViewCompat.setWindowInsetsAnimationCallback(
+            window.decorView,
+            object : WindowInsetsAnimationCompat.Callback(
+                WindowInsetsAnimationCompat.Callback.DISPATCH_MODE_CONTINUE_ON_SUBTREE,
+            ) {
+                override fun onStart(
+                    animation: WindowInsetsAnimationCompat,
+                    bounds: WindowInsetsAnimationCompat.BoundsCompat,
+                ): WindowInsetsAnimationCompat.BoundsCompat {
+                    if (animation.typeMask and WindowInsetsCompat.Type.ime() == 0) {
+                        return bounds
+                    }
+                    val density = resources.displayMetrics.density.coerceAtLeast(0.01f)
+                    val startInsetPx = lastImeInsetPx
+                    val lowerInsetPx = bounds.lowerBound.bottom
+                    val upperInsetPx = bounds.upperBound.bottom
+                    val endInsetPx = if (
+                        kotlin.math.abs(startInsetPx - lowerInsetPx) <=
+                            kotlin.math.abs(startInsetPx - upperInsetPx)
+                    ) {
+                        upperInsetPx
+                    } else {
+                        lowerInsetPx
+                    }
+                    val phase = when {
+                        startInsetPx > 0 && endInsetPx > 0 -> "changing"
+                        endInsetPx > startInsetPx -> "opening"
+                        else -> "closing"
+                    }
+                    keyboardAnimationGeneration += 1
+                    keyboardAnimationEventSink?.success(
+                        mapOf(
+                            "generation" to keyboardAnimationGeneration,
+                            "phase" to phase,
+                            "startInset" to startInsetPx / density,
+                            "endInset" to endInsetPx / density,
+                            "durationMillis" to animation.durationMillis,
+                        ),
+                    )
+                    return bounds
+                }
+
+                override fun onProgress(
+                    insets: WindowInsetsCompat,
+                    runningAnimations: MutableList<WindowInsetsAnimationCompat>,
+                ): WindowInsetsCompat {
+                    lastImeInsetPx = insets.getInsets(WindowInsetsCompat.Type.ime()).bottom
+                    return insets
+                }
+            },
+        )
     }
 
     private fun resolveAndroidDeviceId(): String {

@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderProxySliver;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -39,6 +40,7 @@ import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
 import '../create/create_form_widgets.dart';
 import '../../platform/auth/auth_session.dart';
+import '../../platform/keyboard/genesis_keyboard_animation.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
@@ -68,6 +70,7 @@ import 'origin_role_portrait_image_provider.dart';
 import 'origin_world_layout.dart';
 
 part 'origin_world_map_shell.dart';
+part 'origin_world_sheet_interaction.dart';
 part 'origin_world_detail_sheet.dart';
 part 'origin_world_sections.dart';
 part 'origin_world_role_setup.dart';

@@ -290,7 +290,9 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.showShortcuts = true,
     this.enableMentionSheet = true,
     this.roleBorderRadius = 999,
+    this.bottomSafeAreaInset,
     this.onInputDockHeightChanged,
+    this.onFocusChanged,
   });
 
   final bool launching;
@@ -307,7 +309,9 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final bool showShortcuts;
   final bool enableMentionSheet;
   final double roleBorderRadius;
+  final double? bottomSafeAreaInset;
   final ValueChanged<double>? onInputDockHeightChanged;
+  final ValueChanged<bool>? onFocusChanged;
 
   @override
   State<_OriginLocationChatLaunchComposer> createState() =>
@@ -329,6 +333,7 @@ class _OriginLocationChatLaunchComposerState
       catalog: widget.mentionCatalog,
     );
     _controller.addListener(_handleTextChanged);
+    _focusNode.addListener(_handleFocusChanged);
   }
 
   @override
@@ -339,10 +344,15 @@ class _OriginLocationChatLaunchComposerState
 
   @override
   void dispose() {
+    _focusNode.removeListener(_handleFocusChanged);
     _controller.removeListener(_handleTextChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
+  }
+
+  void _handleFocusChanged() {
+    widget.onFocusChanged?.call(_focusNode.hasFocus);
   }
 
   void _handleTextChanged() {
@@ -426,6 +436,7 @@ class _OriginLocationChatLaunchComposerState
       composerHeader: null,
       style: style,
       showShortcuts: widget.showShortcuts,
+      bottomSafeAreaInset: widget.bottomSafeAreaInset,
     );
     final roleRegion = _OriginLocationChatRoleRegion(
       role: widget.role,

@@ -17,11 +17,95 @@ private struct DeviceIdResolution {
   let writeStatus: OSStatus?
 }
 
+private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStreamHandler {
+  private var eventSink: FlutterEventSink?
+  private var observer: NSObjectProtocol?
+  private var generation = 0
+
+  func onListen(
+    withArguments arguments: Any?,
+    eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    eventSink = events
+    if observer == nil {
+      observer = NotificationCenter.default.addObserver(
+        forName: UIResponder.keyboardWillChangeFrameNotification,
+        object: nil,
+        queue: .main
+      ) { [weak self] notification in
+        self?.handleKeyboardFrameChange(notification)
+      }
+    }
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    eventSink = nil
+    if let observer = observer {
+      NotificationCenter.default.removeObserver(observer)
+      self.observer = nil
+    }
+    return nil
+  }
+
+  deinit {
+    if let observer = observer {
+      NotificationCenter.default.removeObserver(observer)
+    }
+  }
+
+  private func handleKeyboardFrameChange(_ notification: Notification) {
+    guard
+      let eventSink = eventSink,
+      let userInfo = notification.userInfo,
+      let beginFrame = userInfo[UIResponder.keyboardFrameBeginUserInfoKey] as? CGRect,
+      let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
+      let window = activeWindow()
+    else { return }
+
+    let startInset = keyboardInset(for: beginFrame, in: window)
+    let endInset = keyboardInset(for: endFrame, in: window)
+    let phase: String
+    if startInset > 0.5 && endInset > 0.5 {
+      phase = "changing"
+    } else if endInset > startInset {
+      phase = "opening"
+    } else {
+      phase = "closing"
+    }
+    let duration = (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey]
+      as? NSNumber)?.doubleValue ?? 0
+    generation += 1
+    eventSink([
+      "generation": generation,
+      "phase": phase,
+      "startInset": startInset,
+      "endInset": endInset,
+      "durationMillis": duration * 1000,
+    ])
+  }
+
+  private func activeWindow() -> UIWindow? {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    return scenes
+      .flatMap(\.windows)
+      .first(where: \.isKeyWindow)
+      ?? scenes.flatMap(\.windows).first
+  }
+
+  private func keyboardInset(for screenFrame: CGRect, in window: UIWindow) -> CGFloat {
+    let frame = window.convert(screenFrame, from: nil)
+    guard frame.maxY >= window.bounds.maxY - 0.5 else { return 0 }
+    return max(0, min(window.bounds.height, window.bounds.maxY - frame.minY))
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, PHPickerViewControllerDelegate {
   private let channelName = "com.worldo.ai/device"
   private let httpProtocolChannelName = "com.worldo.ai/network"
   private let discussImagePickerChannelName = "com.worldo.ai/discuss_image_picker"
+  private let keyboardAnimationChannelName = "com.worldo.ai/keyboard_animation"
   private let firebaseAnalyticsChannelName = "com.worldo.ai/firebase_analytics"
   private let uidKey = "uid"
   private let authTokenKey = "auth_token"
@@ -38,6 +122,7 @@ private struct DeviceIdResolution {
   private var httpProtocolProbes: [UUID: GenesisHttpProtocolProbe] = [:]
   private var storeKit2AnalyticsInFlightIds = Set<UInt64>()
   private var cachedDeviceIdResolution: DeviceIdResolution?
+  private var keyboardAnimationStreamHandler: GenesisKeyboardAnimationStreamHandler?
 
   override func application(
     _ application: UIApplication,
@@ -52,6 +137,16 @@ private struct DeviceIdResolution {
     configureHttpProtocolChannel(messenger: engineBridge.applicationRegistrar.messenger())
     configureDiscussImagePickerChannel(messenger: engineBridge.applicationRegistrar.messenger())
     configureFirebaseAnalyticsChannel(messenger: engineBridge.applicationRegistrar.messenger())
+    configureKeyboardAnimationChannel(messenger: engineBridge.applicationRegistrar.messenger())
+  }
+
+  private func configureKeyboardAnimationChannel(messenger: FlutterBinaryMessenger) {
+    let handler = GenesisKeyboardAnimationStreamHandler()
+    keyboardAnimationStreamHandler = handler
+    FlutterEventChannel(
+      name: keyboardAnimationChannelName,
+      binaryMessenger: messenger
+    ).setStreamHandler(handler)
   }
 
   private func configureFirebaseAnalyticsChannel(messenger: FlutterBinaryMessenger) {
