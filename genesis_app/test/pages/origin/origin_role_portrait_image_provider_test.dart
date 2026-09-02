@@ -19,11 +19,12 @@ void main() {
       ..clearLiveImages();
   });
 
-  test('uses the original role-card gradient colors', () {
+  test('blends the portrait into the role-card action surface', () {
+    expect(originRolePortraitGradient.stops, const <double>[0.30, 0.68, 1]);
     expect(originRolePortraitGradient.colors, const <Color>[
       Colors.transparent,
       Color(0x66151517),
-      Color(0xFF0E0D10),
+      Color(0xFF151517),
     ]);
   });
 

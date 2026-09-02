@@ -9887,12 +9887,22 @@ void main() {
         const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
       ),
     );
-    final actionScrim = tester.widget<ColoredBox>(
+    final actionBackground = tester.widget<DecoratedBox>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-action-background-$roleId'),
+      ),
+    );
+    expect(actionBackground.decoration, isA<BoxDecoration>());
+    expect(
+      (actionBackground.decoration as BoxDecoration).color,
+      originWorldDetailSheetBackgroundColor,
+    );
+    expect(
       find.byKey(
         const ValueKey<String>('origin-setup-role-action-scrim-$roleId'),
       ),
+      findsNothing,
     );
-    expect(actionScrim.color.a, closeTo(0.7, 0.001));
     expect(
       tester
           .getSize(

@@ -694,18 +694,8 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                       'origin-setup-role-action-background-$stableId',
                     ),
                     decoration: const BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFF505056), Color(0xFF343438)],
-                      ),
+                      color: originWorldDetailSheetBackgroundColor,
                     ),
-                  ),
-                  ColoredBox(
-                    key: ValueKey<String>(
-                      'origin-setup-role-action-scrim-$stableId',
-                    ),
-                    color: Colors.black.withValues(alpha: 0.7),
                   ),
                   Column(
                     children: [
