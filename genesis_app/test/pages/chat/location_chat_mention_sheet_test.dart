@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
+import 'package:genesis_flutter_android/components/world_new_badge.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart'
     show worldCharacterAvatarLogicalSize;
@@ -10,8 +12,16 @@ import 'package:genesis_flutter_android/ui/components/genesis_fixed_underline_in
 import 'package:genesis_flutter_android/ui/components/genesis_tab_bar.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    worldNewContentDebugSettings.resetForTesting();
+  });
+
+  tearDown(worldNewContentDebugSettings.resetForTesting);
+
   testWidgets('mention sheet reuses Genesis tabs and swipes between lists', (
     tester,
   ) async {
@@ -239,6 +249,105 @@ void main() {
       findsNothing,
     );
     expect(find.text('Northern Range >'), findsOneWidget);
+  });
+
+  testWidgets('mention rows show New badges for detail is_new entries', (
+    tester,
+  ) async {
+    final catalog = ChatMentionCatalog(
+      characters: const <ChatMentionEntry>[
+        ChatMentionEntry(
+          id: 'character-new',
+          name: 'New Character',
+          type: ChatMentionType.character,
+          isNew: true,
+        ),
+      ],
+      locations: const <ChatMentionEntry>[
+        ChatMentionEntry(
+          id: 'location-new',
+          name: 'New Location',
+          type: ChatMentionType.location,
+          isNew: true,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LocationChatMentionSheet(catalog: catalog)),
+      ),
+    );
+
+    final characterRow = find.byKey(
+      const ValueKey<String>('location-chat-mention-character-character-new'),
+    );
+    expect(
+      find.descendant(of: characterRow, matching: find.byType(WorldNewBadge)),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('Locations'));
+    await tester.pumpAndSettle();
+
+    final locationRow = find.byKey(
+      const ValueKey<String>('location-chat-mention-location-location-new'),
+    );
+    expect(
+      find.descendant(of: locationRow, matching: find.byType(WorldNewBadge)),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Debug force switch shows New badges without changing entries', (
+    tester,
+  ) async {
+    await worldNewContentDebugSettings.setForceNewBadges(true);
+    final catalog = ChatMentionCatalog(
+      characters: const <ChatMentionEntry>[
+        ChatMentionEntry(
+          id: 'character-existing',
+          name: 'Existing Character',
+          type: ChatMentionType.character,
+        ),
+      ],
+      locations: const <ChatMentionEntry>[
+        ChatMentionEntry(
+          id: 'location-existing',
+          name: 'Existing Location',
+          type: ChatMentionType.location,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LocationChatMentionSheet(catalog: catalog)),
+      ),
+    );
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'location-chat-mention-character-new-badge-character-existing',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(catalog.newLocations, isEmpty);
+
+    await tester.tap(find.text('Locations'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'location-chat-mention-location-new-badge-location-existing',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('New'), findsNothing);
   });
 
   testWidgets('mention lists repeat featured entries under section titles', (

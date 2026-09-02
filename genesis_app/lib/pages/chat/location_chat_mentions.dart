@@ -80,6 +80,7 @@ ChatMentionCatalog locationChatMentionCatalogForState(
       type: ChatMentionType.character,
       imageUrl: _firstMapImageUrl(character, const ['avatar', 'avatar_url']),
       isPlayerControlled: isPlayerControlled,
+      isNew: asBool(character['is_new']),
     );
     characters.add(entry);
     for (final identityKey in characterIdentityKeys) {
@@ -165,6 +166,7 @@ ChatMentionCatalog locationChatMentionCatalogForState(
         name: normalizeGenesisUgcTextForDisplay(name),
         type: ChatMentionType.location,
         subtitle: normalizeGenesisUgcTextForDisplay(parentName),
+        isNew: asBool(node.value['is_new']),
         isCurrentLocation: resolvedCurrentLocationIds.contains(id),
       ),
     );
@@ -1022,11 +1024,26 @@ class _LocationChatCharacterMentionRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showNewBadge = shouldMarkWorldContentAsNew(entry.isNew);
     return Row(
       children: [
         _LocationChatMentionThumbnail(entry: entry),
         const SizedBox(width: 12),
-        Expanded(child: _LocationChatMentionName(name: entry.name)),
+        Expanded(
+          child: Row(
+            children: [
+              Flexible(child: _LocationChatMentionName(name: entry.name)),
+              if (showNewBadge) ...[
+                const SizedBox(width: 6),
+                WorldNewBadge(
+                  key: ValueKey<String>(
+                    'location-chat-mention-character-new-badge-${entry.id}',
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ],
     );
   }
@@ -1040,6 +1057,7 @@ class _LocationChatLocationMentionRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final subtitle = entry.subtitle.trim();
+    final showNewBadge = shouldMarkWorldContentAsNew(entry.isNew);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1063,7 +1081,21 @@ class _LocationChatLocationMentionRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            Expanded(child: _LocationChatMentionName(name: entry.name)),
+            Expanded(
+              child: Row(
+                children: [
+                  Flexible(child: _LocationChatMentionName(name: entry.name)),
+                  if (showNewBadge) ...[
+                    const SizedBox(width: 6),
+                    WorldNewBadge(
+                      key: ValueKey<String>(
+                        'location-chat-mention-location-new-badge-${entry.id}',
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
             if (entry.isCurrentLocation) ...[
               const SizedBox(width: 12),
               const Text(

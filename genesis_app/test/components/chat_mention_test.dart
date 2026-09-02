@@ -88,6 +88,11 @@ void main() {
       false,
       true,
     ]);
+    expect(catalog.characters.map((entry) => entry.isNew), <bool>[
+      false,
+      true,
+      false,
+    ]);
     expect(catalog.entryForId('char-self'), isNull);
     expect(catalog.currentLocationCharacters.map((entry) => entry.id), <String>[
       'char-1',
@@ -99,6 +104,8 @@ void main() {
     expect(catalog.locations.map((entry) => entry.subtitle), <String>[
       'Silver Coast',
     ]);
+    expect(catalog.locations.single.isNew, isTrue);
+    expect(catalog.newLocations.map((entry) => entry.id), <String>['loc-leaf']);
     expect(catalog.locations.single.isCurrentLocation, isTrue);
     expect(catalog.entryForId('loc-root'), isNull);
     expect(catalog.entryForId('loc-parent'), isNull);
@@ -344,6 +351,7 @@ WorldDetail _mentionWorld() {
     value: <String, dynamic>{
       'location_id': 'loc-leaf',
       'location_name': 'Moon Harbor',
+      'is_new': true,
     },
     children: <LocationTreeNode<Map<String, dynamic>>>[],
   );
@@ -405,7 +413,7 @@ WorldDetail _mentionWorld() {
     characters: const <Map<String, dynamic>>[
       {'char_id': 'char-1', 'name': 'Alice'},
       {'char_id': 'char-1', 'name': 'Duplicate Alice'},
-      {'character_id': 'char-2', 'name': 'Bob'},
+      {'character_id': 'char-2', 'name': 'Bob', 'is_new': true},
       {
         'character_id': 'char-self',
         'name': 'My Character',
