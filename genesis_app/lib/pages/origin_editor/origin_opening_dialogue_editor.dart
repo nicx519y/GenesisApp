@@ -393,6 +393,19 @@ class _OpeningCharacterEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final character = item.character!;
     final name = character.name.trim();
+    final bubbleWidthCaps =
+        locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics(
+          logicalWidth: MediaQuery.sizeOf(context).width,
+          textScaler: MediaQuery.textScalerOf(context),
+          bubbleFontSize: style.bubbleTextStyle.fontSize ?? 14,
+          crowdedEffectiveWidthThreshold: locationChatBubbleLayoutSettings
+              .value
+              .crowdedEffectiveWidthThreshold,
+          avatarSize: style.avatarSize,
+          avatarBubbleGap: style.avatarBubbleGap,
+          avatarSideSpacerWidth: style.avatarSideSpacerWidth,
+          messageListHorizontalPadding: style.messageListPadding.horizontal,
+        );
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -409,61 +422,70 @@ class _OpeningCharacterEditor extends StatelessWidget {
               style: style,
             ),
             SizedBox(width: style.avatarBubbleGap),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  SizedBox(
-                    key: ValueKey<String>('${item.id}-name-row'),
-                    height: 16,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(
-                          name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: style.senderNameTextStyle.copyWith(
-                            color: createFormText,
-                            fontSize: 11,
-                            height: 1.1,
-                            fontWeight: FontWeight.w600,
+            Flexible(
+              fit: FlexFit.loose,
+              child: ConstrainedBox(
+                key: ValueKey<String>('${item.id}-bubble-width-limit'),
+                constraints: BoxConstraints(
+                  maxWidth: bubbleWidthCaps.otherMessage,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      key: ValueKey<String>('${item.id}-name-row'),
+                      height: 16,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: style.senderNameTextStyle.copyWith(
+                              color: createFormText,
+                              fontSize: 11,
+                              height: 1.1,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(height: style.senderNameBottomGap),
-                  Container(
-                    key: ValueKey<String>('${item.id}-bubble'),
-                    width: double.infinity,
-                    padding: style.bubblePadding,
-                    decoration: BoxDecoration(
-                      color: style.otherBubbleColor,
-                      border: Border.all(color: createFormBorder),
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(2),
-                        topRight: Radius.circular(style.bubbleBorderRadius),
-                        bottomRight: Radius.circular(style.bubbleBorderRadius),
-                        bottomLeft: Radius.circular(style.bubbleBorderRadius),
+                    SizedBox(height: style.senderNameBottomGap),
+                    Container(
+                      key: ValueKey<String>('${item.id}-bubble'),
+                      width: double.infinity,
+                      padding: style.bubblePadding,
+                      decoration: BoxDecoration(
+                        color: style.otherBubbleColor,
+                        border: Border.all(color: createFormBorder),
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(2),
+                          topRight: Radius.circular(style.bubbleBorderRadius),
+                          bottomRight: Radius.circular(
+                            style.bubbleBorderRadius,
+                          ),
+                          bottomLeft: Radius.circular(style.bubbleBorderRadius),
+                        ),
+                      ),
+                      child: _OpeningDialogueTextField(
+                        key: ValueKey<String>(
+                          '${item.id}-keyboard-safe-text-field',
+                        ),
+                        item: item,
+                        hintText: 'Enter $name dialogue',
+                        style: style.bubbleTextStyle,
+                        insertTextColor: const Color(0xFF666666),
+                        insertBackgroundColor: const Color(0xFFF4F4F6),
+                        showAsteriskInsert: true,
+                        onChanged: onChanged,
+                        focusNode: focusNode,
                       ),
                     ),
-                    child: _OpeningDialogueTextField(
-                      key: ValueKey<String>(
-                        '${item.id}-keyboard-safe-text-field',
-                      ),
-                      item: item,
-                      hintText: 'Enter $name dialogue',
-                      style: style.bubbleTextStyle,
-                      insertTextColor: const Color(0xFF666666),
-                      insertBackgroundColor: const Color(0xFFF4F4F6),
-                      showAsteriskInsert: true,
-                      onChanged: onChanged,
-                      focusNode: focusNode,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             SizedBox(width: style.avatarSideSpacerWidth),

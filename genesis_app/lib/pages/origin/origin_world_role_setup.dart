@@ -288,7 +288,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                 fontSize: 14,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
+                color: originWorldDetailSheetPrimaryTextColor,
                 decoration: TextDecoration.none,
               ),
             ),
@@ -472,7 +472,9 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
             margin: const EdgeInsets.symmetric(horizontal: 3),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: selected ? GenesisColors.brand : const Color(0xFFB7B7B7),
+              color: selected
+                  ? originWorldDetailSheetSoftWhiteColor
+                  : originWorldDetailSheetInactiveIndicatorColor,
             ),
           );
         }),

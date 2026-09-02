@@ -1053,7 +1053,7 @@ void main() {
       await tester.pump();
 
       final firstLoad = pendingLoads.entries.single;
-      expect(firstLoad.key, contains('resize,w_256'));
+      expect(firstLoad.key, contains('resize,w_128'));
 
       await tester.tap(
         find.byKey(const ValueKey<String>('tilemap-settings-button')),
@@ -1136,7 +1136,7 @@ void main() {
       await tester.pump();
 
       final pendingLoad = pendingLoads.entries.single;
-      expect(pendingLoad.key, contains('resize,w_256'));
+      expect(pendingLoad.key, contains('resize,w_128'));
 
       await tester.tap(
         find.byKey(const ValueKey<String>('tilemap-settings-button')),
@@ -1269,13 +1269,13 @@ void main() {
         const ValueKey<String>('tilemap-settings-distant-location-scale'),
       );
       expect(tester.widget<Slider>(nearbyDistanceSlider).value, 1);
-      expect(tester.widget<Slider>(distantDistanceSlider).value, 2.5);
+      expect(tester.widget<Slider>(distantDistanceSlider).value, 2.25);
       final nearbyScale = tester.widget<Slider>(nearbyScaleSlider);
       final distantScale = tester.widget<Slider>(distantScaleSlider);
       expect(nearbyScale.value, 15);
       expect(nearbyScale.min, 8);
       expect(nearbyScale.max, 20);
-      expect(distantScale.value, 8);
+      expect(distantScale.value, 5);
       expect(distantScale.min, 4);
       expect(distantScale.max, 16);
       tester.widget<Slider>(nearbyDistanceSlider).onChanged!(2);

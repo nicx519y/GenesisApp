@@ -17,16 +17,62 @@ void main() {
   final originWorldDetailSheetSource = File(
     'lib/pages/origin/origin_world_detail_sheet.dart',
   ).readAsStringSync();
+  final originWorldMapShellSource = File(
+    'lib/pages/origin/origin_world_map_shell.dart',
+  ).readAsStringSync();
+  final originWorldLocationChatSource = File(
+    'lib/pages/origin/origin_world_location_chat.dart',
+  ).readAsStringSync();
   final originSectionsSource = [
     'lib/pages/origin/origin_world_sections.dart',
     'lib/pages/origin/origin_world_role_setup.dart',
     'lib/pages/origin/origin_world_launched_worlds.dart',
     'lib/pages/origin/origin_world_characters.dart',
-    'lib/pages/origin/origin_world_copy_progress.dart',
   ].map((path) => File(path).readAsStringSync()).join('\n');
 
   test('origin detail sheet uses main ui horizontal padding', () {
     expect(originDetailSheetHorizontalPaddingForTesting, 12);
+  });
+
+  test('origin detail sheet uses one unified raised background', () {
+    expect(originWorldDetailSheetBackgroundColor, const Color(0xFF1F1D24));
+    expect(
+      originWorldDetailSheetRaisedBackgroundColor,
+      const Color(0xFF1F1D24),
+    );
+    expect(
+      originWorldMapShellSource,
+      contains('backgroundColor: originWorldDetailSheetRaisedBackgroundColor'),
+    );
+  });
+
+  test('origin detail sheet uses the requested dark color tiers', () {
+    expect(originWorldDetailSheetPrimaryTextColor, const Color(0xF2FFFFFF));
+    expect(originWorldDetailSheetSecondaryTextColor, const Color(0xB8FFFFFF));
+    expect(originWorldDetailSheetTertiaryTextColor, const Color(0x73FFFFFF));
+    expect(originWorldDetailSheetSoftWhiteColor, const Color(0xFFF4F3F6));
+    expect(originWorldDetailSheetAccentSoftColor, const Color(0xFFFF8A9A));
+    expect(originWorldDetailSheetSubtleSurfaceColor, const Color(0x14FFFFFF));
+    expect(originWorldDetailSheetSelectRoleArrowColor, const Color(0x8CFFFFFF));
+  });
+
+  test('origin opening dialogue and composer reuse Location Chat styling', () {
+    expect(
+      originSectionsSource,
+      contains('kLocationChatStyle.copyWith(bubbleBackdropBlurSigma: 0)'),
+    );
+    expect(
+      originWorldLocationChatSource,
+      contains('_originDetailSheetChatComposerStyle => kLocationChatStyle;'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(contains('inputDockBackgroundColor:')),
+    );
+    expect(
+      originWorldLocationChatSource,
+      isNot(contains('_originLocationChatRoleInputGap')),
+    );
   });
 
   test('origin collapsed sheet caps content height before safe area', () {
@@ -88,7 +134,7 @@ void main() {
     expect(titleWidget, isNot(contains('Icon(icon')));
     expect(originSectionsSource, contains("title: 'Worldo Brief'"));
     expect(originSectionsSource, contains("title: 'Launch Preview'"));
-    expect(originSectionsSource, contains("title: 'Launched World Progress'"));
+    expect(originSectionsSource, isNot(contains('Launched World Progress')));
     expect(originSectionsSource, contains("title: 'Characters ("));
   });
 
@@ -108,7 +154,10 @@ void main() {
   test('origin detail discuss uses a title-row View all action', () {
     expect(originSectionsSource, contains("'View all >'"));
     expect(originSectionsSource, contains('fontSize: 10'));
-    expect(originSectionsSource, contains('color: Color(0xFF666666)'));
+    expect(
+      originSectionsSource,
+      contains('originWorldDetailSheetTertiaryTextColor'),
+    );
     expect(originSectionsSource, contains('enableViewMore: false'));
     expect(
       originSectionsSource,
@@ -116,14 +165,11 @@ void main() {
     );
   });
 
-  test('origin detail loads and passes copy world progress summaries', () {
-    expect(
-      originWorldPageSource,
-      contains('.api.getLatestWorldSummaries(originId: resolvedOriginId)'),
-    );
+  test('origin detail does not load or render launched world progress', () {
+    expect(originWorldPageSource, isNot(contains('getLatestWorldSummaries')));
     expect(
       originWorldDetailSheetSource,
-      contains('summaries: widget.copyWorldProgressSummaries'),
+      isNot(contains('CopyWorldProgressSection')),
     );
   });
 

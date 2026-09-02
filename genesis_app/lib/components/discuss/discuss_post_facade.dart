@@ -13,6 +13,8 @@ class DiscussPostInput extends StatefulWidget {
     this.onSubmitted,
     this.requireLogin = true,
     this.showImagePickerButton = false,
+    this.backgroundColor,
+    this.placeholderColor,
   });
 
   final String bizId;
@@ -25,6 +27,8 @@ class DiscussPostInput extends StatefulWidget {
   final VoidCallback? onSubmitted;
   final bool requireLogin;
   final bool showImagePickerButton;
+  final Color? backgroundColor;
+  final Color? placeholderColor;
 
   @override
   State<DiscussPostInput> createState() => _DiscussPostInputState();
@@ -186,19 +190,19 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
         alignment: Alignment.centerLeft,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFFF8F8F8),
+          color: widget.backgroundColor ?? const Color(0xFFF8F8F8),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Text(
           widget.placeholder,
           maxLines: 3,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             height: 1.2,
             fontWeight: FontWeight.w400,
             letterSpacing: 0,
-            color: Color(0xFF888888),
+            color: widget.placeholderColor ?? const Color(0xFF888888),
           ),
         ),
       ),

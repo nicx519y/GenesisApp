@@ -191,7 +191,6 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
 class WorldSingleSectionBottomSheetState
     extends State<WorldSingleSectionBottomSheet> {
   static const int _eventsPageSize = 20;
-  static const double _sheetHeightFactor = 0.85;
 
   late final PageController _pageController;
   var _changingPageFromSelection = false;
@@ -610,35 +609,46 @@ class WorldSingleSectionBottomSheetState
 
   @override
   Widget build(BuildContext context) {
-    return GenesisEdgeSwipeBack(
-      onBack: () => Navigator.of(context).pop(),
-      child: FractionallySizedBox(
-        key: const ValueKey<String>('world-single-section-bottom-sheet'),
-        heightFactor: _sheetHeightFactor,
-        alignment: Alignment.bottomCenter,
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: GenesisRadii.sheet,
-          ),
-          child: Column(
-            children: [
-              WorldSingleSectionSheetHeader(
-                item: _headerItem,
-                pageController: _pageController,
-                pageCount: worldBottomTagItems.length,
-                onClose: () => Navigator.of(context).pop(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableHeight = constraints.maxHeight;
+        final heightFactor = availableHeight <= 0
+            ? 1.0
+            : ((availableHeight - worldDetailSheetExpandedTopOffset) /
+                      availableHeight)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
+        return GenesisEdgeSwipeBack(
+          onBack: () => Navigator.of(context).pop(),
+          child: FractionallySizedBox(
+            key: const ValueKey<String>('world-single-section-bottom-sheet'),
+            heightFactor: heightFactor,
+            alignment: Alignment.bottomCenter,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: GenesisRadii.sheet,
               ),
-              Expanded(
-                child: GenesisBottomSheetDragDismissArea(
-                  onDismiss: () => Navigator.of(context).pop(),
-                  child: _buildSheetContent(),
-                ),
+              child: Column(
+                children: [
+                  WorldSingleSectionSheetHeader(
+                    item: _headerItem,
+                    pageController: _pageController,
+                    pageCount: worldBottomTagItems.length,
+                    onClose: () => Navigator.of(context).pop(),
+                  ),
+                  Expanded(
+                    child: GenesisBottomSheetDragDismissArea(
+                      onDismiss: () => Navigator.of(context).pop(),
+                      child: _buildSheetContent(),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -858,21 +858,21 @@ void main() {
       );
       expect(
         tilemapAutomaticInitialScaleForTiles(tiles: locationPairAtDistance(2)),
-        closeTo(10.3333333, 0.000001),
+        7,
       );
       expect(
         tilemapAutomaticInitialScaleForTiles(tiles: locationPairAtDistance(4)),
-        8,
+        5,
       );
       expect(
         tilemapAutomaticInitialScaleForTiles(tiles: locationPairAtDistance(10)),
-        8,
+        5,
       );
       expect(
         tilemapAutomaticInitialScaleForTiles(
           tiles: const [TilemapCell(x: 0, y: 0, type: 'a', locationId: 'only')],
         ),
-        8,
+        5,
       );
     },
   );

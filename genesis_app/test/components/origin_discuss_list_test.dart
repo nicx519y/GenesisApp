@@ -505,6 +505,42 @@ void main() {
     expect(contentTop - metaBottom, closeTo(4, 0.1));
   });
 
+  testWidgets('supports sheet-specific author and content colors', (
+    tester,
+  ) async {
+    const authorColor = Color(0xFFFF8A9A);
+    const contentColor = Color(0xB8FFFFFF);
+    const metadataColor = Color(0x73FFFFFF);
+    final controller = OriginDiscussListController()
+      ..configure(
+        oid: 'o_alpha',
+        loader: ({required oid, required pn, required rn}) async =>
+            OriginDiscussPage(
+              items: [_item(1, 'Dark sheet discussion')],
+              topTotal: 1,
+              totalAll: 1,
+              pn: pn,
+              rn: rn,
+            ),
+      );
+
+    await controller.loadInitialIfNeeded();
+    await tester.pumpWidget(
+      _host(
+        controller,
+        authorColor: authorColor,
+        contentColor: contentColor,
+        metadataColor: metadataColor,
+      ),
+    );
+
+    expect(tester.widget<Text>(find.text('User 1')).style?.color, authorColor);
+    expect(
+      tester.widget<Text>(find.text('Dark sheet discussion')).style?.color,
+      contentColor,
+    );
+  });
+
   testWidgets('renders compact avatars and today time without date', (
     tester,
   ) async {
@@ -1214,6 +1250,9 @@ Widget _host(
   bool showReplies = true,
   bool imageTapOpensViewer = false,
   double contentLineHeight = 1.45,
+  Color? authorColor,
+  Color? contentColor,
+  Color? metadataColor,
   OriginDiscussItemTap? onItemReplyTap,
 }) {
   final app = MaterialApp(
@@ -1230,6 +1269,9 @@ Widget _host(
               showReplies: showReplies,
               imageTapOpensViewer: imageTapOpensViewer,
               contentLineHeight: contentLineHeight,
+              authorColor: authorColor,
+              contentColor: contentColor,
+              metadataColor: metadataColor,
               onItemReplyTap: onItemReplyTap,
             ),
           ),

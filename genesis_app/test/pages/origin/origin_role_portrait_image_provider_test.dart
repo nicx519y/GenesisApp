@@ -19,6 +19,14 @@ void main() {
       ..clearLiveImages();
   });
 
+  test('uses the original role-card gradient colors', () {
+    expect(originRolePortraitGradient.colors, const <Color>[
+      Colors.transparent,
+      Color(0x66151517),
+      Color(0xF0151517),
+    ]);
+  });
+
   testWidgets('composites the gradient and evicts the decoded source frame', (
     tester,
   ) async {

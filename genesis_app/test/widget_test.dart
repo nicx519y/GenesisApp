@@ -606,7 +606,6 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.worldLastChatLocationId,
     this.worldCharacters,
     this.worldLocations,
-    this.worldSummaryLatestItems,
     this.worldDetailTicksByRequest,
     this.worldDetailTickCountsByRequest,
     this.chatroomMessagesByLocation,
@@ -648,7 +647,6 @@ class _RecordingV1ListTransport implements HttpTransport {
   final String? worldLastChatLocationId;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
-  final List<Map<String, Object?>>? worldSummaryLatestItems;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
   final List<int>? worldDetailTickCountsByRequest;
   final Map<String, List<Map<String, Object?>>>? chatroomMessagesByLocation;
@@ -781,19 +779,6 @@ class _RecordingV1ListTransport implements HttpTransport {
           'total': totalTicks,
           'pn': pn,
           'rn': rn,
-        },
-      });
-    }
-    if (request.uri.path.endsWith('/world/summary/latest')) {
-      return _jsonResponse({
-        'err_no': 0,
-        'err_str': 'success',
-        'data': {
-          'list':
-              worldSummaryLatestItems ??
-              _worldSummaryLatest(
-                request.uri.queryParameters['origin_id'] ?? 'o_test_1',
-              ),
         },
       });
     }
@@ -1181,29 +1166,6 @@ class _RecordingV1ListTransport implements HttpTransport {
       'player_cnt': 3,
       'location_cnt': 4,
     };
-  }
-
-  List<Map<String, Object?>> _worldSummaryLatest(String originId) {
-    final resolvedOriginId = originId.isEmpty ? 'o_test_1' : originId;
-    return [
-      {
-        'world_id': 'w_summary_1',
-        'origin_id': resolvedOriginId,
-        'tick_no': 4,
-        'summary': 'First copied world progress summary for $resolvedOriginId.',
-        'tick_time': 1780000000,
-        'created_at': 1780000010,
-      },
-      {
-        'world_id': 'w_summary_2',
-        'origin_id': resolvedOriginId,
-        'tick_no': 5,
-        'summary':
-            'Second copied world progress summary for $resolvedOriginId.',
-        'tick_time': 1780000100,
-        'created_at': 1780000110,
-      },
-    ];
   }
 
   Map<String, Object?> _originDetail(String oid) {
@@ -8288,9 +8250,27 @@ void main() {
             as ChatMessageRow;
     expect(
       firstOpeningRow.style?.rowBottomPadding,
-      kOpeningDialogueStyle.rowBottomPadding,
+      kLocationChatStyle.rowBottomPadding,
+    );
+    expect(firstOpeningRow.style?.bubbleBackdropBlurSigma, 0);
+    expect(
+      firstOpeningRow.selfMessageBubbleMaxWidthCap,
+      closeTo(276.667, 0.001),
+    );
+    expect(
+      firstOpeningRow.otherMessageBubbleMaxWidthCap,
+      closeTo(276.667, 0.001),
     );
     expect(lastOpeningRow.style?.rowBottomPadding, 0);
+    expect(lastOpeningRow.style?.bubbleBackdropBlurSigma, 0);
+    expect(
+      lastOpeningRow.selfMessageBubbleMaxWidthCap,
+      closeTo(276.667, 0.001),
+    );
+    expect(
+      lastOpeningRow.otherMessageBubbleMaxWidthCap,
+      closeTo(276.667, 0.001),
+    );
 
     final openingScrollView = find.descendant(
       of: find.byKey(
@@ -11087,12 +11067,12 @@ void main() {
       expect(sharedComposer, findsOneWidget);
       expect(
         sheetComposerWidget.style?.composerBackgroundColor,
-        originWorldDetailSheetBackgroundColor,
+        kLocationChatStyle.composerBackgroundColor,
       );
       expect(sheetComposerWidget.style?.composerBackgroundGradient, isNull);
       expect(
         sheetComposerWidget.style?.inputBackgroundColor,
-        GenesisColors.surface,
+        kLocationChatStyle.inputBackgroundColor,
       );
       expect(
         sheetComposerWidget.style?.composerSendButtonColor,
@@ -11100,11 +11080,15 @@ void main() {
       );
       expect(
         sheetComposerWidget.style?.composerSendButtonDisabledColor,
-        sheetComposerWidget.style?.inputBackgroundColor,
+        kLocationChatStyle.composerSendButtonDisabledColor,
       );
       expect(
         sheetComposerWidget.style?.composerSendButtonIconColor,
-        GenesisColors.textPrimary,
+        kLocationChatStyle.composerSendButtonIconColor,
+      );
+      expect(
+        sheetComposerWidget.style?.composerPadding,
+        kLocationChatStyle.composerPadding,
       );
       final expandedComposer = find.byKey(
         const ValueKey<String>('origin-expanded-opening-composer'),
@@ -11869,7 +11853,7 @@ void main() {
     expect(find.text('Detail location launch paragraph.'), findsNothing);
   });
 
-  testWidgets('Origin detail loads and shows copy world progress summaries', (
+  testWidgets('Origin detail omits launched world progress and its request', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -11888,303 +11872,9 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final summaryRequests = transport.requestsFor(
-      '/api/v1/world/summary/latest',
-    );
-    expect(summaryRequests, hasLength(1));
-    expect(summaryRequests.single.method, 'GET');
-    expect(summaryRequests.single.uri.queryParameters['origin_id'], 'o_test_1');
-
-    final sheetPages = find.byKey(
-      const ValueKey<String>('origin-detail-sheet-pages'),
-    );
-    final sheetPagesRect = tester.getRect(sheetPages);
-    await tester.dragFrom(
-      Offset(sheetPagesRect.right - 24, sheetPagesRect.top + 16),
-      Offset(-sheetPagesRect.width * 0.8, 0),
-    );
-    await tester.pumpAndSettle();
-    for (var index = 0; index < 6; index += 1) {
-      if (find
-          .text('First copied world progress summary for o_test_1.')
-          .evaluate()
-          .isNotEmpty) {
-        break;
-      }
-      await tester.dragFrom(const Offset(400, 500), const Offset(0, -420));
-      await tester.pumpAndSettle();
-    }
-
-    expect(
-      find.text('First copied world progress summary for o_test_1.'),
-      findsOneWidget,
-    );
-    expect(find.text('WID: w_summary_1'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/summary/latest'), isEmpty);
+    expect(find.text('Launched World Progress'), findsNothing);
   });
-
-  testWidgets(
-    'Origin detail copy world progress rotates summary latest items',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport();
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: MaterialApp(
-            onGenerateRoute: (settings) {
-              if (settings.name == RouteNames.world) {
-                final args = settings.arguments as Map;
-                return MaterialPageRoute<WorldPageResult>(
-                  settings: settings,
-                  builder: (_) => Text('World route ${args['wid']}'),
-                );
-              }
-              return null;
-            },
-            home: Scaffold(
-              body: Padding(
-                padding: const EdgeInsets.all(12),
-                child: const CopyWorldProgressSection(
-                  originId: 'o_test_1',
-                  summaries: <WorldSummaryLatestItem>[
-                    WorldSummaryLatestItem(
-                      worldId: 'w_summary_1',
-                      originId: 'o_test_1',
-                      tickNo: 4,
-                      subTickNo: 2,
-                      summary:
-                          'First copied world progress summary for o_test_1.',
-                      tickTime: 1771420800000,
-                      createdAt: 1771420800000,
-                    ),
-                    WorldSummaryLatestItem(
-                      worldId: 'w_summary_2',
-                      originId: 'o_test_1',
-                      tickNo: 5,
-                      summary:
-                          'Second copied world progress summary for o_test_1.',
-                      tickTime: 1771420800000,
-                      createdAt: 1771420800000,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(transport.requestsFor('/api/v1/world/summary/latest'), isEmpty);
-      expect(
-        find.text('First copied world progress summary for o_test_1.'),
-        findsOneWidget,
-      );
-      expect(find.text('WID: w_summary_1'), findsOneWidget);
-      expect(find.text('Launched World Progress'), findsOneWidget);
-      expect(find.text('Tick 4-2'), findsOneWidget);
-      expect(find.byType(DiscussStoryBadge), findsNothing);
-      final widRight = tester.getTopRight(find.text('WID: w_summary_1')).dx;
-      final separator = find.byKey(
-        const ValueKey('copy-world-progress-separator'),
-      );
-      expect(tester.widget<Text>(separator).data, '·');
-      expect(tester.getTopLeft(separator).dx - widRight, closeTo(6, 0.1));
-      final tickLeft = tester
-          .getTopLeft(find.byKey(const ValueKey('copy-world-progress-tick')))
-          .dx;
-      expect(tickLeft - tester.getTopRight(separator).dx, closeTo(6, 0.1));
-      expect(
-        tester
-            .getSize(find.byKey(const ValueKey('copy-world-progress-body')))
-            .height,
-        closeTo(13 * 1.4 * 5 + 6, 0.1),
-      );
-      await tester.tap(
-        find.text('First copied world progress summary for o_test_1.'),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('World route w_summary_1'), findsOneWidget);
-      Navigator.of(tester.element(find.text('World route w_summary_1'))).pop();
-      await tester.pumpAndSettle();
-
-      await tester.pump(const Duration(seconds: 8));
-      await tester.pump(const Duration(milliseconds: 600));
-
-      expect(
-        find.text('Second copied world progress summary for o_test_1.'),
-        findsOneWidget,
-      );
-      expect(find.text('WID: w_summary_2'), findsOneWidget);
-      await tester.tap(
-        find.text('Second copied world progress summary for o_test_1.'),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('World route w_summary_2'), findsOneWidget);
-    },
-  );
-
-  testWidgets('Origin detail removes a deleted copied world summary', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(transport: transport, useMock: false),
-        child: MaterialApp(
-          onGenerateRoute: (settings) {
-            if (settings.name != RouteNames.world) return null;
-            final args = settings.arguments as Map;
-            return MaterialPageRoute<WorldPageResult>(
-              settings: settings,
-              builder: (context) => Scaffold(
-                body: TextButton(
-                  onPressed: () => Navigator.of(context).pop(
-                    WorldPageResult.deleted(
-                      deletedWorldId: args['wid'] as String,
-                    ),
-                  ),
-                  child: Text('Delete ${args['wid']}'),
-                ),
-              ),
-            );
-          },
-          home: const Scaffold(
-            body: Padding(
-              padding: EdgeInsets.all(12),
-              child: CopyWorldProgressSection(
-                originId: 'o_test_1',
-                summaries: <WorldSummaryLatestItem>[
-                  WorldSummaryLatestItem(
-                    worldId: 'w_summary_1',
-                    originId: 'o_test_1',
-                    tickNo: 4,
-                    summary:
-                        'First copied world progress summary for o_test_1.',
-                    tickTime: 1771420800000,
-                    createdAt: 1771420800000,
-                  ),
-                  WorldSummaryLatestItem(
-                    worldId: 'w_summary_2',
-                    originId: 'o_test_1',
-                    tickNo: 5,
-                    summary:
-                        'Second copied world progress summary for o_test_1.',
-                    tickTime: 1771420800000,
-                    createdAt: 1771420800000,
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(
-      find.text('First copied world progress summary for o_test_1.'),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete w_summary_1'));
-    await tester.pumpAndSettle();
-
-    expect(
-      find.text('First copied world progress summary for o_test_1.'),
-      findsNothing,
-    );
-    expect(
-      find.text('Second copied world progress summary for o_test_1.'),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets(
-    'Origin detail copy world progress gives Chinese five-line text room',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport(
-        worldSummaryLatestItems: const <Map<String, Object?>>[
-          {
-            'world_id': 'w_summary_cn',
-            'summary': '第一行中文进展会占满一整行，第二行继续描述角色行动，第三行写地点变化，第四行补充冲突，第五行保留结尾。',
-            'tick_no': 5,
-            'tick_time': '2026-05-20T12:00:00Z',
-            'created_at': '2026-05-20T12:00:00Z',
-          },
-        ],
-      );
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: const MaterialApp(
-            home: Scaffold(
-              body: SizedBox(
-                width: 180,
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: CopyWorldProgressSection(
-                    originId: 'o_test_1',
-                    summaries: <WorldSummaryLatestItem>[
-                      WorldSummaryLatestItem(
-                        worldId: 'w_summary_cn',
-                        originId: 'o_test_1',
-                        tickNo: 5,
-                        summary:
-                            '第一行中文进展会占满一整行，第二行继续描述角色行动，第三行写地点变化，第四行补充冲突，第五行保留结尾。',
-                        tickTime: 1771420800000,
-                        createdAt: 1771420800000,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      final bodySize = tester.getSize(
-        find.byKey(const ValueKey('copy-world-progress-body')),
-      );
-      expect(bodySize.height, greaterThan(12 * 1.4 * 5));
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'Origin detail copy world progress empty list uses natural height',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport(
-        worldSummaryLatestItems: const <Map<String, Object?>>[],
-      );
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(transport: transport, useMock: false),
-          child: const MaterialApp(
-            home: Scaffold(
-              body: Padding(
-                padding: EdgeInsets.all(12),
-                child: CopyWorldProgressSection(originId: 'o_test_1'),
-              ),
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('No launched world'), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('copy-world-progress-body')),
-        findsNothing,
-      );
-      expect(
-        tester
-            .getSize(find.byKey(const ValueKey('copy-world-progress-empty')))
-            .height,
-        lessThan(14 * 1.4 * 5),
-      );
-    },
-  );
 
   testWidgets('Origin detail originator opens user info', (
     WidgetTester tester,
@@ -15887,15 +15577,21 @@ void main() {
               find.byKey(const ValueKey<String>('opening-dialogue-1-bubble')),
             )
             .dx,
-        closeTo(800 - 10 - (40 / 3), 0.01),
+        closeTo(750, 0.01),
       );
+      final createOpeningBubbleWidthLimit = tester.widget<ConstrainedBox>(
+        find.byKey(
+          const ValueKey<String>('opening-dialogue-1-bubble-width-limit'),
+        ),
+      );
+      expect(createOpeningBubbleWidthLimit.constraints.maxWidth, 690);
       expect(
         tester
             .getTopLeft(
               find.byKey(const ValueKey<String>('opening-dialogue-0-narrator')),
             )
             .dx,
-        closeTo(10 + (40 / 3), 0.01),
+        closeTo(10, 0.01),
       );
       expect(
         tester
@@ -15920,7 +15616,7 @@ void main() {
               find.byKey(const ValueKey<String>('opening-dialogue-2-image')),
             )
             .dx,
-        closeTo(10 + (40 / 3), 0.01),
+        closeTo(10, 0.01),
       );
       final narratorDeleteOffset =
           tester
@@ -24932,6 +24628,18 @@ void main() {
     await tester.tap(detailTag);
     await tester.pumpAndSettle();
     expect(currentTilemap().animationsPaused, isTrue);
+    final openedSheet = find.byKey(
+      const ValueKey<String>('world-single-section-bottom-sheet'),
+    );
+    final openedSheetContext = tester.element(openedSheet);
+    expect(
+      tester.getTopLeft(openedSheet).dy,
+      closeTo(
+        GenesisSafeAreaInsets.top(openedSheetContext) +
+            worldDetailSheetExpandedTopOffset,
+        1,
+      ),
+    );
 
     final sheetIndicator = find.byKey(
       const ValueKey<String>('world-sheet-page-indicator'),

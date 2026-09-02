@@ -1,23 +1,29 @@
 import 'package:flutter/material.dart';
 
-import '../../ui/components/genesis_search_field.dart';
 import '../../ui/tokens/genesis_radii.dart';
 
-const Color originWorldDetailSheetBackgroundColor = Color(0xFFEDEDED);
+const Color originWorldDetailSheetBackgroundColor = Color(0xFF1F1D24);
+const Color originWorldDetailSheetRaisedBackgroundColor = Color(0xFF1F1D24);
+const Color originWorldDetailSheetPrimaryTextColor = Color(0xF2FFFFFF);
+const Color originWorldDetailSheetSecondaryTextColor = Color(0xB8FFFFFF);
+const Color originWorldDetailSheetTertiaryTextColor = Color(0x73FFFFFF);
+const Color originWorldDetailSheetSoftWhiteColor = Color(0xFFF4F3F6);
+const Color originWorldDetailSheetAccentSoftColor = Color(0xFFFF8A9A);
+const Color originWorldDetailSheetInactiveIndicatorColor = Color(0x40FFFFFF);
+const Color originWorldDetailSheetSubtleSurfaceColor = Color(0x14FFFFFF);
+const Color originWorldDetailSheetFaintSurfaceColor = Color(0x12FFFFFF);
+const Color originWorldDetailSheetFaintPlaceholderColor = Color(0x52FFFFFF);
+const Color originWorldDetailSheetSelectRoleArrowColor = Color(0x8CFFFFFF);
 const double originWorldMapPanelTopGap = 50;
 const double originWorldMapHeightFraction = 0.65;
 const double originWorldCollapsedSheetHeightFraction =
     1 - originWorldMapHeightFraction;
 const double originWorldCollapsedSheetContentMaxHeight = 270;
 const double originWorldMapSheetUnderlap = GenesisRadii.sheetTopRadiusValue;
-const double originWorldDetailExpandedTopOverlayOffset = 8;
-const double originWorldDetailExpandedTopOverlayGap = 20;
+const double originWorldDetailExpandedTopOffset = 50;
 
 double originWorldDetailExpandedSheetTopFor({required double topSafeArea}) {
-  return topSafeArea +
-      originWorldDetailExpandedTopOverlayOffset +
-      genesisSearchFieldHeight +
-      originWorldDetailExpandedTopOverlayGap;
+  return topSafeArea + originWorldDetailExpandedTopOffset;
 }
 
 double originWorldMapHeightFor({

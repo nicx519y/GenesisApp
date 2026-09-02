@@ -275,7 +275,13 @@ class TilemapRenderSettings {
 
   TilemapRenderSettings resolveForRuntime({required bool releaseMode}) {
     if (!releaseMode) return this;
-    return copyWith(loadingStyle: TilemapLoadingStyle.disabled);
+    return copyWith(
+      loadingStyle: TilemapLoadingStyle.disabled,
+      nearbyLocationDistanceTiles: tilemapDefaultNearbyLocationDistanceTiles,
+      distantLocationDistanceTiles: tilemapDefaultDistantLocationDistanceTiles,
+      nearbyLocationInitialScale: tilemapDefaultNearbyLocationInitialScale,
+      distantLocationInitialScale: tilemapDefaultDistantLocationInitialScale,
+    );
   }
 
   String toSerializedJson() {
