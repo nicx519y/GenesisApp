@@ -399,7 +399,8 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       for (final location in updatedWorld.locations) {
         final id = _firstString(location, const ['location_id', 'id']);
         if (id.isEmpty ||
-            (!asBool(location['is_new']) && previousIds.contains(id))) {
+            !asBool(location['is_new']) ||
+            previousIds.contains(id)) {
           continue;
         }
         final notice = WorldContentUpdateNotice(
@@ -409,6 +410,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           targetLocationId: id,
           avatarUrl: _firstImageUrl(location, const ['image', 'image_url']),
           tickCount: updatedWorld.tickCount,
+          contextLabel: _locationParentName(updatedWorld, location),
         );
         if (_publishedContentUpdateOccurrences.add(notice.occurrenceKey)) {
           notices.add(notice);
@@ -427,7 +429,8 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           'id',
         ]);
         if (id.isEmpty ||
-            (!asBool(character['is_new']) && previousIds.contains(id))) {
+            !asBool(character['is_new']) ||
+            previousIds.contains(id)) {
           continue;
         }
         final notice = WorldContentUpdateNotice(
@@ -441,6 +444,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           targetLocationId: _characterLocationId(updatedWorld, character, id),
           avatarUrl: _firstImageUrl(character, const ['avatar', 'avatar_url']),
           tickCount: updatedWorld.tickCount,
+          contextLabel: _firstString(character, const ['identity']),
         );
         if (_publishedContentUpdateOccurrences.add(notice.occurrenceKey)) {
           notices.add(notice);
@@ -492,6 +496,14 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       if (positionedId == characterId) return _locationIdFromMap(position);
     }
     return '';
+  }
+
+  String _locationParentName(WorldDetail world, Map<String, dynamic> location) {
+    final parentId = _firstString(location, const ['location_pid']);
+    if (parentId.isEmpty) return '';
+    final parent = world.processedLocationTree.nodeById(parentId)?.value;
+    if (parent == null) return '';
+    return _firstString(parent, const ['location_name', 'name']);
   }
 
   Future<void> _scheduleUserLocationsRefresh({String socketCurrentTime = ''}) {

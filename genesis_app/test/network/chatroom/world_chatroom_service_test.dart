@@ -3058,13 +3058,20 @@ void main() {
       await service.refreshWorldSnapshot();
       http.detailRequests = 0;
       http.worldTickCount = 1;
+      const newCharacterAvatarUrl =
+          'https://cdn-001.worldo.ai/app/uploads/20260702/'
+          '2072507310906806272_356_356.jpg?x-oss-process=image/format,webp';
+      const newLocationImageUrl =
+          'https://cdn-001.worldo.ai/app/uploads/20260702/'
+          '2072508055576121344_640_360.jpg?x-oss-process=image/format,webp';
       http.charactersOverride = [
         ...http.defaultCharacters,
         {
           'char_id': 'char-new',
           'type': 'ai',
           'name': 'New Wanderer',
-          'avatar': 'wanderer.png',
+          'identity': 'Wandering swordsman',
+          'avatar': newCharacterAvatarUrl,
           'location_id': 'loc-new',
           'is_new': true,
         },
@@ -3076,6 +3083,7 @@ void main() {
           'location_pid': 'loc-root',
           'name': 'New Harbor',
           'description': 'Harbor desc',
+          'image': newLocationImageUrl,
           'is_new': true,
         },
       ];
@@ -3119,10 +3127,48 @@ void main() {
         service.state.latestContentUpdateNotices.last.targetLocationId,
         'loc-new',
       );
+      final locationNotice = service.state.latestContentUpdateNotices
+          .singleWhere(
+            (notice) => notice.kind == WorldContentUpdateKind.location,
+          );
+      expect(locationNotice.entityId, 'loc-new');
+      expect(locationNotice.name, 'New Harbor');
+      expect(locationNotice.avatarUrl, newLocationImageUrl);
+      expect(locationNotice.contextLabel, 'Town');
+      final characterNotice = service.state.latestContentUpdateNotices
+          .singleWhere(
+            (notice) => notice.kind == WorldContentUpdateKind.character,
+          );
+      expect(characterNotice.entityId, 'char-new');
+      expect(characterNotice.name, 'New Wanderer');
+      expect(characterNotice.avatarUrl, newCharacterAvatarUrl);
+      expect(characterNotice.contextLabel, 'Wandering swordsman');
       expect(http.userLocationRequests, 0);
       expect(http.worldMessagesRequests, 0);
       expect(http.messagesRequests, 0);
 
+      http.worldTickCount = 2;
+      http.locationsOverride = [
+        ...http.locationsOverride!,
+        {
+          'location_id': 'loc-not-marked-new',
+          'location_pid': 'loc-root',
+          'name': 'Existing Harbor',
+          'description': 'Harbor desc',
+          'is_new': false,
+        },
+      ];
+      http.charactersOverride = [
+        ...http.charactersOverride!,
+        {
+          'char_id': 'char-not-marked-new',
+          'type': 'ai',
+          'name': 'Existing Wanderer',
+          'avatar': 'wanderer.png',
+          'location_id': 'loc-new',
+          'is_new': false,
+        },
+      ];
       socket.serverFrame('map_updated', {
         'world_id': 'world-1',
         'payload': <String, Object?>{},
@@ -3132,8 +3178,17 @@ void main() {
         'payload': <String, Object?>{},
       });
       await _waitFor(() => http.detailRequests == 2);
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await _waitFor(() => service.state.world?.tickCount == 2);
+
+      // Existing IDs remain marked is_new=true, while the newly added IDs are
+      // is_new=false. Neither case satisfies both notification conditions.
       expect(service.state.contentUpdateNoticeRevision, 1);
+      expect(
+        service.state.latestContentUpdateNotices
+            .map((notice) => notice.entityId)
+            .toList(growable: false),
+        const ['loc-new', 'char-new'],
+      );
       await service.dispose();
     },
   );

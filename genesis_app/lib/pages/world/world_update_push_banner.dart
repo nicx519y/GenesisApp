@@ -4,7 +4,14 @@ import 'dart:collection';
 import 'package:flutter/material.dart';
 
 import '../../network/chatroom/world_chatroom_service.dart';
+import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_typography.dart';
+
+const worldUpdatePushDisplayDuration = Duration(seconds: 3);
+const worldUpdatePushTransitionDuration = Duration(milliseconds: 220);
+const _worldUpdatePushLeadingSize = 48.0;
+const _worldUpdatePushLocationImageRadius = 10.0;
 
 class WorldUpdatePushBannerQueue extends StatefulWidget {
   const WorldUpdatePushBannerQueue({
@@ -12,8 +19,8 @@ class WorldUpdatePushBannerQueue extends StatefulWidget {
     required this.top,
     required this.revision,
     required this.notices,
-    this.displayDuration = const Duration(seconds: 4),
-    this.transitionDuration = const Duration(milliseconds: 220),
+    this.displayDuration = worldUpdatePushDisplayDuration,
+    this.transitionDuration = worldUpdatePushTransitionDuration,
   });
 
   final double top;
@@ -27,35 +34,62 @@ class WorldUpdatePushBannerQueue extends StatefulWidget {
       _WorldUpdatePushBannerQueueState();
 }
 
-class _WorldUpdatePushBannerQueueState
-    extends State<WorldUpdatePushBannerQueue> {
+class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
+    with SingleTickerProviderStateMixin {
   final Queue<WorldContentUpdateNotice> _pending =
       Queue<WorldContentUpdateNotice>();
   final Set<String> _acceptedOccurrences = <String>{};
+  late final AnimationController _transitionController;
+  late final CurvedAnimation _transitionAnimation;
+  late final Animation<Offset> _slideAnimation;
   WorldContentUpdateNotice? _activeNotice;
   Timer? _dismissTimer;
+  var _activationScheduled = false;
+  var _isDismissing = false;
   var _lastRevision = 0;
 
   @override
   void initState() {
     super.initState();
+    _transitionController = AnimationController(
+      vsync: this,
+      duration: widget.transitionDuration,
+    )..addStatusListener(_handleTransitionStatus);
+    _transitionAnimation = CurvedAnimation(
+      parent: _transitionController,
+      curve: Curves.easeOutCubic,
+      reverseCurve: Curves.easeInCubic,
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, -1.2),
+      end: Offset.zero,
+    ).animate(_transitionAnimation);
     _lastRevision = widget.revision;
-    if (widget.revision > 0) _accept(widget.notices);
-    _scheduleDismissAfterBuild();
+    if (widget.revision > 0) {
+      _accept(widget.notices);
+      _scheduleActivationAfterBuild();
+    }
   }
 
   @override
   void didUpdateWidget(WorldUpdatePushBannerQueue oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.transitionDuration != oldWidget.transitionDuration) {
+      _transitionController.duration = widget.transitionDuration;
+    }
     if (widget.revision == _lastRevision) return;
     _lastRevision = widget.revision;
     if (widget.revision > 0) _accept(widget.notices);
+    _scheduleActivationAfterBuild();
     _scheduleDismissAfterBuild();
   }
 
   @override
   void dispose() {
     _dismissTimer?.cancel();
+    _transitionController.removeStatusListener(_handleTransitionStatus);
+    _transitionAnimation.dispose();
+    _transitionController.dispose();
     super.dispose();
   }
 
@@ -65,28 +99,61 @@ class _WorldUpdatePushBannerQueueState
         _pending.add(notice);
       }
     }
-    _activeNotice ??= _pending.isEmpty ? null : _pending.removeFirst();
+  }
+
+  void _scheduleActivationAfterBuild() {
+    if (_activationScheduled ||
+        _isDismissing ||
+        _activeNotice != null ||
+        _pending.isEmpty) {
+      return;
+    }
+    _activationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _activationScheduled = false;
+      if (!mounted ||
+          _isDismissing ||
+          _activeNotice != null ||
+          _pending.isEmpty) {
+        return;
+      }
+      setState(() => _activeNotice = _pending.removeFirst());
+      _transitionController.forward(from: 0);
+      _scheduleDismissAfterBuild();
+    });
   }
 
   void _scheduleDismissAfterBuild() {
-    if (_activeNotice == null || _dismissTimer?.isActive == true) return;
+    if (_isDismissing ||
+        _activeNotice == null ||
+        _dismissTimer?.isActive == true) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
+          _isDismissing ||
           _activeNotice == null ||
           _dismissTimer?.isActive == true) {
         return;
       }
-      _dismissTimer = Timer(widget.displayDuration, _showNextNotice);
+      _dismissTimer = Timer(widget.displayDuration, _dismissActiveNotice);
     });
   }
 
-  void _showNextNotice() {
-    if (!mounted) return;
+  void _dismissActiveNotice() {
+    if (!mounted || _activeNotice == null || _isDismissing) return;
     _dismissTimer = null;
-    setState(() {
-      _activeNotice = _pending.isEmpty ? null : _pending.removeFirst();
-    });
-    _scheduleDismissAfterBuild();
+    _isDismissing = true;
+    _transitionController.reverse();
+  }
+
+  void _handleTransitionStatus(AnimationStatus status) {
+    if (!mounted || status != AnimationStatus.dismissed || !_isDismissing) {
+      return;
+    }
+    _isDismissing = false;
+    setState(() => _activeNotice = null);
+    _scheduleActivationAfterBuild();
   }
 
   @override
@@ -99,29 +166,20 @@ class _WorldUpdatePushBannerQueueState
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480),
-          child: AnimatedSwitcher(
-            duration: widget.transitionDuration,
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            transitionBuilder: (child, animation) {
-              final offset = Tween<Offset>(
-                begin: const Offset(0, -0.45),
-                end: Offset.zero,
-              ).animate(animation);
-              return FadeTransition(
-                opacity: animation,
-                child: SlideTransition(position: offset, child: child),
-              );
-            },
-            child: notice == null
-                ? const SizedBox.shrink(
-                    key: ValueKey<String>('world-update-push-empty'),
-                  )
-                : _WorldUpdatePushBanner(
-                    key: ValueKey<String>(notice.occurrenceKey),
-                    notice: notice,
+          child: notice == null
+              ? const SizedBox.shrink(
+                  key: ValueKey<String>('world-update-push-empty'),
+                )
+              : FadeTransition(
+                  opacity: _transitionAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: _WorldUpdatePushBanner(
+                      key: ValueKey<String>(notice.occurrenceKey),
+                      notice: notice,
+                    ),
                   ),
-          ),
+                ),
         ),
       ),
     );
@@ -137,41 +195,42 @@ class _WorldUpdatePushBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final isLocation = notice.kind == WorldContentUpdateKind.location;
     final name = notice.name.trim().isEmpty
-        ? (isLocation ? 'New location' : 'New character')
+        ? (isLocation ? 'Unknown location' : 'Unknown character')
         : notice.name.trim();
-    final category = isLocation ? 'New location' : 'New character';
+    final contextLabel = notice.contextLabel.trim();
+    final detail = contextLabel.isEmpty ? name : '$name · $contextLabel';
+    final category = isLocation
+        ? 'New location available'
+        : 'New character joined';
     return Semantics(
       container: true,
       liveRegion: true,
-      label: '$category: $name',
+      label: '$category: $detail',
       child: Material(
         key: const ValueKey<String>('world-update-push-banner'),
         color: const Color(0xFF1F1D24),
         elevation: 10,
         shadowColor: Colors.black.withValues(alpha: 0.32),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 11, 16, 11),
+          padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
           child: Row(
             children: [
-              DecoratedBox(
-                decoration: const BoxDecoration(
-                  color: Color(0xFFFF2442),
-                  shape: BoxShape.circle,
-                ),
-                child: SizedBox.square(
-                  dimension: 38,
-                  child: Icon(
-                    isLocation
-                        ? Icons.location_on_outlined
-                        : Icons.person_outline,
-                    size: 21,
-                    color: const Color(0xF2FFFFFF),
+              if (isLocation)
+                _buildLocationImage()
+              else
+                GenesisCharacterAvatar(
+                  key: const ValueKey<String>(
+                    'world-update-push-character-avatar',
                   ),
+                  url: notice.avatarUrl,
+                  name: name,
+                  size: _worldUpdatePushLeadingSize,
+                  borderRadius: _worldUpdatePushLeadingSize / 2,
+                  showFallbackWhileLoading: true,
                 ),
-              ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -191,9 +250,24 @@ class _WorldUpdatePushBanner extends StatelessWidget {
                         height: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      name,
+                    const SizedBox(height: 5),
+                    Text.rich(
+                      TextSpan(
+                        text: name,
+                        children: contextLabel.isEmpty
+                            ? const <InlineSpan>[]
+                            : <InlineSpan>[
+                                TextSpan(
+                                  text: ' · $contextLabel',
+                                  style: const TextStyle(
+                                    color: Color(0xB8FFFFFF),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                      ),
+                      key: const ValueKey<String>('world-update-push-detail'),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -201,7 +275,7 @@ class _WorldUpdatePushBanner extends StatelessWidget {
                         fontFamilyFallback:
                             GenesisTypography.fontFamilyFallback,
                         color: Color(0xF2FFFFFF),
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         height: 1.25,
                       ),
@@ -211,6 +285,59 @@ class _WorldUpdatePushBanner extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationImage() {
+    final imageUrl = notice.avatarUrl.trim();
+    if (imageUrl.isEmpty) return _buildLocationImageFallback();
+    final image = imageUrl.startsWith('assets/')
+        ? Image.asset(
+            imageUrl,
+            width: _worldUpdatePushLeadingSize,
+            height: _worldUpdatePushLeadingSize,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) =>
+                _buildLocationImageFallback(),
+          )
+        : GenesisStaticNetworkImage(
+            key: const ValueKey<String>(
+              'world-update-push-location-network-image',
+            ),
+            imageUrl: imageUrl,
+            width: _worldUpdatePushLeadingSize,
+            height: _worldUpdatePushLeadingSize,
+            fit: BoxFit.cover,
+            placeholder: (_) => _buildLocationImageFallback(),
+            errorWidget: (_, _) => _buildLocationImageFallback(),
+          );
+    return ClipRRect(
+      key: const ValueKey<String>('world-update-push-location-image'),
+      borderRadius: BorderRadius.circular(_worldUpdatePushLocationImageRadius),
+      child: SizedBox.square(
+        dimension: _worldUpdatePushLeadingSize,
+        child: image,
+      ),
+    );
+  }
+
+  Widget _buildLocationImageFallback() {
+    return DecoratedBox(
+      key: const ValueKey<String>('world-update-push-location-icon'),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFF2442),
+        borderRadius: BorderRadius.circular(
+          _worldUpdatePushLocationImageRadius,
+        ),
+      ),
+      child: const SizedBox.square(
+        dimension: _worldUpdatePushLeadingSize,
+        child: Icon(
+          Icons.location_on_outlined,
+          size: 22,
+          color: Color(0xF2FFFFFF),
         ),
       ),
     );

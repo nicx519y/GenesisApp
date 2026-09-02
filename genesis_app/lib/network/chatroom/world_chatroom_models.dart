@@ -45,6 +45,7 @@ class WorldContentUpdateNotice {
     required this.targetLocationId,
     required this.avatarUrl,
     required this.tickCount,
+    this.contextLabel = '',
   });
 
   final WorldContentUpdateKind kind;
@@ -53,6 +54,7 @@ class WorldContentUpdateNotice {
   final String targetLocationId;
   final String avatarUrl;
   final int tickCount;
+  final String contextLabel;
 
   String get occurrenceKey => '${kind.name}:$entityId:$tickCount';
 }

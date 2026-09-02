@@ -3,12 +3,77 @@ part of 'developer_page.dart';
 OverlayEntry? _worldUpdatePushPreviewEntry;
 Timer? _worldUpdatePushPreviewTimer;
 
+const List<WorldContentUpdateNotice> _singleWorldUpdatePushPreviewNotices = [
+  WorldContentUpdateNotice(
+    kind: WorldContentUpdateKind.location,
+    entityId: 'developer-preview-location',
+    name: 'New Harbor',
+    targetLocationId: 'developer-preview-location',
+    avatarUrl:
+        'https://cdn-001.worldo.ai/app/uploads/20260705/'
+        '2073569582257278976_800_1200.jpg?x-oss-process=image/format,webp',
+    tickCount: 1,
+    contextLabel: 'Azure Coast',
+  ),
+];
+
+const List<WorldContentUpdateNotice> _multiWorldUpdatePushPreviewNotices = [
+  WorldContentUpdateNotice(
+    kind: WorldContentUpdateKind.location,
+    entityId: 'developer-preview-location-1',
+    name: 'New Harbor',
+    targetLocationId: 'developer-preview-location-1',
+    avatarUrl:
+        'https://cdn-001.worldo.ai/app/uploads/20260705/'
+        '2073569582257278976_800_1200.jpg?x-oss-process=image/format,webp',
+    tickCount: 1,
+    contextLabel: 'Azure Coast',
+  ),
+  WorldContentUpdateNotice(
+    kind: WorldContentUpdateKind.location,
+    entityId: 'developer-preview-location-2',
+    name: 'Moonlit Market',
+    targetLocationId: 'developer-preview-location-2',
+    avatarUrl:
+        'https://cdn-001.worldo.ai/app/uploads/20260705/'
+        '2073569314962673664_800_1200.jpg?x-oss-process=image/format,webp',
+    tickCount: 1,
+    contextLabel: 'Old Quarter',
+  ),
+  WorldContentUpdateNotice(
+    kind: WorldContentUpdateKind.character,
+    entityId: 'developer-preview-character-1',
+    name: 'New Wanderer',
+    targetLocationId: 'developer-preview-location-1',
+    avatarUrl:
+        'https://cdn-001.worldo.ai/app/uploads/20260702/'
+        '2072507310906806272_356_356.jpg?x-oss-process=image/format,webp',
+    tickCount: 1,
+    contextLabel: 'Heir to the Blackwood family and student council president.',
+  ),
+  WorldContentUpdateNotice(
+    kind: WorldContentUpdateKind.character,
+    entityId: 'developer-preview-character-2',
+    name: 'Scarlet Keeper',
+    targetLocationId: 'developer-preview-location-2',
+    avatarUrl:
+        'https://cdn-001.worldo.ai/app/uploads/20260702/'
+        '2072508055576121344_356_356.jpg?x-oss-process=image/format,webp',
+    tickCount: 1,
+    contextLabel: 'Crimson guardian',
+  ),
+];
+
 extension _DeveloperPreviews on _DeveloperPageContentState {
-  Future<void> _showWorldUpdatePushPreview() async {
+  Future<void> _showWorldUpdatePushPreview({required bool multiple}) async {
+    final notices = multiple
+        ? _multiWorldUpdatePushPreviewNotices
+        : _singleWorldUpdatePushPreviewNotices;
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {
       await widget.onDismissBeforePreview?.call();
     }
+    await Future<void>.delayed(const Duration(seconds: 1));
     if (!navigator.mounted) return;
     final overlay = navigator.overlay;
     if (overlay == null) return;
@@ -21,16 +86,7 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
             WorldUpdatePushBannerQueue(
               top: MediaQuery.paddingOf(overlayContext).top + 8,
               revision: 1,
-              notices: const <WorldContentUpdateNotice>[
-                WorldContentUpdateNotice(
-                  kind: WorldContentUpdateKind.location,
-                  entityId: 'developer-preview-location',
-                  name: 'New Harbor',
-                  targetLocationId: 'developer-preview-location',
-                  avatarUrl: '',
-                  tickCount: 1,
-                ),
-              ],
+              notices: notices,
             ),
           ],
         ),
@@ -38,8 +94,14 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     );
     _worldUpdatePushPreviewEntry = entry;
     overlay.insert(entry);
+    final queueDuration = Duration(
+      milliseconds:
+          (worldUpdatePushDisplayDuration.inMilliseconds +
+              worldUpdatePushTransitionDuration.inMilliseconds) *
+          notices.length,
+    );
     _worldUpdatePushPreviewTimer = Timer(
-      const Duration(milliseconds: 4500),
+      queueDuration + const Duration(seconds: 1),
       _removeWorldUpdatePushPreview,
     );
   }
