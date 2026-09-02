@@ -15,6 +15,7 @@ class LocationChatComposerInput extends StatelessWidget {
     this.bottomSafeAreaInset,
     this.composerHeader,
     this.keepShortcutsVisible = false,
+    this.showShortcuts = true,
     this.backdropGroupKey,
   });
 
@@ -30,6 +31,7 @@ class LocationChatComposerInput extends StatelessWidget {
   final double? bottomSafeAreaInset;
   final Widget? composerHeader;
   final bool keepShortcutsVisible;
+  final bool showShortcuts;
   final BackdropKey? backdropGroupKey;
 
   void _insertShortcut(String shortcut) {
@@ -42,8 +44,10 @@ class LocationChatComposerInput extends StatelessWidget {
     return ListenableBuilder(
       listenable: focusNode,
       builder: (context, _) {
-        final showShortcuts =
-            inputEnabled && (focusNode.hasFocus || keepShortcutsVisible);
+        final shortcutsVisible =
+            showShortcuts &&
+            inputEnabled &&
+            (focusNode.hasFocus || keepShortcutsVisible);
         final shortcutsEnabled = inputEnabled && focusNode.hasFocus;
         return ChatComposer(
           controller: controller,
@@ -59,11 +63,11 @@ class LocationChatComposerInput extends StatelessWidget {
           sendIcon: ChatComposerSendIcon.arrowUp,
           pinActionsToBottom: true,
           style: style,
-          leadingShortcutLabel: showShortcuts ? '*' : null,
+          leadingShortcutLabel: shortcutsVisible ? '*' : null,
           onLeadingShortcutPressed: shortcutsEnabled
               ? () => _insertShortcut('*')
               : null,
-          secondaryLeadingShortcutLabel: showShortcuts ? '@' : null,
+          secondaryLeadingShortcutLabel: shortcutsVisible ? '@' : null,
           onSecondaryLeadingShortcutPressed: shortcutsEnabled
               ? () => _insertShortcut('@')
               : null,

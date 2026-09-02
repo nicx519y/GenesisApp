@@ -1880,7 +1880,10 @@ void main() {
                   'last_launched_at': 1785292800,
                   'world_id': 'w_history_1',
                   'tick_no': 7,
+                  'sub_tick_no': 2,
+                  'connect_cnt': 24,
                   'current_time': 'Day 3',
+                  'last_active_at': 1785296400,
                 },
               ],
             },
@@ -1929,7 +1932,10 @@ void main() {
       expect(character.lastLaunchedAt, 1785292800);
       expect(character.worldId, 'w_history_1');
       expect(character.tickCount, 7);
+      expect(character.subTickNo, 2);
+      expect(character.messageCount, 24);
       expect(character.currentTime, 'Day 3');
+      expect(character.lastActiveAt, '1785296400');
     },
   );
 

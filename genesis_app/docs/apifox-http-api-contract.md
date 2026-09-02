@@ -1008,7 +1008,10 @@ Query：
 - `last_launched_at*`: integer，最近一次使用该角色 launch 的 Unix 秒
 - `world_id*`: string，最近一次使用该角色 launch 的 World 业务 id
 - `tick_no*`: integer，该 World 当前 Tick 数
+- `sub_tick_no*`: integer，该 World 当前子 Tick 数
+- `connect_cnt*`: integer，该 World 当前累计 Message 数
 - `current_time*`: string，该 World 当前时间
+- `last_active_at*`: integer，该 World 最近活跃时间，Unix 秒
 
 错误码：
 

@@ -463,6 +463,9 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.roleForegroundColor = const Color(0xFFF4F3F6),
     this.roleMutedColor = const Color(0x99FFFFFF),
     this.roleBackgroundColor = const Color(0xCC151517),
+    this.showShortcuts = true,
+    this.enableMentionSheet = true,
+    this.roleBorderRadius = 999,
     this.onInputDockHeightChanged,
   });
 
@@ -478,6 +481,9 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final Color roleForegroundColor;
   final Color roleMutedColor;
   final Color roleBackgroundColor;
+  final bool showShortcuts;
+  final bool enableMentionSheet;
+  final double roleBorderRadius;
   final ValueChanged<double>? onInputDockHeightChanged;
 
   @override
@@ -529,7 +535,7 @@ class _OriginLocationChatLaunchComposerState
   void _handleTextChanged() {
     final hasText = _controller.serializedText.trim().isNotEmpty;
     final triggerOffset = _controller.takeInsertedAtOffset();
-    if (triggerOffset != null) {
+    if (widget.enableMentionSheet && triggerOffset != null) {
       _scheduleMentionSheet(triggerOffset);
     }
     if (_hasText == hasText) return;
@@ -606,6 +612,7 @@ class _OriginLocationChatLaunchComposerState
       onHeightChanged: widget.onInputDockHeightChanged,
       composerHeader: null,
       style: style,
+      showShortcuts: widget.showShortcuts,
     );
     final Widget content;
     if (!widget.showRoleSelector) {
@@ -619,6 +626,7 @@ class _OriginLocationChatLaunchComposerState
         foregroundColor: widget.roleForegroundColor,
         mutedColor: widget.roleMutedColor,
         backgroundColor: widget.roleBackgroundColor,
+        borderRadius: widget.roleBorderRadius,
       );
       content = Column(
         mainAxisSize: MainAxisSize.min,
@@ -639,6 +647,7 @@ class _OriginLocationChatRoleRegion extends StatelessWidget {
     required this.foregroundColor,
     required this.mutedColor,
     required this.backgroundColor,
+    this.borderRadius = 999,
   });
 
   final _OriginLocationChatRoleOption role;
@@ -648,6 +657,7 @@ class _OriginLocationChatRoleRegion extends StatelessWidget {
   final Color foregroundColor;
   final Color mutedColor;
   final Color backgroundColor;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
@@ -659,6 +669,7 @@ class _OriginLocationChatRoleRegion extends StatelessWidget {
       mutedColor: mutedColor,
       backgroundColor: backgroundColor,
       backdropBlurSigma: style.inputBackdropBlurSigma,
+      borderRadius: borderRadius,
     );
     return ColoredBox(
       key: const ValueKey<String>('origin-location-chat-role-region'),
@@ -705,6 +716,7 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
     required this.mutedColor,
     required this.backgroundColor,
     required this.backdropBlurSigma,
+    required this.borderRadius,
   });
 
   final _OriginLocationChatRoleOption role;
@@ -714,13 +726,14 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
   final Color mutedColor;
   final Color backgroundColor;
   final double backdropBlurSigma;
+  final double borderRadius;
 
   @override
   Widget build(BuildContext context) {
     final pill = Material(
       key: const ValueKey<String>('origin-location-chat-role-pill'),
       color: backgroundColor,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(borderRadius),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: const ValueKey<String>('origin-location-chat-role-selector'),
@@ -771,7 +784,7 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
       child: backdropBlurSigma <= 0
           ? pill
           : ClipRRect(
-              borderRadius: BorderRadius.circular(999),
+              borderRadius: BorderRadius.circular(borderRadius),
               child: BackdropFilter(
                 key: const ValueKey<String>(
                   'origin-location-chat-role-pill-backdrop',

@@ -24,7 +24,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _baseStatusBarStyle,
       child: Scaffold(
-        backgroundColor: originWorldDetailSheetRaisedBackgroundColor,
+        backgroundColor: originWorldDetailSheetBackgroundColor,
         resizeToAvoidBottomInset: false,
         body: LayoutBuilder(
           builder: (context, constraints) {

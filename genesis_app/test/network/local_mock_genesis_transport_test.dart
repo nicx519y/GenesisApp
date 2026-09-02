@@ -355,7 +355,10 @@ void main() {
     expect(characters.single.lastLaunchedAt, greaterThan(0));
     expect(characters.single.worldId, isNotEmpty);
     expect(characters.single.tickCount, greaterThanOrEqualTo(0));
+    expect(characters.single.subTickNo, greaterThanOrEqualTo(0));
+    expect(characters.single.messageCount, greaterThanOrEqualTo(0));
     expect(characters.single.currentTime, isNotEmpty);
+    expect(characters.single.lastActiveAt, isNotEmpty);
   });
 
   test('local mock supports origin world and chat flow', () async {

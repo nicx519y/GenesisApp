@@ -34,15 +34,15 @@ void main() {
     expect(originDetailSheetHorizontalPaddingForTesting, 12);
   });
 
-  test('origin detail sheet uses one unified raised background', () {
-    expect(originWorldDetailSheetBackgroundColor, const Color(0xFF1F1D24));
+  test('origin page and detail sheet share the base background', () {
+    expect(originWorldDetailSheetBackgroundColor, const Color(0xFF151517));
     expect(
       originWorldDetailSheetRaisedBackgroundColor,
       const Color(0xFF1F1D24),
     );
     expect(
       originWorldMapShellSource,
-      contains('backgroundColor: originWorldDetailSheetRaisedBackgroundColor'),
+      contains('backgroundColor: originWorldDetailSheetBackgroundColor'),
     );
   });
 
@@ -54,6 +54,17 @@ void main() {
     expect(originWorldDetailSheetAccentSoftColor, const Color(0xFFFF8A9A));
     expect(originWorldDetailSheetSubtleSurfaceColor, const Color(0x14FFFFFF));
     expect(originWorldDetailSheetSelectRoleArrowColor, const Color(0x8CFFFFFF));
+  });
+
+  test('origin role card paints its outline above the card content', () {
+    expect(
+      originSectionsSource,
+      contains("'origin-setup-role-card-frame-\$stableId'"),
+    );
+    expect(
+      originSectionsSource,
+      contains('foregroundDecoration: BoxDecoration'),
+    );
   });
 
   test('origin opening dialogue and composer reuse Location Chat styling', () {
@@ -72,6 +83,13 @@ void main() {
     expect(
       originWorldLocationChatSource,
       isNot(contains('_originLocationChatRoleInputGap')),
+    );
+    expect(originWorldDetailSheetSource, contains('showShortcuts: false'));
+    expect(originWorldDetailSheetSource, contains('enableMentionSheet: false'));
+    expect(originWorldDetailSheetSource, contains('roleBorderRadius: 8'));
+    expect(
+      originWorldDetailSheetSource,
+      contains('locationChatEffectiveKeyboardInsetForTesting('),
     );
   });
 
@@ -116,13 +134,28 @@ void main() {
 
   test('origin launched world rows use compact character avatars', () {
     expect(originLaunchedWorldAvatarSizeForTesting, 44);
+    expect(originLaunchedWorldSectionTopPaddingForTesting, 6);
+    expect(originLaunchedWorldTitleListGapForTesting, 16);
+    expect(originLaunchedWorldRowGapForTesting, 16);
     expect(originSectionsSource, isNot(contains("'Your Launched Worlds'")));
-    expect(originSectionsSource, contains("'Launched Before'"));
+    expect(originSectionsSource, isNot(contains("'Launched Before'")));
+    expect(originSectionsSource, contains("'Playing World'"));
     expect(originSectionsSource, isNot(contains("'Launch another World'")));
     expect(originSectionsSource, isNot(contains('color: GenesisColors.brand')));
     expect(originSectionsSource, isNot(contains("'Enter'")));
     expect(originSectionsSource, contains('SizedBox(height: 6)'));
-    expect(originSectionsSource, contains(r"'$worldId · $progressText'"));
+    expect(originSectionsSource, contains('formatMessageCountLabel'));
+    expect(originSectionsSource, contains('formatGenesisTimestamp'));
+    expect(originSectionsSource, contains('bLastActiveAt.compareTo'));
+    expect(originSectionsSource, isNot(contains('Divider(')));
+    expect(
+      originSectionsSource,
+      isNot(contains('Icons.chevron_right_rounded')),
+    );
+    expect(
+      originSectionsSource,
+      contains('crossAxisAlignment: CrossAxisAlignment.start'),
+    );
   });
 
   test('origin info section titles do not render leading icons', () {

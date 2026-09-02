@@ -23,7 +23,7 @@ void main() {
     expect(originRolePortraitGradient.colors, const <Color>[
       Colors.transparent,
       Color(0x66151517),
-      Color(0xF0151517),
+      Color(0xFF0E0D10),
     ]);
   });
 

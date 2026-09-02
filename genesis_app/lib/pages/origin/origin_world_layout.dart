@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../ui/tokens/genesis_radii.dart';
 
-const Color originWorldDetailSheetBackgroundColor = Color(0xFF1F1D24);
+const Color originWorldDetailSheetBackgroundColor = Color(0xFF151517);
 const Color originWorldDetailSheetRaisedBackgroundColor = Color(0xFF1F1D24);
 const Color originWorldDetailSheetPrimaryTextColor = Color(0xF2FFFFFF);
 const Color originWorldDetailSheetSecondaryTextColor = Color(0xB8FFFFFF);

@@ -599,9 +599,13 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: DecoratedBox(
+      child: Container(
+        key: ValueKey<String>('origin-setup-role-card-frame-$stableId'),
         decoration: BoxDecoration(
           color: const Color(0xFF202022),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        foregroundDecoration: BoxDecoration(
           border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
           borderRadius: BorderRadius.circular(12),
         ),

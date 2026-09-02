@@ -199,7 +199,10 @@ OriginMyLaunchPresetCharacter _originMyLaunchPresetCharacterFromV1(
     lastLaunchedAt: asInt(raw['last_launched_at']),
     worldId: asString(raw['world_id']),
     tickCount: asInt(raw['tick_no']),
+    subTickNo: asInt(raw['sub_tick_no']),
+    messageCount: asInt(raw['connect_cnt']),
     currentTime: asString(raw['current_time']),
+    lastActiveAt: asString(raw['last_active_at']),
   );
 }
 

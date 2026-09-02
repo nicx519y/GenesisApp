@@ -10,7 +10,7 @@ const LinearGradient originRolePortraitGradient = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
   stops: <double>[0.42, 0.72, 1],
-  colors: <Color>[Colors.transparent, Color(0x66151517), Color(0xF0151517)],
+  colors: <Color>[Colors.transparent, Color(0x66151517), Color(0xFF0E0D10)],
 );
 
 /// Produces the role-card portrait as one decoded image with its readability

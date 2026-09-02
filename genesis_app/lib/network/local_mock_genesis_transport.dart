@@ -2425,9 +2425,16 @@ class _MockState {
                 'last_launched_at': history[charId] ?? 0,
                 'world_id': _v1World['wid'],
                 'tick_no': asInt(_v1World['tick_cnt']),
+                'sub_tick_no': asInt(_v1World['sub_tick_no']),
+                'connect_cnt': asInt(_v1World['connect_cnt']),
                 'current_time':
                     _v1World['current_time'] ??
                     'Day ${_v1World['tick_cnt'] ?? 0}',
+                'last_active_at': _mockEpoch(
+                  _v1World['last_active_at'] ??
+                      _v1World['last_progress_at'] ??
+                      _v1World['updated_at'],
+                ),
               };
             })
             .toList(growable: false)

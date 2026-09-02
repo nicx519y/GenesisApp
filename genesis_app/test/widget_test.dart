@@ -118,7 +118,6 @@ import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
-import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_location_chat_host.dart';
@@ -8240,6 +8239,13 @@ void main() {
     final buildContext = tester.element(
       find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
     );
+    final sheetSurface = tester.widget<DecoratedBox>(
+      find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
+    );
+    expect(
+      (sheetSurface.decoration as BoxDecoration).color,
+      const Color(0xFF151517),
+    );
     final firstOpeningRow =
         openingDelegate.builder(buildContext, 0) as ChatMessageRow;
     final lastOpeningRow =
@@ -9615,6 +9621,17 @@ void main() {
     expect(roleCards.scrollCacheExtent?.value, 252 * 2);
     expect(recommendedRole, findsOneWidget);
     expect(regularRole, findsOneWidget);
+    final recommendedFrame = tester.widget<Container>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-card-frame-c_recommended'),
+      ),
+    );
+    final recommendedOutline =
+        recommendedFrame.foregroundDecoration! as BoxDecoration;
+    expect(
+      (recommendedOutline.border! as Border).top.color.a,
+      closeTo(0.12, 0.001),
+    );
     expect(
       tester.getTopLeft(recommendedRole).dx,
       lessThan(tester.getTopLeft(regularRole).dx),
@@ -10081,7 +10098,7 @@ void main() {
       find.byKey(const ValueKey<String>('origin-detail-loading-sheet')),
       findsOneWidget,
     );
-    expect(find.text('Launched Before'), findsNothing);
+    expect(find.text('Playing World'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('origin-opening-worldo-brief')),
       findsNothing,
@@ -10110,7 +10127,7 @@ void main() {
       find.byKey(const ValueKey<String>('origin-detail-loading-sheet')),
       findsNothing,
     );
-    expect(find.text('Launched Before'), findsOneWidget);
+    expect(find.text('Playing World'), findsOneWidget);
     expect(find.text('Pending History'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('origin-opening-worldo-brief')),
@@ -10184,8 +10201,24 @@ void main() {
             'initial_location_id': 'loc_history_compact',
             'last_launched_at': 1785292800,
             'world_id': 'w_3XDXO1',
-            'tick_no': 0,
+            'tick_no': 7,
+            'sub_tick_no': 2,
+            'connect_cnt': 24,
             'current_time': 'Day 1, 14:00 p.m.',
+            'last_active_at': 1785292700,
+          },
+          {
+            'char_id': 'char_history_compact_2',
+            'type': 'ai',
+            'name': 'Mira',
+            'avatar': '',
+            'initial_location_id': 'loc_history_compact',
+            'last_launched_at': 1785292700,
+            'world_id': 'w_3XDXO2',
+            'tick_no': 5,
+            'sub_tick_no': 1,
+            'connect_cnt': 8,
+            'last_active_at': 1785292800,
           },
         ],
       );
@@ -10241,15 +10274,78 @@ void main() {
 
       expect(launchedSection, findsOneWidget);
       expect(find.text('Your Launched Worlds'), findsNothing);
-      expect(find.text('Launched Before'), findsOneWidget);
-      final launchedTitle = tester.widget<Text>(find.text('Launched Before'));
+      expect(find.text('Launched Before'), findsNothing);
+      expect(find.text('Playing World'), findsOneWidget);
+      final launchedTitle = tester.widget<Text>(find.text('Playing World'));
       expect(launchedTitle.style?.fontSize, 14);
       expect(launchedTitle.style?.fontWeight, FontWeight.w600);
-      expect(launchedTitle.style?.color, GenesisColors.textPrimary);
+      expect(launchedTitle.style?.color, const Color(0xF2FFFFFF));
       expect(find.text('Nikos'), findsOneWidget);
+      expect(find.text('Tick 7-2 · 24 Messages'), findsOneWidget);
+      expect(find.textContaining('w_3XDXO1 ·'), findsNothing);
+      final statsText = tester.widget<Text>(
+        find.byKey(
+          const ValueKey<String>('origin-playing-world-stats-w_3XDXO1'),
+        ),
+      );
+      expect(statsText.style?.color, const Color(0xB8FFFFFF));
+      final lastActiveText = tester.widget<Text>(
+        find.byKey(
+          const ValueKey<String>('origin-playing-world-last-active-w_3XDXO1'),
+        ),
+      );
+      expect(lastActiveText.data, isNotEmpty);
+      expect(lastActiveText.style?.color, const Color(0x73FFFFFF));
+      final playingWorldList = find.byKey(
+        const ValueKey<String>('origin-playing-world-list'),
+      );
+      final avatarRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('origin-launched-world-avatar-w_3XDXO1'),
+        ),
+      );
+      final secondAvatarRect = tester.getRect(
+        find.byKey(
+          const ValueKey<String>('origin-launched-world-avatar-w_3XDXO2'),
+        ),
+      );
+      final roleNameRect = tester.getRect(find.text('Nikos'));
+      expect(avatarRect.left, tester.getRect(launchedSection).left + 10);
+      expect(roleNameRect.top, moreOrLessEquals(avatarRect.top));
+      expect(secondAvatarRect.top, lessThan(avatarRect.top));
+      expect(avatarRect.top - secondAvatarRect.bottom, moreOrLessEquals(16));
       expect(
-        find.text('w_3XDXO1 · Tick 0 · Day 1, 14:00 p.m.'),
-        findsOneWidget,
+        find.descendant(
+          of: playingWorldList,
+          matching: find.byIcon(Icons.chevron_right_rounded),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: playingWorldList, matching: find.byType(Divider)),
+        findsNothing,
+      );
+      expect(
+        tester.getTopLeft(find.text('Playing World')).dy -
+            tester.getTopLeft(launchedSection).dy,
+        moreOrLessEquals(originLaunchedWorldSectionTopPaddingForTesting),
+      );
+      expect(
+        tester.getTopLeft(playingWorldList).dy -
+            tester.getBottomLeft(find.text('Playing World')).dy,
+        moreOrLessEquals(originLaunchedWorldTitleListGapForTesting),
+      );
+      expect(
+        tester
+                .getTopLeft(
+                  find.descendant(
+                    of: briefSection,
+                    matching: find.text('Worldo Brief'),
+                  ),
+                )
+                .dy -
+            tester.getBottomLeft(row).dy,
+        moreOrLessEquals(originDetailSectionGapForTesting),
       );
       expect(find.text('Launch another World'), findsNothing);
       final avatar = tester.widget<GenesisCharacterAvatar>(
@@ -11160,6 +11256,10 @@ void main() {
         ),
       );
       expect(rolePill, findsOneWidget);
+      expect(
+        tester.widget<Material>(rolePill).borderRadius,
+        BorderRadius.circular(8),
+      );
       expect(roleRegion, findsOneWidget);
       expect(tester.widget<ColoredBox>(roleRegion).color, Colors.transparent);
       expect(dockRoleTranslation, findsOneWidget);
@@ -11171,7 +11271,10 @@ void main() {
             .y,
         -2,
       );
-      expect(sheetComposerWidget.style?.composerPadding.top, 4);
+      expect(
+        sheetComposerWidget.style?.composerPadding.top,
+        kLocationChatStyle.composerPadding.top,
+      );
       expect(
         find.descendant(
           of: expandedComposer,
@@ -11187,7 +11290,10 @@ void main() {
         tester.getSize(rolePill).width,
         lessThan(tester.getSize(inputSurface).width),
       );
-      expect(tester.widget<Material>(rolePill).color, GenesisColors.surface);
+      expect(
+        tester.widget<Material>(rolePill).color,
+        kLocationChatStyle.inputBackgroundColor,
+      );
       final rolePillAvatar = find.descendant(
         of: rolePill,
         matching: find.byType(GenesisCharacterAvatar),
@@ -11213,6 +11319,19 @@ void main() {
       );
       await tester.tap(sharedComposerInput);
       await tester.pump();
+      expect(sharedComposerWidget.showShortcuts, isFalse);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+      expect(
+        tester.getBottomLeft(sheetSurface).dy -
+            tester.getBottomLeft(expandedComposer).dy,
+        closeTo(276 / tester.view.devicePixelRatio, 1),
+        reason:
+            'Opening subtracts the 24px stable safe area before the composer '
+            'adds it back internally.',
+      );
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump();
       expect(
         find.descendant(
           of: sharedComposer,
@@ -11220,39 +11339,16 @@ void main() {
             const ValueKey<String>('chat-composer-leading-shortcut'),
           ),
         ),
-        findsOneWidget,
+        findsNothing,
       );
-      await tester.tap(
-        find.descendant(
-          of: sharedComposer,
-          matching: find.byKey(
-            const ValueKey<String>('chat-composer-leading-shortcut'),
-          ),
-        ),
-      );
-      expect(sharedComposerWidget.controller.serializedText, '*');
-      sharedComposerWidget.controller.clear();
-      await tester.tap(
-        find.descendant(
-          of: sharedComposer,
-          matching: find.byKey(
-            const ValueKey<String>('chat-composer-secondary-leading-shortcut'),
-          ),
-        ),
-      );
+      await tester.enterText(sharedComposerInput, '@');
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey<String>('location-chat-mention-sheet')),
-        findsOneWidget,
+        findsNothing,
       );
-      await tester.tap(
-        find.byKey(
-          const ValueKey<String>('location-chat-mention-character-c_o_test_1'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        sharedComposerWidget.controller.serializedText,
+      expect(sharedComposerWidget.controller.serializedText, '@');
+      sharedComposerWidget.controller.setSerializedText(
         '@Detail Character<c_o_test_1> ',
       );
 

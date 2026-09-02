@@ -534,6 +534,9 @@ class _OriginDetailDraggableSheetState
           roleForegroundColor: originWorldDetailSheetPrimaryTextColor,
           roleMutedColor: originWorldDetailSheetTertiaryTextColor,
           roleBackgroundColor: kLocationChatStyle.inputBackgroundColor,
+          showShortcuts: false,
+          enableMentionSheet: false,
+          roleBorderRadius: 8,
           onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
         ),
       ),
@@ -765,6 +768,11 @@ class _OriginDetailDraggableSheetState
               final keyboardInset = MediaQuery.viewInsetsOf(
                 context,
               ).bottom.clamp(0.0, MediaQuery.sizeOf(context).height).toDouble();
+              final composerKeyboardInset =
+                  locationChatEffectiveKeyboardInsetForTesting(
+                    rawKeyboardInset: keyboardInset,
+                    bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
+                  );
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: BoxDecoration(
@@ -843,7 +851,7 @@ class _OriginDetailDraggableSheetState
                           Positioned(
                             left: 0,
                             right: 0,
-                            bottom: keyboardInset,
+                            bottom: composerKeyboardInset,
                             child: RepaintBoundary(
                               child: _buildExpandedOpeningComposer(
                                 locationChatLocationId,
@@ -894,7 +902,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
           colors: const [
             originWorldDetailSheetBackgroundColor,
             originWorldDetailSheetBackgroundColor,
-            Color(0x001F1D24),
+            Color(0x00151517),
           ],
           stops: const [0, 0.55, 1],
         ),

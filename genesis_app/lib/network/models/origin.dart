@@ -651,7 +651,10 @@ class OriginMyLaunchPresetCharacter {
     required this.lastLaunchedAt,
     this.worldId = '',
     this.tickCount = 0,
+    this.subTickNo = 0,
+    this.messageCount = 0,
     this.currentTime = '',
+    this.lastActiveAt = '',
   });
 
   final String charId;
@@ -666,7 +669,10 @@ class OriginMyLaunchPresetCharacter {
   final int lastLaunchedAt;
   final String worldId;
   final int tickCount;
+  final int subTickNo;
+  final int messageCount;
   final String currentTime;
+  final String lastActiveAt;
 }
 
 @immutable
