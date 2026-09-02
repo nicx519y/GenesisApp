@@ -11,6 +11,8 @@ import '../tilemap_renderer.dart';
 typedef TilemapSilentMapLoader =
     Future<TilemapConfig?> Function(String locationId);
 typedef TilemapPreloadImage = Future<void> Function(String assetUrl);
+typedef TilemapDisplayTilePixelSizeResolver =
+    double Function(TilemapConfig config);
 
 /// Temporary kill switch for parent/child map preloading.
 ///
@@ -221,6 +223,7 @@ class TilemapLoadingCoordinator {
     required TilemapConfig currentConfig,
     required List<WorldMapLocationNode> locationNodes,
     required double displayTilePixelSize,
+    TilemapDisplayTilePixelSizeResolver? displayTilePixelSizeForConfig,
     required TilemapSilentMapLoader loadMap,
     required TilemapPreloadImage loadImage,
   }) {
@@ -258,6 +261,7 @@ class TilemapLoadingCoordinator {
           loadKey: silentLoadKey,
           locationId: locationId,
           displayTilePixelSize: displayTilePixelSize,
+          displayTilePixelSizeForConfig: displayTilePixelSizeForConfig,
           loadMap: loadMap,
           loadImage: loadImage,
           sessionGeneration: sessionGeneration,
@@ -439,7 +443,9 @@ class TilemapLoadingCoordinator {
           task.pendingAssetUrls ??
           TilemapImageLoadPlan.forConfig(
             config: config,
-            displayTilePixelSize: task.displayTilePixelSize,
+            displayTilePixelSize:
+                task.displayTilePixelSizeForConfig?.call(config) ??
+                task.displayTilePixelSize,
           ).tileCountByAsset.keys.toList(growable: false);
       if (_backgroundWorkSuspended) {
         return task.continueWith(
@@ -757,6 +763,7 @@ class _TilemapSilentLoadTask {
     required this.loadKey,
     required this.locationId,
     required this.displayTilePixelSize,
+    required this.displayTilePixelSizeForConfig,
     required this.loadMap,
     required this.loadImage,
     required this.sessionGeneration,
@@ -768,6 +775,7 @@ class _TilemapSilentLoadTask {
   final String loadKey;
   final String locationId;
   final double displayTilePixelSize;
+  final TilemapDisplayTilePixelSizeResolver? displayTilePixelSizeForConfig;
   final TilemapSilentMapLoader loadMap;
   final TilemapPreloadImage loadImage;
   final int sessionGeneration;
@@ -783,6 +791,7 @@ class _TilemapSilentLoadTask {
       loadKey: loadKey,
       locationId: locationId,
       displayTilePixelSize: displayTilePixelSize,
+      displayTilePixelSizeForConfig: displayTilePixelSizeForConfig,
       loadMap: loadMap,
       loadImage: loadImage,
       sessionGeneration: sessionGeneration,

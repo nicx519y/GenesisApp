@@ -52,6 +52,30 @@ void main() {
     expect(decoration.color, const Color(0xFFF8F8F8));
   });
 
+  testWidgets('hides the image picker button by default', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            requireLogin: false,
+            submitter: (content, images) async => <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Write a post').first);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('discuss-image-picker-button')),
+      findsNothing,
+    );
+  });
+
   testWidgets('keeps the global status bar transparent while composer opens', (
     WidgetTester tester,
   ) async {
@@ -76,6 +100,7 @@ void main() {
             body: DiscussPostInput(
               bizId: 'o_test_1',
               requireLogin: false,
+              showImagePickerButton: true,
               imagePicker: (limit) async => const <DiscussPickedImage>[],
               submitter: (content, images) async => <String, dynamic>{},
             ),
@@ -293,6 +318,7 @@ void main() {
           body: DiscussPostInput(
             bizId: 'o_test_1',
             requireLogin: false,
+            showImagePickerButton: true,
             imagePicker: (limit) async => List<DiscussPickedImage>.generate(
               8,
               (index) => _pickedImage(index),
@@ -425,6 +451,7 @@ void main() {
           body: DiscussPostInput(
             bizId: 'o_test_1',
             requireLogin: false,
+            showImagePickerButton: true,
             imagePicker: (limit) => pickerCompleter.future,
             imageUploader: (image) {
               uploadCallCount += 1;
@@ -467,6 +494,7 @@ void main() {
           body: DiscussPostInput(
             bizId: 'o_test_1',
             requireLogin: false,
+            showImagePickerButton: true,
             imagePicker: (limit) async => <DiscussPickedImage>[_pickedImage(0)],
             imageUploader: (image) async => 'https://cdn.example.com/0.jpg',
             submitter: (content, images) async => <String, dynamic>{},
@@ -510,6 +538,7 @@ void main() {
           body: DiscussPostInput(
             bizId: 'o_test_1',
             requireLogin: false,
+            showImagePickerButton: true,
             imagePicker: (limit) async {
               pickCount += 1;
               requestedLimits.add(limit);
@@ -578,6 +607,7 @@ void main() {
           body: DiscussPostInput(
             bizId: 'o_test_1',
             requireLogin: false,
+            showImagePickerButton: true,
             imagePicker: (limit) {
               pickerStarted = true;
               return pickerCompleter.future;
@@ -632,6 +662,7 @@ void main() {
           body: DiscussPostInput(
             bizId: 'o_test_1',
             requireLogin: false,
+            showImagePickerButton: true,
             imagePicker: (limit) async {
               tester.testTextInput.hide();
               tester.view.viewInsets = FakeViewPadding.zero;
@@ -676,6 +707,7 @@ void main() {
           body: DiscussPostInput(
             bizId: 'o_test_1',
             requireLogin: false,
+            showImagePickerButton: true,
             imagePicker: (limit) async => <DiscussPickedImage>[_pickedImage(0)],
             imageUploader: (image) async => 'https://cdn.example.com/0.jpg',
             submitter: (content, images) async => <String, dynamic>{},
@@ -722,6 +754,7 @@ void main() {
           body: DiscussPostInput(
             bizId: 'o_test_1',
             requireLogin: false,
+            showImagePickerButton: true,
             imagePicker: (limit) async {
               tester.view.viewInsets = const FakeViewPadding(bottom: 80);
               return const <DiscussPickedImage>[];
@@ -780,6 +813,7 @@ void main() {
             body: DiscussPostInput(
               bizId: 'o_test_1',
               requireLogin: false,
+              showImagePickerButton: true,
               imagePicker: (limit) async {
                 tester.view.viewInsets = const FakeViewPadding(bottom: 80);
                 tester.binding.handleMetricsChanged();

@@ -511,6 +511,8 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
   bool _mapDataRefreshPending = false;
   bool _mapDataRefreshDeferredUntilResume = false;
   final Map<String, int> _rendererRevisionByMapId = <String, int>{};
+  final Map<TilemapConfig, double> _initialScaleByConfig =
+      Map<TilemapConfig, double>.identity();
   late final TilemapLoadingCoordinator _loadingCoordinator;
   late final TilemapPrerenderController _prerenderController;
   final Map<String, VoidCallback> _liveViewportReadyCallbacks =
@@ -543,7 +545,13 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       tilemapDefaultLocationImageFlowDurationSeconds;
   TilemapLocationImageFlowBlendMode _locationImageFlowBlendMode =
       tilemapDefaultLocationImageFlowBlendMode;
-  double _initialScale = tilemapDefaultInitialScale;
+  double _nearbyLocationDistanceTiles =
+      tilemapDefaultNearbyLocationDistanceTiles;
+  double _distantLocationDistanceTiles =
+      tilemapDefaultDistantLocationDistanceTiles;
+  double _nearbyLocationInitialScale = tilemapDefaultNearbyLocationInitialScale;
+  double _distantLocationInitialScale =
+      tilemapDefaultDistantLocationInitialScale;
   double _dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles;
   bool _showSettings = false;
   bool _settingsReady = false;
@@ -705,7 +713,10 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       locationImageFlowOpacity: _locationImageFlowOpacity,
       locationImageFlowDurationSeconds: _locationImageFlowDurationSeconds,
       locationImageFlowBlendMode: _locationImageFlowBlendMode,
-      initialScale: _initialScale,
+      nearbyLocationDistanceTiles: _nearbyLocationDistanceTiles,
+      distantLocationDistanceTiles: _distantLocationDistanceTiles,
+      nearbyLocationInitialScale: _nearbyLocationInitialScale,
+      distantLocationInitialScale: _distantLocationInitialScale,
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
     );
   }
@@ -733,7 +744,10 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _locationImageFlowDurationSeconds =
           settings.locationImageFlowDurationSeconds;
       _locationImageFlowBlendMode = settings.locationImageFlowBlendMode;
-      _initialScale = settings.initialScale;
+      _nearbyLocationDistanceTiles = settings.nearbyLocationDistanceTiles;
+      _distantLocationDistanceTiles = settings.distantLocationDistanceTiles;
+      _nearbyLocationInitialScale = settings.nearbyLocationInitialScale;
+      _distantLocationInitialScale = settings.distantLocationInitialScale;
       _dragBoundaryPaddingTiles = settings.dragBoundaryPaddingTiles;
       _settingsReady = true;
     });
@@ -860,7 +874,10 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _locationImageFlowDurationSeconds =
           defaults.locationImageFlowDurationSeconds;
       _locationImageFlowBlendMode = defaults.locationImageFlowBlendMode;
-      _initialScale = defaults.initialScale;
+      _nearbyLocationDistanceTiles = defaults.nearbyLocationDistanceTiles;
+      _distantLocationDistanceTiles = defaults.distantLocationDistanceTiles;
+      _nearbyLocationInitialScale = defaults.nearbyLocationInitialScale;
+      _distantLocationInitialScale = defaults.distantLocationInitialScale;
       _dragBoundaryPaddingTiles = defaults.dragBoundaryPaddingTiles;
     });
     tilemapVisualModeController.setVisualMode(defaults.visualMode);
@@ -1115,6 +1132,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     _mapError = null;
     _imageError = null;
     _rendererRevisionByMapId.clear();
+    _initialScaleByConfig.clear();
     _hasRevealedInitialMap = false;
     _configuredPrerenderEnvironmentKey = null;
     _configuredPrerenderViewportSize = null;
@@ -1357,7 +1375,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
         config,
         displayTilePixelSize:
             tilemapBaseTileExtent *
-            _initialScale *
+            _initialScaleForConfig(config) *
             tilemapImageDevicePixelRatio(devicePixelRatio),
       );
     });
@@ -1726,14 +1744,73 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     _scheduleSettingsSave();
   }
 
-  void _setInitialScale(double value) {
+  void _setNearbyLocationDistance(double value) {
+    final resolved = value
+        .clamp(
+          tilemapLocationDistanceThresholdMin,
+          _distantLocationDistanceTiles - tilemapLocationDistanceThresholdStep,
+        )
+        .toDouble();
+    if (_nearbyLocationDistanceTiles == resolved) return;
+    setState(() {
+      _nearbyLocationDistanceTiles = resolved;
+      _initialScaleByConfig.clear();
+      _loadingCoordinator.invalidateInitialTilePlan();
+    });
+    _scheduleSettingsSave();
+  }
+
+  void _setDistantLocationDistance(double value) {
+    final resolved = value
+        .clamp(
+          _nearbyLocationDistanceTiles + tilemapLocationDistanceThresholdStep,
+          tilemapLocationDistanceThresholdMax,
+        )
+        .toDouble();
+    if (_distantLocationDistanceTiles == resolved) return;
+    setState(() {
+      _distantLocationDistanceTiles = resolved;
+      _initialScaleByConfig.clear();
+      _loadingCoordinator.invalidateInitialTilePlan();
+    });
+    _scheduleSettingsSave();
+  }
+
+  void _setNearbyLocationInitialScale(double value) {
     final resolved = value
         .roundToDouble()
-        .clamp(tilemapInitialScaleMin, tilemapInitialScaleMax)
+        .clamp(
+          math.max(
+            tilemapNearbyLocationInitialScaleMin,
+            _distantLocationInitialScale,
+          ),
+          tilemapNearbyLocationInitialScaleMax,
+        )
         .toDouble();
-    if (_initialScale == resolved) return;
+    if (_nearbyLocationInitialScale == resolved) return;
     setState(() {
-      _initialScale = resolved;
+      _nearbyLocationInitialScale = resolved;
+      _initialScaleByConfig.clear();
+      _loadingCoordinator.invalidateInitialTilePlan();
+    });
+    _scheduleSettingsSave();
+  }
+
+  void _setDistantLocationInitialScale(double value) {
+    final resolved = value
+        .roundToDouble()
+        .clamp(
+          tilemapDistantLocationInitialScaleMin,
+          math.min(
+            tilemapDistantLocationInitialScaleMax,
+            _nearbyLocationInitialScale,
+          ),
+        )
+        .toDouble();
+    if (_distantLocationInitialScale == resolved) return;
+    setState(() {
+      _distantLocationInitialScale = resolved;
+      _initialScaleByConfig.clear();
       _loadingCoordinator.invalidateInitialTilePlan();
     });
     _scheduleSettingsSave();
@@ -1808,19 +1885,33 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     }
   }
 
+  double _initialScaleForConfig(TilemapConfig config) {
+    return _initialScaleByConfig.putIfAbsent(
+      config,
+      () => tilemapAutomaticInitialScaleForTiles(
+        tiles: config.tiles,
+        nearbyDistanceTiles: _nearbyLocationDistanceTiles,
+        distantDistanceTiles: _distantLocationDistanceTiles,
+        nearbyScale: _nearbyLocationInitialScale,
+        distantScale: _distantLocationInitialScale,
+      ),
+    );
+  }
+
   TilemapImageLoadPlan _imageLoadPlanForViewport({
     required TilemapConfig config,
     required Size viewportSize,
     required double devicePixelRatio,
   }) {
+    final initialScale = _initialScaleForConfig(config);
     return TilemapImageLoadPlan.forConfig(
       config: config,
       displayTilePixelSize:
           tilemapBaseTileExtent *
-          _initialScale *
+          initialScale *
           tilemapImageDevicePixelRatio(devicePixelRatio),
       viewportSize: viewportSize,
-      initialScale: _initialScale,
+      initialScale: initialScale,
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
       locationAvatarsForTile: _locationAvatarsForTile,
       preferredLocationId: _preferredVisibleFocusLocationId(config),
@@ -1833,10 +1924,18 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     required double displayTilePixelSize,
   }) {
     if (!widget.relatedMapPreloadingEnabled) return;
+    final currentInitialScale = _initialScaleForConfig(config);
+    final imageDevicePixelRatio =
+        displayTilePixelSize / (tilemapBaseTileExtent * currentInitialScale);
     _loadingCoordinator.scheduleSilentDrillDownPreload(
       currentConfig: config,
       locationNodes: widget.locationNodes,
       displayTilePixelSize: displayTilePixelSize,
+      displayTilePixelSizeForConfig: (targetConfig) {
+        return tilemapBaseTileExtent *
+            _initialScaleForConfig(targetConfig) *
+            imageDevicePixelRatio;
+      },
       loadMap: _preloadMap,
       loadImage: _loadTileImage,
     );
@@ -1851,6 +1950,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     bool includeLiveContent = true,
     ValueChanged<Object>? backgroundImageError,
   }) {
+    final initialScale = _initialScaleForConfig(config);
     return TilemapRenderer(
       key: rendererKey,
       config: config,
@@ -1907,7 +2007,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       locationImageFlowOpacity: _locationImageFlowOpacity,
       locationImageFlowDurationSeconds: _locationImageFlowDurationSeconds,
       locationImageFlowBlendMode: _locationImageFlowBlendMode,
-      initialScale: _initialScale,
+      initialScale: initialScale,
       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
     );
   }
@@ -2293,7 +2393,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       _scheduleCurrentLocationsChanged(config);
       final displayTilePixelSize =
           tilemapBaseTileExtent *
-          _initialScale *
+          _initialScaleForConfig(config) *
           tilemapImageDevicePixelRatio(MediaQuery.devicePixelRatioOf(context));
       _scheduleSilentDrillDownPreload(
         config,
@@ -2385,7 +2485,11 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
                       locationImageFlowDurationSeconds:
                           _locationImageFlowDurationSeconds,
                       locationImageFlowBlendMode: _locationImageFlowBlendMode,
-                      initialScale: _initialScale,
+                      nearbyLocationDistanceTiles: _nearbyLocationDistanceTiles,
+                      distantLocationDistanceTiles:
+                          _distantLocationDistanceTiles,
+                      nearbyLocationInitialScale: _nearbyLocationInitialScale,
+                      distantLocationInitialScale: _distantLocationInitialScale,
                       dragBoundaryPaddingTiles: _dragBoundaryPaddingTiles,
                       onVisualModeChanged: _setVisualMode,
                       onLoadingStyleChanged: _setLoadingStyle,
@@ -2405,7 +2509,14 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
                           _setLocationImageFlowDurationSeconds,
                       onLocationImageFlowBlendModeChanged:
                           _setLocationImageFlowBlendMode,
-                      onInitialScaleChanged: _setInitialScale,
+                      onNearbyLocationDistanceChanged:
+                          _setNearbyLocationDistance,
+                      onDistantLocationDistanceChanged:
+                          _setDistantLocationDistance,
+                      onNearbyLocationInitialScaleChanged:
+                          _setNearbyLocationInitialScale,
+                      onDistantLocationInitialScaleChanged:
+                          _setDistantLocationInitialScale,
                       onDragBoundaryPaddingTilesChanged:
                           _setDragBoundaryPaddingTiles,
                       onCopySettings: _copySettingsToClipboard,

@@ -11269,7 +11269,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         sharedComposerWidget.controller.serializedText,
-        '@Detail Character<c_o_test_1>',
+        '@Detail Character<c_o_test_1> ',
       );
 
       final openingScroll = find.descendant(
@@ -11367,7 +11367,7 @@ void main() {
       await tester.pumpAndSettle();
 
       const message = '@Detail Character<c_o_test_1> explore';
-      sharedComposerWidget.controller.insertShortcut(' explore');
+      sharedComposerWidget.controller.insertShortcut('explore');
       await tester.pump();
       expect(sharedComposerWidget.controller.serializedText, message);
       expect(sharedComposerWidget.controller.text, isNot(contains('<')));
@@ -21253,6 +21253,30 @@ void main() {
     expect(visibilitySwitch, findsOneWidget);
     expect(tester.widget<Switch>(visibilitySwitch).value, isFalse);
     expect(tilemapSettingsButtonVisibility.value, isFalse);
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-tilemap-nearby-distance-slider'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-tilemap-distant-distance-slider'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-tilemap-nearby-scale-slider'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('developer-tilemap-distant-scale-slider'),
+      ),
+      findsNothing,
+    );
 
     await tester.tap(visibilitySwitch);
     await tester.pumpAndSettle();

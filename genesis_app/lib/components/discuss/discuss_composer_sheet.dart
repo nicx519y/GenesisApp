@@ -8,6 +8,7 @@ class _DiscussComposerSheet extends StatefulWidget {
     this.pickImageResult,
     required this.uploadImage,
     this.uploadImageWithProgress,
+    required this.showImagePickerButton,
     required this.onSubmit,
   });
 
@@ -17,6 +18,7 @@ class _DiscussComposerSheet extends StatefulWidget {
   final DiscussImageResultPicker? pickImageResult;
   final DiscussImageUploader uploadImage;
   final DiscussImageProgressUploader? uploadImageWithProgress;
+  final bool showImagePickerButton;
   final Future<void> Function(String content, List<String> images) onSubmit;
 
   @override
@@ -449,6 +451,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                       images: _images,
                       submitting: _submitting,
                       canSend: _canSend,
+                      showImagePickerButton: widget.showImagePickerButton,
                       onPickImages: _pickAndUploadImages,
                       onRemoveImage: _removeImage,
                       onSend: _send,

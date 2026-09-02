@@ -1,32 +1,37 @@
 import 'package:flutter/material.dart';
 
 class ChatLocationMentionTag extends StatelessWidget {
-  const ChatLocationMentionTag({super.key, required this.name});
-
-  static const Color backgroundColor = Colors.transparent;
-  static const Color textColor = Color(0xFF5AC8FA);
+  const ChatLocationMentionTag({
+    super.key,
+    required this.name,
+    this.style,
+    this.includeTrailingSpace = false,
+  });
 
   final String name;
+  final TextStyle? style;
+  final bool includeTrailingSpace;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Text(
-        '@$name',
-        maxLines: 1,
-        overflow: TextOverflow.clip,
-        style: const TextStyle(
-          color: textColor,
-          fontSize: 14,
-          height: 1.2,
-          fontWeight: FontWeight.w600,
+    final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.place_outlined,
+          size: effectiveStyle.fontSize,
+          color: effectiveStyle.color,
         ),
-      ),
+        Text(
+          name,
+          maxLines: 1,
+          overflow: TextOverflow.clip,
+          style: effectiveStyle,
+        ),
+        if (includeTrailingSpace)
+          ExcludeSemantics(child: Text(' ', style: effectiveStyle)),
+      ],
     );
   }
 }

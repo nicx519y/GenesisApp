@@ -34,11 +34,23 @@ part 'tilemap_renderer_fog_shadow.dart';
 
 const double tilemapBaseTileExtent = 16;
 const double tilemapPlaceholderScale = 10;
-const double tilemapMinScale = 5;
+const double tilemapMinScale = 4;
 const double tilemapMaxScale = 30;
 const double tilemapInitialScaleMin = tilemapMinScale;
 const double tilemapInitialScaleMax = tilemapMaxScale;
 const double tilemapDefaultInitialScale = 8;
+const double tilemapLocationDistanceThresholdMin = 1;
+const double tilemapLocationDistanceThresholdMax = 20;
+const double tilemapLocationDistanceThresholdStep = 0.25;
+const double tilemapDefaultNearbyLocationDistanceTiles = 1;
+const double tilemapDefaultDistantLocationDistanceTiles = 2.5;
+const double tilemapDefaultNearbyLocationInitialScale = 15;
+const double tilemapDefaultDistantLocationInitialScale =
+    tilemapDefaultInitialScale;
+const double tilemapNearbyLocationInitialScaleMin = 8;
+const double tilemapNearbyLocationInitialScaleMax = 20;
+const double tilemapDistantLocationInitialScaleMin = 4;
+const double tilemapDistantLocationInitialScaleMax = 16;
 const double tilemapDragBoundaryPaddingTilesMin = 0;
 const double tilemapDragBoundaryPaddingTilesMax = 20;
 const double tilemapDefaultDragBoundaryPaddingTiles = 2;
