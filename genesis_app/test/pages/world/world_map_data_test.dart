@@ -1,9 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
 import 'package:genesis_flutter_android/network/models/location_tree.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_map_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    worldNewContentDebugSettings.resetForTesting();
+  });
+
+  tearDown(worldNewContentDebugSettings.resetForTesting);
+
   test('uses first root location map image', () {
     final roots = [
       const LocationTreeNode<Map<String, dynamic>>(
@@ -36,6 +45,7 @@ void main() {
           'name': 'Other',
           'player_uid': 'uid-other',
           'avatar': 'assets/other.webp',
+          'is_new': 1,
         },
       },
     ], currentUid: 'uid-self');
@@ -44,6 +54,7 @@ void main() {
     expect(avatars['loc-1']?.single.name, 'Other');
     expect(avatars['loc-1']?.single.showStar, isFalse);
     expect(avatars['loc-1']?.single.isPlayerControlledRole, isTrue);
+    expect(avatars['loc-1']?.single.isNew, isTrue);
   });
 
   test('builds fallback map points from location ids', () {
@@ -65,6 +76,7 @@ void main() {
             'sm_url': 'https://cdn.example.com/root-sm.webp',
             'xl_url': 'https://cdn.example.com/root-xl.webp',
           },
+          'is_new': 'true',
         },
         {
           'location_id': 'child',
@@ -90,7 +102,9 @@ void main() {
       (point) => point.sceneId == 'child',
     );
     expect(rootPoint.iconUrl, 'https://cdn.example.com/root-xl.webp');
+    expect(rootPoint.isNew, isTrue);
     expect(childPoint.iconUrl, 'https://cdn.example.com/child-legacy.webp');
+    expect(childPoint.isNew, isFalse);
     expect(data.locationNodes, hasLength(1));
     expect(data.locationNodes.single.id, '__world_root__');
     final rootNode = data.locationNodes.single.children.single;
@@ -107,4 +121,31 @@ void main() {
     expect(data.points, isEmpty);
     expect(data.locationNodes, isEmpty);
   });
+
+  test(
+    'debug override marks every map location and character as new',
+    () async {
+      await worldNewContentDebugSettings.setForceNewBadges(true);
+      final avatars = worldAvatarsByLocationFromCharacterPositions([
+        {
+          'location_id': 'location-1',
+          'character': {'id': 'character-1', 'name': 'Ada', 'is_new': false},
+        },
+      ], currentUid: 'current-user');
+      final points = worldPointsFromLocations([
+        {
+          'location_id': 'location-1',
+          'location_name': 'Library',
+          'is_new': false,
+        },
+      ], avatars);
+    final fallbackPoints = worldPointsFromLocationIds([
+      'fallback-location',
+    ], const {});
+
+      expect(avatars['location-1']!.single.isNew, isTrue);
+      expect(points.single.isNew, isTrue);
+      expect(fallbackPoints.single.isNew, isTrue);
+    },
+  );
 }

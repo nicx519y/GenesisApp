@@ -545,7 +545,10 @@ class WorldChatroomService {
     await _connectOnce();
   }
 
-  Future<ChatroomJoined> join({required String locationId}) async {
+  Future<ChatroomJoined> join({
+    required String locationId,
+    bool announceUserEntry = true,
+  }) async {
     _throwIfDisposed();
     final resolvedLocationId = locationId.trim();
     if (resolvedLocationId.isEmpty) {
@@ -554,7 +557,12 @@ class WorldChatroomService {
     _desiredLocationId = resolvedLocationId;
     if (_lastUserEnterLocationCommandId != resolvedLocationId) {
       _lastUserEnterLocationCommandId = resolvedLocationId;
-      _pendingUserEnterLocationCommandId = resolvedLocationId;
+      _pendingUserEnterLocationCommandId = announceUserEntry
+          ? resolvedLocationId
+          : '';
+    } else if (!announceUserEntry &&
+        _pendingUserEnterLocationCommandId == resolvedLocationId) {
+      _pendingUserEnterLocationCommandId = '';
     }
     unawaited(_hydrateLocalMessagesForLocation(resolvedLocationId));
     final existing = _joinCompleter;

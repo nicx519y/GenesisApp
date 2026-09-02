@@ -155,6 +155,21 @@ HTTP 映射层的图片规则：
 - 页面和共享组件不得直接为用户可见文字设置 `FontStyle.italic`，Markdown 的 `*emphasis*` 继续复用 `_InlineMarkdownText`/统一斜体链路。
 - 修改斜体展示时，测试必须断言 iOS 和非 iOS 的默认 Inter Italic，并保留旧版 iOS 轻倾斜代码路径的可恢复性测试。
 
+## 深色界面颜色规范
+
+深色界面的黑色背景只使用以下两个标准层级：
+
+- 基础背景：`#151517`（Flutter：`Color(0xFF151517)`）。用于页面、World Sheet、导航栏和地图外围。
+- 抬升背景：`#1F1D24`（Flutter：`Color(0xFF1F1D24)`）。用于普通 Sheet、浮层、分组容器和部分卡片。
+
+深色背景上的白色文字只使用以下三个标准 alpha 层级；这里的百分比均指不透明度：
+
+- 95% 白：`rgba(255, 255, 255, 0.95)`（Flutter ARGB：`Color(0xF2FFFFFF)`）。用于主标题、主要内容和高强调文字。
+- 72% 白：`rgba(255, 255, 255, 0.72)`（Flutter ARGB：`Color(0xB8FFFFFF)`）。用于次级文字、分组标题和未选中状态。
+- 45% 白：`rgba(255, 255, 255, 0.45)`（Flutter ARGB：`Color(0x73FFFFFF)`）。用于辅助信息、元数据和弱提示文字。
+
+新增或修改深色界面时，优先复用语义 token；没有对应 token 时也必须使用上述精确值，不要创建肉眼接近的黑色底或白色文字透明度。纯白 `#FFFFFF` 不作为深色内容区的常规文字颜色，除非设计明确要求更高强调层级。
+
 ## 共享组件边界
 
 - 通用底部弹层：`GenesisBottomSheetPanel`

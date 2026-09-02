@@ -77,7 +77,7 @@ class ChatComposer extends StatelessWidget {
             child: TextFieldTapRegion(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (composerHeader != null) composerHeader!,
                   Row(

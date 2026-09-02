@@ -27,11 +27,26 @@ void main() {
 
   test('initial message handoff can be claimed only once', () {
     final cache = WorldLocationChatPageCache();
+    final catalog = ChatMentionCatalog(
+      locations: const <ChatMentionEntry>[
+        ChatMentionEntry(
+          id: 'loc_1',
+          name: 'Location',
+          type: ChatMentionType.location,
+        ),
+      ],
+    );
 
-    cache.queueInitialMessageToSend('loc_1', 'Hello after launch');
+    cache.queueInitialMessageToSend(
+      'loc_1',
+      '@Location<loc_1>',
+      mentionCatalog: catalog,
+    );
 
-    expect(cache.takeInitialMessageToSend('loc_1'), 'Hello after launch');
+    expect(cache.takeInitialMessageToSend('loc_1'), '@Location<loc_1>');
     expect(cache.takeInitialMessageToSend('loc_1'), isEmpty);
+    expect(cache.takeInitialMentionCatalog('loc_1'), same(catalog));
+    expect(cache.takeInitialMentionCatalog('loc_1'), isNull);
   });
 
   test('descriptor uses the XL background URL for both CDN sizes', () {

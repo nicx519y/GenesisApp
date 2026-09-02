@@ -27,6 +27,7 @@ import '../network/chatroom/chatroom_connection_controller.dart';
 import '../network/chatroom/world_chatroom_service.dart';
 import '../network/models/world.dart';
 import '../components/discuss/origin_discuss_list.dart';
+import '../components/chat/shared/chat_ui.dart';
 
 sealed class RouteNames {
   static const shell = '/';
@@ -235,6 +236,7 @@ class _WorldRouteArgs {
     required this.initialName,
     required this.initialLocationId,
     required this.initialMessageToSend,
+    this.initialMentionCatalog,
     required this.initialDefinitionVersion,
     required this.initialMapLocationId,
   });
@@ -270,6 +272,10 @@ class _WorldRouteArgs {
         'initial_message_to_send',
         'initialMessageToSend',
       ]),
+      initialMentionCatalog: args.typed<ChatMentionCatalog>(const [
+        'initial_mention_catalog',
+        'initialMentionCatalog',
+      ]),
       initialDefinitionVersion: args.integer(const [
         'initial_definition_version',
         'initialDefinitionVersion',
@@ -288,6 +294,7 @@ class _WorldRouteArgs {
   final String initialName;
   final String initialLocationId;
   final String initialMessageToSend;
+  final ChatMentionCatalog? initialMentionCatalog;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
 }
@@ -563,6 +570,7 @@ sealed class AppRouter {
             initialName: args.initialName,
             initialLocationId: args.initialLocationId,
             initialMessageToSend: args.initialMessageToSend,
+            initialMentionCatalog: args.initialMentionCatalog,
             initialDefinitionVersion: args.initialDefinitionVersion,
             initialMapLocationId: args.initialMapLocationId,
           ),

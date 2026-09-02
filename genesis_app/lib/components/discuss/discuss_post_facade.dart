@@ -12,6 +12,7 @@ class DiscussPostInput extends StatefulWidget {
     this.imageUploader,
     this.onSubmitted,
     this.requireLogin = true,
+    this.showImagePickerButton = false,
   });
 
   final String bizId;
@@ -23,6 +24,7 @@ class DiscussPostInput extends StatefulWidget {
   final DiscussImageUploader? imageUploader;
   final VoidCallback? onSubmitted;
   final bool requireLogin;
+  final bool showImagePickerButton;
 
   @override
   State<DiscussPostInput> createState() => _DiscussPostInputState();
@@ -37,6 +39,7 @@ Future<bool> showDiscussPostComposer({
   DiscussImageUploader? imageUploader,
   DiscussImageProgressUploader? imageProgressUploader,
   bool requireLogin = true,
+  bool showImagePickerButton = false,
 }) async {
   if (requireLogin && !await ensureGenesisLogin(context)) return false;
   if (!context.mounted) return false;
@@ -94,6 +97,7 @@ Future<bool> showDiscussPostComposer({
                     return url;
                   }
                 : null),
+        showImagePickerButton: showImagePickerButton,
         onSubmit: (content, images) async {
           await submitter(content, images);
         },
@@ -121,6 +125,7 @@ class _DiscussPostInputState extends State<DiscussPostInput> {
           : null,
       submitter: _submit,
       requireLogin: widget.requireLogin,
+      showImagePickerButton: widget.showImagePickerButton,
     );
 
     _composerOpen = false;

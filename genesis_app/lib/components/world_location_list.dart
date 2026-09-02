@@ -10,6 +10,7 @@ import '../ui/components/genesis_list_image.dart';
 import '../ui/tokens/genesis_image_radii.dart';
 import '../utils/genesis_image_resource.dart';
 import 'world_details_shell.dart';
+import 'world_new_badge.dart';
 import 'world_point.dart';
 
 const String _locationDefaultImageAsset =
@@ -624,6 +625,14 @@ class _PointListItem extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (point.isNew) ...[
+                        const SizedBox(width: 6),
+                        WorldNewBadge(
+                          key: ValueKey<String>(
+                            'world-location-new-badge-${point.id}',
+                          ),
+                        ),
+                      ],
                       if (showRecentChatIcon) ...[
                         const SizedBox(width: 5),
                         const RecentChatIcon(),
@@ -677,6 +686,12 @@ class _NodeHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (point.isNew) ...[
+              const SizedBox(width: 6),
+              WorldNewBadge(
+                key: ValueKey<String>('world-location-new-badge-${point.id}'),
+              ),
+            ],
             if (showRecentChatIcon) ...[
               const SizedBox(width: 5),
               const RecentChatIcon(),
@@ -739,6 +754,14 @@ class _LocationCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (point.isNew) ...[
+                        const SizedBox(width: 6),
+                        WorldNewBadge(
+                          key: ValueKey<String>(
+                            'world-location-new-badge-${point.id}',
+                          ),
+                        ),
+                      ],
                       if (showRecentChatIcon) ...[
                         const SizedBox(width: 5),
                         const RecentChatIcon(),
@@ -801,31 +824,29 @@ class _PointCharacterGroups extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aiNames = users
+    final aiUsers = users
         .where((user) => user.showStar)
-        .map(_characterName)
-        .where((name) => name.isNotEmpty)
+        .where((user) => _characterName(user).isNotEmpty)
         .toList(growable: false);
-    final nonAiNames = users
+    final nonAiUsers = users
         .where((user) => !user.showStar)
-        .map(_characterName)
-        .where((name) => name.isNotEmpty)
+        .where((user) => _characterName(user).isNotEmpty)
         .toList(growable: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (aiNames.isNotEmpty)
+        if (aiUsers.isNotEmpty)
           _PointCharacterGroupRow(
             iconAsset: characterStatIconAsset,
-            names: aiNames,
+            users: aiUsers,
           ),
-        if (aiNames.isNotEmpty && nonAiNames.isNotEmpty)
+        if (aiUsers.isNotEmpty && nonAiUsers.isNotEmpty)
           const SizedBox(height: 2),
-        if (nonAiNames.isNotEmpty)
+        if (nonAiUsers.isNotEmpty)
           _PointCharacterGroupRow(
-            iconAsset: userStatIconAsset,
-            names: nonAiNames,
+            iconAsset: characterStatIconAsset,
+            users: nonAiUsers,
           ),
       ],
     );
@@ -837,10 +858,10 @@ class _PointCharacterGroups extends StatelessWidget {
 }
 
 class _PointCharacterGroupRow extends StatelessWidget {
-  const _PointCharacterGroupRow({required this.iconAsset, required this.names});
+  const _PointCharacterGroupRow({required this.iconAsset, required this.users});
 
   final String iconAsset;
-  final List<String> names;
+  final List<UserAvatar> users;
 
   @override
   Widget build(BuildContext context) {
@@ -858,16 +879,13 @@ class _PointCharacterGroupRow extends StatelessWidget {
               height: 12,
               fit: BoxFit.contain,
               excludeFromSemantics: true,
-              colorFilter: iconAsset == userStatIconAsset
-                  ? const ColorFilter.mode(Colors.black, BlendMode.srcIn)
-                  : null,
             ),
           ),
         ),
         const SizedBox(width: 4),
         Expanded(
-          child: Text(
-            names.join(', '),
+          child: Text.rich(
+            TextSpan(children: _characterSpans()),
             style: const TextStyle(
               fontSize: 12,
               height: 1.2,
@@ -880,6 +898,34 @@ class _PointCharacterGroupRow extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  List<InlineSpan> _characterSpans() {
+    final spans = <InlineSpan>[];
+    for (var index = 0; index < users.length; index += 1) {
+      final user = users[index];
+      final name = (user.name ?? user.initials).trim();
+      spans.add(TextSpan(text: name));
+      if (user.isNew) {
+        final stableId = user.id.trim().isNotEmpty ? user.id.trim() : name;
+        spans
+          ..add(const WidgetSpan(child: SizedBox(width: 4)))
+          ..add(
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: WorldNewBadge(
+                key: ValueKey<String>(
+                  'world-location-character-new-badge-$stableId',
+                ),
+              ),
+            ),
+          );
+      }
+      if (index < users.length - 1) {
+        spans.add(const TextSpan(text: ', '));
+      }
+    }
+    return spans;
   }
 }
 

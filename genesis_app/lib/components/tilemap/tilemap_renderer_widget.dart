@@ -16,6 +16,7 @@ class TilemapRenderer extends StatefulWidget {
     this.locationAvatarsForTile,
     this.showRecentChatForTile,
     this.showEventForTile,
+    this.showNewForTile,
     this.preferredFocusLocationId = '',
     this.centerContentInitially = false,
     this.messageBubbles = const <WorldMapMessageBubble>[],
@@ -53,6 +54,7 @@ class TilemapRenderer extends StatefulWidget {
   final TilemapLocationAvatarsResolver? locationAvatarsForTile;
   final TilemapRecentChatResolver? showRecentChatForTile;
   final TilemapEventResolver? showEventForTile;
+  final TilemapNewLocationResolver? showNewForTile;
   final String preferredFocusLocationId;
   final bool centerContentInitially;
   final List<WorldMapMessageBubble> messageBubbles;
@@ -399,6 +401,8 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                 showEvent:
                                     widget.showEventForTile?.call(tile) ??
                                     false,
+                                showNew:
+                                    widget.showNewForTile?.call(tile) ?? false,
                               ),
                             );
                           }
@@ -621,6 +625,11 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                           avatars: label.avatars,
                                           showRecentChat: label.showRecentChat,
                                           showEvent: label.showEvent,
+                                          showNew: label.showNew,
+                                          newBadgeKey: ValueKey<String>(
+                                            'tilemap-location-new-badge-'
+                                            '${label.tile.x}-${label.tile.y}',
+                                          ),
                                           onLabelTap:
                                               widget.onTileAction == null
                                               ? null

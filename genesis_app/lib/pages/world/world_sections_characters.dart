@@ -163,6 +163,7 @@ class WorldCharacterRow extends StatelessWidget {
       playerDeleted: playerDeleted,
     );
     final isCharacterRole = worldIsCharacterRole(character);
+    final isNew = shouldMarkWorldContentAsNew(asBool(character['is_new']));
     final roleLabel = isCharacterRole ? 'Character' : 'Player';
     final showAiCharacterDetails = showCharacterDetails && isCharacterRole;
     final identity = worldMapString(character, const ['identity']);
@@ -203,27 +204,42 @@ class WorldCharacterRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(
-                      child: Text.rich(
-                        TextSpan(
-                          text: name,
-                          children: [
-                            if (suffix.isNotEmpty)
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: Text.rich(
                               TextSpan(
-                                text: ' $suffix',
-                                style: const TextStyle(
-                                  color: Color(0xFF888888),
-                                ),
+                                text: name,
+                                children: [
+                                  if (suffix.isNotEmpty)
+                                    TextSpan(
+                                      text: ' $suffix',
+                                      style: const TextStyle(
+                                        color: Color(0xFF888888),
+                                      ),
+                                    ),
+                                ],
                               ),
+                              style: const TextStyle(
+                                fontSize: 14,
+                                height: 1.15,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isNew) ...[
+                            const SizedBox(width: 6),
+                            WorldNewBadge(
+                              key: ValueKey<String>(
+                                'world-character-new-badge-'
+                                '${worldMapString(character, const ['character_id', 'char_id', 'id'], fallback: name)}',
+                              ),
+                            ),
                           ],
-                        ),
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.15,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        ],
                       ),
                     ),
                     const SizedBox(width: 8),

@@ -1,5 +1,93 @@
 part of 'origin_world_page.dart';
 
+ChatUiStyleConfig get _originDetailSheetChatComposerStyle =>
+    kLocationChatStyle.copyWith(
+      composerBackgroundColor: originWorldDetailSheetBackgroundColor,
+      clearComposerBackgroundGradient: true,
+      composerBackdropBlurSigma: 0,
+      composerSendButtonColor: kLocationChatStyle.composerSendButtonColor,
+      composerSendButtonDisabledColor: GenesisColors.surface,
+      composerSendButtonIconColor: GenesisColors.textPrimary,
+      composerSendButtonBackdropBlurSigma: 0,
+      inputBackgroundColor: GenesisColors.surface,
+      inputBackdropBlurSigma: 0,
+      inputTextStyle: kLocationChatStyle.inputTextStyle.copyWith(
+        color: GenesisColors.textPrimary,
+      ),
+    );
+
+ChatUiStyleConfig get _originLocationChatLaunchComposerStyle =>
+    kLocationChatStyle.copyWith(
+      composerBackgroundColor: Colors.transparent,
+      clearComposerBackgroundGradient: true,
+    );
+
+const double _originLocationChatRolePillAvatarSize = 22;
+const double _originLocationChatRolePillHeight =
+    _originLocationChatRolePillAvatarSize + 12;
+const double _originLocationChatRoleInputGap = 4;
+const double _originLocationChatDockRoleOffsetY = -2;
+
+String _originLaunchChatLocationId(OriginDetail origin) {
+  final previewLocationId =
+      _originFirstInitialDialoguePreview(origin)?.locationId.trim() ?? '';
+  if (previewLocationId.isNotEmpty) return previewLocationId;
+
+  final initLocationId = origin.initLocationGroup?.locationId.trim() ?? '';
+  if (initLocationId.isNotEmpty) return initLocationId;
+
+  for (final character in origin.characters) {
+    final initialLocationId = character.initialLocationBusinessId.trim();
+    if (initialLocationId.isNotEmpty) return initialLocationId;
+  }
+  for (final location in origin.allLocations) {
+    final locationId = location.locationId.trim();
+    if (locationId.isNotEmpty && location.locations.isEmpty) {
+      return locationId;
+    }
+  }
+  for (final location in origin.allLocations) {
+    final locationId = location.locationId.trim();
+    if (locationId.isNotEmpty) return locationId;
+  }
+  return '';
+}
+
+ChatMentionCatalog _originLocationChatMentionCatalog(
+  OriginDetail origin, {
+  required String selectedRoleId,
+}) {
+  final normalizedSelectedRoleId = selectedRoleId.trim();
+  final characters = <ChatMentionEntry>[
+    for (final character in origin.characters)
+      if (_characterStableId(character).isNotEmpty &&
+          _characterStableId(character) != normalizedSelectedRoleId &&
+          character.name.trim().isNotEmpty)
+        ChatMentionEntry(
+          id: _characterStableId(character),
+          name: character.name.trim(),
+          type: ChatMentionType.character,
+          imageUrl: character.avatar,
+        ),
+  ];
+  final locationTree = origin.processedLocationTree;
+  final locations = <ChatMentionEntry>[
+    for (final node in locationTree.flattened)
+      if (node.children.isEmpty &&
+          node.id != originSyntheticRootLocationId &&
+          node.id.trim().isNotEmpty &&
+          node.value.name.trim().isNotEmpty)
+        ChatMentionEntry(
+          id: node.id.trim(),
+          name: node.value.name.trim(),
+          type: ChatMentionType.location,
+          subtitle:
+              locationTree.nodeById(node.parentId)?.value.name.trim() ?? '',
+        ),
+  ];
+  return ChatMentionCatalog(characters: characters, locations: locations);
+}
+
 extension _OriginWorldPageLocationChat on _OriginWorldPageState {
   void _handleCurrentTilemapLocationsChanged(
     String _,
@@ -25,6 +113,8 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
 
   Widget _buildLocationChatOverlay(OriginDetail origin) {
     final descriptor = _activeChatLocation;
+    final launchComposerStyle = _originLocationChatLaunchComposerStyle;
+    final launchRole = _locationChatRoleOption(origin);
     return Positioned.fill(
       child: LocationChatOverlayTransition(
         active: descriptor != null,
@@ -49,18 +139,41 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                   leaveOnInactive: false,
                   showMoreButton: false,
                   onBack: _closeLocationChat,
+                  composerTopOverlay: _OriginLocationChatRoleRegion(
+                    role: launchRole,
+                    enabled: !_launching,
+                    onTap: () => _selectLocationChatRole(origin),
+                    style: launchComposerStyle,
+                    foregroundColor: const Color(0xFFF4F3F6),
+                    mutedColor: const Color(0x99FFFFFF),
+                    backgroundColor: launchComposerStyle.inputBackgroundColor,
+                  ),
                   composerReplacement: _OriginLocationChatLaunchComposer(
                     key: ValueKey(
                       'origin-location-chat-composer-${descriptor.locationId}',
                     ),
                     launching: _launching,
-                    role: _locationChatRoleOption(origin),
-                    onSelectRole: () => _selectLocationChatRole(origin),
-                    onSend: (message) => _launchLocationChatMessage(
-                      origin,
-                      locationId: descriptor.locationId,
-                      message: message,
+                    role: launchRole,
+                    mentionCatalog: mergeLocationChatMentionCatalogs(
+                      _originLocationChatMentionCatalog(
+                        origin,
+                        selectedRoleId: launchRole.id,
+                      ),
+                      _pendingLocationChatLaunchMentionCatalog,
                     ),
+                    initialText: _pendingLocationChatLaunchMessage,
+                    onSelectRole: () => _selectLocationChatRole(origin),
+                    style: launchComposerStyle,
+                    showRoleSelector: false,
+                    roleBackgroundColor:
+                        launchComposerStyle.inputBackgroundColor,
+                    onSend: (message, mentionCatalog) =>
+                        _launchLocationChatMessage(
+                          origin,
+                          locationId: descriptor.locationId,
+                          message: message,
+                          mentionCatalog: mentionCatalog,
+                        ),
                   ),
                 ),
               ),
@@ -85,10 +198,11 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       }
     }
     final profileRole = _cachedProfileRole;
+    final profileName = profileRole?.name.trim() ?? '';
     return _OriginLocationChatRoleOption(
       id: _OriginWorldPageState._profileLocationChatRoleId,
-      name: 'Your Profile',
-      subtitle: profileRole?.name.trim() ?? '',
+      name: profileName.isEmpty ? 'Your Profile' : profileName,
+      subtitle: profileRole?.identity.trim() ?? '',
       avatarUrl: profileRole == null
           ? ''
           : _resolveAssetUrl(profileRole.avatarUrl),
@@ -99,11 +213,12 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     OriginDetail origin,
   ) {
     final profileRole = _cachedProfileRole;
+    final profileName = profileRole?.name.trim() ?? '';
     return <_OriginLocationChatRoleOption>[
       _OriginLocationChatRoleOption(
         id: _OriginWorldPageState._profileLocationChatRoleId,
-        name: 'Your Profile',
-        subtitle: profileRole?.name.trim() ?? '',
+        name: profileName.isEmpty ? 'Your Profile' : profileName,
+        subtitle: profileRole?.identity.trim() ?? '',
         avatarUrl: profileRole == null
             ? ''
             : _resolveAssetUrl(profileRole.avatarUrl),
@@ -126,36 +241,154 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
   Future<void> _selectLocationChatRole(OriginDetail origin) async {
     if (_launching) return;
     FocusManager.instance.primaryFocus?.unfocus();
+    final roles = _locationChatRoleOptions(origin);
     final roleId = await showGenesisModalBottomSheet<String>(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => _OriginLocationChatRolePicker(
-        roles: _locationChatRoleOptions(origin),
+        roles: roles,
         selectedRoleId: _locationChatRoleOption(origin).id,
+        onSelectRole: _precacheLocationChatRolePillAvatar,
       ),
     );
     if (!mounted || roleId == null || roleId == _selectedLocationChatRoleId) {
       return;
     }
+    final selectedRole = roles.where((role) => role.id == roleId).firstOrNull;
+    if (selectedRole != null) {
+      await _precacheLocationChatRolePillAvatar(selectedRole);
+    }
+    if (!mounted) return;
     _setLocationChatRoleId(roleId);
   }
 
-  Future<void> _launchLocationChatMessage(
+  Future<void> _precacheLocationChatRolePillAvatar(
+    _OriginLocationChatRoleOption role,
+  ) async {
+    if (!mounted || role.avatarUrl.trim().isEmpty) return;
+    final rawDevicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final resolvedUrl = selectGenesisImageUrl(
+      role.avatarUrl,
+      logicalWidth: _originLocationChatRolePillAvatarSize,
+      logicalHeight: _originLocationChatRolePillAvatarSize,
+      devicePixelRatio: rawDevicePixelRatio,
+    ).trim();
+    if (resolvedUrl.isEmpty) return;
+    final ImageProvider<Object> provider;
+    if (resolvedUrl.startsWith('assets/')) {
+      provider = AssetImage(resolvedUrl);
+    } else {
+      final devicePixelRatio = genesisImageDevicePixelRatio(
+        rawDevicePixelRatio,
+      );
+      final decodeSize = math.max(
+        1,
+        (_originLocationChatRolePillAvatarSize * devicePixelRatio).ceil(),
+      );
+      provider = GenesisStaticNetworkImageProvider(
+        imageUrl: resolvedUrl,
+        cacheWidth: decodeSize,
+        cacheHeight: decodeSize,
+        fit: BoxFit.cover,
+      );
+    }
+    try {
+      await precacheImage(
+        provider,
+        context,
+        onError: (error, stackTrace) {
+          debugPrint(
+            '[OriginWorldPage] role pill avatar precache failed '
+            'url="$resolvedUrl": $error',
+          );
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[OriginWorldPage] role pill avatar precache failed '
+        'url="$resolvedUrl": $error\n$stackTrace',
+      );
+    }
+  }
+
+  void _showLocationChatForLaunch(
     OriginDetail origin, {
     required String locationId,
     required String message,
+    required ChatMentionCatalog mentionCatalog,
+  }) {
+    final normalizedLocationId = locationId.trim();
+    if (normalizedLocationId.isEmpty) return;
+    final currentDescriptor = _activeChatLocation;
+    if (currentDescriptor?.locationId == normalizedLocationId) {
+      setState(() {
+        _pendingLocationChatLaunchMessage = message;
+        _pendingLocationChatLaunchMentionCatalog = mentionCatalog;
+      });
+      return;
+    }
+
+    final locationNode = origin.processedLocationTree.nodeById(
+      normalizedLocationId,
+    );
+    final location = locationNode?.value;
+    final openingPreviewMessages = _originLocationOpeningPreviewMessages(
+      origin,
+      <String>[normalizedLocationId],
+    );
+    final openingPreviewEntities = _originLocationOpeningPreviewEntities(
+      origin.characters,
+      openingPreviewMessages,
+      normalizedLocationId,
+    );
+    final imageUrl = location == null
+        ? ''
+        : firstNonEmpty(<String>[
+            location.imageResource.displayUrl,
+            location.icon,
+            location.mapUrl,
+          ]);
+    setState(() {
+      _pendingLocationChatLaunchMessage = message;
+      _pendingLocationChatLaunchMentionCatalog = mentionCatalog;
+      _activeChatLocation = _OriginLocationChatDescriptor(
+        originId: origin.oid,
+        locationId: normalizedLocationId,
+        locationName: location?.name.trim().isNotEmpty == true
+            ? location!.name.trim()
+            : normalizedLocationId,
+        backgroundImageUrl: imageUrl,
+        backgroundPreviewImageUrl: '',
+        isLeafLocation: locationNode?.children.isEmpty ?? true,
+        openingPreviewMessages: openingPreviewMessages,
+        openingPreviewEntities: openingPreviewEntities,
+      );
+    });
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_location_chat',
+      object1: origin.oid,
+      object2: normalizedLocationId,
+    );
+  }
+
+  Future<bool> _launchLocationChatMessage(
+    OriginDetail origin, {
+    required String locationId,
+    required String message,
+    required ChatMentionCatalog mentionCatalog,
   }) async {
-    if (_launching || message.trim().isEmpty) return;
-    if (!await ensureGenesisLogin(context) || !mounted) return;
+    if (_launching || message.trim().isEmpty) return false;
+    if (!await ensureGenesisLogin(context) || !mounted) return false;
 
     final selectedRoleId = _selectedLocationChatRoleId;
     OriginRoleLaunchSelection roleSelection;
     String telemetryRoleId;
     if (selectedRoleId == _OriginWorldPageState._profileLocationChatRoleId) {
       final profileRole = await _customRoleFromProfile();
-      if (!mounted || profileRole == null) return;
+      if (!mounted || profileRole == null) return false;
       roleSelection = OriginRoleLaunchSelection.custom(profileRole);
       telemetryRoleId = 'current_user';
     } else {
@@ -167,12 +400,19 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
         _setLocationChatRoleId(
           _OriginWorldPageState._profileLocationChatRoleId,
         );
-        return;
+        return false;
       }
       final characterId = _characterStableId(character);
       roleSelection = OriginRoleLaunchSelection.preset(characterId);
       telemetryRoleId = characterId;
     }
+
+    _showLocationChatForLaunch(
+      origin,
+      locationId: locationId,
+      message: message,
+      mentionCatalog: mentionCatalog,
+    );
 
     GenesisTelemetry.collectLog(
       actionType: 'event',
@@ -185,12 +425,20 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       action: 'worldo_launch_opening',
       object1: origin.oid,
     );
-    await _launchOrigin(
+    final launchedWorldId = await _launchOrigin(
       origin,
       roleSelection,
       initialLocationId: locationId,
       initialMessageToSend: message,
+      initialMentionCatalog: mentionCatalog,
     );
+    if (mounted && launchedWorldId == null) {
+      setState(() {
+        _pendingLocationChatLaunchMessage = message;
+        _pendingLocationChatLaunchMentionCatalog = mentionCatalog;
+      });
+    }
+    return launchedWorldId != null;
   }
 }
 
@@ -221,14 +469,33 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     super.key,
     required this.launching,
     required this.role,
+    required this.mentionCatalog,
     required this.onSelectRole,
     required this.onSend,
+    this.initialText = '',
+    this.style,
+    this.inputDockBackgroundColor,
+    this.showRoleSelector = true,
+    this.roleForegroundColor = const Color(0xFFF4F3F6),
+    this.roleMutedColor = const Color(0x99FFFFFF),
+    this.roleBackgroundColor = const Color(0xCC151517),
+    this.onInputDockHeightChanged,
   });
 
   final bool launching;
   final _OriginLocationChatRoleOption role;
+  final ChatMentionCatalog mentionCatalog;
   final VoidCallback onSelectRole;
-  final Future<void> Function(String message) onSend;
+  final Future<bool> Function(String message, ChatMentionCatalog mentionCatalog)
+  onSend;
+  final String initialText;
+  final ChatUiStyleConfig? style;
+  final Color? inputDockBackgroundColor;
+  final bool showRoleSelector;
+  final Color roleForegroundColor;
+  final Color roleMutedColor;
+  final Color roleBackgroundColor;
+  final ValueChanged<double>? onInputDockHeightChanged;
 
   @override
   State<_OriginLocationChatLaunchComposer> createState() =>
@@ -237,14 +504,35 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
 
 class _OriginLocationChatLaunchComposerState
     extends State<_OriginLocationChatLaunchComposer> {
-  final TextEditingController _controller = TextEditingController();
+  late final LocationChatMentionEditingController _controller;
   final FocusNode _focusNode = FocusNode();
   bool _hasText = false;
+  bool _mentionSheetOpen = false;
+  bool _mentionSheetSchedulePending = false;
 
   @override
   void initState() {
     super.initState();
+    _controller = LocationChatMentionEditingController(
+      catalog: widget.mentionCatalog,
+    );
+    if (widget.initialText.isNotEmpty) {
+      _controller.setSerializedText(widget.initialText);
+      _hasText = widget.initialText.trim().isNotEmpty;
+    }
     _controller.addListener(_handleTextChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _OriginLocationChatLaunchComposer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _controller.updateCatalog(widget.mentionCatalog);
+    final pendingMessage = widget.initialText;
+    if (pendingMessage != oldWidget.initialText &&
+        pendingMessage.isNotEmpty &&
+        _controller.serializedText.trim().isEmpty) {
+      _controller.setSerializedText(pendingMessage);
+    }
   }
 
   @override
@@ -256,35 +544,168 @@ class _OriginLocationChatLaunchComposerState
   }
 
   void _handleTextChanged() {
-    final hasText = _controller.text.trim().isNotEmpty;
+    final hasText = _controller.serializedText.trim().isNotEmpty;
+    final triggerOffset = _controller.takeInsertedAtOffset();
+    if (triggerOffset != null) {
+      _scheduleMentionSheet(triggerOffset);
+    }
     if (_hasText == hasText) return;
     setState(() => _hasText = hasText);
   }
 
-  Future<void> _send() async {
-    final message = _controller.text;
-    if (widget.launching || message.trim().isEmpty) return;
+  void _scheduleMentionSheet(int triggerOffset) {
+    if (_mentionSheetOpen || _mentionSheetSchedulePending) return;
+    _mentionSheetSchedulePending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mentionSheetSchedulePending = false;
+      if (!mounted || _mentionSheetOpen) return;
+      unawaited(_showMentionSheet(triggerOffset));
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _showMentionSheet(int triggerOffset) async {
+    if (_mentionSheetOpen ||
+        triggerOffset < 0 ||
+        triggerOffset >= _controller.text.length ||
+        _controller.text[triggerOffset] != '@') {
+      return;
+    }
+    setState(() => _mentionSheetOpen = true);
     _focusNode.unfocus();
-    await widget.onSend(message);
+    final selected = await showGenesisModalBottomSheet<ChatMentionEntry>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: false,
+      builder: (_) => LocationChatMentionSheet(catalog: _controller.catalog),
+    );
+    if (!mounted) return;
+    setState(() => _mentionSheetOpen = false);
+    if (selected != null) {
+      final triggerStillExists =
+          triggerOffset < _controller.text.length &&
+          _controller.text[triggerOffset] == '@';
+      final selection = _controller.selection;
+      final fallbackStart = selection.isValid
+          ? selection.start
+          : _controller.text.length;
+      final fallbackEnd = selection.isValid ? selection.end : fallbackStart;
+      _controller.insertMention(
+        selected,
+        replaceStart: triggerStillExists ? triggerOffset : fallbackStart,
+        replaceEnd: triggerStillExists ? triggerOffset + 1 : fallbackEnd,
+      );
+    }
+    _focusNode.requestFocus();
+  }
+
+  Future<void> _send() async {
+    final message = _controller.serializedText;
+    if (widget.launching || message.trim().isEmpty) return;
+    final mentionCatalog = _controller.composedMentionCatalog;
+    _focusNode.unfocus();
+    await widget.onSend(message, mentionCatalog);
   }
 
   @override
   Widget build(BuildContext context) {
-    return ChatComposer(
+    final style = widget.style ?? kLocationChatStyle;
+    final inputDockBackgroundColor = widget.inputDockBackgroundColor;
+    final sendEnabled = !widget.launching && _hasText;
+    final composerStyle = style.copyWith(
+      composerBackgroundColor:
+          inputDockBackgroundColor ?? style.composerBackgroundColor,
+      clearComposerBackgroundGradient: inputDockBackgroundColor != null,
+      composerSendButtonIconColor: widget.launching || _hasText
+          ? kLocationChatStyle.composerSendButtonIconColor
+          : style.composerSendButtonIconColor,
+      composerPadding: style.composerPadding.copyWith(
+        top: _originLocationChatRoleInputGap,
+      ),
+    );
+    final composer = LocationChatComposerInput(
       controller: _controller,
       focusNode: _focusNode,
       hintText: 'Text...',
       inputEnabled: !widget.launching,
-      sendEnabled: !widget.launching && _hasText,
+      sendEnabled: sendEnabled,
       sending: widget.launching,
       onSend: _send,
-      composerHeader: _OriginLocationChatRoleSelector(
+      onHeightChanged: widget.onInputDockHeightChanged,
+      composerHeader: null,
+      style: composerStyle,
+    );
+    final Widget content;
+    if (!widget.showRoleSelector) {
+      content = composer;
+    } else {
+      final roleRegion = _OriginLocationChatRoleRegion(
         role: widget.role,
         enabled: !widget.launching,
         onTap: widget.onSelectRole,
+        style: style,
+        foregroundColor: widget.roleForegroundColor,
+        mutedColor: widget.roleMutedColor,
+        backgroundColor: widget.roleBackgroundColor,
+      );
+      content = Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [roleRegion, composer],
+      );
+    }
+    return content;
+  }
+}
+
+class _OriginLocationChatRoleRegion extends StatelessWidget {
+  const _OriginLocationChatRoleRegion({
+    required this.role,
+    required this.enabled,
+    required this.onTap,
+    required this.style,
+    required this.foregroundColor,
+    required this.mutedColor,
+    required this.backgroundColor,
+  });
+
+  final _OriginLocationChatRoleOption role;
+  final bool enabled;
+  final VoidCallback onTap;
+  final ChatUiStyleConfig style;
+  final Color foregroundColor;
+  final Color mutedColor;
+  final Color backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final roleSelector = _OriginLocationChatRoleSelector(
+      role: role,
+      enabled: enabled,
+      onTap: onTap,
+      foregroundColor: foregroundColor,
+      mutedColor: mutedColor,
+      backgroundColor: backgroundColor,
+      backdropBlurSigma: style.inputBackdropBlurSigma,
+    );
+    return ColoredBox(
+      key: const ValueKey<String>('origin-location-chat-role-region'),
+      color: Colors.transparent,
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: style.composerPadding.left,
+          top: style.composerPadding.top,
+          right: style.composerPadding.right,
+        ),
+        child: Transform.translate(
+          key: const ValueKey<String>(
+            'origin-location-chat-dock-role-translation',
+          ),
+          offset: const Offset(0, _originLocationChatDockRoleOffsetY),
+          child: roleSelector,
+        ),
       ),
-      sendIcon: ChatComposerSendIcon.arrowUp,
-      style: kLocationChatStyle,
     );
   }
 }
@@ -309,32 +730,41 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
     required this.role,
     required this.enabled,
     required this.onTap,
+    required this.foregroundColor,
+    required this.mutedColor,
+    required this.backgroundColor,
+    required this.backdropBlurSigma,
   });
 
   final _OriginLocationChatRoleOption role;
   final bool enabled;
   final VoidCallback onTap;
+  final Color foregroundColor;
+  final Color mutedColor;
+  final Color backgroundColor;
+  final double backdropBlurSigma;
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      button: true,
-      label: 'Select Your Role',
+    final pill = Material(
+      key: const ValueKey<String>('origin-location-chat-role-pill'),
+      color: backgroundColor,
+      borderRadius: BorderRadius.circular(999),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
         key: const ValueKey<String>('origin-location-chat-role-selector'),
         onTap: enabled ? onTap : null,
-        borderRadius: BorderRadius.circular(8),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(10, 0, 8, 8),
+          padding: const EdgeInsets.fromLTRB(7, 6, 8, 6),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               GenesisCharacterAvatar(
                 url: role.avatarUrl,
                 name: role.name,
-                size: 22,
+                size: _originLocationChatRolePillAvatarSize,
                 borderRadius: 6,
-                showFallbackWhileLoading: true,
+                showFallbackWhileLoading: false,
               ),
               const SizedBox(width: 7),
               Flexible(
@@ -345,8 +775,8 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFFF4F3F6),
+                  style: TextStyle(
+                    color: foregroundColor,
                     fontSize: 12,
                     height: 1.2,
                     fontWeight: FontWeight.w600,
@@ -354,27 +784,82 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 2),
-              const Icon(
+              Icon(
                 Icons.keyboard_arrow_down_rounded,
                 size: 17,
-                color: Color(0x99FFFFFF),
+                color: mutedColor,
               ),
             ],
           ),
         ),
       ),
     );
+    return Semantics(
+      button: true,
+      label: 'Select Your Role',
+      child: backdropBlurSigma <= 0
+          ? pill
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: BackdropFilter(
+                key: const ValueKey<String>(
+                  'origin-location-chat-role-pill-backdrop',
+                ),
+                filterConfig: ImageFilterConfig.blur(
+                  sigmaX: backdropBlurSigma,
+                  sigmaY: backdropBlurSigma,
+                  bounded: false,
+                ),
+                child: pill,
+              ),
+            ),
+    );
   }
 }
 
-class _OriginLocationChatRolePicker extends StatelessWidget {
+class _OriginLocationChatRolePicker extends StatefulWidget {
   const _OriginLocationChatRolePicker({
     required this.roles,
     required this.selectedRoleId,
+    required this.onSelectRole,
   });
 
   final List<_OriginLocationChatRoleOption> roles;
   final String selectedRoleId;
+  final Future<void> Function(_OriginLocationChatRoleOption role) onSelectRole;
+
+  @override
+  State<_OriginLocationChatRolePicker> createState() =>
+      _OriginLocationChatRolePickerState();
+}
+
+class _OriginLocationChatRolePickerState
+    extends State<_OriginLocationChatRolePicker> {
+  static const Duration _selectionFeedbackDuration = Duration(
+    milliseconds: 180,
+  );
+
+  late String _selectedRoleId;
+  bool _selectionPending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRoleId = widget.selectedRoleId;
+  }
+
+  Future<void> _selectRole(_OriginLocationChatRoleOption role) async {
+    if (_selectionPending) return;
+    setState(() {
+      _selectedRoleId = role.id;
+      _selectionPending = true;
+    });
+    await Future.wait<void>([
+      widget.onSelectRole(role),
+      Future<void>.delayed(_selectionFeedbackDuration),
+    ]);
+    if (mounted) Navigator.of(context).pop(role.id);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -411,81 +896,101 @@ class _OriginLocationChatRolePicker extends StatelessWidget {
               ),
             ),
             Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
-                itemCount: roles.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 4),
-                itemBuilder: (context, index) {
-                  final role = roles[index];
-                  final selected = role.id == selectedRoleId;
-                  return InkWell(
-                    key: ValueKey<String>(
-                      'origin-location-chat-role-option-${role.id}',
-                    ),
-                    onTap: () => Navigator.of(context).pop(role.id),
-                    borderRadius: BorderRadius.circular(14),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 160),
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: selected
-                            ? GenesisColors.surfacePanel
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                          color: selected
-                              ? GenesisColors.borderStrong
-                              : Colors.transparent,
-                        ),
+              child: GenesisBottomSheetDragDismissArea(
+                key: const ValueKey<String>(
+                  'origin-location-chat-role-dismiss-area',
+                ),
+                onDismiss: () => Navigator.of(context).pop(),
+                child: ListView.separated(
+                  key: const ValueKey<String>('origin-location-chat-role-list'),
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                  itemCount: widget.roles.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 4),
+                  itemBuilder: (context, index) {
+                    final role = widget.roles[index];
+                    final selected = role.id == _selectedRoleId;
+                    final deselectingPreviousRole =
+                        _selectionPending &&
+                        role.id == widget.selectedRoleId &&
+                        !selected;
+                    return InkWell(
+                      key: ValueKey<String>(
+                        'origin-location-chat-role-option-${role.id}',
                       ),
-                      child: Row(
-                        children: [
-                          GenesisCharacterAvatar(
-                            url: role.avatarUrl,
-                            name: role.name,
-                            size: 42,
-                            borderRadius: 11,
-                            showFallbackWhileLoading: true,
+                      onTap: _selectionPending ? null : () => _selectRole(role),
+                      borderRadius: BorderRadius.circular(14),
+                      child: AnimatedContainer(
+                        key: ValueKey<String>(
+                          'origin-location-chat-role-option-surface-${role.id}',
+                        ),
+                        duration: deselectingPreviousRole
+                            ? Duration.zero
+                            : const Duration(milliseconds: 160),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? GenesisColors.surfacePanel
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(
+                            color: selected
+                                ? GenesisColors.borderStrong
+                                : Colors.transparent,
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  role.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: GenesisTypography.bodyStrong,
-                                ),
-                                if (role.subtitle.isNotEmpty) ...[
-                                  const SizedBox(height: 2),
+                        ),
+                        child: Row(
+                          children: [
+                            GenesisCharacterAvatar(
+                              url: role.avatarUrl,
+                              name: role.name,
+                              size: 42,
+                              borderRadius: 11,
+                              showFallbackWhileLoading: true,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Text(
-                                    role.subtitle,
+                                    role.name,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: GenesisTypography.supporting,
+                                    style: GenesisTypography.bodyStrong,
                                   ),
+                                  if (role.subtitle.isNotEmpty) ...[
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      role.subtitle,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GenesisTypography.supporting,
+                                    ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Icon(
-                            selected
-                                ? Icons.check_circle_rounded
-                                : Icons.circle_outlined,
-                            size: 22,
-                            color: selected
-                                ? GenesisColors.textPrimary
-                                : GenesisColors.borderStrong,
-                          ),
-                        ],
+                            const SizedBox(width: 12),
+                            Icon(
+                              key: ValueKey<String>(
+                                'origin-location-chat-role-option-indicator-'
+                                '${role.id}',
+                              ),
+                              selected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.circle_outlined,
+                              size: 22,
+                              color: selected
+                                  ? GenesisColors.textPrimary
+                                  : GenesisColors.borderStrong,
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ],

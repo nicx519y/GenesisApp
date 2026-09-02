@@ -375,6 +375,10 @@ extension _WorldPageLocationChat on _WorldPageState {
       return true;
     }
     if (currentWorld.isProgressing != nextWorld.isProgressing) return true;
+    if (_worldNewContentStateSignature(currentWorld) !=
+        _worldNewContentStateSignature(nextWorld)) {
+      return true;
+    }
     if (_worldPositionsSignature(currentWorld) !=
         _worldPositionsSignature(nextWorld)) {
       return true;
@@ -768,4 +772,67 @@ extension _WorldPageLocationChat on _WorldPageState {
       'cached': _locationChatPageCache.hasPanel(descriptor.locationId),
     };
   }
+}
+
+String _worldNewContentStateSignature(WorldDetail world) {
+  final parts = <String>[];
+  for (final location in world.locations) {
+    parts.add(
+      [
+        'location',
+        worldMapString(location, const ['location_id', 'point_id', 'id']),
+        _worldNewContentFlag(location['is_new']) ? '1' : '0',
+      ].join('\u001f'),
+    );
+  }
+  for (final character in world.characters) {
+    parts.add(
+      [
+        'character',
+        worldMapString(character, const [
+          'character_id',
+          'char_id',
+          'id',
+          'player_uid',
+        ]),
+        _worldNewContentFlag(character['is_new']) ? '1' : '0',
+      ].join('\u001f'),
+    );
+  }
+  for (final position in world.characterPositions) {
+    final rawCharacter = position['character'];
+    final character = rawCharacter is Map
+        ? rawCharacter.map((key, value) => MapEntry('$key', value))
+        : position;
+    parts.add(
+      [
+        'character_position',
+        worldMapString(character, const [
+          'character_id',
+          'char_id',
+          'id',
+          'player_uid',
+        ]),
+        _worldNewContentFlag(character['is_new']) ? '1' : '0',
+      ].join('\u001f'),
+    );
+  }
+  parts.sort();
+  return parts.join('\u001e');
+}
+
+bool _worldNewContentFlag(Object? value) {
+  if (value is bool) return value;
+  if (value is num) return value != 0;
+  if (value is String) return value.trim().toLowerCase() == 'true';
+  return false;
+}
+
+@visibleForTesting
+bool worldNewContentStateChangedForTesting(
+  WorldDetail currentWorld,
+  WorldDetail nextWorld,
+) {
+  return _worldNewContentStateSignature(currentWorld) !=
+      _worldNewContentStateSignature(nextWorld);
 }

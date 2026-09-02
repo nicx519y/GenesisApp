@@ -1025,7 +1025,7 @@ void main() {
   );
 
   testWidgets(
-    'Tilemap ignores stale image failure after the load plan changes',
+    'Tilemap ignores stale image failure after the auto zoom plan changes',
     (tester) async {
       final pendingLoads = <String, Completer<void>>{};
 
@@ -1053,7 +1053,7 @@ void main() {
       await tester.pump();
 
       final firstLoad = pendingLoads.entries.single;
-      expect(firstLoad.key, contains('resize,w_512'));
+      expect(firstLoad.key, contains('resize,w_256'));
 
       await tester.tap(
         find.byKey(const ValueKey<String>('tilemap-settings-button')),
@@ -1062,17 +1062,23 @@ void main() {
       tester
           .widget<Slider>(
             find.byKey(
-              const ValueKey<String>('tilemap-settings-initial-scale'),
+              const ValueKey<String>('tilemap-settings-nearby-location-scale'),
             ),
           )
-          .onChanged!(5);
+          .onChanged!(20);
+      tester
+          .widget<Slider>(
+            find.byKey(
+              const ValueKey<String>('tilemap-settings-distant-location-scale'),
+            ),
+          )
+          .onChanged!(16);
       await tester.pump();
       await tester.pump();
 
       expect(pendingLoads, hasLength(2));
-      final currentLoad = pendingLoads.entries.singleWhere(
-        (entry) => entry.key.contains('resize,w_128'),
-      );
+      final currentLoad = pendingLoads.entries.last;
+      expect(currentLoad.key, isNot(firstLoad.key));
       firstLoad.value.completeError(StateError('stale image failure'));
       await tester.pump();
       await tester.pump();
@@ -1099,7 +1105,6 @@ void main() {
     'Tilemap reset to Off invalidates an in-flight loading-screen image',
     (tester) async {
       final cachedSettings = TilemapRenderSettings.defaults().toJson()
-        ..['initial_scale'] = 5.0
         ..['loading_style'] = TilemapLoadingStyle.minimalProgress.name;
       SharedPreferences.setMockInitialValues(<String, Object>{
         TilemapSettingsButtonVisibilityController.storageKey: true,
@@ -1130,8 +1135,8 @@ void main() {
       await tester.pump();
       await tester.pump();
 
-      final oldScaleLoad = pendingLoads.entries.single;
-      expect(oldScaleLoad.key, contains('resize,w_128'));
+      final pendingLoad = pendingLoads.entries.single;
+      expect(pendingLoad.key, contains('resize,w_256'));
 
       await tester.tap(
         find.byKey(const ValueKey<String>('tilemap-settings-button')),
@@ -1150,7 +1155,7 @@ void main() {
       );
       expect(_liveTilemapRendererFinder(), findsOneWidget);
 
-      oldScaleLoad.value.complete();
+      pendingLoad.value.complete();
       await tester.pump();
       await tester.pump();
 
@@ -1247,14 +1252,36 @@ void main() {
           );
       expect(loadingStyleDropdown.value, TilemapLoadingStyle.minimalProgress);
       loadingStyleDropdown.onChanged!(TilemapLoadingStyle.tileAssembly);
-      final initialScaleSlider = tester.widget<Slider>(
+      expect(
         find.byKey(const ValueKey<String>('tilemap-settings-initial-scale')),
+        findsNothing,
       );
-      expect(initialScaleSlider.value, 8);
-      expect(initialScaleSlider.min, 5);
-      expect(initialScaleSlider.max, 30);
-      expect(initialScaleSlider.divisions, 25);
-      initialScaleSlider.onChanged!(22);
+      final nearbyDistanceSlider = find.byKey(
+        const ValueKey<String>('tilemap-settings-nearby-location-distance'),
+      );
+      final distantDistanceSlider = find.byKey(
+        const ValueKey<String>('tilemap-settings-distant-location-distance'),
+      );
+      final nearbyScaleSlider = find.byKey(
+        const ValueKey<String>('tilemap-settings-nearby-location-scale'),
+      );
+      final distantScaleSlider = find.byKey(
+        const ValueKey<String>('tilemap-settings-distant-location-scale'),
+      );
+      expect(tester.widget<Slider>(nearbyDistanceSlider).value, 1);
+      expect(tester.widget<Slider>(distantDistanceSlider).value, 2.5);
+      final nearbyScale = tester.widget<Slider>(nearbyScaleSlider);
+      final distantScale = tester.widget<Slider>(distantScaleSlider);
+      expect(nearbyScale.value, 15);
+      expect(nearbyScale.min, 8);
+      expect(nearbyScale.max, 20);
+      expect(distantScale.value, 8);
+      expect(distantScale.min, 4);
+      expect(distantScale.max, 16);
+      tester.widget<Slider>(nearbyDistanceSlider).onChanged!(2);
+      tester.widget<Slider>(distantDistanceSlider).onChanged!(6);
+      tester.widget<Slider>(nearbyScaleSlider).onChanged!(20);
+      tester.widget<Slider>(distantScaleSlider).onChanged!(10);
       tester
           .widget<Slider>(
             find.byKey(
@@ -1423,7 +1450,10 @@ void main() {
         savedSettings.locationImageFlowBlendMode,
         TilemapLocationImageFlowBlendMode.overlay,
       );
-      expect(savedSettings.initialScale, 22);
+      expect(savedSettings.nearbyLocationInitialScale, 20);
+      expect(savedSettings.distantLocationInitialScale, 10);
+      expect(savedSettings.nearbyLocationDistanceTiles, 2);
+      expect(savedSettings.distantLocationDistanceTiles, 6);
       expect(savedSettings.dragBoundaryPaddingTiles, 7);
 
       transport.complete(_locationTilemapData('leaf', shadow: 1));
@@ -1464,7 +1494,7 @@ void main() {
         renderer.locationImageFlowBlendMode,
         TilemapLocationImageFlowBlendMode.overlay,
       );
-      expect(renderer.initialScale, 22);
+      expect(renderer.initialScale, 10);
       expect(renderer.dragBoundaryPaddingTiles, 7);
       expect(
         find.byKey(const ValueKey<String>('tilemap-grid')),
@@ -1987,7 +2017,10 @@ void main() {
       locationImageFlowOpacity: 0.6,
       locationImageFlowDurationSeconds: 5,
       locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
-      initialScale: 18,
+      nearbyLocationDistanceTiles: 1,
+      distantLocationDistanceTiles: 4,
+      nearbyLocationInitialScale: 18,
+      distantLocationInitialScale: 9,
       dragBoundaryPaddingTiles: 9,
     );
     await const TilemapSettingsStore().save(cachedSettings);
@@ -2024,7 +2057,13 @@ void main() {
       findsOneWidget,
     );
 
-    transport.complete(_locationTilemapData('leaf', shadow: 1));
+    transport.complete(
+      _tilemapData(
+        tileLocationIds: const ['leaf', 'leaf_2'],
+        assetName: 'tile',
+        shadow: 1,
+      ),
+    );
     await tester.pump();
     await tester.pump();
 

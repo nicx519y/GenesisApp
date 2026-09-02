@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
+import 'package:genesis_flutter_android/components/world_new_badge.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    worldNewContentDebugSettings.resetForTesting();
+  });
+
+  tearDown(worldNewContentDebugSettings.resetForTesting);
+
   testWidgets('World Detail and Status use role ownership avatar styling', (
     tester,
   ) async {
@@ -60,6 +70,126 @@ void main() {
         playerDeleted: false,
       ),
       isEmpty,
+    );
+  });
+
+  testWidgets('WorldCharacterRow robustly shows New beside the name', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                WorldCharacterRow(
+                  character: {
+                    'char_id': 'bool-new',
+                    'name': 'Bool New',
+                    'player_uid': '',
+                    'avatar': '',
+                    'is_new': true,
+                  },
+                  currentUid: 'user-self',
+                  subtitle: '',
+                  subtitleColor: Color(0xFF666666),
+                  showCharacterDetails: false,
+                ),
+                WorldCharacterRow(
+                  character: {
+                    'char_id': 'number-new',
+                    'name': 'Number New',
+                    'player_uid': '',
+                    'avatar': '',
+                    'is_new': 1,
+                  },
+                  currentUid: 'user-self',
+                  subtitle: '',
+                  subtitleColor: Color(0xFF666666),
+                  showCharacterDetails: false,
+                ),
+                WorldCharacterRow(
+                  character: {
+                    'char_id': 'string-new',
+                    'name': 'String New',
+                    'player_uid': '',
+                    'avatar': '',
+                    'is_new': 'true',
+                  },
+                  currentUid: 'user-self',
+                  subtitle: '',
+                  subtitleColor: Color(0xFF666666),
+                  showCharacterDetails: false,
+                ),
+                WorldCharacterRow(
+                  character: {
+                    'char_id': 'old',
+                    'name': 'Old Character',
+                    'player_uid': '',
+                    'avatar': '',
+                    'is_new': false,
+                  },
+                  currentUid: 'user-self',
+                  subtitle: '',
+                  subtitleColor: Color(0xFF666666),
+                  showCharacterDetails: false,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-bool-new')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('world-character-new-badge-bool-new')),
+      ),
+      const Size(WorldNewBadge.width, WorldNewBadge.height),
+    );
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-number-new')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-string-new')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-old')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('WorldCharacterRow honors the force-new debug override', (
+    tester,
+  ) async {
+    await worldNewContentDebugSettings.setForceNewBadges(true);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: WorldCharacterRow(
+            character: {
+              'char_id': 'server-old',
+              'name': 'Server Old',
+              'is_new': false,
+            },
+            currentUid: 'user-self',
+            subtitle: '',
+            subtitleColor: Color(0xFF666666),
+            showCharacterDetails: false,
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.byKey(const ValueKey('world-character-new-badge-server-old')),
+      findsOneWidget,
     );
   });
 }

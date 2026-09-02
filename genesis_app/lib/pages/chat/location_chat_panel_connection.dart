@@ -331,7 +331,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         _mySenderName = firstNonEmpty([_mySenderName, 'Me']);
       }
       if (_myUserId.isEmpty) _rememberMyUserId(_mySenderId);
-      await service.join(locationId: widget.locationId);
+      await service.join(
+        locationId: widget.locationId,
+        announceUserEntry: !_initialMessageSendPending,
+      );
       _joinedLocation = true;
       _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinDone');
@@ -615,14 +618,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
 
   void _handleChatroomState(WorldChatroomState state) {
     if (!mounted) return;
-    final mentionCatalogChanged = _textController.updateCatalog(
-      locationChatMentionCatalogForState(state),
-    );
+    final service = _service;
+    if (service != null) _syncSenderIdentity(service);
     if (state.joinedLocationId == widget.locationId) {
       _optimisticSelfOccupancy = false;
     }
-    final service = _service;
-    if (service != null) _syncSenderIdentity(service);
     if (widget.active &&
         (state.joinedLocationId == widget.locationId ||
             _optimisticSelfOccupancy)) {
@@ -662,6 +662,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final changedMessages = _reconcileMessages(
       nextSource,
       identityState: state,
+    );
+    final mentionCatalogChanged = _textController.updateCatalog(
+      _mentionCatalogForState(state),
     );
     final tickProgressResolved = _resolveTickProgressMessageIfAvailable();
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);

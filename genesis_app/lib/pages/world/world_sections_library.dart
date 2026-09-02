@@ -6,6 +6,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../components/ai_content_disclaimer.dart';
 import '../../components/chat/shared/chat_scene_plate_tokens.dart';
 import '../../components/common/copyable_id_label.dart';
@@ -13,7 +14,9 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/world_tick_event_item.dart';
+import '../../components/world_new_badge.dart';
 import '../../network/models/world.dart';
+import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';

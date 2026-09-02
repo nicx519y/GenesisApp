@@ -334,6 +334,48 @@ void main() {
     );
   });
 
+  testWidgets('world map renders new for locations but not character avatars', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const <WorldPoint>[
+        WorldPoint(
+          id: 'new-point',
+          name: 'New Gate',
+          type: WorldPointType.portal,
+          position: _pointPosition,
+          isNew: true,
+          users: <UserAvatar>[
+            UserAvatar('AA', id: 'new-character', name: 'Ada', isNew: true),
+          ],
+        ),
+      ],
+    );
+
+    final labelRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-label-new-point')),
+    );
+    final badgeRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('world-map-location-new-badge-new-point'),
+      ),
+    );
+    final dotRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-map-location-dot')),
+    );
+    expect(badgeRect.left, closeTo(labelRect.right + 3, 0.01));
+    expect(badgeRect.center.dy, closeTo(labelRect.center.dy, 0.01));
+    expect(labelRect.center.dx, closeTo(dotRect.center.dx, 0.01));
+    expect(
+      find.byKey(
+        const ValueKey<String>('world-map-avatar-new-badge-new-character'),
+      ),
+      findsNothing,
+    );
+  });
+
   testWidgets('world map renders generated avatar when avatar URL is empty', (
     tester,
   ) async {
@@ -1330,8 +1372,8 @@ void main() {
     expect(levelTwoTitle, findsOneWidget);
     expect(find.byType(Divider), findsNWidgets(2));
     expect(find.byIcon(Icons.place_outlined), findsNWidgets(3));
-    expect(_assetSvgFinder(characterStatIconAsset), findsOneWidget);
-    expect(_assetSvgFinder(userStatIconAsset), findsOneWidget);
+    expect(_assetSvgFinder(characterStatIconAsset), findsNWidgets(2));
+    expect(_assetSvgFinder(userStatIconAsset), findsNothing);
     expect(find.byIcon(Icons.schedule), findsNothing);
     expect(find.text('Ada, Bert'), findsOneWidget);
     expect(find.text('Cara, Drew'), findsOneWidget);

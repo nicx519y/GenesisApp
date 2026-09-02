@@ -17,6 +17,7 @@ import '../../app/debug_page_tracker.dart';
 import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/debug/origin_world_sheet_debug_settings.dart';
+import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_modal_routes.dart';
@@ -207,10 +208,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _savingTilemapSettingsButtonVisibility = false;
   bool _loadingOriginWorldSheetDebugSettings = kDebugMode;
   bool _savingOriginWorldSheetDebugSettings = false;
+  bool _loadingWorldNewContentDebugSettings = kDebugMode;
+  bool _savingWorldNewContentDebugSettings = false;
   final Set<TelemetryChannel> _savingTelemetryChannels = <TelemetryChannel>{};
   bool _showTilemapSettingsButton = tilemapSettingsButtonVisibility.value;
   bool _expandOriginWorldSheetOnEntry =
       originWorldSheetDebugSettings.expandOnEntry;
+  bool _forceWorldNewBadges = worldNewContentDebugSettings.forceNewBadges;
   bool _dailyCheckInPreviewClaimed = false;
   bool _loadingWorldHistoryAccess = true;
   bool _hasWorldHistoryAccess = false;
@@ -256,6 +260,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     unawaited(_loadTilemapSettingsButtonVisibility());
     if (kDebugMode) {
       unawaited(_loadOriginWorldSheetDebugSettings());
+      unawaited(_loadWorldNewContentDebugSettings());
     }
     unawaited(locationChatBubbleLayoutSettings.load());
     unawaited(locationChatHeaderEffectSettings.load());
@@ -349,6 +354,38 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } finally {
       if (mounted) {
         _updateState(() => _savingOriginWorldSheetDebugSettings = false);
+      }
+    }
+  }
+
+  Future<void> _loadWorldNewContentDebugSettings() async {
+    final enabled = await worldNewContentDebugSettings.load();
+    if (!mounted) return;
+    _updateState(() {
+      _forceWorldNewBadges = enabled;
+      _loadingWorldNewContentDebugSettings = false;
+    });
+  }
+
+  Future<void> _setWorldNewContentForceNewBadges(bool enabled) async {
+    if (_loadingWorldNewContentDebugSettings ||
+        _savingWorldNewContentDebugSettings) {
+      return;
+    }
+    final previousValue = _forceWorldNewBadges;
+    _updateState(() {
+      _forceWorldNewBadges = enabled;
+      _savingWorldNewContentDebugSettings = true;
+    });
+    try {
+      await worldNewContentDebugSettings.setForceNewBadges(enabled);
+    } catch (error) {
+      if (!mounted) return;
+      _updateState(() => _forceWorldNewBadges = previousValue);
+      showGenesisToast(context, 'Save failed: $error');
+    } finally {
+      if (mounted) {
+        _updateState(() => _savingWorldNewContentDebugSettings = false);
       }
     }
   }
@@ -723,6 +760,24 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           ),
         ),
         if (kDebugMode) ...[
+          const SizedBox(height: 18),
+          _DeveloperTestSectionPanel(
+            key: const ValueKey<String>('developer-world-force-new-panel'),
+            child: _DeveloperToggleRow(
+              sectionTitle: 'World',
+              label: 'Force is_new = true',
+              value: _forceWorldNewBadges,
+              enabled:
+                  !_loadingWorldNewContentDebugSettings &&
+                  !_savingWorldNewContentDebugSettings,
+              switchKey: const ValueKey<String>(
+                'developer-world-force-new-switch',
+              ),
+              onChanged: (value) {
+                unawaited(_setWorldNewContentForceNewBadges(value));
+              },
+            ),
+          ),
           const SizedBox(height: 18),
           _DeveloperTestSectionPanel(
             key: const ValueKey<String>('developer-origin-world-sheet-panel'),

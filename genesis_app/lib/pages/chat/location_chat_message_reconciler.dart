@@ -403,11 +403,16 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     final changed =
         _rememberMyUserId(uid) | _rememberMyUserId(cachedUid) | avatarChanged;
     if (!changed || !mounted) return;
+    final mentionCatalogChanged = _textController.updateCatalog(
+      _mentionCatalogForState(_chatroomState),
+    );
     final changedMessages = _reconcileMessages(
       _chatroomState.messagesByLocation[widget.locationId] ??
           const <WorldChatroomMessage>[],
     );
-    if (changedMessages && mounted) _setLocationChatState(() {});
+    if ((changedMessages || mentionCatalogChanged) && mounted) {
+      _setLocationChatState(() {});
+    }
   }
 
   bool _rememberMyUserId(String? userId) {

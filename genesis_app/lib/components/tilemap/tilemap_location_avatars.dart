@@ -99,35 +99,43 @@ class _TilemapLocationAvatar extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: GenesisCharacterAvatar(
-        url: avatar.avatarUrl,
-        name: (avatar.name ?? avatar.initials).trim(),
-        size: tilemapLocationAvatarSize,
-        borderRadius: GenesisAvatarRadii.character,
-        showStar: avatar.showStar,
-        showFallbackWhileLoading: false,
-        showFallbackWhenUnavailable: true,
-        maxDevicePixelRatio:
-            GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.26),
-            blurRadius: 10,
-            spreadRadius: 1,
-            offset: const Offset(0, 6),
-          ),
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.14),
-            blurRadius: 3,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: borderColor == null
-            ? null
-            : Border.all(
-                color: borderColor,
-                width: avatar.isPlayerControlledRole ? 2 : 1,
-              ),
+      child: SizedBox.square(
+        dimension: tilemapLocationAvatarSize,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            GenesisCharacterAvatar(
+              url: avatar.avatarUrl,
+              name: (avatar.name ?? avatar.initials).trim(),
+              size: tilemapLocationAvatarSize,
+              borderRadius: GenesisAvatarRadii.character,
+              showStar: avatar.showStar,
+              showFallbackWhileLoading: false,
+              showFallbackWhenUnavailable: true,
+              maxDevicePixelRatio:
+                  GenesisImageConfig.tilemapAvatarMaxDevicePixelRatio,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.26),
+                  blurRadius: 10,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 6),
+                ),
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.14),
+                  blurRadius: 3,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+              border: borderColor == null
+                  ? null
+                  : Border.all(
+                      color: borderColor,
+                      width: avatar.isPlayerControlledRole ? 2 : 1,
+                    ),
+            ),
+          ],
+        ),
       ),
     );
   }
