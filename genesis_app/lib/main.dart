@@ -64,6 +64,13 @@ Future<void> main() async {
     },
   );
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
+  // Resolve the upload policy and prepare the durable Collect queue as soon as
+  // the runtime endpoints are known. Firebase setup continues in the returned
+  // future after the cold-start records have been queued.
+  final telemetryRuntimeInitialization = TelemetryRuntimeController.initialize(
+    appConfig,
+    onCollectReady: AppStartupCoordinator.recordStartupFirstReport,
+  );
   final services = AppBootstrap.createInitialServices(config: appConfig);
   final initialTabFuture = _resolveInitialBottomTab(services);
   await Future.wait<Object?>(<Future<Object?>>[
@@ -73,13 +80,10 @@ Future<void> main() async {
     worldNewContentDebugSettingsLoad,
   ]);
   AppStartupCoordinator.recordLaunchLocalSettingsReady();
-  // Native Firebase collection is disabled for every build. Enable it only
-  // after the actual runtime endpoints and persisted debug override are known.
-  await TelemetryRuntimeController.initialize(appConfig);
+  await telemetryRuntimeInitialization;
   AppStartupCoordinator.recordLaunchTelemetryReady();
   final appGlobalConfigLoad = _loadAppGlobalConfig(services);
 
-  AppStartupCoordinator.recordStartupFirstReport();
   AppStartupCoordinator.configure();
   final initialTab = await initialTabFuture;
   if (initialTab.index == 1) {
