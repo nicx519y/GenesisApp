@@ -273,8 +273,6 @@ class _WorldUpdatePushBanner extends StatelessWidget {
       child: Material(
         key: const ValueKey<String>('world-update-push-banner'),
         color: const Color(0xFF1F1D24),
-        elevation: 10,
-        shadowColor: Colors.black.withValues(alpha: 0.32),
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
         child: InkWell(

@@ -85,6 +85,15 @@ void main() {
     final locationBannerRect = tester.getRect(
       find.byKey(const ValueKey<String>('world-update-push-banner')),
     );
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-shadow')),
+      findsNothing,
+    );
+    final bannerMaterial = tester.widget<Material>(
+      find.byKey(const ValueKey<String>('world-update-push-banner')),
+    );
+    expect(bannerMaterial.shape, isNull);
+    expect(bannerMaterial.borderRadius, BorderRadius.circular(12));
     final viewportWidth = tester.getSize(find.byType(Scaffold)).width;
     final locationDetailRect = tester.getRect(
       find.byKey(const ValueKey<String>('world-update-push-detail')),
