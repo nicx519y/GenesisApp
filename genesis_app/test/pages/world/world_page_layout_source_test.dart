@@ -224,13 +224,14 @@ void main() {
       contains('_buildSheetPage(kind, scrollController)'),
     );
     expect(singleSectionSheet, contains('snap: false'));
+    expect(singleSectionSheet, contains('shouldCloseOnMinExtent: false'));
     expect(singleSectionSheet, contains('onPointerUp: _handleSheetPointerEnd'));
     expect(
       singleSectionSheet,
       contains('onPointerCancel: _handleSheetPointerEnd'),
     );
     expect(singleSectionSheet, contains('worldCollapsedPanelHeightFor('));
-    expect(singleSectionSheet, contains('_collapseSnapRange = 0.04'));
+    expect(singleSectionSheet, contains('_collapseSnapThreshold = 0.5'));
     expect(
       singleSectionSheet,
       isNot(contains('GenesisBottomSheetDragDismissArea(')),

@@ -24714,7 +24714,9 @@ void main() {
     final settleBackGesture = await tester.startGesture(
       tester.getCenter(detailList),
     );
-    await settleBackGesture.moveBy(const Offset(0, 300));
+    await settleBackGesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await settleBackGesture.moveBy(const Offset(0, 180));
     await tester.pump(const Duration(seconds: 1));
     await settleBackGesture.up();
     await tester.pumpAndSettle();
@@ -24736,7 +24738,27 @@ void main() {
         1,
       ),
     );
-    await tester.drag(detailList, const Offset(0, 500));
+    final collapseGesture = await tester.startGesture(
+      tester.getCenter(detailList),
+    );
+    await collapseGesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    final collapseTargetExtent = (draggableSheet.minChildSize + 0.5) / 2;
+    final draggableHostHeight = tester
+        .getSize(find.byType(DraggableScrollableSheet))
+        .height;
+    await collapseGesture.moveBy(
+      Offset(
+        0,
+        (draggableSheet.controller!.size - collapseTargetExtent) *
+            draggableHostHeight,
+      ),
+    );
+    await tester.pump();
+    expect(draggableSheet.controller!.size, lessThan(0.5));
+    await collapseGesture.up();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(sheet, findsOneWidget);
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey<String>('world-single-section-bottom-sheet')),

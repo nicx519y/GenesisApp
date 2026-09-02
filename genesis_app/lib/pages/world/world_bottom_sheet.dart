@@ -192,8 +192,8 @@ class WorldSingleSectionBottomSheetState
     extends State<WorldSingleSectionBottomSheet> {
   static const int _eventsPageSize = 20;
   static const double _extentUpdateEpsilon = 0.001;
-  // Keep the collapse decision close to the World page's real collapsed panel.
-  static const double _collapseSnapRange = 0.04;
+  // Collapse once the sheet's top edge has crossed the middle of the screen.
+  static const double _collapseSnapThreshold = 0.5;
   static const _snapAnimationDuration = Duration(milliseconds: 260);
 
   late final DraggableScrollableController _sheetController;
@@ -654,47 +654,54 @@ class WorldSingleSectionBottomSheetState
 
   void _settleSheetFromCurrentExtent() {
     if (!_sheetController.isAttached) return;
-    final collapseThreshold = (_sheetMinChildSize + _collapseSnapRange)
+    final collapseThreshold = _collapseSnapThreshold
         .clamp(_sheetMinChildSize, _sheetMaxChildSize)
         .toDouble();
-    final targetExtent = _sheetController.size <= collapseThreshold
-        ? _sheetMinChildSize
-        : _sheetMaxChildSize;
-    _animateSheetTo(targetExtent, curve: Curves.linear);
+    if (_sheetController.size <= collapseThreshold) {
+      _collapseSheet(curve: Curves.linear);
+      return;
+    }
+    unawaited(_animateSheetTo(_sheetMaxChildSize, curve: Curves.linear));
   }
 
-  void _collapseSheet() {
+  void _collapseSheet({Curve curve = Curves.easeOutCubic}) {
     if (!_sheetController.isAttached) {
       Navigator.of(context).pop();
       return;
     }
-    _animateSheetTo(_sheetMinChildSize);
+    final navigator = Navigator.of(context);
+    unawaited(() async {
+      final completed = await _animateSheetTo(_sheetMinChildSize, curve: curve);
+      if (completed && mounted && navigator.mounted) {
+        navigator.pop();
+      }
+    }());
   }
 
-  void _animateSheetTo(
+  Future<bool> _animateSheetTo(
     double targetExtent, {
     Curve curve = Curves.easeOutCubic,
-  }) {
-    if (!_sheetController.isAttached) return;
+  }) async {
+    if (!_sheetController.isAttached) return false;
     if ((_sheetController.size - targetExtent).abs() <= _extentUpdateEpsilon) {
-      return;
+      return true;
     }
-    unawaited(
-      _sheetController
-          .animateTo(
-            targetExtent,
-            duration: _snapAnimationDuration,
-            curve: curve,
-          )
-          .catchError((Object error, StackTrace stackTrace) {
-            if (mounted && kDebugMode) {
-              debugPrint(
-                '[WorldPage] bottom sheet extent animation interrupted: '
-                '$error\n$stackTrace',
-              );
-            }
-          }),
-    );
+    try {
+      await _sheetController.animateTo(
+        targetExtent,
+        duration: _snapAnimationDuration,
+        curve: curve,
+      );
+      return true;
+    } catch (error, stackTrace) {
+      if (mounted && kDebugMode) {
+        debugPrint(
+          '[WorldPage] bottom sheet extent animation interrupted: '
+          '$error\n$stackTrace',
+        );
+      }
+      return false;
+    }
   }
 
   @override
@@ -731,6 +738,7 @@ class WorldSingleSectionBottomSheetState
               minChildSize: minChildSize,
               maxChildSize: maxChildSize,
               snap: false,
+              shouldCloseOnMinExtent: false,
               builder: (context, scrollController) {
                 return DecoratedBox(
                   key: const ValueKey<String>(
