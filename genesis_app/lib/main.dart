@@ -16,6 +16,7 @@ import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
 import 'network/api_request_trace_sampling.dart';
 import 'network/websocket_capture.dart';
+import 'pages/origin/origin_feed_cache_store.dart';
 import 'platform/session/user_session_store.dart';
 import 'ui/system/genesis_system_ui.dart';
 
@@ -100,12 +101,31 @@ Future<void> _loadAppGlobalConfig(AppServices services) async {
 Future<({int index, String reason})> _resolveInitialBottomTab(
   AppServices services,
 ) async {
+  CompleteUserSession? session;
   try {
-    final session = await services.sessionStore.readCompleteSession();
-    return session == null
-        ? (index: 1, reason: 'no_session')
-        : (index: 0, reason: 'session_pending');
+    session = await services.sessionStore.readCompleteSession();
   } catch (_) {
     return (index: 1, reason: 'session_error');
   }
+  if (session != null) return (index: 0, reason: 'session_pending');
+
+  var hasWorldoCache = false;
+  try {
+    hasWorldoCache =
+        await const OriginFeedCacheStore(
+          ownerUid: OriginFeedCacheStore.anonymousOwnerUid,
+        ).loadForYouFirstPage() !=
+        null;
+  } catch (_) {
+    hasWorldoCache = false;
+  }
+  return (
+    index: 1,
+    reason: AppStartupCoordinator.resolveLaunchPageReason(
+      hasSession: false,
+      sessionReadFailed: false,
+      hasHomeCache: false,
+      hasWorldoCache: hasWorldoCache,
+    ),
+  );
 }

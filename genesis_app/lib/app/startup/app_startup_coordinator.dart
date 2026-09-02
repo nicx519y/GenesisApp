@@ -42,6 +42,24 @@ class AppStartupCoordinator {
 
   static bool get isLaunchTrackingActive => _launchStopwatch != null;
 
+  static String resolveLaunchPageReason({
+    required bool hasSession,
+    required bool sessionReadFailed,
+    required bool hasHomeCache,
+    required bool hasWorldoCache,
+  }) {
+    if (sessionReadFailed) return 'session_error';
+    if (!hasSession) {
+      return hasWorldoCache
+          ? 'no_session_worldo_cache_hit'
+          : 'no_session_worldo_cache_miss';
+    }
+    if (hasHomeCache) return 'session_home_cache_hit';
+    return hasWorldoCache
+        ? 'session_home_miss_worldo_cache_hit'
+        : 'session_all_cache_miss';
+  }
+
   static void beginLaunchTracking({String? startupId}) {
     if (_launchStopwatch != null) return;
     _launchStartupId = startupId ?? const Uuid().v4().replaceAll('-', '');

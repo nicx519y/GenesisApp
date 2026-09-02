@@ -211,7 +211,7 @@ void main() {
 
     AppStartupCoordinator.setLaunchPageDecision(
       page: 'worldo',
-      reason: 'no_session',
+      reason: 'no_session_worldo_cache_miss',
     );
     AppStartupCoordinator.recordLaunchPage();
     AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
@@ -247,7 +247,7 @@ void main() {
     expect(launchEvents.first.object3, '0');
     expect(launchEvents.first.object4, 'started');
     expect(launchEvents[1].object2, 'worldo');
-    expect(launchEvents[1].object4, 'no_session');
+    expect(launchEvents[1].object4, 'no_session_worldo_cache_miss');
     expect(launchEvents[2].object4, 'started');
     expect(launchEvents[3].object4, 'success');
     expect(launchEvents[4].object4, 'network');
@@ -258,6 +258,68 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'classifies startup page reasons from session and cache state',
+    () async {
+      await initializeWith(MemoryUserSessionStore());
+
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: true,
+          sessionReadFailed: false,
+          hasHomeCache: true,
+          hasWorldoCache: false,
+        ),
+        'session_home_cache_hit',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: true,
+          sessionReadFailed: false,
+          hasHomeCache: false,
+          hasWorldoCache: true,
+        ),
+        'session_home_miss_worldo_cache_hit',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: true,
+          sessionReadFailed: false,
+          hasHomeCache: false,
+          hasWorldoCache: false,
+        ),
+        'session_all_cache_miss',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: false,
+          sessionReadFailed: false,
+          hasHomeCache: false,
+          hasWorldoCache: true,
+        ),
+        'no_session_worldo_cache_hit',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: false,
+          sessionReadFailed: false,
+          hasHomeCache: false,
+          hasWorldoCache: false,
+        ),
+        'no_session_worldo_cache_miss',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: false,
+          sessionReadFailed: true,
+          hasHomeCache: false,
+          hasWorldoCache: false,
+        ),
+        'session_error',
+      );
+    },
+  );
 }
 
 Future<void> _waitUntil(
