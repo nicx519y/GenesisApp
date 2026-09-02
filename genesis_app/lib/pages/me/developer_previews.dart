@@ -1,6 +1,49 @@
 part of 'developer_page.dart';
 
+OverlayEntry? _worldUpdatePushPreviewEntry;
+Timer? _worldUpdatePushPreviewTimer;
+
 extension _DeveloperPreviews on _DeveloperPageContentState {
+  Future<void> _showWorldUpdatePushPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    if (!navigator.mounted) return;
+    final overlay = navigator.overlay;
+    if (overlay == null) return;
+    _removeWorldUpdatePushPreview();
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (overlayContext) => IgnorePointer(
+        child: Stack(
+          children: [
+            WorldUpdatePushBannerQueue(
+              top: MediaQuery.paddingOf(overlayContext).top + 8,
+              revision: 1,
+              notices: const <WorldContentUpdateNotice>[
+                WorldContentUpdateNotice(
+                  kind: WorldContentUpdateKind.location,
+                  entityId: 'developer-preview-location',
+                  name: 'New Harbor',
+                  targetLocationId: 'developer-preview-location',
+                  avatarUrl: '',
+                  tickCount: 1,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+    _worldUpdatePushPreviewEntry = entry;
+    overlay.insert(entry);
+    _worldUpdatePushPreviewTimer = Timer(
+      const Duration(milliseconds: 4500),
+      _removeWorldUpdatePushPreview,
+    );
+  }
+
   Future<void> _showCreatingWaitOverlayPreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {
@@ -268,4 +311,12 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
       },
     );
   }
+}
+
+void _removeWorldUpdatePushPreview() {
+  _worldUpdatePushPreviewTimer?.cancel();
+  _worldUpdatePushPreviewTimer = null;
+  final entry = _worldUpdatePushPreviewEntry;
+  _worldUpdatePushPreviewEntry = null;
+  if (entry?.mounted ?? false) entry!.remove();
 }

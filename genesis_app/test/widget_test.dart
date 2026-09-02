@@ -21740,6 +21740,47 @@ void main() {
     expect(preferences.getBool(switches.values.first), isTrue);
   });
 
+  testWidgets('developer test tab previews the world update Push', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('test'));
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(
+      const ValueKey<String>('developer-world-update-push-preview'),
+    );
+    await tester.scrollUntilVisible(
+      button,
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(button);
+    await tester.pump();
+
+    expect(find.text('New location'), findsOneWidget);
+    expect(find.text('New Harbor'), findsOneWidget);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text('New Harbor'), findsNothing);
+  });
+
   testWidgets('developer page controls LocationChat header effects', (
     WidgetTester tester,
   ) async {

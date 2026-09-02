@@ -3045,7 +3045,7 @@ void main() {
   );
 
   test(
-    'map update increments revision while character update is no-op',
+    'world content notifications share one detail refresh and publish new items',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _WorldChatroomHttpTransport();
@@ -3054,28 +3054,86 @@ void main() {
         httpTransport: http,
         refreshInitialSnapshotOnConnect: false,
       );
-      service.applyWorldSnapshot(_worldSnapshot());
       await service.connect(worldId: 'world-1', identity: _identity());
+      await service.refreshWorldSnapshot();
+      http.detailRequests = 0;
+      http.worldTickCount = 1;
+      http.charactersOverride = [
+        ...http.defaultCharacters,
+        {
+          'char_id': 'char-new',
+          'type': 'ai',
+          'name': 'New Wanderer',
+          'avatar': 'wanderer.png',
+          'location_id': 'loc-new',
+          'is_new': true,
+        },
+      ];
+      http.locationsOverride = [
+        ...http.defaultLocations,
+        {
+          'location_id': 'loc-new',
+          'location_pid': 'loc-root',
+          'name': 'New Harbor',
+          'description': 'Harbor desc',
+          'is_new': true,
+        },
+      ];
 
-      socket.serverFrame('map_updated', {
-        'schema_version': 1,
-        'event_id': 'evt-map-1',
+      socket.serverFrame('world_change', {
         'world_id': 'world-1',
         'payload': <String, Object?>{},
       });
-      await _waitFor(() => service.state.mapUpdatedRevision == 1);
-
+      socket.serverFrame('map_updated', {
+        'world_id': 'world-1',
+        'payload': <String, Object?>{},
+      });
       socket.serverFrame('character_updated', {
         'world_id': 'world-1',
         'payload': <String, Object?>{},
       });
-      await Future<void>.delayed(const Duration(milliseconds: 20));
+      socket.serverFrame('tick_done', {
+        'world_id': 'world-1',
+        'payload': <String, Object?>{},
+      });
+      await _waitFor(() => service.state.contentUpdateNoticeRevision == 1);
 
       expect(service.state.mapUpdatedRevision, 1);
-      expect(http.detailRequests, 0);
+      expect(http.detailRequests, 1);
+      expect(
+        service.state.latestContentUpdateNotices
+            .map((notice) => notice.kind)
+            .toList(growable: false),
+        const [
+          WorldContentUpdateKind.location,
+          WorldContentUpdateKind.character,
+        ],
+      );
+      expect(
+        service.state.latestContentUpdateNotices
+            .map((notice) => notice.entityId)
+            .toList(growable: false),
+        const ['loc-new', 'char-new'],
+      );
+      expect(
+        service.state.latestContentUpdateNotices.last.targetLocationId,
+        'loc-new',
+      );
       expect(http.userLocationRequests, 0);
       expect(http.worldMessagesRequests, 0);
       expect(http.messagesRequests, 0);
+
+      socket.serverFrame('map_updated', {
+        'world_id': 'world-1',
+        'payload': <String, Object?>{},
+      });
+      socket.serverFrame('character_updated', {
+        'world_id': 'world-1',
+        'payload': <String, Object?>{},
+      });
+      await _waitFor(() => http.detailRequests == 2);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(service.state.contentUpdateNoticeRevision, 1);
       await service.dispose();
     },
   );
@@ -4938,10 +4996,13 @@ Future<void> _waitFor(
 class _WorldChatroomHttpTransport implements HttpTransport {
   String worldName = 'World One';
   String? userLocationId = 'loc-2';
+  int worldTickCount = 0;
   int detailRequests = 0;
   int userLocationRequests = 0;
   int worldMessagesRequests = 0;
   int messagesRequests = 0;
+  List<Map<String, Object?>>? charactersOverride;
+  List<Map<String, Object?>>? locationsOverride;
   final Set<String> failedMessageLocationIds = <String>{};
   final Map<String, int> messagesRequestsByLocation = {};
   final Map<String, List<int?>> messageSinceByLocation = {};
@@ -4953,6 +5014,45 @@ class _WorldChatroomHttpTransport implements HttpTransport {
       _httpMessageJson(messageId: 4, locationId: 'loc-2', content: 'loc-2'),
     ],
   };
+
+  List<Map<String, Object?>> get defaultCharacters => [
+    {
+      'char_id': 'char-1',
+      'type': 'ai',
+      'name': 'Alice',
+      'avatar': 'alice.png',
+      'location_id': 'loc-1',
+    },
+    {
+      'char_id': 'char-user-1',
+      'type': 'player',
+      'player_uid': 'user-1',
+      'name': 'Role One',
+      'avatar': 'role.png',
+      'location_id': 'loc-2',
+    },
+  ];
+
+  List<Map<String, Object?>> get defaultLocations => [
+    {
+      'location_id': 'loc-root',
+      'location_pid': '',
+      'name': 'Town',
+      'description': 'Town desc',
+    },
+    {
+      'location_id': 'loc-1',
+      'location_pid': 'loc-root',
+      'name': 'Square',
+      'description': 'Square desc',
+    },
+    {
+      'location_id': 'loc-2',
+      'location_pid': 'loc-root',
+      'name': 'Cafe',
+      'description': 'Cafe desc',
+    },
+  ];
 
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -5090,47 +5190,12 @@ class _WorldChatroomHttpTransport implements HttpTransport {
         'character_cnt': 1,
         'connect_cnt': 1,
         'location_cnt': 2,
-        'tick_cnt': 0,
+        'tick_cnt': worldTickCount,
         'player_cnt': 1,
       },
       'relation_status': 'owner',
-      'characters': [
-        {
-          'char_id': 'char-1',
-          'type': 'ai',
-          'name': 'Alice',
-          'avatar': 'alice.png',
-          'location_id': 'loc-1',
-        },
-        {
-          'char_id': 'char-user-1',
-          'type': 'player',
-          'player_uid': 'user-1',
-          'name': 'Role One',
-          'avatar': 'role.png',
-          'location_id': 'loc-2',
-        },
-      ],
-      'locations': [
-        {
-          'location_id': 'loc-root',
-          'location_pid': '',
-          'name': 'Town',
-          'description': 'Town desc',
-        },
-        {
-          'location_id': 'loc-1',
-          'location_pid': 'loc-root',
-          'name': 'Square',
-          'description': 'Square desc',
-        },
-        {
-          'location_id': 'loc-2',
-          'location_pid': 'loc-root',
-          'name': 'Cafe',
-          'description': 'Cafe desc',
-        },
-      ],
+      'characters': charactersOverride ?? defaultCharacters,
+      'locations': locationsOverride ?? defaultLocations,
       'ticks': [],
     };
   }

@@ -470,8 +470,8 @@ Flutter 解析器忽略 envelope 和 `payload` 中未识别的扩展字段，但
 | --- | --- | --- |
 | `user_enter_location` | 新版正式消息携带正数 `msg_id/location_msg_id`、真实 `location_id/sender_id/user_id` 与 `payload: { content, message_type }` | 转换为正式 `WorldChatroomMessage`，进入地点队列并持久化，同时调用 `/aitown-chat/api/ulocation` 刷新玩家位置；兼容旧 `{ char_id, to_location_id, text }` 通知形态 |
 | `story_events` | 顶层 `msg_id > 0`；`payload` 可为 grouped `{ location_id, location_name, paragraphs }`，也可为 flat single-event `{ location_id, timestamp, visibility, visible_to, text, clue }` | 两种形态统一归一化为段落列表，立即转换为正式 `WorldChatroomMessage`，进入地点队列并持久化；后续 HTTP 同 `message_id` 消息替换该项，不重复显示 |
-| `map_updated` | `payload: {}` | 只递增 `WorldChatroomState.mapUpdatedRevision`；当前 Tilemap 根据 revision 拉取当前地图 |
-| `character_updated` | `payload: {}` | 识别并解析事件，当前版本显式不执行刷新或状态变更 |
+| `map_updated` | `payload: {}` | 递增 `WorldChatroomState.mapUpdatedRevision`，并与同批 `world_change`、`tick_done`、`character_updated` 合并刷新一次 world detail；从 `locations` 中筛选新增项后发布顶部 Push 通知 |
+| `character_updated` | `payload: {}` | 与同批 world detail 刷新合并；从 `characters` 中筛选新增项后发布顶部 Push 通知 |
 | `characters_moved` | `payload: { movements: [{ char_id, to_loc_id }] }`；正式消息优先携带顶层 `msg_id > 0`，`location_id` 可为空表示世界广播 | 有正式消息 ID 时直接进入 location/world 队列并持久化；空地点广播复制到所有叶子地点。兼容旧 envelope 缺少 `msg_id` 的通知形态：先以临时 ID 立即入队渲染，再通过 HTTP 拉取 canonical 消息原位替换；两种来源共用人物去向气泡 |
 
 grouped 形态的 `story_events.payload.paragraphs[]` 字段：
@@ -861,6 +861,7 @@ Query：
 - 新版 `user_enter_location` 下行先进入正式地点消息队列、缓存和现有入场气泡，再与旧通知形态一样通过 `/aitown-chat/api/ulocation` 刷新完整玩家位置快照；并发刷新由单 active + trailing 调度合并。
 - `story_events` 必须携带正数 `msg_id`，并复用正式消息队列、缓存和 message-id 去重；不创建无 ID 的瞬时消息。WS `payload` 与 HTTP `content` JSON 都兼容 grouped `paragraphs[]` 和 flat single-event，两者归一化后走同一气泡渲染。
 - `characters_moved` 有正数 `msg_id` 时直接使用正式消息队列、缓存和 message-id 去重；空 `location_id` 广播到所有叶子地点。旧版缺少 `msg_id` 的 envelope 会先以临时消息立即入队，再通过地点 V2 HTTP canonical 消息同步并原位替换；最终与 HTTP 记录共用可点击地点的人物去向气泡。
-- `map_updated` 只发布递增 revision；`character_updated` 当前仍为已识别的 no-op。
+- `world_change`、`tick_done`、`map_updated`、`character_updated` 共用单 active 的 world detail 刷新调度；同一事件循环内的通知合并为一次请求，刷新期间的新通知最多触发尾随刷新，不并行请求。
+- `map_updated` 仍发布递增 revision 供 Tilemap 刷新；`map_updated`/`character_updated` 的 detail 结果分别按 `locations`/`characters` 的新增 ID 或 `is_new=true` 项生成去重后的顶部 Push 通知。
 - `llm_stream_start`、`llm_chunk`、`llm_stream_end` 在 Flutter 内部仍复用 `ChatroomAiMessageStream` 事件模型。
 - 原始帧通过 `developer.log(name: 'ChatroomSocketFrame')` 输出到 Flutter DevTools Logging。

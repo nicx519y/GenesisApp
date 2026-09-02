@@ -44,6 +44,7 @@ import '../../platform/billing/billing_service.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../gems/gem_wallet_page.dart';
+import '../world/world_update_push_banner.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
 
@@ -890,6 +891,14 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           },
         ),
         const SizedBox(height: 18),
+        GenesisPrimaryButton(
+          key: const ValueKey<String>('developer-world-update-push-preview'),
+          label: 'Preview world update Push',
+          onPressed: _showWorldUpdatePushPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: 'Creating',
           onPressed: _showCreatingWaitOverlayPreview,

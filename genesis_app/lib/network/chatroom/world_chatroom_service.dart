@@ -193,6 +193,15 @@ class WorldChatroomService {
   Future<void>? _userLocationsRefreshDrain;
   bool _latestWorldMessagesRefreshPending = false;
   Future<void>? _latestWorldMessagesRefreshDrain;
+  bool _worldRefreshPending = false;
+  bool _pendingMapContentDetection = false;
+  bool _pendingCharacterContentDetection = false;
+  String _pendingWorldRefreshSocketCurrentTime = '';
+  Future<WorldDetail?>? _worldRefreshDrain;
+  final Map<ChatroomWorldNotification, Future<WorldDetail?>>
+  _queuedNotificationWorldRefreshes =
+      Map<ChatroomWorldNotification, Future<WorldDetail?>>.identity();
+  final Set<String> _publishedContentUpdateOccurrences = <String>{};
   int _transientCharactersMovedSequence = 0;
   final Map<String, Future<List<WorldChatroomMessage>>>
   _latestMessageFetchFutures = <String, Future<List<WorldChatroomMessage>>>{};
@@ -520,6 +529,13 @@ class WorldChatroomService {
     );
   }
 
+  Future<WorldDetail?> refreshWorldSnapshot() {
+    _throwIfDisposed();
+    final activeDrain = _worldRefreshDrain;
+    if (activeDrain != null) return activeDrain;
+    return _scheduleWorldRefresh();
+  }
+
   Future<void> refreshUserLocations() async {
     _throwIfDisposed();
     if (_worldId.trim().isEmpty) return;
@@ -531,7 +547,11 @@ class WorldChatroomService {
     required ChatroomConnectionIdentity identity,
   }) async {
     _throwIfDisposed();
-    _worldId = worldId.trim();
+    final nextWorldId = worldId.trim();
+    if (_worldId != nextWorldId) {
+      _publishedContentUpdateOccurrences.clear();
+    }
+    _worldId = nextWorldId;
     if (_worldId.isEmpty) {
       throw const ChatroomProtocolException('worldId is required');
     }
@@ -825,6 +845,10 @@ class WorldChatroomService {
     _userLocationsRefreshGeneration += 1;
     _userLocationsRefreshPending = false;
     _latestWorldMessagesRefreshPending = false;
+    _worldRefreshPending = false;
+    _pendingMapContentDetection = false;
+    _pendingCharacterContentDetection = false;
+    _pendingWorldRefreshSocketCurrentTime = '';
     _desiredLocationId = '';
     _lastUserEnterLocationCommandId = '';
     _pendingUserEnterLocationCommandId = '';
@@ -834,6 +858,8 @@ class WorldChatroomService {
     _heartbeatTimer = null;
     _clearAllConversationRounds();
     await _detachSession(disconnect: true);
+    await _worldRefreshDrain;
+    _queuedNotificationWorldRefreshes.clear();
     _setState(
       _state.copyWith(
         connected: false,

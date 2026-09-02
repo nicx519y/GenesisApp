@@ -196,10 +196,19 @@ extension _WorldPageTickFlow on _WorldPageState {
     _worldTickDoneHandling = true;
     _markWorldTickIdle();
     try {
-      await _fetchWorld();
+      final chatroom = _worldChatroom;
+      final refreshedWorld = chatroom == null
+          ? null
+          : await chatroom.refreshWorldSnapshot();
+      if (chatroom == null) {
+        await _fetchWorld();
+      }
       if (!mounted) return;
       _markEventsUnread();
-      final completedTickCount = _world?.tickCount ?? _pendingProgressTickCount;
+      final completedTickCount =
+          refreshedWorld?.tickCount ??
+          _world?.tickCount ??
+          _pendingProgressTickCount;
       GenesisTelemetry.collectLog(
         actionType: 'event',
         action: 'world_progress_async_complete',

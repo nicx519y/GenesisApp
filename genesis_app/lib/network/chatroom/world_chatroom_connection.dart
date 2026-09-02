@@ -180,6 +180,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
       'event received type=${chatroomEventType(event)} '
       'world=$_worldId joined=${_state.joinedLocationId}',
     );
+    _prepareWorldRefreshForQueuedEvent(event);
     _eventQueue = _eventQueue.then((_) => _handleEvent(event)).catchError((
       Object error,
     ) {
