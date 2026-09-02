@@ -27,6 +27,7 @@ Future<void> main() async {
   AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
   await GenesisSystemUi.initialize();
+  AppStartupCoordinator.recordLaunchSystemUiReady();
   unawaited(
     SystemChrome.setPreferredOrientations(<DeviceOrientation>[
       DeviceOrientation.portraitUp,
@@ -62,6 +63,7 @@ Future<void> main() async {
       return const AppConfig();
     },
   );
+  AppStartupCoordinator.recordLaunchEndpointConfigReady();
   final services = AppBootstrap.createInitialServices(config: appConfig);
   final initialTabFuture = _resolveInitialBottomTab(services);
   await Future.wait<Object?>(<Future<Object?>>[
@@ -70,9 +72,11 @@ Future<void> main() async {
     originWorldSheetDebugSettingsLoad,
     worldNewContentDebugSettingsLoad,
   ]);
+  AppStartupCoordinator.recordLaunchLocalSettingsReady();
   // Native Firebase collection is disabled for every build. Enable it only
   // after the actual runtime endpoints and persisted debug override are known.
   await TelemetryRuntimeController.initialize(appConfig);
+  AppStartupCoordinator.recordLaunchTelemetryReady();
   final appGlobalConfigLoad = _loadAppGlobalConfig(services);
 
   AppStartupCoordinator.recordStartupFirstReport();
@@ -85,6 +89,7 @@ Future<void> main() async {
     );
   }
   await appGlobalConfigLoad;
+  AppStartupCoordinator.recordLaunchBootstrapReady();
   runApp(GenesisApp(services: services, initialIndex: initialTab.index));
 }
 

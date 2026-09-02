@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -213,6 +214,13 @@ void main() {
       page: 'worldo',
       reason: 'no_session_worldo_cache_miss',
     );
+    AppStartupCoordinator.recordLaunchSystemUiReady();
+    AppStartupCoordinator.recordLaunchEndpointConfigReady();
+    AppStartupCoordinator.recordLaunchLocalSettingsReady();
+    AppStartupCoordinator.recordLaunchTelemetryReady();
+    AppStartupCoordinator.recordLaunchBootstrapReady();
+    AppStartupCoordinator.recordLaunchFirstFrame();
+    AppStartupCoordinator.recordLaunchRouteReady();
     AppStartupCoordinator.recordLaunchPage();
     AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
     AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
@@ -248,6 +256,17 @@ void main() {
     expect(launchEvents.first.object4, 'started');
     expect(launchEvents[1].object2, 'worldo');
     expect(launchEvents[1].object4, 'no_session_worldo_cache_miss');
+    final launchTiming = jsonDecode(launchEvents[1].extData);
+    expect(launchTiming['schema_version'], 1);
+    expect((launchTiming['milestones'] as Map<String, dynamic>).keys, <String>[
+      'system_ui_ready_ms',
+      'endpoint_config_ready_ms',
+      'local_settings_ready_ms',
+      'telemetry_ready_ms',
+      'bootstrap_ready_ms',
+      'first_frame_ms',
+      'route_ready_ms',
+    ]);
     expect(launchEvents[2].object4, 'started');
     expect(launchEvents[3].object4, 'success');
     expect(launchEvents[4].object4, 'network');

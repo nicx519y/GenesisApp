@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -28,6 +29,7 @@ class AppStartupCoordinator {
   static bool _launchRequestStarted = false;
   static bool _launchRequestEnded = false;
   static bool _launchRenderRecorded = false;
+  static final Map<String, int> _launchMilestones = <String, int>{};
   static bool _attRequestClaimed = false;
   // Kept as a shared startup readiness signal for upgrade/polling work. It is
   // open from the beginning and is unrelated to ATT or network permission.
@@ -66,6 +68,34 @@ class AppStartupCoordinator {
     _launchStopwatch = Stopwatch()..start();
   }
 
+  static void recordLaunchSystemUiReady() {
+    _recordLaunchMilestone('system_ui_ready_ms');
+  }
+
+  static void recordLaunchEndpointConfigReady() {
+    _recordLaunchMilestone('endpoint_config_ready_ms');
+  }
+
+  static void recordLaunchLocalSettingsReady() {
+    _recordLaunchMilestone('local_settings_ready_ms');
+  }
+
+  static void recordLaunchTelemetryReady() {
+    _recordLaunchMilestone('telemetry_ready_ms');
+  }
+
+  static void recordLaunchBootstrapReady() {
+    _recordLaunchMilestone('bootstrap_ready_ms');
+  }
+
+  static void recordLaunchFirstFrame() {
+    _recordLaunchMilestone('first_frame_ms');
+  }
+
+  static void recordLaunchRouteReady() {
+    _recordLaunchMilestone('route_ready_ms');
+  }
+
   static void setLaunchPageDecision({
     required String page,
     required String reason,
@@ -91,7 +121,12 @@ class AppStartupCoordinator {
       return;
     }
     _launchPageRecorded = true;
-    _collectLaunchEvent(action: 'launch_page', page: page, result: reason);
+    _collectLaunchEvent(
+      action: 'launch_page',
+      page: page,
+      result: reason,
+      extData: _launchTimingExtData(),
+    );
   }
 
   static void recordLaunchRequestStart({required String page}) {
@@ -172,6 +207,7 @@ class AppStartupCoordinator {
     required String page,
     required String result,
     int? elapsedMilliseconds,
+    String extData = '',
   }) {
     final startupId = _launchStartupId;
     final stopwatch = _launchStopwatch;
@@ -183,7 +219,33 @@ class AppStartupCoordinator {
       object2: page,
       object3: elapsedMilliseconds ?? stopwatch.elapsedMilliseconds,
       object4: result,
+      extData: extData,
     );
+  }
+
+  static void _recordLaunchMilestone(String key) {
+    final stopwatch = _launchStopwatch;
+    if (stopwatch == null || _launchPageRecorded) return;
+    _launchMilestones.putIfAbsent(key, () => stopwatch.elapsedMilliseconds);
+  }
+
+  static String _launchTimingExtData() {
+    const keys = <String>[
+      'system_ui_ready_ms',
+      'endpoint_config_ready_ms',
+      'local_settings_ready_ms',
+      'telemetry_ready_ms',
+      'bootstrap_ready_ms',
+      'first_frame_ms',
+      'route_ready_ms',
+    ];
+    if (!keys.every(_launchMilestones.containsKey)) return '';
+    return jsonEncode(<String, Object>{
+      'schema_version': 1,
+      'milestones': <String, int>{
+        for (final key in keys) key: _launchMilestones[key]!,
+      },
+    });
   }
 
   static void configure({AppVersionInfo? appVersion}) {
@@ -336,6 +398,7 @@ class AppStartupCoordinator {
     _launchRequestStarted = false;
     _launchRequestEnded = false;
     _launchRenderRecorded = false;
+    _launchMilestones.clear();
     _attRequestClaimed = false;
     _postLaunchWorkAllowed.value = true;
   }

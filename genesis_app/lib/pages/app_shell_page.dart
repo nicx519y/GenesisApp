@@ -118,9 +118,11 @@ class _AppShellPageState extends State<AppShellPage>
       onTick: _refreshMessagesData,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppStartupCoordinator.recordLaunchFirstFrame();
       _startAppRuntime();
       _startColdStartHomeTargetResolutionIfNeeded();
       if (!_shouldResolveColdStartHomeTarget) {
+        AppStartupCoordinator.recordLaunchRouteReady();
         AppStartupCoordinator.recordLaunchPage();
       }
       _startPostLaunchWorkIfAllowed();
@@ -303,6 +305,7 @@ class _AppShellPageState extends State<AppShellPage>
         hasWorldoCache: hasWorldoCache,
       ),
     );
+    AppStartupCoordinator.recordLaunchRouteReady();
     setState(() {
       _selectedIndex = openHome ? 0 : 1;
       _visitedTabIndexes
