@@ -6,10 +6,30 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../network/models/origin.dart';
 
+enum OriginLaunchSource {
+  openingSelect(
+    telemetryValue: 'opening_select',
+    startAction: 'worldo_launch_opening',
+  ),
+  openingMessage(
+    telemetryValue: 'opening_message',
+    startAction: 'worldo_launch_message',
+  );
+
+  const OriginLaunchSource({
+    required this.telemetryValue,
+    required this.startAction,
+  });
+
+  final String telemetryValue;
+  final String startAction;
+}
+
 Future<String?> startOriginLaunch({
   required BuildContext context,
   required OriginDetail origin,
   required OriginRoleLaunchSelection roleSelection,
+  required OriginLaunchSource launchSource,
 }) async {
   try {
     final services = AppServicesScope.of(context);
@@ -32,6 +52,7 @@ Future<String?> startOriginLaunch({
       action: 'worldo_launch_submit_success',
       object1: origin.oid,
       object2: wid,
+      object3: launchSource.telemetryValue,
     );
     return wid;
   } catch (_) {

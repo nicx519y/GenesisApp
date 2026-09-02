@@ -311,8 +311,6 @@ class AppStartupCoordinator {
       );
     } catch (error, stackTrace) {
       debugPrint('[Telemetry] initialization failed: $error\n$stackTrace');
-    } finally {
-      GenesisTelemetry.startCollectUploader();
     }
     _scheduleTelemetryMetadataRetry(
       services: services,
@@ -336,8 +334,12 @@ class AppStartupCoordinator {
     required List<Duration> retryDelays,
     int retryIndex = 0,
   }) {
-    if (GenesisTelemetry.hasCompleteContextMetadata ||
-        retryIndex >= retryDelays.length) {
+    final retriesExhausted = retryIndex >= retryDelays.length;
+    if (GenesisTelemetry.hasKnownAppVersion || retriesExhausted) {
+      GenesisTelemetry.startCollectUploader();
+    }
+    if (GenesisTelemetry.hasCompleteContextMetadata || retriesExhausted) {
+      // Exhausted retries must never leave the durable queue blocked forever.
       return;
     }
     _telemetryMetadataRetryTimer?.cancel();

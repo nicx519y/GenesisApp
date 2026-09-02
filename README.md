@@ -217,12 +217,16 @@ cd /Users/ionix/Works/GenesisApp/genesis_app
 flutter build apk --debug
 ```
 
-Android release 分 ABI：
+Android production release（仅 `arm64-v8a`，保持项目原始 `versionCode`）：
 
 ```sh
 cd /Users/ionix/Works/GenesisApp/genesis_app
-flutter build apk --release --split-per-abi
+flutter build apk --release --flavor production --target-platform android-arm64
 ```
+
+不要使用 `--split-per-abi`：Flutter 会给 arm64 APK 的 `versionCode`
+固定增加 `2000`。项目的 Android Gradle 配置会在 production release APK
+构建时直接限定 `arm64-v8a`，且不影响 Google Play 使用的 AAB。
 
 常见输出目录：
 

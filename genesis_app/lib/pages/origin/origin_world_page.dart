@@ -705,20 +705,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     if (!mounted) return;
     final characterId = _characterStableId(character);
     if (characterId.isEmpty) return;
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_setup_role_launch',
-      object1: origin.oid,
-      object2: characterId,
-    );
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_launch_opening',
-      object1: origin.oid,
-    );
     await _launchOrigin(
       origin,
       OriginRoleLaunchSelection.preset(characterId, roleOverride: roleOverride),
+      telemetryRoleId: characterId,
+      launchSource: OriginLaunchSource.openingSelect,
       initialLocationId:
           _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
     );
@@ -731,20 +722,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     if (_launching) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_setup_role_launch',
-      object1: origin.oid,
-      object2: 'current_user',
-    );
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_launch_opening',
-      object1: origin.oid,
-    );
     await _launchOrigin(
       origin,
       OriginRoleLaunchSelection.custom(profileRole),
+      telemetryRoleId: 'current_user',
+      launchSource: OriginLaunchSource.openingSelect,
       initialLocationId:
           _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
     );
@@ -851,6 +833,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   Future<String?> _launchOrigin(
     OriginDetail origin,
     OriginRoleLaunchSelection roleSelection, {
+    required String telemetryRoleId,
+    required OriginLaunchSource launchSource,
     String initialLocationId = '',
     String initialMessageToSend = '',
     ChatMentionCatalog? initialMentionCatalog,
@@ -858,10 +842,17 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   }) async {
     if (_launching) return null;
     setState(() => _launching = true);
+    GenesisTelemetry.collectLog(
+      actionType: 'event',
+      action: launchSource.startAction,
+      object1: origin.oid,
+      object2: telemetryRoleId,
+    );
     final launchedWorldId = await startOriginLaunch(
       context: context,
       origin: origin,
       roleSelection: roleSelection,
+      launchSource: launchSource,
     );
     if (!mounted) return null;
     if (launchedWorldId == null) {

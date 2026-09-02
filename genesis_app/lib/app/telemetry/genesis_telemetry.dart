@@ -128,9 +128,11 @@ class GenesisTelemetry {
   @visibleForTesting
   static GenesisTelemetryContext get contextForTesting => _context;
 
+  static bool get hasKnownAppVersion =>
+      _hasKnownAppVersion(_context.appVersion);
+
   static bool get hasCompleteContextMetadata =>
-      _hasKnownAppVersion(_context.appVersion) &&
-      _hasKnownDeviceId(_context.deviceId);
+      hasKnownAppVersion && _hasKnownDeviceId(_context.deviceId);
 
   static CollectTelemetryHealth get collectHealth => _collectUploader.health;
 

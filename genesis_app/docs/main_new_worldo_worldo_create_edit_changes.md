@@ -265,11 +265,24 @@ Worldo 页新增 `_originFirstInitialDialoguePreview`，从正式 Origin detail 
 | Custom 卡 | 打开 Launch Sheet，并直接定位 Custom Tab |
 | 底部 Launch 按钮 | 打开完整 Launch Sheet，沿用预设/Custom/已启动 World 角色选择 |
 
-预设角色卡使用单独埋点：
+Opening Sheet 的 Launch 埋点按操作入口区分：
 
-- action：`worldo_setup_role_launch`
-- object1：Origin ID
-- object2：角色稳定 ID
+| 操作 | action | object1 | object2 |
+| --- | --- | --- | --- |
+| 点击角色卡 `Select to launch` | `worldo_launch_opening` | Origin ID | 所选角色 |
+| 在 Sheet 的 Message 输入框发送并 Launch | `worldo_launch_message` | Origin ID | 所选角色 |
+
+“所选角色”的取值：预设角色传角色稳定 ID，用户 Profile 传 `current_user`。上述两个入口各自只上报一条起点事件。
+
+`origin/launch` 成功后继续上报 `worldo_launch_submit_success`：
+
+| 字段 | 值 |
+| --- | --- |
+| object1 | Origin ID |
+| object2 | 返回的 World ID |
+| object3 | `opening_select`（Select to launch）或 `opening_message`（Sheet Message） |
+
+本节只调整 Opening Sheet，Location Chat 不做处理。
 
 ### 3.10 Launch 后自动进入 Opening 地点聊天
 

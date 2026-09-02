@@ -15,6 +15,16 @@ if (keystorePropertiesFile.exists()) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
+// Keep the production release APK arm64-only without Flutter's
+// --split-per-abi versionCode offset. App bundles use a different Gradle task
+// and therefore keep their full ABI set for Google Play.
+val isProductionReleaseApkBuild =
+    gradle.startParameter.taskNames.any { taskName ->
+        taskName
+            .substringAfterLast(':')
+            .equals("assembleProductionRelease", ignoreCase = true)
+    }
+
 android {
     namespace = "com.worldo.ai"
     compileSdk = flutter.compileSdkVersion
@@ -33,6 +43,13 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        if (isProductionReleaseApkBuild) {
+            ndk {
+                abiFilters.clear()
+                abiFilters.add("arm64-v8a")
+            }
+        }
     }
 
     flavorDimensions += "app"

@@ -958,9 +958,7 @@ class CollectTelemetryUploader {
 
   Map<String, String> _headers(CollectEvent event) {
     final platform = event.contextCaptured ? event.platform : _context.platform;
-    final appVersion = event.contextCaptured
-        ? event.appVersion
-        : _context.appVersion;
+    final appVersion = _resolvedAppVersion(event, _context.appVersion);
     final deviceId = event.contextCaptured ? event.deviceId : _context.deviceId;
     final userId = event.contextCaptured ? event.userId : _context.userId;
     return <String, String>{
@@ -977,6 +975,24 @@ class CollectTelemetryUploader {
           entry.key: entry.value!.trim(),
     };
   }
+}
+
+String _resolvedAppVersion(CollectEvent event, String currentAppVersion) {
+  final current = currentAppVersion.trim();
+  if (!event.contextCaptured) return current;
+  final captured = event.appVersion.trim();
+  if (_hasKnownCollectAppVersion(captured) ||
+      !_hasKnownCollectAppVersion(current)) {
+    return captured;
+  }
+  // Version metadata can recover after an early event captured `unknown`.
+  // Late-bind only this header; device and user identity remain event snapshots.
+  return current;
+}
+
+bool _hasKnownCollectAppVersion(String value) {
+  final normalized = value.trim().toLowerCase();
+  return normalized.isNotEmpty && normalized != 'unknown';
 }
 
 class _MemoryCollectEventRow {

@@ -181,6 +181,71 @@ void main() {
     );
   });
 
+  test(
+    'waits for an app version retry before uploading startup events',
+    () async {
+      AppStartupCoordinator.configure();
+      final calls = <String>[];
+      var appVersionCalls = 0;
+
+      final client = await initializeWith(
+        MemoryUserSessionStore(),
+        appVersionReader: () {
+          appVersionCalls += 1;
+          calls.add('app_version_$appVersionCalls');
+          if (appVersionCalls == 1) {
+            return Completer<AppVersionInfo>().future;
+          }
+          return Future<AppVersionInfo>.value(
+            const AppVersionInfo(versionName: '4.5.6'),
+          );
+        },
+        appVersionTimeout: const Duration(milliseconds: 5),
+        metadataRetryDelays: const <Duration>[Duration(milliseconds: 5)],
+        onCollect: () => calls.add('collect'),
+      );
+
+      expect(appVersionCalls, 2);
+      expect(calls, <String>['app_version_1', 'app_version_2', 'collect']);
+      expect(client.headers, isNotEmpty);
+      expect(
+        client.headers.every((headers) => headers['X-App-Version'] == '4.5.6'),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'starts Collect after non-empty app version retries are exhausted',
+    () async {
+      AppStartupCoordinator.configure();
+      var appVersionCalls = 0;
+
+      final client = await initializeWith(
+        MemoryUserSessionStore(),
+        appVersionReader: () {
+          appVersionCalls += 1;
+          return Completer<AppVersionInfo>().future;
+        },
+        appVersionTimeout: const Duration(milliseconds: 5),
+        metadataRetryDelays: const <Duration>[
+          Duration(milliseconds: 5),
+          Duration(milliseconds: 5),
+        ],
+      );
+
+      expect(appVersionCalls, 3);
+      expect(uploader.isStartedForTesting, isTrue);
+      expect(client.headers, isNotEmpty);
+      expect(
+        client.headers.every(
+          (headers) => headers['X-App-Version'] == 'unknown',
+        ),
+        isTrue,
+      );
+    },
+  );
+
   test('missing metadata is retried without clearing the user id', () async {
     final deviceIdService = _RetryingDeviceIdService();
     final client = await initializeWith(
