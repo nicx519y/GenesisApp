@@ -629,6 +629,7 @@ class _PointListItem extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Icon(
                         Icons.place_outlined,
@@ -645,17 +646,19 @@ class _PointListItem extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (point.isNew) ...[
-                        const SizedBox(width: 6),
+                      if (showRecentChatIcon) ...[
+                        const SizedBox(width: 5),
+                        const RecentChatIcon(),
+                      ],
+                      if (point.isNew &&
+                          point.isLeafLocation &&
+                          point.depth == 3) ...[
+                        const SizedBox(width: 5),
                         WorldNewBadge(
                           key: ValueKey<String>(
                             'world-location-new-badge-${point.id}',
                           ),
                         ),
-                      ],
-                      if (showRecentChatIcon) ...[
-                        const SizedBox(width: 5),
-                        const RecentChatIcon(),
                       ],
                     ],
                   ),
@@ -696,6 +699,7 @@ class _NodeHeader extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.fromLTRB(level * 15.0, 5, 0, 5),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Flexible(
               fit: FlexFit.loose,
@@ -706,15 +710,15 @@ class _NodeHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (point.isNew) ...[
-              const SizedBox(width: 6),
-              WorldNewBadge(
-                key: ValueKey<String>('world-location-new-badge-${point.id}'),
-              ),
-            ],
             if (showRecentChatIcon) ...[
               const SizedBox(width: 5),
               const RecentChatIcon(),
+            ],
+            if (point.isNew && point.isLeafLocation && point.depth == 3) ...[
+              const SizedBox(width: 5),
+              WorldNewBadge(
+                key: ValueKey<String>('world-location-new-badge-${point.id}'),
+              ),
             ],
           ],
         ),
@@ -758,6 +762,7 @@ class _LocationCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       const Icon(
                         Icons.place_outlined,
@@ -774,17 +779,19 @@ class _LocationCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      if (point.isNew) ...[
-                        const SizedBox(width: 6),
+                      if (showRecentChatIcon) ...[
+                        const SizedBox(width: 5),
+                        const RecentChatIcon(),
+                      ],
+                      if (point.isNew &&
+                          point.isLeafLocation &&
+                          point.depth == 3) ...[
+                        const SizedBox(width: 5),
                         WorldNewBadge(
                           key: ValueKey<String>(
                             'world-location-new-badge-${point.id}',
                           ),
                         ),
-                      ],
-                      if (showRecentChatIcon) ...[
-                        const SizedBox(width: 5),
-                        const RecentChatIcon(),
                       ],
                     ],
                   ),
@@ -844,14 +851,17 @@ class _PointCharacterGroups extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final aiUsers = users
-        .where((user) => user.showStar)
+    final namedUsers = users
         .where((user) => _characterName(user).isNotEmpty)
         .toList(growable: false);
-    final nonAiUsers = users
-        .where((user) => !user.showStar)
-        .where((user) => _characterName(user).isNotEmpty)
-        .toList(growable: false);
+    final aiUsers = <UserAvatar>[
+      ...namedUsers.where((user) => user.showStar && !user.isNew),
+      ...namedUsers.where((user) => user.showStar && user.isNew),
+    ];
+    final nonAiUsers = <UserAvatar>[
+      ...namedUsers.where((user) => !user.showStar && !user.isNew),
+      ...namedUsers.where((user) => !user.showStar && user.isNew),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -908,12 +918,10 @@ class _PointCharacterGroupRow extends StatelessWidget {
             TextSpan(children: _characterSpans()),
             style: const TextStyle(
               fontSize: 12,
-              height: 1.2,
+              height: 1.4,
               fontWeight: FontWeight.w400,
               color: Colors.black,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
         ),
       ],
@@ -942,6 +950,9 @@ class _PointCharacterGroupRow extends StatelessWidget {
           );
       }
       if (index < users.length - 1) {
+        if (user.isNew) {
+          spans.add(const WidgetSpan(child: SizedBox(width: 4)));
+        }
         spans.add(const TextSpan(text: ', '));
       }
     }

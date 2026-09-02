@@ -236,6 +236,7 @@ void main() {
       type: WorldPointType.castle,
       position: Offset.zero,
       users: <UserAvatar>[],
+      depth: 3,
       isNew: true,
     );
     const oldFlat = WorldPoint(
@@ -251,6 +252,7 @@ void main() {
       type: WorldPointType.castle,
       position: Offset.zero,
       users: <UserAvatar>[],
+      depth: 2,
       isLeafLocation: false,
       isNew: true,
     );
@@ -260,6 +262,7 @@ void main() {
       type: WorldPointType.castle,
       position: Offset.zero,
       users: <UserAvatar>[],
+      depth: 3,
       isNew: true,
     );
     const oldLeafPoint = WorldPoint(
@@ -321,7 +324,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('world-location-new-badge-new-branch')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey('world-location-new-badge-new-leaf')),
@@ -337,31 +340,52 @@ void main() {
     );
   });
 
-  testWidgets('new character badge is shown beside the character name', (
+  testWidgets('characters show fully with new entries ordered last', (
     tester,
   ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
-          body: WorldLocationList(
-            points: <WorldPoint>[
-              WorldPoint(
-                id: 'location-with-characters',
-                name: 'Location',
-                type: WorldPointType.castle,
-                position: Offset.zero,
-                users: <UserAvatar>[
-                  UserAvatar(
-                    'NC',
-                    id: 'new-character',
-                    name: 'New Character',
-                    isNew: true,
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 240,
+              child: WorldLocationList(
+                points: <WorldPoint>[
+                  WorldPoint(
+                    id: 'location-with-characters',
+                    name: 'Location',
+                    type: WorldPointType.castle,
+                    position: Offset.zero,
+                    users: <UserAvatar>[
+                      UserAvatar(
+                        'NC',
+                        id: 'new-character',
+                        name: 'New Character',
+                        isNew: true,
+                      ),
+                      UserAvatar(
+                        'OC',
+                        id: 'old-character',
+                        name: 'Old Character',
+                      ),
+                      UserAvatar(
+                        'LC',
+                        id: 'long-character',
+                        name: 'A Character Name That Must Remain Visible',
+                      ),
+                      UserAvatar(
+                        'AN',
+                        id: 'another-new-character',
+                        name: 'Another New Character',
+                        isNew: true,
+                      ),
+                    ],
                   ),
-                  UserAvatar('OC', id: 'old-character', name: 'Old Character'),
                 ],
+                enableOuterScrollHandoff: false,
               ),
-            ],
-            enableOuterScrollHandoff: false,
+            ),
           ),
         ),
       ),
@@ -387,5 +411,81 @@ void main() {
       ),
       findsNothing,
     );
+
+    final characterTextFinder = find.byWidgetPredicate(
+      (widget) =>
+          widget is Text &&
+          widget.textSpan
+                  ?.toPlainText(includeSemanticsLabels: false)
+                  .contains('New Character') ==
+              true,
+    );
+    final characterText = tester.widget<Text>(characterTextFinder);
+    final characterNames = characterText.textSpan!.toPlainText(
+      includeSemanticsLabels: false,
+    );
+    expect(characterText.maxLines, isNull);
+    expect(characterText.overflow, isNull);
+    expect(tester.getSize(characterTextFinder).height, greaterThan(33.6));
+    expect(
+      characterNames.indexOf('New Character'),
+      greaterThan(
+        characterNames.indexOf('A Character Name That Must Remain Visible'),
+      ),
+    );
+
+    final spans = (characterText.textSpan! as TextSpan).children!;
+    final firstNewBadgeIndex = spans.indexWhere(
+      (span) =>
+          span is WidgetSpan &&
+          span.child.key ==
+              const ValueKey<String>(
+                'world-location-character-new-badge-new-character',
+              ),
+    );
+    expect(firstNewBadgeIndex, greaterThanOrEqualTo(0));
+    expect(
+      (spans[firstNewBadgeIndex + 1] as WidgetSpan).child,
+      isA<SizedBox>().having((box) => box.width, 'width', 4),
+    );
+    expect((spans[firstNewBadgeIndex + 2] as TextSpan).text, ', ');
+  });
+
+  testWidgets('recent activity icon precedes the new location badge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: WorldLocationList(
+            points: <WorldPoint>[
+              WorldPoint(
+                id: 'new-recent-location',
+                sceneId: 'new-recent-location',
+                name: 'New Recent Location',
+                type: WorldPointType.castle,
+                position: Offset.zero,
+                users: <UserAvatar>[],
+                depth: 3,
+                isNew: true,
+              ),
+            ],
+            recentChatLocationIds: <String>{'new-recent-location'},
+            enableOuterScrollHandoff: false,
+          ),
+        ),
+      ),
+    );
+
+    final recentRect = tester.getRect(find.bySemanticsLabel('Recent chat'));
+    final nameRect = tester.getRect(find.text('New Recent Location'));
+    final newRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('world-location-new-badge-new-recent-location'),
+      ),
+    );
+    expect(recentRect.right, lessThan(newRect.left));
+    expect(nameRect.center.dy, closeTo(newRect.center.dy, 0.01));
+    expect(recentRect.center.dy, closeTo(newRect.center.dy, 0.01));
   });
 }

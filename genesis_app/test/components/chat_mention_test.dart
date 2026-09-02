@@ -111,6 +111,68 @@ void main() {
     expect(catalog.entryForId('loc-parent'), isNull);
   });
 
+  test('location mention New group only accepts L3 locations', () {
+    final world = WorldDetail.fromJson({
+      'world_id': 'world-new-levels',
+      'locations': [
+        {'location_id': 'l1', 'level': 1, 'location_name': 'L1'},
+        {
+          'location_id': 'l2-leaf',
+          'location_pid': 'l1',
+          'level': 2,
+          'location_name': 'L2 Leaf',
+          'is_new': true,
+        },
+        {
+          'location_id': 'l2-parent',
+          'location_pid': 'l1',
+          'level': 2,
+          'location_name': 'L2 Parent',
+        },
+        {
+          'location_id': 'l3',
+          'location_pid': 'l2-parent',
+          'level': 3,
+          'location_name': 'L3',
+          'is_new': true,
+        },
+      ],
+    });
+
+    final catalog = locationChatMentionCatalogForState(
+      WorldChatroomState(world: world),
+    );
+
+    expect(catalog.locations.map((entry) => entry.id), ['l2-leaf', 'l3']);
+    expect(catalog.newLocations.map((entry) => entry.id), ['l3']);
+  });
+
+  test('mention catalog refresh preserves current-location characters', () {
+    const hereCharacter = ChatMentionEntry(
+      id: 'char-here',
+      name: 'Here Character',
+      type: ChatMentionType.character,
+    );
+    final liveCatalog = ChatMentionCatalog(
+      characters: const <ChatMentionEntry>[hereCharacter, _secondCharacter],
+      currentLocationCharacters: const <ChatMentionEntry>[hereCharacter],
+      locations: const <ChatMentionEntry>[_location],
+    );
+    final controller = LocationChatMentionEditingController(
+      catalog: liveCatalog,
+    );
+    addTearDown(controller.dispose);
+    controller.value = const TextEditingValue(
+      text: '@',
+      selection: TextSelection.collapsed(offset: 1),
+    );
+    controller.insertMention(_secondCharacter, replaceStart: 0, replaceEnd: 1);
+
+    controller.updateCatalog(liveCatalog);
+
+    expect(controller.catalog.currentLocationCharacters, const [hereCharacter]);
+  });
+
   test('mention parser recognizes known ids and leaves unknown ids raw', () {
     final tokens = parseKnownChatMentions(
       'Ask @Alice<char-1> at @Moon Harbor<loc-1> and @Ghost<missing>.',
@@ -351,6 +413,7 @@ WorldDetail _mentionWorld() {
     value: <String, dynamic>{
       'location_id': 'loc-leaf',
       'location_name': 'Moon Harbor',
+      'level': 3,
       'is_new': true,
     },
     children: <LocationTreeNode<Map<String, dynamic>>>[],

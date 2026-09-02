@@ -624,9 +624,6 @@ class LocalMockGenesisTransport implements HttpTransport {
         'world_id': _state.launchV1World(
           '${body['origin_id'] ?? body['oid'] ?? ''}',
           presetCharacterId: '${body['preset_character_id'] ?? ''}',
-          presetRoleOverride: body['preset_role_override'] is Map
-              ? Map<String, dynamic>.from(body['preset_role_override'] as Map)
-              : null,
         ),
       });
     }
@@ -2804,11 +2801,7 @@ class _MockState {
     };
   }
 
-  String launchV1World(
-    String oid, {
-    String? presetCharacterId,
-    Map<String, dynamic>? presetRoleOverride,
-  }) {
+  String launchV1World(String oid, {String? presetCharacterId}) {
     if (oid.isNotEmpty) _v1World['oid'] = oid;
     final charId = (presetCharacterId ?? '').trim();
     if (oid.isNotEmpty && charId.isNotEmpty) {
@@ -2816,21 +2809,6 @@ class _MockState {
         oid,
         () => <String, int>{},
       )[charId] = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final characters = _v1World['characters'];
-      if (presetRoleOverride != null && characters is List) {
-        for (final character in characters.whereType<Map>()) {
-          if ('${character['char_id'] ?? character['character_id']}' !=
-              charId) {
-            continue;
-          }
-          character
-            ..['avatar'] = presetRoleOverride['avatar'] ?? ''
-            ..['name'] = presetRoleOverride['name'] ?? ''
-            ..['identity'] = presetRoleOverride['identity'] ?? ''
-            ..['brief'] = presetRoleOverride['brief'] ?? '';
-          break;
-        }
-      }
     }
     return '${_v1World['wid']}';
   }

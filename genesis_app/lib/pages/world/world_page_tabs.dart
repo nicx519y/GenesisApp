@@ -150,12 +150,18 @@ extension _WorldPageTabs on _WorldPageState {
     final uid =
         (await AppServicesScope.of(context).sessionStore.readUid())?.trim() ??
         '';
-    if (!mounted || uid == _currentUid) return;
-    if (_renderStage == _WorldPageRenderStage.content) {
-      _setWorldPageState(() => _currentUid = uid);
-    } else {
-      _currentUid = uid;
+    if (!mounted) return;
+    final uidChanged = uid != _currentUid;
+    if (uidChanged) {
+      if (_renderStage == _WorldPageRenderStage.content) {
+        _setWorldPageState(() => _currentUid = uid);
+      } else {
+        _currentUid = uid;
+      }
     }
+    await recentWorldChatStore.loadForUid(uid);
+    if (!mounted) return;
+    _handleRecentWorldChatStoreChanged();
   }
 
   List<String> _locationPathIdsForLocationId(

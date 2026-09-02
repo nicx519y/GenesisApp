@@ -1,32 +1,39 @@
 import 'package:flutter/material.dart';
 
+import '../ui/tokens/genesis_colors.dart';
 import '../ui/tokens/genesis_typography.dart';
 
 /// Compact event count shown beside a map location label.
 class WorldEventCountBadge extends StatelessWidget {
   const WorldEventCountBadge({super.key, required this.count});
 
-  static const double minWidth = 20;
-  static const double height = 16;
-  static const double borderRadius = 6;
-  static const double horizontalPadding = 5;
+  static const double minWidth = 14;
+  static const double height = 14;
+  static const double borderRadius = height / 2;
+  static const double horizontalPadding = 4;
   static const double fontSize = 9.5;
 
   final int count;
 
   @override
   Widget build(BuildContext context) {
+    final label = count > 99 ? '99+' : '$count';
+    final isSingleDigit = count >= 0 && count < 10;
     return Container(
+      width: isSingleDigit ? height : null,
       constraints: const BoxConstraints(minWidth: minWidth),
       height: height,
-      padding: const EdgeInsets.symmetric(horizontal: horizontalPadding),
+      padding: isSingleDigit
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(horizontal: horizontalPadding),
       decoration: BoxDecoration(
-        color: const Color(0xFFF82B3C),
+        color: GenesisColors.brand,
         borderRadius: BorderRadius.circular(borderRadius),
       ),
       alignment: Alignment.center,
       child: Text(
-        count > 99 ? '99+' : '$count',
+        label,
+        textAlign: TextAlign.center,
         style: const TextStyle(
           inherit: false,
           fontFamily: GenesisTypography.fontFamily,
@@ -34,7 +41,7 @@ class WorldEventCountBadge extends StatelessWidget {
           color: Colors.white,
           fontSize: fontSize,
           height: 1,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );

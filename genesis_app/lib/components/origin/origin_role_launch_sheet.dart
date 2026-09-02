@@ -65,32 +65,9 @@ class OriginCustomRoleDraft {
 }
 
 @immutable
-class OriginPresetRoleOverride {
-  const OriginPresetRoleOverride({
-    this.avatarUrl = '',
-    this.name = '',
-    this.identity = '',
-    this.personality = '',
-  });
-
-  final String avatarUrl;
-  final String name;
-  final String identity;
-  final String personality;
-
-  Map<String, dynamic> toPayload() => <String, dynamic>{
-    'avatar': avatarUrl.trim(),
-    'name': name.trim(),
-    'identity': identity.trim(),
-    'brief': personality.trim(),
-  };
-}
-
-@immutable
 class OriginRoleLaunchSelection {
   const OriginRoleLaunchSelection._({
     this.presetCharacterId,
-    this.presetRoleOverride,
     this.customRole,
     this.initialLocationId,
     this.existingWorldId,
@@ -99,11 +76,9 @@ class OriginRoleLaunchSelection {
   factory OriginRoleLaunchSelection.preset(
     String characterId, {
     String? initialLocationId,
-    OriginPresetRoleOverride? roleOverride,
   }) {
     return OriginRoleLaunchSelection._(
       presetCharacterId: characterId,
-      presetRoleOverride: roleOverride,
       initialLocationId: initialLocationId,
     );
   }
@@ -117,7 +92,6 @@ class OriginRoleLaunchSelection {
   }
 
   final String? presetCharacterId;
-  final OriginPresetRoleOverride? presetRoleOverride;
   final OriginCustomRoleDraft? customRole;
   final String? initialLocationId;
   final String? existingWorldId;

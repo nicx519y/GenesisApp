@@ -257,7 +257,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       if (world != null && shouldApplyWorldSnapshot) {
         _world = world;
         _syncLocationChatDescriptors(world);
-        _applyWorldDetailMapActivityLocations(world);
+        _applyWorldDetailEventLocations(world);
         shouldSyncRelationStatus = true;
         worldDetailChanged = true;
       }

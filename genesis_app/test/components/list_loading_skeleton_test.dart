@@ -43,6 +43,16 @@ void main() {
     final itemSize = tester.getSize(firstItem);
     expect(itemSize.width, greaterThan(100));
     expect(itemSize.height, closeTo(itemSize.width * 1.5 + 67, 0.01));
+    expect(find.byType(GenesisOriginCardLoadingBone), findsNWidgets(2));
+    final decoration =
+        tester.widget<DecoratedBox>(find.byType(DecoratedBox).first).decoration
+            as BoxDecoration;
+    final gradient = decoration.gradient! as LinearGradient;
+    expect(gradient.colors, const [Color(0xFFE8EBF0), Color(0xFFF3F4F6)]);
+    expect(
+      find.descendant(of: firstItem, matching: find.byType(AnimatedBuilder)),
+      findsNothing,
+    );
     expect(
       find.byWidgetPredicate(
         (widget) =>

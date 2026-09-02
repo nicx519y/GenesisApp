@@ -1288,7 +1288,7 @@ void main() {
     final newBadgeRect = tester.getRect(
       find.byKey(const ValueKey<String>('tilemap-location-new-badge-0-0')),
     );
-    expect(eventRect.size, const Size(20, 16));
+    expect(eventRect.size, const Size(14, 14));
     expect(eventRect.left, closeTo(labelRect.right + 3, 0.01));
     expect(eventRect.center.dy, closeTo(labelRect.center.dy, 0.01));
     expect(newBadgeRect.left, closeTo(eventRect.right + 3, 0.01));

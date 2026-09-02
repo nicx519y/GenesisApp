@@ -286,6 +286,29 @@ void main() {
       find.descendant(of: characterRow, matching: find.byType(WorldNewBadge)),
       findsOneWidget,
     );
+    expect(
+      tester
+          .getRect(
+            find.descendant(
+              of: characterRow,
+              matching: find.text('New Character'),
+            ),
+          )
+          .center
+          .dy,
+      closeTo(
+        tester
+            .getRect(
+              find.descendant(
+                of: characterRow,
+                matching: find.byType(WorldNewBadge),
+              ),
+            )
+            .center
+            .dy,
+        0.01,
+      ),
+    );
 
     await tester.tap(find.text('Locations'));
     await tester.pumpAndSettle();
@@ -296,6 +319,29 @@ void main() {
     expect(
       find.descendant(of: locationRow, matching: find.byType(WorldNewBadge)),
       findsOneWidget,
+    );
+    expect(
+      tester
+          .getRect(
+            find.descendant(
+              of: locationRow,
+              matching: find.text('New Location'),
+            ),
+          )
+          .center
+          .dy,
+      closeTo(
+        tester
+            .getRect(
+              find.descendant(
+                of: locationRow,
+                matching: find.byType(WorldNewBadge),
+              ),
+            )
+            .center
+            .dy,
+        0.01,
+      ),
     );
   });
 
@@ -347,7 +393,12 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.text('New'), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('location-chat-mention-section-title-new'),
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('mention lists repeat featured entries under section titles', (
@@ -418,7 +469,12 @@ void main() {
     await tester.tap(find.text('Locations'));
     await tester.pumpAndSettle();
 
-    expect(find.text('New'), findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('location-chat-mention-section-title-new'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('New Harbor'), findsNWidgets(2));
     expect(find.text('Old Harbor'), findsOneWidget);
     expect(

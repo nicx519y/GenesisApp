@@ -1,5 +1,8 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
+import '../ui/components/genesis_soft_italic_text.dart';
 import '../ui/tokens/genesis_colors.dart';
 import '../ui/tokens/genesis_typography.dart';
 
@@ -7,9 +10,9 @@ import '../ui/tokens/genesis_typography.dart';
 class WorldNewBadge extends StatelessWidget {
   const WorldNewBadge({super.key, this.compact = false});
 
-  static const double compactWidth = 20;
+  static const double compactWidth = 28;
   static const double compactHeight = 14;
-  static const double width = 22;
+  static const double width = 36;
   static const double height = 16;
 
   final bool compact;
@@ -22,18 +25,30 @@ class WorldNewBadge extends StatelessWidget {
       child: SizedBox(
         width: compact ? compactWidth : width,
         height: compact ? compactHeight : height,
-        child: Center(
-          child: Text(
-            'new',
-            maxLines: 1,
-            style: TextStyle(
-              inherit: false,
-              fontFamily: GenesisTypography.fontFamily,
-              fontFamilyFallback: GenesisTypography.fontFamilyFallback,
+        child: Transform.translate(
+          offset: compact ? Offset.zero : const Offset(0, 1),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
               color: GenesisColors.brand,
-              fontSize: compact ? 9 : 10,
-              height: 1,
-              fontWeight: FontWeight.w600,
+              borderRadius: BorderRadius.all(Radius.circular(compact ? 3 : 4)),
+            ),
+            child: Center(
+              child: GenesisSoftItalicText(
+                'New',
+                maxLines: 1,
+                style: TextStyle(
+                  inherit: false,
+                  fontFamily: GenesisTypography.fontFamily,
+                  fontFamilyFallback: GenesisTypography.fontFamilyFallback,
+                  color: const Color(0xF2FFFFFF),
+                  fontSize: 9.5,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  fontVariations: const <ui.FontVariation>[
+                    ui.FontVariation('wght', 800),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

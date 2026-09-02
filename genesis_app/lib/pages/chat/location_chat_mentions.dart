@@ -25,6 +25,7 @@ ChatMentionCatalog mergeLocationChatMentionCatalogs(
   }
   return ChatMentionCatalog(
     characters: charactersById.values,
+    currentLocationCharacters: primary.currentLocationCharacters,
     locations: locationsById.values,
   );
 }
@@ -159,6 +160,8 @@ ChatMentionCatalog locationChatMentionCatalogForState(
     final parentName = parent == null
         ? ''
         : _firstMapString(parent.value, const ['location_name', 'name']).trim();
+    final declaredLevel = asInt(node.value['level']);
+    final isLevel3 = (declaredLevel > 0 ? declaredLevel : node.depth) == 3;
     locationIds.add(id);
     locations.add(
       ChatMentionEntry(
@@ -166,7 +169,7 @@ ChatMentionCatalog locationChatMentionCatalogForState(
         name: normalizeGenesisUgcTextForDisplay(name),
         type: ChatMentionType.location,
         subtitle: normalizeGenesisUgcTextForDisplay(parentName),
-        isNew: asBool(node.value['is_new']),
+        isNew: isLevel3 && asBool(node.value['is_new']),
         isCurrentLocation: resolvedCurrentLocationIds.contains(id),
       ),
     );
@@ -973,6 +976,9 @@ class _LocationChatMentionSectionTitle extends StatelessWidget {
           alignment: Alignment.centerLeft,
           child: Text(
             title,
+            key: ValueKey<String>(
+              'location-chat-mention-section-title-${title.toLowerCase()}',
+            ),
             style: const TextStyle(
               color: Color(0xB8FFFFFF),
               fontSize: 14,
@@ -1031,6 +1037,7 @@ class _LocationChatCharacterMentionRow extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Flexible(child: _LocationChatMentionName(name: entry.name)),
               if (showNewBadge) ...[
@@ -1083,6 +1090,7 @@ class _LocationChatLocationMentionRow extends StatelessWidget {
           children: [
             Expanded(
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Flexible(child: _LocationChatMentionName(name: entry.name)),
                   if (showNewBadge) ...[

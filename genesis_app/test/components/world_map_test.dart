@@ -317,7 +317,7 @@ void main() {
       find.byKey(const ValueKey<String>('world-map-location-dot')),
     );
 
-    expect(eventRect.size, const Size(20, 16));
+    expect(eventRect.size, const Size(14, 14));
     expect(eventRect.left, closeTo(labelRect.right + 3, 0.01));
     expect(eventRect.center.dy, closeTo(labelRect.center.dy, 0.01));
     expect(recentRect.right, closeTo(labelRect.left - 3, 0.01));

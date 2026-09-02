@@ -307,7 +307,7 @@ class OriginV1Api extends V1ApiResource {
   ///
   /// Request parameters:
   /// ```json
-  /// {"origin_id":"string","preset_character_id":"string","preset_role_override":{},"custom_role":{}}
+  /// {"origin_id":"string","preset_character_id":"string","custom_role":{}}
   /// ```
   ///
   /// Response:
@@ -318,7 +318,6 @@ class OriginV1Api extends V1ApiResource {
     String? originId,
     String? oid,
     String? presetCharacterId,
-    Map<String, dynamic>? presetRoleOverride,
     Map<String, dynamic>? customRole,
   }) {
     final resolvedOriginId = (originId ?? oid ?? '').trim();
@@ -336,14 +335,6 @@ class OriginV1Api extends V1ApiResource {
         'presetCharacterId and customRole must be exactly one of two',
       );
     }
-    if (presetRoleOverride != null &&
-        (!hasPreset ||
-            asString(presetRoleOverride['name']).trim().isEmpty ||
-            asString(presetRoleOverride['identity']).trim().isEmpty)) {
-      throw ArgumentError(
-        'presetRoleOverride requires presetCharacterId, name, and identity',
-      );
-    }
     final roleType = hasPreset ? 'preset' : 'custom';
     unawaited(
       FirebaseAnalyticsMonitoring.recordLaunch(
@@ -354,7 +345,6 @@ class OriginV1Api extends V1ApiResource {
     return _launchValidated(
       originId: resolvedOriginId,
       presetCharacterId: presetCharacterId,
-      presetRoleOverride: presetRoleOverride,
       customRole: customRole,
       roleType: roleType,
     );
@@ -363,7 +353,6 @@ class OriginV1Api extends V1ApiResource {
   Future<Map<String, dynamic>> _launchValidated({
     required String originId,
     required String? presetCharacterId,
-    required Map<String, dynamic>? presetRoleOverride,
     required Map<String, dynamic>? customRole,
     required String roleType,
   }) async {
@@ -372,7 +361,6 @@ class OriginV1Api extends V1ApiResource {
       body: v1Body({
         'origin_id': originId,
         'preset_character_id': presetCharacterId,
-        'preset_role_override': presetRoleOverride,
         'custom_role': customRole,
       }),
     );

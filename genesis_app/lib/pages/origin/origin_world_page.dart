@@ -4,7 +4,6 @@ import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart' show ScrollCacheExtent;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -52,7 +51,6 @@ import '../../ui/components/genesis_search_field.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_radii.dart';
-import '../../ui/tokens/genesis_typography.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../utils/entity_deleted.dart';
@@ -149,7 +147,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   String _selectedLocationChatRoleId = _profileLocationChatRoleId;
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
-  bool _launching = false;
+  OriginLaunchSource? _activeLaunchSource;
+  bool get _launching => _activeLaunchSource != null;
   late bool _waitingForOpeningSheetExpansion;
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
@@ -697,9 +696,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
   Future<void> _selectAndLaunchPresetRole(
     OriginDetail origin,
-    OriginCharacter character, {
-    OriginPresetRoleOverride? roleOverride,
-  }) async {
+    OriginCharacter character,
+  ) async {
     if (_launching) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
@@ -707,7 +705,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     if (characterId.isEmpty) return;
     await _launchOrigin(
       origin,
-      OriginRoleLaunchSelection.preset(characterId, roleOverride: roleOverride),
+      OriginRoleLaunchSelection.preset(characterId),
       telemetryRoleId: characterId,
       launchSource: OriginLaunchSource.openingSelect,
       initialLocationId:
@@ -841,7 +839,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     bool enterWorldOnSuccess = true,
   }) async {
     if (_launching) return null;
-    setState(() => _launching = true);
+    setState(() => _activeLaunchSource = launchSource);
     GenesisTelemetry.collectLog(
       actionType: 'event',
       action: launchSource.startAction,
@@ -856,11 +854,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
     if (!mounted) return null;
     if (launchedWorldId == null) {
-      setState(() => _launching = false);
+      setState(() => _activeLaunchSource = null);
       return null;
     }
     setState(() {
-      _launching = false;
+      _activeLaunchSource = null;
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
       _launchedPresetRolesData = null;
@@ -1144,7 +1142,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               onAutoExpansionInterrupted:
                   _handleOpeningSheetExpansionInterrupted,
               onOriginChanged: _refreshOriginDetail,
-              launching: _launching,
+              activeLaunchSource: _activeLaunchSource,
               launchedPresetRoles: _launchedPresetRolesData,
               onEnterLaunchedWorld: (role) {
                 final worldId = role.worldId.trim();
@@ -1154,16 +1152,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               profileRole: _cachedProfileRole,
               onSelectRole: (character) =>
                   _selectAndLaunchPresetRole(origin, character),
-              onSelectEditedPresetRole: (character, roleOverride) =>
-                  _selectAndLaunchPresetRole(
-                    origin,
-                    character,
-                    roleOverride: roleOverride,
-                  ),
               onSelectProfileRole: (profileRole) =>
                   _selectAndLaunchProfileRole(origin, profileRole),
               locationChatRole: _locationChatRoleOption(origin),
-              onSelectLocationChatRole: () => _selectLocationChatRole(origin),
+              onSelectLocationChatRole: (roleId) =>
+                  _selectLocationChatRole(origin, roleId),
               onSendLocationChatMessage:
                   (locationId, message, mentionCatalog) =>
                       _launchLocationChatMessage(

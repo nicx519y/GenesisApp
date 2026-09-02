@@ -197,6 +197,18 @@ void main() {
       find.byKey(const ValueKey('world-character-new-badge-old')),
       findsNothing,
     );
+    expect(
+      tester.getRect(find.text('Bool New')).center.dy,
+      closeTo(
+        tester
+            .getRect(
+              find.byKey(const ValueKey('world-character-new-badge-bool-new')),
+            )
+            .center
+            .dy,
+        0.01,
+      ),
+    );
   });
 
   testWidgets('WorldCharacterRow honors the force-new debug override', (

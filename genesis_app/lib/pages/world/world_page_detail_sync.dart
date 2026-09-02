@@ -60,7 +60,6 @@ extension _WorldPageDetailSync on _WorldPageState {
     WorldDetail world, {
     bool clearInitialLoadError = false,
   }) {
-    _initialTilemapPreferredFocusLocationId ??= world.lastChatLocationId.trim();
     final canTrackWorldProgress = shouldConnectWorldChatroom(
       world.relationStatus,
     );
@@ -81,7 +80,7 @@ extension _WorldPageDetailSync on _WorldPageState {
       _sectionsWorldNotifier.value = world;
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
-      _applyWorldDetailMapActivityLocations(world);
+      _applyWorldDetailEventLocations(world);
       _replaceMapBubbleCandidates(
         _buildMapBubbleCandidates(_worldChatroom?.state, world),
       );
@@ -96,20 +95,7 @@ extension _WorldPageDetailSync on _WorldPageState {
     }
   }
 
-  void _applyWorldDetailMapActivityLocations(WorldDetail world) {
-    final recentLocationId = world.lastChatLocationId.trim();
-    _recentChatLocationIds = recentLocationId.isEmpty
-        ? const <String>{}
-        : Set<String>.unmodifiable(<String>{recentLocationId});
-    _recentChatLocationPathIds = recentLocationId.isEmpty
-        ? const <String>{}
-        : Set<String>.unmodifiable(
-            _locationPathIdsForLocationId(
-              recentLocationId,
-              world.processedLocationTree,
-            ),
-          );
-
+  void _applyWorldDetailEventLocations(WorldDetail world) {
     final eventLocationIds = worldDetailEventLocationIds(world.locations);
     final eventLocationPathIds = <String>{};
     for (final locationId in eventLocationIds) {
@@ -120,6 +106,37 @@ extension _WorldPageDetailSync on _WorldPageState {
     _currentTickEventLocationPathIds = Set<String>.unmodifiable(
       eventLocationPathIds,
     );
+  }
+
+  bool _recentWorldChatRecordMatchesCurrentPage(RecentWorldChatRecord record) {
+    final uid = _currentUid.trim();
+    return uid.isNotEmpty &&
+        record.uid.trim() == uid &&
+        record.worldId.trim() == widget.wid.trim();
+  }
+
+  void _handleRecentWorldChatStoreChanged() {
+    final record = recentWorldChatStore.listenable.value;
+    if (!mounted) return;
+    final matchesCurrentPage =
+        record != null && _recentWorldChatRecordMatchesCurrentPage(record);
+    final nextLocationIds = matchesCurrentPage
+        ? (<String>{record.locationId.trim()}..remove(''))
+        : const <String>{};
+    final nextPathIds = matchesCurrentPage
+        ? worldOrderedNonEmptyStrings(<String>[
+            ...record.locationPathIds,
+            record.locationId,
+          ]).toSet()
+        : const <String>{};
+    if (setEquals(_recentChatLocationIds, nextLocationIds) &&
+        setEquals(_recentChatLocationPathIds, nextPathIds)) {
+      return;
+    }
+    _setWorldPageState(() {
+      _recentChatLocationIds = Set<String>.unmodifiable(nextLocationIds);
+      _recentChatLocationPathIds = Set<String>.unmodifiable(nextPathIds);
+    });
   }
 
   List<GenesisGenerationWaitAvatar> _progressWaitAvatarsFromWorld(

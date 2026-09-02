@@ -17,16 +17,14 @@ class GenesisListLoadingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _SkeletonShimmer(
-      child: switch (_type) {
-        _GenesisListSkeletonType.world => _WorldListSkeleton(
-          itemCount: itemCount,
-        ),
-        _GenesisListSkeletonType.originGrid => _OriginGridSkeleton(
-          itemCount: itemCount,
-        ),
-      },
-    );
+    return switch (_type) {
+      _GenesisListSkeletonType.world => _SkeletonShimmer(
+        child: _WorldListSkeleton(itemCount: itemCount),
+      ),
+      _GenesisListSkeletonType.originGrid => _OriginGridSkeleton(
+        itemCount: itemCount,
+      ),
+    };
   }
 }
 
@@ -49,6 +47,29 @@ class GenesisListLoadingBone extends StatelessWidget {
         width: width,
         height: height,
         borderRadius: borderRadius,
+      ),
+    );
+  }
+}
+
+class GenesisOriginCardLoadingBone extends StatelessWidget {
+  const GenesisOriginCardLoadingBone({
+    super.key,
+    this.borderRadius = GenesisImageRadii.contentValue,
+  });
+
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(borderRadius),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFFE8EBF0), Color(0xFFF3F4F6)],
+        ),
       ),
     );
   }
@@ -309,9 +330,8 @@ class _OriginGridSkeletonItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const _SkeletonBone(
+    return const GenesisOriginCardLoadingBone(
       key: ValueKey<String>('genesis-origin-grid-item-skeleton'),
-      borderRadius: GenesisImageRadii.contentValue,
     );
   }
 }

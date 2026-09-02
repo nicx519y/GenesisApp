@@ -236,10 +236,13 @@ class WorldCharacterRow extends StatelessWidget {
                           ),
                           if (isNew) ...[
                             const SizedBox(width: 6),
-                            WorldNewBadge(
-                              key: ValueKey<String>(
-                                'world-character-new-badge-'
-                                '${worldMapString(character, const ['character_id', 'char_id', 'id'], fallback: name)}',
+                            Align(
+                              alignment: Alignment.center,
+                              child: WorldNewBadge(
+                                key: ValueKey<String>(
+                                  'world-character-new-badge-'
+                                  '${worldMapString(character, const ['character_id', 'char_id', 'id'], fallback: name)}',
+                                ),
                               ),
                             ),
                           ],

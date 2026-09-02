@@ -3026,6 +3026,7 @@ void main() {
               'locations': [
                 {
                   'location_id': 'loc_1',
+                  'level': 3,
                   'location_name': 'Gate',
                   'image': image('location'),
                   'map_url': 'https://cdn.example.com/location_map.png',
@@ -3067,6 +3068,7 @@ void main() {
       expect(mapCharacter['is_new'], true);
       expect(location['icon'], 'https://cdn.example.com/location_800_600.webp');
       expect(location['map_url'], 'https://cdn.example.com/location_map.png');
+      expect(location['level'], 3);
       expect(location['is_new'], true);
     },
   );

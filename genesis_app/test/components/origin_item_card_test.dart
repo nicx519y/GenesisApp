@@ -276,24 +276,32 @@ void main() {
       tester.getSize(loadingFinder),
       const Size(220, 330 + genesisOriginCardBottomExtension),
     );
-    final shimmerFinder = find.descendant(
+    final placeholderFinder = find.descendant(
       of: loadingFinder,
       matching: find.byType(DecoratedBox),
     );
-    expect(shimmerFinder, findsOneWidget);
+    expect(placeholderFinder, findsOneWidget);
     final initialDecoration =
-        tester.widget<DecoratedBox>(shimmerFinder).decoration as BoxDecoration;
+        tester.widget<DecoratedBox>(placeholderFinder).decoration
+            as BoxDecoration;
     final initialGradient = initialDecoration.gradient! as LinearGradient;
     expect(initialGradient.colors, const [
       Color(0xFFE8EBF0),
-      Color(0xFFF6F7F9),
-      Color(0xFFE8EBF0),
+      Color(0xFFF3F4F6),
     ]);
     await tester.pump(const Duration(milliseconds: 350));
     final movedDecoration =
-        tester.widget<DecoratedBox>(shimmerFinder).decoration as BoxDecoration;
+        tester.widget<DecoratedBox>(placeholderFinder).decoration
+            as BoxDecoration;
     final movedGradient = movedDecoration.gradient! as LinearGradient;
-    expect(movedGradient.begin, isNot(initialGradient.begin));
+    expect(movedGradient, initialGradient);
+    expect(
+      find.descendant(
+        of: loadingFinder,
+        matching: find.byType(AnimatedBuilder),
+      ),
+      findsNothing,
+    );
     expect(find.text('#Delayed Origin'), findsNothing);
     expect(
       find.byKey(const ValueKey<String>('origin-item-card-footer-extension')),
@@ -308,6 +316,20 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('origin-item-card-ready')),
       findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(OriginItemCard),
+        matching: find.byType(AnimatedOpacity),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(OriginItemCard),
+        matching: find.byType(FadeTransition),
+      ),
+      findsNothing,
     );
     expect(find.text('#Delayed Origin'), findsOneWidget);
     expect(
@@ -368,7 +390,7 @@ void main() {
       findsOneWidget,
     );
     final loadingBoneElement = find
-        .byType(GenesisListLoadingBone)
+        .byType(GenesisOriginCardLoadingBone)
         .evaluate()
         .single;
 
@@ -376,11 +398,11 @@ void main() {
     expect(attempts, greaterThanOrEqualTo(2));
     expect(
       identical(
-        find.byType(GenesisListLoadingBone).evaluate().single,
+        find.byType(GenesisOriginCardLoadingBone).evaluate().single,
         loadingBoneElement,
       ),
       isTrue,
-      reason: 'The shimmer must keep animating across a cover retry.',
+      reason: 'The static placeholder must remain stable across a cover retry.',
     );
 
     retriedFrame.complete(ImageInfo(image: sourceImage.clone()));

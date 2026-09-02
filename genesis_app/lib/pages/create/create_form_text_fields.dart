@@ -8,10 +8,12 @@ class CreateKeyboardSafeFocusRegion extends StatefulWidget {
     super.key,
     required this.builder,
     this.focusNode,
+    this.visibilityAxis,
   });
 
   final CreateKeyboardSafeFocusRegionBuilder builder;
   final FocusNode? focusNode;
+  final Axis? visibilityAxis;
 
   @override
   State<CreateKeyboardSafeFocusRegion> createState() =>
@@ -68,10 +70,15 @@ class _CreateKeyboardSafeFocusRegionState
   }
 
   Future<void> _ensureRegionVisibleAboveKeyboard() async {
-    await Scrollable.ensureVisible(
-      context,
-      alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
-    );
+    final visibilityAxis = widget.visibilityAxis;
+    if (visibilityAxis == null) {
+      await Scrollable.ensureVisible(
+        context,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    } else {
+      await _ensureVisibleAlongAxis(visibilityAxis);
+    }
     if (!mounted || !_observedFocusNode.hasFocus) return;
 
     final keyboardInset = MediaQuery.viewInsetsOf(context).bottom;
@@ -85,6 +92,11 @@ class _CreateKeyboardSafeFocusRegionState
     final overlap = regionBottom - keyboardTop;
     if (overlap <= 0) return;
 
+    if (visibilityAxis != null) {
+      _shiftScrollableAncestors(visibilityAxis, overlap);
+      return;
+    }
+
     final scrollable = Scrollable.maybeOf(context);
     if (scrollable == null) return;
     final position = scrollable.position;
@@ -94,6 +106,46 @@ class _CreateKeyboardSafeFocusRegionState
         .toDouble();
     if ((target - position.pixels).abs() < 0.000001) return;
     position.jumpTo(target);
+  }
+
+  void _shiftScrollableAncestors(Axis axis, double distance) {
+    var remaining = distance;
+    var scrollable = Scrollable.maybeOf(context);
+    while (scrollable != null && remaining > 0.000001) {
+      final position = scrollable.position;
+      if (axisDirectionToAxis(scrollable.axisDirection) == axis &&
+          position.hasPixels &&
+          position.hasContentDimensions) {
+        final reversed = axisDirectionIsReversed(scrollable.axisDirection);
+        final requested = position.pixels + (reversed ? -remaining : remaining);
+        final target = requested
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble();
+        final moved = (target - position.pixels).abs();
+        if (moved > 0.000001) position.jumpTo(target);
+        remaining -= moved;
+      }
+      scrollable = Scrollable.maybeOf(scrollable.context);
+    }
+  }
+
+  Future<void> _ensureVisibleAlongAxis(Axis axis) async {
+    final target = context.findRenderObject();
+    if (target == null) return;
+    final matchingScrollables = <ScrollableState>[];
+    var scrollable = Scrollable.maybeOf(context);
+    while (scrollable != null) {
+      if (axisDirectionToAxis(scrollable.axisDirection) == axis) {
+        matchingScrollables.add(scrollable);
+      }
+      scrollable = Scrollable.maybeOf(scrollable.context);
+    }
+    for (final matchingScrollable in matchingScrollables) {
+      await matchingScrollable.position.ensureVisible(
+        target,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      );
+    }
   }
 
   @override

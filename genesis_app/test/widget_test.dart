@@ -31,6 +31,7 @@ import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dar
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/recent_chat/recent_world_chat_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_performance_monitoring.dart';
@@ -9670,13 +9671,28 @@ void main() {
     final regularRole = find.byKey(
       const ValueKey<String>('origin-setup-role-c_regular'),
     );
-    final roleCards = tester.widget<ListView>(
-      find.byKey(const ValueKey<String>('origin-setup-role-cards')),
+    final roleCardsFinder = find.byKey(
+      const ValueKey<String>('origin-setup-role-cards'),
     );
-    expect(roleCards.itemExtent, 252);
-    expect(roleCards.scrollCacheExtent?.value, 252 * 2);
+    final roleCards = tester.widget<PageView>(roleCardsFinder);
+    expect(roleCards.padEnds, isTrue);
+    expect(roleCards.physics, isA<PageScrollPhysics>());
+    expect(
+      roleCards.controller!.viewportFraction,
+      closeTo(252 / tester.getSize(roleCardsFinder).width, 0.001),
+    );
     expect(recommendedRole, findsOneWidget);
     expect(regularRole, findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-edit-c_recommended'),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-role-edit-c_regular')),
+      findsNothing,
+    );
     final recommendedFrame = tester.widget<Container>(
       find.byKey(
         const ValueKey<String>('origin-setup-role-card-frame-c_recommended'),
@@ -9685,8 +9701,21 @@ void main() {
     final recommendedOutline =
         recommendedFrame.foregroundDecoration! as BoxDecoration;
     expect(
-      (recommendedOutline.border! as Border).top.color.a,
-      closeTo(0.12, 0.001),
+      (recommendedOutline.border! as Border).top.color,
+      GenesisColors.brand,
+    );
+    expect((recommendedOutline.border! as Border).top.width, 1);
+    expect(
+      tester
+          .getCenter(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-card-frame-c_recommended',
+              ),
+            ),
+          )
+          .dx,
+      closeTo(tester.getCenter(roleCardsFinder).dx, 0.01),
     );
     expect(
       tester.getTopLeft(recommendedRole).dx,
@@ -9786,6 +9815,39 @@ void main() {
         .onTap!();
     await tester.pumpAndSettle();
     expect(suggestedLabel, findsNothing);
+
+    unawaited(
+      roleCards.controller!.animateToPage(
+        1,
+        duration: const Duration(milliseconds: 260),
+        curve: Curves.easeOutCubic,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final regularFrame = tester.widget<Container>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-card-frame-c_regular'),
+      ),
+    );
+    final regularOutline = regularFrame.foregroundDecoration! as BoxDecoration;
+    expect(
+      tester
+          .getCenter(
+            find.byKey(
+              const ValueKey<String>('origin-setup-role-card-frame-c_regular'),
+            ),
+          )
+          .dx,
+      closeTo(tester.getCenter(roleCardsFinder).dx, 0.01),
+    );
+    expect((regularOutline.border! as Border).top.color, GenesisColors.brand);
+    final selectedDot = tester.widget<AnimatedContainer>(
+      find.byKey(const ValueKey<String>('origin-setup-role-page-dot-1')),
+    );
+    expect(
+      (selectedDot.decoration! as BoxDecoration).color,
+      GenesisColors.brand,
+    );
   });
 
   testWidgets('Origin detail role setup launches without a bottom bar', (
@@ -10479,6 +10541,18 @@ void main() {
       const ValueKey<String>('origin-setup-role-current-user'),
     );
     expect(profileRole, findsOneWidget);
+    final selectedProfileFrame = tester.widget<Container>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-card-frame-current-user'),
+      ),
+    );
+    expect(
+      ((selectedProfileFrame.foregroundDecoration! as BoxDecoration).border!
+              as Border)
+          .top
+          .color,
+      GenesisColors.brand,
+    );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
       findsNothing,
@@ -10573,8 +10647,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    await tester.ensureVisible(editSurfaceFinder);
-    await tester.pumpAndSettle();
+    await _dragOriginPanelUntilVisible(tester, editSurfaceFinder);
     final sheetSurface = find.byKey(
       const ValueKey<String>('origin-detail-sheet-surface'),
     );
@@ -10680,6 +10753,15 @@ void main() {
       matching: find.byType(TextField),
     );
     expect(inlineFields, findsNWidgets(3));
+    final mountedInlineFields = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>('origin-setup-role-inline-editor-current-user'),
+        skipOffstage: false,
+      ),
+      matching: find.byType(TextField, skipOffstage: false),
+      skipOffstage: false,
+    );
+    expect(mountedInlineFields, findsNWidgets(3));
     expect(
       tester.getRect(inlineFields.last).bottom,
       lessThanOrEqualTo(tester.getRect(sheetSurface).bottom + 1),
@@ -10712,33 +10794,60 @@ void main() {
       findsNothing,
     );
     expect(
-      find.descendant(of: inlineEditor, matching: find.text('Identity')),
+      find.descendant(of: inlineEditor, matching: find.text('Identity *')),
       findsOneWidget,
     );
     expect(
-      find.descendant(of: inlineEditor, matching: find.text('Personality')),
+      find.descendant(
+        of: inlineEditor,
+        matching: find.text('Personality (Optional)'),
+      ),
       findsOneWidget,
     );
-    await tester.tap(
-      find.descendant(of: inlineEditor, matching: find.text('Identity')),
+    final editingProfileFrame = tester.widget<Container>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-card-frame-current-user'),
+      ),
     );
+    expect(
+      ((editingProfileFrame.foregroundDecoration! as BoxDecoration).border!
+              as Border)
+          .top
+          .color,
+      GenesisColors.brand,
+    );
+    tester
+        .widget<GestureDetector>(
+          find.byKey(
+            const ValueKey<String>(
+              'origin-setup-role-inline-identity-tap-current-user',
+            ),
+          ),
+        )
+        .onTap!();
     await tester.pump();
     expect(
-      tester.widget<TextField>(inlineFields.at(1)).focusNode?.hasFocus,
+      tester.widget<TextField>(mountedInlineFields.at(1)).focusNode?.hasFocus,
       isTrue,
     );
-    await tester.tap(
-      find.descendant(of: inlineEditor, matching: find.text('Personality')),
-    );
+    tester
+        .widget<GestureDetector>(
+          find.byKey(
+            const ValueKey<String>(
+              'origin-setup-role-inline-brief-tap-current-user',
+            ),
+          ),
+        )
+        .onTap!();
     await tester.pump();
     expect(
-      tester.widget<TextField>(inlineFields.at(2)).focusNode?.hasFocus,
+      tester.widget<TextField>(mountedInlineFields.at(2)).focusNode?.hasFocus,
       isTrue,
     );
-    await tester.tap(nameTapTarget);
+    tester.widget<GestureDetector>(nameTapTarget).onTap!();
     await tester.pump();
     expect(
-      tester.widget<TextField>(inlineFields.at(0)).focusNode?.hasFocus,
+      tester.widget<TextField>(mountedInlineFields.at(0)).focusNode?.hasFocus,
       isTrue,
     );
     expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
@@ -10786,10 +10895,10 @@ void main() {
       45,
     );
 
-    await tester.enterText(inlineFields.at(0), 'Temporary Name');
-    await tester.enterText(inlineFields.at(1), 'Temporary Identity');
+    await tester.enterText(mountedInlineFields.at(0), 'Temporary Name');
+    await tester.enterText(mountedInlineFields.at(1), 'Temporary Identity');
     expect(
-      tester.widget<TextField>(inlineFields.at(0)).controller?.text,
+      tester.widget<TextField>(mountedInlineFields.at(0)).controller?.text,
       'Temporary Name',
     );
     tester
@@ -10941,6 +11050,32 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final premountedInlineEditor = find.byKey(
+      const ValueKey<String>('origin-setup-role-inline-editor-current-user'),
+      skipOffstage: false,
+    );
+    final premountedFields = find.descendant(
+      of: premountedInlineEditor,
+      matching: find.byType(TextField, skipOffstage: false),
+      skipOffstage: false,
+    );
+    expect(premountedFields, findsNWidgets(3));
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-inline-editor-current-user'),
+      ),
+      findsNothing,
+    );
+    final editableTextElementsBeforeEdit = find
+        .descendant(
+          of: premountedInlineEditor,
+          matching: find.byType(EditableText, skipOffstage: false),
+          skipOffstage: false,
+        )
+        .evaluate()
+        .toList(growable: false);
+    expect(editableTextElementsBeforeEdit, hasLength(3));
+
     tester
         .widget<InkWell>(
           find.byKey(
@@ -10958,6 +11093,18 @@ void main() {
       matching: find.byType(TextField),
     );
     expect(fields, findsNWidgets(3));
+    final editableTextElementsAfterEdit = find
+        .descendant(of: inlineEditor, matching: find.byType(EditableText))
+        .evaluate()
+        .toList(growable: false);
+    expect(editableTextElementsAfterEdit, hasLength(3));
+    for (var index = 0; index < 3; index += 1) {
+      expect(
+        editableTextElementsAfterEdit[index],
+        same(editableTextElementsBeforeEdit[index]),
+        reason: 'Edit reveals retained fields instead of mounting new ones.',
+      );
+    }
     expect(find.text('Identity *'), findsOneWidget);
     expect(find.text('Personality (Optional)'), findsOneWidget);
     final nameController = tester.widget<TextField>(fields.first).controller!;
@@ -10970,16 +11117,26 @@ void main() {
       tester.widget<TextField>(fields.at(2)).controller?.text,
       'Initial profile personality',
     );
+    await tester.pump();
+    final mountedFields = find.descendant(
+      of: find.byKey(
+        const ValueKey<String>('origin-setup-role-inline-editor-current-user'),
+        skipOffstage: false,
+      ),
+      matching: find.byType(TextField, skipOffstage: false),
+      skipOffstage: false,
+    );
+    expect(mountedFields, findsNWidgets(3));
     expect(nameController.selection, const TextSelection.collapsed(offset: 12));
     expect(
-      tester.widget<TextField>(fields.at(1)).controller?.selection,
+      tester.widget<TextField>(mountedFields.at(1)).controller?.selection,
       const TextSelection.collapsed(offset: 0),
     );
     expect(
-      tester.widget<TextField>(fields.at(2)).controller?.selection,
+      tester.widget<TextField>(mountedFields.at(2)).controller?.selection,
       const TextSelection.collapsed(offset: 0),
     );
-    final nameField = tester.widget<TextField>(fields.first);
+    final nameField = tester.widget<TextField>(mountedFields.first);
     expect(nameField.focusNode?.hasFocus, isTrue);
     expect(nameField.style?.fontSize, 14);
     expect(nameField.style?.fontWeight, FontWeight.w600);
@@ -11007,12 +11164,18 @@ void main() {
       reason: 'The focused role field stays above the keyboard.',
     );
     expect(nameController.text, 'Profile Hero');
-    await tester.enterText(fields.at(1), 'Explorer');
+    await tester.enterText(mountedFields.at(1), 'Explorer');
     await tester.pump();
-    expect(tester.widget<TextField>(fields.at(1)).focusNode?.hasFocus, isTrue);
-    await tester.enterText(fields.at(2), 'Inline profile personality');
+    expect(
+      tester.widget<TextField>(mountedFields.at(1)).focusNode?.hasFocus,
+      isTrue,
+    );
+    await tester.enterText(mountedFields.at(2), 'Inline profile personality');
     await tester.pump();
-    expect(tester.widget<TextField>(fields.at(2)).focusNode?.hasFocus, isTrue);
+    expect(
+      tester.widget<TextField>(mountedFields.at(2)).focusNode?.hasFocus,
+      isTrue,
+    );
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
 
@@ -11052,129 +11215,6 @@ void main() {
       telemetry: telemetry,
       source: 'opening_select',
     );
-    await tester.pump(const Duration(seconds: 2));
-    AppStartupCoordinator.resetForTesting();
-  });
-
-  testWidgets('Origin preset editor launches the same preset with overrides', (
-    WidgetTester tester,
-  ) async {
-    AppStartupCoordinator.resetForTesting();
-    addTearDown(AppStartupCoordinator.resetForTesting);
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    final transport = _RecordingV1ListTransport(
-      worldRelationStatus: 'approved',
-      originCharacters: const [
-        {
-          'char_id': 'c_edit_preset',
-          'type': 'ai',
-          'player_uid': '',
-          'name': 'Preset Hero',
-          'identity': 'Preset Identity',
-          'brief': 'Preset Personality',
-          'description': 'Hidden preset background',
-          'goal': 'Keep this goal',
-          'avatar': 'assets/images/map_default/l1_default.webp',
-          'initial_location_id': 'l_o_test_1',
-          'location_id': 'l_o_test_1',
-          'metric_value': 4,
-          'delta': 0,
-        },
-      ],
-    );
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialAuthToken: 'token',
-        ),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    const roleId = 'c_edit_preset';
-    final editSurface = find.byKey(
-      const ValueKey<String>('origin-setup-role-edit-surface-$roleId'),
-    );
-    final selectSurface = find.byKey(
-      const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
-    );
-    await _dragOriginPanelUntilVisible(tester, editSurface);
-    await tester.pumpAndSettle();
-    expect(editSurface, findsOneWidget);
-    expect(
-      tester.getRect(editSurface).right,
-      lessThan(tester.getRect(selectSurface).left),
-    );
-
-    tester
-        .widget<InkWell>(
-          find.byKey(const ValueKey<String>('origin-setup-role-edit-$roleId')),
-        )
-        .onTap!();
-    await tester.pumpAndSettle();
-
-    final inlineEditor = find.byKey(
-      const ValueKey<String>('origin-setup-role-inline-editor-$roleId'),
-    );
-    final fields = find.descendant(
-      of: inlineEditor,
-      matching: find.byType(TextField),
-    );
-    expect(fields, findsNWidgets(3));
-    expect(tester.widget<TextField>(fields.at(0)).maxLength, 30);
-    expect(tester.widget<TextField>(fields.at(1)).maxLength, 100);
-    expect(tester.widget<TextField>(fields.at(2)).maxLength, 100);
-    for (final field in tester.widgetList<TextField>(fields)) {
-      expect(field.decoration?.counterText, isEmpty);
-      expect(field.groupId, same(createFormTextFieldTapRegionGroup));
-      expect(field.onTapOutside, isNull);
-    }
-    expect(
-      tester.widget<TextField>(fields.at(0)).controller?.text,
-      'Preset Hero',
-    );
-    expect(
-      tester.widget<TextField>(fields.at(1)).controller?.text,
-      'Preset Identity',
-    );
-    expect(
-      tester.widget<TextField>(fields.at(2)).controller?.text,
-      'Preset Personality',
-    );
-
-    await tester.enterText(fields.at(0), 'Edited Preset');
-    await tester.enterText(fields.at(1), 'Edited Identity');
-    await tester.enterText(fields.at(2), 'Edited Personality');
-    final personalityField = tester.widget<TextField>(fields.at(2));
-    expect(personalityField.focusNode?.hasFocus, isTrue);
-
-    final selectButton = find.byKey(
-      const ValueKey<String>('origin-setup-role-$roleId'),
-    );
-    await tester.ensureVisible(selectButton);
-    await tester.pumpAndSettle();
-    await tester.tap(selectButton);
-    await tester.pumpAndSettle();
-
-    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-    expect(launchRequests, hasLength(1));
-    final launchBody = transport.decodedBody(launchRequests.single);
-    expect(launchBody['preset_character_id'], roleId);
-    expect(launchBody.containsKey('custom_role'), isFalse);
-    expect(launchBody['preset_role_override'], {
-      'avatar': 'assets/images/map_default/l1_default.webp',
-      'name': 'Edited Preset',
-      'identity': 'Edited Identity',
-      'brief': 'Edited Personality',
-    });
     await tester.pump(const Duration(seconds: 2));
     AppStartupCoordinator.resetForTesting();
   });
@@ -11340,6 +11380,7 @@ void main() {
       launchPreset();
       launchPreset();
       await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+      await tester.pump();
       _expectOriginLaunchStartTelemetry(
         telemetry: telemetry,
         action: 'worldo_launch_opening',
@@ -11349,6 +11390,24 @@ void main() {
       expect(
         _collectLogEvents(telemetry, 'worldo_launch_submit_start'),
         isEmpty,
+      );
+      final openingComposer = find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('origin-expanded-opening-composer'),
+          skipOffstage: false,
+        ),
+        matching: find.byType(LocationChatComposerInput, skipOffstage: false),
+        skipOffstage: false,
+      );
+      expect(openingComposer, findsOneWidget);
+      final openingComposerWidget = tester.widget<LocationChatComposerInput>(
+        openingComposer,
+      );
+      expect(openingComposerWidget.sending, isFalse);
+      expect(openingComposerWidget.inputEnabled, isFalse);
+      expect(
+        find.descendant(of: directLaunch, matching: find.text('Launching...')),
+        findsOneWidget,
       );
 
       originLaunchCompleter.complete(
@@ -11370,6 +11429,10 @@ void main() {
         telemetry: telemetry,
         source: 'opening_select',
       );
+      final launchBody = transport.decodedBody(
+        transport.requestsFor('/api/v1/origin/launch').single,
+      );
+      expect(launchBody['preset_character_id'], 'c_o_test_1');
       expect(
         _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
         findsNothing,
@@ -11764,12 +11827,6 @@ void main() {
         matching: find.byType(Scrollable),
       );
       final selectRoleTitle = find.text('Select Your Role');
-      await tester.scrollUntilVisible(
-        selectRoleTitle,
-        120,
-        scrollable: openingScroll.first,
-      );
-      await tester.pumpAndSettle();
       expect(
         tester.getBottomLeft(sheetSurface).dy -
             tester.getBottomLeft(expandedComposer).dy,
@@ -11782,74 +11839,93 @@ void main() {
           const ValueKey('origin-location-chat-role-selector'),
         ),
       );
-      await tester.tap(roleSelector);
-      await tester.pumpAndSettle();
-      final profileRoleOption = find.byKey(
-        const ValueKey<String>('origin-location-chat-role-option-current-user'),
-      );
-      expect(profileRoleOption, findsOneWidget);
       expect(
-        find.byKey(
-          const ValueKey<String>('origin-location-chat-role-dismiss-area'),
+        find.descendant(
+          of: roleSelector,
+          matching: find.byKey(
+            const ValueKey<String>('origin-location-chat-role-switch-icon'),
+          ),
         ),
         findsOneWidget,
       );
-      await tester.drag(
-        find.byKey(const ValueKey<String>('origin-location-chat-role-list')),
-        const Offset(0, 80),
+      expect(
+        tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
+        'Nikos',
       );
+      await tester.tap(roleSelector);
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey<String>('origin-location-chat-role-picker')),
         findsNothing,
       );
-
-      await tester.tap(roleSelector);
-      await tester.pumpAndSettle();
-      expect(profileRoleOption, findsOneWidget);
+      final selectRoleTitleRect = tester.getRect(selectRoleTitle);
+      final sheetSurfaceRect = tester.getRect(sheetSurface);
       expect(
-        find.descendant(of: profileRoleOption, matching: find.text('Nikos')),
-        findsOneWidget,
+        selectRoleTitleRect.top,
+        greaterThanOrEqualTo(
+          sheetSurfaceRect.top + originDetailSheetHeaderHeightForTesting,
+        ),
       );
+      expect(selectRoleTitleRect.bottom, lessThan(sheetSurfaceRect.bottom));
+
+      final rolePages = find.byKey(
+        const ValueKey<String>('origin-setup-role-cards'),
+      );
+      expect(rolePages, findsOneWidget);
+      expect(
+        tester.widget<PageView>(rolePages).physics,
+        isA<PageScrollPhysics>(),
+      );
+      await tester.drag(rolePages, const Offset(-320, 0));
+      await tester.pumpAndSettle();
       expect(
         find.descendant(
-          of: profileRoleOption,
-          matching: find.text('Adventure guide'),
+          of: expandedComposer,
+          matching: find.byKey(
+            const ValueKey<String>('origin-location-chat-role-label'),
+          ),
         ),
         findsOneWidget,
       );
-      await tester.tap(
-        find.byKey(
-          const ValueKey('origin-location-chat-role-option-c_o_test_1'),
-        ),
-      );
-      await tester.pump();
       expect(
-        find.byKey(const ValueKey('origin-location-chat-role-picker')),
-        findsOneWidget,
+        tester
+            .widget<Text>(
+              find.descendant(
+                of: expandedComposer,
+                matching: find.byKey(
+                  const ValueKey<String>('origin-location-chat-role-label'),
+                ),
+              ),
+            )
+            .data,
+        'Detail Character',
       );
-      final selectedRoleIndicator = find.byKey(
-        const ValueKey<String>(
-          'origin-location-chat-role-option-indicator-c_o_test_1',
-        ),
+      final selectedPresetFrame = find.byKey(
+        const ValueKey<String>('origin-setup-role-card-frame-c_o_test_1'),
       );
-      expect(selectedRoleIndicator, findsOneWidget);
+      final selectedPresetDecoration =
+          tester.widget<Container>(selectedPresetFrame).foregroundDecoration!
+              as BoxDecoration;
       expect(
-        tester.widget<Icon>(selectedRoleIndicator).icon,
-        Icons.check_circle_rounded,
+        (selectedPresetDecoration.border! as Border).top.color,
+        GenesisColors.brand,
       );
-      final previousRoleIndicator = find.byKey(
-        const ValueKey<String>(
-          'origin-location-chat-role-option-indicator-current-user',
-        ),
-      );
-      expect(previousRoleIndicator, findsOneWidget);
       expect(
-        tester.widget<Icon>(previousRoleIndicator).icon,
-        Icons.circle_outlined,
+        tester.getCenter(selectedPresetFrame).dx,
+        closeTo(tester.getCenter(rolePages).dx, 0.01),
       );
-      await tester.pump(const Duration(milliseconds: 180));
-      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<GenesisCharacterAvatar>(
+              find.descendant(
+                of: rolePill,
+                matching: find.byType(GenesisCharacterAvatar),
+              ),
+            )
+            .name,
+        'Detail Character',
+      );
+      expect(openingScroll, findsWidgets);
 
       const message = '@Detail Character<c_o_test_1> explore';
       sharedComposerWidget.controller.insertShortcut('explore');
@@ -11878,11 +11954,17 @@ void main() {
       sendMessage();
       sendMessage();
       await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+      await tester.pump();
       _expectOriginLaunchStartTelemetry(
         telemetry: telemetry,
         action: 'worldo_launch_message',
         roleId: 'c_o_test_1',
       );
+      final sendingComposer = tester.widget<LocationChatComposerInput>(
+        sharedComposer,
+      );
+      expect(sendingComposer.sending, isTrue);
+      expect(sendingComposer.inputEnabled, isFalse);
       expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
       final launchChat = find.byKey(
         const ValueKey<String>('origin-location-chat-l_o_test_1'),
@@ -24876,7 +24958,7 @@ void main() {
     },
   );
 
-  testWidgets('world Tilemap prefers the last chat location on first entry', (
+  testWidgets('world Tilemap ignores backend last chat location for focus', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport(
@@ -24893,7 +24975,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final tilemap = tester.widget<Tilemap>(find.byType(Tilemap));
-    expect(tilemap.preferredFocusLocationId, 'l_w_test_1_child');
+    expect(tilemap.preferredFocusLocationId, isEmpty);
     expect(
       transport
           .requestsFor('/api/v1/world/map')
@@ -25687,12 +25769,18 @@ void main() {
   });
 
   testWidgets(
-    'world map activity paths come directly from world detail L3 fields',
+    'world map recent chat comes from local store while events use detail',
     (WidgetTester tester) async {
+      await recentWorldChatStore.markRecentChat(
+        uid: 'u_mock',
+        worldId: 'w_test_1',
+        locationId: 'loc_l3',
+        locationPathIds: const <String>['loc_l1', 'loc_l2', 'loc_l3'],
+      );
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'anonymous',
         worldDefinitionVersion: 1,
-        worldLastChatLocationId: 'loc_l3',
+        worldLastChatLocationId: 'loc_l2',
         worldLocations: const <Map<String, Object?>>[
           {
             'location_id': 'loc_l1',
@@ -25730,6 +25818,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      expect(worldMap.legacy.recentChatLocationIds, const <String>{'loc_l3'});
       expect(worldMap.legacy.recentChatMapLocationIds, const <String>{
         'loc_l1',
         'loc_l2',

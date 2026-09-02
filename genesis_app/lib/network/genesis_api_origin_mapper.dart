@@ -275,6 +275,7 @@ Map<String, dynamic> _normalizeWorldLocation(Map<String, dynamic> location) {
     'location_id': locationId,
     'location_pid': parentLocationId,
     'point_id': pointId,
+    'level': asInt(location['level']),
     'location_name': locationName,
     'location_summary': locationSummary,
     'location_description': locationDescription,

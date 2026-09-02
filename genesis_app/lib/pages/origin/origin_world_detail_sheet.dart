@@ -27,12 +27,11 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onFullyExpanded,
     required this.onAutoExpansionInterrupted,
     required this.onOriginChanged,
-    required this.launching,
+    required this.activeLaunchSource,
     required this.launchedPresetRoles,
     required this.onEnterLaunchedWorld,
     required this.profileRole,
     required this.onSelectRole,
-    required this.onSelectEditedPresetRole,
     required this.onSelectProfileRole,
     required this.locationChatRole,
     required this.onSelectLocationChatRole,
@@ -49,19 +48,14 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final VoidCallback onFullyExpanded;
   final VoidCallback onAutoExpansionInterrupted;
   final VoidCallback onOriginChanged;
-  final bool launching;
+  final OriginLaunchSource? activeLaunchSource;
   final List<OriginMyLaunchPresetCharacter>? launchedPresetRoles;
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
   final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
-  final Future<void> Function(
-    OriginCharacter character,
-    OriginPresetRoleOverride roleOverride,
-  )
-  onSelectEditedPresetRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
   final _OriginLocationChatRoleOption locationChatRole;
-  final VoidCallback onSelectLocationChatRole;
+  final ValueChanged<String> onSelectLocationChatRole;
   final Future<bool> Function(
     String locationId,
     String message,
@@ -86,6 +80,9 @@ class _OriginDetailDraggableSheetState
   late final ScrollController _openingPreviewScrollController;
   late final ScrollController _infoPreviewScrollController;
   final ValueNotifier<bool> _roleEditing = ValueNotifier<bool>(false);
+  final GlobalKey _roleSectionKey = GlobalKey(
+    debugLabel: 'origin-opening-role-section',
+  );
   final Completer<void> _sheetReady = Completer<void>();
   ScrollController? _sheetScrollController;
   OriginDiscussListController? _discussController;
@@ -206,6 +203,47 @@ class _OriginDetailDraggableSheetState
 
   void _expandOpeningRoleCards() {
     _expandToMaxChildSize();
+  }
+
+  void _focusOpeningRoleCards() {
+    unawaited(_focusOpeningRoleCardsAfterExpansion());
+  }
+
+  Future<void> _focusOpeningRoleCardsAfterExpansion() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _cancelExtentSettleWait();
+    final commandGeneration = ++_extentCommandGeneration;
+    await _animateToRequestedExtent(
+      commandGeneration: commandGeneration,
+      expanded: true,
+    );
+    if (!_isExtentCommandCurrent(commandGeneration) || !mounted) return;
+    final scrollController = _sheetScrollController;
+    final roleContext = _roleSectionKey.currentContext;
+    final renderObject = roleContext?.findRenderObject();
+    if (scrollController == null ||
+        !scrollController.hasClients ||
+        renderObject is! RenderBox ||
+        !renderObject.hasSize) {
+      return;
+    }
+    final desiredTop =
+        originWorldDetailExpandedSheetTopFor(
+          topSafeArea: GenesisSafeAreaInsets.top(context),
+        ) +
+        originDetailSheetHeaderHeightForTesting +
+        8;
+    final roleTop = renderObject.localToGlobal(Offset.zero).dy;
+    final position = scrollController.position;
+    final target = (position.pixels + roleTop - desiredTop)
+        .clamp(position.minScrollExtent, position.maxScrollExtent)
+        .toDouble();
+    if ((target - position.pixels).abs() < 0.5) return;
+    await scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   void _handleRoleEditingChanged(bool editing) {
@@ -540,13 +578,15 @@ class _OriginDetailDraggableSheetState
           key: ValueKey<String>(
             'origin-sheet-chat-composer-${widget.origin.oid}-$locationId',
           ),
-          launching: widget.launching,
+          launching: widget.activeLaunchSource != null,
+          sending:
+              widget.activeLaunchSource == OriginLaunchSource.openingMessage,
           role: widget.locationChatRole,
           mentionCatalog: _originLocationChatMentionCatalog(
             widget.origin,
             selectedRoleId: widget.locationChatRole.id,
           ),
-          onSelectRole: widget.onSelectLocationChatRole,
+          onSelectRole: _focusOpeningRoleCards,
           onSend: (message, mentionCatalog) => widget.onSendLocationChatMessage(
             locationId,
             message,
@@ -704,12 +744,17 @@ class _OriginDetailDraggableSheetState
               ),
             SliverToBoxAdapter(
               child: _OriginSetupRoleSection(
+                key: _roleSectionKey,
                 scrollController: scrollController,
                 characters: widget.origin.characters,
-                launching: widget.launching,
+                launchBusy: widget.activeLaunchSource != null,
+                launching:
+                    widget.activeLaunchSource ==
+                    OriginLaunchSource.openingSelect,
                 profileRole: widget.profileRole,
+                selectedRoleId: widget.locationChatRole.id,
+                onSelectedRoleChanged: widget.onSelectLocationChatRole,
                 onSelectRole: widget.onSelectRole,
-                onSelectEditedPresetRole: widget.onSelectEditedPresetRole,
                 onSelectProfileRole: widget.onSelectProfileRole,
                 onRoleEditingChanged: _handleRoleEditingChanged,
               ),

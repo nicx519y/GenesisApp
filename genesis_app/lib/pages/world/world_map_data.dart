@@ -80,6 +80,23 @@ List<WorldPoint> worldPointsFromLocationNodes(
     isLeafLocations: nodes
         .map((node) => node.children.isEmpty)
         .toList(growable: false),
+    isNewLocations: nodes
+        .map((node) {
+          final declaredLevel = asInt(node.value['level']);
+          final level = declaredLevel > 0 ? declaredLevel : node.depth;
+          if (level == 3) {
+            return shouldMarkWorldContentAsNew(asBool(node.value['is_new']));
+          }
+          return node.children.any((child) {
+            final childDeclaredLevel = asInt(child.value['level']);
+            final childLevel = childDeclaredLevel > 0
+                ? childDeclaredLevel
+                : child.depth;
+            return childLevel == 3 &&
+                shouldMarkWorldContentAsNew(asBool(child.value['is_new']));
+          });
+        })
+        .toList(growable: false),
     usersByIndex: nodes
         .map(
           (node) => processedLocationTree.aggregateValues<UserAvatar>(
@@ -216,6 +233,7 @@ List<WorldPoint> worldPointsFromLocations(
   Map<String, List<UserAvatar>> avatarsByLocation, {
   List<int>? depths,
   List<bool>? isLeafLocations,
+  List<bool>? isNewLocations,
   List<List<UserAvatar>>? usersByIndex,
 }) {
   if (locations.isEmpty) return const <WorldPoint>[];
@@ -280,6 +298,7 @@ List<WorldPoint> worldPointsFromLocations(
       3 => WorldPointType.tavern,
       _ => WorldPointType.camp,
     };
+    final depth = depths == null || i >= depths.length ? 0 : depths[i];
 
     return WorldPoint(
       id: id,
@@ -297,11 +316,14 @@ List<WorldPoint> worldPointsFromLocations(
       iconUrl: icon,
       description: description,
       locationDescription: descriptionFallback,
-      depth: depths == null || i >= depths.length ? 0 : depths[i],
+      depth: depth,
       isLeafLocation: isLeafLocations == null || i >= isLeafLocations.length
           ? true
           : isLeafLocations[i],
-      isNew: shouldMarkWorldContentAsNew(asBool(l['is_new'])),
+      isNew: isNewLocations != null && i < isNewLocations.length
+          ? isNewLocations[i]
+          : asInt(l['level']) == 3 &&
+                shouldMarkWorldContentAsNew(asBool(l['is_new'])),
     );
   });
 }

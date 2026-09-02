@@ -9,6 +9,7 @@ import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
+import '../../app/recent_chat/recent_world_chat_store.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
@@ -131,7 +132,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   TilemapVisualMode _tilemapVisualMode = tilemapVisualModeController.value;
   late final Future<void> _tilemapVisualModeLoad;
   bool _tilemapVisualModeReady = false;
-  String? _initialTilemapPreferredFocusLocationId;
   final Set<String> _preloadedLocationMessageIds = <String>{};
   final Map<String, Future<void>> _preloadingLocationMessageFutures =
       <String, Future<void>>{};
@@ -407,6 +407,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    recentWorldChatStore.listenable.addListener(
+      _handleRecentWorldChatStoreChanged,
+    );
     worldNewContentDebugSettings.listenable.addListener(
       _handleWorldNewContentDebugSettingsChanged,
     );
@@ -477,6 +480,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _handleWorldNewContentDebugSettingsChanged,
     );
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
+    recentWorldChatStore.listenable.removeListener(
+      _handleRecentWorldChatStoreChanged,
+    );
     _mainTabController.removeListener(_handleWorldMainTabChanged);
     _worldBottomSheetSelection.removeListener(
       _handleWorldBottomSheetSelectionChanged,
@@ -668,8 +674,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
           implementationKey: _tilemapImplementationKey,
           locationId: initialTilemapLocationId,
           locationNodes: listLocationNodes,
-          preferredFocusLocationId:
-              _initialTilemapPreferredFocusLocationId ?? '',
           centerContentInitially: true,
           recentChatLocationIds: recentMapLocationIds,
           eventLocationIds: eventMapLocationIds,

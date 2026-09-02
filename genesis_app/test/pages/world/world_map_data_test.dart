@@ -71,6 +71,7 @@ void main() {
       'locations': [
         {
           'location_id': 'root',
+          'level': 1,
           'location_name': 'Root',
           'image': {
             'sm_url': 'https://cdn.example.com/root-sm.webp',
@@ -81,6 +82,7 @@ void main() {
         {
           'location_id': 'child',
           'location_pid': 'root',
+          'level': 2,
           'location_name': 'Child',
           'image': '',
           'icon': 'https://cdn.example.com/child-legacy.webp',
@@ -102,7 +104,7 @@ void main() {
       (point) => point.sceneId == 'child',
     );
     expect(rootPoint.iconUrl, 'https://cdn.example.com/root-xl.webp');
-    expect(rootPoint.isNew, isTrue);
+    expect(rootPoint.isNew, isFalse);
     expect(childPoint.iconUrl, 'https://cdn.example.com/child-legacy.webp');
     expect(childPoint.isNew, isFalse);
     expect(data.locationNodes, hasLength(1));
@@ -135,17 +137,55 @@ void main() {
       final points = worldPointsFromLocations([
         {
           'location_id': 'location-1',
+          'level': 3,
           'location_name': 'Library',
           'is_new': false,
         },
       ], avatars);
-    final fallbackPoints = worldPointsFromLocationIds([
-      'fallback-location',
-    ], const {});
+      final fallbackPoints = worldPointsFromLocationIds([
+        'fallback-location',
+      ], const {});
 
       expect(avatars['location-1']!.single.isNew, isTrue);
       expect(points.single.isNew, isTrue);
       expect(fallbackPoints.single.isNew, isTrue);
     },
   );
+
+  test('map new state comes from L3 and propagates to its direct parent', () {
+    final world = WorldDetail.fromJson({
+      'world_id': 'w-new-l3',
+      'locations': [
+        {
+          'location_id': 'l1',
+          'level': 1,
+          'location_name': 'L1',
+          'is_new': true,
+        },
+        {
+          'location_id': 'l2',
+          'location_pid': 'l1',
+          'level': 2,
+          'location_name': 'L2',
+          'is_new': false,
+        },
+        {
+          'location_id': 'l3',
+          'location_pid': 'l2',
+          'level': 3,
+          'location_name': 'L3',
+          'is_new': true,
+        },
+      ],
+    });
+
+    final data = worldLocationListDataFor(world, currentUid: '');
+    final l1Point = data.points.singleWhere((point) => point.sceneId == 'l1');
+    final l2Point = data.points.singleWhere((point) => point.sceneId == 'l2');
+    final l3Point = data.points.singleWhere((point) => point.sceneId == 'l3');
+
+    expect(l1Point.isNew, isFalse);
+    expect(l2Point.isNew, isTrue);
+    expect(l3Point.isNew, isTrue);
+  });
 }

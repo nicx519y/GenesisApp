@@ -252,7 +252,7 @@ class _OriginItemCardState extends State<OriginItemCard> {
                 if (!_coverLoadNotified)
                   const SizedBox(
                     key: ValueKey<String>('origin-item-card-loading'),
-                    child: GenesisListLoadingBone(borderRadius: 0),
+                    child: GenesisOriginCardLoadingBone(borderRadius: 0),
                   ),
                 KeyedSubtree(
                   key: ValueKey<String>(
