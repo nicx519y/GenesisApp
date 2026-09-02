@@ -192,6 +192,7 @@ HTTP 映射层的图片规则：
 
 按改动范围选择最小能证明正确性的验证：
 
+- Android production arm64 release APK 使用 `flutter build apk --release --flavor production --target-platform android-arm64`；禁止使用 `--split-per-abi`，否则 Flutter 会改写 APK 的 `versionCode`。
 - 格式：`dart format <touched files>`
 - 静态检查：`flutter analyze` 或文件相关 analyze
 - HTTP/API：`flutter test test/network/genesis_api_test.dart`、`flutter test test/network/local_mock_genesis_transport_test.dart`
