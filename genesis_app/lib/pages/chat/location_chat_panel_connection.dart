@@ -664,11 +664,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       identityState: state,
     );
     final mentionCatalogChanged = _textController.updateCatalog(
-      locationChatMentionCatalogForState(
-        state,
-        currentUserIds: _myUserIdKeys,
-        currentSenderIds: _mySenderIdKeys,
-      ),
+      _mentionCatalogForState(state),
     );
     final tickProgressResolved = _resolveTickProgressMessageIfAvailable();
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);

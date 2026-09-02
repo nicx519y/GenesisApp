@@ -70,6 +70,7 @@ class WorldPage extends StatefulWidget {
     this.initialName = '',
     this.initialLocationId = '',
     this.initialMessageToSend = '',
+    this.initialMentionCatalog,
     this.initialDefinitionVersion = 0,
     this.initialMapLocationId = '',
   });
@@ -81,6 +82,7 @@ class WorldPage extends StatefulWidget {
   final String initialName;
   final String initialLocationId;
   final String initialMessageToSend;
+  final ChatMentionCatalog? initialMentionCatalog;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
 
@@ -409,6 +411,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _locationChatPageCache.queueInitialMessageToSend(
       _pendingInitialLocationId,
       widget.initialMessageToSend,
+      mentionCatalog: widget.initialMentionCatalog,
     );
     _initialLocationChatEntry = _pendingInitialLocationId.isNotEmpty;
     _locationChatTransitionsEnabled = !_initialLocationChatEntry;

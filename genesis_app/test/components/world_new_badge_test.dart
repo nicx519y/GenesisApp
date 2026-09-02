@@ -4,7 +4,9 @@ import 'package:genesis_flutter_android/components/world_new_badge.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 void main() {
-  testWidgets('WorldNewBadge uses the shared brand treatment', (tester) async {
+  testWidgets('WorldNewBadge renders lowercase red new text', (tester) async {
+    final semantics = tester.ensureSemantics();
+
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -21,7 +23,7 @@ void main() {
       ),
     );
 
-    expect(find.text('New'), findsNWidgets(2));
+    expect(find.text('new'), findsNWidgets(2));
     expect(
       tester.getSize(find.byKey(const ValueKey('regular-new-badge'))),
       const Size(WorldNewBadge.width, WorldNewBadge.height),
@@ -31,17 +33,10 @@ void main() {
       const Size(WorldNewBadge.compactWidth, WorldNewBadge.compactHeight),
     );
 
-    final regularContainer = tester.widget<Container>(
-      find.descendant(
-        of: find.byKey(const ValueKey('regular-new-badge')),
-        matching: find.byType(Container),
-      ),
-    );
-    final decoration = regularContainer.decoration! as BoxDecoration;
-    expect(decoration.color, GenesisColors.brand);
-    expect(
-      tester.widget<Text>(find.text('New').first).style!.color,
-      Colors.white,
-    );
+    for (final text in tester.widgetList<Text>(find.text('new'))) {
+      expect(text.style?.color, GenesisColors.brand);
+    }
+    expect(find.bySemanticsLabel('New'), findsNWidgets(2));
+    semantics.dispose();
   });
 }

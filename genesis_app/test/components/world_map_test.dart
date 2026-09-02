@@ -334,7 +334,7 @@ void main() {
     );
   });
 
-  testWidgets('world map renders New for new locations and characters', (
+  testWidgets('world map renders new for locations but not character avatars', (
     tester,
   ) async {
     await _pumpWorldMap(
@@ -372,7 +372,7 @@ void main() {
       find.byKey(
         const ValueKey<String>('world-map-avatar-new-badge-new-character'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 

@@ -740,15 +740,6 @@ class _PositionedMapAvatar extends StatelessWidget {
             showStar: user.showStar,
             isPlayerControlledRole: user.isPlayerControlledRole,
           ),
-          if (user.isNew)
-            Positioned(
-              top: -4,
-              right: -4,
-              child: WorldNewBadge(
-                key: ValueKey<String>('world-map-avatar-new-badge-$stableId'),
-                compact: true,
-              ),
-            ),
         ],
       ),
     );

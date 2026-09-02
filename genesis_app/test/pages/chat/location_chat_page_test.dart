@@ -4829,6 +4829,55 @@ void main() {
     );
   });
 
+  testWidgets(
+    'pending initial character mention stays rich while catalog loads',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      const pendingMessage = '@Ken Masters<char_ken>';
+      final initialMentionCatalog = ChatMentionCatalog(
+        characters: const <ChatMentionEntry>[
+          ChatMentionEntry(
+            id: 'char_ken',
+            name: 'Ken Masters',
+            type: ChatMentionType.character,
+          ),
+        ],
+      );
+      final harness = await _connectedLocationChatTestService();
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              active: false,
+              leaveOnInactive: false,
+              initialMessageToSend: pendingMessage,
+              initialMentionCatalog: initialMentionCatalog,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final composer = tester.widget<LocationChatComposerInput>(
+        find.byType(LocationChatComposerInput),
+      );
+      expect(composer.controller.serializedText, pendingMessage);
+      expect(composer.controller.text, isNot(pendingMessage));
+      expect(composer.controller.text, isNot(contains('<')));
+      expect(find.textContaining('<char_ken>'), findsNothing);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(harness.service.dispose());
+    },
+  );
+
   testWidgets('location chat * and @ shortcuts work at caret', (
     WidgetTester tester,
   ) async {

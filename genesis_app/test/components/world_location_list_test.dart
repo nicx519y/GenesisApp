@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/world_location_list.dart';
+import 'package:genesis_flutter_android/components/world_new_badge.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
@@ -313,6 +314,12 @@ void main() {
       findsOneWidget,
     );
     expect(
+      tester.getSize(
+        find.byKey(const ValueKey('world-location-new-badge-new-flat')),
+      ),
+      const Size(WorldNewBadge.width, WorldNewBadge.height),
+    );
+    expect(
       find.byKey(const ValueKey('world-location-new-badge-new-branch')),
       findsOneWidget,
     );
@@ -365,6 +372,14 @@ void main() {
         const ValueKey('world-location-character-new-badge-new-character'),
       ),
       findsOneWidget,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(
+          const ValueKey('world-location-character-new-badge-new-character'),
+        ),
+      ),
+      const Size(WorldNewBadge.width, WorldNewBadge.height),
     );
     expect(
       find.byKey(

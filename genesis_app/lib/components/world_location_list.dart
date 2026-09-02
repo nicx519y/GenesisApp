@@ -917,7 +917,6 @@ class _PointCharacterGroupRow extends StatelessWidget {
                 key: ValueKey<String>(
                   'world-location-character-new-badge-$stableId',
                 ),
-                compact: true,
               ),
             ),
           );

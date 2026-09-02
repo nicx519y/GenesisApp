@@ -587,6 +587,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.discussTotalAll = 25,
     this.originDetailCompleter,
     this.originMapCompleter,
+    this.originLaunchCompleter,
     this.worldDetailCompleter,
     this.worldMapCompleter,
     this.chatroomMessagesCompleter,
@@ -628,6 +629,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final int discussTotalAll;
   final Completer<TransportResponse>? originDetailCompleter;
   final Completer<TransportResponse>? originMapCompleter;
+  final Completer<TransportResponse>? originLaunchCompleter;
   final Completer<TransportResponse>? worldDetailCompleter;
   final Completer<TransportResponse>? worldMapCompleter;
   final Completer<TransportResponse>? chatroomMessagesCompleter;
@@ -882,6 +884,8 @@ class _RecordingV1ListTransport implements HttpTransport {
     }
     if (request.method == 'POST' &&
         request.uri.path.endsWith('/origin/launch')) {
+      final pendingResponse = originLaunchCompleter;
+      if (pendingResponse != null) return pendingResponse.future;
       return _jsonResponse({
         'err_no': 0,
         'err_msg': 'succ',
@@ -8159,7 +8163,7 @@ void main() {
     expect(find.text('Opening line 79'), findsNothing);
   });
 
-  testWidgets('origin opening shows Worldo brief above opening location', (
+  testWidgets('origin opening location scrolls with the Worldo brief', (
     WidgetTester tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -8298,46 +8302,31 @@ void main() {
         .widget<CustomScrollView>(openingScrollView)
         .controller!;
     expect(openingScrollController.position.maxScrollExtent, greaterThan(0));
-    final sheetSurface = find.byKey(
-      const ValueKey<String>('origin-detail-sheet-surface'),
-    );
-    final pinnedLocationTop =
-        tester.getTopLeft(sheetSurface).dy +
-        originDetailSheetHeaderHeightForTesting;
-    final pinOffset =
-        openingScrollController.offset +
-        tester.getTopLeft(openingLocation).dy -
-        pinnedLocationTop;
     expect(
-      pinOffset,
-      inInclusiveRange(2, openingScrollController.position.maxScrollExtent - 2),
+      find.ancestor(
+        of: openingLocation,
+        matching: find.byType(PinnedHeaderSliver),
+      ),
+      findsNothing,
     );
-    openingScrollController.jumpTo(pinOffset - 1);
-    await tester.pump();
     expect(
-      tester.getTopLeft(openingLocation).dy,
-      closeTo(pinnedLocationTop + 1, 0.5),
+      find.ancestor(
+        of: openingLocation,
+        matching: find.byType(SliverToBoxAdapter),
+      ),
+      findsOneWidget,
     );
-    openingScrollController.jumpTo(pinOffset);
-    await tester.pump();
-    expect(
-      tester.getTopLeft(openingLocation).dy,
-      closeTo(pinnedLocationTop, 0.5),
-    );
-    openingScrollController.jumpTo(pinOffset + 1);
-    await tester.pump();
-    expect(
-      tester.getTopLeft(openingLocation).dy,
-      closeTo(pinnedLocationTop, 0.5),
-    );
+    final locationTopBeforeScroll = tester.getTopLeft(openingLocation).dy;
+    final scrollDelta = openingScrollController.position.maxScrollExtent
+        .clamp(1.0, 24.0)
+        .toDouble();
     openingScrollController.jumpTo(
-      openingScrollController.position.maxScrollExtent,
+      openingScrollController.offset + scrollDelta,
     );
-    await tester.pump();
     await tester.pump();
     expect(
       tester.getTopLeft(openingLocation).dy,
-      closeTo(pinnedLocationTop, 1),
+      closeTo(locationTopBeforeScroll - scrollDelta, 1),
     );
   });
 
@@ -11028,7 +11017,7 @@ void main() {
   });
 
   testWidgets(
-    'Origin expanded sheet pins role composer and sends after launch',
+    'Origin expanded sheet keeps role composer at bottom and sends after launch',
     (WidgetTester tester) async {
       tester.view.padding = const FakeViewPadding(bottom: 24);
       tester.view.viewPadding = const FakeViewPadding(bottom: 24);
@@ -11036,7 +11025,9 @@ void main() {
       addTearDown(tester.view.resetViewPadding);
       AppStartupCoordinator.resetForTesting();
       addTearDown(AppStartupCoordinator.resetForTesting);
+      final originLaunchCompleter = Completer<TransportResponse>();
       final transport = _RecordingV1ListTransport(
+        originLaunchCompleter: originLaunchCompleter,
         worldRelationStatus: 'joined',
         worldLocations: const [
           {
@@ -11089,6 +11080,11 @@ void main() {
       );
       expect(sheetComposer, findsOneWidget);
       final sheetComposerWidget = tester.widget<ChatComposer>(sheetComposer);
+      final sharedComposer = find.descendant(
+        of: find.byKey(const ValueKey('origin-expanded-opening-composer')),
+        matching: find.byType(LocationChatComposerInput),
+      );
+      expect(sharedComposer, findsOneWidget);
       expect(
         sheetComposerWidget.style?.composerBackgroundColor,
         originWorldDetailSheetBackgroundColor,
@@ -11117,17 +11113,11 @@ void main() {
         const ValueKey<String>('origin-detail-sheet-pages'),
       );
       expect(sheetPages, findsOneWidget);
-      final composerAnchor = find.byKey(
-        const ValueKey<String>('origin-opening-role-composer-anchor'),
-      );
-      expect(composerAnchor, findsOneWidget);
       expect(
-        tester.getTopLeft(expandedComposer).dy,
-        closeTo(tester.getTopLeft(composerAnchor).dy, 1),
-      );
-      expect(
-        tester.getBottomLeft(expandedComposer).dy,
-        closeTo(tester.getBottomLeft(composerAnchor).dy, 1),
+        find.byKey(
+          const ValueKey<String>('origin-opening-role-composer-anchor'),
+        ),
+        findsNothing,
       );
       final sheetSurface = find.byKey(
         const ValueKey<String>('origin-detail-sheet-surface'),
@@ -11137,8 +11127,8 @@ void main() {
           tester.getBottomLeft(expandedComposer).dy;
       expect(
         bottomGapBeforeDrag,
-        greaterThan(30),
-        reason: 'The fixture must keep the composer in its natural flow.',
+        closeTo(0, 1),
+        reason: 'The expanded composer stays docked to the sheet bottom.',
       );
       final sheetTopBeforeDrag = tester.getTopLeft(sheetSurface).dy;
       final sheetDrag = await tester.startGesture(
@@ -11155,11 +11145,7 @@ void main() {
       expect(
         tester.getBottomLeft(sheetSurface).dy -
             tester.getBottomLeft(expandedComposer).dy,
-        greaterThan(0),
-      );
-      expect(
-        tester.getTopLeft(expandedComposer).dy,
-        closeTo(tester.getTopLeft(composerAnchor).dy, 1),
+        closeTo(0, 1),
       );
       final visibilityDuringSheetDrag = tester.widget<IgnorePointer>(
         visibility,
@@ -11234,6 +11220,58 @@ void main() {
         findsOneWidget,
       );
 
+      final sharedComposerWidget = tester.widget<LocationChatComposerInput>(
+        sharedComposer,
+      );
+      final sharedComposerInput = find.descendant(
+        of: sharedComposer,
+        matching: find.byKey(const ValueKey('chat-composer-input')),
+      );
+      await tester.tap(sharedComposerInput);
+      await tester.pump();
+      expect(
+        find.descendant(
+          of: sharedComposer,
+          matching: find.byKey(
+            const ValueKey<String>('chat-composer-leading-shortcut'),
+          ),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.descendant(
+          of: sharedComposer,
+          matching: find.byKey(
+            const ValueKey<String>('chat-composer-leading-shortcut'),
+          ),
+        ),
+      );
+      expect(sharedComposerWidget.controller.serializedText, '*');
+      sharedComposerWidget.controller.clear();
+      await tester.tap(
+        find.descendant(
+          of: sharedComposer,
+          matching: find.byKey(
+            const ValueKey<String>('chat-composer-secondary-leading-shortcut'),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('location-chat-mention-sheet')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('location-chat-mention-character-c_o_test_1'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        sharedComposerWidget.controller.serializedText,
+        '@Detail Character<c_o_test_1>',
+      );
+
       final openingScroll = find.descendant(
         of: find.byKey(
           const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
@@ -11248,8 +11286,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        tester.getTopLeft(selectRoleTitle).dy,
-        closeTo(tester.getBottomLeft(expandedComposer).dy, 1),
+        tester.getBottomLeft(sheetSurface).dy -
+            tester.getBottomLeft(expandedComposer).dy,
+        closeTo(0, 1),
       );
 
       final roleSelector = find.descendant(
@@ -11327,13 +11366,11 @@ void main() {
       await tester.pump(const Duration(milliseconds: 180));
       await tester.pumpAndSettle();
 
-      const message = 'Send from the expanded sheet';
-      final input = find.descendant(
-        of: sheetComposer,
-        matching: find.byKey(const ValueKey('chat-composer-input')),
-      );
-      await tester.enterText(input, message);
+      const message = '@Detail Character<c_o_test_1> explore';
+      sharedComposerWidget.controller.insertShortcut(' explore');
       await tester.pump();
+      expect(sharedComposerWidget.controller.serializedText, message);
+      expect(sharedComposerWidget.controller.text, isNot(contains('<')));
       final enabledSheetComposerWidget = tester.widget<ChatComposer>(
         sheetComposer,
       );
@@ -11353,6 +11390,43 @@ void main() {
       );
       await tester.pump();
       expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
+      final launchChat = find.byKey(
+        const ValueKey<String>('origin-location-chat-l_o_test_1'),
+      );
+      expect(launchChat, findsOneWidget);
+      final launchChatComposer = find.descendant(
+        of: launchChat,
+        matching: find.byType(LocationChatComposerInput),
+      );
+      expect(launchChatComposer, findsOneWidget);
+      expect(
+        tester
+            .widget<LocationChatComposerInput>(launchChatComposer)
+            .controller
+            .serializedText,
+        message,
+      );
+      expect(
+        tester
+            .widget<LocationChatComposerInput>(launchChatComposer)
+            .controller
+            .text,
+        isNot(contains('<')),
+      );
+      expect(
+        find.descendant(
+          of: launchChatComposer,
+          matching: find.byType(CircularProgressIndicator),
+        ),
+        findsOneWidget,
+      );
+      originLaunchCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {'world_id': 'w_launched_from_origin'},
+        }),
+      );
       for (var frame = 0; frame < 60; frame += 1) {
         await tester.pump();
         if (find.byType(WorldPage).evaluate().isNotEmpty &&
@@ -11366,6 +11440,10 @@ void main() {
       );
       expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
       expect(launchedWorldPage.initialMessageToSend, message);
+      expect(
+        launchedWorldPage.initialMentionCatalog?.entryForId('c_o_test_1'),
+        isNotNull,
+      );
       expect(chatroom.session.sentMessages, [message]);
       expect(chatroom.session.sentUserEnterLocationIds, isEmpty);
       final clientMsgId = chatroom.session.sentClientMsgIds.single;

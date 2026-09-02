@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
+import 'package:genesis_flutter_android/components/world_new_badge.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -143,6 +144,12 @@ void main() {
     expect(
       find.byKey(const ValueKey('world-character-new-badge-bool-new')),
       findsOneWidget,
+    );
+    expect(
+      tester.getSize(
+        find.byKey(const ValueKey('world-character-new-badge-bool-new')),
+      ),
+      const Size(WorldNewBadge.width, WorldNewBadge.height),
     );
     expect(
       find.byKey(const ValueKey('world-character-new-badge-number-new')),

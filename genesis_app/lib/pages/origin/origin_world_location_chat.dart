@@ -53,6 +53,41 @@ String _originLaunchChatLocationId(OriginDetail origin) {
   return '';
 }
 
+ChatMentionCatalog _originLocationChatMentionCatalog(
+  OriginDetail origin, {
+  required String selectedRoleId,
+}) {
+  final normalizedSelectedRoleId = selectedRoleId.trim();
+  final characters = <ChatMentionEntry>[
+    for (final character in origin.characters)
+      if (_characterStableId(character).isNotEmpty &&
+          _characterStableId(character) != normalizedSelectedRoleId &&
+          character.name.trim().isNotEmpty)
+        ChatMentionEntry(
+          id: _characterStableId(character),
+          name: character.name.trim(),
+          type: ChatMentionType.character,
+          imageUrl: character.avatar,
+        ),
+  ];
+  final locationTree = origin.processedLocationTree;
+  final locations = <ChatMentionEntry>[
+    for (final node in locationTree.flattened)
+      if (node.children.isEmpty &&
+          node.id != originSyntheticRootLocationId &&
+          node.id.trim().isNotEmpty &&
+          node.value.name.trim().isNotEmpty)
+        ChatMentionEntry(
+          id: node.id.trim(),
+          name: node.value.name.trim(),
+          type: ChatMentionType.location,
+          subtitle:
+              locationTree.nodeById(node.parentId)?.value.name.trim() ?? '',
+        ),
+  ];
+  return ChatMentionCatalog(characters: characters, locations: locations);
+}
+
 extension _OriginWorldPageLocationChat on _OriginWorldPageState {
   void _handleCurrentTilemapLocationsChanged(
     String _,
@@ -119,16 +154,26 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                     ),
                     launching: _launching,
                     role: launchRole,
+                    mentionCatalog: mergeLocationChatMentionCatalogs(
+                      _originLocationChatMentionCatalog(
+                        origin,
+                        selectedRoleId: launchRole.id,
+                      ),
+                      _pendingLocationChatLaunchMentionCatalog,
+                    ),
+                    initialText: _pendingLocationChatLaunchMessage,
                     onSelectRole: () => _selectLocationChatRole(origin),
                     style: launchComposerStyle,
                     showRoleSelector: false,
                     roleBackgroundColor:
                         launchComposerStyle.inputBackgroundColor,
-                    onSend: (message) => _launchLocationChatMessage(
-                      origin,
-                      locationId: descriptor.locationId,
-                      message: message,
-                    ),
+                    onSend: (message, mentionCatalog) =>
+                        _launchLocationChatMessage(
+                          origin,
+                          locationId: descriptor.locationId,
+                          message: message,
+                          mentionCatalog: mentionCatalog,
+                        ),
                   ),
                 ),
               ),
@@ -268,20 +313,82 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     }
   }
 
-  Future<void> _launchLocationChatMessage(
+  void _showLocationChatForLaunch(
     OriginDetail origin, {
     required String locationId,
     required String message,
+    required ChatMentionCatalog mentionCatalog,
+  }) {
+    final normalizedLocationId = locationId.trim();
+    if (normalizedLocationId.isEmpty) return;
+    final currentDescriptor = _activeChatLocation;
+    if (currentDescriptor?.locationId == normalizedLocationId) {
+      setState(() {
+        _pendingLocationChatLaunchMessage = message;
+        _pendingLocationChatLaunchMentionCatalog = mentionCatalog;
+      });
+      return;
+    }
+
+    final locationNode = origin.processedLocationTree.nodeById(
+      normalizedLocationId,
+    );
+    final location = locationNode?.value;
+    final openingPreviewMessages = _originLocationOpeningPreviewMessages(
+      origin,
+      <String>[normalizedLocationId],
+    );
+    final openingPreviewEntities = _originLocationOpeningPreviewEntities(
+      origin.characters,
+      openingPreviewMessages,
+      normalizedLocationId,
+    );
+    final imageUrl = location == null
+        ? ''
+        : firstNonEmpty(<String>[
+            location.imageResource.displayUrl,
+            location.icon,
+            location.mapUrl,
+          ]);
+    setState(() {
+      _pendingLocationChatLaunchMessage = message;
+      _pendingLocationChatLaunchMentionCatalog = mentionCatalog;
+      _activeChatLocation = _OriginLocationChatDescriptor(
+        originId: origin.oid,
+        locationId: normalizedLocationId,
+        locationName: location?.name.trim().isNotEmpty == true
+            ? location!.name.trim()
+            : normalizedLocationId,
+        backgroundImageUrl: imageUrl,
+        backgroundPreviewImageUrl: '',
+        isLeafLocation: locationNode?.children.isEmpty ?? true,
+        openingPreviewMessages: openingPreviewMessages,
+        openingPreviewEntities: openingPreviewEntities,
+      );
+    });
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_location_chat',
+      object1: origin.oid,
+      object2: normalizedLocationId,
+    );
+  }
+
+  Future<bool> _launchLocationChatMessage(
+    OriginDetail origin, {
+    required String locationId,
+    required String message,
+    required ChatMentionCatalog mentionCatalog,
   }) async {
-    if (_launching || message.trim().isEmpty) return;
-    if (!await ensureGenesisLogin(context) || !mounted) return;
+    if (_launching || message.trim().isEmpty) return false;
+    if (!await ensureGenesisLogin(context) || !mounted) return false;
 
     final selectedRoleId = _selectedLocationChatRoleId;
     OriginRoleLaunchSelection roleSelection;
     String telemetryRoleId;
     if (selectedRoleId == _OriginWorldPageState._profileLocationChatRoleId) {
       final profileRole = await _customRoleFromProfile();
-      if (!mounted || profileRole == null) return;
+      if (!mounted || profileRole == null) return false;
       roleSelection = OriginRoleLaunchSelection.custom(profileRole);
       telemetryRoleId = 'current_user';
     } else {
@@ -293,12 +400,19 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
         _setLocationChatRoleId(
           _OriginWorldPageState._profileLocationChatRoleId,
         );
-        return;
+        return false;
       }
       final characterId = _characterStableId(character);
       roleSelection = OriginRoleLaunchSelection.preset(characterId);
       telemetryRoleId = characterId;
     }
+
+    _showLocationChatForLaunch(
+      origin,
+      locationId: locationId,
+      message: message,
+      mentionCatalog: mentionCatalog,
+    );
 
     GenesisTelemetry.collectLog(
       actionType: 'event',
@@ -311,12 +425,20 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       action: 'worldo_launch_opening',
       object1: origin.oid,
     );
-    await _launchOrigin(
+    final launchedWorldId = await _launchOrigin(
       origin,
       roleSelection,
       initialLocationId: locationId,
       initialMessageToSend: message,
+      initialMentionCatalog: mentionCatalog,
     );
+    if (mounted && launchedWorldId == null) {
+      setState(() {
+        _pendingLocationChatLaunchMessage = message;
+        _pendingLocationChatLaunchMentionCatalog = mentionCatalog;
+      });
+    }
+    return launchedWorldId != null;
   }
 }
 
@@ -347,8 +469,10 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     super.key,
     required this.launching,
     required this.role,
+    required this.mentionCatalog,
     required this.onSelectRole,
     required this.onSend,
+    this.initialText = '',
     this.style,
     this.inputDockBackgroundColor,
     this.showRoleSelector = true,
@@ -356,13 +480,15 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.roleMutedColor = const Color(0x99FFFFFF),
     this.roleBackgroundColor = const Color(0xCC151517),
     this.onInputDockHeightChanged,
-    this.onHeightChanged,
   });
 
   final bool launching;
   final _OriginLocationChatRoleOption role;
+  final ChatMentionCatalog mentionCatalog;
   final VoidCallback onSelectRole;
-  final Future<void> Function(String message) onSend;
+  final Future<bool> Function(String message, ChatMentionCatalog mentionCatalog)
+  onSend;
+  final String initialText;
   final ChatUiStyleConfig? style;
   final Color? inputDockBackgroundColor;
   final bool showRoleSelector;
@@ -370,7 +496,6 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final Color roleMutedColor;
   final Color roleBackgroundColor;
   final ValueChanged<double>? onInputDockHeightChanged;
-  final ValueChanged<double>? onHeightChanged;
 
   @override
   State<_OriginLocationChatLaunchComposer> createState() =>
@@ -379,14 +504,35 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
 
 class _OriginLocationChatLaunchComposerState
     extends State<_OriginLocationChatLaunchComposer> {
-  final TextEditingController _controller = TextEditingController();
+  late final LocationChatMentionEditingController _controller;
   final FocusNode _focusNode = FocusNode();
   bool _hasText = false;
+  bool _mentionSheetOpen = false;
+  bool _mentionSheetSchedulePending = false;
 
   @override
   void initState() {
     super.initState();
+    _controller = LocationChatMentionEditingController(
+      catalog: widget.mentionCatalog,
+    );
+    if (widget.initialText.isNotEmpty) {
+      _controller.setSerializedText(widget.initialText);
+      _hasText = widget.initialText.trim().isNotEmpty;
+    }
     _controller.addListener(_handleTextChanged);
+  }
+
+  @override
+  void didUpdateWidget(covariant _OriginLocationChatLaunchComposer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _controller.updateCatalog(widget.mentionCatalog);
+    final pendingMessage = widget.initialText;
+    if (pendingMessage != oldWidget.initialText &&
+        pendingMessage.isNotEmpty &&
+        _controller.serializedText.trim().isEmpty) {
+      _controller.setSerializedText(pendingMessage);
+    }
   }
 
   @override
@@ -398,16 +544,68 @@ class _OriginLocationChatLaunchComposerState
   }
 
   void _handleTextChanged() {
-    final hasText = _controller.text.trim().isNotEmpty;
+    final hasText = _controller.serializedText.trim().isNotEmpty;
+    final triggerOffset = _controller.takeInsertedAtOffset();
+    if (triggerOffset != null) {
+      _scheduleMentionSheet(triggerOffset);
+    }
     if (_hasText == hasText) return;
     setState(() => _hasText = hasText);
   }
 
-  Future<void> _send() async {
-    final message = _controller.text;
-    if (widget.launching || message.trim().isEmpty) return;
+  void _scheduleMentionSheet(int triggerOffset) {
+    if (_mentionSheetOpen || _mentionSheetSchedulePending) return;
+    _mentionSheetSchedulePending = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mentionSheetSchedulePending = false;
+      if (!mounted || _mentionSheetOpen) return;
+      unawaited(_showMentionSheet(triggerOffset));
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _showMentionSheet(int triggerOffset) async {
+    if (_mentionSheetOpen ||
+        triggerOffset < 0 ||
+        triggerOffset >= _controller.text.length ||
+        _controller.text[triggerOffset] != '@') {
+      return;
+    }
+    setState(() => _mentionSheetOpen = true);
     _focusNode.unfocus();
-    await widget.onSend(message);
+    final selected = await showGenesisModalBottomSheet<ChatMentionEntry>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      useSafeArea: false,
+      builder: (_) => LocationChatMentionSheet(catalog: _controller.catalog),
+    );
+    if (!mounted) return;
+    setState(() => _mentionSheetOpen = false);
+    if (selected != null) {
+      final triggerStillExists =
+          triggerOffset < _controller.text.length &&
+          _controller.text[triggerOffset] == '@';
+      final selection = _controller.selection;
+      final fallbackStart = selection.isValid
+          ? selection.start
+          : _controller.text.length;
+      final fallbackEnd = selection.isValid ? selection.end : fallbackStart;
+      _controller.insertMention(
+        selected,
+        replaceStart: triggerStillExists ? triggerOffset : fallbackStart,
+        replaceEnd: triggerStillExists ? triggerOffset + 1 : fallbackEnd,
+      );
+    }
+    _focusNode.requestFocus();
+  }
+
+  Future<void> _send() async {
+    final message = _controller.serializedText;
+    if (widget.launching || message.trim().isEmpty) return;
+    final mentionCatalog = _controller.composedMentionCatalog;
+    _focusNode.unfocus();
+    await widget.onSend(message, mentionCatalog);
   }
 
   @override
@@ -426,7 +624,7 @@ class _OriginLocationChatLaunchComposerState
         top: _originLocationChatRoleInputGap,
       ),
     );
-    final composer = ChatComposer(
+    final composer = LocationChatComposerInput(
       controller: _controller,
       focusNode: _focusNode,
       hintText: 'Text...',
@@ -436,7 +634,6 @@ class _OriginLocationChatLaunchComposerState
       onSend: _send,
       onHeightChanged: widget.onInputDockHeightChanged,
       composerHeader: null,
-      sendIcon: ChatComposerSendIcon.arrowUp,
       style: composerStyle,
     );
     final Widget content;
@@ -458,57 +655,7 @@ class _OriginLocationChatLaunchComposerState
         children: [roleRegion, composer],
       );
     }
-    final onHeightChanged = widget.onHeightChanged;
-    if (onHeightChanged == null) return content;
-    return _OriginLocationChatComposerHeightObserver(
-      onHeightChanged: onHeightChanged,
-      child: content,
-    );
-  }
-}
-
-class _OriginLocationChatComposerHeightObserver extends StatefulWidget {
-  const _OriginLocationChatComposerHeightObserver({
-    required this.child,
-    required this.onHeightChanged,
-  });
-
-  final Widget child;
-  final ValueChanged<double> onHeightChanged;
-
-  @override
-  State<_OriginLocationChatComposerHeightObserver> createState() =>
-      _OriginLocationChatComposerHeightObserverState();
-}
-
-class _OriginLocationChatComposerHeightObserverState
-    extends State<_OriginLocationChatComposerHeightObserver> {
-  double? _lastHeight;
-  var _reportScheduled = false;
-
-  void _scheduleReport() {
-    if (_reportScheduled) return;
-    _reportScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _reportScheduled = false;
-      if (!mounted) return;
-      final height = context.size?.height;
-      if (height == null || height <= 0 || height == _lastHeight) return;
-      _lastHeight = height;
-      widget.onHeightChanged(height);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    _scheduleReport();
-    return NotificationListener<SizeChangedLayoutNotification>(
-      onNotification: (_) {
-        _scheduleReport();
-        return false;
-      },
-      child: SizeChangedLayoutNotifier(child: widget.child),
-    );
+    return content;
   }
 }
 

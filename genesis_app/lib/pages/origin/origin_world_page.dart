@@ -153,6 +153,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
   bool _launching = false;
+  String _pendingLocationChatLaunchMessage = '';
+  ChatMentionCatalog? _pendingLocationChatLaunchMentionCatalog;
   late bool _waitingForOpeningSheetExpansion;
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
@@ -213,6 +215,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
       _activeChatLocation = null;
+      _pendingLocationChatLaunchMessage = '';
+      _pendingLocationChatLaunchMentionCatalog = null;
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
       _tilemapRestorationController.clear();
@@ -710,8 +714,12 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   }
 
   void _closeLocationChat() {
-    if (_activeChatLocation == null) return;
-    setState(() => _activeChatLocation = null);
+    if (_activeChatLocation == null || _launching) return;
+    setState(() {
+      _activeChatLocation = null;
+      _pendingLocationChatLaunchMessage = '';
+      _pendingLocationChatLaunchMentionCatalog = null;
+    });
   }
 
   void _setLocationChatRoleId(String roleId) {
@@ -782,6 +790,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     String worldId, {
     String initialLocationId = '',
     String initialMessageToSend = '',
+    ChatMentionCatalog? initialMentionCatalog,
   }) {
     final navigator = Navigator.of(context);
     openWorldFromMyWorldsRoot(
@@ -792,6 +801,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
           'initial_location_id': initialLocationId.trim(),
         if (initialMessageToSend.trim().isNotEmpty)
           'initial_message_to_send': initialMessageToSend,
+        if (initialMentionCatalog != null)
+          'initial_mention_catalog': initialMentionCatalog,
       },
     );
   }
@@ -878,6 +889,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     OriginRoleLaunchSelection roleSelection, {
     String initialLocationId = '',
     String initialMessageToSend = '',
+    ChatMentionCatalog? initialMentionCatalog,
     bool enterWorldOnSuccess = true,
   }) async {
     if (_launching) return null;
@@ -904,6 +916,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         launchedWorldId,
         initialLocationId: initialLocationId,
         initialMessageToSend: initialMessageToSend,
+        initialMentionCatalog: initialMentionCatalog,
       );
     }
     return launchedWorldId;
@@ -1192,12 +1205,14 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               onFillProfileRole: _customRoleFromProfile,
               locationChatRole: _locationChatRoleOption(origin),
               onSelectLocationChatRole: () => _selectLocationChatRole(origin),
-              onSendLocationChatMessage: (locationId, message) =>
-                  _launchLocationChatMessage(
-                    origin,
-                    locationId: locationId,
-                    message: message,
-                  ),
+              onSendLocationChatMessage:
+                  (locationId, message, mentionCatalog) =>
+                      _launchLocationChatMessage(
+                        origin,
+                        locationId: locationId,
+                        message: message,
+                        mentionCatalog: mentionCatalog,
+                      ),
             ),
         topOverlay: _buildLocationChatOverlay(origin),
         map: WorldKeepAlivePage(child: map),

@@ -52,6 +52,7 @@ part 'location_chat_message_reconciler.dart';
 part 'location_chat_send_actions.dart';
 part 'location_chat_message_window.dart';
 part 'location_chat_mentions.dart';
+part 'location_chat_composer_input.dart';
 part 'location_chat_identity.dart';
 part 'location_chat_panel_actions.dart';
 part 'location_chat_layout.dart';
@@ -372,6 +373,7 @@ class LocationChatPanel extends StatefulWidget {
     this.style,
     this.initialDraftText = '',
     this.initialMessageToSend = '',
+    this.initialMentionCatalog,
     this.onDraftTextChanged,
     this.messageQueueInitializationCovered = false,
     this.unauthorizedHandledByOwner = false,
@@ -407,6 +409,7 @@ class LocationChatPanel extends StatefulWidget {
   final ChatUiStyleConfig? style;
   final String initialDraftText;
   final String initialMessageToSend;
+  final ChatMentionCatalog? initialMentionCatalog;
   final ValueChanged<String>? onDraftTextChanged;
   final bool messageQueueInitializationCovered;
   final bool unauthorizedHandledByOwner;
@@ -467,29 +470,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _initialContentReadyNotified = false;
   Future<void>? _initialLatestMessagesRefresh;
   final Set<String> _unseenIncomingMessageLocalIds = <String>{};
-
-  void _insertComposerShortcut(String shortcut) {
-    final value = _textController.value;
-    final selection = value.selection;
-    final textLength = value.text.length;
-    final hasUsableSelection =
-        selection.isValid &&
-        selection.start <= textLength &&
-        selection.end <= textLength;
-    final start = hasUsableSelection ? selection.start : textLength;
-    final end = hasUsableSelection ? selection.end : textLength;
-    final updatedText = value.text.replaceRange(start, end, shortcut);
-
-    _textController.value = TextEditingValue(
-      text: updatedText,
-      selection: TextSelection.collapsed(offset: start + shortcut.length),
-    );
-    _composerFocusNode.requestFocus();
-  }
-
-  void _insertAsteriskShortcut() => _insertComposerShortcut('*');
-
-  void _insertMentionShortcut() => _insertComposerShortcut('@');
 
   int get _unseenIncomingCount => _unseenIncomingMessageLocalIds.length;
   int _clientMsgCounter = 0;
@@ -561,11 +541,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       ..addListener(_handleViewportCoordinatorChanged);
     final initialService = widget.service;
     if (initialService != null) _syncSenderIdentity(initialService);
+    final stateMentionCatalog = locationChatMentionCatalogForState(
+      widget.service?.state ?? _chatroomState,
+      currentUserIds: _myUserIdKeys,
+      currentSenderIds: _mySenderIdKeys,
+    );
     _textController = LocationChatMentionEditingController(
-      catalog: locationChatMentionCatalogForState(
-        widget.service?.state ?? _chatroomState,
-        currentUserIds: _myUserIdKeys,
-        currentSenderIds: _mySenderIdKeys,
+      catalog: mergeLocationChatMentionCatalogs(
+        stateMentionCatalog,
+        widget.initialMentionCatalog,
       ),
     );
     final initialMessageToSend = widget.initialMessageToSend;
@@ -789,12 +773,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           messageListHorizontalPadding: style.messageListPadding.horizontal,
         );
     final replacementComposer = widget.composerReplacement;
-    final showComposerShortcuts =
-        widget.active &&
-        (_composerFocusNode.hasFocus || _mentionComposerPositionFrozen);
     final composer =
         replacementComposer ??
-        ChatComposer(
+        LocationChatComposerInput(
           controller: _textController,
           focusNode: _composerFocusNode,
           hintText: 'Text...',
@@ -808,18 +789,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               !inputBlocked,
           sending: false,
           onSend: _send,
-          sendIcon: ChatComposerSendIcon.arrowUp,
-          pinActionsToBottom: true,
           style: style,
-          leadingShortcutLabel: showComposerShortcuts ? '*' : null,
-          onLeadingShortcutPressed: widget.active && _composerFocusNode.hasFocus
-              ? _insertAsteriskShortcut
-              : null,
-          secondaryLeadingShortcutLabel: showComposerShortcuts ? '@' : null,
-          onSecondaryLeadingShortcutPressed:
-              widget.active && _composerFocusNode.hasFocus
-              ? _insertMentionShortcut
-              : null,
+          keepShortcutsVisible: widget.active && _mentionComposerPositionFrozen,
           backdropGroupKey: _surfaceBackdropKey,
         );
     final headerForeground =

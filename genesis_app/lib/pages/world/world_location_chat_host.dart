@@ -133,6 +133,8 @@ class WorldLocationChatPageCache {
   final Map<String, String> _draftTextByLocation = <String, String>{};
   final Map<String, String> _initialMessageToSendByLocation =
       <String, String>{};
+  final Map<String, ChatMentionCatalog> _initialMentionCatalogByLocation =
+      <String, ChatMentionCatalog>{};
   Set<String> _currentTilemapLocationIds = const <String>{};
 
   String activeLocationId = '';
@@ -226,14 +228,25 @@ class WorldLocationChatPageCache {
     _draftTextByLocation[locationId] = text;
   }
 
-  void queueInitialMessageToSend(String locationId, String message) {
+  void queueInitialMessageToSend(
+    String locationId,
+    String message, {
+    ChatMentionCatalog? mentionCatalog,
+  }) {
     final resolvedLocationId = locationId.trim();
     if (resolvedLocationId.isEmpty || message.trim().isEmpty) return;
     _initialMessageToSendByLocation[resolvedLocationId] = message;
+    if (mentionCatalog != null) {
+      _initialMentionCatalogByLocation[resolvedLocationId] = mentionCatalog;
+    }
   }
 
   String takeInitialMessageToSend(String locationId) {
     return _initialMessageToSendByLocation.remove(locationId.trim()) ?? '';
+  }
+
+  ChatMentionCatalog? takeInitialMentionCatalog(String locationId) {
+    return _initialMentionCatalogByLocation.remove(locationId.trim());
   }
 
   void clear() {
@@ -242,6 +255,7 @@ class WorldLocationChatPageCache {
     _readyLocationIds.clear();
     _draftTextByLocation.clear();
     _initialMessageToSendByLocation.clear();
+    _initialMentionCatalogByLocation.clear();
     _currentTilemapLocationIds = const <String>{};
     _backgroundPreloader.preload(const <Object?>[]);
     activeLocationId = '';
@@ -411,6 +425,8 @@ class WorldLocationChatRouterHostState
                     initialMessageToSend: widget.cache.takeInitialMessageToSend(
                       descriptor.locationId,
                     ),
+                    initialMentionCatalog: widget.cache
+                        .takeInitialMentionCatalog(descriptor.locationId),
                     onDraftTextChanged: (text) {
                       widget.cache.updateDraftText(descriptor.locationId, text);
                     },
@@ -467,6 +483,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.onBack,
     required this.initialDraftText,
     required this.initialMessageToSend,
+    this.initialMentionCatalog,
     required this.onDraftTextChanged,
     required this.messageQueueInitializationCovered,
     required this.onCharactersMovedLocationTap,
@@ -482,6 +499,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final VoidCallback onBack;
   final String initialDraftText;
   final String initialMessageToSend;
+  final ChatMentionCatalog? initialMentionCatalog;
   final ValueChanged<String> onDraftTextChanged;
   final bool messageQueueInitializationCovered;
   final ChatCharacterMovementTap onCharactersMovedLocationTap;
@@ -521,6 +539,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             onBack: onBack,
             initialDraftText: initialDraftText,
             initialMessageToSend: initialMessageToSend,
+            initialMentionCatalog: initialMentionCatalog,
             onDraftTextChanged: onDraftTextChanged,
             onCharactersMovedLocationTap: onCharactersMovedLocationTap,
           ),

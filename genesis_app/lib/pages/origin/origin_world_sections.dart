@@ -270,7 +270,7 @@ List<Widget> _originInitialDialogueSlivers(
   final brief = _originWorldoBrief(origin);
   final locationTopPadding = brief.isEmpty ? 6.0 : 0.0;
   return <Widget>[
-    PinnedHeaderSliver(
+    SliverToBoxAdapter(
       child: _OriginOpeningLocationHeader(
         locationName: preview.locationName,
         horizontalPadding: padding,

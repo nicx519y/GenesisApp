@@ -2,6 +2,32 @@ part of 'location_chat_page.dart';
 
 const String _locationChatMentionPlaceholder = '\uFFFC';
 
+ChatMentionCatalog mergeLocationChatMentionCatalogs(
+  ChatMentionCatalog primary,
+  ChatMentionCatalog? fallback,
+) {
+  if (fallback == null || fallback.isEmpty) return primary;
+  if (primary.isEmpty) return fallback;
+  final charactersById = <String, ChatMentionEntry>{
+    for (final entry in primary.characters) entry.id.trim(): entry,
+  }..remove('');
+  final locationsById = <String, ChatMentionEntry>{
+    for (final entry in primary.locations) entry.id.trim(): entry,
+  }..remove('');
+  for (final entry in fallback.characters) {
+    final id = entry.id.trim();
+    if (id.isNotEmpty) charactersById.putIfAbsent(id, () => entry);
+  }
+  for (final entry in fallback.locations) {
+    final id = entry.id.trim();
+    if (id.isNotEmpty) locationsById.putIfAbsent(id, () => entry);
+  }
+  return ChatMentionCatalog(
+    characters: charactersById.values,
+    locations: locationsById.values,
+  );
+}
+
 @visibleForTesting
 ChatMentionCatalog locationChatMentionCatalogForState(
   WorldChatroomState state, {
@@ -103,6 +129,24 @@ class LocationChatMentionEditingController extends TextEditingController {
 
   ChatMentionCatalog get catalog => _catalog;
 
+  ChatMentionCatalog get composedMentionCatalog {
+    final characters = <String, ChatMentionEntry>{};
+    final locations = <String, ChatMentionEntry>{};
+    for (final mention in _mentions) {
+      final entry = mention.entry;
+      final id = entry.id.trim();
+      if (id.isEmpty) continue;
+      final target = entry.type == ChatMentionType.character
+          ? characters
+          : locations;
+      target.putIfAbsent(id, () => entry);
+    }
+    return ChatMentionCatalog(
+      characters: characters.values,
+      locations: locations.values,
+    );
+  }
+
   String get serializedText {
     final buffer = StringBuffer();
     var mentionIndex = 0;
@@ -125,8 +169,28 @@ class LocationChatMentionEditingController extends TextEditingController {
     return result;
   }
 
+  void insertShortcut(String shortcut) {
+    final value = this.value;
+    final selection = value.selection;
+    final textLength = value.text.length;
+    final hasUsableSelection =
+        selection.isValid &&
+        selection.start <= textLength &&
+        selection.end <= textLength;
+    final start = hasUsableSelection ? selection.start : textLength;
+    final end = hasUsableSelection ? selection.end : textLength;
+    this.value = TextEditingValue(
+      text: value.text.replaceRange(start, end, shortcut),
+      selection: TextSelection.collapsed(offset: start + shortcut.length),
+    );
+  }
+
   bool updateCatalog(ChatMentionCatalog nextCatalog) {
-    if (_catalogSignature(_catalog) == _catalogSignature(nextCatalog)) {
+    final effectiveCatalog = mergeLocationChatMentionCatalogs(
+      nextCatalog,
+      composedMentionCatalog,
+    );
+    if (_catalogSignature(_catalog) == _catalogSignature(effectiveCatalog)) {
       return false;
     }
     final rawText = serializedText;
@@ -134,7 +198,7 @@ class LocationChatMentionEditingController extends TextEditingController {
     final serializedExtent = _internalOffsetToSerialized(
       selection.extentOffset,
     );
-    _catalog = nextCatalog;
+    _catalog = effectiveCatalog;
     _setSerializedValue(
       rawText,
       serializedSelection: TextSelection(
@@ -485,6 +549,18 @@ int _catalogSignature(ChatMentionCatalog catalog) {
 }
 
 extension _LocationChatMentionActions on _LocationChatPanelState {
+  ChatMentionCatalog _mentionCatalogForState(WorldChatroomState state) {
+    final currentCatalog = locationChatMentionCatalogForState(
+      state,
+      currentUserIds: _myUserIdKeys,
+      currentSenderIds: _mySenderIdKeys,
+    );
+    return mergeLocationChatMentionCatalogs(
+      currentCatalog,
+      _initialMessageSendPending ? widget.initialMentionCatalog : null,
+    );
+  }
+
   void _scheduleMentionSheet(int triggerOffset) {
     if (_mentionSheetOpen || _mentionSheetSchedulePending || !widget.active) {
       return;

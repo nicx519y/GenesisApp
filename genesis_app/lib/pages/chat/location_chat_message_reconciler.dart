@@ -404,11 +404,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         _rememberMyUserId(uid) | _rememberMyUserId(cachedUid) | avatarChanged;
     if (!changed || !mounted) return;
     final mentionCatalogChanged = _textController.updateCatalog(
-      locationChatMentionCatalogForState(
-        _chatroomState,
-        currentUserIds: _myUserIdKeys,
-        currentSenderIds: _mySenderIdKeys,
-      ),
+      _mentionCatalogForState(_chatroomState),
     );
     final changedMessages = _reconcileMessages(
       _chatroomState.messagesByLocation[widget.locationId] ??
