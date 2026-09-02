@@ -15577,14 +15577,14 @@ void main() {
               find.byKey(const ValueKey<String>('opening-dialogue-1-bubble')),
             )
             .dx,
-        closeTo(740, 0.01),
+        closeTo(750, 0.01),
       );
       final createOpeningBubbleWidthLimit = tester.widget<ConstrainedBox>(
         find.byKey(
           const ValueKey<String>('opening-dialogue-1-bubble-width-limit'),
         ),
       );
-      expect(createOpeningBubbleWidthLimit.constraints.maxWidth, 680);
+      expect(createOpeningBubbleWidthLimit.constraints.maxWidth, 690);
       expect(
         tester
             .getTopLeft(

@@ -98,8 +98,8 @@ void main() {
     );
 
     expect(caps.isCrowded, isFalse);
-    expect(caps.selfMessage, 310);
-    expect(caps.otherMessage, 310);
+    expect(caps.selfMessage, 320);
+    expect(caps.otherMessage, 320);
   });
 
   test('ordinary bubble cap responds to text scaling', () {

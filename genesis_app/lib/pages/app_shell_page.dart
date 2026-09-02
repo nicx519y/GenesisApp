@@ -23,6 +23,7 @@ import 'home/home_feed_cache_store.dart';
 import 'home/home_page.dart';
 import 'me/me_page.dart';
 import 'messages/messages_page.dart';
+import 'origin/origin_feed_cache_store.dart';
 import 'origin/origin_page.dart';
 
 typedef AttAuthorizationStatusReader =
@@ -117,9 +118,11 @@ class _AppShellPageState extends State<AppShellPage>
       onTick: _refreshMessagesData,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppStartupCoordinator.recordLaunchFirstFrame();
       _startAppRuntime();
       _startColdStartHomeTargetResolutionIfNeeded();
       if (!_shouldResolveColdStartHomeTarget) {
+        AppStartupCoordinator.recordLaunchRouteReady();
         AppStartupCoordinator.recordLaunchPage();
       }
       _startPostLaunchWorkIfAllowed();
@@ -276,25 +279,33 @@ class _AppShellPageState extends State<AppShellPage>
       sessionReadFailed = true;
     }
     var hasMyWorldsCache = false;
+    var hasWorldoCache = false;
     if (hasSession) {
       try {
         hasMyWorldsCache = await _hasMyWorldsCacheForLocalSession();
       } catch (_) {
         hasMyWorldsCache = false;
       }
+      if (!hasMyWorldsCache && !sessionReadFailed) {
+        try {
+          hasWorldoCache = await _hasWorldoCacheForCurrentSession();
+        } catch (_) {
+          hasWorldoCache = false;
+        }
+      }
     }
     if (!mounted) return;
     final openHome = hasSession && hasMyWorldsCache;
     AppStartupCoordinator.setLaunchPageDecision(
       page: openHome ? 'home' : 'worldo',
-      reason: sessionReadFailed
-          ? 'session_error'
-          : !hasSession
-          ? 'no_session'
-          : hasMyWorldsCache
-          ? 'session_cache_hit'
-          : 'session_cache_miss',
+      reason: AppStartupCoordinator.resolveLaunchPageReason(
+        hasSession: hasSession,
+        sessionReadFailed: sessionReadFailed,
+        hasHomeCache: hasMyWorldsCache,
+        hasWorldoCache: hasWorldoCache,
+      ),
     );
+    AppStartupCoordinator.recordLaunchRouteReady();
     setState(() {
       _selectedIndex = openHome ? 0 : 1;
       _visitedTabIndexes
@@ -325,6 +336,15 @@ class _AppShellPageState extends State<AppShellPage>
     final total = cached['total'];
     if (total is num) return total > 0;
     return (int.tryParse(total?.toString() ?? '') ?? 0) > 0;
+  }
+
+  Future<bool> _hasWorldoCacheForCurrentSession() async {
+    final services = AppServicesScope.read(context);
+    final session = await services.sessionStore.readCompleteSession();
+    return await OriginFeedCacheStore(
+          ownerUid: session?.uid ?? OriginFeedCacheStore.anonymousOwnerUid,
+        ).loadForYouFirstPage() !=
+        null;
   }
 
   Future<void> _refreshMessagesData() async {

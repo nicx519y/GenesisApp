@@ -16,11 +16,14 @@ class TelemetryRuntimeController {
   static Future<void> _queue = Future<void>.value();
   static bool _initialized = false;
 
-  static Future<void> initialize(AppConfig config) {
+  static Future<void> initialize(
+    AppConfig config, {
+    VoidCallback? onCollectReady,
+  }) {
     return _enqueue(() async {
       final state = await TelemetryUploadPolicy.initialize(config);
       _initialized = true;
-      await _apply(config, state);
+      await _apply(config, state, onCollectReady: onCollectReady);
     });
   }
 
@@ -52,9 +55,14 @@ class TelemetryRuntimeController {
 
   static Future<void> _apply(
     AppConfig config,
-    TelemetryUploadState state,
-  ) async {
+    TelemetryUploadState state, {
+    VoidCallback? onCollectReady,
+  }) async {
     GenesisTelemetry.reconfigureCollect(config);
+    // Cold-start records only depend on the durable Collect queue. Queue them
+    // before Firebase initialization so a slow or failed Firebase bootstrap
+    // cannot remove the startup from the monitoring denominator.
+    onCollectReady?.call();
     try {
       await FirebaseRuntime.ensureInitialized();
       await Future.wait<void>(<Future<void>>[

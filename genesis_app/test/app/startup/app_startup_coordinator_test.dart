@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -211,8 +212,15 @@ void main() {
 
     AppStartupCoordinator.setLaunchPageDecision(
       page: 'worldo',
-      reason: 'no_session',
+      reason: 'no_session_worldo_cache_miss',
     );
+    AppStartupCoordinator.recordLaunchSystemUiReady();
+    AppStartupCoordinator.recordLaunchEndpointConfigReady();
+    AppStartupCoordinator.recordLaunchLocalSettingsReady();
+    AppStartupCoordinator.recordLaunchTelemetryReady();
+    AppStartupCoordinator.recordLaunchBootstrapReady();
+    AppStartupCoordinator.recordLaunchFirstFrame();
+    AppStartupCoordinator.recordLaunchRouteReady();
     AppStartupCoordinator.recordLaunchPage();
     AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
     AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
@@ -247,7 +255,18 @@ void main() {
     expect(launchEvents.first.object3, '0');
     expect(launchEvents.first.object4, 'started');
     expect(launchEvents[1].object2, 'worldo');
-    expect(launchEvents[1].object4, 'no_session');
+    expect(launchEvents[1].object4, 'no_session_worldo_cache_miss');
+    final launchTiming = jsonDecode(launchEvents[1].extData);
+    expect(launchTiming['schema_version'], 1);
+    expect((launchTiming['milestones'] as Map<String, dynamic>).keys, <String>[
+      'system_ui_ready_ms',
+      'endpoint_config_ready_ms',
+      'local_settings_ready_ms',
+      'telemetry_ready_ms',
+      'bootstrap_ready_ms',
+      'first_frame_ms',
+      'route_ready_ms',
+    ]);
     expect(launchEvents[2].object4, 'started');
     expect(launchEvents[3].object4, 'success');
     expect(launchEvents[4].object4, 'network');
@@ -258,6 +277,68 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'classifies startup page reasons from session and cache state',
+    () async {
+      await initializeWith(MemoryUserSessionStore());
+
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: true,
+          sessionReadFailed: false,
+          hasHomeCache: true,
+          hasWorldoCache: false,
+        ),
+        'session_home_cache_hit',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: true,
+          sessionReadFailed: false,
+          hasHomeCache: false,
+          hasWorldoCache: true,
+        ),
+        'session_home_miss_worldo_cache_hit',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: true,
+          sessionReadFailed: false,
+          hasHomeCache: false,
+          hasWorldoCache: false,
+        ),
+        'session_all_cache_miss',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: false,
+          sessionReadFailed: false,
+          hasHomeCache: false,
+          hasWorldoCache: true,
+        ),
+        'no_session_worldo_cache_hit',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: false,
+          sessionReadFailed: false,
+          hasHomeCache: false,
+          hasWorldoCache: false,
+        ),
+        'no_session_worldo_cache_miss',
+      );
+      expect(
+        AppStartupCoordinator.resolveLaunchPageReason(
+          hasSession: false,
+          sessionReadFailed: true,
+          hasHomeCache: false,
+          hasWorldoCache: false,
+        ),
+        'session_error',
+      );
+    },
+  );
 }
 
 Future<void> _waitUntil(

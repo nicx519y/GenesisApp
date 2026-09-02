@@ -17,6 +17,7 @@ import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
 import 'network/api_request_trace_sampling.dart';
 import 'network/websocket_capture.dart';
+import 'pages/origin/origin_feed_cache_store.dart';
 import 'platform/session/user_session_store.dart';
 import 'ui/system/genesis_system_ui.dart';
 
@@ -26,6 +27,7 @@ Future<void> main() async {
   AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
   await GenesisSystemUi.initialize();
+  AppStartupCoordinator.recordLaunchSystemUiReady();
   unawaited(
     SystemChrome.setPreferredOrientations(<DeviceOrientation>[
       DeviceOrientation.portraitUp,
@@ -61,6 +63,14 @@ Future<void> main() async {
       return const AppConfig();
     },
   );
+  AppStartupCoordinator.recordLaunchEndpointConfigReady();
+  // Resolve the upload policy and prepare the durable Collect queue as soon as
+  // the runtime endpoints are known. Firebase setup continues in the returned
+  // future after the cold-start records have been queued.
+  final telemetryRuntimeInitialization = TelemetryRuntimeController.initialize(
+    appConfig,
+    onCollectReady: AppStartupCoordinator.recordStartupFirstReport,
+  );
   final services = AppBootstrap.createInitialServices(config: appConfig);
   final initialTabFuture = _resolveInitialBottomTab(services);
   await Future.wait<Object?>(<Future<Object?>>[
@@ -69,12 +79,11 @@ Future<void> main() async {
     originWorldSheetDebugSettingsLoad,
     worldNewContentDebugSettingsLoad,
   ]);
-  // Native Firebase collection is disabled for every build. Enable it only
-  // after the actual runtime endpoints and persisted debug override are known.
-  await TelemetryRuntimeController.initialize(appConfig);
+  AppStartupCoordinator.recordLaunchLocalSettingsReady();
+  await telemetryRuntimeInitialization;
+  AppStartupCoordinator.recordLaunchTelemetryReady();
   final appGlobalConfigLoad = _loadAppGlobalConfig(services);
 
-  AppStartupCoordinator.recordStartupFirstReport();
   AppStartupCoordinator.configure();
   final initialTab = await initialTabFuture;
   if (initialTab.index == 1) {
@@ -84,6 +93,7 @@ Future<void> main() async {
     );
   }
   await appGlobalConfigLoad;
+  AppStartupCoordinator.recordLaunchBootstrapReady();
   runApp(GenesisApp(services: services, initialIndex: initialTab.index));
 }
 
@@ -105,12 +115,31 @@ Future<void> _loadAppGlobalConfig(AppServices services) async {
 Future<({int index, String reason})> _resolveInitialBottomTab(
   AppServices services,
 ) async {
+  CompleteUserSession? session;
   try {
-    final session = await services.sessionStore.readCompleteSession();
-    return session == null
-        ? (index: 1, reason: 'no_session')
-        : (index: 0, reason: 'session_pending');
+    session = await services.sessionStore.readCompleteSession();
   } catch (_) {
     return (index: 1, reason: 'session_error');
   }
+  if (session != null) return (index: 0, reason: 'session_pending');
+
+  var hasWorldoCache = false;
+  try {
+    hasWorldoCache =
+        await const OriginFeedCacheStore(
+          ownerUid: OriginFeedCacheStore.anonymousOwnerUid,
+        ).loadForYouFirstPage() !=
+        null;
+  } catch (_) {
+    hasWorldoCache = false;
+  }
+  return (
+    index: 1,
+    reason: AppStartupCoordinator.resolveLaunchPageReason(
+      hasSession: false,
+      sessionReadFailed: false,
+      hasHomeCache: false,
+      hasWorldoCache: hasWorldoCache,
+    ),
+  );
 }
