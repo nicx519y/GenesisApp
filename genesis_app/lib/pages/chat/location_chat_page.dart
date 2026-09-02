@@ -293,6 +293,7 @@ class LocationChatPanel extends StatefulWidget {
     this.leaveOnInactive = true,
     this.onBack,
     this.onInitialContentReady,
+    this.showComposer = true,
     this.composerReplacement,
     this.composerTopOverlay,
     this.showConnectionStatus = true,
@@ -329,6 +330,7 @@ class LocationChatPanel extends StatefulWidget {
   final bool leaveOnInactive;
   final VoidCallback? onBack;
   final VoidCallback? onInitialContentReady;
+  final bool showComposer;
   final Widget? composerReplacement;
   final Widget? composerTopOverlay;
   final bool showConnectionStatus;
@@ -700,27 +702,32 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           avatarSideSpacerWidth: style.avatarSideSpacerWidth,
           messageListHorizontalPadding: style.messageListPadding.horizontal,
         );
-    final replacementComposer = widget.composerReplacement;
-    final composer =
-        replacementComposer ??
-        LocationChatComposerInput(
-          controller: _textController,
-          focusNode: _composerFocusNode,
-          hintText: 'Text...',
-          inputEnabled: widget.active,
-          sendEnabled:
-              widget.active &&
-              joined &&
-              _hasDraftText &&
-              !_sending &&
-              !_sendAwaitingResponse &&
-              !inputBlocked,
-          sending: false,
-          onSend: _send,
-          style: style,
-          keepShortcutsVisible: widget.active && _mentionComposerPositionFrozen,
-          backdropGroupKey: _surfaceBackdropKey,
-        );
+    final Widget? composer;
+    if (!widget.showComposer) {
+      composer = null;
+    } else {
+      composer =
+          widget.composerReplacement ??
+          LocationChatComposerInput(
+            controller: _textController,
+            focusNode: _composerFocusNode,
+            hintText: 'Text...',
+            inputEnabled: widget.active,
+            sendEnabled:
+                widget.active &&
+                joined &&
+                _hasDraftText &&
+                !_sending &&
+                !_sendAwaitingResponse &&
+                !inputBlocked,
+            sending: false,
+            onSend: _send,
+            style: style,
+            keepShortcutsVisible:
+                widget.active && _mentionComposerPositionFrozen,
+            backdropGroupKey: _surfaceBackdropKey,
+          );
+    }
     final headerForeground =
         style.headerTitleTextStyle.color ?? style.headerTitleIconColor;
     final occupantCountLabel = '${occupants.length}';
@@ -907,13 +914,17 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                     ],
                   ),
                   header: header,
-                  composerTopOverlay: widget.composerTopOverlay,
-                  composer: RepaintBoundary(
-                    child: _LocationChatComposerExtension(
-                      style: style,
-                      child: composer,
-                    ),
-                  ),
+                  composerTopOverlay: widget.showComposer
+                      ? widget.composerTopOverlay
+                      : null,
+                  composer: composer == null
+                      ? null
+                      : RepaintBoundary(
+                          child: _LocationChatComposerExtension(
+                            style: style,
+                            child: composer,
+                          ),
+                        ),
                 ),
               ),
             ),
@@ -1172,7 +1183,7 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
     required this.messageViewport,
     required this.header,
     this.composerTopOverlay,
-    required this.composer,
+    this.composer,
   });
 
   final bool managesKeyboardInset;
@@ -1184,7 +1195,7 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
   final Widget messageViewport;
   final Widget header;
   final Widget? composerTopOverlay;
-  final Widget composer;
+  final Widget? composer;
 
   @override
   State<_LocationChatKeyboardInsetLayout> createState() =>
@@ -1404,7 +1415,7 @@ class _LocationChatKeyboardInsetLayoutState
               ],
             ),
           ),
-          widget.composer,
+          if (widget.composer != null) widget.composer!,
         ],
       ),
     );

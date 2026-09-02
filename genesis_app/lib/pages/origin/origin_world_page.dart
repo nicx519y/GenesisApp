@@ -149,8 +149,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
   bool _launching = false;
-  String _pendingLocationChatLaunchMessage = '';
-  ChatMentionCatalog? _pendingLocationChatLaunchMentionCatalog;
   late bool _waitingForOpeningSheetExpansion;
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
@@ -209,8 +207,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
       _activeChatLocation = null;
-      _pendingLocationChatLaunchMessage = '';
-      _pendingLocationChatLaunchMentionCatalog = null;
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
       _tilemapRestorationController.clear();
@@ -681,11 +677,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
   void _closeLocationChat() {
     if (_activeChatLocation == null || _launching) return;
-    setState(() {
-      _activeChatLocation = null;
-      _pendingLocationChatLaunchMessage = '';
-      _pendingLocationChatLaunchMentionCatalog = null;
-    });
+    setState(() => _activeChatLocation = null);
   }
 
   void _setLocationChatRoleId(String roleId) {
@@ -1179,7 +1171,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                         mentionCatalog: mentionCatalog,
                       ),
             ),
-        topOverlay: _buildLocationChatOverlay(origin),
+        topOverlay: _buildLocationChatOverlay(),
         map: WorldKeepAlivePage(child: map),
       ),
     );

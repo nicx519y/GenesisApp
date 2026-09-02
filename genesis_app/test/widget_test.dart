@@ -11193,12 +11193,6 @@ void main() {
         const ValueKey<String>('origin-detail-sheet-pages'),
       );
       expect(sheetPages, findsOneWidget);
-      expect(
-        find.byKey(
-          const ValueKey<String>('origin-opening-role-composer-anchor'),
-        ),
-        findsNothing,
-      );
       final sheetSurface = find.byKey(
         const ValueKey<String>('origin-detail-sheet-surface'),
       );
@@ -11210,31 +11204,11 @@ void main() {
         closeTo(0, 1),
         reason: 'The expanded composer stays docked to the sheet bottom.',
       );
-      final sheetTopBeforeDrag = tester.getTopLeft(sheetSurface).dy;
-      final sheetDrag = await tester.startGesture(
-        tester.getCenter(find.text('Worldo Brief')),
-      );
-      await sheetDrag.moveBy(const Offset(0, 20));
-      await tester.pump();
-      await sheetDrag.moveBy(const Offset(0, 30));
-      await tester.pump();
-      expect(
-        tester.getTopLeft(sheetSurface).dy,
-        greaterThan(sheetTopBeforeDrag),
-      );
-      expect(
-        tester.getBottomLeft(sheetSurface).dy -
-            tester.getBottomLeft(expandedComposer).dy,
-        closeTo(0, 1),
-      );
       final visibilityDuringSheetDrag = tester.widget<IgnorePointer>(
         visibility,
       );
       expect(visibilityDuringSheetDrag.ignoring, isFalse);
       expect((visibilityDuringSheetDrag.child! as Opacity).opacity, 1);
-      await sheetDrag.moveBy(const Offset(0, -30));
-      await sheetDrag.up();
-      await tester.pumpAndSettle();
       final rolePill = find.descendant(
         of: expandedComposer,
         matching: find.byKey(const ValueKey('origin-location-chat-role-pill')),
@@ -11322,13 +11296,13 @@ void main() {
       expect(sharedComposerWidget.showShortcuts, isFalse);
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       await tester.pump();
+      final keyboardTop =
+          (tester.view.physicalSize.height - 300) /
+          tester.view.devicePixelRatio;
       expect(
-        tester.getBottomLeft(sheetSurface).dy -
-            tester.getBottomLeft(expandedComposer).dy,
-        closeTo(276 / tester.view.devicePixelRatio, 1),
-        reason:
-            'Opening subtracts the 24px stable safe area before the composer '
-            'adds it back internally.',
+        tester.getBottomLeft(inputSurface).dy,
+        lessThanOrEqualTo(keyboardTop),
+        reason: 'The inline input stays above the keyboard.',
       );
       tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pump();
@@ -11473,33 +11447,7 @@ void main() {
       final launchChat = find.byKey(
         const ValueKey<String>('origin-location-chat-l_o_test_1'),
       );
-      expect(launchChat, findsOneWidget);
-      final launchChatComposer = find.descendant(
-        of: launchChat,
-        matching: find.byType(LocationChatComposerInput),
-      );
-      expect(launchChatComposer, findsOneWidget);
-      expect(
-        tester
-            .widget<LocationChatComposerInput>(launchChatComposer)
-            .controller
-            .serializedText,
-        message,
-      );
-      expect(
-        tester
-            .widget<LocationChatComposerInput>(launchChatComposer)
-            .controller
-            .text,
-        isNot(contains('<')),
-      );
-      expect(
-        find.descendant(
-          of: launchChatComposer,
-          matching: find.byType(CircularProgressIndicator),
-        ),
-        findsOneWidget,
-      );
+      expect(launchChat, findsNothing);
       originLaunchCompleter.complete(
         transport._jsonResponse({
           'err_no': 0,
@@ -11557,319 +11505,108 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Origin preview composer launches then sends in the same location once',
-    (WidgetTester tester) async {
-      AppStartupCoordinator.resetForTesting();
-      addTearDown(AppStartupCoordinator.resetForTesting);
-      final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'joined',
-        worldLocations: const [
-          {
-            'location_id': 'l_o_test_1',
-            'location_name': 'Detail Location',
-            'location_summary': 'A location from detail.',
-            'image': '',
-            'map_url': '',
-            'x_percent': 30,
-            'y_percent': 40,
-          },
-        ],
-        worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
-        worldDetailTickCountsByRequest: const [0],
-      );
-      final chatroom = _FakeChatroomClient();
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialAuthToken: 'token',
-            chatroom: chatroom,
-          ),
-          child: MaterialApp(
-            onGenerateRoute: AppRouter.onGenerateRoute,
-            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-          ),
+  testWidgets('Origin map location is browse-only', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      worldLocations: const [
+        {
+          'location_id': 'l_o_test_1',
+          'location_name': 'Detail Location',
+          'location_summary': 'A location from detail.',
+          'image': '',
+          'map_url': '',
+          'x_percent': 30,
+          'y_percent': 40,
+        },
+      ],
+      worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
+      worldDetailTickCountsByRequest: const [0],
+    );
+    final chatroom = _FakeChatroomClient();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          chatroom: chatroom,
         ),
-      );
-      await tester.pumpAndSettle();
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Detail Location'), warnIfMissed: false);
-      await tester.pump();
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Detail Location'), warnIfMissed: false);
+    await tester.pumpAndSettle();
 
-      expect(chatroom.connectCount, 0);
-      final chatPanel = find.byType(LocationChatPanel);
-      expect(chatPanel, findsOneWidget);
-      final previewComposer = find.descendant(
+    expect(chatroom.connectCount, 0);
+    final chatPanel = find.byKey(
+      const ValueKey<String>('origin-location-chat-l_o_test_1'),
+    );
+    expect(chatPanel, findsOneWidget);
+    expect(tester.widget<LocationChatPanel>(chatPanel).showComposer, isFalse);
+    expect(
+      find.descendant(
         of: chatPanel,
-        matching: find.byType(ChatComposer),
-      );
-      expect(previewComposer, findsOneWidget);
-      final previewComposerWidget = tester.widget<ChatComposer>(
-        previewComposer,
-      );
-      expect(
-        previewComposerWidget.style?.composerBackgroundColor,
-        Colors.transparent,
-      );
-      expect(previewComposerWidget.style?.composerBackgroundGradient, isNull);
-      expect(
-        previewComposerWidget.style?.composerBackdropBlurSigma,
-        kLocationChatStyle.composerBackdropBlurSigma,
-      );
-      final previewRolePill = find.descendant(
+        matching: find.byType(LocationChatComposerInput),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: chatPanel, matching: find.byType(ChatComposer)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
         of: chatPanel,
-        matching: find.byKey(
-          const ValueKey<String>('origin-location-chat-role-pill'),
-        ),
-      );
-      expect(previewRolePill, findsOneWidget);
-      expect(
-        tester.widget<Material>(previewRolePill).color,
-        previewComposerWidget.style?.inputBackgroundColor,
-      );
-      expect(
-        find.descendant(
-          of: chatPanel,
-          matching: find.byKey(
-            const ValueKey<String>('origin-location-chat-role-pill-backdrop'),
-          ),
-        ),
-        findsOneWidget,
-      );
-      expect(find.text('Launch to send'), findsNothing);
-      final previewInput = find.descendant(
-        of: previewComposer,
         matching: find.byKey(const ValueKey('chat-composer-input')),
-      );
-      expect(previewInput, findsOneWidget);
-      final previewInputSurface = find.descendant(
-        of: previewComposer,
-        matching: find.byKey(const ValueKey('chat-composer-input-surface')),
-      );
-      final previewRoleSelector = find.descendant(
-        of: chatPanel,
-        matching: find.byKey(
-          const ValueKey('origin-location-chat-role-selector'),
-        ),
-      );
-      expect(previewInputSurface, findsOneWidget);
-      expect(previewComposerWidget.style?.composerPadding.top, 4);
-      expect(
-        find.descendant(
-          of: chatPanel,
-          matching: find.byKey(
-            const ValueKey<String>(
-              'origin-location-chat-input-dock-top-extension',
-            ),
-          ),
-        ),
-        findsNothing,
-      );
-      expect(previewRoleSelector, findsOneWidget);
-      expect(
-        tester.getSize(previewRolePill).width,
-        lessThan(tester.getSize(previewInputSurface).width),
-      );
-      final previewRoleRegion = find.descendant(
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
         of: chatPanel,
         matching: find.byKey(
           const ValueKey<String>('origin-location-chat-role-region'),
         ),
-      );
-      expect(previewRoleRegion, findsOneWidget);
-      expect(
-        tester.widget<ColoredBox>(previewRoleRegion).color,
-        Colors.transparent,
-      );
-      final previewRoleTranslation = find.descendant(
+      ),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('location-chat-composer-top-overlay')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
         of: chatPanel,
         matching: find.byKey(
-          const ValueKey<String>('origin-location-chat-dock-role-translation'),
+          const ValueKey<String>('location-chat-message-viewport-clip'),
         ),
-      );
-      expect(previewRoleTranslation, findsOneWidget);
-      expect(
-        tester
-            .widget<Transform>(previewRoleTranslation)
-            .transform
-            .getTranslation()
-            .y,
-        -2,
-      );
-      final composerTopOverlay = find.byKey(
-        const ValueKey<String>('location-chat-composer-top-overlay'),
-      );
-      final messageViewport = find.byKey(
-        const ValueKey<String>('location-chat-message-viewport-clip'),
-      );
-      expect(composerTopOverlay, findsOneWidget);
-      expect(messageViewport, findsOneWidget);
-      expect(tester.widget<Positioned>(composerTopOverlay).right, isNull);
-      expect(
-        tester.getBottomLeft(composerTopOverlay).dy,
-        closeTo(tester.getBottomLeft(messageViewport).dy, 1),
-      );
-      expect(
-        tester.getTopLeft(previewRoleRegion).dy,
-        lessThan(tester.getBottomLeft(messageViewport).dy),
-      );
-      expect(
-        find.descendant(of: previewInputSurface, matching: previewRoleSelector),
-        findsNothing,
-      );
-      expect(tester.widget<ChatComposer>(previewComposer).sendEnabled, isFalse);
-      expect(
-        find.descendant(of: chatPanel, matching: find.text('u_mock')),
-        findsOneWidget,
-      );
+      ),
+      findsOneWidget,
+    );
+    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+    expect(find.byType(WorldPage), findsNothing);
 
-      await tester.tap(
-        find.descendant(
-          of: chatPanel,
-          matching: find.byKey(
-            const ValueKey('origin-location-chat-role-selector'),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('origin-location-chat-role-picker')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(const ValueKey('origin-location-chat-role-picker')),
-          matching: find.text('Select Your Role'),
-        ),
-        findsOneWidget,
-      );
-      final profileRoleOption = find.byKey(
-        const ValueKey<String>('origin-location-chat-role-option-current-user'),
-      );
-      final profileRoleName = find.descendant(
-        of: profileRoleOption,
-        matching: find.text('u_mock'),
-      );
-      final profileRoleAvatar = find.descendant(
-        of: profileRoleOption,
-        matching: find.byType(GenesisCharacterAvatar),
-      );
-      expect(profileRoleName, findsOneWidget);
-      expect(profileRoleAvatar, findsOneWidget);
-      expect(
-        tester.getCenter(profileRoleName).dy,
-        closeTo(tester.getCenter(profileRoleAvatar).dy, 1),
-      );
-      await tester.tap(
-        find.byKey(
-          const ValueKey('origin-location-chat-role-option-c_o_test_1'),
-        ),
-      );
-      await tester.pump();
-      expect(
-        find.byKey(const ValueKey('origin-location-chat-role-picker')),
-        findsOneWidget,
-      );
-      final selectedRoleIndicator = find.byKey(
-        const ValueKey<String>(
-          'origin-location-chat-role-option-indicator-c_o_test_1',
-        ),
-      );
-      expect(selectedRoleIndicator, findsOneWidget);
-      expect(
-        tester.widget<Icon>(selectedRoleIndicator).icon,
-        Icons.check_circle_rounded,
-      );
-      await tester.pump(const Duration(milliseconds: 180));
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(of: chatPanel, matching: find.text('Detail Character')),
-        findsOneWidget,
-      );
+    final backButton = find.descendant(
+      of: chatPanel,
+      matching: find.byIcon(Icons.arrow_back_ios_new),
+    );
+    expect(backButton, findsOneWidget);
+    await tester.tap(backButton);
+    await tester.pumpAndSettle();
 
-      const message = 'Start exploring this trail';
-      await tester.enterText(previewInput, message);
-      await tester.pump();
-      expect(tester.widget<ChatComposer>(previewComposer).sendEnabled, isTrue);
-      await tester.tap(
-        find.descendant(
-          of: previewComposer,
-          matching: find.byKey(const ValueKey('chat-composer-send-button')),
-        ),
-      );
-      await tester.pump();
-      expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
-      for (var frame = 0; frame < 60; frame += 1) {
-        await tester.pump();
-        if (find.byType(WorldPage).evaluate().isNotEmpty &&
-            chatroom.session.sentMessages.isNotEmpty) {
-          break;
-        }
-      }
-
-      final launchedWorldPage = tester.widget<WorldPage>(
-        find.byType(WorldPage),
-      );
-      expect(launchedWorldPage.wid, 'w_launched_from_origin');
-      expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
-      expect(launchedWorldPage.initialMessageToSend, message);
-      final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-      expect(launchRequests, hasLength(1));
-      expect(
-        transport.decodedBody(launchRequests.single),
-        containsPair('preset_character_id', 'c_o_test_1'),
-      );
-      expect(chatroom.session.joinLocationId, 'l_o_test_1');
-      expect(chatroom.session.sentMessages, [message]);
-      expect(chatroom.session.sentUserEnterLocationIds, isEmpty);
-      final clientMsgId = chatroom.session.sentClientMsgIds.single;
-      chatroom.session.emit(
-        ChatroomUserMessage(
-          sessionId: 'sess-1',
-          worldId: 'w_launched_from_origin',
-          locationId: 'l_o_test_1',
-          userId: 'u_mock',
-          code: 0,
-          codeMsg: 'ok',
-          ts: null,
-          messageId: 42,
-          locationMessageId: 42,
-          conversationRoundId: 'round-1',
-          roundOrder: 0,
-          senderType: 'user',
-          senderId: 'u_mock',
-          senderName: 'Me',
-          content: message,
-          broadcast: true,
-          currentTime: '2026-09-01T00:00:00Z',
-          clientMsgId: clientMsgId,
-          createdAt: null,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(chatroom.session.sentMessages, [message]);
-      final launchedLocationChat = find.byKey(
-        const ValueKey('world-location-chat-l_o_test_1'),
-      );
-      expect(launchedLocationChat, findsOneWidget);
-
-      final launchedLocationBack = find.descendant(
-        of: launchedLocationChat,
-        matching: find.byIcon(Icons.arrow_back_ios_new),
-      );
-      expect(launchedLocationBack, findsOneWidget);
-      await tester.tap(launchedLocationBack);
-      await tester.pumpAndSettle();
-
-      expect(find.byType(WorldPage), findsOneWidget);
-      expect(launchedLocationChat, findsNothing);
-      await tester.pump(const Duration(seconds: 2));
-      AppStartupCoordinator.resetForTesting();
-    },
-  );
+    expect(chatPanel, findsNothing);
+    expect(find.byType(OriginWorldPage), findsOneWidget);
+    AppStartupCoordinator.resetForTesting();
+  });
 
   testWidgets('Origin detail launch preview uses detail tick and locations', (
     WidgetTester tester,
