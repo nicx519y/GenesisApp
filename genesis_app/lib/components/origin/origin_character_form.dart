@@ -5,6 +5,7 @@ import '../../ui/tokens/genesis_avatar_radii.dart';
 
 const int originCharacterNameMaxLength = 30;
 const int originCharacterIdentityMaxLength = 100;
+const int originCharacterPersonalityMaxLength = 100;
 const int originCharacterBioMaxLength = 500;
 const Size originCharacterAvatarUploadSize = Size.square(1080);
 
@@ -275,7 +276,7 @@ class OriginCharacterFormFields extends StatelessWidget {
                       hintText: _placeholder(
                         'eg. Underdog with goodwill but little capital',
                       ),
-                      maxLength: 100,
+                      maxLength: originCharacterPersonalityMaxLength,
                       note: showFieldNotes
                           ? "The character's manner of speaking and behaving, which drives their dialogue."
                           : null,
@@ -325,7 +326,7 @@ class OriginCharacterFormFields extends StatelessWidget {
               hintText: _placeholder(
                 'eg. Underdog with goodwill but little capital',
               ),
-              maxLength: 100,
+              maxLength: originCharacterPersonalityMaxLength,
               note: showFieldNotes
                   ? "The character's manner of speaking and behaving, which drives their dialogue."
                   : null,

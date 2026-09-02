@@ -21,6 +21,7 @@ const double originWorldCollapsedSheetHeightFraction =
 const double originWorldCollapsedSheetContentMaxHeight = 270;
 const double originWorldMapSheetUnderlap = GenesisRadii.sheetTopRadiusValue;
 const double originWorldDetailExpandedTopOffset = 50;
+const double originWorldOpeningRoleAvatarMaxDevicePixelRatio = 2;
 
 double originWorldDetailExpandedSheetTopFor({required double topSafeArea}) {
   return topSafeArea + originWorldDetailExpandedTopOffset;

@@ -77,6 +77,39 @@ void main() {
     ]);
   });
 
+  test('edited preset launch sends override without custom role', () async {
+    final transport = _FakeTransport(
+      (_) => _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'world_id': 'world_edited_preset'},
+      }),
+    );
+    final api = _originApi(transport);
+
+    await api.launch(
+      originId: 'origin_1',
+      presetCharacterId: 'character_1',
+      presetRoleOverride: {
+        'avatar': 'avatar-edited',
+        'name': 'Edited Hero',
+        'identity': 'Edited Guide',
+        'brief': 'Edited personality',
+      },
+    );
+    await _flushAnalytics();
+
+    final body = _requestBody(transport.requests.single);
+    expect(body['preset_character_id'], 'character_1');
+    expect(body.containsKey('custom_role'), isFalse);
+    expect(body['preset_role_override'], {
+      'avatar': 'avatar-edited',
+      'name': 'Edited Hero',
+      'identity': 'Edited Guide',
+      'brief': 'Edited personality',
+    });
+  });
+
   test('custom launch accepts camel envelope and wid', () async {
     final transport = _FakeTransport(
       (_) => _jsonResponse({
@@ -229,6 +262,22 @@ void main() {
         originId: 'origin_1',
         presetCharacterId: 'character_1',
         customRole: {'name': 'Traveler'},
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => api.launch(
+        originId: 'origin_1',
+        customRole: {'name': 'Traveler'},
+        presetRoleOverride: {'name': 'Hero', 'identity': 'Guide'},
+      ),
+      throwsArgumentError,
+    );
+    expect(
+      () => api.launch(
+        originId: 'origin_1',
+        presetCharacterId: 'character_1',
+        presetRoleOverride: {'name': 'Hero'},
       ),
       throwsArgumentError,
     );

@@ -336,10 +336,10 @@ void main() {
     expect(characterRow, isNot(contains('isCharacterRole ? 6 : 0')));
     expect(characterRow, contains("const ['brief']"));
     expect(characterRow, isNot(contains('personality')));
-    expect(characterRow, contains('else if (showCharacterDetails)'));
+    expect(characterRow, contains('if (showCharacterDetails)'));
   });
 
-  test('world cast AI subtitle reads identity brief and goal', () {
+  test('world cast subtitle includes brief for AI and player roles', () {
     expect(
       worldCharacterDescriptionText(const {
         'player_uid': '',
@@ -353,10 +353,14 @@ void main() {
       worldCharacterDescriptionText(const {
         'player_uid': 'user_1',
         'identity': 'Visitor',
-        'brief': 'Should stay hidden',
+        'brief': 'Travels between unfinished worlds',
         'goal': 'Should stay hidden',
       }),
-      'Visitor',
+      'Visitor\nTravels between unfinished worlds',
+    );
+    expect(
+      worldCharacterDescriptionText(const {'player_uid': 'user_1'}),
+      isEmpty,
     );
   });
 

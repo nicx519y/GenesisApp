@@ -7,6 +7,8 @@ class _EmptyUpload extends StatelessWidget {
     this.labelFontWeight,
     this.labelFontSize,
     this.iconLabelGap,
+    this.iconColor,
+    this.labelColor,
   );
 
   final String label;
@@ -14,6 +16,8 @@ class _EmptyUpload extends StatelessWidget {
   final FontWeight labelFontWeight;
   final double labelFontSize;
   final double iconLabelGap;
+  final Color iconColor;
+  final Color labelColor;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +26,7 @@ class _EmptyUpload extends StatelessWidget {
       children: [
         Icon(
           Icons.add_photo_alternate_outlined,
-          color: GenesisColors.createAdd,
+          color: iconColor,
           size: iconSize,
         ),
         SizedBox(height: iconLabelGap),
@@ -30,7 +34,7 @@ class _EmptyUpload extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: createFormMuted,
+            color: labelColor,
             fontSize: labelFontSize,
             fontWeight: labelFontWeight,
             height: 1.15,
@@ -52,6 +56,7 @@ class _Preview extends StatelessWidget {
     required this.useMessageImageSizing,
     required this.displaySize,
     required this.downsampleMemoryImage,
+    required this.maxDevicePixelRatio,
   });
 
   final String imageUrl;
@@ -63,6 +68,7 @@ class _Preview extends StatelessWidget {
   final bool useMessageImageSizing;
   final Size? displaySize;
   final bool downsampleMemoryImage;
+  final double maxDevicePixelRatio;
 
   @override
   Widget build(BuildContext context) {
@@ -87,6 +93,7 @@ class _Preview extends StatelessWidget {
                     ? constraints.maxHeight
                     : null,
                 devicePixelRatio: devicePixelRatio,
+                maxDevicePixelRatio: maxDevicePixelRatio,
               );
         final imageFit = useMessageImageSizing ? BoxFit.contain : BoxFit.cover;
         final cacheWidth = downsampleMemoryImage
@@ -134,6 +141,7 @@ class _Preview extends StatelessWidget {
                 height: double.infinity,
                 fit: imageFit,
                 alignment: alignment,
+                maxDevicePixelRatio: maxDevicePixelRatio,
                 onImageLoaded: () {
                   debugPrint(
                     '[CreateUploadBox] static image ready: "$selectedUrl"',

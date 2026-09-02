@@ -44,7 +44,6 @@ import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/copyable_id_label.dart';
 import 'package:genesis_flutter_android/components/common/list_loading_skeleton.dart';
-import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/components/bottom_tabs.dart';
@@ -9827,6 +9826,7 @@ void main() {
         setupAvatar.image as OriginRolePortraitImageProvider;
     final setupAvatarSource =
         setupAvatarProvider.sourceProvider as GenesisStaticNetworkImageProvider;
+    expect(setupAvatarSource.imageUrl, contains('image/resize,w_360'));
 
     expect(
       find.descendant(of: portrait, matching: find.text('Guide')),
@@ -9948,6 +9948,12 @@ void main() {
     );
     expect(details, findsOneWidget);
     expect(tester.getSize(details), const Size(240, 240));
+    final detailsBackground = tester.widget<ColoredBox>(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-details-background-$roleId'),
+      ),
+    );
+    expect(detailsBackground.color, originWorldDetailSheetBackgroundColor);
     expect(
       find.descendant(of: details, matching: find.text('Name')),
       findsNothing,
@@ -9962,7 +9968,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.descendant(of: details, matching: find.text('Brief')),
+      find.descendant(of: details, matching: find.text('Personality')),
       findsOneWidget,
     );
     expect(
@@ -10063,7 +10069,7 @@ void main() {
         matching: find.byType(GenesisStaticNetworkImage),
       ),
     );
-    expect(infoAvatar.imageUrl, setupAvatarSource.imageUrl);
+    expect(infoAvatar.imageUrl, contains('image/resize,w_90'));
     sheetPagesRect = tester.getRect(sheetPages);
     await tester.dragFrom(
       Offset(sheetPagesRect.left + 24, sheetPagesRect.top + 16),
@@ -10458,6 +10464,9 @@ void main() {
       profileAvatarSource.imageUrl,
       contains('https://cdn.example.com/profile_1080x1080.jpg'),
     );
+    expect(profileAvatarSource.imageUrl, contains('image/resize,w_720'));
+    expect(profileAvatarSource.cacheWidth, 480);
+    expect(profileAvatarProvider.outputSize, 480);
     expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
 
     final profileBodyToggle = find.byKey(
@@ -10475,11 +10484,11 @@ void main() {
     );
     expect(
       find.descendant(of: profileDetails, matching: find.text('Background')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
-      find.descendant(of: profileDetails, matching: find.text('Brief')),
-      findsNothing,
+      find.descendant(of: profileDetails, matching: find.text('Personality')),
+      findsOneWidget,
     );
     expect(
       find.descendant(of: profileDetails, matching: find.text('Goal')),
@@ -10502,6 +10511,12 @@ void main() {
       ),
       findsOneWidget,
     );
+    await tester.ensureVisible(editSurfaceFinder);
+    await tester.pumpAndSettle();
+    final sheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    final sheetTopBeforeEdit = tester.getTopLeft(sheetSurface).dy;
     tester
         .widget<InkWell>(
           find.byKey(
@@ -10512,38 +10527,282 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
-    final customForm = find.byKey(
-      const ValueKey<String>('origin-setup-custom-form'),
+    expect(
+      find.byKey(const ValueKey<String>('origin-setup-custom-form')),
+      findsNothing,
     );
-    expect(customForm, findsOneWidget);
-    final customFields = find.descendant(
-      of: customForm,
-      matching: find.byType(TextField),
+    final inlineEditor = find.byKey(
+      const ValueKey<String>('origin-setup-role-inline-editor-current-user'),
+    );
+    expect(inlineEditor, findsOneWidget);
+    expect(tester.getSize(inlineEditor), const Size(240, 288));
+    expect(tester.getTopLeft(sheetSurface).dy, sheetTopBeforeEdit);
+    final inlineAvatar = find.byKey(
+      const ValueKey<String>('origin-setup-role-inline-avatar-current-user'),
+    );
+    expect(tester.getSize(inlineAvatar), const Size.square(104));
+    expect(
+      tester.getCenter(inlineAvatar).dx,
+      closeTo(tester.getCenter(inlineEditor).dx, 0.01),
+    );
+    final inlineAvatarImage = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: inlineAvatar,
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    expect(inlineAvatarImage.imageUrl, contains('image/resize,w_360'));
+    expect(
+      inlineAvatarImage.maxDevicePixelRatio,
+      originWorldOpeningRoleAvatarMaxDevicePixelRatio,
+    );
+    final removeAvatar = find.descendant(
+      of: inlineAvatar,
+      matching: find.byKey(const ValueKey<String>('create-upload-remove')),
+    );
+    expect(removeAvatar, findsOneWidget);
+    tester.widget<IconButton>(removeAvatar).onPressed!();
+    await tester.pump();
+    final emptyAvatarSurface = tester.widget<Container>(
+      find.descendant(
+        of: inlineAvatar,
+        matching: find.byKey(const ValueKey<String>('create-upload-surface')),
+      ),
     );
     expect(
-      tester.widget<TextField>(customFields.at(0)).controller?.text,
+      (emptyAvatarSurface.decoration as BoxDecoration).color,
+      originWorldDetailSheetBackgroundColor,
+    );
+    expect(
+      tester
+          .widget<CustomPaint>(
+            find.descendant(
+              of: inlineAvatar,
+              matching: find.byKey(
+                const ValueKey<String>('create-upload-border'),
+              ),
+            ),
+          )
+          .painter,
+      isA<CreateDashedRRectPainter>().having(
+        (painter) => painter.color,
+        'color',
+        originWorldDetailSheetTertiaryTextColor,
+      ),
+    );
+    expect(
+      tester
+          .widget<Icon>(
+            find.descendant(
+              of: inlineAvatar,
+              matching: find.byIcon(Icons.add_photo_alternate_outlined),
+            ),
+          )
+          .color,
+      GenesisColors.createAdd,
+    );
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: inlineAvatar,
+              matching: find.text('AVATAR\n(Optional)'),
+            ),
+          )
+          .style
+          ?.color,
+      originWorldDetailSheetTertiaryTextColor,
+    );
+    final inlineFields = find.descendant(
+      of: inlineEditor,
+      matching: find.byType(TextField),
+    );
+    expect(inlineFields, findsNWidgets(3));
+    expect(
+      tester.getRect(inlineFields.last).bottom,
+      lessThanOrEqualTo(tester.getRect(sheetSurface).bottom + 1),
+    );
+    expect(
+      tester.widget<TextField>(inlineFields.at(0)).controller?.text,
       'Profile Hero',
     );
     expect(
-      tester.widget<TextField>(customFields.at(1)).controller?.text,
+      tester.widget<TextField>(inlineFields.at(1)).controller?.text,
       isEmpty,
+    );
+    expect(
+      tester.widget<TextField>(inlineFields.first).focusNode?.hasFocus,
+      isTrue,
+    );
+    final nameTapTarget = find.byKey(
+      const ValueKey<String>('origin-setup-role-inline-name-tap-current-user'),
+    );
+    expect(tester.getSize(nameTapTarget).width, 212);
+    expect(tester.getSize(nameTapTarget).height, greaterThanOrEqualTo(33));
+    for (final field in tester.widgetList<TextField>(inlineFields)) {
+      expect(field.style?.color, originWorldDetailSheetPrimaryTextColor);
+      expect(field.decoration?.border, InputBorder.none);
+      expect(field.decoration?.enabledBorder, InputBorder.none);
+      expect(field.decoration?.focusedBorder, InputBorder.none);
+    }
+    expect(
+      find.descendant(of: inlineEditor, matching: find.text('Name')),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: inlineEditor, matching: find.text('Identity')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: inlineEditor, matching: find.text('Personality')),
+      findsOneWidget,
+    );
+    await tester.tap(
+      find.descendant(of: inlineEditor, matching: find.text('Identity')),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(inlineFields.at(1)).focusNode?.hasFocus,
+      isTrue,
+    );
+    await tester.tap(
+      find.descendant(of: inlineEditor, matching: find.text('Personality')),
+    );
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(inlineFields.at(2)).focusNode?.hasFocus,
+      isTrue,
+    );
+    await tester.tap(nameTapTarget);
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(inlineFields.at(0)).focusNode?.hasFocus,
+      isTrue,
     );
     expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
     expect(
-      find.byKey(const ValueKey<String>('origin-setup-custom-cancel')),
-      findsOneWidget,
+      tester
+          .widget<IgnorePointer>(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-expanded-opening-composer-visibility',
+              ),
+            ),
+          )
+          .ignoring,
+      isTrue,
     );
     expect(
-      find.byKey(const ValueKey<String>('origin-setup-custom-launch')),
+      tester
+          .widget<IgnorePointer>(
+            find.byKey(
+              const ValueKey<String>('origin-opening-select-role-visibility'),
+            ),
+          )
+          .ignoring,
+      isTrue,
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'origin-setup-role-edit-close-icon-current-user',
+        ),
+      ),
       findsOneWidget,
     );
+    expect(profileBodyToggle, findsNothing);
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-action-bar-current-user',
+              ),
+            ),
+          )
+          .height,
+      45,
+    );
+
+    await tester.enterText(inlineFields.at(0), 'Temporary Name');
+    await tester.enterText(inlineFields.at(1), 'Temporary Identity');
+    expect(
+      tester.widget<TextField>(inlineFields.at(0)).controller?.text,
+      'Temporary Name',
+    );
     tester
-        .widget<GenesisSecondaryButton>(
-          find.byKey(const ValueKey<String>('origin-setup-custom-cancel')),
+        .widget<InkWell>(
+          find.byKey(
+            const ValueKey<String>('origin-setup-role-edit-current-user'),
+          ),
         )
-        .onPressed!();
+        .onTap!();
     await tester.pumpAndSettle();
-    expect(customForm, findsNothing);
+    expect(inlineEditor, findsNothing);
+    expect(profileLabel, findsOneWidget);
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-edit-icon-current-user'),
+      ),
+      findsOneWidget,
+    );
+
+    tester
+        .widget<InkWell>(
+          find.byKey(
+            const ValueKey<String>('origin-setup-role-edit-current-user'),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+    final reopenedFields = find.descendant(
+      of: inlineEditor,
+      matching: find.byType(TextField),
+    );
+    expect(
+      tester.widget<TextField>(reopenedFields.at(0)).controller?.text,
+      'Profile Hero',
+    );
+    expect(
+      tester.widget<TextField>(reopenedFields.at(1)).controller?.text,
+      isEmpty,
+    );
+    await tester.enterText(reopenedFields.at(0), 'Outside Tap Draft');
+    await tester.tapAt(
+      Offset(
+        tester.getCenter(sheetSurface).dx,
+        tester.getTopLeft(sheetSurface).dy + 24,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(inlineEditor, findsNothing);
+    expect(profileLabel, findsOneWidget);
+    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+
+    tester
+        .widget<InkWell>(
+          find.byKey(
+            const ValueKey<String>('origin-setup-role-edit-current-user'),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+    final fieldsAfterOutsideClose = find.descendant(
+      of: inlineEditor,
+      matching: find.byType(TextField),
+    );
+    expect(
+      tester.widget<TextField>(fieldsAfterOutsideClose.at(0)).controller?.text,
+      'Profile Hero',
+    );
+    tester
+        .widget<InkWell>(
+          find.byKey(
+            const ValueKey<String>('origin-setup-role-edit-current-user'),
+          ),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
 
     tester.widget<InkWell>(profileRole).onTap!();
     await tester.pumpAndSettle();
@@ -10584,6 +10843,8 @@ void main() {
             'uid': 'u_profile',
             'name': 'Profile Hero',
             'avatar': 'https://cdn.example.com/profile.jpg',
+            'identity': 'Initial identity',
+            'bio': 'Initial profile personality',
           },
         ),
         child: MaterialApp(
@@ -10603,105 +10864,77 @@ void main() {
         .onTap!();
     await tester.pump();
 
-    final customForm = find.byKey(
-      const ValueKey<String>('origin-setup-custom-form'),
-      skipOffstage: false,
+    final inlineEditor = find.byKey(
+      const ValueKey<String>('origin-setup-role-inline-editor-current-user'),
     );
     final fields = find.descendant(
-      of: customForm,
-      matching: find.byType(TextField, skipOffstage: false),
-      skipOffstage: false,
+      of: inlineEditor,
+      matching: find.byType(TextField),
     );
     expect(fields, findsNWidgets(3));
+    expect(find.text('Identity *'), findsOneWidget);
+    expect(find.text('Personality (Optional)'), findsOneWidget);
     final nameController = tester.widget<TextField>(fields.first).controller!;
     expect(nameController.text, 'Profile Hero');
-    expect(nameController.selection, const TextSelection.collapsed(offset: 0));
-    final customLaunch = find.byKey(
-      const ValueKey<String>('origin-setup-custom-launch'),
-    );
-    expect(tester.widget<GenesisPrimaryButton>(customLaunch).onPressed, isNull);
     expect(
-      tester.widget<GenesisPrimaryButton>(customLaunch).leadingIcon,
-      isNull,
+      tester.widget<TextField>(fields.at(1)).controller?.text,
+      'Initial identity',
     );
     expect(
-      tester.widget<GenesisPrimaryButton>(customLaunch).onDisabledPressed,
-      isNotNull,
+      tester.widget<TextField>(fields.at(2)).controller?.text,
+      'Initial profile personality',
     );
-    await tester.pumpAndSettle();
-    expect(nameController.text, 'Profile Hero');
-    expect(nameController.selection, const TextSelection.collapsed(offset: 0));
-
-    final fieldBlocks = find.descendant(
-      of: customForm,
-      matching: find.byType(CreateTextFieldBlock, skipOffstage: false),
-      skipOffstage: false,
-    );
-    expect(fieldBlocks, findsNWidgets(3));
-    for (final fieldBlock in tester.widgetList<CreateTextFieldBlock>(
-      fieldBlocks,
-    )) {
-      expect(fieldBlock.fillColor, const Color(0xFFF8F8F8));
-      expect(fieldBlock.handoffVerticalDragToAncestor, isTrue);
-      expect(fieldBlock.scrollPadding?.bottom, kMinInteractiveDimension);
-    }
-
-    await tester.ensureVisible(fieldBlocks.at(2));
-    await tester.pumpAndSettle();
-    await tester.tap(fields.at(2));
-    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
-    await tester.pumpAndSettle();
-    final keyboardTop = tester.view.physicalSize.height - 300;
+    expect(nameController.selection, const TextSelection.collapsed(offset: 12));
     expect(
-      tester.getRect(fieldBlocks.at(2)).bottom,
-      lessThanOrEqualTo(keyboardTop),
+      tester.widget<TextField>(fields.at(1)).controller?.selection,
+      const TextSelection.collapsed(offset: 0),
     );
+    expect(
+      tester.widget<TextField>(fields.at(2)).controller?.selection,
+      const TextSelection.collapsed(offset: 0),
+    );
+    final nameField = tester.widget<TextField>(fields.first);
+    expect(nameField.focusNode?.hasFocus, isTrue);
+    expect(nameField.style?.fontSize, 14);
+    expect(nameField.style?.fontWeight, FontWeight.w600);
+    expect(
+      find.descendant(of: inlineEditor, matching: find.text('Name')),
+      findsNothing,
+    );
+    await tester.pumpAndSettle();
     final sheetSurface = find.byKey(
       const ValueKey<String>('origin-detail-sheet-surface'),
     );
-    expect(sheetSurface, findsOneWidget);
-    final sheetTopWithKeyboard = tester.getTopLeft(sheetSurface).dy;
-
-    final openingScrollView = tester.widget<CustomScrollView>(
-      find.byKey(
-        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
-      ),
-    );
-    final openingScrollController = openingScrollView.controller!;
-    final offsetBeforeFieldDrag = openingScrollController.offset;
-    final canDragDown =
-        offsetBeforeFieldDrag >
-        openingScrollController.position.minScrollExtent + 20;
-    final fieldDragDelta = canDragDown ? 60.0 : -60.0;
-    await tester.drag(fields.at(2), Offset(0, fieldDragDelta));
-    await tester.pump();
-    if (canDragDown) {
-      expect(openingScrollController.offset, lessThan(offsetBeforeFieldDrag));
-    } else {
-      expect(
-        openingScrollController.offset,
-        greaterThan(offsetBeforeFieldDrag),
-      );
-    }
-
-    for (final keyboardInset in <double>[240, 180, 120, 60, 0]) {
+    final sheetTopBeforeKeyboard = tester.getTopLeft(sheetSurface).dy;
+    for (final keyboardInset in <double>[80, 160, 260]) {
       tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
-      await tester.pump(const Duration(milliseconds: 16));
-      expect(
-        tester.getTopLeft(sheetSurface).dy,
-        closeTo(sheetTopWithKeyboard, 0.01),
-      );
+      await tester.pump();
+      expect(tester.getTopLeft(sheetSurface).dy, sheetTopBeforeKeyboard);
+      expect(nameField.focusNode?.hasFocus, isTrue);
     }
     await tester.pumpAndSettle();
-    await tester.enterText(fields.at(1), 'Explorer');
-    await tester.enterText(fields.at(2), 'Inline profile biography');
-    await tester.pump();
-
+    final keyboardTop = tester.view.physicalSize.height - 260;
+    expect(nameField.focusNode?.hasFocus, isTrue);
     expect(
-      tester.widget<GenesisPrimaryButton>(customLaunch).onPressed,
-      isNotNull,
+      tester.getRect(fields.first).bottom,
+      lessThanOrEqualTo(keyboardTop + 1),
+      reason: 'The focused role field stays above the keyboard.',
     );
-    tester.widget<GenesisPrimaryButton>(customLaunch).onPressed!();
+    expect(nameController.text, 'Profile Hero');
+    await tester.enterText(fields.at(1), 'Explorer');
+    await tester.pump();
+    expect(tester.widget<TextField>(fields.at(1)).focusNode?.hasFocus, isTrue);
+    await tester.enterText(fields.at(2), 'Inline profile personality');
+    await tester.pump();
+    expect(tester.widget<TextField>(fields.at(2)).focusNode?.hasFocus, isTrue);
+    tester.view.viewInsets = FakeViewPadding.zero;
+    await tester.pumpAndSettle();
+
+    tester
+        .widget<InkWell>(
+          find.byKey(const ValueKey<String>('origin-setup-role-current-user')),
+        )
+        .onTap!();
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
@@ -10712,8 +10945,131 @@ void main() {
     expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
     expect(
       launchBody['custom_role'],
-      containsPair('bio', 'Inline profile biography'),
+      containsPair('personality', 'Inline profile personality'),
     );
+    await tester.pump(const Duration(seconds: 2));
+    AppStartupCoordinator.resetForTesting();
+  });
+
+  testWidgets('Origin preset editor launches the same preset with overrides', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+      originCharacters: const [
+        {
+          'char_id': 'c_edit_preset',
+          'type': 'ai',
+          'player_uid': '',
+          'name': 'Preset Hero',
+          'identity': 'Preset Identity',
+          'brief': 'Preset Personality',
+          'description': 'Hidden preset background',
+          'goal': 'Keep this goal',
+          'avatar': 'assets/images/map_default/l1_default.webp',
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+          'metric_value': 4,
+          'delta': 0,
+        },
+      ],
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+        ),
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const roleId = 'c_edit_preset';
+    final editSurface = find.byKey(
+      const ValueKey<String>('origin-setup-role-edit-surface-$roleId'),
+    );
+    final selectSurface = find.byKey(
+      const ValueKey<String>('origin-setup-role-select-surface-$roleId'),
+    );
+    await _dragOriginPanelUntilVisible(tester, editSurface);
+    await tester.pumpAndSettle();
+    expect(editSurface, findsOneWidget);
+    expect(
+      tester.getRect(editSurface).right,
+      lessThan(tester.getRect(selectSurface).left),
+    );
+
+    tester
+        .widget<InkWell>(
+          find.byKey(const ValueKey<String>('origin-setup-role-edit-$roleId')),
+        )
+        .onTap!();
+    await tester.pumpAndSettle();
+
+    final inlineEditor = find.byKey(
+      const ValueKey<String>('origin-setup-role-inline-editor-$roleId'),
+    );
+    final fields = find.descendant(
+      of: inlineEditor,
+      matching: find.byType(TextField),
+    );
+    expect(fields, findsNWidgets(3));
+    expect(tester.widget<TextField>(fields.at(0)).maxLength, 30);
+    expect(tester.widget<TextField>(fields.at(1)).maxLength, 100);
+    expect(tester.widget<TextField>(fields.at(2)).maxLength, 100);
+    for (final field in tester.widgetList<TextField>(fields)) {
+      expect(field.decoration?.counterText, isEmpty);
+      expect(field.groupId, same(createFormTextFieldTapRegionGroup));
+      expect(field.onTapOutside, isNull);
+    }
+    expect(
+      tester.widget<TextField>(fields.at(0)).controller?.text,
+      'Preset Hero',
+    );
+    expect(
+      tester.widget<TextField>(fields.at(1)).controller?.text,
+      'Preset Identity',
+    );
+    expect(
+      tester.widget<TextField>(fields.at(2)).controller?.text,
+      'Preset Personality',
+    );
+
+    await tester.enterText(fields.at(0), 'Edited Preset');
+    await tester.enterText(fields.at(1), 'Edited Identity');
+    await tester.enterText(fields.at(2), 'Edited Personality');
+    final personalityField = tester.widget<TextField>(fields.at(2));
+    expect(personalityField.focusNode?.hasFocus, isTrue);
+
+    final selectButton = find.byKey(
+      const ValueKey<String>('origin-setup-role-$roleId'),
+    );
+    await tester.ensureVisible(selectButton);
+    await tester.pumpAndSettle();
+    await tester.tap(selectButton);
+    await tester.pumpAndSettle();
+
+    final launchRequests = transport.requestsFor('/api/v1/origin/launch');
+    expect(launchRequests, hasLength(1));
+    final launchBody = transport.decodedBody(launchRequests.single);
+    expect(launchBody['preset_character_id'], roleId);
+    expect(launchBody.containsKey('custom_role'), isFalse);
+    expect(launchBody['preset_role_override'], {
+      'avatar': 'assets/images/map_default/l1_default.webp',
+      'name': 'Edited Preset',
+      'identity': 'Edited Identity',
+      'brief': 'Edited Personality',
+    });
     await tester.pump(const Duration(seconds: 2));
     AppStartupCoordinator.resetForTesting();
   });
@@ -10804,82 +11160,6 @@ void main() {
       expect(cacheStatus.live || cacheStatus.keepAlive, isTrue);
     },
   );
-
-  testWidgets(
-    'Origin location launch defaults to profile and skips role sheet',
-    (WidgetTester tester) async {
-      AppStartupCoordinator.resetForTesting();
-      addTearDown(AppStartupCoordinator.resetForTesting);
-      final transport = _RecordingV1ListTransport(
-        worldRelationStatus: 'approved',
-      );
-      final chatroom = _FakeChatroomClient();
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialAuthToken: 'token',
-            chatroom: chatroom,
-            initialUserInfo: const {
-              'name': 'Profile Hero',
-              'identity': 'Explorer',
-              'bio': 'Profile bio',
-            },
-          ),
-          child: MaterialApp(
-            onGenerateRoute: AppRouter.onGenerateRoute,
-            home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await _sendOriginLocationPreviewMessage(tester);
-
-      expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
-      final launchRequests = transport.requestsFor('/api/v1/origin/launch');
-      expect(launchRequests, hasLength(1));
-      final launchBody = transport.decodedBody(launchRequests.single);
-      expect(launchBody.containsKey('preset_character_id'), isFalse);
-      expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
-      expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
-      expect(launchBody['custom_role'], containsPair('bio', 'Profile bio'));
-      await tester.pump(const Duration(seconds: 2));
-      AppStartupCoordinator.resetForTesting();
-    },
-  );
-
-  testWidgets('Origin location launch asks for login when signed out', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialUid: null,
-        ),
-        child: MaterialApp(
-          onGenerateRoute: AppRouter.onGenerateRoute,
-          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      find.byKey(const ValueKey<String>('origin-setup-role-current-user')),
-      findsNothing,
-    );
-
-    await _sendOriginLocationPreviewMessage(tester);
-
-    expect(find.text('Sign up to continue'), findsOneWidget);
-    expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
-    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
-  });
 
   testWidgets(
     'Origin preset role direct launch keeps initial dialogue location',
@@ -11069,12 +11349,15 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump();
 
-    await _sendOriginLocationPreviewMessage(tester, roleId: 'c_o_test_1');
+    final presetRole = find.byKey(
+      const ValueKey<String>('origin-setup-role-c_o_test_1'),
+    );
+    await _dragOriginPanelUntilVisible(tester, presetRole);
+    tester.widget<InkWell>(presetRole).onTap!();
     await tester.pumpAndSettle();
 
     final launchedWorldPage = tester.widget<WorldPage>(find.byType(WorldPage));
     expect(launchedWorldPage.wid, 'w_launched_from_origin');
-    expect(launchedWorldPage.initialLocationId, 'l_o_test_1');
     expect(launchedWorldPage.waitForTick1, isFalse);
     expect(find.byKey(const ValueKey('world-tick1-wait-dialog')), findsNothing);
     var worldRequests = transport
@@ -28720,51 +29003,6 @@ class _SynchronousTestImageProvider
 
   @override
   int get hashCode => identityHashCode(image);
-}
-
-Future<void> _sendOriginLocationPreviewMessage(
-  WidgetTester tester, {
-  String message = 'Hello from Worldo',
-  String? roleId,
-}) async {
-  await tester.tap(find.text('Detail Location'), warnIfMissed: false);
-  await tester.pumpAndSettle();
-  final chatPanel = find.byType(LocationChatPanel);
-  expect(chatPanel, findsOneWidget);
-  final composer = find.descendant(
-    of: chatPanel,
-    matching: find.byType(ChatComposer),
-  );
-  expect(composer, findsOneWidget);
-  final input = find.descendant(
-    of: composer,
-    matching: find.byKey(const ValueKey('chat-composer-input')),
-  );
-  if (roleId != null) {
-    await tester.tap(
-      find.descendant(
-        of: composer,
-        matching: find.byKey(
-          const ValueKey('origin-location-chat-role-selector'),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    await tester.tap(
-      find.byKey(ValueKey<String>('origin-location-chat-role-option-$roleId')),
-    );
-    await tester.pumpAndSettle();
-  }
-  await tester.enterText(input, message);
-  await tester.pump();
-  expect(tester.widget<ChatComposer>(composer).sendEnabled, isTrue);
-  await tester.tap(
-    find.descendant(
-      of: composer,
-      matching: find.byKey(const ValueKey('chat-composer-send-button')),
-    ),
-  );
-  await tester.pumpAndSettle();
 }
 
 Future<void> _swipeOriginSheetToInfo(WidgetTester tester) async {

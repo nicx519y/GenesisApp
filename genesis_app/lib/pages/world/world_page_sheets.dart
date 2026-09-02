@@ -114,7 +114,7 @@ extension _WorldPageSheets on _WorldPageState {
       context: actionContext,
       title: '',
       titleWidget: _DeleteWorldConfirmationTitle(name: world.name.trim()),
-      titleHeight: 104,
+      titleHeight: null,
       actions: const [
         GenesisActionBoxAction<bool>(
           label: 'Delete',

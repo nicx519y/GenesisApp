@@ -558,6 +558,49 @@ void main() {
     );
   });
 
+  testWidgets('GenesisActionBox can grow a dynamic title row', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 600);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () {
+                showGenesisActionBox<bool>(
+                  context: context,
+                  title: '',
+                  titleWidget: const Text(
+                    'Delete world\nwith a long name\nacross several lines',
+                    textAlign: TextAlign.center,
+                  ),
+                  titleHeight: null,
+                  actions: const [
+                    GenesisActionBoxAction<bool>(label: 'Delete', value: true),
+                  ],
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+
+    expect(
+      tester
+          .getSize(find.byKey(const ValueKey('genesis-action-box-title-row')))
+          .height,
+      greaterThan(GenesisActionBox.defaultTitleHeight),
+    );
+  });
+
   testWidgets('GenesisActionBox can render one action without cancel', (
     tester,
   ) async {

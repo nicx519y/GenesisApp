@@ -12,6 +12,9 @@ const double originLaunchedWorldTitleListGapForTesting = 16;
 @visibleForTesting
 const double originLaunchedWorldRowGapForTesting = 16;
 
+@visibleForTesting
+const int originLaunchedWorldPreviewLimitForTesting = 5;
+
 class _OriginLaunchedWorldsSection extends StatelessWidget {
   const _OriginLaunchedWorldsSection({
     required this.roles,
@@ -36,7 +39,10 @@ class _OriginLaunchedWorldsSection extends StatelessWidget {
       final timeComparison = bLastActiveAt.compareTo(aLastActiveAt);
       return timeComparison != 0 ? timeComparison : a.$1.compareTo(b.$1);
     });
-    if (visibleRoles.isEmpty) return const SizedBox.shrink();
+    final recentRoles = visibleRoles.take(
+      originLaunchedWorldPreviewLimitForTesting,
+    );
+    if (recentRoles.isEmpty) return const SizedBox.shrink();
 
     return Padding(
       key: const ValueKey<String>('origin-launched-worlds-section'),
@@ -66,7 +72,7 @@ class _OriginLaunchedWorldsSection extends StatelessWidget {
           Column(
             key: const ValueKey<String>('origin-playing-world-list'),
             children: [
-              for (final (index, entry) in visibleRoles.indexed) ...[
+              for (final (index, entry) in recentRoles.indexed) ...[
                 if (index > 0)
                   const SizedBox(height: originLaunchedWorldRowGapForTesting),
                 _OriginLaunchedWorldRow(

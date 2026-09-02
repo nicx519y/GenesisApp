@@ -105,13 +105,21 @@ bool locationChatManagesKeyboardInsetForTesting({
       platform == TargetPlatform.android && (androidSdkInt ?? 0) >= 30;
 }
 
-@visibleForTesting
-double locationChatEffectiveKeyboardInsetForTesting({
+double locationChatEffectiveKeyboardInset({
   required double rawKeyboardInset,
   required double bottomSafeAreaInset,
 }) {
   return math.max(0.0, rawKeyboardInset - bottomSafeAreaInset);
 }
+
+@visibleForTesting
+double locationChatEffectiveKeyboardInsetForTesting({
+  required double rawKeyboardInset,
+  required double bottomSafeAreaInset,
+}) => locationChatEffectiveKeyboardInset(
+  rawKeyboardInset: rawKeyboardInset,
+  bottomSafeAreaInset: bottomSafeAreaInset,
+);
 
 @visibleForTesting
 ChatUiStyleConfig resolveLocationChatHeaderEffectStyle({
@@ -1364,7 +1372,7 @@ class _LocationChatKeyboardInsetLayoutState
   }
 
   double _effectiveKeyboardInset(double rawKeyboardInset) {
-    return locationChatEffectiveKeyboardInsetForTesting(
+    return locationChatEffectiveKeyboardInset(
       rawKeyboardInset: rawKeyboardInset,
       bottomSafeAreaInset: widget.bottomSafeAreaInset,
     );

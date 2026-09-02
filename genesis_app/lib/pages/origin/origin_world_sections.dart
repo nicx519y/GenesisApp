@@ -239,7 +239,7 @@ class _DiscussSection extends StatelessWidget {
                         controller: controller,
                         count: origin.discussCount,
                         contentLineHeight: 1.4,
-                        authorColor: originWorldDetailSheetAccentSoftColor,
+                        authorColor: originWorldDetailSheetSecondaryTextColor,
                         contentColor: originWorldDetailSheetSecondaryTextColor,
                         metadataColor: originWorldDetailSheetTertiaryTextColor,
                         showHeader: false,
@@ -443,5 +443,6 @@ String _originRoleCardAvatarUrl(BuildContext context, String sourceUrl) {
     logicalWidth: _OriginSetupRoleSection._cardWidth,
     logicalHeight: _OriginSetupRoleSection._cardWidth,
     devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+    maxDevicePixelRatio: originWorldOpeningRoleAvatarMaxDevicePixelRatio,
   ).trim();
 }

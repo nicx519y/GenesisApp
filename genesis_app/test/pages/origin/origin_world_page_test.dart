@@ -137,6 +137,7 @@ void main() {
     expect(originLaunchedWorldSectionTopPaddingForTesting, 6);
     expect(originLaunchedWorldTitleListGapForTesting, 16);
     expect(originLaunchedWorldRowGapForTesting, 16);
+    expect(originLaunchedWorldPreviewLimitForTesting, 5);
     expect(originSectionsSource, isNot(contains("'Your Launched Worlds'")));
     expect(originSectionsSource, isNot(contains("'Launched Before'")));
     expect(originSectionsSource, contains("'Playing World'"));
@@ -147,6 +148,12 @@ void main() {
     expect(originSectionsSource, contains('formatMessageCountLabel'));
     expect(originSectionsSource, contains('formatGenesisTimestamp'));
     expect(originSectionsSource, contains('bLastActiveAt.compareTo'));
+    expect(
+      originSectionsSource,
+      contains(
+        'visibleRoles.take(\n      originLaunchedWorldPreviewLimitForTesting,',
+      ),
+    );
     expect(originSectionsSource, isNot(contains('Divider(')));
     expect(
       originSectionsSource,
@@ -185,6 +192,14 @@ void main() {
   });
 
   test('origin detail discuss uses a title-row View all action', () {
+    expect(
+      originSectionsSource,
+      contains('authorColor: originWorldDetailSheetSecondaryTextColor'),
+    );
+    expect(
+      originSectionsSource,
+      isNot(contains('authorColor: originWorldDetailSheetAccentSoftColor')),
+    );
     expect(originSectionsSource, contains("'View all >'"));
     expect(originSectionsSource, contains('fontSize: 10'));
     expect(

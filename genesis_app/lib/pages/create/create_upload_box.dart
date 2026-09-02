@@ -28,6 +28,11 @@ class CreateUploadBox extends StatefulWidget {
     this.emptyLabelFontSize = 12,
     this.removeLinkFontWeight = FontWeight.w600,
     this.emptyIconLabelGap = 12,
+    this.emptyBackgroundColor = const Color(0x6BF4F4F6),
+    this.emptyBorderColor = createFormUploadBorder,
+    this.emptyIconColor = GenesisColors.createAdd,
+    this.emptyLabelColor = createFormMuted,
+    this.previewMaxDevicePixelRatio = GenesisImageConfig.maxDevicePixelRatio,
   });
 
   final TextEditingController controller;
@@ -52,6 +57,11 @@ class CreateUploadBox extends StatefulWidget {
   final double emptyLabelFontSize;
   final FontWeight removeLinkFontWeight;
   final double emptyIconLabelGap;
+  final Color emptyBackgroundColor;
+  final Color emptyBorderColor;
+  final Color emptyIconColor;
+  final Color emptyLabelColor;
+  final double previewMaxDevicePixelRatio;
 
   @override
   State<CreateUploadBox> createState() => _CreateUploadBoxState();
@@ -157,17 +167,19 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
           borderRadius: BorderRadius.circular(widget.borderRadius),
           onTap: _isUploading ? null : () => _pickCropAndUpload(context),
           child: CustomPaint(
+            key: const ValueKey<String>('create-upload-border'),
             painter: CreateDashedRRectPainter(
-              color: createFormUploadBorder,
+              color: widget.emptyBorderColor,
               radius: widget.borderRadius,
               strokeWidth: 1.2,
             ),
             child: Container(
+              key: const ValueKey<String>('create-upload-surface'),
               width: previewWidth,
               height: previewHeight,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: const Color(0x6BF4F4F6),
+                color: widget.emptyBackgroundColor,
                 borderRadius: BorderRadius.circular(widget.borderRadius),
               ),
               clipBehavior: Clip.antiAlias,
@@ -178,6 +190,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                       widget.emptyLabelFontWeight,
                       widget.emptyLabelFontSize,
                       widget.emptyIconLabelGap,
+                      widget.emptyIconColor,
+                      widget.emptyLabelColor,
                     )
                   : _Preview(
                       imageUrl: imageUrl,
@@ -189,6 +203,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
                       useMessageImageSizing: widget.useMessageImageSizing,
                       displaySize: messageDisplaySize,
                       downsampleMemoryImage: widget.uploadOriginalImage,
+                      maxDevicePixelRatio: widget.previewMaxDevicePixelRatio,
                     ),
             ),
           ),

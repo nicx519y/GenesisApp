@@ -1329,16 +1329,18 @@ Query：
 
 - `origin_id*`: string，待 launch 的 origin 业务 id
 - `preset_character_id`: string，origin 角色列表中的 `char_id`
+- `preset_role_override`: object，可选；仅在选择 preset 时发送，字段为 `avatar/name/identity/brief`。服务端仍绑定原 `char_id`，并用这些字段覆盖新 world 中该角色副本
 - `custom_role`: `WorldCustomRole`
 
 `preset_character_id` 与 `custom_role` 必须二选一；两者都为空或都非空会返回 `4004`。
+`preset_role_override` 只能与 `preset_character_id` 同时出现，且 `name/identity` 必填；否则返回 `4004`。
 
 `WorldCustomRole`：
 
 - `char_id`: string，可空；为空时服务端按 `char_<uid>` 兜底
 - `name*`: string
 - `identity`: string
-- `personality`: string
+- `brief`: string，覆盖角色 Personality
 - `bio`: string
 - `goal`: string
 - `avatar`: string

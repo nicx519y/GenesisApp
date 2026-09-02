@@ -33,7 +33,7 @@ Future<T?> showGenesisActionBox<T>({
   String cancelLabel = 'Cancel',
   bool showCancel = true,
   bool detachCancel = false,
-  double titleHeight = GenesisActionBox.defaultTitleHeight,
+  double? titleHeight = GenesisActionBox.defaultTitleHeight,
   double actionRowHeight = GenesisActionBox.defaultRowHeight,
   double cancelRowHeight = GenesisActionBox.defaultRowHeight,
 }) {
@@ -101,7 +101,7 @@ class GenesisActionBox<T> extends StatelessWidget {
   final String cancelLabel;
   final bool showCancel;
   final bool detachCancel;
-  final double titleHeight;
+  final double? titleHeight;
   final double actionRowHeight;
   final double cancelRowHeight;
 
@@ -233,7 +233,7 @@ class _TitleRow extends StatelessWidget {
   });
 
   final String title;
-  final double height;
+  final double? height;
   final Widget? titleWidget;
   final Widget? content;
   final double contentSpacing;
@@ -241,37 +241,52 @@ class _TitleRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      key: const ValueKey('genesis-action-box-title-row'),
-      height: height,
-      width: double.infinity,
-      child: Align(
-        alignment: Alignment.center,
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              titleWidget ??
-                  Text(
-                    title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: _genesisActionBoxText,
-                      fontSize: 15,
-                      height: 1.4,
-                      fontWeight: FontWeight.w600,
-                    ),
+    final titleBody = Align(
+      alignment: Alignment.center,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            titleWidget ??
+                Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: _genesisActionBoxText,
+                    fontSize: 15,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
                   ),
-              if (content case final content?) ...[
-                SizedBox(height: contentSpacing),
-                content,
-              ],
+                ),
+            if (content case final content?) ...[
+              SizedBox(height: contentSpacing),
+              content,
             ],
-          ),
+          ],
         ),
+      ),
+    );
+    final fixedHeight = height;
+    if (fixedHeight != null) {
+      return SizedBox(
+        key: const ValueKey('genesis-action-box-title-row'),
+        height: fixedHeight,
+        width: double.infinity,
+        child: titleBody,
+      );
+    }
+    return ConstrainedBox(
+      key: const ValueKey('genesis-action-box-title-row'),
+      constraints: const BoxConstraints(
+        minWidth: double.infinity,
+        minHeight: GenesisActionBox.defaultTitleHeight,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: titleBody,
       ),
     );
   }

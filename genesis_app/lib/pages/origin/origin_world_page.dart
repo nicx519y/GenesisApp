@@ -38,6 +38,7 @@ import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/origin.dart';
+import '../create/create_form_widgets.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
@@ -283,6 +284,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
           identity: userInfo == null
               ? ''
               : _mapString(userInfo, const ['identity']),
+          personality: userInfo == null
+              ? ''
+              : _mapString(userInfo, const ['bio', 'description']),
         );
       }
       if (!mounted || generation != _cachedProfileRoleLoadGeneration) return;
@@ -313,6 +317,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
     final devicePixelRatio = genesisImageDevicePixelRatio(
       MediaQuery.devicePixelRatioOf(context),
+      maxDevicePixelRatio: originWorldOpeningRoleAvatarMaxDevicePixelRatio,
     );
     final outputSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
         .ceil();
@@ -692,8 +697,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
   Future<void> _selectAndLaunchPresetRole(
     OriginDetail origin,
-    OriginCharacter character,
-  ) async {
+    OriginCharacter character, {
+    OriginPresetRoleOverride? roleOverride,
+  }) async {
     if (_launching) return;
     if (!await ensureGenesisLogin(context)) return;
     if (!mounted) return;
@@ -712,7 +718,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
     await _launchOrigin(
       origin,
-      OriginRoleLaunchSelection.preset(characterId),
+      OriginRoleLaunchSelection.preset(characterId, roleOverride: roleOverride),
       initialLocationId:
           _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
     );
@@ -905,7 +911,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       avatarUrl: resolvedAvatar,
       name: cachedName,
       identity: _mapString(cachedUser, const ['identity']),
-      bio: _mapString(cachedUser, const ['bio', 'description']),
+      personality: _mapString(cachedUser, const ['bio', 'description']),
     );
   }
 
@@ -1157,9 +1163,14 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               profileRole: _cachedProfileRole,
               onSelectRole: (character) =>
                   _selectAndLaunchPresetRole(origin, character),
+              onSelectEditedPresetRole: (character, roleOverride) =>
+                  _selectAndLaunchPresetRole(
+                    origin,
+                    character,
+                    roleOverride: roleOverride,
+                  ),
               onSelectProfileRole: (profileRole) =>
                   _selectAndLaunchProfileRole(origin, profileRole),
-              onFillProfileRole: _customRoleFromProfile,
               locationChatRole: _locationChatRoleOption(origin),
               onSelectLocationChatRole: () => _selectLocationChatRole(origin),
               onSendLocationChatMessage:

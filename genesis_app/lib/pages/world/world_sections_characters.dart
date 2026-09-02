@@ -168,12 +168,13 @@ class WorldCharacterRow extends StatelessWidget {
     final isCharacterRole = worldIsCharacterRole(character);
     final isNew = shouldMarkWorldContentAsNew(asBool(character['is_new']));
     final roleLabel = isCharacterRole ? 'Character' : 'Player';
-    final showAiCharacterDetails = showCharacterDetails && isCharacterRole;
     final identity = worldMapString(character, const ['identity']);
     final brief = worldMapString(character, const ['brief']);
     final goal = worldMapString(character, const ['goal']);
-    final hasOriginStyleDetails =
-        identity.isNotEmpty || brief.isNotEmpty || goal.isNotEmpty;
+    final hasDisplayedDetails =
+        identity.isNotEmpty ||
+        brief.isNotEmpty ||
+        (isCharacterRole && goal.isNotEmpty);
     const bodyStyle = TextStyle(
       fontSize: 13,
       height: 1.4,
@@ -260,7 +261,7 @@ class WorldCharacterRow extends StatelessWidget {
                     ),
                   ],
                 ),
-                if (showAiCharacterDetails) ...[
+                if (showCharacterDetails) ...[
                   if (identity.isNotEmpty) ...[
                     const SizedBox(height: 5),
                     Text(
@@ -279,7 +280,7 @@ class WorldCharacterRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  if (goal.isNotEmpty) ...[
+                  if (isCharacterRole && goal.isNotEmpty) ...[
                     const SizedBox(height: 5),
                     Text(
                       'Goal: $goal',
@@ -288,7 +289,7 @@ class WorldCharacterRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                  if (!hasOriginStyleDetails) ...[
+                  if (isCharacterRole && !hasDisplayedDetails) ...[
                     const SizedBox(height: 5),
                     Text(
                       'No character details yet.',
@@ -297,14 +298,6 @@ class WorldCharacterRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                   ],
-                ] else if (showCharacterDetails) ...[
-                  const SizedBox(height: 5),
-                  Text(
-                    subtitle,
-                    style: bodyStyle,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ] else ...[
                   const SizedBox(height: 4),
                   Text(
@@ -432,11 +425,12 @@ String worldEventBody(WorldDetail world) {
 
 String worldCharacterDescriptionText(Map<String, dynamic> character) {
   final identity = worldMapString(character, const ['identity']);
+  final brief = worldMapString(character, const ['brief']);
   if (!worldIsCharacterRole(character)) {
-    return identity.isEmpty ? 'No character details yet.' : identity;
+    final details = worldOrderedNonEmptyStrings([identity, brief]);
+    return details.join('\n');
   }
 
-  final brief = worldMapString(character, const ['brief']);
   final goal = worldMapString(character, const ['goal']);
   final details = worldOrderedNonEmptyStrings([
     identity,

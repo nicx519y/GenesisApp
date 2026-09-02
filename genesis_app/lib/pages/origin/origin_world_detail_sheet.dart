@@ -32,8 +32,8 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onEnterLaunchedWorld,
     required this.profileRole,
     required this.onSelectRole,
+    required this.onSelectEditedPresetRole,
     required this.onSelectProfileRole,
-    required this.onFillProfileRole,
     required this.locationChatRole,
     required this.onSelectLocationChatRole,
     required this.onSendLocationChatMessage,
@@ -54,8 +54,12 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
   final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
+  final Future<void> Function(
+    OriginCharacter character,
+    OriginPresetRoleOverride roleOverride,
+  )
+  onSelectEditedPresetRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
-  final OriginRoleProfileLoader? onFillProfileRole;
   final _OriginLocationChatRoleOption locationChatRole;
   final VoidCallback onSelectLocationChatRole;
   final Future<bool> Function(
@@ -81,6 +85,7 @@ class _OriginDetailDraggableSheetState
   late final PageController _pageController;
   late final ScrollController _openingPreviewScrollController;
   late final ScrollController _infoPreviewScrollController;
+  final ValueNotifier<bool> _roleEditing = ValueNotifier<bool>(false);
   final Completer<void> _sheetReady = Completer<void>();
   ScrollController? _sheetScrollController;
   OriginDiscussListController? _discussController;
@@ -127,6 +132,7 @@ class _OriginDetailDraggableSheetState
         widget.origin,
       );
       if (oldWidget.origin.oid != widget.origin.oid) {
+        _roleEditing.value = false;
         _currentPage = _originOpeningSheetPageIndex;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!mounted || !_pageController.hasClients) return;
@@ -157,6 +163,7 @@ class _OriginDetailDraggableSheetState
     _pageController.dispose();
     _openingPreviewScrollController.dispose();
     _infoPreviewScrollController.dispose();
+    _roleEditing.dispose();
     _discussController?.dispose();
     super.dispose();
   }
@@ -199,6 +206,11 @@ class _OriginDetailDraggableSheetState
 
   void _expandOpeningRoleCards() {
     _expandToMaxChildSize();
+  }
+
+  void _handleRoleEditingChanged(bool editing) {
+    if (_roleEditing.value == editing) return;
+    _roleEditing.value = editing;
   }
 
   void _handleCollapsedRoleDragStart(DragStartDetails details) {
@@ -471,7 +483,11 @@ class _OriginDetailDraggableSheetState
 
   Widget _buildCollapsedOpeningRoleAction(double bottomInset) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_sheetController, _pageController]),
+      animation: Listenable.merge([
+        _sheetController,
+        _pageController,
+        _roleEditing,
+      ]),
       builder: (context, child) {
         final sheetExtent = _sheetController.isAttached
             ? _sheetController.size
@@ -483,9 +499,11 @@ class _OriginDetailDraggableSheetState
             ? _pageController.page ?? _currentPage.toDouble()
             : _currentPage.toDouble();
         final openingProgress = (1.0 - page.clamp(0.0, 1.0)).toDouble();
-        final opacity = ((1.0 - raisedProgress) * openingProgress)
-            .clamp(0.0, 1.0)
-            .toDouble();
+        final opacity = _roleEditing.value
+            ? 0.0
+            : ((1.0 - raisedProgress) * openingProgress)
+                  .clamp(0.0, 1.0)
+                  .toDouble();
         return IgnorePointer(
           key: const ValueKey<String>('origin-opening-select-role-visibility'),
           ignoring: opacity < 0.99,
@@ -511,7 +529,11 @@ class _OriginDetailDraggableSheetState
 
   Widget _buildExpandedOpeningComposer(String locationId) {
     return AnimatedBuilder(
-      animation: Listenable.merge([_sheetController, _pageController]),
+      animation: Listenable.merge([
+        _sheetController,
+        _pageController,
+        _roleEditing,
+      ]),
       child: KeyedSubtree(
         key: const ValueKey<String>('origin-expanded-opening-composer'),
         child: _OriginLocationChatLaunchComposer(
@@ -554,6 +576,7 @@ class _OriginDetailDraggableSheetState
   }
 
   double _expandedOpeningComposerProgress(BuildContext context) {
+    if (_roleEditing.value) return 0;
     final sheetExtent = _sheetController.isAttached
         ? _sheetController.size
         : widget.initiallyExpanded
@@ -681,13 +704,25 @@ class _OriginDetailDraggableSheetState
               ),
             SliverToBoxAdapter(
               child: _OriginSetupRoleSection(
+                scrollController: scrollController,
                 characters: widget.origin.characters,
                 launching: widget.launching,
                 profileRole: widget.profileRole,
                 onSelectRole: widget.onSelectRole,
+                onSelectEditedPresetRole: widget.onSelectEditedPresetRole,
                 onSelectProfileRole: widget.onSelectProfileRole,
-                onFillProfileRole: widget.onFillProfileRole,
-                onBeginProfileRoleEditing: _expandOpeningRoleCards,
+                onRoleEditingChanged: _handleRoleEditingChanged,
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: ValueListenableBuilder<bool>(
+                valueListenable: _roleEditing,
+                builder: (context, editing, child) => SizedBox(
+                  height: editing
+                      ? _OriginSetupRoleSection._cardWidth +
+                            _OriginSetupRoleSection._buttonHeight
+                      : 0,
+                ),
               ),
             ),
           ],
@@ -768,11 +803,10 @@ class _OriginDetailDraggableSheetState
               final keyboardInset = MediaQuery.viewInsetsOf(
                 context,
               ).bottom.clamp(0.0, MediaQuery.sizeOf(context).height).toDouble();
-              final composerKeyboardInset =
-                  locationChatEffectiveKeyboardInsetForTesting(
-                    rawKeyboardInset: keyboardInset,
-                    bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
-                  );
+              final composerKeyboardInset = locationChatEffectiveKeyboardInset(
+                rawKeyboardInset: keyboardInset,
+                bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
+              );
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: BoxDecoration(
@@ -1222,19 +1256,16 @@ class _OriginInfoStat extends StatelessWidget {
   const _OriginInfoStat({
     super.key,
     required this.iconAsset,
-    this.preserveIconAssetColor = false,
     required this.value,
   });
 
   final String iconAsset;
-  final bool preserveIconAssetColor;
   final int value;
 
   @override
   Widget build(BuildContext context) {
     return StatItem(
       iconAsset: iconAsset,
-      preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 12,
       iconColor: originWorldDetailSheetSecondaryTextColor,
       gap: 4,

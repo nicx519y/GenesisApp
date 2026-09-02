@@ -73,6 +73,40 @@ void main() {
     );
   });
 
+  testWidgets('Player Cast rows show brief with character brief styling', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: WorldCharacterRow(
+            character: {
+              'name': 'My Role',
+              'player_uid': 'user-self',
+              'identity': 'Visitor',
+              'brief': 'Travels between unfinished worlds',
+              'goal': 'Player goals remain hidden',
+              'avatar': '',
+            },
+            currentUid: 'user-self',
+            subtitle: 'Visitor\nTravels between unfinished worlds',
+            subtitleColor: Color(0xFF666666),
+            showCharacterDetails: true,
+          ),
+        ),
+      ),
+    );
+
+    final identity = tester.widget<Text>(find.text('Visitor'));
+    final brief = tester.widget<Text>(
+      find.text('Travels between unfinished worlds'),
+    );
+    expect(identity.style?.color, const Color(0xFF111111));
+    expect(brief.style?.color, const Color(0xFFFF2442));
+    expect(find.text('Goal: Player goals remain hidden'), findsNothing);
+    expect(find.text('No character details yet.'), findsNothing);
+  });
+
   testWidgets('WorldCharacterRow robustly shows New beside the name', (
     tester,
   ) async {
