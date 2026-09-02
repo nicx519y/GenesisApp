@@ -1,9 +1,12 @@
 import fs from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { SpreadsheetFile, Workbook } from "@oai/artifact-tool";
 
-const outputDir = "/Users/ionix/Works/GenesisApp/outputs";
-const outputPath = `${outputDir}/worldo_collect_埋点计划.xlsx`;
-const previewDir = `${outputDir}/collect_excel_build/previews`;
+const outputDir = fileURLToPath(new URL("../", import.meta.url));
+const outputPath = fileURLToPath(
+  new URL("../worldo_collect_埋点计划.xlsx", import.meta.url),
+);
+const previewDir = fileURLToPath(new URL("./previews", import.meta.url));
 
 const commonFields = [
   ["位置", "字段", "值来源", "是否进入 body"],
@@ -62,9 +65,10 @@ const events = [
   ["edit_worldo_submit_start", "点击 Publish 后，调用 update 接口前", "GenesisTelemetry.collectLog", "event", "edit_worldo_submit_start", "oid", "", "", "EditOriginPage draft.basics.originId"],
   ["edit_worldo_submit_success", "update 接口返回成功后", "GenesisTelemetry.collectLog", "event", "edit_worldo_submit_success", "oid", "", "", "CreateOriginResult.oid"],
   ["edit_worldo_async_complete", "轮询 origin/info 确认完成后", "GenesisTelemetry.collectLog", "event", "edit_worldo_async_complete", "oid", "", "", "OriginPendingSubmissionCoordinator completed outcome"],
-  ["worldo_launch_opening", "从 Opening 模块角色头像的 Select to launch 开启 launch", "GenesisTelemetry.collectLog", "event", "worldo_launch_opening", "oid", "", "", "OriginWorldPage._selectAndLaunchPresetRole；OriginDetail.oid"],
+  ["worldo_launch_opening", "Opening Sheet 点击角色卡 Select to launch", "GenesisTelemetry.collectLog", "event", "worldo_launch_opening", "oid", "character_id/current_user", "", "OriginDetail.oid；所选预设角色稳定 ID，用户 Profile 为 current_user"],
+  ["worldo_launch_message", "Opening Sheet 的 Message 输入框发送并触发 Launch", "GenesisTelemetry.collectLog", "event", "worldo_launch_message", "oid", "character_id/current_user", "", "OriginDetail.oid；所选预设角色稳定 ID，用户 Profile 为 current_user"],
   ["worldo_launch_sheet", "从 Setup Your Role sheet 确认开启 launch", "GenesisTelemetry.collectLog", "event", "worldo_launch_sheet", "oid", "", "", "OriginWorldPage._openLaunchRoleSheet；OriginDetail.oid"],
-  ["worldo_launch_submit_success", "origin/launch 返回 wid 后", "GenesisTelemetry.collectLog", "event", "worldo_launch_submit_success", "oid", "wid", "", "OriginDetail.oid；origin/launch 返回 world_id/wid"],
+  ["worldo_launch_submit_success", "Opening Sheet 发起的 origin/launch 返回 wid 后", "GenesisTelemetry.collectLog", "event", "worldo_launch_submit_success", "oid", "wid", "opening_select/opening_message", "OriginDetail.oid；origin/launch 返回 world_id/wid；Select to launch 为 opening_select，Message 为 opening_message"],
   ["worldo_launch_async_complete", "轮询确认 tick1 完成后", "GenesisTelemetry.collectLog", "event", "worldo_launch_async_complete", "oid", "wid", "", "OriginLaunchCoordinator completed outcome"],
   ["world_progress_submit_start", "点击 Progress 后，调用 world/tick 前", "GenesisTelemetry.collectLog", "event", "world_progress_submit_start", "wid", "", "", "WorldPage.widget.wid"],
   ["world_progress_submit_success", "world/tick 返回成功后", "GenesisTelemetry.collectLog", "event", "world_progress_submit_success", "wid", "tickN", "", "WorldPage.widget.wid；world/tick 返回 tick_cnt"],

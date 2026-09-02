@@ -484,6 +484,63 @@ int _pageViewCount(_CapturingTelemetrySink telemetry, String action) {
       .length;
 }
 
+List<GenesisTelemetryEvent> _collectLogEvents(
+  _CapturingTelemetrySink telemetry,
+  String action,
+) {
+  return telemetry.events
+      .where(
+        (event) =>
+            event.category == 'collect.log' &&
+            event.name == action &&
+            event.data['action_type'] == 'event',
+      )
+      .toList(growable: false);
+}
+
+void _expectOriginLaunchStartTelemetry({
+  required _CapturingTelemetrySink telemetry,
+  required String action,
+  required String roleId,
+  String oid = 'o_test_1',
+}) {
+  final events = _collectLogEvents(telemetry, action);
+  expect(events, hasLength(1));
+  expect(events.single.data, containsPair('object1', oid));
+  expect(events.single.data, containsPair('object2', roleId));
+  final otherAction = action == 'worldo_launch_opening'
+      ? 'worldo_launch_message'
+      : 'worldo_launch_opening';
+  expect(_collectLogEvents(telemetry, otherAction), isEmpty);
+}
+
+void _expectOriginLaunchSuccessTelemetry({
+  required _CapturingTelemetrySink telemetry,
+  required String source,
+  String oid = 'o_test_1',
+  String wid = 'w_launched_from_origin',
+}) {
+  final events = _collectLogEvents(telemetry, 'worldo_launch_submit_success');
+  expect(events, hasLength(1));
+  expect(events.single.data, containsPair('object1', oid));
+  expect(events.single.data, containsPair('object2', wid));
+  expect(events.single.data, containsPair('object3', source));
+}
+
+Future<void> _pumpUntilSingleOriginLaunchRequest(
+  WidgetTester tester,
+  _RecordingV1ListTransport transport,
+) async {
+  for (
+    var frame = 0;
+    frame < 10 && transport.requestsFor('/api/v1/origin/launch').isEmpty;
+    frame += 1
+  ) {
+    await tester.pump();
+  }
+  expect(transport.requestsFor('/api/v1/origin/launch'), hasLength(1));
+}
+
 class _FakeIdentityAuthService implements IdentityAuthService {
   const _FakeIdentityAuthService({this.signInSession});
 
@@ -10371,7 +10428,12 @@ void main() {
   ) async {
     AppStartupCoordinator.resetForTesting();
     addTearDown(AppStartupCoordinator.resetForTesting);
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final originLaunchCompleter = Completer<TransportResponse>();
     final transport = _RecordingV1ListTransport(
+      originLaunchCompleter: originLaunchCompleter,
       worldRelationStatus: 'approved',
     );
     await tester.pumpWidget(
@@ -10535,7 +10597,22 @@ void main() {
     await tester.pumpAndSettle();
     expect(customForm, findsNothing);
 
-    tester.widget<InkWell>(profileRole).onTap!();
+    final launchProfile = tester.widget<InkWell>(profileRole).onTap!;
+    launchProfile();
+    launchProfile();
+    await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+    _expectOriginLaunchStartTelemetry(
+      telemetry: telemetry,
+      action: 'worldo_launch_opening',
+      roleId: 'current_user',
+    );
+    originLaunchCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'world_id': 'w_launched_from_origin'},
+      }),
+    );
     await tester.pumpAndSettle();
 
     final launchRequests = transport.requestsFor('/api/v1/origin/launch');
@@ -10548,6 +10625,10 @@ void main() {
       launchBody['custom_role'],
       containsPair('avatar', 'https://cdn.example.com/profile_1080x1080.jpg'),
     );
+    _expectOriginLaunchSuccessTelemetry(
+      telemetry: telemetry,
+      source: 'opening_select',
+    );
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
     AppStartupCoordinator.resetForTesting();
@@ -10558,10 +10639,15 @@ void main() {
   ) async {
     AppStartupCoordinator.resetForTesting();
     addTearDown(AppStartupCoordinator.resetForTesting);
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
+    final originLaunchCompleter = Completer<TransportResponse>();
     final transport = _RecordingV1ListTransport(
+      originLaunchCompleter: originLaunchCompleter,
       worldRelationStatus: 'approved',
     );
     await tester.pumpWidget(
@@ -10691,7 +10777,24 @@ void main() {
       tester.widget<GenesisPrimaryButton>(customLaunch).onPressed,
       isNotNull,
     );
-    tester.widget<GenesisPrimaryButton>(customLaunch).onPressed!();
+    final launchCustom = tester
+        .widget<GenesisPrimaryButton>(customLaunch)
+        .onPressed!;
+    launchCustom();
+    launchCustom();
+    await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+    _expectOriginLaunchStartTelemetry(
+      telemetry: telemetry,
+      action: 'worldo_launch_opening',
+      roleId: 'current_user',
+    );
+    originLaunchCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {'world_id': 'w_launched_from_origin'},
+      }),
+    );
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
@@ -10703,6 +10806,10 @@ void main() {
     expect(
       launchBody['custom_role'],
       containsPair('bio', 'Inline profile biography'),
+    );
+    _expectOriginLaunchSuccessTelemetry(
+      telemetry: telemetry,
+      source: 'opening_select',
     );
     await tester.pump(const Duration(seconds: 2));
     AppStartupCoordinator.resetForTesting();
@@ -10874,13 +10981,17 @@ void main() {
   testWidgets(
     'Origin preset role direct launch keeps initial dialogue location',
     (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
       final telemetry = _CapturingTelemetrySink();
       GenesisTelemetry.setSinkForTesting(telemetry);
       addTearDown(GenesisTelemetry.resetForTesting);
+      final originLaunchCompleter = Completer<TransportResponse>();
       final connectCompleter = Completer<void>();
       final messagesCompleter = Completer<TransportResponse>();
       final chatroom = _FakeChatroomClient(connectCompleter: connectCompleter);
       final transport = _RecordingV1ListTransport(
+        originLaunchCompleter: originLaunchCompleter,
         worldRelationStatus: 'joined',
         worldLocations: const [
           {
@@ -10937,25 +11048,46 @@ void main() {
         const ValueKey<String>('origin-setup-role-c_o_test_1'),
       );
       await _dragOriginPanelUntilVisible(tester, directLaunch);
-      tester.widget<InkWell>(directLaunch).onTap!();
-      await tester.pumpAndSettle();
-
-      final launchActions = telemetry.events
-          .map((event) => event.name)
-          .toList();
-      expect(launchActions, contains('worldo_launch_opening'));
-      expect(launchActions, isNot(contains('worldo_launch_sheet')));
-      expect(launchActions, isNot(contains('worldo_launch_submit_start')));
-      expect(launchActions, contains('worldo_launch_submit_success'));
-      expect(
-        _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
-        findsOneWidget,
+      final launchPreset = tester.widget<InkWell>(directLaunch).onTap!;
+      launchPreset();
+      launchPreset();
+      await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+      _expectOriginLaunchStartTelemetry(
+        telemetry: telemetry,
+        action: 'worldo_launch_opening',
+        roleId: 'c_o_test_1',
       );
-      expect(find.byType(WorldPage), findsNothing);
-      await tester.tap(find.text('Enter'));
-      for (var frame = 0; frame < 8; frame += 1) {
+      expect(_collectLogEvents(telemetry, 'worldo_launch_sheet'), isEmpty);
+      expect(
+        _collectLogEvents(telemetry, 'worldo_launch_submit_start'),
+        isEmpty,
+      );
+
+      originLaunchCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': {'world_id': 'w_launched_from_origin'},
+        }),
+      );
+      for (
+        var frame = 0;
+        frame < 20 && find.byType(WorldPage).evaluate().isEmpty;
+        frame += 1
+      ) {
         await tester.pump();
       }
+
+      _expectOriginLaunchSuccessTelemetry(
+        telemetry: telemetry,
+        source: 'opening_select',
+      );
+      expect(
+        _richTextWithPlainText('Worldo #w_launched_from_origin launched!'),
+        findsNothing,
+      );
+      expect(find.text('Enter'), findsNothing);
+      expect(find.byType(WorldPage), findsOneWidget);
 
       final launchedWorldPage = tester.widget<WorldPage>(
         find.byType(WorldPage),
@@ -10971,7 +11103,10 @@ void main() {
       );
       expect(chatroom.connectCount, 1);
       expect(chatroom.session.joinCount, 0);
-      final composerFinder = find.byType(ChatComposer);
+      final composerFinder = find.descendant(
+        of: find.byType(LocationChatPanel),
+        matching: find.byType(ChatComposer),
+      );
       final composer = tester.widget<ChatComposer>(composerFinder);
       composer.controller.text = 'send after connected';
       await tester.pump();
@@ -11020,7 +11155,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
       expect(find.byType(LocationChatPanel), findsOneWidget);
-      expect(_visibleText('Opening Location (1)'), findsOneWidget);
+      expect(_visibleText('Opening Location'), findsWidgets);
       expect(find.text('message loaded after entering chat'), findsOneWidget);
       expect(chatroom.connectCount, 1);
       expect(chatroom.session.joinCount, 1);
@@ -11029,6 +11164,8 @@ void main() {
         transport.requestsFor('/aitown-chat/api/v2/messages'),
         hasLength(1),
       );
+      await tester.pump(const Duration(seconds: 2));
+      AppStartupCoordinator.resetForTesting();
     },
   );
 
@@ -11101,6 +11238,9 @@ void main() {
       addTearDown(tester.view.resetViewPadding);
       AppStartupCoordinator.resetForTesting();
       addTearDown(AppStartupCoordinator.resetForTesting);
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
       final originLaunchCompleter = Completer<TransportResponse>();
       final transport = _RecordingV1ListTransport(
         originLaunchCompleter: originLaunchCompleter,
@@ -11436,13 +11576,22 @@ void main() {
         enabledSheetComposerWidget.style?.composerSendButtonIconColor,
         Colors.white,
       );
-      await tester.tap(
-        find.descendant(
+      final sendButton = find.descendant(
+        of: find.descendant(
           of: sheetComposer,
           matching: find.byKey(const ValueKey('chat-composer-send-button')),
         ),
+        matching: find.byType(TextButton),
       );
-      await tester.pump();
+      final sendMessage = tester.widget<TextButton>(sendButton).onPressed!;
+      sendMessage();
+      sendMessage();
+      await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+      _expectOriginLaunchStartTelemetry(
+        telemetry: telemetry,
+        action: 'worldo_launch_message',
+        roleId: 'c_o_test_1',
+      );
       expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
       final launchChat = find.byKey(
         const ValueKey<String>('origin-location-chat-l_o_test_1'),
@@ -11462,6 +11611,11 @@ void main() {
           break;
         }
       }
+
+      _expectOriginLaunchSuccessTelemetry(
+        telemetry: telemetry,
+        source: 'opening_message',
+      );
 
       final launchedWorldPage = tester.widget<WorldPage>(
         find.byType(WorldPage),

@@ -286,20 +286,11 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       telemetryRoleId = characterId;
     }
 
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_setup_role_launch',
-      object1: origin.oid,
-      object2: telemetryRoleId,
-    );
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: 'worldo_launch_opening',
-      object1: origin.oid,
-    );
     return await _launchOrigin(
           origin,
           roleSelection,
+          telemetryRoleId: telemetryRoleId,
+          launchSource: OriginLaunchSource.openingMessage,
           initialLocationId: locationId,
           initialMessageToSend: message,
           initialMentionCatalog: mentionCatalog,
