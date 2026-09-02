@@ -377,6 +377,76 @@ void main() {
   );
 
   test(
+    'recovered app version is late-bound without changing identity snapshot',
+    () async {
+      final store = MemoryCollectEventStore();
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      value.setContext(
+        const CollectUploadContext(
+          platform: 'android',
+          appVersion: 'unknown',
+          appEnvironment: 'production',
+          deviceId: 'device-at-event',
+          userId: 'user-at-event',
+        ),
+      );
+      await value.enqueuePayload(const <String, Object?>{
+        'action_type': 'event',
+        'action': 'version_pending_event',
+      });
+
+      value.updateMetadataContext(
+        platform: 'android',
+        appVersion: '2.0.0',
+        deviceId: 'device-after-refresh',
+      );
+      value.setUserId('user-after-refresh');
+      await value.checkNow();
+
+      final event = client.batches.single.single;
+      expect(event.contextCaptured, isTrue);
+      expect(event.appVersion, 'unknown');
+      expect(event.deviceId, 'device-at-event');
+      expect(event.userId, 'user-at-event');
+      expect(client.headers.single['X-App-Version'], '2.0.0');
+      expect(client.headers.single['X-Device-ID'], 'device-at-event');
+      expect(client.headers.single['X-UID'], 'user-at-event');
+    },
+  );
+
+  test('known captured app version is not overwritten at upload', () async {
+    final store = MemoryCollectEventStore();
+    final client = _FakeCollectClient();
+    final value = uploader(store: store, client: client);
+    value.setContext(
+      const CollectUploadContext(
+        platform: 'android',
+        appVersion: '1.2.3',
+        appEnvironment: 'production',
+        deviceId: 'device-at-event',
+        userId: 'user-at-event',
+      ),
+    );
+    await value.enqueuePayload(const <String, Object?>{
+      'action_type': 'event',
+      'action': 'known_version_event',
+    });
+
+    value.updateMetadataContext(
+      platform: 'android',
+      appVersion: '2.0.0',
+      deviceId: 'device-after-refresh',
+    );
+    value.setUserId('user-after-refresh');
+    await value.checkNow();
+
+    expect(client.headers.single['X-App-Version'], '1.2.3');
+    expect(client.headers.single['X-Device-ID'], 'device-at-event');
+    expect(client.headers.single['X-UID'], 'user-at-event');
+  });
+
+  test(
     'events without identity headers are uploaded in a separate batch',
     () async {
       final store = MemoryCollectEventStore();
