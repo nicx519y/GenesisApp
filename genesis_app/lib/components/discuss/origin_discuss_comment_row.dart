@@ -10,6 +10,9 @@ class OriginDiscussCommentRow extends StatefulWidget {
     required this.imageTapOpensViewer,
     this.disableAvatarProfileTap = false,
     this.contentLineHeight = 1.45,
+    this.authorColor,
+    this.contentColor,
+    this.metadataColor,
     this.onAuthorTap,
     this.onViewMoreTap,
     this.onItemReplyTap,
@@ -24,6 +27,9 @@ class OriginDiscussCommentRow extends StatefulWidget {
   final bool imageTapOpensViewer;
   final bool disableAvatarProfileTap;
   final double contentLineHeight;
+  final Color? authorColor;
+  final Color? contentColor;
+  final Color? metadataColor;
   final OriginDiscussItemTap? onAuthorTap;
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
@@ -155,6 +161,8 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
                 item: widget.item,
                 disabled: widget.disableAvatarProfileTap,
                 onAuthorTap: widget.onAuthorTap,
+                authorColor: widget.authorColor,
+                metadataColor: widget.metadataColor,
               ),
               const SizedBox(height: 4),
               GestureDetector(
@@ -165,7 +173,7 @@ class _OriginDiscussCommentRowState extends State<OriginDiscussCommentRow> {
                 child: Text(
                   widget.item.content,
                   style: TextStyle(
-                    color: Color(0xFF111111),
+                    color: widget.contentColor ?? const Color(0xFF111111),
                     fontSize: 13,
                     height: widget.contentLineHeight,
                     fontWeight: FontWeight.w400,

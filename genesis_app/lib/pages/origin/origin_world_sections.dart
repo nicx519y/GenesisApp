@@ -48,9 +48,12 @@ class _OriginPreviewImage extends StatelessWidget {
       maxDevicePixelRatio: _maxDevicePixelRatio,
     ).trim();
     final fallback = Container(
-      color: const Color(0xFFEFF1F4),
+      color: originWorldDetailSheetSubtleSurfaceColor,
       alignment: Alignment.center,
-      child: const Icon(Icons.image_outlined, color: Color(0xFF9A9A9A)),
+      child: const Icon(
+        Icons.image_outlined,
+        color: originWorldDetailSheetTertiaryTextColor,
+      ),
     );
     final preview = Align(
       alignment: Alignment.centerLeft,
@@ -224,7 +227,7 @@ class _DiscussSection extends StatelessWidget {
                                 fontSize: 10,
                                 height: 1.2,
                                 fontWeight: FontWeight.w400,
-                                color: Color(0xFF666666),
+                                color: originWorldDetailSheetTertiaryTextColor,
                               ),
                             ),
                           ),
@@ -236,6 +239,9 @@ class _DiscussSection extends StatelessWidget {
                         controller: controller,
                         count: origin.discussCount,
                         contentLineHeight: 1.4,
+                        authorColor: originWorldDetailSheetAccentSoftColor,
+                        contentColor: originWorldDetailSheetSecondaryTextColor,
+                        metadataColor: originWorldDetailSheetTertiaryTextColor,
                         showHeader: false,
                         enableViewMore: false,
                         showActions: false,
@@ -251,6 +257,8 @@ class _DiscussSection extends StatelessWidget {
               const SizedBox(height: 8),
               DiscussPostInput(
                 bizId: origin.oid,
+                backgroundColor: originWorldDetailSheetFaintSurfaceColor,
+                placeholderColor: originWorldDetailSheetFaintPlaceholderColor,
                 onSubmitted: () => unawaited(controller.refreshFirstPage()),
               ),
             ],
@@ -262,11 +270,25 @@ class _DiscussSection extends StatelessWidget {
 }
 
 List<Widget> _originInitialDialogueSlivers(
+  BuildContext context,
   OriginDetail origin,
   _OriginInitialDialoguePreview preview,
 ) {
-  final style = kOpeningDialogueStyle;
+  final style = kLocationChatStyle.copyWith(bubbleBackdropBlurSigma: 0);
   final padding = style.messageListPadding;
+  final bubbleWidthCaps =
+      locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics(
+        logicalWidth: MediaQuery.sizeOf(context).width,
+        textScaler: MediaQuery.textScalerOf(context),
+        bubbleFontSize: style.bubbleTextStyle.fontSize ?? 14,
+        crowdedEffectiveWidthThreshold: locationChatBubbleLayoutSettings
+            .value
+            .crowdedEffectiveWidthThreshold,
+        avatarSize: style.avatarSize,
+        avatarBubbleGap: style.avatarBubbleGap,
+        avatarSideSpacerWidth: style.avatarSideSpacerWidth,
+        messageListHorizontalPadding: style.messageListPadding.horizontal,
+      );
   final brief = _originWorldoBrief(origin);
   final locationTopPadding = brief.isEmpty ? 6.0 : 0.0;
   return <Widget>[
@@ -275,9 +297,12 @@ List<Widget> _originInitialDialogueSlivers(
         locationName: preview.locationName,
         horizontalPadding: padding,
         topPadding: locationTopPadding,
-        iconColor: style.headerTitleIconColor,
+        iconColor: originWorldDetailSheetPrimaryTextColor,
         iconGap: style.headerTitleIconGap,
-        textStyle: style.headerTitleTextStyle.copyWith(fontSize: 14),
+        textStyle: style.headerTitleTextStyle.copyWith(
+          color: originWorldDetailSheetPrimaryTextColor,
+          fontSize: 14,
+        ),
       ),
     ),
     SliverPadding(
@@ -306,6 +331,8 @@ List<Widget> _originInitialDialogueSlivers(
             message: message,
             showDateDivider: false,
             style: messageStyle,
+            selfMessageBubbleMaxWidthCap: bubbleWidthCaps.selfMessage,
+            otherMessageBubbleMaxWidthCap: bubbleWidthCaps.otherMessage,
           );
         },
       ),
@@ -393,7 +420,7 @@ List<Widget> _originWorldoBriefSlivers(OriginDetail origin) {
                 fontSize: 14,
                 height: 1.2,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF111111),
+                color: originWorldDetailSheetPrimaryTextColor,
                 decoration: TextDecoration.none,
               ),
             ),

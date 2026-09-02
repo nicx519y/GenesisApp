@@ -68,7 +68,7 @@ class _OriginCharacterRow extends StatelessWidget {
                   fontSize: 14,
                   height: 1.15,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF111111),
+                  color: originWorldDetailSheetPrimaryTextColor,
                   decoration: TextDecoration.none,
                 ),
               ),
@@ -81,7 +81,7 @@ class _OriginCharacterRow extends StatelessWidget {
                 Text(
                   tagline,
                   style: _bodyTextStyle.copyWith(
-                    color: const Color(0xFFFF2442),
+                    color: originWorldDetailSheetAccentSoftColor,
                   ),
                 ),
               ],
@@ -191,7 +191,7 @@ const _bodyTextStyle = TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: originWorldDetailSheetSecondaryTextColor,
   decoration: TextDecoration.none,
 );
 
@@ -199,7 +199,7 @@ const _characterBodyTextStyle = TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: originWorldDetailSheetSecondaryTextColor,
   decoration: TextDecoration.none,
 );
 
@@ -207,7 +207,7 @@ const _mutedBodyTextStyle = TextStyle(
   fontSize: 13,
   height: 1.3,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF999999),
+  color: originWorldDetailSheetTertiaryTextColor,
   decoration: TextDecoration.none,
 );
 
@@ -215,7 +215,7 @@ const _originTickContentLabelStyle = TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w600,
-  color: Color(0xFF111111),
+  color: originWorldDetailSheetPrimaryTextColor,
   decoration: TextDecoration.none,
 );
 
@@ -223,7 +223,7 @@ const _originTickContentTextStyle = TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF444444),
+  color: originWorldDetailSheetSecondaryTextColor,
   decoration: TextDecoration.none,
 );
 
@@ -231,7 +231,7 @@ const _originTickContentTimestampStyle = TextStyle(
   fontSize: 13,
   height: 1.4,
   fontWeight: FontWeight.w400,
-  color: Color(0xFF111111),
+  color: originWorldDetailSheetTertiaryTextColor,
   decoration: TextDecoration.none,
 );
 
@@ -308,7 +308,7 @@ class _SectionTitle extends StatelessWidget {
         fontSize: 14,
         height: 1.2,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF111111),
+        color: originWorldDetailSheetPrimaryTextColor,
       ),
     );
   }

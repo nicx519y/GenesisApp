@@ -20,7 +20,6 @@ double _originDetailExpandedChildSize(
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
-    required this.copyWorldProgressSummaries,
     required this.minChildSize,
     required this.initiallyExpanded,
     required this.autoExpansionPending,
@@ -43,7 +42,6 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   static const double defaultInitialChildSize = 0.35;
 
   final OriginDetail origin;
-  final List<WorldSummaryLatestItem> copyWorldProgressSummaries;
   final double minChildSize;
   final bool initiallyExpanded;
   final bool autoExpansionPending;
@@ -533,10 +531,9 @@ class _OriginDetailDraggableSheetState
             mentionCatalog,
           ),
           style: _originDetailSheetChatComposerStyle,
-          inputDockBackgroundColor: originWorldDetailSheetBackgroundColor,
-          roleForegroundColor: GenesisColors.textPrimary,
-          roleMutedColor: GenesisColors.textTertiary,
-          roleBackgroundColor: GenesisColors.surface,
+          roleForegroundColor: originWorldDetailSheetPrimaryTextColor,
+          roleMutedColor: originWorldDetailSheetTertiaryTextColor,
+          roleBackgroundColor: kLocationChatStyle.inputBackgroundColor,
           onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
         ),
       ),
@@ -621,11 +618,6 @@ class _OriginDetailDraggableSheetState
     }
     children.addAll([
       const SizedBox(height: originDetailSectionGapForTesting),
-      CopyWorldProgressSection(
-        originId: widget.origin.oid,
-        summaries: widget.copyWorldProgressSummaries,
-      ),
-      const SizedBox(height: originDetailSectionGapForTesting),
       _DiscussSection(origin: widget.origin, controller: discussController),
       const SizedBox(height: originDetailSectionGapForTesting),
       _OriginCharactersSection(characters: widget.origin.characters),
@@ -680,6 +672,7 @@ class _OriginDetailDraggableSheetState
             ..._originWorldoBriefSlivers(widget.origin),
             if (initialDialoguePreview != null)
               ..._originInitialDialogueSlivers(
+                context,
                 widget.origin,
                 initialDialoguePreview,
               ),
@@ -899,9 +892,9 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
           colors: const [
-            Color(0xFFF7F5F2),
-            Color(0xFFF7F5F2),
-            Color(0x00F7F5F2),
+            originWorldDetailSheetBackgroundColor,
+            originWorldDetailSheetBackgroundColor,
+            Color(0x001F1D24),
           ],
           stops: const [0, 0.55, 1],
         ),
@@ -915,7 +908,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
         onVerticalDragEnd: onVerticalDragEnd,
         onVerticalDragCancel: onVerticalDragCancel,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 4),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -925,7 +918,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
                 width: 14,
                 height: 8,
                 colorFilter: const ColorFilter.mode(
-                  Color(0x8C131215),
+                  originWorldDetailSheetSelectRoleArrowColor,
                   BlendMode.srcIn,
                 ),
               ),
@@ -934,7 +927,7 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
                 'Select your role',
                 key: ValueKey<String>('origin-opening-select-role-label'),
                 style: TextStyle(
-                  color: Color(0xB8131215),
+                  color: originWorldDetailSheetSecondaryTextColor,
                   fontSize: 11,
                   height: 1,
                   fontWeight: FontWeight.w600,
@@ -952,8 +945,8 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
 class _OriginSheetPageIndicator extends StatelessWidget {
   const _OriginSheetPageIndicator({required this.page});
 
-  static const Color _activeColor = Color(0xFF666666);
-  static const Color _inactiveColor = Color(0xFFB7B7B7);
+  static const Color _activeColor = originWorldDetailSheetPrimaryTextColor;
+  static const Color _inactiveColor = originWorldDetailSheetTertiaryTextColor;
 
   final double page;
 
@@ -1062,7 +1055,10 @@ class _OriginSheetHeaderContent extends StatelessWidget {
         currentUid.trim().isNotEmpty && currentUid.trim() == ownerUid;
     final version = origin.versionNum <= 0 ? 1 : origin.versionNum;
     final age = formatGenesisDateTime(origin.updatedAt, fallback: '');
-    final metaStyle = CopyableIdLabel.textStyle.copyWith(height: 1.2);
+    final metaStyle = CopyableIdLabel.textStyle.copyWith(
+      height: 1.2,
+      color: originWorldDetailSheetSecondaryTextColor,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1088,7 +1084,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                       fontSize: 16,
                       height: 1.25,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF4B6192),
+                      color: originWorldDetailSheetSoftWhiteColor,
                       decoration: TextDecoration.none,
                     ),
                   ),
@@ -1101,6 +1097,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                         : null,
                     enabled: !origin.deleted,
                     customTextStyle: metaStyle,
+                    customIconColor: originWorldDetailSheetSecondaryTextColor,
                   ),
                   GenesisInlineMetaLabel(
                     text: 'Originator: ${formatUidForDisplay(originator)}',
@@ -1114,6 +1111,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                         ? null
                         : Icons.chevron_right,
                     style: metaStyle,
+                    trailingIconColor: originWorldDetailSheetSecondaryTextColor,
                     trailingIconSize: genesisCopyableIdIconSize,
                     trailingGap: 4,
                   ),
@@ -1145,7 +1143,6 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                           'origin-info-stat-character',
                         ),
                         iconAsset: characterStatIconAsset,
-                        preserveIconAssetColor: true,
                         value: origin.characterCount,
                       ),
                     ],
@@ -1191,7 +1188,7 @@ class _OriginInfoTitleRow extends StatelessWidget {
               fontSize: 16,
               height: 1.2,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF111111),
+              color: originWorldDetailSheetPrimaryTextColor,
               decoration: TextDecoration.none,
             ),
           ),
@@ -1199,6 +1196,7 @@ class _OriginInfoTitleRow extends StatelessWidget {
         GenesisMoreActionMenuButton(
           key: const ValueKey<String>('origin-info-report-menu'),
           buttonSize: 18 * 1.25,
+          iconColor: originWorldDetailSheetPrimaryTextColor,
           items: [
             genesisReportMenuItem(
               context: context,
@@ -1230,14 +1228,14 @@ class _OriginInfoStat extends StatelessWidget {
       iconAsset: iconAsset,
       preserveIconAssetColor: preserveIconAssetColor,
       iconSize: 12,
-      iconColor: const Color(0xFF111111),
+      iconColor: originWorldDetailSheetSecondaryTextColor,
       gap: 4,
       text: formatStatCount(value),
       textStyle: const TextStyle(
         fontSize: 12,
         height: 1,
         fontWeight: FontWeight.w400,
-        color: Color(0xFF111111),
+        color: originWorldDetailSheetSecondaryTextColor,
       ),
     );
   }

@@ -31,11 +31,15 @@ class _DiscussPreviewMeta extends StatelessWidget {
     required this.item,
     this.disabled = false,
     this.onAuthorTap,
+    this.authorColor,
+    this.metadataColor,
   });
 
   final OriginDiscussListItem item;
   final bool disabled;
   final OriginDiscussItemTap? onAuthorTap;
+  final Color? authorColor;
+  final Color? metadataColor;
 
   @override
   Widget build(BuildContext context) {
@@ -43,8 +47,8 @@ class _DiscussPreviewMeta extends StatelessWidget {
       item.authorName,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: Color(0xFF666666),
+      style: TextStyle(
+        color: authorColor ?? const Color(0xFF666666),
         fontSize: 12,
         height: 1.2,
         fontWeight: FontWeight.w600,
@@ -84,7 +88,9 @@ class _DiscussPreviewMeta extends StatelessWidget {
             const SizedBox(width: 8),
             GenesisTimestampText(
               timestamp: item.createdAt,
-              style: _subtleStyle,
+              style: _subtleStyle.copyWith(
+                color: metadataColor ?? _subtleStyle.color,
+              ),
             ),
           ],
         ],

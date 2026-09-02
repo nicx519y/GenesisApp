@@ -1,20 +1,6 @@
 part of 'origin_world_page.dart';
 
-ChatUiStyleConfig get _originDetailSheetChatComposerStyle =>
-    kLocationChatStyle.copyWith(
-      composerBackgroundColor: originWorldDetailSheetBackgroundColor,
-      clearComposerBackgroundGradient: true,
-      composerBackdropBlurSigma: 0,
-      composerSendButtonColor: kLocationChatStyle.composerSendButtonColor,
-      composerSendButtonDisabledColor: GenesisColors.surface,
-      composerSendButtonIconColor: GenesisColors.textPrimary,
-      composerSendButtonBackdropBlurSigma: 0,
-      inputBackgroundColor: GenesisColors.surface,
-      inputBackdropBlurSigma: 0,
-      inputTextStyle: kLocationChatStyle.inputTextStyle.copyWith(
-        color: GenesisColors.textPrimary,
-      ),
-    );
+ChatUiStyleConfig get _originDetailSheetChatComposerStyle => kLocationChatStyle;
 
 ChatUiStyleConfig get _originLocationChatLaunchComposerStyle =>
     kLocationChatStyle.copyWith(
@@ -25,7 +11,6 @@ ChatUiStyleConfig get _originLocationChatLaunchComposerStyle =>
 const double _originLocationChatRolePillAvatarSize = 22;
 const double _originLocationChatRolePillHeight =
     _originLocationChatRolePillAvatarSize + 12;
-const double _originLocationChatRoleInputGap = 4;
 const double _originLocationChatDockRoleOffsetY = -2;
 
 String _originLaunchChatLocationId(OriginDetail origin) {
@@ -474,7 +459,6 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     required this.onSend,
     this.initialText = '',
     this.style,
-    this.inputDockBackgroundColor,
     this.showRoleSelector = true,
     this.roleForegroundColor = const Color(0xFFF4F3F6),
     this.roleMutedColor = const Color(0x99FFFFFF),
@@ -490,7 +474,6 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   onSend;
   final String initialText;
   final ChatUiStyleConfig? style;
-  final Color? inputDockBackgroundColor;
   final bool showRoleSelector;
   final Color roleForegroundColor;
   final Color roleMutedColor;
@@ -611,19 +594,7 @@ class _OriginLocationChatLaunchComposerState
   @override
   Widget build(BuildContext context) {
     final style = widget.style ?? kLocationChatStyle;
-    final inputDockBackgroundColor = widget.inputDockBackgroundColor;
     final sendEnabled = !widget.launching && _hasText;
-    final composerStyle = style.copyWith(
-      composerBackgroundColor:
-          inputDockBackgroundColor ?? style.composerBackgroundColor,
-      clearComposerBackgroundGradient: inputDockBackgroundColor != null,
-      composerSendButtonIconColor: widget.launching || _hasText
-          ? kLocationChatStyle.composerSendButtonIconColor
-          : style.composerSendButtonIconColor,
-      composerPadding: style.composerPadding.copyWith(
-        top: _originLocationChatRoleInputGap,
-      ),
-    );
     final composer = LocationChatComposerInput(
       controller: _controller,
       focusNode: _focusNode,
@@ -634,7 +605,7 @@ class _OriginLocationChatLaunchComposerState
       onSend: _send,
       onHeightChanged: widget.onInputDockHeightChanged,
       composerHeader: null,
-      style: composerStyle,
+      style: style,
     );
     final Widget content;
     if (!widget.showRoleSelector) {

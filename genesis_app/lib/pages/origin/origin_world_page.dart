@@ -10,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
+import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/chat/shared/location_chat_overlay_transition.dart';
@@ -63,7 +64,6 @@ import '../chat/location_chat_page.dart';
 import '../world/world_header.dart';
 import '../world/world_map_bubble_candidates.dart';
 import '../world/world_navigation.dart';
-import '../world/world_page_result.dart';
 import 'origin_launch_flow.dart';
 import 'origin_role_portrait_image_provider.dart';
 import 'origin_world_layout.dart';
@@ -74,7 +74,6 @@ part 'origin_world_sections.dart';
 part 'origin_world_role_setup.dart';
 part 'origin_world_launched_worlds.dart';
 part 'origin_world_characters.dart';
-part 'origin_world_copy_progress.dart';
 part 'origin_world_location_chat.dart';
 part 'origin_world_map_data.dart';
 
@@ -131,9 +130,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _OriginWorldPageRenderStage.framework;
   bool _contentMountScheduled = false;
   int _originLoadGeneration = 0;
-  int _copyWorldProgressLoadGeneration = 0;
-  List<WorldSummaryLatestItem> _copyWorldProgressSummaries =
-      const <WorldSummaryLatestItem>[];
   FirebasePerformanceOperation? _initialRequestPerformanceOperation;
   FirebasePerformanceOperation? _initialRenderPerformanceOperation;
   var _initialRequestPerformanceAttempt = 0;
@@ -208,9 +204,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _launchedPresetRolesCacheKey = '';
       _launchedPresetRolesPreloadScheduledForOriginId = '';
       _originLoadGeneration += 1;
-      _copyWorldProgressLoadGeneration += 1;
       _origin = null;
-      _copyWorldProgressSummaries = const <WorldSummaryLatestItem>[];
       _initialLoadError = null;
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
@@ -245,7 +239,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     unawaited(_initialRequestPerformanceOperation?.cancel());
     unawaited(_initialRenderPerformanceOperation?.cancel());
     _originLoadGeneration += 1;
-    _copyWorldProgressLoadGeneration += 1;
     _cachedProfileRoleLoadGeneration += 1;
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _locationChatBackgroundPreloader.dispose();
@@ -577,34 +570,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       }
       _precacheRoleCardAvatarImages(origin);
       _scheduleLaunchedPresetRolesPreload();
-      unawaited(_loadCopyWorldProgress(origin.oid));
     });
-  }
-
-  Future<void> _loadCopyWorldProgress(String originId) async {
-    final resolvedOriginId = originId.trim();
-    if (resolvedOriginId.isEmpty) return;
-    final generation = ++_copyWorldProgressLoadGeneration;
-    try {
-      final summaries = await AppServicesScope.read(
-        context,
-      ).api.getLatestWorldSummaries(originId: resolvedOriginId);
-      if (!mounted ||
-          generation != _copyWorldProgressLoadGeneration ||
-          widget.oid.trim() != resolvedOriginId) {
-        return;
-      }
-      setState(() => _copyWorldProgressSummaries = summaries);
-    } catch (error) {
-      if (!mounted ||
-          generation != _copyWorldProgressLoadGeneration ||
-          widget.oid.trim() != resolvedOriginId) {
-        return;
-      }
-      debugPrint(
-        '[OriginWorldPage] copy world progress preload failed: $error',
-      );
-    }
   }
 
   void _scheduleLaunchedPresetRolesPreload() {
@@ -1181,7 +1147,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
               origin: origin,
-              copyWorldProgressSummaries: _copyWorldProgressSummaries,
               minChildSize: minChildSize,
               initiallyExpanded: widget.showOpeningSheetOnEntry,
               autoExpansionPending: _waitingForOpeningSheetExpansion,

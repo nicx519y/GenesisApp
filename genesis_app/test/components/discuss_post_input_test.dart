@@ -52,6 +52,33 @@ void main() {
     expect(decoration.color, const Color(0xFFF8F8F8));
   });
 
+  testWidgets('supports a dark sheet collapsed-input palette', (
+    WidgetTester tester,
+  ) async {
+    const backgroundColor = Color(0x12FFFFFF);
+    const placeholderColor = Color(0x52FFFFFF);
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            backgroundColor: backgroundColor,
+            placeholderColor: placeholderColor,
+          ),
+        ),
+      ),
+    );
+
+    final placeholder = find.text('Write a post');
+    final inputContainer = find
+        .ancestor(of: placeholder, matching: find.byType(Container))
+        .first;
+    final decoration =
+        tester.widget<Container>(inputContainer).decoration as BoxDecoration;
+    expect(decoration.color, backgroundColor);
+    expect(tester.widget<Text>(placeholder).style?.color, placeholderColor);
+  });
+
   testWidgets('hides the image picker button by default', (
     WidgetTester tester,
   ) async {

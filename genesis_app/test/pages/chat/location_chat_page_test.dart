@@ -102,6 +102,24 @@ void main() {
     expect(caps.otherMessage, 310);
   });
 
+  test('ordinary bubble cap responds to text scaling', () {
+    final caps = locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics(
+      logicalWidth: 430,
+      textScaler: const TextScaler.linear(2),
+      bubbleFontSize: 14,
+      crowdedEffectiveWidthThreshold: LocationChatBubbleLayoutSettings
+          .defaultCrowdedEffectiveWidthThreshold,
+      avatarSize: 40,
+      avatarBubbleGap: 10,
+      avatarSideSpacerWidth: 40 / 3,
+      messageListHorizontalPadding: 20,
+    );
+
+    expect(caps.isCrowded, isTrue);
+    expect(caps.selfMessage, closeTo(346.667, 0.001));
+    expect(caps.otherMessage, closeTo(346.667, 0.001));
+  });
+
   test(
     'location chat metadata updates contain asynchronous failures',
     () async {

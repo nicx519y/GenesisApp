@@ -24,7 +24,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: _baseStatusBarStyle,
       child: Scaffold(
-        backgroundColor: originWorldDetailSheetBackgroundColor,
+        backgroundColor: originWorldDetailSheetRaisedBackgroundColor,
         resizeToAvoidBottomInset: false,
         body: LayoutBuilder(
           builder: (context, constraints) {
@@ -274,7 +274,7 @@ class _OriginLoadingBone extends StatelessWidget {
   Widget build(BuildContext context) {
     final bone = DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFFD9DDE2),
+        color: const Color(0x1FFFFFFF),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: SizedBox(width: width, height: height),

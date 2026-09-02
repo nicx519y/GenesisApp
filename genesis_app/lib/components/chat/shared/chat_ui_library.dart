@@ -56,6 +56,76 @@ const SystemUiOverlayStyle kChatTransparentLightSystemUiOverlayStyle =
 const SystemUiOverlayStyle kChatDarkHeaderSystemUiOverlayStyle =
     kGenesisLightStatusIconsSystemUiOverlayStyle;
 
+@immutable
+class LocationChatOrdinaryMessageBubbleMaxWidthCaps {
+  const LocationChatOrdinaryMessageBubbleMaxWidthCaps({
+    required this.isCrowded,
+    required this.selfMessage,
+    required this.otherMessage,
+  });
+
+  final bool isCrowded;
+  final double selfMessage;
+  final double otherMessage;
+}
+
+LocationChatOrdinaryMessageBubbleMaxWidthCaps
+locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics({
+  required double logicalWidth,
+  required TextScaler textScaler,
+  required double bubbleFontSize,
+  required double crowdedEffectiveWidthThreshold,
+  required double avatarSize,
+  required double avatarBubbleGap,
+  required double avatarSideSpacerWidth,
+  required double messageListHorizontalPadding,
+}) {
+  if (logicalWidth <= 0 || bubbleFontSize <= 0) {
+    return const LocationChatOrdinaryMessageBubbleMaxWidthCaps(
+      isCrowded: true,
+      selfMessage: 0,
+      otherMessage: 0,
+    );
+  }
+  final scaledFontSize = textScaler.scale(bubbleFontSize);
+  if (scaledFontSize <= 0) {
+    return const LocationChatOrdinaryMessageBubbleMaxWidthCaps(
+      isCrowded: true,
+      selfMessage: 0,
+      otherMessage: 0,
+    );
+  }
+  final effectiveWidth = logicalWidth / (scaledFontSize / bubbleFontSize);
+  final isCrowded = effectiveWidth < crowdedEffectiveWidthThreshold;
+  if (isCrowded) {
+    final crowdedMaxWidth = math.max(
+      0.0,
+      logicalWidth -
+          avatarSize -
+          avatarBubbleGap -
+          avatarSideSpacerWidth -
+          messageListHorizontalPadding,
+    );
+    return LocationChatOrdinaryMessageBubbleMaxWidthCaps(
+      isCrowded: true,
+      selfMessage: crowdedMaxWidth,
+      otherMessage: crowdedMaxWidth,
+    );
+  }
+  final roomyMaxWidth = math.max(
+    0.0,
+    logicalWidth -
+        avatarSize * 2 -
+        avatarBubbleGap * 2 -
+        messageListHorizontalPadding,
+  );
+  return LocationChatOrdinaryMessageBubbleMaxWidthCaps(
+    isCrowded: false,
+    selfMessage: roomyMaxWidth,
+    otherMessage: roomyMaxWidth,
+  );
+}
+
 final ChatUiStyleConfig kChatWhiteHeaderStyle = ChatUiStyleConfig.standard
     .copyWith(headerBackgroundColor: Colors.white);
 

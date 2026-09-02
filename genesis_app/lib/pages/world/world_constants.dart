@@ -16,6 +16,7 @@ const double worldMainTabsHeight = 49;
 const double worldBottomTagHeight = 34;
 const double worldBottomTagToStatsGap = 10;
 const double worldSheetVisibleContentTopGap = 15;
+const double worldDetailSheetExpandedTopOffset = 50;
 const double worldStatsTopSpacerHeight =
     (worldMainTabsHeight + worldBottomTagHeight) / 2 -
     WorldDetailsPageScaffold.inlineContentTopPadding +

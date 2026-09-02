@@ -13,6 +13,9 @@ class OriginDiscussList extends StatelessWidget {
     this.imageTapOpensViewer = false,
     this.disableAvatarProfileTap = false,
     this.contentLineHeight = 1.45,
+    this.authorColor,
+    this.contentColor,
+    this.metadataColor,
     this.onAuthorTap,
     this.onViewMoreTap,
     this.onItemReplyTap,
@@ -30,6 +33,9 @@ class OriginDiscussList extends StatelessWidget {
   final bool imageTapOpensViewer;
   final bool disableAvatarProfileTap;
   final double contentLineHeight;
+  final Color? authorColor;
+  final Color? contentColor;
+  final Color? metadataColor;
   final OriginDiscussItemTap? onAuthorTap;
   final Future<void> Function()? onViewMoreTap;
   final OriginDiscussItemTap? onItemReplyTap;
@@ -83,6 +89,9 @@ class OriginDiscussList extends StatelessWidget {
                         imageTapOpensViewer: imageTapOpensViewer,
                         disableAvatarProfileTap: disableAvatarProfileTap,
                         contentLineHeight: contentLineHeight,
+                        authorColor: authorColor,
+                        contentColor: contentColor,
+                        metadataColor: metadataColor,
                         onAuthorTap: onAuthorTap,
                         onViewMoreTap: onViewMoreTap,
                         onItemReplyTap: onItemReplyTap,
