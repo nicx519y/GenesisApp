@@ -21430,9 +21430,6 @@ void main() {
   testWidgets('developer button tab previews the world update Push', (
     WidgetTester tester,
   ) async {
-    const locationPreviewImageUrl =
-        'https://cdn-001.worldo.ai/app/uploads/20260705/'
-        '2073569582257278976_800_1200.jpg?x-oss-process=image/format,webp';
     await tester.pumpWidget(
       MaterialApp(
         home: AppServicesScope(
@@ -21481,10 +21478,38 @@ void main() {
     await tester.pump();
     expect(find.text('New location available'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
-    final locationImage = tester.widget<GenesisStaticNetworkImage>(
-      find.byType(GenesisStaticNetworkImage),
+    final pushBanner = find.byKey(
+      const ValueKey<String>('world-update-push-banner'),
     );
-    expect(locationImage.imageUrl, locationPreviewImageUrl);
+    expect(
+      find.descendant(
+        of: pushBanner,
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+      findsNothing,
+    );
+    expect(
+      find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),
+      findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: pushBanner,
+        matching: find.byKey(
+          const ValueKey<String>('world-update-push-location-name-icon'),
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: pushBanner,
+        matching: find.byKey(
+          const ValueKey<String>('world-update-push-location-icon'),
+        ),
+      ),
+      findsNothing,
+    );
 
     await tester.pump(const Duration(seconds: 5));
     await tester.pumpAndSettle();
@@ -21494,12 +21519,6 @@ void main() {
   testWidgets('developer button tab previews multiple world update Pushes', (
     WidgetTester tester,
   ) async {
-    const firstLocationPreviewImageUrl =
-        'https://cdn-001.worldo.ai/app/uploads/20260705/'
-        '2073569582257278976_800_1200.jpg?x-oss-process=image/format,webp';
-    const secondLocationPreviewImageUrl =
-        'https://cdn-001.worldo.ai/app/uploads/20260705/'
-        '2073569314962673664_800_1200.jpg?x-oss-process=image/format,webp';
     const firstCharacterAvatarUrl =
         'https://cdn-001.worldo.ai/app/uploads/20260702/'
         '2072507310906806272_356_356.jpg?x-oss-process=image/format,webp';
@@ -21543,16 +21562,25 @@ void main() {
     final pushBanner = find.byKey(
       const ValueKey<String>('world-update-push-banner'),
     );
-    var locationImage = tester.widget<GenesisStaticNetworkImage>(
+    expect(
       find.descendant(
         of: pushBanner,
         matching: find.byType(GenesisStaticNetworkImage),
       ),
+      findsNothing,
     );
-    expect(locationImage.imageUrl, firstLocationPreviewImageUrl);
     expect(
       find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),
       findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: pushBanner,
+        matching: find.byKey(
+          const ValueKey<String>('world-update-push-location-name-icon'),
+        ),
+      ),
+      findsOneWidget,
     );
 
     await tester.pump(const Duration(seconds: 3));
@@ -21562,16 +21590,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 220));
     expect(find.text('New location available'), findsOneWidget);
     expect(find.text('Moonlit Market · Old Quarter'), findsOneWidget);
-    locationImage = tester.widget<GenesisStaticNetworkImage>(
+    expect(
       find.descendant(
         of: pushBanner,
         matching: find.byType(GenesisStaticNetworkImage),
       ),
+      findsNothing,
     );
-    expect(locationImage.imageUrl, secondLocationPreviewImageUrl);
     expect(
       find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),
       findsNothing,
+    );
+    expect(
+      find.descendant(
+        of: pushBanner,
+        matching: find.byKey(
+          const ValueKey<String>('world-update-push-location-name-icon'),
+        ),
+      ),
+      findsOneWidget,
     );
 
     await tester.pump(const Duration(milliseconds: 2780));
@@ -21592,6 +21629,13 @@ void main() {
     );
     expect(avatar.name, 'New Wanderer');
     expect(avatar.url, firstCharacterAvatarUrl);
+    expect(avatar.borderRadius, 8);
+    expect(
+      find.byKey(
+        const ValueKey<String>('world-update-push-location-name-icon'),
+      ),
+      findsNothing,
+    );
 
     await tester.pump(const Duration(milliseconds: 2780));
     await tester.pump(const Duration(milliseconds: 221));
@@ -21611,6 +21655,7 @@ void main() {
     );
     expect(avatar.name, 'Scarlet Keeper');
     expect(avatar.url, secondCharacterAvatarUrl);
+    expect(avatar.borderRadius, 8);
 
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
@@ -26640,6 +26685,136 @@ void main() {
         findsNothing,
       );
       expect(find.text('Retry'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'world update push filters drill-only nodes and opens its leaf chat',
+    (WidgetTester tester) async {
+      final locations = <Map<String, Object?>>[
+        {
+          'location_id': 'l_w_test_1',
+          'location_name': 'Root Location',
+          'x_percent': 35,
+          'y_percent': 45,
+        },
+        {
+          'location_id': 'existing',
+          'location_pid': 'l_w_test_1',
+          'location_name': 'Existing Location',
+          'x_percent': 40,
+          'y_percent': 40,
+        },
+      ];
+      final transport = _RecordingV1ListTransport(
+        worldRelationStatus: 'joined',
+        worldDefinitionVersion: 1,
+        worldLocations: locations,
+      );
+      final chatroom = _FakeChatroomClient();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        chatroom: chatroom,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      locations.addAll(const [
+        {
+          'location_id': 'blocked',
+          'location_pid': 'l_w_test_1',
+          'location_name': 'Blocked Branch',
+          'is_new': true,
+          'x_percent': 45,
+          'y_percent': 45,
+        },
+        {
+          'location_id': 'blocked_a',
+          'location_pid': 'blocked',
+          'location_name': 'Blocked A',
+          'is_new': false,
+          'x_percent': 46,
+          'y_percent': 46,
+        },
+        {
+          'location_id': 'blocked_b',
+          'location_pid': 'blocked',
+          'location_name': 'Blocked B',
+          'is_new': false,
+          'x_percent': 47,
+          'y_percent': 47,
+        },
+        {
+          'location_id': 'eligible',
+          'location_pid': 'l_w_test_1',
+          'location_name': 'Eligible Leaf',
+          'is_new': true,
+          'x_percent': 55,
+          'y_percent': 55,
+        },
+      ]);
+      chatroom.session.emit(
+        const ChatroomWorldNotification(
+          worldId: 'w_test_1',
+          locationId: '',
+          eventType: 'map_updated',
+          title: '',
+          summary: '',
+          detailUrl: '',
+          ts: null,
+          broadcast: true,
+        ),
+      );
+      final pushBanner = find.byKey(
+        const ValueKey<String>('world-update-push-banner'),
+      );
+      final eligiblePushText = find.descendant(
+        of: pushBanner,
+        matching: find.textContaining('Eligible Leaf'),
+      );
+      for (
+        var attempt = 0;
+        attempt < 20 && eligiblePushText.evaluate().isEmpty;
+        attempt += 1
+      ) {
+        await tester.runAsync(() async {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        });
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      expect(
+        find.descendant(
+          of: pushBanner,
+          matching: find.textContaining('Blocked Branch'),
+        ),
+        findsNothing,
+      );
+      expect(eligiblePushText, findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 250));
+      await tester.tap(
+        find.byKey(const ValueKey<String>('world-update-push-tap-target')),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(chatroom.session.joinLocationId, 'eligible');
+      expect(find.byType(LocationChatPanel), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(LocationChatPanel),
+          matching: find.textContaining('Eligible Leaf'),
+        ),
+        findsOneWidget,
+      );
     },
   );
 

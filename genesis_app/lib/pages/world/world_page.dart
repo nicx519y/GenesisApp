@@ -51,6 +51,7 @@ import 'world_models.dart';
 import 'world_page_result.dart';
 import 'world_sections.dart';
 import 'world_update_push_banner.dart';
+import 'world_update_push_target.dart';
 import 'world_value_helpers.dart';
 
 part 'world_page_tabs.dart';
@@ -578,6 +579,14 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       avatarsByLocation,
       processedLocationTree,
     );
+    WorldPoint? contentUpdatePushTarget(WorldContentUpdateNotice notice) {
+      return resolveWorldUpdatePushChatTarget(
+        notice: notice,
+        world: world,
+        locationNodes: listLocationNodes,
+      );
+    }
+
     final points = renderLocationNodes.isNotEmpty
         ? worldPointsFromLocationNodes(
             renderLocationNodes,
@@ -784,6 +793,13 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
               top: topPadding + 8,
               revision: _lastAppliedContentUpdateNoticeRevision,
               notices: _contentUpdateNotices,
+              canShowNotice: (notice) =>
+                  contentUpdatePushTarget(notice) != null,
+              onNoticeTap: (notice) {
+                final target = contentUpdatePushTarget(notice);
+                if (target == null) return;
+                unawaited(_openChatForPoint(target));
+              },
             ),
           ],
         ),

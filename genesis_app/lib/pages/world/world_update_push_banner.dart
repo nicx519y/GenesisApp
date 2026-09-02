@@ -3,15 +3,14 @@ import 'dart:collection';
 
 import 'package:flutter/material.dart';
 
+import '../../components/chat/shared/chat_scene_plate_tokens.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../ui/components/genesis_character_avatar.dart';
-import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_typography.dart';
 
 const worldUpdatePushDisplayDuration = Duration(seconds: 3);
 const worldUpdatePushTransitionDuration = Duration(milliseconds: 220);
 const _worldUpdatePushLeadingSize = 48.0;
-const _worldUpdatePushLocationImageRadius = 10.0;
 
 class WorldUpdatePushBannerQueue extends StatefulWidget {
   const WorldUpdatePushBannerQueue({
@@ -19,6 +18,8 @@ class WorldUpdatePushBannerQueue extends StatefulWidget {
     required this.top,
     required this.revision,
     required this.notices,
+    this.canShowNotice,
+    this.onNoticeTap,
     this.displayDuration = worldUpdatePushDisplayDuration,
     this.transitionDuration = worldUpdatePushTransitionDuration,
   });
@@ -26,6 +27,8 @@ class WorldUpdatePushBannerQueue extends StatefulWidget {
   final double top;
   final int revision;
   final List<WorldContentUpdateNotice> notices;
+  final bool Function(WorldContentUpdateNotice notice)? canShowNotice;
+  final ValueChanged<WorldContentUpdateNotice>? onNoticeTap;
   final Duration displayDuration;
   final Duration transitionDuration;
 
@@ -46,7 +49,7 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
   Timer? _dismissTimer;
   var _activationScheduled = false;
   var _isDismissing = false;
-  var _lastRevision = 0;
+  var _activeNoticeTapHandled = false;
 
   @override
   void initState() {
@@ -64,7 +67,6 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
       begin: const Offset(0, -1.2),
       end: Offset.zero,
     ).animate(_transitionAnimation);
-    _lastRevision = widget.revision;
     if (widget.revision > 0) {
       _accept(widget.notices);
       _scheduleActivationAfterBuild();
@@ -77,9 +79,11 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
     if (widget.transitionDuration != oldWidget.transitionDuration) {
       _transitionController.duration = widget.transitionDuration;
     }
-    if (widget.revision == _lastRevision) return;
-    _lastRevision = widget.revision;
     if (widget.revision > 0) _accept(widget.notices);
+    final activeNotice = _activeNotice;
+    if (activeNotice != null && !_canShow(activeNotice)) {
+      _dismissActiveNotice();
+    }
     _scheduleActivationAfterBuild();
     _scheduleDismissAfterBuild();
   }
@@ -95,10 +99,23 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
 
   void _accept(List<WorldContentUpdateNotice> notices) {
     for (final notice in notices) {
+      if (!_canShow(notice)) continue;
       if (_acceptedOccurrences.add(notice.occurrenceKey)) {
         _pending.add(notice);
       }
     }
+  }
+
+  bool _canShow(WorldContentUpdateNotice notice) {
+    return widget.canShowNotice?.call(notice) ?? true;
+  }
+
+  WorldContentUpdateNotice? _takeNextEligibleNotice() {
+    while (_pending.isNotEmpty) {
+      final notice = _pending.removeFirst();
+      if (_canShow(notice)) return notice;
+    }
+    return null;
   }
 
   void _scheduleActivationAfterBuild() {
@@ -117,7 +134,12 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
           _pending.isEmpty) {
         return;
       }
-      setState(() => _activeNotice = _pending.removeFirst());
+      final nextNotice = _takeNextEligibleNotice();
+      if (nextNotice == null) return;
+      setState(() {
+        _activeNotice = nextNotice;
+        _activeNoticeTapHandled = false;
+      });
       _transitionController.forward(from: 0);
       _scheduleDismissAfterBuild();
     });
@@ -142,9 +164,24 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
 
   void _dismissActiveNotice() {
     if (!mounted || _activeNotice == null || _isDismissing) return;
+    _dismissTimer?.cancel();
     _dismissTimer = null;
     _isDismissing = true;
     _transitionController.reverse();
+  }
+
+  void _handleActiveNoticeTap() {
+    final notice = _activeNotice;
+    final onNoticeTap = widget.onNoticeTap;
+    if (notice == null ||
+        onNoticeTap == null ||
+        _isDismissing ||
+        _activeNoticeTapHandled) {
+      return;
+    }
+    _activeNoticeTapHandled = true;
+    _dismissActiveNotice();
+    onNoticeTap(notice);
   }
 
   void _handleTransitionStatus(AnimationStatus status) {
@@ -160,36 +197,35 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
   Widget build(BuildContext context) {
     final notice = _activeNotice;
     return Positioned(
-      left: 12,
+      left: kLocationChatOuterPadding,
       top: widget.top,
-      right: 12,
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 480),
-          child: notice == null
-              ? const SizedBox.shrink(
-                  key: ValueKey<String>('world-update-push-empty'),
-                )
-              : FadeTransition(
-                  opacity: _transitionAnimation,
-                  child: SlideTransition(
-                    position: _slideAnimation,
-                    child: _WorldUpdatePushBanner(
-                      key: ValueKey<String>(notice.occurrenceKey),
-                      notice: notice,
-                    ),
-                  ),
+      right: kLocationChatOuterPadding,
+      child: notice == null
+          ? const SizedBox.shrink(
+              key: ValueKey<String>('world-update-push-empty'),
+            )
+          : FadeTransition(
+              opacity: _transitionAnimation,
+              child: SlideTransition(
+                position: _slideAnimation,
+                child: _WorldUpdatePushBanner(
+                  key: ValueKey<String>(notice.occurrenceKey),
+                  notice: notice,
+                  onTap: widget.onNoticeTap == null
+                      ? null
+                      : _handleActiveNoticeTap,
                 ),
-        ),
-      ),
+              ),
+            ),
     );
   }
 }
 
 class _WorldUpdatePushBanner extends StatelessWidget {
-  const _WorldUpdatePushBanner({super.key, required this.notice});
+  const _WorldUpdatePushBanner({super.key, required this.notice, this.onTap});
 
   final WorldContentUpdateNotice notice;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -202,6 +238,34 @@ class _WorldUpdatePushBanner extends StatelessWidget {
     final category = isLocation
         ? 'New location available'
         : 'New character joined';
+    final detailText = Text.rich(
+      TextSpan(
+        text: name,
+        children: contextLabel.isEmpty
+            ? const <InlineSpan>[]
+            : <InlineSpan>[
+                TextSpan(
+                  text: ' · $contextLabel',
+                  style: const TextStyle(
+                    color: Color(0xB8FFFFFF),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+      ),
+      key: const ValueKey<String>('world-update-push-detail'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: const TextStyle(
+        fontFamily: GenesisTypography.fontFamily,
+        fontFamilyFallback: GenesisTypography.fontFamilyFallback,
+        color: Color(0xF2FFFFFF),
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        height: 1.25,
+      ),
+    );
     return Semantics(
       container: true,
       liveRegion: true,
@@ -209,135 +273,78 @@ class _WorldUpdatePushBanner extends StatelessWidget {
       child: Material(
         key: const ValueKey<String>('world-update-push-banner'),
         color: const Color(0xFF1F1D24),
-        elevation: 10,
-        shadowColor: Colors.black.withValues(alpha: 0.32),
         borderRadius: BorderRadius.circular(12),
         clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
-          child: Row(
-            children: [
-              if (isLocation)
-                _buildLocationImage()
-              else
-                GenesisCharacterAvatar(
-                  key: const ValueKey<String>(
-                    'world-update-push-character-avatar',
-                  ),
-                  url: notice.avatarUrl,
-                  name: name,
-                  size: _worldUpdatePushLeadingSize,
-                  borderRadius: _worldUpdatePushLeadingSize / 2,
-                  showFallbackWhileLoading: true,
-                ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      category,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: GenesisTypography.fontFamily,
-                        fontFamilyFallback:
-                            GenesisTypography.fontFamilyFallback,
-                        color: Color(0xB8FFFFFF),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 5),
-                    Text.rich(
-                      TextSpan(
-                        text: name,
-                        children: contextLabel.isEmpty
-                            ? const <InlineSpan>[]
-                            : <InlineSpan>[
-                                TextSpan(
-                                  text: ' · $contextLabel',
-                                  style: const TextStyle(
-                                    color: Color(0xB8FFFFFF),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                      ),
-                      key: const ValueKey<String>('world-update-push-detail'),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontFamily: GenesisTypography.fontFamily,
-                        fontFamilyFallback:
-                            GenesisTypography.fontFamilyFallback,
-                        color: Color(0xF2FFFFFF),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.25,
-                      ),
-                    ),
-                  ],
-                ),
+        child: InkWell(
+          key: const ValueKey<String>('world-update-push-tap-target'),
+          onTap: onTap,
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(isLocation ? 16 : 8, 8, 12, 8),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minHeight: _worldUpdatePushLeadingSize,
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLocationImage() {
-    final imageUrl = notice.avatarUrl.trim();
-    if (imageUrl.isEmpty) return _buildLocationImageFallback();
-    final image = imageUrl.startsWith('assets/')
-        ? Image.asset(
-            imageUrl,
-            width: _worldUpdatePushLeadingSize,
-            height: _worldUpdatePushLeadingSize,
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) =>
-                _buildLocationImageFallback(),
-          )
-        : GenesisStaticNetworkImage(
-            key: const ValueKey<String>(
-              'world-update-push-location-network-image',
+              child: Row(
+                children: [
+                  if (!isLocation) ...[
+                    GenesisCharacterAvatar(
+                      key: const ValueKey<String>(
+                        'world-update-push-character-avatar',
+                      ),
+                      url: notice.avatarUrl,
+                      name: name,
+                      size: _worldUpdatePushLeadingSize,
+                      borderRadius: 8,
+                      showFallbackWhileLoading: true,
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontFamily: GenesisTypography.fontFamily,
+                            fontFamilyFallback:
+                                GenesisTypography.fontFamilyFallback,
+                            color: Color(0xB8FFFFFF),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            height: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        if (isLocation)
+                          Row(
+                            children: [
+                              const ExcludeSemantics(
+                                child: Icon(
+                                  Icons.place_outlined,
+                                  key: ValueKey<String>(
+                                    'world-update-push-location-name-icon',
+                                  ),
+                                  size: 14,
+                                  color: Color(0xF2FFFFFF),
+                                ),
+                              ),
+                              const SizedBox(width: 2),
+                              Expanded(child: detailText),
+                            ],
+                          )
+                        else
+                          detailText,
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-            imageUrl: imageUrl,
-            width: _worldUpdatePushLeadingSize,
-            height: _worldUpdatePushLeadingSize,
-            fit: BoxFit.cover,
-            placeholder: (_) => _buildLocationImageFallback(),
-            errorWidget: (_, _) => _buildLocationImageFallback(),
-          );
-    return ClipRRect(
-      key: const ValueKey<String>('world-update-push-location-image'),
-      borderRadius: BorderRadius.circular(_worldUpdatePushLocationImageRadius),
-      child: SizedBox.square(
-        dimension: _worldUpdatePushLeadingSize,
-        child: image,
-      ),
-    );
-  }
-
-  Widget _buildLocationImageFallback() {
-    return DecoratedBox(
-      key: const ValueKey<String>('world-update-push-location-icon'),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFF2442),
-        borderRadius: BorderRadius.circular(
-          _worldUpdatePushLocationImageRadius,
-        ),
-      ),
-      child: const SizedBox.square(
-        dimension: _worldUpdatePushLeadingSize,
-        child: Icon(
-          Icons.location_on_outlined,
-          size: 22,
-          color: Color(0xF2FFFFFF),
+          ),
         ),
       ),
     );
