@@ -5,6 +5,7 @@ class ChatThumbnailImage extends StatefulWidget {
     super.key,
     required this.imageUrl,
     required this.maxWidth,
+    this.placeholderColor = const Color(0xE6111111),
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
     this.onTap,
     this.onLongPressStart,
@@ -12,6 +13,7 @@ class ChatThumbnailImage extends StatefulWidget {
 
   final String imageUrl;
   final double maxWidth;
+  final Color placeholderColor;
   final BorderRadiusGeometry borderRadius;
   final ValueChanged<ImageProvider<Object>?>? onTap;
   final GestureLongPressStartCallback? onLongPressStart;
@@ -187,7 +189,7 @@ class _ChatThumbnailImageState extends State<ChatThumbnailImage> {
       height: resolvedSize.height,
       child: ClipRRect(
         borderRadius: widget.borderRadius,
-        child: Image.asset(genesisDefaultListImageAsset, fit: BoxFit.contain),
+        child: ColoredBox(color: widget.placeholderColor),
       ),
     );
   }

@@ -12,6 +12,8 @@ extension _WorldPageChatroomSession on _WorldPageState {
   WorldChatroomService _createWorldChatroom(AppServices services) {
     _lastAppliedNewUserJoinRevision = 0;
     _lastAppliedMapUpdatedRevision = 0;
+    _lastAppliedContentUpdateNoticeRevision = 0;
+    _contentUpdateNotices = const <WorldContentUpdateNotice>[];
     final service = WorldChatroomService(
       api: services.api,
       client: services.chatroom,
@@ -181,6 +183,9 @@ extension _WorldPageChatroomSession on _WorldPageState {
     final newUserJoinNotice = hasNewUserJoin
         ? _newUserJoinNoticeFromEvent(latestNewUserJoin)
         : null;
+    final hasContentUpdateNotices =
+        state.contentUpdateNoticeRevision >
+        _lastAppliedContentUpdateNoticeRevision;
     final hasMapUpdate =
         state.mapUpdatedRevision > _lastAppliedMapUpdatedRevision;
     if (hasMapUpdate) {
@@ -245,6 +250,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
         socketProgressChangesWorld ||
         mapVisualsChanged ||
         hasMapUpdate ||
+        hasContentUpdateNotices ||
         newUserJoinNotice != null;
     void applyState() {
       var worldDetailChanged = false;
@@ -282,6 +288,11 @@ extension _WorldPageChatroomSession on _WorldPageState {
           newUserJoinNotice,
           state.latestNewUserJoinRevision,
         );
+      }
+      if (hasContentUpdateNotices) {
+        _lastAppliedContentUpdateNoticeRevision =
+            state.contentUpdateNoticeRevision;
+        _contentUpdateNotices = state.latestContentUpdateNotices;
       }
       if (hasMapUpdate) {
         _tilemapReloadRevision += 1;

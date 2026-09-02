@@ -50,6 +50,7 @@ import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_page_result.dart';
 import 'world_sections.dart';
+import 'world_update_push_banner.dart';
 import 'world_value_helpers.dart';
 
 part 'world_page_tabs.dart';
@@ -165,7 +166,10 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   int? _eventsTargetTickNumber;
   int _lastAppliedNewUserJoinRevision = 0;
   int _lastAppliedMapUpdatedRevision = 0;
+  int _lastAppliedContentUpdateNoticeRevision = 0;
   int _tilemapReloadRevision = 0;
+  List<WorldContentUpdateNotice> _contentUpdateNotices =
+      const <WorldContentUpdateNotice>[];
   WorldNewUserJoinNotice? _pendingNewUserJoinNotice;
   bool _tick1WaitDialogStarted = false;
   bool? _lastChatroomInputBlocked;
@@ -776,6 +780,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                   onBackPressed: () => Navigator.of(context).maybePop(),
                 ),
               ),
+            WorldUpdatePushBannerQueue(
+              top: topPadding + 8,
+              revision: _lastAppliedContentUpdateNoticeRevision,
+              notices: _contentUpdateNotices,
+            ),
           ],
         ),
       ),

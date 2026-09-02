@@ -35,6 +35,30 @@ class ConversationRoundState {
   }
 }
 
+enum WorldContentUpdateKind { location, character }
+
+class WorldContentUpdateNotice {
+  const WorldContentUpdateNotice({
+    required this.kind,
+    required this.entityId,
+    required this.name,
+    required this.targetLocationId,
+    required this.avatarUrl,
+    required this.tickCount,
+    this.contextLabel = '',
+  });
+
+  final WorldContentUpdateKind kind;
+  final String entityId;
+  final String name;
+  final String targetLocationId;
+  final String avatarUrl;
+  final int tickCount;
+  final String contextLabel;
+
+  String get occurrenceKey => '${kind.name}:$entityId:$tickCount';
+}
+
 class WorldChatroomState {
   const WorldChatroomState({
     this.world,
@@ -60,6 +84,8 @@ class WorldChatroomState {
     this.latestNewUserJoin,
     this.latestNewUserJoinRevision = 0,
     this.mapUpdatedRevision = 0,
+    this.latestContentUpdateNotices = const <WorldContentUpdateNotice>[],
+    this.contentUpdateNoticeRevision = 0,
     this.lastFailure,
   });
 
@@ -94,6 +120,8 @@ class WorldChatroomState {
   final ChatroomNewUserJoinEvent? latestNewUserJoin;
   final int latestNewUserJoinRevision;
   final int mapUpdatedRevision;
+  final List<WorldContentUpdateNotice> latestContentUpdateNotices;
+  final int contentUpdateNoticeRevision;
   final ChatroomFailureEvent? lastFailure;
 
   WorldChatroomState copyWith({
@@ -119,6 +147,8 @@ class WorldChatroomState {
     ChatroomNewUserJoinEvent? latestNewUserJoin,
     int? latestNewUserJoinRevision,
     int? mapUpdatedRevision,
+    List<WorldContentUpdateNotice>? latestContentUpdateNotices,
+    int? contentUpdateNoticeRevision,
     ChatroomFailureEvent? lastFailure,
   }) {
     return WorldChatroomState(
@@ -152,6 +182,10 @@ class WorldChatroomState {
       latestNewUserJoinRevision:
           latestNewUserJoinRevision ?? this.latestNewUserJoinRevision,
       mapUpdatedRevision: mapUpdatedRevision ?? this.mapUpdatedRevision,
+      latestContentUpdateNotices:
+          latestContentUpdateNotices ?? this.latestContentUpdateNotices,
+      contentUpdateNoticeRevision:
+          contentUpdateNoticeRevision ?? this.contentUpdateNoticeRevision,
       lastFailure: lastFailure ?? this.lastFailure,
     );
   }

@@ -20547,7 +20547,7 @@ void main() {
       expect(find.text('Device ID:'), findsOneWidget);
       expect(find.text('test-device-id'), findsOneWidget);
 
-      await tester.tap(find.text('test'));
+      await tester.tap(find.text('button'));
       await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Clear direct message cache'),
@@ -20555,7 +20555,9 @@ void main() {
         scrollable: find
             .descendant(
               of: find.byKey(
-                const PageStorageKey<String>('developer-test-tab-scroll'),
+                const PageStorageKey<String>(
+                  'developer-test-button-tab-scroll',
+                ),
               ),
               matching: find.byType(Scrollable),
             )
@@ -20774,7 +20776,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('test'));
+    await tester.tap(find.text('switch'));
     await tester.pumpAndSettle();
     final visibilitySwitch = find.byKey(
       const ValueKey<String>('developer-tilemap-settings-button-switch'),
@@ -20832,7 +20834,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('test'));
+    await tester.tap(find.text('switch'));
     await tester.pumpAndSettle();
     final expandSwitch = find.byKey(
       const ValueKey<String>('developer-origin-world-sheet-expand-switch'),
@@ -20866,7 +20868,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('test'));
+    await tester.tap(find.text('switch'));
     await tester.pumpAndSettle();
     final forceNewSwitch = find.byKey(
       const ValueKey<String>('developer-world-force-new-switch'),
@@ -20915,7 +20917,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('test'));
+      await tester.tap(find.text('switch'));
       await tester.pumpAndSettle();
 
       final getLabel = find.descendant(
@@ -20949,7 +20951,7 @@ void main() {
   );
 
   testWidgets(
-    'developer test page gets updates and resets World History watermarks',
+    'developer switch page gets updates and resets World History watermarks',
     (WidgetTester tester) async {
       await AppEndpointOverrideStore.clear();
       await tester.pumpWidget(
@@ -20964,7 +20966,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('test'));
+      await tester.tap(find.text('switch'));
       await tester.pumpAndSettle();
 
       final panel = find.byKey(
@@ -21160,7 +21162,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('test'));
+      await tester.tap(find.text('switch'));
       await tester.pumpAndSettle();
       expect(
         find.byKey(
@@ -21187,7 +21189,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('test'));
+      await tester.tap(find.text('switch'));
       await tester.pumpAndSettle();
       expect(
         find.byKey(
@@ -21199,7 +21201,7 @@ void main() {
     },
   );
 
-  testWidgets('developer test tab controls telemetry debug upload', (
+  testWidgets('developer switch tab controls telemetry debug upload', (
     WidgetTester tester,
   ) async {
     TelemetryUploadPolicy.resetForTesting();
@@ -21221,18 +21223,20 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('test'));
+    await tester.tap(find.text('switch'));
     await tester.pumpAndSettle();
+    expect(find.text('switch'), findsOneWidget);
+    expect(find.text('button'), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('developer-telemetry-upload-panel')),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey<String>('developer-tilemap-panel')),
-      findsOneWidget,
+      find.byKey(const ValueKey<String>('developer-world-update-push-only')),
+      findsNothing,
     );
     expect(
-      find.byKey(const ValueKey<String>('developer-location-chat-panel')),
+      find.byKey(const ValueKey<String>('developer-tilemap-panel')),
       findsOneWidget,
     );
     expect(find.text('Telemetry Debug Upload'), findsOneWidget);
@@ -21269,6 +21273,196 @@ void main() {
     expect(preferences.getBool(switches.values.first), isTrue);
   });
 
+  testWidgets('developer button tab previews the world update Push', (
+    WidgetTester tester,
+  ) async {
+    const locationPreviewImageUrl =
+        'https://cdn-001.worldo.ai/app/uploads/20260705/'
+        '2073569582257278976_800_1200.jpg?x-oss-process=image/format,webp';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('button'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('developer-telemetry-upload-panel')),
+      findsNothing,
+    );
+
+    final onlyButton = find.byKey(
+      const ValueKey<String>('developer-world-update-push-only'),
+    );
+    final multiButton = find.byKey(
+      const ValueKey<String>('developer-world-update-push-multi'),
+    );
+    await tester.scrollUntilVisible(
+      onlyButton,
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-button-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    expect(multiButton, findsOneWidget);
+    expect(tester.getTopLeft(onlyButton).dy, tester.getTopLeft(multiButton).dy);
+    expect(tester.getSize(onlyButton).width, tester.getSize(multiButton).width);
+
+    await tester.tap(onlyButton);
+    await tester.pump();
+
+    expect(find.text('New Harbor · Azure Coast'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 999));
+    expect(find.text('New Harbor · Azure Coast'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump();
+    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
+    final locationImage = tester.widget<GenesisStaticNetworkImage>(
+      find.byType(GenesisStaticNetworkImage),
+    );
+    expect(locationImage.imageUrl, locationPreviewImageUrl);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    expect(find.text('New Harbor · Azure Coast'), findsNothing);
+  });
+
+  testWidgets('developer button tab previews multiple world update Pushes', (
+    WidgetTester tester,
+  ) async {
+    const firstLocationPreviewImageUrl =
+        'https://cdn-001.worldo.ai/app/uploads/20260705/'
+        '2073569582257278976_800_1200.jpg?x-oss-process=image/format,webp';
+    const secondLocationPreviewImageUrl =
+        'https://cdn-001.worldo.ai/app/uploads/20260705/'
+        '2073569314962673664_800_1200.jpg?x-oss-process=image/format,webp';
+    const firstCharacterAvatarUrl =
+        'https://cdn-001.worldo.ai/app/uploads/20260702/'
+        '2072507310906806272_356_356.jpg?x-oss-process=image/format,webp';
+    const secondCharacterAvatarUrl =
+        'https://cdn-001.worldo.ai/app/uploads/20260702/'
+        '2072508055576121344_356_356.jpg?x-oss-process=image/format,webp';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('button'));
+    await tester.pumpAndSettle();
+
+    final button = find.byKey(
+      const ValueKey<String>('developer-world-update-push-multi'),
+    );
+    await tester.scrollUntilVisible(
+      button,
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-button-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(button);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pump();
+
+    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
+    final pushBanner = find.byKey(
+      const ValueKey<String>('world-update-push-banner'),
+    );
+    var locationImage = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: pushBanner,
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    expect(locationImage.imageUrl, firstLocationPreviewImageUrl);
+    expect(
+      find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(milliseconds: 221));
+    expect(find.text('New Harbor · Azure Coast'), findsNothing);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('Moonlit Market · Old Quarter'), findsOneWidget);
+    locationImage = tester.widget<GenesisStaticNetworkImage>(
+      find.descendant(
+        of: pushBanner,
+        matching: find.byType(GenesisStaticNetworkImage),
+      ),
+    );
+    expect(locationImage.imageUrl, secondLocationPreviewImageUrl);
+    expect(
+      find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),
+      findsNothing,
+    );
+
+    await tester.pump(const Duration(milliseconds: 2780));
+    await tester.pump(const Duration(milliseconds: 221));
+    expect(find.text('Moonlit Market · Old Quarter'), findsNothing);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(find.text('New character joined'), findsOneWidget);
+    expect(
+      find.text(
+        'New Wanderer · Heir to the Blackwood family and student council '
+        'president.',
+      ),
+      findsOneWidget,
+    );
+    var avatar = tester.widget<GenesisAvatar>(
+      find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),
+    );
+    expect(avatar.name, 'New Wanderer');
+    expect(avatar.url, firstCharacterAvatarUrl);
+
+    await tester.pump(const Duration(milliseconds: 2780));
+    await tester.pump(const Duration(milliseconds: 221));
+    expect(
+      find.text(
+        'New Wanderer · Heir to the Blackwood family and student council '
+        'president.',
+      ),
+      findsNothing,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('Scarlet Keeper · Crimson guardian'), findsOneWidget);
+    avatar = tester.widget<GenesisAvatar>(
+      find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),
+    );
+    expect(avatar.name, 'Scarlet Keeper');
+    expect(avatar.url, secondCharacterAvatarUrl);
+
+    await tester.pump(const Duration(seconds: 6));
+    await tester.pumpAndSettle();
+    expect(find.text('Scarlet Keeper · Crimson guardian'), findsNothing);
+  });
+
   testWidgets('developer page controls LocationChat header effects', (
     WidgetTester tester,
   ) async {
@@ -21282,7 +21476,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('test'));
+    await tester.tap(find.text('switch'));
     await tester.pumpAndSettle();
 
     final transparencyFinder = find.byKey(
@@ -21295,6 +21489,18 @@ void main() {
     );
     final crowdedWidthFinder = find.byKey(
       const ValueKey<String>('developer-location-chat-crowded-width-slider'),
+    );
+    await tester.scrollUntilVisible(
+      transparencyFinder,
+      180,
+      scrollable: find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-switch-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first,
     );
     expect(transparencyFinder, findsOneWidget);
     expect(blurFinder, findsOneWidget);
@@ -21373,7 +21579,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    final scrollable = find.byType(Scrollable).first;
+    final scrollable = find
+        .descendant(
+          of: find.byKey(
+            const PageStorageKey<String>('developer-info-tab-scroll'),
+          ),
+          matching: find.byType(Scrollable),
+        )
+        .first;
     await tester.scrollUntilVisible(
       find.text('Switch to production'),
       180,
@@ -21453,14 +21666,29 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final scrollable = find.byType(Scrollable).first;
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-info-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
       await tester.scrollUntilVisible(
         find.text('Switch to test'),
         180,
         scrollable: scrollable,
       );
       expect(tester.testTextInput.isVisible, isFalse);
-      expect(find.byType(TextField), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('developer-api-base-url-field'),
+          ),
+          matching: find.byType(TextField),
+        ),
+        findsNothing,
+      );
       expect(
         find.descendant(
           of: find.byKey(
@@ -21602,7 +21830,11 @@ void main() {
     expect(find.text('basic'), findsOneWidget);
     expect(find.text('Capture network'), findsNothing);
 
-    final tabView = find.byType(TabBarView);
+    final tabView = find.byKey(
+      const ValueKey<String>('developer-page-tab-view'),
+    );
+    await tester.drag(tabView, const Offset(-500, 0));
+    await tester.pumpAndSettle();
     await tester.drag(tabView, const Offset(-500, 0));
     await tester.pumpAndSettle();
     await tester.drag(tabView, const Offset(-500, 0));
@@ -21610,7 +21842,7 @@ void main() {
 
     expect(find.text('Capture network'), findsOneWidget);
     expect(
-      find.text('Turn on Capture network to record new business requests.'),
+      find.text('Turn on Capture network to record new network requests.'),
       findsOneWidget,
     );
   });
@@ -21618,11 +21850,13 @@ void main() {
   test('developer page hides diagnostic tabs outside debug builds', () {
     expect(developerPageTabsForBuild(isDebugBuild: false), const <String>[
       'basic',
-      'test',
+      'switch',
+      'button',
     ]);
     expect(developerPageTabsForBuild(isDebugBuild: true), const <String>[
       'basic',
-      'test',
+      'switch',
+      'button',
       'network',
       'websocket',
     ]);
@@ -21631,10 +21865,9 @@ void main() {
   testWidgets('developer page remembers the last selected tab when reopened', (
     WidgetTester tester,
   ) async {
-    final services = await _testServices();
-
-    Future<void> openDeveloperPage() {
-      return tester.pumpWidget(
+    Future<void> openDeveloperPage() async {
+      final services = await _testServices();
+      await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
             services: services,
@@ -24240,6 +24473,13 @@ void main() {
         1,
       ),
     );
+    final draggableSheet = tester.widget<DraggableScrollableSheet>(
+      find.ancestor(
+        of: openedSheet,
+        matching: find.byType(DraggableScrollableSheet),
+      ),
+    );
+    expect(draggableSheet.snap, isFalse);
 
     final sheetIndicator = find.byKey(
       const ValueKey<String>('world-sheet-page-indicator'),
@@ -24305,13 +24545,100 @@ void main() {
         .descendant(of: sheet, matching: find.byType(ListView))
         .hitTestable()
         .first;
-    await tester.drag(detailList, const Offset(0, 500));
+    final settleBackGesture = await tester.startGesture(
+      tester.getCenter(detailList),
+    );
+    await settleBackGesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    await settleBackGesture.moveBy(const Offset(0, 180));
+    await tester.pump(const Duration(seconds: 1));
+    await settleBackGesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(sheet).dy,
+      closeTo(
+        GenesisSafeAreaInsets.top(openedSheetContext) +
+            worldDetailSheetExpandedTopOffset,
+        1,
+      ),
+    );
+    await tester.fling(detailList, const Offset(0, 150), 3000);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(sheet).dy,
+      closeTo(
+        GenesisSafeAreaInsets.top(openedSheetContext) +
+            worldDetailSheetExpandedTopOffset,
+        1,
+      ),
+    );
+    final collapseGesture = await tester.startGesture(
+      tester.getCenter(detailList),
+    );
+    await collapseGesture.moveBy(const Offset(0, 20));
+    await tester.pump();
+    final collapseTargetExtent = (draggableSheet.minChildSize + 0.5) / 2;
+    final draggableHostHeight = tester
+        .getSize(find.byType(DraggableScrollableSheet))
+        .height;
+    await collapseGesture.moveBy(
+      Offset(
+        0,
+        (draggableSheet.controller!.size - collapseTargetExtent) *
+            draggableHostHeight,
+      ),
+    );
+    await tester.pump();
+    expect(draggableSheet.controller!.size, lessThan(0.5));
+    await collapseGesture.up();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(sheet, findsOneWidget);
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey<String>('world-single-section-bottom-sheet')),
       findsNothing,
     );
     expect(currentTilemap().animationsPaused, isFalse);
+
+    for (final sectionLabel in const ['Locations', 'Events', 'Status']) {
+      final sectionTag = find.descendant(
+        of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
+        matching: find.text(sectionLabel),
+      );
+      await tester.tap(sectionTag);
+      await tester.pumpAndSettle();
+
+      final sectionSheet = find.byKey(
+        const ValueKey<String>('world-single-section-bottom-sheet'),
+      );
+      expect(sectionSheet, findsOneWidget);
+      final verticalScrollable = find
+          .descendant(
+            of: sectionSheet,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Scrollable &&
+                  axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+            ),
+          )
+          .hitTestable()
+          .last;
+      await tester.drag(verticalScrollable, const Offset(0, 500));
+      await tester.pumpAndSettle();
+      expect(sectionSheet, findsNothing);
+    }
+
+    await tester.tap(detailTag);
+    await tester.pumpAndSettle();
+    final headerDraggedSheet = find.byKey(
+      const ValueKey<String>('world-single-section-bottom-sheet'),
+    );
+    await tester.drag(
+      find.byKey(const ValueKey<String>('world-sheet-header-drag-area')),
+      const Offset(0, 500),
+    );
+    await tester.pumpAndSettle();
+    expect(headerDraggedSheet, findsNothing);
   });
 
   testWidgets('world route shows its real shell during initial Android push', (

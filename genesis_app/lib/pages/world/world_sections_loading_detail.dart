@@ -353,6 +353,7 @@ class WorldDetailSectionListView extends StatelessWidget {
     required this.storageKey,
     required this.world,
     required this.currentUid,
+    this.controller,
     this.newUserJoinNotice,
     this.onDeleteWorld,
   });
@@ -360,6 +361,7 @@ class WorldDetailSectionListView extends StatelessWidget {
   final String storageKey;
   final WorldDetail world;
   final String currentUid;
+  final ScrollController? controller;
   final WorldNewUserJoinNotice? newUserJoinNotice;
   final Future<void> Function(BuildContext context, WorldDetail world)?
   onDeleteWorld;
@@ -374,6 +376,7 @@ class WorldDetailSectionListView extends StatelessWidget {
     final itemCount = 1 + math.max(sortedCharacters.length, 1).toInt();
     return WorldSectionListView.builder(
       storageKey: storageKey,
+      controller: controller,
       itemCount: itemCount,
       itemBuilder: (context, index) {
         if (index == 0) {
@@ -610,17 +613,22 @@ class WorldDetailCoverImage extends StatelessWidget {
 }
 
 class WorldSectionListView extends StatelessWidget {
-  const WorldSectionListView({required this.storageKey, required this.child})
-    : itemCount = null,
-      itemBuilder = null;
+  const WorldSectionListView({
+    required this.storageKey,
+    required this.child,
+    this.controller,
+  }) : itemCount = null,
+       itemBuilder = null;
 
   const WorldSectionListView.builder({
     required this.storageKey,
     required this.itemCount,
     required this.itemBuilder,
+    this.controller,
   }) : child = null;
 
   final String storageKey;
+  final ScrollController? controller;
   final Widget? child;
   final int? itemCount;
   final IndexedWidgetBuilder? itemBuilder;
@@ -631,6 +639,7 @@ class WorldSectionListView extends StatelessWidget {
     if (itemBuilder != null) {
       return ListView.builder(
         key: PageStorageKey<String>(storageKey),
+        controller: controller,
         primary: false,
         physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(
@@ -645,6 +654,7 @@ class WorldSectionListView extends StatelessWidget {
     }
     return ListView(
       key: PageStorageKey<String>(storageKey),
+      controller: controller,
       primary: false,
       physics: const ClampingScrollPhysics(),
       padding: const EdgeInsets.fromLTRB(

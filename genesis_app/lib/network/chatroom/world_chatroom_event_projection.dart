@@ -104,7 +104,10 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
     );
     switch (event.eventType) {
       case 'world_change':
-        await _refreshWorld(socketCurrentTime: event.currentTime);
+        await _consumeQueuedWorldRefresh(
+          event,
+          socketCurrentTime: event.currentTime,
+        );
       case 'user_location_change':
         unawaited(
           _scheduleUserLocationsRefresh(socketCurrentTime: event.currentTime),
@@ -120,8 +123,17 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
             socketCurrentTime: event.currentTime,
           ),
         );
+        await _consumeQueuedWorldRefresh(
+          event,
+          socketCurrentTime: event.currentTime,
+          detectMapContent: true,
+        );
       case 'character_updated':
-        break;
+        await _consumeQueuedWorldRefresh(
+          event,
+          socketCurrentTime: event.currentTime,
+          detectCharacterContent: true,
+        );
       case 'characters_moved':
         final timelinePayload = event.timelinePayload;
         if (timelinePayload is ChatroomCharactersMovedPayload) {
@@ -195,6 +207,10 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
             socketCurrentTime: event.currentTime,
           ),
         );
+        await _consumeQueuedWorldRefresh(
+          event,
+          socketCurrentTime: event.currentTime,
+        );
         break;
       default:
         break;
@@ -235,6 +251,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           tickNo: 0,
         ) ??
         world;
+    if (_disposed) return updatedWorld;
     final entities = _entitiesFromWorld(updatedWorld);
     _setState(
       _stateWithSocketWorldProgress(
@@ -253,6 +270,240 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       ),
     );
     return updatedWorld;
+  }
+
+  Future<WorldDetail?> _scheduleWorldRefresh({
+    String socketCurrentTime = '',
+    bool detectMapContent = false,
+    bool detectCharacterContent = false,
+  }) {
+    if (_disposed || _worldId.trim().isEmpty) {
+      return Future<WorldDetail?>.value(_state.world);
+    }
+    _worldRefreshPending = true;
+    _pendingMapContentDetection |= detectMapContent;
+    _pendingCharacterContentDetection |= detectCharacterContent;
+    final resolvedCurrentTime = socketCurrentTime.trim();
+    if (resolvedCurrentTime.isNotEmpty) {
+      _pendingWorldRefreshSocketCurrentTime = resolvedCurrentTime;
+    }
+    return _startWorldRefreshDrain();
+  }
+
+  void _prepareWorldRefreshForQueuedEvent(ChatroomEvent event) {
+    if (event is! ChatroomWorldNotification) return;
+    final eventType = event.eventType;
+    if (eventType != 'world_change' &&
+        eventType != 'tick_done' &&
+        eventType != 'map_updated' &&
+        eventType != 'character_updated') {
+      return;
+    }
+    _queuedNotificationWorldRefreshes[event] = _scheduleWorldRefresh(
+      socketCurrentTime: event.currentTime,
+      detectMapContent: eventType == 'map_updated',
+      detectCharacterContent: eventType == 'character_updated',
+    );
+  }
+
+  Future<WorldDetail?> _consumeQueuedWorldRefresh(
+    ChatroomWorldNotification event, {
+    required String socketCurrentTime,
+    bool detectMapContent = false,
+    bool detectCharacterContent = false,
+  }) {
+    return _queuedNotificationWorldRefreshes.remove(event) ??
+        _scheduleWorldRefresh(
+          socketCurrentTime: socketCurrentTime,
+          detectMapContent: detectMapContent,
+          detectCharacterContent: detectCharacterContent,
+        );
+  }
+
+  Future<WorldDetail?> _startWorldRefreshDrain() {
+    final activeDrain = _worldRefreshDrain;
+    if (activeDrain != null) return activeDrain;
+    final drain = Future<WorldDetail?>.delayed(
+      Duration.zero,
+      _drainWorldRefreshes,
+    );
+    _worldRefreshDrain = drain;
+    unawaited(
+      drain.then((_) {
+        if (!identical(_worldRefreshDrain, drain)) return;
+        _worldRefreshDrain = null;
+        if (_worldRefreshPending && !_disposed) {
+          unawaited(_startWorldRefreshDrain());
+        }
+      }),
+    );
+    return drain;
+  }
+
+  Future<WorldDetail?> _drainWorldRefreshes() async {
+    final baselineWorld = _state.world;
+    var latestWorld = baselineWorld;
+    var detectMapContent = false;
+    var detectCharacterContent = false;
+
+    while (_worldRefreshPending && !_disposed) {
+      _worldRefreshPending = false;
+      detectMapContent |= _pendingMapContentDetection;
+      detectCharacterContent |= _pendingCharacterContentDetection;
+      _pendingMapContentDetection = false;
+      _pendingCharacterContentDetection = false;
+      final socketCurrentTime = _pendingWorldRefreshSocketCurrentTime;
+      _pendingWorldRefreshSocketCurrentTime = '';
+      try {
+        latestWorld = await _refreshWorld(socketCurrentTime: socketCurrentTime);
+      } catch (error) {
+        if (!_disposed) {
+          _recordFailure(
+            ChatroomFailureEvent(
+              code: 'world_snapshot_refresh_failed',
+              message: 'Something went wrong',
+              sourceType: 'world_notification',
+              requestType: 'world_detail',
+              cause: error,
+            ),
+          );
+        }
+        return latestWorld;
+      }
+    }
+
+    if (!_disposed && !_userDisconnected && latestWorld != null) {
+      _publishContentUpdateNotices(
+        previousWorld: baselineWorld,
+        updatedWorld: latestWorld,
+        includeLocations: detectMapContent,
+        includeCharacters: detectCharacterContent,
+      );
+    }
+    return latestWorld;
+  }
+
+  void _publishContentUpdateNotices({
+    required WorldDetail? previousWorld,
+    required WorldDetail updatedWorld,
+    required bool includeLocations,
+    required bool includeCharacters,
+  }) {
+    if (!includeLocations && !includeCharacters) return;
+    final notices = <WorldContentUpdateNotice>[];
+    if (includeLocations) {
+      final previousIds = _worldContentIds(
+        previousWorld?.locations ?? const <Map<String, dynamic>>[],
+        const ['location_id', 'id'],
+      );
+      for (final location in updatedWorld.locations) {
+        final id = _firstString(location, const ['location_id', 'id']);
+        if (id.isEmpty ||
+            !asBool(location['is_new']) ||
+            previousIds.contains(id)) {
+          continue;
+        }
+        final notice = WorldContentUpdateNotice(
+          kind: WorldContentUpdateKind.location,
+          entityId: id,
+          name: _firstString(location, const ['location_name', 'name']),
+          targetLocationId: id,
+          avatarUrl: _firstImageUrl(location, const ['image', 'image_url']),
+          tickCount: updatedWorld.tickCount,
+          contextLabel: _locationParentName(updatedWorld, location),
+        );
+        if (_publishedContentUpdateOccurrences.add(notice.occurrenceKey)) {
+          notices.add(notice);
+        }
+      }
+    }
+    if (includeCharacters) {
+      final previousIds = _worldContentIds(
+        previousWorld?.characters ?? const <Map<String, dynamic>>[],
+        const ['char_id', 'character_id', 'id'],
+      );
+      for (final character in updatedWorld.characters) {
+        final id = _firstString(character, const [
+          'char_id',
+          'character_id',
+          'id',
+        ]);
+        if (id.isEmpty ||
+            !asBool(character['is_new']) ||
+            previousIds.contains(id)) {
+          continue;
+        }
+        final notice = WorldContentUpdateNotice(
+          kind: WorldContentUpdateKind.character,
+          entityId: id,
+          name: _firstString(character, const [
+            'name',
+            'character_name',
+            'role_name',
+          ]),
+          targetLocationId: _characterLocationId(updatedWorld, character, id),
+          avatarUrl: _firstImageUrl(character, const ['avatar', 'avatar_url']),
+          tickCount: updatedWorld.tickCount,
+          contextLabel: _firstString(character, const ['identity']),
+        );
+        if (_publishedContentUpdateOccurrences.add(notice.occurrenceKey)) {
+          notices.add(notice);
+        }
+      }
+    }
+    if (notices.isEmpty) return;
+    _setState(
+      _state.copyWith(
+        latestContentUpdateNotices: List<WorldContentUpdateNotice>.unmodifiable(
+          notices,
+        ),
+        contentUpdateNoticeRevision: _state.contentUpdateNoticeRevision + 1,
+      ),
+    );
+  }
+
+  Set<String> _worldContentIds(
+    List<Map<String, dynamic>> items,
+    List<String> keys,
+  ) {
+    return <String>{
+      for (final item in items)
+        if (_firstString(item, keys).isNotEmpty) _firstString(item, keys),
+    };
+  }
+
+  String _characterLocationId(
+    WorldDetail world,
+    Map<String, dynamic> character,
+    String characterId,
+  ) {
+    final directLocationId = _firstString(character, const [
+      'location_id',
+      'current_location_id',
+      'initial_location_id',
+    ]);
+    if (directLocationId.isNotEmpty) return directLocationId;
+    for (final position in world.characterPositions) {
+      final rawCharacter = position['character'];
+      final positionedCharacter = rawCharacter is Map
+          ? asJsonMap(rawCharacter)
+          : position;
+      final positionedId = _firstString(positionedCharacter, const [
+        'char_id',
+        'character_id',
+        'id',
+      ]);
+      if (positionedId == characterId) return _locationIdFromMap(position);
+    }
+    return '';
+  }
+
+  String _locationParentName(WorldDetail world, Map<String, dynamic> location) {
+    final parentId = _firstString(location, const ['location_pid']);
+    if (parentId.isEmpty) return '';
+    final parent = world.processedLocationTree.nodeById(parentId)?.value;
+    if (parent == null) return '';
+    return _firstString(parent, const ['location_name', 'name']);
   }
 
   Future<void> _scheduleUserLocationsRefresh({String socketCurrentTime = ''}) {

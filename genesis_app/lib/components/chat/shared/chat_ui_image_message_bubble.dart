@@ -33,6 +33,7 @@ class ChatImageMessage extends StatelessWidget {
               key: ValueKey<String>('chat-image-message-${message.localId}'),
               imageUrl: _rawImageUrl(message),
               maxWidth: maxWidth,
+              placeholderColor: _chatNarratorMessageBackgroundColor(style),
               borderRadius: BorderRadius.circular(8),
               onTap: _rawImageUrl(message).isEmpty
                   ? null

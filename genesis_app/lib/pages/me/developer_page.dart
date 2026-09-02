@@ -44,6 +44,7 @@ import '../../platform/billing/billing_service.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../gems/gem_wallet_page.dart';
+import '../world/world_update_push_banner.dart';
 import '../../ui/genesis_ui.dart';
 import 'about_us_page.dart';
 
@@ -81,10 +82,15 @@ const List<String> _creatingPreviewWaitLines = [
   'Jon: Archive courier. Restless, charming, and far too willing to trade secrets for a shortcut.',
 ];
 
-const List<String> _developerPageCoreTabs = <String>['basic', 'test'];
+const List<String> _developerPageCoreTabs = <String>[
+  'basic',
+  'switch',
+  'button',
+];
 const List<String> _developerPageDebugTabs = <String>[
   'basic',
-  'test',
+  'switch',
+  'button',
   'network',
   'websocket',
 ];
@@ -482,6 +488,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
               const SizedBox(height: 4),
               Expanded(
                 child: TabBarView(
+                  key: const ValueKey<String>('developer-page-tab-view'),
                   controller: _tabController,
                   children: [
                     _buildInfoTab(
@@ -490,9 +497,15 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                           ? widget.sheetScrollController
                           : null,
                     ),
-                    _buildTestTab(
+                    _buildTestSwitchTab(
                       horizontalContentPadding,
                       scrollController: _selectedTabIndex == 1
+                          ? widget.sheetScrollController
+                          : null,
+                    ),
+                    _buildTestButtonTab(
+                      horizontalContentPadding,
+                      scrollController: _selectedTabIndex == 2
                           ? widget.sheetScrollController
                           : null,
                     ),
@@ -699,12 +712,12 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     ];
   }
 
-  Widget _buildTestTab(
+  Widget _buildTestSwitchTab(
     double horizontalPadding, {
     ScrollController? scrollController,
   }) {
     return ListView(
-      key: const PageStorageKey<String>('developer-test-tab-scroll'),
+      key: const PageStorageKey<String>('developer-test-switch-tab-scroll'),
       controller: scrollController,
       padding: EdgeInsets.fromLTRB(
         horizontalPadding,
@@ -889,7 +902,51 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
             );
           },
         ),
-        const SizedBox(height: 18),
+      ],
+    );
+  }
+
+  Widget _buildTestButtonTab(
+    double horizontalPadding, {
+    ScrollController? scrollController,
+  }) {
+    return ListView(
+      key: const PageStorageKey<String>('developer-test-button-tab-scroll'),
+      controller: scrollController,
+      padding: EdgeInsets.fromLTRB(
+        horizontalPadding,
+        10,
+        horizontalPadding,
+        20,
+      ),
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: GenesisPrimaryButton(
+                key: const ValueKey<String>('developer-world-update-push-only'),
+                label: 'Push only',
+                onPressed: () => _showWorldUpdatePushPreview(multiple: false),
+                backgroundColor: const Color(0xFFE1E1E3),
+                foregroundColor: Colors.black,
+              ),
+            ),
+            const SizedBox(width: _itemGap),
+            Expanded(
+              child: GenesisPrimaryButton(
+                key: const ValueKey<String>(
+                  'developer-world-update-push-multi',
+                ),
+                label: 'Push multi',
+                onPressed: () => _showWorldUpdatePushPreview(multiple: true),
+                backgroundColor: const Color(0xFFE1E1E3),
+                foregroundColor: Colors.black,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
           label: 'Creating',
           onPressed: _showCreatingWaitOverlayPreview,

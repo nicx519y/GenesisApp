@@ -96,7 +96,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('basic and test content can drag the debug sheet down', (
+  testWidgets('basic switch and button content can drag the debug sheet down', (
     tester,
   ) async {
     final navigatorKey = GlobalKey<NavigatorState>();
@@ -128,10 +128,25 @@ void main() {
     expect(find.byType(DeveloperPageSheet), findsNothing);
 
     await openSheet();
-    await tester.tap(find.text('test'));
+    await tester.tap(find.text('switch'));
     await tester.pumpAndSettle();
     await tester.fling(
-      find.byKey(const PageStorageKey<String>('developer-test-tab-scroll')),
+      find.byKey(
+        const PageStorageKey<String>('developer-test-switch-tab-scroll'),
+      ),
+      const Offset(0, 500),
+      2000,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DeveloperPageSheet), findsNothing);
+
+    await openSheet();
+    await tester.tap(find.text('button'));
+    await tester.pumpAndSettle();
+    await tester.fling(
+      find.byKey(
+        const PageStorageKey<String>('developer-test-button-tab-scroll'),
+      ),
       const Offset(0, 500),
       2000,
     );

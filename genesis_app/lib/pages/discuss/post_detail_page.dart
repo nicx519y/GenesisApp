@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/common/genesis_image_viewer_overlay.dart';
 import '../../components/common/genesis_report_actions.dart';
 import '../../components/discuss/discuss_page_comment_list.dart';
 import '../../components/discuss/origin_discuss_list.dart';
@@ -15,10 +14,8 @@ import '../../network/json_utils.dart';
 import '../../platform/session/session_revision_subscription.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/entity_deleted.dart';
 import '../../utils/genesis_timestamp_formatter.dart';
@@ -420,10 +417,6 @@ class _PostReplyRow extends StatelessWidget {
                 _replyDisplayContentSpan(reply),
                 style: _postDetailBodyStyle,
               ),
-              if (data.imageUrls.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                _PostImageGrid(urls: data.imageUrls),
-              ],
               const SizedBox(height: 8),
               _ReplyActionRow(
                 controller: controller,
@@ -657,51 +650,6 @@ class _ReplyAvatarLink extends StatelessWidget {
   }
 }
 
-class _PostImageGrid extends StatelessWidget {
-  const _PostImageGrid({required this.urls});
-
-  static const int _maxVisibleImages = 6;
-  static const double _imageSize = 80;
-  static const double _imageGap = 6;
-
-  final List<String> urls;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleUrls = urls.take(_maxVisibleImages).toList(growable: false);
-    return Wrap(
-      spacing: _imageGap,
-      runSpacing: _imageGap,
-      children: [
-        for (final entry in visibleUrls.indexed)
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTap: () => showGenesisImageViewer(
-              context,
-              imageUrls: urls,
-              previewImageProviders: [
-                for (final url in urls)
-                  genesisImageViewerListPreviewProvider(
-                    context,
-                    source: url,
-                    logicalWidth: _imageSize,
-                    logicalHeight: _imageSize,
-                  ),
-              ],
-              initialIndex: entry.$1,
-            ),
-            child: GenesisListImage(
-              imageUrl: entry.$2,
-              width: _imageSize,
-              height: _imageSize,
-              borderRadius: GenesisImageRadii.content,
-            ),
-          ),
-      ],
-    );
-  }
-}
-
 class _ReplyViewData {
   const _ReplyViewData({
     required this.discussId,
@@ -714,7 +662,6 @@ class _ReplyViewData {
     required this.likeCount,
     required this.replyCount,
     required this.isLiked,
-    required this.imageUrls,
     required this.dateLabel,
   });
 
@@ -747,7 +694,6 @@ class _ReplyViewData {
       likeCount: asInt(json['like_cnt'], fallback: asInt(json['like_count'])),
       replyCount: asInt(json['reply_cnt']),
       isLiked: asBool(json['is_liked']),
-      imageUrls: _imageUrlsFrom(json['images'] ?? json['image_urls']),
       dateLabel: formatGenesisDateTime(_parseDateTime(json['created_at'])),
     );
   }
@@ -762,7 +708,6 @@ class _ReplyViewData {
   final int likeCount;
   final int replyCount;
   final bool isLiked;
-  final List<String> imageUrls;
   final String dateLabel;
 }
 
@@ -800,26 +745,4 @@ DateTime? _parseDateTime(Object? value) {
   if (text.isEmpty) return null;
   return DateTime.tryParse(text) ??
       DateTime.tryParse(text.replaceFirst(' ', 'T'));
-}
-
-List<String> _imageUrlsFrom(Object? value) {
-  if (value is String) {
-    final trimmed = value.trim();
-    return trimmed.isEmpty ? const <String>[] : <String>[trimmed];
-  }
-  if (value is! List) return const <String>[];
-  return value
-      .map((raw) {
-        if (raw is Map) {
-          final map = asJsonMap(raw);
-          return asImageUrl(
-            map['url'] ?? map['image_url'] ?? map['image'],
-            fallback: raw,
-          );
-        }
-        return asString(raw);
-      })
-      .map((url) => url.trim())
-      .where((url) => url.isNotEmpty)
-      .toList(growable: false);
 }

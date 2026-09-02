@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -4493,6 +4495,63 @@ void main() {
       );
       expect(image.borderRadius, BorderRadius.circular(8));
     }
+  });
+
+  testWidgets('chat image loading placeholder matches narrator bubble color', (
+    WidgetTester tester,
+  ) async {
+    const source = 'https://cdn-001.worldo.ai/chat/pending.webp';
+    final pendingImageInfo = Completer<Object?>();
+    addTearDown(() {
+      debugGenesisMessageImageInfoLoader = null;
+      clearGenesisMessageImageSizeCache();
+    });
+    debugGenesisMessageImageInfoLoader = (_) => pendingImageInfo.future;
+
+    Future<Color> placeholderColor(ChatUiStyleConfig style) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatMessageRow(
+              message: ChatMessageVm(
+                localId: 'pending-image',
+                senderId: 'nar_pic',
+                senderName: 'Narrator',
+                senderType: 'image',
+                imageUrl: source,
+                text: source,
+                isMe: false,
+                status: 'sent',
+              ),
+              showDateDivider: false,
+              style: style,
+            ),
+          ),
+        ),
+      );
+      final placeholder = tester.widget<ColoredBox>(
+        find.descendant(
+          of: find.byType(ChatThumbnailImage),
+          matching: find.byType(ColoredBox),
+        ),
+      );
+      expect(
+        find.descendant(
+          of: find.byType(ChatThumbnailImage),
+          matching: find.image(
+            const AssetImage('assets/images/default_list_image.png'),
+          ),
+        ),
+        findsNothing,
+      );
+      return placeholder.color;
+    }
+
+    expect(
+      await placeholderColor(kOpeningDialogueStyle),
+      const Color(0xE6111111),
+    );
+    expect(await placeholderColor(kLocationChatStyle), const Color(0x80151517));
   });
 
   testWidgets('location chat image keeps only the avatar-side inset', (

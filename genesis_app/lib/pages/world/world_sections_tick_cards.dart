@@ -89,6 +89,7 @@ class WorldTickPendingSkeletonLine extends StatelessWidget {
 class WorldTickEventCardPage extends StatefulWidget {
   const WorldTickEventCardPage({
     super.key,
+    this.scrollController,
     this.child,
     this.itemCount,
     this.itemBuilder,
@@ -108,6 +109,7 @@ class WorldTickEventCardPage extends StatefulWidget {
        ),
        assert(itemCount == null || itemCount >= 0);
 
+  final ScrollController? scrollController;
   final Widget? child;
   final int? itemCount;
   final IndexedWidgetBuilder? itemBuilder;
@@ -127,9 +129,8 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   static const double _edgeArrowMinSize = 18;
   static const double _edgeArrowMaxSize = 24;
 
-  final ScrollController _scrollController = ScrollController(
-    keepScrollOffset: false,
-  );
+  late ScrollController _scrollController;
+  late bool _ownsScrollController;
   final GlobalKey _lastItemCenterKey = GlobalKey();
   var _dragDeltaY = 0.0;
   var _dragStartedAtTop = true;
@@ -138,8 +139,20 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
   var _bottomPullDistance = 0.0;
 
   @override
+  void initState() {
+    super.initState();
+    _setScrollController(widget.scrollController);
+  }
+
+  @override
   void didUpdateWidget(covariant WorldTickEventCardPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.scrollController != widget.scrollController) {
+      final oldController = _scrollController;
+      final ownedOldController = _ownsScrollController;
+      _setScrollController(widget.scrollController);
+      if (ownedOldController) oldController.dispose();
+    }
     if (oldWidget.resetRevision != widget.resetRevision) {
       _jumpScrollToTop();
     }
@@ -147,8 +160,13 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    if (_ownsScrollController) _scrollController.dispose();
     super.dispose();
+  }
+
+  void _setScrollController(ScrollController? controller) {
+    _ownsScrollController = controller == null;
+    _scrollController = controller ?? ScrollController(keepScrollOffset: false);
   }
 
   void _jumpScrollToTop() {
@@ -196,7 +214,9 @@ class WorldTickEventCardPageState extends State<WorldTickEventCardPage> {
     _setEdgePullDistance(top: 0, bottom: 0);
     if (dragDeltaY <= -_turnDragThreshold && _dragStartedAtBottom) {
       widget.onTurnPage(1);
-    } else if (dragDeltaY >= _turnDragThreshold && _dragStartedAtTop) {
+    } else if (widget.scrollController == null &&
+        dragDeltaY >= _turnDragThreshold &&
+        _dragStartedAtTop) {
       widget.onTurnPage(-1);
     }
   }
