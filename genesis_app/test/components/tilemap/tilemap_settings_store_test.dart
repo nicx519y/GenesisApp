@@ -136,9 +136,9 @@ void main() {
       'location_image_flow_duration_seconds': 7.5,
       'location_image_flow_blend_mode': 'plus',
       'nearby_location_distance_tiles': 1.0,
-      'distant_location_distance_tiles': 2.5,
+      'distant_location_distance_tiles': 2.25,
       'nearby_location_initial_scale': 15.0,
-      'distant_location_initial_scale': 8.0,
+      'distant_location_initial_scale': 5.0,
       'drag_boundary_padding_tiles': 2.0,
     });
   });
@@ -242,48 +242,53 @@ void main() {
     expect(serialized['drag_boundary_padding_tiles'], 8);
   });
 
-  test(
-    'release runtime fixes loading screen to Off and keeps auto zoom settings',
-    () {
-      const cachedSettings = TilemapRenderSettings(
-        visualMode: TilemapVisualMode.light,
-        loadingStyle: TilemapLoadingStyle.worldPortal,
-        fogControlPoints: tilemapDefaultFogControlPoints,
-        blendFogWithShadowTiles: false,
-        cacheFogTileBitmaps: false,
-        showShadowZeroBorders: true,
-        showLocationImageFlow: false,
-        locationImageFlowAngleDegrees: 120,
-        locationImageFlowGradientPoints:
-            tilemapDefaultLocationImageFlowGradientPoints,
-        locationImageFlowOpacity: 0.65,
-        locationImageFlowDurationSeconds: 4.5,
-        locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
-        nearbyLocationDistanceTiles: 2,
-        distantLocationDistanceTiles: 6,
-        nearbyLocationInitialScale: 20,
-        distantLocationInitialScale: 10,
-        dragBoundaryPaddingTiles: 8,
-      );
+  test('release runtime fixes loading screen and automatic initial zoom', () {
+    const cachedSettings = TilemapRenderSettings(
+      visualMode: TilemapVisualMode.light,
+      loadingStyle: TilemapLoadingStyle.worldPortal,
+      fogControlPoints: tilemapDefaultFogControlPoints,
+      blendFogWithShadowTiles: false,
+      cacheFogTileBitmaps: false,
+      showShadowZeroBorders: true,
+      showLocationImageFlow: false,
+      locationImageFlowAngleDegrees: 120,
+      locationImageFlowGradientPoints:
+          tilemapDefaultLocationImageFlowGradientPoints,
+      locationImageFlowOpacity: 0.65,
+      locationImageFlowDurationSeconds: 4.5,
+      locationImageFlowBlendMode: TilemapLocationImageFlowBlendMode.screen,
+      nearbyLocationDistanceTiles: 2,
+      distantLocationDistanceTiles: 6,
+      nearbyLocationInitialScale: 20,
+      distantLocationInitialScale: 10,
+      dragBoundaryPaddingTiles: 8,
+    );
 
-      final releaseSettings = cachedSettings.resolveForRuntime(
-        releaseMode: true,
-      );
-      final debugSettings = cachedSettings.resolveForRuntime(
-        releaseMode: false,
-      );
+    final releaseSettings = cachedSettings.resolveForRuntime(releaseMode: true);
+    final debugSettings = cachedSettings.resolveForRuntime(releaseMode: false);
 
-      expect(releaseSettings.loadingStyle, TilemapLoadingStyle.disabled);
-      expect(releaseSettings.nearbyLocationDistanceTiles, 2);
-      expect(releaseSettings.distantLocationDistanceTiles, 6);
-      expect(releaseSettings.nearbyLocationInitialScale, 20);
-      expect(releaseSettings.distantLocationInitialScale, 10);
-      expect(releaseSettings.visualMode, cachedSettings.visualMode);
-      expect(releaseSettings.cacheFogTileBitmaps, false);
-      expect(releaseSettings.dragBoundaryPaddingTiles, 8);
-      expect(debugSettings, same(cachedSettings));
-    },
-  );
+    expect(releaseSettings.loadingStyle, TilemapLoadingStyle.disabled);
+    expect(
+      releaseSettings.nearbyLocationDistanceTiles,
+      tilemapDefaultNearbyLocationDistanceTiles,
+    );
+    expect(
+      releaseSettings.distantLocationDistanceTiles,
+      tilemapDefaultDistantLocationDistanceTiles,
+    );
+    expect(
+      releaseSettings.nearbyLocationInitialScale,
+      tilemapDefaultNearbyLocationInitialScale,
+    );
+    expect(
+      releaseSettings.distantLocationInitialScale,
+      tilemapDefaultDistantLocationInitialScale,
+    );
+    expect(releaseSettings.visualMode, cachedSettings.visualMode);
+    expect(releaseSettings.cacheFogTileBitmaps, false);
+    expect(releaseSettings.dragBoundaryPaddingTiles, 8);
+    expect(debugSettings, same(cachedSettings));
+  });
 
   test('falls back only invalid cached fields', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{

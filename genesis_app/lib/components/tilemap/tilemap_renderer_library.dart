@@ -43,10 +43,9 @@ const double tilemapLocationDistanceThresholdMin = 1;
 const double tilemapLocationDistanceThresholdMax = 20;
 const double tilemapLocationDistanceThresholdStep = 0.25;
 const double tilemapDefaultNearbyLocationDistanceTiles = 1;
-const double tilemapDefaultDistantLocationDistanceTiles = 2.5;
+const double tilemapDefaultDistantLocationDistanceTiles = 2.25;
 const double tilemapDefaultNearbyLocationInitialScale = 15;
-const double tilemapDefaultDistantLocationInitialScale =
-    tilemapDefaultInitialScale;
+const double tilemapDefaultDistantLocationInitialScale = 5;
 const double tilemapNearbyLocationInitialScaleMin = 8;
 const double tilemapNearbyLocationInitialScaleMax = 20;
 const double tilemapDistantLocationInitialScaleMin = 4;
