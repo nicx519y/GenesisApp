@@ -2111,7 +2111,7 @@ query：
 
 ### POST `https://collect.worldo.ai/api/v1/collect`
 
-批量提交客户端行为事件。客户端在事件发生时先写入独立 SQLite 队列；冷启动的 `startup_first_report` 在 Collect recorder 准备完成后立即记录，早于 `runApp` 和 `GenesisTelemetry.initialize()`。Telemetry 初始化完成后再由独立上传器消费；每次按 FIFO 最多领取 500 条，批次成功后删除，失败时整批恢复为待发送状态。
+批量提交客户端行为事件。客户端在事件发生时先写入独立 SQLite 队列；冷启动的 `startup_first_report` 和 `launch_startup` 在 Collect recorder 准备完成后立即记录，早于 `runApp` 和 Firebase/Telemetry 完整初始化。Telemetry 初始化完成后再由独立上传器消费；每次按 FIFO 最多领取 500 条，批次成功后删除，失败时整批恢复为待发送状态。
 
 请求 header 在实际上传时按当前上下文生成：
 
