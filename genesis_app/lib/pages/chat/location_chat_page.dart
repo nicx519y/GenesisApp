@@ -158,7 +158,7 @@ locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics({
     0.0,
     logicalWidth -
         avatarSize * 2 -
-        avatarBubbleGap * 2 -
+        avatarBubbleGap -
         messageListHorizontalPadding,
   );
   return LocationChatOrdinaryMessageBubbleMaxWidthCaps(
