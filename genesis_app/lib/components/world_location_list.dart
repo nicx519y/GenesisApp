@@ -70,6 +70,7 @@ class WorldLocationList extends StatefulWidget {
   const WorldLocationList({
     super.key,
     required this.points,
+    this.controller,
     this.locationNodes = const <WorldMapLocationNode>[],
     this.physics,
     this.enableOuterScrollHandoff = true,
@@ -85,6 +86,7 @@ class WorldLocationList extends StatefulWidget {
   });
 
   final List<WorldPoint> points;
+  final ScrollController? controller;
   final List<WorldMapLocationNode> locationNodes;
   final ScrollPhysics? physics;
   final bool enableOuterScrollHandoff;
@@ -103,7 +105,8 @@ class WorldLocationList extends StatefulWidget {
 }
 
 class _WorldLocationListState extends State<WorldLocationList> {
-  final ScrollController _listController = ScrollController();
+  late ScrollController _listController;
+  late bool _ownsListController;
   ScrollController? _outerController;
   bool _outerPageAtTop = true;
   bool _pointerActive = false;
@@ -113,6 +116,12 @@ class _WorldLocationListState extends State<WorldLocationList> {
 
   static const double _ballisticHandoffMinVelocity = 80;
   static const double _ballisticHandoffDistanceFactor = 0.18;
+
+  @override
+  void initState() {
+    super.initState();
+    _setListController(widget.controller);
+  }
 
   @override
   void didChangeDependencies() {
@@ -127,6 +136,12 @@ class _WorldLocationListState extends State<WorldLocationList> {
   @override
   void didUpdateWidget(covariant WorldLocationList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      final oldController = _listController;
+      final ownedOldController = _ownsListController;
+      _setListController(widget.controller);
+      if (ownedOldController) oldController.dispose();
+    }
     if (oldWidget.enableOuterScrollHandoff != widget.enableOuterScrollHandoff) {
       _setOuterController(
         widget.enableOuterScrollHandoff
@@ -139,8 +154,13 @@ class _WorldLocationListState extends State<WorldLocationList> {
   @override
   void dispose() {
     _outerController?.removeListener(_handleOuterScroll);
-    _listController.dispose();
+    if (_ownsListController) _listController.dispose();
     super.dispose();
+  }
+
+  void _setListController(ScrollController? controller) {
+    _ownsListController = controller == null;
+    _listController = controller ?? ScrollController();
   }
 
   @override

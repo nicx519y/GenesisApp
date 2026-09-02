@@ -50,6 +50,7 @@ class WorldCharacterListView extends StatelessWidget {
     required this.subtitleBuilder,
     required this.subtitleColor,
     required this.showCharacterDetails,
+    this.controller,
   });
 
   final String storageKey;
@@ -59,12 +60,14 @@ class WorldCharacterListView extends StatelessWidget {
   final String Function(Map<String, dynamic> character) subtitleBuilder;
   final Color subtitleColor;
   final bool showCharacterDetails;
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context) {
     final sortedCharacters = worldSortedCharacters(characters, currentUid);
     return WorldSectionListView.builder(
       storageKey: storageKey,
+      controller: controller,
       itemCount: math.max(sortedCharacters.length, 1),
       itemBuilder: (context, index) {
         if (sortedCharacters.isEmpty) {

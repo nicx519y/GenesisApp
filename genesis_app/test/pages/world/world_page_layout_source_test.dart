@@ -163,12 +163,12 @@ void main() {
       bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
     );
     final eventsSectionBuilder = bottomSheet.substring(
-      bottomSheet.indexOf('Widget _buildEventsSectionPage()'),
-      bottomSheet.indexOf('Widget _buildStatusSectionPage()'),
+      bottomSheet.indexOf('Widget _buildEventsSectionPage('),
+      bottomSheet.indexOf('Widget _buildStatusSectionPage('),
     );
     final locationsSectionBuilder = bottomSheet.substring(
-      bottomSheet.indexOf('Widget _buildLocationsSectionPage()'),
-      bottomSheet.indexOf('Widget _buildDetailSectionPage()'),
+      bottomSheet.indexOf('Widget _buildLocationsSectionPage('),
+      bottomSheet.indexOf('Widget _buildDetailSectionPage('),
     );
     final singleSectionSheet = bottomSheet.substring(
       bottomSheet.indexOf('class WorldSingleSectionBottomSheet'),
@@ -201,17 +201,40 @@ void main() {
     expect(bottomTags, contains('overscroll: false'));
     expect(eventsSectionBuilder, contains('ScrollConfiguration'));
     expect(eventsSectionBuilder, contains('overscroll: false'));
+    expect(
+      eventsSectionBuilder,
+      contains('scrollController: scrollController'),
+    );
     expect(locationsSectionBuilder, contains('ScrollConfiguration'));
     expect(locationsSectionBuilder, contains('overscroll: false'));
+    expect(locationsSectionBuilder, contains('controller: scrollController'));
     expect(eventsSectionBuilder, contains('worldSheetVisibleContentTopGap'));
     expect(
       locationsSectionBuilder,
       contains('worldSheetVisibleContentTopGap - 5'),
     );
     expect(singleSectionSheet, contains('Expanded('));
-    expect(singleSectionSheet, contains('_buildSheetContent()'));
-    expect(singleSectionSheet, contains('GenesisBottomSheetDragDismissArea('));
-    expect(singleSectionSheet, isNot(contains('return Listener(')));
+    expect(
+      singleSectionSheet,
+      contains('_buildSheetContent(scrollController)'),
+    );
+    expect(singleSectionSheet, contains('DraggableScrollableSheet('));
+    expect(
+      singleSectionSheet,
+      contains('_buildSheetPage(kind, scrollController)'),
+    );
+    expect(singleSectionSheet, contains('snap: false'));
+    expect(singleSectionSheet, contains('onPointerUp: _handleSheetPointerEnd'));
+    expect(
+      singleSectionSheet,
+      contains('onPointerCancel: _handleSheetPointerEnd'),
+    );
+    expect(singleSectionSheet, contains('worldCollapsedPanelHeightFor('));
+    expect(singleSectionSheet, contains('_collapseSnapRange = 0.04'));
+    expect(
+      singleSectionSheet,
+      isNot(contains('GenesisBottomSheetDragDismissArea(')),
+    );
     expect(singleSectionSheet, isNot(contains('PointerDownEvent')));
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
@@ -223,7 +246,7 @@ void main() {
     expect(source, isNot(contains('EdgeInsets.fromLTRB(24, 14, 24, 32)')));
     expect(bottomTags, isNot(contains('TabBar(')));
     expect(source, contains('_openWorldBottomSheet('));
-    expect(source, contains('enableDrag: true'));
+    expect(source, contains('enableDrag: false'));
     expect(bottomTagContent, contains('Color(0xFFEBEFF2)'));
     expect(bottomTagContent, contains('Color(0xFF666666)'));
     expect(
@@ -480,7 +503,7 @@ void main() {
       bottomSheet.indexOf(
         'WorldLocationListData _locationListDataForCurrentWorld()',
       ),
-      bottomSheet.indexOf('Widget _buildDetailSectionPage()'),
+      bottomSheet.indexOf('Widget _buildDetailSectionPage('),
     );
 
     expect(locationBuilder, contains('identical(_cachedProcessedLocationTree'));
@@ -631,7 +654,7 @@ void main() {
     );
     final loadEvents = bottomSheet.substring(
       bottomSheet.indexOf('Future<void> _loadEventsPage('),
-      bottomSheet.indexOf('Widget _buildEventsSectionPage()'),
+      bottomSheet.indexOf('Widget _buildEventsSectionPage('),
     );
     final eventsSectionState = sections.substring(
       sections.indexOf('class WorldEventsSectionState'),

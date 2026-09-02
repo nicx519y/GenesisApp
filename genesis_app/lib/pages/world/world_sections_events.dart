@@ -88,6 +88,7 @@ String worldEventTickPageIdentity(List<Map<String, dynamic>> ticks) {
 class WorldEventsSection extends StatefulWidget {
   const WorldEventsSection({
     super.key,
+    this.scrollController,
     required this.world,
     required this.ticks,
     required this.initialLoading,
@@ -100,6 +101,7 @@ class WorldEventsSection extends StatefulWidget {
     required this.onLoadMore,
   });
 
+  final ScrollController? scrollController;
   final WorldDetail world;
   final List<Map<String, dynamic>> ticks;
   final bool initialLoading;
@@ -264,8 +266,10 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
   }
 
   void _handlePageChanged(int page) {
-    _currentPage = page.clamp(0, _maxRenderedPage).toInt();
+    final nextPage = page.clamp(0, _maxRenderedPage).toInt();
+    _currentPage = nextPage;
     _currentTickIdentity = _pageIdentityAt(_currentPage);
+    if (widget.scrollController != null) setState(() {});
     _maybeLoadMoreForPage(_currentPage);
   }
 
@@ -348,17 +352,25 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     if (widget.ticks.isEmpty &&
         widget.initialLoading &&
         !hasPendingTargetPage) {
-      return Padding(
+      return ListView(
+        controller: widget.scrollController,
+        physics: const ClampingScrollPhysics(),
         padding: widget.contentPadding,
-        child: const WorldEventLoadingSkeleton(),
+        children: const [WorldEventLoadingSkeleton()],
       );
     }
     if (widget.ticks.isEmpty && !hasPendingTargetPage) {
-      return Padding(
+      return ListView(
+        controller: widget.scrollController,
+        physics: const ClampingScrollPhysics(),
         padding: widget.contentPadding,
-        child: WorldEmptySection(
-          text: widget.error == null ? 'No events yet.' : 'Load events failed.',
-        ),
+        children: [
+          WorldEmptySection(
+            text: widget.error == null
+                ? 'No events yet.'
+                : 'Load events failed.',
+          ),
+        ],
       );
     }
 
@@ -389,6 +401,9 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
               final tickNumber = _requestedTickNumber ?? widget.world.tickCount;
               return WorldTickEventCardPage(
                 key: ValueKey<String>('world-event-tick-pending-$tickNumber'),
+                scrollController: index == _currentPage
+                    ? widget.scrollController
+                    : null,
                 resetRevision:
                     _tickCardResetRevisions['pending_tick:$tickNumber'] ?? 0,
                 hasTopEdgePage: index > 0,
@@ -409,6 +424,9 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
             final showsAiDisclaimer = tickPageIndex == 0 && !widget.hasMore;
             return WorldTickEventCardPage(
               key: ValueKey<String>('world-event-tick-$pageIdentity'),
+              scrollController: index == _currentPage
+                  ? widget.scrollController
+                  : null,
               resetRevision: _tickCardResetRevisions[pageIdentity] ?? 0,
               alignLastItemToTop:
                   _tickCardAlignLatestSubTick[pageIdentity] ?? false,

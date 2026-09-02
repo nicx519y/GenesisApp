@@ -18,6 +18,33 @@ import 'package:genesis_flutter_android/components/discuss/origin_discuss_list.d
 import 'package:genesis_flutter_android/components/discuss/story_badge.dart';
 
 void main() {
+  testWidgets('hides attached images on discuss and post detail pages', (
+    tester,
+  ) async {
+    const attachedImage = 'assets/images/map_default/root_default.webp';
+    final transport = _DiscussPageTransport(
+      includeReplies: true,
+      includeImages: true,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: _servicesWithTransport(transport),
+        child: _discussTestApp(),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.image(const AssetImage(attachedImage)), findsNothing);
+
+    await tester.tap(find.text('Reply User: Reply target'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Post Detail'), findsOneWidget);
+    expect(find.text('Reply target'), findsOneWidget);
+    expect(find.image(const AssetImage(attachedImage)), findsNothing);
+  });
+
   testWidgets('shows skeleton instead of progress indicator while loading', (
     tester,
   ) async {
@@ -372,10 +399,15 @@ AppServices _servicesWithTransport(_DiscussPageTransport transport) {
 }
 
 class _DiscussPageTransport implements HttpTransport {
-  _DiscussPageTransport({this.originGate, this.includeReplies = false});
+  _DiscussPageTransport({
+    this.originGate,
+    this.includeReplies = false,
+    this.includeImages = false,
+  });
 
   final Future<void>? originGate;
   final bool includeReplies;
+  final bool includeImages;
   final List<TransportRequest> requests = <TransportRequest>[];
 
   List<TransportRequest> get discussRequests => requests
@@ -436,6 +468,9 @@ class _DiscussPageTransport implements HttpTransport {
                     'name': 'User ${index + 1}',
                   },
                   'content': 'Discuss item ${index + 1}',
+                  'images': includeImages && index == 0
+                      ? <String>['assets/images/map_default/root_default.webp']
+                      : <String>[],
                   'reply_cnt': includeReplies && index == 0 ? 1 : index,
                   'like_cnt': index,
                   'is_liked': false,
@@ -447,7 +482,11 @@ class _DiscussPageTransport implements HttpTransport {
                           'discuss_id': 'reply_1',
                           'author': {'uid': 'u_reply_1', 'name': 'Reply User'},
                           'content': 'Reply target',
-                          'images': <String>[],
+                          'images': includeImages
+                              ? <String>[
+                                  'assets/images/map_default/root_default.webp',
+                                ]
+                              : <String>[],
                           'root_discuss_id': 'dis_1',
                           'parent_discuss_id': 'dis_1',
                           'level': 2,
@@ -479,6 +518,9 @@ class _DiscussPageTransport implements HttpTransport {
             'world_id': 'w_auto',
             'author': {'uid': 'u_1', 'name': 'User 1'},
             'content': 'Discuss item 1',
+            'images': includeImages
+                ? <String>['assets/images/map_default/root_default.webp']
+                : <String>[],
             'reply_cnt': 1,
             'like_cnt': 0,
             'is_liked': false,
@@ -491,7 +533,9 @@ class _DiscussPageTransport implements HttpTransport {
               'world_id': 'w_reply',
               'author': {'uid': 'u_reply_1', 'name': 'Reply User'},
               'content': 'Reply target',
-              'images': <String>[],
+              'images': includeImages
+                  ? <String>['assets/images/map_default/root_default.webp']
+                  : <String>[],
               'root_discuss_id': 'dis_1',
               'parent_discuss_id': 'dis_1',
               'level': 2,

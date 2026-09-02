@@ -1,5 +1,13 @@
 part of 'chat_ui_library.dart';
 
+Color _chatNarratorMessageBackgroundColor(ChatUiStyleConfig style) {
+  if (!style.useScenePlateBubbleGeometry ||
+      style.useConfiguredScenePlateSystemStyle) {
+    return style.systemMessageBackgroundColor;
+  }
+  return const Color(0x80151517);
+}
+
 class ChatNarratorMessageBubble extends StatelessWidget {
   const ChatNarratorMessageBubble({
     super.key,
@@ -30,11 +38,7 @@ class ChatNarratorMessageBubble extends StatelessWidget {
       fullWidth: true,
       textAlign: TextAlign.left,
       leadingIconAsset: paragraphIconAsset,
-      backgroundColor: usesScenePlate
-          ? usesConfiguredSystemStyle
-                ? style.systemMessageBackgroundColor
-                : const Color(0x80151517)
-          : null,
+      backgroundColor: _chatNarratorMessageBackgroundColor(style),
       textStyle: narratorTextStyle,
       leadingIconColor: usesScenePlate
           ? usesConfiguredSystemStyle

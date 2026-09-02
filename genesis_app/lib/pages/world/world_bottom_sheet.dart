@@ -10,13 +10,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
-import '../../components/common/genesis_modal_routes.dart';
 import '../../components/world_map.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/tokens/genesis_radii.dart';
 import 'world_constants.dart';
+import 'world_header.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_sections.dart';
@@ -191,9 +191,18 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
 class WorldSingleSectionBottomSheetState
     extends State<WorldSingleSectionBottomSheet> {
   static const int _eventsPageSize = 20;
+  static const double _extentUpdateEpsilon = 0.001;
+  // Keep the collapse decision close to the World page's real collapsed panel.
+  static const double _collapseSnapRange = 0.04;
+  static const _snapAnimationDuration = Duration(milliseconds: 260);
 
+  late final DraggableScrollableController _sheetController;
   late final PageController _pageController;
+  late final List<ScrollController> _previewScrollControllers;
   var _changingPageFromSelection = false;
+  var _sheetHostHeight = 1.0;
+  var _sheetMinChildSize = 0.08;
+  var _sheetMaxChildSize = 1.0;
   WorldLocationListData? _cachedLocationListData;
   ProcessedLocationTree<Map<String, dynamic>>? _cachedProcessedLocationTree;
   List<Map<String, dynamic>>? _cachedLocations;
@@ -211,8 +220,13 @@ class WorldSingleSectionBottomSheetState
   @override
   void initState() {
     super.initState();
+    _sheetController = DraggableScrollableController();
     _pageController = PageController(
       initialPage: _pageForKind(_selection.kind),
+    );
+    _previewScrollControllers = List<ScrollController>.generate(
+      worldBottomTagItems.length,
+      (_) => ScrollController(),
     );
     widget.worldListenable.addListener(_handleWorldDetailChanged);
     widget.selectionListenable.addListener(_handleSelectionChanged);
@@ -269,7 +283,11 @@ class WorldSingleSectionBottomSheetState
     worldNewContentDebugSettings.listenable.removeListener(
       _handleWorldNewContentDebugSettingsChanged,
     );
+    _sheetController.dispose();
     _pageController.dispose();
+    for (final controller in _previewScrollControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
@@ -440,10 +458,11 @@ class WorldSingleSectionBottomSheetState
     }
   }
 
-  Widget _buildEventsSectionPage() {
+  Widget _buildEventsSectionPage(ScrollController scrollController) {
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: WorldEventsSection(
+        scrollController: scrollController,
         key: const PageStorageKey<String>('world-events-section-bottom-sheet'),
         world: _currentWorld,
         ticks: _eventsCache.ticks,
@@ -464,7 +483,7 @@ class WorldSingleSectionBottomSheetState
     );
   }
 
-  Widget _buildStatusSectionPage() {
+  Widget _buildStatusSectionPage(ScrollController scrollController) {
     final world = _currentWorld;
     return WorldCharacterListView(
       storageKey: 'world-status-section-bottom-sheet',
@@ -475,10 +494,11 @@ class WorldSingleSectionBottomSheetState
           worldMetricStatusText(world.metric, character),
       subtitleColor: const Color(0xFF666666),
       showCharacterDetails: false,
+      controller: scrollController,
     );
   }
 
-  Widget _buildCastSectionPage() {
+  Widget _buildCastSectionPage(ScrollController scrollController) {
     final world = _currentWorld;
     return WorldCharacterListView(
       storageKey: 'world-cast-section-bottom-sheet',
@@ -488,14 +508,16 @@ class WorldSingleSectionBottomSheetState
       subtitleBuilder: worldCharacterDescriptionText,
       subtitleColor: const Color(0xFF666666),
       showCharacterDetails: true,
+      controller: scrollController,
     );
   }
 
-  Widget _buildLocationsSectionPage() {
+  Widget _buildLocationsSectionPage(ScrollController scrollController) {
     final locationData = _locationListDataForCurrentWorld();
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: WorldLocationList(
+        controller: scrollController,
         points: locationData.points,
         locationNodes: locationData.locationNodes,
         recentChatLocationIds: widget.recentChatLocationIds,
@@ -552,7 +574,7 @@ class WorldSingleSectionBottomSheetState
     return locationData;
   }
 
-  Widget _buildDetailSectionPage() {
+  Widget _buildDetailSectionPage(ScrollController scrollController) {
     final latestDetailJoinNotice = worldLatestPlayerJoinNotice(
       _currentWorld.characters,
     );
@@ -564,6 +586,7 @@ class WorldSingleSectionBottomSheetState
       storageKey: 'world-detail-section-bottom-sheet',
       world: _currentWorld,
       currentUid: widget.currentUid,
+      controller: scrollController,
       newUserJoinNotice: newUserJoinNotice,
       onDeleteWorld: widget.onDeleteWorld,
     );
@@ -577,13 +600,18 @@ class WorldSingleSectionBottomSheetState
     return latestDetailJoinNotice;
   }
 
-  Widget _buildSheetPage(WorldBottomSheetKind kind) {
+  Widget _buildSheetPage(
+    WorldBottomSheetKind kind,
+    ScrollController scrollController,
+  ) {
     return switch (kind) {
-      WorldBottomSheetKind.detail => _buildDetailSectionPage(),
-      WorldBottomSheetKind.locations => _buildLocationsSectionPage(),
-      WorldBottomSheetKind.events => _buildEventsSectionPage(),
-      WorldBottomSheetKind.status => _buildStatusSectionPage(),
-      WorldBottomSheetKind.cast => _buildCastSectionPage(),
+      WorldBottomSheetKind.detail => _buildDetailSectionPage(scrollController),
+      WorldBottomSheetKind.locations => _buildLocationsSectionPage(
+        scrollController,
+      ),
+      WorldBottomSheetKind.events => _buildEventsSectionPage(scrollController),
+      WorldBottomSheetKind.status => _buildStatusSectionPage(scrollController),
+      WorldBottomSheetKind.cast => _buildCastSectionPage(scrollController),
     };
   }
 
@@ -593,7 +621,7 @@ class WorldSingleSectionBottomSheetState
     );
   }
 
-  Widget _buildSheetContent() {
+  Widget _buildSheetContent(ScrollController sheetScrollController) {
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: PageView.builder(
@@ -601,9 +629,71 @@ class WorldSingleSectionBottomSheetState
         itemCount: worldBottomTagItems.length,
         onPageChanged: _handleSheetPageChanged,
         itemBuilder: (context, index) {
-          return _buildSheetPage(_kindForPage(index));
+          final kind = _kindForPage(index);
+          final scrollController = kind == _selection.kind
+              ? sheetScrollController
+              : _previewScrollControllers[index];
+          return _buildSheetPage(kind, scrollController);
         },
       ),
+    );
+  }
+
+  void _handleHeaderDragUpdate(DragUpdateDetails details) {
+    if (!_sheetController.isAttached || _sheetHostHeight <= 0) return;
+    final nextExtent =
+        (_sheetController.size - details.delta.dy / _sheetHostHeight)
+            .clamp(_sheetMinChildSize, _sheetMaxChildSize)
+            .toDouble();
+    _sheetController.jumpTo(nextExtent);
+  }
+
+  void _handleSheetPointerEnd(PointerEvent _) {
+    _settleSheetFromCurrentExtent();
+  }
+
+  void _settleSheetFromCurrentExtent() {
+    if (!_sheetController.isAttached) return;
+    final collapseThreshold = (_sheetMinChildSize + _collapseSnapRange)
+        .clamp(_sheetMinChildSize, _sheetMaxChildSize)
+        .toDouble();
+    final targetExtent = _sheetController.size <= collapseThreshold
+        ? _sheetMinChildSize
+        : _sheetMaxChildSize;
+    _animateSheetTo(targetExtent, curve: Curves.linear);
+  }
+
+  void _collapseSheet() {
+    if (!_sheetController.isAttached) {
+      Navigator.of(context).pop();
+      return;
+    }
+    _animateSheetTo(_sheetMinChildSize);
+  }
+
+  void _animateSheetTo(
+    double targetExtent, {
+    Curve curve = Curves.easeOutCubic,
+  }) {
+    if (!_sheetController.isAttached) return;
+    if ((_sheetController.size - targetExtent).abs() <= _extentUpdateEpsilon) {
+      return;
+    }
+    unawaited(
+      _sheetController
+          .animateTo(
+            targetExtent,
+            duration: _snapAnimationDuration,
+            curve: curve,
+          )
+          .catchError((Object error, StackTrace stackTrace) {
+            if (mounted && kDebugMode) {
+              debugPrint(
+                '[WorldPage] bottom sheet extent animation interrupted: '
+                '$error\n$stackTrace',
+              );
+            }
+          }),
     );
   }
 
@@ -612,39 +702,64 @@ class WorldSingleSectionBottomSheetState
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight;
-        final heightFactor = availableHeight <= 0
+        final collapsedHeight = worldCollapsedPanelHeightFor(
+          context,
+          world: _currentWorld,
+        );
+        final maxChildSize = availableHeight <= 0
             ? 1.0
             : ((availableHeight - worldDetailSheetExpandedTopOffset) /
                       availableHeight)
-                  .clamp(0.0, 1.0)
+                  .clamp(0.08, 1.0)
                   .toDouble();
+        final minChildSize = availableHeight <= 0
+            ? 0.08
+            : (collapsedHeight / availableHeight)
+                  .clamp(0.08, maxChildSize)
+                  .toDouble();
+        _sheetHostHeight = availableHeight;
+        _sheetMinChildSize = minChildSize;
+        _sheetMaxChildSize = maxChildSize;
         return GenesisEdgeSwipeBack(
           onBack: () => Navigator.of(context).pop(),
-          child: FractionallySizedBox(
-            key: const ValueKey<String>('world-single-section-bottom-sheet'),
-            heightFactor: heightFactor,
-            alignment: Alignment.bottomCenter,
-            child: DecoratedBox(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: GenesisRadii.sheet,
-              ),
-              child: Column(
-                children: [
-                  WorldSingleSectionSheetHeader(
-                    item: _headerItem,
-                    pageController: _pageController,
-                    pageCount: worldBottomTagItems.length,
-                    onClose: () => Navigator.of(context).pop(),
+          child: Listener(
+            onPointerUp: _handleSheetPointerEnd,
+            onPointerCancel: _handleSheetPointerEnd,
+            child: DraggableScrollableSheet(
+              controller: _sheetController,
+              initialChildSize: maxChildSize,
+              minChildSize: minChildSize,
+              maxChildSize: maxChildSize,
+              snap: false,
+              builder: (context, scrollController) {
+                return DecoratedBox(
+                  key: const ValueKey<String>(
+                    'world-single-section-bottom-sheet',
                   ),
-                  Expanded(
-                    child: GenesisBottomSheetDragDismissArea(
-                      onDismiss: () => Navigator.of(context).pop(),
-                      child: _buildSheetContent(),
-                    ),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: GenesisRadii.sheet,
                   ),
-                ],
-              ),
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        key: const ValueKey<String>(
+                          'world-sheet-header-drag-area',
+                        ),
+                        behavior: HitTestBehavior.opaque,
+                        onVerticalDragUpdate: _handleHeaderDragUpdate,
+                        child: WorldSingleSectionSheetHeader(
+                          item: _headerItem,
+                          pageController: _pageController,
+                          pageCount: worldBottomTagItems.length,
+                          onClose: _collapseSheet,
+                        ),
+                      ),
+                      Expanded(child: _buildSheetContent(scrollController)),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         );

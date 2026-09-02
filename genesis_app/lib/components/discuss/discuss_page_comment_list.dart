@@ -6,13 +6,10 @@ import '../../app/bootstrap/app_services_scope.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
-import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
-import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
 import '../auth/login_guard.dart';
 import '../common/genesis_center_toast.dart';
-import '../common/genesis_image_viewer_overlay.dart';
 import '../common/genesis_report_actions.dart';
 import '../common/genesis_timestamp_text.dart';
 import 'origin_discuss_list.dart';
@@ -96,7 +93,6 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
   static const double _avatarSize = 40;
   static const double _avatarTextGap = 14;
   static const double _metaBodyGap = 6;
-  static const double _bodyImageGap = 8;
   static const double _progressPrefetchExtent = 600;
 
   ScrollPosition? _scrollPosition;
@@ -219,26 +215,6 @@ class _DiscussPagePostRowState extends State<DiscussPagePostRow> {
                   fontWeight: FontWeight.w400,
                 ),
               ),
-              if (widget.item.imageUrls.isNotEmpty) ...[
-                const SizedBox(height: _bodyImageGap),
-                _DiscussPageImageThumbnails(
-                  urls: widget.item.imageUrls,
-                  onTap: (index) => showGenesisImageViewer(
-                    context,
-                    imageUrls: widget.item.imageUrls,
-                    previewImageProviders: [
-                      for (final url in widget.item.imageUrls)
-                        genesisImageViewerListPreviewProvider(
-                          context,
-                          source: url,
-                          logicalWidth: _DiscussPageImageThumbnails._imageSize,
-                          logicalHeight: _DiscussPageImageThumbnails._imageSize,
-                        ),
-                    ],
-                    initialIndex: index,
-                  ),
-                ),
-              ],
               const SizedBox(height: 8),
               _DiscussPageActions(
                 controller: widget.controller,
@@ -331,40 +307,6 @@ class _ProfileAvatarLink extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: () => _openProfile(context, item),
       child: avatar,
-    );
-  }
-}
-
-class _DiscussPageImageThumbnails extends StatelessWidget {
-  const _DiscussPageImageThumbnails({required this.urls, required this.onTap});
-
-  static const int _maxVisibleImages = 6;
-  static const double _imageSize = 80;
-  static const double _imageGap = 6;
-
-  final List<String> urls;
-  final ValueChanged<int> onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final visibleUrls = urls.take(_maxVisibleImages).toList(growable: false);
-    return Wrap(
-      spacing: _imageGap,
-      runSpacing: _imageGap,
-      children: [
-        for (final entry in visibleUrls.indexed)
-          GestureDetector(
-            key: ValueKey('discuss-page-image-${entry.$2}'),
-            behavior: HitTestBehavior.opaque,
-            onTap: () => onTap(entry.$1),
-            child: GenesisListImage(
-              imageUrl: entry.$2.trim(),
-              width: _imageSize,
-              height: _imageSize,
-              borderRadius: GenesisImageRadii.content,
-            ),
-          ),
-      ],
     );
   }
 }

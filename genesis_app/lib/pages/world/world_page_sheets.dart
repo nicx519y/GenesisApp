@@ -47,7 +47,9 @@ extension _WorldPageSheets on _WorldPageState {
         context: context,
         isScrollControlled: true,
         useSafeArea: true,
-        enableDrag: true,
+        // The sheet owns its drag extent so content scrolling and collapsing
+        // use the same DraggableScrollableSheet gesture chain as Origin.
+        enableDrag: false,
         backgroundColor: Colors.transparent,
         barrierColor: Colors.black.withValues(alpha: 0.18),
         builder: (context) {

@@ -118,7 +118,6 @@ import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_store.dart';
 import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
-import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_location_chat_host.dart';
@@ -24640,6 +24639,13 @@ void main() {
         1,
       ),
     );
+    final draggableSheet = tester.widget<DraggableScrollableSheet>(
+      find.ancestor(
+        of: openedSheet,
+        matching: find.byType(DraggableScrollableSheet),
+      ),
+    );
+    expect(draggableSheet.snap, isFalse);
 
     final sheetIndicator = find.byKey(
       const ValueKey<String>('world-sheet-page-indicator'),
@@ -24705,6 +24711,31 @@ void main() {
         .descendant(of: sheet, matching: find.byType(ListView))
         .hitTestable()
         .first;
+    final settleBackGesture = await tester.startGesture(
+      tester.getCenter(detailList),
+    );
+    await settleBackGesture.moveBy(const Offset(0, 300));
+    await tester.pump(const Duration(seconds: 1));
+    await settleBackGesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(sheet).dy,
+      closeTo(
+        GenesisSafeAreaInsets.top(openedSheetContext) +
+            worldDetailSheetExpandedTopOffset,
+        1,
+      ),
+    );
+    await tester.fling(detailList, const Offset(0, 150), 3000);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getTopLeft(sheet).dy,
+      closeTo(
+        GenesisSafeAreaInsets.top(openedSheetContext) +
+            worldDetailSheetExpandedTopOffset,
+        1,
+      ),
+    );
     await tester.drag(detailList, const Offset(0, 500));
     await tester.pumpAndSettle();
     expect(
@@ -24712,6 +24743,46 @@ void main() {
       findsNothing,
     );
     expect(currentTilemap().animationsPaused, isFalse);
+
+    for (final sectionLabel in const ['Locations', 'Events', 'Status']) {
+      final sectionTag = find.descendant(
+        of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
+        matching: find.text(sectionLabel),
+      );
+      await tester.tap(sectionTag);
+      await tester.pumpAndSettle();
+
+      final sectionSheet = find.byKey(
+        const ValueKey<String>('world-single-section-bottom-sheet'),
+      );
+      expect(sectionSheet, findsOneWidget);
+      final verticalScrollable = find
+          .descendant(
+            of: sectionSheet,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Scrollable &&
+                  axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+            ),
+          )
+          .hitTestable()
+          .last;
+      await tester.drag(verticalScrollable, const Offset(0, 500));
+      await tester.pumpAndSettle();
+      expect(sectionSheet, findsNothing);
+    }
+
+    await tester.tap(detailTag);
+    await tester.pumpAndSettle();
+    final headerDraggedSheet = find.byKey(
+      const ValueKey<String>('world-single-section-bottom-sheet'),
+    );
+    await tester.drag(
+      find.byKey(const ValueKey<String>('world-sheet-header-drag-area')),
+      const Offset(0, 500),
+    );
+    await tester.pumpAndSettle();
+    expect(headerDraggedSheet, findsNothing);
   });
 
   testWidgets('world route shows its real shell during initial Android push', (
