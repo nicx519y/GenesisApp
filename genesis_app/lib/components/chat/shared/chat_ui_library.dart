@@ -143,7 +143,6 @@ final ChatUiStyleConfig kPrivateChatStyle = ChatUiStyleConfig.standard.copyWith(
   showSenderNameAboveOtherBubble: false,
 );
 
-const double _locationChatOuterPadding = 10;
 const double _locationChatAvatarOneThird = 40 / 3;
 const double _npcChatAvatarSize = 40;
 const Color _npcChatAvatarBackgroundColor = Color(0xFF4A5F7A);
@@ -184,8 +183,8 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
     height: 1.4,
   ),
   messageListPadding: ChatUiStyleConfig.standard.messageListPadding.copyWith(
-    left: _locationChatOuterPadding,
-    right: _locationChatOuterPadding,
+    left: kLocationChatOuterPadding,
+    right: kLocationChatOuterPadding,
   ),
   rowBottomPadding: 14,
   avatarSideSpacerWidth: _locationChatAvatarOneThird,

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_scene_plate_tokens.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/world/world_update_push_banner.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
@@ -60,24 +61,48 @@ void main() {
     expect(find.text('New location available'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     expect(find.text('New Wanderer · Wandering swordsman'), findsNothing);
-    final locationImage = tester.widget<GenesisStaticNetworkImage>(
-      find.byType(GenesisStaticNetworkImage),
-    );
-    expect(locationImage.imageUrl, _locationImageUrl);
-    final locationImageClip = tester.widget<ClipRRect>(
-      find.byKey(const ValueKey<String>('world-update-push-location-image')),
-    );
-    expect(locationImageClip.borderRadius, BorderRadius.circular(10));
-    expect(
-      tester.getSize(
-        find.byKey(const ValueKey<String>('world-update-push-location-image')),
+    expect(find.byType(GenesisStaticNetworkImage), findsNothing);
+    final locationNameIcon = tester.widget<Icon>(
+      find.byKey(
+        const ValueKey<String>('world-update-push-location-name-icon'),
       ),
-      const Size.square(48),
+    );
+    expect(locationNameIcon.icon, Icons.place_outlined);
+    expect(locationNameIcon.size, 14);
+    expect(locationNameIcon.color, const Color(0xF2FFFFFF));
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-location-image')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-location-icon')),
+      findsNothing,
     );
     expect(
       find.byKey(const ValueKey<String>('world-update-push-character-avatar')),
       findsNothing,
     );
+    final locationBannerRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-update-push-banner')),
+    );
+    final viewportWidth = tester.getSize(find.byType(Scaffold)).width;
+    final locationDetailRect = tester.getRect(
+      find.byKey(const ValueKey<String>('world-update-push-detail')),
+    );
+    final locationIconRect = tester.getRect(
+      find.byKey(
+        const ValueKey<String>('world-update-push-location-name-icon'),
+      ),
+    );
+    expect(locationBannerRect.height, 64);
+    expect(locationBannerRect.left, kLocationChatOuterPadding);
+    expect(viewportWidth - locationBannerRect.right, kLocationChatOuterPadding);
+    expect(
+      locationBannerRect.width,
+      viewportWidth - (kLocationChatOuterPadding * 2),
+    );
+    expect(locationIconRect.left - locationBannerRect.left, 16);
+    expect(locationDetailRect.left - locationIconRect.right, 2);
 
     await tester.pump(const Duration(milliseconds: 30));
 
@@ -100,6 +125,12 @@ void main() {
     expect(find.text('New character joined'), findsOneWidget);
     expect(find.text('New Wanderer · Wandering swordsman'), findsOneWidget);
     expect(
+      find.byKey(
+        const ValueKey<String>('world-update-push-location-name-icon'),
+      ),
+      findsNothing,
+    );
+    expect(
       find.byKey(const ValueKey<String>('world-update-push-location-icon')),
       findsNothing,
     );
@@ -109,7 +140,7 @@ void main() {
     expect(characterAvatar.url, _characterAvatarUrl);
     expect(characterAvatar.name, 'New Wanderer');
     expect(characterAvatar.size, 48);
-    expect(characterAvatar.borderRadius, 24);
+    expect(characterAvatar.borderRadius, 8);
     final detailText = tester.widget<Text>(
       find.byKey(const ValueKey<String>('world-update-push-detail')),
     );
@@ -135,6 +166,8 @@ void main() {
     expect(avatarRect.top - bannerRect.top, 8);
     expect(bannerRect.bottom - avatarRect.bottom, 8);
     expect(bannerRect.height, 64);
+    expect(bannerRect.width, locationBannerRect.width);
+    expect(locationBannerRect.height, bannerRect.height);
     final detailRect = tester.getRect(
       find.byKey(const ValueKey<String>('world-update-push-detail')),
     );
@@ -193,16 +226,19 @@ void main() {
     expect(find.textContaining('·'), findsNothing);
     expect(find.byType(GenesisStaticNetworkImage), findsNothing);
     expect(
-      find.byKey(const ValueKey<String>('world-update-push-location-icon')),
+      find.byKey(
+        const ValueKey<String>('world-update-push-location-name-icon'),
+      ),
       findsOneWidget,
     );
-    final locationFallback = tester.widget<DecoratedBox>(
+    expect(
       find.byKey(const ValueKey<String>('world-update-push-location-icon')),
+      findsNothing,
     );
-    final locationFallbackDecoration =
-        locationFallback.decoration as BoxDecoration;
-    expect(locationFallbackDecoration.shape, BoxShape.rectangle);
-    expect(locationFallbackDecoration.borderRadius, BorderRadius.circular(10));
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-location-image')),
+      findsNothing,
+    );
 
     await pumpNotice(
       const WorldContentUpdateNotice(
@@ -219,17 +255,21 @@ void main() {
     expect(find.text('New character joined'), findsOneWidget);
     expect(find.text('Nameless Wanderer'), findsOneWidget);
     expect(find.textContaining('·'), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('world-update-push-location-name-icon'),
+      ),
+      findsNothing,
+    );
+    final characterAvatar = tester.widget<GenesisCharacterAvatar>(
+      find.byKey(const ValueKey<String>('world-update-push-character-avatar')),
+    );
+    expect(characterAvatar.borderRadius, 8);
   });
 
-  testWidgets('location image failure falls back to the location icon', (
+  testWidgets('location push builds only the inline icon', (
     WidgetTester tester,
   ) async {
-    debugGenesisStaticNetworkImageCompleter = (_) =>
-        OneFrameImageStreamCompleter(
-          Future<ImageInfo>.error(StateError('location image failed')),
-        );
-    addTearDown(() => debugGenesisStaticNetworkImageCompleter = null);
-
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -241,9 +281,9 @@ void main() {
                 notices: [
                   WorldContentUpdateNotice(
                     kind: WorldContentUpdateKind.location,
-                    entityId: 'location-with-failed-image',
+                    entityId: 'location-with-image',
                     name: 'Storm Harbor',
-                    targetLocationId: 'location-with-failed-image',
+                    targetLocationId: 'location-with-image',
                     avatarUrl: _locationImageUrl,
                     tickCount: 1,
                   ),
@@ -257,12 +297,24 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump();
-
-    expect(find.byType(GenesisStaticNetworkImage), findsOneWidget);
+    expect(find.byType(GenesisStaticNetworkImage), findsNothing);
+    expect(
+      find.byKey(
+        const ValueKey<String>('world-update-push-location-name-icon'),
+      ),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey<String>('world-update-push-location-icon')),
-      findsOneWidget,
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-location-image')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-character-avatar')),
+      findsNothing,
     );
     expect(tester.takeException(), isNull);
   });
@@ -314,6 +366,173 @@ void main() {
     expect(startingTop, lessThan(middleTop));
     expect(middleTop, lessThan(settledTop));
     expect(settledTop, closeTo(60, 0.01));
+  });
+
+  testWidgets('tapping a world update push opens it only once', (
+    WidgetTester tester,
+  ) async {
+    const notice = WorldContentUpdateNotice(
+      kind: WorldContentUpdateKind.location,
+      entityId: 'loc-new',
+      name: 'New Harbor',
+      targetLocationId: 'loc-new',
+      avatarUrl: '',
+      tickCount: 3,
+    );
+    final tappedNotices = <WorldContentUpdateNotice>[];
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              WorldUpdatePushBannerQueue(
+                top: 12,
+                revision: 1,
+                notices: const [notice],
+                onNoticeTap: tappedNotices.add,
+                displayDuration: const Duration(hours: 1),
+                transitionDuration: const Duration(milliseconds: 20),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    final tapTarget = find.byKey(
+      const ValueKey<String>('world-update-push-tap-target'),
+    );
+    expect(tapTarget, findsOneWidget);
+
+    await tester.tap(tapTarget);
+    await tester.tap(tapTarget);
+
+    expect(tappedNotices, [same(notice)]);
+
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-banner')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('queued notices are rechecked before they are displayed', (
+    WidgetTester tester,
+  ) async {
+    const notices = <WorldContentUpdateNotice>[
+      WorldContentUpdateNotice(
+        kind: WorldContentUpdateKind.location,
+        entityId: 'first',
+        name: 'First Location',
+        targetLocationId: 'first',
+        avatarUrl: '',
+        tickCount: 1,
+      ),
+      WorldContentUpdateNotice(
+        kind: WorldContentUpdateKind.character,
+        entityId: 'second',
+        name: 'Second Character',
+        targetLocationId: 'second',
+        avatarUrl: '',
+        tickCount: 1,
+      ),
+    ];
+    var eligibleIds = <String>{'first', 'second'};
+    late StateSetter updateHost;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              updateHost = setState;
+              return Stack(
+                children: [
+                  WorldUpdatePushBannerQueue(
+                    top: 12,
+                    revision: 1,
+                    notices: notices,
+                    canShowNotice: (notice) =>
+                        eligibleIds.contains(notice.entityId),
+                    displayDuration: const Duration(milliseconds: 50),
+                    transitionDuration: const Duration(milliseconds: 10),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+
+    expect(find.text('First Location'), findsOneWidget);
+
+    updateHost(() => eligibleIds = <String>{'first'});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    await tester.pumpAndSettle();
+
+    expect(find.text('First Location'), findsNothing);
+    expect(find.text('Second Character'), findsNothing);
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-banner')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('an active notice is dismissed when it becomes ineligible', (
+    WidgetTester tester,
+  ) async {
+    const notice = WorldContentUpdateNotice(
+      kind: WorldContentUpdateKind.character,
+      entityId: 'moving-character',
+      name: 'Moving Character',
+      targetLocationId: 'current-location',
+      avatarUrl: '',
+      tickCount: 1,
+    );
+    var eligible = true;
+    late StateSetter updateHost;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              updateHost = setState;
+              return Stack(
+                children: [
+                  WorldUpdatePushBannerQueue(
+                    top: 12,
+                    revision: 1,
+                    notices: const [notice],
+                    canShowNotice: (_) => eligible,
+                    displayDuration: const Duration(hours: 1),
+                    transitionDuration: const Duration(milliseconds: 10),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+
+    expect(find.text('Moving Character'), findsOneWidget);
+
+    updateHost(() => eligible = false);
+    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Moving Character'), findsNothing);
   });
 
   testWidgets('notices received during exit wait for the prior banner', (

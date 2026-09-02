@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+const double kLocationChatOuterPadding = 10;
 const double kChatScenePlateBubbleHorizontalPadding = 13;
 const double kChatScenePlateBubbleVerticalPadding = 11;
 const EdgeInsets kChatScenePlateBubblePadding = EdgeInsets.symmetric(
