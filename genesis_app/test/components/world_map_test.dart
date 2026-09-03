@@ -919,7 +919,7 @@ void main() {
     final zoomControlBox = tester.widget<DecoratedBox>(zoomControl);
     final zoomDecoration = zoomControlBox.decoration as BoxDecoration;
     expect(zoomDecoration.color, legacyWorldMapZoomControlBackgroundColor);
-    expect(zoomDecoration.borderRadius, BorderRadius.circular(12));
+    expect(zoomDecoration.borderRadius, BorderRadius.circular(8));
     expect(zoomDecoration.boxShadow, isNotEmpty);
     expect(
       zoomInIcon().colorFilter,

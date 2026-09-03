@@ -34,7 +34,7 @@ class WorldMapExitLocationButton extends StatelessWidget {
                 child: Material(
                   color: const Color(0x99151517),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(8),
                     side: const BorderSide(
                       color: Color(0x29FFFFFF),
                       width: 0.5,
