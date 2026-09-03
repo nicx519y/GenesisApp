@@ -518,6 +518,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
           child: LocationChatPanel(
             key: ValueKey('world-location-chat-${descriptor.locationId}'),
             worldId: worldId,
+            modelWorldId: worldId,
             locationId: descriptor.locationId,
             locationName: descriptor.locationName,
             parentLocationName: descriptor.parentLocationName,

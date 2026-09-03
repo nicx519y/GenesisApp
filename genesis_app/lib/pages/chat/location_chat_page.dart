@@ -256,6 +256,7 @@ class _LocationChatPageState extends State<LocationChatPage> {
   Widget build(BuildContext context) {
     return LocationChatPanel(
       worldId: widget.worldId,
+      modelWorldId: widget.worldId,
       locationId: widget.locationId,
       isLeafLocation: widget.isLeafLocation,
       localMessageLocationIds: widget.localMessageLocationIds,
@@ -283,6 +284,7 @@ class LocationChatPanel extends StatefulWidget {
   const LocationChatPanel({
     super.key,
     required this.worldId,
+    this.modelWorldId,
     required this.locationId,
     this.isLeafLocation = true,
     this.localMessageLocationIds = const <String>[],
@@ -320,6 +322,10 @@ class LocationChatPanel extends StatefulWidget {
   });
 
   final String worldId;
+
+  /// Set only when this panel belongs to a launched World. Worldo previews
+  /// leave this null so model UI and model API requests stay disabled.
+  final String? modelWorldId;
   final String locationId;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
@@ -433,6 +439,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   int _tickProgressBaselineLocationMessageId = 0;
   int _tickProgressBaselineMessageId = 0;
   DateTime _tickProgressStartedAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  String get _modelWorldId => widget.modelWorldId?.trim() ?? '';
+
+  bool get _hasModelWorldId => _modelWorldId.isNotEmpty;
   final Map<String, String> _tickProgressLayoutIdByMessageLocalId =
       <String, String>{};
   final ChatMessageVm _aiContentDisclaimerMessage =
@@ -476,7 +486,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     unawaited(locationChatBubbleLayoutSettings.load());
     unawaited(locationChatHeaderEffectSettings.load());
     _androidSdkInt = cachedAndroidSdkInt;
-    _retainModelEntryInHeader = widget.active;
+    _retainModelEntryInHeader = widget.active && _hasModelWorldId;
     _scrollCoordinator = LocationChatScrollCoordinator()
       ..addListener(_handleViewportCoordinatorChanged);
     final initialService = widget.service;
@@ -510,7 +520,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _scrollController.addListener(_handleMessageListScroll);
     _scrollCoordinator.enter();
     _prepareConnection();
-    unawaited(_loadSelectedModelCodeFromCache());
+    if (_hasModelWorldId) {
+      unawaited(_loadSelectedModelCodeFromCache());
+    }
     unawaited(_loadAndroidSdkIntForKeyboardInset());
   }
 
@@ -562,11 +574,19 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.active) {
+    final modelWorldIdChanged =
+        (oldWidget.modelWorldId?.trim() ?? '') != _modelWorldId;
+    if (modelWorldIdChanged) {
+      _selectedModelLoadGeneration++;
+      _selectedModelTitleLookupCode = '';
+    }
+    if (!_hasModelWorldId) {
+      _retainModelEntryInHeader = false;
+    } else if (widget.active) {
       _retainModelEntryInHeader = true;
     }
-    if (oldWidget.worldId != widget.worldId ||
-        (!oldWidget.active && widget.active)) {
+    if (_hasModelWorldId &&
+        (modelWorldIdChanged || (!oldWidget.active && widget.active))) {
       unawaited(_loadSelectedModelCodeFromCache());
     }
     final changedChatTarget =
@@ -794,7 +814,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       showSubtitle: false,
       showMoreButton: widget.showMoreButton,
       trailingVerticallyCentered: true,
-      trailing: _retainModelEntryInHeader
+      trailing: _retainModelEntryInHeader && _hasModelWorldId
           ? Padding(
               padding: const EdgeInsets.only(right: 16),
               child: ExcludeSemantics(

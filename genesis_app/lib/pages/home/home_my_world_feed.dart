@@ -6,6 +6,7 @@ class _MyWorldFeed extends StatefulWidget {
     required this.initialRequestMetricWindow,
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
+    required this.localRestoreTimeout,
     this.activationListenable,
     this.reselectionListenable,
     this.isActiveListenable,
@@ -15,12 +16,14 @@ class _MyWorldFeed extends StatefulWidget {
     this.initialPageData,
     this.initialPageRenderOperation,
     this.initialPageRequestAttempt = 0,
+    this.myWorldsCacheLoader,
   });
 
   final int index;
   final Duration initialRequestMetricWindow;
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
+  final Duration localRestoreTimeout;
   final ValueListenable<int>? activationListenable;
   final ValueListenable<int>? reselectionListenable;
   final ValueListenable<bool>? isActiveListenable;
@@ -30,6 +33,7 @@ class _MyWorldFeed extends StatefulWidget {
   final Map<String, dynamic>? initialPageData;
   final FirebasePerformanceOperation? initialPageRenderOperation;
   final int initialPageRequestAttempt;
+  final HomeMyWorldsCacheLoader? myWorldsCacheLoader;
 
   @override
   State<_MyWorldFeed> createState() => _MyWorldFeedState();
@@ -55,8 +59,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _total = 0;
   var _hasMore = true;
   var _hasRequested = false;
+  var _initialRequestInFlight = false;
   var _hasAttemptedCachePreload = false;
   var _hasLoadedCachedPage = false;
+  var _hasCompletedInitialNetworkRefresh = false;
   var _initialContentReady = false;
   var _firstPageViewReportedFallback = false;
   var _hasResolvedLocalSession = false;
@@ -193,8 +199,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _cacheLoadFuture = null;
     _hasMore = true;
     _hasRequested = false;
+    _initialRequestInFlight = false;
     _hasAttemptedCachePreload = false;
     _hasLoadedCachedPage = false;
+    _hasCompletedInitialNetworkRefresh = false;
     _initialContentReady = false;
     _hasResolvedLocalSession = false;
     _isInitialLoading = false;
@@ -255,6 +263,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _hasRequested = true;
     _hasAttemptedCachePreload = true;
     _hasLoadedCachedPage = true;
+    _hasCompletedInitialNetworkRefresh = true;
     _initialContentReady = true;
     _hasResolvedLocalSession = true;
     _isSignedOut = false;
@@ -314,10 +323,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     if (controller == null ||
         controller.index != widget.index ||
         _hasRequested ||
+        _initialRequestInFlight ||
         !widget.networkRequestsAllowed.value) {
       return;
     }
     _hasRequested = true;
+    _initialRequestInFlight = true;
     if (_hasReportedFirstPageView) _recordPageView();
     unawaited(_requestInitialItems());
   }
@@ -383,8 +394,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _preloadCachedItemsForSignedInSession() async {
-    final hasSession = await _hasLocalLoginSession();
+    final hasSession = await _readLocalLoginSessionBestEffort();
     if (!mounted) return;
+    if (hasSession == null) return;
     if (!hasSession) {
       setState(() {
         _items.clear();
@@ -411,61 +423,79 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   Future<void> _requestInitialItems() async {
-    final hasSession = await _hasLocalLoginSession();
-    if (!mounted) return;
-    if (!hasSession) {
-      setState(() {
-        _items.clear();
-        _clearDeleteState();
-        _nextPage = 1;
-        _total = 0;
-        _hasMore = false;
-        _error = null;
-        _isInitialLoading = false;
-        _isLoadingMore = false;
-        _isRefreshing = false;
-        _isSignedOut = true;
-        _hasResolvedLocalSession = true;
-      });
-      return;
+    try {
+      final hasSession = await _readLocalLoginSessionBestEffort();
+      if (!mounted) return;
+      if (hasSession == false) {
+        setState(() {
+          _items.clear();
+          _clearDeleteState();
+          _nextPage = 1;
+          _total = 0;
+          _hasMore = false;
+          _error = null;
+          _isInitialLoading = false;
+          _isLoadingMore = false;
+          _isRefreshing = false;
+          _isSignedOut = true;
+          _hasResolvedLocalSession = true;
+        });
+        return;
+      }
+      if (_items.isEmpty || _isSignedOut || !_hasResolvedLocalSession) {
+        setState(() {
+          if (hasSession == true) _hasResolvedLocalSession = true;
+          _isSignedOut = false;
+          _isInitialLoading = _items.isEmpty;
+        });
+      }
+      final didLoadCache = await _loadCachedItemsOnce();
+      if (!mounted) return;
+      if (!didLoadCache && _items.isEmpty) {
+        setState(() {
+          _isInitialLoading = true;
+        });
+      }
+      await _waitHomeInitialRequestMetricWindow(
+        widget.initialRequestMetricWindow,
+      );
+      if (!mounted) return;
+      await _refreshItems(force: true);
+    } catch (_) {
+      _hasRequested = false;
+      _cacheLoadFuture = null;
+      _scheduleInitialRequestRetry();
+    } finally {
+      _initialRequestInFlight = false;
     }
-    if (mounted &&
-        (_items.isEmpty || _isSignedOut || !_hasResolvedLocalSession)) {
-      setState(() {
-        _hasResolvedLocalSession = true;
-        _isSignedOut = false;
-        _isInitialLoading = _items.isEmpty;
-      });
-    }
-    final didLoadCache = await _loadCachedItemsOnce();
-    if (!mounted) return;
-    if (!didLoadCache && _items.isEmpty) {
-      setState(() {
-        _isInitialLoading = true;
-      });
-    }
-    await _waitHomeInitialRequestMetricWindow(
-      widget.initialRequestMetricWindow,
-    );
-    if (!mounted) return;
-    await _refreshItems(force: true);
-  }
-
-  Future<HomeFeedCacheStore?> _cacheStoreForActiveSession() async {
-    final services = AppServicesScope.of(context);
-    final session = await services.sessionStore.readCompleteSession();
-    if (session == null) return null;
-    return HomeFeedCacheStore(ownerUid: session.uid);
   }
 
   Future<bool> _loadCachedItemsOnce() {
-    return _cacheLoadFuture ??= _loadCachedItemsIfAvailable();
+    return _cacheLoadFuture ??= _loadCachedItemsBestEffort();
+  }
+
+  Future<bool> _loadCachedItemsBestEffort() async {
+    try {
+      return await _loadCachedItemsIfAvailable().timeout(
+        widget.localRestoreTimeout,
+      );
+    } catch (_) {
+      _cacheLoadFuture = null;
+      return false;
+    }
   }
 
   Future<bool> _loadCachedItemsIfAvailable() async {
-    final cacheStore = await _cacheStoreForActiveSession();
-    final data = await cacheStore?.load(HomeFeedCacheKind.myWorlds);
-    if (!mounted) return false;
+    final services = AppServicesScope.of(context);
+    final session = await services.sessionStore.readCompleteSession();
+    if (session == null) return false;
+    final loader = widget.myWorldsCacheLoader;
+    final data = loader != null
+        ? await loader(session.uid)
+        : await HomeFeedCacheStore(
+            ownerUid: session.uid,
+          ).load(HomeFeedCacheKind.myWorlds);
+    if (!mounted || _hasCompletedInitialNetworkRefresh) return false;
     if (data == null) {
       if (!_hasRequested) {
         setState(() {
@@ -500,23 +530,32 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   Future<_WorldListPage> _fetchPage(int page) async {
     final services = AppServicesScope.of(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (uid.isEmpty) {
-      return const _WorldListPage(items: <WorldListItem>[], total: 0);
-    }
     final data = await services.api.v1.world.list(
       scene: 'mine',
       pn: page,
       rn: _pageSize,
     );
     if (page == 1) {
-      _ignoreHomeFeedCacheWrite(
-        HomeFeedCacheStore(
-          ownerUid: uid,
-        ).save(HomeFeedCacheKind.myWorlds, data),
-      );
+      _ignoreHomeFeedCacheWrite(_saveFirstPageToCache(data));
     }
     return _parseWorldListPage(data);
+  }
+
+  Future<void> _saveFirstPageToCache(Map<String, dynamic> data) async {
+    final services = AppServicesScope.read(context);
+    try {
+      final uid =
+          (await services.sessionStore.readUid().timeout(
+            widget.localRestoreTimeout,
+          ))?.trim() ??
+          '';
+      if (uid.isEmpty) return;
+      await HomeFeedCacheStore(
+        ownerUid: uid,
+      ).save(HomeFeedCacheKind.myWorlds, data);
+    } catch (_) {
+      // Cache persistence is best-effort and must never delay page delivery.
+    }
   }
 
   _WorldListPage _parseWorldListPage(Map<String, dynamic> data) {
@@ -533,8 +572,8 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }) async {
     if (!widget.networkRequestsAllowed.value) return;
     if ((!force && _isInitialLoading) || _isRefreshing) return;
-    final hasSession = await _hasLocalLoginSession();
-    if (!hasSession) {
+    final hasSession = await _readLocalLoginSessionBestEffort();
+    if (hasSession == false) {
       if (!mounted) return;
       setState(() {
         _items.clear();
@@ -578,6 +617,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
     try {
       final page = await _fetchPage(1);
+      _hasCompletedInitialNetworkRefresh = true;
       if (!mounted) {
         unawaited(requestOperation?.cancel());
         return;
@@ -734,6 +774,23 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       if (controller == null || controller.index != widget.index) return;
       unawaited(_refreshItems(force: true));
     });
+  }
+
+  void _scheduleInitialRequestRetry() {
+    if (_startupInitialRetryTimer?.isActive ?? false) return;
+    _startupInitialRetryTimer = Timer(_homeInitialNetworkRetryDelay, () {
+      _startupInitialRetryTimer = null;
+      if (!mounted || !widget.networkRequestsAllowed.value) return;
+      _requestIfCurrentTab();
+    });
+  }
+
+  Future<bool?> _readLocalLoginSessionBestEffort() async {
+    try {
+      return await _hasLocalLoginSession().timeout(widget.localRestoreTimeout);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<bool> _hasLocalLoginSession() async {

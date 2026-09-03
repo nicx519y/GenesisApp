@@ -1,5 +1,7 @@
 part of 'origin_world_page.dart';
 
+const Color _originSetupRoleSelectedAccentColor = Color(0x73FF2442);
+
 class _OriginSetupRoleSection extends StatefulWidget {
   const _OriginSetupRoleSection({
     super.key,
@@ -383,7 +385,7 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: selected
-                  ? Colors.white.withValues(alpha: 0.95)
+                  ? _originSetupRoleSelectedAccentColor
                   : originWorldDetailSheetInactiveIndicatorColor,
             ),
           );
@@ -680,7 +682,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
         foregroundDecoration: BoxDecoration(
           border: Border.all(
             color: widget.selected
-                ? Colors.white.withValues(alpha: 0.95)
+                ? _originSetupRoleSelectedAccentColor
                 : Colors.white.withValues(alpha: 0.12),
             width: 1,
           ),

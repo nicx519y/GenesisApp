@@ -43,6 +43,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   Future<void> _loadSelectedModelCodeFromCache() async {
+    final modelWorldId = _modelWorldId;
+    if (modelWorldId.isEmpty) return;
     final generation = ++_selectedModelLoadGeneration;
     try {
       final userInfo =
@@ -50,7 +52,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
           const <String, dynamic>{};
       final modelCode = selectedModelCodeFromUserInfo(userInfo);
       final modelTitle = selectedModelTitleFromUserInfo(userInfo, modelCode);
-      if (!mounted || generation != _selectedModelLoadGeneration) return;
+      if (!mounted ||
+          generation != _selectedModelLoadGeneration ||
+          modelWorldId != _modelWorldId) {
+        return;
+      }
       if (modelCode != _selectedModelCode ||
           modelTitle != _selectedModelTitle) {
         _setLocationChatState(() {
@@ -69,12 +75,17 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   Future<void> _backfillSelectedModelTitle(String modelCode) async {
+    final modelWorldId = _modelWorldId;
     final code = modelCode.trim();
-    if (code.isEmpty || code == _selectedModelTitleLookupCode) return;
+    if (modelWorldId.isEmpty ||
+        code.isEmpty ||
+        code == _selectedModelTitleLookupCode) {
+      return;
+    }
     _selectedModelTitleLookupCode = code;
     final services = AppServicesScope.read(context);
     try {
-      final catalog = await services.api.v1.gem.models(worldId: widget.worldId);
+      final catalog = await services.api.v1.gem.models(worldId: modelWorldId);
       final titlesByCode = catalog.titlesByCode();
       final title = titlesByCode[code] ?? '';
       if (title.isEmpty) return;
@@ -82,7 +93,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       await services.sessionStore.saveUserInfo(
         userInfoWithSelectedGemModel(current, titlesByCode: titlesByCode),
       );
-      if (!mounted || code != _selectedModelCode) return;
+      if (!mounted ||
+          modelWorldId != _modelWorldId ||
+          code != _selectedModelCode) {
+        return;
+      }
       _setLocationChatState(() => _selectedModelTitle = title);
     } catch (error) {
       _selectedModelTitleLookupCode = '';
@@ -95,14 +110,15 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   Future<void> _openMemoryModelPage() async {
-    if (_openingModelPage) return;
+    final modelWorldId = _modelWorldId;
+    if (modelWorldId.isEmpty || _openingModelPage) return;
     _openingModelPage = true;
     _selectedModelLoadGeneration++;
     try {
       final selectedModelCode = await Navigator.of(context, rootNavigator: true)
           .pushNamed<String>(
             RouteNames.memoryModel,
-            arguments: {'world_id': widget.worldId},
+            arguments: {'world_id': modelWorldId},
           );
       if (!mounted) return;
       final normalized = selectedModelCode?.trim() ?? '';

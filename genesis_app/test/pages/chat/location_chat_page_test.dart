@@ -2579,7 +2579,7 @@ void main() {
     expect(source, isNot(contains('api.v1.user.info()')));
     expect(source, contains('rootNavigator: true'));
     expect(source, contains('pushNamed<String>('));
-    expect(source, contains("arguments: {'world_id': widget.worldId}"));
+    expect(source, contains("arguments: {'world_id': modelWorldId}"));
   });
 
   testWidgets('location chat model entry opens the current world model list', (
@@ -2601,6 +2601,7 @@ void main() {
             MaterialPage<void>(
               child: LocationChatPanel(
                 worldId: 'world-current',
+                modelWorldId: 'world-current',
                 locationId: 'location-current',
                 active: true,
               ),
@@ -2619,13 +2620,15 @@ void main() {
     expect(routeArguments, {'world_id': 'world-current'});
   });
 
-  testWidgets('unlaunched location chat hides the model entry', (tester) async {
+  testWidgets('location chat without a real world id hides the model entry', (
+    tester,
+  ) async {
     await tester.pumpWidget(
       const MaterialApp(
         home: LocationChatPanel(
-          worldId: 'world-current',
+          worldId: 'worldo-preview',
           locationId: 'location-current',
-          active: false,
+          active: true,
         ),
       ),
     );
@@ -2758,6 +2761,7 @@ void main() {
           home: LocationChatPanel(
             key: const ValueKey<String>('retained-model-entry-panel'),
             worldId: 'world-current',
+            modelWorldId: 'world-current',
             locationId: 'location-current',
             locationName: 'The Wisteria Terrace With A Long Name',
             active: active,
@@ -3736,6 +3740,7 @@ void main() {
         child: const MaterialApp(
           home: LocationChatPanel(
             worldId: 'world-current',
+            modelWorldId: 'world-current',
             locationId: 'location-current',
             active: true,
           ),
