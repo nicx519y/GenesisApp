@@ -308,6 +308,7 @@ class LocationChatPanel extends StatefulWidget {
     this.showComposer = true,
     this.composerReplacement,
     this.composerTopOverlay,
+    this.emptyState,
     this.showConnectionStatus = true,
     this.showMoreButton = false,
     this.systemUiOverlayStyle = kChatDarkHeaderSystemUiOverlayStyle,
@@ -349,6 +350,7 @@ class LocationChatPanel extends StatefulWidget {
   final bool showComposer;
   final Widget? composerReplacement;
   final Widget? composerTopOverlay;
+  final Widget? emptyState;
   final bool showConnectionStatus;
   final bool showMoreButton;
   final SystemUiOverlayStyle systemUiOverlayStyle;
@@ -929,6 +931,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                           child: messageList,
                         ),
                       ),
+                      if (widget.emptyState != null)
+                        Positioned.fill(
+                          child: IgnorePointer(child: widget.emptyState),
+                        ),
                       if (_unseenIncomingCount > 0)
                         Positioned(
                           left: 0,

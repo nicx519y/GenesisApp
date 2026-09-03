@@ -10,6 +10,58 @@ ChatUiStyleConfig get _originDetailSheetChatComposerStyle =>
 const double _originLocationChatRolePillAvatarSize = 22;
 const double _originLocationChatDockRoleOffsetY = -2;
 
+class _OriginLocationChatEmptyState extends StatelessWidget {
+  const _OriginLocationChatEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 360),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'This location comes to life after launch.',
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xF2FFFFFF),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              SizedBox(height: 6),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  'Launch this Worldo to explore and interact here.',
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Color(0xB8FFFFFF),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 String _originLaunchChatLocationId(OriginDetail origin) {
   final previewLocationId =
       _originFirstInitialDialoguePreview(origin)?.locationId.trim() ?? '';
@@ -115,6 +167,9 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                       descriptor.backgroundPreviewImageUrl,
                   openingPreviewMessages: descriptor.openingPreviewMessages,
                   openingPreviewEntities: descriptor.openingPreviewEntities,
+                  emptyState: descriptor.openingPreviewMessages.isEmpty
+                      ? const _OriginLocationChatEmptyState()
+                      : null,
                   isLeafLocation: descriptor.isLeafLocation,
                   active: false,
                   leaveOnInactive: false,

@@ -868,6 +868,33 @@ void main() {
     },
   );
 
+  testWidgets('origin location chat renders its supplied empty state', (
+    tester,
+  ) async {
+    const title = 'This location comes to life after launch.';
+    const body = 'Launch this Worldo to explore and interact here.';
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: LocationChatPanel(
+          worldId: 'origin-preview',
+          locationId: 'loc_empty',
+          locationName: 'Empty Location',
+          active: false,
+          showComposer: false,
+          emptyState: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [Text(title), Text(body)],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text(title), findsOneWidget);
+    expect(find.text(body), findsOneWidget);
+  });
+
   testWidgets(
     'origin opening preview reveals AI notice above its first message',
     (tester) async {
