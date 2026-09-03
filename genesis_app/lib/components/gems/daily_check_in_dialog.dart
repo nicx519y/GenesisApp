@@ -52,7 +52,6 @@ Future<void> showDailyCheckInSuccessDialog(
     title: 'Check in successful!',
     rewardGemsCent: rewardGemsCent,
     duration: duration,
-    showWholeReward: false,
   );
 }
 
