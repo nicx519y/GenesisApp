@@ -1,4 +1,5 @@
 import '../json_utils.dart';
+import '../../utils/gem_amount.dart';
 
 class GemPurchaseReportRequest {
   const GemPurchaseReportRequest({
@@ -46,7 +47,7 @@ enum GemPurchaseReportStatus { completed, accepted, rejected }
 class GemPurchaseReport {
   const GemPurchaseReport({
     required this.status,
-    this.grantedGems = 0,
+    this.grantedGemsCent,
     this.transactionId = '',
     this.reason = '',
   });
@@ -59,16 +60,22 @@ class GemPurchaseReport {
       'rejected' => GemPurchaseReportStatus.rejected,
       _ => throw FormatException('Unsupported purchase report status: $value'),
     };
+    final grantedGemsCent = status == GemPurchaseReportStatus.completed
+        ? requireGemCent(
+            json['granted_gems_cent'],
+            fieldName: 'granted_gems_cent',
+          )
+        : null;
     return GemPurchaseReport(
       status: status,
-      grantedGems: asInt(json['granted_gems']),
+      grantedGemsCent: grantedGemsCent,
       transactionId: asString(json['transaction_id']).trim(),
       reason: asString(json['reason']).trim(),
     );
   }
 
   final GemPurchaseReportStatus status;
-  final int grantedGems;
+  final int? grantedGemsCent;
   final String transactionId;
   final String reason;
 }

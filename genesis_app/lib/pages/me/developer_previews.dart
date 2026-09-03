@@ -221,7 +221,7 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
         navigator.context,
         alert: const GemBalanceAlert(
           kind: GemBalanceAlertKind.insufficient,
-          balance: 12,
+          balanceCent: 1200,
           message: 'Insufficient Gems',
         ),
         productsLoader: () async => preview.products,
@@ -373,10 +373,10 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     return ValueListenableBuilder<GemWalletState>(
       valueListenable: walletState,
       builder: (context, state, _) {
-        final balance = state.balance;
-        final content = balance == null
-            ? (state.isRefreshing ? 'Loading...' : '0')
-            : formatGemInteger(balance);
+        final balanceCent = state.balanceCent;
+        final content = balanceCent == null
+            ? (state.isRefreshing ? 'Loading...' : '0.0')
+            : formatGemCent(balanceCent);
         return _DeveloperInfoSingleLineRow(
           title: 'My Balance',
           content: content,

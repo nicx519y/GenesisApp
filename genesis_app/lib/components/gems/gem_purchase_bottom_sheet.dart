@@ -9,6 +9,7 @@ import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
+import '../../utils/gem_amount.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
@@ -211,10 +212,10 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
   }
 
   void _showPurchaseSuccess(BillingUiEvent event) {
-    final grantedGems = event.grantedGems;
+    final grantedGemsCent = event.grantedGemsCent;
     final nextState = GemBillingPurchaseDialogState.success(
       attemptId: event.attemptId,
-      grantedText: grantedGems > 0 ? formatGemInteger(grantedGems) : '',
+      grantedText: formatGemCent(grantedGemsCent),
     );
     _updatePurchaseDialog(nextState);
   }
@@ -309,7 +310,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
             child: ValueListenableBuilder<GemWalletState>(
               valueListenable: widget.walletStore.state,
               builder: (context, walletState, _) => GemPurchaseCatalogSection(
-                balance: walletState.balance ?? 0,
+                balanceCent: walletState.balanceCent ?? 0,
                 balanceKey: const ValueKey<String>(
                   'gem-purchase-sheet-balance',
                 ),

@@ -8,6 +8,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_records.dart';
+import '../../utils/gem_amount.dart';
 import '../../ui/components/secend_tabs.dart';
 
 typedef GemRecordsLoader =
@@ -305,9 +306,10 @@ class _GemRecordTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isIncome = record.amount >= 0;
-    final amountText =
-        '${isIncome ? '+' : '-'}${_formatInteger(record.amount.abs())}';
+    final isIncome = record.amountCent >= 0;
+    final amountText = isIncome
+        ? '+${formatGemCent(record.amountCent)}'
+        : formatGemCent(record.amountCent);
     final detailLines = _recordDetailLines(record);
     return Container(
       key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
@@ -534,14 +536,3 @@ String formatGemRecordTimestamp(int epochSeconds) {
 }
 
 String _twoDigits(int value) => value.toString().padLeft(2, '0');
-
-String _formatInteger(int value) {
-  final text = value.toString();
-  final buffer = StringBuffer();
-  for (var i = 0; i < text.length; i += 1) {
-    final remaining = text.length - i;
-    buffer.write(text[i]);
-    if (remaining > 1 && remaining % 3 == 1) buffer.write(',');
-  }
-  return buffer.toString();
-}

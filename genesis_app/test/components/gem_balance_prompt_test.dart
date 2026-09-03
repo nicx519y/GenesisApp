@@ -46,7 +46,7 @@ void main() {
       ),
     );
     expect(closeIcon.color, const Color(0xFF111111));
-    expect(find.text('430'), findsOneWidget);
+    expect(find.text('430.0'), findsOneWidget);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-icon'))).dx,
       tester
@@ -70,8 +70,8 @@ void main() {
       tester.widget<SizedBox>(find.byKey(const ValueKey('gem-balance-panel'))),
       isA<SizedBox>(),
     );
-    expect(find.text('+550'), findsOneWidget);
-    expect(find.text('500'), findsOneWidget);
+    expect(find.text('+550.0'), findsOneWidget);
+    expect(find.text('500.0'), findsOneWidget);
     expect(find.text(formatGemPrice(149, 'USD')), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
@@ -93,12 +93,12 @@ void main() {
     addTearDown(fixture.dispose);
     await _pumpPrompt(
       tester,
-      const GemBalanceAlert(kind: GemBalanceAlertKind.low, balance: 10),
+      const GemBalanceAlert(kind: GemBalanceAlertKind.low, balanceCent: 1000),
       fixture,
     );
 
     expect(find.text(lowGemBalancePrompt), findsOneWidget);
-    expect(find.text('+550'), findsOneWidget);
+    expect(find.text('+550.0'), findsOneWidget);
     _expectSheetShowEvent(telemetry, gemPurchaseSheetTriggerMessageLowBalance);
   });
 
@@ -296,7 +296,7 @@ class _PromptFixture {
   _PromptFixture({List<GemProduct>? products})
     : products = products ?? [_product('gem_pack_500')],
       walletStore = GemWalletStore(
-        loadWallet: () async => const GemWallet(balance: 430),
+        loadWallet: () async => const GemWallet(balanceCent: 43000),
         readUid: () async => 'u_user',
       );
 
@@ -350,7 +350,7 @@ class _FakeBillingService implements BillingService {
         productId: productId,
         attemptId: 'pay_test',
         message: 'Purchase successful!',
-        grantedGems: 550,
+        grantedGemsCent: 55000,
       ),
     );
   }
@@ -381,8 +381,8 @@ GemProduct _product(String productId) {
     productId: productId,
     appleProductId: productId,
     googleProductId: productId,
-    baseGems: productId == 'gem_pack_500' ? 500 : 1100,
-    bonusGems: 50,
+    baseGemsCent: productId == 'gem_pack_500' ? 50000 : 110000,
+    bonusGemsCent: 5000,
     priceCurrencyCode: 'USD',
     priceAmount: 149,
     canPurchase: true,

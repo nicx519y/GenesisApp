@@ -45,7 +45,7 @@ Future<void> runDailyCheckInFlow(
     final shouldAct = await showDailyCheckInDialog(
       context,
       status: status,
-      rewardGems: task.rewardGems,
+      rewardGemsCent: task.rewardGemsCent,
     );
     if (!shouldAct || !context.mounted) return;
 
@@ -78,7 +78,7 @@ Future<void> runDailyCheckInFlow(
       if (status == DailyCheckInDialogStatus.claimed) {
         final successDialog = showDailyCheckInSuccessDialog(
           context,
-          rewardGems: task.rewardGems,
+          rewardGemsCent: task.rewardGemsCent,
         );
         unawaited(refreshWallet());
         await successDialog;

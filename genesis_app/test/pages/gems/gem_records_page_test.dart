@@ -40,7 +40,7 @@ void main() {
                   GemRecordItem(
                     ledgerId: 'ledger-1',
                     orderId: 'order-1',
-                    amount: 50,
+                    amountCent: 5000,
                     scene: 'task',
                     reasonCode: 'daily_checkin',
                     title: 'Daily check-in',
@@ -51,7 +51,7 @@ void main() {
                   ),
                   GemRecordItem(
                     ledgerId: 'ledger-2',
-                    amount: -4,
+                    amountCent: -400,
                     scene: 'world_tick',
                     reasonCode: 'location_message',
                     title: 'Message',
@@ -106,7 +106,7 @@ void main() {
       closeTo(8, 0.1),
     );
     expect(
-      tester.getCenter(find.text('+50')).dy,
+      tester.getCenter(find.text('+50.0')).dy,
       closeTo(textBlockCenter, 0.1),
     );
     expect(
@@ -158,7 +158,7 @@ void main() {
                 items: [
                   GemRecordItem(
                     ledgerId: 'ledger-1',
-                    amount: -4,
+                    amountCent: -400,
                     scene: 'world_tick',
                     reasonCode: 'message',
                     title: 'Message',

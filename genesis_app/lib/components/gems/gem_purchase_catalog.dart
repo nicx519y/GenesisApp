@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
+import '../../utils/gem_amount.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
 
@@ -13,12 +14,12 @@ const double kGemPriceButtonHeight = 24;
 class GemPurchaseCatalogSection extends StatelessWidget {
   const GemPurchaseCatalogSection({
     super.key,
-    required this.balance,
+    required this.balanceCent,
     required this.catalog,
     this.balanceKey = const ValueKey<String>('gem-wallet-balance'),
   });
 
-  final int balance;
+  final int balanceCent;
   final Key balanceKey;
   final Widget catalog;
 
@@ -27,7 +28,7 @@ class GemPurchaseCatalogSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GemBalancePanel(balance: balance, balanceKey: balanceKey),
+        GemBalancePanel(balanceCent: balanceCent, balanceKey: balanceKey),
         const SizedBox(height: 10),
         catalog,
       ],
@@ -38,11 +39,11 @@ class GemPurchaseCatalogSection extends StatelessWidget {
 class GemBalancePanel extends StatelessWidget {
   const GemBalancePanel({
     super.key,
-    required this.balance,
+    required this.balanceCent,
     this.balanceKey = const ValueKey<String>('gem-wallet-balance'),
   });
 
-  final int balance;
+  final int balanceCent;
   final Key balanceKey;
 
   @override
@@ -78,7 +79,7 @@ class GemBalancePanel extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              formatGemInteger(balance),
+              formatGemCent(balanceCent),
               key: balanceKey,
               style: const TextStyle(
                 fontSize: 30,
@@ -154,7 +155,7 @@ class GemProductCard extends StatelessWidget {
     final isNewUserProduct = product.productId.trim() == 'gem_pack_500';
     final isSoldOut = isNewUserProduct && !product.canPurchase;
     final tag = product.tagText;
-    final hasBonusGems = product.bonusGems > 0;
+    final hasBonusGems = product.bonusGemsCent > 0;
     final defaultTagColor = isNewUserProduct
         ? const Color(0xFFE85C39)
         : const Color(0xFFB53B52);
@@ -242,7 +243,7 @@ class GemProductCard extends StatelessWidget {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        '+${formatGemInteger(product.totalGems)}',
+                        '+${formatGemCent(product.totalGemsCent)}',
                         maxLines: 1,
                         style: const TextStyle(
                           fontSize: 14,
@@ -262,7 +263,7 @@ class GemProductCard extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          formatGemInteger(product.baseGems),
+                          formatGemCent(product.baseGemsCent),
                           maxLines: 1,
                           style: const TextStyle(
                             fontSize: 12,
@@ -352,17 +353,6 @@ class _UnavailableProductFilter extends StatelessWidget {
       child: child,
     );
   }
-}
-
-String formatGemInteger(int value) {
-  final text = value.toString();
-  final buffer = StringBuffer();
-  for (var i = 0; i < text.length; i += 1) {
-    final remaining = text.length - i;
-    buffer.write(text[i]);
-    if (remaining > 1 && remaining % 3 == 1) buffer.write(',');
-  }
-  return buffer.toString();
 }
 
 String formatGemPrice(int cents, String currencyCode) {

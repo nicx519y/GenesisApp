@@ -37,7 +37,7 @@ void main() {
 
     expect(tester.getSize(iconFrame), const Size(30, 30));
     expect(material.color, const Color(0x99151517));
-    expect(shape.borderRadius, BorderRadius.circular(11));
+    expect(shape.borderRadius, BorderRadius.circular(8));
     expect(shape.side.color, const Color(0x29FFFFFF));
     expect(shape.side.width, 0.5);
     expect(icon.size, 13);

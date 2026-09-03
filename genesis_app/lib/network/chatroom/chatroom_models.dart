@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import '../../utils/gem_amount.dart';
 import '../json_utils.dart';
 import 'chatroom_message_type.dart';
 import 'chatroom_timeline_payload.dart';
@@ -823,15 +824,18 @@ class ChatroomAck extends ChatroomPayloadEvent {
 }
 
 class ChatroomBalanceLow extends ChatroomEvent {
-  const ChatroomBalanceLow({required this.balance, required this.message});
+  const ChatroomBalanceLow({required this.balanceCent, required this.message});
 
-  final int balance;
+  final int balanceCent;
   final String message;
 
   factory ChatroomBalanceLow.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
     return ChatroomBalanceLow(
-      balance: asInt(payload['balance']),
+      balanceCent: requireGemCent(
+        payload['balance_cent'],
+        fieldName: 'balance_low.balance_cent',
+      ),
       message: asString(payload['message']),
     );
   }
