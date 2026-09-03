@@ -171,6 +171,16 @@ class _OriginDetailDraggableSheetState
   bool get _openingKeyboardMode => _sheetInteraction.keyboardMode;
   _OriginOpeningKeyboardPhase get _openingKeyboardPhase =>
       _sheetInteraction.keyboardPhase;
+  bool get _openingRoleSectionHidden => switch (_openingKeyboardPhase) {
+    _OriginOpeningKeyboardPhase.open => true,
+    _OriginOpeningKeyboardPhase.opening =>
+      _sheetInteraction.keyboardInset > 0.5 ||
+          _openingKeyboardTargetInset > _sheetInteraction.keyboardInset + 0.5,
+    _OriginOpeningKeyboardPhase.idle ||
+    _OriginOpeningKeyboardPhase.preparing ||
+    _OriginOpeningKeyboardPhase.closing ||
+    _OriginOpeningKeyboardPhase.restoring => false,
+  };
   double get _openingKeyboardTargetInset =>
       _sheetInteraction.keyboardTargetInset;
   double get _openingKeyboardNormalScrollOffset =>
@@ -1112,28 +1122,65 @@ class _OriginDetailDraggableSheetState
                               );
                             },
                           ),
-                          SliverToBoxAdapter(
-                            child: IgnorePointer(
-                              ignoring: _openingKeyboardMode,
-                              child: Opacity(
-                                opacity: _openingKeyboardMode ? 0 : 1,
-                                child: _OriginSetupRoleSection(
-                                  key: _roleSectionKey,
-                                  scrollController: scrollController,
-                                  characters: widget.origin.characters,
-                                  roleAvatarSnapshots:
-                                      widget.roleAvatarSnapshots,
-                                  launchBusy: widget.activeLaunchSource != null,
-                                  profileRole: widget.profileRole,
-                                  selectedRoleId: widget.locationChatRole.id,
-                                  onSelectedRoleChanged:
-                                      widget.onSelectLocationChatRole,
-                                  onSaveProfileRole: widget.onSaveProfileRole,
-                                  onRoleEditingChanged:
-                                      _handleRoleEditingChanged,
+                          AnimatedBuilder(
+                            animation:
+                                _sheetInteraction.keyboardFrameListenable,
+                            child: SliverToBoxAdapter(
+                              child: IgnorePointer(
+                                ignoring: _openingKeyboardMode,
+                                child: Opacity(
+                                  key: const ValueKey<String>(
+                                    'origin-opening-role-section-settled-visibility',
+                                  ),
+                                  opacity:
+                                      _openingKeyboardPhase ==
+                                          _OriginOpeningKeyboardPhase.open
+                                      ? 0
+                                      : 1,
+                                  child: AnimatedOpacity(
+                                    key: const ValueKey<String>(
+                                      'origin-opening-role-section-visibility',
+                                    ),
+                                    opacity: _openingRoleSectionHidden ? 0 : 1,
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeOutCubic,
+                                    child: _OriginSetupRoleSection(
+                                      key: _roleSectionKey,
+                                      scrollController: scrollController,
+                                      characters: widget.origin.characters,
+                                      roleAvatarSnapshots:
+                                          widget.roleAvatarSnapshots,
+                                      launchBusy:
+                                          widget.activeLaunchSource != null,
+                                      profileRole: widget.profileRole,
+                                      selectedRoleId:
+                                          widget.locationChatRole.id,
+                                      onSelectedRoleChanged:
+                                          widget.onSelectLocationChatRole,
+                                      onSaveProfileRole:
+                                          widget.onSaveProfileRole,
+                                      onRoleEditingChanged:
+                                          _handleRoleEditingChanged,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
+                            builder: (context, child) {
+                              final actualContentOffset =
+                                  scrollController.hasClients
+                                  ? scrollController.offset
+                                  : _openingKeyboardNormalScrollOffset;
+                              return _OriginSliverPaintTranslation(
+                                translation: Offset(
+                                  0,
+                                  _sheetInteraction.contentTranslation(
+                                    actualContentOffset,
+                                  ),
+                                ),
+                                sliver: child!,
+                              );
+                            },
                           ),
                           if (openingComposer != null)
                             SliverToBoxAdapter(
