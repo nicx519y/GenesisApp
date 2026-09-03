@@ -184,6 +184,8 @@ LLM 流的外层 `type` 仍表示发送者业务类型，状态只看 `stream_ty
 
 以下控制通知保留既有外层 `type` 与业务 payload：`tick_start`、`tick_done`、`world_change`、`user_location_change`、`world_new_message`、`map_updated`、`character_updated`、`new_user_join`、`balance_low`。`user_enter_location/story_events/characters_moved` 的既有通知/正式消息适配也继续存在。
 
+`balance_low` 的 Gems 余额只使用 `payload.balance_cent`。该字段必须是 JSON 整数 cent；缺失或类型不合法时，本帧按协议错误隔离。业务模型保存原始 cent，用户可见余额由统一 Gems 格式化工具转换为固定一位小数。
+
 V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_message` 或 `characters_moved` 带 `location_id` 时只调用 `/aitown-chat/api/v2/messages` 刷新该地点；缺少地点时对当前世界的叶子地点做限并发 V2 刷新。这条 runtime 链路不调用 `/aitown-chat/internal/world/messages` 或 legacy `/aitown-chat/api/messages`。
 
 ### `waiting_conversation_round`

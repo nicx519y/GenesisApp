@@ -159,9 +159,8 @@ extension _WorldPageTabs on _WorldPageState {
         _currentUid = uid;
       }
     }
-    await recentWorldChatStore.loadForUid(uid);
     if (!mounted) return;
-    _handleRecentWorldChatStoreChanged();
+    _recentChatStoreUpdatesEnabled = true;
   }
 
   List<String> _locationPathIdsForLocationId(

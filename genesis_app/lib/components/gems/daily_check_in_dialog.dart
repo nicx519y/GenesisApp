@@ -6,8 +6,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import 'gem_colors.dart';
+import '../../utils/gem_amount.dart';
 
-const int dailyCheckInPreviewReward = 50;
+const int dailyCheckInPreviewRewardCent = 5000;
 const String dailyCheckInTaskCode = 'daily_checkin';
 const Duration dailyCheckInSuccessDuration = Duration(seconds: 3);
 
@@ -16,13 +17,13 @@ enum DailyCheckInDialogStatus { checkIn, claim, claimed }
 Future<bool> showDailyCheckInDialog(
   BuildContext context, {
   required DailyCheckInDialogStatus status,
-  int rewardGems = dailyCheckInPreviewReward,
+  int rewardGemsCent = dailyCheckInPreviewRewardCent,
 }) async {
   final claimed = status == DailyCheckInDialogStatus.claimed;
   final shouldCheckIn = await showGenesisActionBox<bool>(
     context: context,
     title: 'Daily Check-in',
-    titleContent: _GemTaskReward(rewardGems: rewardGems),
+    titleContent: _GemTaskReward(rewardGemsCent: rewardGemsCent),
     titleContentSpacing: 10,
     actions: [
       GenesisActionBoxAction<bool>(
@@ -43,13 +44,13 @@ Future<bool> showDailyCheckInDialog(
 
 Future<void> showDailyCheckInSuccessDialog(
   BuildContext context, {
-  int rewardGems = dailyCheckInPreviewReward,
+  int rewardGemsCent = dailyCheckInPreviewRewardCent,
   Duration duration = dailyCheckInSuccessDuration,
 }) async {
   return showGemTaskSuccessDialog(
     context,
     title: 'Check in successful!',
-    rewardGems: rewardGems,
+    rewardGemsCent: rewardGemsCent,
     duration: duration,
   );
 }
@@ -57,7 +58,7 @@ Future<void> showDailyCheckInSuccessDialog(
 Future<void> showGemTaskSuccessDialog(
   BuildContext context, {
   required String title,
-  required int rewardGems,
+  required int rewardGemsCent,
   Duration duration = dailyCheckInSuccessDuration,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
@@ -68,7 +69,7 @@ Future<void> showGemTaskSuccessDialog(
     await showGenesisActionBox<void>(
       context: context,
       title: title,
-      titleContent: _GemTaskReward(rewardGems: rewardGems),
+      titleContent: _GemTaskReward(rewardGemsCent: rewardGemsCent),
       titleContentSpacing: 10,
       actions: const [],
       showCancel: false,
@@ -79,9 +80,9 @@ Future<void> showGemTaskSuccessDialog(
 }
 
 class _GemTaskReward extends StatelessWidget {
-  const _GemTaskReward({required this.rewardGems});
+  const _GemTaskReward({required this.rewardGemsCent});
 
-  final int rewardGems;
+  final int rewardGemsCent;
 
   @override
   Widget build(BuildContext context) {
@@ -89,7 +90,7 @@ class _GemTaskReward extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '+$rewardGems',
+          '+${formatGemCent(rewardGemsCent)}',
           key: const ValueKey<String>('gem-task-reward-value'),
           style: const TextStyle(
             color: Color(0xFF111111),

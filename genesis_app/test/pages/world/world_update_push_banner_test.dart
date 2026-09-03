@@ -88,7 +88,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
 
-    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     expect(find.text('New Wanderer · Wandering swordsman'), findsNothing);
     expect(characterAvatarLoadCount, 0);
@@ -116,13 +116,30 @@ void main() {
     final locationBannerRect = tester.getRect(
       find.byKey(const ValueKey<String>('world-update-push-banner')),
     );
-    expect(
+    final shadow = tester.widget<DecoratedBox>(
       find.byKey(const ValueKey<String>('world-update-push-shadow')),
+    );
+    final shadowDecoration = shadow.decoration as BoxDecoration;
+    expect(shadowDecoration.borderRadius, BorderRadius.circular(12));
+    expect(shadowDecoration.boxShadow, hasLength(1));
+    expect(shadowDecoration.boxShadow!.single.color, const Color(0x99000000));
+    expect(shadowDecoration.boxShadow!.single.blurRadius, 24);
+    expect(shadowDecoration.boxShadow!.single.offset, const Offset(0, 8));
+    expect(
+      find.byKey(const ValueKey<String>('world-update-push-outline')),
       findsNothing,
+    );
+    final backdropBlur = tester.widget<BackdropFilter>(
+      find.byKey(const ValueKey<String>('world-update-push-backdrop-blur')),
+    );
+    expect(
+      backdropBlur.filterConfig,
+      const ImageFilterConfig.blur(sigmaX: 20, sigmaY: 20, bounded: false),
     );
     final bannerMaterial = tester.widget<Material>(
       find.byKey(const ValueKey<String>('world-update-push-banner')),
     );
+    expect(bannerMaterial.color, const Color(0x33FFFFFF));
     expect(bannerMaterial.shape, isNull);
     expect(bannerMaterial.borderRadius, BorderRadius.circular(12));
     final viewportWidth = tester.getSize(find.byType(Scaffold)).width;
@@ -162,7 +179,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
 
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
-    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('New Character Appeared'), findsOneWidget);
     expect(find.text('New Wanderer · Wandering swordsman'), findsOneWidget);
     expect(characterAvatarLoadCount, 1);
     expect(
@@ -186,7 +203,7 @@ void main() {
     final detailText = tester.widget<Text>(
       find.byKey(const ValueKey<String>('world-update-push-detail')),
     );
-    expect(detailText.style?.fontSize, 13);
+    expect(detailText.style?.fontSize, 14);
     expect(detailText.style?.color, const Color(0xF2FFFFFF));
     expect(detailText.maxLines, 1);
     expect(detailText.overflow, TextOverflow.ellipsis);
@@ -213,7 +230,7 @@ void main() {
     final detailRect = tester.getRect(
       find.byKey(const ValueKey<String>('world-update-push-detail')),
     );
-    final categoryRect = tester.getRect(find.text('New character joined'));
+    final categoryRect = tester.getRect(find.text('New Character Appeared'));
     expect(detailRect.top - categoryRect.bottom, closeTo(5, 0.01));
     expect(detailRect.left - avatarRect.right, 10);
 
@@ -263,7 +280,7 @@ void main() {
       ),
     );
 
-    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('Root Harbor'), findsOneWidget);
     expect(find.textContaining('·'), findsNothing);
     expect(find.byType(GenesisStaticNetworkImage), findsNothing);
@@ -294,7 +311,7 @@ void main() {
       ),
     );
 
-    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('New Character Appeared'), findsOneWidget);
     expect(find.text('Nameless Wanderer'), findsOneWidget);
     expect(find.textContaining('·'), findsNothing);
     expect(
@@ -410,7 +427,7 @@ void main() {
     );
 
     expect(imageLoadCount, 1);
-    expect(find.text('New character joined'), findsNothing);
+    expect(find.text('New Character Appeared'), findsNothing);
     expect(find.text('Waiting Character'), findsNothing);
     expect(find.byType(GenesisAvatarFallback), findsNothing);
 
@@ -422,7 +439,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('New Character Appeared'), findsOneWidget);
     expect(find.text('Waiting Character'), findsOneWidget);
     expect(find.byType(RawImage), findsOneWidget);
     expect(find.byType(GenesisAvatarFallback), findsNothing);

@@ -79,7 +79,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
       topPadding: topPadding,
       mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
       map:
-          _buildInitialTilemapPreview(topPadding) ??
+          _buildInitialTilemapPreview() ??
           ColoredBox(
             key: const ValueKey<String>('origin-map-loading-background'),
             color: _tilemapLoadingBackgroundColor,
@@ -91,7 +91,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
     );
   }
 
-  Widget? _buildInitialTilemapPreview(double topPadding) {
+  Widget? _buildInitialTilemapPreview() {
     final locationId = widget.initialMapLocationId.trim();
     if (widget.initialDefinitionVersion != 2 || locationId.isEmpty) {
       return null;
@@ -101,7 +101,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
       child: WorldMap.origin(
         definitionVersion: 2,
         originId: widget.oid,
-        common: WorldMapCommonConfig(drillExitTop: topPadding + 68),
+        common: const WorldMapCommonConfig(),
         legacy: const LegacyWorldMapConfig(points: <WorldPoint>[]),
         tilemap: WorldMapTilemapOptions(
           implementationKey: _tilemapImplementationKey,

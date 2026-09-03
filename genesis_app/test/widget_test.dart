@@ -709,7 +709,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? myLaunchPresetCharacters;
   final Completer<TransportResponse>? myLaunchPresetCharactersCompleter;
   final String worldMapUrl;
-  final String? worldLastChatLocationId;
+  String? worldLastChatLocationId;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
@@ -1034,7 +1034,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_msg': 'succ',
         'data': {
-          'wallet': {'balance': 430},
+          'wallet': {'balance_cent': 43000},
         },
       });
     }
@@ -2764,6 +2764,20 @@ void main() {
   testWidgets('Worldo records one network request and real content frame', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    AppStartupCoordinator.beginLaunchTracking(
+      startupId: 'worldo-signed-in-cache-fallback',
+    );
+    AppStartupCoordinator.recordStartupFirstReport();
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'worldo',
+      reason: 'session_home_miss_worldo_cache_hit',
+    );
+    AppStartupCoordinator.recordLaunchPage();
     final traces = <_WidgetPerformanceTrace>[];
     FirebasePerformanceMonitoring.setReadyForTesting(true);
     FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
@@ -2814,14 +2828,41 @@ void main() {
           .stopped,
       isTrue,
     );
+    final launchEvents = telemetry.events
+        .where((event) => event.name.startsWith('launch_'))
+        .toList(growable: false);
+    expect(launchEvents.map((event) => event.name), <String>[
+      'launch_startup',
+      'launch_page',
+      'launch_req_start',
+      'launch_req_end',
+      'launch_render',
+    ]);
+    expect(
+      launchEvents[1].data['object4'],
+      'session_home_miss_worldo_cache_hit',
+    );
+    expect(launchEvents[3].data['object4'], 'success');
+    expect(launchEvents[4].data['object4'], 'network');
   });
 
   testWidgets(
     'My Worlds cache frame does not complete the network render trace',
     (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
       final telemetry = _CapturingTelemetrySink();
       GenesisTelemetry.setSinkForTesting(telemetry);
       addTearDown(GenesisTelemetry.resetForTesting);
+      AppStartupCoordinator.beginLaunchTracking(
+        startupId: 'home-signed-in-cache',
+      );
+      AppStartupCoordinator.recordStartupFirstReport();
+      AppStartupCoordinator.setLaunchPageDecision(
+        page: 'home',
+        reason: 'session_home_cache_hit',
+      );
+      AppStartupCoordinator.recordLaunchPage();
       final traces = <_WidgetPerformanceTrace>[];
       FirebasePerformanceMonitoring.setReadyForTesting(true);
       FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
@@ -2889,7 +2930,15 @@ void main() {
             .stopped,
         isTrue,
       );
+      expect(find.text('World tick narrator 2'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsNothing);
       expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
+      final launchRenders = telemetry.events
+          .where((event) => event.name == 'launch_render')
+          .toList(growable: false);
+      expect(launchRenders, hasLength(1));
+      expect(launchRenders.single.data['object2'], 'home');
+      expect(launchRenders.single.data['object4'], 'cache');
     },
   );
 
@@ -2944,6 +2993,99 @@ void main() {
 
     expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
   });
+
+  testWidgets(
+    'Home starts network beside stuck cache and network wins late cache',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
+      AppStartupCoordinator.beginLaunchTracking(
+        startupId: 'home-signed-in-cache-fallback',
+      );
+      AppStartupCoordinator.recordStartupFirstReport();
+      AppStartupCoordinator.setLaunchPageDecision(
+        page: 'home',
+        reason: 'session_home_cache_hit',
+      );
+      AppStartupCoordinator.recordLaunchPage();
+      final cacheCompleter = Completer<Map<String, dynamic>?>();
+      final worldListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldListCompleter: worldListCompleter,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: MaterialApp(
+            home: HomePage(
+              localRestoreTimeout: const Duration(seconds: 5),
+              myWorldsCacheLoader: (_) => cacheCompleter.future,
+            ),
+          ),
+        ),
+      );
+      for (
+        var index = 0;
+        index < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(cacheCompleter.isCompleted, isFalse);
+
+      worldListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'list': [transport._worldItem(1)],
+            'total': 1,
+          },
+        }),
+      );
+      for (
+        var index = 0;
+        index < 10 && find.text('World tick narrator 2').evaluate().isEmpty;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+      expect(find.text('World tick narrator 2'), findsOneWidget);
+
+      cacheCompleter.complete({
+        'list': [transport._worldItem(0)],
+        'total': 1,
+      });
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('World tick narrator 2'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsNothing);
+      final launchEvents = telemetry.events
+          .where((event) => event.name.startsWith('launch_'))
+          .toList(growable: false);
+      expect(launchEvents.map((event) => event.name), <String>[
+        'launch_startup',
+        'launch_page',
+        'launch_req_start',
+        'launch_req_end',
+        'launch_render',
+      ]);
+      expect(launchEvents[1].data['object4'], 'session_home_cache_hit');
+      expect(launchEvents[3].data['object4'], 'success');
+      expect(launchEvents[4].data['object4'], 'network');
+    },
+  );
 
   testWidgets(
     'Worldo first pageview waits for For you then later tab entry is immediate',
@@ -5316,7 +5458,7 @@ void main() {
                   ValueListenableBuilder<GemWalletState>(
                     valueListenable: walletState,
                     builder: (context, state, _) {
-                      return Text('balance=${state.balance ?? '-'}');
+                      return Text('balance=${state.balanceCent ?? '-'}');
                     },
                   ),
                   TextButton(
@@ -7833,6 +7975,17 @@ void main() {
       find.byKey(const ValueKey<String>('origin-sheet-page-indicator')),
       findsOneWidget,
     );
+    final originSheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    final originSheetIndicator = find.byKey(
+      const ValueKey<String>('origin-sheet-page-indicator'),
+    );
+    expect(
+      tester.getTopLeft(originSheetIndicator).dy -
+          tester.getTopLeft(originSheetSurface).dy,
+      closeTo(8.5, 0.001),
+    );
     final sheetPageActiveSegment = find.byKey(
       const ValueKey<String>('origin-sheet-page-active-segment'),
     );
@@ -9981,7 +10134,7 @@ void main() {
         recommendedFrame.foregroundDecoration! as BoxDecoration;
     expect(
       (recommendedOutline.border! as Border).top.color,
-      GenesisColors.brand,
+      const Color(0x73FF2442),
     );
     expect((recommendedOutline.border! as Border).top.width, 1);
     expect(
@@ -10119,7 +10272,11 @@ void main() {
           .dx,
       closeTo(tester.getCenter(roleCardsFinder).dx, 0.01),
     );
-    expect((regularOutline.border! as Border).top.color, GenesisColors.brand);
+    expect(
+      (regularOutline.border! as Border).top.color,
+      const Color(0x73FF2442),
+    );
+    expect((regularOutline.border! as Border).top.width, 1);
     expect(tester.widget<Text>(rolePillLabel).data, 'Regular role');
     expect(
       find.descendant(
@@ -10135,7 +10292,7 @@ void main() {
     );
     expect(
       (selectedDot.decoration! as BoxDecoration).color,
-      GenesisColors.brand,
+      const Color(0x73FF2442),
     );
   });
 
@@ -10856,7 +11013,14 @@ void main() {
               as Border)
           .top
           .color,
-      GenesisColors.brand,
+      const Color(0x73FF2442),
+    );
+    expect(
+      ((selectedProfileFrame.foregroundDecoration! as BoxDecoration).border!
+              as Border)
+          .top
+          .width,
+      1,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
@@ -11119,7 +11283,7 @@ void main() {
               as Border)
           .top
           .color,
-      GenesisColors.brand,
+      const Color(0x73FF2442),
     );
     tester
         .widget<GestureDetector>(
@@ -11178,13 +11342,27 @@ void main() {
           .ignoring,
       isTrue,
     );
+    final cancelEdit = find.byKey(
+      const ValueKey<String>('origin-setup-role-cancel-current-user'),
+    );
+    final saveEdit = find.byKey(
+      const ValueKey<String>('origin-setup-role-save-current-user'),
+    );
+    expect(cancelEdit, findsOneWidget);
+    expect(saveEdit, findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
     expect(
-      find.byKey(
-        const ValueKey<String>(
-          'origin-setup-role-edit-close-icon-current-user',
-        ),
-      ),
-      findsOneWidget,
+      tester
+          .widget<Material>(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-save-surface-current-user',
+              ),
+            ),
+          )
+          .color,
+      GenesisColors.brand,
     );
     expect(profileBodyToggle, findsNothing);
     expect(
@@ -11206,13 +11384,7 @@ void main() {
       tester.widget<TextField>(mountedInlineFields.at(0)).controller?.text,
       'Temporary Name',
     );
-    tester
-        .widget<InkWell>(
-          find.byKey(
-            const ValueKey<String>('origin-setup-role-edit-current-user'),
-          ),
-        )
-        .onTap!();
+    tester.widget<InkWell>(cancelEdit).onTap!();
     await tester.pumpAndSettle();
     expect(inlineEditor, findsNothing);
     expect(profileLabel, findsOneWidget);
@@ -11274,7 +11446,7 @@ void main() {
     tester
         .widget<InkWell>(
           find.byKey(
-            const ValueKey<String>('origin-setup-role-edit-current-user'),
+            const ValueKey<String>('origin-setup-role-cancel-current-user'),
           ),
         )
         .onTap!();
@@ -11317,7 +11489,7 @@ void main() {
     AppStartupCoordinator.resetForTesting();
   });
 
-  testWidgets('Origin profile editor launches its custom role inline', (
+  testWidgets('Origin profile editor saves a page-local role before launch', (
     WidgetTester tester,
   ) async {
     AppStartupCoordinator.resetForTesting();
@@ -11333,25 +11505,31 @@ void main() {
       originLaunchCompleter: originLaunchCompleter,
       worldRelationStatus: 'approved',
     );
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialAuthToken: 'token',
+      initialUserInfo: const {
+        'uid': 'u_profile',
+        'name': 'Profile Hero',
+        'avatar': 'https://cdn.example.com/profile.jpg',
+        'identity': 'Initial identity',
+        'bio': 'Initial profile personality',
+      },
+    );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialAuthToken: 'token',
-          initialUserInfo: const {
-            'uid': 'u_profile',
-            'name': 'Profile Hero',
-            'avatar': 'https://cdn.example.com/profile.jpg',
-            'identity': 'Initial identity',
-            'bio': 'Initial profile personality',
-          },
-        ),
+        services: services,
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
         ),
       ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
     );
     await tester.pumpAndSettle();
 
@@ -11469,6 +11647,7 @@ void main() {
       reason: 'The focused role field stays above the keyboard.',
     );
     expect(nameController.text, 'Profile Hero');
+    await tester.enterText(mountedFields.first, 'Saved Profile Hero');
     await tester.enterText(mountedFields.at(1), 'Explorer');
     await tester.pump();
     expect(
@@ -11483,6 +11662,36 @@ void main() {
     );
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
+
+    final saveProfile = find.byKey(
+      const ValueKey<String>('origin-setup-role-save-current-user'),
+    );
+    expect(saveProfile, findsOneWidget);
+    tester.widget<InkWell>(saveProfile).onTap!();
+    await tester.pumpAndSettle();
+
+    expect(inlineEditor, findsNothing);
+    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('origin-setup-role-portrait-current-user'),
+        ),
+        matching: find.text('Saved Profile Hero'),
+      ),
+      findsOneWidget,
+    );
+    final savedRolePillLabel = find.descendant(
+      of: find.byKey(const ValueKey<String>('origin-location-chat-role-pill')),
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-chat-role-label'),
+      ),
+    );
+    expect(tester.widget<Text>(savedRolePillLabel).data, 'Saved Profile Hero');
+    final persistedUserInfo = await services.sessionStore.readUserInfo();
+    expect(persistedUserInfo?['name'], 'Profile Hero');
+    expect(persistedUserInfo?['identity'], 'Initial identity');
+    expect(persistedUserInfo?['bio'], 'Initial profile personality');
 
     final launchCustom = tester
         .widget<InkWell>(
@@ -11510,7 +11719,10 @@ void main() {
     final launchRequests = transport.requestsFor('/api/v1/origin/launch');
     expect(launchRequests, hasLength(1));
     final launchBody = transport.decodedBody(launchRequests.single);
-    expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
+    expect(
+      launchBody['custom_role'],
+      containsPair('name', 'Saved Profile Hero'),
+    );
     expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
     expect(
       launchBody['custom_role'],
@@ -11521,6 +11733,46 @@ void main() {
       source: 'opening_select',
     );
     await tester.pump(const Duration(seconds: 2));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    AppStartupCoordinator.resetForTesting();
+    final reenteredServices = await _testServices(
+      transport: _RecordingV1ListTransport(worldRelationStatus: 'approved'),
+      useMock: false,
+      initialAuthToken: 'token',
+      initialUserInfo: const {
+        'uid': 'u_profile',
+        'name': 'Profile Hero',
+        'avatar': 'https://cdn.example.com/profile.jpg',
+        'identity': 'Initial identity',
+        'bio': 'Initial profile personality',
+      },
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: reenteredServices,
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
+    );
+    await tester.pumpAndSettle();
+    final reenteredProfilePortrait = find.byKey(
+      const ValueKey<String>('origin-setup-role-portrait-current-user'),
+    );
+    expect(
+      find.descendant(
+        of: reenteredProfilePortrait,
+        matching: find.text('Profile Hero'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Saved Profile Hero'), findsNothing);
     AppStartupCoordinator.resetForTesting();
   });
 
@@ -12804,7 +13056,10 @@ void main() {
       );
       expect(rolePillAvatar, findsOneWidget);
       expect(roleSwitchIcon, findsOneWidget);
-      expect(tester.widget<Icon>(roleSwitchIcon).color, GenesisColors.brand);
+      expect(
+        tester.widget<Icon>(roleSwitchIcon).color,
+        originWorldDetailSheetTertiaryTextColor,
+      );
       await tester.tap(roleSelector);
       await tester.pumpAndSettle();
       expect(
@@ -12861,8 +13116,9 @@ void main() {
               as BoxDecoration;
       expect(
         (selectedPresetDecoration.border! as Border).top.color,
-        GenesisColors.brand,
+        const Color(0x73FF2442),
       );
+      expect((selectedPresetDecoration.border! as Border).top.width, 1);
       expect(
         tester.getCenter(selectedPresetFrame).dx,
         closeTo(tester.getCenter(rolePages).dx, 0.01),
@@ -14878,7 +15134,7 @@ void main() {
         .requestsFor('/api/v1/gem/wallet')
         .length;
     expect(firstRefreshCount, 1);
-    expect(find.text('430'), findsOneWidget);
+    expect(find.text('430.0'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
@@ -22085,7 +22341,7 @@ void main() {
       );
     });
     final gemWallet = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 20925),
+      loadWallet: () async => const GemWallet(balanceCent: 2092500),
       readUid: () async => 'u_mock',
     );
     addTearDown(gemWallet.dispose);
@@ -22116,7 +22372,7 @@ void main() {
     expect(find.text('UUID:'), findsOneWidget);
     expect(find.text('00000000-1111-2222-3333-444444444444'), findsOneWidget);
     expect(find.text('My Balance:'), findsOneWidget);
-    expect(find.text('20,925'), findsOneWidget);
+    expect(find.text('20,925.0'), findsOneWidget);
     expect(find.text('ANDROID_ID:'), findsOneWidget);
     expect(find.text('android-id'), findsOneWidget);
     expect(find.text('AAID:'), findsOneWidget);
@@ -22802,7 +23058,7 @@ void main() {
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
-    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     final pushBanner = find.byKey(
       const ValueKey<String>('world-update-push-banner'),
@@ -22902,7 +23158,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pump();
 
-    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     final pushBanner = find.byKey(
       const ValueKey<String>('world-update-push-banner'),
@@ -22933,7 +23189,7 @@ void main() {
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 220));
-    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('Moonlit Market · Old Quarter'), findsOneWidget);
     expect(
       find.descendant(
@@ -22961,7 +23217,7 @@ void main() {
     expect(find.text('Moonlit Market · Old Quarter'), findsNothing);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 220));
-    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('New Character Appeared'), findsOneWidget);
     expect(
       find.text(
         'New Wanderer · Heir to the Blackwood family and student council '
@@ -22993,7 +23249,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 220));
-    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('New Character Appeared'), findsOneWidget);
     expect(find.text('Scarlet Keeper · Crimson guardian'), findsOneWidget);
     avatar = tester.widget<GenesisAvatar>(
       find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),
@@ -24257,7 +24513,7 @@ void main() {
       tester
           .widget<Text>(find.byKey(const ValueKey('user-profile-gems-balance')))
           .data,
-      '430',
+      '430.0',
     );
     expect(transport.requestsFor('/api/v1/gem/wallet'), hasLength(1));
     expect(tester.takeException(), isNull);
@@ -26030,6 +26286,17 @@ void main() {
     );
     expect(sheetIndicator, findsOneWidget);
     expect(tester.getSize(sheetIndicator), const Size(53, 4));
+    expect(
+      tester.getTopLeft(sheetIndicator).dy - tester.getTopLeft(openedSheet).dy,
+      closeTo(8.5, 0.001),
+    );
+    expect(
+      find.descendant(
+        of: openedSheet,
+        matching: find.byIcon(Icons.close_rounded),
+      ),
+      findsNothing,
+    );
     for (var index = 0; index < 4; index++) {
       final segment = find.byKey(
         ValueKey<String>('world-sheet-page-segment-$index'),
@@ -26744,7 +27011,7 @@ void main() {
   });
 
   testWidgets(
-    'world map recent chat comes from local store while events use detail',
+    'world map recent chat starts from detail then uses session store updates',
     (WidgetTester tester) async {
       await recentWorldChatStore.markRecentChat(
         uid: 'u_mock',
@@ -26792,14 +27059,57 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      var worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      expect(worldMap.legacy.recentChatLocationIds, const <String>{'loc_l2'});
+      expect(worldMap.legacy.recentChatMapLocationIds, const <String>{
+        'loc_l1',
+        'loc_l2',
+      });
+      expect(worldMap.legacy.eventMapLocationIds, const <String>{
+        'loc_l1',
+        'loc_l2',
+        'loc_l3',
+      });
+
+      await recentWorldChatStore.markRecentChat(
+        uid: 'u_mock',
+        worldId: 'w_test_1',
+        locationId: 'loc_l3',
+        locationPathIds: const <String>['loc_l1', 'loc_l2', 'loc_l3'],
+      );
+      await tester.pump();
+
+      worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
       expect(worldMap.legacy.recentChatLocationIds, const <String>{'loc_l3'});
       expect(worldMap.legacy.recentChatMapLocationIds, const <String>{
         'loc_l1',
         'loc_l2',
         'loc_l3',
       });
-      expect(worldMap.legacy.eventMapLocationIds, const <String>{
+
+      transport.worldLastChatLocationId = 'loc_l1';
+      final detailRequestCountBeforeRefresh = transport
+          .requestsFor('/api/v1/world/detail')
+          .length;
+      // Reassemble is the existing debug hook that schedules a fresh detail request.
+      // ignore: invalid_use_of_protected_member
+      tester.state<State<WorldPage>>(find.byType(WorldPage)).reassemble();
+      for (var attempt = 0; attempt < 20; attempt += 1) {
+        await tester.pump(const Duration(milliseconds: 50));
+        if (transport.requestsFor('/api/v1/world/detail').length >
+            detailRequestCountBeforeRefresh) {
+          break;
+        }
+      }
+      expect(
+        transport.requestsFor('/api/v1/world/detail').length,
+        greaterThan(detailRequestCountBeforeRefresh),
+      );
+      await tester.pump();
+
+      worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      expect(worldMap.legacy.recentChatLocationIds, const <String>{'loc_l3'});
+      expect(worldMap.legacy.recentChatMapLocationIds, const <String>{
         'loc_l1',
         'loc_l2',
         'loc_l3',

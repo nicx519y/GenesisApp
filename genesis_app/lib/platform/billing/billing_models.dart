@@ -231,14 +231,14 @@ class BillingUiEvent {
     required this.productId,
     required this.attemptId,
     required this.message,
-    this.grantedGems = 0,
+    this.grantedGemsCent = 0,
   });
 
   final BillingUiEventKind kind;
   final String productId;
   final String attemptId;
   final String message;
-  final int grantedGems;
+  final int grantedGemsCent;
 }
 
 class BillingPlatformException implements Exception {

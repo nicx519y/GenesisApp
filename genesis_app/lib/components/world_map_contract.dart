@@ -10,6 +10,9 @@ const double worldMapMessageBubbleMaxWidth = 220;
 const double worldMapMessageBubbleHorizontalPadding = 11;
 const double worldMapMessageBubbleVerticalPadding = 8;
 const double worldMapMessageBubblePointerWidth = 12;
+// Centers the 30px drill-up control against the 68px zoom control whose
+// bottom inset is 30px: 30 + (68 - 30) / 2.
+const double worldMapDrillExitBottom = 49;
 const Color worldMapMessageBubbleBackgroundColor = Color(0xCC3A3942);
 const BorderRadius worldMapMessageBubbleBorderRadius = BorderRadius.all(
   Radius.circular(8),
@@ -199,7 +202,7 @@ class WorldMapMessageBubble {
 class WorldMapCommonConfig {
   const WorldMapCommonConfig({
     this.locationNodes = const <WorldMapLocationNode>[],
-    this.drillExitTop = 68,
+    this.drillExitBottom = worldMapDrillExitBottom,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
     this.onDrillIntoLocation,
@@ -208,7 +211,7 @@ class WorldMapCommonConfig {
   });
 
   final List<WorldMapLocationNode> locationNodes;
-  final double drillExitTop;
+  final double drillExitBottom;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
   final VoidCallback? onDrillIntoLocation;

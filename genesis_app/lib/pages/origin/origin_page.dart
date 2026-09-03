@@ -452,6 +452,7 @@ class _OriginFeedState extends State<_OriginFeed>
   FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
   var _firstScreenRequestAttempt = 0;
   var _firstScreenRenderCompleted = false;
+  var _launchRenderRevision = 0;
   var _isSendingExposures = false;
 
   bool get _isForYouFeed => widget.category.scene == 'foryou';
@@ -600,6 +601,7 @@ class _OriginFeedState extends State<_OriginFeed>
     _activeFirstScreenRenderOperation = null;
     _firstScreenRequestAttempt = 0;
     _firstScreenRenderCompleted = false;
+    _launchRenderRevision += 1;
     _items.clear();
     _exposureCardKeys.clear();
     _renderedExposureCovers.clear();
@@ -644,10 +646,17 @@ class _OriginFeedState extends State<_OriginFeed>
     });
   }
 
-  void _scheduleLaunchRender(String result) {
+  void _scheduleLaunchRender(
+    String result, {
+    bool supersedePendingRender = true,
+  }) {
     if (!_isPrimaryFeed) return;
+    if (supersedePendingRender) _launchRenderRevision += 1;
+    final revision = _launchRenderRevision;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_isCurrentTab) return;
+      if (!mounted || !_isCurrentTab || revision != _launchRenderRevision) {
+        return;
+      }
       AppStartupCoordinator.recordLaunchRender(page: 'worldo', result: result);
     });
   }
@@ -756,7 +765,13 @@ class _OriginFeedState extends State<_OriginFeed>
         data == null) {
       return;
     }
-    final page = _parseOriginFeedPage(data);
+    late final _OriginListPage page;
+    try {
+      page = _parseOriginFeedPage(data);
+    } catch (_) {
+      // Malformed cache data must not affect the parallel network refresh.
+      return;
+    }
     if (!mounted || _hasCompletedFirstPageNetworkRequest) return;
     setState(() {
       _items
@@ -911,7 +926,7 @@ class _OriginFeedState extends State<_OriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
-      _scheduleLaunchRender('network_error');
+      _scheduleLaunchRender('network_error', supersedePendingRender: false);
       if (_items.isNotEmpty) _scheduleVisibilityFlush();
       if (shouldRetryAfterResume && mounted) {
         _hasRetriedInitialStartup = true;

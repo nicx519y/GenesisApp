@@ -40,6 +40,10 @@ Future<void> _waitHomeInitialRequestMetricWindow(Duration delay) async {
 }
 
 const Duration _homeInitialNetworkRetryDelay = Duration(seconds: 2);
+const Duration _homeLocalRestoreTimeout = Duration(milliseconds: 500);
+
+typedef HomeMyWorldsCacheLoader =
+    Future<Map<String, dynamic>?> Function(String ownerUid);
 
 bool _isNetworkLikeHomeError(Object error) {
   if (error is ApiException) {
@@ -83,6 +87,8 @@ class HomePage extends StatefulWidget {
     this.onFirstPageViewReady,
     this.onOpenWorldo,
     this.initialRequestMetricWindow = Duration.zero,
+    this.localRestoreTimeout = _homeLocalRestoreTimeout,
+    this.myWorldsCacheLoader,
   });
 
   final Map<String, dynamic>? initialMyWorldsData;
@@ -93,6 +99,8 @@ class HomePage extends StatefulWidget {
   final void Function(String action)? onFirstPageViewReady;
   final VoidCallback? onOpenWorldo;
   final Duration initialRequestMetricWindow;
+  final Duration localRestoreTimeout;
+  final HomeMyWorldsCacheLoader? myWorldsCacheLoader;
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -127,6 +135,8 @@ class _HomePageState extends State<HomePage> {
       networkRequestsAllowed: _homeNetworkRequestsAllowed,
       keepInitialNetworkFailureLoading: false,
       initialRequestMetricWindow: widget.initialRequestMetricWindow,
+      localRestoreTimeout: widget.localRestoreTimeout,
+      myWorldsCacheLoader: widget.myWorldsCacheLoader,
       initialMyWorldsData: widget.initialMyWorldsData,
       initialMyWorldsRenderOperation: null,
       initialMyWorldsRequestAttempt: 0,

@@ -354,8 +354,8 @@ class _WorldUpdatePushBanner extends StatelessWidget {
     final contextLabel = notice.contextLabel.trim();
     final detail = contextLabel.isEmpty ? name : '$name · $contextLabel';
     final category = isLocation
-        ? 'New location available'
-        : 'New character joined';
+        ? 'New Place Emerged'
+        : 'New Character Appeared';
     final detailText = Text.rich(
       TextSpan(
         text: name,
@@ -379,7 +379,7 @@ class _WorldUpdatePushBanner extends StatelessWidget {
         fontFamily: GenesisTypography.fontFamily,
         fontFamilyFallback: GenesisTypography.fontFamilyFallback,
         color: Color(0xF2FFFFFF),
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: FontWeight.w600,
         height: 1.25,
       ),
@@ -388,79 +388,105 @@ class _WorldUpdatePushBanner extends StatelessWidget {
       container: true,
       liveRegion: true,
       label: '$category: $detail',
-      child: Material(
-        key: const ValueKey<String>('world-update-push-banner'),
-        color: const Color(0xFF1F1D24),
-        borderRadius: BorderRadius.circular(12),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          key: const ValueKey<String>('world-update-push-tap-target'),
-          canRequestFocus: false,
-          onTap: onTap,
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(isLocation ? 16 : 8, 8, 12, 8),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minHeight: _worldUpdatePushLeadingSize,
-              ),
-              child: Row(
-                children: [
-                  if (!isLocation) ...[
-                    GenesisCharacterAvatar(
-                      key: const ValueKey<String>(
-                        'world-update-push-character-avatar',
-                      ),
-                      url: characterAvatarImageReady ? notice.avatarUrl : '',
-                      name: name,
-                      size: _worldUpdatePushLeadingSize,
-                      borderRadius: 8,
-                      showFallbackWhileLoading: false,
+      child: DecoratedBox(
+        key: const ValueKey<String>('world-update-push-shadow'),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x99000000),
+              blurRadius: 24,
+              offset: Offset(0, 8),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: BackdropFilter(
+            key: const ValueKey<String>('world-update-push-backdrop-blur'),
+            filterConfig: const ImageFilterConfig.blur(
+              sigmaX: 20,
+              sigmaY: 20,
+              bounded: false,
+            ),
+            child: Material(
+              key: const ValueKey<String>('world-update-push-banner'),
+              color: const Color(0x33FFFFFF),
+              borderRadius: BorderRadius.circular(12),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                key: const ValueKey<String>('world-update-push-tap-target'),
+                canRequestFocus: false,
+                onTap: onTap,
+                child: Padding(
+                  padding: EdgeInsets.fromLTRB(isLocation ? 16 : 8, 8, 12, 8),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      minHeight: _worldUpdatePushLeadingSize,
                     ),
-                    const SizedBox(width: 10),
-                  ],
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        Text(
-                          category,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontFamily: GenesisTypography.fontFamily,
-                            fontFamilyFallback:
-                                GenesisTypography.fontFamilyFallback,
-                            color: Color(0xB8FFFFFF),
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                            height: 1.2,
+                        if (!isLocation) ...[
+                          GenesisCharacterAvatar(
+                            key: const ValueKey<String>(
+                              'world-update-push-character-avatar',
+                            ),
+                            url: characterAvatarImageReady
+                                ? notice.avatarUrl
+                                : '',
+                            name: name,
+                            size: _worldUpdatePushLeadingSize,
+                            borderRadius: 8,
+                            showFallbackWhileLoading: false,
                           ),
-                        ),
-                        const SizedBox(height: 5),
-                        if (isLocation)
-                          Row(
+                          const SizedBox(width: 10),
+                        ],
+                        Expanded(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const ExcludeSemantics(
-                                child: Icon(
-                                  Icons.place_outlined,
-                                  key: ValueKey<String>(
-                                    'world-update-push-location-name-icon',
-                                  ),
-                                  size: 14,
-                                  color: Color(0xF2FFFFFF),
+                              Text(
+                                category,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: GenesisTypography.fontFamily,
+                                  fontFamilyFallback:
+                                      GenesisTypography.fontFamilyFallback,
+                                  color: Color(0xB8FFFFFF),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.2,
                                 ),
                               ),
-                              const SizedBox(width: 2),
-                              Expanded(child: detailText),
+                              const SizedBox(height: 5),
+                              if (isLocation)
+                                Row(
+                                  children: [
+                                    const ExcludeSemantics(
+                                      child: Icon(
+                                        Icons.place_outlined,
+                                        key: ValueKey<String>(
+                                          'world-update-push-location-name-icon',
+                                        ),
+                                        size: 14,
+                                        color: Color(0xF2FFFFFF),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 2),
+                                    Expanded(child: detailText),
+                                  ],
+                                )
+                              else
+                                detailText,
                             ],
-                          )
-                        else
-                          detailText,
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

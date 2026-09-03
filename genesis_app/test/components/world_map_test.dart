@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/components/legacy_world_map/legacy_world
 import 'package:genesis_flutter_android/components/legacy_world_map/legacy_world_map_gesture.dart';
 import 'package:genesis_flutter_android/components/world_details_shell.dart';
 import 'package:genesis_flutter_android/components/world_map.dart';
+import 'package:genesis_flutter_android/components/world_map_exit_location_button.dart';
 import 'package:genesis_flutter_android/components/world_map_interaction_notification.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/icons/my_flutter_app_icons.dart';
@@ -917,11 +918,23 @@ void main() {
     );
     final zoomControlBox = tester.widget<DecoratedBox>(zoomControl);
     final zoomDecoration = zoomControlBox.decoration as BoxDecoration;
-    expect(zoomDecoration.color, Colors.white);
-    expect(zoomDecoration.borderRadius, BorderRadius.circular(12));
+    expect(zoomDecoration.color, legacyWorldMapZoomControlBackgroundColor);
+    expect(zoomDecoration.borderRadius, BorderRadius.circular(8));
     expect(zoomDecoration.boxShadow, isNotEmpty);
-    expect(zoomInIcon().colorFilter, isNotNull);
-    expect(zoomOutIcon().colorFilter, isNotNull);
+    expect(
+      zoomInIcon().colorFilter,
+      const ColorFilter.mode(
+        legacyWorldMapZoomControlEnabledColor,
+        BlendMode.srcIn,
+      ),
+    );
+    expect(
+      zoomOutIcon().colorFilter,
+      const ColorFilter.mode(
+        legacyWorldMapZoomControlDisabledColor,
+        BlendMode.srcIn,
+      ),
+    );
     expect(dragIndicator, findsOneWidget);
 
     await tester.tap(zoomIn);
@@ -1841,6 +1854,100 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Leaf Dock'));
     expect(tappedIds, ['leaf']);
+  });
+
+  testWidgets('world map places drill exit above the bottom center', (
+    tester,
+  ) async {
+    await _pumpWorldMap(
+      tester,
+      users: const [],
+      points: const [],
+      locationNodes: const [
+        WorldMapLocationNode(
+          id: 'root',
+          isRoot: true,
+          point: WorldPoint(
+            id: 'root',
+            name: 'Root',
+            type: WorldPointType.portal,
+            position: _pointPosition,
+            users: [],
+            isLeafLocation: false,
+          ),
+          children: [
+            WorldMapLocationNode(
+              id: 'branch',
+              point: WorldPoint(
+                id: 'branch',
+                name: 'Branch',
+                type: WorldPointType.shop,
+                position: _pointPosition,
+                users: [],
+                isLeafLocation: false,
+              ),
+              children: [
+                WorldMapLocationNode(
+                  id: 'leaf',
+                  point: WorldPoint(
+                    id: 'leaf',
+                    name: 'Leaf',
+                    type: WorldPointType.shop,
+                    position: _pointPosition,
+                    users: [],
+                  ),
+                ),
+                WorldMapLocationNode(
+                  id: 'leaf-2',
+                  point: WorldPoint(
+                    id: 'leaf-2',
+                    name: 'Leaf 2',
+                    type: WorldPointType.camp,
+                    position: Offset(0.6, 0.45),
+                    users: [],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+
+    await tester.tap(find.text('Branch'), warnIfMissed: false);
+    await tester.pump();
+
+    final mapRect = tester.getRect(find.byType(LegacyWorldMap));
+    final drillExitRect = tester.getRect(
+      find.byKey(const ValueKey<String>('legacy-world-map-exit-location')),
+    );
+    final drillExitButtonRect = tester.getRect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('legacy-world-map-exit-location'),
+        ),
+        matching: find.byKey(
+          const ValueKey<String>(worldMapExitLocationIconFrameKey),
+        ),
+      ),
+    );
+    final labelRect = tester.getRect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('legacy-world-map-exit-location'),
+        ),
+        matching: find.text('Branch'),
+      ),
+    );
+    expect(drillExitRect.center.dx, closeTo(mapRect.center.dx, 0.001));
+    expect(
+      labelRect.left - drillExitButtonRect.right,
+      closeTo(worldMapExitLocationLabelGap, 0.001),
+    );
+    expect(
+      mapRect.bottom - drillExitRect.bottom,
+      closeTo(worldMapDrillExitBottom, 0.001),
+    );
   });
 
   testWidgets('world map hides drill exit when showing location list', (

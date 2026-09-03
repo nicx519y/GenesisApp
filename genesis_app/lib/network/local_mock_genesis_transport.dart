@@ -1140,7 +1140,7 @@ class _MockState {
       _mockDirectMessageMessagesByPeer();
   final Set<String> _v1BlockedDirectMessagePeers = <String>{};
   final Set<String> _v1BlockedUsers = <String>{'u_mock_peer'};
-  final Map<String, int> _v1GrantedGemByPurchaseToken = <String, int>{};
+  final Map<String, int> _v1GrantedGemCentByPurchaseToken = <String, int>{};
   final Map<String, String> _v1SelectedGemModelByWorldId = <String, String>{};
   String _v1SelectedGemModelCode = 'top_pick_v3';
   final Map<String, String> _v1GemTaskStatuses = <String, String>{
@@ -1150,7 +1150,7 @@ class _MockState {
     'send_message': 'in_progress',
     'discord_follow': 'in_progress',
   };
-  int _v1GemBalance = 430;
+  int _v1GemBalanceCent = 43000;
   int _v1DirectMessageUnreadCount = 1;
   int _v1WorldHistoryHighWatermark = 25;
   int _v1WorldHistoryLowWatermark = 15;
@@ -1911,8 +1911,8 @@ class _MockState {
           'product_id': 'gem_pack_500',
           'apple_product_id': 'com.worldo.gems.500',
           'google_product_id': 'worldo_gems_500',
-          'base_gems': 500,
-          'bonus_gems': 50,
+          'base_gems_cent': 50000,
+          'bonus_gems_cent': 5000,
           'price_currency_code': 'USD',
           'price_amount': 149,
           'can_purchase': true,
@@ -1926,8 +1926,8 @@ class _MockState {
           'product_id': 'gem_pack_1100',
           'apple_product_id': 'com.worldo.gems.1100',
           'google_product_id': 'worldo_gems_1100',
-          'base_gems': 1100,
-          'bonus_gems': 110,
+          'base_gems_cent': 110000,
+          'bonus_gems_cent': 11000,
           'price_currency_code': 'USD',
           'price_amount': 590,
           'can_purchase': true,
@@ -1938,8 +1938,8 @@ class _MockState {
           'product_id': 'gem_pack_4400',
           'apple_product_id': 'com.worldo.gems.4400',
           'google_product_id': 'worldo_gems_4400',
-          'base_gems': 4400,
-          'bonus_gems': 440,
+          'base_gems_cent': 440000,
+          'bonus_gems_cent': 44000,
           'price_currency_code': 'USD',
           'price_amount': 1990,
           'can_purchase': true,
@@ -1950,8 +1950,8 @@ class _MockState {
           'product_id': 'gem_pack_8800',
           'apple_product_id': 'com.worldo.gems.8800',
           'google_product_id': 'worldo_gems_8800',
-          'base_gems': 8800,
-          'bonus_gems': 880,
+          'base_gems_cent': 880000,
+          'bonus_gems_cent': 88000,
           'price_currency_code': 'USD',
           'price_amount': 3890,
           'can_purchase': true,
@@ -1962,8 +1962,8 @@ class _MockState {
           'product_id': 'gem_pack_16500',
           'apple_product_id': 'com.worldo.gems.16500',
           'google_product_id': 'worldo_gems_16500',
-          'base_gems': 16500,
-          'bonus_gems': 1650,
+          'base_gems_cent': 1650000,
+          'bonus_gems_cent': 165000,
           'price_currency_code': 'USD',
           'price_amount': 6990,
           'can_purchase': true,
@@ -1974,8 +1974,8 @@ class _MockState {
           'product_id': 'gem_pack_55000',
           'apple_product_id': 'com.worldo.gems.55000',
           'google_product_id': 'worldo_gems_55000',
-          'base_gems': 55000,
-          'bonus_gems': 5500,
+          'base_gems_cent': 5500000,
+          'bonus_gems_cent': 550000,
           'price_currency_code': 'USD',
           'price_amount': 19990,
           'can_purchase': true,
@@ -1997,7 +1997,7 @@ class _MockState {
               'task_code': 'create_first_worldo',
               'title': 'Create your first worldo',
               'description': 'Create an Origin and launch a world.',
-              'reward_gems': 50,
+              'reward_gems_cent': 5000,
               'reward_valid_days': 30,
               'cycle_type': 'once',
               'cycle_key': '',
@@ -2014,7 +2014,7 @@ class _MockState {
               'task_code': 'launch_first_world',
               'title': 'Launch your first world',
               'description': 'Launch a Worldo and start your story.',
-              'reward_gems': 50,
+              'reward_gems_cent': 5000,
               'reward_valid_days': 30,
               'cycle_type': 'once',
               'cycle_key': '',
@@ -2034,7 +2034,7 @@ class _MockState {
               'task_code': 'daily_checkin',
               'title': 'Daily check-in',
               'description': 'Check in every day to collect gems.',
-              'reward_gems': 20,
+              'reward_gems_cent': 2000,
               'reward_valid_days': 30,
               'cycle_type': 'daily',
               'cycle_key': 'today',
@@ -2048,7 +2048,7 @@ class _MockState {
               'task_code': 'send_message',
               'title': 'Send a message (0/3)',
               'description': 'Send messages in a location chat today.',
-              'reward_gems': 50,
+              'reward_gems_cent': 5000,
               'reward_valid_days': 30,
               'cycle_type': 'daily',
               'cycle_key': 'today',
@@ -2068,7 +2068,7 @@ class _MockState {
               'task_code': 'discord_follow',
               'title': 'Discord',
               'description': 'Join our Discord community.',
-              'reward_gems': 20,
+              'reward_gems_cent': 2000,
               'reward_valid_days': 30,
               'cycle_type': 'once',
               'cycle_key': '',
@@ -2086,7 +2086,7 @@ class _MockState {
 
   Map<String, dynamic> v1GemWallet() {
     return {
-      'wallet': {'balance': _v1GemBalance},
+      'wallet': {'balance_cent': _v1GemBalanceCent},
     };
   }
 
@@ -2103,8 +2103,8 @@ class _MockState {
               'model_code': 'top_pick_v3',
               'title': 'Top Pick V3',
               'tag': ['hot'],
-              'estimated_next_message_gems': 4,
-              'estimated_next_tick_gems': 4,
+              'estimated_next_message_gems_cent': 400,
+              'estimated_next_tick_gems_cent': 400,
               'description':
                   'Most recommended. Best storytelling model with a balanced price.',
               'range_text': '4-320 gems (memory from 2K to 156K)',
@@ -2113,8 +2113,8 @@ class _MockState {
               'model_code': 'top_pick_v3_5',
               'title': 'Top Pick V3.5',
               'tag': [],
-              'estimated_next_message_gems': 6,
-              'estimated_next_tick_gems': 6,
+              'estimated_next_message_gems_cent': 600,
+              'estimated_next_tick_gems_cent': 600,
               'description':
                   'Most recommended. Best storytelling model with a balanced price.',
               'range_text': '6-480 gems (memory from 2K to 156K)',
@@ -2123,8 +2123,8 @@ class _MockState {
               'model_code': 'luxury_selection_v4',
               'title': 'Luxury Selection V4.0',
               'tag': ['new'],
-              'estimated_next_message_gems': 8,
-              'estimated_next_tick_gems': 8,
+              'estimated_next_message_gems_cent': 800,
+              'estimated_next_tick_gems_cent': 800,
               'description': 'Luxurious, pricey, but the best model of all.',
               'range_text': '8-640 gems (memory from 2K to 156K)',
             },
@@ -2132,8 +2132,8 @@ class _MockState {
               'model_code': 'sake_pro',
               'title': 'Sake Pro',
               'tag': ['new'],
-              'estimated_next_message_gems': 3,
-              'estimated_next_tick_gems': 3,
+              'estimated_next_message_gems_cent': 300,
+              'estimated_next_tick_gems_cent': 300,
               'description':
                   'An experimental model exploring flexible storytelling.',
               'range_text': '3-160 gems (memory from 2K to 156K)',
@@ -2168,7 +2168,7 @@ class _MockState {
       case 'daily_checkin':
         if (_v1GemTaskStatuses[taskCode] != 'claimed') {
           _v1GemTaskStatuses[taskCode] = 'claimed';
-          _v1GemBalance += 20;
+          _v1GemBalanceCent += 2000;
         }
         break;
       case 'discord_follow':
@@ -2184,12 +2184,19 @@ class _MockState {
     final taskCode = '${body['task_code'] ?? ''}'.trim();
     if (_v1GemTaskStatuses[taskCode] == 'claimable') {
       _v1GemTaskStatuses[taskCode] = 'claimed';
-      _v1GemBalance += switch (taskCode) {
-        'discord_follow' => 20,
+      _v1GemBalanceCent += switch (taskCode) {
+        'discord_follow' => 2000,
         _ => 0,
       };
     }
-    return {'status': _v1GemTaskStatuses[taskCode] ?? 'in_progress'};
+    final status = _v1GemTaskStatuses[taskCode] ?? 'in_progress';
+    return {
+      'status': status,
+      if (status == 'claimed') ...{
+        'reward_gems_cent': _v1GemTaskRewardCent(taskCode),
+        'balance_cent': _v1GemBalanceCent,
+      },
+    };
   }
 
   List<Map<String, dynamic>> v1GemRecords(String? scene) {
@@ -2199,7 +2206,7 @@ class _MockState {
       {
         'ledger_id': 'gl_mock_purchase_1',
         'order_id': 'ord_mock_purchase_1',
-        'amount': 550,
+        'amount_cent': 55000,
         'scene': 'purchase',
         'reason_code': 'google_purchase',
         'title': 'Gem purchase',
@@ -2210,7 +2217,7 @@ class _MockState {
       {
         'ledger_id': 'gl_mock_task_1',
         'order_id': 'ord_mock_task_1',
-        'amount': 20,
+        'amount_cent': 2000,
         'scene': 'task',
         'reason_code': 'daily_checkin',
         'title': 'Daily check-in',
@@ -2221,7 +2228,7 @@ class _MockState {
       {
         'ledger_id': 'gl_mock_spent_1',
         'order_id': 'ord_mock_spent_1',
-        'amount': -20,
+        'amount_cent': -2000,
         'scene': 'world_tick',
         'reason_code': 'world_tick',
         'title': 'World progress',
@@ -2232,7 +2239,7 @@ class _MockState {
       {
         'ledger_id': 'gl_mock_task_2',
         'order_id': 'ord_mock_task_2',
-        'amount': 50,
+        'amount_cent': 5000,
         'scene': 'task',
         'reason_code': 'send_message',
         'title': 'Send a message',
@@ -2245,9 +2252,12 @@ class _MockState {
         .where((record) {
           if (normalizedScene.isEmpty || normalizedScene == 'all') return true;
           if (normalizedScene == 'earned') {
-            return asInt(record['amount']) > 0 && record['scene'] != 'purchase';
+            return asInt(record['amount_cent']) > 0 &&
+                record['scene'] != 'purchase';
           }
-          if (normalizedScene == 'spent') return asInt(record['amount']) < 0;
+          if (normalizedScene == 'spent') {
+            return asInt(record['amount_cent']) < 0;
+          }
           return record['scene'] == normalizedScene;
         })
         .map((record) => Map<String, dynamic>.from(record))
@@ -2258,27 +2268,35 @@ class _MockState {
     final purchaseToken = '${body['purchase_token'] ?? ''}'.trim();
     final productId = '${body['product_id'] ?? ''}'.trim();
     final transactionId = '${body['transaction_id'] ?? ''}'.trim();
-    final previousGrant = _v1GrantedGemByPurchaseToken[purchaseToken];
-    final grantedGems = previousGrant ?? _gemTotalForProduct(productId);
+    final previousGrant = _v1GrantedGemCentByPurchaseToken[purchaseToken];
+    final grantedGemsCent = previousGrant ?? _gemTotalCentForProduct(productId);
     if (previousGrant == null) {
-      _v1GrantedGemByPurchaseToken[purchaseToken] = grantedGems;
-      _v1GemBalance += grantedGems;
+      _v1GrantedGemCentByPurchaseToken[purchaseToken] = grantedGemsCent;
+      _v1GemBalanceCent += grantedGemsCent;
     }
     return {
       'status': 'completed',
-      'granted_gems': grantedGems,
+      'granted_gems_cent': grantedGemsCent,
       if (transactionId.isNotEmpty) 'transaction_id': transactionId,
     };
   }
 
-  int _gemTotalForProduct(String productId) {
+  int _gemTotalCentForProduct(String productId) {
     return switch (productId) {
-      'gem_pack_500' => 550,
-      'gem_pack_1100' => 1210,
-      'gem_pack_4400' => 4840,
-      'gem_pack_8800' => 9680,
-      'gem_pack_16500' => 18150,
-      'gem_pack_55000' => 60500,
+      'gem_pack_500' => 55000,
+      'gem_pack_1100' => 121000,
+      'gem_pack_4400' => 484000,
+      'gem_pack_8800' => 968000,
+      'gem_pack_16500' => 1815000,
+      'gem_pack_55000' => 6050000,
+      _ => 0,
+    };
+  }
+
+  int _v1GemTaskRewardCent(String taskCode) {
+    return switch (taskCode) {
+      'create_first_worldo' || 'launch_first_world' || 'send_message' => 5000,
+      'daily_checkin' || 'discord_follow' => 2000,
       _ => 0,
     };
   }
@@ -2301,6 +2319,7 @@ class _MockState {
     if (isSelf) {
       profile['uuid'] = '4b74ec68-7abc-4cce-a223-e997e31dc811';
       profile['selected_model_code'] = _v1SelectedGemModelCode;
+      profile['wallet'] = {'balance_cent': _v1GemBalanceCent};
     }
     return profile;
   }

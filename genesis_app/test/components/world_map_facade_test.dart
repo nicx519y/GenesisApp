@@ -59,7 +59,7 @@ void main() {
       definitionVersion: 2,
       originId: 'o_1',
       common: WorldMapCommonConfig(
-        drillExitTop: 91,
+        drillExitBottom: 19,
         messageBubbles: const [
           WorldMapMessageBubble(characterId: 'char_1', content: 'Hello'),
         ],
@@ -88,7 +88,7 @@ void main() {
     final tilemap = children.single as Tilemap;
     expect(tilemap.locationId, 'root');
     expect(tilemap.locationNodes, <WorldMapLocationNode>[tilemapLocationNode]);
-    expect(tilemap.drillExitTop, 91);
+    expect(tilemap.drillExitBottom, 19);
     expect(tilemap.drillExitMaxWidth, 204);
     expect(tilemap.showVisualModeToggle, isFalse);
     expect(tilemap.visualModeToggleTop, 17);

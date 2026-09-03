@@ -61,7 +61,7 @@ void main() {
     expect(find.text('Top Pick V3'), findsOneWidget);
     expect(find.text('Hot'), findsOneWidget);
     expect(find.text('New'), findsOneWidget);
-    expect(find.text('Estimated next message: 4 gems'), findsOneWidget);
+    expect(find.text('Estimated next message: 4.0 gems'), findsOneWidget);
 
     final pageTitleStyle = tester.widget<Text>(find.text('Model')).style;
     expect(pageTitleStyle?.fontSize, 16);
@@ -114,7 +114,7 @@ void main() {
     expect(modelTitleStyle?.color, const Color(0xFF111111));
 
     final estimateStyle = tester
-        .widget<Text>(find.text('Estimated next message: 4 gems'))
+        .widget<Text>(find.text('Estimated next message: 4.0 gems'))
         .style;
     expect(estimateStyle?.fontSize, 12);
     expect(estimateStyle?.height, 12 / 12);
@@ -125,7 +125,7 @@ void main() {
     );
     final estimateSpan = estimateText.textSpan! as TextSpan;
     final gemsSpan = estimateSpan.children!.single as TextSpan;
-    expect(gemsSpan.text, '4 gems');
+    expect(gemsSpan.text, '4.0 gems');
     expect(gemsSpan.style?.color, const Color(0xFFFF2442));
 
     final descriptionStyle = tester
@@ -375,8 +375,8 @@ GemModelCatalog _catalog() {
             modelCode: 'top_pick_v3',
             title: 'Top Pick V3',
             tags: ['hot'],
-            estimatedNextMessageGems: 4,
-            estimatedNextTickGems: 4,
+            estimatedNextMessageGemsCent: 400,
+            estimatedNextTickGemsCent: 400,
             description: 'Balanced storytelling.',
             rangeText: '4-320 gems (memory from 2K to 156K)',
           ),
@@ -384,8 +384,8 @@ GemModelCatalog _catalog() {
             modelCode: 'sake_pro',
             title: 'Sake Pro',
             tags: ['new'],
-            estimatedNextMessageGems: 3,
-            estimatedNextTickGems: 3,
+            estimatedNextMessageGemsCent: 300,
+            estimatedNextTickGemsCent: 300,
             description: 'Flexible storytelling.',
             rangeText: '3-160 gems (memory from 2K to 156K)',
           ),

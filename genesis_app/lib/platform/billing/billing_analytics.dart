@@ -133,8 +133,8 @@ const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'can_purchase',
   'billing_type',
   'product_type',
-  'base_gems',
-  'bonus_gems',
+  'base_gems_cent',
+  'bonus_gems_cent',
   'price_amount',
   'price_currency_code',
   'activity_type',
@@ -158,7 +158,7 @@ const Set<String> _allowedBillingAnalyticsKeys = <String>{
   'skipped_order_count',
   'google_purchase_count',
   'past_purchase_query_succeeded',
-  'granted_gems',
+  'granted_gems_cent',
 };
 
 Map<String, Object?> sanitizeBillingAnalyticsProperties(

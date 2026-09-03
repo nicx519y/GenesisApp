@@ -29,7 +29,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Daily Check-in'), findsOneWidget);
-      expect(find.text('+50'), findsOneWidget);
+      expect(find.text('+50.0'), findsOneWidget);
       expect(
         find.byKey(const ValueKey<String>('gem-task-reward-icon')),
         findsOneWidget,
@@ -41,7 +41,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Check in successful!'), findsOneWidget);
-      expect(find.text('+50'), findsOneWidget);
+      expect(find.text('+50.0'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 2999));
       expect(find.text('Check in successful!'), findsOneWidget);
@@ -122,7 +122,7 @@ void main() {
             onPressed: () => showGemTaskSuccessDialog(
               context,
               title: 'Claim successful!',
-              rewardGems: 120,
+              rewardGemsCent: 12000,
             ),
             child: const Text('Open'),
           ),
@@ -134,7 +134,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Claim successful!'), findsOneWidget);
-    expect(find.text('+120'), findsOneWidget);
+    expect(find.text('+120.0'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 }

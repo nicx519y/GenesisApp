@@ -147,6 +147,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   String _launchedPresetRolesPreloadScheduledForOriginId = '';
   ValueListenable<int>? _userInfoRevisionListenable;
   OriginCustomRoleDraft? _cachedProfileRole;
+  OriginCustomRoleDraft? _localProfileRoleOverride;
+  OriginCustomRoleDraft? get _openingProfileRole =>
+      _localProfileRoleOverride ?? _cachedProfileRole;
   String _selectedLocationChatRoleId = _profileLocationChatRoleId;
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
@@ -158,6 +161,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
   );
+  final GlobalKey<_OriginDetailDraggableSheetState> _detailSheetKey = GlobalKey(
+    debugLabel: 'origin-detail-sheet',
+  );
+  bool _locationLaunchPromptInProgress = false;
   _OriginLocationChatDescriptor? _activeChatLocation;
   final LocationChatBackgroundPreloader _locationChatBackgroundPreloader =
       LocationChatBackgroundPreloader();
@@ -238,6 +245,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
       _activeChatLocation = null;
+      _localProfileRoleOverride = null;
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
       _tilemapRestorationController.clear();
@@ -280,6 +288,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     unawaited(_refreshCachedProfileRole());
     if (!mounted) return;
     setState(() {
+      _localProfileRoleOverride = null;
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
       _launchedPresetRolesData = null;
@@ -377,6 +386,12 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         },
       ),
     );
+  }
+
+  void _saveProfileRoleLocally(OriginCustomRoleDraft profileRole) {
+    if (!mounted) return;
+    _precacheProfileRoleAvatar(profileRole);
+    setState(() => _localProfileRoleOverride = profileRole);
   }
 
   Color get _tilemapLoadingBackgroundColor =>
@@ -654,50 +669,17 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     unawaited(_fetchOriginDetail());
   }
 
-  void _openChatForPoint(OriginDetail origin, WorldPoint point) {
-    final pointId = point.pointId.trim().isNotEmpty
-        ? point.pointId.trim()
-        : point.id.trim();
-    final locationId = point.sceneId.trim().isNotEmpty
-        ? point.sceneId.trim()
-        : pointId;
-    if (locationId.isEmpty) return;
-    final openingPreviewMessages = _originLocationOpeningPreviewMessages(
-      origin,
-      [locationId, pointId, point.id],
-    );
-    final openingPreviewEntities = _originLocationOpeningPreviewEntities(
-      origin.characters,
-      openingPreviewMessages,
-      locationId,
-    );
-    GenesisTelemetry.collectLog(
-      actionType: 'pageview',
-      action: 'worldo_map',
-      object1: origin.oid,
-      object2: locationId,
-    );
-    GenesisTelemetry.collectLog(
-      actionType: 'pageview',
-      action: 'worldo_location_chat',
-      object1: origin.oid,
-      object2: locationId,
-    );
-
-    setState(() {
-      _activeChatLocation = _OriginLocationChatDescriptor(
-        originId: origin.oid,
-        locationId: locationId,
-        locationName: point.name,
-        backgroundImageUrl: point.iconUrl.trim().isNotEmpty
-            ? point.iconUrl
-            : point.mapImageUrl,
-        backgroundPreviewImageUrl: '',
-        isLeafLocation: point.isLeafLocation,
-        openingPreviewMessages: openingPreviewMessages,
-        openingPreviewEntities: openingPreviewEntities,
-      );
-    });
+  Future<void> _raiseOpeningSheetAndShowLocationToast() async {
+    if (_locationLaunchPromptInProgress) return;
+    _locationLaunchPromptInProgress = true;
+    try {
+      final sheetState = _detailSheetKey.currentState;
+      if (sheetState != null) await sheetState.expandOpening();
+      if (!mounted) return;
+      showGenesisToast(context, 'Launch to enter the location');
+    } finally {
+      _locationLaunchPromptInProgress = false;
+    }
   }
 
   void _recordWorldoMapClick(OriginDetail origin) {
@@ -1046,13 +1028,13 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               originId: origin.oid,
               common: WorldMapCommonConfig(
                 locationNodes: mapPresentationData.locationNodes,
-                drillExitTop: topPadding + 68,
                 messageBubbles: _activeChatLocation == null
                     ? mapPresentationData.messageBubbles
                     : const <WorldMapMessageBubble>[],
                 messageBubblePlaybackPaused: _activeChatLocation != null,
                 onMapTap: () => _recordWorldoMapClick(origin),
-                onPointTap: (point) => _openChatForPoint(origin, point),
+                onPointTap: (_) =>
+                    unawaited(_raiseOpeningSheetAndShowLocationToast()),
               ),
               legacy: LegacyWorldMapConfig(
                 implementationKey: PageStorageKey<String>(
@@ -1099,6 +1081,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
+              key: _detailSheetKey,
               origin: origin,
               roleAvatarSnapshots: _roleAvatarSnapshots,
               minChildSize: minChildSize,
@@ -1116,9 +1099,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 if (worldId.isEmpty) return;
                 _enterLaunchedWorld(worldId);
               },
-              profileRole: _cachedProfileRole,
+              profileRole: _openingProfileRole,
               onSelectRole: (character) =>
                   _selectAndLaunchPresetRole(origin, character),
+              onSaveProfileRole: _saveProfileRoleLocally,
               onSelectProfileRole: (profileRole) =>
                   _selectAndLaunchProfileRole(origin, profileRole),
               locationChatRole: _locationChatRoleOption(origin),

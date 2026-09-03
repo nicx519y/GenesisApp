@@ -102,12 +102,12 @@ enum GemBalanceAlertKind { insufficient, low }
 class GemBalanceAlert {
   const GemBalanceAlert({
     required this.kind,
-    this.balance = 0,
+    this.balanceCent = 0,
     this.message = '',
   });
 
   final GemBalanceAlertKind kind;
-  final int balance;
+  final int balanceCent;
   final String message;
 }
 

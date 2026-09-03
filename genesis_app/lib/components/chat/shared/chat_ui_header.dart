@@ -72,6 +72,8 @@ class ChatHeader extends StatelessWidget {
           fontWeight: FontWeight.w600,
           height: 1,
         );
+    final verticallyCenteredTitleIcon = alignContentLeft && showTitleIcon;
+    final titleIconColor = overlineStyle.color ?? style.headerTitleIconColor;
     return ClipRect(
       child: _ChatHeaderBackdropFilter(
         sigma: style.headerBackdropBlurSigma,
@@ -100,6 +102,20 @@ class ChatHeader extends StatelessWidget {
                     ),
                   ),
                 ),
+                if (verticallyCenteredTitleIcon)
+                  Positioned(
+                    left: style.headerTrailingPlaceholderWidth,
+                    top: 0,
+                    bottom: 0,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Icon(
+                        Icons.place_outlined,
+                        size: style.headerTitleIconSize,
+                        color: titleIconColor,
+                      ),
+                    ),
+                  ),
                 Positioned(
                   left: alignContentLeft
                       ? style.headerTrailingPlaceholderWidth
@@ -170,7 +186,13 @@ class ChatHeader extends StatelessWidget {
                                     ? MainAxisSize.max
                                     : MainAxisSize.min,
                                 children: [
-                                  if (showTitleIcon) ...[
+                                  if (verticallyCenteredTitleIcon)
+                                    SizedBox(
+                                      width:
+                                          style.headerTitleIconSize +
+                                          style.headerTitleIconGap,
+                                    )
+                                  else if (showTitleIcon) ...[
                                     Icon(
                                       Icons.place_outlined,
                                       size: style.headerTitleIconSize,

@@ -188,6 +188,9 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
   Future<void>? _currentUidLoad;
   Set<String> _recentChatLocationIds = const <String>{};
   Set<String> _recentChatLocationPathIds = const <String>{};
+  bool _recentChatInitializedFromDetail = false;
+  bool _recentChatStoreUpdatesEnabled = false;
+  bool _hasRecentChatSessionOverride = false;
   Set<String> _currentTickEventLocationPathIds = const <String>{};
   var _locationChatDescriptorSignature = '';
   late final ValueNotifier<WorldDetail?> _sectionsWorldNotifier =
@@ -636,8 +639,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         worldId: widget.wid,
         common: WorldMapCommonConfig(
           locationNodes: locationNodes,
-          drillExitTop:
-              topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
           messageBubbles:
               (_activeChatLocationId.isEmpty || preparingInitialTilemap) &&
                   _mapBubbleMessagesReady

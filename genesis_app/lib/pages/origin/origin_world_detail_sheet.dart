@@ -64,6 +64,7 @@ double _originDetailExpandedChildSize(
 
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
+    super.key,
     required this.origin,
     required this.roleAvatarSnapshots,
     required this.minChildSize,
@@ -78,6 +79,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onEnterLaunchedWorld,
     required this.profileRole,
     required this.onSelectRole,
+    required this.onSaveProfileRole,
     required this.onSelectProfileRole,
     required this.locationChatRole,
     required this.onSelectLocationChatRole,
@@ -100,6 +102,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
   final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
+  final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
   final _OriginLocationChatRoleOption locationChatRole;
   final ValueChanged<String> onSelectLocationChatRole;
@@ -260,6 +263,17 @@ class _OriginDetailDraggableSheetState
         commandGeneration: commandGeneration,
         expanded: true,
       ),
+    );
+  }
+
+  Future<void> expandOpening() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _sheetInteraction.resetForContentChange(resetPage: true);
+    _cancelExtentSettleWait();
+    final commandGeneration = ++_extentCommandGeneration;
+    await _animateToRequestedExtent(
+      commandGeneration: commandGeneration,
+      expanded: true,
     );
   }
 
@@ -751,7 +765,7 @@ class _OriginDetailDraggableSheetState
                   ),
               style: _originDetailSheetChatComposerStyle,
               roleForegroundColor: originWorldDetailSheetPrimaryTextColor,
-              roleMutedColor: GenesisColors.brand,
+              roleMutedColor: originWorldDetailSheetTertiaryTextColor,
               roleBackgroundColor: kLocationChatStyle.inputBackgroundColor,
               showShortcuts: false,
               enableMentionSheet: false,
@@ -1078,6 +1092,7 @@ class _OriginDetailDraggableSheetState
                                   onSelectedRoleChanged:
                                       widget.onSelectLocationChatRole,
                                   onSelectRole: widget.onSelectRole,
+                                  onSaveProfileRole: widget.onSaveProfileRole,
                                   onSelectProfileRole:
                                       widget.onSelectProfileRole,
                                   onRoleEditingChanged:

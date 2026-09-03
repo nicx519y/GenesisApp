@@ -1,4 +1,5 @@
 import '../json_utils.dart';
+import '../../utils/gem_amount.dart';
 
 class GemTaskList {
   const GemTaskList({required this.groups});
@@ -47,7 +48,7 @@ class GemTask {
     required this.taskCode,
     required this.title,
     required this.description,
-    required this.rewardGems,
+    required this.rewardGemsCent,
     required this.rewardValidDays,
     required this.cycleType,
     required this.cycleKey,
@@ -63,7 +64,10 @@ class GemTask {
       taskCode: asString(json['task_code']),
       title: asString(json['title']),
       description: asString(json['description']),
-      rewardGems: asInt(json['reward_gems']),
+      rewardGemsCent: requireGemCent(
+        json['reward_gems_cent'],
+        fieldName: 'reward_gems_cent',
+      ),
       rewardValidDays: asInt(json['reward_valid_days']),
       cycleType: asString(json['cycle_type']),
       cycleKey: asString(json['cycle_key']),
@@ -78,7 +82,7 @@ class GemTask {
   final String taskCode;
   final String title;
   final String description;
-  final int rewardGems;
+  final int rewardGemsCent;
   final int rewardValidDays;
   final String cycleType;
   final String cycleKey;

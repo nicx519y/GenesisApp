@@ -80,6 +80,7 @@ extension _WorldPageDetailSync on _WorldPageState {
       _sectionsWorldNotifier.value = world;
       if (clearInitialLoadError) _initialLoadError = null;
       _syncLocationChatDescriptors(world);
+      _initializeRecentChatFromWorldDetail(world);
       _applyWorldDetailEventLocations(world);
       _replaceMapBubbleCandidates(
         _buildMapBubbleCandidates(_worldChatroom?.state, world),
@@ -108,6 +109,25 @@ extension _WorldPageDetailSync on _WorldPageState {
     );
   }
 
+  void _initializeRecentChatFromWorldDetail(WorldDetail world) {
+    if (_recentChatInitializedFromDetail) return;
+    _recentChatInitializedFromDetail = true;
+    if (_hasRecentChatSessionOverride) return;
+
+    final locationId = world.lastChatLocationId.trim();
+    final locationIds = <String>{};
+    final locationPathIds = <String>{};
+    if (locationId.isNotEmpty) {
+      locationIds.add(locationId);
+      locationPathIds.addAll(
+        _locationPathIdsForLocationId(locationId, world.processedLocationTree),
+      );
+      if (locationPathIds.isEmpty) locationPathIds.add(locationId);
+    }
+    _recentChatLocationIds = Set<String>.unmodifiable(locationIds);
+    _recentChatLocationPathIds = Set<String>.unmodifiable(locationPathIds);
+  }
+
   bool _recentWorldChatRecordMatchesCurrentPage(RecentWorldChatRecord record) {
     final uid = _currentUid.trim();
     return uid.isNotEmpty &&
@@ -117,18 +137,18 @@ extension _WorldPageDetailSync on _WorldPageState {
 
   void _handleRecentWorldChatStoreChanged() {
     final record = recentWorldChatStore.listenable.value;
-    if (!mounted) return;
-    final matchesCurrentPage =
-        record != null && _recentWorldChatRecordMatchesCurrentPage(record);
-    final nextLocationIds = matchesCurrentPage
-        ? (<String>{record.locationId.trim()}..remove(''))
-        : const <String>{};
-    final nextPathIds = matchesCurrentPage
-        ? worldOrderedNonEmptyStrings(<String>[
-            ...record.locationPathIds,
-            record.locationId,
-          ]).toSet()
-        : const <String>{};
+    if (!mounted ||
+        !_recentChatStoreUpdatesEnabled ||
+        record == null ||
+        !_recentWorldChatRecordMatchesCurrentPage(record)) {
+      return;
+    }
+    final nextLocationIds = <String>{record.locationId.trim()}..remove('');
+    final nextPathIds = worldOrderedNonEmptyStrings(<String>[
+      ...record.locationPathIds,
+      record.locationId,
+    ]).toSet();
+    _hasRecentChatSessionOverride = true;
     if (setEquals(_recentChatLocationIds, nextLocationIds) &&
         setEquals(_recentChatLocationPathIds, nextPathIds)) {
       return;

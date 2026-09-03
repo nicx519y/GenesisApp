@@ -50,7 +50,7 @@ Add a compact Gem balance entry near the top account area of the signed-in Me pa
 Content:
 
 - Gem icon.
-- Current balance, for example `430`.
+- Current balance, for example `430.0`.
 - Label: `Gems`.
 - Chevron or subtle tap affordance.
 
