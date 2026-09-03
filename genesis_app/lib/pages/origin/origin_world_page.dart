@@ -844,9 +844,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     required String cacheKey,
   }) async {
     try {
-      final roles = await AppServicesScope.read(
-        context,
-      ).api.getMyLaunchPresetCharacters(originId);
+      final roles = await AppServicesScope.read(context).api
+          .getMyLaunchPresetCharacters(
+            originId,
+            limit: originLaunchedWorldPreviewLimitForTesting,
+          );
       if (mounted && _launchedPresetRolesCacheKey == cacheKey) {
         setState(() => _launchedPresetRolesData = roles);
       }

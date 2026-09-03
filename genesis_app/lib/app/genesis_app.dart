@@ -29,6 +29,7 @@ class GenesisApp extends StatelessWidget {
           title: 'Worldo',
           debugShowCheckedModeBanner: false,
           theme: GenesisTheme.light(),
+          scrollBehavior: const GenesisScrollBehavior(),
           initialRoute: RouteNames.home,
           navigatorKey: genesisNavigatorKey,
           navigatorObservers: [genesisRouteObserver, genesisPageRouteObserver],

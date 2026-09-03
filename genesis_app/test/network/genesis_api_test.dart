@@ -1905,12 +1905,12 @@ void main() {
         },
       );
 
-      final characters = await api.getMyLaunchPresetCharacters('o_1');
+      final characters = await api.getMyLaunchPresetCharacters('o_1', limit: 5);
 
       final request = apiTransport.lastRequest!;
       expect(request.method, 'GET');
       expect(request.uri.path, '/api/v1/origin/my_launch_preset_characters');
-      expect(request.uri.queryParameters, {'origin_id': 'o_1'});
+      expect(request.uri.queryParameters, {'origin_id': 'o_1', 'limit': '5'});
       expect(request.headers['user-agent'], 'Android 15');
       expect(request.headers['x-system-language'], 'zh-CN');
       expect(request.headers['x-app-version-code'], '123');

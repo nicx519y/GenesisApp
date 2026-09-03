@@ -339,13 +339,16 @@ void main() {
     final origins = await api.getOrigins(limit: 1);
     final originId = origins.data.single.oid;
 
-    expect(await api.getMyLaunchPresetCharacters(originId), isEmpty);
+    expect(await api.getMyLaunchPresetCharacters(originId, limit: 5), isEmpty);
 
     await api.v1.origin.launch(
       originId: originId,
       presetCharacterId: 'c_mock_iris',
     );
-    final characters = await api.getMyLaunchPresetCharacters(originId);
+    final characters = await api.getMyLaunchPresetCharacters(
+      originId,
+      limit: 5,
+    );
 
     expect(characters, hasLength(1));
     expect(characters.single.charId, 'c_mock_iris');

@@ -576,13 +576,16 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'origin/my_launch_preset_characters') {
       final originId = (query['origin_id'] ?? '').trim();
-      if (originId.isEmpty) {
+      final limit = int.tryParse(query['limit'] ?? '') ?? 0;
+      if (originId.isEmpty || limit <= 0) {
         return _v1BusinessError(4004, 'ErrorParamInvalid');
       }
       if (!_state.canViewV1OriginDetail(originId)) {
         return _v1BusinessError(20101, 'ErrorOriginNotExist');
       }
-      return _v1Ok(_state.v1OriginMyLaunchPresetCharacters(originId));
+      return _v1Ok(
+        _state.v1OriginMyLaunchPresetCharacters(originId, limit: limit),
+      );
     }
 
     if (method == 'GET' && path == 'origin/detail') {
@@ -2397,7 +2400,10 @@ class _MockState {
     };
   }
 
-  Map<String, dynamic> v1OriginMyLaunchPresetCharacters(String originId) {
+  Map<String, dynamic> v1OriginMyLaunchPresetCharacters(
+    String originId, {
+    required int limit,
+  }) {
     final origin = _findV1Origin(originId);
     final history =
         _v1PresetLaunchHistoryByOrigin[originId] ?? const <String, int>{};
@@ -2439,13 +2445,13 @@ class _MockState {
             })
             .toList(growable: false)
           ..sort((a, b) {
-            final launchedCompare = asInt(
-              b['last_launched_at'],
-            ).compareTo(asInt(a['last_launched_at']));
-            if (launchedCompare != 0) return launchedCompare;
+            final activeCompare = asInt(
+              b['last_active_at'],
+            ).compareTo(asInt(a['last_active_at']));
+            if (activeCompare != 0) return activeCompare;
             return '${a['char_id']}'.compareTo('${b['char_id']}');
           });
-    return {'list': items};
+    return {'list': items.take(limit).toList(growable: false)};
   }
 
   List<Map<String, dynamic>> _filterV1Origins(Map<String, String> query) {

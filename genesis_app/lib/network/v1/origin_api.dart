@@ -77,16 +77,21 @@ class OriginV1Api extends V1ApiResource {
   /// GET /api/v1/origin/my_launch_preset_characters
   ///
   /// Returns preset characters that the current user previously selected when launching the specified origin and that still exist.
-  /// Results are deduplicated by char_id and sorted by the most recent launch time in descending order.
+  /// The server sorts worlds by last_active_at descending before applying limit.
   Future<List<Map<String, dynamic>>> myLaunchPresetCharacters({
     required String originId,
+    required int limit,
   }) async {
     final resolvedOriginId = originId.trim();
     if (resolvedOriginId.isEmpty) {
       throw ArgumentError.value(originId, 'originId', 'must not be empty');
     }
+    if (limit <= 0) {
+      throw ArgumentError.value(limit, 'limit', 'must be greater than 0');
+    }
     final data = await getMap('origin/my_launch_preset_characters', {
       'origin_id': resolvedOriginId,
+      'limit': limit,
     });
     final list = data['list'];
     if (list is! List) return const <Map<String, dynamic>>[];

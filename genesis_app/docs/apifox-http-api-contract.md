@@ -981,7 +981,7 @@ JSON body：
 
 根据当前登录用户与 `origin_id`，返回该用户过去作为 world owner launch 该 origin 时选择过的 preset 角色。
 
-custom 角色和后续通过 `world/join` 绑定的角色不返回。结果按 `char_id` 去重，每个角色保留最近一次 launch 时间，并按 `last_launched_at` 倒序、`char_id` 升序返回。已软删除的 world 仍属于 launch 历史；但只返回当前 origin 中仍未软删除的角色，角色展示字段取当前 origin 的角色定义，不取历史 world 副本。
+custom 角色和后续通过 `world/join` 绑定的角色不返回。结果由服务端先按 `last_active_at` 倒序排列，再应用 `limit`。已软删除的 world 仍属于 launch 历史；但只返回当前 origin 中仍未软删除的角色，角色展示字段取当前 origin 的角色定义，不取历史 world 副本。
 
 接口需要登录。origin 可见性与 `/api/v1/origin/detail` 一致：approved 对所有登录用户可见，pending/rejected 仅 origin owner 可见。
 
@@ -990,6 +990,10 @@ custom 角色和后续通过 `world/join` 绑定的角色不返回。结果按 `
 Query：
 
 - `origin_id*`: string，要查询 launch 历史的 origin 业务 id
+- `limit*`: integer，返回数量；Opening Sheet 固定传 `5`
+
+服务端先按 `last_active_at DESC` 排序，再应用 `limit`，因此
+`limit=5` 返回最近活跃的 5 个 World；客户端直接按响应顺序展示。
 
 响应 `data`：
 
@@ -1015,7 +1019,7 @@ Query：
 
 错误码：
 
-- `4004`：缺少 `origin_id`
+- `4004`：缺少 `origin_id`，或 `limit` 非法
 - `10001`：未登录或 session 过期
 - `20101`：origin 不存在、已软删除或当前调用方不可见
 
@@ -2251,7 +2255,7 @@ query：
 | `GET /api/v1/origin/feed` | `OriginV1Api.feed` 使用 `start_score/rn`；Origin 页仅 For you 使用该接口，刷新传 `0`，分页严格复用响应 `next_score`，并以 `has_more` 和游标前进共同决定是否继续；`list[].info` 保留 `definition_version/default_map_location_id`，详情 loading 阶段据此直接挂载不可交互的默认 2.5D Tilemap，地图渲染不等待 detail。 |
 | `POST /api/v1/origin/feed/exposure` | `OriginV1Api.reportFeedExposure` 提交 `origin_ids`；Origin 页仅在封面成功渲染后，按列表真实内容视口内 30% 可见面积和连续 1.5 秒可见时长采集；占位、加载中、加载失败、低于阈值或快速经过均不采集，本地按页面生命周期去重。 |
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
-| `GET /api/v1/origin/my_launch_preset_characters` | 已新增 `OriginV1Api.myLaunchPresetCharacters(originId)` 与 `GenesisApi.getMyLaunchPresetCharacters(originId)`，query 使用 `origin_id`，响应映射为 `OriginMyLaunchPresetCharacter` 列表并保留 `ImageResource`；请求复用共享 runtime/auth/Gateway header 链路；本地 mock 会在 `/origin/launch` 使用 preset 角色时记录并按当前 origin 角色定义返回去重历史。 |
+| `GET /api/v1/origin/my_launch_preset_characters` | `OriginV1Api.myLaunchPresetCharacters(originId,limit)` 与 `GenesisApi.getMyLaunchPresetCharacters(originId,limit)` 的 query 使用 `origin_id/limit`；Opening Sheet 固定请求 `limit=5`，服务端先按 `last_active_at DESC` 排序再限制数量，客户端按响应顺序展示；响应映射为 `OriginMyLaunchPresetCharacter` 列表并保留 `ImageResource`。 |
 | `GET /api/v1/origin/info` | 已新增 `OriginV1Api.info(originId)` 与 `GenesisApi.getOriginInfo(oid)`，query 使用 `origin_id`；响应消费 `info + stats`，不期待 `characters/locations/ticks`。 |
 | `GET /api/v1/app/config` | `AppV1Api.config` 在启动早期请求；`show_opening_sheet` 决定 Origin Detail Opening Sheet 的首帧展开状态，失败或超时按 `false` 兜底。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 使用必填 `origin_id`；详情 mapper 保留新版 `OriginDetailInfo`、完整 stats、nullable 顶层 `init_location_group`、`characters[].is_recommend`、location 层级/时间/总结/2.5D `x/y`、ImageResource sidecar，以及 tick 的 `sub_tick_no/current_time/visibility/visible_to/clue/character_deltas`。本接口不再承载 Opening Sheet 展示配置，不依赖 `location_description`，也不为新版 tick 人工补 `location_groups`；旧响应实际携带这些字段时仍可兼容读取。详情 Opening、location chat 预览和 launch 初始地点优先使用顶层 group；`nar_pic/image` 作为图片消息展示。 |
