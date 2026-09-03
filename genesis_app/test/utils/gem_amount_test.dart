@@ -37,4 +37,20 @@ void main() {
       expect(formatGemCent(-105), '-1.1');
     });
   });
+
+  group('formatWholeGemCent', () {
+    test('renders grouped whole Gems without a decimal point', () {
+      expect(formatWholeGemCent(10000), '100');
+      expect(formatWholeGemCent(123456), '1,235');
+      expect(formatWholeGemCent(-10000), '-100');
+      expect(formatWholeGemCent(0), '0');
+    });
+
+    test('rounds cent values to the nearest whole Gem', () {
+      expect(formatWholeGemCent(149), '1');
+      expect(formatWholeGemCent(150), '2');
+      expect(formatWholeGemCent(-149), '-1');
+      expect(formatWholeGemCent(-150), '-2');
+    });
+  });
 }

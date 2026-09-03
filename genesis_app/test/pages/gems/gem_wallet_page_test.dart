@@ -137,8 +137,8 @@ void main() {
     expect(find.text('Buy Gems'), findsOneWidget);
     expect(find.text('Records'), findsOneWidget);
     expect(find.text('430.0'), findsOneWidget);
-    expect(find.text('+550.0'), findsOneWidget);
-    expect(find.text('500.0'), findsOneWidget);
+    expect(find.text('+550'), findsOneWidget);
+    expect(find.text('500'), findsOneWidget);
     expect(find.text(r'$1.49'), findsOneWidget);
     expect(find.text('Starter'), findsOneWidget);
     expect(find.text('Create your first worldo'), findsOneWidget);
@@ -257,7 +257,7 @@ void main() {
         0.1,
       ),
     );
-    final taskRewardStyle = tester.widget<Text>(find.text('+50.0')).style;
+    final taskRewardStyle = tester.widget<Text>(find.text('+50')).style;
     expect(taskRewardStyle?.fontSize, 14);
     expect(taskRewardStyle?.fontWeight, FontWeight.w600);
     expect(taskRewardStyle?.color, const Color(0xFF111111));
@@ -314,7 +314,7 @@ void main() {
     expect(discordStyle?.height, 16 / 14);
     expect(discordStyle?.fontWeight, FontWeight.w600);
     expect(discordStyle?.color, const Color(0xFF111111));
-    final joinUsRewardStyle = tester.widget<Text>(find.text('+20.0')).style;
+    final joinUsRewardStyle = tester.widget<Text>(find.text('+20')).style;
     expect(joinUsRewardStyle?.fontSize, 14);
     expect(joinUsRewardStyle?.fontWeight, FontWeight.w600);
     expect(joinUsRewardStyle?.color, const Color(0xFF111111));
@@ -613,7 +613,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('+500.0'), findsOneWidget);
+    expect(find.text('+500'), findsOneWidget);
   });
 
   testWidgets('tapping a product immediately shows purchase processing', (
@@ -1720,7 +1720,7 @@ void main() {
             find.byKey(const ValueKey<String>('gem-task-reward-value')),
           )
           .data,
-      '+20.0',
+      '+20',
     );
     expect(
       find.byKey(const ValueKey<String>('gem-task-reward-icon')),
