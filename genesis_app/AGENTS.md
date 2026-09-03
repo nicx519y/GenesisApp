@@ -155,6 +155,13 @@ HTTP 映射层的图片规则：
 - 页面和共享组件不得直接为用户可见文字设置 `FontStyle.italic`，Markdown 的 `*emphasis*` 继续复用 `_InlineMarkdownText`/统一斜体链路。
 - 修改斜体展示时，测试必须断言 iOS 和非 iOS 的默认 Inter Italic，并保留旧版 iOS 轻倾斜代码路径的可恢复性测试。
 
+## 滚动与边界反馈规范
+
+- App 根节点必须使用 `GenesisScrollBehavior`，全局禁用 Material overscroll indicator。Android 上滚动到首尾时，不得出现内容被拉长、拉宽或缩放变形的 stretch overscroll 效果。
+- 不得在页面或共享组件中重新引入 `StretchingOverscrollIndicator`，也不得通过局部 `ScrollConfiguration` 恢复 overscroll decoration。新增独立 `MaterialApp` 运行入口时，同样必须配置 `GenesisScrollBehavior`。
+- 允许按交互需要使用 `BouncingScrollPhysics` 实现 iOS 风格的整体内容位移回弹，或使用自定义 physics 实现明确的边缘手势；这种整体位移不等同于禁止的内容拉伸变形。
+- 页面可以继续使用 `ClampingScrollPhysics`、`PageScrollPhysics`、`AlwaysScrollableScrollPhysics` 和下拉刷新。不要为了关闭拉伸效果而破坏横向分页、纵向滚动、RefreshIndicator 或既有边缘手势。
+
 ## 深色界面颜色规范
 
 深色界面的黑色背景只使用以下两个标准层级：

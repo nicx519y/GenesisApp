@@ -452,12 +452,10 @@ void main() {
     expect(originSectionsSource, contains('SizedBox(height: 6)'));
     expect(originSectionsSource, contains('formatMessageCountLabel'));
     expect(originSectionsSource, contains('formatGenesisTimestamp'));
-    expect(originSectionsSource, contains('bLastActiveAt.compareTo'));
+    expect(originSectionsSource, isNot(contains('bLastActiveAt.compareTo')));
     expect(
       originSectionsSource,
-      contains(
-        'visibleRoles.take(\n      originLaunchedWorldPreviewLimitForTesting,',
-      ),
+      contains('.take(originLaunchedWorldPreviewLimitForTesting)'),
     );
     expect(originSectionsSource, isNot(contains('Divider(')));
     expect(

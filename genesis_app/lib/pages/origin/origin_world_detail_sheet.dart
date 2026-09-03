@@ -743,7 +743,7 @@ class _OriginDetailDraggableSheetState
                   ),
               style: _originDetailSheetChatComposerStyle,
               roleForegroundColor: originWorldDetailSheetPrimaryTextColor,
-              roleMutedColor: originWorldDetailSheetTertiaryTextColor,
+              roleMutedColor: GenesisColors.brand,
               roleBackgroundColor: kLocationChatStyle.inputBackgroundColor,
               showShortcuts: false,
               enableMentionSheet: false,

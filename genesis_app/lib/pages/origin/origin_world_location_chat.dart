@@ -1,6 +1,11 @@
 part of 'origin_world_page.dart';
 
-ChatUiStyleConfig get _originDetailSheetChatComposerStyle => kLocationChatStyle;
+ChatUiStyleConfig get _originDetailSheetChatComposerStyle =>
+    kLocationChatStyle.copyWith(
+      composerBackgroundColor: originWorldDetailSheetBackgroundColor.withValues(
+        alpha: 0.9,
+      ),
+    );
 
 const double _originLocationChatRolePillAvatarSize = 22;
 const double _originLocationChatDockRoleOffsetY = -2;
@@ -121,8 +126,30 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     );
   }
 
-  _OriginLocationChatRoleOption _locationChatRoleOption(OriginDetail origin) {
+  String _effectiveLocationChatRoleId(OriginDetail origin) {
     final selectedId = _selectedLocationChatRoleId;
+    if (selectedId == _OriginWorldPageState._profileLocationChatRoleId) {
+      if (_cachedProfileRole != null) return selectedId;
+    } else {
+      for (final character in origin.characters) {
+        if (_characterStableId(character) == selectedId) return selectedId;
+      }
+    }
+
+    for (final character in originCharactersRecommendedFirst(
+      origin.characters,
+    )) {
+      final characterId = _characterStableId(character);
+      if (characterId.isNotEmpty) return characterId;
+    }
+    if (_cachedProfileRole != null) {
+      return _OriginWorldPageState._profileLocationChatRoleId;
+    }
+    return '';
+  }
+
+  _OriginLocationChatRoleOption _locationChatRoleOption(OriginDetail origin) {
+    final selectedId = _effectiveLocationChatRoleId(origin);
     if (selectedId != _OriginWorldPageState._profileLocationChatRoleId) {
       for (final character in origin.characters) {
         if (_characterStableId(character) == selectedId) {
@@ -138,14 +165,20 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       }
     }
     final profileRole = _cachedProfileRole;
-    final profileName = profileRole?.name.trim() ?? '';
+    if (profileRole == null) {
+      return const _OriginLocationChatRoleOption(
+        id: '',
+        name: 'Select a role',
+        subtitle: '',
+        avatarUrl: '',
+      );
+    }
+    final profileName = profileRole.name.trim();
     return _OriginLocationChatRoleOption(
       id: _OriginWorldPageState._profileLocationChatRoleId,
       name: profileName.isEmpty ? 'Your Profile' : profileName,
-      subtitle: profileRole?.identity.trim() ?? '',
-      avatarUrl: profileRole == null
-          ? ''
-          : _resolveAssetUrl(profileRole.avatarUrl),
+      subtitle: profileRole.identity.trim(),
+      avatarUrl: _resolveAssetUrl(profileRole.avatarUrl),
     );
   }
 
@@ -215,7 +248,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     if (_launching || message.trim().isEmpty) return false;
     if (!await ensureGenesisLogin(context) || !mounted) return false;
 
-    final selectedRoleId = _selectedLocationChatRoleId;
+    final selectedRoleId = _effectiveLocationChatRoleId(origin);
     OriginRoleLaunchSelection roleSelection;
     String telemetryRoleId;
     if (selectedRoleId == _OriginWorldPageState._profileLocationChatRoleId) {

@@ -266,43 +266,47 @@ class _UserProfileContentState extends State<UserProfileContent>
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: TabBarView(
-        controller: _tabController,
-        children: [
-          _buildCollectionPage(
-            index: 0,
-            pageKey: const ValueKey<String>('profile-origin-collection-page'),
-            child: _OriginProfileCollectionList(
-              items: data.origins,
-              isLoading: widget.originsLoading,
-              listenable: widget.originsListenable,
-              onRefresh: widget.onRefresh == null
-                  ? widget.onRefreshOrigins
-                  : null,
-              sliverMode: false,
-              injectNestedOverlap: true,
-              alwaysScrollable: widget.onRefresh != null,
-              canEditOrigins: data.isSelf,
+      child: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+        child: TabBarView(
+          controller: _tabController,
+          physics: const ClampingScrollPhysics(),
+          children: [
+            _buildCollectionPage(
+              index: 0,
+              pageKey: const ValueKey<String>('profile-origin-collection-page'),
+              child: _OriginProfileCollectionList(
+                items: data.origins,
+                isLoading: widget.originsLoading,
+                listenable: widget.originsListenable,
+                onRefresh: widget.onRefresh == null
+                    ? widget.onRefreshOrigins
+                    : null,
+                sliverMode: false,
+                injectNestedOverlap: true,
+                alwaysScrollable: widget.onRefresh != null,
+                canEditOrigins: data.isSelf,
+              ),
             ),
-          ),
-          _buildCollectionPage(
-            index: 1,
-            pageKey: const ValueKey<String>('profile-world-collection-page'),
-            child: _WorldProfileCollectionList(
-              items: data.worlds,
-              isLoading: widget.worldsLoading,
-              listenable: widget.worldsListenable,
-              onRefresh: widget.onRefresh == null
-                  ? widget.onRefreshWorlds
-                  : null,
-              sliverMode: false,
-              injectNestedOverlap: true,
-              alwaysScrollable: widget.onRefresh != null,
-              canDeleteWorlds: data.isSelf,
-              onWorldDeleted: widget.onWorldDeleted,
+            _buildCollectionPage(
+              index: 1,
+              pageKey: const ValueKey<String>('profile-world-collection-page'),
+              child: _WorldProfileCollectionList(
+                items: data.worlds,
+                isLoading: widget.worldsLoading,
+                listenable: widget.worldsListenable,
+                onRefresh: widget.onRefresh == null
+                    ? widget.onRefreshWorlds
+                    : null,
+                sliverMode: false,
+                injectNestedOverlap: true,
+                alwaysScrollable: widget.onRefresh != null,
+                canDeleteWorlds: data.isSelf,
+                onWorldDeleted: widget.onWorldDeleted,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

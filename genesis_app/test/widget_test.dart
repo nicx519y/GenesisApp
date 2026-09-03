@@ -9824,6 +9824,25 @@ void main() {
     final roleCardsFinder = find.byKey(
       const ValueKey<String>('origin-setup-role-cards'),
     );
+    final openingComposer = find.byKey(
+      const ValueKey<String>('origin-expanded-opening-composer'),
+    );
+    final rolePill = find.descendant(
+      of: openingComposer,
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-chat-role-pill'),
+      ),
+    );
+    final rolePillLabel = find.descendant(
+      of: rolePill,
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-chat-role-label'),
+      ),
+    );
+    final rolePillAvatar = find.descendant(
+      of: rolePill,
+      matching: find.byType(GenesisCharacterAvatar),
+    );
     final roleCards = tester.widget<PageView>(roleCardsFinder);
     expect(roleCards.padEnds, isTrue);
     expect(roleCards.physics, isA<PageScrollPhysics>());
@@ -9833,6 +9852,12 @@ void main() {
     );
     expect(recommendedRole, findsOneWidget);
     expect(regularRole, findsOneWidget);
+    expect(find.text('Your Profile'), findsNothing);
+    expect(tester.widget<Text>(rolePillLabel).data, 'Recommended role');
+    expect(
+      tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
+      'Recommended role',
+    );
     expect(
       find.byKey(
         const ValueKey<String>('origin-setup-role-edit-c_recommended'),
@@ -9991,6 +10016,11 @@ void main() {
       closeTo(tester.getCenter(roleCardsFinder).dx, 0.01),
     );
     expect((regularOutline.border! as Border).top.color, GenesisColors.brand);
+    expect(tester.widget<Text>(rolePillLabel).data, 'Regular role');
+    expect(
+      tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
+      'Regular role',
+    );
     final selectedDot = tester.widget<AnimatedContainer>(
       find.byKey(const ValueKey<String>('origin-setup-role-page-dot-1')),
     );
@@ -10380,6 +10410,14 @@ void main() {
       hasLength(1),
     );
     expect(
+      transport
+          .requestsFor('/api/v1/origin/my_launch_preset_characters')
+          .single
+          .uri
+          .queryParameters,
+      const <String, String>{'origin_id': 'o_test_1', 'limit': '5'},
+    );
+    expect(
       find.byKey(const ValueKey<String>('origin-detail-loading-sheet')),
       findsOneWidget,
     );
@@ -10490,7 +10528,7 @@ void main() {
             'sub_tick_no': 2,
             'connect_cnt': 24,
             'current_time': 'Day 1, 14:00 p.m.',
-            'last_active_at': 1785292700,
+            'last_active_at': 1785292900,
           },
           {
             'char_id': 'char_history_compact_2',
@@ -10528,6 +10566,9 @@ void main() {
 
       final row = find.byKey(
         const ValueKey<String>('origin-launched-world-row-w_3XDXO1'),
+      );
+      final secondRow = find.byKey(
+        const ValueKey<String>('origin-launched-world-row-w_3XDXO2'),
       );
       final launchedSection = find.byKey(
         const ValueKey<String>('origin-launched-worlds-section'),
@@ -10597,8 +10638,8 @@ void main() {
       final roleNameRect = tester.getRect(find.text('Nikos'));
       expect(avatarRect.left, tester.getRect(launchedSection).left + 10);
       expect(roleNameRect.top, moreOrLessEquals(avatarRect.top));
-      expect(secondAvatarRect.top, lessThan(avatarRect.top));
-      expect(avatarRect.top - secondAvatarRect.bottom, moreOrLessEquals(16));
+      expect(avatarRect.top, lessThan(secondAvatarRect.top));
+      expect(secondAvatarRect.top - avatarRect.bottom, moreOrLessEquals(16));
       expect(
         find.descendant(
           of: playingWorldList,
@@ -10629,7 +10670,7 @@ void main() {
                   ),
                 )
                 .dy -
-            tester.getBottomLeft(row).dy,
+            tester.getBottomLeft(secondRow).dy,
         moreOrLessEquals(originDetailSectionGapForTesting),
       );
       expect(find.text('Launch another World'), findsNothing);
@@ -10684,6 +10725,11 @@ void main() {
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
         ),
       ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
     );
     await tester.pumpAndSettle();
 
@@ -12016,7 +12062,7 @@ void main() {
       expect(sharedComposer, findsOneWidget);
       expect(
         sheetComposerWidget.style?.composerBackgroundColor,
-        kLocationChatStyle.composerBackgroundColor,
+        originWorldDetailSheetBackgroundColor.withValues(alpha: 0.9),
       );
       expect(sheetComposerWidget.style?.composerBackgroundGradient, isNull);
       expect(
@@ -12318,15 +12364,14 @@ void main() {
           const ValueKey('origin-location-chat-role-selector'),
         ),
       );
-      expect(
-        find.descendant(
-          of: roleSelector,
-          matching: find.byKey(
-            const ValueKey<String>('origin-location-chat-role-switch-icon'),
-          ),
+      final roleSwitchIcon = find.descendant(
+        of: roleSelector,
+        matching: find.byKey(
+          const ValueKey<String>('origin-location-chat-role-switch-icon'),
         ),
-        findsOneWidget,
       );
+      expect(roleSwitchIcon, findsOneWidget);
+      expect(tester.widget<Icon>(roleSwitchIcon).color, GenesisColors.brand);
       expect(
         tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
         'Nikos',
