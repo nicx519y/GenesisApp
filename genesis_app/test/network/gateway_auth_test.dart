@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -70,8 +71,21 @@ class _FakeTransport implements HttpTransport {
 }
 
 void main() {
+  late MemoryCollectEventStore collectStore;
+  late CollectTelemetryUploader collectUploader;
+
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
+    GenesisTelemetry.resetForTesting();
+    collectStore = MemoryCollectEventStore();
+    collectUploader = CollectTelemetryUploader(store: collectStore)
+      ..configure(enabled: true);
+    GenesisTelemetry.setCollectUploaderForTesting(collectUploader);
+  });
+
+  tearDown(() async {
+    await collectUploader.waitForPendingWrites();
+    GenesisTelemetry.resetForTesting();
   });
 
   test('registration key ids are isolated by gateway environment', () async {
@@ -489,6 +503,64 @@ void main() {
           .where((request) => request.uri.path == '/apix/v1/time')
           .length,
       1,
+    );
+    await GenesisTelemetry.waitForCollectWritesForTesting();
+    final interfaceEvents = collectStore.eventsForTesting;
+    expect(interfaceEvents.map((event) => event.action), <String>[
+      'api_req_start',
+      'api_req_success',
+      'api_req_start',
+      'api_req_success',
+      'api_req_start',
+      'api_req_success',
+    ]);
+    expect(interfaceEvents.map((event) => event.object1), <String>[
+      '/apix/v1/app/device/challenge',
+      '/apix/v1/app/device/challenge',
+      '/apix/v1/app/device/register',
+      '/apix/v1/app/device/register',
+      '/apix/v1/time',
+      '/apix/v1/time',
+    ]);
+  });
+
+  test('invalid challenge payload is reported on the challenge path', () async {
+    final authTransport = _FakeTransport(
+      handler: (_) => _json({'err_no': 0, 'err_msg': 'succ', 'data': {}}),
+    );
+    final coordinator = GatewayAuthCoordinator(
+      gatewayBaseUrl: 'https://gateway.test/apix/',
+      appHeaderProvider: _testAppHeaders,
+      deviceIdService: const _TestDeviceIdService(),
+      keyStore: _FakeKeyStore(),
+      registrationStore: _MemoryGatewayRegistrationStore(),
+      transport: authTransport,
+    );
+
+    await expectLater(
+      coordinator.prepare(),
+      throwsA(
+        isA<ApiException>().having(
+          (error) => error.clientFailureCode,
+          'clientFailureCode',
+          ApiClientFailureCode.gatewayRegistration,
+        ),
+      ),
+    );
+
+    await GenesisTelemetry.waitForCollectWritesForTesting();
+    final interfaceEvents = collectStore.eventsForTesting;
+    expect(interfaceEvents.map((event) => event.action), <String>[
+      'api_req_start',
+      'api_req_fail_tech',
+    ]);
+    expect(interfaceEvents.last.object1, '/apix/v1/app/device/challenge');
+    expect(interfaceEvents.last.object3, 'tech_http_200');
+    final details = jsonDecode(interfaceEvents.last.extData) as Map;
+    expect(details['reason'], 'response_processing');
+    expect(
+      details['message'],
+      'Gateway challenge response missing register_id',
     );
   });
 

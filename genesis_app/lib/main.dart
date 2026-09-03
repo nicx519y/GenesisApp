@@ -82,7 +82,9 @@ Future<void> main() async {
   AppStartupCoordinator.recordLaunchLocalSettingsReady();
   await telemetryRuntimeInitialization;
   AppStartupCoordinator.recordLaunchTelemetryReady();
-  final appGlobalConfigLoad = _loadAppGlobalConfig(services);
+  final appGlobalConfigLoad = _loadAppGlobalConfig(
+    services,
+  ).whenComplete(AppStartupCoordinator.recordLaunchAppConfigReady);
 
   AppStartupCoordinator.configure();
   final initialTab = await initialTabFuture;
