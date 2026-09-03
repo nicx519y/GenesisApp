@@ -70,8 +70,8 @@ void main() {
       tester.widget<SizedBox>(find.byKey(const ValueKey('gem-balance-panel'))),
       isA<SizedBox>(),
     );
-    expect(find.text('+550.0'), findsOneWidget);
-    expect(find.text('500.0'), findsOneWidget);
+    expect(find.text('+550'), findsOneWidget);
+    expect(find.text('500'), findsOneWidget);
     expect(find.text(formatGemPrice(149, 'USD')), findsOneWidget);
     expect(
       find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
@@ -98,7 +98,7 @@ void main() {
     );
 
     expect(find.text(lowGemBalancePrompt), findsOneWidget);
-    expect(find.text('+550.0'), findsOneWidget);
+    expect(find.text('+550'), findsOneWidget);
     _expectSheetShowEvent(telemetry, gemPurchaseSheetTriggerMessageLowBalance);
   });
 

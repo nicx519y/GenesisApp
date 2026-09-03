@@ -32,8 +32,8 @@ void main() {
 
     expect(find.text('Backend New User'), findsOneWidget);
     expect(find.text('HKD1.49'), findsOneWidget);
-    expect(find.text('+550.0'), findsOneWidget);
-    expect(find.text('500.0'), findsOneWidget);
+    expect(find.text('+550'), findsOneWidget);
+    expect(find.text('500'), findsOneWidget);
 
     final tagStyle = tester.widget<Text>(find.text('Backend New User')).style;
     expect(tagStyle?.fontSize, 10);
@@ -52,20 +52,20 @@ void main() {
       const Color(0xFF123456),
     );
 
-    final amountStyle = tester.widget<Text>(find.text('+550.0')).style;
+    final amountStyle = tester.widget<Text>(find.text('+550')).style;
     expect(amountStyle?.fontSize, 14);
     expect(amountStyle?.height, 20 / 14);
     expect(amountStyle?.fontWeight, FontWeight.w600);
     expect(amountStyle?.color, const Color(0xFF111111));
 
-    final originalAmount = find.text('500.0');
+    final originalAmount = find.text('500');
     final originalAmountStyle = tester.widget<Text>(originalAmount).style;
     expect(originalAmountStyle?.fontSize, 12);
     expect(originalAmountStyle?.fontWeight, FontWeight.w400);
     expect(originalAmountStyle?.color, const Color(0xFF888888));
     expect(originalAmountStyle?.decoration, TextDecoration.lineThrough);
 
-    final currentAmountRect = tester.getRect(find.text('+550.0'));
+    final currentAmountRect = tester.getRect(find.text('+550'));
     final originalAmountRect = tester.getRect(originalAmount);
     final priceButtonRect = tester.getRect(
       find.byKey(const ValueKey('gem-product-price-gem_pack_500')),

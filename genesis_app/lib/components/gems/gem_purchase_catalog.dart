@@ -243,7 +243,7 @@ class GemProductCard extends StatelessWidget {
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
-                        '+${formatGemCent(product.totalGemsCent)}',
+                        '+${formatWholeGemCent(product.totalGemsCent)}',
                         maxLines: 1,
                         style: const TextStyle(
                           fontSize: 14,
@@ -263,7 +263,7 @@ class GemProductCard extends StatelessWidget {
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          formatGemCent(product.baseGemsCent),
+                          formatWholeGemCent(product.baseGemsCent),
                           maxLines: 1,
                           style: const TextStyle(
                             fontSize: 12,
