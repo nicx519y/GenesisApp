@@ -150,6 +150,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   String _selectedLocationChatRoleId = _profileLocationChatRoleId;
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
+  final OriginRoleAvatarSnapshotStore _roleAvatarSnapshots =
+      OriginRoleAvatarSnapshotStore();
   OriginLaunchSource? _activeLaunchSource;
   bool get _launching => _activeLaunchSource != null;
   late bool _waitingForOpeningSheetExpansion;
@@ -229,6 +231,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _launchedPresetRolesCacheKey = '';
       _launchedPresetRolesPreloadScheduledForOriginId = '';
       _originLoadGeneration += 1;
+      _preloadedProfileRoleAvatarKeys.clear();
+      _roleAvatarSnapshots.clear(notify: false);
       _origin = null;
       _initialLoadError = null;
       _renderStage = _OriginWorldPageRenderStage.framework;
@@ -265,6 +269,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     _cachedProfileRoleLoadGeneration += 1;
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _locationChatBackgroundPreloader.dispose();
+    _roleAvatarSnapshots.dispose();
     _tilemapRestorationController.dispose();
     _detailSheetRaisedNotifier.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
@@ -335,10 +340,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
   void _precacheProfileRoleAvatar(OriginCustomRoleDraft profileRole) {
     if (!mounted) return;
-    final avatarUrl = _originRoleCardAvatarUrl(
-      context,
-      _resolveAssetUrl(profileRole.avatarUrl),
-    );
+    final snapshotSourceKey = _resolveAssetUrl(profileRole.avatarUrl).trim();
+    final avatarUrl = _originRoleCardAvatarUrl(context, snapshotSourceKey);
     if (avatarUrl.isEmpty) return;
 
     final devicePixelRatio = genesisImageDevicePixelRatio(
@@ -347,12 +350,19 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
     final outputSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
         .ceil();
+    final snapshotSize = math.max(
+      1,
+      (_originLocationChatRolePillAvatarSize * devicePixelRatio).ceil(),
+    );
     final cacheKey = '$avatarUrl@$outputSize';
     if (!_preloadedProfileRoleAvatarKeys.add(cacheKey)) return;
 
     final provider = OriginRolePortraitImageProvider.fromUrl(
       imageUrl: avatarUrl,
       outputSize: outputSize,
+      snapshotStore: _roleAvatarSnapshots,
+      snapshotSourceKey: snapshotSourceKey,
+      snapshotSize: snapshotSize,
     );
     unawaited(
       precacheImage(
@@ -1090,6 +1100,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
               origin: origin,
+              roleAvatarSnapshots: _roleAvatarSnapshots,
               minChildSize: minChildSize,
               initiallyExpanded: widget.showOpeningSheetOnEntry,
               autoExpansionPending: _waitingForOpeningSheetExpansion,
@@ -1112,7 +1123,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                   _selectAndLaunchProfileRole(origin, profileRole),
               locationChatRole: _locationChatRoleOption(origin),
               onSelectLocationChatRole: (roleId) =>
-                  _selectLocationChatRole(origin, roleId),
+                  _selectLocationChatRole(roleId),
               onSendLocationChatMessage:
                   (locationId, message, mentionCatalog) =>
                       _launchLocationChatMessage(

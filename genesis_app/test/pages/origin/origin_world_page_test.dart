@@ -329,6 +329,35 @@ void main() {
     );
   });
 
+  test('origin opening keyboard rests at the inline composer boundary', () {
+    expect(
+      originOpeningKeyboardFlowRestingOffsetForTesting(
+        layoutOffset: 80,
+        contentBottom: 620,
+        sheetHeight: 600,
+        composerHeight: 100,
+        gap: 24,
+      ),
+      224,
+      reason:
+          'Tall content leaves the inline composer exactly at the viewport '
+          'bottom.',
+    );
+    expect(
+      originOpeningKeyboardFlowRestingOffsetForTesting(
+        layoutOffset: 80,
+        contentBottom: 300,
+        sheetHeight: 600,
+        composerHeight: 100,
+        gap: 24,
+      ),
+      0,
+      reason:
+          'Short content stays in natural flow when the boundary would require '
+          'overscrolling above the list start.',
+    );
+  });
+
   test('origin keyboard animation target rejects malformed native events', () {
     expect(GenesisKeyboardAnimationTarget.tryParse(null), isNull);
     expect(
