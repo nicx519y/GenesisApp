@@ -2764,6 +2764,20 @@ void main() {
   testWidgets('Worldo records one network request and real content frame', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    AppStartupCoordinator.beginLaunchTracking(
+      startupId: 'worldo-signed-in-cache-fallback',
+    );
+    AppStartupCoordinator.recordStartupFirstReport();
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'worldo',
+      reason: 'session_home_miss_worldo_cache_hit',
+    );
+    AppStartupCoordinator.recordLaunchPage();
     final traces = <_WidgetPerformanceTrace>[];
     FirebasePerformanceMonitoring.setReadyForTesting(true);
     FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
@@ -2814,14 +2828,41 @@ void main() {
           .stopped,
       isTrue,
     );
+    final launchEvents = telemetry.events
+        .where((event) => event.name.startsWith('launch_'))
+        .toList(growable: false);
+    expect(launchEvents.map((event) => event.name), <String>[
+      'launch_startup',
+      'launch_page',
+      'launch_req_start',
+      'launch_req_end',
+      'launch_render',
+    ]);
+    expect(
+      launchEvents[1].data['object4'],
+      'session_home_miss_worldo_cache_hit',
+    );
+    expect(launchEvents[3].data['object4'], 'success');
+    expect(launchEvents[4].data['object4'], 'network');
   });
 
   testWidgets(
     'My Worlds cache frame does not complete the network render trace',
     (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
       final telemetry = _CapturingTelemetrySink();
       GenesisTelemetry.setSinkForTesting(telemetry);
       addTearDown(GenesisTelemetry.resetForTesting);
+      AppStartupCoordinator.beginLaunchTracking(
+        startupId: 'home-signed-in-cache',
+      );
+      AppStartupCoordinator.recordStartupFirstReport();
+      AppStartupCoordinator.setLaunchPageDecision(
+        page: 'home',
+        reason: 'session_home_cache_hit',
+      );
+      AppStartupCoordinator.recordLaunchPage();
       final traces = <_WidgetPerformanceTrace>[];
       FirebasePerformanceMonitoring.setReadyForTesting(true);
       FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
@@ -2892,6 +2933,12 @@ void main() {
       expect(find.text('World tick narrator 2'), findsOneWidget);
       expect(find.text('World tick narrator 1'), findsNothing);
       expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
+      final launchRenders = telemetry.events
+          .where((event) => event.name == 'launch_render')
+          .toList(growable: false);
+      expect(launchRenders, hasLength(1));
+      expect(launchRenders.single.data['object2'], 'home');
+      expect(launchRenders.single.data['object4'], 'cache');
     },
   );
 
@@ -2950,6 +2997,20 @@ void main() {
   testWidgets(
     'Home starts network beside stuck cache and network wins late cache',
     (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
+      AppStartupCoordinator.beginLaunchTracking(
+        startupId: 'home-signed-in-cache-fallback',
+      );
+      AppStartupCoordinator.recordStartupFirstReport();
+      AppStartupCoordinator.setLaunchPageDecision(
+        page: 'home',
+        reason: 'session_home_cache_hit',
+      );
+      AppStartupCoordinator.recordLaunchPage();
       final cacheCompleter = Completer<Map<String, dynamic>?>();
       final worldListCompleter = Completer<TransportResponse>();
       final transport = _RecordingV1ListTransport(
@@ -3010,6 +3071,19 @@ void main() {
 
       expect(find.text('World tick narrator 2'), findsOneWidget);
       expect(find.text('World tick narrator 1'), findsNothing);
+      final launchEvents = telemetry.events
+          .where((event) => event.name.startsWith('launch_'))
+          .toList(growable: false);
+      expect(launchEvents.map((event) => event.name), <String>[
+        'launch_startup',
+        'launch_page',
+        'launch_req_start',
+        'launch_req_end',
+        'launch_render',
+      ]);
+      expect(launchEvents[1].data['object4'], 'session_home_cache_hit');
+      expect(launchEvents[3].data['object4'], 'success');
+      expect(launchEvents[4].data['object4'], 'network');
     },
   );
 

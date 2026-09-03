@@ -76,6 +76,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
   var _firstScreenRequestAttempt = 0;
   var _firstScreenRenderCompleted = false;
+  var _launchRenderRevision = 0;
   @override
   void initState() {
     super.initState();
@@ -137,6 +138,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   @override
   void dispose() {
     _startupInitialRetryTimer?.cancel();
+    if (_activeFirstScreenRequestOperation != null) {
+      AppStartupCoordinator.recordLaunchRequestEnd(
+        page: 'home',
+        result: 'cancelled',
+      );
+    }
     unawaited(_activeFirstScreenRequestOperation?.cancel());
     unawaited(_activeFirstScreenRenderOperation?.cancel());
     worldDeletionEvents.removeListener(_handleExternalWorldDeleted);
@@ -188,6 +195,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _activeFirstScreenRenderOperation = null;
     _firstScreenRequestAttempt = 0;
     _firstScreenRenderCompleted = false;
+    _launchRenderRevision += 1;
     _startupInitialRetryTimer = null;
     _items.clear();
     _deletingWorldIds.clear();
@@ -373,8 +381,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   void _scheduleLaunchRender(String result) {
+    final revision = ++_launchRenderRevision;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_isPageActive) return;
+      if (!mounted || !_isPageActive || revision != _launchRenderRevision) {
+        return;
+      }
       AppStartupCoordinator.recordLaunchRender(page: 'home', result: result);
     });
   }
@@ -615,6 +626,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         return;
       }
       _activeFirstScreenRequestOperation = requestOperation;
+      AppStartupCoordinator.recordLaunchRequestStart(page: 'home');
     }
 
     try {
@@ -628,6 +640,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _activeFirstScreenRequestOperation = null;
       }
       unawaited(requestOperation?.succeed());
+      if (shouldTrackFirstScreen) {
+        AppStartupCoordinator.recordLaunchRequestEnd(
+          page: 'home',
+          result: 'success',
+        );
+      }
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
       if (onlyIfFirstPageChanged && !_firstPageWorldOrderChanged(page)) {
@@ -670,6 +688,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isRefreshing = false;
       });
       _markInitialContentReady();
+      if (shouldTrackFirstScreen) {
+        _scheduleLaunchRender(page.items.isEmpty ? 'network_empty' : 'network');
+      }
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
       }
@@ -684,6 +705,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       unawaited(
         requestOperation?.fail(errorType: firebasePerformanceErrorType(error)),
       );
+      if (shouldTrackFirstScreen) {
+        AppStartupCoordinator.recordLaunchRequestEnd(
+          page: 'home',
+          result: 'failure',
+        );
+      }
       if (!mounted) return;
       if (_shouldKeepInitialNetworkFailureLoading(error)) {
         setState(() {
