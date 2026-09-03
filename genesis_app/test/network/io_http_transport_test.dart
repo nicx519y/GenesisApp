@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:firebase_performance/firebase_performance.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/telemetry/firebase_performance_monitoring.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/io_http_transport.dart';
 
@@ -224,6 +225,99 @@ void main() {
     expect(response.body, 'ok');
   });
 
+  test(
+    'metric start timeout does not block HTTP and disables later metrics',
+    () async {
+      FirebasePerformanceMonitoring.resetForTesting();
+      addTearDown(FirebasePerformanceMonitoring.resetForTesting);
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+      server.listen((request) async {
+        request.response
+          ..statusCode = 200
+          ..write('ok');
+        await request.response.close();
+      });
+      final startCompleter = Completer<void>();
+      final metrics = <_FakePerformanceMetric>[];
+      final transport = IoHttpTransport(
+        performanceMetricUrlFilter: (_) => true,
+        performanceMetricReady: () => true,
+        performanceMetricFactory: (url, method) {
+          final metric = _FakePerformanceMetric(
+            url: url,
+            method: method,
+            startCompleter: startCompleter,
+          );
+          metrics.add(metric);
+          return metric;
+        },
+      );
+      final request = TransportRequest(
+        method: 'GET',
+        uri: Uri.parse('http://127.0.0.1:${server.port}/ping'),
+        headers: const <String, String>{},
+        bodyBytes: null,
+        timeoutMs: 5000,
+      );
+
+      final firstResponse = await transport.send(request);
+      final secondResponse = await transport.send(request);
+
+      expect(firstResponse.body, 'ok');
+      expect(secondResponse.body, 'ok');
+      expect(metrics, hasLength(1));
+      expect(FirebasePerformanceMonitoring.isCircuitBroken, isTrue);
+      expect(metrics.single.stopped, isFalse);
+
+      startCompleter.complete();
+      await Future<void>.delayed(Duration.zero);
+      expect(metrics.single.stopped, isTrue);
+    },
+  );
+
+  test('metric stop never delays a completed HTTP response', () async {
+    FirebasePerformanceMonitoring.resetForTesting();
+    addTearDown(FirebasePerformanceMonitoring.resetForTesting);
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    addTearDown(() => server.close(force: true));
+    server.listen((request) async {
+      request.response
+        ..statusCode = 200
+        ..write('ok');
+      await request.response.close();
+    });
+    final stopCompleter = Completer<void>();
+    late _FakePerformanceMetric metric;
+    final transport = IoHttpTransport(
+      performanceMetricUrlFilter: (_) => true,
+      performanceMetricReady: () => true,
+      performanceMetricFactory: (url, method) {
+        return metric = _FakePerformanceMetric(
+          url: url,
+          method: method,
+          stopCompleter: stopCompleter,
+        );
+      },
+    );
+
+    final response = await transport
+        .send(
+          TransportRequest(
+            method: 'GET',
+            uri: Uri.parse('http://127.0.0.1:${server.port}/ping'),
+            headers: const <String, String>{},
+            bodyBytes: null,
+            timeoutMs: 5000,
+          ),
+        )
+        .timeout(const Duration(seconds: 1));
+
+    expect(response.body, 'ok');
+    expect(metric.stopped, isTrue);
+    stopCompleter.complete();
+  });
+
   test('reports receive progress and keeps raw response bytes', () async {
     final responseBody = <int>[0, 1, 2, 250, 255];
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
@@ -405,10 +499,17 @@ void main() {
 }
 
 class _FakePerformanceMetric implements HttpRequestPerformanceMetric {
-  _FakePerformanceMetric({required this.url, required this.method});
+  _FakePerformanceMetric({
+    required this.url,
+    required this.method,
+    this.startCompleter,
+    this.stopCompleter,
+  });
 
   final String url;
   final HttpMethod method;
+  final Completer<void>? startCompleter;
+  final Completer<void>? stopCompleter;
 
   bool started = false;
   bool stopped = false;
@@ -435,11 +536,13 @@ class _FakePerformanceMetric implements HttpRequestPerformanceMetric {
   @override
   Future<void> start() async {
     started = true;
+    await startCompleter?.future;
   }
 
   @override
   Future<void> stop() async {
     stopped = true;
+    await stopCompleter?.future;
   }
 }
 

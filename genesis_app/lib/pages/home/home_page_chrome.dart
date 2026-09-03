@@ -11,9 +11,11 @@ class _HomeScaffold extends StatelessWidget {
     required this.networkRequestsAllowed,
     required this.keepInitialNetworkFailureLoading,
     required this.initialRequestMetricWindow,
+    required this.localRestoreTimeout,
     required this.initialMyWorldsRenderOperation,
     required this.initialMyWorldsRequestAttempt,
     this.initialMyWorldsData,
+    this.myWorldsCacheLoader,
   });
 
   final ValueListenable<int>? activationListenable;
@@ -25,9 +27,11 @@ class _HomeScaffold extends StatelessWidget {
   final ValueListenable<bool> networkRequestsAllowed;
   final bool keepInitialNetworkFailureLoading;
   final Duration initialRequestMetricWindow;
+  final Duration localRestoreTimeout;
   final FirebasePerformanceOperation? initialMyWorldsRenderOperation;
   final int initialMyWorldsRequestAttempt;
   final Map<String, dynamic>? initialMyWorldsData;
+  final HomeMyWorldsCacheLoader? myWorldsCacheLoader;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +53,8 @@ class _HomeScaffold extends StatelessWidget {
               keepInitialNetworkFailureLoading:
                   keepInitialNetworkFailureLoading,
               initialRequestMetricWindow: initialRequestMetricWindow,
+              localRestoreTimeout: localRestoreTimeout,
+              myWorldsCacheLoader: myWorldsCacheLoader,
               initialPageData: initialMyWorldsData,
               initialPageRenderOperation: initialMyWorldsRenderOperation,
               initialPageRequestAttempt: initialMyWorldsRequestAttempt,

@@ -2946,6 +2946,71 @@ void main() {
   });
 
   testWidgets(
+    'Home network request survives stuck cache restore and wins late cache',
+    (WidgetTester tester) async {
+      final cacheCompleter = Completer<Map<String, dynamic>?>();
+      final worldListCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        worldListCompleter: worldListCompleter,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: MaterialApp(
+            home: HomePage(
+              localRestoreTimeout: const Duration(milliseconds: 10),
+              myWorldsCacheLoader: (_) => cacheCompleter.future,
+            ),
+          ),
+        ),
+      );
+      for (
+        var index = 0;
+        index < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+        index += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+      worldListCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'err_str': 'success',
+          'data': {
+            'list': [transport._worldItem(1)],
+            'total': 1,
+          },
+        }),
+      );
+      for (
+        var index = 0;
+        index < 10 && find.text('World tick narrator 2').evaluate().isEmpty;
+        index += 1
+      ) {
+        await tester.pump();
+      }
+      expect(find.text('World tick narrator 2'), findsOneWidget);
+
+      cacheCompleter.complete({
+        'list': [transport._worldItem(0)],
+        'total': 1,
+      });
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('World tick narrator 2'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'Worldo first pageview waits for For you then later tab entry is immediate',
     (WidgetTester tester) async {
       AppStartupCoordinator.resetForTesting();
