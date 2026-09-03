@@ -32,8 +32,8 @@ void main() {
 
     expect(find.text('Backend New User'), findsOneWidget);
     expect(find.text('HKD1.49'), findsOneWidget);
-    expect(find.text('+550'), findsOneWidget);
-    expect(find.text('500'), findsOneWidget);
+    expect(find.text('+550.0'), findsOneWidget);
+    expect(find.text('500.0'), findsOneWidget);
 
     final tagStyle = tester.widget<Text>(find.text('Backend New User')).style;
     expect(tagStyle?.fontSize, 10);
@@ -52,20 +52,20 @@ void main() {
       const Color(0xFF123456),
     );
 
-    final amountStyle = tester.widget<Text>(find.text('+550')).style;
+    final amountStyle = tester.widget<Text>(find.text('+550.0')).style;
     expect(amountStyle?.fontSize, 14);
     expect(amountStyle?.height, 20 / 14);
     expect(amountStyle?.fontWeight, FontWeight.w600);
     expect(amountStyle?.color, const Color(0xFF111111));
 
-    final originalAmount = find.text('500');
+    final originalAmount = find.text('500.0');
     final originalAmountStyle = tester.widget<Text>(originalAmount).style;
     expect(originalAmountStyle?.fontSize, 12);
     expect(originalAmountStyle?.fontWeight, FontWeight.w400);
     expect(originalAmountStyle?.color, const Color(0xFF888888));
     expect(originalAmountStyle?.decoration, TextDecoration.lineThrough);
 
-    final currentAmountRect = tester.getRect(find.text('+550'));
+    final currentAmountRect = tester.getRect(find.text('+550.0'));
     final originalAmountRect = tester.getRect(originalAmount);
     final priceButtonRect = tester.getRect(
       find.byKey(const ValueKey('gem-product-price-gem_pack_500')),
@@ -98,7 +98,9 @@ void main() {
 
   testWidgets('balance panel uses the Gem Wallet typography', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(home: Scaffold(body: GemBalancePanel(balance: 430))),
+      const MaterialApp(
+        home: Scaffold(body: GemBalancePanel(balanceCent: 43000)),
+      ),
     );
 
     expect(
@@ -111,7 +113,7 @@ void main() {
     expect(labelStyle?.fontWeight, FontWeight.w600);
     expect(labelStyle?.color, const Color(0xFF666666));
 
-    final balanceStyle = tester.widget<Text>(find.text('430')).style;
+    final balanceStyle = tester.widget<Text>(find.text('430.0')).style;
     expect(balanceStyle?.fontSize, 30);
     expect(balanceStyle?.height, 40 / 30);
     expect(balanceStyle?.fontWeight, FontWeight.w600);
@@ -128,7 +130,7 @@ void main() {
         tester.getRect(find.byKey(const ValueKey('gem-balance-icon'))).top -
         panelRect.top;
     final bottomGap =
-        panelRect.bottom - tester.getRect(find.text('430')).bottom;
+        panelRect.bottom - tester.getRect(find.text('430.0')).bottom;
     expect(topGap, closeTo(8, 0.1));
     expect(bottomGap, closeTo(8, 0.1));
   });
@@ -225,7 +227,7 @@ void main() {
             width: 105,
             height: kGemProductCardHeight,
             child: GemProductCard(
-              product: _product(bonusGems: 0, canPurchase: false),
+              product: _product(bonusGemsCent: 0, canPurchase: false),
               isBuying: false,
               isPurchaseInProgress: false,
               onPurchase: () {},
@@ -315,14 +317,14 @@ GemProduct _product({
   String activityColor = '',
   String priceCurrencyCode = 'USD',
   bool canPurchase = true,
-  int bonusGems = 50,
+  int bonusGemsCent = 5000,
 }) {
   return GemProduct(
     productId: productId,
     appleProductId: 'com.worldo.gems.500',
     googleProductId: 'worldo_gems_500',
-    baseGems: 500,
-    bonusGems: bonusGems,
+    baseGemsCent: 50000,
+    bonusGemsCent: bonusGemsCent,
     priceCurrencyCode: priceCurrencyCode,
     priceAmount: 149,
     canPurchase: canPurchase,

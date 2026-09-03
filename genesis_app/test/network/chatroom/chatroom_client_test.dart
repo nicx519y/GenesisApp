@@ -832,11 +832,11 @@ void main() {
     );
 
     socket.serverFrame('balance_low', {
-      'payload': {'balance': 10, 'message': '余额即将不足，请及时充值'},
+      'payload': {'balance_cent': 1000, 'message': '余额即将不足，请及时充值'},
     });
 
     final event = await eventFuture as ChatroomBalanceLow;
-    expect(event.balance, 10);
+    expect(event.balanceCent, 1000);
     expect(event.message, '余额即将不足，请及时充值');
     await session.close();
   });

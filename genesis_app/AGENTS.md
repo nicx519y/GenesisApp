@@ -62,6 +62,7 @@ flutter run
 HTTP 接口以 Apifox 文档为准：
 
 - 主文档：`docs/apifox-http-api-contract.md`
+- Gems cent 客户端契约：`docs/gem-cent-app-contract.md`
 - Gateway 验签、注册、诊断流程：`docs/gateway-auth.md`
 - API facade：`lib/network/genesis_api.dart`
 - V1 resource：`lib/network/v1/*.dart`

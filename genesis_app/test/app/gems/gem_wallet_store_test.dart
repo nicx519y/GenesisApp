@@ -7,7 +7,7 @@ import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 void main() {
   test('refresh publishes the exact server balance', () async {
     final store = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 980),
+      loadWallet: () async => const GemWallet(balanceCent: 98000),
       readUid: () async => 'u_user',
     );
     addTearDown(store.dispose);
@@ -15,7 +15,7 @@ void main() {
     await store.refresh();
 
     expect(store.state.value.ownerUid, 'u_user');
-    expect(store.state.value.balance, 980);
+    expect(store.state.value.balanceCent, 98000);
     expect(store.state.value.isRefreshing, isFalse);
     expect(store.state.value.lastError, isNull);
   });
@@ -25,7 +25,7 @@ void main() {
     final store = GemWalletStore(
       loadWallet: () async {
         if (shouldFail) throw StateError('offline');
-        return const GemWallet(balance: 430);
+        return const GemWallet(balanceCent: 43000);
       },
       readUid: () async => 'u_user',
     );
@@ -35,7 +35,7 @@ void main() {
     shouldFail = true;
     await store.refresh();
 
-    expect(store.state.value.balance, 430);
+    expect(store.state.value.balanceCent, 43000);
     expect(store.state.value.lastError, isA<StateError>());
   });
 
@@ -56,9 +56,9 @@ void main() {
     await Future<void>.delayed(Duration.zero);
 
     expect(requestCount, 1);
-    response.complete(const GemWallet(balance: 980));
+    response.complete(const GemWallet(balanceCent: 98000));
     await Future.wait<void>([first, second]);
-    expect(store.state.value.balance, 980);
+    expect(store.state.value.balanceCent, 98000);
   });
 
   test('an old account response is ignored after reset', () async {
@@ -75,11 +75,11 @@ void main() {
 
     uid = 'u_second';
     store.reset();
-    response.complete(const GemWallet(balance: 430));
+    response.complete(const GemWallet(balanceCent: 43000));
     await refresh;
 
     expect(store.state.value.ownerUid, isNull);
-    expect(store.state.value.balance, isNull);
+    expect(store.state.value.balanceCent, isNull);
   });
 
   test('refresh ignores an in-flight response after dispose', () async {
@@ -92,7 +92,7 @@ void main() {
     final refresh = store.refresh();
     await Future<void>.delayed(Duration.zero);
     store.dispose();
-    response.complete(const GemWallet(balance: 980));
+    response.complete(const GemWallet(balanceCent: 98000));
 
     await expectLater(refresh, completes);
     store.dispose();
@@ -100,7 +100,7 @@ void main() {
 
   test('refresh after dispose is a no-op', () async {
     final store = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 980),
+      loadWallet: () async => const GemWallet(balanceCent: 98000),
       readUid: () async => 'u_user',
     );
     store.dispose();

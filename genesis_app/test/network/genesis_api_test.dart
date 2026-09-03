@@ -354,8 +354,8 @@ void main() {
         statusCode: 200,
         headers: const {'content-type': 'application/json'},
         body: request.uri.path.endsWith('/products')
-            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"product_id":"gem_pack_500","apple_product_id":"com.worldo.gems.500","google_product_id":"worldo_gems_500","base_gems":500,"bonus_gems":50,"price_currency_code":"USD","price_amount":149,"can_purchase":true,"activity_type":"first_purchase_bonus","activity_text":"First Top-up","activity_color":"#E85C39","activity_ext":{"google_purchase_option_id":"500-gems-new","google_offer_id":"500-gems-new-discount"}}]}}'
-            : '{"err_no":0,"err_msg":"succ","data":{"list":[{"group_code":"daily","group_title":"Daily","tasks":[{"task_code":"send_message","title":"Send a message (0/3)","description":"Send messages in a location chat today.","reward_gems":50,"reward_valid_days":30,"cycle_type":"daily","cycle_key":"today","progress":0,"target_count":3,"progress_text":"0/3","status":"in_progress","action_text":"Go"}]}]}}',
+            ? '{"err_no":0,"err_msg":"succ","data":{"list":[{"product_id":"gem_pack_500","apple_product_id":"com.worldo.gems.500","google_product_id":"worldo_gems_500","base_gems_cent":50000,"bonus_gems_cent":5000,"price_currency_code":"USD","price_amount":149,"can_purchase":true,"activity_type":"first_purchase_bonus","activity_text":"First Top-up","activity_color":"#E85C39","activity_ext":{"google_purchase_option_id":"500-gems-new","google_offer_id":"500-gems-new-discount"}}]}}'
+            : '{"err_no":0,"err_msg":"succ","data":{"list":[{"group_code":"daily","group_title":"Daily","tasks":[{"task_code":"send_message","title":"Send a message (0/3)","description":"Send messages in a location chat today.","reward_gems_cent":5000,"reward_valid_days":30,"cycle_type":"daily","cycle_key":"today","progress":0,"target_count":3,"progress_text":"0/3","status":"in_progress","action_text":"Go"}]}]}}',
       ),
     );
     final api = _apiWith(
@@ -379,7 +379,7 @@ void main() {
     expect(products.products.single.productId, 'gem_pack_500');
     expect(products.products.single.googlePurchaseOptionId, '500-gems-new');
     expect(products.products.single.googleOfferId, '500-gems-new-discount');
-    expect(products.products.single.totalGems, 550);
+    expect(products.products.single.totalGemsCent, 55000);
     expect(products.products.single.activityType, 'first_purchase_bonus');
     expect(products.products.single.tagText, 'First Top-up');
     expect(products.products.single.activityColor, '#E85C39');
@@ -454,7 +454,8 @@ void main() {
       handler: (_) => const TransportResponse(
         statusCode: 200,
         headers: {'content-type': 'application/json'},
-        body: '{"err_no":0,"err_msg":"succ","data":{"wallet":{"balance":980}}}',
+        body:
+            '{"err_no":0,"err_msg":"succ","data":{"wallet":{"balance_cent":98000}}}',
       ),
     );
     final api = _apiWith(
@@ -472,7 +473,7 @@ void main() {
 
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/gem/wallet');
-    expect(wallet.balance, 980);
+    expect(wallet.balanceCent, 98000);
   });
 
   test('v1 gem model list and selection send current world context', () async {
@@ -481,7 +482,7 @@ void main() {
         statusCode: 200,
         headers: const {'content-type': 'application/json'},
         body: request.method == 'GET'
-            ? '{"err_no":0,"err_msg":"succ","data":{"selected_model_code":"top_pick_v3","list":[{"group_code":"recommended","group_title":"Recommended","models":[{"model_code":"top_pick_v3","title":"Top Pick V3","tag":["hot"],"estimated_next_message_gems":4,"estimated_next_tick_gems":4,"description":"Balanced storytelling.","range_text":"4-320 gems"}]}]}}'
+            ? '{"err_no":0,"err_msg":"succ","data":{"selected_model_code":"top_pick_v3","list":[{"group_code":"recommended","group_title":"Recommended","models":[{"model_code":"top_pick_v3","title":"Top Pick V3","tag":["hot"],"estimated_next_message_gems_cent":400,"estimated_next_tick_gems_cent":400,"description":"Balanced storytelling.","range_text":"4-320 gems"}]}]}}'
             : '{"err_no":0,"err_msg":"succ","data":{"selected_model_code":"sake_pro"}}',
       ),
     );
@@ -509,7 +510,10 @@ void main() {
     expect(catalog.selectedModelCode, 'top_pick_v3');
     expect(catalog.groups.single.groupTitle, 'Recommended');
     expect(catalog.groups.single.models.single.tags, ['hot']);
-    expect(catalog.groups.single.models.single.estimatedNextMessageGems, 4);
+    expect(
+      catalog.groups.single.models.single.estimatedNextMessageGemsCent,
+      400,
+    );
 
     final selectRequest = apiTransport.requests.last;
     expect(selectRequest.method, 'POST');
@@ -564,7 +568,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"list":[{"ledger_id":"gl_1","amount":-20,"scene":"world_tick","reason_code":"message","title":"Message","subtitle":"Location chat","world_name":"Thorn Haven","world_id":"w_1","order_id":"ord_1","created_at":1783586400,"expires_at":0}],"total":1,"pn":1,"rn":20}}',
+            '{"err_no":0,"err_msg":"succ","data":{"list":[{"ledger_id":"gl_1","amount_cent":-2000,"scene":"world_tick","reason_code":"message","title":"Message","subtitle":"Location chat","world_name":"Thorn Haven","world_id":"w_1","order_id":"ord_1","created_at":1783586400,"expires_at":0}],"total":1,"pn":1,"rn":20}}',
       ),
     );
     final api = _apiWith(
@@ -586,7 +590,7 @@ void main() {
     expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '1');
     expect(records.total, 1);
     expect(records.items.single.ledgerId, 'gl_1');
-    expect(records.items.single.amount, -20);
+    expect(records.items.single.amountCent, -2000);
     expect(records.items.single.title, 'Message');
     expect(records.items.single.worldName, 'Thorn Haven');
     expect(records.items.single.worldId, 'w_1');
@@ -599,7 +603,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"status":"completed","granted_gems":550,"transaction_id":"GPA.1"}}',
+            '{"err_no":0,"err_msg":"succ","data":{"status":"completed","granted_gems_cent":55000,"transaction_id":"GPA.1"}}',
       ),
     );
     final api = _apiWith(
@@ -636,12 +640,12 @@ void main() {
       'request_id': 'pay_1',
     });
     expect(report.status, GemPurchaseReportStatus.completed);
-    expect(report.grantedGems, 550);
+    expect(report.grantedGemsCent, 55000);
     expect(report.transactionId, 'GPA.1');
   });
 
   test(
-    'v1 gem wallet rejects a missing balance instead of using zero',
+    'v1 gem wallet rejects a missing balance_cent instead of using zero',
     () async {
       final apiTransport = _FakeTransport(
         handler: (_) => const TransportResponse(

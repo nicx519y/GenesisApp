@@ -593,7 +593,7 @@ void main() {
     await api.v1.home.following(pn: 2, rn: 10);
 
     final gemWallet = await api.v1.gem.wallet();
-    expect(gemWallet.balance, 430);
+    expect(gemWallet.balanceCent, 43000);
     final gemProducts = await api.v1.gem.products();
     expect(gemProducts.products.first.googlePurchaseOptionId, '500-gems-new');
     expect(gemProducts.products.first.googleOfferId, '500-gems-new-discount');
@@ -607,7 +607,7 @@ void main() {
       ),
     );
     expect(gemReport.status, GemPurchaseReportStatus.completed);
-    expect(gemReport.grantedGems, 550);
+    expect(gemReport.grantedGemsCent, 55000);
     expect(gemReport.transactionId, 'GPA.mock.1');
 
     final gemDuplicate = await api.v1.gem.reportPurchase(
@@ -620,18 +620,18 @@ void main() {
       ),
     );
     expect(gemDuplicate.status, GemPurchaseReportStatus.completed);
-    expect(gemDuplicate.grantedGems, 550);
+    expect(gemDuplicate.grantedGemsCent, 55000);
     expect(gemDuplicate.transactionId, 'GPA.mock.1');
 
     final dailyCheckin = await api.v1.gem.reportTask('daily_checkin');
     expect(dailyCheckin.status, 'claimed');
-    expect((await api.v1.gem.wallet()).balance, 1000);
+    expect((await api.v1.gem.wallet()).balanceCent, 100000);
 
     final discordReport = await api.v1.gem.reportTask('discord_follow');
     expect(discordReport.status, 'claimable');
     final discordClaim = await api.v1.gem.claimTask('discord_follow');
     expect(discordClaim.status, 'claimed');
-    expect((await api.v1.gem.wallet()).balance, 1020);
+    expect((await api.v1.gem.wallet()).balanceCent, 102000);
 
     final refreshedGemTasks = await api.v1.gem.tasks();
     final tasks = refreshedGemTasks.groups
@@ -652,7 +652,7 @@ void main() {
       rn: 10,
     );
     expect(spentRecords.items, isNotEmpty);
-    expect(spentRecords.items.every((record) => record.amount < 0), isTrue);
+    expect(spentRecords.items.every((record) => record.amountCent < 0), isTrue);
 
     final origins = await api.v1.origin.list(scene: 'foryou', pn: 1, rn: 10);
     expect(origins['total'], greaterThanOrEqualTo(100));

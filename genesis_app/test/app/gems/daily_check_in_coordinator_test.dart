@@ -144,7 +144,7 @@ GemTask _dailyTask({required String status}) {
     taskCode: dailyCheckInTaskCode,
     title: 'Daily Check-in',
     description: 'Check in every day.',
-    rewardGems: 50,
+    rewardGemsCent: 5000,
     rewardValidDays: 1,
     cycleType: 'daily',
     cycleKey: '2026-07-18',

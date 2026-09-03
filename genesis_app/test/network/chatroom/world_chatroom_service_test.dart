@@ -308,12 +308,12 @@ void main() {
     final alertFuture = service.balanceAlerts.first;
 
     socket.serverFrame('balance_low', {
-      'payload': {'balance': 10, 'message': 'Low balance'},
+      'payload': {'balance_cent': 1000, 'message': 'Low balance'},
     });
 
     final alert = await alertFuture;
     expect(alert.kind, GemBalanceAlertKind.low);
-    expect(alert.balance, 10);
+    expect(alert.balanceCent, 1000);
     expect(alert.message, 'Low balance');
     await service.dispose();
   });

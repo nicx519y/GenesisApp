@@ -8,6 +8,7 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/gems/gem_colors.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_model.dart';
+import '../../utils/gem_amount.dart';
 import '../../ui/tokens/genesis_colors.dart';
 
 typedef GemModelCatalogLoader =
@@ -481,7 +482,8 @@ class _GemModelTileContent extends StatelessWidget {
               text: 'Estimated next message: ',
               children: [
                 TextSpan(
-                  text: '${model.estimatedNextMessageGems} gems',
+                  text:
+                      '${formatGemCent(model.estimatedNextMessageGemsCent)} gems',
                   style: const TextStyle(color: kGemAccentColor),
                 ),
               ],

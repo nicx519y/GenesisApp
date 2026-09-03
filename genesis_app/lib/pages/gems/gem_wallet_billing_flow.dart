@@ -98,8 +98,8 @@ extension _GemWalletBillingFlow on _GemWalletPageState {
   }
 
   void _showBillingPurchaseSuccess(BillingUiEvent event) {
-    final grantedGems = event.grantedGems;
-    final grantedText = grantedGems > 0 ? formatGemInteger(grantedGems) : '';
+    final grantedGemsCent = event.grantedGemsCent;
+    final grantedText = formatGemCent(grantedGemsCent);
     final nextState = GemBillingPurchaseDialogState.success(
       attemptId: event.attemptId,
       grantedText: grantedText,

@@ -1034,7 +1034,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_msg': 'succ',
         'data': {
-          'wallet': {'balance': 430},
+          'wallet': {'balance_cent': 43000},
         },
       });
     }
@@ -5316,7 +5316,7 @@ void main() {
                   ValueListenableBuilder<GemWalletState>(
                     valueListenable: walletState,
                     builder: (context, state, _) {
-                      return Text('balance=${state.balance ?? '-'}');
+                      return Text('balance=${state.balanceCent ?? '-'}');
                     },
                   ),
                   TextButton(
@@ -14992,7 +14992,7 @@ void main() {
         .requestsFor('/api/v1/gem/wallet')
         .length;
     expect(firstRefreshCount, 1);
-    expect(find.text('430'), findsOneWidget);
+    expect(find.text('430.0'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
@@ -22199,7 +22199,7 @@ void main() {
       );
     });
     final gemWallet = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 20925),
+      loadWallet: () async => const GemWallet(balanceCent: 2092500),
       readUid: () async => 'u_mock',
     );
     addTearDown(gemWallet.dispose);
@@ -22230,7 +22230,7 @@ void main() {
     expect(find.text('UUID:'), findsOneWidget);
     expect(find.text('00000000-1111-2222-3333-444444444444'), findsOneWidget);
     expect(find.text('My Balance:'), findsOneWidget);
-    expect(find.text('20,925'), findsOneWidget);
+    expect(find.text('20,925.0'), findsOneWidget);
     expect(find.text('ANDROID_ID:'), findsOneWidget);
     expect(find.text('android-id'), findsOneWidget);
     expect(find.text('AAID:'), findsOneWidget);
@@ -24371,7 +24371,7 @@ void main() {
       tester
           .widget<Text>(find.byKey(const ValueKey('user-profile-gems-balance')))
           .data,
-      '430',
+      '430.0',
     );
     expect(transport.requestsFor('/api/v1/gem/wallet'), hasLength(1));
     expect(tester.takeException(), isNull);

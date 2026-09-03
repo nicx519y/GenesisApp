@@ -45,7 +45,7 @@ class _GemWalletContent extends StatelessWidget {
           valueListenable: walletStateListenable,
           builder: (context, walletState, _) {
             return GemPurchaseCatalogSection(
-              balance: walletState.balance ?? 0,
+              balanceCent: walletState.balanceCent ?? 0,
               catalog: products == null
                   ? _GemSectionStatePanel(
                       isLoading: productsLoading,
@@ -191,12 +191,12 @@ class _JoinUsTaskRow extends StatelessWidget {
             const SizedBox(width: 8),
             SizedBox(
               key: ValueKey<String>('gem-task-reward-${task.taskCode}'),
-              width: 64,
+              width: 96,
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    '+${formatGemInteger(task.rewardGems)}',
+                    '+${formatGemCent(task.rewardGemsCent)}',
                     maxLines: 1,
                     style: const TextStyle(
                       fontSize: 14,
@@ -293,7 +293,7 @@ class _TaskRow extends StatelessWidget {
           const SizedBox(width: 8),
           SizedBox(
             key: ValueKey<String>('gem-task-reward-${task.taskCode}'),
-            width: 64,
+            width: 96,
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -301,7 +301,7 @@ class _TaskRow extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      '+${formatGemInteger(task.rewardGems)}',
+                      '+${formatGemCent(task.rewardGemsCent)}',
                       style: const TextStyle(
                         fontSize: 14,
                         height: 16 / 14,
