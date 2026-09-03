@@ -7833,6 +7833,17 @@ void main() {
       find.byKey(const ValueKey<String>('origin-sheet-page-indicator')),
       findsOneWidget,
     );
+    final originSheetSurface = find.byKey(
+      const ValueKey<String>('origin-detail-sheet-surface'),
+    );
+    final originSheetIndicator = find.byKey(
+      const ValueKey<String>('origin-sheet-page-indicator'),
+    );
+    expect(
+      tester.getTopLeft(originSheetIndicator).dy -
+          tester.getTopLeft(originSheetSurface).dy,
+      closeTo(8.5, 0.001),
+    );
     final sheetPageActiveSegment = find.byKey(
       const ValueKey<String>('origin-sheet-page-active-segment'),
     );
@@ -26133,6 +26144,17 @@ void main() {
     );
     expect(sheetIndicator, findsOneWidget);
     expect(tester.getSize(sheetIndicator), const Size(53, 4));
+    expect(
+      tester.getTopLeft(sheetIndicator).dy - tester.getTopLeft(openedSheet).dy,
+      closeTo(8.5, 0.001),
+    );
+    expect(
+      find.descendant(
+        of: openedSheet,
+        matching: find.byIcon(Icons.close_rounded),
+      ),
+      findsNothing,
+    );
     for (var index = 0; index < 4; index++) {
       final segment = find.byKey(
         ValueKey<String>('world-sheet-page-segment-$index'),
