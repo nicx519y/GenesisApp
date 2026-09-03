@@ -48,7 +48,12 @@ class IoHttpTransport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     request.cancellationToken?.throwIfCancelled();
-    final metric = await _startPerformanceMetric(request);
+    final metric = await startPerformanceMetric(
+      request,
+      factory: _performanceMetricFactory,
+      urlFilter: _performanceMetricUrlFilter,
+      ready: _performanceMetricReady,
+    );
     HttpClientRequest? httpRequest;
     void Function()? removeCancelListener;
     try {
@@ -107,30 +112,7 @@ class IoHttpTransport implements HttpTransport {
       return response;
     } finally {
       removeCancelListener?.call();
-      await stopPerformanceMetric(metric);
-    }
-  }
-
-  Future<HttpRequestPerformanceMetric?> _startPerformanceMetric(
-    TransportRequest request,
-  ) async {
-    HttpRequestPerformanceMetric? metric;
-    try {
-      final method = firebaseHttpMethodFor(request.method);
-      if (method == null) return null;
-      if (!_performanceMetricReady()) return null;
-      if (!_performanceMetricUrlFilter(request.uri)) return null;
-      metric = _performanceMetricFactory(
-        firebaseMetricUrl(request.uri),
-        method,
-      );
-      if (metric == null) return null;
-      metric.requestPayloadSize = request.bodyBytes?.length ?? 0;
-      await metric.start();
-      return metric;
-    } catch (_) {
-      await stopPerformanceMetric(metric);
-      return null;
+      unawaited(stopPerformanceMetric(metric));
     }
   }
 }
@@ -294,10 +276,62 @@ void recordPerformanceMetricProtocol(
   } catch (_) {}
 }
 
+Future<HttpRequestPerformanceMetric?> startPerformanceMetric(
+  TransportRequest request, {
+  required HttpRequestPerformanceMetricFactory factory,
+  required HttpRequestPerformanceMetricUrlFilter urlFilter,
+  required HttpRequestPerformanceMetricReady ready,
+}) async {
+  HttpRequestPerformanceMetric? metric;
+  try {
+    final method = firebaseHttpMethodFor(request.method);
+    if (method == null) return null;
+    if (FirebasePerformanceMonitoring.isCircuitBroken || !ready()) return null;
+    if (!urlFilter(request.uri)) return null;
+    metric = factory(firebaseMetricUrl(request.uri), method);
+    if (metric == null) return null;
+    metric.requestPayloadSize = request.bodyBytes?.length ?? 0;
+    final startFuture = metric.start();
+    try {
+      await startFuture.timeout(
+        FirebasePerformanceMonitoring.instrumentationTimeout,
+      );
+    } on TimeoutException {
+      FirebasePerformanceMonitoring.disableForCurrentProcess(
+        'http_metric_start_timeout',
+      );
+      unawaited(_stopPerformanceMetricAfterStartCompletes(metric, startFuture));
+      return null;
+    }
+    return metric;
+  } catch (_) {
+    unawaited(stopPerformanceMetric(metric));
+    return null;
+  }
+}
+
+Future<void> _stopPerformanceMetricAfterStartCompletes(
+  HttpRequestPerformanceMetric metric,
+  Future<void> startFuture,
+) async {
+  try {
+    await startFuture;
+  } catch (_) {
+    return;
+  }
+  unawaited(stopPerformanceMetric(metric));
+}
+
 Future<void> stopPerformanceMetric(HttpRequestPerformanceMetric? metric) async {
   if (metric == null) return;
   try {
-    await metric.stop();
+    await metric.stop().timeout(
+      FirebasePerformanceMonitoring.instrumentationTimeout,
+    );
+  } on TimeoutException {
+    FirebasePerformanceMonitoring.disableForCurrentProcess(
+      'http_metric_stop_timeout',
+    );
   } catch (_) {}
 }
 

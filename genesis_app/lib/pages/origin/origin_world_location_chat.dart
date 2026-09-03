@@ -107,6 +107,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                     'origin-location-chat-${descriptor.locationId}',
                   ),
                   worldId: descriptor.originId,
+                  modelWorldId: null,
                   locationId: descriptor.locationId,
                   locationName: descriptor.locationName,
                   backgroundImageUrl: descriptor.backgroundImageUrl,

@@ -48,7 +48,12 @@ class PlatformHttp3Transport implements HttpTransport {
     }
 
     request.cancellationToken?.throwIfCancelled();
-    final metric = await _startPerformanceMetric(request);
+    final metric = await startPerformanceMetric(
+      request,
+      factory: _performanceMetricFactory,
+      urlFilter: _performanceMetricUrlFilter,
+      ready: _performanceMetricReady,
+    );
     final abortCompleter = Completer<void>();
     void abort() {
       if (!abortCompleter.isCompleted) abortCompleter.complete();
@@ -123,30 +128,7 @@ class PlatformHttp3Transport implements HttpTransport {
       rethrow;
     } finally {
       removeCancelListener?.call();
-      await stopPerformanceMetric(metric);
-    }
-  }
-
-  Future<HttpRequestPerformanceMetric?> _startPerformanceMetric(
-    TransportRequest request,
-  ) async {
-    HttpRequestPerformanceMetric? metric;
-    try {
-      final method = firebaseHttpMethodFor(request.method);
-      if (method == null) return null;
-      if (!_performanceMetricReady()) return null;
-      if (!_performanceMetricUrlFilter(request.uri)) return null;
-      metric = _performanceMetricFactory(
-        firebaseMetricUrl(request.uri),
-        method,
-      );
-      if (metric == null) return null;
-      metric.requestPayloadSize = request.bodyBytes?.length ?? 0;
-      await metric.start();
-      return metric;
-    } catch (_) {
-      await stopPerformanceMetric(metric);
-      return null;
+      unawaited(stopPerformanceMetric(metric));
     }
   }
 }

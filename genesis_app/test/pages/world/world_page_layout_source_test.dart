@@ -249,7 +249,11 @@ void main() {
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
     expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));
-    expect(sheetHeader, contains('item.kind != WorldBottomSheetKind.detail'));
+    expect(sheetHeader, contains('WorldSheetHeaderIcon(item: item)'));
+    expect(
+      sheetHeader,
+      isNot(contains('item.kind != WorldBottomSheetKind.detail')),
+    );
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(sectionListView, contains('worldSheetVisibleContentTopGap'));
     expect(sectionListView, contains('ListView.builder('));
@@ -267,10 +271,11 @@ void main() {
     expect(source, contains('class WorldSingleSectionSheetHeader'));
     expect(sheetHeader, isNot(contains('onVerticalDragEnd')));
     expect(sheetHeader, isNot(contains('GestureDetector')));
-    expect(source, contains('top: 5'));
+    expect(source, contains('top: worldSheetPageIndicatorTopOffset'));
     expect(source, contains('fontSize: 16'));
     expect(source, contains('fontWeight: FontWeight.w600'));
-    expect(source, contains('minimumSize: const Size(28, 28)'));
+    expect(sheetHeader, isNot(contains('Icons.close_rounded')));
+    expect(sheetHeader, isNot(contains('onClose')));
     expect(source, isNot(contains('WorldSectionsSheetTabs')));
   });
 
