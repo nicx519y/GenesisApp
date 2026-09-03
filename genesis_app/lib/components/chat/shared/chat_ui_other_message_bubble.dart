@@ -72,11 +72,11 @@ class ChatOtherMessageBubble extends StatelessWidget {
                             senderName,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: message.isPlayerControlledRole
+                            style:
+                                message.isPlayerControlledRole &&
+                                    !style.useScenePlateBubbleGeometry
                                 ? style.senderNameTextStyle.copyWith(
-                                    color: style.useScenePlateBubbleGeometry
-                                        ? GenesisColors.create
-                                        : GenesisColors.brand,
+                                    color: GenesisColors.brand,
                                   )
                                 : style.senderNameTextStyle,
                           ),

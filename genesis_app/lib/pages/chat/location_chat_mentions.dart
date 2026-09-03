@@ -860,18 +860,19 @@ class _LocationChatMentionSheetState extends State<LocationChatMentionSheet>
                             'location-chat-character-mentions',
                           ),
                           entries: widget.catalog.characters,
-                          featuredEntries:
-                              widget.catalog.currentLocationCharacters,
-                          featuredTitle: 'Here',
                           emptyLabel: 'No characters',
+                          currentEntryIds: widget
+                              .catalog
+                              .currentLocationCharacters
+                              .map((entry) => entry.id.trim())
+                              .where((id) => id.isNotEmpty)
+                              .toSet(),
                         ),
                         _LocationChatMentionList(
                           key: const PageStorageKey<String>(
                             'location-chat-location-mentions',
                           ),
                           entries: widget.catalog.locations,
-                          featuredEntries: widget.catalog.newLocations,
-                          featuredTitle: 'New',
                           emptyLabel: 'No locations',
                         ),
                       ],
@@ -891,15 +892,13 @@ class _LocationChatMentionList extends StatelessWidget {
   const _LocationChatMentionList({
     super.key,
     required this.entries,
-    required this.featuredEntries,
-    required this.featuredTitle,
     required this.emptyLabel,
+    this.currentEntryIds = const <String>{},
   });
 
   final List<ChatMentionEntry> entries;
-  final List<ChatMentionEntry> featuredEntries;
-  final String featuredTitle;
   final String emptyLabel;
+  final Set<String> currentEntryIds;
 
   @override
   Widget build(BuildContext context) {
@@ -913,80 +912,19 @@ class _LocationChatMentionList extends StatelessWidget {
     }
     final sortedEntries = entries.toList(growable: false)
       ..sort(_compareLocationChatMentionEntries);
-    final sortedFeaturedEntries = featuredEntries.toList(growable: false)
-      ..sort(_compareLocationChatMentionEntries);
-    final featuredItemCount = sortedFeaturedEntries.isEmpty
-        ? 0
-        : sortedFeaturedEntries.length + 2;
     return ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
       child: ListView.builder(
         physics: const ClampingScrollPhysics(),
         padding: const EdgeInsets.only(bottom: 20),
-        itemCount: featuredItemCount + sortedEntries.length,
+        itemCount: sortedEntries.length,
         itemBuilder: (context, index) {
-          if (sortedFeaturedEntries.isNotEmpty) {
-            if (index == 0) {
-              return _LocationChatMentionSectionTitle(title: featuredTitle);
-            }
-            if (index <= sortedFeaturedEntries.length) {
-              return _LocationChatMentionListRow(
-                entry: sortedFeaturedEntries[index - 1],
-                keySuffix: 'featured',
-              );
-            }
-            if (index == sortedFeaturedEntries.length + 1) {
-              return const _LocationChatMentionSectionDivider();
-            }
-          }
+          final entry = sortedEntries[index];
           return _LocationChatMentionListRow(
-            entry: sortedEntries[index - featuredItemCount],
+            entry: entry,
+            isCurrentLocation: currentEntryIds.contains(entry.id.trim()),
           );
         },
-      ),
-    );
-  }
-}
-
-class _LocationChatMentionSectionDivider extends StatelessWidget {
-  const _LocationChatMentionSectionDivider();
-
-  @override
-  Widget build(BuildContext context) {
-    return const ColoredBox(
-      key: ValueKey<String>('location-chat-mention-section-divider'),
-      color: Color(0xFF151517),
-      child: SizedBox(width: double.infinity, height: 8),
-    );
-  }
-}
-
-class _LocationChatMentionSectionTitle extends StatelessWidget {
-  const _LocationChatMentionSectionTitle({required this.title});
-
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: SizedBox(
-        height: 32,
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: Text(
-            title,
-            key: ValueKey<String>(
-              'location-chat-mention-section-title-${title.toLowerCase()}',
-            ),
-            style: const TextStyle(
-              color: Color(0xB8FFFFFF),
-              fontSize: 14,
-              height: 1.2,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -995,11 +933,11 @@ class _LocationChatMentionSectionTitle extends StatelessWidget {
 class _LocationChatMentionListRow extends StatelessWidget {
   const _LocationChatMentionListRow({
     required this.entry,
-    this.keySuffix = 'all',
+    this.isCurrentLocation = false,
   });
 
   final ChatMentionEntry entry;
-  final String keySuffix;
+  final bool isCurrentLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -1007,15 +945,16 @@ class _LocationChatMentionListRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: InkWell(
         key: ValueKey<String>(
-          keySuffix == 'all'
-              ? 'location-chat-mention-${entry.type.name}-${entry.id}'
-              : 'location-chat-mention-${entry.type.name}-${entry.id}-$keySuffix',
+          'location-chat-mention-${entry.type.name}-${entry.id}',
         ),
         onTap: () => Navigator.of(context).pop(entry),
         child: SizedBox(
           height: 56,
           child: entry.type == ChatMentionType.character
-              ? _LocationChatCharacterMentionRow(entry: entry)
+              ? _LocationChatCharacterMentionRow(
+                  entry: entry,
+                  isCurrentLocation: isCurrentLocation,
+                )
               : _LocationChatLocationMentionRow(entry: entry),
         ),
       ),
@@ -1024,9 +963,13 @@ class _LocationChatMentionListRow extends StatelessWidget {
 }
 
 class _LocationChatCharacterMentionRow extends StatelessWidget {
-  const _LocationChatCharacterMentionRow({required this.entry});
+  const _LocationChatCharacterMentionRow({
+    required this.entry,
+    required this.isCurrentLocation,
+  });
 
   final ChatMentionEntry entry;
+  final bool isCurrentLocation;
 
   @override
   Widget build(BuildContext context) {
@@ -1051,6 +994,10 @@ class _LocationChatCharacterMentionRow extends StatelessWidget {
             ],
           ),
         ),
+        if (isCurrentLocation) ...[
+          const SizedBox(width: 12),
+          const _LocationChatMentionHereLabel(),
+        ],
       ],
     );
   }
@@ -1106,19 +1053,28 @@ class _LocationChatLocationMentionRow extends StatelessWidget {
             ),
             if (entry.isCurrentLocation) ...[
               const SizedBox(width: 12),
-              const Text(
-                'Here',
-                style: TextStyle(
-                  color: Color(0x73FFFFFF),
-                  fontSize: 12,
-                  height: 1.2,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              const _LocationChatMentionHereLabel(),
             ],
           ],
         ),
       ],
+    );
+  }
+}
+
+class _LocationChatMentionHereLabel extends StatelessWidget {
+  const _LocationChatMentionHereLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Text(
+      'Here',
+      style: TextStyle(
+        color: Color(0x73FFFFFF),
+        fontSize: 12,
+        height: 1.2,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }

@@ -9,31 +9,25 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.characters,
     required this.roleAvatarSnapshots,
     required this.launchBusy,
-    required this.launching,
     required this.profileRole,
     required this.selectedRoleId,
     required this.onSelectedRoleChanged,
-    required this.onSelectRole,
     required this.onSaveProfileRole,
-    required this.onSelectProfileRole,
     required this.onRoleEditingChanged,
   });
 
   static const double _cardWidth = 240;
-  static const double _buttonHeight = 93;
-  static const double _toggleAreaHeight = 48;
+  static const double _bottomPadding = 28;
+  static const double _composerClearance = 16;
 
   final ScrollController scrollController;
   final List<OriginCharacter> characters;
   final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool launchBusy;
-  final bool launching;
   final OriginCustomRoleDraft? profileRole;
   final String selectedRoleId;
   final ValueChanged<String> onSelectedRoleChanged;
-  final Future<void> Function(OriginCharacter character) onSelectRole;
   final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
-  final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
   final ValueChanged<bool> onRoleEditingChanged;
 
   @override
@@ -46,7 +40,6 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   final Set<String> _preloadedAvatarKeys = <String>{};
   var _currentCardIndex = 0;
   var _viewportFraction = 1.0;
-  var _roleEditing = false;
 
   @override
   void initState() {
@@ -122,7 +115,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   void _handleCardChanged(int nextIndex) {
     final roleIds = _roleIds;
     if (!mounted || nextIndex < 0 || nextIndex >= roleIds.length) return;
-    if (_roleEditing || widget.launchBusy) {
+    if (widget.launchBusy) {
       final selectedIndex = _selectedCardIndex;
       if (nextIndex != selectedIndex) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -144,7 +137,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   }
 
   void _centerCard(int index) {
-    if (_roleEditing || widget.launchBusy) return;
+    if (widget.launchBusy) return;
     final controller = _cardsController;
     if (controller == null || !controller.hasClients) return;
     unawaited(
@@ -157,12 +150,6 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
   }
 
   void _handleRoleEditingChanged(bool editing) {
-    if (_roleEditing != editing && mounted) {
-      setState(() {
-        _roleEditing = editing;
-        if (editing) _currentCardIndex = _selectedCardIndex;
-      });
-    }
     widget.onRoleEditingChanged(editing);
   }
 
@@ -234,34 +221,39 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     final cardsController = _cardsController;
     if (cardsController == null) return const SizedBox.shrink();
     return Padding(
-      padding: const EdgeInsets.only(bottom: 28),
+      padding: const EdgeInsets.only(
+        bottom: _OriginSetupRoleSection._bottomPadding,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: const Text(
-              'Select Your Role',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.left,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                color: originWorldDetailSheetPrimaryTextColor,
-                decoration: TextDecoration.none,
+            child: const SizedBox(
+              width: double.infinity,
+              child: Text(
+                'Select Your Role',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.2,
+                  fontWeight: FontWeight.w600,
+                  color: originWorldDetailSheetPrimaryTextColor,
+                  decoration: TextDecoration.none,
+                ),
               ),
             ),
           ),
           const SizedBox(height: 8),
           SizedBox(
-            height: cardWidth + _OriginSetupRoleSection._buttonHeight,
+            height: cardWidth,
             child: PageView.builder(
               key: const ValueKey<String>('origin-setup-role-cards'),
               controller: cardsController,
               scrollDirection: Axis.horizontal,
-              physics: _roleEditing || widget.launchBusy
+              physics: widget.launchBusy
                   ? const NeverScrollableScrollPhysics()
                   : const PageScrollPhysics(parent: BouncingScrollPhysics()),
               padEnds: true,
@@ -289,16 +281,11 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                             roleAvatarSnapshots: widget.roleAvatarSnapshots,
                             selected: selected,
                             cardWidth: cardWidth,
-                            buttonHeight: _OriginSetupRoleSection._buttonHeight,
                             busy: widget.launchBusy,
-                            launching: widget.launching,
                             revealScrollController: widget.scrollController,
                             editableRole: profileRole,
                             onEditingChanged: _handleRoleEditingChanged,
-                            onSaveEditedRole: widget.onSaveProfileRole,
-                            onSelect: () => unawaited(
-                              widget.onSelectProfileRole(profileRole),
-                            ),
+                            onEditedRoleChanged: widget.onSaveProfileRole,
                           ),
                         ),
                       ),
@@ -324,11 +311,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                           roleAvatarSnapshots: widget.roleAvatarSnapshots,
                           selected: selected,
                           cardWidth: cardWidth,
-                          buttonHeight: _OriginSetupRoleSection._buttonHeight,
                           busy: widget.launchBusy,
-                          launching: widget.launching,
-                          onSelect: () =>
-                              unawaited(widget.onSelectRole(character)),
                         ),
                       ),
                     ),
@@ -454,50 +437,98 @@ class _OriginSetupRoleCard extends StatefulWidget {
     required this.roleAvatarSnapshots,
     required this.selected,
     required this.cardWidth,
-    required this.buttonHeight,
     required this.busy,
-    required this.launching,
-    required this.onSelect,
     this.revealScrollController,
     this.editableRole,
     this.onEditingChanged,
-    this.onSaveEditedRole,
+    this.onEditedRoleChanged,
   });
 
   final _OriginSetupRoleCardContent content;
   final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool selected;
   final double cardWidth;
-  final double buttonHeight;
   final bool busy;
-  final bool launching;
-  final VoidCallback onSelect;
   final ScrollController? revealScrollController;
   final OriginCustomRoleDraft? editableRole;
   final ValueChanged<bool>? onEditingChanged;
-  final ValueChanged<OriginCustomRoleDraft>? onSaveEditedRole;
+  final ValueChanged<OriginCustomRoleDraft>? onEditedRoleChanged;
 
   @override
   State<_OriginSetupRoleCard> createState() => _OriginSetupRoleCardState();
 }
 
-class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
+class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
+    with
+        AutomaticKeepAliveClientMixin<_OriginSetupRoleCard>,
+        WidgetsBindingObserver {
   final ScrollController _detailsController = ScrollController(
     keepScrollOffset: false,
   );
   final GlobalKey _cardPositionKey = GlobalKey();
   late final OriginCharacterForm? _editForm;
+  Timer? _keyboardSettlePositionTimer;
   var _showDetails = false;
   var _editing = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _editForm = widget.editableRole == null
         ? null
         : OriginCharacterForm.empty(charId: 'current_user_custom_role');
     _editForm?.addListener(_handleEditFormChanged);
+    for (final focusNode in _editFocusNodes) {
+      focusNode.addListener(_handleEditFocusChanged);
+    }
     _seedEditForm();
+  }
+
+  Iterable<FocusNode> get _editFocusNodes sync* {
+    final focusNodes = _editForm?.focusNodes;
+    if (focusNodes == null) return;
+    yield focusNodes.name;
+    yield focusNodes.identity;
+    yield focusNodes.personality;
+  }
+
+  bool get _hasFocusedEditField =>
+      _editFocusNodes.any((focusNode) => focusNode.hasFocus);
+
+  void _handleEditFocusChanged() {
+    if (_editing &&
+        _hasFocusedEditField &&
+        MediaQuery.viewInsetsOf(context).bottom > 0) {
+      _schedulePositionEditingCard();
+    }
+  }
+
+  @override
+  void didChangeMetrics() {
+    final view = View.maybeOf(context);
+    final keyboardInset = view == null
+        ? 0.0
+        : view.viewInsets.bottom / view.devicePixelRatio;
+    if (!_editing || !_hasFocusedEditField || keyboardInset <= 0.5) {
+      _keyboardSettlePositionTimer?.cancel();
+      _keyboardSettlePositionTimer = null;
+      return;
+    }
+    _keyboardSettlePositionTimer?.cancel();
+    _keyboardSettlePositionTimer = Timer(const Duration(milliseconds: 64), () {
+      _keyboardSettlePositionTimer = null;
+      if (!mounted || !_editing || !_hasFocusedEditField) return;
+      _schedulePositionEditingCard();
+    });
+  }
+
+  void _schedulePositionEditingCard() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_editing || !_hasFocusedEditField) return;
+      _positionEditingCard();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   @override
@@ -509,7 +540,18 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
   }
 
   void _handleEditFormChanged() {
-    if (mounted && _editing) setState(() {});
+    if (!mounted || !_editing) return;
+    setState(() {});
+    final form = _editForm;
+    if (form == null) return;
+    widget.onEditedRoleChanged?.call(
+      OriginCustomRoleDraft(
+        avatarUrl: form.avatarUrl.text,
+        name: form.name.text,
+        identity: form.identity.text,
+        personality: form.personality.text,
+      ),
+    );
   }
 
   void _setEditFieldText(
@@ -573,7 +615,6 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final form = _editForm;
       if (!mounted || !_editing) return;
-      _positionEditingCard();
       form.name.selection = TextSelection.collapsed(
         offset: form.name.text.length,
       );
@@ -608,34 +649,6 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
   void _closeEditing() {
     if (!_editing) return;
     FocusScope.of(context).unfocus();
-    _seedEditForm();
-    setState(() => _editing = false);
-    widget.onEditingChanged?.call(false);
-  }
-
-  void _handleSave() {
-    if (!_editing) return;
-    final form = _editForm;
-    final onSaveEditedRole = widget.onSaveEditedRole;
-    if (form == null || onSaveEditedRole == null) return;
-    if (form.name.text.trim().isEmpty) {
-      showGenesisToast(context, 'Please enter a name');
-      return;
-    }
-    if (form.identity.text.trim().isEmpty) {
-      showGenesisToast(context, 'Please enter an identity');
-      return;
-    }
-    FocusScope.of(context).unfocus();
-    onSaveEditedRole(
-      OriginCustomRoleDraft(
-        avatarUrl: form.avatarUrl.text,
-        name: form.name.text,
-        identity: form.identity.text,
-        personality: form.personality.text,
-      ),
-    );
-    if (!mounted) return;
     setState(() => _editing = false);
     widget.onEditingChanged?.call(false);
   }
@@ -652,7 +665,12 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _keyboardSettlePositionTimer?.cancel();
     _detailsController.dispose();
+    for (final focusNode in _editFocusNodes) {
+      focusNode.removeListener(_handleEditFocusChanged);
+    }
     _editForm
       ?..removeListener(_handleEditFormChanged)
       ..dispose();
@@ -661,14 +679,14 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final content = widget.content;
     final cardWidth = widget.cardWidth;
-    final buttonHeight = widget.buttonHeight;
     final stableId = content.stableId;
     final topLabel = content.isProfile
         ? 'Your Profile'
         : content.isRecommended
-        ? 'Originator Suggested'
+        ? 'Suggested'
         : null;
 
     final card = ClipRRect(
@@ -690,15 +708,11 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
         ),
         child: SizedBox(
           width: cardWidth,
-          height: cardWidth + buttonHeight,
+          height: cardWidth,
           child: Stack(
             children: [
               if (_editForm != null)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  right: 0,
-                  height: cardWidth + _OriginSetupRoleSection._toggleAreaHeight,
+                Positioned.fill(
                   child: Offstage(
                     offstage: !_editing,
                     child: _OriginSetupRoleInlineEditor(
@@ -707,16 +721,12 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                       ),
                       form: _editForm,
                       stableId: stableId,
-                      launching: widget.busy,
+                      busy: widget.busy,
                       onChanged: _handleEditFormChanged,
                     ),
                   ),
                 ),
-              Positioned(
-                left: 0,
-                top: 0,
-                right: 0,
-                height: cardWidth,
+              Positioned.fill(
                 child: Offstage(
                   offstage: _editing,
                   child: _OriginSetupRolePreview(
@@ -730,243 +740,51 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                   ),
                 ),
               ),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                key: ValueKey<String>('origin-setup-role-action-bar-$stableId'),
-                height: _editing
-                    ? buttonHeight - _OriginSetupRoleSection._toggleAreaHeight
-                    : buttonHeight,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    DecoratedBox(
+              if (_editForm != null)
+                Positioned(
+                  top: 12,
+                  right: 12,
+                  child: SizedBox.square(
+                    dimension: 30,
+                    child: Material(
                       key: ValueKey<String>(
-                        'origin-setup-role-action-background-$stableId',
+                        'origin-setup-role-edit-surface-$stableId',
                       ),
-                      decoration: const BoxDecoration(
-                        color: originWorldDetailSheetBackgroundColor,
-                      ),
-                    ),
-                    Column(
-                      children: [
-                        if (!_editing)
-                          SizedBox(
-                            height: _OriginSetupRoleSection._toggleAreaHeight,
-                            child: GestureDetector(
-                              key: ValueKey<String>(
-                                'origin-setup-role-toggle-$stableId',
-                              ),
-                              behavior: HitTestBehavior.opaque,
-                              onTap: _toggleDetails,
-                              child: Center(
-                                child: Icon(
-                                  _showDetails
-                                      ? Icons.keyboard_arrow_up_rounded
-                                      : Icons.keyboard_arrow_down_rounded,
-                                  key: ValueKey<String>(
-                                    _showDetails
-                                        ? 'origin-setup-role-arrow-up-$stableId'
-                                        : 'origin-setup-role-arrow-down-$stableId',
-                                  ),
-                                  size: 32,
-                                  color: const Color(0xFF999999),
-                                ),
-                              ),
-                            ),
+                      color: const Color(0xCC151517),
+                      borderRadius: BorderRadius.circular(8),
+                      clipBehavior: Clip.antiAlias,
+                      child: InkWell(
+                        key: ValueKey<String>(
+                          'origin-setup-role-edit-$stableId',
+                        ),
+                        onTap: widget.busy ? null : _toggleEditing,
+                        child: Icon(
+                          _editing ? Icons.check_rounded : Icons.edit_rounded,
+                          key: ValueKey<String>(
+                            _editing
+                                ? 'origin-setup-role-edit-done-icon-$stableId'
+                                : 'origin-setup-role-edit-icon-$stableId',
                           ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-                            child: TextFieldTapRegion(
-                              groupId: createFormTextFieldTapRegionGroup,
-                              child: Row(
-                                children: [
-                                  if (_editing) ...[
-                                    Expanded(
-                                      child: Material(
-                                        key: ValueKey<String>(
-                                          'origin-setup-role-cancel-surface-$stableId',
-                                        ),
-                                        color: const Color(0x667A7A7A),
-                                        borderRadius: BorderRadius.circular(8),
-                                        clipBehavior: Clip.antiAlias,
-                                        child: InkWell(
-                                          key: ValueKey<String>(
-                                            'origin-setup-role-cancel-$stableId',
-                                          ),
-                                          onTap: widget.busy
-                                              ? null
-                                              : _closeEditing,
-                                          child: Center(
-                                            child: Text(
-                                              'Cancel',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                height: 1,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.white.withValues(
-                                                  alpha: widget.busy ? 0.6 : 1,
-                                                ),
-                                                decoration: TextDecoration.none,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Material(
-                                        key: ValueKey<String>(
-                                          'origin-setup-role-save-surface-$stableId',
-                                        ),
-                                        color: GenesisColors.brand,
-                                        borderRadius: BorderRadius.circular(8),
-                                        clipBehavior: Clip.antiAlias,
-                                        child: InkWell(
-                                          key: ValueKey<String>(
-                                            'origin-setup-role-save-$stableId',
-                                          ),
-                                          onTap: widget.busy
-                                              ? null
-                                              : _handleSave,
-                                          child: Center(
-                                            child: Text(
-                                              'Save',
-                                              style: TextStyle(
-                                                fontSize: 14,
-                                                height: 1,
-                                                fontWeight: FontWeight.w600,
-                                                color: Colors.white.withValues(
-                                                  alpha: widget.busy ? 0.6 : 1,
-                                                ),
-                                                decoration: TextDecoration.none,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ] else ...[
-                                    if (_editForm != null) ...[
-                                      SizedBox.square(
-                                        dimension: 35,
-                                        child: Material(
-                                          key: ValueKey<String>(
-                                            'origin-setup-role-edit-surface-$stableId',
-                                          ),
-                                          color: const Color(0x667A7A7A),
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                          clipBehavior: Clip.antiAlias,
-                                          child: InkWell(
-                                            key: ValueKey<String>(
-                                              'origin-setup-role-edit-$stableId',
-                                            ),
-                                            onTap: widget.busy
-                                                ? null
-                                                : _toggleEditing,
-                                            child: Icon(
-                                              Icons.edit_rounded,
-                                              key: ValueKey<String>(
-                                                'origin-setup-role-edit-icon-$stableId',
-                                              ),
-                                              size: 18,
-                                              color: Colors.white.withValues(
-                                                alpha: widget.busy ? 0.6 : 1,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 8),
-                                    ],
-                                    Expanded(
-                                      child: Material(
-                                        key: ValueKey<String>(
-                                          'origin-setup-role-select-surface-$stableId',
-                                        ),
-                                        color: const Color(0x667A7A7A),
-                                        borderRadius: BorderRadius.circular(8),
-                                        clipBehavior: Clip.antiAlias,
-                                        child: InkWell(
-                                          key: ValueKey<String>(
-                                            'origin-setup-role-$stableId',
-                                          ),
-                                          onTap: widget.busy
-                                              ? null
-                                              : widget.onSelect,
-                                          child: Center(
-                                            child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.center,
-                                              children: [
-                                                if (content.isRecommended) ...[
-                                                  OriginRecommendedRoleMark(
-                                                    badgeKey: ValueKey<String>(
-                                                      'origin-setup-role-recommended-$stableId',
-                                                    ),
-                                                    showBackground: true,
-                                                  ),
-                                                  const SizedBox(width: 6),
-                                                ],
-                                                Flexible(
-                                                  child: Text(
-                                                    widget.launching
-                                                        ? 'Launching...'
-                                                        : 'Select to Launch',
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: TextStyle(
-                                                      fontSize: 14,
-                                                      height: 1,
-                                                      fontWeight:
-                                                          FontWeight.w600,
-                                                      color: Colors.white
-                                                          .withValues(
-                                                            alpha: widget.busy
-                                                                ? 0.6
-                                                                : 1,
-                                                          ),
-                                                      decoration:
-                                                          TextDecoration.none,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
+                          size: 16,
+                          color: Colors.white.withValues(
+                            alpha: widget.busy ? 0.6 : 0.95,
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
             ],
           ),
         ),
       ),
     );
 
-    return TapRegion(
-      enabled: _editing,
-      consumeOutsideTaps: _editing,
-      onTapOutside: (_) => _closeEditing(),
-      child: KeyedSubtree(key: _cardPositionKey, child: card),
-    );
+    return KeyedSubtree(key: _cardPositionKey, child: card);
   }
+
+  @override
+  bool get wantKeepAlive => true;
 }
 
 class _OriginSetupRoleInlineEditor extends StatelessWidget {
@@ -974,13 +792,13 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
     super.key,
     required this.form,
     required this.stableId,
-    required this.launching,
+    required this.busy,
     required this.onChanged,
   });
 
   final OriginCharacterForm form;
   final String stableId;
-  final bool launching;
+  final bool busy;
   final VoidCallback onChanged;
 
   @override
@@ -988,7 +806,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
     return ColoredBox(
       color: originWorldDetailSheetBackgroundColor,
       child: AbsorbPointer(
-        absorbing: launching,
+        absorbing: busy,
         child: SingleChildScrollView(
           key: ValueKey<String>(
             'origin-setup-role-inline-editor-scroll-$stableId',
@@ -1003,18 +821,19 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                     'origin-setup-role-inline-avatar-$stableId',
                   ),
                   controller: form.avatarUrl,
-                  label: 'AVATAR\n(Optional)',
+                  label: '',
                   onChanged: onChanged,
-                  width: 104,
-                  height: 104,
-                  iconSize: 38,
+                  width: 64,
+                  height: 64,
+                  iconSize: 24,
                   borderRadius: GenesisAvatarRadii.character,
                   cropSize: originCharacterAvatarUploadSize,
                   maxOutputSize: originCharacterAvatarUploadSize,
                   previewAlignment: Alignment.topCenter,
                   showRemoveLinkWhenFilled: true,
                   emptyLabelFontWeight: FontWeight.w600,
-                  emptyIconLabelGap: 4,
+                  emptyLabelFontSize: 1,
+                  emptyIconLabelGap: 0,
                   emptyBackgroundColor: originWorldDetailSheetBackgroundColor,
                   emptyBorderColor: originWorldDetailSheetTertiaryTextColor,
                   emptyIconColor: GenesisColors.createAdd,
@@ -1050,7 +869,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                 tapTargetKey: ValueKey<String>(
                   'origin-setup-role-inline-identity-tap-$stableId',
                 ),
-                label: 'Identity *',
+                label: 'Identity',
                 controller: form.identity,
                 focusNode: form.focusNodes.identity,
                 nextFocusNode: form.focusNodes.personality,
@@ -1066,7 +885,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                 tapTargetKey: ValueKey<String>(
                   'origin-setup-role-inline-brief-tap-$stableId',
                 ),
-                label: 'Personality (Optional)',
+                label: 'Personality',
                 controller: form.personality,
                 focusNode: form.focusNodes.personality,
                 maxLength: originCharacterPersonalityMaxLength,
@@ -1114,81 +933,78 @@ class _OriginSetupRoleInlineField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CreateKeyboardSafeFocusRegion(
-      focusNode: focusNode,
-      visibilityAxis: Axis.vertical,
-      builder: (context, resolvedFocusNode) => TextFieldTapRegion(
-        groupId: createFormTextFieldTapRegionGroup,
-        child: GestureDetector(
-          key: tapTargetKey,
-          behavior: HitTestBehavior.opaque,
-          onTap: resolvedFocusNode.requestFocus,
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: verticalTapPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (showLabel) ...[
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0x99FFFFFF),
-                      decoration: TextDecoration.none,
-                    ),
-                  ),
-                  const SizedBox(height: 3),
-                ],
-                TextField(
-                  key: fieldKey,
-                  groupId: createFormTextFieldTapRegionGroup,
-                  controller: controller,
-                  focusNode: resolvedFocusNode,
-                  maxLength: maxLength,
-                  minLines: maxLines,
-                  maxLines: maxLines,
-                  keyboardType: maxLines > 1
-                      ? TextInputType.multiline
-                      : TextInputType.text,
-                  textInputAction: nextFocusNode == null
-                      ? TextInputAction.done
-                      : TextInputAction.next,
-                  onEditingComplete: () {
-                    final next = nextFocusNode;
-                    if (next == null) {
-                      resolvedFocusNode.unfocus();
-                    } else {
-                      next.requestFocus();
-                    }
-                  },
-                  onChanged: (_) => onChanged(),
-                  cursorColor: originWorldDetailSheetPrimaryTextColor,
-                  scrollPadding: const EdgeInsets.fromLTRB(
-                    20,
-                    20,
-                    20,
-                    kMinInteractiveDimension,
-                  ),
-                  style: TextStyle(
-                    fontSize: fontSize,
-                    height: 1.25,
-                    fontWeight: fontWeight,
-                    color: originWorldDetailSheetPrimaryTextColor,
+    return TextFieldTapRegion(
+      groupId: createFormTextFieldTapRegionGroup,
+      child: GestureDetector(
+        key: tapTargetKey,
+        behavior: HitTestBehavior.opaque,
+        onTap: focusNode.requestFocus,
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: verticalTapPadding),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (showLabel) ...[
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0x99FFFFFF),
                     decoration: TextDecoration.none,
                   ),
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    counterText: '',
-                    contentPadding: EdgeInsets.zero,
-                  ),
                 ),
+                const SizedBox(height: 3),
               ],
-            ),
+              TextField(
+                key: fieldKey,
+                groupId: createFormTextFieldTapRegionGroup,
+                controller: controller,
+                focusNode: focusNode,
+                maxLength: maxLength,
+                minLines: maxLines,
+                maxLines: maxLines,
+                keyboardType: maxLines > 1
+                    ? TextInputType.multiline
+                    : TextInputType.text,
+                textInputAction: nextFocusNode == null
+                    ? TextInputAction.done
+                    : TextInputAction.next,
+                onEditingComplete: () {
+                  final next = nextFocusNode;
+                  if (next == null) {
+                    focusNode.unfocus();
+                  } else {
+                    next.requestFocus();
+                  }
+                },
+                onTapOutside: (_) => focusNode.unfocus(),
+                onChanged: (_) => onChanged(),
+                cursorColor: originWorldDetailSheetPrimaryTextColor,
+                scrollPadding: const EdgeInsets.fromLTRB(
+                  20,
+                  20,
+                  20,
+                  kMinInteractiveDimension,
+                ),
+                style: TextStyle(
+                  fontSize: fontSize,
+                  height: 1.25,
+                  fontWeight: fontWeight,
+                  color: originWorldDetailSheetPrimaryTextColor,
+                  decoration: TextDecoration.none,
+                ),
+                decoration: const InputDecoration(
+                  isDense: true,
+                  border: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  counterText: '',
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -1272,15 +1088,29 @@ class _OriginSetupRolePreview extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.16),
                   ),
                 ),
-                child: Text(
-                  resolvedTopLabel,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                    decoration: TextDecoration.none,
-                  ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (content.isRecommended) ...[
+                      OriginRecommendedRoleMark(
+                        badgeKey: ValueKey<String>(
+                          'origin-setup-role-recommended-$stableId',
+                        ),
+                        size: 14,
+                      ),
+                      const SizedBox(width: 4),
+                    ],
+                    Text(
+                      resolvedTopLabel,
+                      style: TextStyle(
+                        fontSize: content.isRecommended ? 12 : 13,
+                        height: 1,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                        decoration: TextDecoration.none,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -1385,15 +1215,18 @@ class _OriginSetupRoleDetails extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                content.name.trim().isEmpty ? '—' : content.name.trim(),
-                textAlign: TextAlign.start,
-                style: const TextStyle(
-                  fontSize: 14,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  decoration: TextDecoration.none,
+              Padding(
+                padding: EdgeInsets.only(right: content.isProfile ? 36 : 0),
+                child: Text(
+                  content.name.trim().isEmpty ? '—' : content.name.trim(),
+                  textAlign: TextAlign.start,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                    decoration: TextDecoration.none,
+                  ),
                 ),
               ),
               const SizedBox(height: 14),

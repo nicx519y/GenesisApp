@@ -401,7 +401,7 @@ void main() {
     );
   });
 
-  testWidgets('mention lists repeat featured entries under section titles', (
+  testWidgets('mention lists only show all entries and mark here characters', (
     tester,
   ) async {
     const here = ChatMentionEntry(
@@ -442,29 +442,33 @@ void main() {
       ),
     );
 
-    expect(find.text('Here'), findsOneWidget);
-    expect(find.text('Here Character'), findsNWidgets(2));
+    expect(find.text('Here Character'), findsOneWidget);
     expect(find.text('Away Character'), findsOneWidget);
-    final hereTitle = tester.widget<Text>(find.text('Here'));
-    expect(hereTitle.style?.fontSize, 14);
-    expect(hereTitle.style?.fontWeight, FontWeight.w600);
-    expect(hereTitle.style?.color, const Color(0xB8FFFFFF));
-    final characterDividerContainer = find.byKey(
-      const ValueKey<String>('location-chat-mention-section-divider'),
-    );
-    final characterDivider = tester.widget<ColoredBox>(
-      characterDividerContainer,
-    );
-    expect(characterDivider.color, const Color(0xFF151517));
-    expect(tester.getSize(characterDividerContainer).height, 8);
     expect(
-      tester.getSize(characterDividerContainer).width,
-      tester
-          .getSize(
-            find.byKey(const ValueKey<String>('location-chat-mention-sheet')),
-          )
-          .width,
+      find.byKey(
+        const ValueKey<String>('location-chat-mention-section-title-here'),
+      ),
+      findsNothing,
     );
+    expect(
+      find.byKey(
+        const ValueKey<String>('location-chat-mention-section-divider'),
+      ),
+      findsNothing,
+    );
+    final hereCharacterRow = find.byKey(
+      const ValueKey<String>('location-chat-mention-character-char-here'),
+    );
+    expect(
+      find.descendant(of: hereCharacterRow, matching: find.text('Here')),
+      findsOneWidget,
+    );
+    final hereLabel = tester.widget<Text>(
+      find.descendant(of: hereCharacterRow, matching: find.text('Here')),
+    );
+    expect(hereLabel.style?.fontSize, 12);
+    expect(hereLabel.style?.fontWeight, FontWeight.w600);
+    expect(hereLabel.style?.color, const Color(0x73FFFFFF));
 
     await tester.tap(find.text('Locations'));
     await tester.pumpAndSettle();
@@ -473,19 +477,19 @@ void main() {
       find.byKey(
         const ValueKey<String>('location-chat-mention-section-title-new'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
-    expect(find.text('New Harbor'), findsNWidgets(2));
+    expect(find.text('New Harbor'), findsOneWidget);
     expect(find.text('Old Harbor'), findsOneWidget);
     expect(
       find.byKey(
         const ValueKey<String>('location-chat-mention-section-divider'),
       ),
-      findsOneWidget,
+      findsNothing,
     );
   });
 
-  testWidgets('Here section stays hidden without current location characters', (
+  testWidgets('Here label stays hidden without current location characters', (
     tester,
   ) async {
     final catalog = ChatMentionCatalog(

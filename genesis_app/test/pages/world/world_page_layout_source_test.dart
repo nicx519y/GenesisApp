@@ -274,8 +274,9 @@ void main() {
     expect(source, contains('top: worldSheetPageIndicatorTopOffset'));
     expect(source, contains('fontSize: 16'));
     expect(source, contains('fontWeight: FontWeight.w600'));
-    expect(sheetHeader, isNot(contains('Icons.close_rounded')));
-    expect(sheetHeader, isNot(contains('onClose')));
+    expect(sheetHeader, contains('Icons.close_rounded'));
+    expect(sheetHeader, contains('onClose'));
+    expect(sheetHeader, contains('minimumSize: const Size(28, 28)'));
     expect(source, isNot(contains('WorldSectionsSheetTabs')));
   });
 

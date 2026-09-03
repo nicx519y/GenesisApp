@@ -7,10 +7,6 @@ import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../network/models/origin.dart';
 
 enum OriginLaunchSource {
-  openingSelect(
-    telemetryValue: 'opening_select',
-    startAction: 'worldo_launch_opening',
-  ),
   openingMessage(
     telemetryValue: 'opening_message',
     startAction: 'worldo_launch_message',

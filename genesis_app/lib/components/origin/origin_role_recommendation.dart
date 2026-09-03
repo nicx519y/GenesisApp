@@ -17,10 +17,12 @@ class OriginRecommendedRoleMark extends StatelessWidget {
     super.key,
     this.badgeKey,
     this.showBackground = false,
+    this.size = 22,
   });
 
   final Key? badgeKey;
   final bool showBackground;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -28,8 +30,8 @@ class OriginRecommendedRoleMark extends StatelessWidget {
       label: 'Recommended role',
       child: SizedBox(
         key: badgeKey,
-        width: 22,
-        height: 22,
+        width: size,
+        height: size,
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: showBackground
@@ -37,10 +39,10 @@ class OriginRecommendedRoleMark extends StatelessWidget {
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
           ),
-          child: const Center(
+          child: Center(
             child: Icon(
               Icons.star_rounded,
-              size: 22,
+              size: size,
               color: GenesisColors.brand,
             ),
           ),

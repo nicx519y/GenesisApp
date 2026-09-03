@@ -339,7 +339,7 @@ List<Widget> _originInitialDialogueSlivers(
         padding.left,
         0,
         padding.right,
-        originDetailSectionGapForTesting,
+        originOpeningDialogueRoleGapForTesting,
       ),
       sliver: eager
           ? SliverToBoxAdapter(

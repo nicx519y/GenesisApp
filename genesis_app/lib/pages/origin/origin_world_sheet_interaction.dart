@@ -2,7 +2,6 @@ part of 'origin_world_page.dart';
 
 const int _originOpeningSheetPageIndex = 0;
 const int _originInfoSheetPageIndex = 1;
-const double _originOpeningComposerDockHysteresis = 0.5;
 const double _originSheetInteractionEpsilon = 0.001;
 
 enum _OriginOpeningKeyboardPhase {
@@ -120,23 +119,6 @@ double originOpeningKeyboardSettledTargetInsetForTesting({
   return nativeTargetInset;
 }
 
-@visibleForTesting
-bool originOpeningComposerShouldDockForTesting({
-  required double remainingPaintExtent,
-  required double composerHeight,
-  required bool currentlyDocked,
-}) {
-  if (composerHeight <= 0) return currentlyDocked;
-  final visibleComposerExtent = remainingPaintExtent.clamp(
-    0.0,
-    double.infinity,
-  );
-  final dockThreshold = currentlyDocked
-      ? composerHeight + _originOpeningComposerDockHysteresis
-      : composerHeight - _originOpeningComposerDockHysteresis;
-  return visibleComposerExtent < dockThreshold;
-}
-
 class _OriginWorldSheetFrameNotifier extends ChangeNotifier {
   void notifyFrame() => notifyListeners();
 }
@@ -151,7 +133,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     required this.readFallbackExpandedSheetExtent,
     required this.restoreSheetExtent,
     required this.readContentToComposerGap,
-    required this.readComposerBottomSafeAreaInset,
     required this.onPageSelected,
   }) {
     _keyboardAnimationSubscription = GenesisKeyboardAnimationEvents.targets
@@ -167,7 +148,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   final double Function() readFallbackExpandedSheetExtent;
   final ValueChanged<double> restoreSheetExtent;
   final double Function() readContentToComposerGap;
-  final double Function() readComposerBottomSafeAreaInset;
   final ValueChanged<int> onPageSelected;
 
   final PageController pageController = PageController(
@@ -183,9 +163,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   _keyboardAnimationSubscription;
   var _disposed = false;
   var _currentPage = _originOpeningSheetPageIndex;
-  var _openingComposerDocked = true;
-  bool? _pendingOpeningComposerDocked;
-  var _openingComposerDockUpdateScheduled = false;
   var _composerHeight = 0.0;
   var _keyboardPhase = _OriginOpeningKeyboardPhase.idle;
   var _keyboardInset = 0.0;
@@ -203,8 +180,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   var _keyboardClosingVisualOffset = 0.0;
   var _keyboardClosingTargetVisualOffset = 0.0;
   var _keyboardClosingTargetComposerTop = 0.0;
-  var _keyboardComposerHeightWithoutSafeArea = 0.0;
-  var _keyboardBottomSafeAreaInset = 0.0;
   var _keyboardScrollCommitted = false;
   var _keyboardCommitRetryScheduled = false;
   var _keyboardStableFrameCount = 0;
@@ -216,10 +191,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   var _keyboardLastNativeGeneration = -1;
 
   int get currentPage => _currentPage;
-  bool get openingComposerDocked => _openingComposerDocked;
-  bool? get pendingOpeningComposerDocked => _pendingOpeningComposerDocked;
-  bool get effectiveOpeningComposerDocked =>
-      _pendingOpeningComposerDocked ?? _openingComposerDocked;
   double get composerHeight => _composerHeight;
   _OriginOpeningKeyboardPhase get keyboardPhase => _keyboardPhase;
   double get keyboardInset => _keyboardInset;
@@ -260,10 +231,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
 
   void resetForContentChange({required bool resetPage}) {
     resetKeyboard(clearFocus: true);
-    final dockChanged =
-        !_openingComposerDocked || _pendingOpeningComposerDocked != null;
-    _openingComposerDocked = true;
-    _pendingOpeningComposerDocked = null;
     if (resetPage) {
       _currentPage = _originOpeningSheetPageIndex;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -272,7 +239,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
       });
       WidgetsBinding.instance.ensureVisualUpdate();
     }
-    if (dockChanged || resetPage) _notifyChanged();
+    if (resetPage) _notifyChanged();
   }
 
   bool handlePageScrollEnd(ScrollEndNotification notification) {
@@ -320,31 +287,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   void updateComposerHeight(double height) {
     if ((_composerHeight - height).abs() < 0.5) return;
     _composerHeight = height;
-    if (keyboardMode && _keyboardInset > 0.5) {
-      _keyboardComposerHeightWithoutSafeArea = height;
-    }
     _notifyChanged();
-  }
-
-  void reportOpeningComposerDocked(bool docked) {
-    final effectiveDocked =
-        _pendingOpeningComposerDocked ?? _openingComposerDocked;
-    if (docked == effectiveDocked) return;
-    _pendingOpeningComposerDocked = docked == _openingComposerDocked
-        ? null
-        : docked;
-    if (_openingComposerDockUpdateScheduled) return;
-    _openingComposerDockUpdateScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _openingComposerDockUpdateScheduled = false;
-      if (_disposed) return;
-      final pending = _pendingOpeningComposerDocked;
-      _pendingOpeningComposerDocked = null;
-      if (pending == null || pending == _openingComposerDocked) return;
-      _openingComposerDocked = pending;
-      _notifyChanged();
-    });
-    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   double composerTop(
@@ -504,11 +447,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     _keyboardStartVisualOffset = _keyboardNormalScrollOffset;
     _keyboardClosingTargetVisualOffset = _keyboardNormalScrollOffset;
     _keyboardClosingTargetComposerTop = _keyboardStartComposerTop;
-    _keyboardBottomSafeAreaInset = readComposerBottomSafeAreaInset();
-    _keyboardComposerHeightWithoutSafeArea = math.max(
-      0.0,
-      _composerHeight - _keyboardBottomSafeAreaInset,
-    );
     _keyboardContentToComposerGap = readContentToComposerGap();
     final sheetExtent = readSheetExtent();
     _keyboardSheetExtent = sheetExtent > 0
@@ -584,11 +522,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     }
     _keyboardClosingVisualOffset = keyboardVisualScrollOffset();
     _keyboardClosingTargetVisualOffset = _keyboardFlowRestingScrollOffset();
-    _keyboardClosingTargetComposerTop =
-        _keyboardContentBottom +
-        _keyboardStartVisualOffset -
-        _keyboardClosingTargetVisualOffset +
-        _keyboardContentToComposerGap;
+    _keyboardClosingTargetComposerTop = _keyboardStartComposerTop;
     _keyboardChangingHeight = false;
     _keyboardPhase = _OriginOpeningKeyboardPhase.closing;
     _notifyChanged();
@@ -757,36 +691,18 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   }
 
   double _keyboardFlowRestingScrollOffset() {
-    final sheetHeight =
-        readKeyboardLayout()?.sheetHeight ?? _keyboardSheetHeight;
-    final flowComposerHeight =
-        _keyboardComposerHeightWithoutSafeArea + _keyboardBottomSafeAreaInset;
-    if (sheetHeight <= 0 || flowComposerHeight <= 0) {
+    final controller = _sheetScrollController;
+    if (controller == null || !controller.hasClients) {
       return _keyboardNormalScrollOffset;
     }
-    final target = originOpeningKeyboardFlowRestingOffsetForTesting(
-      layoutOffset: _keyboardStartVisualOffset,
-      contentBottom: _keyboardContentBottom,
-      sheetHeight: sheetHeight,
-      composerHeight: flowComposerHeight,
-      gap: _keyboardContentToComposerGap,
-    );
-    final controller = _sheetScrollController;
-    if (controller == null || !controller.hasClients) return target;
     final position = controller.position;
     final keyboardSpacerExtent =
         _keyboardTargetInset + _keyboardAdditionalScrollExtent;
-    final flowComposerHeightDelta = math.max(
-      0.0,
-      flowComposerHeight - _composerHeight,
-    );
     final normalMaxScrollExtent = math.max(
       position.minScrollExtent,
-      position.maxScrollExtent - keyboardSpacerExtent + flowComposerHeightDelta,
+      position.maxScrollExtent - keyboardSpacerExtent,
     );
-    return target
-        .clamp(position.minScrollExtent, normalMaxScrollExtent)
-        .toDouble();
+    return normalMaxScrollExtent;
   }
 
   double keyboardVisualScrollOffset() {
@@ -837,10 +753,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
             .clamp(position.minScrollExtent, position.maxScrollExtent),
       );
     }
-    if (settleAtFlowEnd) {
-      _openingComposerDocked = false;
-      _pendingOpeningComposerDocked = null;
-    }
     _keyboardPhase = _OriginOpeningKeyboardPhase.idle;
     _keyboardInset = 0;
     _keyboardTargetInset = 0;
@@ -853,8 +765,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     _keyboardStartVisualOffset = 0;
     _keyboardClosingTargetVisualOffset = 0;
     _keyboardClosingTargetComposerTop = 0;
-    _keyboardComposerHeightWithoutSafeArea = 0;
-    _keyboardBottomSafeAreaInset = 0;
     _keyboardAdditionalScrollExtent = 0;
     _keyboardContentTop = 0;
     _keyboardContentBottom = 0;
