@@ -164,10 +164,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
   );
-  final GlobalKey<_OriginDetailDraggableSheetState> _detailSheetKey = GlobalKey(
-    debugLabel: 'origin-detail-sheet',
-  );
-  bool _locationLaunchPromptInProgress = false;
   _OriginLocationChatDescriptor? _activeChatLocation;
   final LocationChatBackgroundPreloader _locationChatBackgroundPreloader =
       LocationChatBackgroundPreloader();
@@ -672,17 +668,50 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     unawaited(_fetchOriginDetail());
   }
 
-  Future<void> _raiseOpeningSheetAndShowLocationToast() async {
-    if (_locationLaunchPromptInProgress) return;
-    _locationLaunchPromptInProgress = true;
-    try {
-      final sheetState = _detailSheetKey.currentState;
-      if (sheetState != null) await sheetState.expandOpening();
-      if (!mounted) return;
-      showGenesisToast(context, 'Launch to enter the location');
-    } finally {
-      _locationLaunchPromptInProgress = false;
-    }
+  void _openChatForPoint(OriginDetail origin, WorldPoint point) {
+    final pointId = point.pointId.trim().isNotEmpty
+        ? point.pointId.trim()
+        : point.id.trim();
+    final locationId = point.sceneId.trim().isNotEmpty
+        ? point.sceneId.trim()
+        : pointId;
+    if (locationId.isEmpty) return;
+    final openingPreviewMessages = _originLocationOpeningPreviewMessages(
+      origin,
+      [locationId, pointId, point.id],
+    );
+    final openingPreviewEntities = _originLocationOpeningPreviewEntities(
+      origin.characters,
+      openingPreviewMessages,
+      locationId,
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_map',
+      object1: origin.oid,
+      object2: locationId,
+    );
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'worldo_location_chat',
+      object1: origin.oid,
+      object2: locationId,
+    );
+
+    setState(() {
+      _activeChatLocation = _OriginLocationChatDescriptor(
+        originId: origin.oid,
+        locationId: locationId,
+        locationName: point.name,
+        backgroundImageUrl: point.iconUrl.trim().isNotEmpty
+            ? point.iconUrl
+            : point.mapImageUrl,
+        backgroundPreviewImageUrl: '',
+        isLeafLocation: point.isLeafLocation,
+        openingPreviewMessages: openingPreviewMessages,
+        openingPreviewEntities: openingPreviewEntities,
+      );
+    });
   }
 
   void _recordWorldoMapClick(OriginDetail origin) {
@@ -1000,8 +1029,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                     : const <WorldMapMessageBubble>[],
                 messageBubblePlaybackPaused: _activeChatLocation != null,
                 onMapTap: () => _recordWorldoMapClick(origin),
-                onPointTap: (_) =>
-                    unawaited(_raiseOpeningSheetAndShowLocationToast()),
+                onPointTap: (point) => _openChatForPoint(origin, point),
               ),
               legacy: LegacyWorldMapConfig(
                 implementationKey: PageStorageKey<String>(
@@ -1048,7 +1076,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         mapOverlay: _buildPersistentMapOverlay(topPadding, origin: origin),
         bottomSheetOverlayBuilder: (minChildSize) =>
             _OriginDetailDraggableSheet(
-              key: _detailSheetKey,
               origin: origin,
               roleAvatarSnapshots: _roleAvatarSnapshots,
               minChildSize: minChildSize,
