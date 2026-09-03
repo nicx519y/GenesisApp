@@ -267,10 +267,11 @@ void main() {
     expect(source, contains('class WorldSingleSectionSheetHeader'));
     expect(sheetHeader, isNot(contains('onVerticalDragEnd')));
     expect(sheetHeader, isNot(contains('GestureDetector')));
-    expect(source, contains('top: 5'));
+    expect(source, contains('top: worldSheetPageIndicatorTopOffset'));
     expect(source, contains('fontSize: 16'));
     expect(source, contains('fontWeight: FontWeight.w600'));
-    expect(source, contains('minimumSize: const Size(28, 28)'));
+    expect(sheetHeader, isNot(contains('Icons.close_rounded')));
+    expect(sheetHeader, isNot(contains('onClose')));
     expect(source, isNot(contains('WorldSectionsSheetTabs')));
   });
 
