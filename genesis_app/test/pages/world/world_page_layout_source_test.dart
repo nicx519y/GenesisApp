@@ -249,7 +249,11 @@ void main() {
     expect(singleSectionSheet, contains('ScrollConfiguration('));
     expect(singleSectionSheet, contains('overscroll: false'));
     expect(singleSectionSheet, contains('borderRadius: GenesisRadii.sheet'));
-    expect(sheetHeader, contains('item.kind != WorldBottomSheetKind.detail'));
+    expect(sheetHeader, contains('WorldSheetHeaderIcon(item: item)'));
+    expect(
+      sheetHeader,
+      isNot(contains('item.kind != WorldBottomSheetKind.detail')),
+    );
     expect(sectionListView, contains('physics: const ClampingScrollPhysics()'));
     expect(sectionListView, contains('worldSheetVisibleContentTopGap'));
     expect(sectionListView, contains('ListView.builder('));

@@ -867,10 +867,8 @@ class WorldSingleSectionSheetHeader extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  if (item.kind != WorldBottomSheetKind.detail) ...[
-                    WorldSheetHeaderIcon(item: item),
-                    const SizedBox(width: 6),
-                  ],
+                  WorldSheetHeaderIcon(item: item),
+                  const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       item.label,
