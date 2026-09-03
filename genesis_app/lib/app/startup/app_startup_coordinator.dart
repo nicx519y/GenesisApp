@@ -84,6 +84,10 @@ class AppStartupCoordinator {
     _recordLaunchMilestone('telemetry_ready_ms');
   }
 
+  static void recordLaunchAppConfigReady() {
+    _recordLaunchMilestone('app_config_ready_ms');
+  }
+
   static void recordLaunchBootstrapReady() {
     _recordLaunchMilestone('bootstrap_ready_ms');
   }
@@ -235,6 +239,7 @@ class AppStartupCoordinator {
       'endpoint_config_ready_ms',
       'local_settings_ready_ms',
       'telemetry_ready_ms',
+      'app_config_ready_ms',
       'bootstrap_ready_ms',
       'first_frame_ms',
       'route_ready_ms',

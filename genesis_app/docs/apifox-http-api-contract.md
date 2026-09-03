@@ -1030,7 +1030,7 @@ App 启动时尽早请求的全局配置。客户端在首个 Flutter 页面展�
 响应 `data`：
 
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
-- `apiTraceSamplingRate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口自身固定监控，轮询接口和 `/api/v1/collect` 不参与接口请求监控。
+- `apiTraceSamplingRate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口以及 `/apix/v1/time`、`/apix/v1/app/device/challenge`、`/apix/v1/app/device/register` 固定独立监控；轮询接口和 `/api/v1/collect` 不参与接口请求监控。
 
 ```json
 {
@@ -2134,15 +2134,15 @@ query：
 
 - `events*`: array，本批事件，按本地入队顺序排列，最多 500 条
 - `events[].event_id*`: string，客户端生成的 UUID v4；重试保持不变，供服务端幂等去重
-- `events[].action_type*`: string，事件类型，例如 `pageview`、`event`、`monitor`、`pay_event`；`api_request_failed` 使用 `monitor`
+- `events[].action_type*`: string，事件类型，例如 `pageview`、`event`、`monitor`、`pay_event`；`api_req_start`、`api_req_success`、`api_req_fail_tech`、`api_req_fail_biz` 使用 `monitor`
 - `events[].action*`: string，页面名或事件名
 - `events[].app_timestamp*`: integer，事件发生时的本地 Unix 毫秒时间戳，不是上传时间
 - `events[].object1*`: string，第一个业务对象；无值传 `""`
-- `events[].object2*`: string，第二个业务对象；无值传 `""`。`api_request_failed` 固定传 `""`，单条失败事件由 `event_id` 唯一标识
+- `events[].object2*`: string，第二个业务对象；无值传 `""`。接口监控使用同一逻辑请求的 `request_id` 关联 start 与终态
 - `events[].object3*`: string，第三个业务对象；无值传 `""`
-- `events[].object4*`: string，第四个业务对象；无值传 `""`。`api_request_failed` 使用不带单位后缀的整数毫秒字符串记录最终一次 HTTP attempt 的耗时
-- `events[].ext_data*`: string，扩展信息；无值传 `""`。`api_request_failed` 传脱敏后的 JSON 字符串，包含错误类型、错误码、错误消息、HTTP 状态码及可用的原生网络错误信息；不得包含请求 header、query、body、完整响应 body 或 stack trace
-- 客户端接口监控只上报 `api_request_failed`，不产生 `api_request_start` 或 `api_request_success`。持续后台轮询接口不产生 `api_request_failed`：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`。接口请求与业务逻辑不受影响，其他主动消息操作只在失败时上报。
+- `events[].object4*`: string，第四个业务对象；无值传 `""`。接口监控 start 传 `"0"`，终态使用不带单位后缀的整数毫秒字符串记录最终一次实际 transport send 的耗时
+- `events[].ext_data*`: string，扩展信息；无值传 `""`。接口失败传脱敏后的 JSON 字符串，可包含 `reason`、`message`、`native_code`、`upstream_status`、`upstream_path`、`retry_count`；不得包含请求 header、query、body、完整响应 body 或 stack trace
+- 客户端接口监控使用 `api_req_start`、`api_req_success`、`api_req_fail_tech`、`api_req_fail_biz`。持续后台轮询接口不产生接口监控事件：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`；`/api/v1/collect` 永久排除。`/api/v1/app/config` 及三个启动关键 Gateway 接口固定上报，其他普通业务接口按启动级采样开关决定。
 
 请求示例：
 

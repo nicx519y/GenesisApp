@@ -557,16 +557,10 @@ class GatewayAuthCoordinator {
   Future<int> syncServerTime() async {
     final stopwatch = Stopwatch()..start();
     try {
-      final json = await _client.get<Object?>('v1/time');
-      final data = _unwrapGatewayData(json);
-      final serverTimeMs = asInt(asJsonMap(data)['server_time_ms']);
-      if (serverTimeMs <= 0) {
-        throw ApiException(
-          message: 'Gateway time response missing server_time_ms',
-          kind: ApiExceptionKind.gatewayAuth,
-          clientFailureCode: ApiClientFailureCode.gatewayTimeSync,
-        );
-      }
+      final serverTimeMs = await _client.get<int>(
+        'v1/time',
+        responseProcessor: _gatewayServerTimeResponse,
+      );
       final offset = serverTimeMs - DateTime.now().millisecondsSinceEpoch;
       _serverTimeOffsetMs = offset;
       stopwatch.stop();
@@ -637,9 +631,9 @@ class GatewayAuthCoordinator {
 
   Future<String> _register(GatewayIdentity identity) async {
     final challengeStopwatch = Stopwatch()..start();
-    final Object? challengeJson;
+    final String registerId;
     try {
-      challengeJson = await _client.post<Object?>(
+      registerId = await _client.post<String>(
         'v1/app/device/challenge',
         body: {
           'app_id': identity.appId,
@@ -647,6 +641,7 @@ class GatewayAuthCoordinator {
           'device_id': identity.deviceId,
           'app_version': identity.appVersion,
         },
+        responseProcessor: _gatewayChallengeResponse,
       );
       challengeStopwatch.stop();
       _gatewayTelemetry(
@@ -675,21 +670,11 @@ class GatewayAuthCoordinator {
         message: 'Gateway challenge failed',
       );
     }
-    final challengeData = asJsonMap(_unwrapGatewayData(challengeJson));
-    final registerId = asString(challengeData['register_id']);
-    if (registerId.trim().isEmpty) {
-      throw ApiException(
-        message: 'Gateway challenge response missing register_id',
-        kind: ApiExceptionKind.gatewayAuth,
-        clientFailureCode: ApiClientFailureCode.gatewayRegistration,
-      );
-    }
-
     final publicKey = await _keyStore.publicKeyBase64Url();
     final registerStopwatch = Stopwatch()..start();
-    final Object? registerJson;
+    final String keyId;
     try {
-      registerJson = await _client.post<Object?>(
+      keyId = await _client.post<String>(
         'v1/app/device/register',
         body: {
           'register_id': registerId,
@@ -701,6 +686,7 @@ class GatewayAuthCoordinator {
           'public_key_hash': gatewayPublicKeyHash(publicKey),
           'attestation': const {'provider': 'dev', 'payload': ''},
         },
+        responseProcessor: _gatewayRegistrationResponse,
       );
       registerStopwatch.stop();
       _gatewayTelemetry(
@@ -727,15 +713,6 @@ class GatewayAuthCoordinator {
         error,
         code: ApiClientFailureCode.gatewayRegistration,
         message: 'Gateway registration failed',
-      );
-    }
-    final registerData = asJsonMap(_unwrapGatewayData(registerJson));
-    final keyId = asString(registerData['key_id']);
-    if (keyId.trim().isEmpty) {
-      throw ApiException(
-        message: 'Gateway register response missing key_id',
-        kind: ApiExceptionKind.gatewayAuth,
-        clientFailureCode: ApiClientFailureCode.gatewayRegistration,
       );
     }
     return keyId;
@@ -809,6 +786,81 @@ ApiException _gatewayFailure(
 
 Object? _unwrapGatewayData(Object? json) {
   return handleV1ResponseErrNo(json);
+}
+
+Object? _gatewayResponseData(ApiResponse response) {
+  final json = ApiClient.defaultResponseProcessor(response);
+  try {
+    return _unwrapGatewayData(json);
+  } on ApiException catch (error) {
+    throw ApiException(
+      message: error.message,
+      code: error.code,
+      statusCode: response.statusCode,
+      error: error.error,
+      responseBody: response.body,
+      responseHeaders: response.headers,
+      uri: response.uri,
+      kind: error.kind,
+      transportErrorKind: error.transportErrorKind,
+      clientFailureCode: error.clientFailureCode,
+      retryable: error.retryable,
+    );
+  }
+}
+
+String _gatewayChallengeResponse(ApiResponse response) {
+  final registerId = asString(
+    asJsonMap(_gatewayResponseData(response))['register_id'],
+  ).trim();
+  if (registerId.isEmpty) {
+    throw ApiException(
+      message: 'Gateway challenge response missing register_id',
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      responseHeaders: response.headers,
+      uri: response.uri,
+      kind: ApiExceptionKind.gatewayAuth,
+      clientFailureCode: ApiClientFailureCode.gatewayRegistration,
+    );
+  }
+  return registerId;
+}
+
+String _gatewayRegistrationResponse(ApiResponse response) {
+  final keyId = asString(
+    asJsonMap(_gatewayResponseData(response))['key_id'],
+  ).trim();
+  if (keyId.isEmpty) {
+    throw ApiException(
+      message: 'Gateway register response missing key_id',
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      responseHeaders: response.headers,
+      uri: response.uri,
+      kind: ApiExceptionKind.gatewayAuth,
+      clientFailureCode: ApiClientFailureCode.gatewayRegistration,
+    );
+  }
+  return keyId;
+}
+
+int _gatewayServerTimeResponse(ApiResponse response) {
+  final serverTimeMs = asInt(
+    asJsonMap(_gatewayResponseData(response))['server_time_ms'],
+  );
+  if (serverTimeMs <= 0) {
+    throw ApiException(
+      message: 'Gateway time response missing server_time_ms',
+      statusCode: response.statusCode,
+      responseBody: response.body,
+      responseHeaders: response.headers,
+      uri: response.uri,
+      kind: ApiExceptionKind.gatewayAuth,
+      clientFailureCode: ApiClientFailureCode.gatewayTimeSync,
+    );
+  }
+  return serverTimeMs;
 }
 
 Object? _tryDecodeGatewayJson(String input) {

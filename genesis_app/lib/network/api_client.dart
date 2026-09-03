@@ -312,7 +312,7 @@ class ApiClient {
       uri = _resolveUri(path, query);
     } catch (error) {
       stopwatch.stop();
-      final unresolvedRequest = _BusinessApiCollectRequest.maybeCreateForPath(
+      final unresolvedRequest = _ApiCollectRequest.maybeCreateForPath(
         _tracePathForUnresolvedRequest(_baseUri, path),
         tracePolicy: tracePolicy,
       );
@@ -323,7 +323,7 @@ class ApiClient {
       );
       rethrow;
     }
-    final collectRequest = _BusinessApiCollectRequest.maybeCreate(
+    final collectRequest = _ApiCollectRequest.maybeCreate(
       uri,
       tracePolicy: tracePolicy,
     );
@@ -377,21 +377,35 @@ class ApiClient {
 
     TransportResponse transportResponse;
     late Stopwatch attemptStopwatch;
+    Duration? transportDuration;
     var attempt = 1;
     var retryCount = 0;
     while (true) {
       attemptStopwatch = Stopwatch()..start();
+      transportDuration = null;
+      Future<TransportResponse> sendWithTiming(
+        TransportRequest outgoingRequest,
+      ) async {
+        final transportStopwatch = Stopwatch()..start();
+        try {
+          return await _send(outgoingRequest);
+        } finally {
+          transportStopwatch.stop();
+          transportDuration = transportStopwatch.elapsed;
+        }
+      }
+
       try {
         final interceptor = _requestInterceptor;
         transportResponse = interceptor == null
-            ? await _send(request)
-            : await interceptor(request, _send);
+            ? await sendWithTiming(request)
+            : await interceptor(request, sendWithTiming);
         break;
       } on NetworkRequestCancelledException catch (e) {
         attemptStopwatch.stop();
         stopwatch.stop();
         collectRequest?.failure(
-          duration: attemptStopwatch.elapsed,
+          duration: transportDuration ?? attemptStopwatch.elapsed,
           error: e,
           clientFailureCode: ApiClientFailureCode.cancelled,
           retryCount: retryCount,
@@ -426,7 +440,7 @@ class ApiClient {
         attemptStopwatch.stop();
         stopwatch.stop();
         collectRequest?.failure(
-          duration: attemptStopwatch.elapsed,
+          duration: transportDuration ?? attemptStopwatch.elapsed,
           error: error,
           retryCount: retryCount,
         );
@@ -463,7 +477,7 @@ class ApiClient {
         attemptStopwatch.stop();
         stopwatch.stop();
         collectRequest?.failure(
-          duration: attemptStopwatch.elapsed,
+          duration: transportDuration ?? attemptStopwatch.elapsed,
           error: apiError,
           retryCount: retryCount,
         );
@@ -512,7 +526,7 @@ class ApiClient {
     collectRequest?.inspectResponse(
       response: apiResponse,
       responseType: responseType,
-      duration: attemptStopwatch.elapsed,
+      duration: transportDuration ?? attemptStopwatch.elapsed,
       retryCount: retryCount,
     );
 
@@ -520,7 +534,9 @@ class ApiClient {
     try {
       final processed = processor(apiResponse);
       stopwatch.stop();
-      collectRequest?.success(duration: attemptStopwatch.elapsed);
+      collectRequest?.success(
+        duration: transportDuration ?? attemptStopwatch.elapsed,
+      );
       _recordHttpTelemetry(
         request: request,
         response: apiResponse,
@@ -534,7 +550,7 @@ class ApiClient {
       attemptStopwatch.stop();
       stopwatch.stop();
       collectRequest?.failure(
-        duration: attemptStopwatch.elapsed,
+        duration: transportDuration ?? attemptStopwatch.elapsed,
         error: error,
         response: apiResponse,
         retryCount: retryCount,
@@ -676,26 +692,27 @@ int? _apiErrNo(Object? data) {
   return int.tryParse(raw?.toString() ?? '');
 }
 
-class _BusinessApiCollectRequest {
-  _BusinessApiCollectRequest._({required this.path, required this.requestId}) {
+class _ApiCollectRequest {
+  _ApiCollectRequest._({required this.path, required this.requestId}) {
     _record(action: 'api_req_start', object3: '', object4: '0');
   }
 
-  static _BusinessApiCollectRequest? maybeCreate(
+  static _ApiCollectRequest? maybeCreate(
     Uri uri, {
     required ApiRequestTracePolicy tracePolicy,
   }) {
     return maybeCreateForPath(uri.path, tracePolicy: tracePolicy);
   }
 
-  static _BusinessApiCollectRequest? maybeCreateForPath(
+  static _ApiCollectRequest? maybeCreateForPath(
     String path, {
     required ApiRequestTracePolicy tracePolicy,
   }) {
-    if (!path.startsWith('/api/')) return null;
-    if (_normalizedApiPath(path) == _businessApiCollectPath) return null;
-    final isGlobalConfig = path == _appGlobalConfigPath;
-    if (!isGlobalConfig) {
+    final normalizedPath = _normalizedApiPath(path);
+    final isAlwaysMonitored = _alwaysMonitoredApiPaths.contains(normalizedPath);
+    if (!normalizedPath.startsWith('/api/') && !isAlwaysMonitored) return null;
+    if (normalizedPath == _businessApiCollectPath) return null;
+    if (!isAlwaysMonitored) {
       if (tracePolicy == ApiRequestTracePolicy.excluded) return null;
       if (tracePolicy == ApiRequestTracePolicy.standard &&
           !ApiRequestTraceSampling.enabledForLaunch) {
@@ -703,8 +720,8 @@ class _BusinessApiCollectRequest {
       }
     }
     try {
-      return _BusinessApiCollectRequest._(
-        path: path,
+      return _ApiCollectRequest._(
+        path: normalizedPath,
         requestId: newCollectEventId(),
       );
     } catch (_) {
@@ -836,6 +853,12 @@ class _BusinessApiCollectRequest {
 
 const String _appGlobalConfigPath = '/api/v1/app/config';
 const String _businessApiCollectPath = '/api/v1/collect';
+const Set<String> _alwaysMonitoredApiPaths = <String>{
+  _appGlobalConfigPath,
+  '/apix/v1/time',
+  '/apix/v1/app/device/challenge',
+  '/apix/v1/app/device/register',
+};
 
 String _normalizedApiPath(String path) {
   if (path.length > 1 && path.endsWith('/')) {
@@ -927,6 +950,10 @@ _ApiRequestFailureOutcome _apiRequestFailureOutcome({
       !hasResponseStatus && apiError?.kind == ApiExceptionKind.gatewayAuth
       ? apiError?.statusCode
       : null;
+  final upstreamPath =
+      !hasResponseStatus && apiError?.kind == ApiExceptionKind.gatewayAuth
+      ? apiError?.uri?.path
+      : null;
   String? message;
   if (hasResponseStatus && (httpStatus < 200 || httpStatus >= 300)) {
     message = _responseErrorMessage(response?.data);
@@ -948,6 +975,7 @@ _ApiRequestFailureOutcome _apiRequestFailureOutcome({
       message: message,
       nativeCode: nativeCode,
       upstreamStatus: upstreamStatus,
+      upstreamPath: upstreamPath,
       retryCount: retryCount,
     ),
   );
@@ -959,6 +987,7 @@ String _minimalFailureExtData({
   String? message,
   String? nativeCode,
   int? upstreamStatus,
+  String? upstreamPath,
   required int retryCount,
 }) {
   final details = <String, Object?>{
@@ -968,6 +997,7 @@ String _minimalFailureExtData({
       'message': _sanitizeErrorMessage(message!),
     if (nativeCode?.trim().isNotEmpty == true) 'native_code': nativeCode,
     if (upstreamStatus != null) 'upstream_status': upstreamStatus,
+    if (upstreamPath?.trim().isNotEmpty == true) 'upstream_path': upstreamPath,
     if (retryCount > 0) 'retry_count': retryCount,
   };
   return details.isEmpty ? '' : jsonEncode(details);

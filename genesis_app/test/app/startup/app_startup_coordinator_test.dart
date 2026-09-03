@@ -283,6 +283,7 @@ void main() {
     AppStartupCoordinator.recordLaunchEndpointConfigReady();
     AppStartupCoordinator.recordLaunchLocalSettingsReady();
     AppStartupCoordinator.recordLaunchTelemetryReady();
+    AppStartupCoordinator.recordLaunchAppConfigReady();
     AppStartupCoordinator.recordLaunchBootstrapReady();
     AppStartupCoordinator.recordLaunchFirstFrame();
     AppStartupCoordinator.recordLaunchRouteReady();
@@ -328,6 +329,7 @@ void main() {
       'endpoint_config_ready_ms',
       'local_settings_ready_ms',
       'telemetry_ready_ms',
+      'app_config_ready_ms',
       'bootstrap_ready_ms',
       'first_frame_ms',
       'route_ready_ms',

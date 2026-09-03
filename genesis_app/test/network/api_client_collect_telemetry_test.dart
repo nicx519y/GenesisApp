@@ -534,7 +534,128 @@ void main() {
     },
   );
 
-  test('gateway, chatroom, and other paths are excluded', () async {
+  test(
+    'startup gateway endpoints are fixed-tracked while other paths stay excluded',
+    () async {
+      ApiRequestTraceSampling.resetForTesting();
+      final transport = _FakeTransport(
+        handler: (request) {
+          final data = switch (request.uri.path) {
+            '/apix/v1/time' => {'server_time_ms': 1},
+            '/apix/v1/app/device/challenge' => {'register_id': 'register-1'},
+            '/apix/v1/app/device/register' => {'key_id': 'key-1'},
+            _ => <String, Object?>{},
+          };
+          return TransportResponse(
+            statusCode: 200,
+            headers: const {'content-type': 'application/json'},
+            body: jsonEncode({'err_no': 0, 'data': data}),
+          );
+        },
+      );
+      final gatewayClient = ApiClient(
+        baseUrl: 'https://example.test/apix/',
+        transport: transport,
+      );
+
+      await gatewayClient.get<Object?>('v1/time');
+      await gatewayClient.post<Object?>('v1/app/device/challenge');
+      await gatewayClient.post<Object?>('v1/app/device/register');
+      await gatewayClient.get<Object?>('v1/heartbeat');
+      await ApiClient(
+        baseUrl: 'https://example.test/',
+        transport: transport,
+      ).get<Object?>('/aitown-chat/v1/message/list');
+      await ApiClient(
+        baseUrl: 'https://example.test/',
+        transport: transport,
+      ).get<Object?>('/assets/config.json');
+
+      final recorded = await events();
+      expect(recorded.map((event) => event.action), <String>[
+        'api_req_start',
+        'api_req_success',
+        'api_req_start',
+        'api_req_success',
+        'api_req_start',
+        'api_req_success',
+      ]);
+      expect(recorded.map((event) => event.object1), <String>[
+        '/apix/v1/time',
+        '/apix/v1/time',
+        '/apix/v1/app/device/challenge',
+        '/apix/v1/app/device/challenge',
+        '/apix/v1/app/device/register',
+        '/apix/v1/app/device/register',
+      ]);
+    },
+  );
+
+  test(
+    'gateway dependency failure remains attributable from outer API',
+    () async {
+      final client = ApiClient(
+        baseUrl: 'https://example.test/api/',
+        requestInterceptor: (_, __) => throw ApiException(
+          message: 'Gateway challenge failed',
+          statusCode: 503,
+          uri: Uri.parse('https://example.test/apix/v1/app/device/challenge'),
+          kind: ApiExceptionKind.gatewayAuth,
+          clientFailureCode: ApiClientFailureCode.gatewayRegistration,
+        ),
+        transport: _FakeTransport(
+          handler: (_) => throw StateError('transport must not run'),
+        ),
+      );
+
+      await expectLater(
+        client.get<Object?>('v1/app/config'),
+        throwsA(isA<ApiException>()),
+      );
+
+      final recorded = await events();
+      expect(recorded.map((event) => event.action), <String>[
+        'api_req_start',
+        'api_req_fail_tech',
+      ]);
+      expect(recorded.last.object1, '/api/v1/app/config');
+      expect(recorded.last.object3, 'tech_client_1304');
+      expect(_extData(recorded.last), <String, Object?>{
+        'message': 'Gateway challenge failed',
+        'native_code': '503',
+        'upstream_status': 503,
+        'upstream_path': '/apix/v1/app/device/challenge',
+      });
+    },
+  );
+
+  test('business API latency excludes gateway preparation time', () async {
+    final client = ApiClient(
+      baseUrl: 'https://example.test/api/',
+      requestInterceptor: (request, send) async {
+        await Future<void>.delayed(const Duration(milliseconds: 150));
+        return send(request);
+      },
+      transport: _FakeTransport(
+        handler: (_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"err_no":0,"data":{}}',
+          );
+        },
+      ),
+    );
+
+    await client.get<Object?>('v1/app/config');
+
+    final terminal = (await events()).last;
+    expect(terminal.action, 'api_req_success');
+    expect(int.parse(terminal.object4), lessThan(100));
+  });
+
+  test('chatroom and unrelated gateway paths are excluded', () async {
     final transport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
@@ -546,7 +667,7 @@ void main() {
     await ApiClient(
       baseUrl: 'https://example.test/apix/',
       transport: transport,
-    ).get<Object?>('v1/time');
+    ).get<Object?>('v1/heartbeat');
     await ApiClient(
       baseUrl: 'https://example.test/',
       transport: transport,

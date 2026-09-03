@@ -22837,9 +22837,13 @@ void main() {
       findsNothing,
     );
 
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 4999));
+    expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 221));
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('developer button tab previews multiple world update Pushes', (
@@ -22924,7 +22928,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 5));
     await tester.pump(const Duration(milliseconds: 221));
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
     await tester.pump();
@@ -22952,7 +22956,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.pump(const Duration(milliseconds: 2780));
+    await tester.pump(const Duration(milliseconds: 4780));
     await tester.pump(const Duration(milliseconds: 221));
     expect(find.text('Moonlit Market · Old Quarter'), findsNothing);
     await tester.pump();
@@ -22978,7 +22982,7 @@ void main() {
       findsNothing,
     );
 
-    await tester.pump(const Duration(milliseconds: 2780));
+    await tester.pump(const Duration(milliseconds: 4780));
     await tester.pump(const Duration(milliseconds: 221));
     expect(
       find.text(
@@ -28040,19 +28044,29 @@ void main() {
   );
 
   testWidgets(
-    'world update push filters drill-only nodes and opens its leaf chat',
+    'world update push publishes only S3 nodes and opens its leaf chat',
     (WidgetTester tester) async {
       final locations = <Map<String, Object?>>[
         {
           'location_id': 'l_w_test_1',
           'location_name': 'Root Location',
+          'level': 1,
           'x_percent': 35,
           'y_percent': 45,
         },
         {
-          'location_id': 'existing',
+          'location_id': 'existing_parent',
           'location_pid': 'l_w_test_1',
+          'location_name': 'Existing Parent',
+          'level': 2,
+          'x_percent': 38,
+          'y_percent': 38,
+        },
+        {
+          'location_id': 'existing',
+          'location_pid': 'existing_parent',
           'location_name': 'Existing Location',
+          'level': 3,
           'x_percent': 40,
           'y_percent': 40,
         },
@@ -28082,30 +28096,25 @@ void main() {
           'location_id': 'blocked',
           'location_pid': 'l_w_test_1',
           'location_name': 'Blocked Branch',
+          'level': 2,
           'is_new': true,
           'x_percent': 45,
           'y_percent': 45,
         },
         {
-          'location_id': 'blocked_a',
+          'location_id': 'blocked_leaf',
           'location_pid': 'blocked',
-          'location_name': 'Blocked A',
+          'location_name': 'Blocked Leaf',
+          'level': 3,
           'is_new': false,
           'x_percent': 46,
           'y_percent': 46,
         },
         {
-          'location_id': 'blocked_b',
-          'location_pid': 'blocked',
-          'location_name': 'Blocked B',
-          'is_new': false,
-          'x_percent': 47,
-          'y_percent': 47,
-        },
-        {
           'location_id': 'eligible',
-          'location_pid': 'l_w_test_1',
+          'location_pid': 'existing_parent',
           'location_name': 'Eligible Leaf',
+          'level': 3,
           'is_new': true,
           'x_percent': 55,
           'y_percent': 55,
@@ -28168,6 +28177,105 @@ void main() {
       );
     },
   );
+
+  testWidgets('world update push keeps the active location composer focused', (
+    WidgetTester tester,
+  ) async {
+    final locations = <Map<String, Object?>>[
+      {
+        'location_id': 'l_w_test_1',
+        'location_name': 'Root Location',
+        'level': 1,
+        'x_percent': 35,
+        'y_percent': 45,
+      },
+      {
+        'location_id': 'existing_parent',
+        'location_pid': 'l_w_test_1',
+        'location_name': 'Existing Parent',
+        'level': 2,
+        'x_percent': 38,
+        'y_percent': 38,
+      },
+      {
+        'location_id': 'existing',
+        'location_pid': 'existing_parent',
+        'location_name': 'Existing Location',
+        'level': 3,
+        'x_percent': 40,
+        'y_percent': 40,
+      },
+    ];
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      worldDefinitionVersion: 1,
+      worldLocations: locations,
+    );
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: WorldPage(wid: 'w_test_1', initialLocationId: 'existing'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final composer = find.byKey(const ValueKey<String>('chat-composer-input'));
+    expect(composer, findsOneWidget);
+    await tester.showKeyboard(composer);
+    final composerFocusNode = tester.widget<TextField>(composer).focusNode!;
+    expect(composerFocusNode.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    locations.add(const {
+      'location_id': 'new_s3',
+      'location_pid': 'existing_parent',
+      'location_name': 'New S3 Location',
+      'level': 3,
+      'is_new': true,
+      'x_percent': 55,
+      'y_percent': 55,
+    });
+    chatroom.session.emit(
+      const ChatroomWorldNotification(
+        worldId: 'w_test_1',
+        locationId: '',
+        eventType: 'map_updated',
+        title: '',
+        summary: '',
+        detailUrl: '',
+        ts: null,
+        broadcast: true,
+      ),
+    );
+    final pushText = find.descendant(
+      of: find.byKey(const ValueKey<String>('world-update-push-banner')),
+      matching: find.textContaining('New S3 Location'),
+    );
+    for (
+      var attempt = 0;
+      attempt < 20 && pushText.evaluate().isEmpty;
+      attempt += 1
+    ) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(pushText, findsOneWidget);
+    expect(tester.widget<TextField>(composer).focusNode, composerFocusNode);
+    expect(composerFocusNode.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+  });
 
   testWidgets(
     'ordinary world map location chat keeps its existing transition flow',

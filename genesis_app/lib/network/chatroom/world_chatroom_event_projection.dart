@@ -399,6 +399,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       for (final location in updatedWorld.locations) {
         final id = _firstString(location, const ['location_id', 'id']);
         if (id.isEmpty ||
+            _worldLocationLevel(updatedWorld, location, id) != 3 ||
             !asBool(location['is_new']) ||
             previousIds.contains(id)) {
           continue;
@@ -460,6 +461,16 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         contentUpdateNoticeRevision: _state.contentUpdateNoticeRevision + 1,
       ),
     );
+  }
+
+  int _worldLocationLevel(
+    WorldDetail world,
+    Map<String, dynamic> location,
+    String locationId,
+  ) {
+    final declaredLevel = asInt(location['level']);
+    if (declaredLevel > 0) return declaredLevel;
+    return world.processedLocationTree.nodeById(locationId)?.depth ?? 0;
   }
 
   Set<String> _worldContentIds(
