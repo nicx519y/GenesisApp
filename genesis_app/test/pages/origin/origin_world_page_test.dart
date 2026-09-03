@@ -94,13 +94,13 @@ void main() {
     expect(originWorldDetailSheetSource, contains('SliverLayoutBuilder('));
     expect(
       originWorldDetailSheetSource,
-      contains(
-        'bottomNavigationBar: !composerLifted && _openingComposerDocked',
-      ),
+      contains('!roleEditing && !composerLifted && _openingComposerDocked'),
     );
     expect(
       originWorldDetailSheetSource,
-      contains('resizeToAvoidBottomInset: !_openingKeyboardMode'),
+      contains(
+        'resizeToAvoidBottomInset: !roleEditing && !_openingKeyboardMode',
+      ),
     );
     expect(
       originWorldDetailSheetSource,
@@ -122,6 +122,30 @@ void main() {
       originWorldDetailSheetSource,
       isNot(contains('_scheduleOpeningComposerPositionUpdate')),
     );
+  });
+
+  test('origin sheet keeps hot interaction rebuilds locally scoped', () {
+    expect(
+      originWorldDetailSheetSource,
+      isNot(
+        contains(
+          'animation: Listenable.merge([\n'
+          '                            _sheetController,\n'
+          '                            _pageController,\n'
+          '                            _roleEditing,',
+        ),
+      ),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('animation: _sheetInteraction.keyboardFrameListenable'),
+    );
+    expect(
+      originWorldSheetInteractionSource,
+      contains('_notifyKeyboardFrameChanged();'),
+    );
+    expect(originSectionsSource, contains('SliverChildBuilderDelegate('));
+    expect(originSectionsSource, isNot(contains('imageUrls.indexOf(')));
   });
 
   test('origin sheet interaction is packaged outside the sheet UI', () {

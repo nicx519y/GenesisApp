@@ -12,31 +12,52 @@ class _OriginCharactersSection extends StatelessWidget {
         .map((character) => _resolveAssetUrl(character.avatar).trim())
         .where((url) => url.isNotEmpty)
         .toList(growable: false);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _SectionTitle(title: 'Characters (${characters.length})'),
-        const SizedBox(height: 14),
+    final imageIndexByUrl = <String, int>{};
+    for (final entry in characterAvatarUrls.indexed) {
+      imageIndexByUrl.putIfAbsent(entry.$2, () => entry.$1);
+    }
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: _SectionTitle(title: 'Characters (${characters.length})'),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 14)),
         if (characters.isEmpty)
-          const Text('No characters', style: _mutedBodyTextStyle)
+          const SliverToBoxAdapter(
+            child: Text('No characters', style: _mutedBodyTextStyle),
+          )
         else
-          for (int i = 0; i < sortedCharacters.length; i++) ...[
-            _OriginCharacterRow(
-              character: sortedCharacters[i],
-              imageUrls: characterAvatarUrls,
-            ),
-            if (i != sortedCharacters.length - 1) const SizedBox(height: 20),
-          ],
+          SliverList(
+            delegate: SliverChildBuilderDelegate((context, index) {
+              final character = sortedCharacters[index];
+              final avatarUrl = _resolveAssetUrl(character.avatar).trim();
+              return Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == sortedCharacters.length - 1 ? 0 : 20,
+                ),
+                child: _OriginCharacterRow(
+                  character: character,
+                  imageUrls: characterAvatarUrls,
+                  initialImageIndex: imageIndexByUrl[avatarUrl] ?? 0,
+                ),
+              );
+            }, childCount: sortedCharacters.length),
+          ),
       ],
     );
   }
 }
 
 class _OriginCharacterRow extends StatelessWidget {
-  const _OriginCharacterRow({required this.character, required this.imageUrls});
+  const _OriginCharacterRow({
+    required this.character,
+    required this.imageUrls,
+    required this.initialImageIndex,
+  });
 
   final OriginCharacter character;
   final List<String> imageUrls;
+  final int initialImageIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -56,6 +77,7 @@ class _OriginCharacterRow extends StatelessWidget {
           url: avatarUrl,
           name: character.name,
           imageUrls: imageUrls,
+          initialImageIndex: initialImageIndex,
         ),
         const SizedBox(width: 14),
         Expanded(
@@ -103,6 +125,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
     required this.url,
     required this.name,
     required this.imageUrls,
+    required this.initialImageIndex,
   });
 
   static const double _width = 86;
@@ -112,6 +135,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
   final String url;
   final String name;
   final List<String> imageUrls;
+  final int initialImageIndex;
 
   @override
   Widget build(BuildContext context) {
@@ -148,7 +172,6 @@ class _OriginCharacterPortrait extends StatelessWidget {
             placeholder: (_) => const SizedBox(width: _width, height: _width),
             errorWidget: (_, _) => fallback,
           );
-    final initialIndex = imageUrls.indexOf(url.trim());
     final portrait = SizedBox(
       width: _width,
       child: ClipRRect(
@@ -180,7 +203,7 @@ class _OriginCharacterPortrait extends StatelessWidget {
               maxDevicePixelRatio: devicePixelRatio,
             ),
         ],
-        initialIndex: initialIndex < 0 ? 0 : initialIndex,
+        initialIndex: initialImageIndex,
       ),
       child: portrait,
     );

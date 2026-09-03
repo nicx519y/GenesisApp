@@ -112,6 +112,10 @@ bool originOpeningComposerShouldDockForTesting({
   return visibleComposerExtent < dockThreshold;
 }
 
+class _OriginWorldSheetFrameNotifier extends ChangeNotifier {
+  void notifyFrame() => notifyListeners();
+}
+
 class _OriginWorldSheetInteractionController extends ChangeNotifier {
   _OriginWorldSheetInteractionController({
     required this.canPrepareKeyboard,
@@ -144,6 +148,8 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   );
   final ScrollController openingPreviewScrollController = ScrollController();
   final ScrollController infoPreviewScrollController = ScrollController();
+  final _OriginWorldSheetFrameNotifier _keyboardFrameNotifier =
+      _OriginWorldSheetFrameNotifier();
 
   ScrollController? _sheetScrollController;
   StreamSubscription<GenesisKeyboardAnimationTarget>?
@@ -200,6 +206,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
       _keyboardPhase == _OriginOpeningKeyboardPhase.closing;
   bool get contentScrollEnabled =>
       !keyboardMode || _keyboardPhase == _OriginOpeningKeyboardPhase.open;
+  Listenable get keyboardFrameListenable => _keyboardFrameNotifier;
 
   double get page {
     return pageController.hasClients
@@ -556,7 +563,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     }
     _keyboardInset = inset;
     _keyboardProgress = progress;
-    _notifyChanged();
+    _notifyKeyboardFrameChanged();
     _finishKeyboardTransitionIfNeeded();
     if (_keyboardStableFrameCount < 2) _scheduleKeyboardSettleCheck();
   }
@@ -602,7 +609,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
         // inset is the authoritative final geometry.
         _keyboardTargetInset = settledTargetInset;
         _keyboardProgress = 1;
-        _notifyChanged();
+        _notifyKeyboardFrameChanged();
       }
       if (!_commitKeyboardScroll()) return;
       _keyboardChangingHeight = false;
@@ -642,7 +649,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     final missingExtent = target - position.maxScrollExtent;
     if (missingExtent > 0) {
       _keyboardAdditionalScrollExtent += missingExtent + 0.5;
-      _notifyChanged();
+      _notifyKeyboardFrameChanged();
       _scheduleKeyboardCommitRetry();
       return false;
     }
@@ -758,6 +765,10 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     if (!_disposed) notifyListeners();
   }
 
+  void _notifyKeyboardFrameChanged() {
+    if (!_disposed) _keyboardFrameNotifier.notifyFrame();
+  }
+
   @override
   void dispose() {
     _disposed = true;
@@ -765,6 +776,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     pageController.dispose();
     openingPreviewScrollController.dispose();
     infoPreviewScrollController.dispose();
+    _keyboardFrameNotifier.dispose();
     super.dispose();
   }
 }

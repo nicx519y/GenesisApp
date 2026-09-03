@@ -247,6 +247,7 @@ class _DiscussSection extends StatelessWidget {
                         showActions: false,
                         showReplies: false,
                         disableAvatarProfileTap: true,
+                        listenToController: false,
                       ),
                     ],
                   ],

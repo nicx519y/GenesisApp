@@ -7292,6 +7292,7 @@ void main() {
     expect(detailDiscussRequest.uri.queryParameters['rn'], '20');
     final previousDiscussRequestCount = discussRequestsAfterDetail.length;
 
+    await _swipeOriginSheetToInfo(tester);
     await tester.dragFrom(const Offset(400, 510), const Offset(0, -420));
     await tester.pumpAndSettle();
     await tester.scrollUntilVisible(
@@ -7308,7 +7309,7 @@ void main() {
     expect(find.text('View More >'), findsNothing);
     final viewAll = tester.widget<Text>(find.text('View all >'));
     expect(viewAll.style?.fontSize, 10);
-    expect(viewAll.style?.color, const Color(0xFF666666));
+    expect(viewAll.style?.color, originWorldDetailSheetTertiaryTextColor);
   });
 
   testWidgets('origin route opens without a forward slide on Android', (
@@ -7864,7 +7865,7 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.text('Select your role')).style?.color,
-      const Color(0xB8131215),
+      originWorldDetailSheetSecondaryTextColor,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-opening-select-role-blur')),
@@ -7876,9 +7877,9 @@ void main() {
     final selectRoleBackground =
         selectRoleDecoration.gradient! as LinearGradient;
     expect(selectRoleBackground.colors, const [
-      Color(0xFFF7F5F2),
-      Color(0xFFF7F5F2),
-      Color(0x00F7F5F2),
+      originWorldDetailSheetBackgroundColor,
+      originWorldDetailSheetBackgroundColor,
+      Color(0x00151517),
     ]);
     expect(selectRoleBackground.stops, const [0, 0.55, 1]);
     expect(tester.getSize(selectRoleGradient).height, 76);
@@ -8826,6 +8827,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _swipeOriginSheetToInfo(tester);
     final discussArea = find.byKey(
       const ValueKey('origin-discuss-summary-area'),
     );
@@ -8922,13 +8924,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    await _swipeOriginSheetToInfo(tester);
     final discussArea = find.byKey(
       const ValueKey('origin-discuss-summary-area'),
     );
     await _dragOriginPanelUntilVisible(tester, discussArea);
     await tester.pumpAndSettle();
 
-    expect(find.widgetWithText(TextField, 'Write a post'), findsOneWidget);
+    expect(find.text('Write a post'), findsOneWidget);
     await tester.tap(discussArea);
     await tester.pumpAndSettle();
 
@@ -9163,6 +9166,54 @@ void main() {
 
     await tester.tap(find.byKey(const ValueKey('genesis-image-viewer-close')));
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('Origin detail lazily builds character rows', (
+    WidgetTester tester,
+  ) async {
+    final characters = List<Map<String, Object?>>.generate(
+      40,
+      (index) => <String, Object?>{
+        'char_id': 'c_lazy_$index',
+        'name': 'Lazy Character $index',
+        'identity': 'Explorer',
+        'brief': 'Character $index tagline',
+        'description': 'Character $index description.',
+        'avatar': 'assets/images/default_list_image.png',
+        'initial_location_id': 'l_o_test_1',
+        'location_id': 'l_o_test_1',
+      },
+      growable: false,
+    );
+    final transport = _RecordingV1ListTransport(originCharacters: characters);
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(transport: transport, useMock: false),
+        child: const MaterialApp(
+          home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _swipeOriginSheetToInfo(tester);
+
+    final firstPortrait = find.byKey(
+      const ValueKey('origin-character-portrait-c_lazy_0'),
+    );
+    final lastPortrait = find.byKey(
+      const ValueKey('origin-character-portrait-c_lazy_39'),
+    );
+    await _dragOriginPanelUntilVisible(tester, firstPortrait);
+
+    expect(firstPortrait, findsOneWidget);
+    expect(
+      lastPortrait,
+      findsNothing,
+      reason: 'Rows beyond the sliver cache must not build with the first row.',
+    );
+
+    await _dragOriginPanelUntilVisible(tester, lastPortrait);
+    expect(lastPortrait, findsOneWidget);
   });
 
   testWidgets('Origin debug route defaults to a collapsed sheet', (

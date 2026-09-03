@@ -73,6 +73,117 @@ List<OriginLocation> _rootOriginLocations(List<OriginLocation> locations) {
       .toList(growable: false);
 }
 
+@immutable
+class _OriginWorldMapPresentationData {
+  const _OriginWorldMapPresentationData({
+    required this.initialTilemapLocationId,
+    required this.mapImageUrl,
+    required this.locationNodes,
+    required this.listLocationNodes,
+    required this.points,
+    required this.listPoints,
+    required this.messageBubbles,
+  });
+
+  final String initialTilemapLocationId;
+  final String mapImageUrl;
+  final List<WorldMapLocationNode> locationNodes;
+  final List<WorldMapLocationNode> listLocationNodes;
+  final List<WorldPoint> points;
+  final List<WorldPoint> listPoints;
+  final List<WorldMapMessageBubble> messageBubbles;
+}
+
+_OriginWorldMapPresentationData _originWorldMapPresentationDataFor(
+  OriginDetail origin, {
+  required String preferredInitialMapLocationId,
+}) {
+  final processedLocationTree = origin.processedLocationTree;
+  final initialTilemapLocationId = processedLocationTree
+      .initialTilemapLocationId(
+        syntheticRootId: originSyntheticRootLocationId,
+        preferredLocationId: preferredInitialMapLocationId,
+      );
+  final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
+  final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
+  final renderLocationNodes = processedLocationTree.initialMapRenderRoots;
+  final allLocationNodes = processedLocationTree.flattened;
+  final avatarsByLocation = _originAvatarsByLocation(
+    origin.characters,
+    origin.allLocations,
+  );
+  final locationNodes = _originMapLocationNodes(
+    rootLocationNodes,
+    avatarsByLocation,
+    processedLocationTree,
+    markAsMapRoot:
+        rootLocationNodes.length == 1 &&
+        rootLocationNodes.single.children.isNotEmpty,
+  );
+  final listLocationNodes = _originMapLocationNodes(
+    processedLocationTree.mapRoots,
+    avatarsByLocation,
+    processedLocationTree,
+    markAsMapRoot: false,
+  );
+  final points = renderLocationNodes.isNotEmpty
+      ? _pointsFromLocations(
+          renderLocationNodes.map((node) => node.value).toList(growable: false),
+          avatarsByLocation,
+          depths: renderLocationNodes
+              .map((node) => node.depth)
+              .toList(growable: false),
+          isLeafLocations: renderLocationNodes
+              .map((node) => node.children.isEmpty)
+              .toList(growable: false),
+          usersByIndex: renderLocationNodes
+              .map(
+                (node) => processedLocationTree.aggregateValues<UserAvatar>(
+                  node.id,
+                  avatarsByLocation,
+                  idOf: worldMapAvatarStableId,
+                ),
+              )
+              .toList(growable: false),
+        )
+      : _pointsFromLocations(
+          _rootOriginLocations(origin.allLocations),
+          avatarsByLocation,
+        );
+  final listPoints = allLocationNodes.isNotEmpty
+      ? _pointsFromLocations(
+          allLocationNodes.map((node) => node.value).toList(growable: false),
+          avatarsByLocation,
+          depths: allLocationNodes
+              .map((node) => node.depth)
+              .toList(growable: false),
+          isLeafLocations: allLocationNodes
+              .map((node) => node.children.isEmpty)
+              .toList(growable: false),
+          usersByIndex: allLocationNodes
+              .map(
+                (node) => processedLocationTree.aggregateValues<UserAvatar>(
+                  node.id,
+                  avatarsByLocation,
+                  idOf: worldMapAvatarStableId,
+                ),
+              )
+              .toList(growable: false),
+        )
+      : origin.allLocations.isNotEmpty
+      ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
+      : points;
+  return _OriginWorldMapPresentationData(
+    initialTilemapLocationId: initialTilemapLocationId,
+    mapImageUrl: mapImageUrl,
+    locationNodes: locationNodes,
+    listLocationNodes: listLocationNodes,
+    points: points,
+    listPoints: listPoints,
+    messageBubbles: _originMapMessageBubbles(origin),
+  );
+}
+
 List<WorldMapLocationNode> _originMapLocationNodes(
   List<LocationTreeNode<OriginLocation>> nodes,
   Map<String, List<UserAvatar>> avatarsByLocation,

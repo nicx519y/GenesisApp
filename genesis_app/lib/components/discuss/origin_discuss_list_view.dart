@@ -12,6 +12,7 @@ class OriginDiscussList extends StatelessWidget {
     this.showReplies = false,
     this.imageTapOpensViewer = false,
     this.disableAvatarProfileTap = false,
+    this.listenToController = true,
     this.contentLineHeight = 1.45,
     this.authorColor,
     this.contentColor,
@@ -32,6 +33,10 @@ class OriginDiscussList extends StatelessWidget {
   final bool showReplies;
   final bool imageTapOpensViewer;
   final bool disableAvatarProfileTap;
+
+  /// Disable only when an ancestor rebuilds this widget from the same
+  /// controller notification.
+  final bool listenToController;
   final double contentLineHeight;
   final Color? authorColor;
   final Color? contentColor;
@@ -44,78 +49,81 @@ class OriginDiscussList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (!listenToController) return _buildContent();
     return AnimatedBuilder(
       animation: controller,
-      builder: (context, _) {
-        final comments = collapseInitialItems
-            ? controller.visibleItems
-            : controller.items;
-        final shouldShowViewMore = collapseInitialItems
-            ? controller.shouldShowViewMore
-            : controller.hasMore;
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showHeader) _DiscussHeader(count: count ?? controller.totalAll),
-            if (controller.isInitialLoading && comments.isEmpty)
-              Padding(
-                padding: EdgeInsets.only(top: showHeader ? 12 : 0),
-                child: const SizedBox.square(
-                  dimension: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              )
-            else if (controller.error != null && comments.isEmpty)
-              Padding(
-                padding: EdgeInsets.only(top: showHeader ? 12 : 0),
-                child: TextButton(
-                  onPressed: controller.retryInitial,
-                  child: const Text('Retry'),
-                ),
-              )
-            else if (comments.isEmpty)
-              SizedBox(height: showHeader ? 12 : 0)
-            else
-              Padding(
-                padding: EdgeInsets.only(top: showHeader ? 12 : 0),
-                child: Column(
-                  children: [
-                    for (final entry in comments.indexed) ...[
-                      OriginDiscussCommentRow(
-                        controller: controller,
-                        item: entry.$2,
-                        showActions: showActions,
-                        showReplies: showReplies,
-                        imageTapOpensViewer: imageTapOpensViewer,
-                        disableAvatarProfileTap: disableAvatarProfileTap,
-                        contentLineHeight: contentLineHeight,
-                        authorColor: authorColor,
-                        contentColor: contentColor,
-                        metadataColor: metadataColor,
-                        onAuthorTap: onAuthorTap,
-                        onViewMoreTap: onViewMoreTap,
-                        onItemReplyTap: onItemReplyTap,
-                        onReplyTap: onReplyTap,
-                        onViewAllRepliesTap: onViewAllRepliesTap,
-                      ),
-                      if (entry.$1 != comments.length - 1)
-                        const SizedBox(height: 16),
-                    ],
-                  ],
-                ),
-              ),
-            if (enableViewMore && shouldShowViewMore) ...[
-              const SizedBox(height: 16),
-              _ViewMoreButton(
-                controller: controller,
-                onTap: collapseInitialItems
-                    ? onViewMoreTap ?? controller.viewMore
-                    : controller.loadNextPage,
-              ),
-            ],
-          ],
-        );
-      },
+      builder: (context, _) => _buildContent(),
+    );
+  }
+
+  Widget _buildContent() {
+    final comments = collapseInitialItems
+        ? controller.visibleItems
+        : controller.items;
+    final shouldShowViewMore = collapseInitialItems
+        ? controller.shouldShowViewMore
+        : controller.hasMore;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (showHeader) _DiscussHeader(count: count ?? controller.totalAll),
+        if (controller.isInitialLoading && comments.isEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: showHeader ? 12 : 0),
+            child: const SizedBox.square(
+              dimension: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          )
+        else if (controller.error != null && comments.isEmpty)
+          Padding(
+            padding: EdgeInsets.only(top: showHeader ? 12 : 0),
+            child: TextButton(
+              onPressed: controller.retryInitial,
+              child: const Text('Retry'),
+            ),
+          )
+        else if (comments.isEmpty)
+          SizedBox(height: showHeader ? 12 : 0)
+        else
+          Padding(
+            padding: EdgeInsets.only(top: showHeader ? 12 : 0),
+            child: Column(
+              children: [
+                for (final entry in comments.indexed) ...[
+                  OriginDiscussCommentRow(
+                    controller: controller,
+                    item: entry.$2,
+                    showActions: showActions,
+                    showReplies: showReplies,
+                    imageTapOpensViewer: imageTapOpensViewer,
+                    disableAvatarProfileTap: disableAvatarProfileTap,
+                    contentLineHeight: contentLineHeight,
+                    authorColor: authorColor,
+                    contentColor: contentColor,
+                    metadataColor: metadataColor,
+                    onAuthorTap: onAuthorTap,
+                    onViewMoreTap: onViewMoreTap,
+                    onItemReplyTap: onItemReplyTap,
+                    onReplyTap: onReplyTap,
+                    onViewAllRepliesTap: onViewAllRepliesTap,
+                  ),
+                  if (entry.$1 != comments.length - 1)
+                    const SizedBox(height: 16),
+                ],
+              ],
+            ),
+          ),
+        if (enableViewMore && shouldShowViewMore) ...[
+          const SizedBox(height: 16),
+          _ViewMoreButton(
+            controller: controller,
+            onTap: collapseInitialItems
+                ? onViewMoreTap ?? controller.viewMore
+                : controller.loadNextPage,
+          ),
+        ],
+      ],
     );
   }
 }

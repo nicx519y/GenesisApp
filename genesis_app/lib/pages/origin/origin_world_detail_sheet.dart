@@ -201,6 +201,7 @@ class _OriginDetailDraggableSheetState
           : 0,
       onPageSelected: _handleInteractionPageSelected,
     )..addListener(_handleSheetInteractionChanged);
+    _scheduleDiscussPreloadAfterPaint();
     if (widget.initiallyExpanded && widget.autoExpansionPending) {
       _completeInitialExpansionAfterPaint();
     }
@@ -579,6 +580,13 @@ class _OriginDetailDraggableSheetState
     );
   }
 
+  void _scheduleDiscussPreloadAfterPaint() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _ensureDiscussController();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
   @override
   void didChangeMetrics() {
     if (!mounted) return;
@@ -677,6 +685,14 @@ class _OriginDetailDraggableSheetState
         _pageController,
         _roleEditing,
       ]),
+      child: _OriginCollapsedOpeningRoleAction(
+        bottomInset: bottomInset,
+        onTap: _expandOpeningRoleCards,
+        onVerticalDragStart: _handleCollapsedRoleDragStart,
+        onVerticalDragUpdate: _handleCollapsedRoleDragUpdate,
+        onVerticalDragEnd: _handleCollapsedRoleDragEnd,
+        onVerticalDragCancel: _handleCollapsedRoleDragCancel,
+      ),
       builder: (context, child) {
         final visible =
             !_roleEditing.value &&
@@ -686,17 +702,7 @@ class _OriginDetailDraggableSheetState
         return IgnorePointer(
           key: const ValueKey<String>('origin-opening-select-role-visibility'),
           ignoring: !visible,
-          child: Opacity(
-            opacity: visible ? 1 : 0,
-            child: _OriginCollapsedOpeningRoleAction(
-              bottomInset: bottomInset,
-              onTap: _expandOpeningRoleCards,
-              onVerticalDragStart: _handleCollapsedRoleDragStart,
-              onVerticalDragUpdate: _handleCollapsedRoleDragUpdate,
-              onVerticalDragEnd: _handleCollapsedRoleDragEnd,
-              onVerticalDragCancel: _handleCollapsedRoleDragCancel,
-            ),
-          ),
+          child: Opacity(opacity: visible ? 1 : 0, child: child),
         );
       },
     );
@@ -838,8 +844,6 @@ class _OriginDetailDraggableSheetState
     children.addAll([
       const SizedBox(height: originDetailSectionGapForTesting),
       _DiscussSection(origin: widget.origin, controller: discussController),
-      const SizedBox(height: originDetailSectionGapForTesting),
-      _OriginCharactersSection(characters: widget.origin.characters),
     ]);
     return [
       SliverPadding(
@@ -848,9 +852,18 @@ class _OriginDetailDraggableSheetState
           originDetailSheetHorizontalPaddingForTesting,
           6,
           originDetailSheetHorizontalPaddingForTesting,
-          24,
+          0,
         ),
         sliver: SliverList(delegate: SliverChildListDelegate(children)),
+      ),
+      SliverPadding(
+        padding: const EdgeInsets.fromLTRB(
+          originDetailSheetHorizontalPaddingForTesting,
+          originDetailSectionGapForTesting,
+          originDetailSheetHorizontalPaddingForTesting,
+          24,
+        ),
+        sliver: _OriginCharactersSection(characters: widget.origin.characters),
       ),
     ];
   }
@@ -884,15 +897,6 @@ class _OriginDetailDraggableSheetState
                 : null,
             body: LayoutBuilder(
               builder: (context, constraints) {
-                final composerTop = _sheetInteraction.composerTop(
-                  constraints.maxHeight,
-                );
-                final actualContentOffset = scrollController.hasClients
-                    ? scrollController.offset
-                    : _openingKeyboardNormalScrollOffset;
-                final contentTranslation = _sheetInteraction.contentTranslation(
-                  actualContentOffset,
-                );
                 final contentScrollEnabled =
                     _sheetInteraction.contentScrollEnabled;
                 return Stack(
@@ -936,9 +940,10 @@ class _OriginDetailDraggableSheetState
                                 ),
                               ),
                             ),
-                          _OriginSliverPaintTranslation(
-                            translation: Offset(0, contentTranslation),
-                            sliver: SliverMainAxisGroup(
+                          AnimatedBuilder(
+                            animation:
+                                _sheetInteraction.keyboardFrameListenable,
+                            child: SliverMainAxisGroup(
                               slivers: [
                                 if (_openingKeyboardMode &&
                                     !hasOpeningBrief &&
@@ -992,6 +997,21 @@ class _OriginDetailDraggableSheetState
                                 ],
                               ],
                             ),
+                            builder: (context, child) {
+                              final actualContentOffset =
+                                  scrollController.hasClients
+                                  ? scrollController.offset
+                                  : _openingKeyboardNormalScrollOffset;
+                              return _OriginSliverPaintTranslation(
+                                translation: Offset(
+                                  0,
+                                  _sheetInteraction.contentTranslation(
+                                    actualContentOffset,
+                                  ),
+                                ),
+                                sliver: child!,
+                              );
+                            },
                           ),
                           if (openingComposer != null)
                             SliverLayoutBuilder(
@@ -1073,11 +1093,15 @@ class _OriginDetailDraggableSheetState
                             ),
                           ),
                           if (_openingKeyboardMode)
-                            SliverToBoxAdapter(
-                              child: SizedBox(
-                                height:
-                                    _openingKeyboardTargetInset +
-                                    _openingKeyboardAdditionalScrollExtent,
+                            AnimatedBuilder(
+                              animation:
+                                  _sheetInteraction.keyboardFrameListenable,
+                              builder: (context, _) => SliverToBoxAdapter(
+                                child: SizedBox(
+                                  height:
+                                      _openingKeyboardTargetInset +
+                                      _openingKeyboardAdditionalScrollExtent,
+                                ),
                               ),
                             ),
                         ],
@@ -1092,11 +1116,17 @@ class _OriginDetailDraggableSheetState
                         ),
                       ),
                     if (composerLifted && openingComposer != null)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        top: composerTop,
+                      AnimatedBuilder(
+                        animation: _sheetInteraction.keyboardFrameListenable,
                         child: openingComposer,
+                        builder: (context, child) => Positioned(
+                          left: 0,
+                          right: 0,
+                          top: _sheetInteraction.composerTop(
+                            constraints.maxHeight,
+                          ),
+                          child: child!,
+                        ),
                       ),
                   ],
                 );
@@ -1191,14 +1221,34 @@ class _OriginDetailDraggableSheetState
                     ).copyWith(overscroll: false),
                     child: Stack(
                       children: [
-                        AnimatedBuilder(
-                          animation: Listenable.merge([
-                            _sheetController,
-                            _pageController,
-                            _roleEditing,
-                          ]),
-                          builder: (context, _) {
-                            final roleEditorKeyboardInset = _roleEditing.value
+                        ValueListenableBuilder<bool>(
+                          valueListenable: _roleEditing,
+                          child: NotificationListener<ScrollEndNotification>(
+                            onNotification: _handlePageScrollEnd,
+                            child: PageView.builder(
+                              key: const ValueKey<String>(
+                                'origin-detail-sheet-pages',
+                              ),
+                              controller: _pageController,
+                              itemCount: 2,
+                              physics: _openingKeyboardMode
+                                  ? const NeverScrollableScrollPhysics()
+                                  : const PageScrollPhysics(),
+                              itemBuilder: (context, page) {
+                                final pageScrollController = _sheetInteraction
+                                    .pageScrollControllerFor(page);
+                                return page == _originOpeningSheetPageIndex
+                                    ? _buildOpeningPage(
+                                        pageScrollController,
+                                        initialDialoguePreview,
+                                        locationChatLocationId,
+                                      )
+                                    : _buildInfoPage(pageScrollController);
+                              },
+                            ),
+                          ),
+                          builder: (context, roleEditing, child) {
+                            final roleEditorKeyboardInset = roleEditing
                                 ? MediaQuery.viewInsetsOf(context).bottom
                                       .clamp(
                                         0.0,
@@ -1206,38 +1256,14 @@ class _OriginDetailDraggableSheetState
                                       )
                                       .toDouble()
                                 : 0.0;
-                            return NotificationListener<ScrollEndNotification>(
-                              onNotification: _handlePageScrollEnd,
-                              child: Padding(
-                                key: const ValueKey<String>(
-                                  'origin-detail-sheet-keyboard-safe-content',
-                                ),
-                                padding: EdgeInsets.only(
-                                  bottom: roleEditorKeyboardInset,
-                                ),
-                                child: PageView.builder(
-                                  key: const ValueKey<String>(
-                                    'origin-detail-sheet-pages',
-                                  ),
-                                  controller: _pageController,
-                                  itemCount: 2,
-                                  physics: _openingKeyboardMode
-                                      ? const NeverScrollableScrollPhysics()
-                                      : const PageScrollPhysics(),
-                                  itemBuilder: (context, page) {
-                                    final pageScrollController =
-                                        _sheetInteraction
-                                            .pageScrollControllerFor(page);
-                                    return page == _originOpeningSheetPageIndex
-                                        ? _buildOpeningPage(
-                                            pageScrollController,
-                                            initialDialoguePreview,
-                                            locationChatLocationId,
-                                          )
-                                        : _buildInfoPage(pageScrollController);
-                                  },
-                                ),
+                            return Padding(
+                              key: const ValueKey<String>(
+                                'origin-detail-sheet-keyboard-safe-content',
                               ),
+                              padding: EdgeInsets.only(
+                                bottom: roleEditorKeyboardInset,
+                              ),
+                              child: child,
                             );
                           },
                         ),

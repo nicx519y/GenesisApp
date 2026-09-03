@@ -164,8 +164,32 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     debugLabel: 'origin-detail-tilemap',
   );
   Set<String> _currentTilemapLocationIds = const <String>{};
+  OriginDetail? _cachedMapPresentationOrigin;
+  String _cachedMapPresentationPreferredLocationId = '';
+  _OriginWorldMapPresentationData? _cachedMapPresentationData;
 
   SystemUiOverlayStyle get _baseStatusBarStyle => _transparentStatusBarStyle;
+
+  _OriginWorldMapPresentationData _mapPresentationDataFor(
+    OriginDetail origin, {
+    required String preferredInitialMapLocationId,
+  }) {
+    final cached = _cachedMapPresentationData;
+    if (cached != null &&
+        identical(_cachedMapPresentationOrigin, origin) &&
+        _cachedMapPresentationPreferredLocationId ==
+            preferredInitialMapLocationId) {
+      return cached;
+    }
+    final data = _originWorldMapPresentationDataFor(
+      origin,
+      preferredInitialMapLocationId: preferredInitialMapLocationId,
+    );
+    _cachedMapPresentationOrigin = origin;
+    _cachedMapPresentationPreferredLocationId = preferredInitialMapLocationId;
+    _cachedMapPresentationData = data;
+    return data;
+  }
 
   @override
   void initState() {
@@ -985,88 +1009,15 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       return _buildInitialLoadingScaffold(topPadding, origin: origin);
     }
 
-    final processedLocationTree = origin.processedLocationTree;
     final preferredInitialMapLocationId =
         origin.definitionVersion == 2 &&
             widget.initialDefinitionVersion == origin.definitionVersion
         ? widget.initialMapLocationId
         : '';
-    final initialTilemapLocationId = processedLocationTree
-        .initialTilemapLocationId(
-          syntheticRootId: originSyntheticRootLocationId,
-          preferredLocationId: preferredInitialMapLocationId,
-        );
-    final rootLocationNodes = processedLocationTree.initialMapDisplayRoots;
-    final mapImageUrl = _originRootMapImageUrl(rootLocationNodes);
-    final renderLocationNodes = processedLocationTree.initialMapRenderRoots;
-    final allLocationNodes = processedLocationTree.flattened;
-    final avatarsByLocation = _originAvatarsByLocation(
-      origin.characters,
-      origin.allLocations,
+    final mapPresentationData = _mapPresentationDataFor(
+      origin,
+      preferredInitialMapLocationId: preferredInitialMapLocationId,
     );
-    final locationNodes = _originMapLocationNodes(
-      rootLocationNodes,
-      avatarsByLocation,
-      processedLocationTree,
-      markAsMapRoot:
-          rootLocationNodes.length == 1 &&
-          rootLocationNodes.single.children.isNotEmpty,
-    );
-    final listLocationNodes = _originMapLocationNodes(
-      processedLocationTree.mapRoots,
-      avatarsByLocation,
-      processedLocationTree,
-      markAsMapRoot: false,
-    );
-    final points = renderLocationNodes.isNotEmpty
-        ? _pointsFromLocations(
-            renderLocationNodes
-                .map((node) => node.value)
-                .toList(growable: false),
-            avatarsByLocation,
-            depths: renderLocationNodes
-                .map((node) => node.depth)
-                .toList(growable: false),
-            isLeafLocations: renderLocationNodes
-                .map((node) => node.children.isEmpty)
-                .toList(growable: false),
-            usersByIndex: renderLocationNodes
-                .map(
-                  (node) => processedLocationTree.aggregateValues<UserAvatar>(
-                    node.id,
-                    avatarsByLocation,
-                    idOf: worldMapAvatarStableId,
-                  ),
-                )
-                .toList(growable: false),
-          )
-        : _pointsFromLocations(
-            _rootOriginLocations(origin.allLocations),
-            avatarsByLocation,
-          );
-    final listPoints = allLocationNodes.isNotEmpty
-        ? _pointsFromLocations(
-            allLocationNodes.map((node) => node.value).toList(growable: false),
-            avatarsByLocation,
-            depths: allLocationNodes
-                .map((node) => node.depth)
-                .toList(growable: false),
-            isLeafLocations: allLocationNodes
-                .map((node) => node.children.isEmpty)
-                .toList(growable: false),
-            usersByIndex: allLocationNodes
-                .map(
-                  (node) => processedLocationTree.aggregateValues<UserAvatar>(
-                    node.id,
-                    avatarsByLocation,
-                    idOf: worldMapAvatarStableId,
-                  ),
-                )
-                .toList(growable: false),
-          )
-        : origin.allLocations.isNotEmpty
-        ? _pointsFromLocations(origin.allLocations, avatarsByLocation)
-        : points;
     final deferTilemapRendering =
         origin.definitionVersion == 2 &&
         _waitingForOpeningSheetExpansion &&
@@ -1082,10 +1033,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               definitionVersion: origin.definitionVersion,
               originId: origin.oid,
               common: WorldMapCommonConfig(
-                locationNodes: locationNodes,
+                locationNodes: mapPresentationData.locationNodes,
                 drillExitTop: topPadding + 68,
                 messageBubbles: _activeChatLocation == null
-                    ? _originMapMessageBubbles(origin)
+                    ? mapPresentationData.messageBubbles
                     : const <WorldMapMessageBubble>[],
                 messageBubblePlaybackPaused: _activeChatLocation != null,
                 onMapTap: () => _recordWorldoMapClick(origin),
@@ -1095,10 +1046,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 implementationKey: PageStorageKey<String>(
                   'origin-map-${origin.oid}',
                 ),
-                points: points,
-                listPoints: listPoints,
-                listLocationNodes: listLocationNodes,
-                mapImageUrl: mapImageUrl,
+                points: mapPresentationData.points,
+                listPoints: mapPresentationData.listPoints,
+                listLocationNodes: mapPresentationData.listLocationNodes,
+                mapImageUrl: mapPresentationData.mapImageUrl,
                 initialZoomScale: 1.2,
                 enableAvatarScaleReboundHint: true,
                 pointsListOuterScrollHandoff: false,
@@ -1106,8 +1057,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               ),
               tilemap: WorldMapTilemapOptions(
                 implementationKey: _tilemapImplementationKey,
-                locationId: initialTilemapLocationId,
-                locationNodes: listLocationNodes,
+                locationId: mapPresentationData.initialTilemapLocationId,
+                locationNodes: mapPresentationData.listLocationNodes,
                 preferredFocusLocationId:
                     origin.initLocationGroup?.locationId.trim() ?? '',
                 centerContentInitially: true,
