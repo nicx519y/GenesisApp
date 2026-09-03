@@ -15108,6 +15108,25 @@ void main() {
   testWidgets('switching to signed-in Me refreshes Gem wallet balance', (
     WidgetTester tester,
   ) async {
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      GenesisMethodChannels.device,
+      (call) async {
+        if (call.method == GenesisMethodChannels.getAppVersion) {
+          return {
+            'versionName': '0.4.4',
+            'versionCode': 4040,
+            'packageName': 'com.worldo.ai',
+          };
+        }
+        return null;
+      },
+    );
+    addTearDown(() {
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        GenesisMethodChannels.device,
+        null,
+      );
+    });
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       GenesisApp(
@@ -15152,10 +15171,83 @@ void main() {
     );
   });
 
+  testWidgets('Me refreshes Gem wallet balance when it becomes visible again', (
+    WidgetTester tester,
+  ) async {
+    var walletLoadCount = 0;
+    final gemWallet = GemWalletStore(
+      loadWallet: () async {
+        walletLoadCount += 1;
+        return GemWallet(balanceCent: walletLoadCount == 1 ? 43000 : 42000);
+      },
+      readUid: () async => 'u_cached',
+    );
+    final services = await _testServices(
+      transport: _RecordingV1ListTransport(),
+      useMock: false,
+      initialUid: 'u_cached',
+      initialAuthToken: 'backend-token',
+      initialUserInfo: const {
+        'uid': 'u_cached',
+        'name': 'Cached User',
+        'avatar': '',
+      },
+      gemWallet: gemWallet,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: MaterialApp(
+          navigatorObservers: [genesisPageRouteObserver],
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: const MePage(),
+              floatingActionButton: FloatingActionButton(
+                onPressed: () => Navigator.of(context).push<void>(
+                  MaterialPageRoute<void>(
+                    builder: (context) => Scaffold(
+                      body: TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Back to Me'),
+                      ),
+                    ),
+                  ),
+                ),
+                child: const Icon(Icons.open_in_new),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('430.0'), findsOneWidget);
+    expect(walletLoadCount, 1);
+
+    await tester.tap(find.byIcon(Icons.open_in_new));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Back to Me'));
+    await tester.pumpAndSettle();
+
+    expect(walletLoadCount, 2);
+    expect(find.text('420.0'), findsOneWidget);
+    expect(find.text('430.0'), findsNothing);
+  });
+
   testWidgets('Me origin and world refresh preserve old list until response', (
     WidgetTester tester,
   ) async {
     final transport = _UserInfoRefreshTransport();
+    var walletLoadCount = 0;
+    final gemWallet = GemWalletStore(
+      loadWallet: () async {
+        walletLoadCount += 1;
+        return GemWallet(balanceCent: 44000 - walletLoadCount * 1000);
+      },
+      readUid: () async => 'u_me_refresh',
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -15165,6 +15257,7 @@ void main() {
               useMock: false,
               initialUid: 'u_me_refresh',
               initialAuthToken: 'backend-token',
+              gemWallet: gemWallet,
             ),
             child: const MePage(),
           ),
@@ -15175,6 +15268,8 @@ void main() {
 
     expect(find.text('#Origin Old'), findsOneWidget);
     expect(find.text('#Origin New'), findsNothing);
+    expect(walletLoadCount, 1);
+    expect(find.text('430.0'), findsOneWidget);
 
     final pageRefresh = find.descendant(
       of: find.byKey(const ValueKey('profile-page-refresh')),
@@ -15186,6 +15281,7 @@ void main() {
     await tester.pump();
 
     expect(transport.originListRequests, 2);
+    expect(walletLoadCount, 2);
     expect(find.text('#Origin Old'), findsOneWidget);
     expect(find.text('#Origin New'), findsNothing);
 
@@ -15195,6 +15291,7 @@ void main() {
 
     expect(find.text('#Origin Old'), findsNothing);
     expect(find.text('#Origin New'), findsOneWidget);
+    expect(find.text('420.0'), findsOneWidget);
 
     await tester.tap(find.text('Playing'));
     await tester.pumpAndSettle();
@@ -15206,6 +15303,7 @@ void main() {
     await tester.pump();
 
     expect(transport.worldListRequests, 3);
+    expect(walletLoadCount, 3);
     expect(find.text('World Old'), findsOneWidget);
     expect(find.text('World New'), findsNothing);
 
@@ -15215,6 +15313,7 @@ void main() {
 
     expect(find.text('World Old'), findsNothing);
     expect(find.text('World New'), findsOneWidget);
+    expect(find.text('410.0'), findsOneWidget);
   });
 
   testWidgets('Me pull gesture refreshes from the whole profile top', (
