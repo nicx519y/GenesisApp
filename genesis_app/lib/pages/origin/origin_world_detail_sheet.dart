@@ -65,6 +65,7 @@ double _originDetailExpandedChildSize(
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
     required this.origin,
+    required this.roleAvatarSnapshots,
     required this.minChildSize,
     required this.initiallyExpanded,
     required this.autoExpansionPending,
@@ -86,6 +87,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   static const double defaultInitialChildSize = 0.35;
 
   final OriginDetail origin;
+  final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final double minChildSize;
   final bool initiallyExpanded;
   final bool autoExpansionPending;
@@ -199,6 +201,8 @@ class _OriginDetailDraggableSheetState
           _initialDialoguePreview?.messages.isNotEmpty == true
           ? originDetailSectionGapForTesting
           : 0,
+      readComposerBottomSafeAreaInset: () =>
+          GenesisSafeAreaInsets.bottom(context),
       onPageSelected: _handleInteractionPageSelected,
     )..addListener(_handleSheetInteractionChanged);
     _scheduleDiscussPreloadAfterPaint();
@@ -299,34 +303,34 @@ class _OriginDetailDraggableSheetState
     await _animateToRequestedExtent(
       commandGeneration: commandGeneration,
       expanded: true,
+      resetScrollPosition: false,
     );
     if (!_isExtentCommandCurrent(commandGeneration) || !mounted) return;
-    final scrollController = _sheetScrollController;
-    final roleContext = _roleSectionKey.currentContext;
-    final renderObject = roleContext?.findRenderObject();
-    if (scrollController == null ||
-        !scrollController.hasClients ||
-        renderObject is! RenderBox ||
-        !renderObject.hasSize) {
-      return;
+
+    for (var frame = 0; frame < 30 && _openingKeyboardMode; frame += 1) {
+      await _waitForNextFrame();
+      if (!_isExtentCommandCurrent(commandGeneration) || !mounted) return;
     }
-    final desiredTop =
-        originWorldDetailExpandedSheetTopFor(
-          topSafeArea: GenesisSafeAreaInsets.top(context),
-        ) +
-        originDetailSheetHeaderHeightForTesting +
-        8;
-    final roleTop = renderObject.localToGlobal(Offset.zero).dy;
-    final position = scrollController.position;
-    final target = (position.pixels + roleTop - desiredTop)
-        .clamp(position.minScrollExtent, position.maxScrollExtent)
-        .toDouble();
-    if ((target - position.pixels).abs() < 0.5) return;
-    await scrollController.animateTo(
-      target,
-      duration: const Duration(milliseconds: 260),
-      curve: Curves.easeOutCubic,
-    );
+    if (_openingKeyboardMode) return;
+
+    final scrollController = _sheetScrollController;
+    if (scrollController == null || !scrollController.hasClients) return;
+    // Sliver extents can change while the composer naturally hands off from
+    // inline to docked. Follow a growing bottom with forward-only passes.
+    for (var pass = 0; pass < 4; pass += 1) {
+      final position = scrollController.position;
+      final target = position.maxScrollExtent;
+      if ((target - position.pixels).abs() < 0.5) return;
+      await scrollController.animateTo(
+        target,
+        duration: pass == 0
+            ? const Duration(milliseconds: 260)
+            : const Duration(milliseconds: 80),
+        curve: Curves.easeOutCubic,
+      );
+      await _waitForNextFrame();
+      if (!_isExtentCommandCurrent(commandGeneration) || !mounted) return;
+    }
   }
 
   void _handleRoleEditingChanged(bool editing) {
@@ -373,6 +377,7 @@ class _OriginDetailDraggableSheetState
   Future<void> _animateToRequestedExtent({
     required int commandGeneration,
     required bool expanded,
+    bool resetScrollPosition = true,
   }) async {
     final isAutomaticExpansion = expanded && widget.autoExpansionPending;
     await _sheetReady.future;
@@ -383,7 +388,9 @@ class _OriginDetailDraggableSheetState
     }
 
     final scrollController = _sheetScrollController;
-    if (scrollController != null && scrollController.hasClients) {
+    if (resetScrollPosition &&
+        scrollController != null &&
+        scrollController.hasClients) {
       scrollController.jumpTo(0);
     }
     if (!mounted) return;
@@ -730,6 +737,7 @@ class _OriginDetailDraggableSheetState
                   widget.activeLaunchSource ==
                   OriginLaunchSource.openingMessage,
               role: widget.locationChatRole,
+              roleAvatarSnapshots: widget.roleAvatarSnapshots,
               mentionCatalog: _originLocationChatMentionCatalog(
                 widget.origin,
                 selectedRoleId: widget.locationChatRole.id,
@@ -1055,6 +1063,8 @@ class _OriginDetailDraggableSheetState
                                   key: _roleSectionKey,
                                   scrollController: scrollController,
                                   characters: widget.origin.characters,
+                                  roleAvatarSnapshots:
+                                      widget.roleAvatarSnapshots,
                                   launchBusy: widget.activeLaunchSource != null,
                                   launching:
                                       widget.activeLaunchSource ==

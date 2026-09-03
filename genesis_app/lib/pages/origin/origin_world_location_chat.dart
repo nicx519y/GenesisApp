@@ -132,7 +132,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
                 ? selectedId
                 : character.name.trim(),
             subtitle: character.identity.trim(),
-            avatarUrl: _resolveAssetUrl(character.avatar),
+            avatarSnapshotSourceKey: _resolveAssetUrl(character.avatar).trim(),
           );
         }
       }
@@ -143,67 +143,15 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       id: _OriginWorldPageState._profileLocationChatRoleId,
       name: profileName.isEmpty ? 'Your Profile' : profileName,
       subtitle: profileRole?.identity.trim() ?? '',
-      avatarUrl: profileRole == null
+      avatarSnapshotSourceKey: profileRole == null
           ? ''
-          : _resolveAssetUrl(profileRole.avatarUrl),
+          : _resolveAssetUrl(profileRole.avatarUrl).trim(),
     );
   }
 
-  void _selectLocationChatRole(OriginDetail origin, String roleId) {
+  void _selectLocationChatRole(String roleId) {
     if (_launching || roleId == _selectedLocationChatRoleId) return;
     _setLocationChatRoleId(roleId);
-    unawaited(
-      _precacheLocationChatRolePillAvatar(_locationChatRoleOption(origin)),
-    );
-  }
-
-  Future<void> _precacheLocationChatRolePillAvatar(
-    _OriginLocationChatRoleOption role,
-  ) async {
-    if (!mounted || role.avatarUrl.trim().isEmpty) return;
-    final rawDevicePixelRatio = MediaQuery.devicePixelRatioOf(context);
-    final resolvedUrl = selectGenesisImageUrl(
-      role.avatarUrl,
-      logicalWidth: _originLocationChatRolePillAvatarSize,
-      logicalHeight: _originLocationChatRolePillAvatarSize,
-      devicePixelRatio: rawDevicePixelRatio,
-    ).trim();
-    if (resolvedUrl.isEmpty) return;
-    final ImageProvider<Object> provider;
-    if (resolvedUrl.startsWith('assets/')) {
-      provider = AssetImage(resolvedUrl);
-    } else {
-      final devicePixelRatio = genesisImageDevicePixelRatio(
-        rawDevicePixelRatio,
-      );
-      final decodeSize = math.max(
-        1,
-        (_originLocationChatRolePillAvatarSize * devicePixelRatio).ceil(),
-      );
-      provider = GenesisStaticNetworkImageProvider(
-        imageUrl: resolvedUrl,
-        cacheWidth: decodeSize,
-        cacheHeight: decodeSize,
-        fit: BoxFit.cover,
-      );
-    }
-    try {
-      await precacheImage(
-        provider,
-        context,
-        onError: (error, stackTrace) {
-          debugPrint(
-            '[OriginWorldPage] role pill avatar precache failed '
-            'url="$resolvedUrl": $error',
-          );
-        },
-      );
-    } catch (error, stackTrace) {
-      debugPrint(
-        '[OriginWorldPage] role pill avatar precache failed '
-        'url="$resolvedUrl": $error\n$stackTrace',
-      );
-    }
   }
 
   Future<bool> _launchLocationChatMessage(
@@ -280,6 +228,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     required this.launching,
     required this.sending,
     required this.role,
+    required this.roleAvatarSnapshots,
     required this.mentionCatalog,
     required this.onSelectRole,
     required this.onSend,
@@ -298,6 +247,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final bool launching;
   final bool sending;
   final _OriginLocationChatRoleOption role;
+  final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final ChatMentionCatalog mentionCatalog;
   final VoidCallback onSelectRole;
   final Future<bool> Function(String message, ChatMentionCatalog mentionCatalog)
@@ -440,6 +390,7 @@ class _OriginLocationChatLaunchComposerState
     );
     final roleRegion = _OriginLocationChatRoleRegion(
       role: widget.role,
+      roleAvatarSnapshots: widget.roleAvatarSnapshots,
       enabled: !widget.launching,
       onTap: widget.onSelectRole,
       style: style,
@@ -459,6 +410,7 @@ class _OriginLocationChatLaunchComposerState
 class _OriginLocationChatRoleRegion extends StatelessWidget {
   const _OriginLocationChatRoleRegion({
     required this.role,
+    required this.roleAvatarSnapshots,
     required this.enabled,
     required this.onTap,
     required this.style,
@@ -469,6 +421,7 @@ class _OriginLocationChatRoleRegion extends StatelessWidget {
   });
 
   final _OriginLocationChatRoleOption role;
+  final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool enabled;
   final VoidCallback onTap;
   final ChatUiStyleConfig style;
@@ -481,6 +434,7 @@ class _OriginLocationChatRoleRegion extends StatelessWidget {
   Widget build(BuildContext context) {
     final roleSelector = _OriginLocationChatRoleSelector(
       role: role,
+      roleAvatarSnapshots: roleAvatarSnapshots,
       enabled: enabled,
       onTap: onTap,
       foregroundColor: foregroundColor,
@@ -516,18 +470,19 @@ class _OriginLocationChatRoleOption {
     required this.id,
     required this.name,
     required this.subtitle,
-    required this.avatarUrl,
+    required this.avatarSnapshotSourceKey,
   });
 
   final String id;
   final String name;
   final String subtitle;
-  final String avatarUrl;
+  final String avatarSnapshotSourceKey;
 }
 
 class _OriginLocationChatRoleSelector extends StatelessWidget {
   const _OriginLocationChatRoleSelector({
     required this.role,
+    required this.roleAvatarSnapshots,
     required this.enabled,
     required this.onTap,
     required this.foregroundColor,
@@ -538,6 +493,7 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
   });
 
   final _OriginLocationChatRoleOption role;
+  final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool enabled;
   final VoidCallback onTap;
   final Color foregroundColor;
@@ -561,12 +517,36 @@ class _OriginLocationChatRoleSelector extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              GenesisCharacterAvatar(
-                url: role.avatarUrl,
-                name: role.name,
-                size: _originLocationChatRolePillAvatarSize,
-                borderRadius: 6,
-                showFallbackWhileLoading: false,
+              AnimatedBuilder(
+                animation: roleAvatarSnapshots,
+                builder: (context, _) {
+                  final snapshot = roleAvatarSnapshots.imageFor(
+                    role.avatarSnapshotSourceKey,
+                  );
+                  return ClipRRect(
+                    key: ValueKey<String>(
+                      'origin-location-chat-role-avatar-${role.id}',
+                    ),
+                    borderRadius: BorderRadius.circular(6),
+                    child: SizedBox.square(
+                      dimension: _originLocationChatRolePillAvatarSize,
+                      child: snapshot == null
+                          ? GenesisAvatarFallback(
+                              name: role.name,
+                              size: _originLocationChatRolePillAvatarSize,
+                              borderRadius: 6,
+                            )
+                          : RawImage(
+                              key: ValueKey<String>(
+                                'origin-location-chat-role-snapshot-${role.id}',
+                              ),
+                              image: snapshot,
+                              fit: BoxFit.cover,
+                              filterQuality: FilterQuality.medium,
+                            ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(width: 7),
               Flexible(
