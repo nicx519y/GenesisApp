@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/debug_page_tracker.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
@@ -58,7 +59,7 @@ class MePage extends StatefulWidget {
   State<MePage> createState() => _MePageState();
 }
 
-class _MePageState extends State<MePage> {
+class _MePageState extends State<MePage> with RouteAware {
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
 
   late Future<_MePageContent> _future;
@@ -88,6 +89,8 @@ class _MePageState extends State<MePage> {
   bool _hasPendingActivationRefresh = false;
   int _selectedCollectionTabIndex = 0;
   ValueListenable<int>? _sessionRevisionListenable;
+  PageRoute<dynamic>? _subscribedRoute;
+  bool _initialWalletRefreshStarted = false;
   // Extension method tear-offs are not equal across reads, so listener
   // registration and removal must reuse these stable callback objects.
   late final VoidCallback _tabActivatedListener;
@@ -115,17 +118,34 @@ class _MePageState extends State<MePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic> && !identical(route, _subscribedRoute)) {
+      genesisPageRouteObserver.unsubscribe(this);
+      _subscribedRoute = route;
+      genesisPageRouteObserver.subscribe(this, route);
+    }
     final sessionRevision = AppServicesScope.of(context).sessionRevision;
-    if (identical(_sessionRevisionListenable, sessionRevision)) return;
-    _sessionRevisionListenable?.removeListener(_sessionChangedListener);
-    _sessionRevisionListenable = sessionRevision;
-    sessionRevision.addListener(_sessionChangedListener);
+    if (!identical(_sessionRevisionListenable, sessionRevision)) {
+      _sessionRevisionListenable?.removeListener(_sessionChangedListener);
+      _sessionRevisionListenable = sessionRevision;
+      sessionRevision.addListener(_sessionChangedListener);
+    }
+    if (!_initialWalletRefreshStarted && _isTabActive) {
+      _initialWalletRefreshStarted = true;
+      _refreshGemWallet();
+    }
+  }
+
+  @override
+  void didPopNext() {
+    _handleTabActivated();
   }
 
   @override
   void dispose() {
     _isDisposed = true;
     _loadGeneration += 1;
+    genesisPageRouteObserver.unsubscribe(this);
     _sessionRevisionListenable?.removeListener(_sessionChangedListener);
     widget.activationListenable?.removeListener(_tabActivatedListener);
     _isUpdatingProfile.dispose();
@@ -137,6 +157,11 @@ class _MePageState extends State<MePage> {
   }
 
   void _updateState(VoidCallback callback) => setState(callback);
+
+  void _refreshGemWallet() {
+    if (!mounted || !_isTabActive) return;
+    unawaited(AppServicesScope.read(context).gemWallet.refresh());
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -252,9 +277,10 @@ class _MePageState extends State<MePage> {
     _setWorldsState(nextItems, isLoading: current.isLoading);
   }
 
-  Future<void> _refreshCurrentCollection() {
-    return _selectedCollectionTabIndex == 0
-        ? _refreshOrigins()
-        : _refreshWorlds();
+  Future<void> _refreshCurrentCollection() async {
+    await Future.wait<void>([
+      _selectedCollectionTabIndex == 0 ? _refreshOrigins() : _refreshWorlds(),
+      AppServicesScope.read(context).gemWallet.refresh(),
+    ]);
   }
 }

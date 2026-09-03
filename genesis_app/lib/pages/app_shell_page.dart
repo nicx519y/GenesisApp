@@ -19,11 +19,9 @@ import '../platform/privacy/app_tracking_transparency_service.dart';
 import '../platform/session/user_session_store.dart';
 import '../ui/system/genesis_system_ui.dart';
 import 'create/create_origin_page.dart';
-import 'home/home_feed_cache_store.dart';
 import 'home/home_page.dart';
 import 'me/me_page.dart';
 import 'messages/messages_page.dart';
-import 'origin/origin_feed_cache_store.dart';
 import 'origin/origin_page.dart';
 
 typedef AttAuthorizationStatusReader =
@@ -65,13 +63,10 @@ class _AppShellPageState extends State<AppShellPage>
   late final ValueNotifier<int> _homeTabReselectionNotifier;
   late final ValueNotifier<int> _messagesTabReselectionNotifier;
   late final ValueNotifier<int> _meTabReselectionNotifier;
-  late final bool _shouldResolveColdStartHomeTarget;
-  var _coldStartHomeTargetResolved = true;
   var _hasRecordedInitialTabPageView = false;
   final Set<String> _firstContentPageViewsReported = <String>{};
   var _worldoForYouContentReady = false;
   var _worldoFirstActivationPending = false;
-  Future<void>? _coldStartHomeTargetResolution;
   ValueListenable<int>? _sessionRevisionListenable;
   final Map<int, Widget> _tabPageCache = <int, Widget>{};
   PageStorageBucket _sessionPageStorageBucket = PageStorageBucket();
@@ -108,23 +103,18 @@ class _AppShellPageState extends State<AppShellPage>
     _homeTabReselectionNotifier = ValueNotifier<int>(0);
     _messagesTabReselectionNotifier = ValueNotifier<int>(0);
     _meTabReselectionNotifier = ValueNotifier<int>(0);
-    _shouldResolveColdStartHomeTarget = widget.initialIndex == 0;
-    _coldStartHomeTargetResolved = !_shouldResolveColdStartHomeTarget;
-    _visitedTabIndexes = _coldStartHomeTargetResolved
-        ? <int>{_selectedIndex}
-        : <int>{};
+    _visitedTabIndexes = <int>{_selectedIndex};
     _messagesPoller = GenesisPollingScheduler(
       interval: _messagesPollInterval,
       onTick: _refreshMessagesData,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppStartupCoordinator.recordLaunchFirstFrame();
+      // The final tab was selected before runApp. Keep route_ready_ms only as
+      // a schema-v1 first-frame confirmation for existing dashboard data.
+      AppStartupCoordinator.recordLaunchRouteReady();
+      AppStartupCoordinator.recordLaunchPage();
       _startAppRuntime();
-      _startColdStartHomeTargetResolutionIfNeeded();
-      if (!_shouldResolveColdStartHomeTarget) {
-        AppStartupCoordinator.recordLaunchRouteReady();
-        AppStartupCoordinator.recordLaunchPage();
-      }
       _startPostLaunchWorkIfAllowed();
       _startInitialBillingRecoveryIfReady();
       _scheduleAttRequest();
@@ -171,8 +161,6 @@ class _AppShellPageState extends State<AppShellPage>
         _requestAttIfNeeded();
       }
       if (AppStartupCoordinator.isPostLaunchWorkAllowed) {
-        _startColdStartHomeTargetResolutionIfNeeded();
-        if (!_coldStartHomeTargetResolved) return;
         _startMessagesPolling();
         _notifyActiveTabActivated();
       }
@@ -238,13 +226,11 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _handlePostLaunchWorkAllowed() {
-    _startColdStartHomeTargetResolutionIfNeeded();
     _startPostLaunchWorkIfAllowed();
   }
 
   void _startPostLaunchWorkIfAllowed() {
     if (!AppStartupCoordinator.isPostLaunchWorkAllowed) return;
-    if (!_coldStartHomeTargetResolved) return;
     if (!_hasRecordedInitialTabPageView) {
       _hasRecordedInitialTabPageView = true;
       _recordSelectedTabPageView();
@@ -261,90 +247,6 @@ class _AppShellPageState extends State<AppShellPage>
     AppStartupCoordinator.startFirebasePerformance();
     AppStartupCoordinator.startWarmUp(services);
     unawaited(AppStartupCoordinator.initializeTelemetry(services: services));
-  }
-
-  void _startColdStartHomeTargetResolutionIfNeeded() {
-    if (!_shouldResolveColdStartHomeTarget) return;
-    if (_coldStartHomeTargetResolved) return;
-    if (_coldStartHomeTargetResolution != null) return;
-    _coldStartHomeTargetResolution = _resolveColdStartHomeTarget();
-  }
-
-  Future<void> _resolveColdStartHomeTarget() async {
-    var hasSession = false;
-    var sessionReadFailed = false;
-    try {
-      hasSession = await _hasLocalLoginSession();
-    } catch (_) {
-      sessionReadFailed = true;
-    }
-    var hasMyWorldsCache = false;
-    var hasWorldoCache = false;
-    if (hasSession) {
-      try {
-        hasMyWorldsCache = await _hasMyWorldsCacheForLocalSession();
-      } catch (_) {
-        hasMyWorldsCache = false;
-      }
-      if (!hasMyWorldsCache && !sessionReadFailed) {
-        try {
-          hasWorldoCache = await _hasWorldoCacheForCurrentSession();
-        } catch (_) {
-          hasWorldoCache = false;
-        }
-      }
-    }
-    if (!mounted) return;
-    final openHome = hasSession && hasMyWorldsCache;
-    AppStartupCoordinator.setLaunchPageDecision(
-      page: openHome ? 'home' : 'worldo',
-      reason: AppStartupCoordinator.resolveLaunchPageReason(
-        hasSession: hasSession,
-        sessionReadFailed: sessionReadFailed,
-        hasHomeCache: hasMyWorldsCache,
-        hasWorldoCache: hasWorldoCache,
-      ),
-    );
-    AppStartupCoordinator.recordLaunchRouteReady();
-    setState(() {
-      _selectedIndex = openHome ? 0 : 1;
-      _visitedTabIndexes
-        ..clear()
-        ..add(_selectedIndex);
-      _coldStartHomeTargetResolved = true;
-    });
-    _messagesTabActiveNotifier.value = _selectedIndex == 3;
-    _meTabActiveNotifier.value = _selectedIndex == 4;
-    _homeTabActiveNotifier.value = _selectedIndex == 0;
-    _worldoTabActiveNotifier.value = _selectedIndex == 1;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) AppStartupCoordinator.recordLaunchPage();
-    });
-    _startPostLaunchWorkIfAllowed();
-  }
-
-  Future<bool> _hasMyWorldsCacheForLocalSession() async {
-    final services = AppServicesScope.read(context);
-    final session = await services.sessionStore.readCompleteSession();
-    if (session == null) return false;
-    final cached = await HomeFeedCacheStore(
-      ownerUid: session.uid,
-    ).load(HomeFeedCacheKind.myWorlds);
-    if (cached == null) return false;
-    final list = cached['list'];
-    if (list is List && list.isNotEmpty) return true;
-    final total = cached['total'];
-    if (total is num) return total > 0;
-    return (int.tryParse(total?.toString() ?? '') ?? 0) > 0;
-  }
-
-  Future<bool> _hasWorldoCacheForCurrentSession() async {
-    final services = AppServicesScope.read(context);
-    final session = await services.sessionStore.readCompleteSession();
-    return await OriginFeedCacheStore(
-          ownerUid: session?.uid ?? OriginFeedCacheStore.anonymousOwnerUid,
-        ).loadForYouFirstPage() !=
-        null;
   }
 
   Future<void> _refreshMessagesData() async {
@@ -568,7 +470,6 @@ class _AppShellPageState extends State<AppShellPage>
         _homeTabActivationNotifier.value += 1;
       case 4:
         _meTabActivationNotifier.value += 1;
-        unawaited(AppServicesScope.read(context).gemWallet.refresh());
     }
   }
 
@@ -714,7 +615,6 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   Widget _buildBody() {
-    if (!_coldStartHomeTargetResolved) return const SizedBox.expand();
     return IndexedStack(
       index: _selectedIndex,
       children: [
@@ -739,7 +639,7 @@ class _AppShellPageState extends State<AppShellPage>
           valueListenable: _unreadSummaryNotifier,
           builder: (context, unreadSummary, _) {
             return BottomTabs(
-              currentIndex: _coldStartHomeTargetResolved ? _selectedIndex : -1,
+              currentIndex: _selectedIndex,
               messagesUnreadCount: unreadSummary.totalUnread,
               onTap: (index) => unawaited(_onTapNav(index)),
             );

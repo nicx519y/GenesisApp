@@ -148,6 +148,8 @@ extension _MePageData on _MePageState {
 
   void _handleTabActivated() {
     if (!_isTabActive) return;
+    _initialWalletRefreshStarted = true;
+    _refreshGemWallet();
     unawaited(_refreshDataOnActivation());
   }
 
