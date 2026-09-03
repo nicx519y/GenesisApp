@@ -26,22 +26,9 @@ class _OriginLaunchedWorldsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final visibleRoles = roles.indexed
-        .where((entry) => entry.$2.worldId.trim().isNotEmpty)
-        .toList(growable: false);
-    visibleRoles.sort((a, b) {
-      final aLastActiveAt =
-          parseFlexibleTimestamp(a.$2.lastActiveAt)?.millisecondsSinceEpoch ??
-          0;
-      final bLastActiveAt =
-          parseFlexibleTimestamp(b.$2.lastActiveAt)?.millisecondsSinceEpoch ??
-          0;
-      final timeComparison = bLastActiveAt.compareTo(aLastActiveAt);
-      return timeComparison != 0 ? timeComparison : a.$1.compareTo(b.$1);
-    });
-    final recentRoles = visibleRoles.take(
-      originLaunchedWorldPreviewLimitForTesting,
-    );
+    final recentRoles = roles
+        .where((role) => role.worldId.trim().isNotEmpty)
+        .take(originLaunchedWorldPreviewLimitForTesting);
     if (recentRoles.isEmpty) return const SizedBox.shrink();
 
     return Padding(
@@ -72,12 +59,12 @@ class _OriginLaunchedWorldsSection extends StatelessWidget {
           Column(
             key: const ValueKey<String>('origin-playing-world-list'),
             children: [
-              for (final (index, entry) in recentRoles.indexed) ...[
+              for (final (index, role) in recentRoles.indexed) ...[
                 if (index > 0)
                   const SizedBox(height: originLaunchedWorldRowGapForTesting),
                 _OriginLaunchedWorldRow(
-                  role: entry.$2,
-                  onTap: () => onEnterWorld(entry.$2),
+                  role: role,
+                  onTap: () => onEnterWorld(role),
                 ),
               ],
             ],

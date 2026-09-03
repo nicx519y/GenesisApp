@@ -54,9 +54,13 @@ mixin _GenesisApiOriginOperations on _GenesisApiContext {
   }
 
   Future<List<OriginMyLaunchPresetCharacter>> getMyLaunchPresetCharacters(
-    String originId,
-  ) async {
-    final items = await v1.origin.myLaunchPresetCharacters(originId: originId);
+    String originId, {
+    required int limit,
+  }) async {
+    final items = await v1.origin.myLaunchPresetCharacters(
+      originId: originId,
+      limit: limit,
+    );
     return items
         .map(_originMyLaunchPresetCharacterFromV1)
         .toList(growable: false);

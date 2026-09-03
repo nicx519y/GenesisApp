@@ -132,11 +132,6 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     }
     _precacheUpcomingRoleAvatars(nextIndex);
     final roleId = roleIds[nextIndex];
-    if (widget.selectedRoleId ==
-            _OriginWorldPageState._profileLocationChatRoleId &&
-        widget.profileRole == null) {
-      return;
-    }
     if (roleId != widget.selectedRoleId) {
       widget.onSelectedRoleChanged(roleId);
     }

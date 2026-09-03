@@ -332,6 +332,10 @@ void main() {
     );
 
     final tabBarView = find.byType(TabBarView);
+    expect(
+      tester.widget<TabBarView>(tabBarView).physics,
+      isA<ClampingScrollPhysics>(),
+    );
     final worldoPage = find.byKey(
       const ValueKey<String>('profile-origin-collection-page'),
       skipOffstage: false,

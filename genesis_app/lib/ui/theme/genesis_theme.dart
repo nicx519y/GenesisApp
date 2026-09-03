@@ -6,6 +6,21 @@ import '../tokens/genesis_radii.dart';
 import '../tokens/genesis_typography.dart';
 import 'genesis_ui_theme.dart';
 
+/// App-wide scrolling behavior that keeps platform scroll physics while
+/// removing Material overscroll decorations such as Android's stretch effect.
+class GenesisScrollBehavior extends MaterialScrollBehavior {
+  const GenesisScrollBehavior();
+
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child;
+  }
+}
+
 // GenesisTheme is the single entry point for app-level ThemeData.
 // This class connects the Flutter Material theme with the custom Genesis UI component theme.
 abstract final class GenesisTheme {
