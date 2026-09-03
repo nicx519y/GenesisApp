@@ -92,7 +92,7 @@ void main() {
     final gemBalance = tester.widget<Text>(
       find.byKey(const ValueKey('user-profile-gems-balance')),
     );
-    expect(gemBalance.data, '0');
+    expect(gemBalance.data, '0.0');
     expect(gemBalance.style?.fontWeight, FontWeight.w600);
     expect(find.text('--'), findsNothing);
     expect(
@@ -606,7 +606,7 @@ void main() {
   ) async {
     String? openedRoute;
     final walletState = ValueNotifier<GemWalletState>(
-      const GemWalletState(ownerUid: 'u_user', balance: 430),
+      const GemWalletState(ownerUid: 'u_user', balanceCent: 43000),
     );
     addTearDown(walletState.dispose);
 
@@ -684,14 +684,17 @@ void main() {
       find.byKey(const ValueKey('user-profile-gems-entry')),
       findsOneWidget,
     );
-    expect(find.text('430'), findsOneWidget);
+    expect(find.text('430.0'), findsOneWidget);
     expect(find.text('Gems'), findsOneWidget);
 
-    walletState.value = const GemWalletState(ownerUid: 'u_user', balance: 520);
+    walletState.value = const GemWalletState(
+      ownerUid: 'u_user',
+      balanceCent: 52000,
+    );
     await tester.pump();
 
-    expect(find.text('520'), findsOneWidget);
-    expect(find.text('430'), findsNothing);
+    expect(find.text('520.0'), findsOneWidget);
+    expect(find.text('430.0'), findsNothing);
 
     await tester.tap(find.byKey(const ValueKey('user-profile-gems-entry')));
     await tester.pumpAndSettle();

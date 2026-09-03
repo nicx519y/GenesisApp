@@ -24,6 +24,7 @@ import '../../network/models/gem_task_action.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../routers/app_router.dart';
+import '../../utils/gem_amount.dart';
 
 part 'gem_wallet_data_actions.dart';
 part 'gem_wallet_billing_flow.dart';

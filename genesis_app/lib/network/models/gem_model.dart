@@ -1,4 +1,5 @@
 import '../json_utils.dart';
+import '../../utils/gem_amount.dart';
 
 const String kSelectedModelCodeUserInfoKey = 'selected_model_code';
 const String kSelectedModelTitlesUserInfoKey = 'selected_model_titles';
@@ -108,8 +109,8 @@ class GemModel {
     required this.modelCode,
     required this.title,
     required this.tags,
-    required this.estimatedNextMessageGems,
-    required this.estimatedNextTickGems,
+    required this.estimatedNextMessageGemsCent,
+    required this.estimatedNextTickGemsCent,
     required this.description,
     required this.rangeText,
   });
@@ -125,8 +126,14 @@ class GemModel {
       modelCode: asString(json['model_code']),
       title: asString(json['title']),
       tags: tags,
-      estimatedNextMessageGems: asInt(json['estimated_next_message_gems']),
-      estimatedNextTickGems: asInt(json['estimated_next_tick_gems']),
+      estimatedNextMessageGemsCent: requireGemCent(
+        json['estimated_next_message_gems_cent'],
+        fieldName: 'estimated_next_message_gems_cent',
+      ),
+      estimatedNextTickGemsCent: requireGemCent(
+        json['estimated_next_tick_gems_cent'],
+        fieldName: 'estimated_next_tick_gems_cent',
+      ),
       description: asString(json['description']),
       rangeText: asString(json['range_text']),
     );
@@ -135,8 +142,8 @@ class GemModel {
   final String modelCode;
   final String title;
   final List<String> tags;
-  final int estimatedNextMessageGems;
-  final int estimatedNextTickGems;
+  final int estimatedNextMessageGemsCent;
+  final int estimatedNextTickGemsCent;
   final String description;
   final String rangeText;
 }

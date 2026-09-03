@@ -37,7 +37,7 @@ void main() {
     final telemetry = _CapturingTelemetrySink();
     GenesisTelemetry.setSinkForTesting(telemetry);
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -79,7 +79,7 @@ void main() {
     final walletStore = GemWalletStore(
       loadWallet: () async {
         walletLoadCount += 1;
-        return GemWallet(balance: walletLoadCount == 1 ? 430 : 520);
+        return GemWallet(balanceCent: walletLoadCount == 1 ? 43000 : 52000);
       },
       readUid: () async => 'u_user',
     );
@@ -108,9 +108,9 @@ void main() {
 
     expect(find.text('Buy Gems'), findsOneWidget);
     expect(find.text('Records'), findsOneWidget);
-    expect(find.text('430'), findsOneWidget);
-    expect(find.text('+550'), findsOneWidget);
-    expect(find.text('500'), findsOneWidget);
+    expect(find.text('430.0'), findsOneWidget);
+    expect(find.text('+550.0'), findsOneWidget);
+    expect(find.text('500.0'), findsOneWidget);
     expect(find.text(r'$1.49'), findsOneWidget);
     expect(find.text('Starter'), findsOneWidget);
     expect(find.text('Create your first worldo'), findsOneWidget);
@@ -229,7 +229,7 @@ void main() {
         0.1,
       ),
     );
-    final taskRewardStyle = tester.widget<Text>(find.text('+50')).style;
+    final taskRewardStyle = tester.widget<Text>(find.text('+50.0')).style;
     expect(taskRewardStyle?.fontSize, 14);
     expect(taskRewardStyle?.fontWeight, FontWeight.w600);
     expect(taskRewardStyle?.color, const Color(0xFF111111));
@@ -266,7 +266,7 @@ void main() {
     expect(tasksLoadCount, 2);
     expect(walletLoadCount, 2);
     expect(billingService.recoverSources, isEmpty);
-    expect(find.text('520'), findsOneWidget);
+    expect(find.text('520.0'), findsOneWidget);
 
     await tester.drag(find.byType(ListView), const Offset(0, -260));
     await tester.pumpAndSettle();
@@ -286,7 +286,7 @@ void main() {
     expect(discordStyle?.height, 16 / 14);
     expect(discordStyle?.fontWeight, FontWeight.w600);
     expect(discordStyle?.color, const Color(0xFF111111));
-    final joinUsRewardStyle = tester.widget<Text>(find.text('+20')).style;
+    final joinUsRewardStyle = tester.widget<Text>(find.text('+20.0')).style;
     expect(joinUsRewardStyle?.fontSize, 14);
     expect(joinUsRewardStyle?.fontWeight, FontWeight.w600);
     expect(joinUsRewardStyle?.color, const Color(0xFF111111));
@@ -330,7 +330,7 @@ void main() {
     var productsLoadCount = 0;
     var tasksLoadCount = 0;
     final walletStore = GemWalletStore(
-      loadWallet: () async => GemWallet(balance: 430),
+      loadWallet: () async => GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -347,7 +347,7 @@ void main() {
                 items: [
                   GemRecordItem(
                     ledgerId: 'gl_$scene',
-                    amount: 50,
+                    amountCent: 5000,
                     scene: 'task',
                     reasonCode: 'daily_checkin',
                     title: scene == 'earned'
@@ -424,7 +424,7 @@ void main() {
     expect(recordTimeStyle?.fontWeight, FontWeight.w400);
     expect(recordTimeStyle?.color, const Color(0xFF999999));
 
-    final amountStyle = tester.widget<Text>(find.text('+50')).style;
+    final amountStyle = tester.widget<Text>(find.text('+50.0')).style;
     expect(amountStyle?.fontSize, 14);
     expect(amountStyle?.height, 20 / 14);
     expect(amountStyle?.fontWeight, FontWeight.w600);
@@ -447,7 +447,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -471,9 +471,9 @@ void main() {
   testWidgets('wallet endpoint balance stays independent from catalog data', (
     tester,
   ) async {
-    var walletBalance = 430;
+    var walletBalance = 43000;
     final walletStore = GemWalletStore(
-      loadWallet: () async => GemWallet(balance: walletBalance),
+      loadWallet: () async => GemWallet(balanceCent: walletBalance),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -489,18 +489,18 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('430'), findsOneWidget);
+    expect(find.text('430.0'), findsOneWidget);
 
-    walletBalance = 520;
+    walletBalance = 52000;
     await walletStore.refreshAfterEntitlementGranted();
     await tester.pump();
 
-    expect(find.text('520'), findsOneWidget);
+    expect(find.text('520.0'), findsOneWidget);
 
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pumpAndSettle();
 
-    expect(find.text('520'), findsOneWidget);
+    expect(find.text('520.0'), findsOneWidget);
   });
 
   testWidgets('loads all data together but only gates on products and wallet', (
@@ -545,7 +545,7 @@ void main() {
 
     expect(find.byType(GemPurchaseCatalogSection), findsNothing);
 
-    walletResult.complete(const GemWallet(balance: 430));
+    walletResult.complete(const GemWallet(balanceCent: 43000));
     await tester.pump();
     await tester.pump();
 
@@ -555,7 +555,7 @@ void main() {
       tester
           .widget<Text>(find.byKey(const ValueKey('gem-wallet-balance')))
           .data,
-      '430',
+      '430.0',
     );
     expect(find.text('Starter'), findsNothing);
 
@@ -569,7 +569,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -578,14 +578,14 @@ void main() {
       MaterialApp(
         home: GemWalletPage(
           walletStore: walletStore,
-          productsLoader: (_) async => _products(bonusGems: 0),
+          productsLoader: (_) async => _products(bonusGemsCent: 0),
           tasksLoader: (_) async => _taskGroups(),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('+500'), findsOneWidget);
+    expect(find.text('+500.0'), findsOneWidget);
   });
 
   testWidgets('tapping a product immediately shows purchase processing', (
@@ -608,7 +608,7 @@ void main() {
     final telemetry = _CapturingTelemetrySink();
     GenesisTelemetry.setSinkForTesting(telemetry);
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService();
@@ -724,7 +724,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService();
@@ -760,7 +760,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService()..storeRecoveryResult = false;
@@ -793,7 +793,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService()
@@ -821,7 +821,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService();
@@ -860,7 +860,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService();
@@ -903,7 +903,7 @@ void main() {
     final walletStore = GemWalletStore(
       loadWallet: () async {
         walletLoadCount += 1;
-        return const GemWallet(balance: 430);
+        return const GemWallet(balanceCent: 43000);
       },
       readUid: () async => 'u_user',
     );
@@ -948,7 +948,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
 
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService();
@@ -1003,10 +1003,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.textContaining('Purchasing Gems'), findsOneWidget);
 
-    billing.emitSuccess(grantedGems: 1000);
+    billing.emitSuccess(grantedGemsCent: 100000);
     await tester.pumpAndSettle();
 
-    _expectGrantedSuccessDialog(tester, grantedText: '1,000');
+    _expectGrantedSuccessDialog(tester, grantedText: '1,000.0');
     expect(
       tester
           .getSize(
@@ -1055,7 +1055,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     final billing = _FakeBillingService();
@@ -1097,7 +1097,7 @@ void main() {
     tester,
   ) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1147,7 +1147,7 @@ void main() {
       'progress_world': 'Open your launched World, then tap Progress.',
     };
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1196,7 +1196,7 @@ void main() {
     final walletStore = GemWalletStore(
       loadWallet: () async {
         walletLoadCount += 1;
-        return const GemWallet(balance: 430);
+        return const GemWallet(balanceCent: 43000);
       },
       readUid: () async => 'u_user',
     );
@@ -1268,7 +1268,7 @@ void main() {
     var tasksLoadCount = 0;
     var claimCalls = 0;
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1338,7 +1338,7 @@ void main() {
       'discord_follow': 'Follow failed.',
     };
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1376,7 +1376,7 @@ void main() {
 
   testWidgets('claim failure uses English toast', (tester) async {
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1417,7 +1417,7 @@ void main() {
     final launchedUris = <Uri>[];
     final reportedCodes = <String>[];
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1463,7 +1463,7 @@ void main() {
     final launchedUris = <Uri>[];
     var reportCalls = 0;
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1514,7 +1514,7 @@ void main() {
     final reportedCodes = <String>[];
     final claimedCodes = <String>[];
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1583,7 +1583,7 @@ void main() {
   ) async {
     final launchedUris = <Uri>[];
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1640,7 +1640,7 @@ void main() {
     var tasksLoadCount = 0;
     final claimedCodes = <String>[];
     final walletStore = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 430),
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
       readUid: () async => 'u_user',
     );
     addTearDown(walletStore.dispose);
@@ -1692,7 +1692,7 @@ void main() {
             find.byKey(const ValueKey<String>('gem-task-reward-value')),
           )
           .data,
-      '+20',
+      '+20.0',
     );
     expect(
       find.byKey(const ValueKey<String>('gem-task-reward-icon')),
@@ -1723,7 +1723,7 @@ class _CapturingTelemetrySink implements GenesisTelemetrySink {
 
 void _expectGrantedSuccessDialog(
   WidgetTester tester, {
-  String grantedText = '550',
+  String grantedText = '550.0',
 }) {
   expect(find.text('Purchase successful!'), findsOneWidget);
   expect(find.text('Go Chat Now.'), findsNothing);
@@ -1857,14 +1857,14 @@ class _FakeBillingService implements BillingService {
     );
   }
 
-  void emitSuccess({int grantedGems = 550}) {
+  void emitSuccess({int grantedGemsCent = 55000}) {
     _events.add(
       BillingUiEvent(
         kind: BillingUiEventKind.success,
         productId: 'gem_pack_500',
         attemptId: 'pay_test',
         message: 'Purchase successful!',
-        grantedGems: grantedGems,
+        grantedGemsCent: grantedGemsCent,
       ),
     );
   }
@@ -1900,8 +1900,8 @@ class _FakeBillingService implements BillingService {
   }
 }
 
-List<GemProduct> _products({int bonusGems = 50}) {
-  return [_product('gem_pack_500', bonusGems: bonusGems)];
+List<GemProduct> _products({int bonusGemsCent = 5000}) {
+  return [_product('gem_pack_500', bonusGemsCent: bonusGemsCent)];
 }
 
 List<GemTaskGroup> _taskGroups() {
@@ -1914,7 +1914,7 @@ List<GemTaskGroup> _taskGroups() {
           taskCode: 'create_first_worldo',
           title: 'Create your first worldo',
           description: _wrappingTaskDescription,
-          rewardGems: 50,
+          rewardGemsCent: 5000,
           rewardValidDays: 30,
           cycleType: 'once',
           cycleKey: '',
@@ -1934,7 +1934,7 @@ List<GemTaskGroup> _taskGroups() {
           taskCode: 'discord_follow',
           title: 'Discord',
           description: 'Join our Discord community.',
-          rewardGems: 20,
+          rewardGemsCent: 2000,
           rewardValidDays: 30,
           cycleType: 'once',
           cycleKey: '',
@@ -1979,7 +1979,7 @@ GemTask _task({
     taskCode: taskCode,
     title: 'Task title',
     description: 'Task description',
-    rewardGems: 20,
+    rewardGemsCent: 2000,
     rewardValidDays: 30,
     cycleType: 'once',
     cycleKey: '',
@@ -1991,15 +1991,15 @@ GemTask _task({
   );
 }
 
-GemProduct _product(String productId, {int bonusGems = 50}) {
+GemProduct _product(String productId, {int bonusGemsCent = 5000}) {
   final amount = productId == 'gem_pack_1100' ? 590 : 149;
-  final gems = productId == 'gem_pack_1100' ? 1100 : 500;
+  final gemsCent = productId == 'gem_pack_1100' ? 110000 : 50000;
   return GemProduct(
     productId: productId,
     appleProductId: 'com.worldo.$productId',
     googleProductId: 'worldo_$productId',
-    baseGems: gems,
-    bonusGems: bonusGems,
+    baseGemsCent: gemsCent,
+    bonusGemsCent: bonusGemsCent,
     priceCurrencyCode: 'USD',
     priceAmount: amount,
     canPurchase: true,

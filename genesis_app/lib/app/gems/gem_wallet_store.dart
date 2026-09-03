@@ -9,19 +9,19 @@ typedef GemWalletUidReader = Future<String?> Function();
 class GemWalletState {
   const GemWalletState({
     this.ownerUid,
-    this.balance,
+    this.balanceCent,
     this.isRefreshing = false,
     this.updatedAt,
     this.lastError,
   });
 
   final String? ownerUid;
-  final int? balance;
+  final int? balanceCent;
   final bool isRefreshing;
   final DateTime? updatedAt;
   final Object? lastError;
 
-  bool get hasWalletBalance => balance != null;
+  bool get hasWalletBalance => balanceCent != null;
 }
 
 class GemWalletStore {
@@ -64,13 +64,15 @@ class GemWalletStore {
     final requestGeneration = ++_requestGeneration;
     if (_disposed) return;
     final current = _state.value;
-    final retainedBalance = current.ownerUid == uid ? current.balance : null;
+    final retainedBalanceCent = current.ownerUid == uid
+        ? current.balanceCent
+        : null;
     final retainedUpdatedAt = current.ownerUid == uid
         ? current.updatedAt
         : null;
     _state.value = GemWalletState(
       ownerUid: uid,
-      balance: retainedBalance,
+      balanceCent: retainedBalanceCent,
       isRefreshing: true,
       updatedAt: retainedUpdatedAt,
     );
@@ -87,7 +89,7 @@ class GemWalletStore {
       }
       _state.value = GemWalletState(
         ownerUid: uid,
-        balance: wallet.balance,
+        balanceCent: wallet.balanceCent,
         updatedAt: DateTime.now(),
       );
     } catch (error) {
@@ -102,7 +104,7 @@ class GemWalletStore {
       }
       _state.value = GemWalletState(
         ownerUid: uid,
-        balance: retainedBalance,
+        balanceCent: retainedBalanceCent,
         updatedAt: retainedUpdatedAt,
         lastError: error,
       );

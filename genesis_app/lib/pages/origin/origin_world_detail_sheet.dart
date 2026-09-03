@@ -64,6 +64,7 @@ double _originDetailExpandedChildSize(
 
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
+    super.key,
     required this.origin,
     required this.roleAvatarSnapshots,
     required this.minChildSize,
@@ -266,6 +267,17 @@ class _OriginDetailDraggableSheetState
         commandGeneration: commandGeneration,
         expanded: true,
       ),
+    );
+  }
+
+  Future<void> expandOpening() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _sheetInteraction.resetForContentChange(resetPage: true);
+    _cancelExtentSettleWait();
+    final commandGeneration = ++_extentCommandGeneration;
+    await _animateToRequestedExtent(
+      commandGeneration: commandGeneration,
+      expanded: true,
     );
   }
 
@@ -816,7 +828,10 @@ class _OriginDetailDraggableSheetState
               showShortcuts: false,
               enableMentionSheet: false,
               roleBorderRadius: 8,
-              bottomSafeAreaInset: MediaQuery.viewInsetsOf(context).bottom > 0
+              // Keyboard frame updates are owned by `_sheetInteraction`.
+              // Depending on `MediaQuery.viewInsets` here would subscribe the
+              // whole draggable sheet State to every intermediate IME inset.
+              bottomSafeAreaInset: _openingKeyboardMode
                   ? 0
                   : GenesisSafeAreaInsets.bottom(context),
               onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
@@ -1066,8 +1081,10 @@ class _OriginDetailDraggableSheetState
                                         _openingKeyboardMode && !hasOpeningBrief
                                         ? _openingKeyboardContentStartKey
                                         : null,
-                                    messageEndKey:
-                                        _openingKeyboardMessageEndKey,
+                                    messageEndKey: _openingKeyboardMode
+                                        ? _openingKeyboardMessageEndKey
+                                        : null,
+                                    eager: _openingKeyboardMode,
                                   )
                                 else ...[
                                   if (initialDialoguePreview != null)
@@ -1080,12 +1097,14 @@ class _OriginDetailDraggableSheetState
                                               !hasOpeningBrief
                                           ? _openingKeyboardContentStartKey
                                           : null,
+                                      eager: _openingKeyboardMode,
                                     ),
-                                  SliverToBoxAdapter(
-                                    child: SizedBox(
-                                      key: _openingKeyboardMessageEndKey,
+                                  if (_openingKeyboardMode)
+                                    SliverToBoxAdapter(
+                                      child: SizedBox(
+                                        key: _openingKeyboardMessageEndKey,
+                                      ),
                                     ),
-                                  ),
                                 ],
                               ],
                             ),
@@ -1177,9 +1196,8 @@ class _OriginDetailDraggableSheetState
                           right: 0,
                           top: _sheetInteraction.composerTop(
                             constraints.maxHeight,
-                            actualKeyboardInset: MediaQuery.viewInsetsOf(
-                              context,
-                            ).bottom,
+                            actualKeyboardInset:
+                                _sheetInteraction.keyboardInset,
                           ),
                           child: child!,
                         ),

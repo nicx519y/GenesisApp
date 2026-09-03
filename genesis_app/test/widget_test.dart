@@ -1034,7 +1034,7 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_no': 0,
         'err_msg': 'succ',
         'data': {
-          'wallet': {'balance': 430},
+          'wallet': {'balance_cent': 43000},
         },
       });
     }
@@ -2764,6 +2764,20 @@ void main() {
   testWidgets('Worldo records one network request and real content frame', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    AppStartupCoordinator.beginLaunchTracking(
+      startupId: 'worldo-signed-in-cache-fallback',
+    );
+    AppStartupCoordinator.recordStartupFirstReport();
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'worldo',
+      reason: 'session_home_miss_worldo_cache_hit',
+    );
+    AppStartupCoordinator.recordLaunchPage();
     final traces = <_WidgetPerformanceTrace>[];
     FirebasePerformanceMonitoring.setReadyForTesting(true);
     FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
@@ -2814,14 +2828,41 @@ void main() {
           .stopped,
       isTrue,
     );
+    final launchEvents = telemetry.events
+        .where((event) => event.name.startsWith('launch_'))
+        .toList(growable: false);
+    expect(launchEvents.map((event) => event.name), <String>[
+      'launch_startup',
+      'launch_page',
+      'launch_req_start',
+      'launch_req_end',
+      'launch_render',
+    ]);
+    expect(
+      launchEvents[1].data['object4'],
+      'session_home_miss_worldo_cache_hit',
+    );
+    expect(launchEvents[3].data['object4'], 'success');
+    expect(launchEvents[4].data['object4'], 'network');
   });
 
   testWidgets(
     'My Worlds cache frame does not complete the network render trace',
     (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
       final telemetry = _CapturingTelemetrySink();
       GenesisTelemetry.setSinkForTesting(telemetry);
       addTearDown(GenesisTelemetry.resetForTesting);
+      AppStartupCoordinator.beginLaunchTracking(
+        startupId: 'home-signed-in-cache',
+      );
+      AppStartupCoordinator.recordStartupFirstReport();
+      AppStartupCoordinator.setLaunchPageDecision(
+        page: 'home',
+        reason: 'session_home_cache_hit',
+      );
+      AppStartupCoordinator.recordLaunchPage();
       final traces = <_WidgetPerformanceTrace>[];
       FirebasePerformanceMonitoring.setReadyForTesting(true);
       FirebasePerformanceMonitoring.setTraceFactoryForTesting((name) {
@@ -2889,7 +2930,15 @@ void main() {
             .stopped,
         isTrue,
       );
+      expect(find.text('World tick narrator 2'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsNothing);
       expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
+      final launchRenders = telemetry.events
+          .where((event) => event.name == 'launch_render')
+          .toList(growable: false);
+      expect(launchRenders, hasLength(1));
+      expect(launchRenders.single.data['object2'], 'home');
+      expect(launchRenders.single.data['object4'], 'cache');
     },
   );
 
@@ -2946,8 +2995,22 @@ void main() {
   });
 
   testWidgets(
-    'Home network request survives stuck cache restore and wins late cache',
+    'Home starts network beside stuck cache and network wins late cache',
     (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
+      AppStartupCoordinator.beginLaunchTracking(
+        startupId: 'home-signed-in-cache-fallback',
+      );
+      AppStartupCoordinator.recordStartupFirstReport();
+      AppStartupCoordinator.setLaunchPageDecision(
+        page: 'home',
+        reason: 'session_home_cache_hit',
+      );
+      AppStartupCoordinator.recordLaunchPage();
       final cacheCompleter = Completer<Map<String, dynamic>?>();
       final worldListCompleter = Completer<TransportResponse>();
       final transport = _RecordingV1ListTransport(
@@ -2963,7 +3026,7 @@ void main() {
           ),
           child: MaterialApp(
             home: HomePage(
-              localRestoreTimeout: const Duration(milliseconds: 10),
+              localRestoreTimeout: const Duration(seconds: 5),
               myWorldsCacheLoader: (_) => cacheCompleter.future,
             ),
           ),
@@ -2974,10 +3037,11 @@ void main() {
         index < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
         index += 1
       ) {
-        await tester.pump(const Duration(milliseconds: 10));
+        await tester.pump();
       }
 
       expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(cacheCompleter.isCompleted, isFalse);
 
       worldListCompleter.complete(
         transport._jsonResponse({
@@ -3007,6 +3071,19 @@ void main() {
 
       expect(find.text('World tick narrator 2'), findsOneWidget);
       expect(find.text('World tick narrator 1'), findsNothing);
+      final launchEvents = telemetry.events
+          .where((event) => event.name.startsWith('launch_'))
+          .toList(growable: false);
+      expect(launchEvents.map((event) => event.name), <String>[
+        'launch_startup',
+        'launch_page',
+        'launch_req_start',
+        'launch_req_end',
+        'launch_render',
+      ]);
+      expect(launchEvents[1].data['object4'], 'session_home_cache_hit');
+      expect(launchEvents[3].data['object4'], 'success');
+      expect(launchEvents[4].data['object4'], 'network');
     },
   );
 
@@ -5381,7 +5458,7 @@ void main() {
                   ValueListenableBuilder<GemWalletState>(
                     valueListenable: walletState,
                     builder: (context, state, _) {
-                      return Text('balance=${state.balance ?? '-'}');
+                      return Text('balance=${state.balanceCent ?? '-'}');
                     },
                   ),
                   TextButton(
@@ -15261,7 +15338,7 @@ void main() {
         .requestsFor('/api/v1/gem/wallet')
         .length;
     expect(firstRefreshCount, 1);
-    expect(find.text('430'), findsOneWidget);
+    expect(find.text('430.0'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
@@ -22468,7 +22545,7 @@ void main() {
       );
     });
     final gemWallet = GemWalletStore(
-      loadWallet: () async => const GemWallet(balance: 20925),
+      loadWallet: () async => const GemWallet(balanceCent: 2092500),
       readUid: () async => 'u_mock',
     );
     addTearDown(gemWallet.dispose);
@@ -22499,7 +22576,7 @@ void main() {
     expect(find.text('UUID:'), findsOneWidget);
     expect(find.text('00000000-1111-2222-3333-444444444444'), findsOneWidget);
     expect(find.text('My Balance:'), findsOneWidget);
-    expect(find.text('20,925'), findsOneWidget);
+    expect(find.text('20,925.0'), findsOneWidget);
     expect(find.text('ANDROID_ID:'), findsOneWidget);
     expect(find.text('android-id'), findsOneWidget);
     expect(find.text('AAID:'), findsOneWidget);
@@ -24640,7 +24717,7 @@ void main() {
       tester
           .widget<Text>(find.byKey(const ValueKey('user-profile-gems-balance')))
           .data,
-      '430',
+      '430.0',
     );
     expect(transport.requestsFor('/api/v1/gem/wallet'), hasLength(1));
     expect(tester.takeException(), isNull);

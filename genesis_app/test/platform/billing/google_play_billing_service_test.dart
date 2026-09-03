@@ -276,7 +276,7 @@ void main() {
         }
         return GemPurchaseReport(
           status: reportStatus,
-          grantedGems: 550,
+          grantedGemsCent: 55000,
           transactionId: reportTransactionId,
           reason: reportReason,
         );
@@ -665,7 +665,7 @@ void main() {
     reportCompleter.complete(
       const GemPurchaseReport(
         status: GemPurchaseReportStatus.completed,
-        grantedGems: 550,
+        grantedGemsCent: 55000,
       ),
     );
 
@@ -740,7 +740,10 @@ void main() {
         reports.add(request);
         if (reports.length == 1) return firstReport.future;
         return Future<GemPurchaseReport>.value(
-          const GemPurchaseReport(status: GemPurchaseReportStatus.completed),
+          const GemPurchaseReport(
+            status: GemPurchaseReportStatus.completed,
+            grantedGemsCent: 55000,
+          ),
         );
       },
       refreshWallet: () async => refreshCount += 1,
@@ -768,7 +771,10 @@ void main() {
     );
     final secondRecovery = service.recover(BillingRecoverySource.foreground);
     firstReport.complete(
-      const GemPurchaseReport(status: GemPurchaseReportStatus.completed),
+      const GemPurchaseReport(
+        status: GemPurchaseReportStatus.completed,
+        grantedGemsCent: 55000,
+      ),
     );
 
     await Future.wait([firstRecovery, secondRecovery]);
@@ -841,7 +847,7 @@ void main() {
     expect(uiEvents.first.kind, BillingUiEventKind.processing);
     expect(uiEvents.first.message, 'Purchasing Gems');
     expect(uiEvents.last.kind, BillingUiEventKind.success);
-    expect(uiEvents.last.grantedGems, 550);
+    expect(uiEvents.last.grantedGemsCent, 55000);
     final click = analytics.records.singleWhere(
       (record) => record.action == 'product_click',
     );
@@ -876,6 +882,7 @@ void main() {
           reports.add(request);
           return const GemPurchaseReport(
             status: GemPurchaseReportStatus.completed,
+            grantedGemsCent: 55000,
           );
         },
         refreshWallet: () => releaseRefresh.future,
@@ -1154,8 +1161,8 @@ void main() {
         productId: 'gem_pack_500',
         appleProductId: 'com.worldo.gems.500',
         googleProductId: 'worldo_gems_500_v2',
-        baseGems: 500,
-        bonusGems: 50,
+        baseGemsCent: 50000,
+        bonusGemsCent: 5000,
         priceCurrencyCode: 'USD',
         priceAmount: 499,
         canPurchase: true,
@@ -1189,7 +1196,7 @@ void main() {
           reports.add(request);
           return const GemPurchaseReport(
             status: GemPurchaseReportStatus.completed,
-            grantedGems: 550,
+            grantedGemsCent: 55000,
           );
         },
         refreshWallet: () async => refreshCount += 1,
@@ -1270,6 +1277,7 @@ void main() {
           reports.add(request);
           return const GemPurchaseReport(
             status: GemPurchaseReportStatus.completed,
+            grantedGemsCent: 55000,
           );
         },
         refreshWallet: () async => refreshCount += 1,
@@ -1314,8 +1322,8 @@ void main() {
         productId: 'gem_subscription',
         appleProductId: 'com.worldo.gems.subscription',
         googleProductId: 'worldo_gems_subscription',
-        baseGems: 500,
-        bonusGems: 0,
+        baseGemsCent: 50000,
+        bonusGemsCent: 0,
         priceCurrencyCode: 'USD',
         priceAmount: 149,
         canPurchase: true,
@@ -1397,6 +1405,7 @@ void main() {
         }
         return const GemPurchaseReport(
           status: GemPurchaseReportStatus.completed,
+          grantedGemsCent: 55000,
         );
       },
       refreshWallet: () async => refreshCount += 1,
@@ -1447,6 +1456,7 @@ void main() {
         reports.add(request);
         return const GemPurchaseReport(
           status: GemPurchaseReportStatus.completed,
+          grantedGemsCent: 55000,
         );
       },
       refreshWallet: () async => refreshCount += 1,
@@ -1667,8 +1677,8 @@ void main() {
         googleProductId: 'worldo_gems_500',
         googlePurchaseOptionId: '500-gems-new',
         googleOfferId: '500-gems-new-discount',
-        baseGems: 500,
-        bonusGems: 50,
+        baseGemsCent: 50000,
+        bonusGemsCent: 5000,
         priceCurrencyCode: 'USD',
         priceAmount: 149,
         canPurchase: true,
@@ -1691,8 +1701,8 @@ void main() {
         appleProductId: 'com.worldo.gems.500',
         googleProductId: 'worldo_gems_500',
         googlePurchaseOptionId: '500-gems-new',
-        baseGems: 500,
-        bonusGems: 50,
+        baseGemsCent: 50000,
+        bonusGemsCent: 5000,
         priceCurrencyCode: 'USD',
         priceAmount: 149,
         canPurchase: true,
@@ -1728,7 +1738,7 @@ void main() {
           reports.add(request);
           return const GemPurchaseReport(
             status: GemPurchaseReportStatus.completed,
-            grantedGems: 550,
+            grantedGemsCent: 55000,
           );
         },
         refreshWallet: () async => refreshCount += 1,
@@ -1786,7 +1796,7 @@ void main() {
         reports.add(request);
         return const GemPurchaseReport(
           status: GemPurchaseReportStatus.completed,
-          grantedGems: 550,
+          grantedGemsCent: 55000,
         );
       },
       refreshWallet: () async => refreshCount += 1,
@@ -1856,7 +1866,10 @@ void main() {
 
       expect(reports, hasLength(1));
       releaseReport.complete(
-        const GemPurchaseReport(status: GemPurchaseReportStatus.completed),
+        const GemPurchaseReport(
+          status: GemPurchaseReportStatus.completed,
+          grantedGemsCent: 55000,
+        ),
       );
       await recovery;
       await _settle();
@@ -1927,7 +1940,10 @@ void main() {
       expect(reports, hasLength(1));
 
       releaseReport.complete(
-        const GemPurchaseReport(status: GemPurchaseReportStatus.completed),
+        const GemPurchaseReport(
+          status: GemPurchaseReportStatus.completed,
+          grantedGemsCent: 55000,
+        ),
       );
       await recovery;
       await _settle();
@@ -1941,8 +1957,8 @@ const _product = GemProduct(
   productId: 'gem_pack_500',
   appleProductId: 'com.worldo.gems.500',
   googleProductId: 'worldo_gems_500',
-  baseGems: 500,
-  bonusGems: 50,
+  baseGemsCent: 50000,
+  bonusGemsCent: 5000,
   priceCurrencyCode: 'USD',
   priceAmount: 149,
   canPurchase: true,

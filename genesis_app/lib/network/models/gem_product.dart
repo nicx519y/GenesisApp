@@ -1,4 +1,5 @@
 import '../json_utils.dart';
+import '../../utils/gem_amount.dart';
 
 class GemProductList {
   const GemProductList({required this.products});
@@ -21,8 +22,8 @@ class GemProduct {
     required this.productId,
     required this.appleProductId,
     required this.googleProductId,
-    required this.baseGems,
-    required this.bonusGems,
+    required this.baseGemsCent,
+    required this.bonusGemsCent,
     required this.priceCurrencyCode,
     required this.priceAmount,
     required this.canPurchase,
@@ -42,8 +43,14 @@ class GemProduct {
       productId: asString(json['product_id']),
       appleProductId: asString(json['apple_product_id']),
       googleProductId: asString(json['google_product_id']),
-      baseGems: asInt(json['base_gems']),
-      bonusGems: asInt(json['bonus_gems']),
+      baseGemsCent: requireGemCent(
+        json['base_gems_cent'],
+        fieldName: 'base_gems_cent',
+      ),
+      bonusGemsCent: requireGemCent(
+        json['bonus_gems_cent'],
+        fieldName: 'bonus_gems_cent',
+      ),
       priceCurrencyCode: asString(
         json['price_currency_code'],
         fallback: 'USD',
@@ -73,8 +80,8 @@ class GemProduct {
   final String productId;
   final String appleProductId;
   final String googleProductId;
-  final int baseGems;
-  final int bonusGems;
+  final int baseGemsCent;
+  final int bonusGemsCent;
   final String priceCurrencyCode;
   final int priceAmount;
   final bool canPurchase;
@@ -85,7 +92,7 @@ class GemProduct {
   final String googlePurchaseOptionId;
   final String googleOfferId;
 
-  int get totalGems => baseGems + bonusGems;
+  int get totalGemsCent => baseGemsCent + bonusGemsCent;
 
   String get tagText => activityText.trim();
 }

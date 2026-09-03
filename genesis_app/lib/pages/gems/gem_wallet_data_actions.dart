@@ -111,7 +111,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
     final status = _taskStatus(task);
     if (status == 'claimed') return;
     if (status == 'claimable') {
-      await _claimTaskReward(taskCode, rewardGems: task.rewardGems);
+      await _claimTaskReward(taskCode, rewardGemsCent: task.rewardGemsCent);
       return;
     }
     if (status != 'in_progress') return;
@@ -154,7 +154,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
         );
         return;
       case 'daily_checkin':
-        await _reportTaskAction(taskCode, rewardGems: task.rewardGems);
+        await _reportTaskAction(taskCode, rewardGemsCent: task.rewardGemsCent);
         return;
       case 'discord_follow':
         await Future.wait<void>([_openDiscord(), _reportTaskAction(taskCode)]);
@@ -205,7 +205,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
 
   Future<void> _reportTaskAction(
     String taskCode, {
-    int rewardGems = dailyCheckInPreviewReward,
+    int rewardGemsCent = dailyCheckInPreviewRewardCent,
   }) async {
     if (!_beginTaskAction(taskCode)) return;
     final isDailyCheckIn = taskCode == dailyCheckInTaskCode;
@@ -232,7 +232,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
       if (isDailyCheckIn && mounted) {
         final successDialog = showDailyCheckInSuccessDialog(
           context,
-          rewardGems: rewardGems,
+          rewardGemsCent: rewardGemsCent,
         );
         unawaited(_refreshTasksAndWallet());
         await successDialog;
@@ -255,7 +255,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
 
   Future<void> _claimTaskReward(
     String taskCode, {
-    int rewardGems = dailyCheckInPreviewReward,
+    int rewardGemsCent = dailyCheckInPreviewRewardCent,
   }) async {
     if (!_beginTaskAction(taskCode)) return;
     try {
@@ -268,11 +268,14 @@ extension _GemWalletDataActions on _GemWalletPageState {
       trackGemTaskClaimedIfNeeded(taskCode: taskCode, status: result.status);
       _updateState(() => _taskStatusOverrides[taskCode] = result.status);
       final successDialog = taskCode == dailyCheckInTaskCode
-          ? showDailyCheckInSuccessDialog(context, rewardGems: rewardGems)
+          ? showDailyCheckInSuccessDialog(
+              context,
+              rewardGemsCent: rewardGemsCent,
+            )
           : showGemTaskSuccessDialog(
               context,
               title: 'Claim successful!',
-              rewardGems: rewardGems,
+              rewardGemsCent: rewardGemsCent,
             );
       unawaited(_refreshTasksAndWallet());
       await successDialog;

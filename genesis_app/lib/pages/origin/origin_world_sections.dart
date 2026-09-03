@@ -276,6 +276,7 @@ List<Widget> _originInitialDialogueSlivers(
   _OriginInitialDialoguePreview preview, {
   Key? contentStartKey,
   Key? messageEndKey,
+  bool eager = false,
 }) {
   final style = kLocationChatStyle.copyWith(bubbleBackdropBlurSigma: 0);
   final padding = style.messageListPadding;
@@ -317,16 +318,18 @@ List<Widget> _originInitialDialogueSlivers(
 
   return <Widget>[
     SliverToBoxAdapter(
-      child: _OriginOpeningLocationHeader(
-        locationName: preview.locationName,
-        contentStartKey: contentStartKey,
-        horizontalPadding: padding,
-        topPadding: locationTopPadding,
-        iconColor: originWorldDetailSheetPrimaryTextColor,
-        iconGap: style.headerTitleIconGap,
-        textStyle: style.headerTitleTextStyle.copyWith(
-          color: originWorldDetailSheetPrimaryTextColor,
-          fontSize: 14,
+      child: RepaintBoundary(
+        child: _OriginOpeningLocationHeader(
+          locationName: preview.locationName,
+          contentStartKey: contentStartKey,
+          horizontalPadding: padding,
+          topPadding: locationTopPadding,
+          iconColor: originWorldDetailSheetPrimaryTextColor,
+          iconGap: style.headerTitleIconGap,
+          textStyle: style.headerTitleTextStyle.copyWith(
+            color: originWorldDetailSheetPrimaryTextColor,
+            fontSize: 14,
+          ),
         ),
       ),
     ),
@@ -338,14 +341,34 @@ List<Widget> _originInitialDialogueSlivers(
         padding.right,
         originOpeningDialogueRoleGapForTesting,
       ),
-      sliver: SliverToBoxAdapter(
-        child: Column(
-          children: [
-            for (var index = 0; index < preview.messages.length; index += 1)
-              Builder(builder: (context) => buildMessage(context, index)),
-          ],
-        ),
-      ),
+      sliver: eager
+          ? SliverToBoxAdapter(
+              // Keyboard geometry needs the exact variable-height content
+              // bottom. Keep that one eager layout, but isolate its paint as
+              // a stable subtree while keyboard frames translate the group.
+              child: RepaintBoundary(
+                child: Column(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < preview.messages.length;
+                      index += 1
+                    )
+                      Builder(
+                        builder: (context) => buildMessage(context, index),
+                      ),
+                  ],
+                ),
+              ),
+            )
+          : SliverList(
+              delegate: SliverChildBuilderDelegate(
+                buildMessage,
+                childCount: preview.messages.length,
+                addAutomaticKeepAlives: false,
+                addRepaintBoundaries: true,
+              ),
+            ),
     ),
   ];
 }
@@ -417,37 +440,39 @@ List<Widget> _originWorldoBriefSlivers(
   final padding = kLocationChatStyle.messageListPadding;
   return <Widget>[
     SliverToBoxAdapter(
-      child: Padding(
-        key: const ValueKey<String>('origin-opening-worldo-brief'),
-        padding: EdgeInsets.fromLTRB(
-          padding.left,
-          6,
-          padding.right,
-          originDetailSectionGapForTesting,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Worldo Brief',
-              key: contentStartKey,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 14,
-                height: 1.2,
-                fontWeight: FontWeight.w600,
-                color: originWorldDetailSheetPrimaryTextColor,
-                decoration: TextDecoration.none,
+      child: RepaintBoundary(
+        child: Padding(
+          key: const ValueKey<String>('origin-opening-worldo-brief'),
+          padding: EdgeInsets.fromLTRB(
+            padding.left,
+            6,
+            padding.right,
+            originDetailSectionGapForTesting,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Worldo Brief',
+                key: contentStartKey,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.2,
+                  fontWeight: FontWeight.w600,
+                  color: originWorldDetailSheetPrimaryTextColor,
+                  decoration: TextDecoration.none,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              brief,
-              key: const ValueKey<String>('origin-opening-worldo-brief-body'),
-              style: _bodyTextStyle.copyWith(fontSize: 14),
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                brief,
+                key: const ValueKey<String>('origin-opening-worldo-brief-body'),
+                style: _bodyTextStyle.copyWith(fontSize: 14),
+              ),
+            ],
+          ),
         ),
       ),
     ),

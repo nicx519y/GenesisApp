@@ -585,11 +585,11 @@ class _GemsBalanceEntry extends StatelessWidget {
     if (listenable == null) return _buildEntry(context, null);
     return ValueListenableBuilder<GemWalletState>(
       valueListenable: listenable,
-      builder: (context, state, _) => _buildEntry(context, state.balance),
+      builder: (context, state, _) => _buildEntry(context, state.balanceCent),
     );
   }
 
-  Widget _buildEntry(BuildContext context, int? balance) {
+  Widget _buildEntry(BuildContext context, int? balanceCent) {
     return GestureDetector(
       key: const ValueKey('user-profile-gems-entry'),
       behavior: HitTestBehavior.opaque,
@@ -662,9 +662,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                                 children: [
                                   Flexible(
                                     child: Text(
-                                      balance == null
-                                          ? '0'
-                                          : _formatGemBalance(balance),
+                                      formatGemCent(balanceCent ?? 0),
                                       key: const ValueKey(
                                         'user-profile-gems-balance',
                                       ),
@@ -789,17 +787,6 @@ class _ProfileTabTextMetrics {
 
   final Size size;
   final double baseline;
-}
-
-String _formatGemBalance(int value) {
-  final text = value.toString();
-  final buffer = StringBuffer();
-  for (var i = 0; i < text.length; i += 1) {
-    final remaining = text.length - i;
-    buffer.write(text[i]);
-    if (remaining > 1 && remaining % 3 == 1) buffer.write(',');
-  }
-  return buffer.toString();
 }
 
 class _ProfilePullOffsetTransition extends StatelessWidget {

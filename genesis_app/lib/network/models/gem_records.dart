@@ -1,4 +1,5 @@
 import '../json_utils.dart';
+import '../../utils/gem_amount.dart';
 
 class GemRecordList {
   const GemRecordList({
@@ -34,7 +35,7 @@ class GemRecordList {
 class GemRecordItem {
   const GemRecordItem({
     required this.ledgerId,
-    required this.amount,
+    required this.amountCent,
     required this.scene,
     required this.reasonCode,
     required this.title,
@@ -52,7 +53,7 @@ class GemRecordItem {
         : const <String, dynamic>{};
     return GemRecordItem(
       ledgerId: asString(json['ledger_id']),
-      amount: asInt(json['amount']),
+      amountCent: requireGemCent(json['amount_cent'], fieldName: 'amount_cent'),
       scene: asString(json['scene']),
       reasonCode: asString(json['reason_code']),
       title: asString(json['title']),
@@ -96,7 +97,7 @@ class GemRecordItem {
   }
 
   final String ledgerId;
-  final int amount;
+  final int amountCent;
   final String scene;
   final String reasonCode;
   final String title;

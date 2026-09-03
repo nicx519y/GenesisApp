@@ -275,7 +275,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
             productId: record.productId,
             attemptId: record.attemptId,
             message: 'Purchase successful!',
-            grantedGems: report.grantedGems,
+            grantedGemsCent: report.grantedGemsCent!,
           ),
         );
       }
@@ -410,7 +410,7 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
           productId: record.productId,
           attemptId: record.attemptId,
           message: 'Purchase successful!',
-          grantedGems: report.grantedGems,
+          grantedGemsCent: report.grantedGemsCent!,
         ),
       );
       _refreshWalletInBackground();

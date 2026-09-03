@@ -21,7 +21,7 @@ typedef AppPerformanceTraceFactory =
 class FirebasePerformanceMonitoring {
   const FirebasePerformanceMonitoring._();
 
-  static const Duration instrumentationTimeout = Duration(milliseconds: 400);
+  static const Duration instrumentationTimeout = Duration(milliseconds: 500);
 
   static bool _ready = false;
   static bool _circuitBroken = false;

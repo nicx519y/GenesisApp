@@ -46,7 +46,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         _emitBalanceAlert(
           GemBalanceAlert(
             kind: GemBalanceAlertKind.low,
-            balance: e.balance,
+            balanceCent: e.balanceCent,
             message: e.message,
           ),
         );
