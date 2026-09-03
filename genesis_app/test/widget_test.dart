@@ -8137,6 +8137,93 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Origin composer stays visible when focus replaces collapsed role overlay',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final roleVisibility = find.byKey(
+        const ValueKey<String>('origin-opening-select-role-visibility'),
+      );
+      final composerVisibility = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer-visibility'),
+      );
+      final composer = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer'),
+      );
+      final editable = find.descendant(
+        of: composer,
+        matching: find.byType(EditableText),
+      );
+
+      expect(tester.widget<IgnorePointer>(roleVisibility).ignoring, isFalse);
+      expect(tester.widget<IgnorePointer>(composerVisibility).ignoring, isTrue);
+      final startComposerTop = tester.getTopLeft(composer).dy;
+      tester.widget<EditableText>(editable).focusNode.requestFocus();
+
+      await tester.pump();
+      await tester.pump();
+      expect(tester.widget<IgnorePointer>(roleVisibility).ignoring, isTrue);
+      expect(
+        tester.widget<IgnorePointer>(composerVisibility).ignoring,
+        isFalse,
+      );
+      expect(
+        (tester.widget<IgnorePointer>(composerVisibility).child! as Opacity)
+            .opacity,
+        1,
+      );
+      expect(
+        tester.getTopLeft(composer).dy,
+        closeTo(startComposerTop, 1),
+        reason:
+            'The keyboard layer must take over at the exact collapsed composer '
+            'coordinate.',
+      );
+
+      var previousTop = tester.getTopLeft(composer).dy;
+      for (final keyboardInset in <double>[0, 150, 300]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+        await tester.pump();
+        final currentTop = tester.getTopLeft(composer).dy;
+        final currentBottom = tester.getBottomLeft(composer).dy;
+        expect(
+          (tester.widget<IgnorePointer>(composerVisibility).child! as Opacity)
+              .opacity,
+          1,
+          reason: 'The focused composer must never disappear between layers.',
+        );
+        expect(
+          currentTop,
+          lessThanOrEqualTo(previousTop + 1),
+          reason:
+              'The focused composer must not drop before following the keyboard.',
+        );
+        expect(
+          currentBottom,
+          lessThanOrEqualTo(780 - keyboardInset + 1),
+          reason:
+              'The composer bottom must never move behind the actual keyboard.',
+        );
+        previousTop = currentTop;
+      }
+    },
+  );
+
   testWidgets('origin detail sheet pauses all Tilemap animations', (
     WidgetTester tester,
   ) async {

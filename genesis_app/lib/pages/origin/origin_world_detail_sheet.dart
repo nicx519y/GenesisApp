@@ -780,6 +780,7 @@ class _OriginDetailDraggableSheetState
 
   double _expandedOpeningComposerProgress(BuildContext context) {
     if (_roleEditing.value) return 0;
+    if (_openingKeyboardMode) return 1;
     final sheetExtent = _sheetController.isAttached
         ? _sheetController.size
         : widget.initiallyExpanded
@@ -1134,6 +1135,9 @@ class _OriginDetailDraggableSheetState
                           right: 0,
                           top: _sheetInteraction.composerTop(
                             constraints.maxHeight,
+                            actualKeyboardInset: MediaQuery.viewInsetsOf(
+                              context,
+                            ).bottom,
                           ),
                           child: child!,
                         ),

@@ -60,6 +60,19 @@ double originOpeningKeyboardComposerTopForTesting({
 }
 
 @visibleForTesting
+double originOpeningKeyboardVisibleComposerTopForTesting({
+  required double animatedTop,
+  required double sheetHeight,
+  required double composerHeight,
+  required double actualKeyboardInset,
+}) {
+  final inset = actualKeyboardInset.clamp(0.0, sheetHeight).toDouble();
+  if (inset <= 0.5) return animatedTop;
+  final keyboardBoundTop = sheetHeight - inset - composerHeight;
+  return math.min(animatedTop, keyboardBoundTop);
+}
+
+@visibleForTesting
 double originOpeningKeyboardContentTargetOffsetForTesting({
   required double layoutOffset,
   required double preservedOffset,
@@ -334,8 +347,11 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
-  double composerTop(double sheetHeight) {
-    return originOpeningKeyboardComposerTopForTesting(
+  double composerTop(
+    double sheetHeight, {
+    required double actualKeyboardInset,
+  }) {
+    final animatedTop = originOpeningKeyboardComposerTopForTesting(
       startTop:
           _keyboardPhase == _OriginOpeningKeyboardPhase.closing ||
               _keyboardPhase == _OriginOpeningKeyboardPhase.restoring
@@ -347,6 +363,12 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
       composerHeight: _composerHeight,
       keyboardInset: _keyboardTargetInset,
       progress: _keyboardProgress,
+    );
+    return originOpeningKeyboardVisibleComposerTopForTesting(
+      animatedTop: animatedTop,
+      sheetHeight: sheetHeight,
+      composerHeight: _composerHeight,
+      actualKeyboardInset: actualKeyboardInset,
     );
   }
 

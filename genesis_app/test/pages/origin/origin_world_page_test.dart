@@ -238,6 +238,41 @@ void main() {
     expect(finalTop + composerHeight, sheetHeight - keyboardInset);
   });
 
+  test('origin opening composer never falls behind the actual keyboard', () {
+    expect(
+      originOpeningKeyboardVisibleComposerTopForTesting(
+        animatedTop: 620,
+        sheetHeight: 780,
+        composerHeight: 100,
+        actualKeyboardInset: 300,
+      ),
+      380,
+      reason:
+          'A stale animation frame is clamped so the composer bottom remains '
+          'at the actual keyboard top.',
+    );
+    expect(
+      originOpeningKeyboardVisibleComposerTopForTesting(
+        animatedTop: 300,
+        sheetHeight: 780,
+        composerHeight: 100,
+        actualKeyboardInset: 300,
+      ),
+      300,
+      reason: 'A composer already above the keyboard must not be pushed down.',
+    );
+    expect(
+      originOpeningKeyboardVisibleComposerTopForTesting(
+        animatedTop: 620,
+        sheetHeight: 780,
+        composerHeight: 100,
+        actualKeyboardInset: 0,
+      ),
+      620,
+      reason: 'The keyboard bound is inactive after the keyboard is closed.',
+    );
+  });
+
   test('origin opening keyboard distinguishes short and scrolled content', () {
     expect(
       originOpeningKeyboardContentTargetOffsetForTesting(
