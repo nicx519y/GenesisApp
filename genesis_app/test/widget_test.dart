@@ -9981,7 +9981,7 @@ void main() {
         recommendedFrame.foregroundDecoration! as BoxDecoration;
     expect(
       (recommendedOutline.border! as Border).top.color,
-      Colors.white.withValues(alpha: 0.95),
+      const Color(0x73FF2442),
     );
     expect((recommendedOutline.border! as Border).top.width, 1);
     expect(
@@ -10121,7 +10121,7 @@ void main() {
     );
     expect(
       (regularOutline.border! as Border).top.color,
-      Colors.white.withValues(alpha: 0.95),
+      const Color(0x73FF2442),
     );
     expect((regularOutline.border! as Border).top.width, 1);
     expect(tester.widget<Text>(rolePillLabel).data, 'Regular role');
@@ -10139,7 +10139,7 @@ void main() {
     );
     expect(
       (selectedDot.decoration! as BoxDecoration).color,
-      Colors.white.withValues(alpha: 0.95),
+      const Color(0x73FF2442),
     );
   });
 
@@ -10860,7 +10860,7 @@ void main() {
               as Border)
           .top
           .color,
-      Colors.white.withValues(alpha: 0.95),
+      const Color(0x73FF2442),
     );
     expect(
       ((selectedProfileFrame.foregroundDecoration! as BoxDecoration).border!
@@ -11130,7 +11130,7 @@ void main() {
               as Border)
           .top
           .color,
-      Colors.white.withValues(alpha: 0.95),
+      const Color(0x73FF2442),
     );
     tester
         .widget<GestureDetector>(
@@ -12963,7 +12963,7 @@ void main() {
               as BoxDecoration;
       expect(
         (selectedPresetDecoration.border! as Border).top.color,
-        Colors.white.withValues(alpha: 0.95),
+        const Color(0x73FF2442),
       );
       expect((selectedPresetDecoration.border! as Border).top.width, 1);
       expect(
