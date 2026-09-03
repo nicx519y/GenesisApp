@@ -369,6 +369,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
             text: widget.error == null
                 ? 'No events yet.'
                 : 'Load events failed.',
+            fontSize: 14,
           ),
         ],
       );

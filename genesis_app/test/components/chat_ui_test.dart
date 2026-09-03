@@ -2392,9 +2392,13 @@ void main() {
       find.byKey(const ValueKey<String>('chat-sender-name-scene-player')),
     );
     expect(aiName.style?.color, const Color(0xFFF4F3F6));
+    expect(
+      find.byKey(const ValueKey<String>('chat-sender-name-scene-self')),
+      findsNothing,
+    );
     expect(aiTime.style?.fontSize, 10);
     expect(aiTime.style?.color?.a, closeTo(0.45, 0.001));
-    expect(playerName.style?.color, GenesisColors.create);
+    expect(playerName.style?.color, aiName.style?.color);
   });
 
   testWidgets('ordinary bubble caps affect self and other but not system', (

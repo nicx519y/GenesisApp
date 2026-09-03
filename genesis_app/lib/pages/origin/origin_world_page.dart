@@ -118,6 +118,9 @@ const double originDetailSheetPageIndicatorTopOffsetForTesting = 4;
 const double originDetailSectionGapForTesting = 24;
 
 @visibleForTesting
+const double originOpeningDialogueRoleGapForTesting = 36;
+
+@visibleForTesting
 const double originDetailSectionTitleIconGapForTesting = 8;
 
 enum _OriginWorldPageRenderStage { framework, detailShell, content }
@@ -742,42 +745,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     _closeLocationChat();
   }
 
-  Future<void> _selectAndLaunchPresetRole(
-    OriginDetail origin,
-    OriginCharacter character,
-  ) async {
-    if (_launching) return;
-    if (!await ensureGenesisLogin(context)) return;
-    if (!mounted) return;
-    final characterId = _characterStableId(character);
-    if (characterId.isEmpty) return;
-    await _launchOrigin(
-      origin,
-      OriginRoleLaunchSelection.preset(characterId),
-      telemetryRoleId: characterId,
-      launchSource: OriginLaunchSource.openingSelect,
-      initialLocationId:
-          _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
-    );
-  }
-
-  Future<void> _selectAndLaunchProfileRole(
-    OriginDetail origin,
-    OriginCustomRoleDraft profileRole,
-  ) async {
-    if (_launching) return;
-    if (!await ensureGenesisLogin(context)) return;
-    if (!mounted) return;
-    await _launchOrigin(
-      origin,
-      OriginRoleLaunchSelection.custom(profileRole),
-      telemetryRoleId: 'current_user',
-      launchSource: OriginLaunchSource.openingSelect,
-      initialLocationId:
-          _originFirstInitialDialoguePreview(origin)?.locationId ?? '',
-    );
-  }
-
   void _enterLaunchedWorld(
     String worldId, {
     String initialLocationId = '',
@@ -1127,11 +1094,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 _enterLaunchedWorld(worldId);
               },
               profileRole: _openingProfileRole,
-              onSelectRole: (character) =>
-                  _selectAndLaunchPresetRole(origin, character),
               onSaveProfileRole: _saveProfileRoleLocally,
-              onSelectProfileRole: (profileRole) =>
-                  _selectAndLaunchProfileRole(origin, profileRole),
               locationChatRole: _locationChatRoleOption(origin),
               onSelectLocationChatRole: (roleId) =>
                   _selectLocationChatRole(roleId),

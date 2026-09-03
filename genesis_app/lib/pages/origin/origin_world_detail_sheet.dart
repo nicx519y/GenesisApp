@@ -77,9 +77,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.launchedPresetRoles,
     required this.onEnterLaunchedWorld,
     required this.profileRole,
-    required this.onSelectRole,
     required this.onSaveProfileRole,
-    required this.onSelectProfileRole,
     required this.locationChatRole,
     required this.onSelectLocationChatRole,
     required this.onSendLocationChatMessage,
@@ -100,9 +98,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final List<OriginMyLaunchPresetCharacter>? launchedPresetRoles;
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
   final OriginCustomRoleDraft? profileRole;
-  final Future<void> Function(OriginCharacter character) onSelectRole;
   final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
-  final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
   final _OriginLocationChatRoleOption locationChatRole;
   final ValueChanged<String> onSelectLocationChatRole;
   final Future<bool> Function(
@@ -159,11 +155,19 @@ class _OriginDetailDraggableSheetState
   var _autoExpansionPaintCompletionScheduled = false;
   Timer? _extentSettleTimer;
   Completer<void>? _extentSettleCompleter;
+  var _roleEditorKeyboardWasVisible = false;
+  var _roleEditorBottomRestoreGeneration = 0;
+  var _openingMessageKeyboardWasActive = false;
+  var _openingMessageBottomRestoreGeneration = 0;
+  var _expandedOpeningComposerHeightWithoutSafeArea = 0.0;
 
   PageController get _pageController => _sheetInteraction.pageController;
   int get _currentPage => _sheetInteraction.currentPage;
-  bool get _openingComposerDocked => _sheetInteraction.openingComposerDocked;
-  double get _expandedOpeningComposerHeight => _sheetInteraction.composerHeight;
+  double _expandedOpeningComposerReservedHeight(BuildContext context) {
+    return _expandedOpeningComposerHeightWithoutSafeArea +
+        GenesisSafeAreaInsets.bottom(context);
+  }
+
   bool get _openingKeyboardMode => _sheetInteraction.keyboardMode;
   _OriginOpeningKeyboardPhase get _openingKeyboardPhase =>
       _sheetInteraction.keyboardPhase;
@@ -203,8 +207,6 @@ class _OriginDetailDraggableSheetState
           _initialDialoguePreview?.messages.isNotEmpty == true
           ? originDetailSectionGapForTesting
           : 0,
-      readComposerBottomSafeAreaInset: () =>
-          GenesisSafeAreaInsets.bottom(context),
       onPageSelected: _handleInteractionPageSelected,
     )..addListener(_handleSheetInteractionChanged);
     _scheduleDiscussPreloadAfterPaint();
@@ -242,6 +244,8 @@ class _OriginDetailDraggableSheetState
     _extentCommandGeneration += 1;
     WidgetsBinding.instance.removeObserver(this);
     _cancelExtentSettleWait();
+    _roleEditorBottomRestoreGeneration += 1;
+    _openingMessageBottomRestoreGeneration += 1;
     if (!_sheetReady.isCompleted) {
       _sheetReady.complete();
     }
@@ -575,7 +579,32 @@ class _OriginDetailDraggableSheetState
   }
 
   void _handleSheetInteractionChanged() {
+    final keyboardMode = _openingKeyboardMode;
+    if (_openingMessageKeyboardWasActive && !keyboardMode) {
+      _scheduleOpeningMessagePageBottomRestore();
+    } else if (keyboardMode) {
+      _openingMessageBottomRestoreGeneration += 1;
+    }
+    _openingMessageKeyboardWasActive = keyboardMode;
     if (mounted) setState(() {});
+  }
+
+  void _scheduleOpeningMessagePageBottomRestore() {
+    final generation = ++_openingMessageBottomRestoreGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          generation != _openingMessageBottomRestoreGeneration ||
+          _openingKeyboardMode ||
+          _currentOpeningKeyboardInset() > 0.5 ||
+          _currentPage != _originOpeningSheetPageIndex) {
+        return;
+      }
+      final scrollController = _sheetScrollController;
+      if (scrollController == null || !scrollController.hasClients) return;
+      final position = scrollController.position;
+      position.jumpTo(position.maxScrollExtent);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _handleInteractionPageSelected(int page) {
@@ -599,7 +628,40 @@ class _OriginDetailDraggableSheetState
   @override
   void didChangeMetrics() {
     if (!mounted) return;
-    _sheetInteraction.handleKeyboardMetrics(_currentOpeningKeyboardInset());
+    final keyboardInset = _currentOpeningKeyboardInset();
+    _handleRoleEditorKeyboardMetrics(keyboardInset);
+    _sheetInteraction.handleKeyboardMetrics(keyboardInset);
+  }
+
+  void _handleRoleEditorKeyboardMetrics(double keyboardInset) {
+    if (keyboardInset > 0.5) {
+      if (_roleEditing.value && !_openingKeyboardMode) {
+        _roleEditorKeyboardWasVisible = true;
+      } else {
+        _roleEditorBottomRestoreGeneration += 1;
+      }
+      return;
+    }
+    if (!_roleEditorKeyboardWasVisible) return;
+    _roleEditorKeyboardWasVisible = false;
+    final generation = ++_roleEditorBottomRestoreGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _restoreRoleEditorPageToBottom(generation);
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _restoreRoleEditorPageToBottom(int generation) {
+    if (!mounted ||
+        generation != _roleEditorBottomRestoreGeneration ||
+        _currentOpeningKeyboardInset() > 0.5 ||
+        _openingKeyboardMode) {
+      return;
+    }
+    final scrollController = _sheetScrollController;
+    if (scrollController == null || !scrollController.hasClients) return;
+    final position = scrollController.position;
+    position.jumpTo(position.maxScrollExtent);
   }
 
   double _currentOpeningKeyboardInset() {
@@ -665,10 +727,6 @@ class _OriginDetailDraggableSheetState
 
   void _handleOpeningComposerFocusChanged(bool hasFocus) {
     _sheetInteraction.handleComposerFocusChanged(hasFocus);
-  }
-
-  void _reportOpeningComposerDocked(bool docked) {
-    _sheetInteraction.reportOpeningComposerDocked(docked);
   }
 
   bool _handlePageScrollEnd(ScrollEndNotification notification) {
@@ -781,7 +839,6 @@ class _OriginDetailDraggableSheetState
   }
 
   double _expandedOpeningComposerProgress(BuildContext context) {
-    if (_roleEditing.value) return 0;
     if (_openingKeyboardMode) return 1;
     final sheetExtent = _sheetController.isAttached
         ? _sheetController.size
@@ -801,6 +858,21 @@ class _OriginDetailDraggableSheetState
       final height =
           _expandedOpeningComposerMeasureKey.currentContext?.size?.height;
       if (height == null) return;
+      final includedBottomSafeArea = MediaQuery.viewInsetsOf(context).bottom > 0
+          ? 0.0
+          : GenesisSafeAreaInsets.bottom(context);
+      final heightWithoutSafeArea = math.max(
+        0.0,
+        height - includedBottomSafeArea,
+      );
+      if ((_expandedOpeningComposerHeightWithoutSafeArea -
+                  heightWithoutSafeArea)
+              .abs() >
+          0.5) {
+        setState(() {
+          _expandedOpeningComposerHeightWithoutSafeArea = heightWithoutSafeArea;
+        });
+      }
       _sheetInteraction.updateComposerHeight(height);
     });
     WidgetsBinding.instance.ensureVisualUpdate();
@@ -896,15 +968,28 @@ class _OriginDetailDraggableSheetState
       animation: _roleEditing,
       builder: (context, _) {
         final roleEditing = _roleEditing.value;
+        final roleEditorKeyboardVisible =
+            roleEditing &&
+            !_openingKeyboardMode &&
+            MediaQuery.viewInsetsOf(context).bottom > 0;
         return KeyedSubtree(
           key: const ValueKey<String>('origin-detail-sheet-page-Opening'),
           child: Scaffold(
             backgroundColor: Colors.transparent,
             extendBody: true,
-            resizeToAvoidBottomInset: !roleEditing && !_openingKeyboardMode,
-            bottomNavigationBar:
-                !roleEditing && !composerLifted && _openingComposerDocked
-                ? flowComposer
+            resizeToAvoidBottomInset:
+                !roleEditorKeyboardVisible && !_openingKeyboardMode,
+            bottomNavigationBar: !composerLifted && flowComposer != null
+                ? IgnorePointer(
+                    key: const ValueKey<String>(
+                      'origin-opening-composer-role-edit-visibility',
+                    ),
+                    ignoring: roleEditorKeyboardVisible,
+                    child: Offstage(
+                      offstage: roleEditorKeyboardVisible,
+                      child: flowComposer,
+                    ),
+                  )
                 : null,
             body: LayoutBuilder(
               builder: (context, constraints) {
@@ -981,10 +1066,8 @@ class _OriginDetailDraggableSheetState
                                         _openingKeyboardMode && !hasOpeningBrief
                                         ? _openingKeyboardContentStartKey
                                         : null,
-                                    messageEndKey: _openingKeyboardMode
-                                        ? _openingKeyboardMessageEndKey
-                                        : null,
-                                    eager: _openingKeyboardMode,
+                                    messageEndKey:
+                                        _openingKeyboardMessageEndKey,
                                   )
                                 else ...[
                                   if (initialDialoguePreview != null)
@@ -997,14 +1080,12 @@ class _OriginDetailDraggableSheetState
                                               !hasOpeningBrief
                                           ? _openingKeyboardContentStartKey
                                           : null,
-                                      eager: _openingKeyboardMode,
                                     ),
-                                  if (_openingKeyboardMode)
-                                    SliverToBoxAdapter(
-                                      child: SizedBox(
-                                        key: _openingKeyboardMessageEndKey,
-                                      ),
+                                  SliverToBoxAdapter(
+                                    child: SizedBox(
+                                      key: _openingKeyboardMessageEndKey,
                                     ),
+                                  ),
                                 ],
                               ],
                             ),
@@ -1024,39 +1105,6 @@ class _OriginDetailDraggableSheetState
                               );
                             },
                           ),
-                          if (openingComposer != null)
-                            SliverLayoutBuilder(
-                              key: const ValueKey<String>(
-                                'origin-opening-composer-layout-boundary',
-                              ),
-                              builder: (context, constraints) {
-                                if (!_openingKeyboardMode) {
-                                  final effectiveDocked = _sheetInteraction
-                                      .effectiveOpeningComposerDocked;
-                                  _reportOpeningComposerDocked(
-                                    originOpeningComposerShouldDockForTesting(
-                                      remainingPaintExtent:
-                                          constraints.remainingPaintExtent,
-                                      composerHeight:
-                                          _expandedOpeningComposerHeight,
-                                      currentlyDocked: effectiveDocked,
-                                    ),
-                                  );
-                                }
-                                return SliverToBoxAdapter(
-                                  child:
-                                      _openingComposerDocked || composerLifted
-                                      ? SizedBox(
-                                          key: const ValueKey<String>(
-                                            'origin-opening-composer-placeholder',
-                                          ),
-                                          height:
-                                              _expandedOpeningComposerHeight,
-                                        )
-                                      : flowComposer ?? const SizedBox.shrink(),
-                                );
-                              },
-                            ),
                           SliverToBoxAdapter(
                             child: IgnorePointer(
                               ignoring: _openingKeyboardMode,
@@ -1069,43 +1117,34 @@ class _OriginDetailDraggableSheetState
                                   roleAvatarSnapshots:
                                       widget.roleAvatarSnapshots,
                                   launchBusy: widget.activeLaunchSource != null,
-                                  launching:
-                                      widget.activeLaunchSource ==
-                                      OriginLaunchSource.openingSelect,
                                   profileRole: widget.profileRole,
                                   selectedRoleId: widget.locationChatRole.id,
                                   onSelectedRoleChanged:
                                       widget.onSelectLocationChatRole,
-                                  onSelectRole: widget.onSelectRole,
                                   onSaveProfileRole: widget.onSaveProfileRole,
-                                  onSelectProfileRole:
-                                      widget.onSelectProfileRole,
                                   onRoleEditingChanged:
                                       _handleRoleEditingChanged,
                                 ),
                               ),
                             ),
                           ),
-                          SliverToBoxAdapter(
-                            child: IgnorePointer(
-                              ignoring: _openingKeyboardMode,
-                              child: Opacity(
-                                opacity: _openingKeyboardMode ? 0 : 1,
-                                child: ValueListenableBuilder<bool>(
-                                  valueListenable: _roleEditing,
-                                  builder: (context, editing, child) =>
-                                      SizedBox(
-                                        height: editing
-                                            ? _OriginSetupRoleSection
-                                                      ._cardWidth +
-                                                  _OriginSetupRoleSection
-                                                      ._buttonHeight
-                                            : 0,
-                                      ),
+                          if (openingComposer != null)
+                            SliverToBoxAdapter(
+                              child: SizedBox(
+                                key: const ValueKey<String>(
+                                  'origin-opening-docked-composer-bottom-spacer',
+                                ),
+                                height: math.max(
+                                  0,
+                                  _expandedOpeningComposerReservedHeight(
+                                        context,
+                                      ) -
+                                      _OriginSetupRoleSection._bottomPadding +
+                                      _OriginSetupRoleSection
+                                          ._composerClearance,
                                 ),
                               ),
                             ),
-                          ),
                           if (_openingKeyboardMode)
                             AnimatedBuilder(
                               animation:
@@ -1265,7 +1304,8 @@ class _OriginDetailDraggableSheetState
                             ),
                           ),
                           builder: (context, roleEditing, child) {
-                            final roleEditorKeyboardInset = roleEditing
+                            final roleEditorKeyboardInset =
+                                roleEditing && !_openingKeyboardMode
                                 ? MediaQuery.viewInsetsOf(context).bottom
                                       .clamp(
                                         0.0,

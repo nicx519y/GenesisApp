@@ -276,7 +276,6 @@ List<Widget> _originInitialDialogueSlivers(
   _OriginInitialDialoguePreview preview, {
   Key? contentStartKey,
   Key? messageEndKey,
-  bool eager = false,
 }) {
   final style = kLocationChatStyle.copyWith(bubbleBackdropBlurSigma: 0);
   final padding = style.messageListPadding;
@@ -337,27 +336,16 @@ List<Widget> _originInitialDialogueSlivers(
         padding.left,
         0,
         padding.right,
-        originDetailSectionGapForTesting,
+        originOpeningDialogueRoleGapForTesting,
       ),
-      sliver: eager
-          ? SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  for (
-                    var index = 0;
-                    index < preview.messages.length;
-                    index += 1
-                  )
-                    Builder(builder: (context) => buildMessage(context, index)),
-                ],
-              ),
-            )
-          : SliverList(
-              delegate: SliverChildBuilderDelegate(
-                buildMessage,
-                childCount: preview.messages.length,
-              ),
-            ),
+      sliver: SliverToBoxAdapter(
+        child: Column(
+          children: [
+            for (var index = 0; index < preview.messages.length; index += 1)
+              Builder(builder: (context) => buildMessage(context, index)),
+          ],
+        ),
+      ),
     ),
   ];
 }

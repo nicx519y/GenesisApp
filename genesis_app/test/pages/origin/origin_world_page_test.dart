@@ -91,10 +91,17 @@ void main() {
     expect(originWorldDetailSheetSource, contains('showShortcuts: false'));
     expect(originWorldDetailSheetSource, contains('enableMentionSheet: false'));
     expect(originWorldDetailSheetSource, contains('roleBorderRadius: 8'));
-    expect(originWorldDetailSheetSource, contains('SliverLayoutBuilder('));
     expect(
       originWorldDetailSheetSource,
-      contains('!roleEditing && !composerLifted && _openingComposerDocked'),
+      contains('bottomNavigationBar: !roleEditing && !composerLifted'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('origin-opening-docked-composer-bottom-spacer'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(contains('origin-opening-composer-layout-boundary')),
     );
     expect(
       originWorldDetailSheetSource,
@@ -164,10 +171,6 @@ void main() {
     expect(
       originWorldSheetInteractionSource,
       contains('bool handlePageScrollEnd(ScrollEndNotification notification)'),
-    );
-    expect(
-      originWorldSheetInteractionSource,
-      contains('void reportOpeningComposerDocked(bool docked)'),
     );
     expect(
       originWorldSheetInteractionSource,
@@ -419,49 +422,6 @@ void main() {
     );
   });
 
-  test(
-    'origin opening composer docks when its own box leaves the viewport',
-    () {
-      expect(
-        originOpeningComposerShouldDockForTesting(
-          remainingPaintExtent: 80,
-          composerHeight: 80,
-          currentlyDocked: false,
-        ),
-        isFalse,
-        reason:
-            'A fully visible inline composer must stay in the content flow.',
-      );
-      expect(
-        originOpeningComposerShouldDockForTesting(
-          remainingPaintExtent: 79.4,
-          composerHeight: 80,
-          currentlyDocked: false,
-        ),
-        isTrue,
-        reason: 'Dock only after the inline composer itself starts leaving.',
-      );
-      expect(
-        originOpeningComposerShouldDockForTesting(
-          remainingPaintExtent: 80.4,
-          composerHeight: 80,
-          currentlyDocked: true,
-        ),
-        isTrue,
-        reason: 'Keep the docked state inside the boundary hysteresis.',
-      );
-      expect(
-        originOpeningComposerShouldDockForTesting(
-          remainingPaintExtent: 80.6,
-          composerHeight: 80,
-          currentlyDocked: true,
-        ),
-        isFalse,
-        reason: 'Return to flow after the composer is stably fully visible.',
-      );
-    },
-  );
-
   test('origin collapsed sheet caps content height before safe area', () {
     expect(
       originWorldCollapsedSheetHeightFor(
@@ -498,6 +458,7 @@ void main() {
 
   test('origin detail sections use main ui spacing', () {
     expect(originDetailSectionGapForTesting, 24);
+    expect(originOpeningDialogueRoleGapForTesting, 36);
     expect(originDetailSectionTitleIconGapForTesting, 8);
   });
 

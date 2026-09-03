@@ -390,9 +390,10 @@ String worldCharacterNameSuffix({
 }
 
 class WorldEmptySection extends StatelessWidget {
-  const WorldEmptySection({required this.text});
+  const WorldEmptySection({required this.text, this.fontSize = 12});
 
   final String text;
+  final double fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -401,10 +402,10 @@ class WorldEmptySection extends StatelessWidget {
       child: Center(
         child: Text(
           text,
-          style: const TextStyle(
-            fontSize: 12,
+          style: TextStyle(
+            fontSize: fontSize,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF8A8A8A),
+            color: const Color(0xFF8A8A8A),
           ),
         ),
       ),

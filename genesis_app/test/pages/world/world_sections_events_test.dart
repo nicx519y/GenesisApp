@@ -8,6 +8,34 @@ import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 
 void main() {
+  testWidgets('events empty state uses fourteen pixel text', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorldEventsSection(
+            world: _worldDetail(),
+            ticks: const [],
+            initialLoading: false,
+            loadingMore: false,
+            hasMore: false,
+            error: null,
+            latestRevision: 0,
+            targetTickNumber: null,
+            contentPadding: EdgeInsets.zero,
+            onLoadMore: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      tester.widget<Text>(find.text('No events yet.')).style?.fontSize,
+      14,
+    );
+  });
+
   testWidgets(
     'events pager renders sub ticks for one tick number on one page',
     (WidgetTester tester) async {

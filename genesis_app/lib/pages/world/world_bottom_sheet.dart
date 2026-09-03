@@ -812,6 +812,7 @@ class WorldSingleSectionBottomSheetState
                           item: _headerItem,
                           pageController: _pageController,
                           pageCount: worldBottomTagItems.length,
+                          onClose: _collapseSheet,
                         ),
                       ),
                       Expanded(child: _buildSheetContent(scrollController)),
@@ -832,11 +833,13 @@ class WorldSingleSectionSheetHeader extends StatelessWidget {
     required this.item,
     required this.pageController,
     required this.pageCount,
+    required this.onClose,
   });
 
   final WorldBottomTagItem item;
   final PageController pageController;
   final int pageCount;
+  final VoidCallback onClose;
 
   @override
   Widget build(BuildContext context) {
@@ -878,6 +881,23 @@ class WorldSingleSectionSheetHeader extends StatelessWidget {
                         fontWeight: FontWeight.w600,
                         decoration: TextDecoration.none,
                       ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  SizedBox(
+                    width: 28,
+                    height: 28,
+                    child: TextButton(
+                      onPressed: onClose,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(28, 28),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        backgroundColor: const Color(0xFFF3F3F5),
+                        foregroundColor: const Color(0xFF111111),
+                        shape: const CircleBorder(),
+                      ),
+                      child: const Icon(Icons.close_rounded, size: 17),
                     ),
                   ),
                 ],
