@@ -4237,6 +4237,18 @@ void main() {
     expect(deltaRequest.uri.queryParameters.containsKey('rn'), isFalse);
   });
 
+  test('private chat avatars use one stable 90px cache URL', () {
+    expect(
+      resolvePrivateChatAvatarUrl(
+        avatarUrl:
+            'https://cdn.example.com/avatar_1024.jpg?x-oss-process=image/format,webp',
+        devicePixelRatio: 3,
+      ),
+      'https://cdn.example.com/avatar_1024.jpg?x-oss-process='
+      'image/resize,w_90,image/format,webp',
+    );
+  });
+
   testWidgets('direct messages use shared absolute time labels', (
     WidgetTester tester,
   ) async {
