@@ -756,7 +756,10 @@ class _OriginDetailDraggableSheetState
               showShortcuts: false,
               enableMentionSheet: false,
               roleBorderRadius: 8,
-              bottomSafeAreaInset: MediaQuery.viewInsetsOf(context).bottom > 0
+              // Keyboard frame updates are owned by `_sheetInteraction`.
+              // Depending on `MediaQuery.viewInsets` here would subscribe the
+              // whole draggable sheet State to every intermediate IME inset.
+              bottomSafeAreaInset: _openingKeyboardMode
                   ? 0
                   : GenesisSafeAreaInsets.bottom(context),
               onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
@@ -1135,9 +1138,8 @@ class _OriginDetailDraggableSheetState
                           right: 0,
                           top: _sheetInteraction.composerTop(
                             constraints.maxHeight,
-                            actualKeyboardInset: MediaQuery.viewInsetsOf(
-                              context,
-                            ).bottom,
+                            actualKeyboardInset:
+                                _sheetInteraction.keyboardInset,
                           ),
                           child: child!,
                         ),

@@ -144,7 +144,25 @@ void main() {
       originWorldSheetInteractionSource,
       contains('_notifyKeyboardFrameChanged();'),
     );
+    expect(
+      originWorldDetailSheetSource,
+      contains(
+        'actualKeyboardInset:\n'
+        '                                _sheetInteraction.keyboardInset',
+      ),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(
+        contains(
+          'bottomSafeAreaInset: MediaQuery.viewInsetsOf(context).bottom',
+        ),
+      ),
+    );
     expect(originSectionsSource, contains('SliverChildBuilderDelegate('));
+    expect(originSectionsSource, contains('addAutomaticKeepAlives: false'));
+    expect(originSectionsSource, contains('addRepaintBoundaries: true'));
+    expect(originSectionsSource, contains('child: RepaintBoundary('));
     expect(originSectionsSource, isNot(contains('imageUrls.indexOf(')));
   });
 
