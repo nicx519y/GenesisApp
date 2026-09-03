@@ -1,15 +1,21 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../app/config/genesis_image_config.dart';
 import '../../components/chat/shared/chat_scene_plate_tokens.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_typography.dart';
+import '../../utils/genesis_image_resource.dart';
 
 const worldUpdatePushDisplayDuration = Duration(seconds: 3);
 const worldUpdatePushTransitionDuration = Duration(milliseconds: 220);
+const worldUpdatePushAvatarPreloadTimeout = Duration(seconds: 2);
 const _worldUpdatePushLeadingSize = 48.0;
 
 class WorldUpdatePushBannerQueue extends StatefulWidget {
@@ -22,6 +28,7 @@ class WorldUpdatePushBannerQueue extends StatefulWidget {
     this.onNoticeTap,
     this.displayDuration = worldUpdatePushDisplayDuration,
     this.transitionDuration = worldUpdatePushTransitionDuration,
+    this.avatarPreloadTimeout = worldUpdatePushAvatarPreloadTimeout,
   });
 
   final double top;
@@ -31,6 +38,7 @@ class WorldUpdatePushBannerQueue extends StatefulWidget {
   final ValueChanged<WorldContentUpdateNotice>? onNoticeTap;
   final Duration displayDuration;
   final Duration transitionDuration;
+  final Duration avatarPreloadTimeout;
 
   @override
   State<WorldUpdatePushBannerQueue> createState() =>
@@ -42,6 +50,8 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
   final Queue<WorldContentUpdateNotice> _pending =
       Queue<WorldContentUpdateNotice>();
   final Set<String> _acceptedOccurrences = <String>{};
+  final Map<String, Future<bool>> _characterAvatarPreloads =
+      <String, Future<bool>>{};
   late final AnimationController _transitionController;
   late final CurvedAnimation _transitionAnimation;
   late final Animation<Offset> _slideAnimation;
@@ -50,6 +60,7 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
   var _activationScheduled = false;
   var _isDismissing = false;
   var _activeNoticeTapHandled = false;
+  var _activeCharacterAvatarImageReady = false;
 
   @override
   void initState() {
@@ -118,6 +129,72 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
     return null;
   }
 
+  Future<bool> _characterAvatarPreloadFor(WorldContentUpdateNotice notice) {
+    return _characterAvatarPreloads.putIfAbsent(
+      notice.occurrenceKey,
+      () => _precacheCharacterAvatar(notice),
+    );
+  }
+
+  Future<bool> _precacheCharacterAvatar(WorldContentUpdateNotice notice) async {
+    final provider = _characterAvatarImageProvider(notice.avatarUrl);
+    if (provider == null) return false;
+
+    var failed = false;
+    try {
+      await precacheImage(
+        provider,
+        context,
+        onError: (exception, stackTrace) {
+          failed = true;
+          if (kDebugMode) {
+            debugPrint(
+              '[WorldUpdatePush] character avatar precache failed '
+              'entity=${notice.entityId}: $exception',
+            );
+          }
+        },
+      ).timeout(widget.avatarPreloadTimeout);
+      return !failed;
+    } catch (error) {
+      if (kDebugMode) {
+        debugPrint(
+          '[WorldUpdatePush] character avatar precache did not finish '
+          'entity=${notice.entityId}: $error',
+        );
+      }
+      return false;
+    }
+  }
+
+  ImageProvider<Object>? _characterAvatarImageProvider(String avatarUrl) {
+    final devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
+    final resolvedUrl = selectGenesisImageUrl(
+      avatarUrl,
+      logicalWidth: _worldUpdatePushLeadingSize,
+      logicalHeight: _worldUpdatePushLeadingSize,
+      devicePixelRatio: devicePixelRatio,
+      maxDevicePixelRatio: GenesisImageConfig.maxDevicePixelRatio,
+    ).trim();
+    if (resolvedUrl.isEmpty) return null;
+    if (resolvedUrl.startsWith('assets/')) return AssetImage(resolvedUrl);
+
+    final decodeDevicePixelRatio = genesisImageDevicePixelRatio(
+      devicePixelRatio,
+      maxDevicePixelRatio: GenesisImageConfig.maxDevicePixelRatio,
+    );
+    final decodeSize = math.max(
+      1,
+      (_worldUpdatePushLeadingSize * decodeDevicePixelRatio).ceil(),
+    );
+    return GenesisStaticNetworkImageProvider(
+      imageUrl: resolvedUrl,
+      cacheWidth: decodeSize,
+      cacheHeight: decodeSize,
+      fit: BoxFit.cover,
+    );
+  }
+
   void _scheduleActivationAfterBuild() {
     if (_activationScheduled ||
         _isDismissing ||
@@ -127,22 +204,53 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
     }
     _activationScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _activationScheduled = false;
       if (!mounted ||
           _isDismissing ||
           _activeNotice != null ||
           _pending.isEmpty) {
+        _activationScheduled = false;
         return;
       }
-      final nextNotice = _takeNextEligibleNotice();
-      if (nextNotice == null) return;
-      setState(() {
-        _activeNotice = nextNotice;
-        _activeNoticeTapHandled = false;
-      });
-      _transitionController.forward(from: 0);
-      _scheduleDismissAfterBuild();
+      unawaited(_activateNextEligibleNotice());
     });
+  }
+
+  Future<void> _activateNextEligibleNotice() async {
+    try {
+      while (mounted && !_isDismissing && _activeNotice == null) {
+        final nextNotice = _takeNextEligibleNotice();
+        if (nextNotice == null) return;
+
+        var avatarImageReady = false;
+        if (nextNotice.kind == WorldContentUpdateKind.character &&
+            nextNotice.avatarUrl.trim().isNotEmpty) {
+          avatarImageReady = await _characterAvatarPreloadFor(nextNotice);
+          if (!mounted) return;
+        }
+        if (_isDismissing || _activeNotice != null) {
+          _pending.addFirst(nextNotice);
+          return;
+        }
+        if (!_canShow(nextNotice)) continue;
+
+        setState(() {
+          _activeNotice = nextNotice;
+          _activeNoticeTapHandled = false;
+          _activeCharacterAvatarImageReady = avatarImageReady;
+        });
+        _transitionController.forward(from: 0);
+        _scheduleDismissAfterBuild();
+        return;
+      }
+    } finally {
+      _activationScheduled = false;
+      if (mounted &&
+          !_isDismissing &&
+          _activeNotice == null &&
+          _pending.isNotEmpty) {
+        _scheduleActivationAfterBuild();
+      }
+    }
   }
 
   void _scheduleDismissAfterBuild() {
@@ -189,7 +297,10 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
       return;
     }
     _isDismissing = false;
-    setState(() => _activeNotice = null);
+    setState(() {
+      _activeNotice = null;
+      _activeCharacterAvatarImageReady = false;
+    });
     _scheduleActivationAfterBuild();
   }
 
@@ -211,6 +322,7 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
                 child: _WorldUpdatePushBanner(
                   key: ValueKey<String>(notice.occurrenceKey),
                   notice: notice,
+                  characterAvatarImageReady: _activeCharacterAvatarImageReady,
                   onTap: widget.onNoticeTap == null
                       ? null
                       : _handleActiveNoticeTap,
@@ -222,9 +334,15 @@ class _WorldUpdatePushBannerQueueState extends State<WorldUpdatePushBannerQueue>
 }
 
 class _WorldUpdatePushBanner extends StatelessWidget {
-  const _WorldUpdatePushBanner({super.key, required this.notice, this.onTap});
+  const _WorldUpdatePushBanner({
+    super.key,
+    required this.notice,
+    required this.characterAvatarImageReady,
+    this.onTap,
+  });
 
   final WorldContentUpdateNotice notice;
+  final bool characterAvatarImageReady;
   final VoidCallback? onTap;
 
   @override
@@ -291,11 +409,11 @@ class _WorldUpdatePushBanner extends StatelessWidget {
                       key: const ValueKey<String>(
                         'world-update-push-character-avatar',
                       ),
-                      url: notice.avatarUrl,
+                      url: characterAvatarImageReady ? notice.avatarUrl : '',
                       name: name,
                       size: _worldUpdatePushLeadingSize,
                       borderRadius: 8,
-                      showFallbackWhileLoading: true,
+                      showFallbackWhileLoading: false,
                     ),
                     const SizedBox(width: 10),
                   ],

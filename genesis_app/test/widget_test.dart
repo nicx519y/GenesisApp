@@ -22320,6 +22320,21 @@ void main() {
   testWidgets('developer button tab previews multiple world update Pushes', (
     WidgetTester tester,
   ) async {
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+    debugGenesisStaticNetworkImageCompleter = (_) =>
+        OneFrameImageStreamCompleter(
+          SynchronousFuture<ImageInfo>(
+            ImageInfo(image: originItemTestImage.clone()),
+          ),
+        );
+    addTearDown(() {
+      debugGenesisStaticNetworkImageCompleter = null;
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+    });
     const firstCharacterAvatarUrl =
         'https://cdn-001.worldo.ai/app/uploads/20260702/'
         '2072507310906806272_356_356.jpg?x-oss-process=image/format,webp';
@@ -22458,7 +22473,7 @@ void main() {
     expect(avatar.url, secondCharacterAvatarUrl);
     expect(avatar.borderRadius, 8);
 
-    await tester.pump(const Duration(seconds: 6));
+    await tester.pump(const Duration(seconds: 10));
     await tester.pumpAndSettle();
     expect(find.text('Scarlet Keeper · Crimson guardian'), findsNothing);
   });
