@@ -5,6 +5,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
     super.key,
     required this.scrollController,
     required this.characters,
+    required this.roleAvatarSnapshots,
     required this.launchBusy,
     required this.launching,
     required this.profileRole,
@@ -22,6 +23,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
 
   final ScrollController scrollController;
   final List<OriginCharacter> characters;
+  final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool launchBusy;
   final bool launching;
   final OriginCustomRoleDraft? profileRole;
@@ -164,13 +166,16 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
 
   void _precacheUpcomingRoleAvatars(int currentIndex) {
     if (!mounted) return;
-    final avatarSources = <String>[
-      if (widget.profileRole case final profileRole?) profileRole.avatarUrl,
+    final avatarSourceKeys = <String>[
+      if (widget.profileRole case final profileRole?)
+        _resolveAssetUrl(profileRole.avatarUrl).trim(),
       ...originCharactersRecommendedFirst(widget.characters)
           .where((character) => _characterStableId(character).isNotEmpty)
-          .map((character) => character.avatar),
+          .map((character) => _resolveAssetUrl(character.avatar).trim()),
     ];
-    if (avatarSources.isEmpty || currentIndex >= avatarSources.length) return;
+    if (avatarSourceKeys.isEmpty || currentIndex >= avatarSourceKeys.length) {
+      return;
+    }
 
     final devicePixelRatio = genesisImageDevicePixelRatio(
       MediaQuery.devicePixelRatioOf(context),
@@ -178,12 +183,14 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     );
     final decodeSize = (_OriginSetupRoleSection._cardWidth * devicePixelRatio)
         .ceil();
-    final lastIndex = math.min(currentIndex + 2, avatarSources.length - 1);
+    final snapshotSize = math.max(
+      1,
+      (_originLocationChatRolePillAvatarSize * devicePixelRatio).ceil(),
+    );
+    final lastIndex = math.min(currentIndex + 2, avatarSourceKeys.length - 1);
     for (var index = currentIndex; index <= lastIndex; index += 1) {
-      final avatarUrl = _originRoleCardAvatarUrl(
-        context,
-        _resolveAssetUrl(avatarSources[index]),
-      );
+      final avatarSourceKey = avatarSourceKeys[index];
+      final avatarUrl = _originRoleCardAvatarUrl(context, avatarSourceKey);
       if (avatarUrl.isEmpty) continue;
       final cacheKey = '$avatarUrl@$decodeSize';
       if (!_preloadedAvatarKeys.add(cacheKey)) continue;
@@ -191,6 +198,9 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
       final provider = OriginRolePortraitImageProvider.fromUrl(
         imageUrl: avatarUrl,
         outputSize: decodeSize,
+        snapshotStore: widget.roleAvatarSnapshots,
+        snapshotSourceKey: avatarSourceKey,
+        snapshotSize: snapshotSize,
       );
       unawaited(
         precacheImage(
@@ -274,6 +284,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                             content: _OriginSetupRoleCardContent.fromProfile(
                               profileRole,
                             ),
+                            roleAvatarSnapshots: widget.roleAvatarSnapshots,
                             selected: selected,
                             cardWidth: cardWidth,
                             buttonHeight: _OriginSetupRoleSection._buttonHeight,
@@ -308,6 +319,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                           content: _OriginSetupRoleCardContent.fromCharacter(
                             character,
                           ),
+                          roleAvatarSnapshots: widget.roleAvatarSnapshots,
                           selected: selected,
                           cardWidth: cardWidth,
                           buttonHeight: _OriginSetupRoleSection._buttonHeight,
@@ -437,6 +449,7 @@ class _OriginSetupRoleCardContent {
 class _OriginSetupRoleCard extends StatefulWidget {
   const _OriginSetupRoleCard({
     required this.content,
+    required this.roleAvatarSnapshots,
     required this.selected,
     required this.cardWidth,
     required this.buttonHeight,
@@ -450,6 +463,7 @@ class _OriginSetupRoleCard extends StatefulWidget {
   });
 
   final _OriginSetupRoleCardContent content;
+  final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool selected;
   final double cardWidth;
   final double buttonHeight;
@@ -705,6 +719,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                   offstage: _editing,
                   child: _OriginSetupRolePreview(
                     content: content,
+                    roleAvatarSnapshots: widget.roleAvatarSnapshots,
                     cardWidth: cardWidth,
                     showDetails: _showDetails,
                     detailsController: _detailsController,
@@ -1182,6 +1197,7 @@ class _OriginSetupRoleInlineField extends StatelessWidget {
 class _OriginSetupRolePreview extends StatelessWidget {
   const _OriginSetupRolePreview({
     required this.content,
+    required this.roleAvatarSnapshots,
     required this.cardWidth,
     required this.showDetails,
     required this.detailsController,
@@ -1190,6 +1206,7 @@ class _OriginSetupRolePreview extends StatelessWidget {
   });
 
   final _OriginSetupRoleCardContent content;
+  final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final double cardWidth;
   final bool showDetails;
   final ScrollController detailsController;
@@ -1228,6 +1245,7 @@ class _OriginSetupRolePreview extends StatelessWidget {
                       'origin-setup-role-portrait-$stableId',
                     ),
                     content: content,
+                    roleAvatarSnapshots: roleAvatarSnapshots,
                     avatarUrl: avatarUrl,
                     cardWidth: cardWidth,
                   ),
@@ -1274,11 +1292,13 @@ class _OriginSetupRolePortrait extends StatelessWidget {
   const _OriginSetupRolePortrait({
     super.key,
     required this.content,
+    required this.roleAvatarSnapshots,
     required this.avatarUrl,
     required this.cardWidth,
   });
 
   final _OriginSetupRoleCardContent content;
+  final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final String avatarUrl;
   final double cardWidth;
 
@@ -1289,6 +1309,8 @@ class _OriginSetupRolePortrait extends StatelessWidget {
       children: [
         _OriginSetupRoleImage(
           url: avatarUrl,
+          snapshotSourceKey: _resolveAssetUrl(content.avatar).trim(),
+          snapshotStore: roleAvatarSnapshots,
           name: content.name,
           width: cardWidth,
           height: cardWidth,
@@ -1452,12 +1474,16 @@ class _OriginSetupRoleDetailField extends StatelessWidget {
 class _OriginSetupRoleImage extends StatelessWidget {
   const _OriginSetupRoleImage({
     required this.url,
+    required this.snapshotSourceKey,
+    required this.snapshotStore,
     required this.name,
     required this.width,
     required this.height,
   });
 
   final String url;
+  final String snapshotSourceKey;
+  final OriginRoleAvatarSnapshotStore snapshotStore;
   final String name;
   final double width;
   final double height;
@@ -1484,10 +1510,17 @@ class _OriginSetupRoleImage extends StatelessWidget {
       maxDevicePixelRatio: originWorldOpeningRoleAvatarMaxDevicePixelRatio,
     );
     final outputSize = (math.max(width, height) * devicePixelRatio).ceil();
+    final snapshotSize = math.max(
+      1,
+      (_originLocationChatRolePillAvatarSize * devicePixelRatio).ceil(),
+    );
     return Image(
       image: OriginRolePortraitImageProvider.fromUrl(
         imageUrl: url,
         outputSize: outputSize,
+        snapshotStore: snapshotStore,
+        snapshotSourceKey: snapshotSourceKey,
+        snapshotSize: snapshotSize,
       ),
       width: width,
       height: height,

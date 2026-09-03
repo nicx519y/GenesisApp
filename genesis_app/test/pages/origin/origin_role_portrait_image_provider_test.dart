@@ -28,46 +28,68 @@ void main() {
     ]);
   });
 
-  testWidgets('composites the gradient and evicts the decoded source frame', (
-    tester,
-  ) async {
-    final sourceProvider = _SolidImageProvider(color: const Color(0xFFFF0000));
-    final provider = OriginRolePortraitImageProvider(
-      sourceProvider: sourceProvider,
-      outputSize: 16,
-    );
-    ImageInfo? imageInfo;
-
-    await tester.runAsync(() async {
-      imageInfo = await _resolveImage(provider);
-    });
-
-    final composite = imageInfo;
-    expect(composite, isNotNull);
-    expect(composite!.image.width, 16);
-    expect(composite.image.height, 16);
-    final sourceStatus = await sourceProvider.obtainCacheStatus(
-      configuration: ImageConfiguration.empty,
-    );
-    expect(sourceStatus, isNotNull);
-    expect(sourceStatus!.untracked, isTrue);
-
-    ByteData? pixels;
-    await tester.runAsync(() async {
-      pixels = await composite.image.toByteData(
-        format: ui.ImageByteFormat.rawRgba,
+  testWidgets(
+    'stores a raw avatar snapshot before compositing and evicting the source',
+    (tester) async {
+      final sourceProvider = _SolidImageProvider(
+        color: const Color(0xFFFF0000),
       );
-    });
-    final data = pixels;
-    expect(data, isNotNull);
-    final topRed = _redChannel(data!, x: 8, y: 1, width: 16);
-    final bottomRed = _redChannel(data, x: 8, y: 15, width: 16);
-    expect(topRed, greaterThan(230));
-    expect(bottomRed, lessThan(topRed));
+      final snapshotStore = OriginRoleAvatarSnapshotStore();
+      addTearDown(snapshotStore.dispose);
+      final provider = OriginRolePortraitImageProvider(
+        sourceProvider: sourceProvider,
+        outputSize: 16,
+        snapshotStore: snapshotStore,
+        snapshotSourceKey: 'role-red',
+        snapshotSize: 6,
+      );
+      ImageInfo? imageInfo;
 
-    composite.dispose();
-    await provider.evict();
-  });
+      await tester.runAsync(() async {
+        imageInfo = await _resolveImage(provider);
+      });
+
+      final composite = imageInfo;
+      expect(composite, isNotNull);
+      expect(composite!.image.width, 16);
+      expect(composite.image.height, 16);
+      final sourceStatus = await sourceProvider.obtainCacheStatus(
+        configuration: ImageConfiguration.empty,
+      );
+      expect(sourceStatus, isNotNull);
+      expect(sourceStatus!.untracked, isTrue);
+      final snapshot = snapshotStore.imageFor('role-red');
+      expect(snapshot, isNotNull);
+      expect(snapshot!.width, 6);
+      expect(snapshot.height, 6);
+
+      ByteData? pixels;
+      ByteData? snapshotPixels;
+      await tester.runAsync(() async {
+        pixels = await composite.image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        snapshotPixels = await snapshot.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+      });
+      final data = pixels;
+      expect(data, isNotNull);
+      final topRed = _redChannel(data!, x: 8, y: 1, width: 16);
+      final bottomRed = _redChannel(data, x: 8, y: 15, width: 16);
+      expect(topRed, greaterThan(230));
+      expect(bottomRed, lessThan(topRed));
+      expect(
+        _redChannel(snapshotPixels!, x: 3, y: 5, width: 6),
+        greaterThan(230),
+        reason:
+            'The selector snapshot must not include the role-card gradient.',
+      );
+
+      composite.dispose();
+      await provider.evict();
+    },
+  );
 }
 
 int _redChannel(

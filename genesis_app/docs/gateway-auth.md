@@ -63,6 +63,20 @@ Gateway 签名 header 由 `GatewayRequestSigner` 在发送前统一注入：
 
 如果本地私钥签名或公钥读取失败，会清除注册信息、重置原生 key，并重走 challenge/register。
 
+## 接口监控
+
+以下三个启动关键 Gateway 接口固定生成独立的 `api_req_start` 和单一终态，不受 `apiTraceSamplingRate` 影响：
+
+- `/apix/v1/time`
+- `/apix/v1/app/device/challenge`
+- `/apix/v1/app/device/register`
+
+它们分别使用自己的 path 和 request ID，不合并成 `tech_client_1304`。HTTP、响应 envelope 和 `err_no` 按普通接口监控规则判定。
+
+如果外层 `/api/...` 请求在发送前因 Gateway 准备失败，外层逻辑请求仍以 `tech_client_13xx` 闭合；`ext_data.upstream_path` 和 `ext_data.upstream_status` 指向实际 Gateway 失败来源。外层请求一旦实际发送，`object4` 只统计该次 transport send，不再把 Gateway 准备耗时算入业务接口耗时。
+
+启动监控的“App 配置 / Gateway”阶段从埋点初始化完成统计到 `/api/v1/app/config` 加载结束。首次无 `key_id` 时会包含 time、challenge、register；该项是“启动依赖等待”的重叠拆解，不能与相邻阶段再次相加。
+
 ## Canonical String
 
 `gatewayCanonicalString()` 固定按以下行拼接，使用 `\n`：

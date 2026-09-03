@@ -60,6 +60,19 @@ double originOpeningKeyboardComposerTopForTesting({
 }
 
 @visibleForTesting
+double originOpeningKeyboardVisibleComposerTopForTesting({
+  required double animatedTop,
+  required double sheetHeight,
+  required double composerHeight,
+  required double actualKeyboardInset,
+}) {
+  final inset = actualKeyboardInset.clamp(0.0, sheetHeight).toDouble();
+  if (inset <= 0.5) return animatedTop;
+  final keyboardBoundTop = sheetHeight - inset - composerHeight;
+  return math.min(animatedTop, keyboardBoundTop);
+}
+
+@visibleForTesting
 double originOpeningKeyboardContentTargetOffsetForTesting({
   required double layoutOffset,
   required double preservedOffset,
@@ -83,6 +96,18 @@ double originOpeningKeyboardAdditionalScrollExtentForTesting({
   required double maxScrollExtent,
 }) {
   return math.max(0.0, targetOffset - maxScrollExtent);
+}
+
+@visibleForTesting
+double originOpeningKeyboardFlowRestingOffsetForTesting({
+  required double layoutOffset,
+  required double contentBottom,
+  required double sheetHeight,
+  required double composerHeight,
+  required double gap,
+}) {
+  final flowComposerTop = sheetHeight - composerHeight;
+  return math.max(0.0, layoutOffset + contentBottom - flowComposerTop + gap);
 }
 
 @visibleForTesting
@@ -126,6 +151,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     required this.readFallbackExpandedSheetExtent,
     required this.restoreSheetExtent,
     required this.readContentToComposerGap,
+    required this.readComposerBottomSafeAreaInset,
     required this.onPageSelected,
   }) {
     _keyboardAnimationSubscription = GenesisKeyboardAnimationEvents.targets
@@ -141,6 +167,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   final double Function() readFallbackExpandedSheetExtent;
   final ValueChanged<double> restoreSheetExtent;
   final double Function() readContentToComposerGap;
+  final double Function() readComposerBottomSafeAreaInset;
   final ValueChanged<int> onPageSelected;
 
   final PageController pageController = PageController(
@@ -174,6 +201,10 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   var _keyboardAdditionalScrollExtent = 0.0;
   var _keyboardSheetExtent = 0.0;
   var _keyboardClosingVisualOffset = 0.0;
+  var _keyboardClosingTargetVisualOffset = 0.0;
+  var _keyboardClosingTargetComposerTop = 0.0;
+  var _keyboardComposerHeightWithoutSafeArea = 0.0;
+  var _keyboardBottomSafeAreaInset = 0.0;
   var _keyboardScrollCommitted = false;
   var _keyboardCommitRetryScheduled = false;
   var _keyboardStableFrameCount = 0;
@@ -289,6 +320,9 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   void updateComposerHeight(double height) {
     if ((_composerHeight - height).abs() < 0.5) return;
     _composerHeight = height;
+    if (keyboardMode && _keyboardInset > 0.5) {
+      _keyboardComposerHeightWithoutSafeArea = height;
+    }
     _notifyChanged();
   }
 
@@ -313,15 +347,28 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
-  double composerTop(double sheetHeight) {
-    return originOpeningKeyboardComposerTopForTesting(
-      startTop: _keyboardChangingHeight
+  double composerTop(
+    double sheetHeight, {
+    required double actualKeyboardInset,
+  }) {
+    final animatedTop = originOpeningKeyboardComposerTopForTesting(
+      startTop:
+          _keyboardPhase == _OriginOpeningKeyboardPhase.closing ||
+              _keyboardPhase == _OriginOpeningKeyboardPhase.restoring
+          ? _keyboardClosingTargetComposerTop
+          : _keyboardChangingHeight
           ? _keyboardChangeStartComposerTop
           : _keyboardStartComposerTop,
       sheetHeight: sheetHeight,
       composerHeight: _composerHeight,
       keyboardInset: _keyboardTargetInset,
       progress: _keyboardProgress,
+    );
+    return originOpeningKeyboardVisibleComposerTopForTesting(
+      animatedTop: animatedTop,
+      sheetHeight: sheetHeight,
+      composerHeight: _composerHeight,
+      actualKeyboardInset: actualKeyboardInset,
     );
   }
 
@@ -353,7 +400,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
         return;
       }
       if (_keyboardPhase == _OriginOpeningKeyboardPhase.restoring) {
-        resetKeyboard();
+        resetKeyboard(settleAtFlowEnd: true);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!_disposed) _prepareKeyboardTransition();
         });
@@ -455,6 +502,13 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
         ? normalController.offset
         : 0;
     _keyboardStartVisualOffset = _keyboardNormalScrollOffset;
+    _keyboardClosingTargetVisualOffset = _keyboardNormalScrollOffset;
+    _keyboardClosingTargetComposerTop = _keyboardStartComposerTop;
+    _keyboardBottomSafeAreaInset = readComposerBottomSafeAreaInset();
+    _keyboardComposerHeightWithoutSafeArea = math.max(
+      0.0,
+      _composerHeight - _keyboardBottomSafeAreaInset,
+    );
     _keyboardContentToComposerGap = readContentToComposerGap();
     final sheetExtent = readSheetExtent();
     _keyboardSheetExtent = sheetExtent > 0
@@ -529,6 +583,12 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
       return;
     }
     _keyboardClosingVisualOffset = keyboardVisualScrollOffset();
+    _keyboardClosingTargetVisualOffset = _keyboardFlowRestingScrollOffset();
+    _keyboardClosingTargetComposerTop =
+        _keyboardContentBottom +
+        _keyboardStartVisualOffset -
+        _keyboardClosingTargetVisualOffset +
+        _keyboardContentToComposerGap;
     _keyboardChangingHeight = false;
     _keyboardPhase = _OriginOpeningKeyboardPhase.closing;
     _notifyChanged();
@@ -628,7 +688,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
             _keyboardPhase != _OriginOpeningKeyboardPhase.restoring) {
           return;
         }
-        resetKeyboard();
+        resetKeyboard(settleAtFlowEnd: true);
       });
       WidgetsBinding.instance.ensureVisualUpdate();
     }
@@ -696,19 +756,54 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     );
   }
 
+  double _keyboardFlowRestingScrollOffset() {
+    final sheetHeight =
+        readKeyboardLayout()?.sheetHeight ?? _keyboardSheetHeight;
+    final flowComposerHeight =
+        _keyboardComposerHeightWithoutSafeArea + _keyboardBottomSafeAreaInset;
+    if (sheetHeight <= 0 || flowComposerHeight <= 0) {
+      return _keyboardNormalScrollOffset;
+    }
+    final target = originOpeningKeyboardFlowRestingOffsetForTesting(
+      layoutOffset: _keyboardStartVisualOffset,
+      contentBottom: _keyboardContentBottom,
+      sheetHeight: sheetHeight,
+      composerHeight: flowComposerHeight,
+      gap: _keyboardContentToComposerGap,
+    );
+    final controller = _sheetScrollController;
+    if (controller == null || !controller.hasClients) return target;
+    final position = controller.position;
+    final keyboardSpacerExtent =
+        _keyboardTargetInset + _keyboardAdditionalScrollExtent;
+    final flowComposerHeightDelta = math.max(
+      0.0,
+      flowComposerHeight - _composerHeight,
+    );
+    final normalMaxScrollExtent = math.max(
+      position.minScrollExtent,
+      position.maxScrollExtent - keyboardSpacerExtent + flowComposerHeightDelta,
+    );
+    return target
+        .clamp(position.minScrollExtent, normalMaxScrollExtent)
+        .toDouble();
+  }
+
   double keyboardVisualScrollOffset() {
     final controller = _sheetScrollController;
     final controllerOffset = controller != null && controller.hasClients
         ? controller.offset
         : _keyboardNormalScrollOffset;
-    if (_keyboardPhase == _OriginOpeningKeyboardPhase.preparing ||
-        _keyboardPhase == _OriginOpeningKeyboardPhase.restoring) {
+    if (_keyboardPhase == _OriginOpeningKeyboardPhase.preparing) {
       return _keyboardNormalScrollOffset;
+    }
+    if (_keyboardPhase == _OriginOpeningKeyboardPhase.restoring) {
+      return _keyboardClosingTargetVisualOffset;
     }
     if (_keyboardPhase == _OriginOpeningKeyboardPhase.closing) {
       final closeProgress = 1 - _keyboardProgress;
       return _keyboardClosingVisualOffset +
-          (_keyboardStartVisualOffset - _keyboardClosingVisualOffset) *
+          (_keyboardClosingTargetVisualOffset - _keyboardClosingVisualOffset) *
               closeProgress;
     }
     if (_keyboardScrollCommitted ||
@@ -725,7 +820,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
             _keyboardProgress;
   }
 
-  void resetKeyboard({bool clearFocus = false}) {
+  void resetKeyboard({bool clearFocus = false, bool settleAtFlowEnd = false}) {
     if (_disposed) return;
     final restoreExtent = keyboardMode ? _keyboardSheetExtent : 0.0;
     if (clearFocus) FocusManager.instance.primaryFocus?.unfocus();
@@ -736,11 +831,15 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
         scrollController.hasClients) {
       final position = scrollController.position;
       scrollController.jumpTo(
-        _keyboardNormalScrollOffset.clamp(
-          position.minScrollExtent,
-          position.maxScrollExtent,
-        ),
+        (settleAtFlowEnd
+                ? _keyboardClosingTargetVisualOffset
+                : _keyboardNormalScrollOffset)
+            .clamp(position.minScrollExtent, position.maxScrollExtent),
       );
+    }
+    if (settleAtFlowEnd) {
+      _openingComposerDocked = false;
+      _pendingOpeningComposerDocked = null;
     }
     _keyboardPhase = _OriginOpeningKeyboardPhase.idle;
     _keyboardInset = 0;
@@ -752,6 +851,10 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     _keyboardCommitRetryScheduled = false;
     _keyboardChangingHeight = false;
     _keyboardStartVisualOffset = 0;
+    _keyboardClosingTargetVisualOffset = 0;
+    _keyboardClosingTargetComposerTop = 0;
+    _keyboardComposerHeightWithoutSafeArea = 0;
+    _keyboardBottomSafeAreaInset = 0;
     _keyboardAdditionalScrollExtent = 0;
     _keyboardContentTop = 0;
     _keyboardContentBottom = 0;

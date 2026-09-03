@@ -133,6 +133,7 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
+import 'package:genesis_flutter_android/platform/keyboard/genesis_keyboard_animation.dart';
 import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparency_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
@@ -224,6 +225,14 @@ List<Map<dynamic, dynamic>> _captureSystemUiOverlayStyleCalls() {
 void _clearPlatformChannelHandler() {
   TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
       .setMockMethodCallHandler(SystemChannels.platform, null);
+}
+
+void _mockGenesisKeyboardAnimationEvents() {
+  TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+      .setMockStreamHandler(
+        const EventChannel(GenesisKeyboardAnimationEvents.channelName),
+        MockStreamHandler.inline(onListen: (arguments, events) {}),
+      );
 }
 
 Future<AppServices> _testServices({
@@ -8128,6 +8137,93 @@ void main() {
     },
   );
 
+  testWidgets(
+    'Origin composer stays visible when focus replaces collapsed role overlay',
+    (WidgetTester tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      final transport = _RecordingV1ListTransport(originDefinitionVersion: 2);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final roleVisibility = find.byKey(
+        const ValueKey<String>('origin-opening-select-role-visibility'),
+      );
+      final composerVisibility = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer-visibility'),
+      );
+      final composer = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer'),
+      );
+      final editable = find.descendant(
+        of: composer,
+        matching: find.byType(EditableText),
+      );
+
+      expect(tester.widget<IgnorePointer>(roleVisibility).ignoring, isFalse);
+      expect(tester.widget<IgnorePointer>(composerVisibility).ignoring, isTrue);
+      final startComposerTop = tester.getTopLeft(composer).dy;
+      tester.widget<EditableText>(editable).focusNode.requestFocus();
+
+      await tester.pump();
+      await tester.pump();
+      expect(tester.widget<IgnorePointer>(roleVisibility).ignoring, isTrue);
+      expect(
+        tester.widget<IgnorePointer>(composerVisibility).ignoring,
+        isFalse,
+      );
+      expect(
+        (tester.widget<IgnorePointer>(composerVisibility).child! as Opacity)
+            .opacity,
+        1,
+      );
+      expect(
+        tester.getTopLeft(composer).dy,
+        closeTo(startComposerTop, 1),
+        reason:
+            'The keyboard layer must take over at the exact collapsed composer '
+            'coordinate.',
+      );
+
+      var previousTop = tester.getTopLeft(composer).dy;
+      for (final keyboardInset in <double>[0, 150, 300]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+        await tester.pump();
+        final currentTop = tester.getTopLeft(composer).dy;
+        final currentBottom = tester.getBottomLeft(composer).dy;
+        expect(
+          (tester.widget<IgnorePointer>(composerVisibility).child! as Opacity)
+              .opacity,
+          1,
+          reason: 'The focused composer must never disappear between layers.',
+        );
+        expect(
+          currentTop,
+          lessThanOrEqualTo(previousTop + 1),
+          reason:
+              'The focused composer must not drop before following the keyboard.',
+        );
+        expect(
+          currentBottom,
+          lessThanOrEqualTo(780 - keyboardInset + 1),
+          reason:
+              'The composer bottom must never move behind the actual keyboard.',
+        );
+        previousTop = currentTop;
+      }
+    },
+  );
+
   testWidgets('origin detail sheet pauses all Tilemap animations', (
     WidgetTester tester,
   ) async {
@@ -9841,7 +9937,11 @@ void main() {
     );
     final rolePillAvatar = find.descendant(
       of: rolePill,
-      matching: find.byType(GenesisCharacterAvatar),
+      matching: find.byKey(
+        const ValueKey<String>(
+          'origin-location-chat-role-avatar-c_recommended',
+        ),
+      ),
     );
     final roleCards = tester.widget<PageView>(roleCardsFinder);
     expect(roleCards.padEnds, isTrue);
@@ -9854,9 +9954,13 @@ void main() {
     expect(regularRole, findsOneWidget);
     expect(find.text('Your Profile'), findsNothing);
     expect(tester.widget<Text>(rolePillLabel).data, 'Recommended role');
+    expect(rolePillAvatar, findsOneWidget);
     expect(
-      tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
-      'Recommended role',
+      find.descendant(
+        of: rolePill,
+        matching: find.byType(GenesisCharacterAvatar),
+      ),
+      findsNothing,
     );
     expect(
       find.byKey(
@@ -10022,8 +10126,13 @@ void main() {
     expect((regularOutline.border! as Border).top.width, 1);
     expect(tester.widget<Text>(rolePillLabel).data, 'Regular role');
     expect(
-      tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
-      'Regular role',
+      find.descendant(
+        of: rolePill,
+        matching: find.byKey(
+          const ValueKey<String>('origin-location-chat-role-avatar-c_regular'),
+        ),
+      ),
+      findsOneWidget,
     );
     final selectedDot = tester.widget<AnimatedContainer>(
       find.byKey(const ValueKey<String>('origin-setup-role-page-dot-1')),
@@ -11517,6 +11626,7 @@ void main() {
   testWidgets(
     'Origin prewarms signed-in profile portrait before opening roles mount',
     (WidgetTester tester) async {
+      _mockGenesisKeyboardAnimationEvents();
       PaintingBinding.instance.imageCache
         ..clear()
         ..clearLiveImages();
@@ -11557,10 +11667,6 @@ void main() {
         ),
       );
 
-      final provider = OriginRolePortraitImageProvider.fromUrl(
-        imageUrl: profileAvatar,
-        outputSize: 240,
-      );
       final tombstone = find.byKey(
         const ValueKey<String>('origin-opening-sheet-tombstone'),
       );
@@ -11577,27 +11683,271 @@ void main() {
         findsNothing,
       );
 
-      ImageCacheStatus? cacheStatus;
+      final roleSnapshot = find.byKey(
+        const ValueKey<String>(
+          'origin-location-chat-role-snapshot-current-user',
+        ),
+      );
       for (var frame = 0; frame < 20; frame += 1) {
         await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 10)),
         );
         await tester.pump();
-        cacheStatus = await provider.obtainCacheStatus(
-          configuration: ImageConfiguration.empty,
-        );
-        final status = cacheStatus;
-        if (status != null &&
-            !status.pending &&
-            (status.live || status.keepAlive)) {
-          break;
-        }
+        if (roleSnapshot.evaluate().isNotEmpty) break;
       }
 
       expect(tombstone, findsOneWidget);
-      expect(cacheStatus, isNotNull);
-      expect(cacheStatus!.pending, isFalse);
-      expect(cacheStatus.live || cacheStatus.keepAlive, isTrue);
+      expect(roleSnapshot, findsOneWidget);
+      final snapshotImage = tester.widget<RawImage>(roleSnapshot).image;
+      expect(snapshotImage, isNotNull);
+      expect(snapshotImage!.width, 22);
+      expect(snapshotImage.height, 22);
+    },
+  );
+
+  testWidgets('Origin role pill reuses Select Your Role memory snapshots', (
+    WidgetTester tester,
+  ) async {
+    _mockGenesisKeyboardAnimationEvents();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+    addTearDown(() {
+      PaintingBinding.instance.imageCache
+        ..clear()
+        ..clearLiveImages();
+    });
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'approved',
+      originCharacters: const [
+        {
+          'char_id': 'c_o_test_1',
+          'type': 'ai',
+          'name': 'Detail Character',
+          'identity': 'Guide',
+          'brief': 'Knows the path',
+          'avatar': 'assets/images/map_default/l2_default.webp',
+          'initial_location_id': 'l_o_test_1',
+          'location_id': 'l_o_test_1',
+        },
+      ],
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'token',
+          initialUserInfo: const {
+            'uid': 'u_profile',
+            'name': 'Profile Hero',
+            'avatar': 'assets/images/map_default/l1_default.webp',
+          },
+        ),
+        child: const MaterialApp(
+          home: OriginWorldPage(
+            oid: 'o_test_1',
+            originId: 0,
+            showOpeningSheetOnEntry: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final rolePill = find.byKey(
+      const ValueKey<String>('origin-location-chat-role-pill'),
+    );
+    final profileSnapshot = find.descendant(
+      of: rolePill,
+      matching: find.byKey(
+        const ValueKey<String>(
+          'origin-location-chat-role-snapshot-current-user',
+        ),
+      ),
+    );
+    for (var frame = 0; frame < 20; frame += 1) {
+      if (profileSnapshot.evaluate().isNotEmpty) break;
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+    expect(profileSnapshot, findsOneWidget);
+    final profileImage = tester.widget<RawImage>(profileSnapshot).image;
+    expect(profileImage, isNotNull);
+    expect(profileImage!.width, 22);
+    expect(profileImage.height, 22);
+    expect(
+      find.descendant(
+        of: rolePill,
+        matching: find.byType(GenesisCharacterAvatar),
+      ),
+      findsNothing,
+      reason: 'The role pill must not start a second URL-based image load.',
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-location-chat-role-selector')),
+    );
+    await tester.pumpAndSettle();
+    final rolePages = find.byKey(
+      const ValueKey<String>('origin-setup-role-cards'),
+    );
+    expect(rolePages, findsOneWidget);
+    await tester.drag(rolePages, const Offset(-320, 0));
+    await tester.pumpAndSettle();
+
+    final presetSnapshot = find.descendant(
+      of: rolePill,
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-chat-role-snapshot-c_o_test_1'),
+      ),
+    );
+    for (var frame = 0; frame < 20; frame += 1) {
+      if (presetSnapshot.evaluate().isNotEmpty) break;
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+    expect(presetSnapshot, findsOneWidget);
+    final presetImage = tester.widget<RawImage>(presetSnapshot).image;
+    expect(presetImage, isNotNull);
+    expect(presetImage!.width, 22);
+    expect(presetImage.height, 22);
+    expect(presetImage, isNot(same(profileImage)));
+  });
+
+  testWidgets(
+    'Origin role selector scrolls monotonically to the opening bottom',
+    (WidgetTester tester) async {
+      _mockGenesisKeyboardAnimationEvents();
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(360, 780);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      final dialogue = List<Map<String, Object?>>.generate(
+        24,
+        (index) => <String, Object?>{
+          'char_id': 'c_o_test_1',
+          'char_name': 'Detail Character',
+          'content': 'Role selector scroll line $index',
+        },
+        growable: false,
+      );
+      final transport = _RecordingV1ListTransport(
+        originTicks: <Map<String, Object?>>[
+          <String, Object?>{
+            'tick_no': 1,
+            'tick_result': <String, Object?>{
+              'location_groups': <Map<String, Object?>>[
+                <String, Object?>{
+                  'location_id': 'l_o_test_1',
+                  'initial_dialogue': dialogue,
+                },
+              ],
+            },
+          },
+        ],
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(
+            home: OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final openingList = find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      );
+      final position = tester
+          .state<ScrollableState>(
+            find.descendant(of: openingList, matching: find.byType(Scrollable)),
+          )
+          .position;
+      final composer = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer'),
+      );
+      final surface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      var inlineAtBottom = false;
+      for (var step = 1; step <= 80; step += 1) {
+        position.jumpTo(
+          (step * 40.0)
+              .clamp(position.minScrollExtent, position.maxScrollExtent)
+              .toDouble(),
+        );
+        await tester.pump();
+        await tester.pump();
+        inlineAtBottom =
+            position.pixels > 0 &&
+            find
+                .byKey(
+                  const ValueKey<String>('origin-opening-composer-placeholder'),
+                )
+                .evaluate()
+                .isEmpty &&
+            (tester.getBottomLeft(surface).dy -
+                        tester.getBottomLeft(composer).dy)
+                    .abs() <
+                1;
+        if (inlineAtBottom) break;
+      }
+      expect(
+        inlineAtBottom,
+        isTrue,
+        reason: 'The regression starts with the inline composer at the bottom.',
+      );
+
+      final composerStateFinder = find.byKey(
+        const ValueKey<String>(
+          'origin-sheet-chat-composer-o_test_1-l_o_test_1',
+        ),
+      );
+      final initialComposerState = tester.state(composerStateFinder);
+      var previousOffset = position.pixels;
+      await tester.tap(
+        find.byKey(
+          const ValueKey<String>('origin-location-chat-role-selector'),
+        ),
+      );
+      for (var frame = 0; frame < 24; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(composer, findsOneWidget);
+        expect(composerStateFinder, findsOneWidget);
+        expect(tester.state(composerStateFinder), same(initialComposerState));
+        expect(
+          find.byKey(
+            const ValueKey<String>('origin-location-chat-role-selector'),
+          ),
+          findsOneWidget,
+        );
+        expect(tester.getSize(composer).height, greaterThan(0));
+        expect(
+          position.pixels,
+          greaterThanOrEqualTo(previousOffset - 1),
+          reason:
+              'Role selection must not jump backward before scrolling down.',
+        );
+        previousOffset = position.pixels;
+      }
+      await tester.pumpAndSettle();
+      expect(position.pixels, closeTo(position.maxScrollExtent, 1));
     },
   );
 
@@ -11883,9 +12233,13 @@ void main() {
     (WidgetTester tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 780);
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetViewInsets);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
       final dialogue = List<Map<String, Object?>>.generate(
         24,
         (index) => <String, Object?>{
@@ -12084,6 +12438,57 @@ void main() {
         reason:
             'Focused layout preserves the normal flow gap above the composer.',
       );
+      final composerBottomLimit = tester.getBottomLeft(surface).dy;
+      var previousComposerBottom = tester.getBottomLeft(composer).dy;
+      for (final keyboardInset in <double>[150, 0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+        await tester.pump();
+        final composerBottom = tester.getBottomLeft(composer).dy;
+        expect(
+          composerBottom,
+          greaterThanOrEqualTo(previousComposerBottom - 1),
+          reason: 'The composer must move monotonically while losing focus.',
+        );
+        expect(
+          composerBottom,
+          lessThanOrEqualTo(composerBottomLimit + 1),
+          reason:
+              'The keyboard composer must not sink below its final flow bound.',
+        );
+        previousComposerBottom = composerBottom;
+      }
+      for (var frame = 0; frame < 3; frame += 1) {
+        await tester.pump();
+        expect(
+          tester.getBottomLeft(composer).dy,
+          lessThanOrEqualTo(composerBottomLimit + 1),
+        );
+      }
+      expect(
+        find.byKey(
+          const ValueKey<String>('origin-opening-composer-placeholder'),
+        ),
+        findsNothing,
+        reason:
+            'After focus is lost the composer remains in flow at its docking '
+            'boundary.',
+      );
+      final restoredRows = find.descendant(
+        of: normalOpeningList,
+        matching: find.byType(ChatMessageRow),
+      );
+      expect(
+        tester.getTopLeft(composer).dy -
+            tester.getBottomLeft(restoredRows.last).dy,
+        closeTo(originDetailSectionGapForTesting, 1),
+      );
+      expect(
+        tester.getBottomLeft(surface).dy - tester.getBottomLeft(composer).dy,
+        closeTo(0, 1),
+        reason:
+            'Long content settles with the inline composer just before it '
+            'would dock.',
+      );
     },
   );
 
@@ -12268,14 +12673,19 @@ void main() {
       );
       final rolePillAvatar = find.descendant(
         of: rolePill,
-        matching: find.byType(GenesisCharacterAvatar),
+        matching: find.byWidgetPredicate((widget) {
+          final key = widget.key;
+          return key is ValueKey<String> &&
+              key.value.startsWith('origin-location-chat-role-avatar-');
+        }),
       );
       expect(rolePillAvatar, findsOneWidget);
       expect(
-        tester
-            .widget<GenesisCharacterAvatar>(rolePillAvatar)
-            .showFallbackWhileLoading,
-        isFalse,
+        find.descendant(
+          of: rolePill,
+          matching: find.byType(GenesisCharacterAvatar),
+        ),
+        findsNothing,
       );
       expect(
         find.descendant(of: expandedComposer, matching: find.text('Nikos')),
@@ -12311,6 +12721,13 @@ void main() {
       final sheetTop = tester.getTopLeft(sheetSurface).dy;
       final briefTitle = find.text('Worldo Brief');
       final normalBriefTop = tester.getTopLeft(briefTitle).dy;
+      final normalComposerTop = tester.getTopLeft(expandedComposer).dy;
+      final flowRestingBriefTop =
+          normalBriefTop +
+          openingPosition.pixels -
+          openingPosition.minScrollExtent;
+      final flowRestingComposerTop =
+          normalComposerTop + flowRestingBriefTop - normalBriefTop;
       expect(
         normalBriefTop,
         lessThan(sheetTop),
@@ -12412,10 +12829,10 @@ void main() {
         await tester.pump();
         expect(
           tester.getTopLeft(focusedBriefTitle).dy,
-          closeTo(normalBriefTop, 1),
+          closeTo(flowRestingBriefTop, 1),
           reason:
-              'Closing and restoring must not flash the original list back to '
-              'the committed keyboard offset.',
+              'Closing and restoring keep short content at its natural flow '
+              'start instead of returning to the pre-focus offset.',
         );
       }
       expect(keyboardMessageOverlay, findsNothing);
@@ -12425,8 +12842,23 @@ void main() {
       );
       expect(
         tester.getTopLeft(briefTitle).dy,
-        closeTo(normalBriefTop, 1),
-        reason: 'Closing the keyboard restores the pre-focus content anchor.',
+        closeTo(flowRestingBriefTop, 1),
+        reason:
+            'Closing the keyboard leaves the sheet at the content-flow end.',
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('origin-opening-composer-placeholder'),
+        ),
+        findsNothing,
+        reason: 'The restored composer must participate in the sliver flow.',
+      );
+      expect(
+        tester.getTopLeft(expandedComposer).dy,
+        closeTo(flowRestingComposerTop, 1),
+        reason:
+            'Short content restores the composer at its natural position after '
+            'the content instead of forcing it to the sheet bottom.',
       );
       expect(
         find.descendant(
@@ -12469,14 +12901,11 @@ void main() {
           const ValueKey<String>('origin-location-chat-role-switch-icon'),
         ),
       );
+      expect(rolePillAvatar, findsOneWidget);
       expect(roleSwitchIcon, findsOneWidget);
       expect(
         tester.widget<Icon>(roleSwitchIcon).color,
         originWorldDetailSheetTertiaryTextColor,
-      );
-      expect(
-        tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
-        'Nikos',
       );
       await tester.tap(roleSelector);
       await tester.pumpAndSettle();
@@ -12542,15 +12971,15 @@ void main() {
         closeTo(tester.getCenter(rolePages).dx, 0.01),
       );
       expect(
-        tester
-            .widget<GenesisCharacterAvatar>(
-              find.descendant(
-                of: rolePill,
-                matching: find.byType(GenesisCharacterAvatar),
-              ),
-            )
-            .name,
-        'Detail Character',
+        find.descendant(
+          of: rolePill,
+          matching: find.byKey(
+            const ValueKey<String>(
+              'origin-location-chat-role-avatar-c_o_test_1',
+            ),
+          ),
+        ),
+        findsOneWidget,
       );
       expect(openingScroll, findsWidgets);
 
@@ -22511,9 +22940,13 @@ void main() {
       findsNothing,
     );
 
-    await tester.pump(const Duration(seconds: 5));
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 4999));
+    expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 1));
+    await tester.pump(const Duration(milliseconds: 221));
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('developer button tab previews multiple world update Pushes', (
@@ -22598,7 +23031,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.pump(const Duration(seconds: 3));
+    await tester.pump(const Duration(seconds: 5));
     await tester.pump(const Duration(milliseconds: 221));
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
     await tester.pump();
@@ -22626,7 +23059,7 @@ void main() {
       findsOneWidget,
     );
 
-    await tester.pump(const Duration(milliseconds: 2780));
+    await tester.pump(const Duration(milliseconds: 4780));
     await tester.pump(const Duration(milliseconds: 221));
     expect(find.text('Moonlit Market · Old Quarter'), findsNothing);
     await tester.pump();
@@ -22652,7 +23085,7 @@ void main() {
       findsNothing,
     );
 
-    await tester.pump(const Duration(milliseconds: 2780));
+    await tester.pump(const Duration(milliseconds: 4780));
     await tester.pump(const Duration(milliseconds: 221));
     expect(
       find.text(
@@ -27757,19 +28190,29 @@ void main() {
   );
 
   testWidgets(
-    'world update push filters drill-only nodes and opens its leaf chat',
+    'world update push publishes only S3 nodes and opens its leaf chat',
     (WidgetTester tester) async {
       final locations = <Map<String, Object?>>[
         {
           'location_id': 'l_w_test_1',
           'location_name': 'Root Location',
+          'level': 1,
           'x_percent': 35,
           'y_percent': 45,
         },
         {
-          'location_id': 'existing',
+          'location_id': 'existing_parent',
           'location_pid': 'l_w_test_1',
+          'location_name': 'Existing Parent',
+          'level': 2,
+          'x_percent': 38,
+          'y_percent': 38,
+        },
+        {
+          'location_id': 'existing',
+          'location_pid': 'existing_parent',
           'location_name': 'Existing Location',
+          'level': 3,
           'x_percent': 40,
           'y_percent': 40,
         },
@@ -27799,30 +28242,25 @@ void main() {
           'location_id': 'blocked',
           'location_pid': 'l_w_test_1',
           'location_name': 'Blocked Branch',
+          'level': 2,
           'is_new': true,
           'x_percent': 45,
           'y_percent': 45,
         },
         {
-          'location_id': 'blocked_a',
+          'location_id': 'blocked_leaf',
           'location_pid': 'blocked',
-          'location_name': 'Blocked A',
+          'location_name': 'Blocked Leaf',
+          'level': 3,
           'is_new': false,
           'x_percent': 46,
           'y_percent': 46,
         },
         {
-          'location_id': 'blocked_b',
-          'location_pid': 'blocked',
-          'location_name': 'Blocked B',
-          'is_new': false,
-          'x_percent': 47,
-          'y_percent': 47,
-        },
-        {
           'location_id': 'eligible',
-          'location_pid': 'l_w_test_1',
+          'location_pid': 'existing_parent',
           'location_name': 'Eligible Leaf',
+          'level': 3,
           'is_new': true,
           'x_percent': 55,
           'y_percent': 55,
@@ -27885,6 +28323,105 @@ void main() {
       );
     },
   );
+
+  testWidgets('world update push keeps the active location composer focused', (
+    WidgetTester tester,
+  ) async {
+    final locations = <Map<String, Object?>>[
+      {
+        'location_id': 'l_w_test_1',
+        'location_name': 'Root Location',
+        'level': 1,
+        'x_percent': 35,
+        'y_percent': 45,
+      },
+      {
+        'location_id': 'existing_parent',
+        'location_pid': 'l_w_test_1',
+        'location_name': 'Existing Parent',
+        'level': 2,
+        'x_percent': 38,
+        'y_percent': 38,
+      },
+      {
+        'location_id': 'existing',
+        'location_pid': 'existing_parent',
+        'location_name': 'Existing Location',
+        'level': 3,
+        'x_percent': 40,
+        'y_percent': 40,
+      },
+    ];
+    final transport = _RecordingV1ListTransport(
+      worldRelationStatus: 'joined',
+      worldDefinitionVersion: 1,
+      worldLocations: locations,
+    );
+    final chatroom = _FakeChatroomClient();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      chatroom: chatroom,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: WorldPage(wid: 'w_test_1', initialLocationId: 'existing'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final composer = find.byKey(const ValueKey<String>('chat-composer-input'));
+    expect(composer, findsOneWidget);
+    await tester.showKeyboard(composer);
+    final composerFocusNode = tester.widget<TextField>(composer).focusNode!;
+    expect(composerFocusNode.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+
+    locations.add(const {
+      'location_id': 'new_s3',
+      'location_pid': 'existing_parent',
+      'location_name': 'New S3 Location',
+      'level': 3,
+      'is_new': true,
+      'x_percent': 55,
+      'y_percent': 55,
+    });
+    chatroom.session.emit(
+      const ChatroomWorldNotification(
+        worldId: 'w_test_1',
+        locationId: '',
+        eventType: 'map_updated',
+        title: '',
+        summary: '',
+        detailUrl: '',
+        ts: null,
+        broadcast: true,
+      ),
+    );
+    final pushText = find.descendant(
+      of: find.byKey(const ValueKey<String>('world-update-push-banner')),
+      matching: find.textContaining('New S3 Location'),
+    );
+    for (
+      var attempt = 0;
+      attempt < 20 && pushText.evaluate().isEmpty;
+      attempt += 1
+    ) {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      });
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    expect(pushText, findsOneWidget);
+    expect(tester.widget<TextField>(composer).focusNode, composerFocusNode);
+    expect(composerFocusNode.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+  });
 
   testWidgets(
     'ordinary world map location chat keeps its existing transition flow',

@@ -13,6 +13,45 @@ const LinearGradient originRolePortraitGradient = LinearGradient(
   colors: <Color>[Colors.transparent, Color(0x66151517), Color(0xFF151517)],
 );
 
+/// Owns the small in-memory avatar snapshots derived while Select Your Role
+/// portraits are decoded. Consumers must never fetch the source URL again.
+class OriginRoleAvatarSnapshotStore extends ChangeNotifier {
+  final Map<String, ui.Image> _images = <String, ui.Image>{};
+  bool _disposed = false;
+
+  ui.Image? imageFor(String sourceKey) => _images[sourceKey.trim()];
+
+  void store(String sourceKey, ui.Image image) {
+    final key = sourceKey.trim();
+    if (_disposed || key.isEmpty) {
+      image.dispose();
+      return;
+    }
+    final previous = _images[key];
+    _images[key] = image;
+    previous?.dispose();
+    notifyListeners();
+  }
+
+  void clear({bool notify = true}) {
+    for (final image in _images.values) {
+      image.dispose();
+    }
+    _images.clear();
+    if (!_disposed && notify) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    for (final image in _images.values) {
+      image.dispose();
+    }
+    _images.clear();
+    super.dispose();
+  }
+}
+
 /// Produces the role-card portrait as one decoded image with its readability
 /// gradient already composited into the pixels.
 ///
@@ -26,11 +65,17 @@ class OriginRolePortraitImageProvider
   const OriginRolePortraitImageProvider({
     required this.sourceProvider,
     required this.outputSize,
+    this.snapshotStore,
+    this.snapshotSourceKey = '',
+    this.snapshotSize = 0,
   }) : assert(outputSize > 0);
 
   factory OriginRolePortraitImageProvider.fromUrl({
     required String imageUrl,
     required int outputSize,
+    OriginRoleAvatarSnapshotStore? snapshotStore,
+    String snapshotSourceKey = '',
+    int snapshotSize = 0,
   }) {
     final normalizedUrl = imageUrl.trim();
     assert(normalizedUrl.isNotEmpty);
@@ -46,11 +91,17 @@ class OriginRolePortraitImageProvider
     return OriginRolePortraitImageProvider(
       sourceProvider: sourceProvider,
       outputSize: outputSize,
+      snapshotStore: snapshotStore,
+      snapshotSourceKey: snapshotSourceKey,
+      snapshotSize: snapshotSize,
     );
   }
 
   final ImageProvider<Object> sourceProvider;
   final int outputSize;
+  final OriginRoleAvatarSnapshotStore? snapshotStore;
+  final String snapshotSourceKey;
+  final int snapshotSize;
 
   @override
   Future<OriginRolePortraitImageProvider> obtainKey(
@@ -101,6 +152,7 @@ class OriginRolePortraitImageProvider
     ImageInfo? sourceInfo;
     try {
       sourceInfo = await sourceFrame.future;
+      await _storeAvatarSnapshot(sourceInfo.image);
       final compositeImage = await composeOriginRolePortraitImage(
         sourceImage: sourceInfo.image,
         outputSize: outputSize,
@@ -117,20 +169,77 @@ class OriginRolePortraitImageProvider
     }
   }
 
+  Future<void> _storeAvatarSnapshot(ui.Image sourceImage) async {
+    final store = snapshotStore;
+    final sourceKey = snapshotSourceKey.trim();
+    if (store == null || sourceKey.isEmpty || snapshotSize <= 0) return;
+    try {
+      final snapshot = await composeOriginRoleAvatarSnapshotImage(
+        sourceImage: sourceImage,
+        outputSize: snapshotSize,
+      );
+      store.store(sourceKey, snapshot);
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[OriginWorldPage] role avatar snapshot failed '
+        'source="$sourceKey": $error\n$stackTrace',
+      );
+    }
+  }
+
   @override
   bool operator ==(Object other) {
     return other is OriginRolePortraitImageProvider &&
         other.sourceProvider == sourceProvider &&
-        other.outputSize == outputSize;
+        other.outputSize == outputSize &&
+        identical(other.snapshotStore, snapshotStore) &&
+        other.snapshotSourceKey == snapshotSourceKey &&
+        other.snapshotSize == snapshotSize;
   }
 
   @override
-  int get hashCode => Object.hash(sourceProvider, outputSize);
+  int get hashCode => Object.hash(
+    sourceProvider,
+    outputSize,
+    identityHashCode(snapshotStore),
+    snapshotSourceKey,
+    snapshotSize,
+  );
 
   @override
   String toString() {
     return '${objectRuntimeType(this, 'OriginRolePortraitImageProvider')}'
         '(source: $sourceProvider, outputSize: $outputSize)';
+  }
+}
+
+@visibleForTesting
+Future<ui.Image> composeOriginRoleAvatarSnapshotImage({
+  required ui.Image sourceImage,
+  required int outputSize,
+}) async {
+  assert(outputSize > 0);
+  final outputRect = Rect.fromLTWH(
+    0,
+    0,
+    outputSize.toDouble(),
+    outputSize.toDouble(),
+  );
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  paintImage(
+    canvas: canvas,
+    rect: outputRect,
+    image: sourceImage,
+    fit: BoxFit.cover,
+    alignment: Alignment.center,
+    filterQuality: FilterQuality.medium,
+  );
+  final picture = recorder.endRecording();
+  try {
+    return await picture.toImage(outputSize, outputSize);
+  } finally {
+    picture.dispose();
   }
 }
 

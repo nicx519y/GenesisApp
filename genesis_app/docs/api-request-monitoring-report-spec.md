@@ -84,7 +84,7 @@ action_type = monitor
 | --- | --- | --- | --- |
 | `action` | 四个 action 之一 | `api_req_fail_biz` | 结果分类 |
 | `action_type` | 固定为 `monitor` | `monitor` | 事件过滤 |
-| `object1` | 接口 path，不包含 host 和 query | `/api/v1/world/list` | 接口维度 |
+| `object1` | 接口 path，不包含 host 和 query | `/api/v1/world/list`、`/apix/v1/time` | 接口维度 |
 | `object2` | APP 为本次逻辑请求生成的 `request_id` | `f5c...` | 关联 start 与终态 |
 | `object3` | 结果码 | `biz_20201` | 核心错误维度 |
 | `object4` | 耗时，单位 ms，字符串类型 | `318` | 延迟统计 |
@@ -237,11 +237,11 @@ tech_http_<HTTP状态码>
 | `tech_client_1301` | Gateway 设备或 APP 身份信息不完整 | `client_gateway` |
 | `tech_client_1302` | 本地密钥或公钥不可用 | `client_gateway` |
 | `tech_client_1303` | 本地签名失败 | `client_gateway` |
-| `tech_client_1304` | challenge、注册或恢复注册失败 | `client_gateway` |
+| `tech_client_1304` | Gateway 设备认证失败：获取 challenge、注册设备密钥或重新认证失败 | `client_gateway` |
 | `tech_client_1305` | Gateway 服务端时间同步失败 | `client_gateway` |
 | `tech_client_1399` | 其他 Gateway 认证失败 | `client_gateway_other` |
 
-Gateway 内部访问上游接口失败时，原业务请求没有自己的 HTTP 响应，因此 `object3` 仍使用 `tech_client_13xx`；若能获取 Gateway 上游 HTTP 状态，只在 `ext_data.upstream_status` 中补充，不能写成原业务请求的 `tech_http_xxx`。
+Gateway 内部访问上游接口失败时，原业务请求没有自己的 HTTP 响应，因此原业务请求的 `object3` 仍使用 `tech_client_13xx`；可用的实际 Gateway path 和 HTTP 状态分别写入 `ext_data.upstream_path`、`ext_data.upstream_status`，不能写成原业务请求的 `tech_http_xxx`。与此同时，`time/challenge/register` 自身会生成独立的接口监控链路，使用自己的 `/apix/...` path、request ID 和真实结果，不能与外层业务请求共用 request ID。
 
 #### 未知错误 `1999`
 
@@ -267,6 +267,7 @@ Gateway 内部访问上游接口失败时，原业务请求没有自己的 HTTP 
 | `message` | string | 服务端 `err_msg` 或未知异常的精简信息确有排障价值时使用 |
 | `native_code` | string | 原生网络库提供稳定错误码时使用 |
 | `upstream_status` | number | Gateway 等准备流程的上游 HTTP 状态时使用 |
+| `upstream_path` | string | 外层业务请求因 Gateway 前置流程失败时，记录实际失败的 `/apix/...` path |
 | `retry_count` | number | 最终失败且确实发生过自动重试时使用；大于 0 才写入 |
 
 当前响应失败 `reason`：
@@ -406,9 +407,12 @@ apiTraceSamplingRate: float，范围 [0, 1]
 | 接口/类型 | 规则 |
 | --- | --- |
 | `/api/v1/app/config` | 固定上报，不受采样开关影响 |
+| `/apix/v1/time` | 固定独立上报，不受采样开关影响 |
+| `/apix/v1/app/device/challenge` | 固定独立上报，不受采样开关影响 |
+| `/apix/v1/app/device/register` | 固定独立上报，不受采样开关影响 |
 | `/api/v1/collect` | 永久排除，尾斜杠形式也排除，避免递归和死循环 |
 | 轮询接口 | 不统计，由调用方设置 `tracePolicy=excluded` |
-| `/apix/...` Gateway 自身接口 | 不作为业务 API trace 单独上报 |
+| 其他 `/apix/...` Gateway 接口 | 当前不进入接口监控 |
 | `/aitown-chat/...` | 不进入本业务 API trace |
 | 其他非 `/api/...` 请求 | 不进入本业务 API trace |
 
@@ -420,7 +424,7 @@ apiTraceSamplingRate: float，范围 [0, 1]
 - 绝对请求量不能简单等同于事件量；
 - 当采样率固定时，可用 `样本终态数 / 采样率` 粗略估算普通接口请求量；
 - 当采样率随时间变化时，事件当前没有携带当次采样率，不能仅凭事件精确还原绝对请求量；
-- 配置接口固定上报，不能与普通采样接口混在一起做总体请求量估算；
+- 配置接口和三个 Gateway 启动接口固定上报，不能与普通采样接口混在一起做总体请求量估算；
 - 建议默认从全局 API 汇总中排除 `/api/v1/app/config`，另设配置接口监控卡片。
 
 ## 9. 重试与耗时口径
@@ -441,8 +445,9 @@ apiTraceSamplingRate: float，范围 [0, 1]
 
 - start 固定为 `0`；
 - 终态单位为毫秒；
-- 自动重试场景只记录最后一次实际 attempt 的耗时；
+- 自动重试场景只记录最后一次实际 transport send 的耗时；
 - 不包含之前失败 attempt 的累计时间；
+- 已实际发送业务请求时，不包含发送前的 Gateway 注册、时间同步和签名准备时间；这些耗时由独立 `/apix/...` 接口监控及启动阶段诊断承载；
 - 请求发送前失败时，记录 URI、header、body 等准备阶段实际已经消耗的时间。
 
 因此 `object4` 适合衡量“最终一次接口尝试”的性能，不等同于用户从首次调用到自动重试结束的完整等待时间。

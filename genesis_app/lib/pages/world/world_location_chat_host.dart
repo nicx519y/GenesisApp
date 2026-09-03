@@ -510,6 +510,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final routeName = 'world_location_chat/$worldId/${descriptor.locationId}';
     return Navigator(
+      requestFocus: false,
       pages: [
         MaterialPage<void>(
           key: ValueKey(routeName),

@@ -238,6 +238,41 @@ void main() {
     expect(finalTop + composerHeight, sheetHeight - keyboardInset);
   });
 
+  test('origin opening composer never falls behind the actual keyboard', () {
+    expect(
+      originOpeningKeyboardVisibleComposerTopForTesting(
+        animatedTop: 620,
+        sheetHeight: 780,
+        composerHeight: 100,
+        actualKeyboardInset: 300,
+      ),
+      380,
+      reason:
+          'A stale animation frame is clamped so the composer bottom remains '
+          'at the actual keyboard top.',
+    );
+    expect(
+      originOpeningKeyboardVisibleComposerTopForTesting(
+        animatedTop: 300,
+        sheetHeight: 780,
+        composerHeight: 100,
+        actualKeyboardInset: 300,
+      ),
+      300,
+      reason: 'A composer already above the keyboard must not be pushed down.',
+    );
+    expect(
+      originOpeningKeyboardVisibleComposerTopForTesting(
+        animatedTop: 620,
+        sheetHeight: 780,
+        composerHeight: 100,
+        actualKeyboardInset: 0,
+      ),
+      620,
+      reason: 'The keyboard bound is inactive after the keyboard is closed.',
+    );
+  });
+
   test('origin opening keyboard distinguishes short and scrolled content', () {
     expect(
       originOpeningKeyboardContentTargetOffsetForTesting(
@@ -326,6 +361,35 @@ void main() {
       300,
       reason:
           'The settled Flutter inset becomes the exact final keyboard edge.',
+    );
+  });
+
+  test('origin opening keyboard rests at the inline composer boundary', () {
+    expect(
+      originOpeningKeyboardFlowRestingOffsetForTesting(
+        layoutOffset: 80,
+        contentBottom: 620,
+        sheetHeight: 600,
+        composerHeight: 100,
+        gap: 24,
+      ),
+      224,
+      reason:
+          'Tall content leaves the inline composer exactly at the viewport '
+          'bottom.',
+    );
+    expect(
+      originOpeningKeyboardFlowRestingOffsetForTesting(
+        layoutOffset: 80,
+        contentBottom: 300,
+        sheetHeight: 600,
+        composerHeight: 100,
+        gap: 24,
+      ),
+      0,
+      reason:
+          'Short content stays in natural flow when the boundary would require '
+          'overscrolling above the list start.',
     );
   });
 
