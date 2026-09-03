@@ -5687,7 +5687,7 @@ void main() {
     services.gemWallet.state.removeListener(listener);
   });
 
-  testWidgets('signed out cold start opens Worldo and Home opens My Worlds', (
+  testWidgets('signed-out Worldo startup and Home opens My Worlds', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -5699,13 +5699,10 @@ void main() {
             useMock: false,
             initialUid: null,
           ),
-          child: const AppShellPage(initialIndex: 0),
+          child: const AppShellPage(initialIndex: 1),
         ),
       ),
     );
-
-    expect(find.text('Popular'), findsNothing);
-    expect(find.text('For you'), findsNothing);
 
     for (var i = 0; i < 20 && find.text('For you').evaluate().isEmpty; i += 1) {
       await tester.pump(const Duration(milliseconds: 50));
@@ -5722,167 +5719,156 @@ void main() {
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
   });
 
-  testWidgets(
-    'logged in cold start without My Worlds cache resolves Home from API',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{});
-      final worldListCompleter = Completer<TransportResponse>();
-      final transport = _RecordingV1ListTransport(
-        worldListCompleter: worldListCompleter,
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialAuthToken: 'backend-token',
-            ),
-            child: const AppShellPage(initialIndex: 0),
+  testWidgets('Worldo startup can open Home and load My Worlds from API', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    final worldListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldListCompleter: worldListCompleter,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
           ),
+          child: const AppShellPage(initialIndex: 1),
         ),
-      );
+      ),
+    );
 
-      for (
-        var i = 0;
-        i < 20 && find.text('For you').evaluate().isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
+    for (var i = 0; i < 20 && find.text('For you').evaluate().isEmpty; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
 
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worldo'), findsOneWidget);
-      expect(find.text('For you'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('For you'), findsOneWidget);
 
-      await tester.tap(find.text('Home'));
-      for (
-        var i = 0;
-        i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
+    await tester.tap(find.text('Home'));
+    for (
+      var i = 0;
+      i < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
 
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-      expect(find.byType(TabBar), findsNothing);
-      expect(find.text('World tick narrator 1'), findsNothing);
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    expect(find.byType(TabBar), findsNothing);
+    expect(find.text('World tick narrator 1'), findsNothing);
 
-      worldListCompleter.complete(
-        transport._jsonResponse({
-          'err_no': 0,
-          'err_str': 'success',
-          'data': {
-            'list': [transport._worldItem(0)],
-            'total': 1,
-          },
-        }),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.text('World tick narrator 1'), findsOneWidget);
-      final worldRequest = transport.requestsFor('/api/v1/world/list').single;
-      expect(worldRequest.uri.queryParameters['scene'], 'mine');
-      expect(worldRequest.uri.queryParameters['pn'], '1');
-      expect(worldRequest.uri.queryParameters['rn'], '10');
-    },
-  );
-
-  testWidgets(
-    'logged in cold start with empty My Worlds cache opens its empty state',
-    (WidgetTester tester) async {
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
-          'list': <Object>[],
-          'total': 0,
-        }),
-      });
-      final transport = _RecordingV1ListTransport(worldListTotal: 0);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialAuthToken: 'backend-token',
-            ),
-            child: const AppShellPage(initialIndex: 0),
-          ),
-        ),
-      );
-
-      for (
-        var i = 0;
-        i < 20 && find.text('For you').evaluate().isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
-
-      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-      expect(find.text('Worldo'), findsOneWidget);
-      expect(find.text('For you'), findsOneWidget);
-
-      await tester.tap(find.text('Home'));
-      await tester.pumpAndSettle();
-
-      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
-      expect(
-        find.byKey(
-          const ValueKey<String>(
-            'home-my-worlds-empty-image:'
-            'assets/images/my_worlds_empty_worldo_launch.jpg',
-          ),
-        ),
-        findsNothing,
-      );
-      expect(
-        _richTextFinder('Launch a #Worldo to generate\nyour own World'),
-        findsOneWidget,
-      );
-    },
-  );
-
-  testWidgets(
-    'logged in cold start with My Worlds cache opens Home My Worlds',
-    (WidgetTester tester) async {
-      final transport = _RecordingV1ListTransport(worldListTotal: 1);
-      SharedPreferences.setMockInitialValues(<String, Object>{
-        '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+    worldListCompleter.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'err_str': 'success',
+        'data': {
           'list': [transport._worldItem(0)],
           'total': 1,
-        }),
-      });
-      await tester.pumpWidget(
-        MaterialApp(
-          home: AppServicesScope(
-            services: await _testServices(
-              transport: transport,
-              useMock: false,
-              initialAuthToken: 'backend-token',
-            ),
-            child: const AppShellPage(initialIndex: 0),
+        },
+      }),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('World tick narrator 1'), findsOneWidget);
+    final worldRequest = transport.requestsFor('/api/v1/world/list').single;
+    expect(worldRequest.uri.queryParameters['scene'], 'mine');
+    expect(worldRequest.uri.queryParameters['pn'], '1');
+    expect(worldRequest.uri.queryParameters['rn'], '10');
+  });
+
+  testWidgets('Worldo startup can open an empty My Worlds state', (
+    WidgetTester tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+        'list': <Object>[],
+        'total': 0,
+      }),
+    });
+    final transport = _RecordingV1ListTransport(worldListTotal: 0);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
           ),
+          child: const AppShellPage(initialIndex: 1),
         ),
-      );
+      ),
+    );
 
-      for (
-        var i = 0;
-        i < 20 && find.text('World tick narrator 1').evaluate().isEmpty;
-        i += 1
-      ) {
-        await tester.pump(const Duration(milliseconds: 50));
-      }
+    for (var i = 0; i < 20 && find.text('For you').evaluate().isEmpty; i += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
 
-      final worldRequests = transport.requestsFor('/api/v1/world/list');
-      expect(worldRequests, hasLength(1));
-      expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
-      expect(worldRequests.single.uri.queryParameters['pn'], '1');
-      expect(worldRequests.single.uri.queryParameters['rn'], '10');
-      expect(find.text('World tick narrator 1'), findsOneWidget);
-      expect(find.text('Worldo'), findsOneWidget);
-    },
-  );
+    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    expect(find.text('Worldo'), findsOneWidget);
+    expect(find.text('For you'), findsOneWidget);
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    expect(
+      find.byKey(
+        const ValueKey<String>(
+          'home-my-worlds-empty-image:'
+          'assets/images/my_worlds_empty_worldo_launch.jpg',
+        ),
+      ),
+      findsNothing,
+    );
+    expect(
+      _richTextFinder('Launch a #Worldo to generate\nyour own World'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Home startup with My Worlds cache opens Home My Worlds', (
+    WidgetTester tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldListTotal: 1);
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      '${HomeFeedCacheStore.storageKey}.u_mock.my_worlds': jsonEncode({
+        'list': [transport._worldItem(0)],
+        'total': 1,
+      }),
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: const AppShellPage(initialIndex: 0),
+        ),
+      ),
+    );
+
+    for (
+      var i = 0;
+      i < 20 && find.text('World tick narrator 1').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+    }
+
+    final worldRequests = transport.requestsFor('/api/v1/world/list');
+    expect(worldRequests, hasLength(1));
+    expect(worldRequests.single.uri.queryParameters['scene'], 'mine');
+    expect(worldRequests.single.uri.queryParameters['pn'], '1');
+    expect(worldRequests.single.uri.queryParameters['rn'], '10');
+    expect(find.text('World tick narrator 1'), findsOneWidget);
+    expect(find.text('Worldo'), findsOneWidget);
+  });
 
   testWidgets('login session change resolves Home from My Worlds API', (
     WidgetTester tester,

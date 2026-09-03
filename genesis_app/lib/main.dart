@@ -12,12 +12,12 @@ import 'app/debug/origin_world_sheet_debug_settings.dart';
 import 'app/debug/world_new_content_debug_settings.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
+import 'app/startup/initial_landing_page_resolver.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
 import 'network/api_request_trace_sampling.dart';
 import 'network/websocket_capture.dart';
-import 'pages/origin/origin_feed_cache_store.dart';
 import 'platform/session/user_session_store.dart';
 import 'ui/system/genesis_system_ui.dart';
 
@@ -72,7 +72,9 @@ Future<void> main() async {
     onCollectReady: AppStartupCoordinator.recordStartupFirstReport,
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
-  final initialTabFuture = _resolveInitialBottomTab(services);
+  final initialLandingPageFuture = resolveInitialLandingPage(
+    loadSession: services.sessionStore.readCompleteSession,
+  );
   await Future.wait<Object?>(<Future<Object?>>[
     tilemapSettingsLoad,
     captureSettingsLoad,
@@ -87,16 +89,16 @@ Future<void> main() async {
   ).whenComplete(AppStartupCoordinator.recordLaunchAppConfigReady);
 
   AppStartupCoordinator.configure();
-  final initialTab = await initialTabFuture;
-  if (initialTab.index == 1) {
-    AppStartupCoordinator.setLaunchPageDecision(
-      page: 'worldo',
-      reason: initialTab.reason,
-    );
-  }
+  final initialLandingPage = await initialLandingPageFuture;
+  AppStartupCoordinator.setLaunchPageDecision(
+    page: initialLandingPage.page,
+    reason: initialLandingPage.reason,
+  );
   await appGlobalConfigLoad;
   AppStartupCoordinator.recordLaunchBootstrapReady();
-  runApp(GenesisApp(services: services, initialIndex: initialTab.index));
+  runApp(
+    GenesisApp(services: services, initialIndex: initialLandingPage.index),
+  );
 }
 
 Future<void> _loadAppGlobalConfig(AppServices services) async {
@@ -112,36 +114,4 @@ Future<void> _loadAppGlobalConfig(AppServices services) async {
       '[Startup] app global config load failed; using defaults: $error',
     );
   }
-}
-
-Future<({int index, String reason})> _resolveInitialBottomTab(
-  AppServices services,
-) async {
-  CompleteUserSession? session;
-  try {
-    session = await services.sessionStore.readCompleteSession();
-  } catch (_) {
-    return (index: 1, reason: 'session_error');
-  }
-  if (session != null) return (index: 0, reason: 'session_pending');
-
-  var hasWorldoCache = false;
-  try {
-    hasWorldoCache =
-        await const OriginFeedCacheStore(
-          ownerUid: OriginFeedCacheStore.anonymousOwnerUid,
-        ).loadForYouFirstPage() !=
-        null;
-  } catch (_) {
-    hasWorldoCache = false;
-  }
-  return (
-    index: 1,
-    reason: AppStartupCoordinator.resolveLaunchPageReason(
-      hasSession: false,
-      sessionReadFailed: false,
-      hasHomeCache: false,
-      hasWorldoCache: hasWorldoCache,
-    ),
-  );
 }

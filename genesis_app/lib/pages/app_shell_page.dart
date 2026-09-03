@@ -110,9 +110,11 @@ class _AppShellPageState extends State<AppShellPage>
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppStartupCoordinator.recordLaunchFirstFrame();
-      _startAppRuntime();
+      // The final tab was selected before runApp. Keep route_ready_ms only as
+      // a schema-v1 first-frame confirmation for existing dashboard data.
       AppStartupCoordinator.recordLaunchRouteReady();
       AppStartupCoordinator.recordLaunchPage();
+      _startAppRuntime();
       _startPostLaunchWorkIfAllowed();
       _startInitialBillingRecoveryIfReady();
       _scheduleAttRequest();

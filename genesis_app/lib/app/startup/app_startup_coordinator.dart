@@ -97,6 +97,8 @@ class AppStartupCoordinator {
   }
 
   static void recordLaunchRouteReady() {
+    // Kept in schema_version=1 for report compatibility. The actual landing
+    // page decision now completes before runApp.
     _recordLaunchMilestone('route_ready_ms');
   }
 
