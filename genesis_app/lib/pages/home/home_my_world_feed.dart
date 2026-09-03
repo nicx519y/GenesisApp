@@ -449,18 +449,17 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
           _isInitialLoading = _items.isEmpty;
         });
       }
-      final didLoadCache = await _loadCachedItemsOnce();
-      if (!mounted) return;
-      if (!didLoadCache && _items.isEmpty) {
-        setState(() {
-          _isInitialLoading = true;
-        });
-      }
+      // Cache restoration and the first network refresh intentionally race.
+      // A fast cache can provide the first frame, while a slow or stuck cache
+      // must never delay /world/list. The network completion guard in
+      // _loadCachedItemsIfAvailable prevents a late cache from replacing
+      // fresher network data.
+      unawaited(_loadCachedItemsOnce());
       await _waitHomeInitialRequestMetricWindow(
         widget.initialRequestMetricWindow,
       );
       if (!mounted) return;
-      await _refreshItems(force: true);
+      await _refreshItems(force: true, hasConfirmedSession: hasSession == true);
     } catch (_) {
       _hasRequested = false;
       _cacheLoadFuture = null;
@@ -569,26 +568,29 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     bool force = false,
     bool onlyIfFirstPageChanged = false,
     bool scrollToTopOnUpdate = false,
+    bool hasConfirmedSession = false,
   }) async {
     if (!widget.networkRequestsAllowed.value) return;
     if ((!force && _isInitialLoading) || _isRefreshing) return;
-    final hasSession = await _readLocalLoginSessionBestEffort();
-    if (hasSession == false) {
-      if (!mounted) return;
-      setState(() {
-        _items.clear();
-        _clearDeleteState();
-        _nextPage = 1;
-        _total = 0;
-        _hasMore = false;
-        _error = null;
-        _isInitialLoading = false;
-        _isLoadingMore = false;
-        _isRefreshing = false;
-        _isSignedOut = true;
-        _hasResolvedLocalSession = true;
-      });
-      return;
+    if (!hasConfirmedSession) {
+      final hasSession = await _readLocalLoginSessionBestEffort();
+      if (hasSession == false) {
+        if (!mounted) return;
+        setState(() {
+          _items.clear();
+          _clearDeleteState();
+          _nextPage = 1;
+          _total = 0;
+          _hasMore = false;
+          _error = null;
+          _isInitialLoading = false;
+          _isLoadingMore = false;
+          _isRefreshing = false;
+          _isSignedOut = true;
+          _hasResolvedLocalSession = true;
+        });
+        return;
+      }
     }
 
     setState(() {

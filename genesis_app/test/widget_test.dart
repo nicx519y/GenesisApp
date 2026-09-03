@@ -2889,6 +2889,8 @@ void main() {
             .stopped,
         isTrue,
       );
+      expect(find.text('World tick narrator 2'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsNothing);
       expect(_pageViewCount(telemetry, 'home_my_worlds'), 1);
     },
   );
@@ -2946,7 +2948,7 @@ void main() {
   });
 
   testWidgets(
-    'Home network request survives stuck cache restore and wins late cache',
+    'Home starts network beside stuck cache and network wins late cache',
     (WidgetTester tester) async {
       final cacheCompleter = Completer<Map<String, dynamic>?>();
       final worldListCompleter = Completer<TransportResponse>();
@@ -2963,7 +2965,7 @@ void main() {
           ),
           child: MaterialApp(
             home: HomePage(
-              localRestoreTimeout: const Duration(milliseconds: 10),
+              localRestoreTimeout: const Duration(seconds: 5),
               myWorldsCacheLoader: (_) => cacheCompleter.future,
             ),
           ),
@@ -2974,10 +2976,11 @@ void main() {
         index < 20 && transport.requestsFor('/api/v1/world/list').isEmpty;
         index += 1
       ) {
-        await tester.pump(const Duration(milliseconds: 10));
+        await tester.pump();
       }
 
       expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+      expect(cacheCompleter.isCompleted, isFalse);
 
       worldListCompleter.complete(
         transport._jsonResponse({
