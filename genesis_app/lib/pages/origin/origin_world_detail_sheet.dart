@@ -64,6 +64,7 @@ double _originDetailExpandedChildSize(
 
 class _OriginDetailDraggableSheet extends StatefulWidget {
   const _OriginDetailDraggableSheet({
+    super.key,
     required this.origin,
     required this.roleAvatarSnapshots,
     required this.minChildSize,
@@ -262,6 +263,17 @@ class _OriginDetailDraggableSheetState
         commandGeneration: commandGeneration,
         expanded: true,
       ),
+    );
+  }
+
+  Future<void> expandOpening() async {
+    FocusManager.instance.primaryFocus?.unfocus();
+    _sheetInteraction.resetForContentChange(resetPage: true);
+    _cancelExtentSettleWait();
+    final commandGeneration = ++_extentCommandGeneration;
+    await _animateToRequestedExtent(
+      commandGeneration: commandGeneration,
+      expanded: true,
     );
   }
 

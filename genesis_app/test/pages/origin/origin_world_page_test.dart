@@ -50,6 +50,34 @@ void main() {
     );
   });
 
+  test('worldo location taps raise opening sheet before prompting launch', () {
+    expect(
+      originWorldPageSource,
+      contains("showGenesisToast(context, 'Launch to enter the location');"),
+    );
+    expect(
+      originWorldPageSource,
+      contains('await sheetState.expandOpening();'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('Future<void> expandOpening() async'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('_sheetInteraction.resetForContentChange(resetPage: true);'),
+    );
+    expect(
+      originWorldPageSource,
+      contains('unawaited(_raiseOpeningSheetAndShowLocationToast())'),
+    );
+    expect(originWorldPageSource, isNot(contains('void _openChatForPoint(')));
+    expect(
+      originWorldPageSource,
+      isNot(contains("action: 'worldo_location_chat'")),
+    );
+  });
+
   test('origin detail sheet uses the requested dark color tiers', () {
     expect(originWorldDetailSheetPrimaryTextColor, const Color(0xF2FFFFFF));
     expect(originWorldDetailSheetSecondaryTextColor, const Color(0xB8FFFFFF));
