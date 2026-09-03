@@ -13,7 +13,7 @@ import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/genesis_image_resource.dart';
 
-const worldUpdatePushDisplayDuration = Duration(seconds: 3);
+const worldUpdatePushDisplayDuration = Duration(seconds: 5);
 const worldUpdatePushTransitionDuration = Duration(milliseconds: 220);
 const worldUpdatePushAvatarPreloadTimeout = Duration(seconds: 2);
 const _worldUpdatePushLeadingSize = 48.0;
@@ -395,6 +395,7 @@ class _WorldUpdatePushBanner extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           key: const ValueKey<String>('world-update-push-tap-target'),
+          canRequestFocus: false,
           onTap: onTap,
           child: Padding(
             padding: EdgeInsets.fromLTRB(isLocation ? 16 : 8, 8, 12, 8),
