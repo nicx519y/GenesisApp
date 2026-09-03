@@ -1,15 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/recent_chat/recent_world_chat_store.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  TestWidgetsFlutterBinding.ensureInitialized();
-
-  setUp(() {
-    SharedPreferences.setMockInitialValues(<String, Object>{});
-  });
-
-  test('stores recent chat location per uid', () async {
+  test('keeps only the latest in-memory recent chat record', () async {
     final store = RecentWorldChatStore();
 
     await store.markRecentChat(
@@ -24,14 +17,10 @@ void main() {
       locationId: 'loc_2',
     );
 
-    final userARecord = await store.loadForUid('user_a');
-    expect(userARecord?.worldId, 'world_1');
-    expect(userARecord?.locationId, 'loc_1_2_1');
-    expect(userARecord?.locationPathIds, ['loc_1', 'loc_1_2', 'loc_1_2_1']);
-
-    final userBRecord = await store.loadForUid('user_b');
-    expect(userBRecord?.worldId, 'world_2');
-    expect(userBRecord?.locationId, 'loc_2');
-    expect(store.listenable.value?.uid, 'user_b');
+    final record = store.listenable.value;
+    expect(record?.uid, 'user_b');
+    expect(record?.worldId, 'world_2');
+    expect(record?.locationId, 'loc_2');
+    expect(record?.locationPathIds, const <String>['loc_2']);
   });
 }

@@ -147,6 +147,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   String _launchedPresetRolesPreloadScheduledForOriginId = '';
   ValueListenable<int>? _userInfoRevisionListenable;
   OriginCustomRoleDraft? _cachedProfileRole;
+  OriginCustomRoleDraft? _localProfileRoleOverride;
+  OriginCustomRoleDraft? get _openingProfileRole =>
+      _localProfileRoleOverride ?? _cachedProfileRole;
   String _selectedLocationChatRoleId = _profileLocationChatRoleId;
   int _cachedProfileRoleLoadGeneration = 0;
   final Set<String> _preloadedProfileRoleAvatarKeys = <String>{};
@@ -234,6 +237,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _renderStage = _OriginWorldPageRenderStage.framework;
       _contentMountScheduled = false;
       _activeChatLocation = null;
+      _localProfileRoleOverride = null;
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
       _tilemapRestorationController.clear();
@@ -275,6 +279,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     unawaited(_refreshCachedProfileRole());
     if (!mounted) return;
     setState(() {
+      _localProfileRoleOverride = null;
       _launchedPresetRolesFuture = null;
       _launchedPresetRolesPreparationFuture = null;
       _launchedPresetRolesData = null;
@@ -367,6 +372,12 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
         },
       ),
     );
+  }
+
+  void _saveProfileRoleLocally(OriginCustomRoleDraft profileRole) {
+    if (!mounted) return;
+    _precacheProfileRoleAvatar(profileRole);
+    setState(() => _localProfileRoleOverride = profileRole);
   }
 
   Color get _tilemapLoadingBackgroundColor =>
@@ -1105,9 +1116,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                 if (worldId.isEmpty) return;
                 _enterLaunchedWorld(worldId);
               },
-              profileRole: _cachedProfileRole,
+              profileRole: _openingProfileRole,
               onSelectRole: (character) =>
                   _selectAndLaunchPresetRole(origin, character),
+              onSaveProfileRole: _saveProfileRoleLocally,
               onSelectProfileRole: (profileRole) =>
                   _selectAndLaunchProfileRole(origin, profileRole),
               locationChatRole: _locationChatRoleOption(origin),

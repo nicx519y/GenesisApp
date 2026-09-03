@@ -129,7 +129,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
   String _effectiveLocationChatRoleId(OriginDetail origin) {
     final selectedId = _selectedLocationChatRoleId;
     if (selectedId == _OriginWorldPageState._profileLocationChatRoleId) {
-      if (_cachedProfileRole != null) return selectedId;
+      if (_openingProfileRole != null) return selectedId;
     } else {
       for (final character in origin.characters) {
         if (_characterStableId(character) == selectedId) return selectedId;
@@ -142,7 +142,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       final characterId = _characterStableId(character);
       if (characterId.isNotEmpty) return characterId;
     }
-    if (_cachedProfileRole != null) {
+    if (_openingProfileRole != null) {
       return _OriginWorldPageState._profileLocationChatRoleId;
     }
     return '';
@@ -164,7 +164,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
         }
       }
     }
-    final profileRole = _cachedProfileRole;
+    final profileRole = _openingProfileRole;
     if (profileRole == null) {
       return const _OriginLocationChatRoleOption(
         id: '',
@@ -252,7 +252,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     OriginRoleLaunchSelection roleSelection;
     String telemetryRoleId;
     if (selectedRoleId == _OriginWorldPageState._profileLocationChatRoleId) {
-      final profileRole = await _customRoleFromProfile();
+      final profileRole = _openingProfileRole ?? await _customRoleFromProfile();
       if (!mounted || profileRole == null) return false;
       roleSelection = OriginRoleLaunchSelection.custom(profileRole);
       telemetryRoleId = 'current_user';

@@ -77,6 +77,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.onEnterLaunchedWorld,
     required this.profileRole,
     required this.onSelectRole,
+    required this.onSaveProfileRole,
     required this.onSelectProfileRole,
     required this.locationChatRole,
     required this.onSelectLocationChatRole,
@@ -98,6 +99,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final ValueChanged<OriginMyLaunchPresetCharacter> onEnterLaunchedWorld;
   final OriginCustomRoleDraft? profileRole;
   final Future<void> Function(OriginCharacter character) onSelectRole;
+  final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
   final _OriginLocationChatRoleOption locationChatRole;
   final ValueChanged<String> onSelectLocationChatRole;
@@ -743,7 +745,7 @@ class _OriginDetailDraggableSheetState
                   ),
               style: _originDetailSheetChatComposerStyle,
               roleForegroundColor: originWorldDetailSheetPrimaryTextColor,
-              roleMutedColor: GenesisColors.brand,
+              roleMutedColor: originWorldDetailSheetTertiaryTextColor,
               roleBackgroundColor: kLocationChatStyle.inputBackgroundColor,
               showShortcuts: false,
               enableMentionSheet: false,
@@ -1064,6 +1066,7 @@ class _OriginDetailDraggableSheetState
                                   onSelectedRoleChanged:
                                       widget.onSelectLocationChatRole,
                                   onSelectRole: widget.onSelectRole,
+                                  onSaveProfileRole: widget.onSaveProfileRole,
                                   onSelectProfileRole:
                                       widget.onSelectProfileRole,
                                   onRoleEditingChanged:

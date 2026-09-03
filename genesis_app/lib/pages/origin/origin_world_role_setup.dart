@@ -11,6 +11,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.selectedRoleId,
     required this.onSelectedRoleChanged,
     required this.onSelectRole,
+    required this.onSaveProfileRole,
     required this.onSelectProfileRole,
     required this.onRoleEditingChanged,
   });
@@ -27,6 +28,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
   final String selectedRoleId;
   final ValueChanged<String> onSelectedRoleChanged;
   final Future<void> Function(OriginCharacter character) onSelectRole;
+  final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
   final Future<void> Function(OriginCustomRoleDraft role) onSelectProfileRole;
   final ValueChanged<bool> onRoleEditingChanged;
 
@@ -280,8 +282,7 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                             revealScrollController: widget.scrollController,
                             editableRole: profileRole,
                             onEditingChanged: _handleRoleEditingChanged,
-                            onSelectEditedRole: (role) =>
-                                unawaited(widget.onSelectProfileRole(role)),
+                            onSaveEditedRole: widget.onSaveProfileRole,
                             onSelect: () => unawaited(
                               widget.onSelectProfileRole(profileRole),
                             ),
@@ -370,7 +371,7 @@ class _OriginRoleCardsIndicator extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: selected
-                  ? GenesisColors.brand
+                  ? Colors.white.withValues(alpha: 0.95)
                   : originWorldDetailSheetInactiveIndicatorColor,
             ),
           );
@@ -445,7 +446,7 @@ class _OriginSetupRoleCard extends StatefulWidget {
     this.revealScrollController,
     this.editableRole,
     this.onEditingChanged,
-    this.onSelectEditedRole,
+    this.onSaveEditedRole,
   });
 
   final _OriginSetupRoleCardContent content;
@@ -458,7 +459,7 @@ class _OriginSetupRoleCard extends StatefulWidget {
   final ScrollController? revealScrollController;
   final OriginCustomRoleDraft? editableRole;
   final ValueChanged<bool>? onEditingChanged;
-  final ValueChanged<OriginCustomRoleDraft>? onSelectEditedRole;
+  final ValueChanged<OriginCustomRoleDraft>? onSaveEditedRole;
 
   @override
   State<_OriginSetupRoleCard> createState() => _OriginSetupRoleCardState();
@@ -596,15 +597,11 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
     widget.onEditingChanged?.call(false);
   }
 
-  void _handleSelect() {
-    if (!_editing) {
-      widget.onSelect();
-      return;
-    }
-
+  void _handleSave() {
+    if (!_editing) return;
     final form = _editForm;
-    final onSelectEditedRole = widget.onSelectEditedRole;
-    if (form == null || onSelectEditedRole == null) return;
+    final onSaveEditedRole = widget.onSaveEditedRole;
+    if (form == null || onSaveEditedRole == null) return;
     if (form.name.text.trim().isEmpty) {
       showGenesisToast(context, 'Please enter a name');
       return;
@@ -614,7 +611,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
       return;
     }
     FocusScope.of(context).unfocus();
-    onSelectEditedRole(
+    onSaveEditedRole(
       OriginCustomRoleDraft(
         avatarUrl: form.avatarUrl.text,
         name: form.name.text,
@@ -622,6 +619,9 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
         personality: form.personality.text,
       ),
     );
+    if (!mounted) return;
+    setState(() => _editing = false);
+    widget.onEditingChanged?.call(false);
   }
 
   void _toggleDetails() {
@@ -666,7 +666,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
         foregroundDecoration: BoxDecoration(
           border: Border.all(
             color: widget.selected
-                ? GenesisColors.brand
+                ? Colors.white.withValues(alpha: 0.95)
                 : Colors.white.withValues(alpha: 0.12),
             width: 1,
           ),
@@ -766,100 +766,167 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard> {
                               groupId: createFormTextFieldTapRegionGroup,
                               child: Row(
                                 children: [
-                                  if (_editForm != null) ...[
-                                    SizedBox.square(
-                                      dimension: 35,
+                                  if (_editing) ...[
+                                    Expanded(
                                       child: Material(
                                         key: ValueKey<String>(
-                                          'origin-setup-role-edit-surface-$stableId',
+                                          'origin-setup-role-cancel-surface-$stableId',
                                         ),
                                         color: const Color(0x667A7A7A),
                                         borderRadius: BorderRadius.circular(8),
                                         clipBehavior: Clip.antiAlias,
                                         child: InkWell(
                                           key: ValueKey<String>(
-                                            'origin-setup-role-edit-$stableId',
+                                            'origin-setup-role-cancel-$stableId',
                                           ),
                                           onTap: widget.busy
                                               ? null
-                                              : _toggleEditing,
-                                          child: Icon(
-                                            _editing
-                                                ? Icons.close_rounded
-                                                : Icons.edit_rounded,
-                                            key: ValueKey<String>(
-                                              _editing
-                                                  ? 'origin-setup-role-edit-close-icon-$stableId'
-                                                  : 'origin-setup-role-edit-icon-$stableId',
-                                            ),
-                                            size: 18,
-                                            color: Colors.white.withValues(
-                                              alpha: widget.busy ? 0.6 : 1,
+                                              : _closeEditing,
+                                          child: Center(
+                                            child: Text(
+                                              'Cancel',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                height: 1,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white.withValues(
+                                                  alpha: widget.busy ? 0.6 : 1,
+                                                ),
+                                                decoration: TextDecoration.none,
+                                              ),
                                             ),
                                           ),
                                         ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                  ],
-                                  Expanded(
-                                    child: Material(
-                                      key: ValueKey<String>(
-                                        'origin-setup-role-select-surface-$stableId',
-                                      ),
-                                      color: const Color(0x667A7A7A),
-                                      borderRadius: BorderRadius.circular(8),
-                                      clipBehavior: Clip.antiAlias,
-                                      child: InkWell(
+                                    Expanded(
+                                      child: Material(
                                         key: ValueKey<String>(
-                                          'origin-setup-role-$stableId',
+                                          'origin-setup-role-save-surface-$stableId',
                                         ),
-                                        onTap: widget.busy
-                                            ? null
-                                            : _handleSelect,
-                                        child: Center(
-                                          child: Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
-                                            children: [
-                                              if (content.isRecommended) ...[
-                                                OriginRecommendedRoleMark(
-                                                  badgeKey: ValueKey<String>(
-                                                    'origin-setup-role-recommended-$stableId',
-                                                  ),
-                                                  showBackground: true,
+                                        color: GenesisColors.brand,
+                                        borderRadius: BorderRadius.circular(8),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: InkWell(
+                                          key: ValueKey<String>(
+                                            'origin-setup-role-save-$stableId',
+                                          ),
+                                          onTap: widget.busy
+                                              ? null
+                                              : _handleSave,
+                                          child: Center(
+                                            child: Text(
+                                              'Save',
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                height: 1,
+                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white.withValues(
+                                                  alpha: widget.busy ? 0.6 : 1,
                                                 ),
-                                                const SizedBox(width: 6),
-                                              ],
-                                              Flexible(
-                                                child: Text(
-                                                  widget.launching
-                                                      ? 'Launching...'
-                                                      : 'Select to Launch',
-                                                  maxLines: 1,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                  style: TextStyle(
-                                                    fontSize: 14,
-                                                    height: 1,
-                                                    fontWeight: FontWeight.w600,
-                                                    color: Colors.white
-                                                        .withValues(
-                                                          alpha: widget.busy
-                                                              ? 0.6
-                                                              : 1,
-                                                        ),
-                                                    decoration:
-                                                        TextDecoration.none,
-                                                  ),
-                                                ),
+                                                decoration: TextDecoration.none,
                                               ),
-                                            ],
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
+                                  ] else ...[
+                                    if (_editForm != null) ...[
+                                      SizedBox.square(
+                                        dimension: 35,
+                                        child: Material(
+                                          key: ValueKey<String>(
+                                            'origin-setup-role-edit-surface-$stableId',
+                                          ),
+                                          color: const Color(0x667A7A7A),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          clipBehavior: Clip.antiAlias,
+                                          child: InkWell(
+                                            key: ValueKey<String>(
+                                              'origin-setup-role-edit-$stableId',
+                                            ),
+                                            onTap: widget.busy
+                                                ? null
+                                                : _toggleEditing,
+                                            child: Icon(
+                                              Icons.edit_rounded,
+                                              key: ValueKey<String>(
+                                                'origin-setup-role-edit-icon-$stableId',
+                                              ),
+                                              size: 18,
+                                              color: Colors.white.withValues(
+                                                alpha: widget.busy ? 0.6 : 1,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                    ],
+                                    Expanded(
+                                      child: Material(
+                                        key: ValueKey<String>(
+                                          'origin-setup-role-select-surface-$stableId',
+                                        ),
+                                        color: const Color(0x667A7A7A),
+                                        borderRadius: BorderRadius.circular(8),
+                                        clipBehavior: Clip.antiAlias,
+                                        child: InkWell(
+                                          key: ValueKey<String>(
+                                            'origin-setup-role-$stableId',
+                                          ),
+                                          onTap: widget.busy
+                                              ? null
+                                              : widget.onSelect,
+                                          child: Center(
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
+                                              children: [
+                                                if (content.isRecommended) ...[
+                                                  OriginRecommendedRoleMark(
+                                                    badgeKey: ValueKey<String>(
+                                                      'origin-setup-role-recommended-$stableId',
+                                                    ),
+                                                    showBackground: true,
+                                                  ),
+                                                  const SizedBox(width: 6),
+                                                ],
+                                                Flexible(
+                                                  child: Text(
+                                                    widget.launching
+                                                        ? 'Launching...'
+                                                        : 'Select to Launch',
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      height: 1,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: widget.busy
+                                                                ? 0.6
+                                                                : 1,
+                                                          ),
+                                                      decoration:
+                                                          TextDecoration.none,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),

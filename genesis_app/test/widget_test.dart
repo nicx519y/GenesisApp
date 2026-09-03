@@ -700,7 +700,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final List<Map<String, Object?>>? myLaunchPresetCharacters;
   final Completer<TransportResponse>? myLaunchPresetCharactersCompleter;
   final String worldMapUrl;
-  final String? worldLastChatLocationId;
+  String? worldLastChatLocationId;
   final List<Map<String, Object?>>? worldCharacters;
   final List<Map<String, Object?>>? worldLocations;
   final List<List<Map<String, Object?>>>? worldDetailTicksByRequest;
@@ -9877,7 +9877,7 @@ void main() {
         recommendedFrame.foregroundDecoration! as BoxDecoration;
     expect(
       (recommendedOutline.border! as Border).top.color,
-      GenesisColors.brand,
+      Colors.white.withValues(alpha: 0.95),
     );
     expect((recommendedOutline.border! as Border).top.width, 1);
     expect(
@@ -10015,7 +10015,11 @@ void main() {
           .dx,
       closeTo(tester.getCenter(roleCardsFinder).dx, 0.01),
     );
-    expect((regularOutline.border! as Border).top.color, GenesisColors.brand);
+    expect(
+      (regularOutline.border! as Border).top.color,
+      Colors.white.withValues(alpha: 0.95),
+    );
+    expect((regularOutline.border! as Border).top.width, 1);
     expect(tester.widget<Text>(rolePillLabel).data, 'Regular role');
     expect(
       tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
@@ -10026,7 +10030,7 @@ void main() {
     );
     expect(
       (selectedDot.decoration! as BoxDecoration).color,
-      GenesisColors.brand,
+      Colors.white.withValues(alpha: 0.95),
     );
   });
 
@@ -10747,7 +10751,14 @@ void main() {
               as Border)
           .top
           .color,
-      GenesisColors.brand,
+      Colors.white.withValues(alpha: 0.95),
+    );
+    expect(
+      ((selectedProfileFrame.foregroundDecoration! as BoxDecoration).border!
+              as Border)
+          .top
+          .width,
+      1,
     );
     expect(
       find.byKey(const ValueKey<String>('origin-setup-role-custom-card')),
@@ -11010,7 +11021,7 @@ void main() {
               as Border)
           .top
           .color,
-      GenesisColors.brand,
+      Colors.white.withValues(alpha: 0.95),
     );
     tester
         .widget<GestureDetector>(
@@ -11069,13 +11080,27 @@ void main() {
           .ignoring,
       isTrue,
     );
+    final cancelEdit = find.byKey(
+      const ValueKey<String>('origin-setup-role-cancel-current-user'),
+    );
+    final saveEdit = find.byKey(
+      const ValueKey<String>('origin-setup-role-save-current-user'),
+    );
+    expect(cancelEdit, findsOneWidget);
+    expect(saveEdit, findsOneWidget);
+    expect(find.text('Cancel'), findsOneWidget);
+    expect(find.text('Save'), findsOneWidget);
     expect(
-      find.byKey(
-        const ValueKey<String>(
-          'origin-setup-role-edit-close-icon-current-user',
-        ),
-      ),
-      findsOneWidget,
+      tester
+          .widget<Material>(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-save-surface-current-user',
+              ),
+            ),
+          )
+          .color,
+      GenesisColors.brand,
     );
     expect(profileBodyToggle, findsNothing);
     expect(
@@ -11097,13 +11122,7 @@ void main() {
       tester.widget<TextField>(mountedInlineFields.at(0)).controller?.text,
       'Temporary Name',
     );
-    tester
-        .widget<InkWell>(
-          find.byKey(
-            const ValueKey<String>('origin-setup-role-edit-current-user'),
-          ),
-        )
-        .onTap!();
+    tester.widget<InkWell>(cancelEdit).onTap!();
     await tester.pumpAndSettle();
     expect(inlineEditor, findsNothing);
     expect(profileLabel, findsOneWidget);
@@ -11165,7 +11184,7 @@ void main() {
     tester
         .widget<InkWell>(
           find.byKey(
-            const ValueKey<String>('origin-setup-role-edit-current-user'),
+            const ValueKey<String>('origin-setup-role-cancel-current-user'),
           ),
         )
         .onTap!();
@@ -11208,7 +11227,7 @@ void main() {
     AppStartupCoordinator.resetForTesting();
   });
 
-  testWidgets('Origin profile editor launches its custom role inline', (
+  testWidgets('Origin profile editor saves a page-local role before launch', (
     WidgetTester tester,
   ) async {
     AppStartupCoordinator.resetForTesting();
@@ -11224,25 +11243,31 @@ void main() {
       originLaunchCompleter: originLaunchCompleter,
       worldRelationStatus: 'approved',
     );
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialAuthToken: 'token',
+      initialUserInfo: const {
+        'uid': 'u_profile',
+        'name': 'Profile Hero',
+        'avatar': 'https://cdn.example.com/profile.jpg',
+        'identity': 'Initial identity',
+        'bio': 'Initial profile personality',
+      },
+    );
     await tester.pumpWidget(
       AppServicesScope(
-        services: await _testServices(
-          transport: transport,
-          useMock: false,
-          initialAuthToken: 'token',
-          initialUserInfo: const {
-            'uid': 'u_profile',
-            'name': 'Profile Hero',
-            'avatar': 'https://cdn.example.com/profile.jpg',
-            'identity': 'Initial identity',
-            'bio': 'Initial profile personality',
-          },
-        ),
+        services: services,
         child: MaterialApp(
           onGenerateRoute: AppRouter.onGenerateRoute,
           home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
         ),
       ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
     );
     await tester.pumpAndSettle();
 
@@ -11360,6 +11385,7 @@ void main() {
       reason: 'The focused role field stays above the keyboard.',
     );
     expect(nameController.text, 'Profile Hero');
+    await tester.enterText(mountedFields.first, 'Saved Profile Hero');
     await tester.enterText(mountedFields.at(1), 'Explorer');
     await tester.pump();
     expect(
@@ -11374,6 +11400,36 @@ void main() {
     );
     tester.view.viewInsets = FakeViewPadding.zero;
     await tester.pumpAndSettle();
+
+    final saveProfile = find.byKey(
+      const ValueKey<String>('origin-setup-role-save-current-user'),
+    );
+    expect(saveProfile, findsOneWidget);
+    tester.widget<InkWell>(saveProfile).onTap!();
+    await tester.pumpAndSettle();
+
+    expect(inlineEditor, findsNothing);
+    expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
+    expect(
+      find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('origin-setup-role-portrait-current-user'),
+        ),
+        matching: find.text('Saved Profile Hero'),
+      ),
+      findsOneWidget,
+    );
+    final savedRolePillLabel = find.descendant(
+      of: find.byKey(const ValueKey<String>('origin-location-chat-role-pill')),
+      matching: find.byKey(
+        const ValueKey<String>('origin-location-chat-role-label'),
+      ),
+    );
+    expect(tester.widget<Text>(savedRolePillLabel).data, 'Saved Profile Hero');
+    final persistedUserInfo = await services.sessionStore.readUserInfo();
+    expect(persistedUserInfo?['name'], 'Profile Hero');
+    expect(persistedUserInfo?['identity'], 'Initial identity');
+    expect(persistedUserInfo?['bio'], 'Initial profile personality');
 
     final launchCustom = tester
         .widget<InkWell>(
@@ -11401,7 +11457,10 @@ void main() {
     final launchRequests = transport.requestsFor('/api/v1/origin/launch');
     expect(launchRequests, hasLength(1));
     final launchBody = transport.decodedBody(launchRequests.single);
-    expect(launchBody['custom_role'], containsPair('name', 'Profile Hero'));
+    expect(
+      launchBody['custom_role'],
+      containsPair('name', 'Saved Profile Hero'),
+    );
     expect(launchBody['custom_role'], containsPair('identity', 'Explorer'));
     expect(
       launchBody['custom_role'],
@@ -11412,6 +11471,46 @@ void main() {
       source: 'opening_select',
     );
     await tester.pump(const Duration(seconds: 2));
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+    AppStartupCoordinator.resetForTesting();
+    final reenteredServices = await _testServices(
+      transport: _RecordingV1ListTransport(worldRelationStatus: 'approved'),
+      useMock: false,
+      initialAuthToken: 'token',
+      initialUserInfo: const {
+        'uid': 'u_profile',
+        'name': 'Profile Hero',
+        'avatar': 'https://cdn.example.com/profile.jpg',
+        'identity': 'Initial identity',
+        'bio': 'Initial profile personality',
+      },
+    );
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: reenteredServices,
+        child: MaterialApp(
+          onGenerateRoute: AppRouter.onGenerateRoute,
+          home: const OriginWorldPage(oid: 'o_test_1', originId: 0),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
+    );
+    await tester.pumpAndSettle();
+    final reenteredProfilePortrait = find.byKey(
+      const ValueKey<String>('origin-setup-role-portrait-current-user'),
+    );
+    expect(
+      find.descendant(
+        of: reenteredProfilePortrait,
+        matching: find.text('Profile Hero'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Saved Profile Hero'), findsNothing);
     AppStartupCoordinator.resetForTesting();
   });
 
@@ -12371,7 +12470,10 @@ void main() {
         ),
       );
       expect(roleSwitchIcon, findsOneWidget);
-      expect(tester.widget<Icon>(roleSwitchIcon).color, GenesisColors.brand);
+      expect(
+        tester.widget<Icon>(roleSwitchIcon).color,
+        originWorldDetailSheetTertiaryTextColor,
+      );
       expect(
         tester.widget<GenesisCharacterAvatar>(rolePillAvatar).name,
         'Nikos',
@@ -12432,8 +12534,9 @@ void main() {
               as BoxDecoration;
       expect(
         (selectedPresetDecoration.border! as Border).top.color,
-        GenesisColors.brand,
+        Colors.white.withValues(alpha: 0.95),
       );
+      expect((selectedPresetDecoration.border! as Border).top.width, 1);
       expect(
         tester.getCenter(selectedPresetFrame).dx,
         closeTo(tester.getCenter(rolePages).dx, 0.01),
@@ -26311,7 +26414,7 @@ void main() {
   });
 
   testWidgets(
-    'world map recent chat comes from local store while events use detail',
+    'world map recent chat starts from detail then uses session store updates',
     (WidgetTester tester) async {
       await recentWorldChatStore.markRecentChat(
         uid: 'u_mock',
@@ -26359,14 +26462,57 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      var worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      expect(worldMap.legacy.recentChatLocationIds, const <String>{'loc_l2'});
+      expect(worldMap.legacy.recentChatMapLocationIds, const <String>{
+        'loc_l1',
+        'loc_l2',
+      });
+      expect(worldMap.legacy.eventMapLocationIds, const <String>{
+        'loc_l1',
+        'loc_l2',
+        'loc_l3',
+      });
+
+      await recentWorldChatStore.markRecentChat(
+        uid: 'u_mock',
+        worldId: 'w_test_1',
+        locationId: 'loc_l3',
+        locationPathIds: const <String>['loc_l1', 'loc_l2', 'loc_l3'],
+      );
+      await tester.pump();
+
+      worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
       expect(worldMap.legacy.recentChatLocationIds, const <String>{'loc_l3'});
       expect(worldMap.legacy.recentChatMapLocationIds, const <String>{
         'loc_l1',
         'loc_l2',
         'loc_l3',
       });
-      expect(worldMap.legacy.eventMapLocationIds, const <String>{
+
+      transport.worldLastChatLocationId = 'loc_l1';
+      final detailRequestCountBeforeRefresh = transport
+          .requestsFor('/api/v1/world/detail')
+          .length;
+      // Reassemble is the existing debug hook that schedules a fresh detail request.
+      // ignore: invalid_use_of_protected_member
+      tester.state<State<WorldPage>>(find.byType(WorldPage)).reassemble();
+      for (var attempt = 0; attempt < 20; attempt += 1) {
+        await tester.pump(const Duration(milliseconds: 50));
+        if (transport.requestsFor('/api/v1/world/detail').length >
+            detailRequestCountBeforeRefresh) {
+          break;
+        }
+      }
+      expect(
+        transport.requestsFor('/api/v1/world/detail').length,
+        greaterThan(detailRequestCountBeforeRefresh),
+      );
+      await tester.pump();
+
+      worldMap = tester.widget<WorldMap>(find.byType(WorldMap));
+      expect(worldMap.legacy.recentChatLocationIds, const <String>{'loc_l3'});
+      expect(worldMap.legacy.recentChatMapLocationIds, const <String>{
         'loc_l1',
         'loc_l2',
         'loc_l3',
