@@ -20,31 +20,31 @@ private struct DeviceIdResolution {
 private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStreamHandler {
   private var eventSink: FlutterEventSink?
   private var observer: NSObjectProtocol?
+  private var latestEvent: [String: Any]?
   private var generation = 0
+
+  override init() {
+    super.init()
+    observer = NotificationCenter.default.addObserver(
+      forName: UIResponder.keyboardWillChangeFrameNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] notification in
+      self?.handleKeyboardFrameChange(notification)
+    }
+  }
 
   func onListen(
     withArguments arguments: Any?,
     eventSink events: @escaping FlutterEventSink
   ) -> FlutterError? {
     eventSink = events
-    if observer == nil {
-      observer = NotificationCenter.default.addObserver(
-        forName: UIResponder.keyboardWillChangeFrameNotification,
-        object: nil,
-        queue: .main
-      ) { [weak self] notification in
-        self?.handleKeyboardFrameChange(notification)
-      }
-    }
+    if let latestEvent = latestEvent { events(latestEvent) }
     return nil
   }
 
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
     eventSink = nil
-    if let observer = observer {
-      NotificationCenter.default.removeObserver(observer)
-      self.observer = nil
-    }
     return nil
   }
 
@@ -56,7 +56,6 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
 
   private func handleKeyboardFrameChange(_ notification: Notification) {
     guard
-      let eventSink = eventSink,
       let userInfo = notification.userInfo,
       let beginFrame = userInfo[UIResponder.keyboardFrameBeginUserInfoKey] as? CGRect,
       let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
@@ -76,13 +75,15 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
     let duration = (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey]
       as? NSNumber)?.doubleValue ?? 0
     generation += 1
-    eventSink([
+    let event: [String: Any] = [
       "generation": generation,
       "phase": phase,
       "startInset": startInset,
       "endInset": endInset,
       "durationMillis": duration * 1000,
-    ])
+    ]
+    latestEvent = event
+    eventSink?(event)
   }
 
   private func activeWindow() -> UIWindow? {

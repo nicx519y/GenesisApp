@@ -121,8 +121,9 @@ void main() {
     expect(originWorldDetailSheetSource, contains('roleBorderRadius: 8'));
     expect(
       originWorldDetailSheetSource,
-      contains('bottomNavigationBar: !roleEditing && !composerLifted'),
+      contains('bottomNavigationBar: openingComposer != null'),
     );
+    expect(originWorldDetailSheetSource, isNot(contains('composerLifted')));
     expect(
       originWorldDetailSheetSource,
       contains('origin-opening-docked-composer-bottom-spacer'),
@@ -133,9 +134,7 @@ void main() {
     );
     expect(
       originWorldDetailSheetSource,
-      contains(
-        'resizeToAvoidBottomInset: !roleEditing && !_openingKeyboardMode',
-      ),
+      contains('resizeToAvoidBottomInset: false'),
     );
     expect(
       originWorldDetailSheetSource,
@@ -157,6 +156,18 @@ void main() {
       originWorldDetailSheetSource,
       isNot(contains('_scheduleOpeningComposerPositionUpdate')),
     );
+  });
+
+  test('origin opening composer keeps one system dock during IME motion', () {
+    expect(
+      originWorldDetailSheetSource,
+      contains('bottomNavigationBar: openingComposer != null'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('_sheetInteraction.composerTranslation()'),
+    );
+    expect(originWorldDetailSheetSource, isNot(contains('composerLifted')));
   });
 
   test('origin sheet keeps hot interaction rebuilds locally scoped', () {
@@ -201,6 +212,83 @@ void main() {
     expect(originSectionsSource, isNot(contains('imageUrls.indexOf(')));
   });
 
+  test('origin opening dialogue warms only while the sheet is stable', () {
+    expect(
+      originOpeningDialogueWarmupAllowedForTesting(
+        hasMessages: true,
+        autoExpansionPending: false,
+        keyboardMode: false,
+        roleEditing: false,
+        openingPageSettled: true,
+        sheetInteractionActive: false,
+        extentAnimationActive: false,
+      ),
+      isTrue,
+    );
+    for (final blocked in <Map<String, bool>>[
+      {'autoExpansionPending': true},
+      {'keyboardMode': true},
+      {'roleEditing': true},
+      {'openingPageSettled': false},
+      {'sheetInteractionActive': true},
+      {'extentAnimationActive': true},
+    ]) {
+      expect(
+        originOpeningDialogueWarmupAllowedForTesting(
+          hasMessages: true,
+          autoExpansionPending: blocked['autoExpansionPending'] ?? false,
+          keyboardMode: blocked['keyboardMode'] ?? false,
+          roleEditing: blocked['roleEditing'] ?? false,
+          openingPageSettled: blocked['openingPageSettled'] ?? true,
+          sheetInteractionActive: blocked['sheetInteractionActive'] ?? false,
+          extentAnimationActive: blocked['extentAnimationActive'] ?? false,
+        ),
+        isFalse,
+        reason: 'Warmup must wait while $blocked is active.',
+      );
+    }
+    expect(
+      originOpeningDialogueWarmupAllowedForTesting(
+        hasMessages: false,
+        autoExpansionPending: false,
+        keyboardMode: false,
+        roleEditing: false,
+        openingPageSettled: true,
+        sheetInteractionActive: false,
+        extentAnimationActive: false,
+      ),
+      isFalse,
+    );
+  });
+
+  test('origin opening dialogue fully caches after warmup or keyboard', () {
+    expect(
+      originOpeningDialogueShouldFullyCacheForTesting(
+        keyboardMode: false,
+        warmupCompleted: false,
+      ),
+      isFalse,
+    );
+    expect(
+      originOpeningDialogueShouldFullyCacheForTesting(
+        keyboardMode: false,
+        warmupCompleted: true,
+      ),
+      isTrue,
+    );
+    expect(
+      originOpeningDialogueShouldFullyCacheForTesting(
+        keyboardMode: true,
+        warmupCompleted: false,
+      ),
+      isTrue,
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('_scheduleOpeningDialogueWarmupAfterPaint();'),
+    );
+  });
+
   test('origin sheet interaction is packaged outside the sheet UI', () {
     expect(
       originWorldPageSource,
@@ -223,6 +311,19 @@ void main() {
       contains('bool isCollapsedRoleActionVisible'),
     );
     expect(
+      originWorldSheetInteractionSource,
+      contains('class _OriginRoleEditorInteractionController'),
+    );
+    expect(
+      originWorldSheetInteractionSource,
+      contains('enum _OriginRoleEditorPhase'),
+    );
+    expect(originSectionsSource, isNot(contains('_positionEditingCard')));
+    expect(
+      originSectionsSource,
+      isNot(contains('_keyboardSettlePositionTimer')),
+    );
+    expect(
       originWorldDetailSheetSource,
       isNot(contains('void _updateOpeningKeyboardInset(double rawInset)')),
     );
@@ -234,6 +335,72 @@ void main() {
     expect(
       originWorldDetailSheetSource,
       contains('Future<void> _animateToRequestedExtent'),
+    );
+  });
+
+  test('origin role editor targets a 30px keyboard gap', () {
+    const sheetHeight = 800.0;
+    const keyboardInset = 300.0;
+    const cardBottom = 540.0;
+    final target = originRoleEditorTargetScrollOffsetForTesting(
+      startScrollOffset: 200,
+      cardBottom: cardBottom,
+      viewHeight: sheetHeight,
+      keyboardInset: keyboardInset,
+    );
+
+    expect(target, 270);
+    final translatedCardBottom = cardBottom - (target - 200);
+    expect(sheetHeight - keyboardInset - translatedCardBottom, 30);
+  });
+
+  test('origin role editor keeps the keyboard gap on a short viewport', () {
+    final target = originRoleEditorTargetScrollOffsetForTesting(
+      startScrollOffset: 100,
+      cardBottom: 400,
+      viewHeight: 500,
+      keyboardInset: 300,
+    );
+
+    expect(target, 330);
+    expect(500 - 300 - (400 - (target - 100)), 30);
+  });
+
+  test('origin role editor preserves a negative target for short content', () {
+    expect(
+      originRoleEditorTargetScrollOffsetForTesting(
+        startScrollOffset: 0,
+        cardBottom: 200,
+        viewHeight: 800,
+        keyboardInset: 300,
+      ),
+      -270,
+      reason:
+          'A negative logical target is retained as paint translation when '
+          'there is no leading scroll extent to commit.',
+    );
+  });
+
+  test('origin role editor retains its temporary scroll extent at settle', () {
+    final initialExtent = originRoleEditorAdditionalScrollExtentForTesting(
+      targetScrollOffset: 300,
+      minScrollExtent: 0,
+      currentMaxScrollExtent: 200,
+      retainedAdditionalExtent: 0,
+    );
+    expect(initialExtent, 100);
+
+    expect(
+      originRoleEditorAdditionalScrollExtentForTesting(
+        targetScrollOffset: 300,
+        minScrollExtent: 0,
+        currentMaxScrollExtent: 300,
+        retainedAdditionalExtent: initialExtent,
+      ),
+      100,
+      reason:
+          'The expanded max extent includes the temporary spacer and must not '
+          'make the settle pass remove that spacer.',
     );
   });
 
@@ -285,6 +452,44 @@ void main() {
       progress: 1,
     );
     expect(finalTop + composerHeight, sheetHeight - keyboardInset);
+  });
+
+  test('origin opening keyboard uses stable sliver coordinates', () {
+    expect(
+      originOpeningKeyboardLogicalCoordinateAtStartForTesting(
+        logicalCoordinate: 340,
+        startVisualOffset: 100,
+      ),
+      240,
+      reason:
+          'The logical sliver edge is converted to the coordinate space '
+          'captured when focus began.',
+    );
+    expect(
+      originOpeningKeyboardLogicalCoordinateAtStartForTesting(
+        logicalCoordinate: 340,
+        startVisualOffset: 100,
+      ),
+      240,
+      reason: 'The result does not depend on a current paint offset.',
+    );
+  });
+
+  test('origin opening keyboard removes only the safe-area overlap', () {
+    expect(
+      originOpeningEffectiveKeyboardInsetForTesting(
+        rawKeyboardInset: 300,
+        bottomSafeAreaInset: 24,
+      ),
+      276,
+    );
+    expect(
+      originOpeningEffectiveKeyboardInsetForTesting(
+        rawKeyboardInset: 12,
+        bottomSafeAreaInset: 24,
+      ),
+      0,
+    );
   });
 
   test('origin opening composer never falls behind the actual keyboard', () {
@@ -396,7 +601,7 @@ void main() {
       originOpeningKeyboardSettledTargetInsetForTesting(
         nativeTargetInset: 304,
         actualInset: 300,
-        stableFrameCount: 1,
+        stableFrameCount: 9,
       ),
       304,
       reason: 'The native target remains authoritative while IME is moving.',
@@ -405,7 +610,7 @@ void main() {
       originOpeningKeyboardSettledTargetInsetForTesting(
         nativeTargetInset: 304,
         actualInset: 300,
-        stableFrameCount: 2,
+        stableFrameCount: 10,
       ),
       300,
       reason:
@@ -465,6 +670,19 @@ void main() {
             'duration',
             const Duration(milliseconds: 250),
           ),
+    );
+  });
+
+  test('origin keyboard consumers share one native event stream', () {
+    expect(
+      identical(
+        GenesisKeyboardAnimationEvents.targets,
+        GenesisKeyboardAnimationEvents.targets,
+      ),
+      isTrue,
+      reason:
+          'The message composer and role editor must not register competing '
+          'EventChannel listeners.',
     );
   });
 

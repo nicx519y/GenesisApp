@@ -11,6 +11,7 @@ class CreateUploadBox extends StatefulWidget {
     required this.controller,
     required this.label,
     required this.onChanged,
+    this.onInteractionActiveChanged,
     this.initialPreviewBytes,
     this.onPreviewBytesChanged,
     this.width = 132,
@@ -38,6 +39,7 @@ class CreateUploadBox extends StatefulWidget {
   final TextEditingController controller;
   final String label;
   final VoidCallback onChanged;
+  final ValueChanged<bool>? onInteractionActiveChanged;
   final Uint8List? initialPreviewBytes;
   final ValueChanged<Uint8List?>? onPreviewBytesChanged;
   final double width;
@@ -247,6 +249,7 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   }
 
   Future<void> _pickCropAndUpload(BuildContext context) async {
+    widget.onInteractionActiveChanged?.call(true);
     try {
       final picked = await pickGenesisImages(
         limit: 1,
@@ -291,6 +294,8 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
     } catch (_) {
       if (!context.mounted) return;
       _showMessage('Image upload failed.');
+    } finally {
+      widget.onInteractionActiveChanged?.call(false);
     }
   }
 

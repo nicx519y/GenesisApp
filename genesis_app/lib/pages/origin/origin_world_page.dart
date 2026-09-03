@@ -123,6 +123,33 @@ const double originOpeningDialogueRoleGapForTesting = 36;
 @visibleForTesting
 const double originDetailSectionTitleIconGapForTesting = 8;
 
+@visibleForTesting
+bool originOpeningDialogueWarmupAllowedForTesting({
+  required bool hasMessages,
+  required bool autoExpansionPending,
+  required bool keyboardMode,
+  required bool roleEditing,
+  required bool openingPageSettled,
+  required bool sheetInteractionActive,
+  required bool extentAnimationActive,
+}) {
+  return hasMessages &&
+      !autoExpansionPending &&
+      !keyboardMode &&
+      !roleEditing &&
+      openingPageSettled &&
+      !sheetInteractionActive &&
+      !extentAnimationActive;
+}
+
+@visibleForTesting
+bool originOpeningDialogueShouldFullyCacheForTesting({
+  required bool keyboardMode,
+  required bool warmupCompleted,
+}) {
+  return keyboardMode || warmupCompleted;
+}
+
 enum _OriginWorldPageRenderStage { framework, detailShell, content }
 
 class _OriginWorldPageState extends State<OriginWorldPage> {
