@@ -1,8 +1,13 @@
+import 'dart:async';
+import 'dart:ui' as ui;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_scene_plate_tokens.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/world/world_update_push_banner.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 
@@ -14,9 +19,34 @@ const _locationImageUrl =
     '2073569582257278976_800_1200.jpg?x-oss-process=image/format,webp';
 
 void main() {
+  setUp(() {
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+    debugGenesisStaticNetworkImageCompleter = null;
+  });
+
+  tearDown(() {
+    debugGenesisStaticNetworkImageCompleter = null;
+    PaintingBinding.instance.imageCache
+      ..clear()
+      ..clearLiveImages();
+  });
+
   testWidgets('world update push notices are shown sequentially', (
     WidgetTester tester,
   ) async {
+    final avatarImage = (await tester.runAsync(
+      () => _createTestImage(const Color(0xFF336699)),
+    ))!;
+    addTearDown(avatarImage.dispose);
+    var characterAvatarLoadCount = 0;
+    debugGenesisStaticNetworkImageCompleter = (_) {
+      characterAvatarLoadCount += 1;
+      return OneFrameImageStreamCompleter(
+        SynchronousFuture<ImageInfo>(ImageInfo(image: avatarImage.clone())),
+      );
+    };
     const notices = <WorldContentUpdateNotice>[
       WorldContentUpdateNotice(
         kind: WorldContentUpdateKind.location,
@@ -61,6 +91,7 @@ void main() {
     expect(find.text('New location available'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     expect(find.text('New Wanderer · Wandering swordsman'), findsNothing);
+    expect(characterAvatarLoadCount, 0);
     expect(find.byType(GenesisStaticNetworkImage), findsNothing);
     final locationNameIcon = tester.widget<Icon>(
       find.byKey(
@@ -133,6 +164,7 @@ void main() {
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
     expect(find.text('New character joined'), findsOneWidget);
     expect(find.text('New Wanderer · Wandering swordsman'), findsOneWidget);
+    expect(characterAvatarLoadCount, 1);
     expect(
       find.byKey(
         const ValueKey<String>('world-update-push-location-name-icon'),
@@ -150,6 +182,7 @@ void main() {
     expect(characterAvatar.name, 'New Wanderer');
     expect(characterAvatar.size, 48);
     expect(characterAvatar.borderRadius, 8);
+    expect(characterAvatar.showFallbackWhileLoading, isFalse);
     final detailText = tester.widget<Text>(
       find.byKey(const ValueKey<String>('world-update-push-detail')),
     );
@@ -279,6 +312,11 @@ void main() {
   testWidgets('location push builds only the inline icon', (
     WidgetTester tester,
   ) async {
+    var imageLoadCount = 0;
+    debugGenesisStaticNetworkImageCompleter = (_) {
+      imageLoadCount += 1;
+      return OneFrameImageStreamCompleter(Completer<ImageInfo>().future);
+    };
     await tester.pumpWidget(
       const MaterialApp(
         home: Scaffold(
@@ -325,6 +363,196 @@ void main() {
       find.byKey(const ValueKey<String>('world-update-push-character-avatar')),
       findsNothing,
     );
+    expect(imageLoadCount, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('character push waits for its avatar before becoming visible', (
+    WidgetTester tester,
+  ) async {
+    final avatarImage = (await tester.runAsync(
+      () => _createTestImage(const Color(0xFF663399)),
+    ))!;
+    addTearDown(avatarImage.dispose);
+    final firstFrame = Completer<ImageInfo>();
+    var imageLoadCount = 0;
+    debugGenesisStaticNetworkImageCompleter = (_) {
+      imageLoadCount += 1;
+      return OneFrameImageStreamCompleter(firstFrame.future);
+    };
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              WorldUpdatePushBannerQueue(
+                top: 12,
+                revision: 1,
+                notices: [
+                  WorldContentUpdateNotice(
+                    kind: WorldContentUpdateKind.character,
+                    entityId: 'waiting-character',
+                    name: 'Waiting Character',
+                    targetLocationId: 'leaf-location',
+                    avatarUrl: 'https://cache.test/waiting-character.webp',
+                    tickCount: 1,
+                  ),
+                ],
+                displayDuration: Duration(milliseconds: 50),
+                transitionDuration: Duration.zero,
+                avatarPreloadTimeout: Duration(hours: 1),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(imageLoadCount, 1);
+    expect(find.text('New character joined'), findsNothing);
+    expect(find.text('Waiting Character'), findsNothing);
+    expect(find.byType(GenesisAvatarFallback), findsNothing);
+
+    await tester.pump(const Duration(seconds: 5));
+
+    expect(find.text('Waiting Character'), findsNothing);
+
+    firstFrame.complete(ImageInfo(image: avatarImage.clone()));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('Waiting Character'), findsOneWidget);
+    expect(find.byType(RawImage), findsOneWidget);
+    expect(find.byType(GenesisAvatarFallback), findsNothing);
+    expect(imageLoadCount, 1);
+
+    await tester.pump(const Duration(milliseconds: 49));
+    expect(find.text('Waiting Character'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 2));
+    await tester.pump();
+    expect(find.text('Waiting Character'), findsNothing);
+  });
+
+  testWidgets('failed character avatar falls back and queue continues', (
+    WidgetTester tester,
+  ) async {
+    debugGenesisStaticNetworkImageCompleter = (_) =>
+        OneFrameImageStreamCompleter(
+          Future<ImageInfo>.error(StateError('avatar load failed')),
+        );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              WorldUpdatePushBannerQueue(
+                top: 12,
+                revision: 1,
+                notices: [
+                  WorldContentUpdateNotice(
+                    kind: WorldContentUpdateKind.character,
+                    entityId: 'failed-character',
+                    name: 'Failed Character',
+                    targetLocationId: 'leaf-location',
+                    avatarUrl: 'https://cache.test/failed-character.webp',
+                    tickCount: 1,
+                  ),
+                  WorldContentUpdateNotice(
+                    kind: WorldContentUpdateKind.location,
+                    entityId: 'next-location',
+                    name: 'Next Location',
+                    targetLocationId: 'next-location',
+                    avatarUrl: '',
+                    tickCount: 1,
+                  ),
+                ],
+                displayDuration: Duration(milliseconds: 30),
+                transitionDuration: Duration.zero,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('Failed Character'), findsOneWidget);
+    expect(find.byType(GenesisAvatarFallback), findsOneWidget);
+    final failedAvatar = tester.widget<GenesisCharacterAvatar>(
+      find.byKey(const ValueKey<String>('world-update-push-character-avatar')),
+    );
+    expect(failedAvatar.url, isEmpty);
+
+    await tester.pump(const Duration(milliseconds: 31));
+    await tester.pump();
+
+    expect(find.text('Failed Character'), findsNothing);
+    expect(find.text('Next Location'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('character avatar timeout uses a stable fallback', (
+    WidgetTester tester,
+  ) async {
+    final avatarImage = (await tester.runAsync(
+      () => _createTestImage(const Color(0xFF996633)),
+    ))!;
+    addTearDown(avatarImage.dispose);
+    final delayedFrame = Completer<ImageInfo>();
+    debugGenesisStaticNetworkImageCompleter = (_) =>
+        OneFrameImageStreamCompleter(delayedFrame.future);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Stack(
+            children: [
+              WorldUpdatePushBannerQueue(
+                top: 12,
+                revision: 1,
+                notices: [
+                  WorldContentUpdateNotice(
+                    kind: WorldContentUpdateKind.character,
+                    entityId: 'slow-character',
+                    name: 'Slow Character',
+                    targetLocationId: 'leaf-location',
+                    avatarUrl: 'https://cache.test/slow-character.webp',
+                    tickCount: 1,
+                  ),
+                ],
+                displayDuration: Duration(hours: 1),
+                transitionDuration: Duration.zero,
+                avatarPreloadTimeout: Duration(milliseconds: 40),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Slow Character'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 39));
+    expect(find.text('Slow Character'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 2));
+    await tester.pump();
+
+    expect(find.text('Slow Character'), findsOneWidget);
+    expect(find.byType(GenesisAvatarFallback), findsOneWidget);
+    final slowAvatar = tester.widget<GenesisCharacterAvatar>(
+      find.byKey(const ValueKey<String>('world-update-push-character-avatar')),
+    );
+    expect(slowAvatar.url, isEmpty);
+
+    delayedFrame.complete(ImageInfo(image: avatarImage.clone()));
+    await tester.pump();
+
+    expect(find.text('Slow Character'), findsOneWidget);
+    expect(find.byType(GenesisAvatarFallback), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -624,4 +852,16 @@ void main() {
     expect(find.text('New Harbor'), findsNothing);
     expect(find.text('New Wanderer'), findsOneWidget);
   });
+}
+
+Future<ui.Image> _createTestImage(Color color) async {
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.drawRect(const Rect.fromLTWH(0, 0, 2, 2), Paint()..color = color);
+  final picture = recorder.endRecording();
+  try {
+    return await picture.toImage(2, 2);
+  } finally {
+    picture.dispose();
+  }
 }

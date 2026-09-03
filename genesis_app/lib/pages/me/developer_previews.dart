@@ -100,8 +100,19 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
               worldUpdatePushTransitionDuration.inMilliseconds) *
           notices.length,
     );
+    final avatarPreloadBudget = Duration(
+      milliseconds:
+          worldUpdatePushAvatarPreloadTimeout.inMilliseconds *
+          notices
+              .where(
+                (notice) =>
+                    notice.kind == WorldContentUpdateKind.character &&
+                    notice.avatarUrl.trim().isNotEmpty,
+              )
+              .length,
+    );
     _worldUpdatePushPreviewTimer = Timer(
-      queueDuration + const Duration(seconds: 1),
+      queueDuration + avatarPreloadBudget + const Duration(seconds: 1),
       _removeWorldUpdatePushPreview,
     );
   }
