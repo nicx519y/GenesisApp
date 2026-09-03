@@ -27,6 +27,7 @@ class GenesisGenerationWaitOverlay extends StatefulWidget {
     this.perspectiveLines,
     this.centeredPerspectiveLineCount = 0,
     this.animateTitleDots = true,
+    this.brightness = Brightness.light,
     this.onBackPressed,
     this.onBarrierTap,
   });
@@ -40,6 +41,7 @@ class GenesisGenerationWaitOverlay extends StatefulWidget {
   final List<String>? perspectiveLines;
   final int centeredPerspectiveLineCount;
   final bool animateTitleDots;
+  final Brightness brightness;
   final VoidCallback? onBackPressed;
   final VoidCallback? onBarrierTap;
 
@@ -74,6 +76,12 @@ class _GenesisGenerationWaitOverlayState
 
   @override
   Widget build(BuildContext context) {
+    final dark = widget.brightness == Brightness.dark;
+    final dialogBackgroundColor = dark
+        ? const Color(0xCC1F1D24)
+        : const Color(0xFFFFFFFF);
+    final primaryTextColor = dark ? const Color(0xF2FFFFFF) : null;
+    final secondaryTextColor = dark ? const Color(0xB8FFFFFF) : null;
     final hasPerspectiveText = widget.perspectiveLines != null;
     final title = widget.animateTitleDots
         ? '${widget.title}${List.filled(_dotCount, '.').join()}'
@@ -85,6 +93,7 @@ class _GenesisGenerationWaitOverlayState
         illustration: widget.illustration,
         lines: lines,
         centeredLineCount: widget.centeredPerspectiveLineCount,
+        textColor: secondaryTextColor,
       );
     } else {
       final bodyChildren = <Widget>[];
@@ -112,7 +121,11 @@ class _GenesisGenerationWaitOverlayState
         Text(
           widget.message,
           textAlign: TextAlign.left,
-          style: const TextStyle(fontSize: 14, height: 1.4),
+          style: TextStyle(
+            fontSize: 14,
+            height: 1.4,
+            color: secondaryTextColor,
+          ),
         ),
       );
       waitBody = Column(
@@ -148,7 +161,8 @@ class _GenesisGenerationWaitOverlayState
                           onTap: () {},
                           child: AlertDialog(
                             key: const ValueKey('world-tick1-wait-dialog'),
-                            backgroundColor: const Color(0xFFFFFFFF),
+                            backgroundColor: dialogBackgroundColor,
+                            surfaceTintColor: Colors.transparent,
                             shape: const RoundedRectangleBorder(
                               borderRadius: BorderRadius.all(
                                 Radius.circular(8),
@@ -170,10 +184,11 @@ class _GenesisGenerationWaitOverlayState
                                   Text(
                                     title,
                                     textAlign: TextAlign.left,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 16,
                                       height: 1.2,
                                       fontWeight: FontWeight.w600,
+                                      color: primaryTextColor,
                                     ),
                                   ),
                                   const SizedBox(height: 14),
@@ -368,11 +383,13 @@ class _PerspectiveWaitText extends StatefulWidget {
     this.illustration,
     required this.lines,
     this.centeredLineCount = 0,
+    this.textColor,
   });
 
   final Widget? illustration;
   final List<String> lines;
   final int centeredLineCount;
+  final Color? textColor;
 
   @override
   State<_PerspectiveWaitText> createState() => _PerspectiveWaitTextState();
@@ -491,10 +508,12 @@ class _PerspectiveWaitTextState extends State<_PerspectiveWaitText>
                                   textAlign: index < widget.centeredLineCount
                                       ? TextAlign.center
                                       : TextAlign.justify,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 18,
                                     height: 1.32,
-                                    color: Color(0xFF2A2F33),
+                                    color:
+                                        widget.textColor ??
+                                        const Color(0xFF2A2F33),
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),

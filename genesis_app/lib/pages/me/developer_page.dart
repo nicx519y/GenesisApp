@@ -63,16 +63,6 @@ const String _buildModeLabel = kReleaseMode
     ? 'profile'
     : 'debug';
 
-const String _launchPreviewOriginId = 'o_G7DBQM';
-const String _launchPreviewWaitTitle = 'Launching the Worldo';
-const String _launchPreviewWaitMessage =
-    'In world, click the map, enter the location, and start interacting with the characters to move the world forward.';
-const String _progressPreviewWaitTitle = 'Progressing the World';
-const String _progressPreviewWaitMessage =
-    'Compressing recent memories\n'
-    'Advancing the world timeline\n'
-    'Generating the next story beat\n'
-    'Updating character locations';
 const List<String> _creatingPreviewWaitLines = [
   'Originator',
   'Eve',
@@ -950,20 +940,6 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         GenesisPrimaryButton(
           label: 'Creating',
           onPressed: _showCreatingWaitOverlayPreview,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
-        ),
-        const SizedBox(height: _itemGap),
-        GenesisPrimaryButton(
-          label: 'Launching',
-          onPressed: _showLaunchingWaitOverlayPreview,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
-        ),
-        const SizedBox(height: _itemGap),
-        GenesisPrimaryButton(
-          label: 'Progressing',
-          onPressed: _showProgressingWaitOverlayPreview,
           backgroundColor: const Color(0xFFE1E1E3),
           foregroundColor: Colors.black,
         ),

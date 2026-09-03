@@ -27848,15 +27848,27 @@ void main() {
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
       findsOneWidget,
     );
-    expect(find.textContaining('Progressing the World'), findsOneWidget);
+    final waitDialog = tester.widget<AlertDialog>(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+    );
+    expect(waitDialog.backgroundColor, const Color(0xCC1F1D24));
+    expect(waitDialog.surfaceTintColor, Colors.transparent);
+    final waitTitle = find.textContaining('Progressing the World');
+    expect(waitTitle, findsOneWidget);
     expect(
-      find.text(
-        'Compressing recent memories\n'
-        'Advancing the world timeline\n'
-        'Generating the next story beat\n'
-        'Updating character locations',
-      ),
-      findsOneWidget,
+      tester.widget<Text>(waitTitle).style?.color,
+      const Color(0xF2FFFFFF),
+    );
+    final waitMessage = find.text(
+      'Compressing recent memories\n'
+      'Advancing the world timeline\n'
+      'Generating the next story beat\n'
+      'Updating character locations',
+    );
+    expect(waitMessage, findsOneWidget);
+    expect(
+      tester.widget<Text>(waitMessage).style?.color,
+      const Color(0xB8FFFFFF),
     );
     expect(
       find.image(const AssetImage('assets/images/default_list_image.png')),

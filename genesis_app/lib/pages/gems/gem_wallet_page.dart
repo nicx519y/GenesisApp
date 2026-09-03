@@ -81,7 +81,7 @@ Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
       return Center(
         child: GemBillingPurchaseDialog(
           state: state,
-          onConfirm: () => Navigator.of(dialogContext).maybePop(),
+          onConfirm: () => Navigator.of(dialogContext).pop(),
         ),
       );
     },

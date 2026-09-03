@@ -143,72 +143,6 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     );
   }
 
-  Future<void> _showLaunchingWaitOverlayPreview() async {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    if (widget.dismissBeforePreview) {
-      await widget.onDismissBeforePreview?.call();
-    }
-    final avatars = await _loadPreviewOriginAvatars();
-    if (avatars == null) {
-      if (navigator.mounted) {
-        showGenesisToast(
-          navigator.context,
-          'Failed to load launch preview origin.',
-        );
-      }
-      return;
-    }
-    if (!navigator.mounted) return;
-    await showGeneralDialog<void>(
-      context: navigator.context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: false,
-      transitionDuration: Duration.zero,
-      pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        return GenesisGenerationWaitOverlay(
-          title: _launchPreviewWaitTitle,
-          message: _launchPreviewWaitMessage,
-          characterAvatars: avatars,
-          onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
-          onBackPressed: () => Navigator.of(dialogContext).maybePop(),
-        );
-      },
-    );
-  }
-
-  Future<void> _showProgressingWaitOverlayPreview() async {
-    final navigator = Navigator.of(context, rootNavigator: true);
-    if (widget.dismissBeforePreview) {
-      await widget.onDismissBeforePreview?.call();
-    }
-    final avatars = await _loadPreviewOriginAvatars();
-    if (avatars == null) {
-      if (navigator.mounted) {
-        showGenesisToast(
-          navigator.context,
-          'Failed to load progress preview origin.',
-        );
-      }
-      return;
-    }
-    if (!navigator.mounted) return;
-    await showGeneralDialog<void>(
-      context: navigator.context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: false,
-      transitionDuration: Duration.zero,
-      pageBuilder: (dialogContext, animation, secondaryAnimation) {
-        return GenesisGenerationWaitOverlay(
-          title: _progressPreviewWaitTitle,
-          message: _progressPreviewWaitMessage,
-          characterAvatars: avatars,
-          onBarrierTap: () => Navigator.of(dialogContext).maybePop(),
-          onBackPressed: () => Navigator.of(dialogContext).maybePop(),
-        );
-      },
-    );
-  }
-
   Future<void> _showGemPurchaseSheetPreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {
@@ -259,24 +193,6 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
       _updateState(() => _dailyCheckInPreviewClaimed = true);
     }
     await showDailyCheckInSuccessDialog(navigator.context);
-  }
-
-  Future<List<GenesisGenerationWaitAvatar>?> _loadPreviewOriginAvatars() async {
-    final api = AppServicesScope.read(context).api;
-    try {
-      final origin = await api.getOrigin(_launchPreviewOriginId);
-      return origin.characters
-          .map((character) {
-            return GenesisGenerationWaitAvatar(
-              name: character.name.trim(),
-              url: character.avatar.trim(),
-            );
-          })
-          .where((avatar) => avatar.name.isNotEmpty || avatar.url.isNotEmpty)
-          .toList(growable: false);
-    } catch (_) {
-      return null;
-    }
   }
 
   Widget _buildDeviceIdDiagnostics(DeviceIdDiagnostics? diagnostics) {

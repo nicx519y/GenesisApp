@@ -31,6 +31,34 @@ const _wrappingTaskDescription =
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
 
+  testWidgets('developer purchase overlay closes when OK is tapped', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => TextButton(
+            onPressed: () =>
+                unawaited(showGemBillingPurchaseOverlayPreview(context)),
+            child: const Text('Open purchase overlay'),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open purchase overlay'));
+    await tester.pump();
+    expect(find.textContaining('Purchasing Gems'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 1200));
+    await tester.pump();
+    expect(find.text('Purchase successful!'), findsOneWidget);
+
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+    expect(find.text('Purchase successful!'), findsNothing);
+  });
+
   testWidgets('GemWalletPage reports buy gems page view pay event', (
     tester,
   ) async {

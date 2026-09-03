@@ -790,6 +790,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 child: GenesisGenerationWaitOverlay(
                   title: _progressWaitTitle,
                   message: _progressWaitMessage,
+                  brightness: Brightness.dark,
                   characterAvatars: _progressWaitAvatarsFromWorld(_world),
                   onBackPressed: () => Navigator.of(context).maybePop(),
                 ),
