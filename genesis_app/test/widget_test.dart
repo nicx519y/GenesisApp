@@ -23851,6 +23851,27 @@ void main() {
     );
   });
 
+  testWidgets('developer button tab omits obsolete wait previews', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('button'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Creating'), findsOneWidget);
+    expect(find.text('Launching'), findsNothing);
+    expect(find.text('Progressing'), findsNothing);
+  });
+
   test('developer page hides diagnostic tabs outside debug builds', () {
     expect(developerPageTabsForBuild(isDebugBuild: false), const <String>[
       'basic',
