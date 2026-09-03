@@ -1057,7 +1057,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               originId: origin.oid,
               common: WorldMapCommonConfig(
                 locationNodes: mapPresentationData.locationNodes,
-                drillExitTop: topPadding + 68,
                 messageBubbles: _activeChatLocation == null
                     ? mapPresentationData.messageBubbles
                     : const <WorldMapMessageBubble>[],

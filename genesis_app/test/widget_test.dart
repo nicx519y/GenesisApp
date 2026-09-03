@@ -22905,7 +22905,7 @@ void main() {
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
     await tester.pump(const Duration(milliseconds: 1));
     await tester.pump();
-    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     final pushBanner = find.byKey(
       const ValueKey<String>('world-update-push-banner'),
@@ -23005,7 +23005,7 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await tester.pump();
 
-    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('New Harbor · Azure Coast'), findsOneWidget);
     final pushBanner = find.byKey(
       const ValueKey<String>('world-update-push-banner'),
@@ -23036,7 +23036,7 @@ void main() {
     expect(find.text('New Harbor · Azure Coast'), findsNothing);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 220));
-    expect(find.text('New location available'), findsOneWidget);
+    expect(find.text('New Place Emerged'), findsOneWidget);
     expect(find.text('Moonlit Market · Old Quarter'), findsOneWidget);
     expect(
       find.descendant(
@@ -23064,7 +23064,7 @@ void main() {
     expect(find.text('Moonlit Market · Old Quarter'), findsNothing);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 220));
-    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('New Character Appeared'), findsOneWidget);
     expect(
       find.text(
         'New Wanderer · Heir to the Blackwood family and student council '
@@ -23096,7 +23096,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 220));
-    expect(find.text('New character joined'), findsOneWidget);
+    expect(find.text('New Character Appeared'), findsOneWidget);
     expect(find.text('Scarlet Keeper · Crimson guardian'), findsOneWidget);
     avatar = tester.widget<GenesisAvatar>(
       find.descendant(of: pushBanner, matching: find.byType(GenesisAvatar)),

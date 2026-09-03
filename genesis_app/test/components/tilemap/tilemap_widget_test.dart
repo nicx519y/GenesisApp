@@ -15,6 +15,7 @@ import 'package:genesis_flutter_android/components/tilemap/tilemap_renderer.dart
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_button_visibility.dart';
 import 'package:genesis_flutter_android/components/tilemap/tilemap_settings_store.dart';
 import 'package:genesis_flutter_android/components/world_map_contract.dart';
+import 'package:genesis_flutter_android/components/world_map_exit_location_button.dart';
 import 'package:genesis_flutter_android/components/world_point.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -1670,6 +1671,35 @@ void main() {
           matching: find.text('branch'),
         ),
         findsOneWidget,
+      );
+      final mapRect = tester.getRect(
+        find.byKey(const ValueKey<String>('location-chat-tilemap')),
+      );
+      final drillExitRect = tester.getRect(
+        find.byKey(const ValueKey<String>('tilemap-exit-location')),
+      );
+      final drillExitButtonRect = tester.getRect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('tilemap-exit-location')),
+          matching: find.byKey(
+            const ValueKey<String>(worldMapExitLocationIconFrameKey),
+          ),
+        ),
+      );
+      final labelRect = tester.getRect(
+        find.descendant(
+          of: find.byKey(const ValueKey<String>('tilemap-exit-location')),
+          matching: find.text('branch'),
+        ),
+      );
+      expect(drillExitRect.center.dx, closeTo(mapRect.center.dx, 0.001));
+      expect(
+        labelRect.left - drillExitButtonRect.right,
+        closeTo(worldMapExitLocationLabelGap, 0.001),
+      );
+      expect(
+        mapRect.bottom - drillExitRect.bottom,
+        closeTo(worldMapDrillExitBottom, 0.001),
       );
       final rendererState = tester.state(_liveTilemapRendererFinder());
 

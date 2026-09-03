@@ -639,8 +639,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
         worldId: widget.wid,
         common: WorldMapCommonConfig(
           locationNodes: locationNodes,
-          drillExitTop:
-              topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
           messageBubbles:
               (_activeChatLocationId.isEmpty || preparingInitialTilemap) &&
                   _mapBubbleMessagesReady

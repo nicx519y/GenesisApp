@@ -37,7 +37,7 @@ class LegacyWorldMap extends StatefulWidget {
   ScrollPhysics? get pointsListPhysics => config.pointsListPhysics;
   bool get pointsListOuterScrollHandoff => config.pointsListOuterScrollHandoff;
   double get overlayTop => config.overlayTop;
-  double get drillExitTop => common.drillExitTop;
+  double get drillExitBottom => common.drillExitBottom;
   double? get drillExitMaxWidth => config.drillExitMaxWidth;
   VoidCallback? get onDrillIntoLocation => common.onDrillIntoLocation;
   ValueChanged<WorldMapHorizontalPanState>? get onHorizontalPanStateChanged =>
@@ -345,13 +345,15 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
             if (_locationTrail.isNotEmpty && !widget.showPointsList)
               Positioned(
                 left: 12,
-                top: widget.drillExitTop,
-                child: WorldMapConstrainedMaxWidth(
-                  maxWidth: widget.drillExitMaxWidth,
-                  child: WorldMapExitLocationButton(
-                    label: exitLocationLabel,
-                    onPressed: _exitLocation,
+                right: 12,
+                bottom: widget.drillExitBottom,
+                child: WorldMapCenteredExitLocationButton(
+                  buttonKey: const ValueKey<String>(
+                    'legacy-world-map-exit-location',
                   ),
+                  label: exitLocationLabel,
+                  maxWidth: widget.drillExitMaxWidth,
+                  onPressed: _exitLocation,
                 ),
               ),
             if (!widget.showPointsList)

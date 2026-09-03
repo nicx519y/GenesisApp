@@ -399,7 +399,7 @@ class Tilemap extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.preferredFocusLocationId = '',
     this.centerContentInitially = false,
-    this.drillExitTop = 68,
+    this.drillExitBottom = worldMapDrillExitBottom,
     this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
@@ -430,7 +430,7 @@ class Tilemap extends StatefulWidget {
     this.locationNodes = const <WorldMapLocationNode>[],
     this.preferredFocusLocationId = '',
     this.centerContentInitially = false,
-    this.drillExitTop = 68,
+    this.drillExitBottom = worldMapDrillExitBottom,
     this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
     this.visualModeToggleTop,
@@ -460,7 +460,7 @@ class Tilemap extends StatefulWidget {
   final List<WorldMapLocationNode> locationNodes;
   final String preferredFocusLocationId;
   final bool centerContentInitially;
-  final double drillExitTop;
+  final double drillExitBottom;
   final double? drillExitMaxWidth;
   final bool showVisualModeToggle;
   final double? visualModeToggleTop;
@@ -2442,14 +2442,13 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
               if (_locationTrail.isNotEmpty)
                 Positioned(
                   left: 12,
-                  top: widget.drillExitTop,
-                  child: WorldMapConstrainedMaxWidth(
+                  right: 12,
+                  bottom: widget.drillExitBottom,
+                  child: WorldMapCenteredExitLocationButton(
+                    buttonKey: const ValueKey<String>('tilemap-exit-location'),
+                    label: exitLocationLabel,
                     maxWidth: widget.drillExitMaxWidth,
-                    child: WorldMapExitLocationButton(
-                      key: const ValueKey<String>('tilemap-exit-location'),
-                      label: exitLocationLabel,
-                      onPressed: _exitLocation,
-                    ),
+                    onPressed: _exitLocation,
                   ),
                 ),
               if (showSettings)

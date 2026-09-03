@@ -48,7 +48,7 @@ extension _WorldPageLayout on _WorldPageState {
             subTickNo: world?.subTickNo ?? 0,
           ),
           map:
-              _buildInitialTilemapPreview(topPadding) ??
+              _buildInitialTilemapPreview() ??
               ColoredBox(
                 key: const ValueKey<String>('world-map-loading-background'),
                 color: _tilemapLoadingBackgroundColor,
@@ -71,7 +71,7 @@ extension _WorldPageLayout on _WorldPageState {
     );
   }
 
-  Widget? _buildInitialTilemapPreview(double topPadding) {
+  Widget? _buildInitialTilemapPreview() {
     final locationId = widget.initialMapLocationId.trim();
     if (widget.initialDefinitionVersion != 2 || locationId.isEmpty) {
       return null;
@@ -81,10 +81,7 @@ extension _WorldPageLayout on _WorldPageState {
       child: WorldMap.world(
         definitionVersion: 2,
         worldId: widget.wid,
-        common: WorldMapCommonConfig(
-          drillExitTop:
-              topPadding + 8 + worldMapTabsHeight + worldTimePillTopGap,
-        ),
+        common: const WorldMapCommonConfig(),
         legacy: const LegacyWorldMapConfig(points: <WorldPoint>[]),
         tilemap: WorldMapTilemapOptions(
           implementationKey: _tilemapImplementationKey,

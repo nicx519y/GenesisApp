@@ -2504,7 +2504,9 @@ void main() {
       ),
     );
 
-    final titleIconRect = tester.getRect(find.byIcon(Icons.place_outlined));
+    final titleIconFinder = find.byIcon(Icons.place_outlined);
+    final titleIcon = tester.widget<Icon>(titleIconFinder);
+    final titleIconRect = tester.getRect(titleIconFinder);
     final subtitleIconRect = tester.getRect(
       find.byWidgetPredicate(
         (widget) =>
@@ -2521,6 +2523,7 @@ void main() {
     );
     final headerRect = tester.getRect(find.byType(ChatHeader));
     expect(titleIconRect.left, closeTo(48, 1));
+    expect(titleIcon.color, Colors.white.withValues(alpha: 0.45));
     expect(subtitleIconRect.left, closeTo(titleIconRect.left, 1));
     expect(modelRect.right, closeTo(headerRect.right, 1));
     expect(modelRect.center.dy, closeTo(titleRect.center.dy + 2, 1));
@@ -2570,32 +2573,41 @@ void main() {
     expect(titleRect.width, closeTo(393 - 48 - 16 - 4 - 82, 0.01));
   });
 
-  testWidgets('location chat parent location aligns with title text', (
-    WidgetTester tester,
-  ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: ChatHeader(
-            title: 'Current location',
-            titleOverline: 'Parent location',
-            subtitle: '',
-            connected: true,
-            connecting: false,
-            onBack: () {},
-            showSubtitle: false,
-            showTitleIcon: true,
-            alignContentLeft: true,
-            style: kLocationChatStyle,
+  testWidgets(
+    'location chat title icon centers in header and matches parent color',
+    (WidgetTester tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatHeader(
+              title: 'Current location',
+              titleOverline: 'Parent location',
+              subtitle: '',
+              connected: true,
+              connecting: false,
+              onBack: () {},
+              showSubtitle: false,
+              showTitleIcon: true,
+              alignContentLeft: true,
+              style: kLocationChatStyle,
+            ),
           ),
         ),
-      ),
-    );
+      );
 
-    final titleRect = tester.getRect(find.text('Current location'));
-    final parentRect = tester.getRect(find.text('Parent location'));
-    expect(parentRect.left, closeTo(titleRect.left, 0.01));
-  });
+      final titleRect = tester.getRect(find.text('Current location'));
+      final parentRect = tester.getRect(find.text('Parent location'));
+      final titleIcon = tester.widget<Icon>(find.byIcon(Icons.place_outlined));
+      final titleIconRect = tester.getRect(find.byIcon(Icons.place_outlined));
+      final backIconRect = tester.getRect(
+        find.byIcon(Icons.arrow_back_ios_new),
+      );
+      final parentText = tester.widget<Text>(find.text('Parent location'));
+      expect(parentRect.left, closeTo(titleRect.left, 0.01));
+      expect(titleIconRect.center.dy, closeTo(backIconRect.center.dy, 0.01));
+      expect(titleIcon.color, parentText.style?.color);
+    },
+  );
 
   testWidgets('private chat style hides peer name', (
     WidgetTester tester,
