@@ -101,12 +101,92 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
   }
 }
 
+final class GenesisAppLifecycleStreamHandler: NSObject, FlutterStreamHandler {
+  static let shared = GenesisAppLifecycleStreamHandler()
+
+  private enum Visibility {
+    case unknown
+    case foreground
+    case background
+  }
+
+  private let maximumPendingEventCount = 8
+  private var eventSink: FlutterEventSink?
+  private var pendingEvents: [String] = []
+  private var visibility = Visibility.unknown
+  private var backgroundEventEmitted = false
+
+  private override init() {
+    super.init()
+  }
+
+  func onListen(
+    withArguments arguments: Any?,
+    eventSink events: @escaping FlutterEventSink
+  ) -> FlutterError? {
+    eventSink = events
+    let eventsToDeliver = pendingEvents
+    pendingEvents.removeAll(keepingCapacity: true)
+    eventsToDeliver.forEach(events)
+    return nil
+  }
+
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    eventSink = nil
+    return nil
+  }
+
+  func sceneDidEnterBackground() {
+    switch visibility {
+    case .unknown:
+      // A scene can connect in the background without ever becoming visible.
+      // Establish a baseline without reporting a user-visible transition.
+      visibility = .background
+    case .foreground:
+      visibility = .background
+      backgroundEventEmitted = true
+      emit("background")
+    case .background:
+      break
+    }
+  }
+
+  func sceneDidBecomeActive() {
+    switch visibility {
+    case .unknown:
+      // Cold start establishes the foreground baseline without reporting it.
+      visibility = .foreground
+    case .background:
+      visibility = .foreground
+      if backgroundEventEmitted {
+        backgroundEventEmitted = false
+        emit("foreground")
+      }
+    case .foreground:
+      break
+    }
+  }
+
+  private func emit(_ event: String) {
+    if let eventSink = eventSink {
+      eventSink(event)
+      return
+    }
+
+    pendingEvents.append(event)
+    if pendingEvents.count > maximumPendingEventCount {
+      pendingEvents.removeFirst(pendingEvents.count - maximumPendingEventCount)
+    }
+  }
+}
+
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate, PHPickerViewControllerDelegate {
   private let channelName = "com.worldo.ai/device"
   private let httpProtocolChannelName = "com.worldo.ai/network"
   private let discussImagePickerChannelName = "com.worldo.ai/discuss_image_picker"
   private let keyboardAnimationChannelName = "com.worldo.ai/keyboard_animation"
+  private let appLifecycleChannelName = "com.worldo.ai/app_lifecycle"
   private let firebaseAnalyticsChannelName = "com.worldo.ai/firebase_analytics"
   private let uidKey = "uid"
   private let authTokenKey = "auth_token"
@@ -124,6 +204,7 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
   private var storeKit2AnalyticsInFlightIds = Set<UInt64>()
   private var cachedDeviceIdResolution: DeviceIdResolution?
   private var keyboardAnimationStreamHandler: GenesisKeyboardAnimationStreamHandler?
+  private var appLifecycleEventChannel: FlutterEventChannel?
 
   override func application(
     _ application: UIApplication,
@@ -139,6 +220,16 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
     configureDiscussImagePickerChannel(messenger: engineBridge.applicationRegistrar.messenger())
     configureFirebaseAnalyticsChannel(messenger: engineBridge.applicationRegistrar.messenger())
     configureKeyboardAnimationChannel(messenger: engineBridge.applicationRegistrar.messenger())
+    configureAppLifecycleChannel(messenger: engineBridge.applicationRegistrar.messenger())
+  }
+
+  private func configureAppLifecycleChannel(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterEventChannel(
+      name: appLifecycleChannelName,
+      binaryMessenger: messenger
+    )
+    channel.setStreamHandler(GenesisAppLifecycleStreamHandler.shared)
+    appLifecycleEventChannel = channel
   }
 
   private func configureKeyboardAnimationChannel(messenger: FlutterBinaryMessenger) {

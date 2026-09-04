@@ -509,55 +509,6 @@ Object _safeTelemetryValue(Object? value) {
   return safe?.toString() ?? '';
 }
 
-class GenesisTelemetryLifecycleObserver extends WidgetsBindingObserver {
-  GenesisTelemetryLifecycleObserver({AppLifecycleState? initialState}) {
-    if ((initialState ?? WidgetsBinding.instance.lifecycleState) ==
-        AppLifecycleState.resumed) {
-      _reportForeground();
-    }
-  }
-
-  bool _isForeground = false;
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    switch (state) {
-      case AppLifecycleState.paused:
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
-        if (!_isForeground) return;
-        _isForeground = false;
-        GenesisTelemetry.event(
-          'app_background',
-          category: 'app.lifecycle',
-          data: <String, Object?>{'state': state.name},
-          collectPayload: <String, Object?>{
-            'action_type': 'event',
-            'action': 'app_background',
-          },
-        );
-        GenesisTelemetry.handleAppBackgrounded();
-      case AppLifecycleState.resumed:
-        GenesisTelemetry.handleAppResumed();
-        _reportForeground();
-    }
-  }
-
-  void _reportForeground() {
-    if (_isForeground) return;
-    _isForeground = true;
-    GenesisTelemetry.event(
-      'app_foreground',
-      category: 'app.lifecycle',
-      collectPayload: <String, Object?>{
-        'action_type': 'event',
-        'action': 'app_foreground',
-      },
-    );
-  }
-}
-
 class GenesisTelemetryTapRegion extends StatefulWidget {
   const GenesisTelemetryTapRegion({super.key, required this.child});
 

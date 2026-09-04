@@ -2,11 +2,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
+import 'package:genesis_flutter_android/app/telemetry/native_app_lifecycle.dart';
 import 'package:genesis_flutter_android/app/telemetry/telemetry_upload_policy.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/platform/app/app_metadata_service.dart';
@@ -168,6 +168,19 @@ void main() {
     AppStartupCoordinator.resetForTesting();
     GenesisTelemetry.resetForTesting();
     TelemetryUploadPolicy.resetForTesting();
+  });
+
+  test('native app lifecycle channel values parse strictly', () {
+    expect(
+      NativeAppLifecycleEvents.tryParse('background'),
+      NativeAppLifecycleEvent.background,
+    );
+    expect(
+      NativeAppLifecycleEvents.tryParse('foreground'),
+      NativeAppLifecycleEvent.foreground,
+    );
+    expect(NativeAppLifecycleEvents.tryParse('inactive'), isNull);
+    expect(NativeAppLifecycleEvents.tryParse(null), isNull);
   });
 
   test('event stores timestamp and stable wire fields before upload', () async {
@@ -1326,35 +1339,64 @@ void main() {
     expect(client.batches.single.single.object1, 'sku_1');
   });
 
-  test('lifecycle transitions queue simple Collect events once', () async {
+  test('cold-start foreground lifecycle event is ignored', () async {
     final store = MemoryCollectEventStore();
     final client = _FakeCollectClient();
     final value = uploader(store: store, client: client);
     GenesisTelemetry.setCollectUploaderForTesting(value);
-    final observer = GenesisTelemetryLifecycleObserver(
-      initialState: AppLifecycleState.resumed,
-    );
+    final reporter = GenesisTelemetryAppLifecycleReporter();
 
-    observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
-    observer.didChangeAppLifecycleState(AppLifecycleState.inactive);
-    observer.didChangeAppLifecycleState(AppLifecycleState.hidden);
-    observer.didChangeAppLifecycleState(AppLifecycleState.paused);
-    observer.didChangeAppLifecycleState(AppLifecycleState.resumed);
+    reporter.handle(NativeAppLifecycleEvent.foreground);
+    reporter.handle(NativeAppLifecycleEvent.foreground);
     await GenesisTelemetry.waitForCollectWritesForTesting();
 
-    expect(store.eventsForTesting.map((event) => event.action), <String>[
-      'app_foreground',
-      'app_background',
-      'app_foreground',
-    ]);
-    for (final event in store.eventsForTesting) {
-      expect(event.actionType, 'event');
-      expect(event.object1, isEmpty);
-      expect(event.object2, isEmpty);
-      expect(event.object3, isEmpty);
-    }
+    expect(store.eventsForTesting, isEmpty);
     expect(client.batches, isEmpty);
   });
+
+  test(
+    'native lifecycle transitions queue one event per state change',
+    () async {
+      final store = MemoryCollectEventStore();
+      final client = _FakeCollectClient();
+      final value = uploader(store: store, client: client);
+      final sink = _CapturingTelemetrySink();
+      GenesisTelemetry.setCollectUploaderForTesting(value);
+      GenesisTelemetry.setSinkForTesting(sink);
+      final reporter = GenesisTelemetryAppLifecycleReporter();
+
+      reporter.handle(NativeAppLifecycleEvent.background);
+      reporter.handle(NativeAppLifecycleEvent.background);
+      reporter.handle(NativeAppLifecycleEvent.foreground);
+      reporter.handle(NativeAppLifecycleEvent.foreground);
+      reporter.handle(NativeAppLifecycleEvent.background);
+      reporter.handle(NativeAppLifecycleEvent.foreground);
+      await GenesisTelemetry.waitForCollectWritesForTesting();
+
+      expect(store.eventsForTesting.map((event) => event.action), <String>[
+        'app_background',
+        'app_foreground',
+        'app_background',
+        'app_foreground',
+      ]);
+      for (final event in store.eventsForTesting) {
+        expect(event.actionType, 'event');
+        expect(event.object1, isEmpty);
+        expect(event.object2, isEmpty);
+        expect(event.object3, isEmpty);
+      }
+      expect(
+        sink.events.map((event) => (event.name, event.category)),
+        <(String, String)>[
+          ('app_background', 'app.lifecycle'),
+          ('app_foreground', 'app.lifecycle'),
+          ('app_background', 'app.lifecycle'),
+          ('app_foreground', 'app.lifecycle'),
+        ],
+      );
+      expect(client.batches, isEmpty);
+    },
+  );
 
   test('Sdk client posts batch envelope and requires err_no zero', () async {
     final transport = _FakeTransport(

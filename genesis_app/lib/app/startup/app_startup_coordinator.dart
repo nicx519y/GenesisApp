@@ -2,13 +2,13 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/widgets.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../platform/app/app_metadata_service.dart';
 import '../bootstrap/app_bootstrap.dart';
 import '../bootstrap/service_registry.dart';
 import '../telemetry/genesis_telemetry.dart';
+import '../telemetry/native_app_lifecycle.dart';
 
 class AppStartupCoordinator {
   AppStartupCoordinator._();
@@ -16,8 +16,10 @@ class AppStartupCoordinator {
   static AppVersionInfo? _appVersion;
   static Future<void>? _telemetryInitialization;
   static bool _warmUpStarted = false;
-  static bool _telemetryLifecycleObserverAdded = false;
-  static GenesisTelemetryLifecycleObserver? _telemetryLifecycleObserver;
+  static StreamSubscription<NativeAppLifecycleEvent>? _lifecycleSubscription;
+  static GenesisTelemetryAppLifecycleReporter _telemetryLifecycleReporter =
+      GenesisTelemetryAppLifecycleReporter();
+  static Stream<NativeAppLifecycleEvent>? _appLifecycleEventsForTesting;
   static Timer? _telemetryMetadataRetryTimer;
   static bool _startupFirstReportRecorded = false;
   static Stopwatch? _launchStopwatch;
@@ -326,11 +328,43 @@ class AppStartupCoordinator {
       deviceIdTimeout: deviceIdTimeout,
       retryDelays: metadataRetryDelays,
     );
-    if (_telemetryLifecycleObserverAdded) return;
-    _telemetryLifecycleObserverAdded = true;
-    final observer = GenesisTelemetryLifecycleObserver();
-    _telemetryLifecycleObserver = observer;
-    WidgetsBinding.instance.addObserver(observer);
+    _subscribeToAppLifecycleEvents();
+  }
+
+  static void _subscribeToAppLifecycleEvents() {
+    if (_lifecycleSubscription != null) return;
+    final testingEvents = _appLifecycleEventsForTesting;
+    if (testingEvents == null &&
+        (kIsWeb ||
+            (defaultTargetPlatform != TargetPlatform.android &&
+                defaultTargetPlatform != TargetPlatform.iOS))) {
+      return;
+    }
+    final events = testingEvents ?? NativeAppLifecycleEvents.events;
+    try {
+      _lifecycleSubscription = events.listen(
+        _telemetryLifecycleReporter.handle,
+        onError: (Object error, StackTrace stackTrace) {
+          // Lifecycle telemetry is best-effort. Missing native channel
+          // implementations (for example in desktop tests) must not affect
+          // app startup.
+          debugPrint(
+            '[Telemetry] app lifecycle stream failed: $error\n$stackTrace',
+          );
+        },
+      );
+    } catch (error, stackTrace) {
+      debugPrint(
+        '[Telemetry] app lifecycle subscription failed: $error\n$stackTrace',
+      );
+    }
+  }
+
+  @visibleForTesting
+  static void setAppLifecycleEventsForTesting(
+    Stream<NativeAppLifecycleEvent> events,
+  ) {
+    _appLifecycleEventsForTesting = events;
   }
 
   static void _scheduleTelemetryMetadataRetry({
@@ -390,12 +424,13 @@ class AppStartupCoordinator {
     _telemetryMetadataRetryTimer?.cancel();
     _telemetryMetadataRetryTimer = null;
     _warmUpStarted = false;
-    _telemetryLifecycleObserverAdded = false;
-    final observer = _telemetryLifecycleObserver;
-    if (observer != null) {
-      WidgetsBinding.instance.removeObserver(observer);
-      _telemetryLifecycleObserver = null;
+    final lifecycleSubscription = _lifecycleSubscription;
+    _lifecycleSubscription = null;
+    if (lifecycleSubscription != null) {
+      unawaited(lifecycleSubscription.cancel());
     }
+    _telemetryLifecycleReporter = GenesisTelemetryAppLifecycleReporter();
+    _appLifecycleEventsForTesting = null;
     _startupFirstReportRecorded = false;
     _launchStopwatch?.stop();
     _launchStopwatch = null;
