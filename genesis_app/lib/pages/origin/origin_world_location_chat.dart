@@ -456,8 +456,9 @@ class _OriginLocationChatLaunchComposerState
     if (widget.launching || message.trim().isEmpty) return;
     final mentionCatalog = _controller.composedMentionCatalog;
     final launched = await widget.onSend(message, mentionCatalog);
-    if (!mounted || !launched) return;
+    if (!mounted) return;
     _focusNode.unfocus();
+    if (!launched) return;
   }
 
   @override

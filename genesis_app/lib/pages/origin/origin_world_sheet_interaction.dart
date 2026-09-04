@@ -252,6 +252,19 @@ double originRoleEditorClosingProgressForTesting({
 }
 
 @visibleForTesting
+double originRoleEditorClosingVisualOffsetForTesting({
+  required double startVisualOffset,
+  required double targetVisualOffset,
+  required double closingProgress,
+}) {
+  return lerpDouble(
+    startVisualOffset,
+    targetVisualOffset,
+    closingProgress.clamp(0.0, 1.0),
+  )!;
+}
+
+@visibleForTesting
 double originRoleEditorClosingSpacerExtentForTesting({
   required double startExtent,
   required double closingProgress,
@@ -272,6 +285,9 @@ double originRoleEditorRestingScrollOffsetForTesting({
 
 class _OriginRoleEditorInteractionController extends ChangeNotifier {
   static const int _keyboardSettleFrameCount = 10;
+  static const Duration _terminalClosingFallbackDuration = Duration(
+    milliseconds: 260,
+  );
 
   _OriginRoleEditorInteractionController({
     required this.readKeyboardInset,
@@ -318,6 +334,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   var _settleScheduled = false;
   var _commitRetryScheduled = false;
   var _internalInteractionResumeScheduled = false;
+  var _terminalClosingScrollAnimationStarted = false;
   var _lastNativeGeneration = -1;
   _OriginRoleEditorLayout? _layout;
   VoidCallback? _pendingInternalInteractionResume;
@@ -325,8 +342,13 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   _OriginRoleEditorPhase get phase => _phase;
   bool get editing =>
       _phase != _OriginRoleEditorPhase.idle &&
+      _phase != _OriginRoleEditorPhase.restoring &&
+      _phase != _OriginRoleEditorPhase.closingCommit &&
+      _phase != _OriginRoleEditorPhase.closingCancel;
+  bool get transitionActive =>
+      _phase != _OriginRoleEditorPhase.idle &&
       _phase != _OriginRoleEditorPhase.restoring;
-  bool get contentScrollEnabled => !editing;
+  bool get contentScrollEnabled => !transitionActive;
   double get additionalScrollExtent => _additionalScrollExtent;
   Listenable get frameListenable => _frameNotifier;
 
@@ -335,7 +357,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   }
 
   bool beginEditing() {
-    if (_disposed || editing) return false;
+    if (_disposed || transitionActive) return false;
     final layout = readLayout();
     final controller = _scrollController;
     if (layout == null || controller == null || !controller.hasClients) {
@@ -360,6 +382,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _hasFieldFocus = false;
     _internalInteractionActive = false;
     _internalInteractionRecoveryPending = false;
+    _terminalClosingScrollAnimationStarted = false;
     _pendingInternalInteractionResume = null;
     _phase = _OriginRoleEditorPhase.preparing;
     _notifyChanged();
@@ -369,7 +392,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   void reset() {
     if (_disposed) return;
     final controller = _scrollController;
-    if (editing && controller != null && controller.hasClients) {
+    if (transitionActive && controller != null && controller.hasClients) {
       controller.jumpTo(
         _startScrollOffset.clamp(
           controller.position.minScrollExtent,
@@ -391,6 +414,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _hasFieldFocus = false;
     _internalInteractionActive = false;
     _internalInteractionRecoveryPending = false;
+    _terminalClosingScrollAnimationStarted = false;
     _pendingInternalInteractionResume = null;
     _notifyFrameChanged();
     _notifyChanged();
@@ -488,7 +512,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   }
 
   void handleKeyboardMetrics(double rawInset) {
-    if (_disposed || !editing) return;
+    if (_disposed || !transitionActive) return;
     final inset = rawInset.clamp(0.0, double.infinity).toDouble();
     final wasInset = _keyboardInset;
     if (inset > wasInset + 0.5 && _phase == _OriginRoleEditorPhase.preparing) {
@@ -562,19 +586,36 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
           _closingProgress,
         )!;
       } else {
-        // Completing or cancelling an edit only dismisses the IME. Keep the
-        // role content at the same visual offset instead of animating it to
-        // the bottom of the restored page.
         _closingProgress = originRoleEditorClosingProgressForTesting(
           startInset: _closingStartInset,
           currentInset: inset,
           previousProgress: _closingProgress,
         );
+        if (!_terminalClosingScrollAnimationStarted &&
+            inset + 0.5 < _closingStartInset) {
+          final remainingFraction = _closingStartInset <= 0.5
+              ? 1.0
+              : (inset / _closingStartInset).clamp(0.0, 1.0).toDouble();
+          _startTerminalClosingScrollAnimation(
+            Duration(
+              microseconds:
+                  (_terminalClosingFallbackDuration.inMicroseconds *
+                          remainingFraction)
+                      .round(),
+            ),
+          );
+        }
+        // Collapse the temporary spacer and move the role content toward the
+        // final zero-keyboard bottom with the same native keyboard progress.
         _additionalScrollExtent = originRoleEditorClosingSpacerExtentForTesting(
           startExtent: _closingStartAdditionalScrollExtent,
           closingProgress: _closingProgress,
         );
-        _visualScrollOffset = _closingStartVisualOffset;
+        _visualScrollOffset = originRoleEditorClosingVisualOffsetForTesting(
+          startVisualOffset: _closingStartVisualOffset,
+          targetVisualOffset: _closingTargetScrollOffset,
+          closingProgress: _closingProgress,
+        );
       }
       _notifyFrameChanged();
       if (inset <= 0.5 && _stableFrameCount >= _keyboardSettleFrameCount) {
@@ -630,10 +671,14 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
       _phase == _OriginRoleEditorPhase.closingKeyboard ||
       _phase == _OriginRoleEditorPhase.restoring;
 
+  bool get _isTerminalClosing =>
+      _phase == _OriginRoleEditorPhase.closingCommit ||
+      _phase == _OriginRoleEditorPhase.closingCancel;
+
   void _handleKeyboardAnimationTarget(GenesisKeyboardAnimationTarget target) {
     if (_disposed || target.generation <= _lastNativeGeneration) return;
     _lastNativeGeneration = target.generation;
-    if (!editing) return;
+    if (!transitionActive) return;
     if (target.direction == GenesisKeyboardAnimationDirection.closing) {
       if (!_isClosing) {
         if (_internalInteractionRecoveryPending) {
@@ -641,6 +686,9 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
         } else {
           _beginClosing(_OriginRoleEditorPhase.closingKeyboard);
         }
+      }
+      if (_isTerminalClosing) {
+        _startTerminalClosingScrollAnimation(target.duration);
       }
       return;
     }
@@ -732,7 +780,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   }
 
   void _beginClosing(_OriginRoleEditorPhase closingPhase) {
-    if (_disposed || !editing) return;
+    if (_disposed || !transitionActive) return;
     _closingStartInset = math.max(_keyboardInset, readKeyboardInset());
     _closingStartVisualOffset = _visualScrollOffset;
     _closingTargetScrollOffset =
@@ -740,8 +788,19 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
         ? _startScrollOffset
         : _closingStartVisualOffset;
     _closingStartAdditionalScrollExtent = _additionalScrollExtent;
+    if (closingPhase != _OriginRoleEditorPhase.closingKeyboard) {
+      final controller = _scrollController;
+      if (controller != null && controller.hasClients) {
+        final position = controller.position;
+        _closingTargetScrollOffset = math.max(
+          position.minScrollExtent,
+          position.maxScrollExtent - _closingStartAdditionalScrollExtent,
+        );
+      }
+    }
     _closingProgress = 0;
     _stableFrameCount = 0;
+    _terminalClosingScrollAnimationStarted = false;
     _phase = closingPhase;
     _notifyChanged();
     if (_closingStartInset <= 0.5) {
@@ -750,19 +809,68 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
       if (closingPhase == _OriginRoleEditorPhase.closingKeyboard) {
         _finishKeyboardDismissal();
       } else {
+        _closingProgress = 1;
         _additionalScrollExtent = 0;
+        _visualScrollOffset = _closingTargetScrollOffset;
         _notifyFrameChanged();
+        _startTerminalClosingScrollAnimation(_terminalClosingFallbackDuration);
         _finishClosing();
       }
     }
   }
 
+  void _startTerminalClosingScrollAnimation(Duration duration) {
+    if (_disposed ||
+        !_isTerminalClosing ||
+        _terminalClosingScrollAnimationStarted) {
+      return;
+    }
+    final controller = _scrollController;
+    if (controller == null || !controller.hasClients) return;
+    _terminalClosingScrollAnimationStarted = true;
+    final target = _closingTargetScrollOffset.clamp(
+      controller.position.minScrollExtent,
+      controller.position.maxScrollExtent,
+    );
+    if ((controller.offset - target).abs() <= 0.5) {
+      _terminalClosingScrollAnimationStarted = false;
+      return;
+    }
+    final effectiveDuration = duration <= Duration.zero
+        ? const Duration(milliseconds: 1)
+        : duration;
+    unawaited(
+      _animateTerminalClosingScroll(controller, target, effectiveDuration),
+    );
+  }
+
+  Future<void> _animateTerminalClosingScroll(
+    ScrollController controller,
+    double target,
+    Duration duration,
+  ) async {
+    try {
+      await controller.animateTo(
+        target,
+        duration: duration,
+        curve: Curves.easeOutCubic,
+      );
+    } catch (_) {
+      // The sheet can detach while the route is closing.
+    }
+    if (!_disposed && _isTerminalClosing) {
+      // A changing sliver extent can interrupt or clamp animateTo before it
+      // reaches the target captured at the beginning of the keyboard close.
+      // Release the in-flight guard so the final layout can converge instead
+      // of leaving the editor permanently in a closing phase.
+      _terminalClosingScrollAnimationStarted = false;
+      _scheduleSettleCheck();
+    }
+  }
+
   void _finishClosing() {
     if (_phase == _OriginRoleEditorPhase.restoring) return;
-    final controller = _scrollController;
-    if (controller != null && controller.hasClients) {
-      _visualScrollOffset = controller.offset;
-    }
+    _visualScrollOffset = _closingTargetScrollOffset;
     _phase = _OriginRoleEditorPhase.restoring;
     _notifyChanged();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -772,24 +880,61 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
       // anchor aligned. Only then end the temporary paint-coordinate handoff.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_disposed || _phase != _OriginRoleEditorPhase.restoring) return;
-        _additionalScrollExtent = 0;
-        _keyboardInset = 0;
-        _targetInset = 0;
-        _targetKnown = false;
-        _startDistanceToBottom = 0;
-        _stableFrameCount = 0;
-        _closingProgress = 0;
-        _closingStartAdditionalScrollExtent = 0;
-        _closingTargetScrollOffset = 0;
-        _internalInteractionRecoveryPending = false;
-        _phase = _OriginRoleEditorPhase.idle;
-        _notifyFrameChanged();
-        _notifyChanged();
-        _pendingInternalInteractionResume = null;
+        unawaited(_completeClosingTranslationHandoff());
       });
       WidgetsBinding.instance.ensureVisualUpdate();
     });
     WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _completeClosingTranslationHandoff([int attempt = 0]) async {
+    if (_disposed || _phase != _OriginRoleEditorPhase.restoring) return;
+    final controller = _scrollController;
+    if (controller != null && controller.hasClients) {
+      final target = _visualScrollOffset;
+      if ((controller.offset - target).abs() > 0.1) {
+        try {
+          // Keep contentTranslation active while the real scroll coordinate
+          // catches up. Its inverse compensation makes this handoff invisible.
+          await controller.animateTo(
+            target,
+            duration: const Duration(milliseconds: 1),
+            curve: Curves.linear,
+          );
+        } catch (_) {
+          // The sheet can detach while the route is closing.
+        }
+        if (_disposed || _phase != _OriginRoleEditorPhase.restoring) return;
+        await WidgetsBinding.instance.endOfFrame;
+        if (_disposed || _phase != _OriginRoleEditorPhase.restoring) return;
+        if (!controller.hasClients ||
+            (controller.offset - _visualScrollOffset).abs() > 0.5) {
+          if (attempt >= _keyboardSettleFrameCount) return;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!_disposed && _phase == _OriginRoleEditorPhase.restoring) {
+              unawaited(_completeClosingTranslationHandoff(attempt + 1));
+            }
+          });
+          WidgetsBinding.instance.ensureVisualUpdate();
+          return;
+        }
+      }
+    }
+    _additionalScrollExtent = 0;
+    _keyboardInset = 0;
+    _targetInset = 0;
+    _targetKnown = false;
+    _startDistanceToBottom = 0;
+    _stableFrameCount = 0;
+    _closingProgress = 0;
+    _closingStartAdditionalScrollExtent = 0;
+    _closingTargetScrollOffset = 0;
+    _internalInteractionRecoveryPending = false;
+    _terminalClosingScrollAnimationStarted = false;
+    _phase = _OriginRoleEditorPhase.idle;
+    _notifyFrameChanged();
+    _notifyChanged();
+    _pendingInternalInteractionResume = null;
   }
 
   void _finishKeyboardDismissal() {
@@ -825,17 +970,18 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _stableFrameCount = 0;
     _closingProgress = 0;
     _closingStartAdditionalScrollExtent = 0;
+    _terminalClosingScrollAnimationStarted = false;
     _phase = _OriginRoleEditorPhase.preparing;
     _notifyFrameChanged();
     _notifyChanged();
   }
 
   void _scheduleSettleCheck() {
-    if (_settleScheduled || !editing) return;
+    if (_settleScheduled || !transitionActive) return;
     _settleScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _settleScheduled = false;
-      if (_disposed || !editing) return;
+      if (_disposed || !transitionActive) return;
       handleKeyboardMetrics(readKeyboardInset());
     });
     WidgetsBinding.instance.ensureVisualUpdate();
