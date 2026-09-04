@@ -2146,6 +2146,7 @@ query：
 - `events[].object3*`: string，第三个业务对象；无值传 `""`
 - `events[].object4*`: string，第四个业务对象；无值传 `""`。接口监控 start 传 `"0"`，终态使用不带单位后缀的整数毫秒字符串记录最终一次实际 transport send 的耗时
 - `events[].ext_data*`: string，扩展信息；无值传 `""`。接口失败传脱敏后的 JSON 字符串，可包含 `reason`、`message`、`native_code`、`upstream_status`、`upstream_path`、`retry_count`；不得包含请求 header、query、body、完整响应 body 或 stack trace
+- App 生命周期事件使用 `action_type: "event"`：`app_background.object1` 为空；与其配对的 `app_foreground.object1` 为本次后台停留时长，使用不带单位后缀的非负整数毫秒字符串。冷启动不产生 `app_foreground`
 - 客户端接口监控使用 `api_req_start`、`api_req_success`、`api_req_fail_tech`、`api_req_fail_biz`。持续后台轮询接口不产生接口监控事件：`GET /api/v1/message/unread`、`GET /api/v1/direct_message/conversations`、`GET /api/v1/direct_message/list`；`/api/v1/collect` 永久排除。`/api/v1/app/config` 及三个启动关键 Gateway 接口固定上报，其他普通业务接口按启动级采样开关决定。
 
 请求示例：

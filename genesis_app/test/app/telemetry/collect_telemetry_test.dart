@@ -1363,25 +1363,39 @@ void main() {
       final sink = _CapturingTelemetrySink();
       GenesisTelemetry.setCollectUploaderForTesting(value);
       GenesisTelemetry.setSinkForTesting(sink);
-      final reporter = GenesisTelemetryAppLifecycleReporter();
+      var monotonicMilliseconds = 1000;
+      final reporter = GenesisTelemetryAppLifecycleReporter(
+        monotonicMilliseconds: () => monotonicMilliseconds,
+      );
 
       reporter.handle(NativeAppLifecycleEvent.background);
+      monotonicMilliseconds = 1500;
       reporter.handle(NativeAppLifecycleEvent.background);
+      monotonicMilliseconds = 5500;
       reporter.handle(NativeAppLifecycleEvent.foreground);
+      monotonicMilliseconds = 5800;
       reporter.handle(NativeAppLifecycleEvent.foreground);
+      monotonicMilliseconds = 6000;
       reporter.handle(NativeAppLifecycleEvent.background);
+      monotonicMilliseconds = 6012;
       reporter.handle(NativeAppLifecycleEvent.foreground);
       await GenesisTelemetry.waitForCollectWritesForTesting();
 
-      expect(store.eventsForTesting.map((event) => event.action), <String>[
+      final events = store.eventsForTesting;
+      expect(events.map((event) => event.action), <String>[
         'app_background',
         'app_foreground',
         'app_background',
         'app_foreground',
       ]);
-      for (final event in store.eventsForTesting) {
+      expect(events.map((event) => event.object1), <String>[
+        '',
+        '4500',
+        '',
+        '12',
+      ]);
+      for (final event in events) {
         expect(event.actionType, 'event');
-        expect(event.object1, isEmpty);
         expect(event.object2, isEmpty);
         expect(event.object3, isEmpty);
       }

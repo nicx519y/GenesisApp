@@ -30,13 +30,25 @@ class NativeAppLifecycleEvents {
 }
 
 class GenesisTelemetryAppLifecycleReporter {
+  GenesisTelemetryAppLifecycleReporter({int Function()? monotonicMilliseconds})
+    : _monotonicMilliseconds =
+          monotonicMilliseconds ?? _createMonotonicMilliseconds();
+
+  final int Function() _monotonicMilliseconds;
   bool _isBackgrounded = false;
+  int? _backgroundStartedAtMilliseconds;
+
+  static int Function() _createMonotonicMilliseconds() {
+    final stopwatch = Stopwatch()..start();
+    return () => stopwatch.elapsedMilliseconds;
+  }
 
   void handle(NativeAppLifecycleEvent event) {
     switch (event) {
       case NativeAppLifecycleEvent.background:
         if (_isBackgrounded) return;
         _isBackgrounded = true;
+        _backgroundStartedAtMilliseconds = _monotonicMilliseconds();
         GenesisTelemetry.event(
           'app_background',
           category: 'app.lifecycle',
@@ -52,12 +64,23 @@ class GenesisTelemetryAppLifecycleReporter {
         // from the background, so only report foreground after a background.
         if (!_isBackgrounded) return;
         _isBackgrounded = false;
+        final backgroundStartedAtMilliseconds =
+            _backgroundStartedAtMilliseconds;
+        _backgroundStartedAtMilliseconds = null;
+        final elapsedMilliseconds = backgroundStartedAtMilliseconds == null
+            ? 0
+            : _monotonicMilliseconds() - backgroundStartedAtMilliseconds;
+        final backgroundDurationMilliseconds = elapsedMilliseconds < 0
+            ? 0
+            : elapsedMilliseconds;
         GenesisTelemetry.event(
           'app_foreground',
           category: 'app.lifecycle',
-          collectPayload: const <String, Object?>{
+          collectPayload: <String, Object?>{
             'action_type': 'event',
             'action': 'app_foreground',
+            // object1 is the paired background duration in milliseconds.
+            'object1': backgroundDurationMilliseconds.toString(),
           },
         );
         GenesisTelemetry.handleAppResumed();
