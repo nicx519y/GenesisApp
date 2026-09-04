@@ -9560,7 +9560,7 @@ void main() {
   ) async {
     final transport = _RecordingV1ListTransport();
     final appGlobalConfig = AppGlobalConfigStore(
-      loadConfig: () async => const <String, dynamic>{},
+      loadConfig: ({String? uid}) async => const <String, dynamic>{},
       initialValue: const AppGlobalConfig(showOpeningSheet: true),
     );
     await tester.pumpWidget(
@@ -9607,7 +9607,7 @@ void main() {
       originDetailCompleter: Completer<TransportResponse>(),
     );
     final appGlobalConfig = AppGlobalConfigStore(
-      loadConfig: () async => const <String, dynamic>{},
+      loadConfig: ({String? uid}) async => const <String, dynamic>{},
       initialValue: const AppGlobalConfig(showOpeningSheet: true),
     );
     await originWorldSheetDebugSettings.setExpandOnEntry(true);

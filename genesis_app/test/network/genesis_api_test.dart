@@ -283,12 +283,37 @@ void main() {
       ),
     );
 
-    final config = await api.v1.app.config();
+    final config = await api.v1.app.config(uid: 'u_startup');
 
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/app/config');
+    expect(apiTransport.lastRequest!.uri.queryParameters['uid'], 'u_startup');
     expect(apiTransport.lastRequest!.bodyBytes, isNull);
     expect(config['show_opening_sheet'], isTrue);
+  });
+
+  test('v1 app config omits uid for an anonymous startup', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    await api.v1.app.config();
+
+    expect(apiTransport.lastRequest!.uri.queryParameters, isEmpty);
   });
 
   test(

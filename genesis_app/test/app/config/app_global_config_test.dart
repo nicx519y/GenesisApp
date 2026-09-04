@@ -46,7 +46,7 @@ void main() {
 
   test('AppGlobalConfigStore loads and publishes app config', () async {
     final store = AppGlobalConfigStore(
-      loadConfig: () async => {
+      loadConfig: ({String? uid}) async => {
         'show_opening_sheet': true,
         'apiTraceSamplingRate': 0.5,
       },
@@ -63,7 +63,7 @@ void main() {
     final response = Completer<Map<String, dynamic>>();
     var requestCount = 0;
     final store = AppGlobalConfigStore(
-      loadConfig: () {
+      loadConfig: ({String? uid}) {
         requestCount += 1;
         return response.future;
       },
@@ -77,5 +77,20 @@ void main() {
 
     expect(requestCount, 1);
     expect(store.value.showOpeningSheet, isTrue);
+  });
+
+  test('AppGlobalConfigStore forwards the startup uid', () async {
+    String? requestedUid;
+    final store = AppGlobalConfigStore(
+      loadConfig: ({String? uid}) async {
+        requestedUid = uid;
+        return const <String, dynamic>{};
+      },
+    );
+    addTearDown(store.dispose);
+
+    await store.refresh(uid: 'u_startup');
+
+    expect(requestedUid, 'u_startup');
   });
 }

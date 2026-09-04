@@ -237,13 +237,15 @@ class GenesisTelemetry {
     }
     _enabled = trackingEnabled;
     await _sink.setContext(_context);
-    _collectUploader.setContext(
-      CollectUploadContext(
-        platform: _context.platform,
-        appVersion: _context.appVersion,
-        appEnvironment: TelemetryUploadPolicy.state.value.appEnvironment,
-        deviceId: _context.deviceId,
-      ),
+    // Metadata initialization must never replace the identity captured from
+    // the local session. Only setUserId/clearUser own the Collect user id.
+    _collectUploader.updateMetadataContext(
+      platform: _context.platform,
+      appVersion: _context.appVersion,
+      deviceId: _context.deviceId,
+    );
+    _collectUploader.setAppEnvironment(
+      TelemetryUploadPolicy.state.value.appEnvironment,
     );
   }
 

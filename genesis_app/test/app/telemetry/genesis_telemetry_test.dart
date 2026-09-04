@@ -128,6 +128,32 @@ void main() {
     },
   );
 
+  test('metadata initialization preserves a previously resolved UID', () async {
+    final store = MemoryCollectEventStore();
+    final uploader = CollectTelemetryUploader(store: store)
+      ..configure(enabled: true);
+    GenesisTelemetry.setCollectUploaderForTesting(uploader);
+    GenesisTelemetry.setUserId('u_startup');
+
+    await GenesisTelemetry.initialize(
+      config: const AppConfig(apiEnvironment: 'test'),
+      deviceIdService: const _TestDeviceIdService(),
+      appVersion: const AppVersionInfo(
+        versionName: '2.0.0',
+        versionCode: '99',
+        packageName: 'com.worldo.ai',
+      ),
+    );
+    await GenesisTelemetry.collectLogAndWait(
+      actionType: 'pageview',
+      action: 'uid_preserved_after_metadata',
+    );
+
+    expect(store.eventsForTesting.single.userId, 'u_startup');
+    expect(store.eventsForTesting.single.appVersion, '2.0.0');
+    expect(store.eventsForTesting.single.deviceId, 'device-test-1');
+  });
+
   test('page and click telemetry carries app version and device id', () async {
     GenesisTelemetry.pageView(
       routeName: '/home',

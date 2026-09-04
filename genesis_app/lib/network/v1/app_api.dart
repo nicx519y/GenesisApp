@@ -6,8 +6,9 @@ class AppV1Api extends V1ApiResource {
   const AppV1Api(super.client);
 
   /// GET /api/v1/app/config
-  Future<Map<String, dynamic>> config() => getMapWithTracePolicy(
+  Future<Map<String, dynamic>> config({String? uid}) => getMapWithTracePolicy(
     'app/config',
+    query: v1Query({'uid': uid}),
     tracePolicy: ApiRequestTracePolicy.always,
   );
 
