@@ -25,6 +25,13 @@ val isProductionReleaseApkBuild =
             .equals("assembleProductionRelease", ignoreCase = true)
     }
 
+// Local release runs can skip the network-dependent Crashlytics mapping upload.
+// Official builds keep uploading by default when the variable is absent.
+val skipCrashlyticsMappingUpload =
+    providers.environmentVariable("SKIP_CRASHLYTICS_MAPPING_UPLOAD")
+        .map { value -> value == "1" || value.equals("true", ignoreCase = true) }
+        .getOrElse(false)
+
 android {
     namespace = "com.worldo.ai"
     compileSdk = flutter.compileSdkVersion
@@ -57,6 +64,9 @@ android {
         create("production") {
             dimension = "app"
             applicationId = "com.worldo.ai"
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = !skipCrashlyticsMappingUpload
+            }
         }
         create("internal") {
             dimension = "app"

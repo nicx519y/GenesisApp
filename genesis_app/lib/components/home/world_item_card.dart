@@ -258,6 +258,12 @@ class _WorldSummary extends StatelessWidget {
     final characterName = character == null
         ? ''
         : _mapString(character, const ['name'], fallback: 'Character');
+    final otherPlayerCount = character == null || item.playerCnt <= 1
+        ? 0
+        : item.playerCnt - 1;
+    final otherPlayerLabel = otherPlayerCount == 1
+        ? '· 1 other Player'
+        : '· $otherPlayerCount other Players';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -336,17 +342,39 @@ class _WorldSummary extends StatelessWidget {
               ),
               const SizedBox(width: 6),
               Expanded(
-                child: Text(
-                  characterName,
-                  key: const ValueKey<String>('world-card-character-name'),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Color(0xFF111111),
-                    fontSize: 12,
-                    height: 1.2,
-                    fontWeight: FontWeight.w400,
-                  ),
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        characterName,
+                        key: const ValueKey<String>(
+                          'world-card-character-name',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Color(0xFF111111),
+                          fontSize: 12,
+                          height: 1.2,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ),
+                    if (otherPlayerCount > 0) ...[
+                      const SizedBox(width: 6),
+                      Text(
+                        otherPlayerLabel,
+                        key: const ValueKey<String>('world-card-other-players'),
+                        maxLines: 1,
+                        style: const TextStyle(
+                          color: Color(0xFF666666),
+                          fontSize: 12,
+                          height: 1.2,
+                          fontWeight: FontWeight.w400,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
             ],

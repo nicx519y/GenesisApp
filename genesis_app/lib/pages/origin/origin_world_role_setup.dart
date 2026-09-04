@@ -5,7 +5,6 @@ const Color _originSetupRoleSelectedAccentColor = Color(0x73FF2442);
 class _OriginSetupRoleSection extends StatefulWidget {
   const _OriginSetupRoleSection({
     super.key,
-    required this.scrollController,
     required this.characters,
     required this.roleAvatarSnapshots,
     required this.launchBusy,
@@ -13,14 +12,18 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.selectedRoleId,
     required this.onSelectedRoleChanged,
     required this.onSaveProfileRole,
-    required this.onRoleEditingChanged,
+    required this.profileCardPositionKey,
+    required this.profileRoleEditing,
+    required this.onBeginProfileRoleEditing,
+    required this.onProfileRoleFocusChanged,
+    required this.onProfileRoleInternalInteractionChanged,
+    required this.onResumeProfileRoleInternalInteraction,
   });
 
   static const double _cardWidth = 240;
   static const double _bottomPadding = 28;
   static const double _composerClearance = 16;
 
-  final ScrollController scrollController;
   final List<OriginCharacter> characters;
   final OriginRoleAvatarSnapshotStore roleAvatarSnapshots;
   final bool launchBusy;
@@ -28,7 +31,12 @@ class _OriginSetupRoleSection extends StatefulWidget {
   final String selectedRoleId;
   final ValueChanged<String> onSelectedRoleChanged;
   final ValueChanged<OriginCustomRoleDraft> onSaveProfileRole;
-  final ValueChanged<bool> onRoleEditingChanged;
+  final GlobalKey profileCardPositionKey;
+  final bool profileRoleEditing;
+  final VoidCallback onBeginProfileRoleEditing;
+  final ValueChanged<bool> onProfileRoleFocusChanged;
+  final ValueChanged<bool> onProfileRoleInternalInteractionChanged;
+  final ValueChanged<VoidCallback> onResumeProfileRoleInternalInteraction;
 
   @override
   State<_OriginSetupRoleSection> createState() =>
@@ -147,10 +155,6 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
         curve: Curves.easeOutCubic,
       ),
     );
-  }
-
-  void _handleRoleEditingChanged(bool editing) {
-    widget.onRoleEditingChanged(editing);
   }
 
   void _precacheUpcomingRoleAvatars(int currentIndex) {
@@ -282,9 +286,15 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
                             selected: selected,
                             cardWidth: cardWidth,
                             busy: widget.launchBusy,
-                            revealScrollController: widget.scrollController,
                             editableRole: profileRole,
-                            onEditingChanged: _handleRoleEditingChanged,
+                            positionKey: widget.profileCardPositionKey,
+                            editing: widget.profileRoleEditing,
+                            onBeginEditing: widget.onBeginProfileRoleEditing,
+                            onFocusChanged: widget.onProfileRoleFocusChanged,
+                            onInternalInteractionChanged:
+                                widget.onProfileRoleInternalInteractionChanged,
+                            onResumeInternalInteraction:
+                                widget.onResumeProfileRoleInternalInteraction,
                             onEditedRoleChanged: widget.onSaveProfileRole,
                           ),
                         ),
@@ -438,9 +448,13 @@ class _OriginSetupRoleCard extends StatefulWidget {
     required this.selected,
     required this.cardWidth,
     required this.busy,
-    this.revealScrollController,
     this.editableRole,
-    this.onEditingChanged,
+    this.positionKey,
+    this.editing = false,
+    this.onBeginEditing,
+    this.onFocusChanged,
+    this.onInternalInteractionChanged,
+    this.onResumeInternalInteraction,
     this.onEditedRoleChanged,
   });
 
@@ -449,9 +463,13 @@ class _OriginSetupRoleCard extends StatefulWidget {
   final bool selected;
   final double cardWidth;
   final bool busy;
-  final ScrollController? revealScrollController;
   final OriginCustomRoleDraft? editableRole;
-  final ValueChanged<bool>? onEditingChanged;
+  final GlobalKey? positionKey;
+  final bool editing;
+  final VoidCallback? onBeginEditing;
+  final ValueChanged<bool>? onFocusChanged;
+  final ValueChanged<bool>? onInternalInteractionChanged;
+  final ValueChanged<VoidCallback>? onResumeInternalInteraction;
   final ValueChanged<OriginCustomRoleDraft>? onEditedRoleChanged;
 
   @override
@@ -459,22 +477,31 @@ class _OriginSetupRoleCard extends StatefulWidget {
 }
 
 class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
-    with
-        AutomaticKeepAliveClientMixin<_OriginSetupRoleCard>,
-        WidgetsBindingObserver {
+    with AutomaticKeepAliveClientMixin<_OriginSetupRoleCard> {
+  static const int _avatarKeyboardRestoreMaxFrames = 60;
+  static const int _avatarKeyboardRestoreStableFrames = 10;
+
   final ScrollController _detailsController = ScrollController(
     keepScrollOffset: false,
   );
-  final GlobalKey _cardPositionKey = GlobalKey();
+  final ScrollController _inlineEditorController = ScrollController(
+    keepScrollOffset: false,
+  );
   late final OriginCharacterForm? _editForm;
-  Timer? _keyboardSettlePositionTimer;
   var _showDetails = false;
-  var _editing = false;
+  FocusNode? _lastFocusedEditField;
+  FocusNode? _focusNodeBeforeAvatarInteraction;
+  var _avatarInteractionGeneration = 0;
+  var _avatarInteractionLayoutFrozen = false;
+  var _avatarKeyboardStableFrames = 0;
+  double? _avatarKeyboardLastInset;
+  var _avatarEditorFrozenOffset = 0.0;
+
+  bool get _editing => widget.editing;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     _editForm = widget.editableRole == null
         ? null
         : OriginCharacterForm.empty(charId: 'current_user_custom_role');
@@ -493,48 +520,175 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
     yield focusNodes.personality;
   }
 
-  bool get _hasFocusedEditField =>
-      _editFocusNodes.any((focusNode) => focusNode.hasFocus);
+  FocusNode? get _focusedEditField =>
+      _editFocusNodes.where((focusNode) => focusNode.hasFocus).firstOrNull;
+
+  bool get _hasFocusedEditField => _focusedEditField != null;
 
   void _handleEditFocusChanged() {
-    if (_editing &&
-        _hasFocusedEditField &&
-        MediaQuery.viewInsetsOf(context).bottom > 0) {
-      _schedulePositionEditingCard();
+    final focusedEditField = _focusedEditField;
+    if (focusedEditField != null) {
+      _lastFocusedEditField = focusedEditField;
     }
-  }
-
-  @override
-  void didChangeMetrics() {
-    final view = View.maybeOf(context);
-    final keyboardInset = view == null
-        ? 0.0
-        : view.viewInsets.bottom / view.devicePixelRatio;
-    if (!_editing || !_hasFocusedEditField || keyboardInset <= 0.5) {
-      _keyboardSettlePositionTimer?.cancel();
-      _keyboardSettlePositionTimer = null;
-      return;
-    }
-    _keyboardSettlePositionTimer?.cancel();
-    _keyboardSettlePositionTimer = Timer(const Duration(milliseconds: 64), () {
-      _keyboardSettlePositionTimer = null;
-      if (!mounted || !_editing || !_hasFocusedEditField) return;
-      _schedulePositionEditingCard();
-    });
-  }
-
-  void _schedulePositionEditingCard() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_editing || !_hasFocusedEditField) return;
-      _positionEditingCard();
+      if (!mounted || !_editing) return;
+      widget.onFocusChanged?.call(_hasFocusedEditField);
     });
     WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _handleAvatarInteractionChanged(bool active) {
+    if (active) {
+      _avatarInteractionGeneration += 1;
+      _avatarEditorFrozenOffset = _inlineEditorController.hasClients
+          ? _inlineEditorController.offset
+          : 0;
+      _avatarKeyboardStableFrames = 0;
+      _avatarKeyboardLastInset = null;
+      if (!_avatarInteractionLayoutFrozen) {
+        setState(() => _avatarInteractionLayoutFrozen = true);
+      }
+      _focusNodeBeforeAvatarInteraction =
+          _focusedEditField ??
+          _lastFocusedEditField ??
+          _editForm?.focusNodes.name;
+      widget.onInternalInteractionChanged?.call(true);
+      _focusNodeBeforeAvatarInteraction?.unfocus();
+      return;
+    }
+
+    widget.onInternalInteractionChanged?.call(false);
+    final focusNode = _focusNodeBeforeAvatarInteraction;
+    if (focusNode == null) return;
+    final generation = _avatarInteractionGeneration;
+    void resume() => _restoreAvatarFieldFocus(focusNode, generation);
+
+    final coordinateResume = widget.onResumeInternalInteraction;
+    if (coordinateResume == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => resume());
+      WidgetsBinding.instance.ensureVisualUpdate();
+    } else {
+      coordinateResume(resume);
+    }
+  }
+
+  void _restoreAvatarFieldFocus(FocusNode focusNode, int generation) {
+    if (!_canRestoreAvatarField(focusNode, generation)) return;
+    focusNode.requestFocus();
+    _requestAvatarKeyboardWhenReady(
+      focusNode,
+      generation,
+      remainingFrames: _avatarKeyboardRestoreMaxFrames,
+    );
+  }
+
+  void _requestAvatarKeyboardWhenReady(
+    FocusNode focusNode,
+    int generation, {
+    required int remainingFrames,
+  }) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_canRestoreAvatarField(focusNode, generation)) return;
+      final lifecycleState = WidgetsBinding.instance.lifecycleState;
+      final route = ModalRoute.of(context);
+      final lifecycleReady =
+          lifecycleState == null || lifecycleState == AppLifecycleState.resumed;
+      final routeReady = route == null || route.isCurrent;
+      if (!lifecycleReady || !routeReady || !focusNode.hasFocus) {
+        focusNode.requestFocus();
+        if (remainingFrames > 0) {
+          _requestAvatarKeyboardWhenReady(
+            focusNode,
+            generation,
+            remainingFrames: remainingFrames - 1,
+          );
+        }
+        return;
+      }
+
+      widget.onFocusChanged?.call(true);
+      focusNode.context
+          ?.findAncestorStateOfType<EditableTextState>()
+          ?.requestKeyboard();
+      unawaited(SystemChannels.textInput.invokeMethod<void>('TextInput.show'));
+      final view = View.maybeOf(context);
+      final keyboardInset = view?.viewInsets.bottom ?? 0;
+      final keyboardVisible = keyboardInset > 0.5;
+      if (keyboardVisible) {
+        final lastInset = _avatarKeyboardLastInset;
+        if (lastInset != null && (keyboardInset - lastInset).abs() <= 0.5) {
+          _avatarKeyboardStableFrames += 1;
+        } else {
+          _avatarKeyboardStableFrames = 0;
+        }
+        _avatarKeyboardLastInset = keyboardInset;
+        if (_avatarKeyboardStableFrames >= _avatarKeyboardRestoreStableFrames) {
+          _releaseAvatarInteractionLayout(generation);
+          return;
+        }
+      } else {
+        _avatarKeyboardStableFrames = 0;
+        _avatarKeyboardLastInset = null;
+      }
+      if (remainingFrames > 0) {
+        _requestAvatarKeyboardWhenReady(
+          focusNode,
+          generation,
+          remainingFrames: remainingFrames - 1,
+        );
+      } else if (keyboardVisible) {
+        _releaseAvatarInteractionLayout(generation);
+      }
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _releaseAvatarInteractionLayout(int generation) {
+    if (!mounted || generation != _avatarInteractionGeneration) return;
+    if (_inlineEditorController.hasClients) {
+      final position = _inlineEditorController.position;
+      _inlineEditorController.jumpTo(
+        _avatarEditorFrozenOffset.clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+    }
+    if (_avatarInteractionLayoutFrozen) {
+      setState(() => _avatarInteractionLayoutFrozen = false);
+    }
+  }
+
+  bool _canRestoreAvatarField(FocusNode focusNode, int generation) {
+    return mounted &&
+        _editing &&
+        generation == _avatarInteractionGeneration &&
+        identical(focusNode, _focusNodeBeforeAvatarInteraction);
   }
 
   @override
   void didUpdateWidget(covariant _OriginSetupRoleCard oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_editing && oldWidget.editableRole != widget.editableRole) {
+    if (!oldWidget.editing && widget.editing) {
+      _seedEditForm();
+      _showDetails = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final form = _editForm;
+        if (!mounted || !_editing || form == null) return;
+        form.name.selection = TextSelection.collapsed(
+          offset: form.name.text.length,
+        );
+        form.focusNodes.name.requestFocus();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+    } else if (!widget.editing &&
+        (oldWidget.editing || oldWidget.editableRole != widget.editableRole)) {
+      _avatarInteractionGeneration += 1;
+      _avatarInteractionLayoutFrozen = false;
+      _avatarKeyboardStableFrames = 0;
+      _avatarKeyboardLastInset = null;
+      _lastFocusedEditField = null;
+      _focusNodeBeforeAvatarInteraction = null;
       _seedEditForm();
     }
   }
@@ -542,16 +696,6 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
   void _handleEditFormChanged() {
     if (!mounted || !_editing) return;
     setState(() {});
-    final form = _editForm;
-    if (form == null) return;
-    widget.onEditedRoleChanged?.call(
-      OriginCustomRoleDraft(
-        avatarUrl: form.avatarUrl.text,
-        name: form.name.text,
-        identity: form.identity.text,
-        personality: form.personality.text,
-      ),
-    );
   }
 
   void _setEditFieldText(
@@ -602,55 +746,19 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
   void _toggleEditing() {
     if (widget.busy || _editForm == null) return;
     if (_editing) {
-      _closeEditing();
-      return;
-    }
-
-    _seedEditForm();
-    setState(() {
-      _showDetails = false;
-      _editing = true;
-    });
-    widget.onEditingChanged?.call(true);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
       final form = _editForm;
-      if (!mounted || !_editing) return;
-      form.name.selection = TextSelection.collapsed(
-        offset: form.name.text.length,
+      widget.onEditedRoleChanged?.call(
+        OriginCustomRoleDraft(
+          avatarUrl: form.avatarUrl.text,
+          name: form.name.text,
+          identity: form.identity.text,
+          personality: form.personality.text,
+        ),
       );
-      form.focusNodes.name.requestFocus();
-    });
-  }
-
-  void _positionEditingCard() {
-    final scrollController = widget.revealScrollController;
-    final cardContext = _cardPositionKey.currentContext;
-    final renderObject = cardContext?.findRenderObject();
-    if (scrollController == null ||
-        !scrollController.hasClients ||
-        renderObject is! RenderBox ||
-        !renderObject.hasSize) {
+      FocusScope.of(context).unfocus();
       return;
     }
-    final desiredTop =
-        originWorldDetailExpandedSheetTopFor(
-          topSafeArea: MediaQuery.paddingOf(context).top,
-        ) +
-        56;
-    final cardTop = renderObject.localToGlobal(Offset.zero).dy;
-    final position = scrollController.position;
-    final target = (position.pixels + cardTop - desiredTop)
-        .clamp(position.minScrollExtent, position.maxScrollExtent)
-        .toDouble();
-    if ((target - position.pixels).abs() < 0.5) return;
-    position.jumpTo(target);
-  }
-
-  void _closeEditing() {
-    if (!_editing) return;
-    FocusScope.of(context).unfocus();
-    setState(() => _editing = false);
-    widget.onEditingChanged?.call(false);
+    widget.onBeginEditing?.call();
   }
 
   void _toggleDetails() {
@@ -665,9 +773,8 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _keyboardSettlePositionTimer?.cancel();
     _detailsController.dispose();
+    _inlineEditorController.dispose();
     for (final focusNode in _editFocusNodes) {
       focusNode.removeListener(_handleEditFocusChanged);
     }
@@ -722,7 +829,12 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
                       form: _editForm,
                       stableId: stableId,
                       busy: widget.busy,
+                      scrollController: _inlineEditorController,
+                      interactionLayoutFrozen: _avatarInteractionLayoutFrozen,
+                      frozenScrollOffset: _avatarEditorFrozenOffset,
                       onChanged: _handleEditFormChanged,
+                      onInternalInteractionChanged:
+                          _handleAvatarInteractionChanged,
                     ),
                   ),
                 ),
@@ -780,7 +892,14 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
       ),
     );
 
-    return KeyedSubtree(key: _cardPositionKey, child: card);
+    return TapRegion(
+      key: ValueKey<String>('origin-setup-role-tap-region-$stableId'),
+      onTapOutside: _editing ? (_) => FocusScope.of(context).unfocus() : null,
+      child: TextFieldTapRegion(
+        groupId: createFormTextFieldTapRegionGroup,
+        child: KeyedSubtree(key: widget.positionKey, child: card),
+      ),
+    );
   }
 
   @override
@@ -793,13 +912,21 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
     required this.form,
     required this.stableId,
     required this.busy,
+    required this.scrollController,
+    required this.interactionLayoutFrozen,
+    required this.frozenScrollOffset,
     required this.onChanged,
+    this.onInternalInteractionChanged,
   });
 
   final OriginCharacterForm form;
   final String stableId;
   final bool busy;
+  final ScrollController scrollController;
+  final bool interactionLayoutFrozen;
+  final double frozenScrollOffset;
   final VoidCallback onChanged;
+  final ValueChanged<bool>? onInternalInteractionChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -811,88 +938,106 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
           key: ValueKey<String>(
             'origin-setup-role-inline-editor-scroll-$stableId',
           ),
+          controller: scrollController,
+          physics: interactionLayoutFrozen
+              ? const NeverScrollableScrollPhysics()
+              : null,
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: CreateUploadBox(
-                  key: ValueKey<String>(
-                    'origin-setup-role-inline-avatar-$stableId',
+          child: AnimatedBuilder(
+            animation: scrollController,
+            builder: (context, child) {
+              final paintCorrection =
+                  interactionLayoutFrozen && scrollController.hasClients
+                  ? scrollController.offset - frozenScrollOffset
+                  : 0.0;
+              return Transform.translate(
+                offset: Offset(0, paintCorrection),
+                child: child,
+              );
+            },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: CreateUploadBox(
+                    key: ValueKey<String>(
+                      'origin-setup-role-inline-avatar-$stableId',
+                    ),
+                    controller: form.avatarUrl,
+                    label: '',
+                    onChanged: onChanged,
+                    onInteractionActiveChanged: onInternalInteractionChanged,
+                    width: 64,
+                    height: 64,
+                    iconSize: 24,
+                    borderRadius: GenesisAvatarRadii.character,
+                    cropSize: originCharacterAvatarUploadSize,
+                    maxOutputSize: originCharacterAvatarUploadSize,
+                    previewAlignment: Alignment.topCenter,
+                    showRemoveLinkWhenFilled: true,
+                    emptyLabelFontWeight: FontWeight.w600,
+                    emptyLabelFontSize: 1,
+                    emptyIconLabelGap: 0,
+                    emptyBackgroundColor: originWorldDetailSheetBackgroundColor,
+                    emptyBorderColor: originWorldDetailSheetTertiaryTextColor,
+                    emptyIconColor: GenesisColors.createAdd,
+                    emptyLabelColor: originWorldDetailSheetTertiaryTextColor,
+                    previewMaxDevicePixelRatio:
+                        originWorldOpeningRoleAvatarMaxDevicePixelRatio,
                   ),
-                  controller: form.avatarUrl,
-                  label: '',
+                ),
+                const SizedBox(height: 10),
+                _OriginSetupRoleInlineField(
+                  fieldKey: ValueKey<String>(
+                    'origin-setup-role-inline-name-$stableId',
+                  ),
+                  tapTargetKey: ValueKey<String>(
+                    'origin-setup-role-inline-name-tap-$stableId',
+                  ),
+                  label: 'Name',
+                  controller: form.name,
+                  focusNode: form.focusNodes.name,
+                  nextFocusNode: form.focusNodes.identity,
+                  maxLength: originCharacterNameMaxLength,
+                  showLabel: false,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  verticalTapPadding: 8,
                   onChanged: onChanged,
-                  width: 64,
-                  height: 64,
-                  iconSize: 24,
-                  borderRadius: GenesisAvatarRadii.character,
-                  cropSize: originCharacterAvatarUploadSize,
-                  maxOutputSize: originCharacterAvatarUploadSize,
-                  previewAlignment: Alignment.topCenter,
-                  showRemoveLinkWhenFilled: true,
-                  emptyLabelFontWeight: FontWeight.w600,
-                  emptyLabelFontSize: 1,
-                  emptyIconLabelGap: 0,
-                  emptyBackgroundColor: originWorldDetailSheetBackgroundColor,
-                  emptyBorderColor: originWorldDetailSheetTertiaryTextColor,
-                  emptyIconColor: GenesisColors.createAdd,
-                  emptyLabelColor: originWorldDetailSheetTertiaryTextColor,
-                  previewMaxDevicePixelRatio:
-                      originWorldOpeningRoleAvatarMaxDevicePixelRatio,
                 ),
-              ),
-              const SizedBox(height: 10),
-              _OriginSetupRoleInlineField(
-                fieldKey: ValueKey<String>(
-                  'origin-setup-role-inline-name-$stableId',
+                const SizedBox(height: 8),
+                _OriginSetupRoleInlineField(
+                  fieldKey: ValueKey<String>(
+                    'origin-setup-role-inline-identity-$stableId',
+                  ),
+                  tapTargetKey: ValueKey<String>(
+                    'origin-setup-role-inline-identity-tap-$stableId',
+                  ),
+                  label: 'Identity',
+                  controller: form.identity,
+                  focusNode: form.focusNodes.identity,
+                  nextFocusNode: form.focusNodes.personality,
+                  maxLength: originCharacterIdentityMaxLength,
+                  maxLines: 2,
+                  onChanged: onChanged,
                 ),
-                tapTargetKey: ValueKey<String>(
-                  'origin-setup-role-inline-name-tap-$stableId',
+                const SizedBox(height: 8),
+                _OriginSetupRoleInlineField(
+                  fieldKey: ValueKey<String>(
+                    'origin-setup-role-inline-brief-$stableId',
+                  ),
+                  tapTargetKey: ValueKey<String>(
+                    'origin-setup-role-inline-brief-tap-$stableId',
+                  ),
+                  label: 'Personality',
+                  controller: form.personality,
+                  focusNode: form.focusNodes.personality,
+                  maxLength: originCharacterPersonalityMaxLength,
+                  maxLines: 2,
+                  onChanged: onChanged,
                 ),
-                label: 'Name',
-                controller: form.name,
-                focusNode: form.focusNodes.name,
-                nextFocusNode: form.focusNodes.identity,
-                maxLength: originCharacterNameMaxLength,
-                showLabel: false,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                verticalTapPadding: 8,
-                onChanged: onChanged,
-              ),
-              const SizedBox(height: 8),
-              _OriginSetupRoleInlineField(
-                fieldKey: ValueKey<String>(
-                  'origin-setup-role-inline-identity-$stableId',
-                ),
-                tapTargetKey: ValueKey<String>(
-                  'origin-setup-role-inline-identity-tap-$stableId',
-                ),
-                label: 'Identity',
-                controller: form.identity,
-                focusNode: form.focusNodes.identity,
-                nextFocusNode: form.focusNodes.personality,
-                maxLength: originCharacterIdentityMaxLength,
-                maxLines: 2,
-                onChanged: onChanged,
-              ),
-              const SizedBox(height: 8),
-              _OriginSetupRoleInlineField(
-                fieldKey: ValueKey<String>(
-                  'origin-setup-role-inline-brief-$stableId',
-                ),
-                tapTargetKey: ValueKey<String>(
-                  'origin-setup-role-inline-brief-tap-$stableId',
-                ),
-                label: 'Personality',
-                controller: form.personality,
-                focusNode: form.focusNodes.personality,
-                maxLength: originCharacterPersonalityMaxLength,
-                maxLines: 2,
-                onChanged: onChanged,
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
