@@ -13,6 +13,7 @@ import 'app/debug/world_new_content_debug_settings.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/startup/initial_landing_page_resolver.dart';
+import 'app/startup/startup_dependency_guard.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
@@ -24,6 +25,9 @@ import 'ui/system/genesis_system_ui.dart';
 
 export 'app/genesis_app.dart';
 
+const _startupCollectReadyTimeout = Duration(seconds: 2);
+const _startupSystemUiTimeout = Duration(seconds: 2);
+
 Future<void> main() async {
   AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,9 +38,21 @@ Future<void> main() async {
       return const AppConfig();
     },
   );
-  final systemUiInitialization = GenesisSystemUi.initialize().whenComplete(
-    AppStartupCoordinator.recordLaunchSystemUiReady,
-  );
+  final systemUiInitialization = waitForStartupDependency(
+    GenesisSystemUi.initialize(),
+    timeout: _startupSystemUiTimeout,
+    onTimeout: () {
+      debugPrint(
+        '[Startup] System UI initialization timed out; continuing startup',
+      );
+    },
+    onError: (error, stackTrace) {
+      debugPrint(
+        '[Startup] System UI initialization failed; continuing startup: $error',
+      );
+      debugPrint('[Startup] stacktrace:\n$stackTrace');
+    },
+  ).whenComplete(AppStartupCoordinator.recordLaunchSystemUiReady);
   unawaited(
     SystemChrome.setPreferredOrientations(<DeviceOrientation>[
       DeviceOrientation.portraitUp,
@@ -98,7 +114,19 @@ Future<void> main() async {
     },
   );
   final appGlobalConfigLoad = () async {
-    await collectReady.future;
+    await waitForStartupDependency(
+      collectReady.future,
+      timeout: _startupCollectReadyTimeout,
+      onTimeout: () {
+        debugPrint('[Startup] Collect readiness timed out; continuing startup');
+      },
+      onError: (error, stackTrace) {
+        debugPrint(
+          '[Startup] Collect readiness failed; continuing startup: $error',
+        );
+        debugPrint('[Startup] stacktrace:\n$stackTrace');
+      },
+    );
     final resolution = await startupUidResolution;
     await _loadAppGlobalConfig(services, uid: resolution.uid);
   }().whenComplete(AppStartupCoordinator.recordLaunchAppConfigReady);
