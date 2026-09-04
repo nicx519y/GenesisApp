@@ -427,6 +427,52 @@ void main() {
     );
   });
 
+  test('origin role editor spacer closes with the keyboard', () {
+    expect(
+      originRoleEditorClosingSpacerExtentForTesting(
+        startExtent: 260,
+        closingProgress: 0,
+      ),
+      260,
+    );
+    expect(
+      originRoleEditorClosingSpacerExtentForTesting(
+        startExtent: 260,
+        closingProgress: 0.5,
+      ),
+      130,
+    );
+    expect(
+      originRoleEditorClosingSpacerExtentForTesting(
+        startExtent: 260,
+        closingProgress: 1,
+      ),
+      0,
+      reason:
+          'The temporary role-editor extent must already be gone when the '
+          'keyboard reaches zero.',
+    );
+
+    final metricsStart = originWorldSheetInteractionSource.indexOf(
+      'void handleKeyboardMetrics(double rawInset)',
+    );
+    final reopenStart = originWorldSheetInteractionSource.indexOf(
+      'void _prepareForReopenedKeyboard()',
+      metricsStart,
+    );
+    expect(metricsStart, greaterThanOrEqualTo(0));
+    expect(reopenStart, greaterThan(metricsStart));
+    final metricsBody = originWorldSheetInteractionSource.substring(
+      metricsStart,
+      reopenStart,
+    );
+    expect(
+      metricsBody,
+      contains('originRoleEditorClosingSpacerExtentForTesting('),
+      reason: 'The live keyboard metrics path must drive spacer removal.',
+    );
+  });
+
   test('origin role editor keyboard dismissal preserves bottom distance', () {
     expect(
       originRoleEditorRestingScrollOffsetForTesting(

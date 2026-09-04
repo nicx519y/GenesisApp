@@ -252,6 +252,14 @@ double originRoleEditorClosingProgressForTesting({
 }
 
 @visibleForTesting
+double originRoleEditorClosingSpacerExtentForTesting({
+  required double startExtent,
+  required double closingProgress,
+}) {
+  return math.max(0.0, startExtent) * (1 - closingProgress.clamp(0.0, 1.0));
+}
+
+@visibleForTesting
 double originRoleEditorRestingScrollOffsetForTesting({
   required double minScrollExtent,
   required double maxScrollExtent,
@@ -304,6 +312,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   var _closingStartVisualOffset = 0.0;
   var _closingTargetScrollOffset = 0.0;
   var _closingProgress = 0.0;
+  var _closingStartAdditionalScrollExtent = 0.0;
   var _additionalScrollExtent = 0.0;
   var _stableFrameCount = 0;
   var _settleScheduled = false;
@@ -342,6 +351,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _visualScrollOffset = _startScrollOffset;
     _targetScrollOffset = _startScrollOffset;
     _closingTargetScrollOffset = _startScrollOffset;
+    _closingStartAdditionalScrollExtent = 0;
     _additionalScrollExtent = 0;
     _keyboardInset = readKeyboardInset();
     _targetInset = _keyboardInset;
@@ -376,6 +386,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _openingStartVisualOffset = 0;
     _closingTargetScrollOffset = 0;
     _closingProgress = 0;
+    _closingStartAdditionalScrollExtent = 0;
     _additionalScrollExtent = 0;
     _hasFieldFocus = false;
     _internalInteractionActive = false;
@@ -554,6 +565,15 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
         // Completing or cancelling an edit only dismisses the IME. Keep the
         // role content at the same visual offset instead of animating it to
         // the bottom of the restored page.
+        _closingProgress = originRoleEditorClosingProgressForTesting(
+          startInset: _closingStartInset,
+          currentInset: inset,
+          previousProgress: _closingProgress,
+        );
+        _additionalScrollExtent = originRoleEditorClosingSpacerExtentForTesting(
+          startExtent: _closingStartAdditionalScrollExtent,
+          closingProgress: _closingProgress,
+        );
         _visualScrollOffset = _closingStartVisualOffset;
       }
       _notifyFrameChanged();
@@ -719,6 +739,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
         closingPhase == _OriginRoleEditorPhase.closingKeyboard
         ? _startScrollOffset
         : _closingStartVisualOffset;
+    _closingStartAdditionalScrollExtent = _additionalScrollExtent;
     _closingProgress = 0;
     _stableFrameCount = 0;
     _phase = closingPhase;
@@ -729,6 +750,8 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
       if (closingPhase == _OriginRoleEditorPhase.closingKeyboard) {
         _finishKeyboardDismissal();
       } else {
+        _additionalScrollExtent = 0;
+        _notifyFrameChanged();
         _finishClosing();
       }
     }
@@ -756,6 +779,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
         _startDistanceToBottom = 0;
         _stableFrameCount = 0;
         _closingProgress = 0;
+        _closingStartAdditionalScrollExtent = 0;
         _closingTargetScrollOffset = 0;
         _internalInteractionRecoveryPending = false;
         _phase = _OriginRoleEditorPhase.idle;
@@ -800,6 +824,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _targetKnown = false;
     _stableFrameCount = 0;
     _closingProgress = 0;
+    _closingStartAdditionalScrollExtent = 0;
     _phase = _OriginRoleEditorPhase.preparing;
     _notifyFrameChanged();
     _notifyChanged();
