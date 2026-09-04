@@ -121,6 +121,9 @@ const double originDetailSectionGapForTesting = 24;
 const double originOpeningDialogueRoleGapForTesting = 36;
 
 @visibleForTesting
+const double originOpeningKeyboardDialogueGapReductionForTesting = 10;
+
+@visibleForTesting
 const double originDetailSectionTitleIconGapForTesting = 8;
 
 @visibleForTesting
