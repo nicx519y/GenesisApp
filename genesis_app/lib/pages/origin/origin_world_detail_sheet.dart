@@ -47,6 +47,25 @@ class _RenderOriginSliverPaintTranslation extends RenderProxySliver {
     super.applyPaintTransform(child, transform);
     transform.translateByDouble(_translation.dx, _translation.dy, 0, 1);
   }
+
+  @override
+  bool hitTestChildren(
+    SliverHitTestResult result, {
+    required double mainAxisPosition,
+    required double crossAxisPosition,
+  }) {
+    final sliver = child;
+    if (sliver == null || sliver.geometry!.hitTestExtent <= 0) return false;
+    final vertical = constraints.axis == Axis.vertical;
+    return result.addWithAxisOffset(
+      paintOffset: _translation,
+      mainAxisOffset: vertical ? _translation.dy : _translation.dx,
+      crossAxisOffset: vertical ? _translation.dx : _translation.dy,
+      mainAxisPosition: mainAxisPosition,
+      crossAxisPosition: crossAxisPosition,
+      hitTest: sliver.hitTest,
+    );
+  }
 }
 
 double _originDetailExpandedChildSize(
@@ -126,6 +145,9 @@ class _OriginDetailDraggableSheetState
   late final _OriginWorldSheetInteractionController _sheetInteraction;
   late final _OriginRoleEditorInteractionController _roleEditorInteraction;
   final ValueNotifier<bool> _roleEditing = ValueNotifier<bool>(false);
+  final ValueNotifier<bool> _roleEditorTransitionActive = ValueNotifier<bool>(
+    false,
+  );
   final GlobalKey _roleSectionKey = GlobalKey(
     debugLabel: 'origin-opening-role-section',
   );
@@ -304,6 +326,7 @@ class _OriginDetailDraggableSheetState
       ..dispose();
     _sheetController.dispose();
     _roleEditing.dispose();
+    _roleEditorTransitionActive.dispose();
     _discussController?.dispose();
     super.dispose();
   }
@@ -391,9 +414,16 @@ class _OriginDetailDraggableSheetState
 
   void _handleRoleEditorInteractionChanged() {
     final editing = _roleEditorInteraction.editing;
-    if (_roleEditing.value == editing) return;
-    _roleEditing.value = editing;
-    if (editing) {
+    final transitionActive = _roleEditorInteraction.transitionActive;
+    final editingChanged = _roleEditing.value != editing;
+    final transitionChanged =
+        _roleEditorTransitionActive.value != transitionActive;
+    if (!editingChanged && !transitionChanged) return;
+    if (editingChanged) _roleEditing.value = editing;
+    if (transitionChanged) {
+      _roleEditorTransitionActive.value = transitionActive;
+    }
+    if (transitionActive) {
       _cancelPendingOpeningDialogueWarmup();
     } else {
       _scheduleOpeningDialogueWarmupAfterPaint();
@@ -738,7 +768,7 @@ class _OriginDetailDraggableSheetState
       hasMessages: _initialDialoguePreview?.messages.isNotEmpty == true,
       autoExpansionPending: widget.autoExpansionPending,
       keyboardMode: _openingKeyboardMode,
-      roleEditing: _roleEditing.value,
+      roleEditing: _roleEditorTransitionActive.value,
       openingPageSettled: openingPageSettled,
       sheetInteractionActive: _sheetInteractionActive,
       extentAnimationActive: _extentSettleCompleter != null,
@@ -953,7 +983,7 @@ class _OriginDetailDraggableSheetState
       animation: Listenable.merge([
         _sheetController,
         _pageController,
-        _roleEditing,
+        _roleEditorTransitionActive,
       ]),
       child: _OriginCollapsedOpeningRoleAction(
         bottomInset: bottomInset,
@@ -965,7 +995,7 @@ class _OriginDetailDraggableSheetState
       ),
       builder: (context, child) {
         final visible =
-            !_roleEditing.value &&
+            !_roleEditorTransitionActive.value &&
             _sheetInteraction.isCollapsedRoleActionVisible(
               sheetRaised: _isRaised,
             );
@@ -1165,9 +1195,10 @@ class _OriginDetailDraggableSheetState
             child: _buildExpandedOpeningComposer(locationChatLocationId),
           );
     return AnimatedBuilder(
-      animation: _roleEditing,
+      animation: Listenable.merge([_roleEditing, _roleEditorTransitionActive]),
       builder: (context, _) {
         final roleEditing = _roleEditing.value;
+        final roleEditorTransitionActive = _roleEditorTransitionActive.value;
         return KeyedSubtree(
           key: const ValueKey<String>('origin-detail-sheet-page-Opening'),
           child: Scaffold(
@@ -1183,9 +1214,9 @@ class _OriginDetailDraggableSheetState
                     key: const ValueKey<String>(
                       'origin-opening-composer-role-edit-visibility',
                     ),
-                    ignoring: roleEditing,
+                    ignoring: roleEditorTransitionActive,
                     child: Opacity(
-                      opacity: roleEditing ? 0 : 1,
+                      opacity: roleEditorTransitionActive ? 0 : 1,
                       child: AnimatedBuilder(
                         animation: _sheetInteraction.keyboardFrameListenable,
                         child: openingComposer,
@@ -1437,7 +1468,7 @@ class _OriginDetailDraggableSheetState
                                       ),
                                     ),
                                   ),
-                                if (roleEditing)
+                                if (roleEditorTransitionActive)
                                   AnimatedBuilder(
                                     animation:
                                         _roleEditorInteraction.frameListenable,

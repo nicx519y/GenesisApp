@@ -10872,6 +10872,12 @@ void main() {
             ),
           )
           .onTapOutside!(const PointerDownEvent(position: Offset.zero));
+      await tester.pump();
+      expect(
+        editor,
+        findsNothing,
+        reason: 'Tapping outside must leave the role-card edit UI immediately.',
+      );
       await tester.pumpAndSettle();
       expect(
         tester.widget<IgnorePointer>(composerVisibilityFinder).ignoring,
@@ -12383,19 +12389,41 @@ void main() {
     final profileCardFrame = find.byKey(
       const ValueKey<String>('origin-setup-role-card-frame-current-user'),
     );
+    final composerVisibility = find.byKey(
+      const ValueKey<String>('origin-opening-composer-role-edit-visibility'),
+    );
+    expect(tester.widget<IgnorePointer>(composerVisibility).ignoring, isTrue);
     final cardTopBeforeCommit = tester.getRect(profileCardFrame).top;
     final sheetTopBeforeCommit = tester.getRect(sheetSurface).top;
-    tester.widget<TextField>(mountedFields.at(2)).onEditingComplete!();
+    await tester.tap(confirmProfile);
     await tester.pump();
 
-    expect(inlineEditor, findsOneWidget);
+    expect(
+      inlineEditor,
+      findsNothing,
+      reason: 'Saving must leave the role-card edit UI immediately.',
+    );
+    expect(
+      find.byKey(
+        const ValueKey<String>('origin-setup-role-edit-icon-current-user'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.widget<IgnorePointer>(composerVisibility).ignoring, isTrue);
     expect(
       tester.widget<Text>(rolePillLabelBeforeCommit).data,
       'Saved Profile Hero',
-      reason:
-          'Keyboard Done commits through the same path as the check icon '
-          'before the keyboard closing animation.',
+      reason: 'The check icon must save before the keyboard closing animation.',
     );
+    _genesisKeyboardAnimationEventSink!.success(const <String, Object>{
+      'generation': 2,
+      'phase': 'closing',
+      'startInset': 260.0,
+      'endInset': 0.0,
+      'durationMillis': 250.0,
+    });
+    await tester.pump();
+    final closingCardFrames = <({double inset, double top})>[];
     for (final keyboardInset in <double>[180, 80, 0]) {
       tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
       await tester.pump(const Duration(milliseconds: 16));
@@ -12403,10 +12431,23 @@ void main() {
         tester.getRect(sheetSurface).top,
         closeTo(sheetTopBeforeCommit, 0.1),
       );
+      closingCardFrames.add((
+        inset: keyboardInset,
+        top: tester.getRect(profileCardFrame).top,
+      ));
+    }
+    final cardTopAtKeyboardClosed = closingCardFrames.last.top;
+    for (final frame in closingCardFrames) {
+      final progress = 1 - frame.inset / 260;
       expect(
-        tester.getRect(profileCardFrame).top,
-        closeTo(cardTopBeforeCommit, 0.1),
-        reason: 'Finishing the role edit must not animate the sheet content.',
+        frame.top,
+        closeTo(
+          cardTopBeforeCommit +
+              (cardTopAtKeyboardClosed - cardTopBeforeCommit) * progress,
+          0.1,
+        ),
+        reason:
+            'The card and final scroll position must follow keyboard progress.',
       );
     }
     for (var frame = 0; frame < 9; frame += 1) {
@@ -12417,12 +12458,60 @@ void main() {
       );
       expect(
         tester.getRect(profileCardFrame).top,
-        closeTo(cardTopBeforeCommit, 0.1),
+        closeTo(cardTopAtKeyboardClosed, 0.1),
       );
     }
+    var previousCardTop = tester.getRect(profileCardFrame).top;
+    var composerBecameVisible = false;
+    double? cardTopWhenComposerBecameVisible;
+    for (var frame = 0; frame < 30; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final currentCardTop = tester.getRect(profileCardFrame).top;
+      final composerHidden = tester
+          .widget<IgnorePointer>(composerVisibility)
+          .ignoring;
+      if (!composerHidden) {
+        expect(
+          currentCardTop,
+          closeTo(previousCardTop, 0.1),
+          reason:
+              'The card must not rebound when the message composer appears.',
+        );
+        cardTopWhenComposerBecameVisible = currentCardTop;
+        composerBecameVisible = true;
+        break;
+      }
+      expect(currentCardTop, closeTo(cardTopAtKeyboardClosed, 0.1));
+      previousCardTop = currentCardTop;
+    }
+    expect(composerBecameVisible, isTrue);
     await tester.pumpAndSettle();
+    expect(
+      tester.getRect(profileCardFrame).top,
+      closeTo(cardTopWhenComposerBecameVisible!, 0.1),
+      reason:
+          'Clearing the temporary paint translation must not move the card.',
+    );
 
     expect(inlineEditor, findsNothing);
+    final restoredOpeningPosition = tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byKey(
+                  const PageStorageKey<String>(
+                    'origin-detail-bottom-sheet-o_test_1',
+                  ),
+                ),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+    expect(
+      restoredOpeningPosition.pixels,
+      closeTo(restoredOpeningPosition.maxScrollExtent, 0.5),
+    );
     expect(transport.requestsFor('/api/v1/origin/launch'), isEmpty);
     expect(
       find.descendant(
@@ -12444,6 +12533,22 @@ void main() {
     expect(persistedUserInfo?['name'], 'Profile Hero');
     expect(persistedUserInfo?['identity'], 'Initial identity');
     expect(persistedUserInfo?['bio'], 'Initial profile personality');
+
+    await tester.tap(confirmProfile);
+    await tester.pump();
+    expect(
+      inlineEditor,
+      findsOneWidget,
+      reason: 'A completed close must allow the role card to be edited again.',
+    );
+    await tester.tap(confirmProfile);
+    await tester.pumpAndSettle();
+    expect(inlineEditor, findsNothing);
+    expect(
+      tester.widget<IgnorePointer>(composerVisibility).ignoring,
+      isFalse,
+      reason: 'The message composer must return after the close settles.',
+    );
 
     final openingComposer = find.descendant(
       of: find.byKey(
