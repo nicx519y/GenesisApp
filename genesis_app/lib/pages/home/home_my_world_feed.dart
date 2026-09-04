@@ -726,6 +726,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      if (shouldTrackFirstScreen && _items.isEmpty) {
+        _scheduleLaunchRender('network_error');
+      }
     }
   }
 

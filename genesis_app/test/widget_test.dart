@@ -2952,6 +2952,69 @@ void main() {
     },
   );
 
+  testWidgets('Home records the final no-cache network error frame', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    AppStartupCoordinator.beginLaunchTracking(
+      startupId: 'home-signed-in-network-error',
+    );
+    AppStartupCoordinator.recordStartupFirstReport();
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'home',
+      reason: 'session_home_cache_hit',
+    );
+    AppStartupCoordinator.recordLaunchPage();
+    final worldListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldListCompleter: worldListCompleter,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          home: HomePage(myWorldsCacheLoader: (_) async => null),
+        ),
+      ),
+    );
+    for (
+      var index = 0;
+      index < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      index += 1
+    ) {
+      await tester.pump();
+    }
+
+    worldListCompleter.completeError(Exception('network unavailable'));
+    for (var index = 0; index < 5; index += 1) {
+      await tester.pump();
+    }
+
+    expect(find.text('Load failed'), findsOneWidget);
+    final launchEvents = telemetry.events
+        .where((event) => event.name.startsWith('launch_'))
+        .toList(growable: false);
+    expect(launchEvents.map((event) => event.name), <String>[
+      'launch_startup',
+      'launch_page',
+      'launch_req_start',
+      'launch_req_end',
+      'launch_render',
+    ]);
+    expect(launchEvents[3].data['object4'], 'failure');
+    expect(launchEvents[4].data['object2'], 'home');
+    expect(launchEvents[4].data['object4'], 'network_error');
+  });
+
   testWidgets('Home My Worlds pageview waits for its first page', (
     WidgetTester tester,
   ) async {
