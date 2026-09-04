@@ -457,9 +457,9 @@ class _OriginLocationChatLaunchComposerState
     final message = _controller.serializedText;
     if (widget.launching || message.trim().isEmpty) return;
     final mentionCatalog = _controller.composedMentionCatalog;
-    _focusNode.unfocus();
     final launched = await widget.onSend(message, mentionCatalog);
     if (!mounted) return;
+    _focusNode.unfocus();
     widget.onSendCompleted?.call(launched);
     if (!launched) return;
   }

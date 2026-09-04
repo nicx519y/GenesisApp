@@ -7,6 +7,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
+import 'package:genesis_flutter_android/app/telemetry/native_app_lifecycle.dart';
 import 'package:genesis_flutter_android/platform/app/app_metadata_service.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
@@ -142,6 +143,51 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'subscribes once to native lifecycle and cancels it when reset',
+    () async {
+      var listenCount = 0;
+      var cancelCount = 0;
+      final lifecycleEvents =
+          StreamController<NativeAppLifecycleEvent>.broadcast(
+            sync: true,
+            onListen: () => listenCount += 1,
+            onCancel: () => cancelCount += 1,
+          );
+      addTearDown(lifecycleEvents.close);
+      AppStartupCoordinator.setAppLifecycleEventsForTesting(
+        lifecycleEvents.stream,
+      );
+
+      final client = await initializeWith(MemoryUserSessionStore());
+      await AppStartupCoordinator.initializeTelemetry(services: services);
+      expect(listenCount, 1);
+
+      lifecycleEvents.add(NativeAppLifecycleEvent.foreground);
+      lifecycleEvents.add(NativeAppLifecycleEvent.background);
+      lifecycleEvents.add(NativeAppLifecycleEvent.background);
+      lifecycleEvents.add(NativeAppLifecycleEvent.foreground);
+      lifecycleEvents.add(NativeAppLifecycleEvent.foreground);
+      await GenesisTelemetry.waitForCollectWritesForTesting();
+      await uploader.checkNow(force: true);
+
+      expect(
+        client.batches
+            .expand((batch) => batch)
+            .map((event) => event.action)
+            .where(
+              (action) =>
+                  action == 'app_background' || action == 'app_foreground',
+            ),
+        <String>['app_background', 'app_foreground'],
+      );
+
+      AppStartupCoordinator.resetForTesting();
+      await Future<void>.delayed(Duration.zero);
+      expect(cancelCount, 1);
+    },
+  );
 
   test(
     'starts Collect without reading UID in telemetry initialization',
