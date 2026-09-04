@@ -116,7 +116,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
 
 class _OriginDetailDraggableSheetState
     extends State<_OriginDetailDraggableSheet>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   static const double _absoluteMaxChildSize = 1.0;
   static const double _extentUpdateEpsilon = _originSheetInteractionEpsilon;
   static const int _extentSettleFrameCount = 2;
@@ -164,7 +164,6 @@ class _OriginDetailDraggableSheetState
   Timer? _extentSettleTimer;
   Completer<void>? _extentSettleCompleter;
   var _openingMessageKeyboardWasActive = false;
-  var _openingMessageBottomRestoreGeneration = 0;
   var _expandedOpeningComposerHeightWithoutSafeArea = 0.0;
   var _openingDialogueWarmupGeneration = 0;
   var _openingDialogueWarmupScheduled = false;
@@ -198,8 +197,8 @@ class _OriginDetailDraggableSheetState
       _sheetInteraction.keyboardTargetInset;
   double get _openingKeyboardNormalScrollOffset =>
       _sheetInteraction.keyboardNormalScrollOffset;
-  double get _openingKeyboardAdditionalScrollExtent =>
-      _sheetInteraction.keyboardAdditionalScrollExtent;
+  double get _openingKeyboardLayoutSpacerExtent =>
+      _sheetInteraction.keyboardLayoutSpacerExtent;
 
   double get _minChildSize => widget.minChildSize.clamp(0.08, 1.0).toDouble();
 
@@ -218,26 +217,29 @@ class _OriginDetailDraggableSheetState
     _sheetController = DraggableScrollableController();
     _initialDialoguePreview = _originFirstInitialDialoguePreview(widget.origin);
     _sheetInteraction = _OriginWorldSheetInteractionController(
+      vsync: this,
       canPrepareKeyboard: () => mounted && !widget.autoExpansionPending,
       readKeyboardInset: _currentOpeningKeyboardLayoutInset,
-      readKeyboardSafeAreaInset: () => GenesisSafeAreaInsets.bottom(context),
+      readRawKeyboardInset: _currentOpeningKeyboardInset,
+      readKeyboardSafeAreaInset: _currentOpeningKeyboardSafeAreaInset,
       readKeyboardLayout: _readOpeningKeyboardLayout,
       readKeyboardContentBounds: _readOpeningKeyboardContentBounds,
       readSheetExtent: () =>
           _sheetController.isAttached ? _sheetController.size : 0,
       readFallbackExpandedSheetExtent: () => _expandedChildSize(context),
       restoreSheetExtent: _restoreOpeningKeyboardSheetExtent,
-      // The content sliver's scroll extent includes its real trailing gap, so
-      // no separately measured screen-space gap is needed.
-      readContentToComposerGap: () => 0,
+      // The content sliver already includes the normal trailing gap. Let the
+      // final 10px of that padding sit behind the docked keyboard composer so
+      // the focused message-to-composer gap is 10px tighter without changing
+      // the zero-keyboard layout.
+      readContentToComposerGap: () =>
+          -originOpeningKeyboardDialogueGapReductionForTesting,
       onPageSelected: _handleInteractionPageSelected,
     )..addListener(_handleSheetInteractionChanged);
     _roleEditorInteraction = _OriginRoleEditorInteractionController(
       readKeyboardInset: _currentOpeningKeyboardInset,
+      readKeyboardSafeAreaInset: _currentOpeningKeyboardSafeAreaInset,
       readLayout: _readRoleEditorLayout,
-      readSheetExtent: () =>
-          _sheetController.isAttached ? _sheetController.size : 0,
-      restoreSheetExtent: _restoreOpeningKeyboardSheetExtent,
       onCommit: (draft) => widget.onSaveProfileRole(draft),
     )..addListener(_handleRoleEditorInteractionChanged);
     _scheduleDiscussPreloadAfterPaint();
@@ -291,7 +293,6 @@ class _OriginDetailDraggableSheetState
     _cancelPendingOpeningDialogueWarmup();
     WidgetsBinding.instance.removeObserver(this);
     _cancelExtentSettleWait();
-    _openingMessageBottomRestoreGeneration += 1;
     if (!_sheetReady.isCompleted) {
       _sheetReady.complete();
     }
@@ -421,6 +422,10 @@ class _OriginDetailDraggableSheetState
 
   void _confirmProfileRoleEditing(OriginCustomRoleDraft draft) {
     _roleEditorInteraction.confirmEditing(draft);
+  }
+
+  void _cancelProfileRoleEditing() {
+    _roleEditorInteraction.cancelEditing();
   }
 
   void _handleCollapsedRoleDragStart(DragStartDetails details) {
@@ -669,10 +674,8 @@ class _OriginDetailDraggableSheetState
     if (!mounted) return;
     final keyboardMode = _openingKeyboardMode;
     if (_openingMessageKeyboardWasActive && !keyboardMode) {
-      _scheduleOpeningMessagePageBottomRestore();
       _scheduleOpeningDialogueWarmupAfterPaint();
     } else if (keyboardMode) {
-      _openingMessageBottomRestoreGeneration += 1;
       _cancelPendingOpeningDialogueWarmup();
       if (!_openingMessageKeyboardWasActive &&
           _initialDialoguePreview?.messages.isNotEmpty == true &&
@@ -684,24 +687,6 @@ class _OriginDetailDraggableSheetState
     }
     _openingMessageKeyboardWasActive = keyboardMode;
     setState(() {});
-  }
-
-  void _scheduleOpeningMessagePageBottomRestore() {
-    final generation = ++_openingMessageBottomRestoreGeneration;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          generation != _openingMessageBottomRestoreGeneration ||
-          _openingKeyboardMode ||
-          _currentOpeningKeyboardInset() > 0.5 ||
-          _currentPage != _originOpeningSheetPageIndex) {
-        return;
-      }
-      final scrollController = _sheetScrollController;
-      if (scrollController == null || !scrollController.hasClients) return;
-      final position = scrollController.position;
-      position.jumpTo(position.maxScrollExtent);
-    });
-    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _handleInteractionPageSelected(int page) {
@@ -856,8 +841,20 @@ class _OriginDetailDraggableSheetState
     }
     return originOpeningEffectiveKeyboardInsetForTesting(
       rawKeyboardInset: view.viewInsets.bottom / view.devicePixelRatio,
-      bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
+      bottomSafeAreaInset: _currentOpeningKeyboardSafeAreaInset(),
     );
+  }
+
+  double _currentOpeningKeyboardSafeAreaInset() {
+    final view = View.maybeOf(context);
+    if (view == null || view.devicePixelRatio <= 0) {
+      return GenesisSafeAreaInsets.bottom(context);
+    }
+    // The app-level system-bar boundary intentionally clears the descendant
+    // MediaQuery bottom padding for three-button navigation while shortening
+    // the child viewport. Native IME insets still use full-window coordinates,
+    // so use the stable FlutterView padding when removing their overlap.
+    return view.viewPadding.bottom / view.devicePixelRatio;
   }
 
   RenderBox? _activeRenderBox(GlobalKey key) {
@@ -1192,13 +1189,17 @@ class _OriginDetailDraggableSheetState
                       child: AnimatedBuilder(
                         animation: _sheetInteraction.keyboardFrameListenable,
                         child: openingComposer,
-                        builder: (context, child) => Transform.translate(
-                          offset: Offset(
-                            0,
-                            _sheetInteraction.composerTranslation(),
-                          ),
-                          child: child,
-                        ),
+                        builder: (context, child) {
+                          final translation = _sheetInteraction
+                              .composerTranslation();
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              top: math.max(0, translation),
+                              bottom: math.max(0, -translation),
+                            ),
+                            child: child,
+                          );
+                        },
                       ),
                     ),
                   )
@@ -1325,8 +1326,8 @@ class _OriginDetailDraggableSheetState
                                   },
                                 ),
                                 AnimatedBuilder(
-                                  animation: _sheetInteraction
-                                      .keyboardFrameListenable,
+                                  animation:
+                                      _sheetInteraction.keyboardFrameListenable,
                                   child: SliverToBoxAdapter(
                                     child: IgnorePointer(
                                       key: const ValueKey<String>(
@@ -1365,8 +1366,8 @@ class _OriginDetailDraggableSheetState
                                             profileRole: widget.profileRole,
                                             selectedRoleId:
                                                 widget.locationChatRole.id,
-                                            onSelectedRoleChanged: widget
-                                                .onSelectLocationChatRole,
+                                            onSelectedRoleChanged:
+                                                widget.onSelectLocationChatRole,
                                             onSaveProfileRole:
                                                 _confirmProfileRoleEditing,
                                             profileCardPositionKey:
@@ -1374,6 +1375,8 @@ class _OriginDetailDraggableSheetState
                                             profileRoleEditing: roleEditing,
                                             onBeginProfileRoleEditing:
                                                 _beginProfileRoleEditing,
+                                            onCancelProfileRoleEditing:
+                                                _cancelProfileRoleEditing,
                                             onProfileRoleFocusChanged:
                                                 _handleProfileRoleFocusChanged,
                                             onProfileRoleInternalInteractionChanged:
@@ -1419,15 +1422,18 @@ class _OriginDetailDraggableSheetState
                                       ),
                                     ),
                                   ),
-                                if (_openingKeyboardMode)
+                                if (_openingKeyboardMode ||
+                                    _openingKeyboardLayoutSpacerExtent > 0)
                                   AnimatedBuilder(
                                     animation: _sheetInteraction
                                         .keyboardFrameListenable,
                                     builder: (context, _) => SliverToBoxAdapter(
                                       child: SizedBox(
+                                        key: const ValueKey<String>(
+                                          'origin-opening-keyboard-layout-spacer',
+                                        ),
                                         height:
-                                            _openingKeyboardTargetInset +
-                                            _openingKeyboardAdditionalScrollExtent,
+                                            _openingKeyboardLayoutSpacerExtent,
                                       ),
                                     ),
                                   ),

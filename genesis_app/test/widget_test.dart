@@ -2952,6 +2952,69 @@ void main() {
     },
   );
 
+  testWidgets('Home records the final no-cache network error frame', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    AppStartupCoordinator.beginLaunchTracking(
+      startupId: 'home-signed-in-network-error',
+    );
+    AppStartupCoordinator.recordStartupFirstReport();
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'home',
+      reason: 'session_home_cache_hit',
+    );
+    AppStartupCoordinator.recordLaunchPage();
+    final worldListCompleter = Completer<TransportResponse>();
+    final transport = _RecordingV1ListTransport(
+      worldListCompleter: worldListCompleter,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          home: HomePage(myWorldsCacheLoader: (_) async => null),
+        ),
+      ),
+    );
+    for (
+      var index = 0;
+      index < 10 && transport.requestsFor('/api/v1/world/list').isEmpty;
+      index += 1
+    ) {
+      await tester.pump();
+    }
+
+    worldListCompleter.completeError(Exception('network unavailable'));
+    for (var index = 0; index < 5; index += 1) {
+      await tester.pump();
+    }
+
+    expect(find.text('Load failed'), findsOneWidget);
+    final launchEvents = telemetry.events
+        .where((event) => event.name.startsWith('launch_'))
+        .toList(growable: false);
+    expect(launchEvents.map((event) => event.name), <String>[
+      'launch_startup',
+      'launch_page',
+      'launch_req_start',
+      'launch_req_end',
+      'launch_render',
+    ]);
+    expect(launchEvents[3].data['object4'], 'failure');
+    expect(launchEvents[4].data['object2'], 'home');
+    expect(launchEvents[4].data['object4'], 'network_error');
+  });
+
   testWidgets('Home My Worlds pageview waits for its first page', (
     WidgetTester tester,
   ) async {
@@ -9562,7 +9625,7 @@ void main() {
   ) async {
     final transport = _RecordingV1ListTransport();
     final appGlobalConfig = AppGlobalConfigStore(
-      loadConfig: () async => const <String, dynamic>{},
+      loadConfig: ({String? uid}) async => const <String, dynamic>{},
       initialValue: const AppGlobalConfig(showOpeningSheet: true),
     );
     await tester.pumpWidget(
@@ -9609,7 +9672,7 @@ void main() {
       originDetailCompleter: Completer<TransportResponse>(),
     );
     final appGlobalConfig = AppGlobalConfigStore(
-      loadConfig: () async => const <String, dynamic>{},
+      loadConfig: ({String? uid}) async => const <String, dynamic>{},
       initialValue: const AppGlobalConfig(showOpeningSheet: true),
     );
     await originWorldSheetDebugSettings.setExpandOnEntry(true);
@@ -10365,7 +10428,7 @@ void main() {
   });
 
   testWidgets(
-    'Origin profile keyboard hides the composer and keeps role paging enabled',
+    'Origin profile keyboard hides composer and cancels editing on role swipe',
     (WidgetTester tester) async {
       _mockGenesisKeyboardAnimationEvents();
       tester.view.physicalSize = const Size(390, 844);
@@ -10700,6 +10763,21 @@ void main() {
         closeTo(avatarTopBeforePicker, 0.1),
       );
 
+      final editingCardRect = tester.getRect(cardFrame);
+      await tester.tapAt(
+        Offset(editingCardRect.left + 4, editingCardRect.center.dy),
+      );
+      await tester.pump();
+      expect(
+        editor,
+        findsOneWidget,
+        reason: 'Tapping blank space inside the card must not end editing.',
+      );
+      expect(
+        tester.widget<TextField>(identityField).focusNode?.hasFocus,
+        isTrue,
+        reason: 'Tapping blank space inside the card must preserve focus.',
+      );
       tester.widget<TextField>(identityField).focusNode?.unfocus();
       await tester.pump();
       _genesisKeyboardAnimationEventSink!.success(const <String, Object>{
@@ -10709,15 +10787,99 @@ void main() {
         'endInset': 0.0,
         'durationMillis': 250.0,
       });
-      tester.view.viewInsets = FakeViewPadding.zero;
+      final roleTitle = find.text('Select Your Role');
+      final closingRoleTitleTops = <double>[tester.getTopLeft(roleTitle).dy];
+      for (final keyboardInset in <double>[180, 24, 30, 12, 0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+        await tester.pump(const Duration(milliseconds: 16));
+        closingRoleTitleTops.add(tester.getTopLeft(roleTitle).dy);
+      }
+      for (var frame = 0; frame < 20; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        closingRoleTitleTops.add(tester.getTopLeft(roleTitle).dy);
+      }
+      final roleTitleTravel =
+          closingRoleTitleTops.last - closingRoleTitleTops.first;
+      for (var frame = 1; frame < closingRoleTitleTops.length; frame += 1) {
+        final step =
+            closingRoleTitleTops[frame] - closingRoleTitleTops[frame - 1];
+        expect(
+          roleTitleTravel >= 0 ? step : -step,
+          greaterThanOrEqualTo(-1),
+          reason:
+              'Role-editor close frame $frame must not reverse from its '
+              'established direction.',
+        );
+      }
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<IgnorePointer>(composerVisibilityFinder).ignoring,
+        isTrue,
+        reason: 'Dismissing the keyboard must keep role editing active.',
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-expanded-opening-composer')),
+        findsOneWidget,
+      );
+      expect(editor, findsOneWidget);
+      final inlineEditorScroll = find.byKey(
+        const ValueKey<String>(
+          'origin-setup-role-inline-editor-scroll-current-user',
+        ),
+      );
+      expect(
+        tester.widget<SingleChildScrollView>(inlineEditorScroll).physics,
+        isA<NeverScrollableScrollPhysics>(),
+      );
+      for (final field in tester.widgetList<TextField>(
+        find.descendant(of: editor, matching: find.byType(TextField)),
+      )) {
+        expect(field.scrollPhysics, isA<NeverScrollableScrollPhysics>());
+      }
+      final inlineEditorScrollPosition = tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: inlineEditorScroll,
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+      final inlineEditorOffsetBeforeDrag = inlineEditorScrollPosition.pixels;
+      await tester.drag(editor, const Offset(0, -32));
+      await tester.pump();
+      expect(
+        editor,
+        findsOneWidget,
+        reason: 'Dragging inside the role card must not end editing.',
+      );
+      expect(
+        inlineEditorScrollPosition.pixels,
+        closeTo(inlineEditorOffsetBeforeDrag, 0.01),
+        reason: 'The inline role editor must not scroll from user gestures.',
+      );
+      expect(
+        tester.widget<TextField>(nameField).controller?.text,
+        'Edited Profile',
+      );
+      tester
+          .widget<TapRegion>(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-tap-region-current-user',
+              ),
+            ),
+          )
+          .onTapOutside!(const PointerDownEvent(position: Offset.zero));
       await tester.pumpAndSettle();
       expect(
         tester.widget<IgnorePointer>(composerVisibilityFinder).ignoring,
         isFalse,
       );
       expect(
-        find.byKey(const ValueKey<String>('origin-expanded-opening-composer')),
-        findsOneWidget,
+        tester.widget<PageView>(roleCardsFinder).physics,
+        isA<PageScrollPhysics>(),
       );
       expect(editor, findsNothing);
       expect(composerSpacer, findsOneWidget);
@@ -10779,9 +10941,47 @@ void main() {
       expect(
         tester.widget<TextField>(reopenedNameField).controller?.text,
         'Profile Hero',
-        reason: 'A cancelled draft is discarded before the next edit session.',
+        reason: 'Tapping outside cancels the draft and ends editing.',
       );
-      tester.widget<TextField>(reopenedNameField).focusNode?.unfocus();
+      await tester.enterText(reopenedNameField, 'Discarded by swipe');
+      await tester.drag(roleCardsFinder, const Offset(-220, 0));
+      await tester.pumpAndSettle();
+      expect(
+        editor,
+        findsNothing,
+        reason: 'A user role-card swipe must cancel editing.',
+      );
+      unawaited(
+        roleCards.controller!.animateToPage(
+          0,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOutCubic,
+        ),
+      );
+      await tester.pumpAndSettle();
+      tester
+          .widget<InkWell>(
+            find.byKey(
+              const ValueKey<String>('origin-setup-role-edit-current-user'),
+            ),
+          )
+          .onTap!();
+      await tester.pump();
+      final nameAfterSwipeCancel = find
+          .descendant(of: editor, matching: find.byType(TextField))
+          .first;
+      expect(
+        tester.widget<TextField>(nameAfterSwipeCancel).controller?.text,
+        'Profile Hero',
+        reason: 'Cancelling by horizontal swipe must discard the draft.',
+      );
+      tester
+          .widget<InkWell>(
+            find.byKey(
+              const ValueKey<String>('origin-setup-role-edit-current-user'),
+            ),
+          )
+          .onTap!();
       await tester.pumpAndSettle();
     },
   );
@@ -12180,16 +12380,46 @@ void main() {
       ),
       findsOneWidget,
     );
-    tester.widget<InkWell>(confirmProfile).onTap!();
+    final profileCardFrame = find.byKey(
+      const ValueKey<String>('origin-setup-role-card-frame-current-user'),
+    );
+    final cardTopBeforeCommit = tester.getRect(profileCardFrame).top;
+    final sheetTopBeforeCommit = tester.getRect(sheetSurface).top;
+    tester.widget<TextField>(mountedFields.at(2)).onEditingComplete!();
     await tester.pump();
 
     expect(inlineEditor, findsOneWidget);
     expect(
       tester.widget<Text>(rolePillLabelBeforeCommit).data,
       'Saved Profile Hero',
-      reason: 'The check commits before the keyboard closing animation.',
+      reason:
+          'Keyboard Done commits through the same path as the check icon '
+          'before the keyboard closing animation.',
     );
-    tester.view.viewInsets = FakeViewPadding.zero;
+    for (final keyboardInset in <double>[180, 80, 0]) {
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        tester.getRect(sheetSurface).top,
+        closeTo(sheetTopBeforeCommit, 0.1),
+      );
+      expect(
+        tester.getRect(profileCardFrame).top,
+        closeTo(cardTopBeforeCommit, 0.1),
+        reason: 'Finishing the role edit must not animate the sheet content.',
+      );
+    }
+    for (var frame = 0; frame < 9; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        tester.getRect(sheetSurface).top,
+        closeTo(sheetTopBeforeCommit, 0.1),
+      );
+      expect(
+        tester.getRect(profileCardFrame).top,
+        closeTo(cardTopBeforeCommit, 0.1),
+      );
+    }
     await tester.pumpAndSettle();
 
     expect(inlineEditor, findsNothing);
@@ -13220,6 +13450,18 @@ void main() {
         isA<ClampingScrollPhysics>(),
         reason: 'The original message list becomes scrollable once open.',
       );
+      final keyboardLayoutSpacer = find.byKey(
+        const ValueKey<String>('origin-opening-keyboard-layout-spacer'),
+        skipOffstage: false,
+      );
+      expect(keyboardLayoutSpacer, findsOneWidget);
+      expect(
+        tester.getSize(keyboardLayoutSpacer).height,
+        closeTo(0, 0.1),
+        reason:
+            'The retained role section already provides enough scroll range, '
+            'so the keyboard height must not be appended a second time.',
+      );
       final focusedRows = find.descendant(
         of: normalOpeningList,
         matching: find.byType(ChatMessageRow, skipOffstage: false),
@@ -13233,17 +13475,48 @@ void main() {
           tester.getBottomLeft(focusedRows.last).dy;
       expect(
         focusedGapFromBottomStart,
-        closeTo(normalFlowContentGap, 1),
+        closeTo(
+          normalFlowContentGap -
+              originOpeningKeyboardDialogueGapReductionForTesting,
+          1,
+        ),
         reason:
-            'Focused layout preserves the measured normal flow gap above the '
-            'composer.',
+            'Focused layout keeps the message content 10px closer to the '
+            'composer than the normal role-section flow gap.',
       );
+      normalOpeningPosition.jumpTo(
+        (normalOpeningPosition.pixels + 80)
+            .clamp(
+              normalOpeningPosition.minScrollExtent,
+              normalOpeningPosition.maxScrollExtent,
+            )
+            .toDouble(),
+      );
+      await tester.pump();
+      final focusedMessageTopBeforeClose = tester
+          .getTopLeft(focusedAnchorMessage)
+          .dy;
       final composerBottomLimit = tester.getBottomLeft(surface).dy;
       var previousComposerBottom = tester.getBottomLeft(composer).dy;
-      double? roleTitleTopAtKeyboardClosed;
-      for (final keyboardInset in <double>[150, 0]) {
-        tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
-        await tester.pump();
+      var sawIntermediateClosingPosition = false;
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pump();
+      expect(
+        tester.getTopLeft(focusedAnchorMessage).dy,
+        closeTo(focusedMessageTopBeforeClose, 0.1),
+        reason:
+            'The first focus loss must reserve its zero-keyboard range before '
+            'the keyboard layout starts changing.',
+      );
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump();
+      expect(
+        tester.getTopLeft(focusedAnchorMessage).dy,
+        closeTo(focusedMessageTopBeforeClose, 0.1),
+        reason: 'Focus loss must not move the message sheet.',
+      );
+      for (var frame = 0; frame < 16; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 20));
         final composerBottom = tester.getBottomLeft(composer).dy;
         expect(
           composerBottom,
@@ -13256,12 +13529,35 @@ void main() {
           reason:
               'The keyboard composer must not sink below its final flow bound.',
         );
-        previousComposerBottom = composerBottom;
-        if (keyboardInset == 0) {
-          roleTitleTopAtKeyboardClosed = tester.getTopLeft(roleTitle).dy;
+        if (composerBottom > previousComposerBottom + 1 &&
+            composerBottom < composerBottomLimit - 1) {
+          sawIntermediateClosingPosition = true;
         }
+        previousComposerBottom = composerBottom;
+        expect(
+          tester.getTopLeft(focusedAnchorMessage).dy,
+          closeTo(focusedMessageTopBeforeClose, 0.1),
+          reason:
+              'Only the composer follows keyboard close; message content '
+              'stays at the focused position.',
+        );
       }
-      expect(roleTitleTopAtKeyboardClosed, isNotNull);
+      expect(
+        sawIntermediateClosingPosition,
+        isTrue,
+        reason:
+            'The composer must animate to the zero-keyboard target instead of '
+            'jumping there when the inset becomes zero.',
+      );
+      await tester.pump();
+      final roleTitleTopAtKeyboardClosed = tester.getTopLeft(roleTitle).dy;
+      final messageTopAtKeyboardClosed = tester
+          .getTopLeft(focusedAnchorMessage)
+          .dy;
+      expect(
+        messageTopAtKeyboardClosed,
+        closeTo(focusedMessageTopBeforeClose, 0.1),
+      );
       for (var frame = 0; frame < 12; frame += 1) {
         await tester.pump();
         expect(
@@ -13270,10 +13566,17 @@ void main() {
         );
         expect(
           tester.getTopLeft(roleTitle).dy,
-          closeTo(roleTitleTopAtKeyboardClosed!, 1),
+          closeTo(roleTitleTopAtKeyboardClosed, 1),
           reason:
               'Restoring the normal scroll extent must not move the visible '
               'role section after the keyboard reaches zero.',
+        );
+        expect(
+          tester.getTopLeft(focusedAnchorMessage).dy,
+          closeTo(messageTopAtKeyboardClosed, 1),
+          reason:
+              'The keyboard-mode handoff must not move the message content a '
+              'second time.',
         );
       }
       expect(
@@ -13282,11 +13585,6 @@ void main() {
         ),
         findsNothing,
         reason: 'The composer remains docked instead of switching layouts.',
-      );
-      expect(
-        normalOpeningPosition.pixels,
-        closeTo(normalOpeningPosition.maxScrollExtent, 0.1),
-        reason: 'Closing the keyboard restores the role-card page bottom.',
       );
       expect(
         tester.getBottomLeft(surface).dy - tester.getBottomLeft(composer).dy,
@@ -13323,10 +13621,11 @@ void main() {
                 .first,
           )
           .position;
-      refocusOpeningPosition.jumpTo(
-        refocusOpeningPosition.maxScrollExtent * 0.35,
-      );
+      refocusOpeningPosition.jumpTo(refocusOpeningPosition.maxScrollExtent);
       await tester.pump();
+      final refocusBottomMessageTop = tester
+          .getTopLeft(focusedAnchorMessage)
+          .dy;
       await tester.tap(
         find.descendant(
           of: composer,
@@ -13334,6 +13633,13 @@ void main() {
         ),
       );
       await tester.pump();
+      expect(
+        tester.getTopLeft(focusedAnchorMessage).dy,
+        closeTo(refocusBottomMessageTop, 0.1),
+        reason:
+            'Preparing a second keyboard transition at the retained bottom '
+            'must not move the message content.',
+      );
       _genesisKeyboardAnimationEventSink!.success(const <String, Object>{
         'generation': 2,
         'phase': 'opening',
@@ -13342,6 +13648,13 @@ void main() {
         'durationMillis': 250.0,
       });
       await tester.pump();
+      expect(
+        tester.getTopLeft(focusedAnchorMessage).dy,
+        closeTo(refocusBottomMessageTop, 0.1),
+        reason:
+            'Recomputing the opening target must not shrink the retained '
+            'scroll range and clamp a bottom-aligned position.',
+      );
       tester.view.viewInsets = const FakeViewPadding(bottom: 150);
       await tester.pump();
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
@@ -13353,19 +13666,19 @@ void main() {
         matching: find.byType(ChatMessageRow, skipOffstage: false),
         skipOffstage: false,
       );
-      final focusedGapFromMiddleStart =
+      final focusedGapAfterBottomRefocus =
           tester.getTopLeft(composer).dy -
           tester.getBottomLeft(refocusedRows.last).dy;
       expect(
-        focusedGapFromMiddleStart,
+        focusedGapAfterBottomRefocus,
         closeTo(focusedGapFromBottomStart, 1),
         reason:
-            'Long content must settle at the same composer gap from different '
-            'initial scroll offsets.',
+            'Long content must settle at the same composer gap after '
+            'refocusing from the retained list bottom.',
       );
       tester.view.viewInsets = FakeViewPadding.zero;
-      for (var frame = 0; frame < 12; frame += 1) {
-        await tester.pump();
+      for (var frame = 0; frame < 16; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 20));
       }
     },
   );
@@ -13377,6 +13690,7 @@ void main() {
       tester.view.viewPadding = const FakeViewPadding(bottom: 24);
       addTearDown(tester.view.resetPadding);
       addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetViewInsets);
       AppStartupCoordinator.resetForTesting();
       addTearDown(AppStartupCoordinator.resetForTesting);
       final telemetry = _CapturingTelemetrySink();
@@ -13690,18 +14004,19 @@ void main() {
         reason: 'Short content keeps a stable visual position while opening.',
       );
       tester.view.viewInsets = FakeViewPadding.zero;
-      for (var frame = 0; frame < 12; frame += 1) {
-        await tester.pump();
+      for (var frame = 0; frame < 16; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(
+          tester.getTopLeft(focusedBriefTitle).dy,
+          closeTo(normalBriefTop, 0.1),
+          reason: 'Short content must not move when focus is lost.',
+        );
       }
+      await tester.pump();
       expect(keyboardMessageOverlay, findsNothing);
       expect(
         tester.widget<PageView>(sheetPages).physics,
         isA<PageScrollPhysics>(),
-      );
-      expect(
-        openingPosition.pixels,
-        closeTo(openingPosition.maxScrollExtent, 0.1),
-        reason: 'Closing the keyboard restores the Opening page bottom.',
       );
       expect(
         find.byKey(
@@ -13839,6 +14154,26 @@ void main() {
       expect(openingScroll, findsWidgets);
 
       const message = '@Detail Character<c_o_test_1> explore';
+      await tester.tap(sharedComposerInput);
+      await tester.pump();
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: expandedComposer,
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasFocus,
+        isTrue,
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 150);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      for (var frame = 0; frame < 12; frame += 1) {
+        await tester.pump();
+      }
       sharedComposerWidget.controller.insertShortcut('explore');
       await tester.pump();
       expect(sharedComposerWidget.controller.serializedText, message);
@@ -13861,11 +14196,27 @@ void main() {
         ),
         matching: find.byType(TextButton),
       );
-      final sendMessage = tester.widget<TextButton>(sendButton).onPressed!;
-      sendMessage();
-      sendMessage();
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: expandedComposer,
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasFocus,
+        isTrue,
+        reason: 'The message input remains focused before pressing Send.',
+      );
+      final sendGesture = await tester.startGesture(
+        tester.getCenter(sendButton),
+      );
+      await tester.pump();
+      await sendGesture.up();
       await _pumpUntilSingleOriginLaunchRequest(tester, transport);
       await tester.pump();
+      expect(transport.requestsFor('/api/v1/origin/launch'), hasLength(1));
       _expectOriginLaunchStartTelemetry(
         telemetry: telemetry,
         action: 'worldo_launch_message',

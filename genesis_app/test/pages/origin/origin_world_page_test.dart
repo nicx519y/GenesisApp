@@ -376,6 +376,140 @@ void main() {
     );
   });
 
+  test('origin role editor spacer includes the bottom safe area', () {
+    expect(
+      originRoleEditorAdditionalScrollExtentForTesting(
+        targetScrollOffset: 300,
+        minScrollExtent: 0,
+        currentMaxScrollExtent: 200,
+        retainedAdditionalExtent: 0,
+        bottomSafeAreaInset: 34,
+      ),
+      134,
+    );
+    expect(
+      originRoleEditorAdditionalScrollExtentForTesting(
+        targetScrollOffset: 180,
+        minScrollExtent: 0,
+        currentMaxScrollExtent: 200,
+        retainedAdditionalExtent: 0,
+        bottomSafeAreaInset: 34,
+      ),
+      0,
+      reason: 'Do not add a spacer when the target is already reachable.',
+    );
+  });
+
+  test('origin role editor close progress cannot reverse near zero inset', () {
+    final progressAt24 = originRoleEditorClosingProgressForTesting(
+      startInset: 280,
+      currentInset: 24,
+      previousProgress: 0,
+    );
+    expect(progressAt24, closeTo(256 / 280, 0.0001));
+    expect(
+      originRoleEditorClosingProgressForTesting(
+        startInset: 280,
+        currentInset: 30,
+        previousProgress: progressAt24,
+      ),
+      progressAt24,
+      reason:
+          'A small IME/safe-area rebound must not move the role card back up.',
+    );
+    expect(
+      originRoleEditorClosingProgressForTesting(
+        startInset: 280,
+        currentInset: 0,
+        previousProgress: progressAt24,
+      ),
+      1,
+    );
+  });
+
+  test('origin role editor keyboard dismissal preserves bottom distance', () {
+    expect(
+      originRoleEditorRestingScrollOffsetForTesting(
+        minScrollExtent: 0,
+        maxScrollExtent: 420,
+        distanceToBottom: 0,
+      ),
+      420,
+      reason:
+          'Hiding only the keyboard keeps an editor opened at the bottom at '
+          'the bottom of the zero-keyboard layout.',
+    );
+    expect(
+      originRoleEditorRestingScrollOffsetForTesting(
+        minScrollExtent: 0,
+        maxScrollExtent: 420,
+        distanceToBottom: 35,
+      ),
+      385,
+      reason:
+          'When editing starts away from the bottom, preserve that distance '
+          'instead of restoring a stale absolute scroll offset.',
+    );
+  });
+
+  test('origin role editor finish neither animates nor jumps the sheet', () {
+    final finishStart = originWorldSheetInteractionSource.indexOf(
+      'void _finishClosing()',
+    );
+    final keyboardDismissalStart = originWorldSheetInteractionSource.indexOf(
+      'void _finishKeyboardDismissal()',
+      finishStart,
+    );
+    expect(finishStart, greaterThanOrEqualTo(0));
+    expect(keyboardDismissalStart, greaterThan(finishStart));
+
+    final finishBody = originWorldSheetInteractionSource.substring(
+      finishStart,
+      keyboardDismissalStart,
+    );
+    expect(finishBody, isNot(contains('controller.jumpTo(')));
+    expect(finishBody, isNot(contains('restoreSheetExtent(')));
+
+    final closingStart = originWorldSheetInteractionSource.indexOf(
+      'void _beginClosing(',
+    );
+    expect(closingStart, greaterThanOrEqualTo(0));
+    final closingBody = originWorldSheetInteractionSource.substring(
+      closingStart,
+      finishStart,
+    );
+    expect(closingBody, isNot(contains('AnimationController')));
+    expect(closingBody, isNot(contains('.forward(')));
+  });
+
+  test('origin opening keyboard spacer only fills missing scroll extent', () {
+    expect(
+      originOpeningKeyboardLayoutSpacerExtentForTesting(
+        additionalScrollExtent: 0,
+      ),
+      0,
+      reason:
+          'An existing role section that already makes the target reachable '
+          'must not receive another keyboard-height spacer.',
+    );
+    expect(
+      originOpeningKeyboardLayoutSpacerExtentForTesting(
+        additionalScrollExtent: 42,
+      ),
+      42,
+      reason: 'Only the exact missing scroll range should be appended.',
+    );
+    expect(
+      originOpeningKeyboardLayoutSpacerExtentForTesting(
+        additionalScrollExtent: 42,
+      ),
+      42,
+      reason:
+          'Closing keeps the missing range so the current content offset is '
+          'not clamped to a different position.',
+    );
+  });
+
   test('origin opening keyboard geometry follows system inset progress', () {
     const startTop = 620.0;
     const sheetHeight = 760.0;
@@ -461,6 +595,44 @@ void main() {
         bottomSafeAreaInset: 24,
       ),
       0,
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('return view.viewPadding.bottom / view.devicePixelRatio;'),
+      reason:
+          'Keyboard geometry must use stable window padding even when the '
+          'three-button system-bar boundary clears descendant MediaQuery '
+          'padding.',
+    );
+  });
+
+  test('origin opening keyboard progress stays linear across safe area', () {
+    expect(
+      originOpeningKeyboardRawProgressForTesting(
+        currentRawInset: 0,
+        targetLayoutInset: 252,
+        bottomSafeAreaInset: 48,
+      ),
+      0,
+    );
+    expect(
+      originOpeningKeyboardRawProgressForTesting(
+        currentRawInset: 150,
+        targetLayoutInset: 252,
+        bottomSafeAreaInset: 48,
+      ),
+      0.5,
+      reason:
+          'Subtracting the safe area from every intermediate inset creates an '
+          'initial dead zone and a device-dependent acceleration jump.',
+    );
+    expect(
+      originOpeningKeyboardRawProgressForTesting(
+        currentRawInset: 300,
+        targetLayoutInset: 252,
+        bottomSafeAreaInset: 48,
+      ),
+      1,
     );
   });
 
@@ -619,6 +791,123 @@ void main() {
     );
   });
 
+  test('origin opening keyboard close animates directly to zero', () {
+    expect(
+      originOpeningKeyboardClosingAnimationProgressForTesting(
+        startProgress: 1,
+        animationValue: 0,
+      ),
+      1,
+    );
+    expect(
+      originOpeningKeyboardClosingAnimationProgressForTesting(
+        startProgress: 1,
+        animationValue: 0.5,
+      ),
+      0.5,
+    );
+    expect(
+      originOpeningKeyboardClosingAnimationProgressForTesting(
+        startProgress: 1,
+        animationValue: 1,
+      ),
+      0,
+      reason:
+          'The sheet closing animation owns its progress and always ends at '
+          'the zero-keyboard target.',
+    );
+  });
+
+  test('origin opening keyboard close ignores late native reversals', () {
+    expect(
+      originOpeningKeyboardShouldIgnoreNativeTargetForTesting(
+        closingOrRestoring: true,
+        direction: GenesisKeyboardAnimationDirection.changing,
+      ),
+      isTrue,
+    );
+    expect(
+      originOpeningKeyboardShouldIgnoreNativeTargetForTesting(
+        closingOrRestoring: true,
+        direction: GenesisKeyboardAnimationDirection.opening,
+      ),
+      isTrue,
+    );
+    expect(
+      originOpeningKeyboardShouldIgnoreNativeTargetForTesting(
+        closingOrRestoring: true,
+        direction: GenesisKeyboardAnimationDirection.closing,
+      ),
+      isFalse,
+      reason: 'Repeated native closing notifications remain harmless.',
+    );
+  });
+
+  test('origin opening keyboard close freezes the current content offset', () {
+    final closeStart = originWorldSheetInteractionSource.indexOf(
+      'void _beginKeyboardClosing()',
+    );
+    final insetUpdateStart = originWorldSheetInteractionSource.indexOf(
+      'void _updateKeyboardInset(double layoutInset)',
+      closeStart,
+    );
+    final settleStart = originWorldSheetInteractionSource.indexOf(
+      'void _scheduleKeyboardSettleCheck()',
+      insetUpdateStart,
+    );
+    final finishStart = originWorldSheetInteractionSource.indexOf(
+      'void _finishKeyboardTransitionIfNeeded()',
+      settleStart,
+    );
+    final captureStart = originWorldSheetInteractionSource.indexOf(
+      'void _captureKeyboardContentBounds(',
+      finishStart,
+    );
+
+    expect(closeStart, greaterThanOrEqualTo(0));
+    expect(insetUpdateStart, greaterThan(closeStart));
+    expect(settleStart, greaterThan(insetUpdateStart));
+    expect(finishStart, greaterThan(settleStart));
+    expect(captureStart, greaterThan(finishStart));
+
+    final closeBody = originWorldSheetInteractionSource.substring(
+      closeStart,
+      insetUpdateStart,
+    );
+    final insetUpdateBody = originWorldSheetInteractionSource.substring(
+      insetUpdateStart,
+      settleStart,
+    );
+    final finishBody = originWorldSheetInteractionSource.substring(
+      finishStart,
+      captureStart,
+    );
+    expect(
+      closeBody,
+      contains('_keyboardClosingVisualOffset = keyboardVisualScrollOffset();'),
+      reason:
+          'Focus loss snapshots the current content position instead of '
+          'selecting a new zero-keyboard destination.',
+    );
+    expect(
+      closeBody,
+      isNot(contains('position.maxScrollExtent')),
+      reason: 'Closing must not derive a new position from the list bottom.',
+    );
+    expect(
+      insetUpdateBody + finishBody,
+      isNot(contains('_keyboardClosingVisualOffset =')),
+      reason: 'Keyboard frames must not change the frozen visual position.',
+    );
+    expect(
+      originWorldDetailSheetSource,
+      isNot(contains('_scheduleOpeningMessagePageBottomRestore')),
+      reason:
+          'Leaving keyboard mode must not schedule a second post-frame jump '
+          'after the frozen closing target has already been committed.',
+    );
+  });
+
   test('origin keyboard animation target rejects malformed native events', () {
     expect(GenesisKeyboardAnimationTarget.tryParse(null), isNull);
     expect(
@@ -695,6 +984,7 @@ void main() {
   test('origin detail sections use main ui spacing', () {
     expect(originDetailSectionGapForTesting, 24);
     expect(originOpeningDialogueRoleGapForTesting, 36);
+    expect(originOpeningKeyboardDialogueGapReductionForTesting, 10);
     expect(originDetailSectionTitleIconGapForTesting, 8);
   });
 

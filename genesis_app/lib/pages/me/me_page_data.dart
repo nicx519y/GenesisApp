@@ -117,7 +117,7 @@ extension _MePageData on _MePageState {
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
-    return await services.sessionStore.readCompleteSession() != null;
+    return await services.sessionStore.readLoginUid() != null;
   }
 
   Future<void> _loadOrigins(

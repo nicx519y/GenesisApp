@@ -218,13 +218,13 @@ Future<_WorldPickResult> _pickHomeWorld(
 }
 
 Future<void> _requireAuthenticatedAgentSession(AppServices services) async {
-  final session = await services.sessionStore.readCompleteSession();
-  if (session != null) return;
+  final uid = await services.sessionStore.readLoginUid();
+  if (uid != null) return;
   throw AgentControlException(
     code: 'auth_required',
     message:
         'Authentication is required. Please log in in the app, then retry.',
-    details: const {'hasCompleteSession': false},
+    details: const {'hasLoginUid': false},
   );
 }
 

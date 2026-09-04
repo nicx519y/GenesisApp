@@ -15,6 +15,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
     required this.profileCardPositionKey,
     required this.profileRoleEditing,
     required this.onBeginProfileRoleEditing,
+    required this.onCancelProfileRoleEditing,
     required this.onProfileRoleFocusChanged,
     required this.onProfileRoleInternalInteractionChanged,
     required this.onResumeProfileRoleInternalInteraction,
@@ -34,6 +35,7 @@ class _OriginSetupRoleSection extends StatefulWidget {
   final GlobalKey profileCardPositionKey;
   final bool profileRoleEditing;
   final VoidCallback onBeginProfileRoleEditing;
+  final VoidCallback onCancelProfileRoleEditing;
   final ValueChanged<bool> onProfileRoleFocusChanged;
   final ValueChanged<bool> onProfileRoleInternalInteractionChanged;
   final ValueChanged<VoidCallback> onResumeProfileRoleInternalInteraction;
@@ -157,6 +159,13 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
     );
   }
 
+  bool _handleCardsScrollStart(ScrollStartNotification notification) {
+    if (widget.profileRoleEditing && notification.dragDetails != null) {
+      widget.onCancelProfileRoleEditing();
+    }
+    return false;
+  }
+
   void _precacheUpcomingRoleAvatars(int currentIndex) {
     if (!mounted) return;
     final avatarSourceKeys = <String>[
@@ -253,81 +262,88 @@ class _OriginSetupRoleSectionState extends State<_OriginSetupRoleSection> {
           const SizedBox(height: 8),
           SizedBox(
             height: cardWidth,
-            child: PageView.builder(
-              key: const ValueKey<String>('origin-setup-role-cards'),
-              controller: cardsController,
-              scrollDirection: Axis.horizontal,
-              physics: widget.launchBusy
-                  ? const NeverScrollableScrollPhysics()
-                  : const PageScrollPhysics(parent: BouncingScrollPhysics()),
-              padEnds: true,
-              allowImplicitScrolling: true,
-              onPageChanged: _handleCardChanged,
-              itemCount: cardCount,
-              itemBuilder: (context, index) {
-                final selected = index == currentCardIndex;
-                if (profileRole != null && index == 0) {
+            child: NotificationListener<ScrollStartNotification>(
+              onNotification: _handleCardsScrollStart,
+              child: PageView.builder(
+                key: const ValueKey<String>('origin-setup-role-cards'),
+                controller: cardsController,
+                scrollDirection: Axis.horizontal,
+                physics: widget.launchBusy
+                    ? const NeverScrollableScrollPhysics()
+                    : const PageScrollPhysics(parent: BouncingScrollPhysics()),
+                padEnds: true,
+                allowImplicitScrolling: true,
+                onPageChanged: _handleCardChanged,
+                itemCount: cardCount,
+                itemBuilder: (context, index) {
+                  final selected = index == currentCardIndex;
+                  if (profileRole != null && index == 0) {
+                    return Center(
+                      child: SizedBox(
+                        width: cardWidth,
+                        child: GestureDetector(
+                          key: const ValueKey<String>(
+                            'origin-setup-role-page-current-user',
+                          ),
+                          behavior: HitTestBehavior.opaque,
+                          onTap: selected ? null : () => _centerCard(index),
+                          child: IgnorePointer(
+                            ignoring: !selected,
+                            child: _OriginSetupRoleCard(
+                              content: _OriginSetupRoleCardContent.fromProfile(
+                                profileRole,
+                              ),
+                              roleAvatarSnapshots: widget.roleAvatarSnapshots,
+                              selected: selected,
+                              cardWidth: cardWidth,
+                              busy: widget.launchBusy,
+                              editableRole: profileRole,
+                              positionKey: widget.profileCardPositionKey,
+                              editing: widget.profileRoleEditing,
+                              onBeginEditing: widget.onBeginProfileRoleEditing,
+                              onCancelEditing:
+                                  widget.onCancelProfileRoleEditing,
+                              onFocusChanged: widget.onProfileRoleFocusChanged,
+                              onInternalInteractionChanged: widget
+                                  .onProfileRoleInternalInteractionChanged,
+                              onResumeInternalInteraction:
+                                  widget.onResumeProfileRoleInternalInteraction,
+                              onEditedRoleChanged: widget.onSaveProfileRole,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  final characterIndex = index - profileCardCount;
+                  final character = characters[characterIndex];
+                  final stableId = _characterStableId(character);
                   return Center(
                     child: SizedBox(
                       width: cardWidth,
                       child: GestureDetector(
-                        key: const ValueKey<String>(
-                          'origin-setup-role-page-current-user',
+                        key: ValueKey<String>(
+                          'origin-setup-role-page-$stableId',
                         ),
                         behavior: HitTestBehavior.opaque,
                         onTap: selected ? null : () => _centerCard(index),
                         child: IgnorePointer(
                           ignoring: !selected,
                           child: _OriginSetupRoleCard(
-                            content: _OriginSetupRoleCardContent.fromProfile(
-                              profileRole,
+                            content: _OriginSetupRoleCardContent.fromCharacter(
+                              character,
                             ),
                             roleAvatarSnapshots: widget.roleAvatarSnapshots,
                             selected: selected,
                             cardWidth: cardWidth,
                             busy: widget.launchBusy,
-                            editableRole: profileRole,
-                            positionKey: widget.profileCardPositionKey,
-                            editing: widget.profileRoleEditing,
-                            onBeginEditing: widget.onBeginProfileRoleEditing,
-                            onFocusChanged: widget.onProfileRoleFocusChanged,
-                            onInternalInteractionChanged:
-                                widget.onProfileRoleInternalInteractionChanged,
-                            onResumeInternalInteraction:
-                                widget.onResumeProfileRoleInternalInteraction,
-                            onEditedRoleChanged: widget.onSaveProfileRole,
                           ),
                         ),
                       ),
                     ),
                   );
-                }
-                final characterIndex = index - profileCardCount;
-                final character = characters[characterIndex];
-                final stableId = _characterStableId(character);
-                return Center(
-                  child: SizedBox(
-                    width: cardWidth,
-                    child: GestureDetector(
-                      key: ValueKey<String>('origin-setup-role-page-$stableId'),
-                      behavior: HitTestBehavior.opaque,
-                      onTap: selected ? null : () => _centerCard(index),
-                      child: IgnorePointer(
-                        ignoring: !selected,
-                        child: _OriginSetupRoleCard(
-                          content: _OriginSetupRoleCardContent.fromCharacter(
-                            character,
-                          ),
-                          roleAvatarSnapshots: widget.roleAvatarSnapshots,
-                          selected: selected,
-                          cardWidth: cardWidth,
-                          busy: widget.launchBusy,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
+                },
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -452,6 +468,7 @@ class _OriginSetupRoleCard extends StatefulWidget {
     this.positionKey,
     this.editing = false,
     this.onBeginEditing,
+    this.onCancelEditing,
     this.onFocusChanged,
     this.onInternalInteractionChanged,
     this.onResumeInternalInteraction,
@@ -467,6 +484,7 @@ class _OriginSetupRoleCard extends StatefulWidget {
   final GlobalKey? positionKey;
   final bool editing;
   final VoidCallback? onBeginEditing;
+  final VoidCallback? onCancelEditing;
   final ValueChanged<bool>? onFocusChanged;
   final ValueChanged<bool>? onInternalInteractionChanged;
   final ValueChanged<VoidCallback>? onResumeInternalInteraction;
@@ -746,19 +764,24 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
   void _toggleEditing() {
     if (widget.busy || _editForm == null) return;
     if (_editing) {
-      final form = _editForm;
-      widget.onEditedRoleChanged?.call(
-        OriginCustomRoleDraft(
-          avatarUrl: form.avatarUrl.text,
-          name: form.name.text,
-          identity: form.identity.text,
-          personality: form.personality.text,
-        ),
-      );
-      FocusScope.of(context).unfocus();
+      _completeEditing();
       return;
     }
     widget.onBeginEditing?.call();
+  }
+
+  void _completeEditing() {
+    final form = _editForm;
+    if (widget.busy || !_editing || form == null) return;
+    widget.onEditedRoleChanged?.call(
+      OriginCustomRoleDraft(
+        avatarUrl: form.avatarUrl.text,
+        name: form.name.text,
+        identity: form.identity.text,
+        personality: form.personality.text,
+      ),
+    );
+    FocusScope.of(context).unfocus();
   }
 
   void _toggleDetails() {
@@ -769,6 +792,18 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
       if (!mounted || !_detailsController.hasClients) return;
       _detailsController.jumpTo(0);
     });
+  }
+
+  void _handleTapOutside(PointerDownEvent event) {
+    final renderObject = context.findRenderObject();
+    if (renderObject is RenderBox &&
+        renderObject.attached &&
+        renderObject.hasSize) {
+      final localPosition = renderObject.globalToLocal(event.position);
+      if ((Offset.zero & renderObject.size).contains(localPosition)) return;
+    }
+    widget.onCancelEditing?.call();
+    FocusScope.of(context).unfocus();
   }
 
   @override
@@ -833,6 +868,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
                       interactionLayoutFrozen: _avatarInteractionLayoutFrozen,
                       frozenScrollOffset: _avatarEditorFrozenOffset,
                       onChanged: _handleEditFormChanged,
+                      onSubmitted: _completeEditing,
                       onInternalInteractionChanged:
                           _handleAvatarInteractionChanged,
                     ),
@@ -894,10 +930,14 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
 
     return TapRegion(
       key: ValueKey<String>('origin-setup-role-tap-region-$stableId'),
-      onTapOutside: _editing ? (_) => FocusScope.of(context).unfocus() : null,
+      behavior: HitTestBehavior.opaque,
+      onTapOutside: _editing ? _handleTapOutside : null,
       child: TextFieldTapRegion(
         groupId: createFormTextFieldTapRegionGroup,
-        child: KeyedSubtree(key: widget.positionKey, child: card),
+        child: Listener(
+          behavior: HitTestBehavior.opaque,
+          child: KeyedSubtree(key: widget.positionKey, child: card),
+        ),
       ),
     );
   }
@@ -916,6 +956,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
     required this.interactionLayoutFrozen,
     required this.frozenScrollOffset,
     required this.onChanged,
+    required this.onSubmitted,
     this.onInternalInteractionChanged,
   });
 
@@ -926,6 +967,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
   final bool interactionLayoutFrozen;
   final double frozenScrollOffset;
   final VoidCallback onChanged;
+  final VoidCallback onSubmitted;
   final ValueChanged<bool>? onInternalInteractionChanged;
 
   @override
@@ -939,9 +981,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
             'origin-setup-role-inline-editor-scroll-$stableId',
           ),
           controller: scrollController,
-          physics: interactionLayoutFrozen
-              ? const NeverScrollableScrollPhysics()
-              : null,
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           child: AnimatedBuilder(
             animation: scrollController,
@@ -1035,6 +1075,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
                   maxLength: originCharacterPersonalityMaxLength,
                   maxLines: 2,
                   onChanged: onChanged,
+                  onSubmitted: onSubmitted,
                 ),
               ],
             ),
@@ -1054,6 +1095,7 @@ class _OriginSetupRoleInlineField extends StatelessWidget {
     required this.focusNode,
     required this.maxLength,
     required this.onChanged,
+    this.onSubmitted,
     this.nextFocusNode,
     this.maxLines = 1,
     this.showLabel = true,
@@ -1075,6 +1117,7 @@ class _OriginSetupRoleInlineField extends StatelessWidget {
   final FontWeight fontWeight;
   final double verticalTapPadding;
   final VoidCallback onChanged;
+  final VoidCallback? onSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -1110,6 +1153,7 @@ class _OriginSetupRoleInlineField extends StatelessWidget {
                 maxLength: maxLength,
                 minLines: maxLines,
                 maxLines: maxLines,
+                scrollPhysics: const NeverScrollableScrollPhysics(),
                 keyboardType: maxLines > 1
                     ? TextInputType.multiline
                     : TextInputType.text,
@@ -1119,12 +1163,11 @@ class _OriginSetupRoleInlineField extends StatelessWidget {
                 onEditingComplete: () {
                   final next = nextFocusNode;
                   if (next == null) {
-                    focusNode.unfocus();
+                    onSubmitted?.call();
                   } else {
                     next.requestFocus();
                   }
                 },
-                onTapOutside: (_) => focusNode.unfocus(),
                 onChanged: (_) => onChanged(),
                 cursorColor: originWorldDetailSheetPrimaryTextColor,
                 scrollPadding: const EdgeInsets.fromLTRB(

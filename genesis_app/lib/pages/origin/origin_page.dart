@@ -746,8 +746,8 @@ class _OriginFeedState extends State<_OriginFeed>
 
   Future<OriginFeedCacheStore> _cacheStoreForCurrentOwner() async {
     final services = AppServicesScope.of(context);
-    final session = await services.sessionStore.readCompleteSession();
-    final ownerUid = session?.uid ?? OriginFeedCacheStore.anonymousOwnerUid;
+    final uid = await services.sessionStore.readLoginUid();
+    final ownerUid = uid ?? OriginFeedCacheStore.anonymousOwnerUid;
     return OriginFeedCacheStore(ownerUid: ownerUid);
   }
 

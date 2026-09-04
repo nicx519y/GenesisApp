@@ -4,6 +4,9 @@ const int _originOpeningSheetPageIndex = 0;
 const int _originInfoSheetPageIndex = 1;
 const double _originSheetInteractionEpsilon = 0.001;
 const int _originOpeningKeyboardSettleFrameCount = 10;
+const Duration _originOpeningKeyboardClosingDuration = Duration(
+  milliseconds: 260,
+);
 
 enum _OriginOpeningKeyboardPhase {
   idle,
@@ -53,6 +56,36 @@ double originOpeningKeyboardProgressForTesting({
   final distance = endInset - startInset;
   if (distance.abs() < 0.5) return currentInset >= endInset ? 1 : 0;
   return ((currentInset - startInset) / distance).clamp(0.0, 1.0).toDouble();
+}
+
+@visibleForTesting
+double originOpeningKeyboardRawProgressForTesting({
+  required double currentRawInset,
+  required double targetLayoutInset,
+  required double bottomSafeAreaInset,
+}) {
+  final targetRawInset = targetLayoutInset + bottomSafeAreaInset;
+  if (targetRawInset <= 0.5) return currentRawInset > 0.5 ? 1 : 0;
+  return (currentRawInset / targetRawInset).clamp(0.0, 1.0).toDouble();
+}
+
+@visibleForTesting
+double originOpeningKeyboardClosingAnimationProgressForTesting({
+  required double startProgress,
+  required double animationValue,
+}) {
+  final start = startProgress.clamp(0.0, 1.0).toDouble();
+  final elapsed = animationValue.clamp(0.0, 1.0).toDouble();
+  return start * (1 - elapsed);
+}
+
+@visibleForTesting
+bool originOpeningKeyboardShouldIgnoreNativeTargetForTesting({
+  required bool closingOrRestoring,
+  required GenesisKeyboardAnimationDirection direction,
+}) {
+  return closingOrRestoring &&
+      direction != GenesisKeyboardAnimationDirection.closing;
 }
 
 @visibleForTesting
@@ -107,6 +140,13 @@ double originOpeningKeyboardAdditionalScrollExtentForTesting({
 }
 
 @visibleForTesting
+double originOpeningKeyboardLayoutSpacerExtentForTesting({
+  required double additionalScrollExtent,
+}) {
+  return math.max(0.0, additionalScrollExtent);
+}
+
+@visibleForTesting
 double originOpeningKeyboardFlowRestingOffsetForTesting({
   required double layoutOffset,
   required double contentBottom,
@@ -151,6 +191,7 @@ enum _OriginRoleEditorPhase {
   pickerPaused,
   closingCommit,
   closingCancel,
+  closingKeyboard,
   restoring,
 }
 
@@ -184,12 +225,41 @@ double originRoleEditorAdditionalScrollExtentForTesting({
   required double minScrollExtent,
   required double currentMaxScrollExtent,
   required double retainedAdditionalExtent,
+  double bottomSafeAreaInset = 0,
 }) {
   final baseMaxScrollExtent = math.max(
     minScrollExtent,
     currentMaxScrollExtent - retainedAdditionalExtent,
   );
-  return math.max(0.0, targetScrollOffset - baseMaxScrollExtent);
+  final missingScrollExtent = math.max(
+    0.0,
+    targetScrollOffset - baseMaxScrollExtent,
+  );
+  if (missingScrollExtent <= 0) return 0;
+  return missingScrollExtent + math.max(0.0, bottomSafeAreaInset);
+}
+
+@visibleForTesting
+double originRoleEditorClosingProgressForTesting({
+  required double startInset,
+  required double currentInset,
+  required double previousProgress,
+}) {
+  final rawProgress = startInset <= 0.5
+      ? 1.0
+      : (1 - currentInset / startInset).clamp(0.0, 1.0).toDouble();
+  return math.max(previousProgress.clamp(0.0, 1.0).toDouble(), rawProgress);
+}
+
+@visibleForTesting
+double originRoleEditorRestingScrollOffsetForTesting({
+  required double minScrollExtent,
+  required double maxScrollExtent,
+  required double distanceToBottom,
+}) {
+  return (maxScrollExtent - math.max(0.0, distanceToBottom))
+      .clamp(minScrollExtent, maxScrollExtent)
+      .toDouble();
 }
 
 class _OriginRoleEditorInteractionController extends ChangeNotifier {
@@ -197,9 +267,8 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
 
   _OriginRoleEditorInteractionController({
     required this.readKeyboardInset,
+    required this.readKeyboardSafeAreaInset,
     required this.readLayout,
-    required this.readSheetExtent,
-    required this.restoreSheetExtent,
     required this.onCommit,
   }) {
     _keyboardAnimationSubscription = GenesisKeyboardAnimationEvents.targets
@@ -209,9 +278,8 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   static const double keyboardGap = 30;
 
   final double Function() readKeyboardInset;
+  final double Function() readKeyboardSafeAreaInset;
   final _OriginRoleEditorLayout? Function() readLayout;
-  final double Function() readSheetExtent;
-  final ValueChanged<double> restoreSheetExtent;
   final ValueChanged<OriginCustomRoleDraft> onCommit;
   final _OriginWorldSheetFrameNotifier _frameNotifier =
       _OriginWorldSheetFrameNotifier();
@@ -228,13 +296,15 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   var _targetInset = 0.0;
   var _targetKnown = false;
   var _startScrollOffset = 0.0;
+  var _startDistanceToBottom = 0.0;
   var _openingStartVisualOffset = 0.0;
   var _visualScrollOffset = 0.0;
   var _targetScrollOffset = 0.0;
   var _closingStartInset = 0.0;
   var _closingStartVisualOffset = 0.0;
+  var _closingTargetScrollOffset = 0.0;
+  var _closingProgress = 0.0;
   var _additionalScrollExtent = 0.0;
-  var _sheetExtent = 0.0;
   var _stableFrameCount = 0;
   var _settleScheduled = false;
   var _commitRetryScheduled = false;
@@ -244,7 +314,9 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   VoidCallback? _pendingInternalInteractionResume;
 
   _OriginRoleEditorPhase get phase => _phase;
-  bool get editing => _phase != _OriginRoleEditorPhase.idle;
+  bool get editing =>
+      _phase != _OriginRoleEditorPhase.idle &&
+      _phase != _OriginRoleEditorPhase.restoring;
   bool get contentScrollEnabled => !editing;
   double get additionalScrollExtent => _additionalScrollExtent;
   Listenable get frameListenable => _frameNotifier;
@@ -262,14 +334,18 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     }
     _layout = layout;
     _startScrollOffset = controller.offset;
+    _startDistanceToBottom = math.max(
+      0.0,
+      controller.position.maxScrollExtent - controller.offset,
+    );
     _openingStartVisualOffset = _startScrollOffset;
     _visualScrollOffset = _startScrollOffset;
     _targetScrollOffset = _startScrollOffset;
+    _closingTargetScrollOffset = _startScrollOffset;
     _additionalScrollExtent = 0;
     _keyboardInset = readKeyboardInset();
     _targetInset = _keyboardInset;
     _targetKnown = _keyboardInset > 0.5;
-    _sheetExtent = readSheetExtent();
     _stableFrameCount = 0;
     _hasFieldFocus = false;
     _internalInteractionActive = false;
@@ -296,7 +372,10 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _keyboardInset = 0;
     _targetInset = 0;
     _targetKnown = false;
+    _startDistanceToBottom = 0;
     _openingStartVisualOffset = 0;
+    _closingTargetScrollOffset = 0;
+    _closingProgress = 0;
     _additionalScrollExtent = 0;
     _hasFieldFocus = false;
     _internalInteractionActive = false;
@@ -307,13 +386,23 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   }
 
   void confirmEditing(OriginCustomRoleDraft draft) {
-    if (_disposed || !editing || _isClosing) return;
+    if (_disposed ||
+        !editing ||
+        _phase == _OriginRoleEditorPhase.closingCommit) {
+      return;
+    }
     onCommit(draft);
     _beginClosing(_OriginRoleEditorPhase.closingCommit);
   }
 
   void cancelEditing() {
-    if (_disposed || !editing || _isClosing) return;
+    if (_disposed ||
+        !editing ||
+        _isClosing ||
+        _internalInteractionActive ||
+        _internalInteractionRecoveryPending) {
+      return;
+    }
     _beginClosing(_OriginRoleEditorPhase.closingCancel);
   }
 
@@ -327,21 +416,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
         _prepareForReopenedKeyboard();
       }
       _completeInternalInteractionRecoveryIfReady();
-      return;
     }
-    if (_internalInteractionRecoveryPending) {
-      return;
-    }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_disposed ||
-          !editing ||
-          _hasFieldFocus ||
-          _internalInteractionRecoveryPending) {
-        return;
-      }
-      cancelEditing();
-    });
-    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void setInternalInteractionActive(bool active) {
@@ -412,7 +487,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
       if (_internalInteractionRecoveryPending) {
         _pauseForInternalInteraction();
       } else {
-        _beginClosing(_OriginRoleEditorPhase.closingCancel);
+        _beginClosing(_OriginRoleEditorPhase.closingKeyboard);
       }
     }
     _keyboardInset = inset;
@@ -448,17 +523,46 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
         _commitOpenPosition();
       }
     } else if (_isClosing || _phase == _OriginRoleEditorPhase.restoring) {
-      final progress = _closingStartInset <= 0.5
-          ? 1.0
-          : (1 - inset / _closingStartInset).clamp(0.0, 1.0).toDouble();
-      _visualScrollOffset = lerpDouble(
-        _closingStartVisualOffset,
-        _startScrollOffset,
-        progress,
-      )!;
+      if (_phase == _OriginRoleEditorPhase.closingKeyboard) {
+        if (inset <= 0.5) {
+          final controller = _scrollController;
+          if (controller != null && controller.hasClients) {
+            final position = controller.position;
+            final restingMaxScrollExtent = math.max(
+              position.minScrollExtent,
+              position.maxScrollExtent - _additionalScrollExtent,
+            );
+            _closingTargetScrollOffset =
+                originRoleEditorRestingScrollOffsetForTesting(
+                  minScrollExtent: position.minScrollExtent,
+                  maxScrollExtent: restingMaxScrollExtent,
+                  distanceToBottom: _startDistanceToBottom,
+                );
+          }
+        }
+        _closingProgress = originRoleEditorClosingProgressForTesting(
+          startInset: _closingStartInset,
+          currentInset: inset,
+          previousProgress: _closingProgress,
+        );
+        _visualScrollOffset = lerpDouble(
+          _closingStartVisualOffset,
+          _closingTargetScrollOffset,
+          _closingProgress,
+        )!;
+      } else {
+        // Completing or cancelling an edit only dismisses the IME. Keep the
+        // role content at the same visual offset instead of animating it to
+        // the bottom of the restored page.
+        _visualScrollOffset = _closingStartVisualOffset;
+      }
       _notifyFrameChanged();
       if (inset <= 0.5 && _stableFrameCount >= _keyboardSettleFrameCount) {
-        _finishClosing();
+        if (_phase == _OriginRoleEditorPhase.closingKeyboard) {
+          _finishKeyboardDismissal();
+        } else {
+          _finishClosing();
+        }
       }
     }
     if (_phase == _OriginRoleEditorPhase.opening || _isClosing) {
@@ -503,6 +607,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   bool get _isClosing =>
       _phase == _OriginRoleEditorPhase.closingCommit ||
       _phase == _OriginRoleEditorPhase.closingCancel ||
+      _phase == _OriginRoleEditorPhase.closingKeyboard ||
       _phase == _OriginRoleEditorPhase.restoring;
 
   void _handleKeyboardAnimationTarget(GenesisKeyboardAnimationTarget target) {
@@ -514,7 +619,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
         if (_internalInteractionRecoveryPending) {
           _pauseForInternalInteraction();
         } else {
-          _beginClosing(_OriginRoleEditorPhase.closingCancel);
+          _beginClosing(_OriginRoleEditorPhase.closingKeyboard);
         }
       }
       return;
@@ -554,6 +659,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
             minScrollExtent: controller.position.minScrollExtent,
             currentMaxScrollExtent: controller.position.maxScrollExtent,
             retainedAdditionalExtent: _additionalScrollExtent,
+            bottomSafeAreaInset: readKeyboardSafeAreaInset(),
           );
     }
     _notifyFrameChanged();
@@ -609,45 +715,94 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     if (_disposed || !editing) return;
     _closingStartInset = math.max(_keyboardInset, readKeyboardInset());
     _closingStartVisualOffset = _visualScrollOffset;
+    _closingTargetScrollOffset =
+        closingPhase == _OriginRoleEditorPhase.closingKeyboard
+        ? _startScrollOffset
+        : _closingStartVisualOffset;
+    _closingProgress = 0;
     _stableFrameCount = 0;
     _phase = closingPhase;
     _notifyChanged();
     if (_closingStartInset <= 0.5) {
       _keyboardInset = 0;
       _stableFrameCount = _keyboardSettleFrameCount;
-      _finishClosing();
+      if (closingPhase == _OriginRoleEditorPhase.closingKeyboard) {
+        _finishKeyboardDismissal();
+      } else {
+        _finishClosing();
+      }
     }
   }
 
   void _finishClosing() {
     if (_phase == _OriginRoleEditorPhase.restoring) return;
+    final controller = _scrollController;
+    if (controller != null && controller.hasClients) {
+      _visualScrollOffset = controller.offset;
+    }
     _phase = _OriginRoleEditorPhase.restoring;
     _notifyChanged();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_disposed || _phase != _OriginRoleEditorPhase.restoring) return;
-      final controller = _scrollController;
-      if (controller != null && controller.hasClients) {
-        controller.jumpTo(
-          _startScrollOffset.clamp(
-            controller.position.minScrollExtent,
-            controller.position.maxScrollExtent,
-          ),
-        );
-      }
-      if (_sheetExtent > 0) restoreSheetExtent(_sheetExtent);
-      _visualScrollOffset = _startScrollOffset;
-      _additionalScrollExtent = 0;
-      _keyboardInset = 0;
-      _targetInset = 0;
-      _targetKnown = false;
-      _stableFrameCount = 0;
-      _internalInteractionRecoveryPending = false;
-      _phase = _OriginRoleEditorPhase.idle;
       _notifyFrameChanged();
-      _notifyChanged();
-      _pendingInternalInteractionResume = null;
+      // Paint one frame with the restored role-card layout and the visual
+      // anchor aligned. Only then end the temporary paint-coordinate handoff.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_disposed || _phase != _OriginRoleEditorPhase.restoring) return;
+        _additionalScrollExtent = 0;
+        _keyboardInset = 0;
+        _targetInset = 0;
+        _targetKnown = false;
+        _startDistanceToBottom = 0;
+        _stableFrameCount = 0;
+        _closingProgress = 0;
+        _closingTargetScrollOffset = 0;
+        _internalInteractionRecoveryPending = false;
+        _phase = _OriginRoleEditorPhase.idle;
+        _notifyFrameChanged();
+        _notifyChanged();
+        _pendingInternalInteractionResume = null;
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
     });
     WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  void _finishKeyboardDismissal() {
+    if (_phase != _OriginRoleEditorPhase.closingKeyboard) return;
+    final controller = _scrollController;
+    if (controller != null && controller.hasClients) {
+      final position = controller.position;
+      final restingMaxScrollExtent = math.max(
+        position.minScrollExtent,
+        position.maxScrollExtent - _additionalScrollExtent,
+      );
+      _closingTargetScrollOffset =
+          originRoleEditorRestingScrollOffsetForTesting(
+            minScrollExtent: position.minScrollExtent,
+            maxScrollExtent: restingMaxScrollExtent,
+            distanceToBottom: _startDistanceToBottom,
+          );
+      _visualScrollOffset = _closingTargetScrollOffset;
+      controller.jumpTo(
+        _closingTargetScrollOffset.clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        ),
+      );
+      _startScrollOffset = _closingTargetScrollOffset;
+    }
+    _openingStartVisualOffset = _visualScrollOffset;
+    _layout = readLayout() ?? _layout;
+    _additionalScrollExtent = 0;
+    _keyboardInset = 0;
+    _targetInset = 0;
+    _targetKnown = false;
+    _stableFrameCount = 0;
+    _closingProgress = 0;
+    _phase = _OriginRoleEditorPhase.preparing;
+    _notifyFrameChanged();
+    _notifyChanged();
   }
 
   void _scheduleSettleCheck() {
@@ -662,7 +817,9 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   }
 
   double contentTranslation(double actualScrollOffset) {
-    return editing ? actualScrollOffset - _visualScrollOffset : 0;
+    return _phase != _OriginRoleEditorPhase.idle
+        ? actualScrollOffset - _visualScrollOffset
+        : 0;
   }
 
   void _notifyChanged() {
@@ -684,8 +841,10 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
 
 class _OriginWorldSheetInteractionController extends ChangeNotifier {
   _OriginWorldSheetInteractionController({
+    required TickerProvider vsync,
     required this.canPrepareKeyboard,
     required this.readKeyboardInset,
+    required this.readRawKeyboardInset,
     required this.readKeyboardSafeAreaInset,
     required this.readKeyboardLayout,
     required this.readKeyboardContentBounds,
@@ -695,12 +854,17 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     required this.readContentToComposerGap,
     required this.onPageSelected,
   }) {
+    _keyboardClosingAnimationController = AnimationController(
+      vsync: vsync,
+      duration: _originOpeningKeyboardClosingDuration,
+    )..addListener(_handleKeyboardClosingAnimationTick);
     _keyboardAnimationSubscription = GenesisKeyboardAnimationEvents.targets
         .listen(_handleKeyboardAnimationTarget, onError: (_) {});
   }
 
   final bool Function() canPrepareKeyboard;
   final double Function() readKeyboardInset;
+  final double Function() readRawKeyboardInset;
   final double Function() readKeyboardSafeAreaInset;
   final _OriginOpeningKeyboardLayout? Function() readKeyboardLayout;
   final _OriginOpeningKeyboardContentBounds? Function()
@@ -718,6 +882,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   final ScrollController infoPreviewScrollController = ScrollController();
   final _OriginWorldSheetFrameNotifier _keyboardFrameNotifier =
       _OriginWorldSheetFrameNotifier();
+  late final AnimationController _keyboardClosingAnimationController;
 
   ScrollController? _sheetScrollController;
   StreamSubscription<GenesisKeyboardAnimationTarget>?
@@ -735,12 +900,15 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   var _keyboardContentBottom = 0.0;
   var _keyboardContentToComposerGap = 0.0;
   var _keyboardNormalScrollOffset = 0.0;
+  var _keyboardNormalMaxScrollExtent = 0.0;
   var _keyboardStartVisualOffset = 0.0;
   var _keyboardAdditionalScrollExtent = 0.0;
   var _keyboardSheetExtent = 0.0;
   var _keyboardClosingVisualOffset = 0.0;
-  var _keyboardClosingTargetVisualOffset = 0.0;
   var _keyboardClosingTargetComposerTop = 0.0;
+  var _keyboardClosingRawInset = 0.0;
+  var _keyboardClosingStartProgress = 0.0;
+  var _keyboardClosingLayoutGeneration = 0;
   var _keyboardScrollCommitted = false;
   var _keyboardCommitRetryScheduled = false;
   var _keyboardStableFrameCount = 0;
@@ -763,8 +931,14 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   double get keyboardChangeStartComposerTop => _keyboardChangeStartComposerTop;
   double get keyboardNormalScrollOffset => _keyboardNormalScrollOffset;
   double get keyboardAdditionalScrollExtent => _keyboardAdditionalScrollExtent;
+  double get keyboardLayoutSpacerExtent =>
+      originOpeningKeyboardLayoutSpacerExtentForTesting(
+        additionalScrollExtent: _keyboardAdditionalScrollExtent,
+      );
   bool get keyboardChangingHeight => _keyboardChangingHeight;
-  bool get keyboardMode => _keyboardPhase != _OriginOpeningKeyboardPhase.idle;
+  bool get keyboardMode =>
+      _keyboardPhase != _OriginOpeningKeyboardPhase.idle &&
+      _keyboardPhase != _OriginOpeningKeyboardPhase.restoring;
   bool get keyboardTransitionActive =>
       _keyboardPhase == _OriginOpeningKeyboardPhase.opening ||
       _keyboardPhase == _OriginOpeningKeyboardPhase.open ||
@@ -780,7 +954,22 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   }
 
   void attachSheetScrollController(ScrollController controller) {
+    if (identical(_sheetScrollController, controller)) return;
+    _sheetScrollController?.removeListener(_trackFocusedContentOffset);
     _sheetScrollController = controller;
+    controller.addListener(_trackFocusedContentOffset);
+  }
+
+  void _trackFocusedContentOffset() {
+    final controller = _sheetScrollController;
+    if (_disposed ||
+        controller == null ||
+        !controller.hasClients ||
+        _keyboardPhase != _OriginOpeningKeyboardPhase.open ||
+        readRawKeyboardInset() <= 0.5) {
+      return;
+    }
+    _keyboardClosingVisualOffset = controller.offset;
   }
 
   ScrollController pageScrollControllerFor(int pageIndex) {
@@ -882,13 +1071,17 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     if (!keyboardMode || _keyboardSheetHeight <= 0) return 0;
     return composerTop(
           _keyboardSheetHeight,
-          actualKeyboardInset: _keyboardInset,
+          actualKeyboardInset:
+              _keyboardPhase == _OriginOpeningKeyboardPhase.closing ||
+                  _keyboardPhase == _OriginOpeningKeyboardPhase.restoring
+              ? 0
+              : _keyboardInset,
         ) -
         _keyboardStartComposerTop;
   }
 
   double contentTranslation(double actualContentOffset) {
-    return keyboardMode
+    return _keyboardPhase != _OriginOpeningKeyboardPhase.idle
         ? actualContentOffset - keyboardVisualScrollOffset()
         : 0.0;
   }
@@ -915,7 +1108,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
         return;
       }
       if (_keyboardPhase == _OriginOpeningKeyboardPhase.restoring) {
-        resetKeyboard(settleAtFlowEnd: true);
+        resetKeyboard(preserveContentPosition: true);
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!_disposed) _prepareKeyboardTransition();
         });
@@ -959,6 +1152,14 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     _pendingKeyboardAnimationTarget = null;
     final isClosing =
         target.direction == GenesisKeyboardAnimationDirection.closing;
+    if (originOpeningKeyboardShouldIgnoreNativeTargetForTesting(
+      closingOrRestoring:
+          _keyboardPhase == _OriginOpeningKeyboardPhase.closing ||
+          _keyboardPhase == _OriginOpeningKeyboardPhase.restoring,
+      direction: target.direction,
+    )) {
+      return;
+    }
     if (isClosing) {
       _beginKeyboardClosing();
       _keyboardTargetInset = math.max(_keyboardTargetInset, startInset);
@@ -1008,6 +1209,8 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
 
   void _resumeKeyboardFromCurrentVisualState(double targetInset) {
     if (_disposed || !keyboardTransitionActive) return;
+    _keyboardClosingLayoutGeneration += 1;
+    _keyboardClosingAnimationController.stop();
     final currentTop =
         readKeyboardLayout()?.composerTop ?? _keyboardStartComposerTop;
     final currentVisualOffset = keyboardVisualScrollOffset();
@@ -1044,12 +1247,19 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     final normalController = _sheetScrollController;
     _keyboardSheetHeight = layout.sheetHeight;
     _keyboardStartComposerTop = layout.composerTop;
-    _keyboardNormalScrollOffset =
-        normalController != null && normalController.hasClients
-        ? normalController.offset
-        : 0;
+    if (normalController != null && normalController.hasClients) {
+      final position = normalController.position;
+      _keyboardNormalScrollOffset = position.pixels;
+      _keyboardNormalMaxScrollExtent = math.max(
+        position.minScrollExtent,
+        position.maxScrollExtent - _keyboardAdditionalScrollExtent,
+      );
+    } else {
+      _keyboardNormalScrollOffset = 0;
+      _keyboardNormalMaxScrollExtent = 0;
+    }
     _keyboardStartVisualOffset = _keyboardNormalScrollOffset;
-    _keyboardClosingTargetVisualOffset = _keyboardNormalScrollOffset;
+    _keyboardClosingVisualOffset = _keyboardNormalScrollOffset;
     _keyboardClosingTargetComposerTop = _keyboardStartComposerTop;
     _keyboardContentToComposerGap = contentToComposerGap;
     final sheetExtent = readSheetExtent();
@@ -1092,11 +1302,18 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     _captureKeyboardContentBounds(contentBounds);
     final scrollController = _sheetScrollController;
     if (scrollController != null && scrollController.hasClients) {
-      _keyboardAdditionalScrollExtent =
+      final missingExtent =
           originOpeningKeyboardAdditionalScrollExtentForTesting(
             targetOffset: _keyboardTargetScrollOffset(),
             maxScrollExtent: scrollController.position.maxScrollExtent,
           );
+      if (missingExtent > 0) {
+        // The current max extent can already contain range retained from the
+        // previous keyboard close. Never replace that range with the newly
+        // missing amount: shrinking it while positioned at the bottom makes
+        // ScrollPosition clamp before the opening animation begins.
+        _keyboardAdditionalScrollExtent += missingExtent + 0.5;
+      }
     }
     final currentInset = readKeyboardInset();
     final hasPendingKeyboardTarget = _keyboardTargetInset > currentInset + 0.5;
@@ -1130,24 +1347,56 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
         _keyboardPhase == _OriginOpeningKeyboardPhase.restoring) {
       return;
     }
-    _keyboardClosingVisualOffset = keyboardVisualScrollOffset();
-    _keyboardClosingTargetVisualOffset = _keyboardFlowRestingScrollOffset();
+    if (_keyboardPhase != _OriginOpeningKeyboardPhase.open) {
+      _keyboardClosingVisualOffset = keyboardVisualScrollOffset();
+    }
+    final requiredRetainedExtent = math.max(
+      0.0,
+      _keyboardClosingVisualOffset - _keyboardNormalMaxScrollExtent,
+    );
+    if (requiredRetainedExtent > _keyboardAdditionalScrollExtent) {
+      // Establish the zero-keyboard range before closing changes the layout.
+      // Waiting until the restoring frame would let a bottom-aligned position
+      // clamp once on the first keyboard close, then expand again.
+      _keyboardAdditionalScrollExtent = requiredRetainedExtent + 0.5;
+      _notifyKeyboardFrameChanged();
+    }
+    // Losing focus must not select a new content destination. Keep the exact
+    // visual offset that was visible on the final focused frame while the
+    // composer and keyboard return to their zero-inset layout.
     _keyboardClosingTargetComposerTop = _keyboardStartComposerTop;
+    _keyboardClosingRawInset = readRawKeyboardInset();
+    _keyboardClosingStartProgress = _keyboardProgress
+        .clamp(0.0, 1.0)
+        .toDouble();
     _keyboardChangingHeight = false;
     _keyboardPhase = _OriginOpeningKeyboardPhase.closing;
     _notifyChanged();
+    unawaited(_keyboardClosingAnimationController.forward(from: 0));
     _updateKeyboardInset(readKeyboardInset());
   }
 
-  void _updateKeyboardInset(double rawInset) {
-    if (_disposed || !keyboardMode) return;
-    final inset = rawInset.clamp(0.0, double.infinity).toDouble();
-    if (_keyboardPhase == _OriginOpeningKeyboardPhase.closing) {
-      // The keyboard spacer and the underlying sliver extent can both settle
-      // after focus is lost. Keep the flow-resting destination based on the
-      // current layout instead of the snapshot taken on the first close frame.
-      _keyboardClosingTargetVisualOffset = _keyboardFlowRestingScrollOffset();
+  void _handleKeyboardClosingAnimationTick() {
+    if (_disposed || _keyboardPhase != _OriginOpeningKeyboardPhase.closing) {
+      return;
     }
+    final progress = originOpeningKeyboardClosingAnimationProgressForTesting(
+      startProgress: _keyboardClosingStartProgress,
+      animationValue: Curves.easeOutCubic.transform(
+        _keyboardClosingAnimationController.value,
+      ),
+    );
+    _keyboardProgress = progress;
+    _notifyKeyboardFrameChanged();
+    _finishKeyboardTransitionIfNeeded();
+  }
+
+  void _updateKeyboardInset(double layoutInset) {
+    if (_disposed || !keyboardMode) return;
+    final inset = layoutInset.clamp(0.0, double.infinity).toDouble();
+    final currentRawInset = readRawKeyboardInset()
+        .clamp(0.0, double.infinity)
+        .toDouble();
     final targetReady =
         _keyboardAnimationTargetKnown ||
         _keyboardStableFrameCount >= _originOpeningKeyboardSettleFrameCount;
@@ -1161,17 +1410,24 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     final progress =
         !targetReady && _keyboardPhase == _OriginOpeningKeyboardPhase.opening
         ? 0.0
+        : _keyboardPhase == _OriginOpeningKeyboardPhase.closing
+        ? _keyboardProgress
         : _keyboardChangingHeight
         ? originOpeningKeyboardProgressForTesting(
             currentInset: inset,
             startInset: _keyboardChangeStartInset,
             endInset: targetInset,
           )
-        : targetInset <= 0.5
-        ? (inset > 0.5 ? 1.0 : 0.0)
-        : (inset / targetInset).clamp(0.0, 1.0).toDouble();
-    final unchanged = (_keyboardInset - inset).abs() < 0.5;
+        : originOpeningKeyboardRawProgressForTesting(
+            currentRawInset: currentRawInset,
+            targetLayoutInset: targetInset,
+            bottomSafeAreaInset: readKeyboardSafeAreaInset(),
+          );
+    final unchanged = _keyboardPhase == _OriginOpeningKeyboardPhase.closing
+        ? (_keyboardClosingRawInset - currentRawInset).abs() < 0.5
+        : (_keyboardInset - inset).abs() < 0.5;
     if (!unchanged) _keyboardStableFrameCount = 0;
+    _keyboardClosingRawInset = currentRawInset;
     if ((_keyboardInset - inset).abs() < 0.01 &&
         (_keyboardProgress - progress).abs() < 0.001) {
       _finishKeyboardTransitionIfNeeded();
@@ -1196,7 +1452,12 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
       _keyboardSettleCheckScheduled = false;
       if (_disposed || !keyboardMode) return;
       final currentInset = readKeyboardInset();
-      if ((_keyboardInset - currentInset).abs() < 0.5) {
+      final currentRawInset = readRawKeyboardInset();
+      final metricsUnchanged =
+          _keyboardPhase == _OriginOpeningKeyboardPhase.closing
+          ? (_keyboardClosingRawInset - currentRawInset).abs() < 0.5
+          : (_keyboardInset - currentInset).abs() < 0.5;
+      if (metricsUnchanged) {
         _keyboardStableFrameCount += 1;
       } else {
         _keyboardStableFrameCount = 0;
@@ -1245,9 +1506,10 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
       return;
     }
     if (_keyboardPhase == _OriginOpeningKeyboardPhase.closing &&
+        _keyboardProgress <= _originSheetInteractionEpsilon &&
         _keyboardInset <= 0.5 &&
+        readRawKeyboardInset() <= 0.5 &&
         _keyboardStableFrameCount >= _originOpeningKeyboardSettleFrameCount) {
-      _keyboardClosingTargetVisualOffset = _keyboardFlowRestingScrollOffset();
       _keyboardPhase = _OriginOpeningKeyboardPhase.restoring;
       _notifyChanged();
       FocusManager.instance.primaryFocus?.unfocus();
@@ -1256,10 +1518,51 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
             _keyboardPhase != _OriginOpeningKeyboardPhase.restoring) {
           return;
         }
-        resetKeyboard(settleAtFlowEnd: true);
+        _finishKeyboardRestoreWithoutMovingContent();
       });
       WidgetsBinding.instance.ensureVisualUpdate();
     }
+  }
+
+  void _finishKeyboardRestoreWithoutMovingContent() {
+    if (_disposed || _keyboardPhase != _OriginOpeningKeyboardPhase.restoring) {
+      return;
+    }
+    final controller = _sheetScrollController;
+    if (controller == null || !controller.hasClients) {
+      resetKeyboard(preserveContentPosition: true);
+      return;
+    }
+    final position = controller.position;
+    final retainedOffset = _keyboardClosingVisualOffset.clamp(
+      position.minScrollExtent,
+      double.infinity,
+    );
+    final missingExtent = retainedOffset - position.maxScrollExtent;
+    if (missingExtent > 0.01) {
+      // The focused alignment can sit beyond the ordinary zero-keyboard
+      // boundary on devices with different bottom system insets. Retain only
+      // the exact missing range so leaving keyboard mode does not clamp the
+      // content to a different position.
+      _keyboardAdditionalScrollExtent += missingExtent + 0.5;
+      _notifyChanged();
+      _notifyKeyboardFrameChanged();
+      final generation = ++_keyboardClosingLayoutGeneration;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_disposed ||
+            generation != _keyboardClosingLayoutGeneration ||
+            _keyboardPhase != _OriginOpeningKeyboardPhase.restoring) {
+          return;
+        }
+        _finishKeyboardRestoreWithoutMovingContent();
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+      return;
+    }
+    controller.jumpTo(
+      retainedOffset.clamp(position.minScrollExtent, position.maxScrollExtent),
+    );
+    resetKeyboard(preserveContentPosition: true);
   }
 
   void _captureKeyboardContentBounds(
@@ -1300,6 +1603,7 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
       return false;
     }
     controller.jumpTo(target);
+    _keyboardClosingVisualOffset = target;
     _keyboardScrollCommitted = true;
     return true;
   }
@@ -1342,21 +1646,6 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     );
   }
 
-  double _keyboardFlowRestingScrollOffset() {
-    final controller = _sheetScrollController;
-    if (controller == null || !controller.hasClients) {
-      return _keyboardNormalScrollOffset;
-    }
-    final position = controller.position;
-    final keyboardSpacerExtent =
-        _keyboardTargetInset + _keyboardAdditionalScrollExtent;
-    final normalMaxScrollExtent = math.max(
-      position.minScrollExtent,
-      position.maxScrollExtent - keyboardSpacerExtent,
-    );
-    return normalMaxScrollExtent;
-  }
-
   double keyboardVisualScrollOffset() {
     final controller = _sheetScrollController;
     final controllerOffset = controller != null && controller.hasClients
@@ -1366,13 +1655,10 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
       return _keyboardNormalScrollOffset;
     }
     if (_keyboardPhase == _OriginOpeningKeyboardPhase.restoring) {
-      return _keyboardClosingTargetVisualOffset;
+      return _keyboardClosingVisualOffset;
     }
     if (_keyboardPhase == _OriginOpeningKeyboardPhase.closing) {
-      final closeProgress = 1 - _keyboardProgress;
-      return _keyboardClosingVisualOffset +
-          (_keyboardClosingTargetVisualOffset - _keyboardClosingVisualOffset) *
-              closeProgress;
+      return _keyboardClosingVisualOffset;
     }
     if (_keyboardScrollCommitted ||
         _keyboardPhase == _OriginOpeningKeyboardPhase.open) {
@@ -1388,8 +1674,13 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
             _keyboardProgress;
   }
 
-  void resetKeyboard({bool clearFocus = false, bool settleAtFlowEnd = false}) {
+  void resetKeyboard({
+    bool clearFocus = false,
+    bool preserveContentPosition = false,
+  }) {
     if (_disposed) return;
+    _keyboardClosingLayoutGeneration += 1;
+    _keyboardClosingAnimationController.stop();
     final restoreExtent = keyboardMode ? _keyboardSheetExtent : 0.0;
     if (clearFocus) FocusManager.instance.primaryFocus?.unfocus();
     if (restoreExtent > 0) restoreSheetExtent(restoreExtent);
@@ -1398,12 +1689,14 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
         scrollController != null &&
         scrollController.hasClients) {
       final position = scrollController.position;
-      scrollController.jumpTo(
-        (settleAtFlowEnd
-                ? _keyboardClosingTargetVisualOffset
-                : _keyboardNormalScrollOffset)
-            .clamp(position.minScrollExtent, position.maxScrollExtent),
-      );
+      if (!preserveContentPosition) {
+        scrollController.jumpTo(
+          _keyboardNormalScrollOffset.clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          ),
+        );
+      }
     }
     _keyboardPhase = _OriginOpeningKeyboardPhase.idle;
     _keyboardInset = 0;
@@ -1416,9 +1709,11 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
     _keyboardChangingHeight = false;
     _keyboardAnimationTargetKnown = false;
     _keyboardStartVisualOffset = 0;
-    _keyboardClosingTargetVisualOffset = 0;
+    _keyboardNormalMaxScrollExtent = 0;
     _keyboardClosingTargetComposerTop = 0;
-    _keyboardAdditionalScrollExtent = 0;
+    _keyboardClosingRawInset = 0;
+    _keyboardClosingStartProgress = 0;
+    if (!preserveContentPosition) _keyboardAdditionalScrollExtent = 0;
     _keyboardContentTop = 0;
     _keyboardContentBottom = 0;
     _keyboardContentToComposerGap = 0;
@@ -1438,7 +1733,9 @@ class _OriginWorldSheetInteractionController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _sheetScrollController?.removeListener(_trackFocusedContentOffset);
     unawaited(_keyboardAnimationSubscription?.cancel());
+    _keyboardClosingAnimationController.dispose();
     pageController.dispose();
     openingPreviewScrollController.dispose();
     infoPreviewScrollController.dispose();

@@ -1,9 +1,8 @@
 import '../../pages/home/home_feed_cache_store.dart';
 import '../../pages/origin/origin_feed_cache_store.dart';
-import '../../platform/session/user_session_store.dart';
 import 'app_startup_coordinator.dart';
 
-typedef StartupSessionLoader = Future<CompleteUserSession?> Function();
+typedef StartupUidLoader = Future<String?> Function();
 typedef StartupCacheLoader =
     Future<Map<String, dynamic>?> Function(String ownerUid);
 
@@ -20,14 +19,14 @@ class InitialLandingPageDecision {
 }
 
 Future<InitialLandingPageDecision> resolveInitialLandingPage({
-  required StartupSessionLoader loadSession,
+  required StartupUidLoader loadUid,
   StartupCacheLoader loadHomeCache = _loadHomeCache,
   StartupCacheLoader loadWorldoCache = _loadWorldoCache,
   Duration timeout = const Duration(seconds: 2),
 }) async {
-  CompleteUserSession? session;
+  String? uid;
   try {
-    session = await loadSession().timeout(timeout);
+    uid = await loadUid().timeout(timeout);
   } catch (_) {
     return const InitialLandingPageDecision(
       index: 1,
@@ -36,7 +35,7 @@ Future<InitialLandingPageDecision> resolveInitialLandingPage({
     );
   }
 
-  if (session == null) {
+  if (uid == null) {
     final worldoCache = await _loadCache(
       () => loadWorldoCache(OriginFeedCacheStore.anonymousOwnerUid),
       timeout,
@@ -53,7 +52,7 @@ Future<InitialLandingPageDecision> resolveInitialLandingPage({
     );
   }
 
-  final ownerUid = session.uid;
+  final ownerUid = uid;
   final homeCacheFuture = _loadCache(() => loadHomeCache(ownerUid), timeout);
   final worldoCacheFuture = _loadCache(
     () => loadWorldoCache(ownerUid),
