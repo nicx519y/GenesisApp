@@ -466,13 +466,27 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
     config.preferredAssetRepresentationMode = .automatic
 
     let picker = PHPickerViewController(configuration: config)
+    // The default adaptive sheet presentation scales and translates the
+    // presenting Flutter view. Keep the page underneath in its exact screen
+    // coordinates while the system picker covers it.
+    picker.modalPresentationStyle = .overFullScreen
+    picker.modalTransitionStyle = .coverVertical
     picker.delegate = self
     presenter.present(picker, animated: true)
   }
 
   @available(iOS 14, *)
   func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-    picker.dismiss(animated: true)
+    // Keep Flutter in its picker-paused state until the native dismissal has
+    // actually finished. Completing the method call before this animation
+    // ends lets Flutter restore focus and move content behind the picker.
+    picker.dismiss(animated: true) { [weak self] in
+      self?.completeDiscussImagePicking(results)
+    }
+  }
+
+  @available(iOS 14, *)
+  private func completeDiscussImagePicking(_ results: [PHPickerResult]) {
     guard let result = pendingDiscussImagePickerResult else {
       return
     }

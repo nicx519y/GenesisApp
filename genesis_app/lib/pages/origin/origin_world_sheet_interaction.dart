@@ -148,7 +148,7 @@ enum _OriginRoleEditorPhase {
   preparing,
   opening,
   open,
-  suspended,
+  pickerPaused,
   closingCommit,
   closingCancel,
   restoring,
@@ -223,11 +223,12 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   var _disposed = false;
   var _hasFieldFocus = false;
   var _internalInteractionActive = false;
-  var _protectedFocusLoss = false;
+  var _internalInteractionRecoveryPending = false;
   var _keyboardInset = 0.0;
   var _targetInset = 0.0;
   var _targetKnown = false;
   var _startScrollOffset = 0.0;
+  var _openingStartVisualOffset = 0.0;
   var _visualScrollOffset = 0.0;
   var _targetScrollOffset = 0.0;
   var _closingStartInset = 0.0;
@@ -237,9 +238,10 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   var _stableFrameCount = 0;
   var _settleScheduled = false;
   var _commitRetryScheduled = false;
+  var _internalInteractionResumeScheduled = false;
   var _lastNativeGeneration = -1;
   _OriginRoleEditorLayout? _layout;
-  _OriginRoleEditorPhase? _restoredPhase;
+  VoidCallback? _pendingInternalInteractionResume;
 
   _OriginRoleEditorPhase get phase => _phase;
   bool get editing => _phase != _OriginRoleEditorPhase.idle;
@@ -260,6 +262,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     }
     _layout = layout;
     _startScrollOffset = controller.offset;
+    _openingStartVisualOffset = _startScrollOffset;
     _visualScrollOffset = _startScrollOffset;
     _targetScrollOffset = _startScrollOffset;
     _additionalScrollExtent = 0;
@@ -269,8 +272,9 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _sheetExtent = readSheetExtent();
     _stableFrameCount = 0;
     _hasFieldFocus = false;
-    _protectedFocusLoss = false;
     _internalInteractionActive = false;
+    _internalInteractionRecoveryPending = false;
+    _pendingInternalInteractionResume = null;
     _phase = _OriginRoleEditorPhase.preparing;
     _notifyChanged();
     return true;
@@ -292,10 +296,12 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     _keyboardInset = 0;
     _targetInset = 0;
     _targetKnown = false;
+    _openingStartVisualOffset = 0;
     _additionalScrollExtent = 0;
     _hasFieldFocus = false;
     _internalInteractionActive = false;
-    _protectedFocusLoss = false;
+    _internalInteractionRecoveryPending = false;
+    _pendingInternalInteractionResume = null;
     _notifyFrameChanged();
     _notifyChanged();
   }
@@ -315,18 +321,22 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     if (_disposed || !editing) return;
     _hasFieldFocus = hasFocus;
     if (hasFocus) {
-      _protectedFocusLoss = false;
-      if (_phase == _OriginRoleEditorPhase.suspended) {
+      if (!_internalInteractionActive &&
+          _internalInteractionRecoveryPending &&
+          _phase == _OriginRoleEditorPhase.pickerPaused) {
         _prepareForReopenedKeyboard();
       }
+      _completeInternalInteractionRecoveryIfReady();
       return;
     }
-    if (_internalInteractionActive) {
-      _protectedFocusLoss = true;
+    if (_internalInteractionRecoveryPending) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_disposed || !editing || _hasFieldFocus || _protectedFocusLoss) {
+      if (_disposed ||
+          !editing ||
+          _hasFieldFocus ||
+          _internalInteractionRecoveryPending) {
         return;
       }
       cancelEditing();
@@ -337,25 +347,70 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   void setInternalInteractionActive(bool active) {
     if (_disposed || !editing) return;
     _internalInteractionActive = active;
-    if (active) _protectedFocusLoss = true;
-    if (!active && _hasFieldFocus) _protectedFocusLoss = false;
+    if (active) {
+      _internalInteractionRecoveryPending = true;
+      _pendingInternalInteractionResume = null;
+      _anchorVisualOffsetToRenderedCard();
+      // Freeze on the avatar tap itself. Waiting for the first decreasing IME
+      // inset leaks one frame of the keyboard transition into the editor,
+      // which is visible when a native picker begins presenting immediately.
+      _pauseForInternalInteraction();
+      _notifyFrameChanged();
+    }
+  }
+
+  void _anchorVisualOffsetToRenderedCard() {
+    final initialLayout = _layout;
+    final renderedLayout = readLayout();
+    if (initialLayout == null || renderedLayout == null) return;
+    _visualScrollOffset =
+        _startScrollOffset +
+        initialLayout.cardBottom -
+        renderedLayout.cardBottom;
+    _targetScrollOffset = _visualScrollOffset;
+  }
+
+  void resumeAfterInternalInteraction(VoidCallback resume) {
+    if (_disposed || !editing) return;
+    _internalInteractionActive = false;
+    _pendingInternalInteractionResume = resume;
+    handleKeyboardMetrics(readKeyboardInset());
+    if (_isClosing) return;
+    _scheduleInternalInteractionResume();
+  }
+
+  void _scheduleInternalInteractionResume() {
+    if (_internalInteractionResumeScheduled ||
+        _pendingInternalInteractionResume == null) {
+      return;
+    }
+    if (_keyboardInset > 0.5) {
+      return;
+    }
+    _internalInteractionResumeScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _internalInteractionResumeScheduled = false;
+      if (_disposed || !editing || _isClosing) return;
+      if (readKeyboardInset() > 0.5) {
+        return;
+      }
+      final resume = _pendingInternalInteractionResume;
+      _pendingInternalInteractionResume = null;
+      resume?.call();
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void handleKeyboardMetrics(double rawInset) {
     if (_disposed || !editing) return;
     final inset = rawInset.clamp(0.0, double.infinity).toDouble();
     final wasInset = _keyboardInset;
-    if (inset > wasInset + 0.5 &&
-        (_phase == _OriginRoleEditorPhase.preparing ||
-            _phase == _OriginRoleEditorPhase.suspended)) {
+    if (inset > wasInset + 0.5 && _phase == _OriginRoleEditorPhase.preparing) {
       _phase = _OriginRoleEditorPhase.opening;
       _notifyChanged();
     } else if (inset + 0.5 < wasInset && !_isClosing) {
-      if (_internalInteractionActive || _protectedFocusLoss) {
-        _beginClosing(
-          _OriginRoleEditorPhase.restoring,
-          restoredPhase: _OriginRoleEditorPhase.suspended,
-        );
+      if (_internalInteractionRecoveryPending) {
+        _pauseForInternalInteraction();
       } else {
         _beginClosing(_OriginRoleEditorPhase.closingCancel);
       }
@@ -377,7 +432,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
           endInset: _targetInset,
         );
         _visualScrollOffset = lerpDouble(
-          _startScrollOffset,
+          _openingStartVisualOffset,
           _targetScrollOffset,
           progress,
         )!;
@@ -409,23 +464,40 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     if (_phase == _OriginRoleEditorPhase.opening || _isClosing) {
       _scheduleSettleCheck();
     }
+    if (_phase == _OriginRoleEditorPhase.pickerPaused &&
+        _pendingInternalInteractionResume != null &&
+        inset <= 0.5) {
+      _scheduleInternalInteractionResume();
+    }
   }
 
   void _prepareForReopenedKeyboard() {
-    final layout = readLayout();
     final controller = _scrollController;
-    if (layout == null || controller == null || !controller.hasClients) return;
-    _layout = layout;
-    _startScrollOffset = controller.offset;
-    _visualScrollOffset = _startScrollOffset;
-    _targetScrollOffset = _startScrollOffset;
-    _additionalScrollExtent = 0;
+    if (_layout == null || controller == null || !controller.hasClients) return;
+    _openingStartVisualOffset = _visualScrollOffset;
     _keyboardInset = readKeyboardInset();
-    _targetInset = _keyboardInset;
-    _targetKnown = _keyboardInset > 0.5;
     _stableFrameCount = 0;
     _phase = _OriginRoleEditorPhase.preparing;
     _notifyChanged();
+  }
+
+  void _pauseForInternalInteraction() {
+    if (_phase == _OriginRoleEditorPhase.pickerPaused) return;
+    _openingStartVisualOffset = _visualScrollOffset;
+    _stableFrameCount = 0;
+    _phase = _OriginRoleEditorPhase.pickerPaused;
+    _notifyChanged();
+  }
+
+  void _completeInternalInteractionRecoveryIfReady() {
+    if (!_internalInteractionRecoveryPending ||
+        _internalInteractionActive ||
+        !_hasFieldFocus ||
+        _phase != _OriginRoleEditorPhase.open ||
+        readKeyboardInset() <= 0.5) {
+      return;
+    }
+    _internalInteractionRecoveryPending = false;
   }
 
   bool get _isClosing =>
@@ -439,17 +511,15 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     if (!editing) return;
     if (target.direction == GenesisKeyboardAnimationDirection.closing) {
       if (!_isClosing) {
-        if (_internalInteractionActive || _protectedFocusLoss) {
-          _beginClosing(
-            _OriginRoleEditorPhase.restoring,
-            restoredPhase: _OriginRoleEditorPhase.suspended,
-          );
+        if (_internalInteractionRecoveryPending) {
+          _pauseForInternalInteraction();
         } else {
           _beginClosing(_OriginRoleEditorPhase.closingCancel);
         }
       }
       return;
     }
+    if (_internalInteractionActive) return;
     if (_isClosing) return;
     _targetKnown = true;
     _configureTarget(target.endInset);
@@ -463,13 +533,19 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     final layout = _layout;
     if (layout == null) return;
     _targetInset = inset.clamp(0.0, double.infinity).toDouble();
-    _targetScrollOffset = originRoleEditorTargetScrollOffsetForTesting(
+    final geometryTarget = originRoleEditorTargetScrollOffsetForTesting(
       startScrollOffset: _startScrollOffset,
       cardBottom: layout.cardBottom,
       viewHeight: layout.viewHeight,
       keyboardInset: _targetInset,
       keyboardGap: keyboardGap,
     );
+    // Returning from the image picker must restore the keyboard underneath the
+    // already frozen card, rather than deriving a slightly different target
+    // from a transient native inset or safe-area frame.
+    _targetScrollOffset = _internalInteractionRecoveryPending
+        ? _openingStartVisualOffset
+        : geometryTarget;
     final controller = _scrollController;
     if (controller != null && controller.hasClients) {
       _additionalScrollExtent =
@@ -492,6 +568,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
       // the keyboard closes; outer scrolling is locked for the edit session.
       _visualScrollOffset = _targetScrollOffset;
       _phase = _OriginRoleEditorPhase.open;
+      _completeInternalInteractionRecoveryIfReady();
       _notifyFrameChanged();
       _notifyChanged();
       return;
@@ -511,6 +588,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     );
     _visualScrollOffset = controller.offset;
     _phase = _OriginRoleEditorPhase.open;
+    _completeInternalInteractionRecoveryIfReady();
     _notifyFrameChanged();
     _notifyChanged();
   }
@@ -527,14 +605,10 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
-  void _beginClosing(
-    _OriginRoleEditorPhase closingPhase, {
-    _OriginRoleEditorPhase? restoredPhase,
-  }) {
+  void _beginClosing(_OriginRoleEditorPhase closingPhase) {
     if (_disposed || !editing) return;
     _closingStartInset = math.max(_keyboardInset, readKeyboardInset());
     _closingStartVisualOffset = _visualScrollOffset;
-    _restoredPhase = restoredPhase;
     _stableFrameCount = 0;
     _phase = closingPhase;
     _notifyChanged();
@@ -546,10 +620,7 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
   }
 
   void _finishClosing() {
-    if (_phase == _OriginRoleEditorPhase.restoring && _restoredPhase == null) {
-      return;
-    }
-    final finalPhase = _restoredPhase ?? _OriginRoleEditorPhase.idle;
+    if (_phase == _OriginRoleEditorPhase.restoring) return;
     _phase = _OriginRoleEditorPhase.restoring;
     _notifyChanged();
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -570,10 +641,11 @@ class _OriginRoleEditorInteractionController extends ChangeNotifier {
       _targetInset = 0;
       _targetKnown = false;
       _stableFrameCount = 0;
-      _restoredPhase = null;
-      _phase = finalPhase;
+      _internalInteractionRecoveryPending = false;
+      _phase = _OriginRoleEditorPhase.idle;
       _notifyFrameChanged();
       _notifyChanged();
+      _pendingInternalInteractionResume = null;
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }

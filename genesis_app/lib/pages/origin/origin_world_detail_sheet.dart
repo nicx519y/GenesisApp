@@ -409,16 +409,16 @@ class _OriginDetailDraggableSheetState
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 
-  void _cancelProfileRoleEditing() {
-    _roleEditorInteraction.cancelEditing();
-  }
-
   void _handleProfileRoleFocusChanged(bool hasFocus) {
     _roleEditorInteraction.handleFieldFocusChanged(hasFocus);
   }
 
   void _handleProfileRoleInternalInteractionChanged(bool active) {
     _roleEditorInteraction.setInternalInteractionActive(active);
+  }
+
+  void _resumeProfileRoleAfterInternalInteraction(VoidCallback resume) {
+    _roleEditorInteraction.resumeAfterInternalInteraction(resume);
   }
 
   void _confirmProfileRoleEditing(OriginCustomRoleDraft draft) {
@@ -1353,12 +1353,12 @@ class _OriginDetailDraggableSheetState
                                         profileRoleEditing: roleEditing,
                                         onBeginProfileRoleEditing:
                                             _beginProfileRoleEditing,
-                                        onCancelProfileRoleEditing:
-                                            _cancelProfileRoleEditing,
                                         onProfileRoleFocusChanged:
                                             _handleProfileRoleFocusChanged,
                                         onProfileRoleInternalInteractionChanged:
                                             _handleProfileRoleInternalInteractionChanged,
+                                        onResumeProfileRoleInternalInteraction:
+                                            _resumeProfileRoleAfterInternalInteraction,
                                       ),
                                     ),
                                   ),

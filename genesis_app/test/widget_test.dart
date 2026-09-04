@@ -10466,10 +10466,42 @@ void main() {
           ),
         ),
       );
-      inlineAvatar.onInteractionActiveChanged?.call(true);
-      tester.widget<TextField>(nameField).focusNode?.unfocus();
+      tester
+          .widget<GestureDetector>(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-inline-identity-tap-current-user',
+              ),
+            ),
+          )
+          .onTap!();
       await tester.pump();
-      expect(tester.widget<TextField>(nameField).focusNode?.hasFocus, isFalse);
+      final identityField = find
+          .descendant(of: editor, matching: find.byType(TextField))
+          .at(1);
+      expect(
+        tester.widget<TextField>(identityField).focusNode?.hasFocus,
+        isTrue,
+      );
+      final inlineAvatarFinder = find.byKey(
+        const ValueKey<String>('origin-setup-role-inline-avatar-current-user'),
+      );
+      final avatarTopBeforePicker = tester.getRect(inlineAvatarFinder).top;
+      inlineAvatar.onInteractionActiveChanged?.call(true);
+      await tester.pump();
+      expect(tester.getRect(cardFrame).top, closeTo(anchoredCardTop, 0.1));
+      expect(
+        tester.getRect(inlineAvatarFinder).top,
+        closeTo(avatarTopBeforePicker, 0.1),
+        reason:
+            'Opening the picker must freeze the editor inner scroll offset.',
+      );
+      expect(
+        tester.widget<TextField>(identityField).focusNode?.hasFocus,
+        isFalse,
+        reason: 'Opening the picker must detach the old input connection.',
+      );
+      tester.testTextInput.hide();
       _genesisKeyboardAnimationEventSink!.success(const <String, Object>{
         'generation': 2,
         'phase': 'closing',
@@ -10477,6 +10509,27 @@ void main() {
         'endInset': 0.0,
         'durationMillis': 250.0,
       });
+      await tester.pump();
+      tester
+          .widget<TapRegion>(
+            find.byKey(
+              const ValueKey<String>(
+                'origin-setup-role-tap-region-current-user',
+              ),
+            ),
+          )
+          .onTapOutside!(const PointerDownEvent(position: Offset.zero));
+      await tester.pump();
+      expect(
+        editor,
+        findsOneWidget,
+        reason: 'Picker route taps must not close the role editor.',
+      );
+      inlineAvatar.onInteractionActiveChanged?.call(false);
+      expect(
+        tester.widget<TextField>(identityField).focusNode?.hasFocus,
+        isFalse,
+      );
       final closingCardTops = <double>[tester.getRect(cardFrame).top];
       for (final keyboardInset in <double>[180, 80, 0]) {
         tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
@@ -10484,47 +10537,70 @@ void main() {
         closingCardTops.add(tester.getRect(cardFrame).top);
         expect(tester.getSize(sheetSurface).height, sheetHeightBeforeKeyboard);
       }
-      await tester.pumpAndSettle();
+      for (var index = 0; index < 12; index += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        closingCardTops.add(tester.getRect(cardFrame).top);
+      }
       expect(
         editor,
         findsOneWidget,
         reason: 'The image picker owns keyboard dismissal inside the editor.',
       );
-      final closingDirection =
-          (cardTopBeforeKeyboard - closingCardTops.first).sign;
-      for (var index = 1; index < closingCardTops.length; index += 1) {
+      for (final cardTop in closingCardTops) {
         expect(
-          (closingCardTops[index] - closingCardTops[index - 1]) *
-              closingDirection,
-          greaterThanOrEqualTo(-0.1),
-          reason: 'The role editor must restore without an end-frame bounce.',
+          cardTop,
+          closeTo(anchoredCardTop, 0.1),
+          reason: 'The image picker must not move the role editor.',
         );
       }
+      expect(tester.getRect(cardFrame).top, closeTo(anchoredCardTop, 0.1));
       expect(
-        tester.getRect(cardFrame).top,
-        closeTo(cardTopBeforeKeyboard, 0.1),
+        tester.getRect(inlineAvatarFinder).top,
+        closeTo(avatarTopBeforePicker, 0.1),
+        reason: 'Picker dismissal must preserve the editor inner offset.',
       );
-      inlineAvatar.onInteractionActiveChanged?.call(false);
-
-      tester.widget<TextField>(nameField).focusNode?.requestFocus();
-      await tester.pump();
+      expect(
+        tester.widget<TextField>(identityField).focusNode?.hasFocus,
+        isTrue,
+      );
+      expect(tester.widget<TextField>(nameField).focusNode?.hasFocus, isFalse);
+      expect(tester.testTextInput.isVisible, isTrue);
       _genesisKeyboardAnimationEventSink!.success(const <String, Object>{
         'generation': 3,
         'phase': 'opening',
         'startInset': 0.0,
-        'endInset': 260.0,
+        'endInset': 280.0,
         'durationMillis': 250.0,
       });
-      tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+      for (final keyboardInset in <double>[80, 180, 280]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+        await tester.pump(const Duration(milliseconds: 20));
+        expect(tester.getRect(cardFrame).top, closeTo(anchoredCardTop, 0.1));
+        expect(
+          tester.getRect(inlineAvatarFinder).top,
+          closeTo(avatarTopBeforePicker, 0.1),
+        );
+      }
+      for (var index = 0; index < 12; index += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
       await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(nameField).focusNode?.hasFocus, isTrue);
+      expect(
+        tester.widget<TextField>(identityField).focusNode?.hasFocus,
+        isTrue,
+      );
+      expect(tester.getRect(cardFrame).top, closeTo(anchoredCardTop, 0.1));
+      expect(
+        tester.getRect(inlineAvatarFinder).top,
+        closeTo(avatarTopBeforePicker, 0.1),
+      );
 
-      tester.widget<TextField>(nameField).focusNode?.unfocus();
+      tester.widget<TextField>(identityField).focusNode?.unfocus();
       await tester.pump();
       _genesisKeyboardAnimationEventSink!.success(const <String, Object>{
         'generation': 4,
         'phase': 'closing',
-        'startInset': 260.0,
+        'startInset': 280.0,
         'endInset': 0.0,
         'durationMillis': 250.0,
       });

@@ -251,6 +251,12 @@ class _CreateUploadBoxState extends State<CreateUploadBox> {
   Future<void> _pickCropAndUpload(BuildContext context) async {
     widget.onInteractionActiveChanged?.call(true);
     try {
+      if (widget.onInteractionActiveChanged != null) {
+        // Let callers commit their focus and layout freeze before presenting a
+        // native picker, whose transition can otherwise begin in this frame.
+        await WidgetsBinding.instance.endOfFrame;
+        if (!context.mounted) return;
+      }
       final picked = await pickGenesisImages(
         limit: 1,
         normalizeForUpload: widget.uploadOriginalImage,
