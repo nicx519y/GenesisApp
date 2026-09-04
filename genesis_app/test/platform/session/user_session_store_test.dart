@@ -3,6 +3,13 @@ import 'package:genesis_flutter_android/platform/session/memory_user_session_sto
 import 'package:genesis_flutter_android/platform/session/user_session_store.dart';
 
 void main() {
+  test('readLoginUid returns a normalized uid without a token', () async {
+    final store = MemoryUserSessionStore();
+    await store.saveUid('  u_123  ');
+
+    expect(await store.readLoginUid(), 'u_123');
+  });
+
   test('readCompleteSession returns normalized uid and auth token', () async {
     final store = MemoryUserSessionStore();
     await store.saveUid('  u_123  ');
@@ -16,27 +23,29 @@ void main() {
   });
 
   test(
-    'readCompleteSession clears a successfully read partial session',
+    'readCompleteSession preserves uid and user info when token is missing',
     () async {
       final store = MemoryUserSessionStore();
       await store.saveUid('u_123');
       await store.saveUserInfo({'uid': 'u_123'});
 
       expect(await store.readCompleteSession(), isNull);
-      expect(await store.readUid(), isNull);
+      expect(await store.readLoginUid(), 'u_123');
+      expect(await store.readUid(), 'u_123');
       expect(await store.readAuthToken(), isNull);
-      expect(await store.readUserInfo(), isNull);
+      expect(await store.readUserInfo(), {'uid': 'u_123'});
     },
   );
 
-  test('readCompleteSession rejects and clears a guest session', () async {
+  test('readCompleteSession rejects but preserves a guest session', () async {
     final store = MemoryUserSessionStore();
     await store.saveUid('guest_123');
     await store.saveAuthToken('token-123');
 
     expect(await store.readCompleteSession(), isNull);
-    expect(await store.readUid(), isNull);
-    expect(await store.readAuthToken(), isNull);
+    expect(await store.readLoginUid(), isNull);
+    expect(await store.readUid(), 'guest_123');
+    expect(await store.readAuthToken(), 'token-123');
   });
 
   test(

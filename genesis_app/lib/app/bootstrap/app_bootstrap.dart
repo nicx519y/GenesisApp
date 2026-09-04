@@ -88,6 +88,29 @@ class AppBootstrap {
     unawaited(ensureFirebasePerformanceMonitoring());
     unawaited(_enableCrashReportingAfterFirebaseReady());
 
+    String? uid;
+    String? authToken;
+    var sessionReadSucceeded = false;
+    try {
+      final values = await Future.wait<Object?>(<Future<Object?>>[
+        services.sessionStore.readLoginUid(),
+        services.sessionStore.readAuthToken(),
+      ]).timeout(_sessionReadTimeout);
+      uid = values[0] as String?;
+      authToken = (values[1] as String?)?.trim();
+      sessionReadSucceeded = true;
+    } catch (e, st) {
+      debugPrint('[Auth][Bootstrap] session read failed: $e');
+      debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
+    }
+    final reportUid = uid ?? '';
+    if (uid != null) {
+      GenesisTelemetry.setUserId(uid);
+    } else if (sessionReadSucceeded) {
+      GenesisTelemetry.clearUser();
+    }
+    unawaited(services.deviceInfoTelemetry.reportStartup(uid: reportUid));
+
     try {
       await services.gatewayAuth?.prepare().timeout(_gatewayPrepareTimeout);
     } catch (e, st) {
@@ -95,22 +118,26 @@ class AppBootstrap {
       debugPrint('[GatewayAuth] stacktrace:\n$st');
     }
 
-    CompleteUserSession? session;
+    if (uid != null && (authToken == null || authToken.isEmpty)) {
+      unawaited(_restoreMissingBackendToken(services));
+    }
+  }
+
+  static Future<void> _restoreMissingBackendToken(AppServices services) async {
     try {
-      session = await services.sessionStore.readCompleteSession().timeout(
-        _sessionReadTimeout,
-      );
+      final restored = await services.backendAuth
+          .hasAuthenticatedBackendSession();
+      if (!restored) {
+        debugPrint(
+          '[Auth][Bootstrap] backend token restoration unavailable; preserving local UID',
+        );
+      }
     } catch (e, st) {
-      debugPrint('[Auth][Bootstrap] session read failed: $e');
+      debugPrint(
+        '[Auth][Bootstrap] backend token restoration failed; preserving local UID: $e',
+      );
       debugPrint('[Auth][Bootstrap] stacktrace:\n$st');
     }
-    final reportUid = session?.uid ?? '';
-    if (session != null) {
-      GenesisTelemetry.setUserId(session.uid);
-    } else {
-      GenesisTelemetry.clearUser();
-    }
-    unawaited(services.deviceInfoTelemetry.reportStartup(uid: reportUid));
   }
 
   static Future<void> _enableCrashReportingAfterFirebaseReady() async {

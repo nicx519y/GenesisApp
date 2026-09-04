@@ -4,6 +4,9 @@ import 'package:flutter/foundation.dart';
 
 import '../../network/json_utils.dart';
 
+typedef AppGlobalConfigLoader =
+    Future<Map<String, dynamic>> Function({String? uid});
+
 @immutable
 class AppGlobalConfig {
   const AppGlobalConfig({
@@ -36,25 +39,25 @@ double _samplingRate(Object? value) {
 
 class AppGlobalConfigStore extends ValueNotifier<AppGlobalConfig> {
   AppGlobalConfigStore({
-    required Future<Map<String, dynamic>> Function() loadConfig,
+    required AppGlobalConfigLoader loadConfig,
     AppGlobalConfig initialValue = const AppGlobalConfig(),
   }) : _loadConfig = loadConfig,
        super(initialValue);
 
-  final Future<Map<String, dynamic>> Function() _loadConfig;
+  final AppGlobalConfigLoader _loadConfig;
   Future<void>? _refreshInFlight;
 
-  Future<void> refresh() {
+  Future<void> refresh({String? uid}) {
     final inFlight = _refreshInFlight;
     if (inFlight != null) return inFlight;
-    final refresh = _refresh();
+    final refresh = _refresh(uid: uid);
     _refreshInFlight = refresh;
     return refresh.whenComplete(() {
       if (identical(_refreshInFlight, refresh)) _refreshInFlight = null;
     });
   }
 
-  Future<void> _refresh() async {
-    value = AppGlobalConfig.fromJson(await _loadConfig());
+  Future<void> _refresh({String? uid}) async {
+    value = AppGlobalConfig.fromJson(await _loadConfig(uid: uid));
   }
 }

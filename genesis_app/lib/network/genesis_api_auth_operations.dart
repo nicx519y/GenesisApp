@@ -5,15 +5,21 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
 
   @override
   Future<String> _ensureUid() async {
-    final session = await _sessionStore.readCompleteSession();
-    if (session != null) return session.uid;
+    final uid = await _sessionStore.readLoginUid();
+    if (uid != null) return uid;
     throw ApiException(message: 'Authentication is required');
   }
 
   Future<User> bindDevice({String? did}) async {
     final deviceId = did ?? await _deviceIdService.getDeviceId();
-    final session = await _readCompleteLocalSession();
-    if (session == null) return _signedOutUser(deviceId);
+    final localUid = await _sessionStore.readLoginUid();
+    if (localUid == null) return _signedOutUser(deviceId);
+    if (await _readCompleteLocalSession() == null) {
+      await _restoreBackendToken();
+    }
+    if (await _readCompleteLocalSession() == null) {
+      return _localUser(uid: localUid, deviceId: deviceId);
+    }
 
     try {
       final profileEnvelope = await v1.user.info();
@@ -23,8 +29,7 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
         fallback: asString(profile['uid']),
       ).trim();
       if (uid.isEmpty || uid.startsWith('guest_')) {
-        await _sessionStore.clearUid();
-        return _signedOutUser(deviceId);
+        return _localUser(uid: localUid, deviceId: deviceId);
       }
       final user = User(
         id: _stableInt(uid),
@@ -43,19 +48,21 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       await _sessionStore.saveUid(user.uid);
       return user;
     } catch (_) {
-      await _sessionStore.clearUid();
-      return _signedOutUser(deviceId);
+      return _localUser(uid: localUid, deviceId: deviceId);
     }
   }
 
   Future<bool> hasAuthenticatedSession({bool tryAutoRefresh = true}) async {
-    if (await _readCompleteLocalSession() == null) return false;
+    if (await _sessionStore.readLoginUid() == null) return false;
+    if (await _readCompleteLocalSession() == null) {
+      if (!tryAutoRefresh) return false;
+      if (!await _restoreBackendToken()) return false;
+    }
     try {
       final profileEnvelope = await v1.user.info();
       final profile = asJsonMap(profileEnvelope['user']);
       final uid = asString(profile['id'], fallback: asString(profile['uid']));
       if (uid.trim().isEmpty || uid.startsWith('guest_')) {
-        await _sessionStore.clearUid();
         return false;
       }
       await _sessionStore.saveUid(uid);
@@ -69,23 +76,7 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
         '[Auth][GenesisApi] session check failed with HTTP ${e.statusCode}, trying silent refresh',
       );
 
-      final session = await _identityAuthService.refreshSilently();
-      if (session == null || !session.hasProviderToken) {
-        debugPrint('[Auth][GenesisApi] silent refresh unavailable');
-        await _sessionStore.clearUid();
-        return false;
-      }
-
-      try {
-        await loginWithIdentity(session);
-      } catch (reauthError, reauthStack) {
-        debugPrint('[Auth][GenesisApi] backend re-login failed: $reauthError');
-        debugPrint(
-          '[Auth][GenesisApi] backend re-login stacktrace:\n$reauthStack',
-        );
-        return false;
-      }
-
+      if (!await _restoreBackendToken()) return false;
       return hasAuthenticatedSession(tryAutoRefresh: false);
     } catch (_) {
       return false;
@@ -215,7 +206,6 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
     final userMap = userRaw is Map ? asJsonMap(userRaw) : map;
     final uid = _loginResponseUid(userMap);
     if (uid.isEmpty || uid.startsWith('guest_')) {
-      await _sessionStore.clearUid();
       throw ApiException(message: 'Login response missing user uid');
     }
     final authToken = asString(
@@ -223,7 +213,6 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
       fallback: asString(map['access_token'], fallback: asString(map['jwt'])),
     ).trim();
     if (authToken.isEmpty) {
-      await _sessionStore.clearUid();
       throw ApiException(message: 'Login response missing auth token');
     }
     final user = User(
@@ -248,19 +237,60 @@ mixin _GenesisApiAuthOperations on _GenesisApiContext {
     if (user.avatar.trim().isNotEmpty) {
       cachedUserInfo.putIfAbsent('avatar', () => user.avatar);
     }
-    try {
-      await _sessionStore.saveUid(user.uid);
-      await _sessionStore.saveAuthToken(authToken);
-      await _sessionStore.saveUserInfo(cachedUserInfo);
-    } catch (_) {
-      await _sessionStore.clearUid();
-      rethrow;
-    }
+    await _sessionStore.saveUid(user.uid);
+    await _sessionStore.saveAuthToken(authToken);
+    await _sessionStore.saveUserInfo(cachedUserInfo);
     return user;
+  }
+
+  Future<bool> _restoreBackendToken() async {
+    final session = await _identityAuthService.refreshSilently();
+    if (session == null || !session.hasProviderToken) {
+      debugPrint(
+        '[Auth][GenesisApi] silent refresh unavailable; preserving local UID',
+      );
+      return false;
+    }
+
+    try {
+      await loginWithIdentity(session);
+      return await _readCompleteLocalSession() != null;
+    } catch (reauthError, reauthStack) {
+      debugPrint('[Auth][GenesisApi] backend re-login failed: $reauthError');
+      debugPrint(
+        '[Auth][GenesisApi] backend re-login stacktrace:\n$reauthStack',
+      );
+      return false;
+    }
   }
 
   Future<({String uid, String authToken})?> _readCompleteLocalSession() async {
     return _sessionStore.readCompleteSession();
+  }
+
+  Future<User> _localUser({
+    required String uid,
+    required String deviceId,
+  }) async {
+    final cached = await _sessionStore.readUserInfo();
+    return User(
+      id: _stableInt(uid),
+      uid: uid,
+      did: deviceId,
+      nickname: cached == null
+          ? ''
+          : asString(
+              cached['display_name'],
+              fallback: asString(cached['name']),
+            ),
+      avatar: cached == null
+          ? ''
+          : _resolveImageAssetUrl(
+              cached['avatar_url'],
+              fallback: cached['avatar'],
+            ),
+      createdAt: null,
+    );
   }
 
   User _signedOutUser(String deviceId) {

@@ -497,13 +497,13 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   Future<bool> _loadCachedItemsIfAvailable() async {
     final services = AppServicesScope.of(context);
-    final session = await services.sessionStore.readCompleteSession();
-    if (session == null) return false;
+    final uid = await services.sessionStore.readLoginUid();
+    if (uid == null) return false;
     final loader = widget.myWorldsCacheLoader;
     final data = loader != null
-        ? await loader(session.uid)
+        ? await loader(uid)
         : await HomeFeedCacheStore(
-            ownerUid: session.uid,
+            ownerUid: uid,
           ).load(HomeFeedCacheKind.myWorlds);
     if (!mounted || _hasCompletedInitialNetworkRefresh) return false;
     if (data == null) {
@@ -726,6 +726,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
+      if (shouldTrackFirstScreen && _items.isEmpty) {
+        _scheduleLaunchRender('network_error');
+      }
     }
   }
 
@@ -824,7 +827,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
-    return await services.sessionStore.readCompleteSession() != null;
+    return await services.sessionStore.readLoginUid() != null;
   }
 
   Future<void> _loadNextPage() async {

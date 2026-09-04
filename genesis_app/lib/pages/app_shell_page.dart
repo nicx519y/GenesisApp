@@ -349,7 +349,7 @@ class _AppShellPageState extends State<AppShellPage>
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
-    return await services.sessionStore.readCompleteSession() != null;
+    return await services.sessionStore.readLoginUid() != null;
   }
 
   Future<bool> _loginWithProvider(IdentityProvider provider) async {
@@ -514,13 +514,12 @@ class _AppShellPageState extends State<AppShellPage>
     try {
       if (!mounted) return;
       final services = AppServicesScope.read(context);
-      final session = await services.sessionStore.readCompleteSession();
+      final uid = await services.sessionStore.readLoginUid();
       if (!mounted) return;
-      if (session == null) {
+      if (uid == null) {
         _lastBillingRecoveryUid = null;
         return;
       }
-      final uid = session.uid;
       if (onlyIfUidChanged && uid == _lastBillingRecoveryUid) return;
       await services.billing?.recover(source);
       if (!mounted) return;

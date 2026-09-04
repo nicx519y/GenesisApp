@@ -283,12 +283,37 @@ void main() {
       ),
     );
 
-    final config = await api.v1.app.config();
+    final config = await api.v1.app.config(uid: 'u_startup');
 
     expect(apiTransport.lastRequest!.method, 'GET');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/app/config');
+    expect(apiTransport.lastRequest!.uri.queryParameters['uid'], 'u_startup');
     expect(apiTransport.lastRequest!.bodyBytes, isNull);
     expect(config['show_opening_sheet'], isTrue);
+  });
+
+  test('v1 app config omits uid for an anonymous startup', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"err_msg":"succ","data":{}}',
+      ),
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    await api.v1.app.config();
+
+    expect(apiTransport.lastRequest!.uri.queryParameters, isEmpty);
   });
 
   test(
@@ -708,28 +733,31 @@ void main() {
     expect(user.uid, 'u_1');
   });
 
-  test('bindDevice skips user info when uid is missing', () async {
-    final apiTransport = _FakeTransport(
-      handler: (_) => throw StateError('user info must not be requested'),
-    );
-    final sessionStore = MemoryUserSessionStore();
-    await sessionStore.saveAuthToken('orphaned-token');
-    await sessionStore.saveUserInfo({'name': 'stale user'});
-    final api = GenesisApi(
-      transport: apiTransport,
-      useMock: false,
-      deviceIdService: const _TestDeviceIdService(),
-      sessionStore: sessionStore,
-    );
+  test(
+    'bindDevice skips user info and preserves local state when uid is missing',
+    () async {
+      final apiTransport = _FakeTransport(
+        handler: (_) => throw StateError('user info must not be requested'),
+      );
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveAuthToken('orphaned-token');
+      await sessionStore.saveUserInfo({'name': 'stale user'});
+      final api = GenesisApi(
+        transport: apiTransport,
+        useMock: false,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: sessionStore,
+      );
 
-    final user = await api.bindDevice(did: 'd1');
+      final user = await api.bindDevice(did: 'd1');
 
-    expect(user.uid, isEmpty);
-    expect(apiTransport.requests, isEmpty);
-    expect(await sessionStore.readUid(), isNull);
-    expect(await sessionStore.readAuthToken(), isNull);
-    expect(await sessionStore.readUserInfo(), isNull);
-  });
+      expect(user.uid, isEmpty);
+      expect(apiTransport.requests, isEmpty);
+      expect(await sessionStore.readUid(), isNull);
+      expect(await sessionStore.readAuthToken(), 'orphaned-token');
+      expect(await sessionStore.readUserInfo(), {'name': 'stale user'});
+    },
+  );
 
   test('v1 user info keeps UUID and selected model alongside user', () async {
     final apiTransport = _FakeTransport(
@@ -864,7 +892,7 @@ void main() {
     );
 
     expect(apiTransport.requests, isEmpty);
-    expect(await sessionStore.readAuthToken(), isNull);
+    expect(await sessionStore.readAuthToken(), 'orphaned-token');
   });
 
   test(
@@ -895,8 +923,8 @@ void main() {
       );
 
       expect(apiTransport.requests, isEmpty);
-      expect(await sessionStore.readUid(), isNull);
-      expect(await sessionStore.readUserInfo(), isNull);
+      expect(await sessionStore.readUid(), 'u_orphaned');
+      expect(await sessionStore.readUserInfo(), {'uid': 'u_orphaned'});
     },
   );
 
@@ -1005,7 +1033,7 @@ void main() {
     expect(apiTransport.requests[2].bodyBytes, isNull);
   });
 
-  test('bindDevice does not persist guest uid when user info fails', () async {
+  test('bindDevice ignores but preserves a legacy guest uid', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 500,
@@ -1047,7 +1075,7 @@ void main() {
     final user = await api.bindDevice(did: 'd1');
 
     expect(user.uid, isEmpty);
-    expect(await sessionStore.readUid(), isNull);
+    expect(await sessionStore.readUid(), 'guest_old');
   });
 
   test('ensureUid throws instead of generating guest uid', () async {
@@ -1091,7 +1119,7 @@ void main() {
 
     expect(api.ensureUid(), throwsA(isA<ApiException>()));
     expect(await sessionStore.readUid(), isNull);
-    expect(await sessionStore.readAuthToken(), isNull);
+    expect(await sessionStore.readAuthToken(), 'orphaned-token');
     expect(apiTransport.requests, isEmpty);
   });
 
@@ -3531,7 +3559,7 @@ void main() {
   });
 
   test(
-    'session check clears incomplete local state without requesting user info',
+    'session check preserves token-only state without requesting user info',
     () async {
       final apiTransport = _FakeTransport(
         handler: (_) => throw StateError('user info must not be requested'),
@@ -3562,10 +3590,89 @@ void main() {
       expect(apiTransport.requests, isEmpty);
       expect(identityAuth.refreshCount, 0);
       expect(await sessionStore.readUid(), isNull);
-      expect(await sessionStore.readAuthToken(), isNull);
-      expect(await sessionStore.readUserInfo(), isNull);
+      expect(await sessionStore.readAuthToken(), 'orphaned-backend-token');
+      expect(
+        await sessionStore.readUserInfo(),
+        containsPair('login_provider', 'google'),
+      );
     },
   );
+
+  test('session check restores a missing backend token from identity', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        if (request.uri.path.endsWith('/v1/user/oauth/google')) {
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body:
+                '{"err_no":0,"err_msg":"succ","data":{"token":"restored-token","user":{"uid":"u_google"}}}',
+          );
+        }
+        if (request.uri.path.endsWith('/v1/user/info')) {
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body:
+                '{"err_no":0,"err_msg":"succ","data":{"user":{"uid":"u_google"},"relation":{"is_self":true}}}',
+          );
+        }
+        throw StateError('unexpected request: ${request.uri}');
+      },
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_google');
+    await sessionStore.saveUserInfo({
+      'uid': 'u_google',
+      'login_provider': 'google',
+    });
+    final identityAuth = _FakeIdentityAuthService(
+      refreshSession: const AuthSession(
+        provider: IdentityProvider.google,
+        providerIdToken: 'provider-token',
+        displayName: 'Google User',
+        photoUrl: '',
+      ),
+    );
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: identityAuth,
+    );
+
+    expect(await api.hasAuthenticatedSession(), isTrue);
+    expect(identityAuth.refreshCount, 1);
+    expect(await sessionStore.readUid(), 'u_google');
+    expect(await sessionStore.readAuthToken(), 'restored-token');
+  });
+
+  test('failed token restoration preserves the UID login state', () async {
+    final apiTransport = _FakeTransport(
+      handler: (_) => throw StateError('request must not be sent'),
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUid('u_google');
+    await sessionStore.saveUserInfo({
+      'uid': 'u_google',
+      'login_provider': 'google',
+    });
+    final identityAuth = _FakeIdentityAuthService();
+    final api = GenesisApi(
+      transport: apiTransport,
+      useMock: false,
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+      identityAuthService: identityAuth,
+    );
+
+    expect(await api.hasAuthenticatedSession(), isFalse);
+    expect(identityAuth.refreshCount, 1);
+    expect(apiTransport.requests, isEmpty);
+    expect(await sessionStore.readUid(), 'u_google');
+    expect(await sessionStore.readAuthToken(), isNull);
+  });
 
   test('err_no 10001 uses the global session-expired handler', () async {
     final sessionExpired = Completer<String>();
@@ -3835,7 +3942,7 @@ void main() {
   );
 
   test(
-    'loginWithIdentity clears incomplete state when backend omits auth token',
+    'loginWithIdentity preserves existing state when backend omits auth token',
     () async {
       final apiTransport = _FakeTransport(
         handler: (request) {
@@ -3879,9 +3986,9 @@ void main() {
         ),
       );
 
-      expect(await sessionStore.readUid(), isNull);
-      expect(await sessionStore.readAuthToken(), isNull);
-      expect(await sessionStore.readUserInfo(), isNull);
+      expect(await sessionStore.readUid(), 'stale-uid');
+      expect(await sessionStore.readAuthToken(), 'stale-token');
+      expect(await sessionStore.readUserInfo(), {'uid': 'stale-uid'});
     },
   );
 
