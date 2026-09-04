@@ -663,6 +663,7 @@ class _RecordingV1ListTransport implements HttpTransport {
     this.originDetailCompleter,
     this.originMapCompleter,
     this.originLaunchCompleter,
+    this.originLaunchCompleters,
     this.worldDetailCompleter,
     this.worldMapCompleter,
     this.chatroomMessagesCompleter,
@@ -704,6 +705,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final Completer<TransportResponse>? originDetailCompleter;
   final Completer<TransportResponse>? originMapCompleter;
   final Completer<TransportResponse>? originLaunchCompleter;
+  final List<Completer<TransportResponse>>? originLaunchCompleters;
   final Completer<TransportResponse>? worldDetailCompleter;
   final Completer<TransportResponse>? worldMapCompleter;
   final Completer<TransportResponse>? chatroomMessagesCompleter;
@@ -735,6 +737,7 @@ class _RecordingV1ListTransport implements HttpTransport {
   final String originCover;
   int originExposureFailuresRemaining;
   int _worldDetailRequestIndex = 0;
+  int _originLaunchRequestIndex = 0;
   int _tickLockStatusRequestIndex = 0;
 
   @override
@@ -944,6 +947,15 @@ class _RecordingV1ListTransport implements HttpTransport {
     }
     if (request.method == 'POST' &&
         request.uri.path.endsWith('/origin/launch')) {
+      final pendingResponses = originLaunchCompleters;
+      if (pendingResponses != null && pendingResponses.isNotEmpty) {
+        final index = _originLaunchRequestIndex.clamp(
+          0,
+          pendingResponses.length - 1,
+        );
+        _originLaunchRequestIndex += 1;
+        return pendingResponses[index].future;
+      }
       final pendingResponse = originLaunchCompleter;
       if (pendingResponse != null) return pendingResponse.future;
       return _jsonResponse({
@@ -12345,6 +12357,26 @@ void main() {
       reason: 'The focused role field stays above the keyboard.',
     );
     expect(nameController.text, 'Profile Hero');
+
+    final editDoneAction = find.byKey(
+      const ValueKey<String>('origin-setup-role-edit-current-user'),
+    );
+    final editDoneIcon = find.byKey(
+      const ValueKey<String>('origin-setup-role-edit-done-icon-current-user'),
+    );
+
+    await tester.enterText(mountedFields.first, '   ');
+    await tester.pump();
+    expect(
+      tester.widget<Icon>(editDoneIcon).color,
+      Colors.white.withValues(alpha: 0.35),
+    );
+    tester.widget<InkWell>(editDoneAction).onTap!();
+    await tester.pump();
+    expect(find.text('Please enter a name'), findsOneWidget);
+    expect(inlineEditor, findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+
     await tester.enterText(mountedFields.first, 'Saved Profile Hero');
     await tester.enterText(mountedFields.at(1), 'Explorer');
     await tester.pump();
@@ -12354,6 +12386,10 @@ void main() {
     );
     await tester.enterText(mountedFields.at(2), 'Inline profile personality');
     await tester.pump();
+    expect(
+      tester.widget<Icon>(editDoneIcon).color,
+      Colors.white.withValues(alpha: 0.95),
+    );
     expect(
       tester.widget<TextField>(mountedFields.at(2)).focusNode?.hasFocus,
       isTrue,
@@ -13696,9 +13732,13 @@ void main() {
       final telemetry = _CapturingTelemetrySink();
       GenesisTelemetry.setSinkForTesting(telemetry);
       addTearDown(GenesisTelemetry.resetForTesting);
+      final failedOriginLaunchCompleter = Completer<TransportResponse>();
       final originLaunchCompleter = Completer<TransportResponse>();
       final transport = _RecordingV1ListTransport(
-        originLaunchCompleter: originLaunchCompleter,
+        originLaunchCompleters: [
+          failedOriginLaunchCompleter,
+          originLaunchCompleter,
+        ],
         worldRelationStatus: 'joined',
         worldLocations: const [
           {
@@ -14232,6 +14272,62 @@ void main() {
         const ValueKey<String>('origin-location-chat-l_o_test_1'),
       );
       expect(launchChat, findsNothing);
+      failedOriginLaunchCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 5000,
+          'err_msg': 'launch unavailable',
+          'data': <String, Object?>{},
+        }),
+      );
+      for (var frame = 0; frame < 20; frame += 1) {
+        await tester.pump();
+        final restoredComposer = tester.widget<LocationChatComposerInput>(
+          sharedComposer,
+        );
+        if (!restoredComposer.sending && restoredComposer.inputEnabled) break;
+      }
+      final restoredComposer = tester.widget<LocationChatComposerInput>(
+        sharedComposer,
+      );
+      expect(restoredComposer.sending, isFalse);
+      expect(restoredComposer.inputEnabled, isTrue);
+      expect(find.text('Launch failed'), findsOneWidget);
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: expandedComposer,
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasFocus,
+        isFalse,
+        reason: 'A failed launch must dismiss the message keyboard.',
+      );
+      expect(sharedComposerWidget.controller.serializedText, message);
+      expect(find.byType(WorldPage), findsNothing);
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump(const Duration(seconds: 2));
+      telemetry.events.clear();
+      await tester.tap(sharedComposerInput);
+      await tester.pump();
+      tester.widget<TextButton>(sendButton).onPressed!();
+      for (
+        var frame = 0;
+        frame < 20 && transport.requestsFor('/api/v1/origin/launch').length < 2;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+      expect(transport.requestsFor('/api/v1/origin/launch'), hasLength(2));
+      _expectOriginLaunchStartTelemetry(
+        telemetry: telemetry,
+        action: 'worldo_launch_message',
+        roleId: 'c_o_test_1',
+      );
+
       originLaunchCompleter.complete(
         transport._jsonResponse({
           'err_no': 0,

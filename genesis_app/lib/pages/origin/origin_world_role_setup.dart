@@ -770,9 +770,21 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
     widget.onBeginEditing?.call();
   }
 
+  String? get _editValidationMessage {
+    final form = _editForm;
+    if (form == null) return null;
+    if (form.name.text.trim().isEmpty) return 'Please enter a name';
+    return null;
+  }
+
   void _completeEditing() {
     final form = _editForm;
     if (widget.busy || !_editing || form == null) return;
+    final validationMessage = _editValidationMessage;
+    if (validationMessage != null) {
+      showGenesisToast(context, validationMessage);
+      return;
+    }
     widget.onEditedRoleChanged?.call(
       OriginCustomRoleDraft(
         avatarUrl: form.avatarUrl.text,
@@ -830,6 +842,8 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
         : content.isRecommended
         ? 'Suggested'
         : null;
+    final editActionAvailable =
+        !widget.busy && (!_editing || _editValidationMessage == null);
 
     final card = ClipRRect(
       borderRadius: BorderRadius.circular(12),
@@ -915,7 +929,7 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
                           ),
                           size: 16,
                           color: Colors.white.withValues(
-                            alpha: widget.busy ? 0.6 : 0.95,
+                            alpha: editActionAvailable ? 0.95 : 0.35,
                           ),
                         ),
                       ),
