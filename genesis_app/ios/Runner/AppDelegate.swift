@@ -20,31 +20,31 @@ private struct DeviceIdResolution {
 private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStreamHandler {
   private var eventSink: FlutterEventSink?
   private var observer: NSObjectProtocol?
+  private var latestEvent: [String: Any]?
   private var generation = 0
+
+  override init() {
+    super.init()
+    observer = NotificationCenter.default.addObserver(
+      forName: UIResponder.keyboardWillChangeFrameNotification,
+      object: nil,
+      queue: .main
+    ) { [weak self] notification in
+      self?.handleKeyboardFrameChange(notification)
+    }
+  }
 
   func onListen(
     withArguments arguments: Any?,
     eventSink events: @escaping FlutterEventSink
   ) -> FlutterError? {
     eventSink = events
-    if observer == nil {
-      observer = NotificationCenter.default.addObserver(
-        forName: UIResponder.keyboardWillChangeFrameNotification,
-        object: nil,
-        queue: .main
-      ) { [weak self] notification in
-        self?.handleKeyboardFrameChange(notification)
-      }
-    }
+    if let latestEvent = latestEvent { events(latestEvent) }
     return nil
   }
 
   func onCancel(withArguments arguments: Any?) -> FlutterError? {
     eventSink = nil
-    if let observer = observer {
-      NotificationCenter.default.removeObserver(observer)
-      self.observer = nil
-    }
     return nil
   }
 
@@ -56,7 +56,6 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
 
   private func handleKeyboardFrameChange(_ notification: Notification) {
     guard
-      let eventSink = eventSink,
       let userInfo = notification.userInfo,
       let beginFrame = userInfo[UIResponder.keyboardFrameBeginUserInfoKey] as? CGRect,
       let endFrame = userInfo[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect,
@@ -76,13 +75,15 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
     let duration = (userInfo[UIResponder.keyboardAnimationDurationUserInfoKey]
       as? NSNumber)?.doubleValue ?? 0
     generation += 1
-    eventSink([
+    let event: [String: Any] = [
       "generation": generation,
       "phase": phase,
       "startInset": startInset,
       "endInset": endInset,
       "durationMillis": duration * 1000,
-    ])
+    ]
+    latestEvent = event
+    eventSink?(event)
   }
 
   private func activeWindow() -> UIWindow? {
@@ -465,13 +466,27 @@ private final class GenesisKeyboardAnimationStreamHandler: NSObject, FlutterStre
     config.preferredAssetRepresentationMode = .automatic
 
     let picker = PHPickerViewController(configuration: config)
+    // The default adaptive sheet presentation scales and translates the
+    // presenting Flutter view. Keep the page underneath in its exact screen
+    // coordinates while the system picker covers it.
+    picker.modalPresentationStyle = .overFullScreen
+    picker.modalTransitionStyle = .coverVertical
     picker.delegate = self
     presenter.present(picker, animated: true)
   }
 
   @available(iOS 14, *)
   func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
-    picker.dismiss(animated: true)
+    // Keep Flutter in its picker-paused state until the native dismissal has
+    // actually finished. Completing the method call before this animation
+    // ends lets Flutter restore focus and move content behind the picker.
+    picker.dismiss(animated: true) { [weak self] in
+      self?.completeDiscussImagePicking(results)
+    }
+  }
+
+  @available(iOS 14, *)
+  private func completeDiscussImagePicking(_ results: [PHPickerResult]) {
     guard let result = pendingDiscussImagePickerResult else {
       return
     }

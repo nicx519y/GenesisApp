@@ -276,7 +276,7 @@ List<Widget> _originInitialDialogueSlivers(
   _OriginInitialDialoguePreview preview, {
   Key? contentStartKey,
   Key? messageEndKey,
-  bool eager = false,
+  bool cacheAllMessages = false,
 }) {
   final style = kLocationChatStyle.copyWith(bubbleBackdropBlurSigma: 0);
   final padding = style.messageListPadding;
@@ -341,11 +341,8 @@ List<Widget> _originInitialDialogueSlivers(
         padding.right,
         originOpeningDialogueRoleGapForTesting,
       ),
-      sliver: eager
+      sliver: cacheAllMessages
           ? SliverToBoxAdapter(
-              // Keyboard geometry needs the exact variable-height content
-              // bottom. Keep that one eager layout, but isolate its paint as
-              // a stable subtree while keyboard frames translate the group.
               child: RepaintBoundary(
                 child: Column(
                   children: [
@@ -354,9 +351,7 @@ List<Widget> _originInitialDialogueSlivers(
                       index < preview.messages.length;
                       index += 1
                     )
-                      Builder(
-                        builder: (context) => buildMessage(context, index),
-                      ),
+                      buildMessage(context, index),
                   ],
                 ),
               ),

@@ -59,9 +59,11 @@ class GenesisKeyboardAnimationEvents {
   static const channelName = 'com.worldo.ai/keyboard_animation';
   static const EventChannel _channel = EventChannel(channelName);
 
-  static Stream<GenesisKeyboardAnimationTarget> get targets => _channel
+  static final Stream<GenesisKeyboardAnimationTarget> _targets = _channel
       .receiveBroadcastStream()
       .map(GenesisKeyboardAnimationTarget.tryParse)
       .where((event) => event != null)
       .cast<GenesisKeyboardAnimationTarget>();
+
+  static Stream<GenesisKeyboardAnimationTarget> get targets => _targets;
 }

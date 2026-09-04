@@ -71,6 +71,7 @@ class MainActivity : FlutterActivity() {
     private var pendingDiscussImagePickerNormalizeForUpload = false
     private var pendingGoogleSignInResult: MethodChannel.Result? = null
     private var keyboardAnimationEventSink: EventChannel.EventSink? = null
+    private var latestKeyboardAnimationEvent: Map<String, Any>? = null
     private var keyboardAnimationGeneration = 0
     private var lastImeInsetPx = 0
 
@@ -232,6 +233,7 @@ class MainActivity : FlutterActivity() {
                 lastImeInsetPx = ViewCompat.getRootWindowInsets(window.decorView)
                     ?.getInsets(WindowInsetsCompat.Type.ime())
                     ?.bottom ?: 0
+                latestKeyboardAnimationEvent?.let { events?.success(it) }
             }
 
             override fun onCancel(arguments: Any?) {
@@ -269,15 +271,15 @@ class MainActivity : FlutterActivity() {
                         else -> "closing"
                     }
                     keyboardAnimationGeneration += 1
-                    keyboardAnimationEventSink?.success(
-                        mapOf(
-                            "generation" to keyboardAnimationGeneration,
-                            "phase" to phase,
-                            "startInset" to startInsetPx / density,
-                            "endInset" to endInsetPx / density,
-                            "durationMillis" to animation.durationMillis,
-                        ),
+                    val event = mapOf<String, Any>(
+                        "generation" to keyboardAnimationGeneration,
+                        "phase" to phase,
+                        "startInset" to startInsetPx / density,
+                        "endInset" to endInsetPx / density,
+                        "durationMillis" to animation.durationMillis,
                     )
+                    latestKeyboardAnimationEvent = event
+                    keyboardAnimationEventSink?.success(event)
                     return bounds
                 }
 
