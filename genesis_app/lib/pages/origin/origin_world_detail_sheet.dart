@@ -237,13 +237,9 @@ class _OriginDetailDraggableSheetState
       onPageSelected: _handleInteractionPageSelected,
     )..addListener(_handleSheetInteractionChanged);
     _roleEditorInteraction = _OriginRoleEditorInteractionController(
-      vsync: this,
       readKeyboardInset: _currentOpeningKeyboardInset,
       readKeyboardSafeAreaInset: _currentOpeningKeyboardSafeAreaInset,
       readLayout: _readRoleEditorLayout,
-      readSheetExtent: () =>
-          _sheetController.isAttached ? _sheetController.size : 0,
-      restoreSheetExtent: _restoreOpeningKeyboardSheetExtent,
       onCommit: (draft) => widget.onSaveProfileRole(draft),
     )..addListener(_handleRoleEditorInteractionChanged);
     _scheduleDiscussPreloadAfterPaint();
@@ -1193,13 +1189,17 @@ class _OriginDetailDraggableSheetState
                       child: AnimatedBuilder(
                         animation: _sheetInteraction.keyboardFrameListenable,
                         child: openingComposer,
-                        builder: (context, child) => Transform.translate(
-                          offset: Offset(
-                            0,
-                            _sheetInteraction.composerTranslation(),
-                          ),
-                          child: child,
-                        ),
+                        builder: (context, child) {
+                          final translation = _sheetInteraction
+                              .composerTranslation();
+                          return Padding(
+                            padding: EdgeInsets.only(
+                              top: math.max(0, translation),
+                              bottom: math.max(0, -translation),
+                            ),
+                            child: child,
+                          );
+                        },
                       ),
                     ),
                   )

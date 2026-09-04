@@ -12380,6 +12380,11 @@ void main() {
       ),
       findsOneWidget,
     );
+    final profileCardFrame = find.byKey(
+      const ValueKey<String>('origin-setup-role-card-frame-current-user'),
+    );
+    final cardTopBeforeCommit = tester.getRect(profileCardFrame).top;
+    final sheetTopBeforeCommit = tester.getRect(sheetSurface).top;
     tester.widget<TextField>(mountedFields.at(2)).onEditingComplete!();
     await tester.pump();
 
@@ -12391,7 +12396,30 @@ void main() {
           'Keyboard Done commits through the same path as the check icon '
           'before the keyboard closing animation.',
     );
-    tester.view.viewInsets = FakeViewPadding.zero;
+    for (final keyboardInset in <double>[180, 80, 0]) {
+      tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        tester.getRect(sheetSurface).top,
+        closeTo(sheetTopBeforeCommit, 0.1),
+      );
+      expect(
+        tester.getRect(profileCardFrame).top,
+        closeTo(cardTopBeforeCommit, 0.1),
+        reason: 'Finishing the role edit must not animate the sheet content.',
+      );
+    }
+    for (var frame = 0; frame < 9; frame += 1) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        tester.getRect(sheetSurface).top,
+        closeTo(sheetTopBeforeCommit, 0.1),
+      );
+      expect(
+        tester.getRect(profileCardFrame).top,
+        closeTo(cardTopBeforeCommit, 0.1),
+      );
+    }
     await tester.pumpAndSettle();
 
     expect(inlineEditor, findsNothing);
@@ -13662,6 +13690,7 @@ void main() {
       tester.view.viewPadding = const FakeViewPadding(bottom: 24);
       addTearDown(tester.view.resetPadding);
       addTearDown(tester.view.resetViewPadding);
+      addTearDown(tester.view.resetViewInsets);
       AppStartupCoordinator.resetForTesting();
       addTearDown(AppStartupCoordinator.resetForTesting);
       final telemetry = _CapturingTelemetrySink();
@@ -14139,6 +14168,12 @@ void main() {
             .hasFocus,
         isTrue,
       );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 150);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      for (var frame = 0; frame < 12; frame += 1) {
+        await tester.pump();
+      }
       sharedComposerWidget.controller.insertShortcut('explore');
       await tester.pump();
       expect(sharedComposerWidget.controller.serializedText, message);
@@ -14161,9 +14196,27 @@ void main() {
         ),
         matching: find.byType(TextButton),
       );
-      await tester.tap(sendButton);
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(
+                of: expandedComposer,
+                matching: find.byType(EditableText),
+              ),
+            )
+            .focusNode
+            .hasFocus,
+        isTrue,
+        reason: 'The message input remains focused before pressing Send.',
+      );
+      final sendGesture = await tester.startGesture(
+        tester.getCenter(sendButton),
+      );
+      await tester.pump();
+      await sendGesture.up();
       await _pumpUntilSingleOriginLaunchRequest(tester, transport);
       await tester.pump();
+      expect(transport.requestsFor('/api/v1/origin/launch'), hasLength(1));
       _expectOriginLaunchStartTelemetry(
         telemetry: telemetry,
         action: 'worldo_launch_message',

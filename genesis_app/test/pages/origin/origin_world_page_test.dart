@@ -427,7 +427,7 @@ void main() {
     );
   });
 
-  test('origin role editor close target follows the final bottom extent', () {
+  test('origin role editor keyboard dismissal preserves bottom distance', () {
     expect(
       originRoleEditorRestingScrollOffsetForTesting(
         minScrollExtent: 0,
@@ -436,8 +436,8 @@ void main() {
       ),
       420,
       reason:
-          'An editor opened at the bottom must close at the bottom of the '
-          'zero-keyboard layout, even when its max extent changed.',
+          'Hiding only the keyboard keeps an editor opened at the bottom at '
+          'the bottom of the zero-keyboard layout.',
     );
     expect(
       originRoleEditorRestingScrollOffsetForTesting(
@@ -450,6 +450,36 @@ void main() {
           'When editing starts away from the bottom, preserve that distance '
           'instead of restoring a stale absolute scroll offset.',
     );
+  });
+
+  test('origin role editor finish neither animates nor jumps the sheet', () {
+    final finishStart = originWorldSheetInteractionSource.indexOf(
+      'void _finishClosing()',
+    );
+    final keyboardDismissalStart = originWorldSheetInteractionSource.indexOf(
+      'void _finishKeyboardDismissal()',
+      finishStart,
+    );
+    expect(finishStart, greaterThanOrEqualTo(0));
+    expect(keyboardDismissalStart, greaterThan(finishStart));
+
+    final finishBody = originWorldSheetInteractionSource.substring(
+      finishStart,
+      keyboardDismissalStart,
+    );
+    expect(finishBody, isNot(contains('controller.jumpTo(')));
+    expect(finishBody, isNot(contains('restoreSheetExtent(')));
+
+    final closingStart = originWorldSheetInteractionSource.indexOf(
+      'void _beginClosing(',
+    );
+    expect(closingStart, greaterThanOrEqualTo(0));
+    final closingBody = originWorldSheetInteractionSource.substring(
+      closingStart,
+      finishStart,
+    );
+    expect(closingBody, isNot(contains('AnimationController')));
+    expect(closingBody, isNot(contains('.forward(')));
   });
 
   test('origin opening keyboard spacer only fills missing scroll extent', () {
