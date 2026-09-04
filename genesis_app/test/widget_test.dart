@@ -14348,7 +14348,7 @@ void main() {
       await tester.tap(find.text('Open role sheet'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Launched'), findsOneWidget);
+      expect(find.text('Playing'), findsOneWidget);
       expect(find.text('Mira'), findsOneWidget);
       expect(find.text('w_launched_1'), findsOneWidget);
       expect(find.text('Tick 7 · Day 3'), findsOneWidget);
