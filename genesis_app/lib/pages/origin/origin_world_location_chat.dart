@@ -331,6 +331,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
     this.bottomSafeAreaInset,
     this.onInputDockHeightChanged,
     this.onFocusChanged,
+    this.onSendCompleted,
   });
 
   final bool launching;
@@ -351,6 +352,7 @@ class _OriginLocationChatLaunchComposer extends StatefulWidget {
   final double? bottomSafeAreaInset;
   final ValueChanged<double>? onInputDockHeightChanged;
   final ValueChanged<bool>? onFocusChanged;
+  final ValueChanged<bool>? onSendCompleted;
 
   @override
   State<_OriginLocationChatLaunchComposer> createState() =>
@@ -455,9 +457,11 @@ class _OriginLocationChatLaunchComposerState
     final message = _controller.serializedText;
     if (widget.launching || message.trim().isEmpty) return;
     final mentionCatalog = _controller.composedMentionCatalog;
-    final launched = await widget.onSend(message, mentionCatalog);
-    if (!mounted || !launched) return;
     _focusNode.unfocus();
+    final launched = await widget.onSend(message, mentionCatalog);
+    if (!mounted) return;
+    widget.onSendCompleted?.call(launched);
+    if (!launched) return;
   }
 
   @override

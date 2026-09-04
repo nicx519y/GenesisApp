@@ -259,6 +259,7 @@ class _OriginDetailDraggableSheetState
       onPageSelected: _handleInteractionPageSelected,
     )..addListener(_handleSheetInteractionChanged);
     _roleEditorInteraction = _OriginRoleEditorInteractionController(
+      vsync: this,
       readKeyboardInset: _currentOpeningKeyboardInset,
       readKeyboardSafeAreaInset: _currentOpeningKeyboardSafeAreaInset,
       readLayout: _readRoleEditorLayout,
@@ -930,6 +931,7 @@ class _OriginDetailDraggableSheetState
     final cardTop = cardBox.localToGlobal(Offset.zero).dy;
     return _OriginRoleEditorLayout(
       viewHeight: view.physicalSize.height / view.devicePixelRatio,
+      bottomSafeAreaInset: _currentOpeningKeyboardSafeAreaInset(),
       cardBottom: cardTop + cardBox.size.height,
     );
   }
@@ -1055,6 +1057,15 @@ class _OriginDetailDraggableSheetState
               bottomSafeAreaInset: GenesisSafeAreaInsets.bottom(context),
               onInputDockHeightChanged: _handleExpandedInputDockHeightChanged,
               onFocusChanged: _handleOpeningComposerFocusChanged,
+              onSendCompleted: (launched) {
+                if (!launched) {
+                  // A failed launch must restore the ordinary sheet state
+                  // deterministically. Do not leave interaction recovery to
+                  // Android's final IME metrics frame: it can arrive before
+                  // the async launch result and leave the sheet in `closing`.
+                  _sheetInteraction.resetKeyboard(clearFocus: true);
+                }
+              },
             ),
           ),
         ),
@@ -1499,14 +1510,6 @@ class _OriginDetailDraggableSheetState
                         ),
                       ],
                     ),
-                    if (_openingKeyboardMode &&
-                        _openingKeyboardPhase !=
-                            _OriginOpeningKeyboardPhase.open)
-                      const Positioned.fill(
-                        child: AbsorbPointer(
-                          child: ColoredBox(color: Colors.transparent),
-                        ),
-                      ),
                   ],
                 );
               },

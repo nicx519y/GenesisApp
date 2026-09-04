@@ -10435,9 +10435,30 @@ void main() {
       tester.view.devicePixelRatio = 1;
       tester.view.padding = const FakeViewPadding(bottom: 34);
       tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      tester.view.systemGestureInsets = const FakeViewPadding(bottom: 34);
       addTearDown(tester.view.reset);
       final transport = _RecordingV1ListTransport(
         worldRelationStatus: 'approved',
+        originTicks: <Map<String, Object?>>[
+          <String, Object?>{
+            'tick_no': 1,
+            'tick_result': <String, Object?>{
+              'location_groups': <Map<String, Object?>>[
+                <String, Object?>{
+                  'location_id': 'l_o_test_1',
+                  'initial_dialogue': List<Map<String, Object?>>.generate(
+                    12,
+                    (index) => <String, Object?>{
+                      'char_id': 'c_role_1',
+                      'char_name': 'Guide',
+                      'content': 'Role editor opening line $index',
+                    },
+                  ),
+                },
+              ],
+            },
+          },
+        ],
         originCharacters: const [
           {
             'char_id': 'c_role_1',
@@ -10465,7 +10486,9 @@ void main() {
             },
           ),
           child: const MaterialApp(
-            home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            home: GenesisBottomSystemBarBoundary(
+              child: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            ),
           ),
         ),
       );
@@ -10474,6 +10497,21 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey<String>('origin-opening-select-role-action')),
       );
+      await tester.pumpAndSettle();
+      final roleTestOpeningList = find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      );
+      final roleTestOpeningPosition = tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: roleTestOpeningList,
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+      roleTestOpeningPosition.jumpTo(roleTestOpeningPosition.maxScrollExtent);
       await tester.pumpAndSettle();
       final editProfileRole = find.byKey(
         const ValueKey<String>('origin-setup-role-edit-current-user'),
@@ -10863,6 +10901,10 @@ void main() {
         tester.widget<TextField>(nameField).controller?.text,
         'Edited Profile',
       );
+      // Reproduce a platform that keeps reporting a non-zero inset but never
+      // sends the final keyboard-closing metrics callback.
+      tester.view.viewInsets = const FakeViewPadding(bottom: 280);
+      await tester.pump();
       tester
           .widget<TapRegion>(
             find.byKey(
@@ -10878,6 +10920,63 @@ void main() {
         findsNothing,
         reason: 'Tapping outside must leave the role-card edit UI immediately.',
       );
+      final openingSheetList = find.byKey(
+        const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
+      );
+      expect(
+        tester.widget<CustomScrollView>(openingSheetList).physics,
+        isA<NeverScrollableScrollPhysics>(),
+        reason: 'The sheet stays locked only while the closing animation runs.',
+      );
+      await tester.pump(const Duration(milliseconds: 439));
+      expect(
+        tester.widget<CustomScrollView>(openingSheetList).physics,
+        isA<NeverScrollableScrollPhysics>(),
+      );
+      await tester.pump(const Duration(milliseconds: 1));
+      final fallbackClosingCardTops = <double>[tester.getRect(cardFrame).top];
+      for (var frame = 0; frame < 30; frame += 1) {
+        await tester.pump(const Duration(milliseconds: 16));
+        fallbackClosingCardTops.add(tester.getRect(cardFrame).top);
+        if (tester.widget<CustomScrollView>(openingSheetList).physics
+            is ClampingScrollPhysics) {
+          break;
+        }
+      }
+      expect(
+        tester.widget<CustomScrollView>(openingSheetList).physics,
+        isA<ClampingScrollPhysics>(),
+        reason:
+            'A missing terminal IME frame must not leave sheet scrolling '
+            'locked after the closing animation window.',
+      );
+      for (var index = 1; index < fallbackClosingCardTops.length; index += 1) {
+        expect(
+          (fallbackClosingCardTops[index] - fallbackClosingCardTops[index - 1])
+              .abs(),
+          lessThan(30),
+          reason:
+              'The fallback close must not expose the full paint-translation '
+              'difference on any frame.',
+        );
+      }
+      final alignedCardTop = tester.getRect(cardFrame).top;
+      expect(
+        alignedCardTop,
+        closeTo(fallbackClosingCardTops.last, 0.1),
+        reason:
+            'The fallback animation endpoint and the ordinary list layout '
+            'must already have the same coordinate.',
+      );
+      await tester.pump();
+      expect(
+        tester.getRect(cardFrame).top,
+        closeTo(alignedCardTop, 0.1),
+        reason:
+            'Removing the paint correction must not move the real role-card '
+            'layout on the following frame.',
+      );
+      tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pumpAndSettle();
       expect(
         tester.widget<IgnorePointer>(composerVisibilityFinder).ignoring,
@@ -10908,6 +11007,19 @@ void main() {
         restoredOpeningPosition.pixels,
         closeTo(restoredOpeningPosition.maxScrollExtent, 0.1),
       );
+      final restoredOffsetBeforeVerticalDrag = restoredOpeningPosition.pixels;
+      await tester.drag(openingSheetList, const Offset(0, 160));
+      await tester.pumpAndSettle();
+      expect(
+        restoredOpeningPosition.pixels,
+        lessThan(restoredOffsetBeforeVerticalDrag - 1),
+        reason:
+            'After the translation handoff, a real vertical drag must move '
+            'the opening sheet instead of being cancelled by a stale '
+            'ScrollPosition animation.',
+      );
+      restoredOpeningPosition.jumpTo(restoredOpeningPosition.maxScrollExtent);
+      await tester.pumpAndSettle();
       final roleIndicator = find.byKey(
         const ValueKey<String>('origin-setup-role-page-indicator'),
       );
@@ -10988,7 +11100,16 @@ void main() {
             ),
           )
           .onTap!();
+      await tester.pump();
+      final terminalPaintedCardTop = tester.getRect(cardFrame).top;
       await tester.pumpAndSettle();
+      expect(
+        tester.getRect(cardFrame).top,
+        closeTo(terminalPaintedCardTop, 0.1),
+        reason:
+            'The terminal paint frame and the ordinary role-card layout must '
+            'share the same screen coordinate.',
+      );
     },
   );
 
@@ -13785,6 +13906,206 @@ void main() {
       for (var frame = 0; frame < 16; frame += 1) {
         await tester.pump(const Duration(milliseconds: 20));
       }
+    },
+  );
+
+  testWidgets(
+    'Origin opening failed launch closes keyboard and restores normal list',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.padding = const FakeViewPadding(bottom: 24);
+      tester.view.viewPadding = const FakeViewPadding(bottom: 24);
+      addTearDown(tester.view.reset);
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      final originLaunchCompleter = Completer<TransportResponse>();
+      final transport = _RecordingV1ListTransport(
+        originLaunchCompleter: originLaunchCompleter,
+        worldRelationStatus: 'approved',
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'token',
+            initialUserInfo: const {
+              'name': 'Nikos',
+              'identity': 'Adventure guide',
+              'avatar': '',
+            },
+          ),
+          child: MaterialApp(
+            onGenerateRoute: AppRouter.onGenerateRoute,
+            home: const OriginWorldPage(
+              oid: 'o_test_1',
+              originId: 0,
+              showOpeningSheetOnEntry: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final expandedComposer = find.byKey(
+        const ValueKey<String>('origin-expanded-opening-composer'),
+      );
+      final sharedComposer = find.descendant(
+        of: expandedComposer,
+        matching: find.byType(LocationChatComposerInput),
+      );
+      final input = find.descendant(
+        of: sharedComposer,
+        matching: find.byKey(const ValueKey('chat-composer-input')),
+      );
+      final editable = find.descendant(
+        of: expandedComposer,
+        matching: find.byType(EditableText),
+      );
+      const message = 'Try this opening';
+      await tester.enterText(input, message);
+      await tester.pump();
+      expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isTrue);
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 150);
+      await tester.pump();
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      for (var frame = 0; frame < 12; frame += 1) {
+        await tester.pump();
+      }
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('origin-detail-sheet-page-Opening'),
+          ),
+          matching: find.byType(AbsorbPointer),
+        ),
+        findsNothing,
+        reason:
+            'Opening keyboard transitions must not cover the sheet with a '
+            'transparent pointer shield.',
+      );
+
+      final sendButton = find.descendant(
+        of: find.descendant(
+          of: sharedComposer,
+          matching: find.byKey(const ValueKey('chat-composer-send-button')),
+        ),
+        matching: find.byType(TextButton),
+      );
+      await tester.tap(sendButton);
+      await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+      expect(
+        tester.widget<EditableText>(editable).focusNode.hasFocus,
+        isFalse,
+        reason:
+            'Submitting must release focus before launch can disable and '
+            'later re-enable the input.',
+      );
+
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump();
+
+      originLaunchCompleter.complete(
+        transport._jsonResponse({
+          'err_no': 5000,
+          'err_msg': 'Launch rejected',
+          'data': <String, Object?>{},
+        }),
+      );
+      for (var frame = 0; frame < 10; frame += 1) {
+        await tester.pump();
+        if (!tester.widget<EditableText>(editable).focusNode.hasFocus) break;
+      }
+
+      expect(find.text('Launch failed'), findsOneWidget);
+      expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
+      expect(
+        tester
+            .widget<LocationChatComposerInput>(sharedComposer)
+            .controller
+            .serializedText,
+        message,
+        reason: 'A failed launch keeps the message available for retry.',
+      );
+
+      expect(
+        tester
+            .widget<PageView>(
+              find.byKey(const ValueKey<String>('origin-detail-sheet-pages')),
+            )
+            .physics,
+        isA<PageScrollPhysics>(),
+      );
+      expect(
+        tester
+            .widget<IgnorePointer>(
+              find.byKey(const ValueKey<String>('origin-opening-role-section')),
+            )
+            .ignoring,
+        isFalse,
+      );
+      expect(
+        tester
+            .widget<Opacity>(
+              find.byKey(
+                const ValueKey<String>(
+                  'origin-opening-role-section-settled-visibility',
+                ),
+              ),
+            )
+            .opacity,
+        1,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>('origin-opening-keyboard-layout-spacer'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(
+            const ValueKey<String>('origin-detail-sheet-page-Opening'),
+          ),
+          matching: find.byType(AbsorbPointer),
+        ),
+        findsNothing,
+        reason: 'A failed launch must remove the keyboard transition shield.',
+      );
+      final openingList = find.descendant(
+        of: find.byKey(
+          const ValueKey<String>('origin-detail-sheet-page-Opening'),
+        ),
+        matching: find.byType(CustomScrollView),
+      );
+      expect(
+        tester.widget<CustomScrollView>(openingList).physics,
+        isA<ClampingScrollPhysics>(),
+      );
+      final rolePager = find.descendant(
+        of: find.byKey(const ValueKey<String>('origin-opening-role-section')),
+        matching: find.byType(PageView),
+      );
+      final rolePageController = tester.widget<PageView>(rolePager).controller!;
+      await tester.drag(rolePager, const Offset(-300, 0));
+      await tester.pumpAndSettle();
+      expect(
+        rolePageController.page,
+        greaterThan(0),
+        reason: 'The role section must accept gestures after launch failure.',
+      );
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      expect(
+        tester.getBottomLeft(expandedComposer).dy,
+        closeTo(tester.getBottomLeft(sheetSurface).dy, 1),
+        reason: 'The composer returns to its normal bottom-docked position.',
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpAndSettle();
     },
   );
 

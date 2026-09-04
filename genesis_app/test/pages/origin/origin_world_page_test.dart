@@ -326,6 +326,25 @@ void main() {
     expect(sheetHeight - keyboardInset - translatedCardBottom, 30);
   });
 
+  test('origin role editor uses the safe-area content coordinate', () {
+    final target = originRoleEditorTargetScrollOffsetForTesting(
+      startScrollOffset: 200,
+      cardBottom: 540,
+      viewHeight: 844,
+      keyboardInset: 280,
+      bottomSafeAreaInset: 34,
+    );
+
+    expect(target, 206);
+    final translatedCardBottom = 540 - (target - 200);
+    final usableViewBottom = 844 - 34;
+    final effectiveKeyboardInset = 280 - 34;
+    expect(
+      usableViewBottom - effectiveKeyboardInset - translatedCardBottom,
+      30,
+    );
+  });
+
   test('origin role editor keeps the keyboard gap on a short viewport', () {
     final target = originRoleEditorTargetScrollOffsetForTesting(
       startScrollOffset: 100,
@@ -457,6 +476,33 @@ void main() {
     );
   });
 
+  test('origin role editor paint translation reaches exact zero', () {
+    expect(
+      originRoleEditorClosingPaintTranslationForTesting(
+        startTranslation: 48,
+        closingProgress: 0,
+      ),
+      48,
+    );
+    expect(
+      originRoleEditorClosingPaintTranslationForTesting(
+        startTranslation: 48,
+        closingProgress: 0.5,
+      ),
+      24,
+    );
+    expect(
+      originRoleEditorClosingPaintTranslationForTesting(
+        startTranslation: 48,
+        closingProgress: 1,
+      ),
+      0,
+      reason:
+          'Translation removal must not depend on a visual scroll target '
+          'remaining inside the final ScrollPosition range.',
+    );
+  });
+
   test('origin role editor spacer closes with the keyboard', () {
     expect(
       originRoleEditorClosingSpacerExtentForTesting(
@@ -544,6 +590,19 @@ void main() {
       keyboardDismissalStart,
     );
     expect(finishBody, isNot(contains('controller.jumpTo(')));
+    expect(
+      finishBody,
+      contains('_terminalClosingPaintTranslation = 0'),
+      reason:
+          'The final closing frame must explicitly end at zero translation.',
+    );
+    expect(
+      finishBody,
+      isNot(contains('(controller.offset - _visualScrollOffset).abs()')),
+      reason:
+          'Closing must not wait forever for an unreachable visual scroll '
+          'coordinate to equal the real ScrollPosition.',
+    );
     expect(finishBody, isNot(contains('restoreSheetExtent(')));
 
     final closingStart = originWorldSheetInteractionSource.indexOf(
@@ -555,13 +614,32 @@ void main() {
       finishStart,
     );
     expect(closingBody, contains('controller.animateTo('));
-    expect(closingBody, isNot(contains('controller.jumpTo(')));
     expect(
-      finishBody,
-      isNot(contains('_visualScrollOffset = controller.offset')),
+      closingBody,
+      contains('controller.jumpTo(reachableVisualOffset);'),
       reason:
-          'The final paint-coordinate handoff must not snap back when the '
-          'message composer appears.',
+          'Before the temporary spacer collapses, commit the reachable visual '
+          'coordinate to the real ScrollPosition without changing its paint '
+          'position.',
+    );
+    expect(
+      closingBody.indexOf(
+        '_alignRealScrollToVisualOffsetBeforeTerminalClose();',
+      ),
+      lessThan(closingBody.indexOf('_closingStartInset =')),
+      reason: 'The real and visual coordinates must align before closing.',
+    );
+    expect(
+      closingBody,
+      contains('Only the frame built from the ordinary role card'),
+      reason: 'Do not derive the final target from the outgoing editor layout.',
+    );
+    expect(
+      closingBody,
+      contains('_terminalClosingFallbackStartVisualOffset'),
+      reason:
+          'A missing native IME callback must animate from the current visual '
+          'offset to the already resolved ordinary-layout target.',
     );
   });
 
