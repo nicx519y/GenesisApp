@@ -156,7 +156,7 @@ void main() {
     rolesCompleter.complete(const <OriginMyLaunchPresetCharacter>[]);
     await tester.pumpAndSettle();
 
-    expect(find.text('No launched world'), findsOneWidget);
+    expect(find.text('No playing World'), findsOneWidget);
     expect(find.byKey(const ValueKey('origin-role-preset-tab')), findsNothing);
   });
 

@@ -360,7 +360,7 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
 
   String get _launchValidationMessage {
     if (_tabIndex == 0) return 'Please select a preset role';
-    if (_tabIndex == 2) return 'Please select a launched World';
+    if (_tabIndex == 2) return 'Please select a playing World';
     if (_customForm.name.text.trim().isEmpty) return 'Please enter a name';
     if (_customForm.identity.text.trim().isEmpty) {
       return 'Please enter an identity';
@@ -534,7 +534,7 @@ class _RoleSegmentedControl extends StatelessWidget {
                 onTap: () => onChanged(1),
               ),
               _SegmentButton(
-                label: 'Launched',
+                label: 'Playing',
                 selected: index == 2,
                 onTap: () => onChanged(2),
               ),
@@ -737,7 +737,7 @@ class _LaunchedPresetRoleGrid extends StatelessWidget {
     if (roles.isEmpty) {
       return const Center(
         child: Text(
-          'No launched world',
+          'No playing World',
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,

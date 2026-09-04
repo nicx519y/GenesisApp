@@ -1172,7 +1172,7 @@ void main() {
       'request_join_world':
           'Open a World you haven’t joined, then request to join it.',
       'send_message': 'Send messages in your world.',
-      'progress_world': 'Open your launched World, then tap Progress.',
+      'progress_world': 'Open your playing World, then tap Tick Now.',
     };
     final walletStore = GemWalletStore(
       loadWallet: () async => const GemWallet(balanceCent: 43000),
@@ -1208,6 +1208,41 @@ void main() {
       expect(find.text(entry.value), findsOneWidget);
       await tester.pump(const Duration(seconds: 3));
     }
+  });
+
+  testWidgets('progress world task uses Tick Now copy', (tester) async {
+    final walletStore = GemWalletStore(
+      loadWallet: () async => const GemWallet(balanceCent: 43000),
+      readUid: () async => 'u_user',
+    );
+    addTearDown(walletStore.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemWalletPage(
+          walletStore: walletStore,
+          productsLoader: (_) async => const [],
+          tasksLoader: (_) async => [
+            _taskGroup(
+              _task(
+                taskCode: 'progress_world',
+                status: 'in_progress',
+                actionText: 'Go',
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Run a Tick'), findsOneWidget);
+    expect(
+      find.text('Open one of your playing Worlds and tap Tick Now.'),
+      findsOneWidget,
+    );
+    expect(find.text('Task title'), findsNothing);
+    expect(find.text('Task description'), findsNothing);
   });
 
   testWidgets('daily check-in reports once and refreshes task and wallet', (

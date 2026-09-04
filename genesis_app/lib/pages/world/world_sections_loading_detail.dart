@@ -505,7 +505,7 @@ class _WorldNewUserJoinNoticeText extends StatelessWidget {
                       text: notice.displayPlayerUsername,
                       style: emphasisStyle,
                     ),
-                    const TextSpan(text: ' launched as '),
+                    const TextSpan(text: ' playing as '),
                     TextSpan(
                       text: notice.displayCharacterName,
                       style: emphasisStyle,
