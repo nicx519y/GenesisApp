@@ -427,6 +427,36 @@ void main() {
     );
   });
 
+  test('origin role editor falls with the closing keyboard', () {
+    expect(
+      originRoleEditorClosingVisualOffsetForTesting(
+        startVisualOffset: 420,
+        targetVisualOffset: 160,
+        closingProgress: 0,
+      ),
+      420,
+    );
+    expect(
+      originRoleEditorClosingVisualOffsetForTesting(
+        startVisualOffset: 420,
+        targetVisualOffset: 160,
+        closingProgress: 0.5,
+      ),
+      290,
+    );
+    expect(
+      originRoleEditorClosingVisualOffsetForTesting(
+        startVisualOffset: 420,
+        targetVisualOffset: 160,
+        closingProgress: 1,
+      ),
+      160,
+      reason:
+          'The role card must move down by the full keyboard travel without '
+          'scrolling the sheet to its bottom.',
+    );
+  });
+
   test('origin role editor spacer closes with the keyboard', () {
     expect(
       originRoleEditorClosingSpacerExtentForTesting(
@@ -449,8 +479,8 @@ void main() {
       ),
       0,
       reason:
-          'The temporary role-editor extent must already be gone when the '
-          'keyboard reaches zero.',
+          'The spacer must remain at close start and reach zero together with '
+          'the keyboard.',
     );
 
     final metricsStart = originWorldSheetInteractionSource.indexOf(
@@ -498,7 +528,7 @@ void main() {
     );
   });
 
-  test('origin role editor finish neither animates nor jumps the sheet', () {
+  test('origin role editor finish does not jump after synchronized close', () {
     final finishStart = originWorldSheetInteractionSource.indexOf(
       'void _finishClosing()',
     );
@@ -524,8 +554,15 @@ void main() {
       closingStart,
       finishStart,
     );
-    expect(closingBody, isNot(contains('AnimationController')));
-    expect(closingBody, isNot(contains('.forward(')));
+    expect(closingBody, contains('controller.animateTo('));
+    expect(closingBody, isNot(contains('controller.jumpTo(')));
+    expect(
+      finishBody,
+      isNot(contains('_visualScrollOffset = controller.offset')),
+      reason:
+          'The final paint-coordinate handoff must not snap back when the '
+          'message composer appears.',
+    );
   });
 
   test('origin opening keyboard spacer only fills missing scroll extent', () {
