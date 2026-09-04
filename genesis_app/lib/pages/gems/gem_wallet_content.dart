@@ -196,7 +196,7 @@ class _JoinUsTaskRow extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    '+${formatGemCent(task.rewardGemsCent)}',
+                    '+${formatWholeGemCent(task.rewardGemsCent)}',
                     maxLines: 1,
                     style: const TextStyle(
                       fontSize: 14,
@@ -301,7 +301,7 @@ class _TaskRow extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Text(
-                      '+${formatGemCent(task.rewardGemsCent)}',
+                      '+${formatWholeGemCent(task.rewardGemsCent)}',
                       style: const TextStyle(
                         fontSize: 14,
                         height: 16 / 14,

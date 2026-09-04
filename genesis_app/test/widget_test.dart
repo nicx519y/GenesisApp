@@ -4247,6 +4247,18 @@ void main() {
     expect(deltaRequest.uri.queryParameters.containsKey('rn'), isFalse);
   });
 
+  test('private chat avatars use one stable 90px cache URL', () {
+    expect(
+      resolvePrivateChatAvatarUrl(
+        avatarUrl:
+            'https://cdn.example.com/avatar_1024.jpg?x-oss-process=image/format,webp',
+        devicePixelRatio: 3,
+      ),
+      'https://cdn.example.com/avatar_1024.jpg?x-oss-process='
+      'image/resize,w_90,image/format,webp',
+    );
+  });
+
   testWidgets('direct messages use shared absolute time labels', (
     WidgetTester tester,
   ) async {
@@ -8289,6 +8301,23 @@ void main() {
   testWidgets(
     'Origin composer stays visible when focus replaces collapsed role overlay',
     (WidgetTester tester) async {
+      MockStreamHandlerEventSink? keyboardEvents;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockStreamHandler(
+            const EventChannel(GenesisKeyboardAnimationEvents.channelName),
+            MockStreamHandler.inline(
+              onListen: (arguments, events) {
+                keyboardEvents = events;
+              },
+            ),
+          );
+      addTearDown(() {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockStreamHandler(
+              const EventChannel(GenesisKeyboardAnimationEvents.channelName),
+              null,
+            );
+      });
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(360, 780);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -8314,6 +8343,19 @@ void main() {
       final composer = find.byKey(
         const ValueKey<String>('origin-expanded-opening-composer'),
       );
+      final roleSectionFade = find.byKey(
+        const ValueKey<String>('origin-opening-role-section-visibility'),
+      );
+      final settledRoleSectionVisibility = find.byKey(
+        const ValueKey<String>(
+          'origin-opening-role-section-settled-visibility',
+        ),
+      );
+      expect(tester.widget<AnimatedOpacity>(roleSectionFade).opacity, 1);
+      expect(
+        tester.widget<AnimatedOpacity>(roleSectionFade).duration,
+        const Duration(milliseconds: 250),
+      );
       final editable = find.descendant(
         of: composer,
         matching: find.byType(EditableText),
@@ -8326,6 +8368,11 @@ void main() {
 
       await tester.pump();
       await tester.pump();
+      expect(
+        tester.widget<AnimatedOpacity>(roleSectionFade).opacity,
+        1,
+        reason: 'Focusing alone must not start hiding the role section.',
+      );
       expect(tester.widget<IgnorePointer>(roleVisibility).ignoring, isTrue);
       expect(
         tester.widget<IgnorePointer>(composerVisibility).ignoring,
@@ -8344,10 +8391,28 @@ void main() {
             'coordinate.',
       );
 
+      keyboardEvents!.success(const {
+        'generation': 1,
+        'phase': 'opening',
+        'startInset': 0,
+        'endInset': 300,
+        'durationMillis': 300,
+      });
+      await tester.pump();
+      expect(
+        tester.widget<AnimatedOpacity>(roleSectionFade).opacity,
+        0,
+        reason: 'The role section starts fading when the keyboard starts.',
+      );
+
       var previousTop = tester.getTopLeft(composer).dy;
-      for (final keyboardInset in <double>[0, 150, 300]) {
+      for (final (keyboardInset, elapsed) in <(double, Duration)>[
+        (0, Duration.zero),
+        (150, const Duration(milliseconds: 125)),
+        (300, const Duration(milliseconds: 125)),
+      ]) {
         tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
-        await tester.pump();
+        await tester.pump(elapsed);
         final currentTop = tester.getTopLeft(composer).dy;
         expect(
           (tester.widget<IgnorePointer>(composerVisibility).child! as Opacity)
@@ -8363,6 +8428,42 @@ void main() {
         );
         previousTop = currentTop;
       }
+      final fadeTransition = find
+          .descendant(
+            of: roleSectionFade,
+            matching: find.byType(FadeTransition),
+          )
+          .first;
+      expect(
+        tester.widget<FadeTransition>(fadeTransition).opacity.value,
+        0,
+        reason: 'The fade must finish when the keyboard reaches its target.',
+      );
+      for (
+        var frame = 0;
+        frame < 12 &&
+            tester.widget<Opacity>(settledRoleSectionVisibility).opacity != 0;
+        frame += 1
+      ) {
+        await tester.pump();
+      }
+      expect(
+        tester.widget<Opacity>(settledRoleSectionVisibility).opacity,
+        0,
+        reason: 'The settled keyboard state guarantees a fully hidden section.',
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 150);
+      await tester.pump();
+      final restoringRoleSection = tester.widget<AnimatedOpacity>(
+        roleSectionFade,
+      );
+      expect(restoringRoleSection.opacity, 1);
+      expect(restoringRoleSection.duration, const Duration(milliseconds: 250));
+      await tester.pump(const Duration(milliseconds: 125));
+      expect(
+        tester.widget<FadeTransition>(fadeTransition).opacity.value,
+        inExclusiveRange(0, 1),
+      );
     },
   );
 
@@ -10339,6 +10440,10 @@ void main() {
       final roleCardsFinder = find.byKey(
         const ValueKey<String>('origin-setup-role-cards'),
       );
+      final roleSectionVisibility = find.byKey(
+        const ValueKey<String>('origin-opening-role-section-visibility'),
+      );
+      expect(tester.widget<AnimatedOpacity>(roleSectionVisibility).opacity, 1);
       final roleCards = tester.widget<PageView>(roleCardsFinder);
       expect(roleCards.physics, isA<PageScrollPhysics>());
       final editor = find.byKey(
@@ -12899,6 +13004,7 @@ void main() {
       final warmedOpeningList = find.byKey(
         const PageStorageKey<String>('origin-detail-bottom-sheet-o_test_1'),
       );
+      final roleTitle = find.text('Select Your Role');
       expect(
         find.text('Composer docking line 3'),
         findsOneWidget,
@@ -13134,6 +13240,7 @@ void main() {
       );
       final composerBottomLimit = tester.getBottomLeft(surface).dy;
       var previousComposerBottom = tester.getBottomLeft(composer).dy;
+      double? roleTitleTopAtKeyboardClosed;
       for (final keyboardInset in <double>[150, 0]) {
         tester.view.viewInsets = FakeViewPadding(bottom: keyboardInset);
         await tester.pump();
@@ -13150,12 +13257,23 @@ void main() {
               'The keyboard composer must not sink below its final flow bound.',
         );
         previousComposerBottom = composerBottom;
+        if (keyboardInset == 0) {
+          roleTitleTopAtKeyboardClosed = tester.getTopLeft(roleTitle).dy;
+        }
       }
+      expect(roleTitleTopAtKeyboardClosed, isNotNull);
       for (var frame = 0; frame < 12; frame += 1) {
         await tester.pump();
         expect(
           tester.getBottomLeft(composer).dy,
           lessThanOrEqualTo(composerBottomLimit + 1),
+        );
+        expect(
+          tester.getTopLeft(roleTitle).dy,
+          closeTo(roleTitleTopAtKeyboardClosed!, 1),
+          reason:
+              'Restoring the normal scroll extent must not move the visible '
+              'role section after the keyboard reaches zero.',
         );
       }
       expect(
@@ -24330,6 +24448,27 @@ void main() {
     );
   });
 
+  testWidgets('developer button tab omits obsolete wait previews', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(),
+          child: const DeveloperPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('button'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Creating'), findsOneWidget);
+    expect(find.text('Launching'), findsNothing);
+    expect(find.text('Progressing'), findsNothing);
+  });
+
   test('developer page hides diagnostic tabs outside debug builds', () {
     expect(developerPageTabsForBuild(isDebugBuild: false), const <String>[
       'basic',
@@ -28327,15 +28466,27 @@ void main() {
       find.byKey(const ValueKey('world-tick1-wait-dialog')),
       findsOneWidget,
     );
-    expect(find.textContaining('Progressing the World'), findsOneWidget);
+    final waitDialog = tester.widget<AlertDialog>(
+      find.byKey(const ValueKey('world-tick1-wait-dialog')),
+    );
+    expect(waitDialog.backgroundColor, const Color(0xCC1F1D24));
+    expect(waitDialog.surfaceTintColor, Colors.transparent);
+    final waitTitle = find.textContaining('Progressing the World');
+    expect(waitTitle, findsOneWidget);
     expect(
-      find.text(
-        'Compressing recent memories\n'
-        'Advancing the world timeline\n'
-        'Generating the next story beat\n'
-        'Updating character locations',
-      ),
-      findsOneWidget,
+      tester.widget<Text>(waitTitle).style?.color,
+      const Color(0xF2FFFFFF),
+    );
+    final waitMessage = find.text(
+      'Compressing recent memories\n'
+      'Advancing the world timeline\n'
+      'Generating the next story beat\n'
+      'Updating character locations',
+    );
+    expect(waitMessage, findsOneWidget);
+    expect(
+      tester.widget<Text>(waitMessage).style?.color,
+      const Color(0xB8FFFFFF),
     );
     expect(
       find.image(const AssetImage('assets/images/default_list_image.png')),

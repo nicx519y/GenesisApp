@@ -16,6 +16,14 @@ String formatGemCent(int value) {
   return '$sign$groupedWhole.$fraction';
 }
 
+String formatWholeGemCent(int value) {
+  final negative = value < 0;
+  final absolute = value.abs();
+  final roundedWhole = (absolute + gemCentPerGem ~/ 2) ~/ gemCentPerGem;
+  final sign = negative && roundedWhole != 0 ? '-' : '';
+  return '$sign${_formatGroupedInteger(roundedWhole)}';
+}
+
 String _formatGroupedInteger(int value) {
   final text = value.toString();
   final buffer = StringBuffer();

@@ -1,7 +1,18 @@
 import 'package:flutter/material.dart';
 
 class PageNotFoundPage extends StatelessWidget {
-  const PageNotFoundPage({super.key});
+  const PageNotFoundPage({super.key, this.fallbackRouteName = '/home'});
+
+  final String fallbackRouteName;
+
+  void _handleBack(BuildContext context) {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
+      return;
+    }
+    navigator.pushReplacementNamed(fallbackRouteName);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,7 +36,7 @@ class PageNotFoundPage extends StatelessWidget {
                 color: Colors.black,
                 size: 17,
               ),
-              onPressed: () => Navigator.of(context).maybePop(),
+              onPressed: () => _handleBack(context),
             ),
           ),
         ),

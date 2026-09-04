@@ -41,7 +41,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Check in successful!'), findsOneWidget);
-      expect(find.text('+50.0'), findsOneWidget);
+      expect(find.text('+50'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 2999));
       expect(find.text('Check in successful!'), findsOneWidget);
@@ -134,7 +134,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Claim successful!'), findsOneWidget);
-    expect(find.text('+120.0'), findsOneWidget);
+    expect(find.text('+120'), findsOneWidget);
     await tester.pump(const Duration(seconds: 3));
   });
 }

@@ -60,6 +60,7 @@ Future<void> showGemTaskSuccessDialog(
   required String title,
   required int rewardGemsCent,
   Duration duration = dailyCheckInSuccessDuration,
+  bool showWholeReward = true,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
   final timer = Timer(duration, () {
@@ -69,7 +70,10 @@ Future<void> showGemTaskSuccessDialog(
     await showGenesisActionBox<void>(
       context: context,
       title: title,
-      titleContent: _GemTaskReward(rewardGemsCent: rewardGemsCent),
+      titleContent: _GemTaskReward(
+        rewardGemsCent: rewardGemsCent,
+        showWholeReward: showWholeReward,
+      ),
       titleContentSpacing: 10,
       actions: const [],
       showCancel: false,
@@ -80,17 +84,24 @@ Future<void> showGemTaskSuccessDialog(
 }
 
 class _GemTaskReward extends StatelessWidget {
-  const _GemTaskReward({required this.rewardGemsCent});
+  const _GemTaskReward({
+    required this.rewardGemsCent,
+    this.showWholeReward = false,
+  });
 
   final int rewardGemsCent;
+  final bool showWholeReward;
 
   @override
   Widget build(BuildContext context) {
+    final rewardText = showWholeReward
+        ? formatWholeGemCent(rewardGemsCent)
+        : formatGemCent(rewardGemsCent);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          '+${formatGemCent(rewardGemsCent)}',
+          '+$rewardText',
           key: const ValueKey<String>('gem-task-reward-value'),
           style: const TextStyle(
             color: Color(0xFF111111),

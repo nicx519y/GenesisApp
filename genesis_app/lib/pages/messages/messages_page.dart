@@ -20,6 +20,22 @@ import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import 'message_category_list_page.dart';
 
+@visibleForTesting
+String resolvePrivateChatAvatarUrl({
+  required String avatarUrl,
+  required double devicePixelRatio,
+  double logicalSize = 48,
+}) {
+  final source = avatarUrl.trim();
+  if (source.isEmpty) return '';
+  final resized = resizeGenesisImageUrl(
+    source,
+    logicalWidth: logicalSize,
+    devicePixelRatio: devicePixelRatio,
+  );
+  return resized.isEmpty ? source : resized;
+}
+
 class MessagesPage extends StatefulWidget {
   const MessagesPage({
     super.key,
@@ -539,6 +555,11 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final resolvedAvatarUrl = resolvePrivateChatAvatarUrl(
+      avatarUrl: avatarUrl,
+      devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+      logicalSize: size,
+    );
     return SizedBox(
       width: size,
       height: size,
@@ -547,7 +568,7 @@ class _Avatar extends StatelessWidget {
         children: [
           GenesisAvatar(
             key: avatarKey,
-            url: avatarUrl,
+            url: resolvedAvatarUrl,
             name: title,
             size: size,
             borderRadius: borderRadius,

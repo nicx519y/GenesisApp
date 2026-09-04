@@ -34,7 +34,7 @@ void main() {
         'created_at': '2998-01-01T00:00:00Z',
         'last_active_at': '3000-01-01T00:00:00Z',
       },
-      'stats': {'connect_cnt': 4},
+      'stats': {'connect_cnt': 4, 'player_cnt': 3},
       'last_tick': {
         'tick_no': 3,
         'sub_tick_no': 2,
@@ -64,6 +64,7 @@ void main() {
     expect(find.text('2998-1-1'), findsNothing);
     expect(find.text('Tick 3-2 · 4 Messages'), findsOneWidget);
     expect(find.text('Self Hero'), findsOneWidget);
+    expect(find.text('· 2 other Players'), findsOneWidget);
     expect(
       tester
           .widget<Text>(
@@ -131,6 +132,42 @@ void main() {
     expect(timeRect.top, moreOrLessEquals(tickRect.top));
     expect(narratorRect.top, greaterThan(tickRect.top));
     expect(characterRect.top, greaterThan(narratorRect.top));
+  });
+
+  testWidgets('uses singular other Player and hides zero other players', (
+    WidgetTester tester,
+  ) async {
+    Map<String, dynamic> worldJson(int playerCount) => <String, dynamic>{
+      'info': {
+        'world_id': 'w_players',
+        'world_name': 'Player World',
+        'created_at': '2998-01-01T00:00:00Z',
+      },
+      'stats': {'player_cnt': playerCount},
+      'my_character': {'char_id': 'c_self', 'name': 'Self Hero', 'avatar': ''},
+    };
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorldItemCard(item: WorldListItem.fromJson(worldJson(2))),
+        ),
+      ),
+    );
+    expect(find.text('· 1 other Player'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: WorldItemCard(item: WorldListItem.fromJson(worldJson(1))),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('world-card-other-players')),
+      findsNothing,
+    );
   });
 
   testWidgets('uses last_active_at instead of last tick time', (

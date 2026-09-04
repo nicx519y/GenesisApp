@@ -112,6 +112,37 @@ void main() {
     expect(find.text('Open missing page'), findsOneWidget);
   });
 
+  testWidgets('page not found back button returns home without history', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        initialRoute: RouteNames.pageNotFound,
+        onGenerateRoute: (settings) {
+          if (settings.name == RouteNames.home) {
+            return MaterialPageRoute<void>(
+              settings: settings,
+              builder: (_) => const Scaffold(body: Text('Home fallback')),
+            );
+          }
+          return AppRouter.onGenerateRoute(settings);
+        },
+        onGenerateInitialRoutes: (_) => [
+          AppRouter.onGenerateRoute(
+            const RouteSettings(name: RouteNames.pageNotFound),
+          ),
+        ],
+      ),
+    );
+
+    expect(find.text('Page not found.'), findsOneWidget);
+    await tester.tap(find.byTooltip('Back'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Page not found.'), findsNothing);
+    expect(find.text('Home fallback'), findsOneWidget);
+  });
+
   testWidgets('unknown route falls back to page not found', (
     WidgetTester tester,
   ) async {
