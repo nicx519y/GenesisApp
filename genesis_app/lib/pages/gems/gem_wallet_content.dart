@@ -1,5 +1,15 @@
 part of 'gem_wallet_page.dart';
 
+String _gemTaskTitle(GemTask task) {
+  return task.taskCode.trim() == 'progress_world' ? 'Run a Tick' : task.title;
+}
+
+String _gemTaskDescription(GemTask task) {
+  return task.taskCode.trim() == 'progress_world'
+      ? 'Open one of your playing Worlds and tap Tick Now.'
+      : task.description;
+}
+
 class _GemWalletContent extends StatelessWidget {
   const _GemWalletContent({
     required this.products,
@@ -177,7 +187,7 @@ class _JoinUsTaskRow extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                task.title,
+                _gemTaskTitle(task),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -267,7 +277,7 @@ class _TaskRow extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  task.title,
+                  _gemTaskTitle(task),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -279,7 +289,7 @@ class _TaskRow extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  task.description,
+                  _gemTaskDescription(task),
                   style: const TextStyle(
                     fontSize: 12,
                     height: 14 / 12,

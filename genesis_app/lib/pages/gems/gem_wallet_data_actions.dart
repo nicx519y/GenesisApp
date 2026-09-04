@@ -150,7 +150,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
       case 'progress_world':
         showGenesisToast(
           context,
-          'Open your launched World, then tap Progress.',
+          'Open your playing World, then tap Tick Now.',
         );
         return;
       case 'daily_checkin':
