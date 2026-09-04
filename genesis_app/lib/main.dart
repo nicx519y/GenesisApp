@@ -73,7 +73,7 @@ Future<void> main() async {
   );
   final services = AppBootstrap.createInitialServices(config: appConfig);
   final initialLandingPageFuture = resolveInitialLandingPage(
-    loadSession: services.sessionStore.readCompleteSession,
+    loadUid: services.sessionStore.readLoginUid,
   );
   await Future.wait<Object?>(<Future<Object?>>[
     tilemapSettingsLoad,

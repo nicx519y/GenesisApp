@@ -15,12 +15,20 @@ abstract interface class UserSessionStore {
 }
 
 extension UserSessionStoreAuthentication on UserSessionStore {
-  /// Reads the local session using the single definition of an authenticated
-  /// account used throughout the app.
+  /// Reads the UID that defines the app's local login state.
   ///
-  /// Storage failures are allowed to propagate and never clear the account.
-  /// Only a successfully read partial or legacy guest session is cleaned up;
-  /// an already signed-out store is left untouched.
+  /// A missing backend token does not sign the user out. Token restoration is
+  /// handled separately by the backend authentication flow.
+  Future<String?> readLoginUid() async {
+    final uid = (await readUid())?.trim() ?? '';
+    if (uid.isEmpty || uid.startsWith('guest_')) return null;
+    return uid;
+  }
+
+  /// Reads the credentials required by requests that need backend auth.
+  ///
+  /// Partial state is preserved so a missing token can be restored without
+  /// destroying the UID-backed local login state.
   Future<CompleteUserSession?> readCompleteSession() async {
     final values = await Future.wait<String?>([readUid(), readAuthToken()]);
     final uid = values[0]?.trim() ?? '';
@@ -28,7 +36,6 @@ extension UserSessionStoreAuthentication on UserSessionStore {
     if (uid.isNotEmpty && !uid.startsWith('guest_') && authToken.isNotEmpty) {
       return (uid: uid, authToken: authToken);
     }
-    if (uid.isNotEmpty || authToken.isNotEmpty) await clearUid();
     return null;
   }
 }

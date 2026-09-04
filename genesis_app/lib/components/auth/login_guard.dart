@@ -25,7 +25,7 @@ Future<bool> ensureGenesisLogin(BuildContext context) async {
 
 Future<bool> hasGenesisLoginSession(BuildContext context) async {
   final services = AppServicesScope.read(context);
-  return await services.sessionStore.readCompleteSession() != null;
+  return await services.sessionStore.readLoginUid() != null;
 }
 
 Future<bool> _loginWithProvider(

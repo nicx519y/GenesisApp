@@ -9,7 +9,7 @@ void main() {
       String? worldoOwnerUid;
 
       final decision = await resolveInitialLandingPage(
-        loadSession: () async => null,
+        loadUid: () async => null,
         loadHomeCache: (_) async => throw StateError('must not load Home'),
         loadWorldoCache: (ownerUid) async {
           worldoOwnerUid = ownerUid;
@@ -26,7 +26,7 @@ void main() {
 
   test('signed-out launch reports Worldo cache miss', () async {
     final decision = await resolveInitialLandingPage(
-      loadSession: () async => null,
+      loadUid: () async => null,
       loadHomeCache: (_) async => null,
       loadWorldoCache: (_) async => null,
     );
@@ -38,7 +38,7 @@ void main() {
 
   test('signed-in launch with My Worlds content opens Home', () async {
     final decision = await resolveInitialLandingPage(
-      loadSession: () async => (uid: 'u_1', authToken: 'token'),
+      loadUid: () async => 'u_1',
       loadHomeCache: (ownerUid) async {
         expect(ownerUid, 'u_1');
         return <String, dynamic>{
@@ -55,7 +55,7 @@ void main() {
 
   test('signed-in launch accepts positive string Home total', () async {
     final decision = await resolveInitialLandingPage(
-      loadSession: () async => (uid: 'u_1', authToken: 'token'),
+      loadUid: () async => 'u_1',
       loadHomeCache: (_) async => <String, dynamic>{
         'list': <Object>[],
         'total': '2',
@@ -71,7 +71,7 @@ void main() {
     'signed-in launch falls back to cached Worldo when Home is empty',
     () async {
       final decision = await resolveInitialLandingPage(
-        loadSession: () async => (uid: 'u_1', authToken: 'token'),
+        loadUid: () async => 'u_1',
         loadHomeCache: (_) async => <String, dynamic>{
           'list': <Object>[],
           'total': 0,
@@ -90,7 +90,7 @@ void main() {
 
   test('signed-in launch reports all caches missing', () async {
     final decision = await resolveInitialLandingPage(
-      loadSession: () async => (uid: 'u_1', authToken: 'token'),
+      loadUid: () async => 'u_1',
       loadHomeCache: (_) async => null,
       loadWorldoCache: (_) async => null,
     );
@@ -104,7 +104,7 @@ void main() {
     var cacheLoads = 0;
 
     final decision = await resolveInitialLandingPage(
-      loadSession: () async => throw StateError('session unavailable'),
+      loadUid: () async => throw StateError('session unavailable'),
       loadHomeCache: (_) async {
         cacheLoads += 1;
         return null;
@@ -123,7 +123,7 @@ void main() {
 
   test('cache timeout is treated as a cache miss', () async {
     final decision = await resolveInitialLandingPage(
-      loadSession: () async => (uid: 'u_1', authToken: 'token'),
+      loadUid: () async => 'u_1',
       loadHomeCache: (_) => Future<Map<String, dynamic>?>.delayed(
         const Duration(milliseconds: 20),
         () => <String, dynamic>{'total': 1},

@@ -301,10 +301,9 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     final generation = ++_cachedProfileRoleLoadGeneration;
     try {
       final services = AppServicesScope.read(context);
-      final session = await services.sessionStore.readCompleteSession();
+      final uid = await services.sessionStore.readLoginUid();
       OriginCustomRoleDraft? nextRole;
-      if (session != null) {
-        final uid = session.uid;
+      if (uid != null) {
         final userInfo = await services.sessionStore.readUserInfo();
         final cachedName = userInfo == null
             ? ''
@@ -789,11 +788,10 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     if (originId.isEmpty) return const <OriginMyLaunchPresetCharacter>[];
     try {
       final services = AppServicesScope.read(context);
-      final session = await services.sessionStore.readCompleteSession();
-      if (!mounted || widget.oid.trim() != originId || session == null) {
+      final uid = await services.sessionStore.readLoginUid();
+      if (!mounted || widget.oid.trim() != originId || uid == null) {
         return const <OriginMyLaunchPresetCharacter>[];
       }
-      final uid = session.uid;
 
       final cacheKey = '$originId::$uid';
       final cachedFuture = _launchedPresetRolesFuture;
@@ -936,7 +934,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
-    return await services.sessionStore.readCompleteSession() != null;
+    return await services.sessionStore.readLoginUid() != null;
   }
 
   Future<bool> _loginWithProvider(IdentityProvider provider) async {
