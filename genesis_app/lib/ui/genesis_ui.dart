@@ -1,3 +1,4 @@
+export 'components/genesis_delete_button.dart';
 export 'components/genesis_avatar.dart';
 export 'components/genesis_asterisk_icon.dart';
 export 'components/genesis_bottom_navigation.dart';

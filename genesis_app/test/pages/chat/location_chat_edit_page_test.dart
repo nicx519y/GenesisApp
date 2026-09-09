@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_delete_button.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
@@ -229,25 +231,23 @@ void main() {
                   )
                   .decoration!
               as BoxDecoration;
+      expect(deleteDecoration.color, GenesisColors.darkFaintSurface);
       expect(
-        deleteDecoration.color,
-        kLocationChatStyle.composerSendButtonDisabledColor,
+        deleteDecoration.border,
+        Border.all(color: GenesisColors.darkFaintFill),
       );
+      expect(deleteDecoration.borderRadius, BorderRadius.circular(6));
+      final deleteButton = find.ancestor(
+        of: find.byKey(const ValueKey('location-chat-edit-delete-reply')),
+        matching: find.byType(GenesisDeleteButton),
+      );
+      expect(deleteButton, findsOneWidget);
       expect(
-        deleteDecoration.borderRadius,
-        BorderRadius.circular(
-          kLocationChatStyle.composerSendButtonBorderRadius,
+        find.descendant(
+          of: deleteButton,
+          matching: find.byType(BackdropFilter),
         ),
-      );
-      final deleteSurface = tester.widget<ChatStableBackdropSurface>(
-        find.ancestor(
-          of: find.byKey(const ValueKey('location-chat-edit-delete-reply')),
-          matching: find.byType(ChatStableBackdropSurface),
-        ),
-      );
-      expect(
-        deleteSurface.sigma,
-        kLocationChatStyle.composerSendButtonBackdropBlurSigma,
+        findsNothing,
       );
       expect(
         find.byKey(const ValueKey('location-chat-background-overlay')),

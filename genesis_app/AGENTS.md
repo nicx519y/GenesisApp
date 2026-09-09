@@ -178,6 +178,11 @@ HTTP 映射层的图片规则：
 
 新增或修改深色界面时，优先复用语义 token；没有对应 token 时也必须使用上述精确值，不要创建肉眼接近的黑色底或白色文字透明度。纯白 `#FFFFFF` 不作为深色内容区的常规文字颜色，除非设计明确要求更高强调层级。
 
+## 深色删除按钮
+
+- 深色图片预览及编辑卡片的独立删除按钮复用 `GenesisDeleteButton`（`lib/ui/components/genesis_delete_button.dart`）。Edit Message 已接入；浅色表单仍使用原组件。
+- 默认按钮 24×24、图标 14px、圆角 6px；底色 `GenesisColors.darkFaintSurface`（`#313133` 不透明），1px 描边 `darkFaintFill`，图标 `darkTextPrimary`。无背景模糊；禁用时整体45%不透明度且不执行删除。位置和确认流程由调用方负责。
+
 ## 共享组件边界
 
 - 通用底部弹层：`GenesisBottomSheetPanel`

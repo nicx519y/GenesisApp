@@ -327,34 +327,15 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
                                   Positioned(
                                     right: _messages[index].isImage ? 4 : 0,
                                     top: _messages[index].isImage ? 12 : 0,
-                                    child: BackdropGroup(
-                                      child: ChatStableBackdropSurface(
-                                        sigma: style
-                                            .composerSendButtonBackdropBlurSigma,
-                                        borderRadius: BorderRadius.circular(
-                                          style.composerSendButtonBorderRadius,
-                                        ),
-                                        child: CreateFormDeleteButton(
-                                          backgroundColor: style
-                                              .composerSendButtonDisabledColor,
-                                          iconColor:
-                                              style.bubbleTextStyle.color ??
-                                              const Color(0xFFF4F3F6),
-                                          borderSide: BorderSide.none,
-                                          borderRadius: BorderRadius.circular(
-                                            style
-                                                .composerSendButtonBorderRadius,
-                                          ),
-                                          buttonKey: ValueKey(
-                                            'location-chat-edit-delete-${_messages[index].localId}',
-                                          ),
-                                          decorationKey: ValueKey(
-                                            'location-chat-edit-delete-decoration-${_messages[index].localId}',
-                                          ),
-                                          onPressed: () => _deleteMessage(
-                                            _messages[index].localId,
-                                          ),
-                                        ),
+                                    child: GenesisDeleteButton(
+                                      buttonKey: ValueKey(
+                                        'location-chat-edit-delete-${_messages[index].localId}',
+                                      ),
+                                      decorationKey: ValueKey(
+                                        'location-chat-edit-delete-decoration-${_messages[index].localId}',
+                                      ),
+                                      onPressed: () => _deleteMessage(
+                                        _messages[index].localId,
                                       ),
                                     ),
                                   ),

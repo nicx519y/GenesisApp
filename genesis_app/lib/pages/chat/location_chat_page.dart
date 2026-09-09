@@ -46,7 +46,7 @@ import '../../ui/components/genesis_tab_bar.dart';
 import '../../utils/display_name_formatter.dart';
 import '../../utils/genesis_image_resource.dart';
 import '../../utils/genesis_ugc_text.dart';
-import '../create/create_form_widgets.dart' show CreateFormDeleteButton;
+import '../../ui/components/genesis_delete_button.dart';
 import 'location_chat_scroll_coordinator.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
 import '../world/world_constants.dart' show worldCharacterAvatarLogicalSize;
