@@ -10,6 +10,7 @@ class TilemapRenderer extends StatefulWidget {
     super.key,
     required this.config,
     this.initialTransform,
+    this.initialContentBounds,
     this.onTransformChanged,
     this.onTileAction,
     this.locationNameForTile,
@@ -48,6 +49,7 @@ class TilemapRenderer extends StatefulWidget {
 
   final TilemapConfig config;
   final Matrix4? initialTransform;
+  final Rect? initialContentBounds;
   final ValueChanged<Matrix4>? onTransformChanged;
   final TilemapTileActionHandler? onTileAction;
   final TilemapLocationNameResolver? locationNameForTile;
@@ -271,9 +273,11 @@ class _TilemapRendererState extends State<TilemapRenderer>
           final renderIndex = _ensureRenderIndex(projection);
           final viewportSize = Size(viewportWidth, viewportHeight);
           final mapSize = Size(projection.mapWidth, projection.mapHeight);
-          final contentBounds = projection.imageBoundsForTiles(
-            tilemapInitialContentTiles(widget.config.tiles),
-          );
+          final contentBounds =
+              widget.initialContentBounds ??
+              projection.imageBoundsForTiles(
+                tilemapInitialContentTiles(widget.config.tiles),
+              );
           final initialFocusTile = tilemapInitialFocusLocationTile(
             tiles: widget.config.tiles,
             locationAvatarsForTile: widget.locationAvatarsForTile,

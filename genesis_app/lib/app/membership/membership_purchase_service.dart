@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
+import '../telemetry/firebase_analytics_monitoring.dart';
 import '../../network/models/membership_product.dart';
 import '../../network/models/membership_purchase.dart';
 import '../../network/models/membership_claim.dart';
@@ -525,6 +526,15 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       return;
     }
     if (!sameAccount(record)) return;
+    if (purchase.status == BillingPurchaseStatus.purchased) {
+      unawaited(
+        FirebaseAnalyticsMonitoring.recordPurchase(
+          provider: provider.name,
+          productId: purchase.productId,
+          kind: FirebaseAnalyticsPurchaseKind.subscription,
+        ),
+      );
+    }
     // Only this order's callback ends its store deadline. Reporting has its own
     // HTTP timeout; keep the wait registered so session/stream resets close UI.
     final wait = _checkoutWaits[record.requestId];

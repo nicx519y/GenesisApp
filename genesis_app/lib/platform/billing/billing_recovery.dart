@@ -214,6 +214,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         FirebaseAnalyticsMonitoring.recordPurchase(
           provider: purchase.provider.apiValue,
           productId: purchase.productId,
+          kind: FirebaseAnalyticsPurchaseKind.gems,
         ),
       );
     }

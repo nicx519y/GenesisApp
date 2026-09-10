@@ -12,6 +12,7 @@ class TilemapImageLoadPlan {
     required TilemapConfig config,
     required double displayTilePixelSize,
     Size? viewportSize,
+    Rect? initialContentBounds,
     double initialScale = tilemapDefaultInitialScale,
     double dragBoundaryPaddingTiles = tilemapDefaultDragBoundaryPaddingTiles,
     TilemapLocationAvatarsResolver? locationAvatarsForTile,
@@ -52,9 +53,11 @@ class TilemapImageLoadPlan {
       mapHeight: config.height,
     );
     final mapSize = Size(projection.mapWidth, projection.mapHeight);
-    final contentBounds = projection.imageBoundsForTiles(
-      tilemapInitialContentTiles(config.tiles),
-    );
+    final contentBounds =
+        initialContentBounds ??
+        projection.imageBoundsForTiles(
+          tilemapInitialContentTiles(config.tiles),
+        );
     final initialFocusTile = tilemapInitialFocusLocationTile(
       tiles: config.tiles,
       locationAvatarsForTile: locationAvatarsForTile,

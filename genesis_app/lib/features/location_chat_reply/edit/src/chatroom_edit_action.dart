@@ -163,6 +163,12 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       operations: operations,
     );
     if (_disposed) return;
+    await _applyCommittedFormalEdit?.call(
+      target.locationId,
+      target.roundId,
+      operations,
+    );
+    if (_disposed) return;
     final byId = {
       for (final operation in operations) operation.globalMessageId: operation,
     };

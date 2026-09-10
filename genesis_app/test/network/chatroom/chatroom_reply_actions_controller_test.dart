@@ -258,6 +258,12 @@ class _Harness {
     Duration regenerationStreamEndTimeout = const Duration(seconds: 120),
     Duration goOnStreamStartTimeout = const Duration(seconds: 30),
     Duration goOnStreamEndTimeout = const Duration(seconds: 120),
+    Future<void> Function(
+      String locationId,
+      int roundId,
+      List<ChatroomLlmMessageOperation> operations,
+    )?
+    applyCommittedFormalEdit,
   }) {
     controller = ChatroomReplyActionsController(
       worldId: 'w',
@@ -269,6 +275,7 @@ class _Harness {
       refreshFormalRange: (location, start, end) async {
         api.calls.add('refresh:$start');
       },
+      applyCommittedFormalEdit: applyCommittedFormalEdit,
       refreshWallet: () async {
         walletRefreshes++;
       },
@@ -1228,6 +1235,34 @@ void main() {
       barrier.complete();
       await Future.wait([firstSave, secondSave]);
       expect(h.api.calls.where((call) => call.startsWith('refresh:')), isEmpty);
+    },
+  );
+
+  test(
+    'isolated formal edit applies committed operations after server success',
+    () async {
+      final commits = <List<ChatroomLlmMessageOperation>>[];
+      final h = _Harness(
+        applyCommittedFormalEdit: (location, round, operations) async {
+          expect(location, 'l');
+          expect(round, _round);
+          commits.add(List.of(operations));
+        },
+      );
+      addTearDown(h.controller.dispose);
+      final target = await h.prepareEditor();
+      const operations = [
+        ChatroomLlmMessageOperation.edit(
+          globalMessageId: _messageId,
+          content: 'Optimistic edit',
+        ),
+      ];
+
+      await h.controller.submitEdit(target, operations);
+
+      expect(commits, hasLength(1));
+      expect(commits.single.single.content, 'Optimistic edit');
+      expect(h.state.formalReplyMessages.single.content, 'Optimistic edit');
     },
   );
 

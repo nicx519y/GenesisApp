@@ -43,13 +43,11 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
         operations: operations,
       );
       if (sameSession()) {
-        _deletedMessageIds
-            .putIfAbsent(locationId, () => <int>{})
-            .addAll(
-              operations
-                  .where((op) => op.action == ChatroomLlmMessageAction.delete)
-                  .map((op) => op.globalMessageId),
-            );
+        await _applyCommittedFormalEdit(
+          locationId: locationId,
+          conversationRoundId: conversationRoundId,
+          operations: operations,
+        );
         _backgroundHistoryRefresh(
           _requestHistoryReplacement(
             locationId: locationId,
@@ -73,6 +71,119 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
       rethrow;
     } finally {
       _pendingMessageMutationKeys.remove(key);
+    }
+  }
+
+  Future<void> _applyCommittedFormalEdit({
+    required String locationId,
+    required int conversationRoundId,
+    required List<ChatroomLlmMessageOperation> operations,
+  }) async {
+    final location = locationId.trim();
+    if (_disposed ||
+        location.isEmpty ||
+        conversationRoundId <= 0 ||
+        operations.isEmpty) {
+      return;
+    }
+    final ticket = _historyTicket(location);
+    bool current() => _historyIsCurrent(location, ticket);
+    if (!current()) return;
+
+    final byId = {
+      for (final operation in operations) operation.globalMessageId: operation,
+    };
+    _deletedMessageIds
+        .putIfAbsent(location, () => <int>{})
+        .addAll(
+          operations
+              .where(
+                (operation) =>
+                    operation.action == ChatroomLlmMessageAction.delete,
+              )
+              .map((operation) => operation.globalMessageId),
+        );
+
+    List<WorldChatroomMessage> apply(List<WorldChatroomMessage> messages) {
+      final next = <WorldChatroomMessage>[];
+      for (final message in messages) {
+        final operation =
+            message.locationId == location &&
+                message.conversationRoundNumber == conversationRoundId
+            ? byId[message.globalMessageId]
+            : null;
+        if (operation?.action == ChatroomLlmMessageAction.delete) continue;
+        if (operation?.action == ChatroomLlmMessageAction.edit) {
+          next.add(
+            message.copyWith(
+              content: operation!.content!,
+              rawPayload: {
+                ...message.rawPayload,
+                'content': operation.content!,
+              },
+            ),
+          );
+        } else {
+          next.add(message);
+        }
+      }
+      next.sort(_compareMessages);
+      return List<WorldChatroomMessage>.unmodifiable(next);
+    }
+
+    final locationMessages = apply(
+      _state.messagesByLocation[location] ?? const <WorldChatroomMessage>[],
+    );
+    final streams =
+        <String, WorldChatroomMessage>{..._state.streamMessagesByKey}
+          ..removeWhere(
+            (_, message) =>
+                message.locationId == location &&
+                message.conversationRoundNumber == conversationRoundId &&
+                byId.containsKey(message.globalMessageId),
+          );
+    _setState(
+      _state.copyWith(
+        worldMessages: apply(_state.worldMessages),
+        messagesByLocation: {
+          ..._state.messagesByLocation,
+          location: locationMessages,
+        },
+        streamMessagesByKey: streams,
+      ),
+    );
+
+    try {
+      await _withLocationWrite(location, () async {
+        if (!current() || ticket.owner.isEmpty) return;
+        await _messageStorage.replaceMessages(
+          ownerUid: ticket.owner,
+          worldId: ticket.world,
+          locationId: location,
+          messages: locationMessages
+              .where(
+                (message) =>
+                    message.conversationRoundNumber == conversationRoundId,
+              )
+              .map(_storageJsonFromWorldMessage)
+              .toList(growable: false),
+          startConversationRoundId: conversationRoundId,
+          endConversationRoundId: conversationRoundId,
+          maxMessagesPerLocation: _maxMessagesPerLocation,
+          isCurrent: current,
+        );
+      });
+    } catch (error) {
+      if (current()) {
+        _recordFailure(
+          ChatroomFailureEvent(
+            code: 'message_cache_failed',
+            message: 'Failed to cache edited messages',
+            sourceType: 'llm_messages_batch',
+            cause: error,
+          ),
+        );
+      }
     }
   }
 

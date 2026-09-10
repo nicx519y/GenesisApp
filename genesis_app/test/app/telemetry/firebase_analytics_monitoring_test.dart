@@ -30,82 +30,134 @@ void main() {
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
-  test(
-    'records the five base and first events with exact parameters',
-    () async {
-      await FirebaseAnalyticsMonitoring.recordLaunch(
-        originId: 'origin-1',
-        roleType: 'preset',
-      );
-      await FirebaseAnalyticsMonitoring.recordLaunchSuccess(
-        originId: 'origin-2',
-        roleType: 'custom',
-        worldId: 'world-2',
-      );
-      await FirebaseAnalyticsMonitoring.recordMessageSent(
-        worldId: 'world-3',
-        locationId: 'location-3',
-      );
-      await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
-      await FirebaseAnalyticsMonitoring.recordPurchase(
-        provider: 'google',
-        productId: 'worldo_gems_500',
-      );
+  test('records base and first events with exact parameters', () async {
+    await FirebaseAnalyticsMonitoring.recordLaunch(
+      originId: 'origin-1',
+      roleType: 'preset',
+    );
+    await FirebaseAnalyticsMonitoring.recordLaunchSuccess(
+      originId: 'origin-2',
+      roleType: 'custom',
+      worldId: 'world-2',
+    );
+    await FirebaseAnalyticsMonitoring.recordMessageSent(
+      worldId: 'world-3',
+      locationId: 'location-3',
+    );
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'google',
+      productId: 'worldo_gems_500',
+      kind: FirebaseAnalyticsPurchaseKind.gems,
+    );
 
-      expect(client.events, <_RecordedEvent>[
-        const _RecordedEvent('launch', <String, Object>{
-          'origin_id': 'origin-1',
-          'role_type': 'preset',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('launch_first', <String, Object>{
-          'origin_id': 'origin-1',
-          'role_type': 'preset',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('launch_success', <String, Object>{
-          'origin_id': 'origin-2',
-          'role_type': 'custom',
-          'world_id': 'world-2',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('launch_success_first', <String, Object>{
-          'origin_id': 'origin-2',
-          'role_type': 'custom',
-          'world_id': 'world-2',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('message_sent', <String, Object>{
-          'world_id': 'world-3',
-          'location_id': 'location-3',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('message_sent_first', <String, Object>{
-          'world_id': 'world-3',
-          'location_id': 'location-3',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('login', <String, Object>{
-          'method': 'google',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('login_first', <String, Object>{
-          'method': 'google',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('purchase', <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-        }),
-        const _RecordedEvent('purchase_first', <String, Object>{
-          'provider': 'google',
-          'product_id': 'worldo_gems_500',
-          'device_id': 'test-device-id',
-        }),
-      ]);
-    },
-  );
+    expect(client.events, <_RecordedEvent>[
+      const _RecordedEvent('launch', <String, Object>{
+        'origin_id': 'origin-1',
+        'role_type': 'preset',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('launch_first', <String, Object>{
+        'origin_id': 'origin-1',
+        'role_type': 'preset',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('launch_success', <String, Object>{
+        'origin_id': 'origin-2',
+        'role_type': 'custom',
+        'world_id': 'world-2',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('launch_success_first', <String, Object>{
+        'origin_id': 'origin-2',
+        'role_type': 'custom',
+        'world_id': 'world-2',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('message_sent', <String, Object>{
+        'world_id': 'world-3',
+        'location_id': 'location-3',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('message_sent_first', <String, Object>{
+        'world_id': 'world-3',
+        'location_id': 'location-3',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('login', <String, Object>{
+        'method': 'google',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('login_first', <String, Object>{
+        'method': 'google',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('purchase', <String, Object>{
+        'provider': 'google',
+        'product_id': 'worldo_gems_500',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('purchase_first', <String, Object>{
+        'provider': 'google',
+        'product_id': 'worldo_gems_500',
+        'device_id': 'test-device-id',
+      }),
+      const _RecordedEvent('gems_first', <String, Object>{
+        'provider': 'google',
+        'product_id': 'worldo_gems_500',
+        'device_id': 'test-device-id',
+      }),
+    ]);
+  });
+
+  test('purchase category first events are independent', () async {
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'google',
+      productId: 'gems-1',
+      kind: FirebaseAnalyticsPurchaseKind.gems,
+    );
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'google',
+      productId: 'gems-2',
+      kind: FirebaseAnalyticsPurchaseKind.gems,
+    );
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'apple',
+      productId: 'subscription-1',
+      kind: FirebaseAnalyticsPurchaseKind.subscription,
+    );
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'apple',
+      productId: 'subscription-2',
+      kind: FirebaseAnalyticsPurchaseKind.subscription,
+    );
+
+    expect(client.events.map((event) => event.name), <String>[
+      'purchase',
+      'purchase_first',
+      'gems_first',
+      'purchase',
+      'purchase',
+      'subscription_first',
+      'purchase',
+    ]);
+    expect(
+      client.events.singleWhere((event) => event.name == 'gems_first'),
+      const _RecordedEvent('gems_first', <String, Object>{
+        'provider': 'google',
+        'product_id': 'gems-1',
+        'device_id': 'test-device-id',
+      }),
+    );
+    expect(
+      client.events.singleWhere((event) => event.name == 'subscription_first'),
+      const _RecordedEvent('subscription_first', <String, Object>{
+        'provider': 'apple',
+        'product_id': 'subscription-1',
+        'device_id': 'test-device-id',
+      }),
+    );
+  });
 
   test('base event repeats while first event skips later triggers', () async {
     await FirebaseAnalyticsMonitoring.recordLaunch(
@@ -239,6 +291,29 @@ void main() {
     ]);
   });
 
+  test('failed purchase first events remain eligible for retry', () async {
+    client.error = StateError('log failed');
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'google',
+      productId: 'gems-1',
+      kind: FirebaseAnalyticsPurchaseKind.gems,
+    );
+
+    client.error = null;
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'google',
+      productId: 'gems-2',
+      kind: FirebaseAnalyticsPurchaseKind.gems,
+    );
+
+    expect(client.attempts, 6);
+    expect(client.events.map((event) => event.name), <String>[
+      'purchase',
+      'purchase_first',
+      'gems_first',
+    ]);
+  });
+
   test('failed device id lookup remains eligible for a later retry', () async {
     var shouldFail = true;
     FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(() async {
@@ -272,6 +347,12 @@ void main() {
     await FirebaseAnalyticsMonitoring.recordPurchase(
       provider: 'apple',
       productId: 'com.worldo.gems.500',
+      kind: FirebaseAnalyticsPurchaseKind.gems,
+    );
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'apple',
+      productId: 'com.worldo.pro.monthly',
+      kind: FirebaseAnalyticsPurchaseKind.subscription,
     );
 
     final preferences = await SharedPreferences.getInstance();
@@ -279,6 +360,20 @@ void main() {
       preferences.getInt(
         '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
         'purchase_first',
+      ),
+      1,
+    );
+    expect(
+      preferences.getInt(
+        '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
+        'gems_first',
+      ),
+      1,
+    );
+    expect(
+      preferences.getInt(
+        '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}'
+        'subscription_first',
       ),
       1,
     );

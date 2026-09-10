@@ -5940,7 +5940,9 @@ void _messageMutationTests() {
       final result = await write;
       expect(result.endConversationRoundId, 11);
       await _waitFor(
-        () => service.state.messagesByLocation['loc-1']!.length == 3,
+        () =>
+            service.state.messagesByLocation['loc-1']!.length == 3 &&
+            service.state.messagesByLocation['loc-1']![1].content == 'edited',
       );
       expect(
         service.state.messagesByLocation['loc-1']!.map(
@@ -5999,6 +6001,59 @@ void _messageMutationTests() {
   );
 
   test(
+    'successful batch updates live messages and persistent cache before refresh',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      final http = _MutationHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          _mutationRow(1, 1, 10),
+          _mutationRow(2, 2, 10),
+        ];
+      final service = await setup(
+        _FakeChatroomSocket(),
+        http,
+        storage: storage,
+      );
+      final refresh = Completer<TransportResponse>();
+      http.history = (_) => refresh.future;
+
+      await service.batchMutateLlmMessages(
+        locationId: 'loc-1',
+        conversationRoundId: 10,
+        operations: const [
+          ChatroomLlmMessageOperation.edit(
+            globalMessageId: 90001,
+            content: 'Optimistic edit',
+          ),
+          ChatroomLlmMessageOperation.delete(globalMessageId: 90002),
+        ],
+      );
+
+      final live = service.state.messagesByLocation['loc-1']!;
+      expect(live.map((message) => message.globalMessageId), [90001]);
+      expect(live.single.content, 'Optimistic edit');
+      final cached = (await storage.loadLatestMessages(
+        ownerUid: 'user-1',
+        worldId: 'world-1',
+        locationId: 'loc-1',
+        limit: 200,
+      )).map(WorldChatroomMessage.fromStorageJson).toList();
+      expect(cached.map((message) => message.globalMessageId), [90001]);
+      expect(cached.single.content, 'Optimistic edit');
+
+      await _waitFor(() => http.historyRequests.length == 2);
+      refresh.complete(
+        http._page([
+          _mutationRow(1, 1, 10, content: 'Optimistic edit'),
+        ], newest: 1),
+      );
+      await _waitFor(
+        () => service.state.newestLocationMessageIds['loc-1'] == 1,
+      );
+    },
+  );
+
+  test(
     'batch HTTP range merges with in-flight WS range and discards stale response',
     () async {
       final http = _MutationHttpTransport()
@@ -6019,6 +6074,7 @@ void _messageMutationTests() {
         ],
       );
       await _waitFor(() => service.state.messagesByLocation['loc-1']!.isEmpty);
+      await _waitFor(() => http.historyRequests.length == 3);
       expect(cancelled.isCancelled, isTrue);
       expect(
         http.historyRequests.last.uri.queryParameters,

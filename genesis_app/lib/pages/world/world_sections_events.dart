@@ -345,6 +345,15 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
     );
   }
 
+  ScrollController? _scrollControllerForPage(int page) {
+    if (page != _currentPage) return null;
+    // An older tick must win the downward edge pull before the enclosing sheet
+    // can consume it as a collapse gesture. Reconnect only at the real earliest
+    // tick, after any older event pages have finished loading.
+    final mayHaveOlderTick = page > 0 || widget.hasMore || widget.loadingMore;
+    return mayHaveOlderTick ? null : widget.scrollController;
+  }
+
   @override
   Widget build(BuildContext context) {
     final pendingTargetPage = _pendingTargetPage;
@@ -402,9 +411,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
               final tickNumber = _requestedTickNumber ?? widget.world.tickCount;
               return WorldTickEventCardPage(
                 key: ValueKey<String>('world-event-tick-pending-$tickNumber'),
-                scrollController: index == _currentPage
-                    ? widget.scrollController
-                    : null,
+                scrollController: _scrollControllerForPage(index),
                 resetRevision:
                     _tickCardResetRevisions['pending_tick:$tickNumber'] ?? 0,
                 hasTopEdgePage: index > 0,
@@ -425,9 +432,7 @@ class WorldEventsSectionState extends State<WorldEventsSection> {
             final showsAiDisclaimer = tickPageIndex == 0 && !widget.hasMore;
             return WorldTickEventCardPage(
               key: ValueKey<String>('world-event-tick-$pageIdentity'),
-              scrollController: index == _currentPage
-                  ? widget.scrollController
-                  : null,
+              scrollController: _scrollControllerForPage(index),
               resetRevision: _tickCardResetRevisions[pageIdentity] ?? 0,
               alignLastItemToTop:
                   _tickCardAlignLatestSubTick[pageIdentity] ?? false,

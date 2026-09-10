@@ -29610,7 +29610,7 @@ void main() {
     );
     expect(currentTilemap().animationsPaused, isFalse);
 
-    for (final sectionLabel in const ['Locations', 'Events', 'Status']) {
+    for (final sectionLabel in const ['Locations', 'Status']) {
       final sectionTag = find.descendant(
         of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
         matching: find.text(sectionLabel),
@@ -29637,6 +29637,35 @@ void main() {
       await tester.pumpAndSettle();
       expect(sectionSheet, findsNothing);
     }
+
+    final eventsTag = find.descendant(
+      of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
+      matching: find.text('Events'),
+    );
+    await tester.tap(eventsTag);
+    await tester.pumpAndSettle();
+    final eventsSheet = find.byKey(
+      const ValueKey<String>('world-single-section-bottom-sheet'),
+    );
+    expect(eventsSheet, findsOneWidget);
+    expect(find.text('Paged event first page.'), findsOneWidget);
+
+    await tester.drag(
+      find.text('Paged event first page.'),
+      const Offset(0, 500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(eventsSheet, findsOneWidget);
+    expect(find.text('Paged event 2.'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: eventsSheet,
+        matching: find.byIcon(Icons.close_rounded),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(eventsSheet, findsNothing);
 
     await tester.tap(detailTag);
     await tester.pumpAndSettle();
