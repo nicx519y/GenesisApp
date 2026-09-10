@@ -10,7 +10,6 @@ import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
-import 'location_chat_loading_bubble.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
 
@@ -204,29 +203,26 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             ],
           ),
         ),
-        if (_inspirationExpanded) ...[
+        if (_inspirationExpanded && _inspiration.messages.isNotEmpty) ...[
           const SizedBox(height: 12),
-          if (_inspiration.loading)
-            LocationChatLoadingBubble(style: style)
-          else if (_inspiration.messages.isNotEmpty)
-            _InspirationReplies(
-              replies: _inspiration.messages,
-              onSend: (text) {
-                _setInspirationExpanded(false);
-                _inspiration.onSend?.call(text);
-              },
-              onEdit: (text) {
-                _setInspirationExpanded(false);
-                _inspiration.onEdit?.call(text);
-              },
-              style: style,
-              maxWidthCap: widget.selfMessageBubbleMaxWidthCap,
-              initialPage: widget.inspirationPage ?? _localInspirationPage,
-              onPageChanged: (page) {
-                _localInspirationPage = page;
-                widget.onInspirationPageChanged?.call(page);
-              },
-            ),
+          _InspirationReplies(
+            replies: _inspiration.messages,
+            onSend: (text) {
+              _setInspirationExpanded(false);
+              _inspiration.onSend?.call(text);
+            },
+            onEdit: (text) {
+              _setInspirationExpanded(false);
+              _inspiration.onEdit?.call(text);
+            },
+            style: style,
+            maxWidthCap: widget.selfMessageBubbleMaxWidthCap,
+            initialPage: widget.inspirationPage ?? _localInspirationPage,
+            onPageChanged: (page) {
+              _localInspirationPage = page;
+              widget.onInspirationPageChanged?.call(page);
+            },
+          ),
         ],
       ],
     );

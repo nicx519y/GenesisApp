@@ -37,6 +37,7 @@ class LocationChatGoOnButton extends StatelessWidget {
   Widget build(BuildContext context) => LocationChatReplyFeatureButton(
     label: 'Go on',
     iconAsset: goOnIconAsset,
+    loading: feature.busy,
     onTap: feature.invocation == null
         ? null
         : () {

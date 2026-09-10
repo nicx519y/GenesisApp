@@ -7,7 +7,8 @@ extension _LocationChatGoOnBinding on _LocationChatPanelState {
     bool goOnPending,
   ) => LocationChatGoOnFeature(
     enabled: !replyBlocked && (replyState?.canGoOn ?? false),
-    busy: goOnPending,
+    busy:
+        goOnPending || (_replyRequestLoading && !_replyLoadingForRegeneration),
     onInvoke: () => unawaited(
       _runReplyAction(
         (controller) => controller.goOn(widget.locationId),

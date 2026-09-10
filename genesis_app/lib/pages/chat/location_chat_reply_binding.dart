@@ -9,14 +9,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _preparingReplyAction = false;
     _replyCardTransitionBusy = false;
     _replyRequestLoading = false;
-    _replyStreamStarted = false;
-    _replyLoadingSourceRound = null;
-    _replyLoadingPreviousCardIds = const {};
+    _replyLoadingForRegeneration = false;
     _lastReplyStatusError = null;
-    _replyEditorState?.value = const LocationChatEditExternalState(
-      frozen: true,
-      error: 'This chat is no longer active.',
-    );
     _restoredReplyLocations.clear();
   }
 
@@ -44,7 +38,6 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
   }
 
   void _onReplyActionsChanged() {
-    _markReplyStreamStarted();
     if (_replyRebuildScheduled) return;
     _replyRebuildScheduled = true;
     scheduleMicrotask(() {
@@ -82,13 +75,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
       _preparingReplyAction = true;
       _replyRequestLoading = generating;
       if (generating) {
-        final source = controller.stateFor(location);
-        _replyStreamStarted = false;
         _replyLoadingForRegeneration = regenerating;
-        _replyLoadingSourceRound = source?.roundId;
-        _replyLoadingPreviousCardIds = {
-          for (final card in source?.cards ?? const []) card.cardId,
-        };
       }
     });
     if (generating) {
@@ -153,10 +140,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     return state.viewedCardId == cardId;
   }
 
-  List<LocationChatReplyCard> _replyCardPages(
-    ChatroomReplyRoundState? state,
-    ChatUiStyleConfig style,
-  ) {
+  List<LocationChatReplyCard> _replyCardPages(ChatroomReplyRoundState? state) {
     if (state == null || !state.showCandidates) return const [];
     return [
       for (final card in state.cards)
@@ -166,12 +150,6 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
             state.messagesForCard(card.cardId),
             cardId: card.cardId,
           ),
-          status:
-              card.generationState == ChatroomCardGenerationState.generating &&
-                  state.error == null &&
-                  !state.hasCandidateChunk(card.cardId)
-              ? LocationChatLoadingBubble(style: style)
-              : null,
         ),
     ];
   }
@@ -243,54 +221,5 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
             createdAt: parsed.createdAt,
           ),
     ];
-  }
-
-  void _markReplyStreamStarted() {
-    final round = _replyLoadingSourceRound;
-    if (_replyStreamStarted || round == null) return;
-    if (_replyLoadingForRegeneration) {
-      _replyStreamStarted =
-          _replyController
-              ?.stateForRound(widget.locationId, round)
-              ?.hasNewCandidateChunk(_replyLoadingPreviousCardIds) ??
-          false;
-    } else {
-      final messages =
-          (_service?.state ?? _chatroomState).messagesByLocation[widget
-              .locationId] ??
-          const <WorldChatroomMessage>[];
-      _replyStreamStarted = messages.any(
-        (message) =>
-            message.conversationRoundNumber > round &&
-            const {
-              'character',
-              'narrator',
-              'ai',
-              'llm',
-            }.contains(message.businessType) &&
-            message.content.trim().isNotEmpty,
-      );
-    }
-  }
-
-  Widget? _replyStatusWidget(
-    ChatroomReplyRoundState? state,
-    ChatUiStyleConfig style,
-  ) {
-    final pending = _replyController
-        ?.statesFor(widget.locationId)
-        .where((source) => source.goOnPending)
-        .firstOrNull;
-    final loading =
-        _replyRequestLoading ||
-        (state?.generating == true && state?.error == null) ||
-        (pending != null &&
-            !pending.goOnUnknown &&
-            pending.error == null &&
-            _sendAwaitingResponse);
-    _markReplyStreamStarted();
-    return loading && !_replyStreamStarted
-        ? LocationChatLoadingBubble(style: style)
-        : null;
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/edit/edit.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/go_on/go_on.dart';
@@ -148,16 +147,16 @@ void main() {
       findsNothing,
     );
     await tester.pumpWidget(host(busy: true));
-    expect(find.byType(CircularProgressIndicator), findsNothing);
-    expect(find.byType(SvgPicture), findsNWidgets(4));
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.bySemanticsLabel('Go on'), findsNothing);
     expect(
       tester
           .widget<Semantics>(find.bySemanticsLabel('Regenerate'))
           .properties
           .value,
-      isNull,
+      'Loading',
     );
-    for (final action in ['Regenerate', 'Go on', 'Edit']) {
+    for (final action in ['Regenerate', 'Edit']) {
       await tester.tap(find.bySemanticsLabel(action));
       await tester.pump();
     }
@@ -168,6 +167,48 @@ void main() {
     await tester.pump();
     expect(calls.last, 'regenerate');
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('disabled actions are hidden without moving toolbar slots', (
+    tester,
+  ) async {
+    Widget host({required bool enabled, bool regenerateBusy = false}) =>
+        MaterialApp(
+          home: Scaffold(
+            body: _replyActions(
+              style: kLocationChatStyle,
+              regenerateEnabled: enabled,
+              goOnEnabled: enabled,
+              editEnabled: enabled,
+              regenerateBusy: regenerateBusy,
+              inspirationFeature: enabled
+                  ? const LocationChatInspirationFeature(
+                      messages: _inspirationReplies,
+                      loading: false,
+                      enabled: true,
+                    )
+                  : const LocationChatInspirationFeature.disabled(),
+            ),
+          ),
+        );
+
+    const toolbarKey = ValueKey('location-chat-reply-actions-four-icons');
+    await tester.pumpWidget(host(enabled: true));
+    final enabledSize = tester.getSize(find.byKey(toolbarKey));
+
+    await tester.pumpWidget(host(enabled: false));
+    expect(tester.getSize(find.byKey(toolbarKey)), enabledSize);
+    for (final action in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+      expect(find.bySemanticsLabel(action), findsNothing);
+    }
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    await tester.pumpWidget(host(enabled: false, regenerateBusy: true));
+    expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    for (final action in ['Go on', 'Edit', 'Inspiration']) {
+      expect(find.bySemanticsLabel(action), findsNothing);
+    }
   });
 
   testWidgets(

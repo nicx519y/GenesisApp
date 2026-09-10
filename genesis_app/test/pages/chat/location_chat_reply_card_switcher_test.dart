@@ -312,6 +312,62 @@ void main() {
     },
   );
 
+  testWidgets('empty pending card adds no invisible gap before pagination', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final message = ChatMessageVm(
+      localId: 'message-before-pending-card',
+      senderId: 'user',
+      senderName: 'User',
+      text: 'Message before pending candidate',
+      isMe: true,
+      status: 'sent',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            height: 600,
+            child: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              topTitle: '',
+              messages: [message],
+              replyCards: const [LocationChatReplyCard(id: -1, messages: [])],
+              replyCurrentCardId: -1,
+              replyActionsIdentity: 'pending-round',
+              replyActionsAnchorIndex: 1,
+              replyCardIndex: 1,
+              replyCardCount: 3,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getSize(find.byKey(const ValueKey('reply-card-gesture'))).height,
+      0,
+    );
+    final messageBottom = tester
+        .getRect(
+          find.byKey(
+            const ValueKey('chat-message-bubble-message-before-pending-card'),
+          ),
+        )
+        .bottom;
+    final paginationTop = tester
+        .getRect(find.byKey(const ValueKey('location-chat-reply-pagination')))
+        .top;
+    expect(
+      paginationTop - messageBottom,
+      closeTo(LocationChatReplyActions.contentBottomGap, 1),
+    );
+  });
+
   for (final secondScroll in [false, true]) {
     testWidgets(
       'variable height keeps the toolbar anchored through every frame (secondScroll=$secondScroll)',

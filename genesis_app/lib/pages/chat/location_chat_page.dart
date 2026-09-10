@@ -7,7 +7,6 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../../ui/tokens/genesis_blur.dart';
-import '../../ui/theme/genesis_dark_theme.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/config/genesis_image_config.dart';
@@ -58,7 +57,6 @@ import '../../ui/components/genesis_delete_button.dart';
 import 'location_chat_scroll_coordinator.dart';
 import 'location_chat_reply_presentation.dart';
 import 'location_chat_reply_card_switcher.dart';
-import 'location_chat_loading_bubble.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
 import '../world/world_constants.dart' show worldCharacterAvatarLogicalSize;
 
@@ -406,12 +404,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _preparingReplyAction = false;
   bool _replyCardTransitionBusy = false;
   bool _replyRequestLoading = false;
-  bool _replyStreamStarted = false;
   bool _replyLoadingForRegeneration = false;
-  int? _replyLoadingSourceRound;
-  Set<int> _replyLoadingPreviousCardIds = const {};
   Object? _lastReplyStatusError;
-  ValueNotifier<LocationChatEditExternalState>? _replyEditorState;
   bool _replyEditorOpen = false;
   final Object _rosterTapRegionGroup = Object();
   final BackdropKey _surfaceBackdropKey = BackdropKey();
@@ -497,6 +491,20 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     return state.conversationRoundStatesByLocation.containsKey(
       widget.locationId,
     );
+  }
+
+  bool get _replyGoOnPending =>
+      _replyController
+          ?.statesFor(widget.locationId)
+          .any((state) => state.goOnPending) ??
+      false;
+
+  bool get _replyGenerationInProgress {
+    final replyState = _replyController?.stateFor(widget.locationId);
+    return _replyRequestLoading ||
+        (replyState?.generating ?? false) ||
+        _replyGoOnPending ||
+        _inspirationLoading;
   }
 
   bool get _shouldShowAiContentDisclaimer =>
@@ -794,6 +802,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                 _hasDraftText &&
                 !_sending &&
                 !_replyCardTransitionBusy &&
+                !_replyGenerationInProgress &&
                 !_sendAwaitingResponse &&
                 !inputBlocked,
             sending: false,
@@ -881,11 +890,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     );
     final headerHeight = _locationChatHeaderHeight(style);
     final replyState = _replyController?.stateFor(widget.locationId);
-    final replyGoOnPending =
-        _replyController
-            ?.statesFor(widget.locationId)
-            .any((state) => state.goOnPending) ??
-        false;
+    final replyGoOnPending = _replyGoOnPending;
     final replyPresentation = _replyPresentation(replyState);
     final displayMessages = replyPresentation.messages;
     final replyBlocked =
@@ -928,8 +933,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             : '${widget.worldId}/${widget.locationId}/${replyState.roundId}',
         replyActionsAnchorIndex: replyPresentation.anchorIndex,
         replyPresentationRevision: replyState?.presentationRevision ?? 0,
-        replyStatus: _replyStatusWidget(replyState, style),
-        replyCards: _replyCardPages(replyState, style),
+        replyCards: _replyCardPages(replyState),
         replyCurrentCardId: replyState?.viewedCardId ?? 0,
         replyCardBindingIdentity:
             '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyState?.roundId}',

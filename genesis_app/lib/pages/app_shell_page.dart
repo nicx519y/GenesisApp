@@ -20,6 +20,7 @@ import '../platform/session/user_session_store.dart';
 import '../ui/system/genesis_system_ui.dart';
 import '../ui/navigation/genesis_dark_page_route.dart';
 import '../ui/tokens/genesis_colors.dart';
+import 'app_shell_navigation.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_page.dart';
 import 'me/me_page.dart';
@@ -110,6 +111,7 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabReselectionNotifier = ValueNotifier<int>(0);
     _meTabReselectionNotifier = ValueNotifier<int>(0);
     _visitedTabIndexes = <int>{_selectedIndex};
+    homeTabForWorldEntryRequests.addListener(_handleHomeTabForWorldEntry);
     _messagesPoller = GenesisPollingScheduler(
       interval: _messagesPollInterval,
       onTick: _refreshMessagesData,
@@ -155,6 +157,7 @@ class _AppShellPageState extends State<AppShellPage>
     _messagesTabReselectionNotifier.dispose();
     _meTabReselectionNotifier.dispose();
     _unreadSummaryNotifier.dispose();
+    homeTabForWorldEntryRequests.removeListener(_handleHomeTabForWorldEntry);
     super.dispose();
   }
 
@@ -436,7 +439,12 @@ class _AppShellPageState extends State<AppShellPage>
     };
   }
 
-  void _selectTab(int index) {
+  void _handleHomeTabForWorldEntry() {
+    if (!mounted) return;
+    _selectTab(0, notifyActivated: false);
+  }
+
+  void _selectTab(int index, {bool notifyActivated = true}) {
     if (_selectedIndex == index && _visitedTabIndexes.contains(index)) {
       return;
     }
@@ -451,7 +459,7 @@ class _AppShellPageState extends State<AppShellPage>
     _worldoTabActiveNotifier.value = _selectedIndex == 1;
     if (previousIndex != index) {
       _recordSelectedTabPageView();
-      _notifyActiveTabActivated();
+      if (notifyActivated) _notifyActiveTabActivated();
     }
   }
 
