@@ -20,6 +20,7 @@ class GenesisTabBar extends StatelessWidget {
     this.indicatorColor,
     this.indicatorWidth,
     this.indicatorHeight,
+    this.indicatorHorizontalOffset = 0,
     this.labelFontSize,
     this.labelStyle,
     this.unselectedLabelStyle,
@@ -39,6 +40,7 @@ class GenesisTabBar extends StatelessWidget {
   final Color? indicatorColor;
   final double? indicatorWidth;
   final double? indicatorHeight;
+  final double indicatorHorizontalOffset;
   final double? labelFontSize;
   final TextStyle? labelStyle;
   final TextStyle? unselectedLabelStyle;
@@ -83,6 +85,7 @@ class GenesisTabBar extends StatelessWidget {
           width: indicatorWidth ?? uiTheme.tabIndicatorWidth,
           height: indicatorHeight ?? uiTheme.tabIndicatorHeight,
           bottomPadding: genesisTabIndicatorBottomPadding,
+          horizontalOffset: indicatorHorizontalOffset,
         ),
         labelColor: labelColor ?? uiTheme.tabSelectedColor,
         unselectedLabelColor:
