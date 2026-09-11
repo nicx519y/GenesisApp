@@ -104,7 +104,7 @@ void main() {
       await h.service.checkGuestPurchasesOnHome();
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
-      expect(find.text('VIP purchase successful!'), findsNothing);
+      expect(find.text('Purchase successful!'), findsNothing);
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
@@ -135,9 +135,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsOneWidget);
+      expect(find.text('Purchase successful!'), findsOneWidget);
       expect(find.byType(LoginSheet), findsNothing);
-      await tester.tap(find.text('OK'));
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
     },
@@ -159,9 +159,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsOneWidget);
+      expect(find.text('Purchase successful!'), findsOneWidget);
       expect(find.text('Me'), findsNothing);
-      await tester.tap(find.text('OK'));
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
       await tester.tap(find.text('Continue with Google'));
@@ -206,8 +206,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250));
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsOneWidget);
-      await tester.tap(find.text('OK'));
+      expect(find.text('Purchase successful!'), findsOneWidget);
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsNothing);
       expect(h.store.claims.values.single.purchaseConfirmed, isTrue);
@@ -295,7 +295,7 @@ void main() {
     expect(tester.binding.hasScheduledFrame, isTrue);
     await tester.pumpAndSettle();
     expect(find.byType(LoginSheet), findsOneWidget);
-    expect(find.text('VIP purchase successful!'), findsNothing);
+    expect(find.text('Purchase successful!'), findsNothing);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(LoginSheet), findsOneWidget);
@@ -311,9 +311,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     await h.service.interceptPurchase(h.purchase(yearly: true));
     await tester.pumpAndSettle();
-    expect(find.text('VIP purchase successful!'), findsOneWidget);
+    expect(find.text('Purchase successful!'), findsOneWidget);
     expect(find.byType(LoginSheet), findsNothing);
-    await tester.tap(find.text('OK'));
+    await tester.tap(find.text('Enjoy it'));
     await tester.pumpAndSettle();
     expect(find.byType(ProSubscriptionContent), findsNothing);
     expect(find.byType(LoginSheet), findsOneWidget);
@@ -344,15 +344,15 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
       await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       expect(find.byType(LoginSheet), findsNothing);
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsOneWidget);
+      expect(find.text('Purchase successful!'), findsOneWidget);
       expect(find.byType(LoginSheet), findsNothing);
-      await tester.tap(find.text('OK'));
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsNothing);
+      expect(find.text('Purchase successful!'), findsNothing);
       expect(find.byType(LoginSheet), findsOneWidget);
       expect(find.byTooltip('Close'), findsNothing);
       await tester.tapAt(const Offset(5, 100));
@@ -396,14 +396,14 @@ void main() {
         ..uid = null;
       await restarted.service.recover();
       await openGuestApp(tester, restarted, homeOnly: true);
-      expect(find.text('VIP purchase successful!'), findsNothing);
+      expect(find.text('Purchase successful!'), findsNothing);
       expect(find.byType(LoginSheet), findsOneWidget);
       await tester.pumpWidget(const SizedBox());
       await tester.pumpAndSettle();
       final again = Harness(storage: h.store, claimEnabled: true)..uid = null;
       await again.service.recover();
       await openGuestApp(tester, again, homeOnly: true);
-      expect(find.text('VIP purchase successful!'), findsNothing);
+      expect(find.text('Purchase successful!'), findsNothing);
       expect(find.byType(LoginSheet), findsOneWidget);
       expect(find.byTooltip('Close'), findsNothing);
       await tester.tap(find.text('Continue with Google'));
@@ -421,7 +421,7 @@ void main() {
       await afterBinding.service.recover();
       await openGuestApp(tester, afterBinding, homeOnly: true);
       expect(find.byType(LoginSheet), findsNothing);
-      expect(find.text('VIP purchase successful!'), findsNothing);
+      expect(find.text('Purchase successful!'), findsNothing);
       expect(afterBinding.claimRequests, isEmpty);
     },
   );

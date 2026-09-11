@@ -107,7 +107,7 @@ void main() {
       h.platform.onPrepare = () => prepare.future;
       h.reportHandler = (_) => report.future;
       await open(tester, h);
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       expect(find.text('Purchasing Gems'), findsNothing);
       expect(h.platform.launches, 0);
       final dialog = find.byType(Dialog);
@@ -131,17 +131,17 @@ void main() {
       final callback = h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pump();
       expect(h.reports, hasLength(1));
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       // A matched store callback ends the 90-second store wait; the report
       // request owns its timeout and continues using the same processing UI.
       await tester.pump(const Duration(seconds: 91));
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       report.complete(service.completed);
       await callback;
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsOneWidget);
+      expect(find.text('Purchase successful!'), findsOneWidget);
       expect(
-        find.text('Your VIP purchase is confirmed.', findRichText: true),
+        find.text('Premium have been granted.', findRichText: true),
         findsOneWidget,
       );
       expect(
@@ -151,8 +151,8 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
       await navigator.maybePop();
       await tester.pump();
-      expect(find.text('OK'), findsOneWidget);
-      await tester.tap(find.text('OK'));
+      expect(find.text('Enjoy it'), findsOneWidget);
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
       expect(dialog, findsNothing);
       expect(find.byType(ProSubscriptionContent), findsOneWidget);
@@ -212,7 +212,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.byType(Dialog), findsNothing);
-        expect(find.text('VIP purchase successful!'), findsNothing);
+        expect(find.text('Purchase successful!'), findsNothing);
         expect(find.byType(ProSubscriptionContent), findsOneWidget);
         final message = switch (outcome) {
           'cancelled' => 'VIP purchase cancelled.',
@@ -262,12 +262,12 @@ void main() {
         h.purchase(token: 'older-token', transaction: 'renewal-transaction'),
       );
       await tester.pump();
-      expect(find.text('Purchasing VIP'), findsOneWidget);
-      expect(find.text('VIP purchase successful!'), findsNothing);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
+      expect(find.text('Purchase successful!'), findsNothing);
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsOneWidget);
-      await tester.tap(find.text('OK'));
+      expect(find.text('Purchase successful!'), findsOneWidget);
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
     },
   );
@@ -329,7 +329,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
     await tester.pump(const Duration(milliseconds: 250));
-    expect(find.text('Purchasing VIP'), findsOneWidget);
+    expect(find.text('Purchasing Premium'), findsOneWidget);
     visible.value = false;
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsNothing);
@@ -382,11 +382,11 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
       await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       expect(h.platform.launches, 2);
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('OK'));
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
       expect(find.byType(ProSubscriptionContent), findsNothing);
       expect(find.text('Open'), findsOneWidget);

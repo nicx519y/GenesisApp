@@ -172,6 +172,7 @@ class _InspirationRepliesState extends State<_InspirationReplies> {
                               children: [
                                 ChatMessageBubble(
                                   onTap: () => _handleCardTap(index),
+                                  border: chatNarratorEditorBorder,
                                   borderRadius: BorderRadius.circular(
                                     style.bubbleBorderRadius,
                                   ),
