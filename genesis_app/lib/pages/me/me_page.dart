@@ -23,6 +23,8 @@ import '../../components/me/user_profile_content.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
+import '../../network/models/paged_response.dart';
+import 'me_collection_controller.dart';
 import '../../platform/auth/auth_cancelled_exception.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
@@ -73,22 +75,8 @@ class _MePageState extends State<MePage> with RouteAware {
   final ValueNotifier<String> _avatarUrl = ValueNotifier<String>('');
   final ValueNotifier<String> _displayName = ValueNotifier<String>('');
   IdentityProvider? _loggingInProvider;
-  final ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>
-  _originsState =
-      ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
-        const UserProfileCollectionState<UserProfileOriginItem>(
-          items: <UserProfileOriginItem>[],
-          isLoading: false,
-        ),
-      );
-  final ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>
-  _worldsState =
-      ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
-        const UserProfileCollectionState<UserProfileWorldItem>(
-          items: <UserProfileWorldItem>[],
-          isLoading: false,
-        ),
-      );
+  late final MeCollectionController<UserProfileOriginItem> _originsState;
+  late final MeCollectionController<UserProfileWorldItem> _worldsState;
   int _loadGeneration = 0;
   bool _profileCollapsed = false;
   bool _isActivationRefreshing = false;
@@ -108,6 +96,38 @@ class _MePageState extends State<MePage> with RouteAware {
     super.initState();
     _tabActivatedListener = _handleTabActivated;
     _sessionChangedListener = _handleSessionChanged;
+    _originsState = MeCollectionController(
+      itemId: (item) => item.oid,
+      loadPage: (offset) async {
+        final page = await AppServicesScope.read(
+          context,
+        ).api.getMyLaunchedOrigins(scene: 'mine', limit: 30, offset: offset);
+        return PagedResponse(
+          data: page.data
+              .map(_profileOriginItemFromSummary)
+              .toList(growable: false),
+          total: page.total,
+          limit: page.limit,
+          offset: page.offset,
+        );
+      },
+    );
+    _worldsState = MeCollectionController(
+      itemId: (item) => item.wid,
+      loadPage: (offset) async {
+        final page = await AppServicesScope.read(
+          context,
+        ).api.getMyWorldsPage(scene: 'mine', limit: 30, offset: offset);
+        return PagedResponse(
+          data: page.data
+              .map(_profileWorldItemFromSummary)
+              .toList(growable: false),
+          total: page.total,
+          limit: page.limit,
+          offset: page.offset,
+        );
+      },
+    );
     _future = _loadData();
     widget.activationListenable?.addListener(_tabActivatedListener);
   }
@@ -305,6 +325,8 @@ class _MePageState extends State<MePage> with RouteAware {
                         onRefresh: _refreshCurrentCollection,
                         onRefreshOrigins: _refreshOrigins,
                         onRefreshWorlds: _refreshWorlds,
+                        onLoadMoreOrigins: _loadMoreOrigins,
+                        onLoadMoreWorlds: _loadMoreWorlds,
                         onWorldDeleted: _handleWorldDeleted,
                         onCollectionTabChanged: _handleCollectionTabChanged,
                         onCollapsedChanged: _handleProfileCollapsedChanged,
@@ -327,11 +349,9 @@ class _MePageState extends State<MePage> with RouteAware {
   void _handleWorldDeleted(UserProfileWorldItem item) {
     final worldId = item.wid.trim();
     if (worldId.isEmpty) return;
-    final current = _worldsState.value;
-    final nextItems = current.items
-        .where((world) => world.wid.trim() != worldId)
-        .toList(growable: false);
-    _setWorldsState(nextItems, isLoading: current.isLoading);
+    // Reload page one after removal: both the total and subsequent page
+    // boundaries come from the server, rather than the number of loaded cards.
+    unawaited(_refreshWorlds());
   }
 
   Future<void> _refreshCurrentCollection() async {

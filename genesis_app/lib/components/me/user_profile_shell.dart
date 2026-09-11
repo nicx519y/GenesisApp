@@ -23,6 +23,8 @@ class UserProfileContent extends StatefulWidget {
     this.onRefresh,
     this.onRefreshOrigins,
     this.onRefreshWorlds,
+    this.onLoadMoreOrigins,
+    this.onLoadMoreWorlds,
     this.onWorldDeleted,
     this.onCollectionTabChanged,
     this.onCollapsedChanged,
@@ -55,6 +57,8 @@ class UserProfileContent extends StatefulWidget {
   final Future<void> Function()? onRefresh;
   final Future<void> Function()? onRefreshOrigins;
   final Future<void> Function()? onRefreshWorlds;
+  final Future<void> Function()? onLoadMoreOrigins;
+  final Future<void> Function()? onLoadMoreWorlds;
   final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
   final ValueChanged<int>? onCollectionTabChanged;
   final ValueChanged<bool>? onCollapsedChanged;
@@ -239,7 +243,7 @@ class _UserProfileContentState extends State<UserProfileContent>
       >(
         valueListenable: worldsListenable,
         builder: (context, state, _) {
-          return buildTabs(originCount, state.items.length);
+          return buildTabs(originCount, state.count);
         },
       );
     }
@@ -253,7 +257,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     >(
       valueListenable: originsListenable,
       builder: (context, state, _) {
-        return buildWithWorldCount(state.items.length);
+        return buildWithWorldCount(state.count);
       },
     );
   }
@@ -302,6 +306,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                     : 'No Worldo yet.',
                 isLoading: widget.originsLoading,
                 listenable: widget.originsListenable,
+                onLoadMore: widget.onLoadMoreOrigins,
                 onRefresh: widget.onRefresh == null
                     ? widget.onRefreshOrigins
                     : null,
@@ -322,6 +327,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                     : 'No Worlds yet.',
                 isLoading: widget.worldsLoading,
                 listenable: widget.worldsListenable,
+                onLoadMore: widget.onLoadMoreWorlds,
                 onRefresh: widget.onRefresh == null
                     ? widget.onRefreshWorlds
                     : null,

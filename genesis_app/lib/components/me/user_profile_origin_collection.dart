@@ -7,6 +7,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    this.onLoadMore,
     required this.sliverMode,
     required this.injectNestedOverlap,
     this.alwaysScrollable = false,
@@ -19,6 +20,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileOriginItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final Future<void> Function()? onLoadMore;
   final bool sliverMode;
   final bool injectNestedOverlap;
   final bool alwaysScrollable;
@@ -35,7 +37,12 @@ class _OriginProfileCollectionList extends StatelessWidget {
     >(
       valueListenable: listenable,
       builder: (context, state, _) {
-        return _buildOriginList(context, state.items, state.isLoading);
+        return _buildOriginList(
+          context,
+          state.items,
+          state.isLoading,
+          state: state,
+        );
       },
     );
   }
@@ -43,9 +50,15 @@ class _OriginProfileCollectionList extends StatelessWidget {
   Widget _buildOriginList(
     BuildContext context,
     List<UserProfileOriginItem> items,
-    bool isLoading,
-  ) {
+    bool isLoading, {
+    UserProfileCollectionState<UserProfileOriginItem>? state,
+  }) {
     return ProfileCollectionList(
+      key: const PageStorageKey('profile-origin-list'),
+      onLoadMore: onLoadMore,
+      hasMore: state?.hasMore ?? false,
+      isLoadingMore: state?.isLoadingMore ?? false,
+      loadMoreFailed: state?.loadMoreFailed ?? false,
       items: items
           .map(
             (item) => GenesisProfileCollectionItemData(

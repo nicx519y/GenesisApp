@@ -208,10 +208,7 @@ void main() {
     expect(backgroundDecoration.color, const Color(0xFF232228));
     expect(backgroundDecoration.gradient, isNull);
     expect(backgroundDecoration.border, isNull);
-    expect(
-      backgroundDecoration.borderRadius,
-      BorderRadius.circular(16),
-    );
+    expect(backgroundDecoration.borderRadius, BorderRadius.circular(16));
     final topUpDecoration =
         tester
                 .widget<Container>(
@@ -262,108 +259,112 @@ void main() {
     expect(selectedIndexes, <int>[1, 0]);
   });
 
-  testWidgets('profile collection tab counts follow current list state', (
-    tester,
-  ) async {
-    final originsState =
-        ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
+  testWidgets(
+    'profile collection tab counts use API totals independently of loaded cards',
+    (tester) async {
+      final originsState =
+          ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
+            const UserProfileCollectionState<UserProfileOriginItem>(
+              items: <UserProfileOriginItem>[],
+              isLoading: false,
+            ),
+          );
+      final worldsState =
+          ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
+            const UserProfileCollectionState<UserProfileWorldItem>(
+              items: <UserProfileWorldItem>[],
+              isLoading: false,
+            ),
+          );
+      addTearDown(originsState.dispose);
+      addTearDown(worldsState.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: UserProfileContent(
+              data: const UserProfileData(
+                avatarUrl: '',
+                displayName: 'User',
+                uid: 'u_user',
+                followingCount: 0,
+                followerCount: 0,
+                origins: <UserProfileOriginItem>[],
+                worlds: <UserProfileWorldItem>[],
+              ),
+              originsListenable: originsState,
+              worldsListenable: worldsState,
+              originTabLabel: 'Worldo',
+              worldTabLabel: 'Playing',
+              showCollectionCounts: true,
+              tabLabelFontSize: 14,
+            ),
+          ),
+        ),
+      );
+
+      expect(_profileTabCount('origin', '0'), findsOneWidget);
+      expect(_profileTabCount('world', '0'), findsOneWidget);
+
+      originsState.value =
           const UserProfileCollectionState<UserProfileOriginItem>(
-            items: <UserProfileOriginItem>[],
+            items: <UserProfileOriginItem>[
+              UserProfileOriginItem(
+                originId: 1,
+                oid: 'oid_1',
+                title: 'Worldo One',
+                subtitle: '',
+                imageUrl: '',
+                copyCount: 0,
+                interactCount: 0,
+                characterCount: 0,
+              ),
+            ],
             isLoading: false,
-          ),
-        );
-    final worldsState =
-        ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
+            total: 100,
+          );
+      worldsState.value =
           const UserProfileCollectionState<UserProfileWorldItem>(
-            items: <UserProfileWorldItem>[],
+            items: <UserProfileWorldItem>[
+              UserProfileWorldItem(
+                wid: 'wid_1',
+                title: 'World One',
+                subtitle: '',
+                imageUrl: '',
+                progressCount: 4,
+                subTickNo: 2,
+                interactCount: 1,
+                characterCount: 0,
+                playerCount: 1200,
+                ownerName: 'User',
+              ),
+              UserProfileWorldItem(
+                wid: 'wid_2',
+                title: 'World Two',
+                subtitle: '',
+                imageUrl: '',
+                progressCount: 0,
+                interactCount: 0,
+                characterCount: 0,
+                playerCount: 0,
+                ownerName: 'User',
+              ),
+            ],
             isLoading: false,
-          ),
-        );
-    addTearDown(originsState.dispose);
-    addTearDown(worldsState.dispose);
+            total: 80,
+          );
+      await tester.pump();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: UserProfileContent(
-            data: const UserProfileData(
-              avatarUrl: '',
-              displayName: 'User',
-              uid: 'u_user',
-              followingCount: 0,
-              followerCount: 0,
-              origins: <UserProfileOriginItem>[],
-              worlds: <UserProfileWorldItem>[],
-            ),
-            originsListenable: originsState,
-            worldsListenable: worldsState,
-            originTabLabel: 'Worldo',
-            worldTabLabel: 'Playing',
-            showCollectionCounts: true,
-            tabLabelFontSize: 14,
-          ),
-        ),
-      ),
-    );
+      expect(_profileTabCount('origin', '100'), findsOneWidget);
+      expect(_profileTabCount('world', '80'), findsOneWidget);
 
-    expect(_profileTabCount('origin', '0'), findsOneWidget);
-    expect(_profileTabCount('world', '0'), findsOneWidget);
+      await tester.tap(find.text('Playing'));
+      await tester.pumpAndSettle();
 
-    originsState.value =
-        const UserProfileCollectionState<UserProfileOriginItem>(
-          items: <UserProfileOriginItem>[
-            UserProfileOriginItem(
-              originId: 1,
-              oid: 'oid_1',
-              title: 'Worldo One',
-              subtitle: '',
-              imageUrl: '',
-              copyCount: 0,
-              interactCount: 0,
-              characterCount: 0,
-            ),
-          ],
-          isLoading: false,
-        );
-    worldsState.value = const UserProfileCollectionState<UserProfileWorldItem>(
-      items: <UserProfileWorldItem>[
-        UserProfileWorldItem(
-          wid: 'wid_1',
-          title: 'World One',
-          subtitle: '',
-          imageUrl: '',
-          progressCount: 4,
-          subTickNo: 2,
-          interactCount: 1,
-          characterCount: 0,
-          playerCount: 1200,
-          ownerName: 'User',
-        ),
-        UserProfileWorldItem(
-          wid: 'wid_2',
-          title: 'World Two',
-          subtitle: '',
-          imageUrl: '',
-          progressCount: 0,
-          interactCount: 0,
-          characterCount: 0,
-          playerCount: 0,
-          ownerName: 'User',
-        ),
-      ],
-      isLoading: false,
-    );
-    await tester.pump();
-
-    expect(_profileTabCount('origin', '1'), findsOneWidget);
-    expect(_profileTabCount('world', '2'), findsOneWidget);
-
-    await tester.tap(find.text('Playing'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Tick 4-2 · 1 Message · 1.2K Players'), findsOneWidget);
-    expect(find.text('Tick 0 · 0 Message'), findsOneWidget);
-  });
+      expect(find.text('Tick 4-2 · 1 Message · 1.2K Players'), findsOneWidget);
+      expect(find.text('Tick 0 · 0 Message'), findsOneWidget);
+    },
+  );
 
   testWidgets('profile collection pages keep a 10px gap while swiping', (
     tester,

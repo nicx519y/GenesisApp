@@ -1782,7 +1782,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","definition_version":2,"default_map_location_id":"loc_origin","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","definition_version":2,"default_map_location_id":"loc_origin","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":73}}',
           );
         }
         if (request.uri.path.endsWith('/v1/world/list')) {
@@ -1790,7 +1790,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":73}}',
           );
         }
         return const TransportResponse(
@@ -1829,6 +1829,18 @@ void main() {
     );
     await api.getMyWorlds(uid: 'u_2', scene: 'uid', limit: 10, offset: 0);
 
+    final worldPage = await api.getMyWorldsPage(
+      scene: 'mine',
+      limit: 30,
+      offset: 60,
+    );
+    expect(origins.total, 73);
+    expect(worldPage.total, 73);
+    expect(worldPage.data.single.wid, 'w_1');
+    expect(worldPage.offset, 60);
+    expect(worldPage.limit, 30);
+    expect(apiTransport.requests.last.uri.queryParameters['pn'], '3');
+    expect(apiTransport.requests.last.uri.queryParameters['rn'], '30');
     expect(origins.data.single.oid, 'o_1');
     expect(origins.data.single.originator, 'Origin Owner');
     expect(origins.data.single.definitionVersion, 2);

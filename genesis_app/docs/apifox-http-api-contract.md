@@ -621,6 +621,8 @@ Query：
 - `definition_version*`: integer，地图定义版本；`1` 为旧版地图，`2` 为新版 2.5D 地图
 - `default_map_location_id*`: string，默认展示地图的 location id；`root` 表示根地图
 
+Me 页 Playing 使用 `getMyWorldsPage` 保留响应 `total`；Worldo 使用 `getMyLaunchedOrigins` 的 `total`。两个 Tab 的 count 均显示接口总数，不使用已加载列表长度。列表独立按 `scene=mine`、`rn=30`、`pn=1,2,...` 分页；下一页追加并按实体 ID 去重，达到总数或返回空页后停止。切换 Tab 保留已加载分页，下拉刷新重新请求第一页；分页失败保留内容并支持重试。原 `getMyWorlds` 列表返回形式继续供其他调用方使用。
+
 其中 `info.last_active_at` 为 world 最近一次活跃时间（Unix 秒）；My Worlds 卡片时间以该字段为准，不读取 `last_tick.created_at`。
 
 ### GET `/api/v1/world/summary/latest`
