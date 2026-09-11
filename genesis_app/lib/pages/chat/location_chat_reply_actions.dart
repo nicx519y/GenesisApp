@@ -108,6 +108,38 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   @override
   Widget build(BuildContext context) {
+    final actionButtons = <Widget>[
+      if (_regenerate.invocation != null || _regenerate.busy)
+        LocationChatRegenerateButton(
+          key: const ValueKey('location-chat-regenerate'),
+          feature: _regenerate,
+          onBeforeInvoke: () => _setEditPromptExpanded(false),
+        ),
+      if (_goOn.invocation != null || _goOn.busy)
+        LocationChatGoOnButton(
+          key: const ValueKey('location-chat-go-on'),
+          feature: _goOn,
+          onBeforeInvoke: () => _setEditPromptExpanded(false),
+        ),
+      if (_edit.invocation != null)
+        LocationChatEditButton(
+          key: const ValueKey('location-chat-edit'),
+          feature: _edit,
+          onBeforeInvoke: () {
+            _setEditPromptExpanded(false);
+            _setInspirationExpanded(false);
+          },
+        ),
+      if (_inspiration.enabled || _inspiration.loading)
+        LocationChatInspirationButton(
+          key: const ValueKey('location-chat-inspiration'),
+          feature: _inspiration,
+          expanded: _inspirationExpanded,
+          onBeforeInvoke: () => _setEditPromptExpanded(false),
+          onToggle: _toggleInspiration,
+        ),
+    ];
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -152,57 +184,28 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           ),
           const SizedBox(height: 8),
         ],
-        Padding(
-          padding: EdgeInsets.only(
-            left: style.avatarSize + style.avatarBubbleGap,
+        if (actionButtons.isNotEmpty)
+          Padding(
+            padding: EdgeInsets.only(
+              left: style.avatarSize + style.avatarBubbleGap,
+            ),
+            child: Row(
+              key: const ValueKey('location-chat-reply-actions-four-icons'),
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                for (var index = 0; index < actionButtons.length; index++) ...[
+                  if (index > 0)
+                    const SizedBox(
+                      width:
+                          LocationChatReplyActions.centerSpacing -
+                          LocationChatReplyActions.buttonSize,
+                    ),
+                  actionButtons[index],
+                ],
+              ],
+            ),
           ),
-          child: Row(
-            key: const ValueKey('location-chat-reply-actions-four-icons'),
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              LocationChatRegenerateButton(
-                key: const ValueKey('location-chat-regenerate'),
-                feature: _regenerate,
-                onBeforeInvoke: () => _setEditPromptExpanded(false),
-              ),
-              const SizedBox(
-                width:
-                    LocationChatReplyActions.centerSpacing -
-                    LocationChatReplyActions.buttonSize,
-              ),
-              LocationChatGoOnButton(
-                key: const ValueKey('location-chat-go-on'),
-                feature: _goOn,
-                onBeforeInvoke: () => _setEditPromptExpanded(false),
-              ),
-              const SizedBox(
-                width:
-                    LocationChatReplyActions.centerSpacing -
-                    LocationChatReplyActions.buttonSize,
-              ),
-              LocationChatEditButton(
-                key: const ValueKey('location-chat-edit'),
-                feature: _edit,
-                onBeforeInvoke: () {
-                  _setEditPromptExpanded(false);
-                  _setInspirationExpanded(false);
-                },
-              ),
-              const SizedBox(
-                width:
-                    LocationChatReplyActions.centerSpacing -
-                    LocationChatReplyActions.buttonSize,
-              ),
-              LocationChatInspirationButton(
-                key: const ValueKey('location-chat-inspiration'),
-                feature: _inspiration,
-                expanded: _inspirationExpanded,
-                onBeforeInvoke: () => _setEditPromptExpanded(false),
-                onToggle: _toggleInspiration,
-              ),
-            ],
-          ),
-        ),
         if (_inspirationExpanded && _inspiration.messages.isNotEmpty) ...[
           const SizedBox(height: 12),
           _InspirationReplies(

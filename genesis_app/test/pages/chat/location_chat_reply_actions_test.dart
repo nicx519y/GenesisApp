@@ -169,46 +169,69 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('disabled actions are hidden without moving toolbar slots', (
+  testWidgets('disabled actions leave no toolbar slots and buttons stay left', (
     tester,
   ) async {
-    Widget host({required bool enabled, bool regenerateBusy = false}) =>
-        MaterialApp(
-          home: Scaffold(
-            body: _replyActions(
-              style: kLocationChatStyle,
-              regenerateEnabled: enabled,
-              goOnEnabled: enabled,
-              editEnabled: enabled,
-              regenerateBusy: regenerateBusy,
-              inspirationFeature: enabled
-                  ? const LocationChatInspirationFeature(
-                      messages: _inspirationReplies,
-                      loading: false,
-                      enabled: true,
-                    )
-                  : const LocationChatInspirationFeature.disabled(),
-            ),
-          ),
-        );
+    Widget host({
+      bool regenerateEnabled = false,
+      bool goOnEnabled = false,
+      bool editEnabled = false,
+      bool inspirationEnabled = false,
+      bool regenerateBusy = false,
+    }) => MaterialApp(
+      home: Scaffold(
+        body: _replyActions(
+          style: kLocationChatStyle,
+          onRegenerate: () {},
+          onGoOn: () {},
+          onEditReply: () {},
+          regenerateEnabled: regenerateEnabled,
+          goOnEnabled: goOnEnabled,
+          editEnabled: editEnabled,
+          regenerateBusy: regenerateBusy,
+          inspirationFeature: inspirationEnabled
+              ? const LocationChatInspirationFeature(
+                  messages: _inspirationReplies,
+                  loading: false,
+                  enabled: true,
+                )
+              : const LocationChatInspirationFeature.disabled(),
+        ),
+      ),
+    );
 
     const toolbarKey = ValueKey('location-chat-reply-actions-four-icons');
-    await tester.pumpWidget(host(enabled: true));
-    final enabledSize = tester.getSize(find.byKey(toolbarKey));
-
-    await tester.pumpWidget(host(enabled: false));
-    expect(tester.getSize(find.byKey(toolbarKey)), enabledSize);
+    await tester.pumpWidget(host());
+    expect(find.byKey(toolbarKey), findsNothing);
     for (final action in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
       expect(find.bySemanticsLabel(action), findsNothing);
     }
     expect(find.byType(CircularProgressIndicator), findsNothing);
 
-    await tester.pumpWidget(host(enabled: false, regenerateBusy: true));
+    await tester.pumpWidget(
+      host(regenerateBusy: true, editEnabled: true, inspirationEnabled: true),
+    );
     expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    for (final action in ['Go on', 'Edit', 'Inspiration']) {
-      expect(find.bySemanticsLabel(action), findsNothing);
-    }
+    expect(find.bySemanticsLabel('Go on'), findsNothing);
+    expect(find.bySemanticsLabel('Edit'), findsOneWidget);
+    expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
+
+    final regenerateLeft = tester.getTopLeft(
+      find.bySemanticsLabel('Regenerate'),
+    );
+    final editLeft = tester.getTopLeft(find.bySemanticsLabel('Edit'));
+    final inspirationLeft = tester.getTopLeft(
+      find.bySemanticsLabel('Inspiration'),
+    );
+    expect(
+      editLeft.dx - regenerateLeft.dx,
+      LocationChatReplyActions.centerSpacing,
+    );
+    expect(
+      inspirationLeft.dx - editLeft.dx,
+      LocationChatReplyActions.centerSpacing,
+    );
   });
 
   testWidgets(

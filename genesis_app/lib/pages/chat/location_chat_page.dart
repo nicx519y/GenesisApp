@@ -900,6 +900,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         widget.worldTickInProgress ||
         _awaitingTickProgressMessage ||
         replyGoOnPending ||
+        _inspirationLoading ||
         _preparingReplyAction;
     final regenerateFeature = _regenerateFeature(replyBlocked, replyState);
     final goOnFeature = _goOnFeature(

@@ -2575,6 +2575,21 @@ void main() {
       tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
       isFalse,
     );
+    final sendButton = find.descendant(
+      of: find.byKey(const ValueKey('chat-composer-send-button')),
+      matching: find.byType(TextButton),
+    );
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
+    final loadingList = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(loadingList.regenerateFeature.enabled, isFalse);
+    expect(loadingList.goOnFeature.enabled, isFalse);
+    expect(loadingList.editFeature.enabled, isFalse);
+    expect(loadingList.replyCardSwitchEnabled, isFalse);
+    for (final action in ['Regenerate', 'Go on', 'Edit']) {
+      expect(find.bySemanticsLabel(action), findsNothing);
+    }
     expect(
       find.byKey(const ValueKey('location-chat-loading-bubble')),
       findsNothing,
@@ -2604,6 +2619,7 @@ void main() {
       tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
       isTrue,
     );
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
     expect(_replyActionLoading('Inspiration'), findsNothing);
 
     backend.inspirationTimeout = false;

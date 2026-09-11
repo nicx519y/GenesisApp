@@ -11,6 +11,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
         _sending ||
         _replyCardTransitionBusy ||
         _preparingReplyAction ||
+        _inspirationLoading ||
         _replyEditorOpen) {
       return;
     }
