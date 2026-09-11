@@ -13,6 +13,7 @@ import 'app/debug/world_new_content_debug_settings.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/startup/initial_landing_page_resolver.dart';
+import 'app/startup/ios_startup_network.dart';
 import 'app/startup/startup_dependency_guard.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
@@ -83,6 +84,13 @@ Future<void> main() async {
       : Future<bool>.value(false);
   final appConfig = await appConfigLoad;
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
+  if (appConfig.useMock != true) {
+    // Keep permission waiting outside config's 3-second startup budget and
+    // ahead of service creation (image warm-up, billing and Gateway requests).
+    await waitForIosStartupNetwork(
+      probeUri: Uri.parse(appConfig.gatewayApiBaseUrl).resolve('v1/time'),
+    );
+  }
   final collectReady = Completer<void>();
   // Prepare the durable Collect queue as soon as the runtime endpoints are
   // known. The two launch sentinels intentionally do not wait for UID,
