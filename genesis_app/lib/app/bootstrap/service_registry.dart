@@ -94,7 +94,9 @@ class AppServices {
     this.userMemberships =
         userMemberships ??
         UserMembershipStatusStore(
-          loadUser: (uid) => api.v1.user.info(uid: uid),
+          // A missing badge owner must not replace the page hosting the name.
+          loadUser: (uid) =>
+              api.v1.user.info(uid: uid, handlePageNotFound: false),
         );
     membership = MembershipAccessStore(
       wallet: this.gemWallet,

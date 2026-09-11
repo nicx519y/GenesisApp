@@ -734,15 +734,22 @@ class _GemsBalanceEntry extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Flexible(
-                            child: _GemBalance(
-                              iconAsset: roseGemIconAsset,
-                              label: 'Pink gems',
-                              balanceCent: roseCent,
-                              valueKey: const ValueKey(
-                                'user-profile-rose-gems-balance',
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => Navigator.of(context).pushNamed(
+                                RouteNames.gemWallet,
+                                arguments: 'subscription',
                               ),
-                              iconKey: const ValueKey(
-                                'user-profile-rose-gem-icon',
+                              child: _GemBalance(
+                                iconAsset: roseGemIconAsset,
+                                label: 'Pink gems',
+                                balanceCent: roseCent,
+                                valueKey: const ValueKey(
+                                  'user-profile-rose-gems-balance',
+                                ),
+                                iconKey: const ValueKey(
+                                  'user-profile-rose-gem-icon',
+                                ),
                               ),
                             ),
                           ),

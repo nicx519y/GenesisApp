@@ -120,10 +120,17 @@ class UserV1Api extends V1ApiResource {
   ///
   /// For the current account, UUID and selected model code are siblings of
   /// `user` in this result.
-  Future<Map<String, dynamic>> info({String? uid}) async {
+  Future<Map<String, dynamic>> info({
+    String? uid,
+    bool handlePageNotFound = true,
+  }) async {
     final resolvedUid = uid?.trim() ?? '';
     if (resolvedUid.isNotEmpty) {
-      return getMap('user/info', v1Query({'uid': resolvedUid}));
+      return getMapWithHeaders(
+        'user/info',
+        query: v1Query({'uid': resolvedUid}),
+        handlePageNotFound: handlePageNotFound,
+      );
     }
 
     final session = await _currentUserInfoSessionProvider?.call();
@@ -135,6 +142,7 @@ class UserV1Api extends V1ApiResource {
       'user/info',
       query: {'uid': session.uid},
       headers: {'authorization': _bearerToken(session.authToken)},
+      handlePageNotFound: handlePageNotFound,
     );
     _validateCurrentUserInfo(response, expectedUid: session.uid);
     return response;

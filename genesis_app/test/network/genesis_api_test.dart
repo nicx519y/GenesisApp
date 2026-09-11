@@ -1543,6 +1543,77 @@ void main() {
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
   });
 
+  test(
+    'search and badge 1404 stay local while user details still navigate',
+    () async {
+      var pageNotFoundCount = 0;
+      var sessionExpiredCount = 0;
+      var errorCode = 1404;
+      final transport = _FakeTransport(
+        handler: (_) => TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': errorCode,
+            'err_msg': 'missing',
+            'data': {},
+          }),
+        ),
+      );
+      final api = GenesisApi(
+        useMock: false,
+        transport: transport,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: MemoryUserSessionStore(),
+        onPageNotFound: (_) async => pageNotFoundCount++,
+        onSessionExpired: (_) async => sessionExpiredCount++,
+      );
+      final localRequests = <Future<Object?> Function()>[
+        for (final type in ['origin', 'world', 'user'])
+          for (final page in [1, 2])
+            () => api.v1.search.search(
+              query: 'abc',
+              type: type,
+              pn: page,
+              rn: 20,
+            ),
+        () => api.v1.search.suggest(query: 'abc'),
+        () => api.v1.user.info(uid: 'u_missing', handlePageNotFound: false),
+      ];
+      for (final request in localRequests) {
+        await expectLater(
+          request(),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.code, 'code', 1404)
+                .having((e) => e.message, 'message', 'missing'),
+          ),
+        );
+        expect(pageNotFoundCount, 0);
+        expect(
+          transport.lastRequest!.uri.queryParameters.keys,
+          everyElement(isIn(['keyword', 'type', 'pn', 'rn', 'query', 'uid'])),
+        );
+      }
+
+      await expectLater(
+        api.v1.user.info(uid: 'u_missing'),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 1404)),
+      );
+      expect(pageNotFoundCount, 1);
+
+      errorCode = 10001;
+      for (final request in localRequests) {
+        await expectLater(
+          request(),
+          throwsA(isA<ApiException>().having((e) => e.code, 'code', 10001)),
+        );
+      }
+      expect(sessionExpiredCount, localRequests.length);
+      expect(pageNotFoundCount, 1);
+    },
+  );
+
   test('HTTP status 404 does not trigger page not found callback', () async {
     var pageNotFoundCalled = false;
     final apiTransport = _FakeTransport(

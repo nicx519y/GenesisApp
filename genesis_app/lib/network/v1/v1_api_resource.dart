@@ -19,11 +19,13 @@ abstract class V1ApiResource {
     String path, {
     Map<String, Object?>? query,
     Map<String, String>? headers,
+    bool handlePageNotFound = true,
   }) async {
     final json = await client.get<Object?>(
       'v1/$path',
       query: query,
       headers: headers,
+      handlePageNotFound: handlePageNotFound,
     );
     final data = handleV1ResponseErrNo(json);
     return data == null ? <String, dynamic>{} : asJsonMap(data);
