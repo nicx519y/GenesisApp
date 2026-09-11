@@ -207,7 +207,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'VIP purchase is unavailable.',
+          'Premium purchase is unavailable.',
           debugInfo: purchaseDebugInfo(
             'vip.precheck',
             reason: 'service_unavailable',

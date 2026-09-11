@@ -9,12 +9,12 @@ void main() {
     (-3, 'serviceTimeout', 'took too long'),
     (-2, 'featureNotSupported', 'not supported'),
     (-1, 'serviceDisconnected', 'connection to Google Play was lost'),
-    (1, 'userCanceled', 'VIP purchase cancelled.'),
+    (1, 'userCanceled', 'Premium purchase canceled.'),
     (2, 'serviceUnavailable', 'temporarily unavailable'),
     (3, 'billingUnavailable', 'payment settings'),
-    (4, 'itemUnavailable', 'VIP plan is currently unavailable'),
+    (4, 'itemUnavailable', 'Premium subscription is currently unavailable'),
     (5, 'developerError', 'could not start this subscription'),
-    (6, 'error', 'could not complete this VIP purchase'),
+    (6, 'error', 'could not complete this Premium purchase'),
     (7, 'itemAlreadyOwned', 'already own this subscription'),
     (8, 'itemNotOwned', 'could not find the subscription to change'),
     (12, 'networkError', 'internet connection'),
@@ -66,7 +66,7 @@ void main() {
         code: 'userCanceled',
         details: {'subResponseCode': 2},
       ).message,
-      'VIP purchase cancelled.',
+      'Premium purchase canceled.',
     );
     expect(
       membershipStoreError(
@@ -176,7 +176,7 @@ void main() {
           'underlyingCode': '-1001',
         },
       ).message,
-      'VIP purchase cancelled.',
+      'Premium purchase canceled.',
     );
   });
   test(
@@ -184,14 +184,14 @@ void main() {
     () {
       expect(
         membershipStoreError(MembershipProvider.google, code: '1234').message,
-        'Google Play could not complete this VIP purchase. Please try again.',
+        'Google Play could not complete this Premium purchase. Please try again.',
       );
       expect(
         membershipStoreError(
           MembershipProvider.apple,
           code: 'new_error',
         ).message,
-        'The App Store could not complete this VIP purchase. Please try again.',
+        'The App Store could not complete this Premium purchase. Please try again.',
       );
       expect(
         membershipStoreFailure(

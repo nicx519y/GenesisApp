@@ -215,16 +215,16 @@ void main() {
         expect(find.text('Purchase successful!'), findsNothing);
         expect(find.byType(ProSubscriptionContent), findsOneWidget);
         final message = switch (outcome) {
-          'cancelled' => 'VIP purchase cancelled.',
-          'pending' => 'VIP payment is pending.',
-          'accepted' => 'Your VIP purchase is being confirmed.',
+          'cancelled' => 'Premium purchase canceled.',
+          'pending' => 'Premium payment is pending.',
+          'accepted' => 'Your Premium purchase is being confirmed.',
           'deferred' || 'storage failure' || 'stream failure' =>
-            'VIP purchase confirmation is delayed. Please check again later.',
+            'Premium purchase confirmation is delayed. Please check again later.',
           'failed' =>
-            'The store could not open this VIP purchase. Please try again.',
+            'The store could not open this Premium purchase. Please try again.',
           'query failure' =>
-            'This VIP plan is currently unavailable in the store. Please refresh the page and try again.',
-          _ => 'VIP purchase failed.',
+            'This Premium subscription is currently unavailable in the store. Please refresh the page and try again.',
+          _ => 'Premium purchase failed.',
         };
         final toast = find.textContaining('\n$message');
         expect(toast, findsOneWidget);

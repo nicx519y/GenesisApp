@@ -119,7 +119,9 @@ void main() {
             expect(purchases, previous + (blocked ? 0 : 1));
             if (blocked) {
               expect(
-                find.textContaining('You already have this VIP plan.'),
+                find.textContaining(
+                  'You already have an active Premium subscription.',
+                ),
                 findsOneWidget,
               );
             }
@@ -432,7 +434,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         find.text(
-          'debug：vip.eligibility; reason=already_subscribed\nYou already have this VIP plan.',
+          'debug：vip.eligibility; reason=already_subscribed\nYou already have an active Premium subscription.',
         ),
         findsOneWidget,
       );
@@ -446,7 +448,7 @@ void main() {
       expect(
         find.text(
           'debug：vip.eligibility; reason=already_subscribed\n'
-          'You already have this VIP plan.',
+          'You already have an active Premium subscription.',
         ),
         findsOneWidget,
       );

@@ -22,9 +22,9 @@ class MembershipStoreFailure {
       membershipLocalStoreMessages[code] ??
       (provider == MembershipProvider.google
           ? membershipGoogleErrorMessages[code] ??
-                'Google Play could not complete this VIP purchase. Please try again.'
+                'Google Play could not complete this Premium purchase. Please try again.'
           : membershipAppleErrorMessages[code] ??
-                'The App Store could not complete this VIP purchase. Please try again.');
+                'The App Store could not complete this Premium purchase. Please try again.');
 }
 
 MembershipStoreFailure? membershipStoreFailure(
@@ -140,16 +140,17 @@ const membershipGoogleErrorMessages = <String, String>{
       'Subscriptions are not supported by Google Play on this device.',
   'service_disconnected':
       'The connection to Google Play was lost. Please try again.',
-  'user_canceled': 'VIP purchase cancelled.',
+  'user_canceled': 'Premium purchase canceled.',
   'service_unavailable':
       'Google Play is temporarily unavailable. Please try again later.',
   'billing_unavailable':
       'Google Play billing is unavailable. Please check your Play account and payment settings.',
-  'item_unavailable': 'This VIP plan is currently unavailable on Google Play.',
+  'item_unavailable':
+      'This Premium subscription is currently unavailable on Google Play.',
   'developer_error':
       'Google Play could not start this subscription purchase. Please contact support if this continues.',
   'error':
-      'Google Play could not complete this VIP purchase. Please try again.',
+      'Google Play could not complete this Premium purchase. Please try again.',
   'item_already_owned':
       'You already own this subscription on Google Play. Please check Manage subscriptions.',
   'item_not_owned':
@@ -189,8 +190,8 @@ const membershipAppleNativeCodes = <int, String>{
 
 const membershipAppleErrorMessages = <String, String>{
   'unknown':
-      'The App Store could not complete this VIP purchase. Please try again.',
-  'user_cancelled': 'VIP purchase cancelled.',
+      'The App Store could not complete this Premium purchase. Please try again.',
+  'user_cancelled': 'Premium purchase canceled.',
   'network_error':
       'Could not connect to the App Store. Please check your internet connection and try again.',
   'network_timeout':
@@ -198,7 +199,7 @@ const membershipAppleErrorMessages = <String, String>{
   'system_error':
       'The App Store encountered a system error. Please try again later.',
   'not_available_in_storefront':
-      'This VIP plan is not available in your App Store region.',
+      'This Premium subscription is not available in your App Store region.',
   'not_entitled':
       'This app cannot make this App Store request. Please contact support.',
   'unsupported':
@@ -208,7 +209,7 @@ const membershipAppleErrorMessages = <String, String>{
   'invalid_quantity':
       'The App Store could not accept this purchase quantity. Please contact support.',
   'product_unavailable':
-      'This VIP plan is currently unavailable on the App Store.',
+      'This Premium subscription is currently unavailable on the App Store.',
   'purchase_not_allowed':
       'Purchases are not allowed on this device. Please check your Apple Account and purchase restrictions.',
   'ineligible_for_offer':
@@ -225,13 +226,13 @@ const membershipAppleErrorMessages = <String, String>{
       'Please add a payment method to your Apple Account, then try again.',
   'client_invalid':
       'This app cannot make purchases on the App Store. Please contact support.',
-  'payment_cancelled': 'VIP purchase cancelled.',
+  'payment_cancelled': 'Premium purchase canceled.',
   'payment_invalid':
       'The App Store could not accept this purchase request. Please try again or contact support.',
   'payment_not_allowed':
       'Purchases are not allowed on this device. Please check your Apple Account and purchase restrictions.',
   'store_product_not_available':
-      'This VIP plan is not available in your App Store region.',
+      'This Premium subscription is not available in your App Store region.',
   'cloud_service_permission_denied':
       'Apple cloud service access was denied. Please check your Apple Account permissions.',
   'cloud_service_network_connection_failed':
@@ -246,7 +247,7 @@ const membershipAppleErrorMessages = <String, String>{
       'The App Store could not verify this subscription offer. Please contact support.',
   'missing_offer_params':
       'This subscription offer could not be prepared. Please refresh the page and try again.',
-  'overlay_cancelled': 'VIP purchase cancelled.',
+  'overlay_cancelled': 'Premium purchase canceled.',
   'overlay_invalid_configuration':
       'The App Store window could not be configured. Please contact support.',
   'overlay_timeout':
@@ -261,11 +262,11 @@ const membershipLocalStoreMessages = <String, String>{
   'store_unavailable':
       'Google Play is unavailable. Please check that it is installed and you are signed in.',
   'membership_product_not_found':
-      'This VIP plan is currently unavailable in the store. Please refresh the page and try again.',
+      'This Premium subscription is currently unavailable in the store. Please refresh the page and try again.',
   'invalid_membership_product':
-      'This VIP plan could not be prepared. Please refresh the page and try again.',
+      'This Premium subscription could not be prepared. Please refresh the page and try again.',
   'membership_launch_rejected':
-      'The store could not open this VIP purchase. Please try again.',
+      'The store could not open this Premium purchase. Please try again.',
   'membership_upgrade_purchase_missing':
       'The original subscription was not found in Google Play. Please check Manage subscriptions.',
   'membership_upgrade_account_mismatch':
@@ -275,9 +276,9 @@ const membershipLocalStoreMessages = <String, String>{
   'storekit_duplicate_product_object':
       'An App Store purchase for this plan is still being processed. Please wait for it to finish.',
   'storekit2_failed_to_fetch_product':
-      'This VIP plan is currently unavailable on the App Store.',
+      'This Premium subscription is currently unavailable on the App Store.',
   'storekit2_products_error':
-      'Could not load VIP plans from the App Store. Please try again.',
+      'Could not load Premium plans from the App Store. Please try again.',
   'purchase_preparation_expired':
       'Purchase preparation expired. Please try again.',
   'storekit2_unknown_purchase_result':

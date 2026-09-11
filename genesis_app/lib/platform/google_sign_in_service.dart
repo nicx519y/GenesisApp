@@ -83,7 +83,7 @@ class GoogleSignInService {
       if (error.code == 'google_sign_in_cancelled') {
         throw const GoogleSignInException(
           code: GoogleSignInExceptionCode.canceled,
-          description: 'Google sign-in cancelled.',
+          description: 'Google sign-in canceled.',
         );
       }
       rethrow;

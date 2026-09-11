@@ -633,7 +633,7 @@ class MainActivity : FlutterActivity() {
         pendingGoogleSignInResult = null
 
         if (resultCode != Activity.RESULT_OK || data == null) {
-            result.error("google_sign_in_cancelled", "Google sign-in cancelled.", null)
+            result.error("google_sign_in_cancelled", "Google sign-in canceled.", null)
             return
         }
 

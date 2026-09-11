@@ -58,7 +58,7 @@ class MembershipGuestLoginDebugSettingsController {
   Future<void> _save(bool enabled) async {
     final preferences = await SharedPreferences.getInstance();
     if (!await preferences.setBool(storageKey, enabled)) {
-      throw StateError('Failed to save the guest VIP login debug setting.');
+      throw StateError('Failed to save the guest Premium login debug setting.');
     }
   }
 

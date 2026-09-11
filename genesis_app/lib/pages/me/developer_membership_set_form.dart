@@ -78,7 +78,7 @@ class _DeveloperMembershipSetFormState
     try {
       final result = await widget.onSubmit(request);
       var message =
-          'VIP updated\nuid: ${result.uid}\nplan_code: ${result.planCode}\n'
+          'Premium updated\nuid: ${result.uid}\nplan_code: ${result.planCode}\n'
           'expires_at: ${result.expiresAt}\n'
           'membership_status: ${result.membershipStatus}';
       try {
@@ -89,7 +89,7 @@ class _DeveloperMembershipSetFormState
       }
       if (mounted) setState(() => _result = message);
     } catch (error) {
-      if (mounted) setState(() => _result = 'VIP request failed: $error');
+      if (mounted) setState(() => _result = 'Premium request failed: $error');
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

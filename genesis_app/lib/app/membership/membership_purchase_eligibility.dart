@@ -17,24 +17,26 @@ String? membershipPurchaseBlockReason(
 
 String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
   final message = switch (reason) {
-    'already_subscribed' => 'You already have this VIP plan.',
+    'already_subscribed' => 'You already have an active Premium subscription.',
     'downgrade_not_allowed' =>
-      'An active yearly VIP plan cannot be changed to monthly.',
+      'An active yearly Premium subscription cannot be changed to a monthly plan.',
     'purchase_processing' =>
-      'Your previous VIP purchase is still being confirmed.',
+      'Your previous Premium purchase is still being confirmed.',
     'cross_platform_upgrade_not_allowed' =>
-      'Please use the original store to upgrade your VIP plan.',
+      'Please use the original store to upgrade your Premium subscription.',
     'subscription_requires_action' =>
       'Please resolve your current subscription in the store before purchasing.',
-    'sale_disabled' => 'VIP purchase is currently unavailable.',
+    'sale_disabled' => 'Premium purchase is currently unavailable.',
     'device_id_required' || 'eligibility_unavailable' =>
-      'Unable to verify VIP purchase eligibility. Please try again.',
-    'account_mismatch' => 'This VIP purchase belongs to a different account.',
-    'invalid_purchase' => 'The store could not verify this VIP purchase.',
-    'product_mismatch' => 'The VIP purchase does not match the selected plan.',
-    'purchase_canceled' => 'This VIP purchase was cancelled.',
-    'purchase_revoked' => 'This VIP purchase was revoked.',
-    _ => 'VIP purchase failed.',
+      'Unable to verify Premium purchase eligibility. Please try again.',
+    'account_mismatch' =>
+      'This Premium purchase belongs to a different account.',
+    'invalid_purchase' => 'The store could not verify this Premium purchase.',
+    'product_mismatch' =>
+      'The Premium purchase does not match the selected plan.',
+    'purchase_canceled' => 'This Premium purchase was canceled.',
+    'purchase_revoked' => 'This Premium purchase was revoked.',
+    _ => 'Premium purchase failed.',
   };
   return purchaseToastMessage(
     message,
