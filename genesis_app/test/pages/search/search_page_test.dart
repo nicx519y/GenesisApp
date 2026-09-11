@@ -525,11 +525,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('#Origin 1'), findsOneWidget);
-    expect(find.text('OID: origin_1'), findsOneWidget);
+    expect(find.text('OID: origin_1'), findsNothing);
     expect(find.text('Creator: Deleted User'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('Creator: Deleted User')).dy,
-      greaterThan(tester.getTopLeft(find.text('OID: origin_1')).dy),
+      greaterThan(tester.getTopLeft(find.text('#Origin 1')).dy),
     );
     expect(find.textContaining('Brief:'), findsNothing);
     expect(find.textContaining('Characters:'), findsNothing);
@@ -776,6 +776,11 @@ void main() {
       ['origin_1'],
     );
 
+    expect(
+      tester.widget<Text>(find.textContaining('OID: origin_1')).style?.color,
+      GenesisColors.darkTextSecondary,
+    );
+
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
     expect(
@@ -920,14 +925,10 @@ void main() {
       isFalse,
       reason: 'Worldo should not retain the old 5px or 8px row gaps.',
     );
-    final originSubtitle = tester.widget<Text>(
-      find.descendant(
-        of: originTile,
-        matching: find.textContaining('OID: origin_1'),
-      ),
+    expect(
+      find.descendant(of: originTile, matching: find.textContaining('OID:')),
+      findsNothing,
     );
-    expect(originSubtitle.style?.height, 1.2);
-    expect(originSubtitle.style?.color, GenesisColors.darkTextTertiary);
     final originStatTexts = tester.widgetList<Text>(
       find.descendant(of: originTile, matching: find.text('1')),
     );
@@ -996,7 +997,7 @@ void main() {
     );
     expect(worldMetadata.style?.fontSize, 12);
     expect(worldMetadata.style?.height, 1.2);
-    expect(worldMetadata.style?.color, GenesisColors.darkTextTertiary);
+    expect(worldMetadata.style?.color, GenesisColors.darkTextSecondary);
     final worldStats = tester.widget<Text>(
       find.descendant(
         of: worldTile,
@@ -1033,7 +1034,7 @@ void main() {
     final userUid = tester.widget<Text>(
       find.descendant(of: userTile, matching: find.text('UID: user_1')),
     );
-    expect(userUid.style?.color, GenesisColors.darkTextTertiary);
+    expect(userUid.style?.color, GenesisColors.darkTextSecondary);
 
     final userSizedBoxes = tester
         .widgetList<SizedBox>(

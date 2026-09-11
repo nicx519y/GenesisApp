@@ -316,6 +316,7 @@ class _UserProfileContentState extends State<UserProfileContent>
               pageKey: const ValueKey<String>('profile-world-collection-page'),
               child: _WorldProfileCollectionList(
                 items: data.worlds,
+                profileUid: data.uid,
                 emptyText: data.isSelf
                     ? 'No Worlds you created yet.'
                     : 'No Worlds yet.',

@@ -33,7 +33,7 @@ void main() {
                   top: top + worldMapBackButtonTop,
                   child: WorldMapTopBar(
                     title: 'World name',
-                    timeText: 'Tick 1 · 12:00',
+                    timeText: '12:00',
                     maxIdentityWidth: 600,
                     onBackPressed: () {},
                   ),

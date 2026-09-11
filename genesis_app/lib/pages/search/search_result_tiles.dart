@@ -48,7 +48,7 @@ class _SearchResultTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: CopyableIdLabel.textStyle.copyWith(
-                color: GenesisColors.darkTextTertiary,
+                color: GenesisColors.darkTextSecondary,
               ),
             )
           else
@@ -86,7 +86,7 @@ class _SearchResultTile extends StatelessWidget {
 }
 
 const _searchMetadataStyle = TextStyle(
-  color: GenesisColors.darkTextTertiary,
+  color: GenesisColors.darkTextSecondary,
   fontSize: 12,
   fontWeight: FontWeight.w400,
   height: 1.2,
@@ -102,7 +102,7 @@ const _searchSummaryStyle = TextStyle(
 );
 
 const _worldSearchMetadataStyle = TextStyle(
-  color: GenesisColors.darkTextTertiary,
+  color: GenesisColors.darkTextSecondary,
   fontSize: 12,
   fontWeight: FontWeight.w400,
   height: 1.2,
@@ -147,21 +147,24 @@ class _OriginSearchMetadata extends StatelessWidget {
         ),
       );
     }
+    final idRanges = _originIdRanges(origin, item.searchQuery).toList();
+    final showId = _mergedSearchHighlightRanges(
+      origin.originId,
+      idRanges,
+    ).isNotEmpty;
     final rows = <Widget>[
-      Text.rich(
-        TextSpan(
-          children: [
-            const TextSpan(text: 'OID: '),
-            _highlightedSearchSpan(
-              _dashOrValue(origin.originId),
-              _originIdRanges(origin, item.searchQuery),
-            ),
-          ],
+      if (showId)
+        Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(text: 'OID: '),
+              _highlightedSearchSpan(_dashOrValue(origin.originId), idRanges),
+            ],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _searchMetadataStyle,
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: _searchMetadataStyle,
-      ),
       ProUserName(
         uid: origin.owner.uid,
         fontSize: 12,
