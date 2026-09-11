@@ -171,7 +171,7 @@ Matrix4 tilemapInitialTransform({
   final bounds = contentBounds ?? Offset.zero & mapSize;
   final scale = tilemapResolvedInitialScale(initialScale);
   final sceneCenter = focus ?? bounds.center;
-  final verticalOffset = focus == null ? 20.0 : 0.0;
+  final verticalOffset = focus == null ? tilemapInitialVerticalOffset : 0.0;
   return Matrix4.identity()
     ..setEntry(0, 0, scale)
     ..setEntry(1, 1, scale)
@@ -291,6 +291,86 @@ double tilemapAutomaticInitialScaleForTiles({
           .toDouble();
   return resolvedNearbyScale +
       (resolvedDistantScale - resolvedNearbyScale) * progress;
+}
+
+Rect? tilemapLocationContentBounds({
+  required TilemapProjection projection,
+  required Iterable<TilemapCell> tiles,
+  double minimumSizeTiles = tilemapDefaultMinimumLocationBoundsSizeTiles,
+}) {
+  final locationTiles = tiles
+      .where((tile) => tile.isLocationTile)
+      .toList(growable: false);
+  if (locationTiles.isEmpty) return null;
+
+  final actualBounds = projection.imageBoundsForTiles(locationTiles);
+  final resolvedMinimumSizeTiles =
+      (minimumSizeTiles.isFinite
+              ? minimumSizeTiles
+              : tilemapDefaultMinimumLocationBoundsSizeTiles)
+          .roundToDouble()
+          .clamp(
+            tilemapMinimumLocationBoundsSizeTilesMin,
+            tilemapMinimumLocationBoundsSizeTilesMax,
+          )
+          .toDouble();
+  final minimumWidth = resolvedMinimumSizeTiles * projection.tileExtent;
+  final minimumHeight =
+      (resolvedMinimumSizeTiles + 1) * projection.tileExtent / 2;
+  final resolvedWidth = math.max(actualBounds.width, minimumWidth);
+  final resolvedHeight = math.max(actualBounds.height, minimumHeight);
+  return Rect.fromCenter(
+    center: actualBounds.center,
+    width: resolvedWidth,
+    height: resolvedHeight,
+  );
+}
+
+double tilemapInitialScaleForViewport({
+  required double distanceScale,
+  required Size viewportSize,
+  required Rect? locationContentBounds,
+  bool centerContentInitially = false,
+  double viewportPadding = tilemapDefaultLocationBoundsViewportPadding,
+}) {
+  final resolvedDistanceScale = tilemapResolvedInitialScale(distanceScale);
+  if (!centerContentInitially ||
+      locationContentBounds == null ||
+      locationContentBounds.isEmpty ||
+      viewportSize.isEmpty ||
+      !viewportSize.width.isFinite ||
+      !viewportSize.height.isFinite) {
+    return resolvedDistanceScale;
+  }
+
+  final resolvedViewportPadding =
+      (viewportPadding.isFinite
+              ? viewportPadding
+              : tilemapDefaultLocationBoundsViewportPadding)
+          .clamp(
+            tilemapLocationBoundsViewportPaddingMin,
+            tilemapLocationBoundsViewportPaddingMax,
+          )
+          .toDouble();
+  final usableWidth = math.max(
+    1.0,
+    viewportSize.width - resolvedViewportPadding * 2,
+  );
+  final usableHeight = math.max(
+    1.0,
+    viewportSize.height -
+        resolvedViewportPadding * 2 -
+        tilemapInitialVerticalOffset * 2,
+  );
+  final fitScale = math.min(
+    usableWidth / locationContentBounds.width,
+    usableHeight / locationContentBounds.height,
+  );
+  if (!fitScale.isFinite || fitScale <= 0) return resolvedDistanceScale;
+  return math
+      .max(resolvedDistanceScale, fitScale)
+      .clamp(tilemapInitialScaleMin, tilemapInitialScaleMax)
+      .toDouble();
 }
 
 TilemapCell? tilemapInitialFocusLocationTile({

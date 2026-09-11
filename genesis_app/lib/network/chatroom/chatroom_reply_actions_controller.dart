@@ -272,6 +272,12 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     refreshFormalRange,
     Future<void> Function(String locationId, int roundId)?
     replaceCompletedRound,
+    Future<void> Function(
+      String locationId,
+      int roundId,
+      List<ChatroomLlmMessageOperation> operations,
+    )?
+    applyCommittedFormalEdit,
     void Function(String locationId, int roundId)? onGoOnAccepted,
     void Function(String locationId, int roundId)? onGoOnFinished,
     Future<void> Function(String locationId)? refreshLatestHistory,
@@ -288,6 +294,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
        _isTickLocked = isTickLocked,
        _refreshFormalRange = refreshFormalRange,
        _replaceCompletedRound = replaceCompletedRound,
+       _applyCommittedFormalEdit = applyCommittedFormalEdit,
        _onGoOnAccepted = onGoOnAccepted,
        _onGoOnFinished = onGoOnFinished,
        _refreshLatestHistory = refreshLatestHistory,
@@ -313,6 +320,8 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   final bool Function() _isTickLocked;
   final Future<void> Function(String, int, int) _refreshFormalRange;
   final Future<void> Function(String, int)? _replaceCompletedRound;
+  final Future<void> Function(String, int, List<ChatroomLlmMessageOperation>)?
+  _applyCommittedFormalEdit;
   final void Function(String, int)? _onGoOnAccepted;
   final void Function(String, int)? _onGoOnFinished;
   final Future<void> Function(String)? _refreshLatestHistory;

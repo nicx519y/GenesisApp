@@ -62,6 +62,11 @@ bool _returnTrue() => true;
 
 bool _returnFalse() => false;
 
+Finder _replyActionLoading(String label) => find.descendant(
+  of: find.bySemanticsLabel(label),
+  matching: find.byType(CircularProgressIndicator),
+);
+
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
@@ -1692,7 +1697,7 @@ void main() {
   });
 
   testWidgets(
-    'reply Edit persists through HTTP and refreshes canonical history from a nested navigator',
+    'reply Edit succeeds from batch response while range updates refresh independently',
     (tester) async {
       final backend = _LocationChatReplyHttpTransport();
       final harness = await _connectedLocationChatTestService(
@@ -1734,6 +1739,12 @@ void main() {
         messageId: 302,
         content: 'Original reply.',
       );
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        roundId: 301,
+        messageId: 303,
+        content: 'Second reply.',
+      );
       harness.socket.serverEndConversationRound(roundId: 301);
       await _pumpUntilLocationChatTest(
         tester,
@@ -1767,7 +1778,11 @@ void main() {
         originalHeaderHeight,
       );
       expect(find.byType(ChatComposer), findsNothing);
-      await tester.enterText(find.byType(TextField), 'Saved server reply.');
+      final rangeRequestsBeforeSave = backend.rangeRequests.length;
+      await tester.enterText(
+        find.byType(TextField).first,
+        'Saved server reply.',
+      );
       await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
       await tester.pumpAndSettle();
       expect(find.byType(LocationChatEditPage), findsNothing);
@@ -1780,16 +1795,15 @@ void main() {
       );
       expect(
         list.messages.any((message) => message.text == 'Saved server reply.'),
-        isTrue,
+        isFalse,
+        reason: 'The independent range event has not arrived yet.',
       );
       expect(
-        harness
-            .service
-            .state
-            .messagesByLocation['location-current']!
-            .last
+        harness.service.state.messagesByLocation['location-current']!
+            .firstWhere((message) => message.globalMessageId == 90302)
             .content,
-        'Saved server reply.',
+        'Original reply.',
+        reason: 'Save success must not wait for or start a history refresh.',
       );
       expect(backend.batches, [
         {
@@ -1803,15 +1817,17 @@ void main() {
           ],
         },
       ]);
-      expect(backend.rangeRequests, isNotEmpty);
-      expect(
-        backend.rangeRequests.every(
-          (query) =>
-              query['start_conversation_round_id'] == '301' &&
-              query['end_conversation_round_id'] == '301',
+      expect(backend.rangeRequests, hasLength(rangeRequestsBeforeSave));
+      harness.socket.serverConversationRangeUpdated(start: 301, end: 301);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.state.messagesByLocation['location-current']!.any(
+          (message) =>
+              message.globalMessageId == 90302 &&
+              message.content == 'Saved server reply.',
         ),
-        isTrue,
       );
+      expect(backend.rangeRequests, hasLength(rangeRequestsBeforeSave + 1));
       tester.widget<ChatComposer>(find.byType(ChatComposer)).controller.text =
           'Draft';
       await tester.pump();
@@ -1824,11 +1840,16 @@ void main() {
       );
       await tester.tap(find.bySemanticsLabel('Edit'));
       await tester.pumpAndSettle();
+      final savedMessageField = find.byWidgetPredicate(
+        (widget) =>
+            widget is TextField &&
+            widget.controller?.text == 'Saved server reply.',
+      );
       expect(
-        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        tester.widget<TextField>(savedMessageField).controller!.text,
         'Saved server reply.',
       );
-      await tester.enterText(find.byType(TextField), 'Discarded change');
+      await tester.enterText(savedMessageField, 'Discarded change');
       await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
       await tester.pumpAndSettle();
       list = tester.widget<LocationChatAnchoredMessageList>(
@@ -1848,15 +1869,44 @@ void main() {
       final messageId = list.messages
           .firstWhere((message) => message.text == 'Saved server reply.')
           .localId;
-      final editorMessageId = tester
-          .widget<ChatMessageRow>(find.byType(ChatMessageRow))
-          .message
-          .localId;
-      await tester.tap(
-        find.byKey(ValueKey('location-chat-edit-delete-$editorMessageId')),
+      await tester.enterText(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TextField &&
+              widget.controller?.text == 'Saved server reply.',
+        ),
+        '  \n ',
       );
-      await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+      await tester.pumpAndSettle();
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(
+        list.messages.any((message) => message.localId == messageId),
+        isTrue,
+        reason: 'The independent range event has not arrived yet.',
+      );
+      expect(
+        harness.service.state.messagesByLocation['location-current']!.any(
+          (message) => message.globalMessageId == 90302,
+        ),
+        isTrue,
+        reason: 'The independent range event has not arrived yet.',
+      );
+      expect(backend.batches.last, {
+        'conversation_round_id': 301,
+        'operations': [
+          {'action': 'delete', 'global_message_id': 90302},
+        ],
+      });
+      expect(backend.batches, hasLength(2));
+      harness.socket.serverConversationRangeUpdated(start: 301, end: 301);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => !harness.service.state.messagesByLocation['location-current']!
+            .any((message) => message.globalMessageId == 90302),
+      );
       await tester.pumpAndSettle();
       list = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
@@ -1866,23 +1916,21 @@ void main() {
         isFalse,
       );
       expect(
-        harness.service.state.messagesByLocation['location-current']!.any(
-          (message) => message.globalMessageId == 90302,
-        ),
-        isFalse,
-      );
-      expect(backend.batches.last, {
-        'conversation_round_id': 301,
-        'operations': [
-          {'action': 'delete', 'global_message_id': 90302},
-        ],
-      });
-      expect(backend.batches, hasLength(2));
-      expect(
         list.messages.any((message) => message.isMe),
         isTrue,
         reason: 'The user message remains outside the edited AI block.',
       );
+      await tester.tap(find.bySemanticsLabel('Edit'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextField), findsOneWidget);
+      await tester.enterText(find.byType(TextField), '  \n ');
+      await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+      await tester.pump();
+      expect(find.text('At least one message must remain.'), findsOneWidget);
+      expect(find.byType(LocationChatEditPage), findsOneWidget);
+      expect(backend.batches, hasLength(2));
+      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
+      await tester.pump(const Duration(seconds: 3));
       expect(harness.socket.sendMessageCount, 0);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -1901,15 +1949,30 @@ void main() {
           tester,
           backend: _LocationChatReplyHttpTransport(),
         );
+        final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+        composer.controller.text = 'Keep this draft';
+        await tester.pump();
+        expect(
+          tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+          isTrue,
+        );
         await tester.tap(find.bySemanticsLabel(action.$1));
         await _pumpUntilLocationChatTest(
           tester,
           () => harness.socket.replyActionFrames(action.$2).length == 1,
         );
+        await tester.pump();
+        expect(
+          tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+          isFalse,
+        );
+        await tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend();
+        expect(harness.socket.sendMessageCount, 0);
+        expect(composer.controller.text, 'Keep this draft');
         harness.socket.serverReplyActionAck(
           action.$2,
           roundId: 301,
-          errNo: 2010,
+          errNo: action.$1 == 'Go on' ? 2015 : 2010,
           errMsg: '服务端频率限制提示',
         );
         await _pumpUntilLocationChatTest(
@@ -1928,6 +1991,18 @@ void main() {
         expect(
           find.byKey(const ValueKey('location-chat-loading-bubble')),
           findsNothing,
+        );
+        expect(_replyActionLoading(action.$1), findsNothing);
+        for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+          expect(
+            find.bySemanticsLabel(label),
+            findsOneWidget,
+            reason: '$label must return after ${action.$1} fails.',
+          );
+        }
+        expect(
+          tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+          isTrue,
         );
         final messages = tester
             .widget<LocationChatAnchoredMessageList>(
@@ -1952,6 +2027,9 @@ void main() {
         tester,
         backend: backend,
       );
+      final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+      composer.controller.text = 'Keep this draft';
+      await tester.pump();
       await tester.tap(find.bySemanticsLabel('Regenerate'));
       await _pumpUntilLocationChatTest(
         tester,
@@ -1960,9 +2038,19 @@ void main() {
       );
       await tester.pump();
       expect(
-        find.byKey(const ValueKey('location-chat-loading-bubble')),
-        findsOneWidget,
+        tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+        isFalse,
       );
+      await tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend();
+      expect(harness.socket.sendMessageCount, 0);
+      expect(composer.controller.text, 'Keep this draft');
+      expect(
+        find.byKey(const ValueKey('location-chat-loading-bubble')),
+        findsNothing,
+      );
+      expect(_replyActionLoading('Regenerate'), findsOneWidget);
+      expect(_replyActionLoading('Go on'), findsNothing);
+      expect(_replyActionLoading('Inspiration'), findsNothing);
       expect(find.text('Generating…'), findsNothing);
       expect(find.text('Waiting for the next reply…'), findsNothing);
       expect(find.text('Check status'), findsNothing);
@@ -2007,8 +2095,9 @@ void main() {
       await tester.pump();
       expect(
         find.byKey(const ValueKey('location-chat-loading-bubble')),
-        findsOneWidget,
+        findsNothing,
       );
+      expect(_replyActionLoading('Regenerate'), findsOneWidget);
       harness.socket.serverCandidateStream(
         streamType: 'chunk',
         content: '',
@@ -2020,6 +2109,7 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
+      expect(_replyActionLoading('Regenerate'), findsOneWidget);
       harness.socket.serverCandidateStream(
         streamType: 'chunk',
         content: 'Private candidate.',
@@ -2049,6 +2139,7 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
+      expect(_replyActionLoading('Regenerate'), findsOneWidget);
       expect(list.editFeature.enabled, isFalse);
       expect(list.goOnFeature.enabled, isFalse);
       expect(find.text('2 / 2'), findsOneWidget);
@@ -2085,6 +2176,7 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
+      expect(_replyActionLoading('Regenerate'), findsOneWidget);
       expect(
         harness.socket.replyActionFrames('regenerate_llm_card'),
         hasLength(1),
@@ -2110,6 +2202,9 @@ void main() {
         tester,
         backend: backend,
       );
+      final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+      composer.controller.text = 'Keep this draft';
+      await tester.pump();
       await tester.tap(find.bySemanticsLabel('Go on'));
       await _pumpUntilLocationChatTest(
         tester,
@@ -2117,9 +2212,19 @@ void main() {
       );
       await tester.pump();
       expect(
-        find.byKey(const ValueKey('location-chat-loading-bubble')),
-        findsOneWidget,
+        tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+        isFalse,
       );
+      await tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend();
+      expect(harness.socket.sendMessageCount, 0);
+      expect(composer.controller.text, 'Keep this draft');
+      expect(
+        find.byKey(const ValueKey('location-chat-loading-bubble')),
+        findsNothing,
+      );
+      expect(_replyActionLoading('Go on'), findsOneWidget);
+      expect(_replyActionLoading('Regenerate'), findsNothing);
+      expect(_replyActionLoading('Inspiration'), findsNothing);
       expect(find.text('Generating…'), findsNothing);
       expect(find.text('Waiting for the next reply…'), findsNothing);
       expect(find.text('Check status'), findsNothing);
@@ -2160,8 +2265,9 @@ void main() {
       await tester.pump();
       expect(
         find.byKey(const ValueKey('location-chat-loading-bubble')),
-        findsOneWidget,
+        findsNothing,
       );
+      expect(_replyActionLoading('Go on'), findsOneWidget);
       harness.socket.serverV2StreamFrame(
         streamType: 'llm_chunk',
         roundId: 401,
@@ -2183,6 +2289,7 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
+      expect(_replyActionLoading('Go on'), findsOneWidget);
       expect(
         harness.service.replyActions!
             .statesFor('location-current')
@@ -2228,9 +2335,14 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
+      expect(_replyActionLoading('Go on'), findsNothing);
       expect(list.replyActionsIdentity, 'world-current/location-current/401');
       expect(harness.socket.replyActionFrames('go_on'), hasLength(1));
       expect(harness.socket.sendMessageCount, 0);
+      expect(
+        tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+        isTrue,
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
       await tester.pump();
@@ -2438,11 +2550,20 @@ void main() {
   testWidgets('inspiration timeout shows useful copy and unlocks retry', (
     tester,
   ) async {
+    final inspirationBarrier = Completer<void>();
     final backend = _LocationChatReplyHttpTransport()
-      ..inspirationTimeout = true;
+      ..inspirationTimeout = true
+      ..inspirationBarrier = inspirationBarrier;
     final harness = await _mountCompletedReplyActionPanel(
       tester,
       backend: backend,
+    );
+    final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+    composer.controller.text = 'Keep this draft';
+    await tester.pump();
+    expect(
+      tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+      isTrue,
     );
 
     await tester.tap(find.bySemanticsLabel('Inspiration'));
@@ -2450,6 +2571,19 @@ void main() {
       tester,
       () => backend.inspirationRequests.isNotEmpty,
     );
+    expect(
+      tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+      isFalse,
+    );
+    expect(
+      find.byKey(const ValueKey('location-chat-loading-bubble')),
+      findsNothing,
+    );
+    expect(_replyActionLoading('Inspiration'), findsOneWidget);
+    await tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend();
+    expect(harness.socket.sendMessageCount, 0);
+    expect(composer.controller.text, 'Keep this draft');
+    inspirationBarrier.complete();
     await _pumpUntilLocationChatTest(
       tester,
       () => !tester
@@ -2466,8 +2600,14 @@ void main() {
     );
     expect(list.inspirationFeature.enabled, isTrue);
     expect(list.inspirationFeature.loading, isFalse);
+    expect(
+      tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+      isTrue,
+    );
+    expect(_replyActionLoading('Inspiration'), findsNothing);
 
     backend.inspirationTimeout = false;
+    backend.inspirationBarrier = null;
     list.inspirationFeature.onExpandedChanged!(true);
     await _pumpUntilLocationChatTest(
       tester,
@@ -6556,6 +6696,7 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
   final cards = <Map<String, Object?>>[];
   Completer<void>? batchBarrier;
   Completer<void>? selectionBarrier;
+  Completer<void>? inspirationBarrier;
   bool selectionFails = false;
   bool inspirationTimeout = false;
   int selectedCardId = 0;
@@ -6622,6 +6763,7 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
     messages.addAll([
       _messageJson(301, 'user', 'user-1', 'message 301'),
       _messageJson(302, 'character', 'char-1', 'Original reply.'),
+      _messageJson(303, 'character', 'char-2', 'Second reply.'),
     ]);
   }
 
@@ -6663,6 +6805,7 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
       final body =
           jsonDecode(utf8.decode(request.bodyBytes!)) as Map<String, dynamic>;
       inspirationRequests.add(body);
+      await inspirationBarrier?.future;
       if (inspirationTimeout) throw TimeoutException('inspiration timeout');
       final card = body['card_id'] as int? ?? selectedCardId;
       return _ok({
@@ -7030,6 +7173,22 @@ class _LocationChatTestSocket implements ChatroomSocket {
       'conversation_round_id': roundId,
       'user_id': 'user-1',
       'payload': <String, Object?>{},
+      'err_no': 0,
+      'err_msg': '',
+    });
+  }
+
+  void serverConversationRangeUpdated({required int start, required int end}) {
+    _serverFrame('conversation_range_updated', {
+      'stream_type': '',
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'location_id': 'location-current',
+      'payload': {
+        'start_conversation_round_id': start,
+        'end_conversation_round_id': end,
+        'newest_message_id': 0,
+      },
       'err_no': 0,
       'err_msg': '',
     });

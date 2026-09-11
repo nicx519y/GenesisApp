@@ -18,6 +18,8 @@ typedef FirebaseAnalyticsMessageSentCountIncrementer = Future<int> Function();
 typedef FirebaseAnalyticsCollectionConfigurator =
     Future<void> Function(bool enabled, String appEnvironment);
 
+enum FirebaseAnalyticsPurchaseKind { gems, subscription }
+
 abstract interface class FirebaseAnalyticsOnceEventStore {
   Future<bool> wasSent(String eventName);
 
@@ -160,11 +162,17 @@ class FirebaseAnalyticsMonitoring {
   static Future<void> recordPurchase({
     required String provider,
     required String productId,
+    required FirebaseAnalyticsPurchaseKind kind,
   }) {
-    return _recordEventWithFirst('purchase', <String, Object>{
-      'provider': provider,
-      'product_id': productId,
-    });
+    final kindFirstEvent = switch (kind) {
+      FirebaseAnalyticsPurchaseKind.gems => 'gems_first',
+      FirebaseAnalyticsPurchaseKind.subscription => 'subscription_first',
+    };
+    return _recordEventWithFirst(
+      'purchase',
+      <String, Object>{'provider': provider, 'product_id': productId},
+      additionalOnceEventNames: <String>[kindFirstEvent],
+    );
   }
 
   static Future<void> recordPerformanceOperation({
@@ -204,8 +212,9 @@ class FirebaseAnalyticsMonitoring {
 
   static Future<void> _recordEventWithFirst(
     String name,
-    Map<String, Object> parameters,
-  ) async {
+    Map<String, Object> parameters, {
+    List<String> additionalOnceEventNames = const <String>[],
+  }) async {
     if (!_isEnabled) return;
     try {
       final deviceId = (await _deviceIdReader()).trim();
@@ -216,6 +225,8 @@ class FirebaseAnalyticsMonitoring {
       await Future.wait<void>(<Future<void>>[
         _recordEvent(name, parametersWithDeviceId),
         _recordEventOnce('${name}_first', parametersWithDeviceId),
+        for (final eventName in additionalOnceEventNames)
+          _recordEventOnce(eventName, parametersWithDeviceId),
       ]);
     } catch (e, st) {
       debugPrint('[Telemetry][FirebaseAnalytics] $name failed: $e');

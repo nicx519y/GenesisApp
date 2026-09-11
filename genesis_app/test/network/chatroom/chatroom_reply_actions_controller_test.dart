@@ -258,6 +258,12 @@ class _Harness {
     Duration regenerationStreamEndTimeout = const Duration(seconds: 120),
     Duration goOnStreamStartTimeout = const Duration(seconds: 30),
     Duration goOnStreamEndTimeout = const Duration(seconds: 120),
+    Future<void> Function(
+      String locationId,
+      int roundId,
+      List<ChatroomLlmMessageOperation> operations,
+    )?
+    applyCommittedFormalEdit,
   }) {
     controller = ChatroomReplyActionsController(
       worldId: 'w',
@@ -269,6 +275,7 @@ class _Harness {
       refreshFormalRange: (location, start, end) async {
         api.calls.add('refresh:$start');
       },
+      applyCommittedFormalEdit: applyCommittedFormalEdit,
       refreshWallet: () async {
         walletRefreshes++;
       },
@@ -961,7 +968,7 @@ void main() {
   );
 
   test(
-    'card history follows history validity and cannot replace an open editor',
+    'card history follows validity while each editor keeps its own snapshot',
     () async {
       final h = _Harness();
       addTearDown(h.controller.dispose);
@@ -1001,7 +1008,8 @@ void main() {
         roundIds: {_round},
         isCurrent: () => current,
       );
-      expect(h.api.calls, isEmpty);
+      expect(h.api.calls, ['cards:$_round']);
+      expect(editor.messages.single.content, 'Original');
     },
   );
 
@@ -1164,12 +1172,19 @@ void main() {
       expect(h.state.confirmed, isFalse);
       expect(target.draftOperations, isEmpty);
       await expectLater(
-        h.controller.save(await h.prepareEditor(), const [
+        h.controller.submitEdit(await h.prepareEditor(), const [
           ChatroomLlmMessageOperation.delete(globalMessageId: _messageId),
           ChatroomLlmMessageOperation.delete(globalMessageId: _messageId + 1),
         ]),
-        throwsStateError,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'At least one message must remain.',
+          ),
+        ),
       );
+      expect(h.api.calls.where((call) => call == 'batch-card:101').length, 1);
     },
   );
 
@@ -1190,6 +1205,64 @@ void main() {
       ]);
       expect(h.api.calls.contains('batch-formal'), isTrue);
       expect(h.api.calls.contains('refresh:$_round'), isTrue);
+    },
+  );
+
+  test(
+    'isolated editor submissions can overlap and never refresh history',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      final first = await h.prepareEditor();
+      final second = await h.prepareEditor();
+      final barrier = Completer<void>();
+      h.api.saveBarrier = barrier;
+      final firstSave = h.controller.submitEdit(first, const [
+        ChatroomLlmMessageOperation.edit(
+          globalMessageId: _messageId,
+          content: 'First edit',
+        ),
+      ]);
+      final secondSave = h.controller.submitEdit(second, const [
+        ChatroomLlmMessageOperation.edit(
+          globalMessageId: _messageId,
+          content: 'Second edit',
+        ),
+      ]);
+      await _settle();
+      expect(h.api.calls.where((call) => call == 'batch-formal').length, 2);
+      expect(h.api.calls.where((call) => call.startsWith('refresh:')), isEmpty);
+      barrier.complete();
+      await Future.wait([firstSave, secondSave]);
+      expect(h.api.calls.where((call) => call.startsWith('refresh:')), isEmpty);
+    },
+  );
+
+  test(
+    'isolated formal edit applies committed operations after server success',
+    () async {
+      final commits = <List<ChatroomLlmMessageOperation>>[];
+      final h = _Harness(
+        applyCommittedFormalEdit: (location, round, operations) async {
+          expect(location, 'l');
+          expect(round, _round);
+          commits.add(List.of(operations));
+        },
+      );
+      addTearDown(h.controller.dispose);
+      final target = await h.prepareEditor();
+      const operations = [
+        ChatroomLlmMessageOperation.edit(
+          globalMessageId: _messageId,
+          content: 'Optimistic edit',
+        ),
+      ];
+
+      await h.controller.submitEdit(target, operations);
+
+      expect(commits, hasLength(1));
+      expect(commits.single.single.content, 'Optimistic edit');
+      expect(h.state.formalReplyMessages.single.content, 'Optimistic edit');
     },
   );
 
@@ -1566,7 +1639,7 @@ void main() {
   );
 
   test(
-    'a zero-change formal editor freezes and closes for a new canonical AI round',
+    'a zero-change formal editor remains independent of a new AI round',
     () async {
       final h = _Harness();
       addTearDown(h.controller.dispose);
@@ -1586,9 +1659,9 @@ void main() {
           ),
         ),
       );
-      expect(editor.frozen, isTrue);
+      expect(editor.frozen, isFalse);
       await _settle();
-      expect(editor.editorShouldClose, isTrue);
+      expect(editor.editorShouldClose, isFalse);
       expect(h.api.calls.any((call) => call.startsWith('batch-')), isFalse);
     },
   );
@@ -1881,7 +1954,7 @@ void main() {
   );
 
   test(
-    'source expired ACK invalidates the old source and refreshes latest history',
+    'source expired ACK restores the previous source without refreshing',
     () async {
       final h = _Harness();
       addTearDown(h.controller.dispose);
@@ -1910,8 +1983,8 @@ void main() {
         controller.goOn('l'),
         throwsA(isA<ChatroomFailureEvent>()),
       );
-      expect(refreshes, 1);
-      expect(controller.stateFor('l')!.canGoOn, isFalse);
+      expect(refreshes, 0);
+      expect(controller.stateFor('l')!.canGoOn, isTrue);
       expect(controller.stateFor('l')!.goOnPending, isFalse);
     },
   );

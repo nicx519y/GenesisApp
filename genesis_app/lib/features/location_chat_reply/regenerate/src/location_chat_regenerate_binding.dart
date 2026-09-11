@@ -6,7 +6,9 @@ extension _LocationChatRegenerateBinding on _LocationChatPanelState {
     ChatroomReplyRoundState? replyState,
   ) => LocationChatRegenerateFeature(
     enabled: !replyBlocked && (replyState?.canRegenerate ?? false),
-    busy: replyState?.generating ?? false,
+    busy:
+        (replyState?.generating ?? false) ||
+        (_replyRequestLoading && _replyLoadingForRegeneration),
     onInvoke: () => unawaited(
       _runReplyAction(
         (controller) => controller.regenerate(widget.locationId),

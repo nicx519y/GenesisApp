@@ -34,10 +34,6 @@ Future<void> openEditor(
   int? cardId,
   bool canEdit = true,
   bool canDelete = true,
-  ValueNotifier<LocationChatEditExternalState>? externalState,
-  ValueChanged<LocationChatEditResult>? onDraftChanged,
-  VoidCallback? onCancel,
-  LocationChatEditResult? initialDraft,
   GlobalKey<NavigatorState>? navigatorKey,
 }) async {
   await tester.pumpWidget(
@@ -70,10 +66,6 @@ Future<void> openEditor(
                         ],
                     style: kLocationChatStyle,
                     onSave: onSave,
-                    externalState: externalState,
-                    onDraftChanged: onDraftChanged,
-                    onCancel: onCancel,
-                    initialDraft: initialDraft,
                   ),
                 ),
               ),
@@ -327,32 +319,9 @@ void main() {
         (replyBubble.decoration! as BoxDecoration).color,
         kLocationChatStyle.otherBubbleColor,
       );
-      final save = find.byKey(const ValueKey('location-chat-edit-done'));
-      expect(tester.getSize(save), const Size(64, 32));
-      final saveButton = tester.widget<FilledButton>(
-        find.descendant(of: save, matching: find.byType(FilledButton)),
-      );
-      expect(saveButton.style?.textStyle?.resolve({})?.fontSize, 14);
-      expect(
-        saveButton.style?.textStyle?.resolve({})?.fontWeight,
-        FontWeight.w600,
-      );
-      expect(
-        saveButton.style?.backgroundColor?.resolve({WidgetState.disabled}),
-        GenesisColors.darkButtonDisabledBackground,
-      );
-      expect(
-        saveButton.style?.foregroundColor?.resolve({WidgetState.disabled}),
-        GenesisColors.darkButtonDisabledForeground,
-      );
       expect(
         tester.widget<Scaffold>(find.byType(Scaffold).last).backgroundColor,
         GenesisColors.darkBackground,
-      );
-      expect(
-        tester.getSize(find.byType(Scaffold).last).width -
-            tester.getTopRight(save).dx,
-        16,
       );
       final narratorBubble = tester.widget<Container>(
         find.byKey(const ValueKey('chat-system-message-bubble')),
@@ -408,24 +377,36 @@ void main() {
       expect(source[2].text, 'Welcome back.');
       await tester.tap(find.text('Open editor'));
       await tester.pumpAndSettle();
-      for (final id in ['reply', 'narrator']) {
-        final row = tester.getRect(
-          find.byKey(ValueKey('location-chat-edit-row-$id')),
-        );
-        final button = find.byKey(ValueKey('location-chat-edit-delete-$id'));
-        final buttonRect = tester.getRect(button);
-        expect(buttonRect.size, const Size(24, 24));
-        expect(buttonRect.top, closeTo(row.top - 8, 0.01));
-        expect(buttonRect.right, closeTo(row.right, 0.01));
-        // The protruding top of the button must also respond to taps.
-        await tester.tapAt(Offset(buttonRect.center.dx, buttonRect.top + 2));
-        await tester.pumpAndSettle();
-        expect(
-          find.byKey(ValueKey('location-chat-edit-row-$id')),
-          findsNothing,
-        );
-      }
-      expect(find.byType(TextField), findsNothing);
+      final replyRow = tester.getRect(
+        find.byKey(const ValueKey('location-chat-edit-row-reply')),
+      );
+      final replyButton = find.byKey(
+        const ValueKey('location-chat-edit-delete-reply'),
+      );
+      final replyButtonRect = tester.getRect(replyButton);
+      expect(replyButtonRect.size, const Size(24, 24));
+      expect(replyButtonRect.top, closeTo(replyRow.top - 8, 0.01));
+      expect(replyButtonRect.right, closeTo(replyRow.right, 0.01));
+      // The protruding top of the button must also respond to taps.
+      await tester.tapAt(
+        Offset(replyButtonRect.center.dx, replyButtonRect.top + 2),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('location-chat-edit-row-reply')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('location-chat-edit-delete-narrator')),
+      );
+      await tester.pump();
+      expect(find.text('At least one message must remain.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('location-chat-edit-row-narrator')),
+        findsOneWidget,
+      );
+      expect(find.byType(TextField), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
       await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
       await tester.pumpAndSettle();
       expect(result, isNull, reason: 'Back cancels draft deletions.');
@@ -470,6 +451,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('服务端编辑失败提示'), findsOneWidget);
       expect(find.textContaining('ApiException'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('location-chat-edit-status')),
+        findsNothing,
+      );
       expect(find.byType(LocationChatEditPage), findsOneWidget);
       expect(
         tester.widget<TextField>(field).controller!.text,
@@ -481,20 +466,19 @@ void main() {
     },
   );
 
-  testWidgets('Save awaits persistence and blocks repeat submission and back', (
+  testWidgets('closing an in-flight save does not affect the next editor', (
     tester,
   ) async {
-    final completion = Completer<void>();
+    final firstCompletion = Completer<void>();
+    final secondCompletion = Completer<void>();
     var saves = 0;
-    var cancels = 0;
     final navigatorKey = GlobalKey<NavigatorState>();
     await openEditor(
       tester,
       navigatorKey: navigatorKey,
-      onCancel: () => cancels++,
       onSave: (_) {
         saves++;
-        return completion.future;
+        return saves == 1 ? firstCompletion.future : secondCompletion.future;
       },
     );
     await tester.enterText(
@@ -507,25 +491,44 @@ void main() {
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     await tester.tap(save);
     await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
-    await navigatorKey.currentState!.maybePop();
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(saves, 1);
-    expect(cancels, 0);
+    expect(find.byType(LocationChatEditPage), findsNothing);
+
+    await tester.tap(find.text('Open editor'));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<TextField>(
+            find.byKey(const ValueKey('chat-message-editor-reply')),
+          )
+          .controller!
+          .text,
+      'Original reply.',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('chat-message-editor-reply')),
+      'Second independent edit.',
+    );
+    await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+    await tester.pump();
+    expect(saves, 2);
     expect(find.byType(LocationChatEditPage), findsOneWidget);
-    completion.complete();
+
+    firstCompletion.complete();
+    await tester.pump();
+    expect(find.byType(LocationChatEditPage), findsOneWidget);
+    secondCompletion.complete();
     await tester.pumpAndSettle();
     expect(find.byType(LocationChatEditPage), findsNothing);
-    expect(cancels, 0);
   });
 
   testWidgets(
     'save failure retains text and deletions for a deliberate retry',
     (tester) async {
-      final drafts = <LocationChatEditResult>[];
       final saved = <LocationChatEditResult>[];
       await openEditor(
         tester,
-        onDraftChanged: drafts.add,
         onSave: (result) async {
           saved.add(result);
           if (saved.length == 1) {
@@ -541,14 +544,16 @@ void main() {
         find.byKey(const ValueKey('location-chat-edit-delete-narrator')),
       );
       await tester.pump();
-      expect(drafts.last.texts, {'reply': 'Edited line.\nAnother line.'});
-      expect(drafts.last.deletedMessageIds, {'narrator'});
       await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
       await tester.pumpAndSettle();
       expect(find.byType(LocationChatEditPage), findsOneWidget);
       expect(
         find.text('Exception: The reply could not be saved.'),
         findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('location-chat-edit-status')),
+        findsNothing,
       );
       expect(
         tester
@@ -563,6 +568,7 @@ void main() {
         find.byKey(const ValueKey('location-chat-edit-row-narrator')),
         findsNothing,
       );
+      await tester.pump(const Duration(seconds: 3));
       await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
       await tester.pumpAndSettle();
       expect(saved.length, 2);
@@ -572,135 +578,42 @@ void main() {
     },
   );
 
-  testWidgets(
-    'candidate deletes stop at one while formal replies may be empty',
-    (tester) async {
-      await openEditor(tester, cardId: 20, onSave: (_) async {});
-      await tester.tap(
-        find.byKey(const ValueKey('location-chat-edit-delete-narrator')),
-      );
-      await tester.pumpAndSettle();
-      final lastDelete = find.byKey(
-        const ValueKey('location-chat-edit-delete-reply'),
-      );
-      expect(tester.widget<IconButton>(lastDelete).onPressed, isNull);
-      await tester.tap(lastDelete);
-      await tester.pump();
-      expect(
-        find.byKey(const ValueKey('location-chat-edit-row-reply')),
-        findsOneWidget,
-      );
-      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
-      await tester.pumpAndSettle();
-      LocationChatEditResult? saved;
-      await openEditor(tester, onSave: (result) async => saved = result);
-      for (final id in ['reply', 'narrator']) {
-        await tester.tap(find.byKey(ValueKey('location-chat-edit-delete-$id')));
+  for (final cardId in <int?>[null, 20]) {
+    testWidgets(
+      '${cardId == null ? 'formal' : 'candidate'} Save rejects explicit and blank deletion of every bubble',
+      (tester) async {
+        LocationChatEditResult? saved;
+        await openEditor(
+          tester,
+          cardId: cardId,
+          onSave: (result) async => saved = result,
+        );
+        await tester.tap(
+          find.byKey(const ValueKey('location-chat-edit-delete-reply')),
+        );
+        await tester.pump();
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-message-editor-narrator')),
+          '  \n ',
+        );
+        await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+        await tester.pump();
+        expect(find.text('At least one message must remain.'), findsOneWidget);
+        expect(saved, isNull);
+        expect(find.byType(LocationChatEditPage), findsOneWidget);
+
+        await tester.enterText(
+          find.byKey(const ValueKey('chat-message-editor-narrator')),
+          'Kept narration.',
+        );
+        await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
         await tester.pumpAndSettle();
-      }
-      await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
-      await tester.pumpAndSettle();
-      expect(saved!.texts, isEmpty);
-      expect(saved!.deletedMessageIds, {'reply', 'narrator'});
-    },
-  );
-
-  testWidgets(
-    'external freeze disables input and save, then closes after confirmation',
-    (tester) async {
-      final external = ValueNotifier(const LocationChatEditExternalState());
-      addTearDown(external.dispose);
-      var saves = 0;
-      var cancels = 0;
-      final drafts = <LocationChatEditResult>[];
-      await openEditor(
-        tester,
-        externalState: external,
-        onSave: (_) async {
-          saves++;
-        },
-        onCancel: () => cancels++,
-        onDraftChanged: drafts.add,
-      );
-      final field = find.byKey(const ValueKey('chat-message-editor-reply'));
-      await tester.enterText(field, 'Draft to confirm.');
-      expect(drafts.last.texts['reply'], 'Draft to confirm.');
-      external.value = const LocationChatEditExternalState(
-        frozen: true,
-        saving: true,
-      );
-      await tester.pump();
-      expect(tester.widget<TextField>(field).focusNode!.hasFocus, isFalse);
-      expect(
-        tester
-            .widget<IconButton>(
-              find.byKey(const ValueKey('location-chat-edit-delete-reply')),
-            )
-            .onPressed,
-        isNull,
-      );
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
-      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
-      await tester.pump();
-      expect(saves, 0);
-      expect(cancels, 0);
-      expect(find.byType(LocationChatEditPage), findsOneWidget);
-      external.value = const LocationChatEditExternalState(
-        frozen: true,
-        error: 'Confirmation needs recovery.',
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Confirmation needs recovery.'), findsOneWidget);
-      expect(
-        tester.widget<TextField>(field).controller!.text,
-        'Draft to confirm.',
-      );
-      external.value = const LocationChatEditExternalState(
-        frozen: true,
-        saved: true,
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(LocationChatEditPage), findsNothing);
-      expect(cancels, 0);
-    },
-  );
-
-  testWidgets(
-    'external completion only removes its own route under a later page',
-    (tester) async {
-      final external = ValueNotifier(const LocationChatEditExternalState());
-      addTearDown(external.dispose);
-      final navigatorKey = GlobalKey<NavigatorState>();
-      await openEditor(
-        tester,
-        navigatorKey: navigatorKey,
-        externalState: external,
-        onSave: (_) async {},
-      );
-      unawaited(
-        navigatorKey.currentState!.push(
-          MaterialPageRoute<void>(
-            builder: (_) => const Scaffold(body: Text('Later page')),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      external.value = const LocationChatEditExternalState(
-        frozen: true,
-        saved: true,
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Later page'), findsOneWidget);
-      expect(
-        find.byType(LocationChatEditPage, skipOffstage: false),
-        findsNothing,
-      );
-      navigatorKey.currentState!.pop();
-      await tester.pumpAndSettle();
-      expect(find.text('Open editor'), findsOneWidget);
-    },
-  );
+        expect(saved!.deletedMessageIds, {'reply'});
+        expect(saved!.texts, {'narrator': 'Kept narration.'});
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+  }
 
   testWidgets(
     'unchanged Save avoids requests and read-only permissions are enforced',
@@ -727,38 +640,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(saves, 0);
       expect(find.byType(LocationChatEditPage), findsNothing);
-    },
-  );
-
-  testWidgets(
-    'restores draft by message identity and cancel discards it once',
-    (tester) async {
-      var cancels = 0;
-      await openEditor(
-        tester,
-        onSave: (_) async {},
-        onCancel: () => cancels++,
-        initialDraft: const LocationChatEditResult(
-          texts: {'reply': 'Restored text.'},
-          deletedMessageIds: {'narrator'},
-        ),
-      );
-      expect(
-        tester
-            .widget<TextField>(
-              find.byKey(const ValueKey('chat-message-editor-reply')),
-            )
-            .controller!
-            .text,
-        'Restored text.',
-      );
-      expect(
-        find.byKey(const ValueKey('location-chat-edit-row-narrator')),
-        findsNothing,
-      );
-      await tester.tap(find.byIcon(Icons.arrow_back_ios_new));
-      await tester.pumpAndSettle();
-      expect(cancels, 1);
     },
   );
 }

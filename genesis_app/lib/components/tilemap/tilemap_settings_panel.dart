@@ -52,6 +52,8 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.distantLocationDistanceTiles,
     required this.nearbyLocationInitialScale,
     required this.distantLocationInitialScale,
+    required this.locationBoundsViewportPadding,
+    required this.minimumLocationBoundsSizeTiles,
     required this.dragBoundaryPaddingTiles,
     required this.onVisualModeChanged,
     required this.onLoadingStyleChanged,
@@ -69,6 +71,8 @@ class _TilemapSettingsPanel extends StatelessWidget {
     required this.onDistantLocationDistanceChanged,
     required this.onNearbyLocationInitialScaleChanged,
     required this.onDistantLocationInitialScaleChanged,
+    required this.onLocationBoundsViewportPaddingChanged,
+    required this.onMinimumLocationBoundsSizeTilesChanged,
     required this.onDragBoundaryPaddingTilesChanged,
     required this.onCopySettings,
     required this.onResetSettings,
@@ -92,6 +96,8 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final double distantLocationDistanceTiles;
   final double nearbyLocationInitialScale;
   final double distantLocationInitialScale;
+  final double locationBoundsViewportPadding;
+  final double minimumLocationBoundsSizeTiles;
   final double dragBoundaryPaddingTiles;
   final ValueChanged<TilemapVisualMode> onVisualModeChanged;
   final ValueChanged<TilemapLoadingStyle> onLoadingStyleChanged;
@@ -111,6 +117,8 @@ class _TilemapSettingsPanel extends StatelessWidget {
   final ValueChanged<double> onDistantLocationDistanceChanged;
   final ValueChanged<double> onNearbyLocationInitialScaleChanged;
   final ValueChanged<double> onDistantLocationInitialScaleChanged;
+  final ValueChanged<double> onLocationBoundsViewportPaddingChanged;
+  final ValueChanged<double> onMinimumLocationBoundsSizeTilesChanged;
   final ValueChanged<double> onDragBoundaryPaddingTilesChanged;
   final VoidCallback onCopySettings;
   final VoidCallback onResetSettings;
@@ -252,7 +260,7 @@ class _TilemapSettingsPanel extends StatelessWidget {
               ),
             ),
             Text(
-              'Uses the nearest top-down location distance and linearly interpolates between both endpoints.',
+              'Uses nearest-location zoom as a floor, then fits all locations to the viewport when possible.',
               style: TextStyle(color: secondaryColor, fontSize: 10),
             ),
             _TilemapSettingsSlider(
@@ -326,6 +334,43 @@ class _TilemapSettingsPanel extends StatelessWidget {
               foregroundColor: foregroundColor,
               secondaryColor: secondaryColor,
               onChanged: onDistantLocationInitialScaleChanged,
+            ),
+            _TilemapSettingsSlider(
+              label: 'Viewport padding',
+              value: locationBoundsViewportPadding,
+              min: tilemapLocationBoundsViewportPaddingMin,
+              max: tilemapLocationBoundsViewportPaddingMax,
+              divisions:
+                  ((tilemapLocationBoundsViewportPaddingMax -
+                              tilemapLocationBoundsViewportPaddingMin) /
+                          tilemapLocationBoundsViewportPaddingStep)
+                      .round(),
+              valueLabel: '${locationBoundsViewportPadding.round()} px',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-location-bounds-viewport-padding',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onLocationBoundsViewportPaddingChanged,
+            ),
+            _TilemapSettingsSlider(
+              label: 'Min locations bounds',
+              value: minimumLocationBoundsSizeTiles,
+              min: tilemapMinimumLocationBoundsSizeTilesMin,
+              max: tilemapMinimumLocationBoundsSizeTilesMax,
+              divisions:
+                  ((tilemapMinimumLocationBoundsSizeTilesMax -
+                              tilemapMinimumLocationBoundsSizeTilesMin) /
+                          tilemapMinimumLocationBoundsSizeTilesStep)
+                      .round(),
+              valueLabel:
+                  '${minimumLocationBoundsSizeTiles.round()} × ${minimumLocationBoundsSizeTiles.round()} tiles',
+              sliderKey: const ValueKey<String>(
+                'tilemap-settings-minimum-location-bounds-size',
+              ),
+              foregroundColor: foregroundColor,
+              secondaryColor: secondaryColor,
+              onChanged: onMinimumLocationBoundsSizeTilesChanged,
             ),
             const SizedBox(height: 6),
             Text(

@@ -82,6 +82,14 @@ void main() {
       tilemapDefaultDistantLocationInitialScale,
     );
     expect(
+      settings.locationBoundsViewportPadding,
+      tilemapDefaultLocationBoundsViewportPadding,
+    );
+    expect(
+      settings.minimumLocationBoundsSizeTiles,
+      tilemapDefaultMinimumLocationBoundsSizeTiles,
+    );
+    expect(
       settings.dragBoundaryPaddingTiles,
       tilemapDefaultDragBoundaryPaddingTiles,
     );
@@ -110,7 +118,7 @@ void main() {
 
   test('declares the tuned Tilemap rendering parameters as defaults', () {
     expect(TilemapRenderSettings.defaults().toJson(), {
-      'schema_version': 3,
+      'schema_version': 4,
       'visual_mode': 'dark',
       'loading_style': 'disabled',
       'fog_control_points': [
@@ -139,6 +147,8 @@ void main() {
       'distant_location_distance_tiles': 2.25,
       'nearby_location_initial_scale': 15.0,
       'distant_location_initial_scale': 5.0,
+      'location_bounds_viewport_padding_pixels': 24.0,
+      'minimum_location_bounds_size_tiles': 2.0,
       'drag_boundary_padding_tiles': 2.0,
     });
   });
@@ -189,6 +199,8 @@ void main() {
       distantLocationDistanceTiles: 6,
       nearbyLocationInitialScale: 20,
       distantLocationInitialScale: 10,
+      locationBoundsViewportPadding: 48,
+      minimumLocationBoundsSizeTiles: 5,
       dragBoundaryPaddingTiles: 8,
     );
     const store = TilemapSettingsStore();
@@ -215,10 +227,12 @@ void main() {
     expect(restored.distantLocationDistanceTiles, 6);
     expect(restored.nearbyLocationInitialScale, 20);
     expect(restored.distantLocationInitialScale, 10);
+    expect(restored.locationBoundsViewportPadding, 48);
+    expect(restored.minimumLocationBoundsSizeTiles, 5);
     expect(restored.dragBoundaryPaddingTiles, 8);
 
     final serialized = jsonDecode(settings.toSerializedJson());
-    expect(serialized['schema_version'], 3);
+    expect(serialized['schema_version'], 4);
     expect(serialized['visual_mode'], 'light');
     expect(serialized['loading_style'], 'coordinatePulse');
     expect(serialized['fog_control_points'], hasLength(5));
@@ -239,10 +253,12 @@ void main() {
     expect(serialized['distant_location_distance_tiles'], 6);
     expect(serialized['nearby_location_initial_scale'], 20);
     expect(serialized['distant_location_initial_scale'], 10);
+    expect(serialized['location_bounds_viewport_padding_pixels'], 48);
+    expect(serialized['minimum_location_bounds_size_tiles'], 5);
     expect(serialized['drag_boundary_padding_tiles'], 8);
   });
 
-  test('release runtime fixes loading screen and automatic initial zoom', () {
+  test('release runtime disables loading screen and keeps zoom settings', () {
     const cachedSettings = TilemapRenderSettings(
       visualMode: TilemapVisualMode.light,
       loadingStyle: TilemapLoadingStyle.worldPortal,
@@ -261,6 +277,8 @@ void main() {
       distantLocationDistanceTiles: 6,
       nearbyLocationInitialScale: 20,
       distantLocationInitialScale: 10,
+      locationBoundsViewportPadding: 64,
+      minimumLocationBoundsSizeTiles: 6,
       dragBoundaryPaddingTiles: 8,
     );
 
@@ -268,22 +286,12 @@ void main() {
     final debugSettings = cachedSettings.resolveForRuntime(releaseMode: false);
 
     expect(releaseSettings.loadingStyle, TilemapLoadingStyle.disabled);
-    expect(
-      releaseSettings.nearbyLocationDistanceTiles,
-      tilemapDefaultNearbyLocationDistanceTiles,
-    );
-    expect(
-      releaseSettings.distantLocationDistanceTiles,
-      tilemapDefaultDistantLocationDistanceTiles,
-    );
-    expect(
-      releaseSettings.nearbyLocationInitialScale,
-      tilemapDefaultNearbyLocationInitialScale,
-    );
-    expect(
-      releaseSettings.distantLocationInitialScale,
-      tilemapDefaultDistantLocationInitialScale,
-    );
+    expect(releaseSettings.nearbyLocationDistanceTiles, 2);
+    expect(releaseSettings.distantLocationDistanceTiles, 6);
+    expect(releaseSettings.nearbyLocationInitialScale, 20);
+    expect(releaseSettings.distantLocationInitialScale, 10);
+    expect(releaseSettings.locationBoundsViewportPadding, 64);
+    expect(releaseSettings.minimumLocationBoundsSizeTiles, 6);
     expect(releaseSettings.visualMode, cachedSettings.visualMode);
     expect(releaseSettings.cacheFogTileBitmaps, false);
     expect(releaseSettings.dragBoundaryPaddingTiles, 8);
@@ -313,6 +321,8 @@ void main() {
         'distant_location_distance_tiles': 3,
         'nearby_location_initial_scale': 7,
         'distant_location_initial_scale': 31,
+        'location_bounds_viewport_padding_pixels': 121,
+        'minimum_location_bounds_size_tiles': 7,
         'drag_boundary_padding_tiles': 40,
       }),
     });
@@ -361,6 +371,14 @@ void main() {
     expect(
       settings.distantLocationInitialScale,
       tilemapDefaultDistantLocationInitialScale,
+    );
+    expect(
+      settings.locationBoundsViewportPadding,
+      tilemapDefaultLocationBoundsViewportPadding,
+    );
+    expect(
+      settings.minimumLocationBoundsSizeTiles,
+      tilemapDefaultMinimumLocationBoundsSizeTiles,
     );
     expect(
       settings.dragBoundaryPaddingTiles,
@@ -425,6 +443,14 @@ void main() {
       expect(
         settings.distantLocationInitialScale,
         tilemapDefaultDistantLocationInitialScale,
+      );
+      expect(
+        settings.locationBoundsViewportPadding,
+        tilemapDefaultLocationBoundsViewportPadding,
+      );
+      expect(
+        settings.minimumLocationBoundsSizeTiles,
+        tilemapDefaultMinimumLocationBoundsSizeTiles,
       );
       expect(
         settings.dragBoundaryPaddingTiles,

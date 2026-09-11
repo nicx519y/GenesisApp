@@ -1269,6 +1269,14 @@ void main() {
       final distantScaleSlider = find.byKey(
         const ValueKey<String>('tilemap-settings-distant-location-scale'),
       );
+      final viewportPaddingSlider = find.byKey(
+        const ValueKey<String>(
+          'tilemap-settings-location-bounds-viewport-padding',
+        ),
+      );
+      final minimumBoundsSizeSlider = find.byKey(
+        const ValueKey<String>('tilemap-settings-minimum-location-bounds-size'),
+      );
       expect(tester.widget<Slider>(nearbyDistanceSlider).value, 1);
       expect(tester.widget<Slider>(distantDistanceSlider).value, 2.25);
       final nearbyScale = tester.widget<Slider>(nearbyScaleSlider);
@@ -1279,10 +1287,23 @@ void main() {
       expect(distantScale.value, 5);
       expect(distantScale.min, 4);
       expect(distantScale.max, 16);
+      final viewportPadding = tester.widget<Slider>(viewportPaddingSlider);
+      final minimumBoundsSize = tester.widget<Slider>(minimumBoundsSizeSlider);
+      expect(viewportPadding.value, 24);
+      expect(viewportPadding.min, 0);
+      expect(viewportPadding.max, 120);
+      expect(viewportPadding.divisions, 30);
+      expect(find.text('Min locations bounds'), findsOneWidget);
+      expect(minimumBoundsSize.value, 2);
+      expect(minimumBoundsSize.min, 1);
+      expect(minimumBoundsSize.max, 6);
+      expect(minimumBoundsSize.divisions, 5);
       tester.widget<Slider>(nearbyDistanceSlider).onChanged!(2);
       tester.widget<Slider>(distantDistanceSlider).onChanged!(6);
       tester.widget<Slider>(nearbyScaleSlider).onChanged!(20);
       tester.widget<Slider>(distantScaleSlider).onChanged!(10);
+      tester.widget<Slider>(viewportPaddingSlider).onChanged!(48);
+      tester.widget<Slider>(minimumBoundsSizeSlider).onChanged!(5);
       tester
           .widget<Slider>(
             find.byKey(
@@ -1455,6 +1476,8 @@ void main() {
       expect(savedSettings.distantLocationInitialScale, 10);
       expect(savedSettings.nearbyLocationDistanceTiles, 2);
       expect(savedSettings.distantLocationDistanceTiles, 6);
+      expect(savedSettings.locationBoundsViewportPadding, 48);
+      expect(savedSettings.minimumLocationBoundsSizeTiles, 5);
       expect(savedSettings.dragBoundaryPaddingTiles, 7);
 
       transport.complete(_locationTilemapData('leaf', shadow: 1));
@@ -1593,6 +1616,47 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'content-centered Tilemap fits minimum location bounds and image plan',
+    (tester) async {
+      final loadedAssets = <String>[];
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: _servicesWithTransport(
+            _TilemapTransport(data: _locationTilemapData('leaf')),
+          ),
+          child: MaterialApp(
+            home: Scaffold(
+              body: Tilemap.origin(
+                originId: 'o_1',
+                centerContentInitially: true,
+                tileImageLoader: (assetUrl) async {
+                  loadedAssets.add(assetUrl);
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      for (var frame = 0; frame < 5; frame += 1) {
+        await tester.pump();
+      }
+
+      final renderer = tester.widget<TilemapRenderer>(
+        _liveTilemapRendererFinder(),
+      );
+      expect(renderer.initialScale, closeTo(21.3333333, 0.000001));
+      expect(renderer.initialContentBounds?.size, const Size(32, 24));
+      expect(
+        loadedAssets.any(
+          (assetUrl) => assetUrl.contains('resize,w_512,image/format,webp'),
+        ),
+        isTrue,
+      );
+    },
+  );
 
   testWidgets(
     'Tilemap restores drilled state after returning from location chat',

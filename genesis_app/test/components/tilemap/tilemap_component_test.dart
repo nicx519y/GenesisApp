@@ -898,6 +898,148 @@ void main() {
     },
   );
 
+  test('location content bounds use a projected minimum grid footprint', () {
+    const projection = TilemapProjection(
+      mapWidth: 160,
+      mapHeight: 80,
+      tileExtent: 16,
+      originX: 40,
+    );
+    const onlyLocation = TilemapCell(x: 2, y: 3, type: 'a', locationId: 'only');
+
+    final singleBounds = tilemapLocationContentBounds(
+      projection: projection,
+      tiles: const [onlyLocation],
+    );
+    final actualBounds = projection.imageBoundsForTiles(const [onlyLocation]);
+    expect(singleBounds, isNotNull);
+    expect(singleBounds!.center, actualBounds.center);
+    expect(singleBounds.size, const Size(32, 24));
+
+    final diagonalBounds = tilemapLocationContentBounds(
+      projection: projection,
+      tiles: const [
+        TilemapCell(x: 0, y: 0, type: 'a', locationId: 'first'),
+        TilemapCell(x: 3, y: 3, type: 'a', locationId: 'second'),
+      ],
+    );
+    expect(diagonalBounds!.width, 32);
+    expect(diagonalBounds.height, 40);
+    expect(
+      tilemapLocationContentBounds(
+        projection: projection,
+        tiles: const [TilemapCell(x: 0, y: 0, type: 'a')],
+      ),
+      isNull,
+    );
+  });
+
+  test('viewport fit zoom is secondary to nearest-location zoom', () {
+    const bounds = Rect.fromLTWH(20, 30, 48, 32);
+
+    expect(
+      tilemapInitialScaleForViewport(
+        distanceScale: 5,
+        viewportSize: const Size(360, 640),
+        locationContentBounds: bounds,
+        centerContentInitially: true,
+      ),
+      6.5,
+    );
+    expect(
+      tilemapInitialScaleForViewport(
+        distanceScale: 15,
+        viewportSize: const Size(100, 100),
+        locationContentBounds: bounds,
+        centerContentInitially: true,
+      ),
+      15,
+    );
+    expect(
+      tilemapInitialScaleForViewport(
+        distanceScale: 5,
+        viewportSize: const Size(4000, 4000),
+        locationContentBounds: bounds,
+        centerContentInitially: true,
+      ),
+      tilemapMaxScale,
+    );
+  });
+
+  test(
+    'viewport fit preserves fallbacks and finite scale for tiny viewports',
+    () {
+      const bounds = Rect.fromLTWH(20, 30, 48, 32);
+
+      expect(
+        tilemapInitialScaleForViewport(
+          distanceScale: 7,
+          viewportSize: const Size(360, 640),
+          locationContentBounds: bounds,
+        ),
+        7,
+      );
+      expect(
+        tilemapInitialScaleForViewport(
+          distanceScale: 7,
+          viewportSize: const Size(360, 640),
+          locationContentBounds: null,
+          centerContentInitially: true,
+        ),
+        7,
+      );
+      final tinyViewportScale = tilemapInitialScaleForViewport(
+        distanceScale: 5,
+        viewportSize: const Size(1, 1),
+        locationContentBounds: bounds,
+        centerContentInitially: true,
+        viewportPadding: 120,
+      );
+      expect(tinyViewportScale, 5);
+      expect(tinyViewportScale.isFinite, isTrue);
+      expect(
+        tilemapInitialScaleForViewport(
+          distanceScale: 5,
+          viewportSize: const Size(360, 640),
+          locationContentBounds: bounds,
+          centerContentInitially: true,
+          viewportPadding: double.nan,
+        ),
+        6.5,
+      );
+    },
+  );
+
+  test('fitted bounds retain viewport padding with the vertical offset', () {
+    const viewportSize = Size(360, 256);
+    const contentBounds = Rect.fromLTWH(20, 30, 48, 32);
+    final scale = tilemapInitialScaleForViewport(
+      distanceScale: 5,
+      viewportSize: viewportSize,
+      locationContentBounds: contentBounds,
+      centerContentInitially: true,
+    );
+    final transform = tilemapInitialTransform(
+      viewportSize: viewportSize,
+      mapSize: const Size(160, 80),
+      contentBounds: contentBounds,
+      initialScale: scale,
+    );
+    final topLeft = MatrixUtils.transformPoint(
+      transform,
+      contentBounds.topLeft,
+    );
+    final bottomRight = MatrixUtils.transformPoint(
+      transform,
+      contentBounds.bottomRight,
+    );
+
+    expect(topLeft.dx, greaterThanOrEqualTo(24));
+    expect(topLeft.dy, greaterThanOrEqualTo(24));
+    expect(bottomRight.dx, lessThanOrEqualTo(viewportSize.width - 24));
+    expect(bottomRight.dy, viewportSize.height - 24);
+  });
+
   test('initial focus uses the first location with the most avatars', () {
     const tiles = [
       TilemapCell(x: 0, y: 0, type: 'a'),
@@ -1636,6 +1778,48 @@ void main() {
         .getMaxScaleOnAxis();
     expect(draggedScale, greaterThan(initialScale));
     expect(draggedScale, lessThan(initialScale * 1.7));
+  });
+
+  testWidgets('renderer keeps a restored transform above automatic geometry', (
+    tester,
+  ) async {
+    final config = TilemapConfig.fromTiles(
+      id: 'restored_transform',
+      width: 1,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [TilemapCell(x: 0, y: 0, type: 'a', locationId: 'location')],
+    );
+    final restoredTransform = Matrix4.identity()
+      ..setEntry(0, 0, 11)
+      ..setEntry(1, 1, 11)
+      ..setTranslationRaw(12, 34, 0);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 480,
+          child: TilemapRenderer(
+            config: config,
+            initialTransform: restoredTransform,
+            initialContentBounds: const Rect.fromLTWH(20, 30, 48, 32),
+            initialScale: 30,
+            centerContentInitially: true,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final renderedTransform = tester
+        .widget<Transform>(
+          find.byKey(const ValueKey<String>('tilemap-tile-transform')),
+        )
+        .transform;
+    expect(tilemapTransformScale(renderedTransform), 11);
+    expect(renderedTransform.getTranslation().x, 12);
+    expect(renderedTransform.getTranslation().y, 34);
   });
 
   testWidgets(

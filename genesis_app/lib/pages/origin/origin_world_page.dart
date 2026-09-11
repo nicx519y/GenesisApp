@@ -778,7 +778,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     ChatMentionCatalog? initialMentionCatalog,
   }) {
     final navigator = Navigator.of(context);
-    openWorldFromMyWorldsRoot(
+    openLaunchedWorldFromRetainedMainTabs(
       navigator,
       arguments: {
         'wid': worldId,

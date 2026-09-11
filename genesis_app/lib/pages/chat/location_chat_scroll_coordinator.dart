@@ -486,7 +486,9 @@ class _LocationChatAnchoredMessageListState
     onBusyChanged: _setCardTransitionBusy,
     onWillChangeLayout: _captureCardLayoutAnchor,
     cardBuilder: (card) => ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: 48),
+      constraints: BoxConstraints(
+        minHeight: card.messages.isEmpty && card.status == null ? 0 : 48,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

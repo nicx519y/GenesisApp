@@ -135,6 +135,7 @@ import 'package:genesis_flutter_android/pages/world/world_deletion_events.dart';
 import 'package:genesis_flutter_android/pages/world/world_constants.dart';
 import 'package:genesis_flutter_android/pages/world/world_header.dart';
 import 'package:genesis_flutter_android/pages/world/world_location_chat_host.dart';
+import 'package:genesis_flutter_android/pages/world/world_navigation.dart';
 import 'package:genesis_flutter_android/pages/world/world_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_page_result.dart';
 import 'package:genesis_flutter_android/platform/auth/auth_session.dart';
@@ -6537,6 +6538,196 @@ void main() {
     feedRequests = transport.requestsFor('/api/v1/origin/feed');
     expect(feedRequests, hasLength(1));
     expect(find.text('#Origin 1'), findsOneWidget);
+  });
+
+  testWidgets(
+    'launched World keeps Worldo scroll state and returns to retained Home',
+    (WidgetTester tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      worldListRefreshEvents.value = null;
+      addTearDown(() => worldListRefreshEvents.value = null);
+      final transport = _RecordingV1ListTransport();
+      final navigatorKey = GlobalKey<NavigatorState>();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialAuthToken: 'backend-token',
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            navigatorKey: navigatorKey,
+            onGenerateInitialRoutes: (_) => <Route<dynamic>>[
+              MaterialPageRoute<void>(
+                settings: const RouteSettings(name: RouteNames.home),
+                builder: (_) => const AppShellPage(initialIndex: 0),
+              ),
+            ],
+            onGenerateRoute: (settings) {
+              if (settings.name == '/test_origin_world') {
+                return MaterialPageRoute<void>(
+                  settings: settings,
+                  builder: (context) => Scaffold(
+                    body: TextButton(
+                      onPressed: () => openLaunchedWorldFromRetainedMainTabs(
+                        Navigator.of(context),
+                        arguments: const {'wid': 'w_test_1'},
+                      ),
+                      child: const Text('Launch test world'),
+                    ),
+                  ),
+                );
+              }
+              if (settings.name == RouteNames.world) {
+                return MaterialPageRoute<WorldPageResult>(
+                  settings: settings,
+                  builder: (context) => Scaffold(
+                    body: TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Exit test world'),
+                    ),
+                  ),
+                );
+              }
+              return null;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomTabs),
+          matching: find.text('Worldo'),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final worldoFeed = find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      );
+      final worldoScrollable = find.descendant(
+        of: worldoFeed,
+        matching: find.byType(Scrollable),
+      );
+      final originalScrollableState = tester.state<ScrollableState>(
+        worldoScrollable,
+      );
+      await tester.drag(worldoFeed, const Offset(0, -700));
+      await tester.pumpAndSettle();
+      final originalOffset = originalScrollableState.position.pixels;
+      expect(originalOffset, greaterThan(0));
+
+      unawaited(navigatorKey.currentState!.pushNamed('/test_origin_world'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Launch test world'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Exit test world'), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+      await tester.tap(find.text('Exit test world'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AppShellPage), findsOneWidget);
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(2));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(BottomTabs),
+          matching: find.text('Worldo'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final retainedScrollableState = tester.state<ScrollableState>(
+        find.descendant(
+          of: find.byKey(
+            const PageStorageKey<String>('origin-feed-For you-foryou'),
+          ),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      expect(retainedScrollableState, same(originalScrollableState));
+      expect(retainedScrollableState.position.pixels, originalOffset);
+      await tester.pumpWidget(const SizedBox.shrink());
+      AppStartupCoordinator.resetForTesting();
+    },
+  );
+
+  testWidgets('targeted Home world refresh preserves loaded tail and offset', (
+    WidgetTester tester,
+  ) async {
+    worldListRefreshEvents.value = null;
+    addTearDown(() => worldListRefreshEvents.value = null);
+    final transport = _RecordingV1ListTransport(worldListTotal: 30);
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: await _testServices(
+          transport: transport,
+          useMock: false,
+          initialAuthToken: 'backend-token',
+        ),
+        child: MaterialApp(
+          home: HomePage(
+            initialMyWorldsData: {
+              'list': [
+                transport._worldItem(1),
+                transport._worldItem(0),
+                for (var index = 2; index < 30; index++)
+                  transport._worldItem(index),
+              ],
+              'total': 30,
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final feed = find.byKey(const PageStorageKey<String>('home-feed-my-world'));
+    final scrollableState = tester.state<ScrollableState>(
+      find.descendant(of: feed, matching: find.byType(Scrollable)),
+    );
+    scrollableState.position.jumpTo(
+      1200.0.clamp(0.0, scrollableState.position.maxScrollExtent),
+    );
+    await tester.pump();
+    final retainedOffset = scrollableState.position.pixels;
+    expect(retainedOffset, greaterThan(0));
+
+    publishWorldListRefresh('w_test_1');
+    await tester.pumpAndSettle();
+
+    expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    expect(scrollableState.position.pixels, retainedOffset);
+    scrollableState.position.jumpTo(scrollableState.position.maxScrollExtent);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('home-my-world-w_test_30')),
+      findsOneWidget,
+    );
+
+    scrollableState.position.jumpTo(0);
+    await tester.pump();
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(const ValueKey<String>('home-my-world-w_test_1')),
+          )
+          .dy,
+      lessThan(
+        tester
+            .getTopLeft(
+              find.byKey(const ValueKey<String>('home-my-world-w_test_2')),
+            )
+            .dy,
+      ),
+    );
   });
 
   testWidgets(
@@ -29419,7 +29610,7 @@ void main() {
     );
     expect(currentTilemap().animationsPaused, isFalse);
 
-    for (final sectionLabel in const ['Locations', 'Events', 'Status']) {
+    for (final sectionLabel in const ['Locations', 'Status']) {
       final sectionTag = find.descendant(
         of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
         matching: find.text(sectionLabel),
@@ -29446,6 +29637,35 @@ void main() {
       await tester.pumpAndSettle();
       expect(sectionSheet, findsNothing);
     }
+
+    final eventsTag = find.descendant(
+      of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
+      matching: find.text('Events'),
+    );
+    await tester.tap(eventsTag);
+    await tester.pumpAndSettle();
+    final eventsSheet = find.byKey(
+      const ValueKey<String>('world-single-section-bottom-sheet'),
+    );
+    expect(eventsSheet, findsOneWidget);
+    expect(find.text('Paged event first page.'), findsOneWidget);
+
+    await tester.drag(
+      find.text('Paged event first page.'),
+      const Offset(0, 500),
+    );
+    await tester.pumpAndSettle();
+
+    expect(eventsSheet, findsOneWidget);
+    expect(find.text('Paged event 2.'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: eventsSheet,
+        matching: find.byIcon(Icons.close_rounded),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(eventsSheet, findsNothing);
 
     await tester.tap(detailTag);
     await tester.pumpAndSettle();

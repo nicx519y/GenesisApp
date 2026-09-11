@@ -1505,8 +1505,11 @@ Query：
 除 `10001` 外，非零业务错误通过全局 Toast 显示服务端 `err_msg`，同时抛出保留错误码的异常；调用方保留草稿、不重复弹提示。
 `ChatroomHttpApi.batchMutateLlmMessages` 返回 `ChatroomMessageMutationResult`；`WorldChatroomService` 同名入口会合并 HTTP 返回范围与 WS 待刷新范围，并阻止同轮在途重复提交。`isMutatingLlmMessages` 可用于提交状态判断。
 写成功与后续同步失败分别报告。网络超时、中断或响应格式异常时服务层安排权威快照确认结果，所有批量写入均不自动重发（包含 Gateway 返回验签错误的情况）。
+Location Chat 编辑页直接使用 batch API：合法成功响应即结束本次编辑，不等待或主动发起正式历史刷新；
+后续 `conversation_range_updated` 作为独立控制事件更新正式历史。编辑页中的空白文字改动转换为 `delete`，不发送空白 `edit`；
+但编辑页和提交层都会保证至少保留一个气泡，不向服务端提交全删 batch。
 
-本次继续只接入网络和同步能力，不连接编辑页 Save、删除按钮。后端事务、地点锁和 MySQL 原子性需在服务端工程验证，本地 mock 仅用于客户端契约与整批校验回归。
+后端事务、地点锁和 MySQL 原子性需在服务端工程验证，本地 mock 仅用于客户端契约与整批校验回归。
 
 ### LLM 轮次卡片查询、候选修改与最终选择
 

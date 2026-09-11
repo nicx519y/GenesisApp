@@ -77,6 +77,9 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _firstScreenRequestAttempt = 0;
   var _firstScreenRenderCompleted = false;
   var _launchRenderRevision = 0;
+  final Set<String> _pendingTargetedRefreshWorldIds = <String>{};
+  var _targetedRefreshRunning = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +92,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     widget.reselectionListenable?.addListener(_handleMainNavReselected);
     widget.networkRequestsAllowed.addListener(_handleNetworkRequestsAllowed);
     worldDeletionEvents.addListener(_handleExternalWorldDeleted);
+    worldListRefreshEvents.addListener(_handleExternalWorldRefresh);
   }
 
   @override
@@ -147,6 +151,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     unawaited(_activeFirstScreenRequestOperation?.cancel());
     unawaited(_activeFirstScreenRenderOperation?.cancel());
     worldDeletionEvents.removeListener(_handleExternalWorldDeleted);
+    worldListRefreshEvents.removeListener(_handleExternalWorldRefresh);
     WidgetsBinding.instance.removeObserver(this);
     widget.activationListenable?.removeListener(_handlePageActivated);
     widget.reselectionListenable?.removeListener(_handleMainNavReselected);
@@ -185,6 +190,58 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     final event = worldDeletionEvents.value;
     if (event == null) return;
     _beginWorldDeletion(event.worldId);
+  }
+
+  void _handleExternalWorldRefresh() {
+    final event = worldListRefreshEvents.value;
+    if (event == null) return;
+    final worldId = event.worldId.trim();
+    if (worldId.isEmpty) return;
+    _pendingTargetedRefreshWorldIds.add(worldId);
+    unawaited(_drainTargetedWorldRefreshes());
+  }
+
+  Future<void> _drainTargetedWorldRefreshes() async {
+    if (_targetedRefreshRunning) return;
+    _targetedRefreshRunning = true;
+    try {
+      while (mounted && _pendingTargetedRefreshWorldIds.isNotEmpty) {
+        final worldId = _pendingTargetedRefreshWorldIds.first;
+        _pendingTargetedRefreshWorldIds.remove(worldId);
+        await _refreshWorldItemFromFirstPage(worldId);
+      }
+    } finally {
+      _targetedRefreshRunning = false;
+    }
+  }
+
+  Future<void> _refreshWorldItemFromFirstPage(String worldId) async {
+    if (!widget.networkRequestsAllowed.value) return;
+    try {
+      final page = await _fetchPage(1);
+      if (!mounted) return;
+      final freshIndex = page.items.indexWhere(
+        (item) => item.wid.trim() == worldId,
+      );
+      if (freshIndex < 0) return;
+      final freshItem = page.items[freshIndex];
+      setState(() {
+        final currentIndex = _items.indexWhere(
+          (item) => item.wid.trim() == worldId,
+        );
+        if (currentIndex >= 0) _items.removeAt(currentIndex);
+        _items.insert(freshIndex.clamp(0, _items.length), freshItem);
+        _deletingWorldIds.remove(worldId);
+        _collapsingWorldIds.remove(worldId);
+        _locallyDeletedWorldIds.remove(worldId);
+        _collapseBottomCompensation.remove(worldId);
+        _total = page.total;
+        _hasMore = _items.length < _total && page.items.isNotEmpty;
+      });
+    } catch (_) {
+      // Keep the retained list unchanged. A later Home activation or pull to
+      // refresh can retry without replacing the current UI with an error.
+    }
   }
 
   void _resetListState() {
@@ -847,7 +904,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       final page = await _fetchPage(_nextPage);
       if (!mounted) return;
       setState(() {
-        _items.addAll(page.items);
+        final existingWorldIds = _items.map((item) => item.wid.trim()).toSet();
+        _items.addAll(
+          page.items.where((item) => existingWorldIds.add(item.wid.trim())),
+        );
         _pruneDeleteStateForCurrentItems();
         _total = page.total;
         _nextPage += 1;

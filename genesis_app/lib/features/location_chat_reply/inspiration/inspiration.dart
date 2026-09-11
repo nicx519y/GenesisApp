@@ -62,6 +62,7 @@ class LocationChatInspirationButton extends StatelessWidget {
     label: 'Inspiration',
     iconAsset: inspirationIconAsset,
     expanded: expanded,
+    loading: feature.loading,
     onTap: !feature.enabled || feature.loading
         ? null
         : () {
