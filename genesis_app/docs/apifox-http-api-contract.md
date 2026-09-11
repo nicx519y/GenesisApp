@@ -1369,6 +1369,46 @@ Query：
 
 这些接口不在 `/api/v1` 下，而在 chatroom 服务前缀 `/aitown-chat` 下。当前 Flutter 侧通过 `GenesisApi.chatroomHttp` 使用独立 base URL，默认 `GENESIS_CHATROOM_HTTP_URL=https://api.worldo.ai/`；本地 mock 已覆盖这些路由。
 
+### GET `/aitown-chat/api/v1/feature-quotas`
+
+查询当前登录用户账户级的 Inspiration 与 Conversation Edit 额度。请求无业务参数，不按 world、location 或历史会员周期查询；接口只读，不消耗额度、不触发模型调用。额度耗尽仍返回成功，服务端缺失的使用记录按已使用 0 次计算。响应不应缓存，服务端返回 `Cache-Control: no-store`。
+
+成功响应 `data`：
+
+```json
+{
+  "membership_status": 0,
+  "inspiration": {
+    "scope": "trial_lifetime",
+    "unlimited": false,
+    "limit": 3,
+    "used": 1,
+    "remaining": 2,
+    "reset_at": null
+  },
+  "conversation_edit": {
+    "scope": "member_daily",
+    "unlimited": false,
+    "limit": 10,
+    "used": 4,
+    "remaining": 6,
+    "reset_at": 1798761600
+  }
+}
+```
+
+示例数字仅说明数据结构，不代表正式会员配置。`membership_status` 允许 `0/1/2`，本契约不为这些数字补充未定义的业务名称。`scope` 仅允许 `trial_lifetime`、`member_daily`、`member_unlimited`。`limit`、`remaining` 和 `reset_at` 可为 null；`reset_at` 是 Unix 秒，仅每日额度返回下一次 UTC 零点。
+
+Flutter 入口为 `ChatroomHttpApi.getFeatureQuotas`，返回 `ChatroomFeatureQuotas`。客户端不缓存、不推导或补造额度；成功响应缺少必填字段、字段类型错误、未知 scope 或负数额度均视为响应格式异常。
+
+| 错误号 | 含义 |
+| --- | --- |
+| 10001 | 未登录，沿用全局登录失效流程 |
+| 5002 | 使用量查询失败 |
+| 5003 | 当前会员数据无效 |
+
+业务错误的 `data` 为空对象，客户端保留服务端 `err_msg` 和错误码，不生成额度对象。
+
 ### GET `/aitown-chat/api/ulocation`
 
 获取指定世界内所有角色（AI + 真实用户）的位置信息，按地点分组返回。

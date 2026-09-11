@@ -12,11 +12,12 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     }
   }
 
-  LocationChatInspirationFeature _inspirationFeature() =>
+  LocationChatInspirationFeature _inspirationFeature(bool replyBlocked) =>
       LocationChatInspirationFeature(
         messages: _inspirationMessages,
         loading: _inspirationLoading,
         enabled:
+            !replyBlocked &&
             _currentInspirationSource != null &&
             !_sending &&
             !_preparingReplyAction,

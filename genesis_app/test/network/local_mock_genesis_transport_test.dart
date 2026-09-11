@@ -1,6 +1,7 @@
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_feature_quota_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
@@ -15,6 +16,22 @@ import 'package:genesis_flutter_android/network/models/search_v2.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 
 void main() {
+  test('local mock exposes structurally valid zero feature quotas', () async {
+    final quotas = await GenesisApi(
+      useMock: true,
+    ).chatroomHttp.getFeatureQuotas();
+
+    expect(quotas.membershipStatus, 0);
+    for (final quota in [quotas.inspiration, quotas.conversationEdit]) {
+      expect(quota.scope, ChatroomFeatureQuotaScope.trialLifetime);
+      expect(quota.unlimited, isFalse);
+      expect(quota.limit, 0);
+      expect(quota.used, 0);
+      expect(quota.remaining, 0);
+      expect(quota.resetAtUnixSeconds, isNull);
+    }
+  });
+
   test(
     'local mock never acknowledges a membership receipt or prepares a purchase identity',
     () async {

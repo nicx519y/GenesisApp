@@ -169,7 +169,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('disabled actions leave no toolbar slots and buttons stay left', (
+  testWidgets('disabled actions keep four fixed slots and toolbar height', (
     tester,
   ) async {
     Widget host({
@@ -202,7 +202,8 @@ void main() {
 
     const toolbarKey = ValueKey('location-chat-reply-actions-four-icons');
     await tester.pumpWidget(host());
-    expect(find.byKey(toolbarKey), findsNothing);
+    expect(find.byKey(toolbarKey), findsOneWidget);
+    expect(tester.getSize(find.byKey(toolbarKey)).height, 32);
     for (final action in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
       expect(find.bySemanticsLabel(action), findsNothing);
     }
@@ -218,16 +219,20 @@ void main() {
     expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
 
     final regenerateLeft = tester.getTopLeft(
-      find.bySemanticsLabel('Regenerate'),
+      find.byKey(const ValueKey('location-chat-regenerate')),
+    );
+    final goOnLeft = tester.getTopLeft(
+      find.byKey(const ValueKey('location-chat-go-on')),
     );
     final editLeft = tester.getTopLeft(find.bySemanticsLabel('Edit'));
     final inspirationLeft = tester.getTopLeft(
       find.bySemanticsLabel('Inspiration'),
     );
     expect(
-      editLeft.dx - regenerateLeft.dx,
+      goOnLeft.dx - regenerateLeft.dx,
       LocationChatReplyActions.centerSpacing,
     );
+    expect(editLeft.dx - goOnLeft.dx, LocationChatReplyActions.centerSpacing);
     expect(
       inspirationLeft.dx - editLeft.dx,
       LocationChatReplyActions.centerSpacing,

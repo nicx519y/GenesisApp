@@ -10,6 +10,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _replyCardTransitionBusy = false;
     _replyRequestLoading = false;
     _replyLoadingForRegeneration = false;
+    _replyRegenerationBaselineCardIds = const <int>{};
+    _replyRegenerationHasRenderedContent = false;
     _lastReplyStatusError = null;
     _restoredReplyLocations.clear();
   }
@@ -72,11 +74,18 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     }
     final location = widget.locationId;
     final bindingGeneration = _replyBindingGeneration;
+    final replyState = controller.stateFor(location);
     _setLocationChatState(() {
       _preparingReplyAction = true;
       _replyRequestLoading = generating;
       if (generating) {
         _replyLoadingForRegeneration = regenerating;
+        if (regenerating) {
+          _replyRegenerationHasRenderedContent = false;
+          _replyRegenerationBaselineCardIds = {
+            for (final card in replyState?.cards ?? const []) card.cardId,
+          };
+        }
       }
     });
     if (generating) {
