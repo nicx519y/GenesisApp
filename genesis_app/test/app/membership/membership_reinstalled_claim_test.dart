@@ -11,6 +11,101 @@ import 'membership_purchase_service_test.dart' as support;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'reinstalled Apple transaction finishes only after claim completes',
+    () async {
+      final h = support.Harness(
+        provider: MembershipProvider.apple,
+        guestRecoveryEnabled: true,
+        claimEnabled: true,
+      )..uid = null;
+      h.guestPurchases = [
+        MembershipStorePurchase(purchase: h.purchase(transaction: '101')),
+      ];
+      await h.service.checkGuestPurchasesOnHome();
+      final result = Completer<MembershipClaimResult>();
+      h.claimHandler = (_) => result.future;
+      h.uid = 'first-login';
+      final recovery = h.service.recover();
+      await pumpEventQueue();
+      expect(h.claimRequests, hasLength(1));
+      expect(h.platform.finishes, 0);
+      expect(h.store.claims.values.single.recoveredProof, isNotNull);
+      result.complete(
+        const MembershipClaimResult(status: MembershipReportStatus.completed),
+      );
+      await recovery;
+      expect(h.platform.finishedTransactions, ['101']);
+      expect(h.store.claims.values.single.recoveredProof, isNull);
+      expect(
+        h.store.claims.values.single.guest.accountUuid,
+        support.guest.accountUuid,
+      );
+      expect(h.reports, isEmpty);
+      await h.service.recover();
+      expect(h.platform.finishes, 1);
+      expect(h.claimRequests, hasLength(1));
+    },
+  );
+
+  for (final status in [
+    MembershipReportStatus.accepted,
+    MembershipReportStatus.rejected,
+  ]) {
+    test(
+      'reinstalled Apple $status claim does not finish the transaction',
+      () async {
+        final h = support.Harness(
+          provider: MembershipProvider.apple,
+          guestRecoveryEnabled: true,
+          claimEnabled: true,
+        )..uid = null;
+        h.guestPurchases = [MembershipStorePurchase(purchase: h.purchase())];
+        await h.service.checkGuestPurchasesOnHome();
+        h.claimHandler = (_) async => MembershipClaimResult(status: status);
+        h.uid = 'first-login';
+        await h.service.recover();
+        expect(h.platform.finishes, 0);
+        expect(h.store.claims.values.single.recoveredProof, isNotNull);
+        expect(h.reports, isEmpty);
+      },
+    );
+  }
+
+  test(
+    'completed Apple claim retries finish after restart without claiming again',
+    () async {
+      final h = support.Harness(
+        provider: MembershipProvider.apple,
+        guestRecoveryEnabled: true,
+        claimEnabled: true,
+      )..uid = null;
+      h.guestPurchases = [
+        MembershipStorePurchase(purchase: h.purchase(transaction: '102')),
+      ];
+      await h.service.checkGuestPurchasesOnHome();
+      h.platform.finishFails = true;
+      h.uid = 'first-login';
+      await h.service.recover();
+      expect(h.claimRequests, hasLength(1));
+      expect(h.platform.finishedTransactions, isEmpty);
+      expect(h.store.claims.values.single.status, 'completed');
+      expect(h.store.claims.values.single.recoveredProof!.transactionId, '102');
+      h.service.dispose();
+      final restarted = support.Harness(
+        provider: MembershipProvider.apple,
+        claimEnabled: true,
+        storage: h.store,
+      )..uid = 'first-login';
+      await restarted.service.start();
+      expect(restarted.platform.finishedTransactions, ['102']);
+      expect(restarted.claimRequests, isEmpty);
+      expect(restarted.reports, isEmpty);
+      expect(restarted.store.claims.values.single.recoveredProof, isNull);
+      expect(restarted.store.claims.values.single.ownerUid, 'first-login');
+    },
+  );
+
   for (final provider in MembershipProvider.values) {
     for (final outcome in ['failure', 'accepted']) {
       testWidgets(

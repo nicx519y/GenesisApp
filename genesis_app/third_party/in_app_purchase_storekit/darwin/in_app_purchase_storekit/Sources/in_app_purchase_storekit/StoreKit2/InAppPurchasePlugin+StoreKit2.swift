@@ -258,19 +258,25 @@ extension InAppPurchasePlugin: InAppPurchase2API {
     }
   }
 
-  /// Wrapper method around StoreKit2's transactions() method
-  /// https://developer.apple.com/documentation/storekit/product/3851116-products
+  /// Read verified history, including finished transactions, with its signed proof.
+  /// https://developer.apple.com/documentation/storekit/transaction/all
   func transactions(
     completion: @escaping (Result<[SK2TransactionMessage], Error>) -> Void
   ) {
     Task {
       @MainActor in
-      do {
-        let transactionsMsgs = await rawTransactions().map {
-          $0.convertToPigeon(receipt: nil, status: .purchased)
+      var transactionsMsgs: [SK2TransactionMessage] = []
+      for await verificationResult in Transaction.all {
+        switch verificationResult {
+        case .verified(let transaction):
+          transactionsMsgs.append(
+            transaction.convertToPigeon(
+              receipt: verificationResult.jwsRepresentation, status: .purchased))
+        case .unverified:
+          break
         }
-        completion(.success(transactionsMsgs))
       }
+      completion(.success(transactionsMsgs))
     }
   }
 
@@ -337,10 +343,20 @@ extension InAppPurchasePlugin: InAppPurchase2API {
   /// Wrapper method around StoreKit2's finish() method https://developer.apple.com/documentation/storekit/transaction/3749694-finish
   func finish(id: Int64, completion: @escaping (Result<Void, Error>) -> Void) {
     Task {
-      let transaction = try await fetchTransaction(by: UInt64(id))
-      if let transaction = transaction {
+      do {
+        guard id > 0, let transaction = try await fetchTransaction(by: UInt64(id)) else {
+          completion(
+            .failure(
+              PigeonError(
+                code: "storekit2_finish_transaction_not_found",
+                message: "The verified transaction could not be found for completion.",
+                details: id)))
+          return
+        }
         await transaction.finish()
         completion(.success(Void()))
+      } catch {
+        completion(.failure(error))
       }
     }
   }
@@ -515,20 +531,6 @@ extension InAppPurchasePlugin: InAppPurchase2API {
   }
 
   // MARK: - Internal Convenience Functions
-
-  /// Helper function that fetches and unwraps all verified transactions
-  func rawTransactions() async -> [Transaction] {
-    var transactions: [Transaction] = []
-    for await verificationResult in Transaction.all {
-      switch verificationResult {
-      case .verified(let transaction):
-        transactions.append(transaction)
-      case .unverified:
-        break
-      }
-    }
-    return transactions
-  }
 
   /// Helper function to fetch specific transaction
   func fetchTransaction(by id: UInt64) async throws -> Transaction? {

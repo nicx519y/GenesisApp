@@ -162,7 +162,13 @@ class MembershipPurchaseRecord {
         reportStatus: json['report_status'] as String?,
         reportId: json['report_id'] as String?,
         reportReason: json['report_reason'] as String?,
-        finished: json['finished'] as bool,
+        // Older clients marked an ownership rejection as finished without
+        // calling StoreKit. Never treat that legacy flag as store completion.
+        finished:
+            json['report_status'] == 'rejected' &&
+                json['report_reason'] == 'account_mismatch'
+            ? false
+            : json['finished'] as bool,
       );
 }
 

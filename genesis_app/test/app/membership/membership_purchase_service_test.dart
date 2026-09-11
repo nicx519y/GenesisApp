@@ -36,6 +36,7 @@ class PendingStore implements MembershipPendingStore {
   bool failRestoreCleanup = false;
   bool failClaim = false;
   bool failClaimCleanup = false;
+  final completedRecords = <MembershipPurchaseRecord>[];
   Future<void> Function(MembershipPurchaseRecord)? onSave;
   Future<void> Function()? onLoad;
   @override
@@ -68,6 +69,7 @@ class PendingStore implements MembershipPendingStore {
   @override
   Future<void> complete(MembershipPurchaseRecord record) async {
     if (fail || failComplete) throw StateError('storage unavailable');
+    completedRecords.add(record);
     if (record.guest != null &&
         record.paid &&
         record.hasReceipt &&
@@ -114,6 +116,7 @@ class PendingStore implements MembershipPendingStore {
 class Checkout implements MembershipCheckoutPlatform {
   int launches = 0;
   int finishes = 0;
+  final finishedTransactions = <String>[];
   int queries = 0;
   String? uuid;
   MembershipProduct? product;
@@ -154,6 +157,7 @@ class Checkout implements MembershipCheckoutPlatform {
   Future<void> finishAppleTransaction(String transactionId) async {
     finishes++;
     if (finishFails) throw StateError('finish failed');
+    finishedTransactions.add(transactionId);
   }
 }
 

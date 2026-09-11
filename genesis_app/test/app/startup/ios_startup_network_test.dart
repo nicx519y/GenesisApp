@@ -112,6 +112,88 @@ void main() {
     expect(client.closed, isTrue);
     expect(await client.aborted, isTrue);
   });
+
+  testWidgets('startup continues before native cancellation finishes', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final client = _CleanupProbeClient();
+    final startup = waitForIosStartupNetwork(
+      probeUri: _probeUri,
+      platform: TargetPlatform.iOS,
+      clientFactory: () => client,
+    );
+
+    await tester.pump(const Duration(seconds: 8));
+    await startup;
+    expect(client.abortRequested, isTrue);
+    expect(client.closeCalls, 0);
+
+    client.completeCancellation();
+    await tester.pump();
+    expect(client.closeCalls, 1);
+  });
+
+  testWidgets('response headers allow startup before response cleanup', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final client = _CleanupProbeClient();
+    final startup = waitForIosStartupNetwork(
+      probeUri: _probeUri,
+      platform: TargetPlatform.iOS,
+      clientFactory: () => client,
+    );
+
+    client.respond();
+    await tester.pump();
+    await startup;
+    expect(client.closeCalls, 0);
+
+    client.completeBody();
+    await tester.pump();
+    expect(client.closeCalls, 1);
+  });
+
+  testWidgets('a response arriving after timeout is still drained and closed', (
+    tester,
+  ) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final client = _CleanupProbeClient();
+    final startup = waitForIosStartupNetwork(
+      probeUri: _probeUri,
+      platform: TargetPlatform.iOS,
+      clientFactory: () => client,
+    );
+
+    await tester.pump(const Duration(seconds: 8));
+    await startup;
+    client.respond();
+    await tester.pump();
+    expect(client.body.hasListener, isTrue);
+    expect(client.closeCalls, 0);
+
+    client.completeBody();
+    await tester.pump();
+    expect(client.closeCalls, 1);
+  });
+
+  testWidgets('client cleanup errors cannot fail startup', (tester) async {
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    final client = _CleanupProbeClient(failClose: true);
+    final startup = waitForIosStartupNetwork(
+      probeUri: _probeUri,
+      platform: TargetPlatform.iOS,
+      clientFactory: () => client,
+    );
+
+    client.respond();
+    client.completeBody();
+    await tester.pump();
+    await startup;
+    expect(client.closeCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 class _ProbeClient extends http.BaseClient {
@@ -144,4 +226,42 @@ class _ProbeClient extends http.BaseClient {
 
   @override
   void close() => closed = true;
+}
+
+class _CleanupProbeClient extends http.BaseClient {
+  _CleanupProbeClient({this.failClose = false});
+
+  final bool failClose;
+  final response = Completer<http.StreamedResponse>();
+  final body = StreamController<List<int>>();
+  var running = true;
+  var abortRequested = false;
+  var closeCalls = 0;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    final abortable = request as http.AbortableRequest;
+    unawaited(abortable.abortTrigger!.then((_) => abortRequested = true));
+    return response.future;
+  }
+
+  void respond() => response.complete(http.StreamedResponse(body.stream, 200));
+
+  void completeBody() {
+    running = false;
+    unawaited(body.close());
+  }
+
+  void completeCancellation() {
+    running = false;
+    response.completeError(http.RequestAbortedException());
+    unawaited(body.close());
+  }
+
+  @override
+  void close() {
+    closeCalls++;
+    if (running) throw StateError('cannot close with running requests');
+    if (failClose) throw StateError('Native cleanup failed');
+  }
 }
