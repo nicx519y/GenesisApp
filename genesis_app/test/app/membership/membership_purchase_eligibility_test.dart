@@ -12,36 +12,36 @@ import 'membership_purchase_service_test.dart' as support;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  for (final guest in [false, true]) {
-    for (final yearly in [true, false]) {
-      test(
-        'active annual blocks guest=$guest yearly=$yearly before store lookup',
-        () async {
-          final h = support.Harness();
-          if (guest) h.uid = null;
-          final reason = yearly
-              ? 'already_subscribed'
-              : 'downgrade_not_allowed';
-          h.productsHandler = () async => [
-            membershipProduct(
-              yearly: yearly,
-              canPurchase: false,
-              purchaseBlockReason: reason,
-            ),
-          ];
-          final event = h.service.checkoutEvents.firstWhere(
-            (e) => e.state == MembershipCheckoutState.failed,
+  for (final provider in MembershipProvider.values) {
+    for (final guest in [false, true]) {
+      for (final status in MembershipVipStatus.values) {
+        for (final yearly in [false, true]) {
+          test(
+            '$provider $status guest=$guest yearly=$yearly checks fresh catalog before store',
+            () async {
+              final h = support.Harness(provider: provider)..vipStatus = status;
+              if (guest) h.uid = null;
+              final blocked =
+                  status == MembershipVipStatus.yearly ||
+                  status == MembershipVipStatus.monthly && !yearly;
+              final events = <MembershipCheckoutEvent>[];
+              final subscription = h.service.checkoutEvents.listen(events.add);
+              await h.service.purchase(h.product(yearly: yearly));
+              await pumpEventQueue();
+              expect(h.eligibilityQueries, 1);
+              expect(h.platform.launches, blocked ? 0 : 1);
+              if (blocked) {
+                expect(events.last.reason, 'already_subscribed');
+                expect(h.platform.product, isNull);
+                expect(h.guestPrepares, 0);
+                expect(h.store.records, isEmpty);
+              }
+              await subscription.cancel();
+              h.service.dispose();
+            },
           );
-          // The page's cached product still says it can be purchased.
-          await h.service.purchase(h.product(yearly: yearly));
-          expect((await event).reason, reason);
-          expect(h.eligibilityQueries, 1);
-          expect(h.platform.product, isNull);
-          expect(h.platform.launches, 0);
-          expect(h.guestPrepares, 0);
-          expect(h.store.records, isEmpty);
-        },
-      );
+        }
+      }
     }
   }
 
@@ -78,36 +78,6 @@ void main() {
         },
       );
     }
-  }
-
-  for (final (canPurchase, blockReason, expectedReason) in [
-    (false, '', 'eligibility_unavailable'),
-    (
-      true,
-      'cross_platform_upgrade_not_allowed',
-      'cross_platform_upgrade_not_allowed',
-    ),
-  ]) {
-    test(
-      'eligibility still blocks canPurchase=$canPurchase reason=$blockReason',
-      () async {
-        final h = support.Harness();
-        h.productsHandler = () async => [
-          membershipProduct(
-            canPurchase: canPurchase,
-            purchaseBlockReason: blockReason,
-          ),
-        ];
-        final event = h.service.checkoutEvents.firstWhere(
-          (e) => e.state == MembershipCheckoutState.failed,
-        );
-        await h.service.purchase(h.product());
-        expect((await event).reason, expectedReason);
-        expect(h.platform.product, isNull);
-        expect(h.platform.launches, 0);
-        expect(h.guestPrepares, 0);
-      },
-    );
   }
 
   test(

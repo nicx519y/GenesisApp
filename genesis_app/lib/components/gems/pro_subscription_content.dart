@@ -57,6 +57,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   _ProPlan _plan = _ProPlan.yearly;
   AppServices? _services;
   List<MembershipOffer> _offers = [];
+  MembershipVipStatus _vipStatus = MembershipVipStatus.none;
   bool _loading = false;
   bool _started = false;
   int _requestGeneration = 0;
@@ -173,6 +174,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
 
   void _applyCatalog(MembershipCatalogData catalog) {
     _offers = catalog.offers;
+    _vipStatus = catalog.vipStatus;
     if (_offerFor(_plan) == null && _offers.isNotEmpty) {
       _plan = _ProPlan.values.firstWhere((plan) => _offerFor(plan) != null);
     }
@@ -181,14 +183,18 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   Future<void> _onSubscribePressed() async {
     if (_loading) return;
     final offer = _offerFor(_plan);
-    if (offer == null || offer.price == null) {
+    if (offer == null) {
       unawaited(_load());
       return;
     }
-    final blocked = membershipPurchaseBlockReason(offer.product);
+    final blocked = membershipPurchaseBlockReason(offer.product, _vipStatus);
     if (blocked != null) {
       showGenesisToast(context, membershipPurchaseFailureMessage(blocked));
       unawaited(_load(silent: true));
+      return;
+    }
+    if (offer.price == null) {
+      unawaited(_load());
       return;
     }
     final handler = widget.purchaseHandler;
@@ -340,9 +346,12 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                   foregroundColor: proPurchaseInk,
                   side: const BorderSide(color: Color(0xFFC69A45)),
                   label:
-                      selectedProduct?.canPurchase == false &&
-                          selectedProduct?.purchaseBlockReason ==
-                              'already_subscribed'
+                      selectedProduct != null &&
+                          membershipPurchaseBlockReason(
+                                selectedProduct,
+                                _vipStatus,
+                              ) !=
+                              null
                       ? 'Subscribed'
                       : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
                   height: 44,

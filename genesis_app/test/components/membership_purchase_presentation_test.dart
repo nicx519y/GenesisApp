@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
@@ -8,11 +10,16 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 import '../app/membership/membership_purchase_service_test.dart' as service;
-import '../support/membership_fixtures.dart';
+import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 
 Widget subscription(service.Harness h, {bool closeOnSuccess = false}) =>
     ProSubscriptionContent(
-      productsLoader: loadTestMembershipOffers,
+      productsLoader: () async => MembershipCatalogData(
+        offers: [
+          for (final yearly in [true, false])
+            MembershipOffer(product: h.product(yearly: yearly)),
+        ],
+      ),
       purchaseService: h.service,
       closeOnPurchaseSuccess: closeOnSuccess,
     );
@@ -34,6 +41,63 @@ Future<void> open(WidgetTester tester, service.Harness h) async {
 }
 
 void main() {
+  for (final provider in MembershipProvider.values) {
+    for (final stage in ['prepare', 'launch', 'callback']) {
+      testWidgets(
+        '$provider $stage preserves native errors through the VIP dialog',
+        (tester) async {
+          final h = service.Harness(provider: provider);
+          final google = provider == MembershipProvider.google;
+          final error = PlatformException(
+            code: google ? 'developerError' : 'raw StoreKit purchase error',
+            message: 'original store message',
+            details: google
+                ? {'subResponseCode': 1}
+                : {'storeKitCode': 'ineligible_for_offer'},
+          );
+          if (stage == 'prepare') {
+            h.platform.onPrepare = () async => throw error;
+          }
+          if (stage == 'launch') h.platform.onLaunch = () async => throw error;
+          await open(tester, h);
+          if (stage == 'callback') {
+            await h.service.interceptPurchase(
+              BillingPurchase(
+                provider: google
+                    ? BillingProvider.googlePlay
+                    : BillingProvider.appStore,
+                productId: h.product(yearly: true).storeProductId,
+                purchaseToken: '',
+                transactionId: '',
+                originalTransactionId: '',
+                originalJson: '',
+                purchaseTime: '',
+                status: BillingPurchaseStatus.error,
+                errorCode: error.code,
+                errorMessage: error.message,
+                errorDetails: error.details,
+              ),
+            );
+          }
+          await tester.pump(const Duration(milliseconds: 600));
+          expect(find.byType(Dialog), findsNothing);
+          expect(
+            find.textContaining(
+              google
+                  ? 'Your payment method has insufficient funds.'
+                  : 'Your Apple Account is not eligible for this subscription offer.',
+            ),
+            findsOneWidget,
+          );
+          expect(h.reports, isEmpty);
+          expect(h.store.records, isEmpty);
+          await tester.pump(const Duration(seconds: 3));
+          h.service.dispose();
+        },
+      );
+    }
+  }
+
   testWidgets(
     'purchase dialog spans store launch and reporting, then requires OK',
     (tester) async {
@@ -156,6 +220,10 @@ void main() {
           'accepted' => 'Your VIP purchase is being confirmed.',
           'deferred' || 'storage failure' || 'stream failure' =>
             'VIP purchase confirmation is delayed. Please check again later.',
+          'failed' =>
+            'The store could not open this VIP purchase. Please try again.',
+          'query failure' =>
+            'This VIP plan is currently unavailable in the store. Please refresh the page and try again.',
           _ => 'VIP purchase failed.',
         };
         final toast = find.textContaining('\n$message');
@@ -170,8 +238,7 @@ void main() {
           'failed' => 'membership_launch_rejected',
           'query failure' => 'code=membership_product_not_found',
           'deferred' => 'report; StateError; offline',
-          'storage failure' =>
-            'handle_callback; StateError; storage unavailable',
+          'storage failure' => 'report; StateError; storage unavailable',
           'stream failure' => 'store_stream; reason=stream_error',
           _ => throw StateError('Unhandled outcome'),
         };

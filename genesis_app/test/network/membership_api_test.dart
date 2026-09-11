@@ -228,7 +228,7 @@ void main() {
       final transport = _Transport()
         ..response = {
           'err_no': 0,
-          'data': {'list': []},
+          'data': {'vip_status': 'none', 'list': []},
         };
       final api = MembershipV1Api(
         ApiClient(baseUrl: 'https://test.invalid/api/', transport: transport),
@@ -253,6 +253,7 @@ void main() {
         ..response = {
           'err_no': 0,
           'data': {
+            'vip_status': 'monthly',
             'list': [
               {
                 ...membershipProduct(yearly: true).toJson(),
@@ -266,7 +267,7 @@ void main() {
         ApiClient(baseUrl: 'https://test.invalid/api/', transport: transport),
       );
       final result = await api.products(provider: MembershipProvider.google);
-      expect(result.products.single.upgradeAccountUuid, uuid);
+      expect(result.products.single.accountUuid, uuid);
       expect(
         result.products.single.upgradePurchaseToken,
         'old-subscription-token',

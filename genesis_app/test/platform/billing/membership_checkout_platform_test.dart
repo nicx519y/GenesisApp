@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
@@ -18,6 +19,11 @@ class _Store extends Fake implements InAppPurchase {
   _Store(this.products);
   final List<ProductDetails> products;
   PurchaseParam? param;
+  BillingResponse queryResponse = BillingResponse.ok;
+  IAPError? queryError;
+  @override
+  T getPlatformAddition<T extends InAppPurchasePlatformAddition?>() =>
+      _GoogleAddition(this) as T;
   Set<String>? ids;
   Future<bool> Function()? buyHandler;
   @override
@@ -27,7 +33,11 @@ class _Store extends Fake implements InAppPurchase {
     Set<String> identifiers,
   ) async {
     ids = identifiers;
-    return ProductDetailsResponse(productDetails: products, notFoundIDs: []);
+    return ProductDetailsResponse(
+      productDetails: products,
+      notFoundIDs: [],
+      error: queryError,
+    );
   }
 
   @override
@@ -46,7 +56,70 @@ class _Store extends Fake implements InAppPurchase {
   }
 }
 
+class _GoogleAddition extends Fake
+    implements InAppPurchaseAndroidPlatformAddition {
+  _GoogleAddition(this.store);
+  final _Store store;
+  @override
+  Future<ProductDetailsResponseWrapper> queryProductDetails({
+    required String productId,
+    required ProductType productType,
+  }) async {
+    expect(productType, ProductType.subs);
+    store.ids = {productId};
+    return ProductDetailsResponseWrapper(
+      billingResult: BillingResultWrapper(
+        responseCode: store.queryResponse,
+        debugMessage: 'raw query message',
+      ),
+      productDetailsList: store.products
+          .whereType<GooglePlayProductDetails>()
+          .map((product) => product.productDetails)
+          .toSet()
+          .toList(),
+    );
+  }
+}
+
 void main() {
+  test(
+    'Google subscription query preserves native failures instead of product-not-found',
+    () async {
+      for (final response in BillingResponse.values.where(
+        (code) => code != BillingResponse.ok,
+      )) {
+        final store = _Store([])..queryResponse = response;
+        final checkout = StoreMembershipCheckoutPlatform(store: store);
+        await expectLater(
+          checkout.prepare(membershipProduct()),
+          throwsA(
+            isA<BillingPlatformException>()
+                .having((error) => error.code, 'code', response.name)
+                .having(
+                  (error) => error.message,
+                  'raw message',
+                  'raw query message',
+                ),
+          ),
+        );
+        expect(store.param, isNull);
+      }
+    },
+  );
+  test('Apple product query retains the IAPError and native details', () async {
+    final error = IAPError(
+      source: 'app_store',
+      code: 'storekit2_products_error',
+      message: 'raw query error',
+      details: {'storeKitCode': 'network_error'},
+    );
+    final store = _Store([])..queryError = error;
+    final checkout = StoreMembershipCheckoutPlatform(store: store);
+    await expectLater(
+      checkout.prepare(membershipProduct(provider: MembershipProvider.apple)),
+      throwsA(same(error)),
+    );
+  });
   const originalUuid = '8b74ec68-7abc-4cce-a223-e997e31dc811';
   PurchaseWrapper previousPurchase({
     String token = 'old-month-token',
@@ -79,7 +152,7 @@ void main() {
   );
   MembershipProduct upgrade() => membershipProduct(
     yearly: true,
-    upgradeAccountUuid: originalUuid,
+    accountUuid: originalUuid,
     upgradePurchaseToken: 'old-month-token',
   );
 
@@ -109,6 +182,7 @@ void main() {
       );
       final param = store.param! as GooglePlayPurchaseParam;
       expect(queries, 1);
+      expect(param.throwOnBillingFailure, isTrue);
       expect(param.offerToken, 'test-token-annual-base');
       expect(param.applicationUserName, originalUuid);
       expect(
@@ -197,7 +271,11 @@ void main() {
         ]),
       );
       final checkout = StoreMembershipCheckoutPlatform(store: store);
-      final product = membershipProduct(yearly: true, offerId: 'test-offer');
+      final product = membershipProduct(
+        yearly: true,
+        offerId: 'test-offer',
+        accountUuid: '4b74ec68-7abc-4cce-a223-e997e31dc811',
+      );
       final native = await checkout.prepare(product);
       var handoff = false;
       final launched = Completer<bool>();

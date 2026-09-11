@@ -322,10 +322,10 @@ class ServiceRegistry {
             store: SecureMembershipPendingStore(),
             provider: membershipProvider,
             readLoginUid: sessionStore.readLoginUid,
-            loadProducts: () async => (await api.v1.membership.products(
+            loadProducts: () async => api.v1.membership.products(
               provider: membershipProvider,
               deviceId: await deviceId.getDeviceId(),
-            )).products,
+            ),
             loadAccountUuid: loadBillingAccountUuid,
             prepareGuest: () async => api.v1.membership.prepareGuest(
               provider: membershipProvider,

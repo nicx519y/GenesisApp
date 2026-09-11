@@ -18,11 +18,51 @@ void main() {
     'monthly_gems_cent': 30000,
     'price_currency_code': 'USD',
     'price_amount': 1234,
-    'can_purchase': true,
-    'purchase_block_reason': '',
   };
+  for (final raw in ['none', '', 'monthly', 'yearly']) {
+    test('root vip_status=$raw is parsed and cached', () {
+      final parsed = MembershipProductList.fromJson({
+        'vip_status': raw,
+        'list': [product],
+      });
+      expect(parsed.vipStatus.name, raw.isEmpty ? 'none' : raw);
+      expect(parsed.toJson()['vip_status'], raw.isEmpty ? 'none' : raw);
+      expect(parsed.products.single.toJson(), isNot(contains('vip_status')));
+    });
+  }
+  test('missing or invalid root status never authorizes a purchase', () {
+    for (final raw in [null, 'active', false, 1]) {
+      expect(
+        () => MembershipProductList.fromJson({
+          'vip_status': raw,
+          'list': [product],
+        }),
+        throwsFormatException,
+      );
+    }
+    expect(
+      () => MembershipProductList.fromJson({
+        'list': [product],
+      }),
+      throwsFormatException,
+    );
+  });
+  test('obsolete eligibility fields cannot override root status', () {
+    final parsed = MembershipProductList.fromJson({
+      'vip_status': 'none',
+      'list': [
+        {
+          ...product,
+          'can_purchase': false,
+          'purchase_block_reason': 'already_subscribed',
+        },
+      ],
+    });
+    expect(parsed.vipStatus, MembershipVipStatus.none);
+    expect(parsed.products.single.toJson(), product);
+  });
   test(
-    'upgrade credentials are optional, platform specific and never serialized',
+    'catalog identity and upgrade proof are optional and never serialized',
     () {
       const uuid = '8b74ec68-7abc-4cce-a223-e997e31dc811';
       final yearly = {
@@ -44,9 +84,9 @@ void main() {
         'account_uuid': uuid.toUpperCase(),
         'purchase_token': 'old-token',
       });
-      expect(appleUpgrade.upgradeAccountUuid, uuid);
+      expect(appleUpgrade.accountUuid, uuid);
       expect(appleUpgrade.upgradePurchaseToken, isNull);
-      expect(googleUpgrade.upgradeAccountUuid, uuid);
+      expect(googleUpgrade.accountUuid, uuid);
       expect(googleUpgrade.upgradePurchaseToken, 'old-token');
       for (final parsed in [appleUpgrade, googleUpgrade]) {
         expect(parsed.toJson(), isNot(contains('account_uuid')));
@@ -54,21 +94,28 @@ void main() {
         expect(parsed.toOrderJson(), isNot(contains('account_uuid')));
         expect(parsed.toOrderJson(), isNot(contains('purchase_token')));
       }
-      expect(MembershipProduct.fromJson(google).upgradeAccountUuid, isNull);
-      for (final invalid in [
+      expect(MembershipProduct.fromJson(google).accountUuid, isNull);
+      for (final allowed in [
         {...google, 'account_uuid': uuid},
+        {...product, 'account_uuid': uuid},
+      ]) {
+        expect(MembershipProduct.fromJson(allowed).accountUuid, uuid);
+      }
+      for (final invalid in [
         {...google, 'purchase_token': 'old-token'},
         {...google, 'account_uuid': uuid, 'purchase_token': ''},
         {...google, 'account_uuid': uuid, 'purchase_token': null},
         {...google, 'account_uuid': null, 'purchase_token': 'old-token'},
         {...yearly, 'account_uuid': 'invalid'},
+        {...yearly, 'account_uuid': ''},
+        {...yearly, 'account_uuid': null},
         {...yearly, 'account_uuid': uuid, 'purchase_token': 'old-token'},
-        {...product, 'account_uuid': uuid},
-        {...yearly, 'account_uuid': uuid, 'can_purchase': false},
         {
-          ...yearly,
+          ...google,
+          'plan_code': 'pro_monthly',
+          'billing_months': 1,
           'account_uuid': uuid,
-          'purchase_block_reason': 'sale_disabled',
+          'purchase_token': 'old-token',
         },
       ]) {
         expect(
@@ -99,18 +146,28 @@ void main() {
       }
     },
   );
-  test('list alone is valid, with per-product titles and benefits', () {
-    expect(MembershipProductList.fromJson({'list': []}).products, isEmpty);
-    final result = MembershipProductList.fromJson({
-      'list': [product],
-    });
-    expect(result.products.single.title, 'Server monthly title');
-    expect(result.products.single.benefits.single.title, 'Server title');
-    expect(
-      MembershipProduct.fromJson({...product, 'benefits': []}).benefits,
-      isEmpty,
-    );
-  });
+  test(
+    'list and account status parse with per-product titles and benefits',
+    () {
+      expect(
+        MembershipProductList.fromJson({
+          'vip_status': 'none',
+          'list': [],
+        }).products,
+        isEmpty,
+      );
+      final result = MembershipProductList.fromJson({
+        'vip_status': 'none',
+        'list': [product],
+      });
+      expect(result.products.single.title, 'Server monthly title');
+      expect(result.products.single.benefits.single.title, 'Server title');
+      expect(
+        MembershipProduct.fromJson({...product, 'benefits': []}).benefits,
+        isEmpty,
+      );
+    },
+  );
   test('purchase action is ignored and never serialized', () {
     for (final action in [
       'purchase',
@@ -121,6 +178,7 @@ void main() {
       123,
     ]) {
       final parsed = MembershipProductList.fromJson({
+        'vip_status': 'none',
         'list': [
           {...product, 'purchase_action': action},
         ],
@@ -133,6 +191,7 @@ void main() {
       final missing = Map<String, Object?>.from(product)..remove(field);
       expect(
         () => MembershipProductList.fromJson({
+          'vip_status': 'none',
           'list': [missing],
           'title': 'Old title',
           'benefits': [benefit],
@@ -145,6 +204,7 @@ void main() {
     'unknown icons preserve server metadata for the generic icon fallback',
     () {
       final result = MembershipProductList.fromJson({
+        'vip_status': 'none',
         'list': [product],
       });
       expect(result.products.single.benefits.single.title, 'Server title');
@@ -201,22 +261,12 @@ void main() {
         {'price_currency_code': 'usd'},
         {'price_currency_code': ''},
         {'price_amount': null},
-        {'can_purchase': null},
-        {'can_purchase': 'true'},
-        {'purchase_block_reason': 'unknown'},
       ]) {
         expect(
           () => MembershipProduct.fromJson({...product, ...invalid}),
           throwsFormatException,
         );
       }
-      final blocked = MembershipProduct.fromJson({
-        ...product,
-        'can_purchase': false,
-        'purchase_block_reason': 'already_subscribed',
-      });
-      expect(blocked.canPurchase, isFalse);
-      expect(blocked.purchaseBlockReason, 'already_subscribed');
     },
   );
 }

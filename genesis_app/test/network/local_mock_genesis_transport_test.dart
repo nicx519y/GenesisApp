@@ -50,8 +50,6 @@ void main() {
         monthlyGemsCent: 100,
         priceCurrencyCode: 'USD',
         priceAmount: 999,
-        canPurchase: true,
-        purchaseBlockReason: '',
       );
       await expectLater(
         api.v1.membership.reportPurchase(
@@ -69,6 +67,7 @@ void main() {
     for (final provider in MembershipProvider.values) {
       final result = await api.v1.membership.products(provider: provider);
       expect(result.products, isEmpty);
+      expect(result.vipStatus, MembershipVipStatus.none);
     }
   });
 

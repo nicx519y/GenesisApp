@@ -388,6 +388,7 @@ void main() {
               'err_no': 0,
               'err_msg': 'succ',
               'data': {
+                'vip_status': 'monthly',
                 'list': [
                   {
                     'title': 'Server yearly title',
@@ -410,8 +411,6 @@ void main() {
                     'monthly_gems_cent': 180025,
                     'price_currency_code': 'EUR',
                     'price_amount': 12345,
-                    'can_purchase': true,
-                    'purchase_block_reason': '',
                   },
                 ],
               },
@@ -441,8 +440,7 @@ void main() {
         expect(result.products.single.billingMonths, 12);
         expect(result.products.single.priceCurrencyCode, 'EUR');
         expect(result.products.single.priceAmount, 12345);
-        expect(result.products.single.canPurchase, isTrue);
-        expect(result.products.single.purchaseBlockReason, '');
+        expect(result.vipStatus, MembershipVipStatus.monthly);
         expect(result.products.single.title, 'Server yearly title');
         expect(result.products.single.benefits.single.code, 'server_benefit');
         expect(

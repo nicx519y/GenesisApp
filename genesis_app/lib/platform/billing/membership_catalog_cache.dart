@@ -12,7 +12,7 @@ class MembershipCatalogCache {
   Future<void> _writes = Future.value();
 
   String _key(MembershipProvider provider, String? ownerUid) =>
-      'membership_catalog_v1.${Uri.encodeComponent(jsonEncode([namespace, provider.name, ownerUid]))}';
+      'membership_catalog_v2.${Uri.encodeComponent(jsonEncode([namespace, provider.name, ownerUid]))}';
 
   Future<MembershipProductList?> load(
     MembershipProvider provider,
@@ -34,11 +34,9 @@ class MembershipCatalogCache {
   Future<void> save(
     MembershipProvider provider,
     String? ownerUid,
-    List<MembershipProduct> products,
+    MembershipProductList products,
   ) {
-    final body = jsonEncode({
-      'list': [for (final product in products) product.toJson()],
-    });
+    final body = jsonEncode(products.toJson());
     final operation = _writes.then((_) async {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key(provider, ownerUid), body);

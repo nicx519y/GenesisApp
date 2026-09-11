@@ -107,6 +107,7 @@ class BillingPurchase {
     this.errorCode,
     this.signedTransaction = '',
     this.errorMessage,
+    this.errorDetails,
   });
 
   final BillingProvider provider;
@@ -123,6 +124,9 @@ class BillingPurchase {
   /// In-memory StoreKit JWS for VIP guest reporting/claiming; never persisted.
   final String signedTransaction;
   final String? errorMessage;
+
+  /// Original native diagnostics for VIP error mapping; never persisted.
+  final Object? errorDetails;
 }
 
 @immutable
@@ -248,10 +252,11 @@ class BillingUiEvent {
 }
 
 class BillingPlatformException implements Exception {
-  const BillingPlatformException(this.code, [this.message = '']);
+  const BillingPlatformException(this.code, [this.message = '', this.details]);
 
   final String code;
   final String message;
+  final Object? details;
 
   @override
   String toString() => 'BillingPlatformException($code)';

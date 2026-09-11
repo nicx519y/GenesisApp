@@ -15,16 +15,24 @@ void main() {
       final product = membershipProduct(
         yearly: true,
         title: 'Cached annual',
-        upgradeAccountUuid: '4b74ec68-7abc-4cce-a223-e997e31dc811',
+        accountUuid: '4b74ec68-7abc-4cce-a223-e997e31dc811',
         upgradePurchaseToken: 'private-upgrade-token',
       );
       final cache = MembershipCatalogCache(namespace: 'production');
-      await cache.save(MembershipProvider.google, 'user-a', [product]);
+      await cache.save(
+        MembershipProvider.google,
+        'user-a',
+        MembershipProductList(
+          vipStatus: MembershipVipStatus.monthly,
+          products: [product],
+        ),
+      );
       final loaded = await MembershipCatalogCache(
         namespace: 'production',
       ).load(MembershipProvider.google, 'user-a');
-      expect(loaded!.products.single.toJson(), product.toJson());
-      expect(loaded.products.single.upgradeAccountUuid, isNull);
+      expect(loaded!.vipStatus, MembershipVipStatus.monthly);
+      expect(loaded.products.single.toJson(), product.toJson());
+      expect(loaded.products.single.accountUuid, isNull);
       expect(loaded.products.single.upgradePurchaseToken, isNull);
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(prefs.getKeys().single)!;
@@ -37,9 +45,14 @@ void main() {
     'account, provider, and environment each isolate display data',
     () async {
       final cache = MembershipCatalogCache(namespace: 'production');
-      await cache.save(MembershipProvider.google, 'user-a', [
-        membershipProduct(),
-      ]);
+      await cache.save(
+        MembershipProvider.google,
+        'user-a',
+        MembershipProductList(
+          vipStatus: MembershipVipStatus.none,
+          products: [membershipProduct()],
+        ),
+      );
       expect(await cache.load(MembershipProvider.google, 'user-b'), isNull);
       expect(await cache.load(MembershipProvider.google, null), isNull);
       expect(await cache.load(MembershipProvider.apple, 'user-a'), isNull);
@@ -49,7 +62,14 @@ void main() {
         ).load(MembershipProvider.google, 'user-a'),
         isNull,
       );
-      await cache.save(MembershipProvider.google, 'user-a', []);
+      await cache.save(
+        MembershipProvider.google,
+        'user-a',
+        MembershipProductList(
+          vipStatus: MembershipVipStatus.none,
+          products: [],
+        ),
+      );
       expect(
         (await cache.load(MembershipProvider.google, 'user-a'))!.products,
         isEmpty,
@@ -59,9 +79,34 @@ void main() {
 
   test('corrupt display cache is a cache miss', () async {
     final cache = MembershipCatalogCache(namespace: 'production');
-    await cache.save(MembershipProvider.google, null, [membershipProduct()]);
+    await cache.save(
+      MembershipProvider.google,
+      null,
+      MembershipProductList(
+        vipStatus: MembershipVipStatus.none,
+        products: [membershipProduct()],
+      ),
+    );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(prefs.getKeys().single, '{invalid');
+    expect(await cache.load(MembershipProvider.google, null), isNull);
+  });
+  test('old cache without account status is ignored', () async {
+    final cache = MembershipCatalogCache(namespace: 'production');
+    await cache.save(
+      MembershipProvider.google,
+      null,
+      MembershipProductList(
+        products: [membershipProduct()],
+        vipStatus: MembershipVipStatus.none,
+      ),
+    );
+    final prefs = await SharedPreferences.getInstance();
+    final key = prefs.getKeys().single;
+    await prefs.setString(key, '{"list":[]}');
+    expect(await cache.load(MembershipProvider.google, null), isNull);
+    await prefs.remove(key);
+    await prefs.setString(key.replaceFirst('_v2.', '_v1.'), '{"list":[]}');
     expect(await cache.load(MembershipProvider.google, null), isNull);
   });
 }

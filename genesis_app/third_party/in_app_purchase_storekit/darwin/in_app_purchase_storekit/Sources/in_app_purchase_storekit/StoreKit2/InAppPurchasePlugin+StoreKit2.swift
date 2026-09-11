@@ -32,7 +32,7 @@ extension InAppPurchasePlugin: InAppPurchase2API {
             PigeonError(
               code: "storekit2_products_error",
               message: error.localizedDescription,
-              details: error.localizedDescription)))
+              details: storeKitPurchaseErrorDetails(error))))
       }
     }
   }
@@ -134,11 +134,15 @@ extension InAppPurchasePlugin: InAppPurchase2API {
         case .userCancelled:
           sendTransactionUpdate(productId: id, status: .cancelled)
         @unknown default:
-          fatalError("An unknown StoreKit PurchaseResult has been encountered.")
+          return completion(.failure(PigeonError(
+            code: "storekit2_unknown_purchase_result",
+            message: "An unknown StoreKit PurchaseResult has been encountered.", details: nil)))
         }
         completion(.success(result.convertToPigeon()))
       } catch {
-        completion(.failure(error))
+        completion(.failure(PigeonError(
+          code: "\(error)", message: "\(type(of: error))",
+          details: storeKitPurchaseErrorDetails(error))))
       }
     }
   }

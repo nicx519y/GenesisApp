@@ -415,7 +415,11 @@ BillingPurchase _toBillingPurchase(PurchaseDetails purchase) {
       code: purchase.error?.code,
       message: purchase.error?.message,
     ),
-    errorMessage: purchase.error?.message,
+    errorMessage: kDebugMode && purchase.error?.details != null
+        ? '${purchase.error?.message ?? ''}; '
+              'debugMessage=${purchase.error!.details}'
+        : purchase.error?.message,
+    errorDetails: purchase.error?.details,
   );
 }
 

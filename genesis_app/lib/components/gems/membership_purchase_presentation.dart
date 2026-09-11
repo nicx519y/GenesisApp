@@ -92,7 +92,7 @@ class MembershipPurchasePresentation {
               context,
               event.reason == null
                   ? purchaseToastMessage(
-                      _message(event.state),
+                      event.storeFailure?.message ?? _message(event.state),
                       debugInfo: debugInfo,
                     )
                   : membershipPurchaseFailureMessage(

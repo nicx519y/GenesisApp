@@ -70,6 +70,66 @@ Future<List<int>> pixels(WidgetTester tester) async {
 }
 
 void main() {
+  for (final provider in MembershipProvider.values) {
+    for (final raw in ['none', '', 'monthly', 'yearly']) {
+      testWidgets(
+        '$provider vip_status=$raw controls both buttons and click interception',
+        (tester) async {
+          var purchases = 0;
+          final catalog = MembershipCatalogData(
+            vipStatus: MembershipVipStatus.fromJson(raw),
+            offers: [
+              for (final yearly in [true, false])
+                MembershipOffer(
+                  product: membershipProduct(
+                    provider: provider,
+                    yearly: yearly,
+                  ),
+                ),
+            ],
+          );
+          await tester.pumpWidget(
+            page(
+              () async => catalog,
+              purchase: (_) async {
+                purchases++;
+              },
+            ),
+          );
+          await tester.pumpAndSettle();
+          for (final yearly in [true, false]) {
+            final blocked = raw == 'yearly' || raw == 'monthly' && !yearly;
+            await tester.tap(
+              find.byKey(
+                ValueKey(yearly ? 'pro-plan-yearly' : 'pro-plan-monthly'),
+              ),
+            );
+            await tester.pumpAndSettle();
+            expect(
+              tester.widget<GenesisPrimaryButton>(find.byKey(buttonKey)).label,
+              blocked
+                  ? 'Subscribed'
+                  : yearly
+                  ? r'Yearly: $99.99'
+                  : r'Monthly: $9.99',
+            );
+            final previous = purchases;
+            await tester.tap(find.byKey(buttonKey));
+            await tester.pump(const Duration(milliseconds: 300));
+            expect(purchases, previous + (blocked ? 0 : 1));
+            if (blocked) {
+              expect(
+                find.textContaining('You already have this VIP plan.'),
+                findsOneWidget,
+              );
+            }
+            await tester.pump(const Duration(seconds: 3));
+          }
+        },
+      );
+    }
+  }
+
   for (final outcome in ['success', 'failure', 'empty']) {
     testWidgets('reenter shows cached subscriptions until refresh $outcome', (
       tester,
@@ -81,6 +141,7 @@ void main() {
         loadProducts: (_) async {
           if (++calls == 1) {
             return MembershipProductList(
+              vipStatus: MembershipVipStatus.none,
               products: [membershipProduct(yearly: true, title: 'Cached VIP')],
             );
           }
@@ -89,10 +150,10 @@ void main() {
       );
       await tester.pumpWidget(page(null, catalog: catalog));
       await tester.pumpAndSettle();
-      expect(find.text('Cached VIP'), findsOneWidget);
+      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpWidget(page(null, catalog: catalog));
-      expect(find.text('Cached VIP'), findsOneWidget);
+      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
       expect(find.text(r'Yearly: $99.99'), findsOneWidget);
       expect(find.byType(CircularProgressIndicator), findsNothing);
       await tester.pump();
@@ -102,6 +163,7 @@ void main() {
       } else {
         response.complete(
           MembershipProductList(
+            vipStatus: MembershipVipStatus.none,
             products: outcome == 'empty'
                 ? []
                 : [
@@ -116,11 +178,11 @@ void main() {
       }
       await tester.pumpAndSettle();
       expect(
-        find.text('Cached VIP'),
+        find.text(r'Yearly: $99.99'),
         outcome == 'failure' ? findsOneWidget : findsNothing,
       );
       if (outcome == 'success') {
-        expect(find.text('Fresh VIP'), findsOneWidget);
+        expect(find.text('Premium'), findsOneWidget);
         expect(find.text(r'Yearly: $119.99'), findsOneWidget);
       }
       expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -132,9 +194,14 @@ void main() {
   ) async {
     SharedPreferences.setMockInitialValues({});
     final store = MembershipCatalogCache(namespace: 'widget-test');
-    await store.save(MembershipProvider.google, null, [
-      membershipProduct(yearly: true, title: 'Disk VIP'),
-    ]);
+    await store.save(
+      MembershipProvider.google,
+      null,
+      MembershipProductList(
+        vipStatus: MembershipVipStatus.yearly,
+        products: [membershipProduct(yearly: true, title: 'Disk VIP')],
+      ),
+    );
     final response = Completer<MembershipProductList>();
     final catalog = MembershipCatalog(
       provider: MembershipProvider.google,
@@ -143,16 +210,18 @@ void main() {
     );
     await tester.pumpWidget(page(null, catalog: catalog));
     await tester.pumpAndSettle();
-    expect(find.text('Disk VIP'), findsOneWidget);
+    expect(find.text('Premium'), findsOneWidget);
+    expect(find.text('Subscribed'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     response.complete(
       MembershipProductList(
+        vipStatus: MembershipVipStatus.none,
         products: [membershipProduct(yearly: true, title: 'Fresh VIP')],
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Fresh VIP'), findsOneWidget);
-    expect(find.text('Disk VIP'), findsNothing);
+    expect(find.text('Subscribed'), findsNothing);
+    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {
     testWidgets('$provider upgrade action does not block the purchase button', (
@@ -258,6 +327,7 @@ void main() {
     'Premium heading stays fixed while selected API benefits change',
     (tester) async {
       final products = MembershipProductList.fromJson({
+        'vip_status': 'none',
         'list': [
           for (final yearly in [true, false])
             membershipProduct(
@@ -333,23 +403,16 @@ void main() {
       final originalButtonRect = tester.getRect(find.byKey(buttonKey));
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      final originalMonthlyPixels = await pixels(tester);
+
       await tester.tap(find.byKey(const ValueKey('pro-plan-yearly')));
       await tester.pumpAndSettle();
       await tester.pumpWidget(
         page(
           () async => MembershipCatalogData(
+            vipStatus: MembershipVipStatus.yearly,
             offers: [
               for (final yearly in [true, false])
-                MembershipOffer(
-                  product: membershipProduct(
-                    yearly: yearly,
-                    canPurchase: false,
-                    purchaseBlockReason: yearly
-                        ? 'already_subscribed'
-                        : 'downgrade_not_allowed',
-                  ),
-                ),
+                MembershipOffer(product: membershipProduct(yearly: yearly)),
             ],
           ),
           purchase: (_) async {
@@ -377,14 +440,13 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text('Subscribed'), findsNothing);
-      expect(await pixels(tester), originalMonthlyPixels);
+      expect(find.text('Subscribed'), findsOneWidget);
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         find.text(
-          'debug：vip.eligibility; reason=downgrade_not_allowed\n'
-          'An active yearly VIP plan cannot be changed to monthly.',
+          'debug：vip.eligibility; reason=already_subscribed\n'
+          'You already have this VIP plan.',
         ),
         findsOneWidget,
       );

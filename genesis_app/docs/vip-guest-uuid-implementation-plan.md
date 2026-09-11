@@ -8,7 +8,7 @@
 
 | 接口 | 最新契约及客户端用途 |
 | --- | --- |
-| `POST /api/v1/membership/guest/prepare` | 请求仍为 `provider + device_id`；响应只有 `account_uuid`。购买前准备身份，不能据此认为已付款。 |
+| `POST /api/v1/membership/guest/prepare` | 请求仍为 `provider + device_id`；响应只有 `account_uuid`。仅游客购买且商品列表未提供 UUID 时调用，不能据此认为已付款。 |
 | `POST /api/v1/membership/guest/purchase/report` | 游客身份只传 `account_uuid`，同时提交平台商品标识及购买凭据，不传 plan_code、request_id。 |
 | `POST /api/v1/membership/guest/purchase/check` | 请求只有 `account_uuid`；成功响应只有 `has_unbound_order`。公开只读，只查服务端已有记录，不向商店验单。 |
 | `POST /api/v1/membership/claim` | 要求真实登录，并提交 `account_uuid + 平台商品标识及凭据`，不传 plan_code、request_id。客户端响应模型继续只读取 `status`。 |
@@ -31,6 +31,10 @@ Google 客户端查询返回商品 ID、purchaseToken 和原账号 UUID，不返
 iOS 使用原 appAccountToken、交易 ID、商品 ID 和签名 JWS，不再查询正式目录解析套餐。JWS 不持久化，重启后按原交易、商品及 UUID 向 StoreKit 重新读取。
 
 claim 使用独立请求模型。Android / iOS 登录 report、游客 report、claim 均省略 plan_code、request_id；已有游客 report 的 claim 复用原购买凭据，两次 HTTP 请求的字段保持一致。无缓存认领保存原购买证明；缓存内的记录编号仅用于本地关联，失败及重启不重新生成，也不传入 HTTP 请求模型。后端无 request_id 的参数校验和幂等处理仍需同步；具体验证边界见 [双端重装认领](vip-guest-recovery-backend-contract.md)。
+
+### 1.3 点击购买时的 UUID 优先级
+
+Android / iOS、月付 / 年付、登录 / 游客均优先采用购买前重新拉取的所选商品 `account_uuid`。列表未返回该字段时，游客使用 guest prepare 的临时身份 UUID，登录用户使用 `/user/info` 的 `uuid`；不使用页面展示缓存中的旧 UUID。游客取得商品 UUID 后跳过 prepare，平台支付、report 及登录后 claim 始终复用这个 UUID。UUID 不代表购买资格，仍检查商品列表顶层最新的 `vip_status`（monthly 拦截月付，yearly 拦截两种套餐，none/空字符串允许购买）；Google 升级另外校验原购买 token。
 
 ## 2. 购买前为什么保存，以及失败后怎么处理
 
