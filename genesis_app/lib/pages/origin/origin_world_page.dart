@@ -43,6 +43,7 @@ import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_detail_tags.dart';
 import '../../ui/components/genesis_edge_swipe_back.dart';
 import '../../ui/components/genesis_map_top_glass_bar.dart';
 import '../../ui/components/genesis_primary_button.dart';

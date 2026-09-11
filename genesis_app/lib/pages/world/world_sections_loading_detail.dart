@@ -298,6 +298,10 @@ class WorldDetailSection extends StatelessWidget {
                     trailingIconSize: genesisCopyableIdIconSize,
                     trailingGap: 4,
                   ),
+                  GenesisDetailTags(
+                    key: const ValueKey<String>('world-detail-tags'),
+                    tags: world.origin.tags,
+                  ),
                   const SizedBox(height: 10),
                   GenesisPrimaryButton(
                     key: const ValueKey<String>('world-detail-invite-button'),

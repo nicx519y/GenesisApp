@@ -1909,6 +1909,10 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     style: metaStyle,
                     trailingIconSize: genesisCopyableIdIconSize,
                   ),
+                  GenesisDetailTags(
+                    key: const ValueKey<String>('origin-info-tags'),
+                    tags: origin.tags,
+                  ),
                   const SizedBox(height: 10),
                   Row(
                     key: const ValueKey<String>('origin-info-stats-row'),

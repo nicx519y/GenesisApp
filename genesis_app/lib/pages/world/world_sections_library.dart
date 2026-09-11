@@ -24,6 +24,7 @@ import '../../network/models/world.dart';
 import '../../network/json_utils.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
+import '../../ui/components/genesis_detail_tags.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
