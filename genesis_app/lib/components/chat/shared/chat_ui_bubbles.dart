@@ -153,9 +153,7 @@ class ChatAvatar extends StatelessWidget {
               url: imageUrl,
               size: style.avatarSize,
               borderRadius: style.avatarBorderRadius,
-              textStyle: style.avatarTextStyle,
               showFallbackWhileLoading: false,
-              showFallbackWhenUnavailable: imageUrl.isEmpty,
               maxDevicePixelRatio:
                   GenesisImageConfig.chatAvatarMaxDevicePixelRatio,
             ),

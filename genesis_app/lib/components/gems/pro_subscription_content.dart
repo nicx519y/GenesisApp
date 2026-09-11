@@ -57,6 +57,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   _ProPlan _plan = _ProPlan.yearly;
   AppServices? _services;
   List<MembershipOffer> _offers = [];
+  MembershipVipStatus _vipStatus = MembershipVipStatus.none;
   bool _loading = false;
   bool _started = false;
   int _requestGeneration = 0;
@@ -173,6 +174,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
 
   void _applyCatalog(MembershipCatalogData catalog) {
     _offers = catalog.offers;
+    _vipStatus = catalog.vipStatus;
     if (_offerFor(_plan) == null && _offers.isNotEmpty) {
       _plan = _ProPlan.values.firstWhere((plan) => _offerFor(plan) != null);
     }
@@ -181,14 +183,18 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   Future<void> _onSubscribePressed() async {
     if (_loading) return;
     final offer = _offerFor(_plan);
-    if (offer == null || offer.price == null) {
+    if (offer == null) {
       unawaited(_load());
       return;
     }
-    final blocked = membershipPurchaseBlockReason(offer.product);
+    final blocked = membershipPurchaseBlockReason(offer.product, _vipStatus);
     if (blocked != null) {
       showGenesisToast(context, membershipPurchaseFailureMessage(blocked));
       unawaited(_load(silent: true));
+      return;
+    }
+    if (offer.price == null) {
+      unawaited(_load());
       return;
     }
     final handler = widget.purchaseHandler;
@@ -324,25 +330,22 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
               DecoratedBox(
                 key: const ValueKey('pro-subscribe-gold-surface'),
                 decoration: BoxDecoration(
-                  gradient: proPurchaseButtonGradient,
+                  // The Me page's VIP gold, swept the way its wordmark is, so
+                  // the two membership calls to action read as one family.
+                  gradient: proButtonGradient,
                   borderRadius: BorderRadius.circular(8),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x18A86A17),
-                      blurRadius: 10,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
                 ),
                 child: GenesisPrimaryButton(
                   key: const ValueKey('pro-subscribe-button'),
                   backgroundColor: Colors.transparent,
-                  foregroundColor: proPurchaseInk,
-                  side: const BorderSide(color: Color(0xFFC69A45)),
+                  foregroundColor: proSubscribeInk,
                   label:
-                      selectedProduct?.canPurchase == false &&
-                          selectedProduct?.purchaseBlockReason ==
-                              'already_subscribed'
+                      selectedProduct != null &&
+                          membershipPurchaseBlockReason(
+                                selectedProduct,
+                                _vipStatus,
+                              ) !=
+                              null
                       ? 'Subscribed'
                       : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
                   height: 44,
@@ -428,7 +431,7 @@ class _ProBenefit extends StatelessWidget {
     final (statusIcon, statusColor, statusLabel) = switch (status) {
       MembershipBenefitDisplay.enhanced => (
         null,
-        proCopperAccent,
+        GenesisColors.redPrimary,
         'Improved with Pro',
       ),
       MembershipBenefitDisplay.included => (
@@ -605,7 +608,7 @@ class _ProPlanCard extends StatelessWidget {
                   height: 21,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: const BoxDecoration(
-                    color: proCopperAccent,
+                    color: GenesisColors.redPrimary,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(12),
                       topRight: Radius.circular(3),

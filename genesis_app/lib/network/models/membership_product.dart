@@ -6,8 +6,24 @@ import 'membership_purchase.dart';
 
 export 'membership_order_product.dart';
 
+enum MembershipVipStatus {
+  none,
+  monthly,
+  yearly;
+
+  static MembershipVipStatus fromJson(Object? value) => switch (value) {
+    'none' || '' => none,
+    'monthly' => monthly,
+    'yearly' => yearly,
+    _ => throw const FormatException('Invalid membership vip_status'),
+  };
+}
+
 class MembershipProductList {
-  const MembershipProductList({required this.products});
+  const MembershipProductList({
+    required this.products,
+    required this.vipStatus,
+  });
 
   factory MembershipProductList.fromJson(Map<String, dynamic> json) {
     final list = json['list'];
@@ -15,6 +31,7 @@ class MembershipProductList {
       throw const FormatException('Invalid membership product list');
     }
     return MembershipProductList(
+      vipStatus: MembershipVipStatus.fromJson(json['vip_status']),
       products: List.unmodifiable(
         list.map((item) => MembershipProduct.fromJson(asJsonMap(item))),
       ),
@@ -22,6 +39,12 @@ class MembershipProductList {
   }
 
   final List<MembershipProduct> products;
+  final MembershipVipStatus vipStatus;
+
+  Map<String, Object?> toJson() => {
+    'vip_status': vipStatus.name,
+    'list': [for (final product in products) product.toJson()],
+  };
 }
 
 class MembershipProduct extends MembershipOrderProduct {
@@ -35,9 +58,7 @@ class MembershipProduct extends MembershipOrderProduct {
     required this.monthlyGemsCent,
     required this.priceCurrencyCode,
     required this.priceAmount,
-    required this.canPurchase,
-    required this.purchaseBlockReason,
-    this.upgradeAccountUuid,
+    this.accountUuid,
     this.upgradePurchaseToken,
     super.basePlanId,
     super.offerId,
@@ -81,22 +102,6 @@ class MembershipProduct extends MembershipOrderProduct {
         (currency.isEmpty != (amount == null))) {
       throw const FormatException('Invalid membership display price');
     }
-    final canPurchase = json['can_purchase'];
-    final blockReason = json['purchase_block_reason'];
-    if (canPurchase is! bool ||
-        blockReason is! String ||
-        !const {
-          '',
-          'device_id_required',
-          'already_subscribed',
-          'downgrade_not_allowed',
-          'cross_platform_upgrade_not_allowed',
-          'subscription_requires_action',
-          'purchase_processing',
-          'sale_disabled',
-        }.contains(blockReason)) {
-      throw const FormatException('Invalid membership purchase eligibility');
-    }
     if (!((planCode == 'pro_monthly' && months == 1) ||
             (planCode == 'pro_yearly' && months == 12)) ||
         months is! int ||
@@ -105,22 +110,20 @@ class MembershipProduct extends MembershipOrderProduct {
         gems < 0) {
       throw const FormatException('Invalid membership product configuration');
     }
-    final upgradeUuid = json['account_uuid'];
+    final accountUuid = json['account_uuid'];
     final upgradeToken = json['purchase_token'];
-    final hasUpgrade = json.containsKey('account_uuid');
+    final hasAccountUuid = json.containsKey('account_uuid');
     final hasToken = json.containsKey('purchase_token');
-    if ((hasUpgrade &&
-            (upgradeUuid is! String ||
-                !isMembershipAccountUuid(upgradeUuid) ||
-                planCode != 'pro_yearly' ||
-                !canPurchase ||
-                blockReason.isNotEmpty)) ||
-        (provider == MembershipProvider.google &&
-            (hasUpgrade != hasToken ||
-                hasToken &&
-                    (upgradeToken is! String ||
-                        upgradeToken.trim().isEmpty))) ||
-        (provider == MembershipProvider.apple && hasToken)) {
+    if (hasAccountUuid &&
+        (accountUuid is! String || !isMembershipAccountUuid(accountUuid))) {
+      throw const FormatException('Invalid membership account UUID');
+    }
+    if (hasToken &&
+        (provider != MembershipProvider.google ||
+            !hasAccountUuid ||
+            upgradeToken is! String ||
+            upgradeToken.trim().isEmpty ||
+            planCode != 'pro_yearly')) {
       throw const FormatException('Invalid membership upgrade credentials');
     }
     return MembershipProduct(
@@ -135,9 +138,7 @@ class MembershipProduct extends MembershipOrderProduct {
       monthlyGemsCent: gems,
       priceCurrencyCode: currency,
       priceAmount: amount as int?,
-      canPurchase: canPurchase,
-      purchaseBlockReason: blockReason,
-      upgradeAccountUuid: (upgradeUuid as String?)?.toLowerCase(),
+      accountUuid: (accountUuid as String?)?.toLowerCase(),
       upgradePurchaseToken: upgradeToken as String?,
     );
   }
@@ -147,12 +148,12 @@ class MembershipProduct extends MembershipOrderProduct {
   final int billingMonths;
   final int monthlyGemsCent;
   final String priceCurrencyCode;
-  final bool canPurchase;
-  final String purchaseBlockReason;
 
-  /// Original subscription identity, supplied only for an authenticated upgrade.
-  /// Kept in memory; never include these credentials in catalog/order snapshots.
-  final String? upgradeAccountUuid;
+  /// Preferred purchase identity from the current catalog, for guests or users.
+  /// Kept in memory; never included in display/order product snapshots.
+  final String? accountUuid;
+
+  /// Original Google token when replacing an existing subscription.
   final String? upgradePurchaseToken;
 
   /// Full billing cycle price, in hundredths of the currency's main unit.
@@ -171,8 +172,6 @@ class MembershipProduct extends MembershipOrderProduct {
     'monthly_gems_cent': monthlyGemsCent,
     'price_currency_code': priceCurrencyCode,
     'price_amount': priceAmount,
-    'can_purchase': canPurchase,
-    'purchase_block_reason': purchaseBlockReason,
   };
 
   @override

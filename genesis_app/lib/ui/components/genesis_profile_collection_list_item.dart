@@ -1,3 +1,4 @@
+import '../../components/gems/pro_user_name.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -16,6 +17,7 @@ class GenesisProfileCollectionItemData {
     required this.imageUrl,
     required this.title,
     required this.subtitle,
+    this.ownerUid = '',
     this.statsText = '',
     this.stats = const <GenesisProfileCollectionStat>[],
     this.useOriginCardLayout = false,
@@ -33,6 +35,7 @@ class GenesisProfileCollectionItemData {
   final String imageUrl;
   final String title;
   final String subtitle;
+  final String ownerUid;
   final String statsText;
   final List<GenesisProfileCollectionStat> stats;
   final bool useOriginCardLayout;
@@ -128,16 +131,24 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
             index += 1
           ) ...[
             if (index > 0) const SizedBox(height: 4),
-            Text(
-              worldSubtitleLines[index],
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 12,
-                color: dark
-                    ? GenesisColors.darkTextSecondary
-                    : const Color(0xFF888888),
-                height: 1.2,
+            ProUserName(
+              uid:
+                  item.useWorldCardLayout &&
+                      index == worldSubtitleLines.length - 1
+                  ? item.ownerUid
+                  : '',
+              fontSize: 12,
+              child: Text(
+                worldSubtitleLines[index],
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: dark
+                      ? GenesisColors.darkTextSecondary
+                      : const Color(0xFF888888),
+                  height: 1.2,
+                ),
               ),
             ),
           ]

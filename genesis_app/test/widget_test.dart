@@ -3667,6 +3667,11 @@ void main() {
   testWidgets('Me page view records the current login state', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    AppStartupCoordinator.configure(
+      appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+    );
     final telemetry = _CapturingTelemetrySink();
     GenesisTelemetry.setSinkForTesting(telemetry);
     addTearDown(GenesisTelemetry.resetForTesting);
@@ -6071,7 +6076,8 @@ void main() {
     );
 
     expect(_hasListenersForTest(activation), isFalse);
-    expect(_hasListenersForTest(services.sessionRevision), isFalse);
+    // AppServices also listens for membership session changes.
+    expect(_hasListenersForTest(services.sessionRevision), isTrue);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -6137,13 +6143,28 @@ void main() {
     );
     for (
       var index = 0;
-      index < 20 && find.text('Playing 2').evaluate().isEmpty;
+      index < 20 &&
+          find
+              .byKey(const ValueKey('profile-tab-count-world'))
+              .evaluate()
+              .isEmpty;
       index += 1
     ) {
       await tester.pump(const Duration(milliseconds: 50));
     }
 
-    expect(find.text('Playing 2'), findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(const ValueKey('profile-tab-count-world')),
+              matching: find.byType(Text),
+            ),
+          )
+          .data,
+      '2',
+    );
     final tabBar = tester.widget<TabBar>(find.byType(TabBar));
     expect(tabBar.labelStyle?.fontSize, 14);
     expect(tabBar.unselectedLabelStyle?.fontSize, 14);
@@ -6151,6 +6172,111 @@ void main() {
     expect(requests, hasLength(1));
     expect(requests.single.uri.queryParameters['scene'], 'mine');
   });
+
+  testWidgets(
+    'Me API totals and independent collection pagination survive tab switches',
+    (tester) async {
+      final transport = _RecordingV1ListTransport(worldListTotal: 35);
+      final services = await _testServices(
+        useMock: false,
+        transport: transport,
+        initialAuthToken: 'backend-token',
+        initialUserInfo: {
+          'uid': 'u_mock',
+          'name': 'Paging User',
+          'avatar': '',
+          'following_cnt': 0,
+          'follower_cnt': 0,
+        },
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: const Scaffold(body: MePage()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final content = tester.widget<UserProfileContent>(
+        find.byType(UserProfileContent),
+      );
+      String? count(String kind) => tester
+          .widget<Text>(
+            find.descendant(
+              of: find.byKey(ValueKey('profile-tab-count-$kind')),
+              matching: find.byType(Text),
+            ),
+          )
+          .data;
+      expect(count('origin'), '100');
+      expect(count('world'), '35');
+      expect(content.originsListenable!.value.items, hasLength(30));
+      expect(content.worldsListenable!.value.items, hasLength(30));
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+      // Drive the real nested scroll surface, not a direct controller callback.
+      for (var i = 0; i < 50 && content.originsListenable!.value.hasMore; i++) {
+        await tester.drag(
+          find.byType(NestedScrollView),
+          const Offset(0, -1600),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(content.originsListenable!.value.items, hasLength(100));
+      expect(content.originsListenable!.value.hasMore, isFalse);
+      expect(count('origin'), '100');
+      expect(
+        transport
+            .requestsFor('/api/v1/origin/list')
+            .map((r) => r.uri.queryParameters['pn']),
+        ['1', '2', '3', '4'],
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+
+      await tester.tap(find.text('Playing'));
+      await tester.pumpAndSettle();
+      for (var i = 0; i < 30 && content.worldsListenable!.value.hasMore; i++) {
+        await tester.drag(
+          find.byType(NestedScrollView),
+          const Offset(0, -1600),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(content.worldsListenable!.value.items, hasLength(35));
+      expect(content.worldsListenable!.value.hasMore, isFalse);
+      expect(count('world'), '35');
+      expect(
+        transport
+            .requestsFor('/api/v1/world/list')
+            .map((r) => r.uri.queryParameters['pn']),
+        ['1', '2'],
+      );
+      await tester.tap(find.text('Worldo'));
+      await tester.pumpAndSettle();
+      expect(content.originsListenable!.value.items, hasLength(100));
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(4));
+      final refresh = tester.widget<RefreshIndicator>(
+        find.descendant(
+          of: find.byKey(const ValueKey('profile-page-refresh')),
+          matching: find.byType(RefreshIndicator),
+        ),
+      );
+      await refresh.onRefresh();
+      await tester.pumpAndSettle();
+      expect(
+        transport
+            .requestsFor('/api/v1/origin/list')[4]
+            .uri
+            .queryParameters['pn'],
+        '1',
+      );
+      expect(content.worldsListenable!.value.items, hasLength(35));
+      expect(count('origin'), '100');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('Me settings route does not dispose shared GemWallet service', (
     WidgetTester tester,
@@ -6200,6 +6326,11 @@ void main() {
   testWidgets('Me login does not use disposed GemWallet state', (
     WidgetTester tester,
   ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    AppStartupCoordinator.configure(
+      appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+    );
     final sessionStore = MemoryUserSessionStore();
     final backendAuth = _FakeBackendAuthCoordinator(
       authenticated: false,
@@ -8992,15 +9123,15 @@ void main() {
     );
     expect(
       tester.getTopLeft(find.text('OID: o_test_1')).dy,
-      lessThan(tester.getTopLeft(find.text('Originator: Tester')).dy),
+      lessThan(tester.getTopLeft(find.text('Creator: Tester')).dy),
     );
     expect(
-      tester.getTopLeft(find.text('Originator: Tester')).dy,
+      tester.getTopLeft(find.text('Creator: Tester')).dy,
       lessThan(tester.getTopLeft(find.textContaining('Latest Version: V1')).dy),
     );
     expect(tester.widget<Text>(find.text('OID: o_test_1')).style?.height, 1.2);
     expect(
-      tester.widget<Text>(find.text('Originator: Tester')).style?.height,
+      tester.widget<Text>(find.text('Creator: Tester')).style?.height,
       1.2,
     );
     expect(
@@ -9011,7 +9142,7 @@ void main() {
       1.2,
     );
     final oidTextRect = tester.getRect(find.text('OID: o_test_1'));
-    final originatorTextRect = tester.getRect(find.text('Originator: Tester'));
+    final originatorTextRect = tester.getRect(find.text('Creator: Tester'));
     final latestVersionTextRect = tester.getRect(
       find.textContaining('Latest Version: V1'),
     );
@@ -16034,7 +16165,7 @@ void main() {
     expect(find.text('Launched World Progress'), findsNothing);
   });
 
-  testWidgets('Origin detail originator opens user info', (
+  testWidgets('Origin detail creator opens user info', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -16054,7 +16185,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await _swipeOriginSheetToInfo(tester);
-    await tester.tap(find.text('Originator: Tester'));
+    await tester.tap(find.text('Creator: Tester'));
     await tester.pumpAndSettle();
 
     final userInfoRequests = transport.requestsFor('/api/v1/user/info');
@@ -17843,7 +17974,7 @@ void main() {
     refreshFuture = tester.widget<RefreshIndicator>(pageRefresh).onRefresh();
     await tester.pump();
 
-    expect(transport.worldListRequests, 3);
+    expect(transport.worldListRequests, 2);
     expect(walletLoadCount, 3);
     expect(find.text('World Old'), findsOneWidget);
     expect(find.text('World New'), findsNothing);
@@ -18079,7 +18210,7 @@ void main() {
               'follower_cnt': 11,
             },
           ),
-          child: const MePage(),
+          child: const Scaffold(body: MePage()),
         ),
       ),
     );
@@ -18095,7 +18226,7 @@ void main() {
     expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
 
-    await tester.tap(find.text('World'));
+    await tester.tap(find.text('Playing'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 

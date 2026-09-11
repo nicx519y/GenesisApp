@@ -246,7 +246,7 @@ class ChatTickStoryEventParagraph extends StatelessWidget {
                     ),
                     style: TextStyle(
                       color: GenesisColors.darkTextTertiary,
-                      fontSize: 11,
+                      fontSize: 12,
                       height: 1,
                       fontWeight: FontWeight.w400,
                     ),
@@ -265,7 +265,7 @@ class ChatTickStoryEventParagraph extends StatelessWidget {
                             genesisDisplaySafeText(visibilityLabel),
                             style: TextStyle(
                               color: GenesisColors.darkTextSecondary,
-                              fontSize: 13,
+                              fontSize: 14,
                               height: 1,
                             ),
                           ),
@@ -277,7 +277,7 @@ class ChatTickStoryEventParagraph extends StatelessWidget {
                   textAlign: TextAlign.left,
                   style: TextStyle(
                     color: GenesisColors.darkTextSecondary,
-                    fontSize: 13,
+                    fontSize: 14,
                     height: 1.3,
                     fontWeight: FontWeight.w400,
                   ),
@@ -312,7 +312,7 @@ class ChatTickStoryEventParagraph extends StatelessWidget {
                           textAlign: TextAlign.left,
                           style: const TextStyle(
                             color: GenesisColors.redSecondary,
-                            fontSize: 13,
+                            fontSize: 14,
                             height: 1.3,
                             fontWeight: FontWeight.w400,
                           ),
@@ -369,17 +369,11 @@ class _ChatTickSceneVisibleRole extends StatelessWidget {
                 ? Border.all(color: _tickMessageAccentColor, width: 1.5)
                 : null,
           ),
-          child: GenesisAvatar(
+          child: GenesisCharacterAvatar(
             name: role.name,
             url: role.avatarUrl,
             size: 18,
             borderRadius: 6,
-            textStyle: const TextStyle(
-              color: GenesisColors.darkTextPrimary,
-              fontSize: 9.5,
-              height: 1,
-              fontWeight: FontWeight.w800,
-            ),
           ),
         ),
         const SizedBox(width: 6),
@@ -390,9 +384,9 @@ class _ChatTickSceneVisibleRole extends StatelessWidget {
               color: isPlayerRole
                   ? GenesisColors.darkTextPrimary
                   : GenesisColors.darkTextSecondary,
-              fontSize: 11,
+              fontSize: 12,
               height: 1,
-              fontWeight: FontWeight.w800,
+              fontWeight: FontWeight.w600,
             ),
           ),
         ),

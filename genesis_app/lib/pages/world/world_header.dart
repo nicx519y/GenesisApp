@@ -87,7 +87,9 @@ class WorldMapIdentityPill extends StatelessWidget {
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: SizedBox(
         height: worldMapTabsHeight,
-        child: Align(
+        child: OverflowBox(
+          minHeight: 0,
+          maxHeight: double.infinity,
           alignment: Alignment.centerLeft,
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -115,7 +117,7 @@ class WorldMapIdentityPill extends StatelessWidget {
                     ],
                   ),
                 ),
-              if (title.isNotEmpty) const SizedBox(height: 3),
+              if (title.isNotEmpty) const SizedBox(height: 5),
               // Reserve the time row before detail loads so the title never
               // shifts from a single-line center to the final two-line layout.
               Visibility(
@@ -124,7 +126,7 @@ class WorldMapIdentityPill extends StatelessWidget {
                 maintainAnimation: true,
                 maintainState: true,
                 child: _WorldMapTimeLabel(
-                  text: timeText.isEmpty ? 'Tick 0 · 00:00' : timeText,
+                  text: timeText.isEmpty ? '00:00' : timeText,
                 ),
               ),
             ],
@@ -163,15 +165,27 @@ class _WorldMapTimeLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final parts = _splitWorldMapTimeLabel(text);
     return Row(
       key: const ValueKey<String>('world-top-time'),
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
-        if (parts.tick.isNotEmpty) ...[
-          Text(
-            parts.tick,
+        const Icon(
+          Icons.schedule,
+          size: 10,
+          color: Colors.white,
+          shadows: [
+            Shadow(
+              color: Color(0xB3000000),
+              blurRadius: 4,
+              offset: Offset(0, 1),
+            ),
+          ],
+        ),
+        const SizedBox(width: 4),
+        Flexible(
+          child: Text(
+            text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             textAlign: TextAlign.left,
@@ -179,70 +193,13 @@ class _WorldMapTimeLabel extends StatelessWidget {
             strutStyle: _strutStyle,
             textHeightBehavior: _textHeightBehavior,
           ),
-          if (parts.time.isNotEmpty)
-            const Text(' · ', style: _textStyle, strutStyle: _strutStyle),
-        ],
-        if (parts.time.isNotEmpty) ...[
-          const Icon(
-            Icons.schedule,
-            size: 10,
-            color: Colors.white,
-            shadows: [
-              Shadow(
-                color: Color(0xB3000000),
-                blurRadius: 4,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-          const SizedBox(width: 4),
-          Flexible(
-            child: Text(
-              parts.time,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.left,
-              style: _textStyle,
-              strutStyle: _strutStyle,
-              textHeightBehavior: _textHeightBehavior,
-            ),
-          ),
-        ],
+        ),
       ],
     );
   }
 }
 
-({String tick, String time}) _splitWorldMapTimeLabel(String text) {
-  final trimmed = text.trim();
-  if (trimmed.isEmpty) return (tick: '', time: '');
-  final separatorIndex = trimmed.indexOf(' · ');
-  if (separatorIndex <= 0) {
-    return trimmed.startsWith('Tick ')
-        ? (tick: trimmed, time: '')
-        : (tick: '', time: trimmed);
-  }
-  final tick = trimmed.substring(0, separatorIndex).trim();
-  final time = trimmed.substring(separatorIndex + 3).trim();
-  if (!tick.startsWith('Tick ')) return (tick: '', time: trimmed);
-  return (tick: tick, time: time);
-}
-
-String worldTimeLabel({
-  required int tickIndex,
-  int subTickNo = 0,
-  required String worldTime,
-}) {
-  final parts = <String>[];
-  if (tickIndex >= 0) {
-    parts.add('Tick $tickIndex${subTickNo > 0 ? '-$subTickNo' : ''}');
-  }
-  final resolvedWorldTime = worldTime.trim();
-  if (resolvedWorldTime.isNotEmpty) {
-    parts.add(resolvedWorldTime);
-  }
-  return parts.join(' · ');
-}
+String worldTimeLabel({required String worldTime}) => worldTime.trim();
 
 class WorldFeedContent extends StatelessWidget {
   const WorldFeedContent({

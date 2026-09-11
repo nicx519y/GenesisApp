@@ -14,6 +14,7 @@ class GooglePlayPurchaseParam extends PurchaseParam {
     super.applicationUserName,
     this.changeSubscriptionParam,
     this.offerToken,
+    this.throwOnBillingFailure = false,
   });
 
   /// The 'changeSubscriptionParam' containing information for upgrading or
@@ -25,4 +26,8 @@ class GooglePlayPurchaseParam extends PurchaseParam {
   /// For subscriptions, to get the offer token corresponding to the selected
   /// offer call productDetails.subscriptionOfferDetails?.get(selectedOfferIndex)?.offerToken
   final String? offerToken;
+
+  /// Opt in to native launch errors instead of losing them in a false result.
+  /// Existing consumable callers retain their original behavior.
+  final bool throwOnBillingFailure;
 }

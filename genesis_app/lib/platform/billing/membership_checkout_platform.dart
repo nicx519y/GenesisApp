@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
@@ -32,10 +35,26 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
 
   @override
   Future<Object> prepare(MembershipProduct product) async {
-    if (!await _store.isAvailable()) {
-      throw const BillingPlatformException('store_unavailable');
+    if (kDebugMode && product.provider == MembershipProvider.google) {
+      final diagnostics = jsonEncode({
+        'productId': product.storeProductId,
+        'planCode': product.planCode,
+        'basePlanId': product.basePlanId,
+        'offerId': product.offerId,
+        'accountUuid': product.accountUuid,
+        'purchaseToken': product.upgradePurchaseToken,
+      });
+      debugPrint('[Membership][google_catalog] $diagnostics');
     }
-    final response = await _store.queryProductDetails({product.storeProductId});
+    if (!await _store.isAvailable()) {
+      throw BillingPlatformException(
+        product.provider == MembershipProvider.apple
+            ? 'purchase_not_allowed'
+            : 'store_unavailable',
+      );
+    }
+    final response = await _queryProducts(product);
+    if (response.error != null) throw response.error!;
     for (final detail in response.productDetails) {
       if (detail.id != product.storeProductId || !_subscription(detail)) {
         continue;
@@ -50,13 +69,40 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
           product.upgradePurchaseToken != null) {
         return _GoogleMembershipUpgrade(
           product: detail,
-          accountUuid: product.upgradeAccountUuid!,
+          accountUuid: product.accountUuid!,
           previousPurchase: await _previousGooglePurchase(product),
         );
       }
       return detail;
     }
     throw const BillingPlatformException('membership_product_not_found');
+  }
+
+  Future<ProductDetailsResponse> _queryProducts(
+    MembershipProduct product,
+  ) async {
+    if (product.provider != MembershipProvider.google) {
+      return _store.queryProductDetails({product.storeProductId});
+    }
+    final response = await _store
+        .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
+        .queryProductDetails(
+          productId: product.storeProductId,
+          productType: ProductType.subs,
+        );
+    if (response.billingResult.responseCode != BillingResponse.ok) {
+      throw BillingPlatformException(
+        response.billingResult.responseCode.name,
+        response.billingResult.debugMessage ?? '',
+        {'subResponseCode': response.billingResult.subResponseCode},
+      );
+    }
+    return ProductDetailsResponse(
+      productDetails: response.productDetailsList
+          .expand(GooglePlayProductDetails.fromProductDetails)
+          .toList(),
+      notFoundIDs: const [],
+    );
   }
 
   Future<GooglePlayPurchaseDetails> _previousGooglePurchase(
@@ -69,8 +115,9 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
                 .querySubscriptionPurchases());
     if (result.responseCode != BillingResponse.ok) {
       throw BillingPlatformException(
-        'membership_upgrade_query_failed',
         result.responseCode.name,
+        result.billingResult.debugMessage ?? '',
+        {'subResponseCode': result.billingResult.subResponseCode},
       );
     }
     final matches = result.purchasesList
@@ -85,8 +132,7 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
       );
     }
     final purchase = matches.single;
-    if (purchase.obfuscatedAccountId?.toLowerCase() !=
-        product.upgradeAccountUuid) {
+    if (purchase.obfuscatedAccountId?.toLowerCase() != product.accountUuid) {
       throw const BillingPlatformException(
         'membership_upgrade_account_mismatch',
       );
@@ -121,6 +167,7 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
     }
     final param = product is GooglePlayProductDetails
         ? GooglePlayPurchaseParam(
+            throwOnBillingFailure: true,
             productDetails: product,
             offerToken: product.offerToken,
             applicationUserName: accountUuid,
@@ -136,6 +183,20 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
             applicationUserName: accountUuid,
             onStoreHandoff: onStoreHandoff,
           );
+    if (kDebugMode && param is GooglePlayPurchaseParam) {
+      final diagnostics = jsonEncode({
+        'productId': param.productDetails.id,
+        'accountUuid': param.applicationUserName,
+        'offerToken': param.offerToken,
+        'oldProductId': upgrade?.previousPurchase.productID,
+        'oldPurchaseToken':
+            upgrade?.previousPurchase.verificationData.serverVerificationData,
+        'oldAccountUuid':
+            upgrade?.previousPurchase.billingClientPurchase.obfuscatedAccountId,
+        'replacementMode': param.changeSubscriptionParam?.replacementMode?.name,
+      });
+      debugPrint('[Membership][google_launch] $diagnostics');
+    }
     final accepted = await _store.buyNonConsumable(purchaseParam: param);
     // Play returns when its purchase UI is launched; StoreKit calls back from
     // native preparation before waiting for the user's purchase result.

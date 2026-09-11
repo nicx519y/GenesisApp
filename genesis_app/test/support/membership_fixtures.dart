@@ -10,12 +10,10 @@ MembershipProduct membershipProduct({
   MembershipProvider provider = MembershipProvider.google,
   String offerId = '',
   int monthlyGemsCent = 120000,
-  bool canPurchase = true,
-  String purchaseBlockReason = '',
   String currency = 'USD',
   int? priceAmount,
   bool hasPrice = true,
-  String? upgradeAccountUuid,
+  String? accountUuid,
   String? upgradePurchaseToken,
 }) => MembershipProduct.fromJson({
   'title': title,
@@ -34,11 +32,9 @@ MembershipProduct membershipProduct({
   if (offerId.isNotEmpty) 'offer_id': offerId,
   'billing_months': yearly ? 12 : 1,
   'monthly_gems_cent': monthlyGemsCent,
-  'can_purchase': canPurchase,
-  'purchase_block_reason': purchaseBlockReason,
   'price_currency_code': hasPrice ? currency : '',
   'price_amount': hasPrice ? priceAmount ?? (yearly ? 9999 : 999) : null,
-  if (upgradeAccountUuid != null) 'account_uuid': upgradeAccountUuid,
+  if (accountUuid != null) 'account_uuid': accountUuid,
   if (upgradePurchaseToken != null) 'purchase_token': upgradePurchaseToken,
 });
 

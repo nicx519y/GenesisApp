@@ -175,9 +175,12 @@ class Harness {
           loginUidHandler == null ? uid : await loginUidHandler!(),
       loadProducts: () async {
         eligibilityQueries++;
-        return productsHandler == null
-            ? [product(), product(yearly: true)]
-            : await productsHandler!();
+        return MembershipProductList(
+          vipStatus: vipStatus,
+          products: productsHandler == null
+              ? [product(), product(yearly: true)]
+              : await productsHandler!(),
+        );
       },
       loadAccountUuid: () async => accountUuidHandler == null
           ? accountUuid
@@ -267,6 +270,7 @@ class Harness {
   int guestDiscoveries = 0;
   final guestChecks = <String>[];
   Future<MembershipGuestPurchaseCheck> Function(String)? guestCheckHandler;
+  MembershipVipStatus vipStatus = MembershipVipStatus.none;
   int eligibilityQueries = 0;
   Future<List<MembershipProduct>> Function()? productsHandler;
   int refreshes = 0;

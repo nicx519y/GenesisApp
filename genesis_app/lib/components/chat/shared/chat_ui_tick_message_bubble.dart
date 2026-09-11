@@ -93,6 +93,7 @@ class ChatTickMessageBubble extends StatelessWidget {
         textAlign: TextAlign.left,
         style: style.systemMessageTextStyle.copyWith(
           color: _tickMessageHeaderColor,
+          fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
       );
@@ -286,7 +287,7 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
               color: usesScenePlate
                   ? Colors.white.withValues(alpha: 0.73)
                   : null,
-              fontSize: usesScenePlate ? 13 : null,
+              fontSize: usesScenePlate ? 14 : null,
               height: usesScenePlate ? 1.3 : 1.45,
             ),
           ),
@@ -362,7 +363,7 @@ class _ChatTickProgressTitleState extends State<_ChatTickProgressTitle> {
       textAlign: TextAlign.left,
       style: const TextStyle(
         color: _tickMessageHeaderColor,
-        fontSize: 13,
+        fontSize: 14,
         height: 1.3,
         fontWeight: FontWeight.w600,
       ),
@@ -390,6 +391,7 @@ class ChatTickHeader extends StatelessWidget {
         label,
         style: style.systemMessageTextStyle.copyWith(
           color: _tickMessageHeaderColor,
+          fontSize: 14,
           fontWeight: FontWeight.w400,
         ),
       );
@@ -417,7 +419,7 @@ class ChatTickHeader extends StatelessWidget {
               label,
               style: style.systemMessageTextStyle.copyWith(
                 color: GenesisColors.darkTextPrimary,
-                fontSize: 13,
+                fontSize: 14,
                 height: 1,
                 fontWeight: FontWeight.w600,
               ),
@@ -451,7 +453,7 @@ class ChatTickGlobalSection extends StatelessWidget {
           color: style.useScenePlateBubbleGeometry
               ? GenesisColors.darkTextSecondary
               : textColor.withValues(alpha: 0.72),
-          fontSize: style.useScenePlateBubbleGeometry ? 13 : null,
+          fontSize: style.useScenePlateBubbleGeometry ? 14 : null,
           height: style.useScenePlateBubbleGeometry ? 1.3 : null,
         ),
         softItalicPerToken: true,

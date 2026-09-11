@@ -1,3 +1,4 @@
+import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
 import '../../ui/components/genesis_refresh_indicator.dart';
@@ -434,11 +435,16 @@ class _PostReplyRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Expanded(
-                      child: Text(
-                        data.authorName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: _postDetailNameStyle,
+                      child: ProUserName(
+                        uid: data.authorUid,
+                        fontSize: _postDetailNameStyle.fontSize!,
+                        deleted: data.authorDeleted,
+                        child: Text(
+                          data.authorName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: _postDetailNameStyle,
+                        ),
                       ),
                     ),
                     if (data.dateLabel.isNotEmpty) ...[
@@ -775,6 +781,7 @@ TextSpan _replyDisplayContentSpan(Map<String, dynamic> json) {
           color: DiscussDarkColors.secondary,
         ),
       ),
+      ProUserBadge.span(uid: replyToUid, fontSize: 14),
       TextSpan(text: content),
     ],
   );

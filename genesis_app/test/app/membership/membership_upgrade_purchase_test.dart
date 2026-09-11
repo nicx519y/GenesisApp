@@ -15,7 +15,7 @@ void main() {
   MembershipProduct upgrade(MembershipProvider provider) => membershipProduct(
     provider: provider,
     yearly: true,
-    upgradeAccountUuid: support.guest.accountUuid,
+    accountUuid: support.guest.accountUuid,
     upgradePurchaseToken: provider == MembershipProvider.google
         ? 'old-month-token'
         : null,
@@ -59,15 +59,20 @@ void main() {
       },
     );
 
-    test('$provider rejects upgrade credentials returned to a guest', () async {
-      final h = support.Harness(provider: provider)..uid = null;
-      h.productsHandler = () async => [upgrade(provider)];
-      await h.service.purchase(h.product(yearly: true));
-      expect(h.service.state.value, MembershipCheckoutState.failed);
-      expect(h.platform.launches, 0);
-      expect(h.platform.product, isNull);
-      expect(h.guestPrepares, 0);
-    });
+    test(
+      '$provider guest upgrade keeps the catalog identity without prepare',
+      () async {
+        final h = support.Harness(provider: provider)..uid = null;
+        h.productsHandler = () async => [upgrade(provider)];
+        await h.service.purchase(h.product(yearly: true));
+        expect(h.service.state.value, MembershipCheckoutState.store);
+        expect(h.platform.launches, 1);
+        expect(h.platform.uuid, support.guest.accountUuid);
+        expect(h.guestPrepares, 0);
+        await h.service.interceptPurchase(h.purchase(yearly: true));
+        expect(h.reports.single.guest!.accountUuid, support.guest.accountUuid);
+      },
+    );
 
     test(
       '$provider removed upgrade credentials do not reuse cached identity',
@@ -75,7 +80,7 @@ void main() {
         final h = support.Harness(provider: provider);
         await h.service.purchase(upgrade(provider));
         expect(h.platform.uuid, support.accountUuid);
-        expect(h.platform.product!.upgradeAccountUuid, isNull);
+        expect(h.platform.product!.accountUuid, isNull);
         expect(h.platform.product!.upgradePurchaseToken, isNull);
       },
     );

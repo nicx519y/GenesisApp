@@ -25,6 +25,7 @@ import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/common/genesis_generation_wait_overlay.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
+import '../../components/gems/gem_billing_purchase_dialog.dart';
 import '../../components/gems/daily_check_in_dialog.dart';
 import '../origin_editor/origin_generation_wait_content.dart';
 import '../../components/tilemap/tilemap_settings_button_visibility.dart';
@@ -1051,6 +1052,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         GenesisPrimaryButton(
           label: 'Preview purchase overlay',
           onPressed: _showGemPurchaseOverlayPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: 'Preview VIP purchase overlay',
+          onPressed: _showMembershipPurchaseOverlayPreview,
           backgroundColor: const Color(0xFFE1E1E3),
           foregroundColor: Colors.black,
         ),

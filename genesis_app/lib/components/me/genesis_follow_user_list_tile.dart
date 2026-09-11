@@ -1,3 +1,4 @@
+import '../gems/pro_user_name.dart';
 import 'package:flutter/material.dart';
 
 import '../../ui/tokens/genesis_colors.dart';
@@ -77,15 +78,20 @@ class GenesisFollowUserListTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 14,
-                      height: 1.2,
-                      fontWeight: FontWeight.w600,
-                      color: primary,
+                  ProUserName(
+                    uid: uid,
+                    fontSize: 14,
+                    deleted: deleted,
+                    child: Text(
+                      displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.2,
+                        fontWeight: FontWeight.w600,
+                        color: primary,
+                      ),
                     ),
                   ),
                   SizedBox(

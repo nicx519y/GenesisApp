@@ -76,7 +76,7 @@ class _SearchResultItem {
       title: origin.originName,
       subtitle:
           'OID: ${_dashOrValue(origin.originId)}  '
-          'Originator: $originator\n'
+          'Creator: $originator\n'
           'Brief: ${_dashOrValue(origin.brief)}\n'
           'Latest Version: ${_originVersionLabel(origin.originVersion)}',
       coverImage: asImageUrl(origin.cover),

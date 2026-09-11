@@ -38,6 +38,7 @@ Future<bool> showDiscussPostComposer({
   required BuildContext context,
   required String title,
   required String placeholder,
+  Widget? placeholderWidget,
   required DiscussComposerSubmitter submitter,
   DiscussImagePicker? imagePicker,
   DiscussImageUploader? imageUploader,
@@ -56,6 +57,7 @@ Future<bool> showDiscussPostComposer({
       return _DiscussComposerSheet(
         title: title,
         placeholder: placeholder,
+        placeholderWidget: placeholderWidget,
         pickImages:
             imagePicker ??
             (limit) =>

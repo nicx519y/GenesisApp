@@ -35,8 +35,12 @@ class MembershipDisplayPrice {
 }
 
 class MembershipCatalogData {
-  const MembershipCatalogData({this.offers = const []});
+  const MembershipCatalogData({
+    this.offers = const [],
+    this.vipStatus = MembershipVipStatus.none,
+  });
   final List<MembershipOffer> offers;
+  final MembershipVipStatus vipStatus;
 }
 
 typedef MembershipCatalogLoader = Future<MembershipCatalogData> Function();
@@ -107,6 +111,7 @@ class MembershipCatalog {
       // Cache display fields without account UUIDs or upgrade purchase tokens.
       _cached = _catalog(
         MembershipProductList(
+          vipStatus: response.vipStatus,
           products: [
             for (final product in response.products)
               MembershipProduct.fromJson(
@@ -116,7 +121,7 @@ class MembershipCatalog {
         ),
         platform,
       );
-      unawaited(_saveCache(platform, owner, response.products));
+      unawaited(_saveCache(platform, owner, response));
     }
     return result;
   }
@@ -124,7 +129,7 @@ class MembershipCatalog {
   Future<void> _saveCache(
     MembershipProvider platform,
     String? owner,
-    List<MembershipProduct> products,
+    MembershipProductList products,
   ) async {
     try {
       await cacheStore?.save(platform, owner, products);
@@ -147,6 +152,7 @@ class MembershipCatalog {
     }
     products.sort((a, b) => b.billingMonths.compareTo(a.billingMonths));
     return MembershipCatalogData(
+      vipStatus: response.vipStatus,
       offers: List.unmodifiable([
         for (final product in products) MembershipOffer(product: product),
       ]),

@@ -1,3 +1,4 @@
+import '../membership/user_membership_status_store.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -60,6 +61,7 @@ class AppServices {
     this.billing,
     this.membershipPurchases,
     MembershipCatalog? membershipCatalog,
+    UserMembershipStatusStore? userMemberships,
     ValueNotifier<int>? sessionRevision,
     AppGlobalConfigStore? appGlobalConfig,
   }) : membershipCatalog =
@@ -89,6 +91,13 @@ class AppServices {
            appGlobalConfig ??
            AppGlobalConfigStore(loadConfig: api.v1.app.config),
        sessionRevision = sessionRevision ?? ValueNotifier<int>(0) {
+    this.userMemberships =
+        userMemberships ??
+        UserMembershipStatusStore(
+          // A missing badge owner must not replace the page hosting the name.
+          loadUser: (uid) =>
+              api.v1.user.info(uid: uid, handlePageNotFound: false),
+        );
     membership = MembershipAccessStore(
       wallet: this.gemWallet,
       readLoginUid: sessionStore.readLoginUid,
@@ -116,6 +125,7 @@ class AppServices {
   final GatewayAuthCoordinator? gatewayAuth;
   final GemWalletStore gemWallet;
   late final MembershipAccessStore membership;
+  late final UserMembershipStatusStore userMemberships;
   final BillingService? billing;
   final MembershipPurchaseService? membershipPurchases;
   final MembershipCatalog membershipCatalog;
@@ -124,6 +134,7 @@ class AppServices {
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
 
   void _membershipSessionChanged() {
+    userMemberships.reset();
     membershipCatalog.resetForSession();
     membership.resetForSession();
     unawaited(membership.start());
@@ -142,6 +153,7 @@ class AppServices {
     pendingLoginCheckInUid.dispose();
     billing?.dispose();
     membershipPurchases?.dispose();
+    userMemberships.dispose();
     membership.dispose();
     gemWallet.dispose();
     appGlobalConfig.dispose();
@@ -322,10 +334,10 @@ class ServiceRegistry {
             store: SecureMembershipPendingStore(),
             provider: membershipProvider,
             readLoginUid: sessionStore.readLoginUid,
-            loadProducts: () async => (await api.v1.membership.products(
+            loadProducts: () async => api.v1.membership.products(
               provider: membershipProvider,
               deviceId: await deviceId.getDeviceId(),
-            )).products,
+            ),
             loadAccountUuid: loadBillingAccountUuid,
             prepareGuest: () async => api.v1.membership.prepareGuest(
               provider: membershipProvider,

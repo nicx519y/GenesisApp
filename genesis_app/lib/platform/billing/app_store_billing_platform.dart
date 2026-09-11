@@ -193,5 +193,13 @@ BillingPurchase _toBillingPurchase(PurchaseDetails purchase) {
         : null,
     errorCode: purchase.error?.code,
     errorMessage: purchase.error?.message,
+    errorDetails:
+        purchase is AppStorePurchaseDetails &&
+            purchase.skPaymentTransaction.error != null
+        ? {
+            'domain': purchase.skPaymentTransaction.error!.domain,
+            'nativeCode': purchase.skPaymentTransaction.error!.code,
+          }
+        : purchase.error?.details,
   );
 }

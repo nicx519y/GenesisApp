@@ -388,6 +388,7 @@ void main() {
               'err_no': 0,
               'err_msg': 'succ',
               'data': {
+                'vip_status': 'monthly',
                 'list': [
                   {
                     'title': 'Server yearly title',
@@ -410,8 +411,6 @@ void main() {
                     'monthly_gems_cent': 180025,
                     'price_currency_code': 'EUR',
                     'price_amount': 12345,
-                    'can_purchase': true,
-                    'purchase_block_reason': '',
                   },
                 ],
               },
@@ -441,8 +440,7 @@ void main() {
         expect(result.products.single.billingMonths, 12);
         expect(result.products.single.priceCurrencyCode, 'EUR');
         expect(result.products.single.priceAmount, 12345);
-        expect(result.products.single.canPurchase, isTrue);
-        expect(result.products.single.purchaseBlockReason, '');
+        expect(result.vipStatus, MembershipVipStatus.monthly);
         expect(result.products.single.title, 'Server yearly title');
         expect(result.products.single.benefits.single.code, 'server_benefit');
         expect(
@@ -1545,6 +1543,77 @@ void main() {
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
   });
 
+  test(
+    'search and badge 1404 stay local while user details still navigate',
+    () async {
+      var pageNotFoundCount = 0;
+      var sessionExpiredCount = 0;
+      var errorCode = 1404;
+      final transport = _FakeTransport(
+        handler: (_) => TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': errorCode,
+            'err_msg': 'missing',
+            'data': {},
+          }),
+        ),
+      );
+      final api = GenesisApi(
+        useMock: false,
+        transport: transport,
+        deviceIdService: const _TestDeviceIdService(),
+        sessionStore: MemoryUserSessionStore(),
+        onPageNotFound: (_) async => pageNotFoundCount++,
+        onSessionExpired: (_) async => sessionExpiredCount++,
+      );
+      final localRequests = <Future<Object?> Function()>[
+        for (final type in ['origin', 'world', 'user'])
+          for (final page in [1, 2])
+            () => api.v1.search.search(
+              query: 'abc',
+              type: type,
+              pn: page,
+              rn: 20,
+            ),
+        () => api.v1.search.suggest(query: 'abc'),
+        () => api.v1.user.info(uid: 'u_missing', handlePageNotFound: false),
+      ];
+      for (final request in localRequests) {
+        await expectLater(
+          request(),
+          throwsA(
+            isA<ApiException>()
+                .having((e) => e.code, 'code', 1404)
+                .having((e) => e.message, 'message', 'missing'),
+          ),
+        );
+        expect(pageNotFoundCount, 0);
+        expect(
+          transport.lastRequest!.uri.queryParameters.keys,
+          everyElement(isIn(['keyword', 'type', 'pn', 'rn', 'query', 'uid'])),
+        );
+      }
+
+      await expectLater(
+        api.v1.user.info(uid: 'u_missing'),
+        throwsA(isA<ApiException>().having((e) => e.code, 'code', 1404)),
+      );
+      expect(pageNotFoundCount, 1);
+
+      errorCode = 10001;
+      for (final request in localRequests) {
+        await expectLater(
+          request(),
+          throwsA(isA<ApiException>().having((e) => e.code, 'code', 10001)),
+        );
+      }
+      expect(sessionExpiredCount, localRequests.length);
+      expect(pageNotFoundCount, 1);
+    },
+  );
+
   test('HTTP status 404 does not trigger page not found callback', () async {
     var pageNotFoundCalled = false;
     final apiTransport = _FakeTransport(
@@ -1713,7 +1782,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","definition_version":2,"default_map_location_id":"loc_origin","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","definition_version":2,"default_map_location_id":"loc_origin","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":73}}',
           );
         }
         if (request.uri.path.endsWith('/v1/world/list')) {
@@ -1721,7 +1790,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":1}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":73}}',
           );
         }
         return const TransportResponse(
@@ -1760,6 +1829,18 @@ void main() {
     );
     await api.getMyWorlds(uid: 'u_2', scene: 'uid', limit: 10, offset: 0);
 
+    final worldPage = await api.getMyWorldsPage(
+      scene: 'mine',
+      limit: 30,
+      offset: 60,
+    );
+    expect(origins.total, 73);
+    expect(worldPage.total, 73);
+    expect(worldPage.data.single.wid, 'w_1');
+    expect(worldPage.offset, 60);
+    expect(worldPage.limit, 30);
+    expect(apiTransport.requests.last.uri.queryParameters['pn'], '3');
+    expect(apiTransport.requests.last.uri.queryParameters['rn'], '30');
     expect(origins.data.single.oid, 'o_1');
     expect(origins.data.single.originator, 'Origin Owner');
     expect(origins.data.single.definitionVersion, 2);

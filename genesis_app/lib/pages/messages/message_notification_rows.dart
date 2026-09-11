@@ -207,6 +207,11 @@ class _JoinRequestSummaryText extends StatelessWidget {
         ),
         children: [
           TextSpan(text: item.requesterName, style: _notificationNameStyle),
+          ProUserBadge.span(
+            uid: item.senderUid,
+            fontSize: 12,
+            deleted: item.senderDeleted,
+          ),
           const TextSpan(text: ' request to join '),
           TextSpan(text: item.requestWorldName, style: _notificationNameStyle),
           if (item.requestWorldIdLabel.trim().isNotEmpty)
@@ -279,7 +284,20 @@ class _CommentNotificationListItem extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(item.titleText, style: titleStyle),
+        Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: item.senderDisplayName),
+              ProUserBadge.span(
+                uid: item.senderUid,
+                fontSize: titleStyle.fontSize!,
+                deleted: item.senderDeleted,
+              ),
+              TextSpan(text: item.discussTitleSuffix),
+            ],
+          ),
+          style: titleStyle,
+        ),
         if (item.bodyText.isNotEmpty) ...[
           SizedBox(height: verticalGap),
           Text(item.bodyText, style: bodyStyle),

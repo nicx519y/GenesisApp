@@ -4,6 +4,7 @@ class _DiscussComposerSheet extends StatefulWidget {
   const _DiscussComposerSheet({
     required this.title,
     required this.placeholder,
+    this.placeholderWidget,
     required this.pickImages,
     this.pickImageResult,
     required this.uploadImage,
@@ -14,6 +15,7 @@ class _DiscussComposerSheet extends StatefulWidget {
 
   final String title;
   final String placeholder;
+  final Widget? placeholderWidget;
   final DiscussImagePicker pickImages;
   final DiscussImageResultPicker? pickImageResult;
   final DiscussImageUploader uploadImage;
@@ -457,6 +459,7 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                     child: _DiscussComposerPanel(
                       title: widget.title,
                       placeholder: widget.placeholder,
+                      placeholderWidget: widget.placeholderWidget,
                       controller: _controller,
                       focusNode: _composerFocusNode,
                       hasImages: hasImages,

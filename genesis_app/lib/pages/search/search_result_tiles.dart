@@ -21,11 +21,15 @@ class _SearchResultTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text.rich(
-            _searchResultTitleSpan(item),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: titleStyle,
+          ProUserName(
+            uid: isUser ? item.userV2!.uid : '',
+            fontSize: 14,
+            child: Text.rich(
+              _searchResultTitleSpan(item),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: titleStyle,
+            ),
           ),
           SizedBox(height: isUser ? 7 : 4),
           if (item.tab == _SearchTab.origin)
@@ -44,7 +48,7 @@ class _SearchResultTile extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: CopyableIdLabel.textStyle.copyWith(
-                color: GenesisColors.darkTextTertiary,
+                color: GenesisColors.darkTextSecondary,
               ),
             )
           else
@@ -82,7 +86,7 @@ class _SearchResultTile extends StatelessWidget {
 }
 
 const _searchMetadataStyle = TextStyle(
-  color: GenesisColors.darkTextTertiary,
+  color: GenesisColors.darkTextSecondary,
   fontSize: 12,
   fontWeight: FontWeight.w400,
   height: 1.2,
@@ -98,7 +102,7 @@ const _searchSummaryStyle = TextStyle(
 );
 
 const _worldSearchMetadataStyle = TextStyle(
-  color: GenesisColors.darkTextTertiary,
+  color: GenesisColors.darkTextSecondary,
   fontSize: 12,
   fontWeight: FontWeight.w400,
   height: 1.2,
@@ -143,27 +147,34 @@ class _OriginSearchMetadata extends StatelessWidget {
         ),
       );
     }
+    final idRanges = _originIdRanges(origin, item.searchQuery).toList();
+    final showId = _mergedSearchHighlightRanges(
+      origin.originId,
+      idRanges,
+    ).isNotEmpty;
     final rows = <Widget>[
-      Text.rich(
-        TextSpan(
-          children: [
-            const TextSpan(text: 'OID: '),
-            _highlightedSearchSpan(
-              _dashOrValue(origin.originId),
-              _originIdRanges(origin, item.searchQuery),
-            ),
-          ],
+      if (showId)
+        Text.rich(
+          TextSpan(
+            children: [
+              const TextSpan(text: 'OID: '),
+              _highlightedSearchSpan(_dashOrValue(origin.originId), idRanges),
+            ],
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _searchMetadataStyle,
         ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: _searchMetadataStyle,
-      ),
-      Text(
-        'Originator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: _searchMetadataStyle.copyWith(
-          color: GenesisColors.darkTextSecondary,
+      ProUserName(
+        uid: origin.owner.uid,
+        fontSize: 12,
+        child: Text(
+          'Creator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _searchMetadataStyle.copyWith(
+            color: GenesisColors.darkTextSecondary,
+          ),
         ),
       ),
       ...summaries.take(2),
@@ -209,12 +220,16 @@ class _WorldSearchMetadata extends StatelessWidget {
           style: _worldSearchMetadataStyle,
         ),
         const SizedBox(height: 4),
-        Text(
-          'Owner: $owner',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: _worldSearchMetadataStyle.copyWith(
-            color: GenesisColors.darkTextSecondary,
+        ProUserName(
+          uid: world.owner.uid,
+          fontSize: 12,
+          child: Text(
+            'Owner: $owner',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _worldSearchMetadataStyle.copyWith(
+              color: GenesisColors.darkTextSecondary,
+            ),
           ),
         ),
       ],

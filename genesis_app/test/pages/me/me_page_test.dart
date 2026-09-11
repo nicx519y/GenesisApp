@@ -68,11 +68,8 @@ void main() {
           find.text('Expires 2027-09-08'),
           status == 1 ? findsOneWidget : findsNothing,
         );
-        expect(
-          find.text('300.0', findRichText: true),
-          status == 1 ? findsOneWidget : findsNothing,
-        );
-        expect(find.text('5,482.4', findRichText: true), findsOneWidget);
+        expect(find.text(status == 1 ? '300.0' : '0.0'), findsOneWidget);
+        expect(find.text('5,482.4'), findsOneWidget);
       }
       state.value = const GemWalletState(
         ownerUid: 'user',
@@ -89,7 +86,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Subscribe'), findsNothing);
       expect(find.text('Expires —'), findsOneWidget);
-      expect(find.text('0.0', findRichText: true), findsOneWidget);
+      expect(find.text('0.0'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -175,20 +172,27 @@ void main() {
       find.byKey(const ValueKey('user-profile-gems-balance')),
     );
     expect(gemBalance.textSpan?.toPlainText(), '0.0');
-    expect(gemBalance.style?.fontWeight, FontWeight.w600);
+    expect(gemBalance.style?.fontWeight, FontWeight.w800);
     expect(find.text('--'), findsNothing);
     expect(
       tester.getSize(find.byKey(const ValueKey('user-profile-gem-icon'))),
-      const Size(16, 24),
+      const Size(26, 26),
     );
     expect(
       find.descendant(
         of: find.byKey(const ValueKey('user-profile-gems-entry')),
-        matching: find.text('Gems'),
+        matching: find.text('Red gems'),
       ),
       findsOneWidget,
     );
-    expect(find.text('Top Up'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('user-profile-gems-entry')),
+        matching: find.text('Pink gems'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Top up'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('user-profile-gems-pattern')),
       findsOneWidget,
@@ -200,12 +204,11 @@ void main() {
                 )
                 .decoration!
             as BoxDecoration;
-    expect(backgroundDecoration.color, isNull);
-    expect((backgroundDecoration.gradient! as LinearGradient).colors, const [
-      Color(0xFF7F1021),
-      Color(0xFFB8172E),
-    ]);
+    // 9k grounds the gems entry in flat ink rather than the old red sweep.
+    expect(backgroundDecoration.color, const Color(0xFF232228));
+    expect(backgroundDecoration.gradient, isNull);
     expect(backgroundDecoration.border, isNull);
+    expect(backgroundDecoration.borderRadius, BorderRadius.circular(16));
     final topUpDecoration =
         tester
                 .widget<Container>(
@@ -256,108 +259,112 @@ void main() {
     expect(selectedIndexes, <int>[1, 0]);
   });
 
-  testWidgets('profile collection tab counts follow current list state', (
-    tester,
-  ) async {
-    final originsState =
-        ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
+  testWidgets(
+    'profile collection tab counts use API totals independently of loaded cards',
+    (tester) async {
+      final originsState =
+          ValueNotifier<UserProfileCollectionState<UserProfileOriginItem>>(
+            const UserProfileCollectionState<UserProfileOriginItem>(
+              items: <UserProfileOriginItem>[],
+              isLoading: false,
+            ),
+          );
+      final worldsState =
+          ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
+            const UserProfileCollectionState<UserProfileWorldItem>(
+              items: <UserProfileWorldItem>[],
+              isLoading: false,
+            ),
+          );
+      addTearDown(originsState.dispose);
+      addTearDown(worldsState.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: UserProfileContent(
+              data: const UserProfileData(
+                avatarUrl: '',
+                displayName: 'User',
+                uid: 'u_user',
+                followingCount: 0,
+                followerCount: 0,
+                origins: <UserProfileOriginItem>[],
+                worlds: <UserProfileWorldItem>[],
+              ),
+              originsListenable: originsState,
+              worldsListenable: worldsState,
+              originTabLabel: 'Worldo',
+              worldTabLabel: 'Playing',
+              showCollectionCounts: true,
+              tabLabelFontSize: 14,
+            ),
+          ),
+        ),
+      );
+
+      expect(_profileTabCount('origin', '0'), findsOneWidget);
+      expect(_profileTabCount('world', '0'), findsOneWidget);
+
+      originsState.value =
           const UserProfileCollectionState<UserProfileOriginItem>(
-            items: <UserProfileOriginItem>[],
+            items: <UserProfileOriginItem>[
+              UserProfileOriginItem(
+                originId: 1,
+                oid: 'oid_1',
+                title: 'Worldo One',
+                subtitle: '',
+                imageUrl: '',
+                copyCount: 0,
+                interactCount: 0,
+                characterCount: 0,
+              ),
+            ],
             isLoading: false,
-          ),
-        );
-    final worldsState =
-        ValueNotifier<UserProfileCollectionState<UserProfileWorldItem>>(
+            total: 100,
+          );
+      worldsState.value =
           const UserProfileCollectionState<UserProfileWorldItem>(
-            items: <UserProfileWorldItem>[],
+            items: <UserProfileWorldItem>[
+              UserProfileWorldItem(
+                wid: 'wid_1',
+                title: 'World One',
+                subtitle: '',
+                imageUrl: '',
+                progressCount: 4,
+                subTickNo: 2,
+                interactCount: 1,
+                characterCount: 0,
+                playerCount: 1200,
+                ownerName: 'User',
+              ),
+              UserProfileWorldItem(
+                wid: 'wid_2',
+                title: 'World Two',
+                subtitle: '',
+                imageUrl: '',
+                progressCount: 0,
+                interactCount: 0,
+                characterCount: 0,
+                playerCount: 0,
+                ownerName: 'User',
+              ),
+            ],
             isLoading: false,
-          ),
-        );
-    addTearDown(originsState.dispose);
-    addTearDown(worldsState.dispose);
+            total: 80,
+          );
+      await tester.pump();
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: UserProfileContent(
-            data: const UserProfileData(
-              avatarUrl: '',
-              displayName: 'User',
-              uid: 'u_user',
-              followingCount: 0,
-              followerCount: 0,
-              origins: <UserProfileOriginItem>[],
-              worlds: <UserProfileWorldItem>[],
-            ),
-            originsListenable: originsState,
-            worldsListenable: worldsState,
-            originTabLabel: 'Worldo',
-            worldTabLabel: 'Playing',
-            showCollectionCounts: true,
-            tabLabelFontSize: 14,
-          ),
-        ),
-      ),
-    );
+      expect(_profileTabCount('origin', '100'), findsOneWidget);
+      expect(_profileTabCount('world', '80'), findsOneWidget);
 
-    expect(_profileTabCount('origin', '0'), findsOneWidget);
-    expect(_profileTabCount('world', '0'), findsOneWidget);
+      await tester.tap(find.text('Playing'));
+      await tester.pumpAndSettle();
 
-    originsState.value =
-        const UserProfileCollectionState<UserProfileOriginItem>(
-          items: <UserProfileOriginItem>[
-            UserProfileOriginItem(
-              originId: 1,
-              oid: 'oid_1',
-              title: 'Worldo One',
-              subtitle: '',
-              imageUrl: '',
-              copyCount: 0,
-              interactCount: 0,
-              characterCount: 0,
-            ),
-          ],
-          isLoading: false,
-        );
-    worldsState.value = const UserProfileCollectionState<UserProfileWorldItem>(
-      items: <UserProfileWorldItem>[
-        UserProfileWorldItem(
-          wid: 'wid_1',
-          title: 'World One',
-          subtitle: '',
-          imageUrl: '',
-          progressCount: 4,
-          subTickNo: 2,
-          interactCount: 1,
-          characterCount: 0,
-          playerCount: 1200,
-          ownerName: 'User',
-        ),
-        UserProfileWorldItem(
-          wid: 'wid_2',
-          title: 'World Two',
-          subtitle: '',
-          imageUrl: '',
-          progressCount: 0,
-          interactCount: 0,
-          characterCount: 0,
-          playerCount: 0,
-          ownerName: 'User',
-        ),
-      ],
-      isLoading: false,
-    );
-    await tester.pump();
-
-    expect(_profileTabCount('origin', '1'), findsOneWidget);
-    expect(_profileTabCount('world', '2'), findsOneWidget);
-
-    await tester.tap(find.text('Playing'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Tick 4-2 · 1 Message · 1.2K Players'), findsOneWidget);
-    expect(find.text('Tick 0 · 0 Message'), findsOneWidget);
-  });
+      expect(find.text('Tick 4-2 · 1 Message · 1.2K Players'), findsOneWidget);
+      expect(find.text('Tick 0 · 0 Message'), findsOneWidget);
+    },
+  );
 
   testWidgets('profile collection pages keep a 10px gap while swiping', (
     tester,
@@ -759,7 +766,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('430.0'), findsOneWidget);
-    expect(find.text('Gems'), findsOneWidget);
+    expect(find.text('Red gems'), findsOneWidget);
+    expect(find.text('Pink gems'), findsOneWidget);
 
     walletState.value = const GemWalletState(
       ownerUid: 'u_user',

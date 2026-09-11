@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
+import 'package:genesis_flutter_android/components/gems/pro_membership_badge.dart';
 import 'package:genesis_flutter_android/network/api_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/direct_message_conversation_store.dart';
@@ -510,6 +511,85 @@ void main() {
     }
   });
 
+  testWidgets('missing badge owner 1404 does not interrupt search pagination', (
+    tester,
+  ) async {
+    final transport = _SearchPageTransport(
+      paginated: true,
+      missingOwners: true,
+    );
+    var notFoundCount = 0;
+    await _pumpSearchPage(
+      tester,
+      transport,
+      onPageNotFound: (_) async => notFoundCount++,
+    );
+    await tester.enterText(find.byType(TextField), 'abc');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+    expect(find.text('#Origin 1'), findsOneWidget);
+    await tester.drag(
+      find.byType(ListView).hitTestable().first,
+      const Offset(0, -5000),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      transport.requests.any(
+        (r) =>
+            r.uri.path.endsWith('/v1/user/info') &&
+            r.uri.queryParameters['uid'] == 'owner_21',
+      ),
+      isTrue,
+    );
+    expect(transport.searchRequests.last.uri.queryParameters['pn'], '2');
+    expect(find.text('#Origin 21'), findsOneWidget);
+    expect(find.byType(ProMembershipBadge), findsNothing);
+    expect(find.byType(SearchPage), findsOneWidget);
+    expect(notFoundCount, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final errorPage in [1, 2]) {
+    testWidgets('search page $errorPage 1404 stays on the search page', (
+      tester,
+    ) async {
+      final transport = _SearchPageTransport(
+        paginated: true,
+        searchErrorPage: errorPage,
+      );
+      var notFoundCount = 0;
+      await _pumpSearchPage(
+        tester,
+        transport,
+        onPageNotFound: (_) async => notFoundCount++,
+      );
+      await tester.enterText(find.byType(TextField), 'abc');
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+      if (errorPage == 2) {
+        await tester.drag(
+          find.byType(ListView).hitTestable().first,
+          const Offset(0, -5000),
+        );
+        await tester.pumpAndSettle();
+        expect(transport.searchRequests.last.uri.queryParameters['pn'], '2');
+        expect(find.text('#Origin 20'), findsOneWidget);
+        expect(find.text('#Origin 21'), findsNothing);
+        expect(
+          find.byKey(const ValueKey('search-result-load-more')),
+          findsNothing,
+        );
+      } else {
+        expect(find.text('Search failed'), findsOneWidget);
+        expect(find.text('Retry'), findsOneWidget);
+      }
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(notFoundCount, 0);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets('shows default Worldo brief when no summary field matches', (
     tester,
   ) async {
@@ -525,11 +605,11 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('#Origin 1'), findsOneWidget);
-    expect(find.text('OID: origin_1'), findsOneWidget);
-    expect(find.text('Originator: Deleted User'), findsOneWidget);
+    expect(find.text('OID: origin_1'), findsNothing);
+    expect(find.text('Creator: Deleted User'), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('Originator: Deleted User')).dy,
-      greaterThan(tester.getTopLeft(find.text('OID: origin_1')).dy),
+      tester.getTopLeft(find.text('Creator: Deleted User')).dy,
+      greaterThan(tester.getTopLeft(find.text('#Origin 1')).dy),
     );
     expect(find.textContaining('Brief:'), findsNothing);
     expect(find.textContaining('Characters:'), findsNothing);
@@ -776,6 +856,11 @@ void main() {
       ['origin_1'],
     );
 
+    expect(
+      tester.widget<Text>(find.textContaining('OID: origin_1')).style?.color,
+      GenesisColors.darkTextSecondary,
+    );
+
     await tester.tap(find.text('World'));
     await tester.pumpAndSettle();
     expect(
@@ -844,7 +929,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Originator: Deleted User'), findsOneWidget);
+    expect(find.textContaining('Creator: Deleted User'), findsOneWidget);
   });
 
   testWidgets('dismisses search focus when tapping result area', (
@@ -920,14 +1005,10 @@ void main() {
       isFalse,
       reason: 'Worldo should not retain the old 5px or 8px row gaps.',
     );
-    final originSubtitle = tester.widget<Text>(
-      find.descendant(
-        of: originTile,
-        matching: find.textContaining('OID: origin_1'),
-      ),
+    expect(
+      find.descendant(of: originTile, matching: find.textContaining('OID:')),
+      findsNothing,
     );
-    expect(originSubtitle.style?.height, 1.2);
-    expect(originSubtitle.style?.color, GenesisColors.darkTextTertiary);
     final originStatTexts = tester.widgetList<Text>(
       find.descendant(of: originTile, matching: find.text('1')),
     );
@@ -996,7 +1077,7 @@ void main() {
     );
     expect(worldMetadata.style?.fontSize, 12);
     expect(worldMetadata.style?.height, 1.2);
-    expect(worldMetadata.style?.color, GenesisColors.darkTextTertiary);
+    expect(worldMetadata.style?.color, GenesisColors.darkTextSecondary);
     final worldStats = tester.widget<Text>(
       find.descendant(
         of: worldTile,
@@ -1033,7 +1114,7 @@ void main() {
     final userUid = tester.widget<Text>(
       find.descendant(of: userTile, matching: find.text('UID: user_1')),
     );
-    expect(userUid.style?.color, GenesisColors.darkTextTertiary);
+    expect(userUid.style?.color, GenesisColors.darkTextSecondary);
 
     final userSizedBoxes = tester
         .widgetList<SizedBox>(
@@ -1186,10 +1267,14 @@ Future<void> _pumpSearchPage(
   WidgetTester tester,
   _SearchPageTransport transport, {
   RouteFactory? onGenerateRoute,
+  Future<void> Function(String)? onPageNotFound,
 }) async {
   await tester.pumpWidget(
     AppServicesScope(
-      services: await _servicesWithTransport(transport),
+      services: await _servicesWithTransport(
+        transport,
+        onPageNotFound: onPageNotFound,
+      ),
       child: MaterialApp(
         home: const SearchPage(),
         onGenerateRoute: onGenerateRoute,
@@ -1200,8 +1285,9 @@ Future<void> _pumpSearchPage(
 }
 
 Future<AppServices> _servicesWithTransport(
-  _SearchPageTransport transport,
-) async {
+  _SearchPageTransport transport, {
+  Future<void> Function(String)? onPageNotFound,
+}) async {
   final base = ServiceRegistry.build(config: const AppConfig(useMock: true));
   final apiClient = ApiClient(
     baseUrl: 'http://localhost:8080/api/',
@@ -1220,7 +1306,13 @@ Future<AppServices> _servicesWithTransport(
   await sessionStore.saveUid('u_test');
   await sessionStore.saveAuthToken('test-token');
   final api = GenesisApi(
-    apiClient: apiClient,
+    // These regressions must exercise the production response processor.
+    apiClient: onPageNotFound == null ? apiClient : null,
+    transport: transport,
+    useMock: false,
+    deviceIdService: base.deviceId,
+    appHeaderProvider: () async => const {},
+    onPageNotFound: onPageNotFound,
     healthClient: healthClient,
     sessionStore: sessionStore,
   );
@@ -1261,6 +1353,8 @@ class _SearchPageTransport implements HttpTransport {
     this.sectionTotals = const <String, int>{},
     this.searchDelay = Duration.zero,
     this.loadMoreDelay = Duration.zero,
+    this.searchErrorPage,
+    this.missingOwners = false,
   });
 
   final bool singleWorldResult;
@@ -1273,6 +1367,8 @@ class _SearchPageTransport implements HttpTransport {
   final Map<String, int> sectionTotals;
   final Duration searchDelay;
   final Duration loadMoreDelay;
+  final int? searchErrorPage;
+  final bool missingOwners;
   final List<TransportRequest> requests = <TransportRequest>[];
 
   List<TransportRequest> get searchRequests => requests
@@ -1285,6 +1381,13 @@ class _SearchPageTransport implements HttpTransport {
     if (request.uri.path.endsWith('/v2/search')) {
       final pageNumber =
           int.tryParse(request.uri.queryParameters['pn'] ?? '') ?? 1;
+      if (pageNumber == searchErrorPage) {
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":1404,"err_msg":"missing","data":{}}',
+        );
+      }
       final delay = pageNumber > 1 ? loadMoreDelay : searchDelay;
       if (delay > Duration.zero) {
         await Future<void>.delayed(delay);
@@ -1336,6 +1439,13 @@ class _SearchPageTransport implements HttpTransport {
           pageNumber: pageNumber,
         ),
       });
+    }
+    if (missingOwners && request.uri.path.endsWith('/v1/user/info')) {
+      return const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":1404,"err_msg":"user not found","data":{}}',
+      );
     }
     return _jsonResponse(const <String, dynamic>{});
   }

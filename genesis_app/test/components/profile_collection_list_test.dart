@@ -6,6 +6,82 @@ import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 void main() {
+  testWidgets('short first page automatically loads more without a drag', (
+    tester,
+  ) async {
+    var requests = 0;
+    var hasMore = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return ProfileCollectionList(
+                items: const [
+                  GenesisProfileCollectionItemData(
+                    imageUrl: '',
+                    title: 'First page',
+                    subtitle: '',
+                  ),
+                ],
+                emptyText: 'Empty',
+                hasMore: hasMore,
+                onLoadMore: () async {
+                  requests++;
+                  setState(() => hasMore = false);
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(requests, 1);
+    expect(find.text('First page'), findsOneWidget);
+    expect(find.text('Load more'), findsNothing);
+  });
+
+  testWidgets('pagination error keeps cards and waits for explicit retry', (
+    tester,
+  ) async {
+    var requests = 0;
+    var hasMore = true;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              return ProfileCollectionList(
+                items: const [
+                  GenesisProfileCollectionItemData(
+                    imageUrl: '',
+                    title: 'Existing card',
+                    subtitle: '',
+                  ),
+                ],
+                emptyText: 'Empty',
+                hasMore: hasMore,
+                loadMoreFailed: true,
+                onLoadMore: () async {
+                  requests++;
+                  setState(() => hasMore = false);
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(requests, 0);
+    expect(find.text('Existing card'), findsOneWidget);
+    await tester.tap(find.text('Load failed. Retry'));
+    await tester.pumpAndSettle();
+    expect(requests, 1);
+    expect(find.text('Existing card'), findsOneWidget);
+  });
+
   testWidgets('pull to refresh uses the page surface and keeps its shadow', (
     WidgetTester tester,
   ) async {
@@ -204,7 +280,7 @@ void main() {
     expect(image.width, 60);
     expect(image.height, 90);
     final oid = tester.widget<Text>(find.text('OID: oid_1'));
-    expect(find.textContaining('Originator:'), findsNothing);
+    expect(find.textContaining('Creator:'), findsNothing);
     final version = tester.widget<Text>(find.text('Latest Version: V1'));
     expect(oid.style?.color, const Color(0xFF888888));
     expect(oid.style?.height, 1.2);

@@ -23,6 +23,8 @@ class UserProfileContent extends StatefulWidget {
     this.onRefresh,
     this.onRefreshOrigins,
     this.onRefreshWorlds,
+    this.onLoadMoreOrigins,
+    this.onLoadMoreWorlds,
     this.onWorldDeleted,
     this.onCollectionTabChanged,
     this.onCollapsedChanged,
@@ -55,6 +57,8 @@ class UserProfileContent extends StatefulWidget {
   final Future<void> Function()? onRefresh;
   final Future<void> Function()? onRefreshOrigins;
   final Future<void> Function()? onRefreshWorlds;
+  final Future<void> Function()? onLoadMoreOrigins;
+  final Future<void> Function()? onLoadMoreWorlds;
   final ValueChanged<UserProfileWorldItem>? onWorldDeleted;
   final ValueChanged<int>? onCollectionTabChanged;
   final ValueChanged<bool>? onCollapsedChanged;
@@ -239,7 +243,7 @@ class _UserProfileContentState extends State<UserProfileContent>
       >(
         valueListenable: worldsListenable,
         builder: (context, state, _) {
-          return buildTabs(originCount, state.items.length);
+          return buildTabs(originCount, state.count);
         },
       );
     }
@@ -253,7 +257,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     >(
       valueListenable: originsListenable,
       builder: (context, state, _) {
-        return buildWithWorldCount(state.items.length);
+        return buildWithWorldCount(state.count);
       },
     );
   }
@@ -302,6 +306,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                     : 'No Worldo yet.',
                 isLoading: widget.originsLoading,
                 listenable: widget.originsListenable,
+                onLoadMore: widget.onLoadMoreOrigins,
                 onRefresh: widget.onRefresh == null
                     ? widget.onRefreshOrigins
                     : null,
@@ -316,11 +321,13 @@ class _UserProfileContentState extends State<UserProfileContent>
               pageKey: const ValueKey<String>('profile-world-collection-page'),
               child: _WorldProfileCollectionList(
                 items: data.worlds,
+                profileUid: data.uid,
                 emptyText: data.isSelf
                     ? 'No Worlds you created yet.'
                     : 'No Worlds yet.',
                 isLoading: widget.worldsLoading,
                 listenable: widget.worldsListenable,
+                onLoadMore: widget.onLoadMoreWorlds,
                 onRefresh: widget.onRefresh == null
                     ? widget.onRefreshWorlds
                     : null,
@@ -389,7 +396,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Flexible(
                             fit: FlexFit.loose,
@@ -659,133 +666,298 @@ class _GemsBalanceEntry extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final listenable = stateListenable;
-    if (listenable == null) return _buildEntry(context, null);
+    if (listenable == null) return _buildEntry(context, null, null);
     return ValueListenableBuilder<GemWalletState>(
       valueListenable: listenable,
-      builder: (context, state, _) => _buildEntry(context, state.balanceCent),
+      builder: (context, state, _) => _buildEntry(
+        context,
+        state.balanceCent,
+        state.membership?.blueGemsCent,
+      ),
     );
   }
 
-  Widget _buildEntry(BuildContext context, int? balanceCent) {
+  Widget _buildEntry(BuildContext context, int? redCent, int? roseCent) {
+    final redBoundsKey = GlobalKey();
+    final pinkBoundsKey = GlobalKey();
+    final topUpBoundsKey = GlobalKey();
+    Rect? bounds(GlobalKey key) {
+      final box = key.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) return null;
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+
     return GestureDetector(
       key: const ValueKey('user-profile-gems-entry'),
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(context).pushNamed(RouteNames.gemWallet),
+      onTapUp: (details) {
+        final red = bounds(redBoundsKey);
+        final pink = bounds(pinkBoundsKey);
+        final topUp = bounds(topUpBoundsKey);
+        final x = details.globalPosition.dx;
+        // Split each empty gap at its midpoint without moving the content.
+        final subscription =
+            red != null &&
+            pink != null &&
+            topUp != null &&
+            x >= (red.right + pink.left) / 2 &&
+            x < (pink.right + topUp.left) / 2;
+        Navigator.of(context).pushNamed(
+          RouteNames.gemWallet,
+          arguments: subscription ? 'subscription' : null,
+        );
+      },
       child: Container(
         key: const ValueKey('user-profile-gems-background'),
-        height: 64,
+        height: 68,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [Color(0xFF7F1021), Color(0xFFB8172E)],
-          ),
-          borderRadius: BorderRadius.circular(12),
+          color: gemsCardFill,
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Stack(
           children: [
-            Positioned(
-              top: -16,
-              right: 54,
+            const _GemsCardDecoration(),
+            // Light catches the top half of the card only.
+            const Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              height: 34,
               child: IgnorePointer(
-                child: Opacity(
-                  opacity: 0.18,
-                  child: SvgPicture.asset(
-                    gemStackIconAsset,
-                    key: const ValueKey('user-profile-gems-pattern'),
-                    width: 112,
-                    height: 92,
-                    fit: BoxFit.contain,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [Color(0x0DFFFFFF), Color(0x00FFFFFF)],
+                    ),
                   ),
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Gems',
-                          style: TextStyle(
-                            fontSize: 12,
-                            height: 14 / 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFFFFD4DA),
+            Positioned.fill(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    // Both figures sit at their own width; the slack left over
+                    // inside this Expanded keeps Top up on the right edge.
+                    Expanded(
+                      child: Row(
+                        children: [
+                          Flexible(
+                            child: _GemBalance(
+                              key: redBoundsKey,
+                              iconAsset: gemIconAsset,
+                              label: 'Red gems',
+                              balanceCent: redCent,
+                              valueKey: const ValueKey(
+                                'user-profile-gems-balance',
+                              ),
+                              iconKey: const ValueKey('user-profile-gem-icon'),
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            SizedBox(
-                              key: const ValueKey('user-profile-gem-icon'),
-                              width: 16,
-                              height: 24,
-                              child: SvgPicture.asset(
-                                gemIconAsset,
-                                fit: BoxFit.contain,
+                          const SizedBox(width: 10),
+                          Container(
+                            width: 1,
+                            height: 34,
+                            color: gemsCardDivider,
+                          ),
+                          const SizedBox(width: 10),
+                          Flexible(
+                            // The card handles the gaps on either side; this
+                            // direct target also exposes the subscription action.
+                            child: GestureDetector(
+                              key: const ValueKey(
+                                'user-profile-pink-gems-entry',
                               ),
-                            ),
-                            const SizedBox(width: 6),
-                            Flexible(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Flexible(
-                                    child: Text.rich(
-                                      gemBalanceTextSpan(
-                                        balanceCent ?? 0,
-                                        fontSize: 18,
-                                      ),
-                                      key: const ValueKey(
-                                        'user-profile-gems-balance',
-                                      ),
-                                      style: const TextStyle(
-                                        fontSize: 18,
-                                        height: 22 / 18,
-                                        fontWeight: FontWeight.w600,
-                                        color: GenesisColors.darkTextPrimary,
-                                      ),
-                                    ),
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => Navigator.of(context).pushNamed(
+                                RouteNames.gemWallet,
+                                arguments: 'subscription',
+                              ),
+                              child: SizedBox(
+                                height: double.infinity,
+                                child: _GemBalance(
+                                  key: pinkBoundsKey,
+                                  iconAsset: roseGemIconAsset,
+                                  label: 'Pink gems',
+                                  balanceCent: roseCent,
+                                  valueKey: const ValueKey(
+                                    'user-profile-rose-gems-balance',
                                   ),
-                                ],
+                                  iconKey: const ValueKey(
+                                    'user-profile-rose-gem-icon',
+                                  ),
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Container(
-                    key: const ValueKey('user-profile-gems-top-up'),
-                    height: 32,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: GenesisColors.brand,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      'Top Up',
-                      style: gemCardActionTextStyle.copyWith(
-                        color: Colors.white,
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    const SizedBox(width: 10),
+                    KeyedSubtree(
+                      key: topUpBoundsKey,
+                      child: Container(
+                        key: const ValueKey('user-profile-gems-top-up'),
+                        height: 30,
+                        width: 82,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: GenesisColors.brand,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Top up',
+                          style: TextStyle(
+                            color: GenesisColors.darkTextPrimary,
+                            fontSize: 12,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+}
+
+/// One labelled figure in the gems entry — icon, caption, amount.
+class _GemBalance extends StatelessWidget {
+  /// 9k specifies 15; the wallet figure is pitched one step above the
+  /// page's 16 so the balance reads first inside the card.
+  static const double _figureSize = 18;
+
+  const _GemBalance({
+    super.key,
+    required this.iconAsset,
+    required this.label,
+    required this.balanceCent,
+    required this.valueKey,
+    required this.iconKey,
+  });
+
+  final String iconAsset;
+  final String label;
+  final int? balanceCent;
+  final Key valueKey;
+  final Key iconKey;
+
+  @override
+  Widget build(BuildContext context) {
+    // An unread wallet reads as zero here, as it always has.
+    final cent = balanceCent ?? 0;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          key: iconKey,
+          width: 26,
+          height: 26,
+          child: SvgPicture.asset(iconAsset, fit: BoxFit.contain),
+        ),
+        const SizedBox(width: 8), // gem art is inset ~5 inside its 26 box
+        Flexible(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: gemsCardLabel,
+                  fontSize: 12,
+                  height: 1,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Text.rich(
+                gemBalanceTextSpan(cent, fontSize: _figureSize),
+                key: valueKey,
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: GenesisColors.darkTextPrimary,
+                  fontSize: _figureSize,
+                  height: 1,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.18,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Three gems drifting off the right edge, behind the figures.
+class _GemsCardDecoration extends StatelessWidget {
+  const _GemsCardDecoration();
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      key: const ValueKey('user-profile-gems-pattern'),
+      child: Stack(
+        children: [
+          Positioned(
+            right: 96,
+            top: -12,
+            child: _decorGem(
+              width: 48,
+              height: 74,
+              opacity: 0.16,
+              degrees: -14,
+            ),
+          ),
+          Positioned(
+            right: 54,
+            top: 20,
+            child: _decorGem(width: 38, height: 60, opacity: 0.13, degrees: 12),
+          ),
+          Positioned(
+            right: 2,
+            top: -6,
+            child: _decorGem(width: 62, height: 97, opacity: 0.15, degrees: 0),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _decorGem({
+    required double width,
+    required double height,
+    required double opacity,
+    required double degrees,
+  }) {
+    final gem = Opacity(
+      opacity: opacity,
+      child: SvgPicture.asset(
+        gemIconAsset,
+        width: width,
+        height: height,
+        fit: BoxFit.fill,
+      ),
+    );
+    if (degrees == 0) return gem;
+    return Transform.rotate(angle: degrees * math.pi / 180, child: gem);
   }
 }
 

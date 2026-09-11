@@ -203,7 +203,10 @@ abstract class _GenesisApiContext {
   }
 
   void _throwIfPageNotFound(ApiResponse response) {
-    if (_isRecoverablePageNotFound(response.uri)) return;
+    if (!response.handlePageNotFound ||
+        _isRecoverablePageNotFound(response.uri)) {
+      return;
+    }
 
     final data = response.data;
     final int? errNo;

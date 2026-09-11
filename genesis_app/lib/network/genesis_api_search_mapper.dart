@@ -69,6 +69,10 @@ MyWorldSummary _worldSummaryFromSearchItem(Map<String, dynamic> raw) {
       fallback: raw['cover_url'] ?? raw['cover'],
     ),
     updatedAtText: asString(raw['updated_at']),
+    ownerUid: asString(
+      raw['owner_uid'],
+      fallback: asString(raw['created_uid']),
+    ),
     ownerName: asString(
       raw['owner_name'],
       fallback: asString(raw['created_user_name']),

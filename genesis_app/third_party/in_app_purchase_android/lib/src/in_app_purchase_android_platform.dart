@@ -3,10 +3,10 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
 
 import '../billing_client_wrappers.dart';
@@ -176,20 +176,46 @@ class InAppPurchaseAndroidPlatform extends InAppPurchasePlatform {
           (purchaseParam.productDetails as GooglePlayProductDetails).offerToken;
     }
 
-    final BillingResultWrapper billingResultWrapper = await billingClientManager
-        .runWithClient(
-          (BillingClient client) => client.launchBillingFlow(
-            product: purchaseParam.productDetails.id,
-            offerToken: offerToken,
-            accountId: purchaseParam.applicationUserName,
-            oldProduct: changeSubscriptionParam?.oldPurchaseDetails.productID,
-            purchaseToken: changeSubscriptionParam
-                ?.oldPurchaseDetails
-                .verificationData
-                .serverVerificationData,
-            replacementMode: changeSubscriptionParam?.replacementMode,
-          ),
+    Future<BillingResultWrapper> launch(BillingClient client) =>
+        client.launchBillingFlow(
+          product: purchaseParam.productDetails.id,
+          offerToken: offerToken,
+          accountId: purchaseParam.applicationUserName,
+          oldProduct: changeSubscriptionParam?.oldPurchaseDetails.productID,
+          purchaseToken: changeSubscriptionParam
+              ?.oldPurchaseDetails
+              .verificationData
+              .serverVerificationData,
+          replacementMode: changeSubscriptionParam?.replacementMode,
         );
+    // VIP callers need the actual first launch result; never silently relaunch
+    // a checkout after a disconnected response. Other callers keep retries.
+    final BillingResultWrapper billingResultWrapper =
+        purchaseParam is GooglePlayPurchaseParam &&
+            purchaseParam.throwOnBillingFailure
+        ? await billingClientManager.runWithClientNonRetryable(launch)
+        : await billingClientManager.runWithClient(launch);
+    if (kDebugMode) {
+      final diagnostics = jsonEncode({
+        'responseCode': billingResultWrapper.responseCode.name,
+        'subResponseCode': billingResultWrapper.subResponseCode,
+        'debugMessage': billingResultWrapper.debugMessage,
+      });
+      debugPrint('[GooglePlayBilling][launch_result] $diagnostics');
+    }
+    if (purchaseParam is GooglePlayPurchaseParam &&
+        purchaseParam.throwOnBillingFailure &&
+        billingResultWrapper.responseCode != BillingResponse.ok) {
+      throw PlatformException(
+        code: billingResultWrapper.responseCode.name,
+        message: billingResultWrapper.debugMessage,
+        details: {
+          'responseCode': billingResultWrapper.responseCode.name,
+          'subResponseCode': billingResultWrapper.subResponseCode,
+          'debugMessage': billingResultWrapper.debugMessage,
+        },
+      );
+    }
     return billingResultWrapper.responseCode == BillingResponse.ok;
   }
 
@@ -324,13 +350,26 @@ class InAppPurchaseAndroidPlatform extends InAppPurchasePlatform {
   Future<List<PurchaseDetails>> _getPurchaseDetailsFromResult(
     PurchasesResultWrapper resultWrapper,
   ) async {
+    if (kDebugMode) {
+      final diagnostics = jsonEncode({
+        'responseCode': resultWrapper.responseCode.name,
+        'subResponseCode': resultWrapper.billingResult.subResponseCode,
+        'debugMessage': resultWrapper.billingResult.debugMessage,
+        'purchaseCount': resultWrapper.purchasesList.length,
+      });
+      debugPrint('[GooglePlayBilling][purchase_callback] $diagnostics');
+    }
     IAPError? error;
     if (resultWrapper.responseCode != BillingResponse.ok) {
       error = IAPError(
         source: kIAPSource,
         code: kPurchaseErrorCode,
         message: resultWrapper.responseCode.toString(),
-        details: resultWrapper.billingResult.debugMessage,
+        details: {
+          'responseCode': resultWrapper.responseCode.name,
+          'subResponseCode': resultWrapper.billingResult.subResponseCode,
+          'debugMessage': resultWrapper.billingResult.debugMessage,
+        },
       );
     }
     final List<Future<PurchaseDetails>> purchases = resultWrapper.purchasesList

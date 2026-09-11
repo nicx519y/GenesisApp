@@ -17,6 +17,7 @@ import '../../platform/billing/membership_guest_claim_record.dart';
 import '../../platform/billing/membership_guest_claim_proof.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 import 'membership_purchase_eligibility.dart';
+import 'membership_store_failure.dart';
 
 part 'membership_purchase_restore.dart';
 part 'membership_guest_claim.dart';
@@ -42,11 +43,13 @@ class MembershipCheckoutEvent {
     required this.state,
     this.reason,
     this.debugInfo,
+    this.storeFailure,
   });
   final String attemptId;
   final MembershipCheckoutState state;
   final String? reason;
   final String? debugInfo;
+  final MembershipStoreFailure? storeFailure;
 }
 
 /// Owns subscription attempts and receipts independently of the Gems queue/UI.
@@ -81,7 +84,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   reportPurchase;
   final Future<List<BillingPurchase>> Function() queryPurchases;
   final MembershipProvider provider;
-  final Future<List<MembershipProduct>> Function() loadProducts;
+  final Future<MembershipProductList> Function() loadProducts;
   final ValueNotifier<int> catalogRevision = ValueNotifier(0);
   final bool Function()? otherPurchaseBusy;
   final Future<void> Function()? refreshWallet;
@@ -311,7 +314,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         stage = 'read_session';
         final uid = await readLoginUid();
         if (!canContinue()) return;
-        final List<MembershipProduct> products;
+        final MembershipProductList products;
         stage = 'load_catalog';
         try {
           products = await loadProducts();
@@ -320,7 +323,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           throw const MembershipPurchaseBlocked('eligibility_unavailable');
         }
         if (!await canContinueForOwner(uid)) return;
-        final matches = products.where(
+        final matches = products.products.where(
           (p) => p.provider == provider && p.planCode == product.planCode,
         );
         if (matches.length != 1) {
@@ -332,21 +335,25 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             current.offerId != product.offerId) {
           throw const MembershipPurchaseBlocked('eligibility_unavailable');
         }
-        final reason = membershipPurchaseBlockReason(current);
+        final reason = membershipPurchaseBlockReason(
+          current,
+          products.vipStatus,
+        );
         if (reason != null) throw MembershipPurchaseBlocked(reason);
-        if (current.upgradeAccountUuid != null && uid == null) {
-          throw const MembershipPurchaseBlocked('eligibility_unavailable');
-        }
         product = current;
         stage = 'query_store_product';
         final nativeProduct = await platform.prepare(product);
         if (!await canContinueForOwner(uid)) return;
         stage = 'prepare_guest';
-        final guest = uid == null ? await prepareGuest() : null;
+        final guest = uid == null
+            ? product.accountUuid == null
+                  ? await prepareGuest()
+                  : MembershipGuestIdentity(accountUuid: product.accountUuid!)
+            : null;
         if (!canContinue()) return;
         stage = 'load_account_uuid';
         final uuid =
-            product.upgradeAccountUuid ??
+            product.accountUuid ??
             guest?.accountUuid ??
             await loadAccountUuid();
         if (!canContinue()) return;
@@ -378,7 +385,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           onStoreHandoff: onStoreHandoff,
         );
         if (!canContinue()) return;
-        if (!launched) throw StateError('membership_launch_rejected');
+        if (!launched) {
+          throw const BillingPlatformException('membership_launch_rejected');
+        }
       } catch (error) {
         // Expired operations and completed callbacks cannot overwrite a newer UI.
         if (!canContinue()) return;
@@ -390,9 +399,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         if (!canContinue()) return;
         _release(attemptId);
+        final storeFailure = membershipStoreFailure(provider, error);
         _setState(
-          MembershipCheckoutState.failed,
+          storeFailure?.canceled == true
+              ? MembershipCheckoutState.canceled
+              : MembershipCheckoutState.failed,
           attemptId: id,
+          storeFailure: storeFailure,
           reason: error is MembershipPurchaseBlocked ? error.reason : null,
           debugInfo: purchaseDebugInfo(
             'vip.$stage',
@@ -576,11 +589,21 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         await _save(record.copyWith(state: purchase.status.name));
       }
       _release(record.requestId);
+      final failure = purchase.status == BillingPurchaseStatus.error
+          ? membershipStoreError(
+              provider,
+              code: purchase.errorCode,
+              message: purchase.errorMessage,
+              details: purchase.errorDetails,
+            )
+          : null;
       _setState(
-        purchase.status == BillingPurchaseStatus.canceled
+        purchase.status == BillingPurchaseStatus.canceled ||
+                failure?.canceled == true
             ? MembershipCheckoutState.canceled
             : MembershipCheckoutState.failed,
         attemptId: record.requestId,
+        storeFailure: failure,
         debugInfo: purchaseDebugInfo(
           'vip.store_callback',
           status: purchase.status.name,
@@ -821,11 +844,18 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     String? attemptId,
     String? reason,
     String? debugInfo,
+    MembershipStoreFailure? storeFailure,
   }) {
     if (_disposed) return;
     state.value = value;
     if (attemptId != null) {
-      _emitCheckout(value, attemptId, reason: reason, debugInfo: debugInfo);
+      _emitCheckout(
+        value,
+        attemptId,
+        reason: reason,
+        debugInfo: debugInfo,
+        storeFailure: storeFailure,
+      );
     }
   }
 
@@ -834,6 +864,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     String attemptId, {
     String? reason,
     String? debugInfo,
+    MembershipStoreFailure? storeFailure,
   }) {
     if (_disposed) return;
     if (value != MembershipCheckoutState.preparing &&
@@ -847,6 +878,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         state: value,
         reason: reason,
         debugInfo: debugInfo,
+        storeFailure: storeFailure,
       ),
     );
   }

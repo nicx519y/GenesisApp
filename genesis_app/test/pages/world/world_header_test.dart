@@ -8,9 +8,7 @@ import 'package:genesis_flutter_android/pages/world/world_sections.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.dart';
 
 void main() {
-  testWidgets('world name stays in place while tick and time load', (
-    tester,
-  ) async {
+  testWidgets('world name stays in place while time loads', (tester) async {
     for (final scale in [1.0, 1.1]) {
       Widget header(String timeText) => MaterialApp(
         home: MediaQuery(
@@ -27,7 +25,7 @@ void main() {
       await tester.pumpWidget(header(''));
       final titleFinder = find.byKey(const ValueKey<String>('world-top-name'));
       final initialTitleRect = tester.getRect(titleFinder);
-      for (final timeText in ['Tick 7', 'Tick 7 · Day 45, 19:30']) {
+      for (final timeText in ['19:30', 'Day 45, 19:30']) {
         await tester.pumpWidget(header(timeText));
         expect(tester.getRect(titleFinder), initialTitleRect);
         expect(tester.takeException(), isNull);
@@ -35,18 +33,12 @@ void main() {
     }
   });
 
-  test('world map time label includes the current sub-tick number', () {
-    expect(
-      worldTimeLabel(tickIndex: 7, subTickNo: 3, worldTime: 'Day 45, 19:30'),
-      'Tick 7-3 · Day 45, 19:30',
-    );
+  test('world map time label shows only world time', () {
+    expect(worldTimeLabel(worldTime: 'Day 45, 19:30'), 'Day 45, 19:30');
   });
 
-  test('world map time label keeps sub-tick when tick number is zero', () {
-    expect(
-      worldTimeLabel(tickIndex: 0, subTickNo: 3, worldTime: 'Day 1, 20:25'),
-      'Tick 0-3 · Day 1, 20:25',
-    );
+  test('world map time label stays empty when time is unavailable', () {
+    expect(worldTimeLabel(worldTime: '  '), '');
   });
 
   test('world detail reads an explicit sub-tick for tick number zero', () {

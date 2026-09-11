@@ -23,7 +23,10 @@ void main() {
         cacheStore: store,
         loadProducts: (_) async {
           if (failed) throw StateError('offline');
-          return MembershipProductList(products: products);
+          return MembershipProductList(
+            vipStatus: MembershipVipStatus.none,
+            products: products,
+          );
         },
       );
       final catalog = create();
@@ -48,9 +51,14 @@ void main() {
     () async {
       SharedPreferences.setMockInitialValues({});
       final store = MembershipCatalogCache(namespace: 'catalog-session');
-      await store.save(MembershipProvider.google, 'user-b', [
-        membershipProduct(title: 'B cache'),
-      ]);
+      await store.save(
+        MembershipProvider.google,
+        'user-b',
+        MembershipProductList(
+          vipStatus: MembershipVipStatus.none,
+          products: [membershipProduct(title: 'B cache')],
+        ),
+      );
       var owner = 'user-a';
       final pending = Completer<MembershipProductList>();
       final catalog = MembershipCatalog(
@@ -69,7 +77,10 @@ void main() {
         'B cache',
       );
       pending.complete(
-        MembershipProductList(products: [membershipProduct(title: 'A late')]),
+        MembershipProductList(
+          vipStatus: MembershipVipStatus.none,
+          products: [membershipProduct(title: 'A late')],
+        ),
       );
       await old;
       expect(catalog.cached!.offers.single.product.title, 'B cache');
@@ -99,11 +110,17 @@ void main() {
       final latest = catalog.load();
       await pumpEventQueue();
       responses.last.complete(
-        MembershipProductList(products: [membershipProduct(title: 'New')]),
+        MembershipProductList(
+          vipStatus: MembershipVipStatus.none,
+          products: [membershipProduct(title: 'New')],
+        ),
       );
       await latest;
       responses.first.complete(
-        MembershipProductList(products: [membershipProduct(title: 'Old')]),
+        MembershipProductList(
+          vipStatus: MembershipVipStatus.none,
+          products: [membershipProduct(title: 'Old')],
+        ),
       );
       await old;
       expect(catalog.cached!.offers.single.product.title, 'New');
@@ -131,7 +148,10 @@ void main() {
           loadProducts: (requested) async {
             requests++;
             expect(requested, provider);
-            return MembershipProductList(products: [monthly, yearly]);
+            return MembershipProductList(
+              vipStatus: MembershipVipStatus.none,
+              products: [monthly, yearly],
+            );
           },
         );
         final result = await catalog.load();
@@ -157,6 +177,7 @@ void main() {
     final result = await MembershipCatalog(
       provider: MembershipProvider.google,
       loadProducts: (_) async => MembershipProductList(
+        vipStatus: MembershipVipStatus.none,
         products: [membershipProduct(title: 'Unpriced', hasPrice: false)],
       ),
     ).load();
@@ -171,7 +192,10 @@ void main() {
   test('empty server catalog remains empty', () async {
     final result = await MembershipCatalog(
       provider: MembershipProvider.google,
-      loadProducts: (_) async => const MembershipProductList(products: []),
+      loadProducts: (_) async => const MembershipProductList(
+        vipStatus: MembershipVipStatus.none,
+        products: [],
+      ),
     ).load();
     expect(result.offers, isEmpty);
   });
@@ -183,7 +207,10 @@ void main() {
     ]) {
       final catalog = MembershipCatalog(
         provider: MembershipProvider.google,
-        loadProducts: (_) async => MembershipProductList(products: products),
+        loadProducts: (_) async => MembershipProductList(
+          vipStatus: MembershipVipStatus.none,
+          products: products,
+        ),
       );
       await expectLater(catalog.load(), throwsFormatException);
     }

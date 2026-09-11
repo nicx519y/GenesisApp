@@ -3,10 +3,12 @@ part of 'user_profile_library.dart';
 class _WorldProfileCollectionList extends StatefulWidget {
   const _WorldProfileCollectionList({
     required this.items,
+    required this.profileUid,
     required this.emptyText,
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    this.onLoadMore,
     required this.sliverMode,
     required this.injectNestedOverlap,
     this.alwaysScrollable = false,
@@ -15,11 +17,13 @@ class _WorldProfileCollectionList extends StatefulWidget {
   });
 
   final List<UserProfileWorldItem> items;
+  final String profileUid;
   final String emptyText;
   final bool isLoading;
   final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final Future<void> Function()? onLoadMore;
   final bool sliverMode;
   final bool injectNestedOverlap;
   final bool alwaysScrollable;
@@ -60,7 +64,12 @@ class _WorldProfileCollectionListState
     >(
       valueListenable: listenable,
       builder: (context, state, _) {
-        return _buildWorldList(context, state.items, state.isLoading);
+        return _buildWorldList(
+          context,
+          state.items,
+          state.isLoading,
+          state: state,
+        );
       },
     );
   }
@@ -68,19 +77,31 @@ class _WorldProfileCollectionListState
   Widget _buildWorldList(
     BuildContext context,
     List<UserProfileWorldItem> items,
-    bool isLoading,
-  ) {
+    bool isLoading, {
+    UserProfileCollectionState<UserProfileWorldItem>? state,
+  }) {
     final visibleItems = items
         .where((item) => !_locallyDeletedWorldIds.contains(item.wid.trim()))
         .toList(growable: false);
     return ProfileCollectionList(
+      key: const PageStorageKey('profile-world-list'),
+      onLoadMore: widget.onLoadMore,
+      hasMore: state?.hasMore ?? false,
+      isLoadingMore: state?.isLoadingMore ?? false,
+      loadMoreFailed: state?.loadMoreFailed ?? false,
       items: visibleItems
-          .map(
-            (item) => GenesisProfileCollectionItemData(
+          .map((item) {
+            final profileUid = widget.profileUid.trim();
+            final hideOwner =
+                profileUid.isNotEmpty && item.ownerUid.trim() == profileUid;
+            return GenesisProfileCollectionItemData(
               animationKey: item.wid,
               imageUrl: item.imageUrl,
               title: item.title,
-              subtitle: item.subtitle,
+              subtitle: hideOwner
+                  ? item.subtitle.split('\n').first
+                  : item.subtitle,
+              ownerUid: item.deleted || hideOwner ? '' : item.ownerUid,
               statsText: formatWorldStatsLabel(
                 tickNo: item.progressCount,
                 subTickNo: item.subTickNo,
@@ -98,8 +119,8 @@ class _WorldProfileCollectionListState
                   ? null
                   : () => unawaited(_openWorld(item)),
               onCollapsed: () => _handleWorldCollapseCompleted(item),
-            ),
-          )
+            );
+          })
           .toList(growable: false),
       emptyText: widget.emptyText,
       isLoading: isLoading,
@@ -199,6 +220,7 @@ class UserProfileWorldItem {
     required this.characterCount,
     required this.playerCount,
     required this.ownerName,
+    this.ownerUid = '',
   });
 
   final String wid;
@@ -214,4 +236,5 @@ class UserProfileWorldItem {
   final int characterCount;
   final int playerCount;
   final String ownerName;
+  final String ownerUid;
 }

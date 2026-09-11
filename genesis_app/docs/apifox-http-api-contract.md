@@ -621,6 +621,8 @@ Query：
 - `definition_version*`: integer，地图定义版本；`1` 为旧版地图，`2` 为新版 2.5D 地图
 - `default_map_location_id*`: string，默认展示地图的 location id；`root` 表示根地图
 
+Me 页 Playing 使用 `getMyWorldsPage` 保留响应 `total`；Worldo 使用 `getMyLaunchedOrigins` 的 `total`。两个 Tab 的 count 均显示接口总数，不使用已加载列表长度。列表独立按 `scene=mine`、`rn=30`、`pn=1,2,...` 分页；下一页追加并按实体 ID 去重，达到总数或返回空页后停止。切换 Tab 保留已加载分页，下拉刷新重新请求第一页；分页失败保留内容并支持重试。原 `getMyWorlds` 列表返回形式继续供其他调用方使用。
+
 其中 `info.last_active_at` 为 world 最近一次活跃时间（Unix 秒）；My Worlds 卡片时间以该字段为准，不读取 `last_tick.created_at`。
 
 ### GET `/api/v1/world/summary/latest`
@@ -2398,7 +2400,7 @@ query：
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
 | `GET /api/v1/origin/my_launch_preset_characters` | `OriginV1Api.myLaunchPresetCharacters(originId,limit)` 与 `GenesisApi.getMyLaunchPresetCharacters(originId,limit)` 的 query 使用 `origin_id/limit`；Opening Sheet 固定请求 `limit=5`，服务端先按 `last_active_at DESC` 排序再限制数量，客户端按响应顺序展示；响应映射为 `OriginMyLaunchPresetCharacter` 列表并保留 `ImageResource`。 |
 | `GET /api/v1/origin/info` | 已新增 `OriginV1Api.info(originId)` 与 `GenesisApi.getOriginInfo(oid)`，query 使用 `origin_id`；响应消费 `info + stats`，不期待 `characters/locations/ticks`。 |
-| `GET /api/v1/app/config` | `AppV1Api.config` 在启动早期读取本地登录 UID 后请求，有真实非 guest UID 时传可选 query `uid`，未登录、读取失败或超时时不传；`show_opening_sheet` 决定 Origin Detail Opening Sheet 的首帧展开状态，失败或超时按 `false` 兜底。 |
+| `GET /api/v1/app/config` | iOS 启动先用独立的 URLSession HEAD 探测等待联网，网络权限弹窗停留期间不计入超时；连通且 App 恢复前台后，再创建启动服务并请求 config。拒绝或持续断网时，恢复前台后最多等待 8 秒，再沿用原失败流程。`AppV1Api.config` 在读取本地登录 UID 后请求，有真实非 guest UID 时传可选 query `uid`，未登录、读取失败或超时时不传；config 原有 3 秒启动等待从网络准备结束后开始。`show_opening_sheet` 决定 Origin Detail Opening Sheet 的首帧展开状态，失败或超时按 `false` 兜底。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 使用必填 `origin_id`；详情 mapper 保留新版 `OriginDetailInfo`、完整 stats、nullable 顶层 `init_location_group`、`characters[].is_recommend`、location 层级/时间/总结/2.5D `x/y`、ImageResource sidecar，以及 tick 的 `sub_tick_no/current_time/visibility/visible_to/clue/character_deltas`。本接口不再承载 Opening Sheet 展示配置，不依赖 `location_description`，也不为新版 tick 人工补 `location_groups`；旧响应实际携带这些字段时仍可兼容读取。详情 Opening、location chat 预览和 launch 初始地点优先使用顶层 group；`nar_pic/image` 作为图片消息展示。 |
 | `GET /api/v1/origin/map` | 已新增 `OriginV1Api.map(originId,locationId)` 与 `GenesisApi.getOriginMap(...)`，query 使用 `origin_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/shadow/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
 | `GET /api/v2/origin/foredit` | `OriginV2Api.forEdit(originId)` 使用 `origin_id` query，并按嵌套 `OriginDetail` 消费；`characters[].is_recommend` 以 `0/1` integer 回填角色推荐状态。`EditOriginPage` 直接从该响应回填 Basics、Characters、Locations、Opening 和兼容 tick Opening，不再追加请求 `/api/v1/origin/detail`。新契约未返回的旧平级 `setting/events` 仅在响应实际包含或用户明确修改时随 V2 update 提交；`Character` 未返回旧 `bio/description` 时，未编辑的空 Biography 也不随 update 回写，避免普通编辑把服务端已有值清空。 |
@@ -2514,28 +2516,29 @@ World：
 - 设置目标为当前登录 UID 时，成功后调用既有 `refreshAfterMembershipChanged()` 重新获取 `/api/v1/gem/wallet`；设置其他 UID 不覆盖当前账号会员。刷新失败单独展示，不将已经成功的设置自动重发。
 - 接口创建或更新独立 manual 会员，不修改商店订阅、不自动续费；按服务端规则发放 Blue Gems。客户端不计算发放额度、不改动原 Gems 购买或余额处理。mock 明确返回不可用，不伪造设置成功。
 
-## Pro 会员商品列表（2026-09-10 核对）
+## Pro 会员商品列表（2026-09-11 客户端契约）
 
-来源：[Apifox 会员商品列表](https://app.apifox.com/link/project/8297783/apis/api-512137864)，使用最新 OpenAPI 的 `/api/v1/membership/products`、`MembershipProductListResp`、`MembershipProductInfo` 核对。
+来源：[Apifox 会员商品列表](https://app.apifox.com/link/project/8297783/apis/api-512137864)。2026-09-11 刷新的在线文档尚未更新会员状态字段；本节按用户明确的新契约实现，`vip_status` 与 `list` 同级，在线文档未在本次修改。
 
 - `GET /api/v1/membership/products?provider=google|apple`，最新契约已公开，无需登录；复用现有 Gateway 签名链路，不发送文档中的调试身份头。
-- 响应为 `{err_no, err_msg, data: {list: [...]}}`；成功但无配置时 `list=[]`。业务错误 `4004` 参数错误、`5000` 服务不可用，继续使用统一错误处理。
-- 每项提供 `title`、`benefits`、`plan_code`（`pro_monthly`/`pro_yearly`）、`provider`、`store_product_id`、`billing_months`（1/12）、`monthly_gems_cent`、`price_currency_code`、`price_amount` 及 `can_purchase`、`purchase_block_reason`。Google 还必含 `base_plan_id`，可选 `offer_id`；Apple 不返回 base plan。商品接口模型只保留当前文档字段，不兼容旧版接口。`list`、商品内的非空 `title`、`benefits`、价格字段及购买资格字段按当前必填约束解析；缺失时不填默认值，价格未配置仍按文档接受空币种和显式 null 金额。本地补报请求及游客认领凭据使用独立商品标识模型，不要求价格、权益或购买资格字段。
-- 新增可选 `account_uuid` 和 `purchase_token`：仅真实登录且允许月付升年付的年付商品返回。`account_uuid` 是原月付订阅的购买身份；游客购买后认领的订阅仍返回原游客 UUID，不能换成当前登录账号 UUID。Google 同时返回原月付 `purchase_token`，Apple 仅返回 UUID；普通新购、匿名或禁止购买时均省略。客户端校验字段配对及格式，异常不使用部分数据继续付款；仍只根据 `can_purchase/purchase_block_reason` 判断资格。
+- 响应为 `{err_no, err_msg, data: {vip_status: "none"|""|"monthly"|"yearly", list: [...]}}`；成功但无配置时 `list=[]`。业务错误 `4004` 参数错误、`5000` 服务不可用，继续使用统一错误处理。
+- 每项提供 `title`、`benefits`、`plan_code`（`pro_monthly`/`pro_yearly`）、`provider`、`store_product_id`、`billing_months`（1/12）、`monthly_gems_cent`、`price_currency_code`、`price_amount`。Google 还必含 `base_plan_id`，可选 `offer_id`；Apple 不返回 base plan。商品接口模型只保留当前文档字段，不兼容旧版接口。`list`、商品内的非空 `title`、`benefits`、价格字段和顶层 `vip_status` 按必填约束解析；缺失时不填默认值，价格未配置仍按文档接受空币种和显式 null 金额。本地补报请求及游客认领凭据使用独立商品标识模型，不要求价格、权益或购买资格字段。
+- 可选 `account_uuid` 是该商品优先使用的购买身份。按用户最新要求，Android / iOS、登录 / 游客、月付 / 年付统一处理：商品列表返回有效 UUID 时直接使用，不限定为登录升级，也不要求同时存在 `purchase_token`。Google 月付升年付的 `purchase_token` 仍须配合有效 UUID，且只能用于允许购买的年付商品；Apple 不接收该 token。游客购买后认领的订阅升级时仍使用原购买 UUID，不能换成当前登录账号 UUID。客户端校验 UUID 和升级凭据格式，购买拦截只依据顶层 `vip_status`；商品身份 UUID 不代表当前会员状态。
 - 新增凭据仅用于本次点击后重新拉取的购买准备；不将它们序列化进商品快照。商品请求使用 `Cache-Control: no-store`，排除 API 原始 tracing、App 网络捕获和原生 body 采集；Debug 包的 Flutter DevTools 显示原始请求、响应和 header，便于核对 UUID/token；非 Debug 继续显示脱敏副本，保留商品展示字段，将 UUID、token 等私密字段替换为 `[REDACTED]`。
 - `monthly_gems_cent` 是每个会员月的额度，100 cent = 1 Gem；年付也是逐月发放。月付和年付允许配置不同额度，权益文案由商品内的 `benefits` 返回。
 - 商品与展示价格均由 `GenesisApi.v1.membership.products` 读取。`price_amount` 是完整计费周期价格，单位为币种主单位的百分之一，配合 `price_currency_code` 展示；空币种与 null 金额表示未配置。页面加载不再通过商店查询商品或补价格。点击购买时仍由 SDK 获取结算商品及 offer token，并精确匹配商品 ID、base plan 和可选 offer。
 - 年付卡片使用接口全年价格除以 `billing_months` 后的月均价格；底部按钮使用接口完整周期价格。币种和月额度相同且年付更便宜时，以月付价格乘 12 与年付全年价格比较计算 Save 百分比，不写死金额或折扣。实际支付金额仍由商店确认。
 - 共享 `ProSubscriptionContent` 同时覆盖钱包页和购买弹层，保留原有布局、样式及两个套餐卡片，绑定接口价格、折扣与权益数据。每次进入先显示缓存，同时重新请求接口，成功后更新页面及缓存；请求失败保留已显示的缓存，成功返回空列表则清空旧商品。缓存包括标题、权益、价格、套餐和按钮展示状态，使用内存及本地持久化，重启后也可读取，按账号（含游客）、平台及 API 环境隔离；不保存商品响应中的 `account_uuid/purchase_token`。账号切换先清除内存展示，再读取目标账号缓存并刷新，迟到的旧请求不能覆盖新账号状态。HTTP 请求仍走 `no-store`，本地缓存只用于页面展示，实际付款前仍重新获取购买资格及凭据。
 - 无缓存时，首次加载与 Buy Gems 一致，在内容区居中显示 24×24、线宽 2.5、`kGemAccentColor` 的转圈；请求完成后显示原有内容。不新增错误、登录、空列表、停售或首购优惠的 UI。缺少数据时金额和折扣文字留空，不回退到预览价格；缺少商品或价格时，点击原按钮可重新查询。
-- 页面点击会检查 `can_purchase/purchase_block_reason`，不允许购买时沿用居中 Toast 说明原因；不改变按钮、卡片的颜色、尺寸或可点击样式。实际调起商店前再次请求最新商品资格，匹配原选中的套餐及平台商品标识，失败或配置改变时不使用旧数据继续付款。有效年付不能再次购买年付或降为月付，有效月付不能重复购买月付；过期后是否可购买重新依据服务端，不用历史已完成记录永久阻止购买。
+- 原商品内 `can_purchase`、`purchase_block_reason` 已移除，不解析、不缓存、不参与判断。顶层 `vip_status=monthly` 时仅月套餐显示 `Subscribed` 并拦截；`yearly` 时两种套餐均显示 `Subscribed` 并拦截；`none` 或空字符串允许两种套餐，沿用原金额按钮。拦截统一提示 `You already have this VIP plan.`，不查询或调起支付平台。缓存状态和网络刷新状态使用同一判断；实际购买前重新请求商品列表，校验最新状态和商品标识。缺失、null、未知状态或请求失败不使用旧数据继续付款。不会用旧订单记录永久阻止购买。
+- 展示缓存升级为 v2，保存顶层 `vip_status`，v1 缓存失效。客户端允许购买后，Google/Apple 具体查询、发起及回调错误按 [VIP 平台错误文案](vip-purchase-error-messages.md) 显示；取消、待支付和服务端确认中保持各自流程，不把启动支付成功视为到账。
 - 登录资格按服务端会话判断；游客商品查询使用与 guest prepare 一致的设备 ID，通过 `X-Device-ID` 请求头传递并复用 Gateway 签名，不把 uid/device_id 放入 URL。页面缓存的按钮状态不能代替付款前的实时资格校验；最新资格允许时，按选中商品进入现有商店购买及上报流程。订阅切换的扣款与生效以商店和服务端核验结果为准。
 - report 和游客 claim 取得有效状态后通知页面静默刷新资格。后台补报不触发商店历史恢复，也不以本地 pending/accepted 或旧恢复记录阻止新购买；购买前仍检查最新服务端资格，当前正在发起的支付保留防重复点击。
 - 钱包页和购买弹层初始仅加载当前 TAB，另一个 TAB 首次切换到时加载，后续切换复用已加载内容。
 - 商品配置和价格展示已连接底部购买按钮，两个入口共享同一购买服务。展示权益不作为当前账号的功能权限判断。
-- 每个 `data.list[]` 商品自带 `title` 和 `benefits`，顶层不再返回或解析 `benefits`。页面顶部标题和权益区绑定当前选中商品，切换年/月套餐时一起更新，保持原有字号、颜色和布局；周期卡片与按钮的 Yearly/Monthly 周期标签保持原样。仅返回一个套餐时选中该套餐。`title` 直接使用服务端文案，不在客户端补 Pro 或套餐默认标题；缺失或空白视为无效响应。权益由服务端读取月付、年付共用配置，客户端按所选商品数组顺序显示，`code` 仅要求在该数组内唯一；`display_type=enhanced/locked/included` 分别复用原有箭头、灰色锁定和勾选样式。无缓存的加载、失败或成功空列表不补标题与权益；有缓存时刷新失败保留已有展示。商品未配置价格时仍展示其标题与权益。
+- 每个 `data.list[]` 商品自带 `title` 和 `benefits`，顶层不再返回或解析 `benefits`。页面顶部沿用固定 `Premium` 标题；权益区绑定当前选中商品，切换年/月套餐时更新，保持原有字号、颜色和布局；周期卡片与按钮的 Yearly/Monthly 周期标签保持原样。仅返回一个套餐时选中该套餐。`title` 作为商品元数据按服务端文案解析和缓存，不改变固定页面标题，也不补 Pro 或套餐默认标题；缺失或空白视为无效响应。权益由服务端读取月付、年付共用配置，客户端按所选商品数组顺序显示，`code` 仅要求在该数组内唯一；`display_type=enhanced/locked/included` 分别复用原有箭头、灰色锁定和勾选样式。无缓存的加载、失败或成功空列表不补标题与权益；有缓存时刷新失败保留已有展示。商品未配置价格时仍展示其标题与权益。
 - `icon_key` 映射本地图标，客户端支持 `blue_gem`、`character_slots`、`inspiration`、`edit_reply`、`memory`、`save_conversation`、`chat_background`、`no_watermark`、`custom_character`、`community_world`；未知标识按契约使用通用权益图标，保留标题和状态。
-- 本地 mock 返回契约允许的 `data: {list: []}`，不再包含顶层 `benefits`，不伪造商品、价格、标题或权益。
+- 本地 mock 返回契约允许的 `data: {vip_status: "none", list: []}`，不再包含顶层 `benefits`，不伪造商品、价格、标题或权益。
 
 ## Pro 会员购买与上报（2026-09-10 核对）
 
@@ -2548,7 +2551,7 @@ World：
 - 游客身份及绑定队列以规范化的 `account_uuid` 关联；启动读取旧安全缓存时，序列化迁移删除旧 guest_id/claim_token，保留原 request_id、交易凭据、订单状态和已选择的 ownerUid。迁移写入失败不清空订单，下次继续尝试。
 - Apple 签名 JWS 只存在于商店回调及内存中，不写本地订单、普通日志或调试抓包。进程重启后，按原 transaction_id、商品 ID 和 account_uuid 从 StoreKit 交易历史读取对应 JWS，不用另一笔续订交易替代。缺少有效购买凭据时保留缓存并继续恢复，不发起 UUID-only claim。
 
-- 登录普通新购沿用 `/user/info` 的账号 UUID；升级优先采用商品列表返回的原购买 UUID。Google 传 `obfuscatedExternalAccountId`，Apple 传 `appAccountToken`。游客购买先请求 `POST /api/v1/membership/guest/prepare`，参数为 `provider`、`device_id`；响应只有 `account_uuid`；将 UUID 与订单信息安全持久化后再调起支付，不再读取 `guest_id/claim_token`。
+- 点击购买时重新获取商品列表，优先使用所选商品的 `account_uuid`；缺少该字段时，游客请求 `POST /api/v1/membership/guest/prepare` 获取临时身份，登录用户读取 `/user/info` 的 `uuid`。prepare 参数仍为 `provider/device_id`，响应只有 `account_uuid`；商品已有 UUID 时不再 prepare 或读取用户 UUID。Google 传 `obfuscatedExternalAccountId`，Apple 传 `appAccountToken`。游客支付、report 和后续 claim 复用本次选定的同一个 UUID，不再读取 `guest_id/claim_token`。
 - `MembershipPurchaseService` 保存所选套餐的 `provider/plan_code/store_product_id/base_plan_id/offer_id` 和本次 `request_id`，订单快照不保存展示价格、权益或购买资格；`StoreMembershipCheckoutPlatform` 精确匹配 SDK 商品，使用 `buyNonConsumable` 调起订阅购买。Google 必须命中配置的 base plan / offer，不擅自替换方案，也不 consume 订阅。
 - 点击 VIP 购买按钮立即复用 Gems 购买弹窗，保持原有尺寸、样式、动画和不可点击遮罩/返回关闭的交互，等待文案为 `Purchasing VIP...`；商店准备、付款和服务端确认期间持续显示。`completed` 后改为 `VIP purchase successful!`、`Your VIP purchase is confirmed.`，点击 OK 关闭；钱包页留在原页，购买弹层同时关闭。取消、失败、待付款、已接管待确认或延迟确认时关闭等待弹窗并显示对应 VIP 提示，保留购买页面。
 - VIP 弹窗按本次 `request_id` 订阅状态，后台恢复或其他订单不能改变当前弹窗。Android、iOS 的两段超时与 Gems 对齐：点击进入购买立即开始 90 秒准备计时，覆盖本地加载、身份/资格检查、商店商品查询、游客 prepare、UUID 获取和发起支付；阶段切换不重置。Google 成功调起后停表，Apple 在原生准备完成、正式调用 `Product.purchase` 前通知 Dart 校验请求并停表，用户在系统支付页停留不计时。收到本次 SDK 购买结果后进入对应处理，后续 report 使用 HTTP 请求自身的超时和原退避重试，正常上报期间继续显示原等待弹窗。准备超时后结束等待，尚未发起的支付不得被迟到结果继续拉起，旧查询/发起结果不得覆盖后续购买或已收到的购买回调；已发起订单保留凭据和原请求键，迟到的真实回调继续上报、恢复及游客绑定。商店回调流异常、账号切换和页面销毁仍释放弹窗，包括正在 report 的弹窗。Gems 弹窗默认文案及原有 GEMS 上报、发货和恢复处理不变。
@@ -2582,7 +2585,7 @@ World：
 
 来源：[Apifox 游客购买身份](https://app.apifox.com/link/project/8297783/apis/api-512243338)、[登录后认领游客购买](https://app.apifox.com/link/project/8297783/apis/api-512243340)，同时核对最新 OpenAPI 的游客购买上报及响应模型。
 
-- 首页皇冠直接进入 Subscription，未登录也能浏览商品和购买。点击购买时查询商店商品，调用公开的 `POST /api/v1/membership/guest/prepare`，请求仅包含 `provider/device_id`；先安全保存返回的 `account_uuid` 和所选商品，再把游客 UUID 传给平台支付。prepare 不创建真实用户、钱包或可用会员权益，也不把游客身份写进登录会话。
+- 首页皇冠直接进入 Subscription，未登录也能浏览商品和购买。点击购买时刷新商品列表并查询商店商品；商品有 `account_uuid` 就直接作为游客购买身份，没有时才调用公开的 `POST /api/v1/membership/guest/prepare`，请求仅包含 `provider/device_id`。选定的 UUID 随本次购买记录关联，传给平台支付并用于后续上报及绑定。prepare 不创建真实用户、钱包或可用会员权益，也不把游客身份写进登录会话。
 - 所有 VIP 入口（首页皇冠、会员卡、签到订阅操作、聊天订阅提示）直接打开购买页或购买弹层，不预先要求登录。完整购买页和订阅购买弹层先读取本地登录状态：游客仅显示 Subscription，不构建 Buy Gems 内容，也不加载 Gems 商品、余额和任务；已登录保留双 Tab 和原有 Gems 行为。登录、退出或切换账号后重新确定可见 Tab。
 - 游客付款仍走 `POST /api/v1/membership/guest/purchase/report`。`completed` 表示购买验证与暂存完成，先显示现有带皇冠的 VIP 购买成功弹窗；点击 OK 后才弹出登录弹窗。该登录弹窗隐藏关闭按钮，遮罩点击、下滑、系统返回均不能退出；取消平台授权或登录失败后保留弹窗，只有登录成功才能继续。普通登录弹窗保持原来的可关闭行为。
 - 当次购买继续按成功弹窗 → OK → 强制登录处理；重启进入首页按上节执行订单检查及选择，不重放购买成功弹窗，只有选中的有效未绑定订单触发登录。购买取消、失败或仍待付款不会触发购买成功后的登录流程。
@@ -2604,3 +2607,12 @@ World：
 - `membership_status=1` 显示一张有效 Pro 卡片；`0`（未购买）及 `2`（失效）显示一张 Subscribe 卡片，替换两张固定预览。余额为零、关闭自动续费不改变有效状态；套餐类型和未来到期日不能覆盖服务端状态判断。
 - 有效卡片的日期读取 `membership.expires_at`（Unix 秒，转换为本地日期）；蓝宝石余额读取 `blue_gems_cent`，沿用现有金额格式。用户名旁 Pro 标识仅在会员有效时显示。
 - 会员数据跟随当前账号的钱包请求刷新，切换账号清空旧会员状态；无会员字段的旧响应仍兼容，会员字段解析异常不会阻断原钱包余额读取。当前卡片既有颜色、字号、间距保留。
+
+## 用户名旁会员徽章（2026-09-11 核对）
+
+- 已在 Apifox 当前 `account → 查询用户信息` 文档核对：`GET /api/v1/user/info?uid=<目标 UID>` 支持匿名查询指定 UID，以及登录用户查询他人。返回 `data.user.membership_status` 为整数：0 从未开通、1 当前有效、2 历史开通过但当前失效。服务端按目标用户当前订阅校正，取消自动续费但仍在已付有效期内仍为 1。
+- 客户端公共 `UserMembershipStatusStore` 使用已有 `UserV1Api.info(uid: ...)` 查询公开字段。响应 UID 必须等于目标 UID，仅整数 1 展示徽章；缺失、非法状态、已删除用户、请求失败均隐藏，不能使用当前登录用户的钱包推断他人。
+- 同一 UID 合并并发请求，最多同时 4 个请求；状态缓存 30 秒，仍挂载的徽章定期及返回前台时按缓存期限重新确认。退出／换号清空缓存，忽略旧会话迟到响应。非订阅的缓存项超过 256 时清理；页面没有徽章订阅时停止刷新定时器。
+- Me 保留本人 wallet 的现有真实状态链路；`gem/wallet` 文档明确是登录用户读取本人余额及会员摘要，不用该接口查询他人。
+- `MyWorldSummary` 透传已存在的 `owner_uid`（兼容 `created_uid`），供 Me / Profile World 卡片的 Owner 徽章查询使用。缺少 UID 时不按用户名匹配其他账号。
+- 本次仅查询公开用户资料，不接入内部用户接口，不改变购买、余额或权限校验。

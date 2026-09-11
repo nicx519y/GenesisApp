@@ -20,6 +20,7 @@ class SecendTabs extends StatelessWidget {
     this.indicatorColor,
     this.indicatorWidth,
     this.indicatorHeight,
+    this.indicatorHorizontalOffset = 0,
     this.expanded = false,
     this.tabAlignment,
     this.physics,
@@ -40,6 +41,7 @@ class SecendTabs extends StatelessWidget {
   final Color? indicatorColor;
   final double? indicatorWidth;
   final double? indicatorHeight;
+  final double indicatorHorizontalOffset;
   final bool expanded;
   final TabAlignment? tabAlignment;
   final ScrollPhysics? physics;
@@ -64,6 +66,7 @@ class SecendTabs extends StatelessWidget {
         indicatorColor: indicatorColor,
         indicatorWidth: indicatorWidth,
         indicatorHeight: indicatorHeight,
+        indicatorHorizontalOffset: indicatorHorizontalOffset,
         expanded: expanded,
         tabAlignment: tabAlignment,
         physics: physics,

@@ -6,14 +6,14 @@ class MembershipPurchaseBlocked implements Exception {
   final String reason;
 }
 
-String? membershipPurchaseBlockReason(MembershipProduct product) {
-  if (!product.canPurchase || product.purchaseBlockReason.isNotEmpty) {
-    return product.purchaseBlockReason.isEmpty
-        ? 'eligibility_unavailable'
-        : product.purchaseBlockReason;
-  }
-  return null;
-}
+String? membershipPurchaseBlockReason(
+  MembershipProduct product,
+  MembershipVipStatus vipStatus,
+) => switch (vipStatus) {
+  MembershipVipStatus.yearly => 'already_subscribed',
+  MembershipVipStatus.monthly when !product.isYearly => 'already_subscribed',
+  _ => null,
+};
 
 String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
   final message = switch (reason) {

@@ -13,6 +13,10 @@ class ProfileCollectionList extends StatefulWidget {
     this.isLoading = false,
     this.loadingKey,
     this.onRefresh,
+    this.onLoadMore,
+    this.hasMore = false,
+    this.isLoadingMore = false,
+    this.loadMoreFailed = false,
     this.refreshKey,
     this.sliverMode = false,
     this.injectNestedOverlap = false,
@@ -28,6 +32,10 @@ class ProfileCollectionList extends StatefulWidget {
   final bool isLoading;
   final Key? loadingKey;
   final Future<void> Function()? onRefresh;
+  final Future<void> Function()? onLoadMore;
+  final bool hasMore;
+  final bool isLoadingMore;
+  final bool loadMoreFailed;
   final Key? refreshKey;
   final bool sliverMode;
   final bool injectNestedOverlap;
@@ -41,6 +49,45 @@ class ProfileCollectionList extends StatefulWidget {
 
 class _ProfileCollectionListState extends State<ProfileCollectionList> {
   final Map<Object, double> _collapseBottomCompensation = <Object, double>{};
+  bool _loadMoreScheduled = false;
+  bool _loadMoreInFlight = false;
+
+  bool get _canLoadMore =>
+      widget.onLoadMore != null &&
+      widget.hasMore &&
+      !widget.isLoading &&
+      !widget.isLoadingMore &&
+      !_loadMoreInFlight;
+
+  int get _childCount =>
+      widget.items.length +
+      (widget.onLoadMore != null && widget.hasMore ? 1 : 0);
+
+  void _checkLoadMore(ScrollMetrics metrics) {
+    if (metrics.axis != Axis.vertical ||
+        metrics.extentAfter > 240 ||
+        !_canLoadMore ||
+        widget.loadMoreFailed ||
+        _loadMoreScheduled) {
+      return;
+    }
+    _loadMoreScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadMoreScheduled = false;
+      if (!mounted || !_canLoadMore || widget.loadMoreFailed) return;
+      unawaited(_loadMore());
+    });
+  }
+
+  Future<void> _loadMore() async {
+    if (!_canLoadMore) return;
+    _loadMoreInFlight = true;
+    try {
+      await widget.onLoadMore!();
+    } finally {
+      _loadMoreInFlight = false;
+    }
+  }
 
   @override
   void didUpdateWidget(covariant ProfileCollectionList oldWidget) {
@@ -98,7 +145,7 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
         sliver: SliverList(
           delegate: SliverChildBuilderDelegate(
             _buildItem,
-            childCount: widget.items.length,
+            childCount: _childCount,
           ),
         ),
       );
@@ -122,23 +169,55 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate(
                     _buildItem,
-                    childCount: widget.items.length,
+                    childCount: _childCount,
                   ),
                 ),
               ),
             ],
           )
         : ListView.builder(
-            itemCount: widget.items.length,
+            itemCount: _childCount,
             physics: physics,
             clipBehavior: Clip.hardEdge,
             padding: listPadding,
             itemBuilder: _buildItem,
           );
-    return _wrapRefreshIndicator(list);
+    return _wrapRefreshIndicator(
+      NotificationListener<ScrollMetricsNotification>(
+        onNotification: (notification) {
+          if (notification.depth == 0) _checkLoadMore(notification.metrics);
+          return false;
+        },
+        child: NotificationListener<ScrollNotification>(
+          onNotification: (notification) {
+            if (notification.depth == 0) _checkLoadMore(notification.metrics);
+            return false;
+          },
+          child: list,
+        ),
+      ),
+    );
   }
 
   Widget _buildItem(BuildContext context, int index) {
+    if (index == widget.items.length) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Center(
+          child: widget.isLoadingMore
+              ? const SizedBox.square(
+                  dimension: 24,
+                  child: GenesisLoadingIndicator(),
+                )
+              : TextButton(
+                  onPressed: _canLoadMore ? _loadMore : null,
+                  child: Text(
+                    widget.loadMoreFailed ? 'Load failed. Retry' : 'Load more',
+                  ),
+                ),
+        ),
+      );
+    }
     final item = widget.items[index];
     final animationKey = item.animationKey ?? index;
     return _AnimatedProfileCollectionListItem(

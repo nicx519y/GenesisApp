@@ -4,6 +4,7 @@ class _DiscussComposerPanel extends StatelessWidget {
   const _DiscussComposerPanel({
     required this.title,
     required this.placeholder,
+    this.placeholderWidget,
     required this.controller,
     required this.focusNode,
     required this.hasImages,
@@ -18,6 +19,7 @@ class _DiscussComposerPanel extends StatelessWidget {
 
   final String title;
   final String placeholder;
+  final Widget? placeholderWidget;
   final TextEditingController controller;
   final FocusNode focusNode;
   final bool hasImages;
@@ -69,7 +71,8 @@ class _DiscussComposerPanel extends StatelessWidget {
                   color: _discussComposerPrimary,
                 ),
                 decoration: InputDecoration(
-                  hintText: placeholder,
+                  hintText: placeholderWidget == null ? placeholder : null,
+                  hint: placeholderWidget,
                   hintStyle: const TextStyle(
                     fontSize: _discussComposerFontSize,
                     height: _discussComposerLineHeight,
