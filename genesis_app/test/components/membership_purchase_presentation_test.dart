@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
@@ -42,6 +43,50 @@ Future<void> open(WidgetTester tester, service.Harness h) async {
 
 void main() {
   for (final provider in MembershipProvider.values) {
+    testWidgets(
+      '$provider fresh yearly status blocks monthly with the shared downgrade dialog',
+      (tester) async {
+        final h = service.Harness(provider: provider)
+          ..vipStatus = MembershipVipStatus.yearly;
+        addTearDown(h.service.dispose);
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        // The displayed catalog still says none; checkout must use fresh status.
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GenesisTheme.light(),
+            home: Scaffold(body: subscription(h)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+        await tester.pumpAndSettle();
+        expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+        await tester.pumpAndSettle();
+        expect(h.eligibilityQueries, 1);
+        expect(h.platform.launches, 0);
+        expect(h.platform.product, isNull);
+        expect(h.reports, isEmpty);
+        expect(find.text('Purchasing VIP'), findsNothing);
+        expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
+        expect(find.text('Notification'), findsOneWidget);
+        expect(
+          find.text(
+            'Worldo Premium is active in your subscription and does not support downgrades.',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('Got It'));
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsNothing);
+        expect(find.byType(ProSubscriptionContent), findsOneWidget);
+        expect(h.service.isBusy, isFalse);
+      },
+    );
+
     for (final stage in ['prepare', 'launch', 'callback']) {
       testWidgets(
         '$provider $stage preserves native errors through the VIP dialog',

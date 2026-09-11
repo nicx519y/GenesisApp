@@ -99,6 +99,7 @@ void main() {
           await tester.pumpAndSettle();
           for (final yearly in [true, false]) {
             final blocked = raw == 'yearly' || raw == 'monthly' && !yearly;
+            final downgrade = raw == 'yearly' && !yearly;
             await tester.tap(
               find.byKey(
                 ValueKey(yearly ? 'pro-plan-yearly' : 'pro-plan-monthly'),
@@ -107,7 +108,7 @@ void main() {
             await tester.pumpAndSettle();
             expect(
               tester.widget<GenesisPrimaryButton>(find.byKey(buttonKey)).label,
-              blocked
+              blocked && !downgrade
                   ? 'Subscribed'
                   : yearly
                   ? r'Yearly: $99.99'
@@ -117,7 +118,20 @@ void main() {
             await tester.tap(find.byKey(buttonKey));
             await tester.pump(const Duration(milliseconds: 300));
             expect(purchases, previous + (blocked ? 0 : 1));
-            if (blocked) {
+            if (downgrade) {
+              expect(find.text('Notification'), findsOneWidget);
+              expect(
+                find.text(
+                  'Worldo Premium is active in your subscription and does not support downgrades.',
+                ),
+                findsOneWidget,
+              );
+              expect(find.text('Cancel'), findsNothing);
+              await tester.tap(find.text('Got It'));
+              await tester.pumpAndSettle();
+              expect(find.byType(Dialog), findsNothing);
+              expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+            } else if (blocked) {
               expect(
                 find.textContaining(
                   'You already have an active Premium subscription.',
@@ -442,18 +456,24 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text('Subscribed'), findsOneWidget);
+      expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+      expect(
+        tester.widget<FilledButton>(filledButton).style,
+        originalButtonStyle,
+      );
+      expect(tester.getRect(find.byKey(buttonKey)), originalButtonRect);
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         find.text(
-          'debug：vip.eligibility; reason=already_subscribed\n'
-          'You already have an active Premium subscription.',
+          'Worldo Premium is active in your subscription and does not support downgrades.',
         ),
         findsOneWidget,
       );
       expect(purchases, 0);
-      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(find.text('Got It'));
+      await tester.pumpAndSettle();
+      expect(find.byType(Dialog), findsNothing);
     },
   );
 

@@ -31,7 +31,12 @@ void main() {
               expect(h.eligibilityQueries, 1);
               expect(h.platform.launches, blocked ? 0 : 1);
               if (blocked) {
-                expect(events.last.reason, 'already_subscribed');
+                expect(
+                  events.last.reason,
+                  status == MembershipVipStatus.yearly && !yearly
+                      ? 'downgrade_not_allowed'
+                      : 'already_subscribed',
+                );
                 expect(h.platform.product, isNull);
                 expect(h.guestPrepares, 0);
                 expect(h.store.records, isEmpty);

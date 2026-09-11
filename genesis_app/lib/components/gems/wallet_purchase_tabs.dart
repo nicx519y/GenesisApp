@@ -104,12 +104,15 @@ class WalletPurchaseTabs extends StatelessWidget {
                         // The narrow gem has more whitespace inside its SVG box.
                         SizedBox(width: _iconGap(index)),
                         Flexible(
-                          child: Text(
-                            index == 0 ? 'Subscription' : 'Buy Gems',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: measureStyle.copyWith(
-                              color: _colorForTab(index),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              index == 0 ? 'Subscription' : 'Buy Gems',
+                              maxLines: 1,
+                              softWrap: false,
+                              style: measureStyle.copyWith(
+                                color: _colorForTab(index),
+                              ),
                             ),
                           ),
                         ),
