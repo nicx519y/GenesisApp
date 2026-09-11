@@ -60,56 +60,22 @@ class GenesisBottomNavigation extends StatelessWidget {
       style: GenesisBottomSystemBarStyle(color: backgroundColor),
       child: ColoredBox(
         color: backgroundColor,
-        child: Stack(
-          children: [
-            GenesisBottomSafePadding(
-              minimum: minBottomPadding,
-              child: SizedBox(
-                height: height,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    for (var index = 0; index < items.length; index += 1)
-                      GenesisBottomNavigationTile(
-                        item: items[index],
-                        selected: currentIndex == index,
-                        onTap: () => onTap(index),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-            // Paint inside the bar without moving its content or hit targets.
-            const Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              height: 1,
-              child: IgnorePointer(
-                child: ColoredBox(color: GenesisColors.darkFaintFill),
-              ),
-            ),
-            Positioned(
-              top: 1,
-              left: 0,
-              right: 0,
-              height: 3,
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        GenesisColors.darkFaintFill.withValues(alpha: 0.04),
-                        GenesisColors.darkFaintFill.withValues(alpha: 0),
-                      ],
-                    ),
+        child: GenesisBottomSafePadding(
+          minimum: minBottomPadding,
+          child: SizedBox(
+            height: height,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                for (var index = 0; index < items.length; index += 1)
+                  GenesisBottomNavigationTile(
+                    item: items[index],
+                    selected: currentIndex == index,
+                    onTap: () => onTap(index),
                   ),
-                ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );

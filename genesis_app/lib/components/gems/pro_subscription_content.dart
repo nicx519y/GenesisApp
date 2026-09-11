@@ -422,7 +422,7 @@ class _ProBenefit extends StatelessWidget {
     final (statusIcon, statusColor, statusLabel) = switch (status) {
       MembershipBenefitDisplay.enhanced => (
         null,
-        proCopperAccent,
+        GenesisColors.redPrimary,
         'Improved with Pro',
       ),
       MembershipBenefitDisplay.included => (
@@ -599,7 +599,7 @@ class _ProPlanCard extends StatelessWidget {
                   height: 21,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: const BoxDecoration(
-                    color: proCopperAccent,
+                    color: GenesisColors.redPrimary,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(12),
                       topRight: Radius.circular(3),
