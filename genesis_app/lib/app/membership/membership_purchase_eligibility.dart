@@ -10,6 +10,7 @@ String? membershipPurchaseBlockReason(
   MembershipProduct product,
   MembershipVipStatus vipStatus,
 ) => switch (vipStatus) {
+  MembershipVipStatus.yearly when !product.isYearly => 'downgrade_not_allowed',
   MembershipVipStatus.yearly => 'already_subscribed',
   MembershipVipStatus.monthly when !product.isYearly => 'already_subscribed',
   _ => null,

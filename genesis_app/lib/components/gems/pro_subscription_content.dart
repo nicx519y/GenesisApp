@@ -189,7 +189,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     }
     final blocked = membershipPurchaseBlockReason(offer.product, _vipStatus);
     if (blocked != null) {
-      showGenesisToast(context, membershipPurchaseFailureMessage(blocked));
+      unawaited(showMembershipPurchaseFailure(context, blocked));
       unawaited(_load(silent: true));
       return;
     }
@@ -344,8 +344,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                           membershipPurchaseBlockReason(
                                 selectedProduct,
                                 _vipStatus,
-                              ) !=
-                              null
+                              ) ==
+                              'already_subscribed'
                       ? 'Subscribed'
                       : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
                   height: 44,
