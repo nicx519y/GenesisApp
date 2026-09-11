@@ -1,3 +1,4 @@
+import '../gems/pro_user_name.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -247,15 +248,20 @@ class _DiscussPageMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final tappableMeta = Text(
-      item.authorName,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: const TextStyle(
-        color: DiscussDarkColors.secondary,
-        fontSize: 14,
-        height: 1.18,
-        fontWeight: FontWeight.w600,
+    final tappableMeta = ProUserName(
+      uid: item.authorUid,
+      fontSize: 14,
+      deleted: item.authorDeleted,
+      child: Text(
+        item.authorName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: DiscussDarkColors.secondary,
+          fontSize: 14,
+          height: 1.18,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
     final canOpenProfile =
@@ -595,12 +601,18 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
       TextSpan(
         children: [
           TextSpan(
-            text: '$authorName: ',
+            text: authorName,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
               color: DiscussDarkColors.secondary,
             ),
           ),
+          ProUserBadge.span(
+            uid: uid,
+            fontSize: 12,
+            deleted: asBool(author?['deleted'] ?? reply['author_deleted']),
+          ),
+          const TextSpan(text: ': '),
           if (showReplyTo)
             TextSpan(
               text: '@$replyToName ',
@@ -609,6 +621,7 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
                 color: DiscussDarkColors.secondary,
               ),
             ),
+          if (showReplyTo) ProUserBadge.span(uid: replyToUid, fontSize: 12),
           TextSpan(text: content),
         ],
       ),

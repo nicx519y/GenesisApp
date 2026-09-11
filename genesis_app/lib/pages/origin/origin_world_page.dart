@@ -22,7 +22,6 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/copyable_id_label.dart';
 import '../../components/discuss/discuss_post_input.dart';
 import '../../components/discuss/origin_discuss_list.dart';
-import '../../components/gems/pro_membership_badge.dart';
 import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../components/origin/origin_character_form.dart';
 import '../../components/origin/origin_role_recommendation.dart';

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../icons/custom_icon_assets.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../common/genesis_action_box.dart';
@@ -44,6 +45,20 @@ class GemBillingPurchaseDialogState {
 }
 
 class GemBillingPurchaseDialog extends StatelessWidget {
+  const GemBillingPurchaseDialog.membership({
+    Key? key,
+    required ValueListenable<GemBillingPurchaseDialogState> state,
+    required VoidCallback onConfirm,
+  }) : this(
+         key: key,
+         state: state,
+         onConfirm: onConfirm,
+         processingLabel: 'Purchasing VIP',
+         successTitle: 'VIP purchase successful!',
+         successMessage: 'Your VIP purchase is confirmed.',
+         successIconAsset: proCrownFilledIconAsset,
+       );
+
   const GemBillingPurchaseDialog({
     super.key,
     required this.state,

@@ -33,6 +33,25 @@ import 'package:genesis_flutter_android/ui/genesis_ui.dart';
 
 新增样式时先判断是否是全局语义。如果多个页面会共用，放入 token；如果只是某个业务卡片的个性样式，保留在对应业务组件内。
 
+## 公共头像与默认头像
+
+用户/通用头像使用 `GenesisAvatar`，角色头像使用 `GenesisCharacterAvatar`。两者在无头像或图片加载失败时使用公共 `GenesisAvatarFallback`，实现集中在 `lib/ui/components/genesis_avatar.dart`。Private Chat、Location Chat 非 NPC 消息、Tick 角色列表、地图、资料与列表等场景均遵循此规则。
+
+| 属性 | 统一规则 |
+| --- | --- |
+| 默认底色 | `avatarColorForName(name)` 按名字稳定生成，同名保持同色 |
+| 默认文字 | `initialsForAvatarName(name)` 生成名字缩写 |
+| 字号 | 头像高度 × 0.34，最小 11、最大 28 个逻辑像素；40px 头像对应 13.6px |
+| 字重 / 行高 | `FontWeight.w600` / 1 |
+| 文字颜色 / 字体 | 白色；沿用公共字体体系 |
+| 图片裁剪 | 默认 top-center；特殊角色肖像保留现有比例与布局 |
+
+缩写规则由公共函数唯一实现：名字含中文汉字时，1–2 个汉字取首字，超过 2 个取最后两个；其他名字按空白、点、下划线、连字符分词，取前两个词的首字符并转大写；空名字显示 `?`。例如“张三”→“张”、“李七七”→“七七”、“Tom Lee”→“TL”。
+
+调用方只管理名字、图片 URL、尺寸、圆角、玩家角色边框和外部布局，不自行绘制默认头像或覆盖默认文字的字号、字重、颜色、行高。调整相邻正文的字体不影响默认头像排版。特殊比例肖像可以直接复用 `GenesisAvatarFallback`；图片加载中的占位行为保持各场景已有约定。
+
+**NPC 例外：** Location Chat 的 `char_npc` 保留 `ChatNpcAvatar` 固定“NPC”圆标及原有尺寸、底色、描边和文字样式，不改为名字缩写头像，也不因本规范替换为普通角色头像。
+
 ## Create Flow Typography
 
 - Create 入口页的分组标题使用 `14px`，例如 `Basics`、`Characters`、`Locations`、`Story Events`。

@@ -3714,7 +3714,7 @@ void main() {
             )
             .style
             ?.fontSize,
-        13,
+        14,
       );
       expect(
         find.image(const AssetImage('assets/images/default_list_image.png')),

@@ -93,6 +93,10 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
     updatedAtText: _apiDateTimeText(
       world['last_active_at'] ?? world['updated_at'] ?? world['created_at'],
     ),
+    ownerUid: asString(
+      world['owner_uid'],
+      fallback: asString(world['created_uid']),
+    ),
     ownerName: asString(
       world['owner_name'],
       fallback: asString(world['created_user_name']),

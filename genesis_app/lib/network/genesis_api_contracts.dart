@@ -24,6 +24,7 @@ class MyWorldSummary {
     required this.snapshotCoverUrl,
     required this.updatedAtText,
     required this.ownerName,
+    this.ownerUid = '',
     required this.progressCount,
     this.subTickNo = 0,
     required this.interactCount,
@@ -39,6 +40,7 @@ class MyWorldSummary {
   final String snapshotCoverUrl;
   final String updatedAtText;
   final String ownerName;
+  final String ownerUid;
   final int progressCount;
   final int subTickNo;
   final int interactCount;

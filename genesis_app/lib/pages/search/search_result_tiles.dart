@@ -21,11 +21,15 @@ class _SearchResultTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text.rich(
-            _searchResultTitleSpan(item),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: titleStyle,
+          ProUserName(
+            uid: isUser ? item.userV2!.uid : '',
+            fontSize: 14,
+            child: Text.rich(
+              _searchResultTitleSpan(item),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: titleStyle,
+            ),
           ),
           SizedBox(height: isUser ? 7 : 4),
           if (item.tab == _SearchTab.origin)
@@ -158,12 +162,16 @@ class _OriginSearchMetadata extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: _searchMetadataStyle,
       ),
-      Text(
-        'Originator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: _searchMetadataStyle.copyWith(
-          color: GenesisColors.darkTextSecondary,
+      ProUserName(
+        uid: origin.owner.uid,
+        fontSize: 12,
+        child: Text(
+          'Originator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: _searchMetadataStyle.copyWith(
+            color: GenesisColors.darkTextSecondary,
+          ),
         ),
       ),
       ...summaries.take(2),
@@ -209,12 +217,16 @@ class _WorldSearchMetadata extends StatelessWidget {
           style: _worldSearchMetadataStyle,
         ),
         const SizedBox(height: 4),
-        Text(
-          'Owner: $owner',
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: _worldSearchMetadataStyle.copyWith(
-            color: GenesisColors.darkTextSecondary,
+        ProUserName(
+          uid: world.owner.uid,
+          fontSize: 12,
+          child: Text(
+            'Owner: $owner',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _worldSearchMetadataStyle.copyWith(
+              color: GenesisColors.darkTextSecondary,
+            ),
           ),
         ),
       ],

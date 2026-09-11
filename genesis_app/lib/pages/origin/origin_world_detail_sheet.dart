@@ -1887,13 +1887,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                   ),
                   GenesisInlineMetaLabel(
                     text: 'Originator: ${formatUidForDisplay(originator)}',
-                    trailing: origin.ownerDeleted
-                        ? null
-                        // The meta row renders at 12.
-                        : const ProMembershipBadge.beside(
-                            key: ValueKey('originator-membership-badge'),
-                            fontSize: 12,
-                          ),
+                    membershipUid: origin.ownerDeleted ? null : ownerUid,
                     onTap: ownerUid.isEmpty || origin.ownerDeleted
                         ? null
                         : () => Navigator.of(context).pushNamed(

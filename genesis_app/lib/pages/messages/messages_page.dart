@@ -1,3 +1,4 @@
+import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -486,14 +487,18 @@ class _ConversationTile extends StatelessWidget {
                     Row(
                       children: [
                         Expanded(
-                          child: Text(
-                            displayPeerName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: GenesisColors.darkTextPrimary,
+                          child: ProUserName(
+                            uid: item.peerUid,
+                            fontSize: 14,
+                            child: Text(
+                              displayPeerName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: GenesisColors.darkTextPrimary,
+                              ),
                             ),
                           ),
                         ),

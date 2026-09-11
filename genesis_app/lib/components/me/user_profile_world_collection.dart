@@ -81,6 +81,7 @@ class _WorldProfileCollectionListState
               imageUrl: item.imageUrl,
               title: item.title,
               subtitle: item.subtitle,
+              ownerUid: item.deleted ? '' : item.ownerUid,
               statsText: formatWorldStatsLabel(
                 tickNo: item.progressCount,
                 subTickNo: item.subTickNo,
@@ -199,6 +200,7 @@ class UserProfileWorldItem {
     required this.characterCount,
     required this.playerCount,
     required this.ownerName,
+    this.ownerUid = '',
   });
 
   final String wid;
@@ -214,4 +216,5 @@ class UserProfileWorldItem {
   final int characterCount;
   final int playerCount;
   final String ownerName;
+  final String ownerUid;
 }

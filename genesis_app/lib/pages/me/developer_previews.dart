@@ -215,6 +215,41 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
     await showGemBillingPurchaseOverlayPreview(navigator.context);
   }
 
+  Future<void> _showMembershipPurchaseOverlayPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    if (!navigator.mounted) return;
+    const attemptId = 'developer_membership_preview';
+    final state = ValueNotifier(
+      GemBillingPurchaseDialogState.processing(attemptId: attemptId),
+    );
+    final route = RawDialogRoute<void>(
+      barrierColor: kGenesisModalBarrierColor,
+      barrierDismissible: false,
+      pageBuilder: (dialogContext, _, _) => Center(
+        child: GemBillingPurchaseDialog.membership(
+          state: state,
+          onConfirm: () => Navigator.of(dialogContext).pop(),
+        ),
+      ),
+    );
+    final timer = Timer(const Duration(seconds: 3), () {
+      state.value = GemBillingPurchaseDialogState.success(
+        attemptId: attemptId,
+        grantedText: '',
+      );
+    });
+    try {
+      await navigator.push(route);
+    } finally {
+      timer.cancel();
+      await route.completed;
+      state.dispose();
+    }
+  }
+
   Future<void> _showDailyCheckInPreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {

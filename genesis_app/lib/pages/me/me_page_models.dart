@@ -161,7 +161,8 @@ bool _sameWorldItems(
         a.interactCount != b.interactCount ||
         a.characterCount != b.characterCount ||
         a.playerCount != b.playerCount ||
-        a.ownerName != b.ownerName) {
+        a.ownerName != b.ownerName ||
+        a.ownerUid != b.ownerUid) {
       return false;
     }
   }
@@ -199,6 +200,7 @@ UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
     characterCount: item.characterCount,
     playerCount: item.playerCount,
     ownerName: item.ownerName,
+    ownerUid: item.ownerUid,
   );
 }
 

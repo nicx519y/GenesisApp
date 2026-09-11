@@ -1,3 +1,4 @@
+import '../gems/pro_user_name.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -70,6 +71,7 @@ class GenesisInlineMetaLabel extends StatelessWidget {
     this.style = CopyableIdLabel.textStyle,
     this.textAlign = TextAlign.left,
     this.trailing,
+    this.membershipUid,
     this.trailingIcon,
     this.trailingIconColor = CopyableIdLabel.iconColor,
     this.trailingIconSize = 16,
@@ -83,6 +85,7 @@ class GenesisInlineMetaLabel extends StatelessWidget {
 
   /// Optional content between the label and its navigation/action icon.
   final Widget? trailing;
+  final String? membershipUid;
   final IconData? trailingIcon;
   final Color trailingIconColor;
   final double trailingIconSize;
@@ -111,6 +114,11 @@ class GenesisInlineMetaLabel extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (membershipUid != null)
+                ProUserBadge(
+                  uid: membershipUid!,
+                  fontSize: style.fontSize ?? 12,
+                ),
               if (trailing != null) ...[
                 SizedBox(width: trailingGap),
                 trailing!,

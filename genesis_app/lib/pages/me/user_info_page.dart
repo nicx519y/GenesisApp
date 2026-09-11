@@ -484,6 +484,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
             characterCount: item.characterCount,
             playerCount: item.playerCount,
             ownerName: item.ownerName,
+            ownerUid: item.ownerUid,
           ),
         )
         .toList(growable: false);

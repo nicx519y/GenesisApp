@@ -1,3 +1,4 @@
+import '../gems/pro_user_name.dart';
 import 'package:flutter/material.dart';
 
 import '../../network/json_utils.dart';
@@ -206,7 +207,13 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
       replyToName.isEmpty) {
     return TextSpan(
       children: [
-        TextSpan(text: '$authorName: '),
+        TextSpan(text: authorName),
+        ProUserBadge.span(
+          uid: uid,
+          fontSize: 12,
+          deleted: asBool(author?['deleted'] ?? json['author_deleted']),
+        ),
+        const TextSpan(text: ': '),
         TextSpan(
           text: content,
           style: const TextStyle(color: Color(0xFF111111)),
@@ -216,7 +223,13 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
   }
   return TextSpan(
     children: [
-      TextSpan(text: '$authorName: '),
+      TextSpan(text: authorName),
+      ProUserBadge.span(
+        uid: uid,
+        fontSize: 12,
+        deleted: asBool(author?['deleted'] ?? json['author_deleted']),
+      ),
+      const TextSpan(text: ': '),
       const TextSpan(
         text: 'Reply to ',
         style: TextStyle(color: Color(0xFF111111)),
@@ -225,6 +238,7 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
         text: replyToName,
         style: const TextStyle(color: Color(0xFF60636A)),
       ),
+      ProUserBadge.span(uid: replyToUid, fontSize: 12),
       TextSpan(
         text: ': $content',
         style: const TextStyle(color: Color(0xFF111111)),

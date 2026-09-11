@@ -389,7 +389,7 @@ class _UserProfileContentState extends State<UserProfileContent>
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Flexible(
                             fit: FlexFit.loose,

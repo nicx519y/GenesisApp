@@ -167,9 +167,9 @@ void main() {
     await controller.loadInitialIfNeeded();
     await tester.pumpWidget(_host(controller));
 
-    expect(find.text('User: Reply 1'), findsOneWidget);
-    expect(find.text('User: Reply 2'), findsOneWidget);
-    expect(find.text('User: Reply 3'), findsNothing);
+    expect(findTextWithoutBadges('User: Reply 1'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Reply 2'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Reply 3'), findsNothing);
     expect(find.text('View all 3 replies'), findsOneWidget);
   });
 
@@ -199,8 +199,8 @@ void main() {
     await controller.loadInitialIfNeeded();
     await tester.pumpWidget(_host(controller));
 
-    expect(find.text('User: Reply 1'), findsOneWidget);
-    expect(find.text('User: Reply 2'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Reply 1'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Reply 2'), findsOneWidget);
     expect(find.text('View all 2 replies'), findsNothing);
   });
 
@@ -240,7 +240,7 @@ void main() {
       find.byKey(const ValueKey('origin-discuss-reply-dis_1')),
       findsNothing,
     );
-    expect(find.text('User: Reply 1'), findsNothing);
+    expect(findTextWithoutBadges('User: Reply 1'), findsNothing);
     expect(find.text('View all 2 replies'), findsNothing);
   });
 
@@ -292,7 +292,7 @@ void main() {
       _host(controller, services: _servicesWithTransport(transport)),
     );
 
-    expect(find.text('User: Cached 1'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Cached 1'), findsOneWidget);
     expect(find.text('View all 45 replies'), findsOneWidget);
 
     await tester.tap(
@@ -306,9 +306,9 @@ void main() {
     expect(firstRequest.uri.queryParameters['root_discuss_id'], 'dis_1');
     expect(firstRequest.uri.queryParameters['pn'], '1');
     expect(firstRequest.uri.queryParameters['rn'], '20');
-    expect(find.text('User: Cached 1'), findsNothing);
-    expect(find.text('User: Reply 1'), findsOneWidget);
-    expect(find.text('User: Reply 20'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Cached 1'), findsNothing);
+    expect(findTextWithoutBadges('User: Reply 1'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Reply 20'), findsOneWidget);
     expect(find.text('View all 25 replies'), findsOneWidget);
 
     await tester.tap(
@@ -321,8 +321,8 @@ void main() {
         .toList(growable: false);
     expect(replyRequests, hasLength(2));
     expect(replyRequests.last.uri.queryParameters['pn'], '2');
-    expect(find.text('User: Reply 21'), findsOneWidget);
-    expect(find.text('User: Reply 40'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Reply 21'), findsOneWidget);
+    expect(findTextWithoutBadges('User: Reply 40'), findsOneWidget);
     expect(find.text('View all 5 replies'), findsOneWidget);
   });
 
@@ -1421,3 +1421,12 @@ Map<String, dynamic> _reply(int id, {String? content}) {
     'created_at': '2026-02-09T00:00:00Z',
   };
 }
+
+// Inline membership marks are widgets, not part of the user-visible sentence.
+Finder findTextWithoutBadges(String text) => find.byWidgetPredicate(
+  (widget) =>
+      widget is Text &&
+      (widget.data ??
+              widget.textSpan?.toPlainText(includePlaceholders: false)) ==
+          text,
+);

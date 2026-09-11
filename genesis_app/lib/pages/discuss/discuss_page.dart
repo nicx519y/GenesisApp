@@ -1,3 +1,4 @@
+import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -501,15 +502,20 @@ class _DiscussOriginSummary extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
-                'OID: ${deletedAwareIdLabel(origin.oid, deleted: origin.deleted)}${originator.isEmpty ? '' : ' · Originator: ${origin.ownerDeleted ? deletedEntityDisplayText : originator}'}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 12,
-                  height: 1.2,
-                  fontWeight: FontWeight.w400,
-                  color: DiscussDarkColors.secondary,
+              ProUserName(
+                uid: originator.isEmpty ? '' : origin.ownerUid,
+                fontSize: 12,
+                deleted: origin.ownerDeleted,
+                child: Text(
+                  'OID: ${deletedAwareIdLabel(origin.oid, deleted: origin.deleted)}${originator.isEmpty ? '' : ' · Originator: ${origin.ownerDeleted ? deletedEntityDisplayText : originator}'}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    height: 1.2,
+                    fontWeight: FontWeight.w400,
+                    color: DiscussDarkColors.secondary,
+                  ),
                 ),
               ),
             ],

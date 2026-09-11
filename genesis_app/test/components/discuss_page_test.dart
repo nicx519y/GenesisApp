@@ -39,7 +39,7 @@ void main() {
 
     expect(find.image(const AssetImage(attachedImage)), findsNothing);
 
-    await tester.tap(find.text('Reply User: Reply target'));
+    await tester.tap(findTextWithoutBadges('Reply User: Reply target'));
     await tester.pumpAndSettle();
 
     expect(find.text('Post Detail'), findsOneWidget);
@@ -279,7 +279,7 @@ void main() {
 
     expect(find.byType(DiscussStoryBadge), findsNothing);
 
-    await tester.tap(find.text('Reply User: Reply target'));
+    await tester.tap(findTextWithoutBadges('Reply User: Reply target'));
     await tester.pumpAndSettle();
 
     expect(find.text('Post Detail'), findsOneWidget);
@@ -288,7 +288,7 @@ void main() {
       find.byKey(const ValueKey<String>('post-detail-reply-like-reply_1')),
       findsOneWidget,
     );
-    expect(find.text('Reply User: Reply target'), findsNothing);
+    expect(findTextWithoutBadges('Reply User: Reply target'), findsNothing);
     expect(find.text('Reply target'), findsOneWidget);
     expect(find.byType(DiscussStoryBadge), findsNothing);
     expect(find.text('Write a reply'), findsOneWidget);
@@ -364,7 +364,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Reply User: Reply target'));
+    await tester.tap(findTextWithoutBadges('Reply User: Reply target'));
     await tester.pumpAndSettle();
 
     expect(find.text('Post Detail'), findsOneWidget);
@@ -626,3 +626,12 @@ TransportResponse _jsonResponse(Map<String, dynamic> body) {
     body: jsonEncode(body),
   );
 }
+
+// Inline membership marks are widgets, not part of the user-visible sentence.
+Finder findTextWithoutBadges(String text) => find.byWidgetPredicate(
+  (widget) =>
+      widget is Text &&
+      (widget.data ??
+              widget.textSpan?.toPlainText(includePlaceholders: false)) ==
+          text,
+);

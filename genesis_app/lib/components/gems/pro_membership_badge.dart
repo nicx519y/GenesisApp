@@ -8,15 +8,13 @@ import '../../icons/custom_icon_assets.dart';
 class ProMembershipBadge extends StatelessWidget {
   const ProMembershipBadge({super.key, this.height = _nameHeight});
 
-  /// Sizes the crown against the text it sits beside, keeping 9k2's ratio
-  /// wherever the mark appears — a 20 name and a 12 meta row want very
-  /// different crowns.
+  /// Scales the crown consistently with the adjacent name or metadata text.
   const ProMembershipBadge.beside({super.key, required double fontSize})
     : height = fontSize * _heightPerTextSize;
 
-  /// 9k2 sets a 17-high crown against a 24 name.
+  /// A 20px name uses a 24 × 17px crown.
   static const double _nameHeight = 17;
-  static const double _heightPerTextSize = _nameHeight / 24;
+  static const double _heightPerTextSize = _nameHeight / 20;
 
   /// The crown's own proportions; width follows from it.
   static const double _aspect = 96 / 68;

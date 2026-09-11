@@ -217,6 +217,13 @@ class WorldCharacterRow extends StatelessWidget {
                                   if (suffix.isNotEmpty)
                                     TextSpan(
                                       text: ' $suffix',
+                                      children: [
+                                        ProUserBadge.span(
+                                          uid: playerUid,
+                                          fontSize: 14,
+                                          deleted: playerDeleted,
+                                        ),
+                                      ],
                                       style: const TextStyle(
                                         color: GenesisColors.darkTextTertiary,
                                       ),

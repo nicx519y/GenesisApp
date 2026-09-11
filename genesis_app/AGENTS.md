@@ -149,6 +149,15 @@ HTTP 映射层的图片规则：
 - 当前头像默认 top-center crop；不要把头像裁剪规则扩散到 cover、location image、map、list thumbnail 等非头像图片。
 - `CharactersList` 和 `OriginWorldPage` 的部分角色肖像有页面级尺寸例外，修改前先确认是否应走共享头像组件。
 
+## 公共默认头像规范
+
+- 用户/通用头像使用 `GenesisAvatar`，角色头像使用 `GenesisCharacterAvatar`；无头像或图片加载失败时统一复用 `GenesisAvatarFallback`。适用于 Private Chat、Location Chat 的非 NPC 消息、Tick 角色列表、地图、资料与列表等头像场景。
+- 默认头像的名字缩写、底色和文字排版由 `lib/ui/components/genesis_avatar.dart` 集中管理。不得在页面或业务组件中重新拼装默认头像、复制缩写/底色算法，或通过 `textStyle` 覆盖默认头像文字的字号、字重、颜色与行高。
+- 默认文字为白色、`FontWeight.w600`、行高 1；字号按头像高度的 34% 计算，限制在 11–28 个逻辑像素，沿用公共字体体系。该规则独立于旁边正文的字号，调整 Tick 或聊天正文时不得连带修改默认头像文字。
+- 名字缩写调用 `initialsForAvatarName`，底色调用 `avatarColorForName`；具体规则见 `docs/ui-component-library.md` 的“公共头像与默认头像”。名字、图片 URL、头像尺寸、圆角、玩家角色边框和页面外部布局仍由调用方提供。
+- 已有特殊比例角色肖像可保留图片布局，但缺图/失败时必须复用 `GenesisAvatarFallback`，不另写默认图形或文字样式。加载中的占位行为按原有场景保留。
+- 明确例外：Location Chat 的 `char_npc` 使用现有 `ChatNpcAvatar` 固定“NPC”圆标，保留其尺寸、底色、描边和文字样式；不得因公共默认头像统一而替换成名字缩写或普通角色头像。
+
 ## 标准页面 Header 标题
 
 - `GenesisBackAppBar` 默认使用 `darkBackground` 背景、`darkTextPrimary` 标题与返回图标及浅色状态栏图标；页面无需重复传入这些默认值，明确的颜色覆盖仍保留。
@@ -387,3 +396,10 @@ HTTP 映射层的图片规则：
 ## 背景模糊规范
 
 背景毛玻璃统一引用 `lib/ui/tokens/genesis_blur.dart`：`GenesisBlur.light` 为 4，`GenesisBlur.strong` 为 14；0 表示关闭。开发设置也使用这三档。阴影和地图加载动画的光晕不属于背景模糊。
+
+## 用户名会员徽章
+
+- 名字与徽章复用 `ProUserName`；已有元数据行使用 `GenesisInlineMetaLabel.membershipUid`；评论等富文本使用 `ProUserBadge.span`。保留原文字样式、点击行为和省略规则，徽章垂直居中。
+- 图形唯一实现为 `ProMembershipBadge`：高度为相邻文字字号的 0.85，宽高比 96/68；20px 名字对应 24×17px，随系统文字缩放。Me 保留 6px 名字间距，其他公共名字布局默认 4px。
+- 仅对应 UID 的真实会员状态为 1 时显示；其他用户的状态通过公共 `UserMembershipStatusStore` 查询 `/api/v1/user/info` 的 `user.membership_status`，不根据名字、会员套餐、余额、头像或当前账号的会员状态猜测。未知／失败／删除状态隐藏，不留徽章空位。
+- 不在各页面重复发请求、建立缓存或实现皇冠；定时刷新、并发去重、账号切换和销毁由公共状态服务处理。
