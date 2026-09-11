@@ -62,6 +62,10 @@ class TilemapRenderSettings {
     this.nearbyLocationInitialScale = tilemapDefaultNearbyLocationInitialScale,
     this.distantLocationInitialScale =
         tilemapDefaultDistantLocationInitialScale,
+    this.locationBoundsViewportPadding =
+        tilemapDefaultLocationBoundsViewportPadding,
+    this.minimumLocationBoundsSizeTiles =
+        tilemapDefaultMinimumLocationBoundsSizeTiles,
     required this.dragBoundaryPaddingTiles,
   });
 
@@ -86,6 +90,10 @@ class TilemapRenderSettings {
       distantLocationDistanceTiles: tilemapDefaultDistantLocationDistanceTiles,
       nearbyLocationInitialScale: tilemapDefaultNearbyLocationInitialScale,
       distantLocationInitialScale: tilemapDefaultDistantLocationInitialScale,
+      locationBoundsViewportPadding:
+          tilemapDefaultLocationBoundsViewportPadding,
+      minimumLocationBoundsSizeTiles:
+          tilemapDefaultMinimumLocationBoundsSizeTiles,
       dragBoundaryPaddingTiles: tilemapDefaultDragBoundaryPaddingTiles,
     );
   }
@@ -188,6 +196,20 @@ class TilemapRenderSettings {
       distantLocationDistanceTiles: distantLocationDistanceTiles,
       nearbyLocationInitialScale: nearbyLocationInitialScale,
       distantLocationInitialScale: distantLocationInitialScale,
+      locationBoundsViewportPadding:
+          _readDouble(
+            json['location_bounds_viewport_padding_pixels'],
+            min: tilemapLocationBoundsViewportPaddingMin,
+            max: tilemapLocationBoundsViewportPaddingMax,
+          ) ??
+          defaults.locationBoundsViewportPadding,
+      minimumLocationBoundsSizeTiles:
+          _readDouble(
+            json['minimum_location_bounds_size_tiles'],
+            min: tilemapMinimumLocationBoundsSizeTilesMin,
+            max: tilemapMinimumLocationBoundsSizeTilesMax,
+          )?.roundToDouble() ??
+          defaults.minimumLocationBoundsSizeTiles,
       dragBoundaryPaddingTiles:
           _readDouble(
             json['drag_boundary_padding_tiles'],
@@ -215,6 +237,8 @@ class TilemapRenderSettings {
   final double distantLocationDistanceTiles;
   final double nearbyLocationInitialScale;
   final double distantLocationInitialScale;
+  final double locationBoundsViewportPadding;
+  final double minimumLocationBoundsSizeTiles;
   final double dragBoundaryPaddingTiles;
 
   TilemapRenderSettings copyWith({
@@ -235,6 +259,8 @@ class TilemapRenderSettings {
     double? distantLocationDistanceTiles,
     double? nearbyLocationInitialScale,
     double? distantLocationInitialScale,
+    double? locationBoundsViewportPadding,
+    double? minimumLocationBoundsSizeTiles,
     double? dragBoundaryPaddingTiles,
   }) {
     return TilemapRenderSettings(
@@ -268,6 +294,10 @@ class TilemapRenderSettings {
           nearbyLocationInitialScale ?? this.nearbyLocationInitialScale,
       distantLocationInitialScale:
           distantLocationInitialScale ?? this.distantLocationInitialScale,
+      locationBoundsViewportPadding:
+          locationBoundsViewportPadding ?? this.locationBoundsViewportPadding,
+      minimumLocationBoundsSizeTiles:
+          minimumLocationBoundsSizeTiles ?? this.minimumLocationBoundsSizeTiles,
       dragBoundaryPaddingTiles:
           dragBoundaryPaddingTiles ?? this.dragBoundaryPaddingTiles,
     );
@@ -275,13 +305,7 @@ class TilemapRenderSettings {
 
   TilemapRenderSettings resolveForRuntime({required bool releaseMode}) {
     if (!releaseMode) return this;
-    return copyWith(
-      loadingStyle: TilemapLoadingStyle.disabled,
-      nearbyLocationDistanceTiles: tilemapDefaultNearbyLocationDistanceTiles,
-      distantLocationDistanceTiles: tilemapDefaultDistantLocationDistanceTiles,
-      nearbyLocationInitialScale: tilemapDefaultNearbyLocationInitialScale,
-      distantLocationInitialScale: tilemapDefaultDistantLocationInitialScale,
-    );
+    return copyWith(loadingStyle: TilemapLoadingStyle.disabled);
   }
 
   String toSerializedJson() {
@@ -290,7 +314,7 @@ class TilemapRenderSettings {
 
   Map<String, dynamic> toJson() {
     return {
-      'schema_version': 3,
+      'schema_version': 4,
       'visual_mode': visualMode.name,
       'loading_style': loadingStyle.name,
       'fog_control_points': [
@@ -313,6 +337,8 @@ class TilemapRenderSettings {
       'distant_location_distance_tiles': distantLocationDistanceTiles,
       'nearby_location_initial_scale': nearbyLocationInitialScale,
       'distant_location_initial_scale': distantLocationInitialScale,
+      'location_bounds_viewport_padding_pixels': locationBoundsViewportPadding,
+      'minimum_location_bounds_size_tiles': minimumLocationBoundsSizeTiles,
       'drag_boundary_padding_tiles': dragBoundaryPaddingTiles,
     };
   }

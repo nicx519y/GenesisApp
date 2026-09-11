@@ -43,15 +43,20 @@ class _DiscussPreviewMeta extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final authorMeta = Text(
-      item.authorName,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: TextStyle(
-        color: authorColor ?? const Color(0xFF666666),
-        fontSize: 12,
-        height: 1.2,
-        fontWeight: FontWeight.w600,
+    final authorMeta = ProUserName(
+      uid: item.authorUid,
+      fontSize: 12,
+      deleted: item.authorDeleted,
+      child: Text(
+        item.authorName,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: authorColor ?? const Color(0xFF666666),
+          fontSize: 12,
+          height: 1.2,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
     final authorTap = onAuthorTap;

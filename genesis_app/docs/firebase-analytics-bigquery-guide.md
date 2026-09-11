@@ -88,6 +88,8 @@ WITH event_rows AS (
       'login_first',
       'purchase',
       'purchase_first',
+      'gems_first',
+      'subscription_first',
       'perf_operation_complete',
       'in_app_purchase'
     )
@@ -258,6 +260,8 @@ iOS 0.4.1 没有以下应用自定义 Firebase Analytics 事件：
 - `login_first`
 - `purchase`
 - `purchase_first`
+- `gems_first`
+- `subscription_first`
 
 因此，iOS 0.4.1 的上述事件在 BigQuery 中出现 `with_device_id_count = 0` 符合代码预期，不代表 BigQuery 丢失了已经上传的 `device_id`。
 
@@ -297,8 +301,10 @@ iOS 0.4.1 已包含验证 StoreKit 2 transaction 后调用 Firebase 原生 `Anal
 | `message_sent_20_first` | 本地累计初始发送达到或超过 20 次时的一次性事件 | 与 `message_sent` 相同 | 有 |
 | `login` | 每次 Genesis 后端登录成功时发送 | `method` | 有 |
 | `login_first` | 本地首次成功登录的一次性事件；不是“账号首次注册” | 与 `login` 相同 | 有 |
-| `purchase` | 验证到 `purchased` 状态时发送的业务事件 | `provider`、`product_id` | 有 |
-| `purchase_first` | 本地首次业务购买事件 | 与 `purchase` 相同 | 有 |
+| `purchase` | Gems 或会员订单收到归属当前购买流程的 `purchased` 状态时发送 | `provider`、`product_id` | 有 |
+| `purchase_first` | 本地首次 Gems/会员业务购买共同使用的一次性事件 | 与 `purchase` 相同 | 有 |
+| `gems_first` | 本地首次 Gems 支付的一次性事件 | 与 `purchase` 相同 | 有 |
+| `subscription_first` | 本地首次会员订阅支付的一次性事件 | 与 `purchase` 相同 | 有 |
 | `perf_operation_complete` | 每次受监控操作完成时发送 | `surface`、`phase`、`result`、`duration_ms`、`attempt`、`data_source`、可选 `error_type` | 无显式添加 |
 | `in_app_purchase` | iOS 由验证后的 StoreKit 2 transaction 交给 Firebase SDK 生成 | Firebase SDK 标准购买参数 | 无显式添加 |
 
@@ -306,13 +312,15 @@ iOS 0.4.1 已包含验证 StoreKit 2 transaction 后调用 Firebase 原生 `Anal
 
 | 参数 | 适用事件 | 可能值或说明 |
 | --- | --- | --- |
-| `device_id` | `launch*`、`launch_success*`、`message_sent*`、`login*`、`purchase*` | 平台设备标识字符串；读取为空时发送 `unknown` |
+| `device_id` | `launch*`、`launch_success*`、`message_sent*`、`login*`、`purchase*`、`gems_first`、`subscription_first` | 平台设备标识字符串；读取为空时发送 `unknown` |
 | `method` | `login`、`login_first` | `google`、`apple` |
-| `provider` | `purchase`、`purchase_first` | `google`、`apple` |
-| `product_id` | `purchase`、`purchase_first` | Google Play/App Store 商品 ID |
+| `provider` | `purchase`、`purchase_first`、`gems_first`、`subscription_first` | `google`、`apple` |
+| `product_id` | `purchase`、`purchase_first`、`gems_first`、`subscription_first` | Google Play/App Store 商品 ID |
 | `app_environment` | 最新版启用 Analytics 后设置的 Firebase 默认事件参数 | `production`、`test`；正式 Release + production flavor + 官方 endpoint 为 `production`，开发页强制上传等调试场景为 `test` |
 
 基础事件仍然可以重复发送；`*_first` 事件是在本地 SharedPreferences 中记录的一次性事件。这里的“一次”是本地安装数据生命周期内的一次，不代表整个账号在所有设备上的全局第一次。
+
+升级时不会根据已有的 `purchase_first` 标记回填 `gems_first` 或 `subscription_first`，因为旧标记无法识别购买类别；两个分类事件会在升级后的下一次对应支付时分别建立自己的本地标记。
 
 ### 6.3 相比 iOS 0.4.1 的新增内容
 
@@ -357,6 +365,8 @@ login
 login_first
 purchase
 purchase_first
+gems_first
+subscription_first
 ```
 
 以下事件当前没有在业务参数中显式添加 `device_id`：

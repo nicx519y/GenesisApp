@@ -330,21 +330,15 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
               DecoratedBox(
                 key: const ValueKey('pro-subscribe-gold-surface'),
                 decoration: BoxDecoration(
-                  gradient: proPurchaseButtonGradient,
+                  // The Me page's VIP gold, swept the way its wordmark is, so
+                  // the two membership calls to action read as one family.
+                  gradient: proButtonGradient,
                   borderRadius: BorderRadius.circular(8),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color(0x18A86A17),
-                      blurRadius: 10,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
                 ),
                 child: GenesisPrimaryButton(
                   key: const ValueKey('pro-subscribe-button'),
                   backgroundColor: Colors.transparent,
-                  foregroundColor: proPurchaseInk,
-                  side: const BorderSide(color: Color(0xFFC69A45)),
+                  foregroundColor: proSubscribeInk,
                   label:
                       selectedProduct != null &&
                           membershipPurchaseBlockReason(
@@ -437,7 +431,7 @@ class _ProBenefit extends StatelessWidget {
     final (statusIcon, statusColor, statusLabel) = switch (status) {
       MembershipBenefitDisplay.enhanced => (
         null,
-        proCopperAccent,
+        GenesisColors.redPrimary,
         'Improved with Pro',
       ),
       MembershipBenefitDisplay.included => (
@@ -614,7 +608,7 @@ class _ProPlanCard extends StatelessWidget {
                   height: 21,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: const BoxDecoration(
-                    color: proCopperAccent,
+                    color: GenesisColors.redPrimary,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(12),
                       topRight: Radius.circular(3),

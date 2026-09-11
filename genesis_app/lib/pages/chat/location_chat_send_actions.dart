@@ -8,6 +8,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _chatroomState.joinedLocationId != widget.locationId ||
         _chatroomState.inputBlocked ||
         _sendAwaitingResponse ||
+        _replyGenerationInProgress ||
         _sending ||
         isGenesisUgcTextBlank(_textController.serializedText)) {
       return;
@@ -22,6 +23,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _chatroomState.joinedLocationId != widget.locationId ||
           _chatroomState.inputBlocked ||
           _sendAwaitingResponse ||
+          _replyGenerationInProgress ||
           _sending ||
           isGenesisUgcTextBlank(_textController.serializedText)) {
         return;
@@ -41,6 +43,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _chatroomState.joinedLocationId != widget.locationId ||
         _chatroomState.inputBlocked ||
         _sendAwaitingResponse ||
+        _replyGenerationInProgress ||
         _preparingReplyAction ||
         _replyCardTransitionBusy ||
         _sending) {
@@ -155,6 +158,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _chatroomState.joinedLocationId != widget.locationId ||
         _chatroomState.inputBlocked ||
         _sendAwaitingResponse ||
+        _replyGenerationInProgress ||
         _preparingReplyAction ||
         _sending) {
       return;

@@ -394,7 +394,7 @@ Entity naming:
 - Use `WID` for world identifiers.
 - Use `OID` for origin identifiers.
 - Use `Owner` for world owner.
-- Use `Originator` for origin creator. The Figma currently has a typo `Origginator`; future UI should correct it to `Originator`.
+- Use `Creator` for the Worldo (origin) creator across detail panels, Discuss summaries, and search results.
 
 Copy style:
 
@@ -405,7 +405,7 @@ Copy style:
 Observed typos to fix in future pages:
 
 - `#Four Kinight` should likely be `#Four Knight`
-- `Origginator` should be `Originator`
+- `Origginator` should be `Creator`
 - `wrld` should be `world`
 - `Werewolf ad Vampire` should likely be `Werewolf and Vampire`
 - `Vammpire` should be `Vampire`

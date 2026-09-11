@@ -355,7 +355,7 @@ void main() {
   );
 
   test(
-    'purchased callbacks repeat purchase and record purchase_first once',
+    'purchased callbacks repeat purchase and record first events once',
     () async {
       final firebaseAnalytics = _RecordingFirebaseAnalyticsClient();
       FirebaseAnalyticsMonitoring.resetForTesting();
@@ -390,6 +390,11 @@ void main() {
           'device_id': 'test-device-id',
         }),
         const _FirebaseAnalyticsRecord('purchase_first', <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+        }),
+        const _FirebaseAnalyticsRecord('gems_first', <String, Object>{
           'provider': 'google',
           'product_id': 'worldo_gems_500',
           'device_id': 'test-device-id',

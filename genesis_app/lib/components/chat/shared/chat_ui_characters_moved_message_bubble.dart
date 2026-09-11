@@ -195,7 +195,7 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                 genesisDisplaySafeText(movement.characterName),
                 style: const TextStyle(
                   color: _tickMessageHeaderColor,
-                  fontSize: 13,
+                  fontSize: 14,
                   height: 1.3,
                   fontWeight: FontWeight.w600,
                 ),
@@ -204,7 +204,7 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                 directionText,
                 style: TextStyle(
                   color: mutedColor,
-                  fontSize: 13,
+                  fontSize: 14,
                   height: 1.3,
                   fontWeight: FontWeight.w400,
                 ),
@@ -229,7 +229,7 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                           color: canOpenLocation
                               ? GenesisColors.redSecondary
                               : _tickMessageHeaderColor,
-                          fontSize: 13,
+                          fontSize: 14,
                           height: 1.3,
                           fontWeight: FontWeight.w600,
                           decoration: canOpenLocation

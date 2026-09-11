@@ -1,3 +1,4 @@
+import '../../components/gems/pro_user_name.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';

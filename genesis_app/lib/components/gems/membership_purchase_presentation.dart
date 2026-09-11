@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/membership/membership_purchase_service.dart';
 import '../../app/membership/membership_purchase_eligibility.dart';
-import '../../icons/custom_icon_assets.dart';
 import '../../network/models/membership_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
@@ -43,12 +42,8 @@ class MembershipPurchasePresentation {
       barrierColor: kGenesisModalBarrierColor,
       barrierDismissible: false,
       pageBuilder: (_, _, _) => Center(
-        child: GemBillingPurchaseDialog(
+        child: GemBillingPurchaseDialog.membership(
           state: state,
-          processingLabel: 'Purchasing VIP',
-          successTitle: 'VIP purchase successful!',
-          successMessage: 'Your VIP purchase is confirmed.',
-          successIconAsset: proCrownFilledIconAsset,
           onConfirm: () => _close(true),
         ),
       ),

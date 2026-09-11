@@ -17,6 +17,10 @@ Future<bool> showOriginDiscussReplyComposer({
     context: context,
     title: 'Reply',
     placeholder: placeholder ?? 'Write a reply',
+    placeholderWidget:
+        placeholder != null && replyToUid?.trim().isNotEmpty == true
+        ? ProUserName(uid: replyToUid!, fontSize: 14, child: Text(placeholder))
+        : null,
     submitter: (content, images) => submitOriginDiscussReply(
       context: context,
       controller: controller,

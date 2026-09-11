@@ -45,8 +45,6 @@ extension _WorldPageLayout on _WorldPageState {
             world: world,
             initialName: widget.initialName,
             worldTime: world?.currentTime ?? '',
-            tickIndex: world?.tickCount ?? -1,
-            subTickNo: world?.subTickNo ?? 0,
           ),
           map:
               _buildInitialTilemapPreview() ??
@@ -123,17 +121,11 @@ extension _WorldPageLayout on _WorldPageState {
     WorldDetail? world,
     String initialName = '',
     String worldTime = '',
-    int tickIndex = -1,
-    int subTickNo = 0,
   }) {
     final title = world == null
         ? initialName.trim()
         : (world.name.trim().isEmpty ? world.worldId : world.name.trim());
-    final resolvedWorldTimeLabel = worldTimeLabel(
-      tickIndex: tickIndex,
-      subTickNo: subTickNo,
-      worldTime: worldTime,
-    );
+    final resolvedWorldTimeLabel = worldTimeLabel(worldTime: worldTime);
     return Positioned.fill(
       child: LayoutBuilder(
         builder: (context, constraints) {

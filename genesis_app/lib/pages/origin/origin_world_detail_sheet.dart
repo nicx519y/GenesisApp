@@ -1886,13 +1886,8 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     customIconColor: originWorldDetailSheetSecondaryTextColor,
                   ),
                   GenesisInlineMetaLabel(
-                    text: 'Originator: ${formatUidForDisplay(originator)}',
-                    trailing: origin.ownerDeleted
-                        ? null
-                        : const ProMembershipBadge(
-                            key: ValueKey('originator-membership-badge'),
-                            height: 14,
-                          ),
+                    text: 'Creator: ${formatUidForDisplay(originator)}',
+                    membershipUid: origin.ownerDeleted ? null : ownerUid,
                     onTap: ownerUid.isEmpty || origin.ownerDeleted
                         ? null
                         : () => Navigator.of(context).pushNamed(
@@ -1913,6 +1908,10 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                         '${age.isEmpty ? '' : ' · $age'}',
                     style: metaStyle,
                     trailingIconSize: genesisCopyableIdIconSize,
+                  ),
+                  GenesisDetailTags(
+                    key: const ValueKey<String>('origin-info-tags'),
+                    tags: origin.tags,
                   ),
                   const SizedBox(height: 10),
                   Row(

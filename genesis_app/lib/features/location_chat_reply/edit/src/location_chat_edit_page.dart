@@ -1,5 +1,8 @@
 part of '../../../../pages/chat/location_chat_page.dart';
 
+const _locationChatEditMinimumMessageToast =
+    'At least one message must remain.';
+
 bool _isEditableRoundMessage(ChatMessageVm message) =>
     !message.isMe &&
     !message.isPlayerControlledRole &&
@@ -64,21 +67,6 @@ class LocationChatEditResult {
   final Set<String> deletedMessageIds;
 }
 
-/// Signals an external round transition without coupling the editor to networking.
-class LocationChatEditExternalState {
-  const LocationChatEditExternalState({
-    this.frozen = false,
-    this.saving = false,
-    this.saved = false,
-    this.error,
-  });
-
-  final bool frozen;
-  final bool saving;
-  final bool saved;
-  final String? error;
-}
-
 class LocationChatEditPageArgs {
   const LocationChatEditPageArgs({
     required this.worldId,
@@ -90,10 +78,6 @@ class LocationChatEditPageArgs {
     this.cardId,
     this.canEdit = true,
     this.canDelete = true,
-    this.initialDraft,
-    this.onDraftChanged,
-    this.onCancel,
-    this.externalState,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
     this.selfMessageBubbleMaxWidthCap,
@@ -108,16 +92,10 @@ class LocationChatEditPageArgs {
   final List<ChatMessageVm> messages;
   final bool canEdit;
   final bool canDelete;
-  final LocationChatEditResult? initialDraft;
 
-  /// Resolves only after authoritative persistence; throw to retain this draft.
-  /// Errors are shown inline here, so the caller need not display another toast.
+  /// Resolves when this editor's batch request succeeds.
+  /// All failures are presented through the global toast.
   final Future<void> Function(LocationChatEditResult result) onSave;
-  final ValueChanged<LocationChatEditResult>? onDraftChanged;
-
-  /// Called once when a normal edit is discarded, never for a frozen transition.
-  final VoidCallback? onCancel;
-  final ValueListenable<LocationChatEditExternalState>? externalState;
   final ChatUiStyleConfig style;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
@@ -146,20 +124,8 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
   bool _revealScheduled = false;
   bool _saving = false;
   bool _completed = false;
-  bool _cancelNotified = false;
-  bool _completionScheduled = false;
-  String? _saveError;
-  LocationChatEditResult? _lastPublishedDraft;
-
-  LocationChatEditExternalState get _external =>
-      widget.args.externalState?.value ?? const LocationChatEditExternalState();
-  bool get _busy => _saving || _external.saving;
-  bool get _frozen => _external.frozen;
-  bool get _inputEnabled => !_busy && !_frozen;
-  bool get _canDelete =>
-      _inputEnabled &&
-      widget.args.canDelete &&
-      (widget.args.cardId == null || _messages.length > 1);
+  bool get _inputEnabled => !_saving;
+  bool get _canDelete => _inputEnabled && widget.args.canDelete;
 
   LocationChatEditResult _draft() => LocationChatEditResult(
     texts: Map.unmodifiable({
@@ -169,33 +135,6 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
     }),
     deletedMessageIds: Set.unmodifiable(_deletedMessageIds),
   );
-
-  void _draftChanged() {
-    if (_completed) return;
-    final draft = _draft();
-    if (mapEquals(draft.texts, _lastPublishedDraft?.texts) &&
-        setEquals(
-          draft.deletedMessageIds,
-          _lastPublishedDraft?.deletedMessageIds,
-        )) {
-      return;
-    }
-    _lastPublishedDraft = draft;
-    widget.args.onDraftChanged?.call(draft);
-  }
-
-  void _externalChanged() {
-    if (!mounted) return;
-    if (!_inputEnabled) FocusManager.instance.primaryFocus?.unfocus();
-    setState(() {});
-    if (_external.saved && !_completionScheduled) {
-      _completionScheduled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _completionScheduled = false;
-        if (mounted && _external.saved) _complete(_draft());
-      });
-    }
-  }
 
   void _complete(LocationChatEditResult result) {
     if (!mounted || _completed) return;
@@ -210,15 +149,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
     }
   }
 
-  void _cancel() {
-    if (_cancelNotified || _completed || _frozen) return;
-    _cancelNotified = true;
-    widget.args.onCancel?.call();
-  }
-
   void _back() {
-    if (_busy) return;
-    _cancel();
     Navigator.of(context).pop();
   }
 
@@ -267,54 +198,18 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
         )
         .map((message) => _copyLocationChatMessageText(message, message.text))
         .toList();
-    final initialDeleted =
-        args.initialDraft?.deletedMessageIds ?? const <String>{};
-    _deletedMessageIds.addAll(
-      initialDeleted.intersection(
-        _messages.map((message) => message.localId).toSet(),
-      ),
-    );
-    // Never restore a candidate draft that would remove every message.
-    if (args.cardId != null && _deletedMessageIds.length == _messages.length) {
-      _deletedMessageIds.clear();
-    }
     for (final message in _messages) {
       _messageKeys[message.localId] = GlobalKey();
       if (message.isImage) continue;
-      _controllers[message.localId] =
-          LocationChatMentionEditingController(
-            catalog: widget.args.mentionCatalog,
-          )..setSerializedText(
-            args.initialDraft?.texts[message.localId] ?? message.text,
-          );
-      _controllers[message.localId]!.addListener(_draftChanged);
-    }
-    _messages.removeWhere(
-      (message) => _deletedMessageIds.contains(message.localId),
-    );
-    _lastPublishedDraft = _draft();
-    args.externalState?.addListener(_externalChanged);
-    if (_external.saved) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _externalChanged();
-      });
-    }
-  }
-
-  @override
-  void didUpdateWidget(LocationChatEditPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.args.externalState != widget.args.externalState) {
-      oldWidget.args.externalState?.removeListener(_externalChanged);
-      widget.args.externalState?.addListener(_externalChanged);
-      _externalChanged();
+      _controllers[message.localId] = LocationChatMentionEditingController(
+        catalog: widget.args.mentionCatalog,
+      )..setSerializedText(message.text);
     }
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    widget.args.externalState?.removeListener(_externalChanged);
     _scrollCoordinator.dispose();
     for (final controller in _controllers.values) {
       controller.dispose();
@@ -324,6 +219,10 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
 
   void _deleteMessage(String id) {
     if (!_canDelete) return;
+    if (_messages.length <= 1) {
+      showGenesisToast(context, _locationChatEditMinimumMessageToast);
+      return;
+    }
     if (_activeMessageId == id) {
       FocusManager.instance.primaryFocus?.unfocus();
       _activeMessageId = null;
@@ -332,13 +231,20 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
       _deletedMessageIds.add(id);
       _messages.removeWhere((message) => message.localId == id);
     });
-    _draftChanged();
   }
 
   Future<void> _done() async {
     if (!_inputEnabled) return;
     FocusManager.instance.primaryFocus?.unfocus();
     final result = _draft();
+    final hasRemainingMessage = _messages.any((message) {
+      if (message.isImage) return true;
+      return (result.texts[message.localId] ?? message.text).trim().isNotEmpty;
+    });
+    if (!hasRemainingMessage) {
+      showGenesisToast(context, _locationChatEditMinimumMessageToast);
+      return;
+    }
     final hasChanges =
         result.deletedMessageIds.isNotEmpty ||
         widget.args.messages.any(
@@ -347,31 +253,21 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
               result.texts[message.localId] != message.text,
         );
     if (!hasChanges) {
-      _cancel();
       _complete(result);
       return;
     }
-    if (widget.args.messages.any((message) {
-      final text = result.texts[message.localId];
-      return text != null && text != message.text && text.trim().isEmpty;
-    })) {
-      setState(() => _saveError = 'Message text cannot be empty.');
-      return;
-    }
-    setState(() {
-      _saving = true;
-      _saveError = null;
-    });
+    final overlay = Overlay.maybeOf(context, rootOverlay: true);
+    final brightness = Theme.of(context).brightness;
+    setState(() => _saving = true);
     try {
       await widget.args.onSave(result);
       if (mounted) _complete(result);
     } catch (error) {
-      if (mounted && !_completed) {
-        // Server errors are shown once by the global centered toast.
-        setState(
-          () => _saveError = isChatroomErrorPresentedGlobally(error)
-              ? null
-              : chatroomOperationErrorMessage(error),
+      if (!isChatroomErrorPresentedGlobally(error) && overlay != null) {
+        showGenesisToastInOverlay(
+          overlay,
+          chatroomOperationErrorMessage(error),
+          brightness: brightness,
         );
       }
     } finally {
@@ -383,140 +279,114 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
   Widget build(BuildContext context) {
     final args = widget.args;
     final style = args.style;
-    return GenesisDarkTheme(
-      child: PopScope<LocationChatEditResult>(
-        canPop: !_busy || _completed,
-        onPopInvokedWithResult: (didPop, result) {
-          if (didPop && !_completed) _cancel();
-        },
-        child: AnnotatedRegion<SystemUiOverlayStyle>(
-          value: kChatDarkHeaderSystemUiOverlayStyle,
-          child: Scaffold(
-            backgroundColor: GenesisColors.darkBackground,
-            resizeToAvoidBottomInset: true,
-            body: Column(
-              children: [
-                ChatHeader(
-                  title: 'Edit Message',
-                  subtitle: '',
-                  connected: false,
-                  connecting: false,
-                  onBack: _back,
-                  showTitleIcon: false,
-                  showSubtitle: false,
-                  showMoreButton: false,
-                  alignContentLeft: true,
-                  trailingVerticallyCentered: true,
-                  style: style,
-                  trailing: Padding(
-                    padding: const EdgeInsets.only(right: 16),
-                    child: GenesisPrimaryButton(
-                      key: const ValueKey('location-chat-edit-done'),
-                      label: 'Save',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      backgroundColor: GenesisColors.redPrimary,
-                      onPressed: _inputEnabled ? _done : null,
-                      isLoading: _busy,
-                      width: 64,
-                      height: 32,
-                      fullWidth: false,
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      foregroundColor: GenesisColors.darkTextPrimary,
-                    ),
-                  ),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: kChatDarkHeaderSystemUiOverlayStyle,
+      child: Scaffold(
+        backgroundColor: GenesisColors.darkBackground,
+        resizeToAvoidBottomInset: true,
+        body: Column(
+          children: [
+            ChatHeader(
+              title: 'Edit Message',
+              subtitle: '',
+              connected: false,
+              connecting: false,
+              onBack: _back,
+              showTitleIcon: false,
+              showSubtitle: false,
+              showMoreButton: false,
+              alignContentLeft: true,
+              trailingVerticallyCentered: true,
+              style: style,
+              trailing: Padding(
+                padding: const EdgeInsets.only(right: 10),
+                child: GenesisPrimaryButton(
+                  key: const ValueKey('location-chat-edit-done'),
+                  label: 'Save',
+                  onPressed: _inputEnabled ? _done : null,
+                  isLoading: _saving,
+                  width: 64,
+                  height: 32,
+                  fullWidth: false,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  foregroundColor: style.bubbleTextStyle.color,
                 ),
-                if (_saveError != null || _external.error != null || _frozen)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: Text(
-                      _saveError ??
-                          _external.error ??
-                          'This reply is being confirmed. Editing is paused.',
-                      key: const ValueKey('location-chat-edit-status'),
-                      style: style.bubbleTextStyle.copyWith(
-                        color: GenesisColors.darkTextSecondary,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                Expanded(
-                  child: ChatMentionScope(
-                    catalog: args.mentionCatalog ?? ChatMentionCatalog.empty,
-                    child: ChatMessageEditorScope(
-                      controllers: args.canEdit ? _controllers : const {},
-                      onEditorActivated: _activateEditor,
-                      onEditorDeactivated: (id) {
-                        if (_activeMessageId == id) _activeMessageId = null;
-                      },
-                      child: BackdropGroup(
-                        child: SizedBox(
-                          key: _viewportKey,
-                          child: ListView.builder(
-                            controller: _scrollCoordinator.controller,
-                            key: const ValueKey('location-chat-edit-messages'),
-                            keyboardDismissBehavior:
-                                ScrollViewKeyboardDismissBehavior.onDrag,
-                            padding: style.messageListPadding.copyWith(
-                              bottom:
-                                  style.messageListPadding.bottom +
-                                  GenesisSafeAreaInsets.bottom(context),
-                            ),
-                            itemCount: _messages.length,
-                            itemBuilder: (context, index) => SizedBox(
-                              key: _messageKeys[_messages[index].localId],
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: ExcludeFocus(
-                                      excluding: !_inputEnabled,
-                                      child: AbsorbPointer(
-                                        absorbing: !_inputEnabled,
-                                        child: ChatMessageRow(
-                                          key: ValueKey(
-                                            'location-chat-edit-row-${_messages[index].localId}',
-                                          ),
-                                          message: _messages[index],
-                                          showDateDivider: false,
-                                          style: style,
-                                          selfMessageBubbleMaxWidthCap:
-                                              args.selfMessageBubbleMaxWidthCap,
-                                          otherMessageBubbleMaxWidthCap: args
-                                              .otherMessageBubbleMaxWidthCap,
-                                        ),
+              ),
+            ),
+            Expanded(
+              child: ChatMentionScope(
+                catalog: args.mentionCatalog ?? ChatMentionCatalog.empty,
+                child: ChatMessageEditorScope(
+                  controllers: args.canEdit ? _controllers : const {},
+                  onEditorActivated: _activateEditor,
+                  onEditorDeactivated: (id) {
+                    if (_activeMessageId == id) _activeMessageId = null;
+                  },
+                  child: BackdropGroup(
+                    child: SizedBox(
+                      key: _viewportKey,
+                      child: ListView.builder(
+                        controller: _scrollCoordinator.controller,
+                        key: const ValueKey('location-chat-edit-messages'),
+                        keyboardDismissBehavior:
+                            ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: style.messageListPadding.copyWith(
+                          bottom:
+                              style.messageListPadding.bottom +
+                              GenesisSafeAreaInsets.bottom(context),
+                        ),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) => SizedBox(
+                          key: _messageKeys[_messages[index].localId],
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: ExcludeFocus(
+                                  excluding: !_inputEnabled,
+                                  child: AbsorbPointer(
+                                    absorbing: !_inputEnabled,
+                                    child: ChatMessageRow(
+                                      key: ValueKey(
+                                        'location-chat-edit-row-${_messages[index].localId}',
                                       ),
+                                      message: _messages[index],
+                                      showDateDivider: false,
+                                      style: style,
+                                      selfMessageBubbleMaxWidthCap:
+                                          args.selfMessageBubbleMaxWidthCap,
+                                      otherMessageBubbleMaxWidthCap:
+                                          args.otherMessageBubbleMaxWidthCap,
                                     ),
                                   ),
-                                  Positioned(
-                                    right: _messages[index].isImage ? 4 : 0,
-                                    top: _messages[index].isImage ? 12 : 0,
-                                    child: GenesisDeleteButton(
-                                      enabled: _canDelete,
-                                      buttonKey: ValueKey(
-                                        'location-chat-edit-delete-${_messages[index].localId}',
-                                      ),
-                                      decorationKey: ValueKey(
-                                        'location-chat-edit-delete-decoration-${_messages[index].localId}',
-                                      ),
-                                      onPressed: () => _deleteMessage(
-                                        _messages[index].localId,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
+                              Positioned(
+                                right: _messages[index].isImage ? 4 : 0,
+                                top: _messages[index].isImage ? 12 : 0,
+                                child: GenesisDeleteButton(
+                                  enabled: _canDelete,
+                                  buttonKey: ValueKey(
+                                    'location-chat-edit-delete-${_messages[index].localId}',
+                                  ),
+                                  decorationKey: ValueKey(
+                                    'location-chat-edit-delete-decoration-${_messages[index].localId}',
+                                  ),
+                                  onPressed: () =>
+                                      _deleteMessage(_messages[index].localId),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

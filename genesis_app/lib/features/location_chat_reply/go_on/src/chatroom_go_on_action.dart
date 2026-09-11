@@ -57,15 +57,6 @@ extension ChatroomGoOnFeatureImplementation on ChatroomReplyActionsController {
           state._goOn!.uncertain = true;
         }
         await _persist(state);
-        if (_errorCode(error) == 2015) {
-          state._invalidated = true;
-          await _persist(state);
-          try {
-            await _refreshLatestHistory?.call(locationId);
-          } catch (_) {
-            /* Preserve the original server rejection. */
-          }
-        }
         if (state._goOn case final pending?
             when pending.uncertain && !pending.finished) {
           try {

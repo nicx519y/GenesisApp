@@ -1,3 +1,4 @@
+import '../membership/user_membership_status_store.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -60,6 +61,7 @@ class AppServices {
     this.billing,
     this.membershipPurchases,
     MembershipCatalog? membershipCatalog,
+    UserMembershipStatusStore? userMemberships,
     ValueNotifier<int>? sessionRevision,
     AppGlobalConfigStore? appGlobalConfig,
   }) : membershipCatalog =
@@ -89,6 +91,11 @@ class AppServices {
            appGlobalConfig ??
            AppGlobalConfigStore(loadConfig: api.v1.app.config),
        sessionRevision = sessionRevision ?? ValueNotifier<int>(0) {
+    this.userMemberships =
+        userMemberships ??
+        UserMembershipStatusStore(
+          loadUser: (uid) => api.v1.user.info(uid: uid),
+        );
     membership = MembershipAccessStore(
       wallet: this.gemWallet,
       readLoginUid: sessionStore.readLoginUid,
@@ -116,6 +123,7 @@ class AppServices {
   final GatewayAuthCoordinator? gatewayAuth;
   final GemWalletStore gemWallet;
   late final MembershipAccessStore membership;
+  late final UserMembershipStatusStore userMemberships;
   final BillingService? billing;
   final MembershipPurchaseService? membershipPurchases;
   final MembershipCatalog membershipCatalog;
@@ -124,6 +132,7 @@ class AppServices {
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
 
   void _membershipSessionChanged() {
+    userMemberships.reset();
     membershipCatalog.resetForSession();
     membership.resetForSession();
     unawaited(membership.start());
@@ -142,6 +151,7 @@ class AppServices {
     pendingLoginCheckInUid.dispose();
     billing?.dispose();
     membershipPurchases?.dispose();
+    userMemberships.dispose();
     membership.dispose();
     gemWallet.dispose();
     appGlobalConfig.dispose();

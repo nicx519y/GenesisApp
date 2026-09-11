@@ -3,6 +3,7 @@ part of 'user_profile_library.dart';
 class _WorldProfileCollectionList extends StatefulWidget {
   const _WorldProfileCollectionList({
     required this.items,
+    required this.profileUid,
     required this.emptyText,
     required this.isLoading,
     required this.listenable,
@@ -15,6 +16,7 @@ class _WorldProfileCollectionList extends StatefulWidget {
   });
 
   final List<UserProfileWorldItem> items;
+  final String profileUid;
   final String emptyText;
   final bool isLoading;
   final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
@@ -75,12 +77,18 @@ class _WorldProfileCollectionListState
         .toList(growable: false);
     return ProfileCollectionList(
       items: visibleItems
-          .map(
-            (item) => GenesisProfileCollectionItemData(
+          .map((item) {
+            final profileUid = widget.profileUid.trim();
+            final hideOwner =
+                profileUid.isNotEmpty && item.ownerUid.trim() == profileUid;
+            return GenesisProfileCollectionItemData(
               animationKey: item.wid,
               imageUrl: item.imageUrl,
               title: item.title,
-              subtitle: item.subtitle,
+              subtitle: hideOwner
+                  ? item.subtitle.split('\n').first
+                  : item.subtitle,
+              ownerUid: item.deleted || hideOwner ? '' : item.ownerUid,
               statsText: formatWorldStatsLabel(
                 tickNo: item.progressCount,
                 subTickNo: item.subTickNo,
@@ -98,8 +106,8 @@ class _WorldProfileCollectionListState
                   ? null
                   : () => unawaited(_openWorld(item)),
               onCollapsed: () => _handleWorldCollapseCompleted(item),
-            ),
-          )
+            );
+          })
           .toList(growable: false),
       emptyText: widget.emptyText,
       isLoading: isLoading,
@@ -199,6 +207,7 @@ class UserProfileWorldItem {
     required this.characterCount,
     required this.playerCount,
     required this.ownerName,
+    this.ownerUid = '',
   });
 
   final String wid;
@@ -214,4 +223,5 @@ class UserProfileWorldItem {
   final int characterCount;
   final int playerCount;
   final String ownerName;
+  final String ownerUid;
 }

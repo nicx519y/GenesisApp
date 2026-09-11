@@ -523,6 +523,67 @@ void main() {
     expect(find.text('Previous sub tick 1 body'), findsNothing);
     expect(tester.getTopLeft(find.byKey(latestPreviousSubTickKey)).dy, 0);
   });
+
+  testWidgets(
+    'events with a sheet controller prioritizes the previous tick pull',
+    (tester) async {
+      final sheetScrollController = ScrollController();
+      addTearDown(sheetScrollController.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 320,
+              child: WorldEventsSection(
+                scrollController: sheetScrollController,
+                world: _worldDetail(),
+                ticks: const [
+                  {
+                    'tick_id': 'tick_1',
+                    'tick_no': 1,
+                    'tick_result': {
+                      'narrator': 'Previous tick body',
+                      'paragraphs': <Object?>[],
+                    },
+                  },
+                  {
+                    'tick_id': 'tick_2',
+                    'tick_no': 2,
+                    'tick_result': {
+                      'narrator': 'Latest tick body',
+                      'paragraphs': <Object?>[],
+                    },
+                  },
+                ],
+                initialLoading: false,
+                loadingMore: false,
+                hasMore: false,
+                error: null,
+                latestRevision: 0,
+                targetTickNumber: null,
+                contentPadding: EdgeInsets.zero,
+                onLoadMore: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Latest tick body'), findsOneWidget);
+      expect(sheetScrollController.hasClients, isFalse);
+
+      await tester.drag(
+        find.byType(CustomScrollView).last,
+        const Offset(0, 300),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Previous tick body'), findsOneWidget);
+      expect(find.text('Latest tick body'), findsNothing);
+      expect(sheetScrollController.hasClients, isTrue);
+    },
+  );
 }
 
 WorldDetail _worldDetail({

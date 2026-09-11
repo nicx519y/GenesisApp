@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
+import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
@@ -314,6 +315,69 @@ class Harness {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  test(
+    'subscription purchases record independent first analytics events',
+    () async {
+      final analytics = _RecordingAnalyticsClient();
+      FirebaseAnalyticsMonitoring.resetForTesting();
+      FirebaseAnalyticsMonitoring.setClientForTesting(analytics);
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+        _MemoryAnalyticsOnceEventStore(),
+      );
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+        () async => 'test-device-id',
+      );
+      addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+
+      final google = Harness();
+      await google.service.purchase(google.product());
+      await google.service.interceptPurchase(google.purchase());
+
+      final apple = Harness(provider: MembershipProvider.apple);
+      await apple.service.purchase(apple.product(yearly: true));
+      await apple.service.interceptPurchase(
+        apple.purchase(yearly: true, token: '', transaction: 'apple-2'),
+      );
+
+      final restored = Harness();
+      await restored.service.purchase(restored.product());
+      await restored.service.interceptPurchase(
+        restored.purchase(status: BillingPurchaseStatus.restored),
+      );
+
+      final canceled = Harness();
+      await canceled.service.purchase(canceled.product());
+      await canceled.service.interceptPurchase(
+        canceled.purchase(status: BillingPurchaseStatus.canceled),
+      );
+
+      final unowned = Harness();
+      await unowned.service.interceptPurchase(
+        unowned.purchase(token: 'unowned-token', transaction: 'unowned-order'),
+      );
+      await _settleAnalytics();
+
+      expect(analytics.events.map((event) => event.name), <String>[
+        'purchase',
+        'purchase_first',
+        'subscription_first',
+        'purchase',
+      ]);
+      expect(analytics.events.first.parameters, <String, Object>{
+        'provider': 'google',
+        'product_id': google.product().storeProductId,
+        'device_id': 'test-device-id',
+      });
+      expect(analytics.events.last.parameters, <String, Object>{
+        'provider': 'apple',
+        'product_id': apple.product(yearly: true).storeProductId,
+        'device_id': 'test-device-id',
+      });
+    },
+  );
+
   test('successful logged-in report leaves no durable order history', () async {
     final h = Harness();
     await h.service.purchase(h.product(yearly: true));
@@ -651,4 +715,44 @@ void main() {
       expect(h.reports, hasLength(1));
     },
   );
+}
+
+Future<void> _settleAnalytics() async {
+  for (var index = 0; index < 8; index += 1) {
+    await Future<void>.delayed(Duration.zero);
+  }
+}
+
+class _RecordingAnalyticsClient implements AppAnalyticsClient {
+  final List<_AnalyticsEvent> events = <_AnalyticsEvent>[];
+
+  @override
+  Future<void> logEvent({
+    required String name,
+    Map<String, Object>? parameters,
+  }) async {
+    events.add(_AnalyticsEvent(name, parameters ?? const <String, Object>{}));
+  }
+}
+
+class _MemoryAnalyticsOnceEventStore
+    implements FirebaseAnalyticsOnceEventStore {
+  final Set<String> sentEvents = <String>{};
+
+  @override
+  Future<void> markSent(String eventName) async {
+    sentEvents.add(eventName);
+  }
+
+  @override
+  Future<bool> wasSent(String eventName) async {
+    return sentEvents.contains(eventName);
+  }
+}
+
+class _AnalyticsEvent {
+  const _AnalyticsEvent(this.name, this.parameters);
+
+  final String name;
+  final Map<String, Object> parameters;
 }

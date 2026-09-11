@@ -349,7 +349,7 @@ class _ProfileEditButton extends StatelessWidget {
         width: 28,
         height: 24,
         child: Align(
-          alignment: Alignment.bottomCenter,
+          alignment: Alignment.center,
           child: Transform.scale(
             // Match the previous edit icon within its existing layout slot.
             scale: 32 / 37.36,

@@ -750,8 +750,6 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
                 topPadding,
                 world: world,
                 worldTime: world.currentTime,
-                tickIndex: world.tickCount,
-                subTickNo: world.subTickNo,
               ),
               map: buildWorldMapPage(0, pointMode: false),
               fixedCollapsedPanelHeight: collapsedPanelHeight,

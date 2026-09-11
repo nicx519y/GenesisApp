@@ -253,6 +253,12 @@ class WorldChatroomService {
         requireCurrent: true,
       ),
       replaceCompletedRound: _replaceCompletedReplyRound,
+      applyCommittedFormalEdit: (location, round, operations) =>
+          _applyCommittedFormalEdit(
+            locationId: location,
+            conversationRoundId: round,
+            operations: operations,
+          ),
       onGoOnAccepted: (location, round) => _bindWaitingConversationRound(
         locationId: location,
         conversationRoundId: '$round',

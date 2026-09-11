@@ -1,5 +1,7 @@
 part of '../../../../network/chatroom/chatroom_reply_actions_controller.dart';
 
+const _minimumReplyMessageError = 'At least one message must remain.';
+
 /// Internal implementation. Callers only see the edit feature contract.
 extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
   Future<ChatroomReplyEditorTarget> prepareEditor(String locationId) async {
@@ -9,9 +11,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     _checkCurrent();
     if (state.frozen) throw StateError('This reply has been fixed');
     ++state._generation;
-    final target = _editor(state);
-    state._openEditors.add(target.cardId ?? 0);
-    return target;
+    return _editor(state);
   }
 
   ChatroomReplyEditorTarget _editor(
@@ -116,6 +116,79 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         _background(state, () => finalizeBeforeSend(state.locationId));
       }
     }
+  }
+
+  /// Submit one editor session without coupling its result to round state,
+  /// automatic confirmation, or the later conversation-range refresh.
+  Future<void> submitEdit(
+    ChatroomReplyEditorTarget target,
+    List<ChatroomLlmMessageOperation> operations,
+  ) async {
+    if (target.worldId != worldId || target._state._controller != this) {
+      throw StateError('Stale reply editor');
+    }
+    _validateOperations(target, operations);
+    if (operations.isEmpty) return;
+
+    if (target.cardId case final cardId?) {
+      final result = await _http.batchMutateLlmCardMessages(
+        worldId: target.worldId,
+        locationId: target.locationId,
+        conversationRoundId: target.roundId,
+        cardId: cardId,
+        operations: operations,
+      );
+      if (_disposed) return;
+      final state = target._state;
+      _invalidateCardsCache(state);
+      ++state._generation;
+      state._cards.removeWhere((card) => card.cardId == cardId);
+      state._cards.add(result.card);
+      state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
+      state._authoritativeCards.add(cardId);
+      state._streamMessages.remove(cardId);
+      state._drafts.remove(cardId);
+      state._draftBaselines.remove(cardId);
+      state._uncertainBatches.remove(cardId);
+      state._presentationRevision++;
+      _notify();
+      unawaited(_persist(state).catchError((Object _) {}));
+      return;
+    }
+
+    await _http.batchMutateLlmMessages(
+      worldId: target.worldId,
+      locationId: target.locationId,
+      conversationRoundId: target.roundId,
+      operations: operations,
+    );
+    if (_disposed) return;
+    await _applyCommittedFormalEdit?.call(
+      target.locationId,
+      target.roundId,
+      operations,
+    );
+    if (_disposed) return;
+    final byId = {
+      for (final operation in operations) operation.globalMessageId: operation,
+    };
+    final updated = <WorldChatroomMessage>[];
+    for (final message in target._state._formal) {
+      final operation = byId[message.globalMessageId];
+      if (operation?.action == ChatroomLlmMessageAction.delete) continue;
+      updated.add(
+        operation == null
+            ? message
+            : message.copyWith(content: operation.content!),
+      );
+    }
+    target._state._formal = updated;
+    target._state._drafts.remove(0);
+    target._state._draftBaselines.remove(0);
+    target._state._uncertainBatches.remove(0);
+    target._state._presentationRevision++;
+    _notify();
+    unawaited(_persist(target._state).catchError((Object _) {}));
   }
 
   Future<void> _saveDraft(
@@ -256,10 +329,8 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         throw StateError('This message cannot be edited');
       }
     }
-    if (target.cardId != null &&
-        deletes >= target.messages.length &&
-        deletes > 0) {
-      throw StateError('A candidate must retain at least one message');
+    if (messages.isNotEmpty && deletes == messages.length) {
+      throw StateError(_minimumReplyMessageError);
     }
   }
 }

@@ -40,6 +40,7 @@ class LocationChatRegenerateButton extends StatelessWidget {
   Widget build(BuildContext context) => LocationChatReplyFeatureButton(
     label: 'Regenerate',
     iconAsset: regenerateIconAsset,
+    loading: feature.busy,
     onTap: feature.invocation == null
         ? null
         : () {
