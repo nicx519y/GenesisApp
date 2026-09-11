@@ -7,6 +7,7 @@ class GenesisFixedUnderlineIndicator extends Decoration {
     this.height = 3,
     this.radius = 2,
     this.bottomPadding = 0,
+    this.horizontalOffset = 0,
   });
 
   final Color color;
@@ -14,6 +15,7 @@ class GenesisFixedUnderlineIndicator extends Decoration {
   final double height;
   final double radius;
   final double bottomPadding;
+  final double horizontalOffset;
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) {
@@ -23,6 +25,7 @@ class GenesisFixedUnderlineIndicator extends Decoration {
       height: height,
       radius: radius,
       bottomPadding: bottomPadding,
+      horizontalOffset: horizontalOffset,
     );
   }
 }
@@ -34,6 +37,7 @@ class _GenesisFixedUnderlinePainter extends BoxPainter {
     required this.height,
     required this.radius,
     required this.bottomPadding,
+    required this.horizontalOffset,
   });
 
   final Color color;
@@ -41,13 +45,14 @@ class _GenesisFixedUnderlinePainter extends BoxPainter {
   final double height;
   final double radius;
   final double bottomPadding;
+  final double horizontalOffset;
 
   @override
   void paint(Canvas canvas, Offset offset, ImageConfiguration configuration) {
     final size = configuration.size;
     if (size == null) return;
 
-    final left = offset.dx + (size.width - width) / 2;
+    final left = offset.dx + (size.width - width) / 2 + horizontalOffset;
     final top = offset.dy + size.height - height - bottomPadding;
     final rect = Rect.fromLTWH(left, top, width, height);
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(radius));

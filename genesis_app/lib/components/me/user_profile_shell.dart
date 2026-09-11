@@ -672,10 +672,35 @@ class _GemsBalanceEntry extends StatelessWidget {
   }
 
   Widget _buildEntry(BuildContext context, int? redCent, int? roseCent) {
+    final redBoundsKey = GlobalKey();
+    final pinkBoundsKey = GlobalKey();
+    final topUpBoundsKey = GlobalKey();
+    Rect? bounds(GlobalKey key) {
+      final box = key.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) return null;
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+
     return GestureDetector(
       key: const ValueKey('user-profile-gems-entry'),
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(context).pushNamed(RouteNames.gemWallet),
+      onTapUp: (details) {
+        final red = bounds(redBoundsKey);
+        final pink = bounds(pinkBoundsKey);
+        final topUp = bounds(topUpBoundsKey);
+        final x = details.globalPosition.dx;
+        // Split each empty gap at its midpoint without moving the content.
+        final subscription =
+            red != null &&
+            pink != null &&
+            topUp != null &&
+            x >= (red.right + pink.left) / 2 &&
+            x < (pink.right + topUp.left) / 2;
+        Navigator.of(context).pushNamed(
+          RouteNames.gemWallet,
+          arguments: subscription ? 'subscription' : null,
+        );
+      },
       child: Container(
         key: const ValueKey('user-profile-gems-background'),
         height: 68,
@@ -717,6 +742,7 @@ class _GemsBalanceEntry extends StatelessWidget {
                         children: [
                           Flexible(
                             child: _GemBalance(
+                              key: redBoundsKey,
                               iconAsset: gemIconAsset,
                               label: 'Red gems',
                               balanceCent: redCent,
@@ -734,15 +760,31 @@ class _GemsBalanceEntry extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Flexible(
-                            child: _GemBalance(
-                              iconAsset: roseGemIconAsset,
-                              label: 'Pink gems',
-                              balanceCent: roseCent,
-                              valueKey: const ValueKey(
-                                'user-profile-rose-gems-balance',
+                            // The card handles the gaps on either side; this
+                            // direct target also exposes the subscription action.
+                            child: GestureDetector(
+                              key: const ValueKey(
+                                'user-profile-pink-gems-entry',
                               ),
-                              iconKey: const ValueKey(
-                                'user-profile-rose-gem-icon',
+                              behavior: HitTestBehavior.opaque,
+                              onTap: () => Navigator.of(context).pushNamed(
+                                RouteNames.gemWallet,
+                                arguments: 'subscription',
+                              ),
+                              child: SizedBox(
+                                height: double.infinity,
+                                child: _GemBalance(
+                                  key: pinkBoundsKey,
+                                  iconAsset: roseGemIconAsset,
+                                  label: 'Pink gems',
+                                  balanceCent: roseCent,
+                                  valueKey: const ValueKey(
+                                    'user-profile-rose-gems-balance',
+                                  ),
+                                  iconKey: const ValueKey(
+                                    'user-profile-rose-gem-icon',
+                                  ),
+                                ),
                               ),
                             ),
                           ),
@@ -750,22 +792,25 @@ class _GemsBalanceEntry extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 10),
-                    Container(
-                      key: const ValueKey('user-profile-gems-top-up'),
-                      height: 30,
-                      width: 82,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: GenesisColors.brand,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const Text(
-                        'Top up',
-                        style: TextStyle(
-                          color: GenesisColors.darkTextPrimary,
-                          fontSize: 12,
-                          height: 1,
-                          fontWeight: FontWeight.w800,
+                    KeyedSubtree(
+                      key: topUpBoundsKey,
+                      child: Container(
+                        key: const ValueKey('user-profile-gems-top-up'),
+                        height: 30,
+                        width: 82,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: GenesisColors.brand,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Text(
+                          'Top up',
+                          style: TextStyle(
+                            color: GenesisColors.darkTextPrimary,
+                            fontSize: 12,
+                            height: 1,
+                            fontWeight: FontWeight.w800,
+                          ),
                         ),
                       ),
                     ),
@@ -787,6 +832,7 @@ class _GemBalance extends StatelessWidget {
   static const double _figureSize = 18;
 
   const _GemBalance({
+    super.key,
     required this.iconAsset,
     required this.label,
     required this.balanceCent,
