@@ -86,7 +86,7 @@ void main() {
                       ProMembershipBadge.beside(fontSize: 20),
                       SizedBox(width: 34),
                       Text(
-                        'Originator: u_A7BN1K',
+                        'Creator: u_A7BN1K',
                         style: TextStyle(
                           color: Colors.white60,
                           fontSize: 12,

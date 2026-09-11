@@ -1886,7 +1886,7 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                     customIconColor: originWorldDetailSheetSecondaryTextColor,
                   ),
                   GenesisInlineMetaLabel(
-                    text: 'Originator: ${formatUidForDisplay(originator)}',
+                    text: 'Creator: ${formatUidForDisplay(originator)}',
                     membershipUid: origin.ownerDeleted ? null : ownerUid,
                     onTap: ownerUid.isEmpty || origin.ownerDeleted
                         ? null

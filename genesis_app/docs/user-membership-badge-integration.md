@@ -7,10 +7,10 @@
 | 入口 | 对应 UID |
 | --- | --- |
 | Followers / Following、Followers 通知 | 列表用户 uid |
-| Search 用户 / Worldo Originator / World Owner | user.uid / origin.owner.uid / world.owner.uid |
+| Search 用户 / Worldo Creator / World Owner | user.uid / origin.owner.uid / world.owner.uid |
 | Inbox 私信列表 | peerUid |
 | Comments 通知、加入申请通知 | senderUid；原来显示 You 的审核摘要保持原文，不给代词加徽章 |
-| Worldo Detail Originator、Discuss 顶部作者 | origin.ownerUid |
+| Worldo Detail Creator、Discuss 顶部作者 | origin.ownerUid |
 | Worldo Discuss、Discuss、Post Detail 作者和回复者 | authorUid / author.uid |
 | 回复中的被回复者、Reply to 输入提示 | reply_to_uid |
 | World Detail Owner | world.ownerUid |

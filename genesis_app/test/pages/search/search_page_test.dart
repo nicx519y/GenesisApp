@@ -526,9 +526,9 @@ void main() {
 
     expect(find.text('#Origin 1'), findsOneWidget);
     expect(find.text('OID: origin_1'), findsOneWidget);
-    expect(find.text('Originator: Deleted User'), findsOneWidget);
+    expect(find.text('Creator: Deleted User'), findsOneWidget);
     expect(
-      tester.getTopLeft(find.text('Originator: Deleted User')).dy,
+      tester.getTopLeft(find.text('Creator: Deleted User')).dy,
       greaterThan(tester.getTopLeft(find.text('OID: origin_1')).dy),
     );
     expect(find.textContaining('Brief:'), findsNothing);
@@ -844,7 +844,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Originator: Deleted User'), findsOneWidget);
+    expect(find.textContaining('Creator: Deleted User'), findsOneWidget);
   });
 
   testWidgets('dismisses search focus when tapping result area', (

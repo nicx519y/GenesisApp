@@ -204,7 +204,7 @@ void main() {
     expect(image.width, 60);
     expect(image.height, 90);
     final oid = tester.widget<Text>(find.text('OID: oid_1'));
-    expect(find.textContaining('Originator:'), findsNothing);
+    expect(find.textContaining('Creator:'), findsNothing);
     final version = tester.widget<Text>(find.text('Latest Version: V1'));
     expect(oid.style?.color, const Color(0xFF888888));
     expect(oid.style?.height, 1.2);

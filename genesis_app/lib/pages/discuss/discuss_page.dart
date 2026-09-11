@@ -507,7 +507,7 @@ class _DiscussOriginSummary extends StatelessWidget {
                 fontSize: 12,
                 deleted: origin.ownerDeleted,
                 child: Text(
-                  'OID: ${deletedAwareIdLabel(origin.oid, deleted: origin.deleted)}${originator.isEmpty ? '' : ' · Originator: ${origin.ownerDeleted ? deletedEntityDisplayText : originator}'}',
+                  'OID: ${deletedAwareIdLabel(origin.oid, deleted: origin.deleted)}${originator.isEmpty ? '' : ' · Creator: ${origin.ownerDeleted ? deletedEntityDisplayText : originator}'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(

@@ -25,7 +25,7 @@
 - 路由内部名，例如 `RouteNames.origin`。
 - 缓存 key、`ValueKey`、测试 key。
 - `OID` 展示名。
-- `Originator` / `originator` 展示名和字段名。
+- 内部 `originator` 字段名；对应界面标签统一使用 `Creator`。
 
 ## 需要改的前端文件
 
@@ -48,7 +48,7 @@
 - 搜索 Tab 展示名：`Origin` 改为 `Worldo`。
 - 搜索分组标题：`Origins` 改为 `Worldos`。
 - 不改 `_SearchTab.origin` 的 `apiType: 'origin'`。
-- 不改搜索结果 subtitle 中的 `OID` 和 `Originator`。
+- 搜索结果 subtitle 保留 `OID`，创建者标签统一使用 `Creator`。
 
 ### 创建流程
 
@@ -85,7 +85,7 @@
 
 - 按钮 `Edit Origin` 改为 `Edit Worldo`。
 - 不改 `OID`。
-- 不改 `Originator`。
+- 创建者标签统一使用 `Creator`。
 
 ### 个人主页
 
@@ -151,11 +151,11 @@
 - `OriginSummary`、`OriginDetail`、`originDisplayName` 等内部 API 或工具函数命名。
 - `ValueKey('origin-...')`。
 - `origin_hot_tags_v1` 等缓存 key。
-- `OID` 和 `Originator` 相关断言。
+- `OID` 相关断言；创建者展示文案断言统一使用 `Creator`。
 
 ## 建议执行顺序
 
 1. 先改应用固定文案。
-2. 再跑一次 `rg "Origin|Origins|origin|origins" genesis_app/lib`，人工过滤掉内部命名、API 字段、`OID` 和 `Originator`。
+2. 再跑一次 `rg "Origin|Origins|origin|origins" genesis_app/lib`，人工过滤掉内部命名、API 字段、`OID`；创建者展示文案使用 `Creator`。
 3. 同步修改 UI 文案断言。
 4. 跑 Flutter 测试，优先覆盖搜索、底部导航、创建、编辑、个人主页和消息通知。

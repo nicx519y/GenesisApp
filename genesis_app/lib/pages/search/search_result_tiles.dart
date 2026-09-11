@@ -166,7 +166,7 @@ class _OriginSearchMetadata extends StatelessWidget {
         uid: origin.owner.uid,
         fontSize: 12,
         child: Text(
-          'Originator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
+          'Creator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: _searchMetadataStyle.copyWith(

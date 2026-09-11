@@ -374,6 +374,8 @@ HTTP 映射层的图片规则：
 
 ## 名称展示规则
 
+- Worldo 创建者的界面标签统一为 `Creator`，覆盖详情、Discuss 摘要和搜索结果；内部 `originator` 模型字段和接口字段保持兼容。
+
 - Origin（即 Worldo）name 在所有展示位置前加 `#`；使用 `originDisplayName`，避免重复添加。
 - World name 在所有展示位置都不加 `#`；直接展示原始 world name（为空时可回退 WID）。
 

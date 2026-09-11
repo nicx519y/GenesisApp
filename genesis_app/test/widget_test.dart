@@ -8992,15 +8992,15 @@ void main() {
     );
     expect(
       tester.getTopLeft(find.text('OID: o_test_1')).dy,
-      lessThan(tester.getTopLeft(find.text('Originator: Tester')).dy),
+      lessThan(tester.getTopLeft(find.text('Creator: Tester')).dy),
     );
     expect(
-      tester.getTopLeft(find.text('Originator: Tester')).dy,
+      tester.getTopLeft(find.text('Creator: Tester')).dy,
       lessThan(tester.getTopLeft(find.textContaining('Latest Version: V1')).dy),
     );
     expect(tester.widget<Text>(find.text('OID: o_test_1')).style?.height, 1.2);
     expect(
-      tester.widget<Text>(find.text('Originator: Tester')).style?.height,
+      tester.widget<Text>(find.text('Creator: Tester')).style?.height,
       1.2,
     );
     expect(
@@ -9011,7 +9011,7 @@ void main() {
       1.2,
     );
     final oidTextRect = tester.getRect(find.text('OID: o_test_1'));
-    final originatorTextRect = tester.getRect(find.text('Originator: Tester'));
+    final originatorTextRect = tester.getRect(find.text('Creator: Tester'));
     final latestVersionTextRect = tester.getRect(
       find.textContaining('Latest Version: V1'),
     );
@@ -16034,7 +16034,7 @@ void main() {
     expect(find.text('Launched World Progress'), findsNothing);
   });
 
-  testWidgets('Origin detail originator opens user info', (
+  testWidgets('Origin detail creator opens user info', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -16054,7 +16054,7 @@ void main() {
     await tester.pumpAndSettle();
 
     await _swipeOriginSheetToInfo(tester);
-    await tester.tap(find.text('Originator: Tester'));
+    await tester.tap(find.text('Creator: Tester'));
     await tester.pumpAndSettle();
 
     final userInfoRequests = transport.requestsFor('/api/v1/user/info');
