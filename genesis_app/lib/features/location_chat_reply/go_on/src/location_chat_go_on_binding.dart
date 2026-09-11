@@ -5,10 +5,13 @@ extension _LocationChatGoOnBinding on _LocationChatPanelState {
     bool replyBlocked,
     ChatroomReplyRoundState? replyState,
     bool goOnPending,
+    bool contentIsRendering,
   ) => LocationChatGoOnFeature(
     enabled: !replyBlocked && (replyState?.canGoOn ?? false),
     busy:
-        goOnPending || (_replyRequestLoading && !_replyLoadingForRegeneration),
+        (goOnPending ||
+            (_replyRequestLoading && !_replyLoadingForRegeneration)) &&
+        !contentIsRendering,
     onInvoke: () => unawaited(
       _runReplyAction(
         (controller) => controller.goOn(widget.locationId),

@@ -4,6 +4,7 @@ import '../http_transport.dart';
 import '../json_utils.dart';
 import '../multipart_body.dart';
 import '../v1/v1_api_resource.dart';
+import 'chatroom_feature_quota_models.dart';
 import 'chatroom_http_models.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 
@@ -14,6 +15,31 @@ class ChatroomHttpApi {
   const ChatroomHttpApi(this._client);
 
   final ApiClient _client;
+
+  /// GET /aitown-chat/api/v1/feature-quotas
+  Future<ChatroomFeatureQuotas> getFeatureQuotas({
+    NetworkCancellationToken? cancellationToken,
+  }) async {
+    final json = await _client.get<Object?>(
+      'aitown-chat/api/v1/feature-quotas',
+      cancellationToken: cancellationToken,
+    );
+    if (json is! Map || json['err_no'] is! int) {
+      throw ApiException(
+        message: 'Invalid feature quotas envelope',
+        kind: ApiExceptionKind.response,
+      );
+    }
+    final data = handleV1ResponseErrNo(json);
+    try {
+      return ChatroomFeatureQuotas.fromJson(data);
+    } on FormatException catch (error) {
+      throw ApiException(
+        message: error.message,
+        kind: ApiExceptionKind.response,
+      );
+    }
+  }
 
   Future<ChatroomInspirationResponse> getInspirations({
     required String worldId,

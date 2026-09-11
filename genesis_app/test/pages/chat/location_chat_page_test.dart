@@ -2139,7 +2139,20 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
-      expect(_replyActionLoading('Regenerate'), findsOneWidget);
+      expect(_replyActionLoading('Regenerate'), findsNothing);
+      for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+        expect(find.bySemanticsLabel(label), findsNothing);
+      }
+      expect(
+        tester
+            .getSize(
+              find.byKey(
+                const ValueKey('location-chat-reply-actions-four-icons'),
+              ),
+            )
+            .height,
+        32,
+      );
       expect(list.editFeature.enabled, isFalse);
       expect(list.goOnFeature.enabled, isFalse);
       expect(find.text('2 / 2'), findsOneWidget);
@@ -2176,7 +2189,7 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
-      expect(_replyActionLoading('Regenerate'), findsOneWidget);
+      expect(_replyActionLoading('Regenerate'), findsNothing);
       expect(
         harness.socket.replyActionFrames('regenerate_llm_card'),
         hasLength(1),
@@ -2289,7 +2302,20 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
-      expect(_replyActionLoading('Go on'), findsOneWidget);
+      expect(_replyActionLoading('Go on'), findsNothing);
+      for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+        expect(find.bySemanticsLabel(label), findsNothing);
+      }
+      expect(
+        tester
+            .getSize(
+              find.byKey(
+                const ValueKey('location-chat-reply-actions-four-icons'),
+              ),
+            )
+            .height,
+        32,
+      );
       expect(
         harness.service.replyActions!
             .statesFor('location-current')
@@ -2305,6 +2331,26 @@ void main() {
         content: 'The story continues.',
       );
       harness.socket.serverEndConversationRound(roundId: 401);
+      var allReplyActionsRecovered = false;
+      for (var attempt = 0; attempt < 100; attempt += 1) {
+        await tester.pump();
+        final visibleActionCount =
+            ['Regenerate', 'Go on', 'Edit', 'Inspiration']
+                .where(
+                  (label) => find.bySemanticsLabel(label).evaluate().isNotEmpty,
+                )
+                .length;
+        expect(
+          visibleActionCount,
+          anyOf(0, 4),
+          reason: 'Reply actions must recover together in one frame.',
+        );
+        if (visibleActionCount == 4) {
+          allReplyActionsRecovered = true;
+          break;
+        }
+      }
+      expect(allReplyActionsRecovered, isTrue);
       await _pumpUntilLocationChatTest(
         tester,
         () =>
@@ -2575,6 +2621,21 @@ void main() {
       tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
       isFalse,
     );
+    final sendButton = find.descendant(
+      of: find.byKey(const ValueKey('chat-composer-send-button')),
+      matching: find.byType(TextButton),
+    );
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
+    final loadingList = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(loadingList.regenerateFeature.enabled, isFalse);
+    expect(loadingList.goOnFeature.enabled, isFalse);
+    expect(loadingList.editFeature.enabled, isFalse);
+    expect(loadingList.replyCardSwitchEnabled, isFalse);
+    for (final action in ['Regenerate', 'Go on', 'Edit']) {
+      expect(find.bySemanticsLabel(action), findsNothing);
+    }
     expect(
       find.byKey(const ValueKey('location-chat-loading-bubble')),
       findsNothing,
@@ -2604,6 +2665,7 @@ void main() {
       tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
       isTrue,
     );
+    expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
     expect(_replyActionLoading('Inspiration'), findsNothing);
 
     backend.inspirationTimeout = false;

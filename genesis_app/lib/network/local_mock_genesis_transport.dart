@@ -302,6 +302,22 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, String> query,
     Map<String, dynamic> body,
   ) async {
+    if (method == 'GET' && path == 'aitown-chat/api/v1/feature-quotas') {
+      const emptyQuota = {
+        'scope': 'trial_lifetime',
+        'unlimited': false,
+        'limit': 0,
+        'used': 0,
+        'remaining': 0,
+        'reset_at': null,
+      };
+      return _v1Ok({
+        'membership_status': 0,
+        'inspiration': emptyQuota,
+        'conversation_edit': emptyQuota,
+      });
+    }
+
     if (method == 'GET' && path == 'aitown-chat/api/ulocation') {
       return _v1Ok(_state.chatroomUserLocations(query['world_id'] ?? ''));
     }

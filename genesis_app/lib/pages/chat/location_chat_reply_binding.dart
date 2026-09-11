@@ -10,6 +10,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _replyCardTransitionBusy = false;
     _replyRequestLoading = false;
     _replyLoadingForRegeneration = false;
+    _replyRegenerationBaselineCardIds = const <int>{};
+    _replyRegenerationHasRenderedContent = false;
     _lastReplyStatusError = null;
     _restoredReplyLocations.clear();
   }
@@ -65,17 +67,25 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     final controller = _replyController;
     if (controller == null ||
         _preparingReplyAction ||
+        _inspirationLoading ||
         _sending ||
         _replyCardTransitionBusy) {
       return;
     }
     final location = widget.locationId;
     final bindingGeneration = _replyBindingGeneration;
+    final replyState = controller.stateFor(location);
     _setLocationChatState(() {
       _preparingReplyAction = true;
       _replyRequestLoading = generating;
       if (generating) {
         _replyLoadingForRegeneration = regenerating;
+        if (regenerating) {
+          _replyRegenerationHasRenderedContent = false;
+          _replyRegenerationBaselineCardIds = {
+            for (final card in replyState?.cards ?? const []) card.cardId,
+          };
+        }
       }
     });
     if (generating) {
@@ -113,7 +123,12 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
 
   void _browseReplyCard(int delta) {
     final controller = _replyController;
-    if (controller == null || _sending || _preparingReplyAction) return;
+    if (controller == null ||
+        _sending ||
+        _preparingReplyAction ||
+        _inspirationLoading) {
+      return;
+    }
     unawaited(
       controller.browse(widget.locationId, delta).catchError((Object error) {
         debugPrint('[ReplyActions] card position persistence failed: $error');
@@ -128,6 +143,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         state == null ||
         _sending ||
         _preparingReplyAction ||
+        _inspirationLoading ||
         state.busy ||
         state.frozen ||
         !state.showCandidates) {
