@@ -114,61 +114,6 @@ bool _sameRenderedUserInfoExceptAvatarAndDisplayName(
       currentData.deleted == nextData.deleted;
 }
 
-bool _sameOriginItems(
-  List<UserProfileOriginItem> current,
-  List<UserProfileOriginItem> next,
-) {
-  if (identical(current, next)) return true;
-  if (current.length != next.length) return false;
-  for (var index = 0; index < current.length; index += 1) {
-    final a = current[index];
-    final b = next[index];
-    if (a.originId != b.originId ||
-        a.oid != b.oid ||
-        a.title != b.title ||
-        a.definitionVersion != b.definitionVersion ||
-        a.defaultMapLocationId != b.defaultMapLocationId ||
-        a.subtitle != b.subtitle ||
-        a.deleted != b.deleted ||
-        a.imageUrl != b.imageUrl ||
-        a.copyCount != b.copyCount ||
-        a.interactCount != b.interactCount ||
-        a.characterCount != b.characterCount) {
-      return false;
-    }
-  }
-  return true;
-}
-
-bool _sameWorldItems(
-  List<UserProfileWorldItem> current,
-  List<UserProfileWorldItem> next,
-) {
-  if (identical(current, next)) return true;
-  if (current.length != next.length) return false;
-  for (var index = 0; index < current.length; index += 1) {
-    final a = current[index];
-    final b = next[index];
-    if (a.wid != b.wid ||
-        a.title != b.title ||
-        a.definitionVersion != b.definitionVersion ||
-        a.defaultMapLocationId != b.defaultMapLocationId ||
-        a.subtitle != b.subtitle ||
-        a.deleted != b.deleted ||
-        a.imageUrl != b.imageUrl ||
-        a.progressCount != b.progressCount ||
-        a.subTickNo != b.subTickNo ||
-        a.interactCount != b.interactCount ||
-        a.characterCount != b.characterCount ||
-        a.playerCount != b.playerCount ||
-        a.ownerName != b.ownerName ||
-        a.ownerUid != b.ownerUid) {
-      return false;
-    }
-  }
-  return true;
-}
-
 UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {
   return UserProfileOriginItem(
     originId: item.id,

@@ -621,6 +621,8 @@ Query：
 - `definition_version*`: integer，地图定义版本；`1` 为旧版地图，`2` 为新版 2.5D 地图
 - `default_map_location_id*`: string，默认展示地图的 location id；`root` 表示根地图
 
+Me 页 Playing 使用 `getMyWorldsPage` 保留响应 `total`；Worldo 使用 `getMyLaunchedOrigins` 的 `total`。两个 Tab 的 count 均显示接口总数，不使用已加载列表长度。列表独立按 `scene=mine`、`rn=30`、`pn=1,2,...` 分页；下一页追加并按实体 ID 去重，达到总数或返回空页后停止。切换 Tab 保留已加载分页，下拉刷新重新请求第一页；分页失败保留内容并支持重试。原 `getMyWorlds` 列表返回形式继续供其他调用方使用。
+
 其中 `info.last_active_at` 为 world 最近一次活跃时间（Unix 秒）；My Worlds 卡片时间以该字段为准，不读取 `last_tick.created_at`。
 
 ### GET `/api/v1/world/summary/latest`
@@ -1368,6 +1370,46 @@ Query：
 ## Chatroom HTTP 接口
 
 这些接口不在 `/api/v1` 下，而在 chatroom 服务前缀 `/aitown-chat` 下。当前 Flutter 侧通过 `GenesisApi.chatroomHttp` 使用独立 base URL，默认 `GENESIS_CHATROOM_HTTP_URL=https://api.worldo.ai/`；本地 mock 已覆盖这些路由。
+
+### GET `/aitown-chat/api/v1/feature-quotas`
+
+查询当前登录用户账户级的 Inspiration 与 Conversation Edit 额度。请求无业务参数，不按 world、location 或历史会员周期查询；接口只读，不消耗额度、不触发模型调用。额度耗尽仍返回成功，服务端缺失的使用记录按已使用 0 次计算。响应不应缓存，服务端返回 `Cache-Control: no-store`。
+
+成功响应 `data`：
+
+```json
+{
+  "membership_status": 0,
+  "inspiration": {
+    "scope": "trial_lifetime",
+    "unlimited": false,
+    "limit": 3,
+    "used": 1,
+    "remaining": 2,
+    "reset_at": null
+  },
+  "conversation_edit": {
+    "scope": "member_daily",
+    "unlimited": false,
+    "limit": 10,
+    "used": 4,
+    "remaining": 6,
+    "reset_at": 1798761600
+  }
+}
+```
+
+示例数字仅说明数据结构，不代表正式会员配置。`membership_status` 允许 `0/1/2`，本契约不为这些数字补充未定义的业务名称。`scope` 仅允许 `trial_lifetime`、`member_daily`、`member_unlimited`。`limit`、`remaining` 和 `reset_at` 可为 null；`reset_at` 是 Unix 秒，仅每日额度返回下一次 UTC 零点。
+
+Flutter 入口为 `ChatroomHttpApi.getFeatureQuotas`，返回 `ChatroomFeatureQuotas`。客户端不缓存、不推导或补造额度；成功响应缺少必填字段、字段类型错误、未知 scope 或负数额度均视为响应格式异常。
+
+| 错误号 | 含义 |
+| --- | --- |
+| 10001 | 未登录，沿用全局登录失效流程 |
+| 5002 | 使用量查询失败 |
+| 5003 | 当前会员数据无效 |
+
+业务错误的 `data` 为空对象，客户端保留服务端 `err_msg` 和错误码，不生成额度对象。
 
 ### GET `/aitown-chat/api/ulocation`
 
@@ -2358,7 +2400,7 @@ query：
 | `GET /api/v1/origin/hot_tags` | 已新增 `OriginV1Api.hotTags`，响应消费 `data.list` 字符串数组；`OriginPage` 固定首个 `For you` tab，其余 tabs 来自热门标签接口并缓存在本地，本地 mock 返回同形状数据。 |
 | `GET /api/v1/origin/my_launch_preset_characters` | `OriginV1Api.myLaunchPresetCharacters(originId,limit)` 与 `GenesisApi.getMyLaunchPresetCharacters(originId,limit)` 的 query 使用 `origin_id/limit`；Opening Sheet 固定请求 `limit=5`，服务端先按 `last_active_at DESC` 排序再限制数量，客户端按响应顺序展示；响应映射为 `OriginMyLaunchPresetCharacter` 列表并保留 `ImageResource`。 |
 | `GET /api/v1/origin/info` | 已新增 `OriginV1Api.info(originId)` 与 `GenesisApi.getOriginInfo(oid)`，query 使用 `origin_id`；响应消费 `info + stats`，不期待 `characters/locations/ticks`。 |
-| `GET /api/v1/app/config` | `AppV1Api.config` 在启动早期读取本地登录 UID 后请求，有真实非 guest UID 时传可选 query `uid`，未登录、读取失败或超时时不传；`show_opening_sheet` 决定 Origin Detail Opening Sheet 的首帧展开状态，失败或超时按 `false` 兜底。 |
+| `GET /api/v1/app/config` | iOS 启动先用独立的 URLSession HEAD 探测等待联网，网络权限弹窗停留期间不计入超时；连通且 App 恢复前台后，再创建启动服务并请求 config。拒绝或持续断网时，恢复前台后最多等待 8 秒，再沿用原失败流程。`AppV1Api.config` 在读取本地登录 UID 后请求，有真实非 guest UID 时传可选 query `uid`，未登录、读取失败或超时时不传；config 原有 3 秒启动等待从网络准备结束后开始。`show_opening_sheet` 决定 Origin Detail Opening Sheet 的首帧展开状态，失败或超时按 `false` 兜底。 |
 | `GET /api/v1/origin/detail` | `OriginV1Api.detail` query 使用必填 `origin_id`；详情 mapper 保留新版 `OriginDetailInfo`、完整 stats、nullable 顶层 `init_location_group`、`characters[].is_recommend`、location 层级/时间/总结/2.5D `x/y`、ImageResource sidecar，以及 tick 的 `sub_tick_no/current_time/visibility/visible_to/clue/character_deltas`。本接口不再承载 Opening Sheet 展示配置，不依赖 `location_description`，也不为新版 tick 人工补 `location_groups`；旧响应实际携带这些字段时仍可兼容读取。详情 Opening、location chat 预览和 launch 初始地点优先使用顶层 group；`nar_pic/image` 作为图片消息展示。 |
 | `GET /api/v1/origin/map` | 已新增 `OriginV1Api.map(originId,locationId)` 与 `GenesisApi.getOriginMap(...)`，query 使用 `origin_id/location_id`；响应映射为 `TilemapDefinition`，其中 `tile_types` 为瓦片类型到线上图片 URL 的映射，`map_json` 使用 `width/height` 描述网格尺寸，`tiles[]` 使用 `x/y/type/shadow/location_id?` 描述瓦片；并明确支持旧地图的空对象 `data={}`。 |
 | `GET /api/v2/origin/foredit` | `OriginV2Api.forEdit(originId)` 使用 `origin_id` query，并按嵌套 `OriginDetail` 消费；`characters[].is_recommend` 以 `0/1` integer 回填角色推荐状态。`EditOriginPage` 直接从该响应回填 Basics、Characters、Locations、Opening 和兼容 tick Opening，不再追加请求 `/api/v1/origin/detail`。新契约未返回的旧平级 `setting/events` 仅在响应实际包含或用户明确修改时随 V2 update 提交；`Character` 未返回旧 `bio/description` 时，未编辑的空 Biography 也不随 update 回写，避免普通编辑把服务端已有值清空。 |

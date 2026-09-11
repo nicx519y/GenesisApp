@@ -405,6 +405,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _replyCardTransitionBusy = false;
   bool _replyRequestLoading = false;
   bool _replyLoadingForRegeneration = false;
+  Set<int> _replyRegenerationBaselineCardIds = const <int>{};
+  bool _replyRegenerationHasRenderedContent = false;
   Object? _lastReplyStatusError;
   bool _replyEditorOpen = false;
   final Object _rosterTapRegionGroup = Object();
@@ -498,6 +500,43 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           ?.statesFor(widget.locationId)
           .any((state) => state.goOnPending) ??
       false;
+
+  bool _replyGoOnContentIsRendering(List<ChatMessageVm> messages) {
+    final pendingSources = _replyController
+        ?.statesFor(widget.locationId)
+        .where((state) => state.goOnPending)
+        .toList();
+    if (pendingSources == null || pendingSources.isEmpty) return false;
+    return messages.any((message) {
+      if (message.text.trim().isEmpty) return false;
+      final round = int.tryParse(message.roundId);
+      if (round == null) return false;
+      return pendingSources.any(
+        (source) =>
+            source.goOnRoundId == round ||
+            (source.goOnRoundId == null && round > source.roundId),
+      );
+    });
+  }
+
+  bool _replyRegenerationContentIsRendering(
+    ChatroomReplyRoundState? state,
+    List<ChatMessageVm> messages,
+  ) {
+    if (state == null ||
+        state.viewedCardId <= 0 ||
+        _replyRegenerationBaselineCardIds.contains(state.viewedCardId)) {
+      return false;
+    }
+    final candidatePrefix =
+        'reply:${widget.worldId}:${widget.locationId}:${state.roundId}:'
+        '${state.viewedCardId}:';
+    return messages.any(
+      (message) =>
+          message.localId.startsWith(candidatePrefix) &&
+          message.text.trim().isNotEmpty,
+    );
+  }
 
   bool get _replyGenerationInProgress {
     final replyState = _replyController?.stateFor(widget.locationId);
@@ -893,6 +932,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     final replyGoOnPending = _replyGoOnPending;
     final replyPresentation = _replyPresentation(replyState);
     final displayMessages = replyPresentation.messages;
+    final regenerationInProgress =
+        (replyState?.generating ?? false) ||
+        (_replyRequestLoading && _replyLoadingForRegeneration);
+    if (regenerationInProgress &&
+        _replyRegenerationContentIsRendering(replyState, displayMessages)) {
+      _replyRegenerationHasRenderedContent = true;
+    }
+    final goOnContentIsRendering = _replyGoOnContentIsRendering(
+      displayMessages,
+    );
     final replyBlocked =
         _sending ||
         _sendAwaitingResponse ||
@@ -900,12 +949,18 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         widget.worldTickInProgress ||
         _awaitingTickProgressMessage ||
         replyGoOnPending ||
+        _inspirationLoading ||
         _preparingReplyAction;
-    final regenerateFeature = _regenerateFeature(replyBlocked, replyState);
+    final regenerateFeature = _regenerateFeature(
+      replyBlocked,
+      replyState,
+      _replyRegenerationHasRenderedContent,
+    );
     final goOnFeature = _goOnFeature(
       replyBlocked,
       replyState,
       replyGoOnPending,
+      goOnContentIsRendering,
     );
     final editFeature = _editFeature(
       replyBlocked,
@@ -914,7 +969,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       ordinaryMessageBubbleMaxWidthCaps.selfMessage,
       ordinaryMessageBubbleMaxWidthCaps.otherMessage,
     );
-    final inspirationFeature = _inspirationFeature();
+    final inspirationFeature = _inspirationFeature(replyBlocked);
     final managesKeyboardInset = locationChatManagesKeyboardInsetForTesting(
       platform: Theme.of(context).platform,
       androidSdkInt: _androidSdkInt,

@@ -2,13 +2,14 @@ part of 'me_page.dart';
 
 extension _MePageData on _MePageState {
   Future<_MePageContent> _loadData() async {
-    if (!await _hasLocalLoginSession()) {
-      if (!_canUpdateAsyncState) {
-        return const _MePageContent.signedOut();
-      }
-      _loadGeneration += 1;
-      _setOriginsState(const <UserProfileOriginItem>[], isLoading: false);
-      _setWorldsState(const <UserProfileWorldItem>[], isLoading: false);
+    final generation = ++_loadGeneration;
+    final signedIn = await _hasLocalLoginSession();
+    if (!_canUpdateAsyncState || generation != _loadGeneration) {
+      return const _MePageContent.signedOut();
+    }
+    if (!signedIn) {
+      _originsState.reset();
+      _worldsState.reset();
       return const _MePageContent.signedOut();
     }
     return _MePageContent.signedIn(
@@ -17,22 +18,11 @@ extension _MePageData on _MePageState {
   }
 
   Future<UserProfileData> _loadProfileData({
-    bool showCollectionLoading = true,
     int? refreshCollectionTabIndex = 0,
     bool refreshAllCollections = false,
   }) async {
     final generation = _loadGeneration + 1;
     _loadGeneration = generation;
-    final currentOrigins = _originsState.value.items;
-    final currentWorlds = _worldsState.value.items;
-    if (showCollectionLoading) {
-      if (refreshAllCollections) {
-        _setCollectionLoading(0, isLoading: true);
-        _setCollectionLoading(1, isLoading: true);
-      } else if (refreshCollectionTabIndex != null) {
-        _setCollectionLoading(refreshCollectionTabIndex, isLoading: true);
-      }
-    }
     final services = AppServicesScope.read(context);
     final api = services.api;
     final uid = await _readCurrentBackendUid();
@@ -70,25 +60,13 @@ extension _MePageData on _MePageState {
       fallbackUid: uid,
     );
 
-    if (_isTabActive) {
+    if (_canUpdateAsyncState && generation == _loadGeneration && _isTabActive) {
       if (refreshAllCollections) {
         unawaited(
-          Future.wait<void>([
-            _loadOrigins(generation, api, uid, fallbackItems: currentOrigins),
-            _loadWorlds(generation, api, uid, fallbackItems: currentWorlds),
-          ]),
+          Future.wait<void>([_originsState.refresh(), _worldsState.refresh()]),
         );
       } else if (refreshCollectionTabIndex != null) {
-        unawaited(
-          _refreshCollectionTab(
-            refreshCollectionTabIndex,
-            generation: generation,
-            api: api,
-            uid: uid,
-            fallbackOrigins: currentOrigins,
-            fallbackWorlds: currentWorlds,
-          ),
-        );
+        unawaited(_refreshCollectionTab(refreshCollectionTabIndex));
       }
     }
 
@@ -120,32 +98,6 @@ extension _MePageData on _MePageState {
     return await services.sessionStore.readLoginUid() != null;
   }
 
-  Future<void> _loadOrigins(
-    int generation,
-    GenesisApi api,
-    String uid, {
-    required List<UserProfileOriginItem> fallbackItems,
-  }) async {
-    try {
-      final originPage = await api.getMyLaunchedOrigins(
-        uid: uid.trim().isEmpty ? null : uid,
-        scene: 'mine',
-        limit: 30,
-        offset: 0,
-      );
-      if (!mounted || generation != _loadGeneration) return;
-      _setOriginsState(
-        originPage.data
-            .map(_profileOriginItemFromSummary)
-            .toList(growable: false),
-        isLoading: false,
-      );
-    } catch (_) {
-      if (!mounted || generation != _loadGeneration) return;
-      _setOriginsState(fallbackItems, isLoading: false);
-    }
-  }
-
   void _handleTabActivated() {
     if (!_isTabActive) return;
     _initialWalletRefreshStarted = true;
@@ -155,6 +107,9 @@ extension _MePageData on _MePageState {
 
   void _handleSessionChanged() {
     if (!mounted) return;
+    _loadGeneration += 1;
+    _originsState.reset();
+    _worldsState.reset();
     _updateState(() {
       _future = _loadData();
     });
@@ -171,8 +126,13 @@ extension _MePageData on _MePageState {
       do {
         _hasPendingActivationRefresh = false;
         if (!_isTabActive) return;
-        if (!await _hasLocalLoginSession()) {
-          if (!mounted) return;
+        final generation = _loadGeneration;
+        final signedIn = await _hasLocalLoginSession();
+        if (!_canUpdateAsyncState || generation != _loadGeneration) return;
+        if (!signedIn) {
+          _loadGeneration += 1;
+          _originsState.reset();
+          _worldsState.reset();
           _updateState(() {
             _future = SynchronousFuture<_MePageContent>(
               const _MePageContent.signedOut(),
@@ -181,10 +141,11 @@ extension _MePageData on _MePageState {
           return;
         }
         final data = await _loadProfileData(
-          showCollectionLoading: false,
           refreshCollectionTabIndex: _selectedCollectionTabIndex,
+          refreshAllCollections:
+              !_originsState.hasLoaded || !_worldsState.hasLoaded,
         );
-        if (!mounted) return;
+        if (!_canUpdateAsyncState || _loadGeneration != generation + 1) return;
         _updateState(() {
           _future = SynchronousFuture<_MePageContent>(
             _MePageContent.signedIn(data),
@@ -203,7 +164,11 @@ extension _MePageData on _MePageState {
     if (_selectedCollectionTabIndex == index) return;
     _selectedCollectionTabIndex = index;
     if (!_isTabActive) return;
-    unawaited(_refreshSelectedCollectionTab(showLoading: true));
+    // Keep each tab's loaded pages when switching between the collections.
+    final collection = index == 1 ? _worldsState : _originsState;
+    if (!collection.hasLoaded && !collection.value.isLoading) {
+      unawaited(_refreshCollectionTab(index));
+    }
   }
 
   void _handleProfileCollapsedChanged(bool collapsed) {
@@ -211,112 +176,31 @@ extension _MePageData on _MePageState {
     _updateState(() => _profileCollapsed = collapsed);
   }
 
-  Future<void> _loadWorlds(
-    int generation,
-    GenesisApi api,
-    String uid, {
-    required List<UserProfileWorldItem> fallbackItems,
-  }) async {
-    try {
-      final worlds = await api.getMyWorlds(
-        uid: uid.trim().isEmpty ? null : uid,
-        scene: 'mine',
-        limit: 30,
-        offset: 0,
-      );
-      if (!mounted || generation != _loadGeneration) return;
-      _setWorldsState(
-        worlds.map(_profileWorldItemFromSummary).toList(growable: false),
-        isLoading: false,
-      );
-    } catch (_) {
-      if (!mounted || generation != _loadGeneration) return;
-      _setWorldsState(fallbackItems, isLoading: false);
-    }
-  }
-
-  Future<void> _refreshSelectedCollectionTab({required bool showLoading}) {
-    return _refreshCollectionTabForCurrentUser(
-      _selectedCollectionTabIndex,
-      showLoading: showLoading,
-    );
-  }
-
-  Future<void> _refreshCollectionTabForCurrentUser(
-    int tabIndex, {
-    required bool showLoading,
-  }) async {
-    if (!mounted || !_isTabActive) return;
-    final services = AppServicesScope.read(context);
-    final uid = await _readCurrentBackendUid();
-    if (!mounted || !_isTabActive) return;
-    final generation = _loadGeneration;
-    if (showLoading) {
-      _setCollectionLoading(tabIndex, isLoading: true);
-    }
-    await _refreshCollectionTab(
-      tabIndex,
-      generation: generation,
-      api: services.api,
-      uid: uid,
-      fallbackOrigins: _originsState.value.items,
-      fallbackWorlds: _worldsState.value.items,
-    );
-  }
-
-  Future<void> _refreshCollectionTab(
-    int tabIndex, {
-    required int generation,
-    required GenesisApi api,
-    required String uid,
-    required List<UserProfileOriginItem> fallbackOrigins,
-    required List<UserProfileWorldItem> fallbackWorlds,
-  }) {
+  Future<void> _refreshCollectionTab(int tabIndex) async {
+    if (!_canUpdateAsyncState || !_isTabActive) return;
     if (tabIndex == 1) {
-      return _loadWorlds(generation, api, uid, fallbackItems: fallbackWorlds);
+      await _worldsState.refresh();
+    } else {
+      await _originsState.refresh();
     }
-    return _loadOrigins(generation, api, uid, fallbackItems: fallbackOrigins);
   }
 
-  void _setCollectionLoading(int tabIndex, {required bool isLoading}) {
-    if (!_canUpdateAsyncState) return;
-    if (tabIndex == 1) {
-      _setWorldsState(_worldsState.value.items, isLoading: isLoading);
+  Future<void> _loadMoreOrigins() async {
+    if (!_canUpdateAsyncState ||
+        !_isTabActive ||
+        _selectedCollectionTabIndex != 0) {
       return;
     }
-    _setOriginsState(_originsState.value.items, isLoading: isLoading);
+    await _originsState.loadMore();
   }
 
-  void _setOriginsState(
-    List<UserProfileOriginItem> items, {
-    required bool isLoading,
-  }) {
-    if (!_canUpdateAsyncState) return;
-    final current = _originsState.value;
-    if (current.isLoading == isLoading &&
-        _sameOriginItems(current.items, items)) {
+  Future<void> _loadMoreWorlds() async {
+    if (!_canUpdateAsyncState ||
+        !_isTabActive ||
+        _selectedCollectionTabIndex != 1) {
       return;
     }
-    _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
-      items: items,
-      isLoading: isLoading,
-    );
-  }
-
-  void _setWorldsState(
-    List<UserProfileWorldItem> items, {
-    required bool isLoading,
-  }) {
-    if (!_canUpdateAsyncState) return;
-    final current = _worldsState.value;
-    if (current.isLoading == isLoading &&
-        _sameWorldItems(current.items, items)) {
-      return;
-    }
-    _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
-      items: items,
-      isLoading: isLoading,
-    );
+    await _worldsState.loadMore();
   }
 
   Future<String> _readCurrentBackendUid() async {
@@ -388,54 +272,7 @@ extension _MePageData on _MePageState {
     await _future;
   }
 
-  Future<void> _refreshOrigins() async {
-    final services = AppServicesScope.read(context);
-    final uid = await _readCurrentBackendUid();
-    if (!_canUpdateAsyncState) return;
-    debugPrint('[MePage] refresh origins uid: $uid');
-    final current = _originsState.value;
-    _setOriginsState(current.items, isLoading: true);
-    try {
-      final originPage = await services.api.getMyLaunchedOrigins(
-        uid: uid.isEmpty ? null : uid,
-        scene: 'mine',
-        limit: 30,
-        offset: 0,
-      );
-      if (!mounted) return;
-      _setOriginsState(
-        originPage.data
-            .map(_profileOriginItemFromSummary)
-            .toList(growable: false),
-        isLoading: false,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      _setOriginsState(current.items, isLoading: false);
-    }
-  }
+  Future<void> _refreshOrigins() => _refreshCollectionTab(0);
 
-  Future<void> _refreshWorlds() async {
-    final services = AppServicesScope.read(context);
-    final uid = (await services.sessionStore.readUid())?.trim() ?? '';
-    if (!_canUpdateAsyncState) return;
-    final current = _worldsState.value;
-    _setWorldsState(current.items, isLoading: true);
-    try {
-      final worlds = await services.api.getMyWorlds(
-        uid: uid.isEmpty ? null : uid,
-        scene: 'mine',
-        limit: 30,
-        offset: 0,
-      );
-      if (!mounted) return;
-      _setWorldsState(
-        worlds.map(_profileWorldItemFromSummary).toList(growable: false),
-        isLoading: false,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      _setWorldsState(current.items, isLoading: false);
-    }
-  }
+  Future<void> _refreshWorlds() => _refreshCollectionTab(1);
 }

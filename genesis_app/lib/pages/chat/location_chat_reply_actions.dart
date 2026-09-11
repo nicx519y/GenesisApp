@@ -108,6 +108,34 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   @override
   Widget build(BuildContext context) {
+    final actionButtons = <Widget>[
+      LocationChatRegenerateButton(
+        key: const ValueKey('location-chat-regenerate'),
+        feature: _regenerate,
+        onBeforeInvoke: () => _setEditPromptExpanded(false),
+      ),
+      LocationChatGoOnButton(
+        key: const ValueKey('location-chat-go-on'),
+        feature: _goOn,
+        onBeforeInvoke: () => _setEditPromptExpanded(false),
+      ),
+      LocationChatEditButton(
+        key: const ValueKey('location-chat-edit'),
+        feature: _edit,
+        onBeforeInvoke: () {
+          _setEditPromptExpanded(false);
+          _setInspirationExpanded(false);
+        },
+      ),
+      LocationChatInspirationButton(
+        key: const ValueKey('location-chat-inspiration'),
+        feature: _inspiration,
+        expanded: _inspirationExpanded,
+        onBeforeInvoke: () => _setEditPromptExpanded(false),
+        onToggle: _toggleInspiration,
+      ),
+    ];
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -159,47 +187,17 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           child: Row(
             key: const ValueKey('location-chat-reply-actions-four-icons'),
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              LocationChatRegenerateButton(
-                key: const ValueKey('location-chat-regenerate'),
-                feature: _regenerate,
-                onBeforeInvoke: () => _setEditPromptExpanded(false),
-              ),
-              const SizedBox(
-                width:
-                    LocationChatReplyActions.centerSpacing -
-                    LocationChatReplyActions.buttonSize,
-              ),
-              LocationChatGoOnButton(
-                key: const ValueKey('location-chat-go-on'),
-                feature: _goOn,
-                onBeforeInvoke: () => _setEditPromptExpanded(false),
-              ),
-              const SizedBox(
-                width:
-                    LocationChatReplyActions.centerSpacing -
-                    LocationChatReplyActions.buttonSize,
-              ),
-              LocationChatEditButton(
-                key: const ValueKey('location-chat-edit'),
-                feature: _edit,
-                onBeforeInvoke: () {
-                  _setEditPromptExpanded(false);
-                  _setInspirationExpanded(false);
-                },
-              ),
-              const SizedBox(
-                width:
-                    LocationChatReplyActions.centerSpacing -
-                    LocationChatReplyActions.buttonSize,
-              ),
-              LocationChatInspirationButton(
-                key: const ValueKey('location-chat-inspiration'),
-                feature: _inspiration,
-                expanded: _inspirationExpanded,
-                onBeforeInvoke: () => _setEditPromptExpanded(false),
-                onToggle: _toggleInspiration,
-              ),
+              for (var index = 0; index < actionButtons.length; index++) ...[
+                if (index > 0)
+                  const SizedBox(
+                    width:
+                        LocationChatReplyActions.centerSpacing -
+                        LocationChatReplyActions.buttonSize,
+                  ),
+                actionButtons[index],
+              ],
             ],
           ),
         ),

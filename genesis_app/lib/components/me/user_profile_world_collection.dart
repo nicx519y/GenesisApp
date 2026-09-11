@@ -8,6 +8,7 @@ class _WorldProfileCollectionList extends StatefulWidget {
     required this.isLoading,
     required this.listenable,
     required this.onRefresh,
+    this.onLoadMore,
     required this.sliverMode,
     required this.injectNestedOverlap,
     this.alwaysScrollable = false,
@@ -22,6 +23,7 @@ class _WorldProfileCollectionList extends StatefulWidget {
   final ValueListenable<UserProfileCollectionState<UserProfileWorldItem>>?
   listenable;
   final Future<void> Function()? onRefresh;
+  final Future<void> Function()? onLoadMore;
   final bool sliverMode;
   final bool injectNestedOverlap;
   final bool alwaysScrollable;
@@ -62,7 +64,12 @@ class _WorldProfileCollectionListState
     >(
       valueListenable: listenable,
       builder: (context, state, _) {
-        return _buildWorldList(context, state.items, state.isLoading);
+        return _buildWorldList(
+          context,
+          state.items,
+          state.isLoading,
+          state: state,
+        );
       },
     );
   }
@@ -70,12 +77,18 @@ class _WorldProfileCollectionListState
   Widget _buildWorldList(
     BuildContext context,
     List<UserProfileWorldItem> items,
-    bool isLoading,
-  ) {
+    bool isLoading, {
+    UserProfileCollectionState<UserProfileWorldItem>? state,
+  }) {
     final visibleItems = items
         .where((item) => !_locallyDeletedWorldIds.contains(item.wid.trim()))
         .toList(growable: false);
     return ProfileCollectionList(
+      key: const PageStorageKey('profile-world-list'),
+      onLoadMore: widget.onLoadMore,
+      hasMore: state?.hasMore ?? false,
+      isLoadingMore: state?.isLoadingMore ?? false,
+      loadMoreFailed: state?.loadMoreFailed ?? false,
       items: visibleItems
           .map((item) {
             final profileUid = widget.profileUid.trim();
