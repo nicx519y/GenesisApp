@@ -17,6 +17,7 @@ class LocationChatComposerInput extends StatelessWidget {
     this.keepShortcutsVisible = false,
     this.showShortcuts = true,
     this.backdropGroupKey,
+    this.animateSendButton = true,
   });
 
   final LocationChatMentionEditingController controller;
@@ -33,6 +34,7 @@ class LocationChatComposerInput extends StatelessWidget {
   final bool keepShortcutsVisible;
   final bool showShortcuts;
   final BackdropKey? backdropGroupKey;
+  final bool animateSendButton;
 
   void _insertShortcut(String shortcut) {
     controller.insertShortcut(shortcut);
@@ -56,6 +58,7 @@ class LocationChatComposerInput extends StatelessWidget {
           inputEnabled: inputEnabled,
           sendEnabled: sendEnabled,
           sending: sending,
+          animateSendButton: animateSendButton,
           onSend: onSend,
           onHeightChanged: onHeightChanged,
           bottomSafeAreaInset: bottomSafeAreaInset,

@@ -60,6 +60,7 @@ extension _LocationChatLayout on _LocationChatPanelState {
   void _handleComposerFocusChanged() {
     if (!mounted) return;
     if (_composerFocusNode.hasFocus) {
+      _ignoreInheritedKeyboardInset = false;
       _scrollCoordinator.requestBottom(
         reason: LocationChatBottomReason.composerFocus,
         behavior: LocationChatBottomBehavior.jump,

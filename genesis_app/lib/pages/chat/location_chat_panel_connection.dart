@@ -154,7 +154,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         'openingPreviewCount': widget.openingPreviewMessages.length,
       },
     );
-    if (!widget.active && widget.openingPreviewMessages.isNotEmpty) {
+    if (!widget.active &&
+        !_openingPreviewResolved &&
+        widget.openingPreviewMessages.isNotEmpty) {
       _showOpeningPreviewMessages();
       return;
     }
@@ -554,6 +556,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   ) {
     if (!_isCurrentService(service, generation)) return;
     final refreshReason = _initialLatestMessagesRefreshReason();
+    if (refreshReason == 'openingPreview' && !service.state.connected) {
+      // Connect advances the history session. Start the opening fetch after
+      // that transition so its result is not discarded as an old request.
+      return;
+    }
     if (refreshReason.isEmpty) {
       _notifyInitialContentReady();
       return;
@@ -567,7 +574,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _logPanelMetric('initial history refresh start beforeReady $refreshReason');
     final refresh = service.refreshLatestMessages(
       locationId: widget.locationId,
-      limit: 20,
+      limit: refreshReason == 'openingPreview'
+          ? _openingPreviewHistoryLimit
+          : 20,
     );
     _initialLatestMessagesRefresh = refresh;
     unawaited(
@@ -609,6 +618,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   String _initialLatestMessagesRefreshReason() {
+    if (widget.retainOpeningPreviewUntilHistory && !_openingPreviewResolved)
+      return 'openingPreview';
     if (widget.messageQueueInitializationCovered) return '';
     if (_messages.isEmpty) return 'empty';
     return _hasVisibleAiMessageMissingCurrentTime() ? 'missingCurrentTime' : '';
@@ -642,7 +653,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     if (historyChanged) {
       _olderMessagesExhaustedByRemote = false;
       _olderMessagesExhaustedByCursorlessContent = false;
-      _hasMoreOlderMessages = true;
+      if (!widget.retainOpeningPreviewUntilHistory || _openingPreviewResolved) {
+        _hasMoreOlderMessages = true;
+      }
       _cancelOlderMessagesLoadSchedule();
       _messageGapFillKeys.clear();
       _messageGapFillAttempts.clear();
@@ -747,6 +760,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
     );
     _bindReplyActions();
+    if (widget.retainOpeningPreviewUntilHistory &&
+        !_openingPreviewResolved &&
+        state.connected &&
+        service != null) {
+      _notifyReadyOrRefreshLatestMessages(service, _serviceGeneration);
+    }
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
     _maybeSendInitialMessage();
     if (changedMessages && wasFollowingLatest) {

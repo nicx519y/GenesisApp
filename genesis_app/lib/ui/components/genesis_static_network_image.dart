@@ -48,6 +48,7 @@ class GenesisStaticNetworkImage extends StatefulWidget {
 
 class _GenesisStaticNetworkImageState extends State<GenesisStaticNetworkImage> {
   bool _didNotifyLoaded = false;
+  bool _hasVisibleFrame = false;
 
   @override
   void didUpdateWidget(covariant GenesisStaticNetworkImage oldWidget) {
@@ -100,9 +101,13 @@ class _GenesisStaticNetworkImageState extends State<GenesisStaticNetworkImage> {
           gaplessPlayback: true,
           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
             if (wasSynchronouslyLoaded || frame != null) {
+              _hasVisibleFrame = true;
               _notifyLoaded();
               return child;
             }
+            // Image retains its previous decoded frame with gaplessPlayback.
+            // Do not cover that frame with a placeholder while a new URL loads.
+            if (_hasVisibleFrame) return child;
             return widget.placeholder?.call(context) ??
                 SizedBox(width: widget.width, height: widget.height);
           },

@@ -295,6 +295,23 @@ class _LocationChatPageState extends State<LocationChatPage> {
   }
 }
 
+class LocationChatOpeningPreview {
+  const LocationChatOpeningPreview({
+    required this.locationId,
+    required this.messages,
+    required this.entities,
+    this.playerCharacterId = '',
+  });
+
+  final String locationId;
+  final List<WorldChatroomMessage> messages;
+  final List<WorldChatroomEntity> entities;
+
+  /// The Origin role chosen for this launch, known before World creation.
+  /// A custom role has no messages in the Origin opening.
+  final String playerCharacterId;
+}
+
 class LocationChatPanel extends StatefulWidget {
   const LocationChatPanel({
     super.key,
@@ -313,6 +330,8 @@ class LocationChatPanel extends StatefulWidget {
     this.isMember = true,
     this.openingPreviewMessages = const <WorldChatroomMessage>[],
     this.openingPreviewEntities = const <WorldChatroomEntity>[],
+    this.openingPlayerCharacterId = '',
+    this.retainOpeningPreviewUntilHistory = false,
     this.service,
     this.connection,
     this.worldTickInProgress = false,
@@ -331,6 +350,8 @@ class LocationChatPanel extends StatefulWidget {
     this.style,
     this.initialDraftText = '',
     this.initialMessageToSend = '',
+    this.initialOutgoingMessage,
+    this.onRetryInitialOutgoingMessage,
     this.initialMentionCatalog,
     this.onDraftTextChanged,
     this.messageQueueInitializationCovered = false,
@@ -356,6 +377,8 @@ class LocationChatPanel extends StatefulWidget {
   final bool isMember;
   final List<WorldChatroomMessage> openingPreviewMessages;
   final List<WorldChatroomEntity> openingPreviewEntities;
+  final String openingPlayerCharacterId;
+  final bool retainOpeningPreviewUntilHistory;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
   final bool worldTickInProgress;
@@ -374,6 +397,11 @@ class LocationChatPanel extends StatefulWidget {
   final ChatUiStyleConfig? style;
   final String initialDraftText;
   final String initialMessageToSend;
+
+  /// A bubble already shown while its World was being created. Submit this
+  /// same row after joining instead of inserting a second optimistic message.
+  final ChatMessageVm? initialOutgoingMessage;
+  final VoidCallback? onRetryInitialOutgoingMessage;
   final ChatMentionCatalog? initialMentionCatalog;
   final ValueChanged<String>? onDraftTextChanged;
   final bool messageQueueInitializationCovered;
@@ -443,6 +471,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _handlingUnauthorizedFailure = false;
   bool _hasDraftText = false;
   bool _initialMessageSendPending = false;
+  ChatMessageVm? _initialOutgoingMessage;
+  bool _initialOutgoingMessageReconciled = false;
+  bool _ignoreInheritedKeyboardInset = false;
+  bool _openingPreviewResolved = false;
+  final Map<String, String> _openingLayoutIds = {};
+  final Set<String> _openingPlayerCharacterIds = {};
+  int get _openingPreviewHistoryLimit =>
+      (widget.openingPreviewMessages.length + 1).clamp(20, 100);
   bool _initialMessageSendScheduled = false;
   bool _loadingOlderMessages = false;
   Timer? _olderMessagesLoadIdleTimer;
@@ -554,14 +590,26 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       ),
     );
     final initialMessageToSend = widget.initialMessageToSend;
-    final initialDraftText = initialMessageToSend.trim().isNotEmpty
+    _initialOutgoingMessage = widget.initialOutgoingMessage;
+    // Sheet sends close their composer while this page is already visible.
+    // Its keyboard belongs to the previous page until our composer is focused.
+    _ignoreInheritedKeyboardInset = _initialOutgoingMessage != null;
+    _openingPreviewResolved =
+        widget.retainOpeningPreviewUntilHistory &&
+        widget.openingPreviewMessages.isEmpty;
+    final initialDraftText = _initialOutgoingMessage != null
+        ? widget.initialDraftText
+        : initialMessageToSend.trim().isNotEmpty
         ? initialMessageToSend
         : widget.initialDraftText;
     if (initialDraftText.isNotEmpty) {
       _textController.setSerializedText(initialDraftText);
       _hasDraftText = initialDraftText.trim().isNotEmpty;
     }
-    _initialMessageSendPending = initialMessageToSend.trim().isNotEmpty;
+    final outgoingMessage = _initialOutgoingMessage;
+    if (outgoingMessage != null) _messages.add(outgoingMessage);
+    _initialMessageSendPending =
+        outgoingMessage != null || initialMessageToSend.trim().isNotEmpty;
     _logPanelMetric(
       'init active=${widget.active} leaf=${widget.isLeafLocation} '
       'aliases=${widget.localMessageLocationIds.join(',')}',
@@ -646,6 +694,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId;
     if (changedChatTarget) _detachReplyActions();
+    final adoptingLaunchedWorld =
+        widget.retainOpeningPreviewUntilHistory &&
+        oldWidget.worldId.isEmpty &&
+        widget.worldId.isNotEmpty &&
+        oldWidget.locationId == widget.locationId;
     final becameActive = !oldWidget.active && widget.active;
     final becameInactive = oldWidget.active && !widget.active;
     if (becameActive) {
@@ -675,7 +728,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           oldWidget.openingPreviewEntities,
           widget.openingPreviewEntities,
         );
-    if (widget.active && (changedChatTarget || becameActive)) {
+    if (widget.active &&
+        (changedChatTarget || becameActive) &&
+        !adoptingLaunchedWorld) {
       _scrollCoordinator.enter();
     } else if (becameInactive || (!widget.active && changedChatTarget)) {
       _scrollCoordinator.deactivate();
@@ -699,18 +754,18 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     }
     if (changedChatTarget || changedOpeningPreview) {
       _cancelOlderMessagesLoadSchedule();
-      _initialContentReadyNotified = false;
+      if (!adoptingLaunchedWorld) _initialContentReadyNotified = false;
       unawaited(
         _closeChatroom().then((_) {
           if (!mounted) return;
-          _hasMoreOlderMessages = true;
+          if (!adoptingLaunchedWorld) _hasMoreOlderMessages = true;
           if (changedChatTarget) {
             _olderMessagesExhaustedByRemote = false;
             _olderMessagesExhaustedByCursorlessContent = false;
           }
           _loadingOlderMessages = false;
           _showOlderMessagesLoading = false;
-          _initialContentReadyNotified = false;
+          if (!adoptingLaunchedWorld) _initialContentReadyNotified = false;
           _initialLatestMessagesRefresh = null;
           _messageGapFillKeys.clear();
           _messageGapFillBeforeLocationMessageIds.clear();
@@ -744,6 +799,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     if ((previousDevicePixelRatio - _devicePixelRatio).abs() > 0.01 &&
         !widget.active &&
+        !_openingPreviewResolved &&
         widget.openingPreviewMessages.isNotEmpty) {
       final changedMessages = _syncOpeningPreviewMessages();
       _logPanelMetric(
@@ -795,7 +851,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             controller: _textController,
             focusNode: _composerFocusNode,
             hintText: 'Text...',
-            inputEnabled: widget.active,
+            inputEnabled:
+                widget.active &&
+                !(_initialMessageSendPending &&
+                    _initialOutgoingMessage != null),
             sendEnabled:
                 widget.active &&
                 joined &&
@@ -803,6 +862,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                 !_sending &&
                 !_replyCardTransitionBusy &&
                 !_replyGenerationInProgress &&
+                !_initialMessageSendPending &&
                 !_sendAwaitingResponse &&
                 !inputBlocked,
             sending: false,
@@ -889,7 +949,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       backdropGroupKey: _surfaceBackdropKey,
     );
     final headerHeight = _locationChatHeaderHeight(style);
-    final replyState = _replyController?.stateFor(widget.locationId);
+    // The opening history is not a new reply to the queued launch message.
+    // Keep its controls from appearing below that message before its echo.
+    final replyState =
+        _initialOutgoingMessage != null && !_initialOutgoingMessageReconciled
+        ? null
+        : _replyController?.stateFor(widget.locationId);
     final replyGoOnPending = _replyGoOnPending;
     final replyPresentation = _replyPresentation(replyState);
     final displayMessages = replyPresentation.messages;
@@ -963,8 +1028,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         oldestEdgeLoading: _showOlderMessagesLoading,
         onOldestEdgeLoadingCollapsed: _handleOlderMessagesLoadingCollapsed,
         onMessageLongPressStart: _showMessageActionMenu,
-        onFailedMessageTap: (message) =>
-            unawaited(_retryFailedMessage(message)),
+        onFailedMessageTap: (message) {
+          final retryInitial = widget.onRetryInitialOutgoingMessage;
+          if (identical(message, _initialOutgoingMessage) &&
+              retryInitial != null) {
+            retryInitial();
+          } else {
+            unawaited(_retryFailedMessage(message));
+          }
+        },
         onCharactersMovedLocationTap:
             widget.onCharactersMovedLocationTap == null
             ? null
@@ -1011,7 +1083,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   key: const ValueKey<String>(
                     'location-chat-ios-keyboard-inset',
                   ),
-                  managesKeyboardInset: managesKeyboardInset,
+                  managesKeyboardInset:
+                      managesKeyboardInset && !_ignoreInheritedKeyboardInset,
                   freezeKeyboardInset: _mentionComposerPositionFrozen,
                   frozenKeyboardInset: _mentionSheetKeyboardInset,
                   onFrozenKeyboardInsetRestored:

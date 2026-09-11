@@ -112,6 +112,7 @@ import 'package:genesis_flutter_android/components/world_map_stage.dart';
 import 'package:genesis_flutter_android/pages/app_shell_page.dart';
 import 'package:genesis_flutter_android/pages/chat/chat_page.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/pages/home/home_feed_cache_store.dart';
 import 'package:genesis_flutter_android/pages/home/home_page.dart';
 import 'package:genesis_flutter_android/pages/me/follows_page.dart';
@@ -127,6 +128,7 @@ import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dar
 import 'package:genesis_flutter_android/pages/origin/origin_role_portrait_image_provider.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_layout.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_world_page.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_launch_world_page.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_draft_repository.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_editor_pages.dart';
 import 'package:genesis_flutter_android/pages/origin_editor/origin_pending_submission_coordinator.dart';
@@ -149,6 +151,7 @@ import 'package:genesis_flutter_android/platform/billing/membership_store_purcha
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/platform/channels/genesis_method_channels.dart';
 import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
+import 'package:genesis_flutter_android/platform/device/android_sdk_version.dart';
 import 'package:genesis_flutter_android/platform/keyboard/genesis_keyboard_animation.dart';
 import 'package:genesis_flutter_android/platform/privacy/app_tracking_transparency_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
@@ -14102,6 +14105,7 @@ void main() {
         ),
         child: MaterialApp(
           navigatorKey: navigatorKey,
+          onGenerateRoute: AppRouter.onGenerateRoute,
           home: const AppShellPage(initialIndex: 0),
         ),
       ),
@@ -14259,6 +14263,29 @@ void main() {
       final transport = _RecordingV1ListTransport(
         originLaunchCompleter: originLaunchCompleter,
         worldRelationStatus: 'joined',
+        originCharacters: const [
+          {
+            'char_id': 'c_o_test_1',
+            'name': 'Detail Character',
+            'avatar': 'https://example.com/opening-character.png',
+            'location_id': 'l_o_test_1',
+          },
+          {
+            'char_id': 'c_other',
+            'name': 'Other Character',
+            'avatar': 'assets/images/default_list_image.png',
+            'location_id': 'l_o_test_1',
+          },
+        ],
+        worldCharacters: const [
+          {
+            'char_id': 'c_world_selected',
+            'name': 'Detail Character',
+            'avatar': '',
+            'player_uid': 'u_mock',
+            'location_id': 'l_o_test_1',
+          },
+        ],
         worldLocations: const [
           {
             'location_id': 'l_o_test_1',
@@ -14286,6 +14313,15 @@ void main() {
                       'char_id': 'c_o_test_1',
                       'char_name': 'Detail Character',
                       'content': 'Welcome to the opening location.',
+                    },
+                    {
+                      'char_id': 'c_other',
+                      'char_name': 'Other Character',
+                      'content': 'Another role is speaking.',
+                    },
+                    {
+                      'char_id': 'nar',
+                      'content': 'The story is about to begin.',
                     },
                   ],
                 },
@@ -14337,6 +14373,7 @@ void main() {
       final openingComposerWidget = tester.widget<LocationChatComposerInput>(
         openingComposer,
       );
+      expect(openingComposerWidget.animateSendButton, isFalse);
       openingComposerWidget.controller.setSerializedText('Enter this world');
       await tester.pump();
       final sendButton = find.descendant(
@@ -14361,11 +14398,116 @@ void main() {
         _collectLogEvents(telemetry, 'worldo_launch_submit_start'),
         isEmpty,
       );
-      final sendingComposer = tester.widget<LocationChatComposerInput>(
-        openingComposer,
+      expect(find.byType(OriginLaunchWorldPage), findsOneWidget);
+      expect(tester.widget<WorldPage>(find.byType(WorldPage)).wid, isEmpty);
+      expect(chatroom.connectCount, 0);
+      final outgoingBubbleFinder = find.byWidgetPredicate(
+        (widget) =>
+            widget is ChatSelfMessageBubble &&
+            widget.message.text == 'Enter this world',
       );
-      expect(sendingComposer.sending, isTrue);
-      expect(sendingComposer.inputEnabled, isFalse);
+      final pendingBubble = tester
+          .widget<ChatSelfMessageBubble>(outgoingBubbleFinder)
+          .message;
+      expect(pendingBubble.text, 'Enter this world');
+      expect(pendingBubble.status, 'sending');
+      final openingSelfAvatar = pendingBubble.avatarUrl;
+      expect(openingSelfAvatar, contains('opening-character.png'));
+      final selfAvatarFinder = find.descendant(
+        of: outgoingBubbleFinder,
+        matching: find.byType(ChatAvatar),
+      );
+      final selfAvatarElement = tester.element(selfAvatarFinder);
+      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      final openingRow = find.descendant(
+        of: find.byType(OriginLaunchWorldPage),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ChatMessageRow &&
+              widget.message.text == 'Welcome to the opening location.',
+        ),
+      );
+      final narrationRow = find.descendant(
+        of: find.byType(OriginLaunchWorldPage),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ChatMessageRow &&
+              widget.message.text == 'The story is about to begin.',
+        ),
+      );
+      expect(openingRow, findsOneWidget);
+      expect(narrationRow, findsOneWidget);
+      final otherBubble = find.descendant(
+        of: find.byType(OriginLaunchWorldPage),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ChatOtherMessageBubble &&
+              widget.message.text == 'Another role is speaking.',
+        ),
+      );
+      expect(otherBubble, findsOneWidget);
+      final otherAvatar = find.descendant(
+        of: otherBubble,
+        matching: find.byType(ChatAvatar),
+      );
+      expect(
+        tester.getTopLeft(otherAvatar).dx,
+        lessThan(tester.getTopLeft(selfAvatarFinder).dx),
+      );
+      expect(tester.widget<ChatMessageRow>(narrationRow).message.isMe, isFalse);
+      final characterBubble = find.descendant(
+        of: openingRow,
+        matching: find.byType(ChatSelfMessageBubble),
+      );
+      expect(characterBubble, findsOneWidget);
+      final initialOpeningMessage = tester
+          .widget<ChatMessageRow>(openingRow)
+          .message;
+      expect(initialOpeningMessage.isMe, isTrue);
+      expect(initialOpeningMessage.isPlayerControlledRole, isTrue);
+      final openingAvatarFinder = find.descendant(
+        of: characterBubble,
+        matching: find.byType(ChatAvatar),
+      );
+      final openingAvatarElement = tester.element(openingAvatarFinder);
+      final openingAvatarX = tester.getTopLeft(openingAvatarFinder).dx;
+      expect(openingAvatarX, tester.getTopLeft(selfAvatarFinder).dx);
+      expect(
+        find.descendant(
+          of: characterBubble,
+          matching: find.byType(ChatMessageBubble),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .widget<ChatAvatar>(
+              find.descendant(
+                of: characterBubble,
+                matching: find.byType(ChatAvatar),
+              ),
+            )
+            .imageUrl,
+        contains('opening-character.png'),
+      );
+      final panelState = tester.state(find.byType(LocationChatPanel));
+      final listState = tester.state(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      final outgoingTop = tester.getTopLeft(outgoingBubbleFinder).dy;
+      expect(
+        tester.widget<ChatMessageRow>(openingRow).message.senderName,
+        'Detail Character',
+      );
+      expect(
+        tester.getTopLeft(openingRow).dy,
+        lessThan(tester.getTopLeft(narrationRow).dy),
+      );
+      expect(
+        tester.getTopLeft(narrationRow).dy,
+        lessThan(tester.getTopLeft(outgoingBubbleFinder).dy),
+      );
+      expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
       expect(find.text('Select to Launch'), findsNothing);
 
       originLaunchCompleter.complete(
@@ -14377,10 +14519,25 @@ void main() {
       );
       for (
         var frame = 0;
-        frame < 20 && find.byType(WorldPage).evaluate().isEmpty;
+        frame < 20 &&
+            tester.widget<WorldPage>(find.byType(WorldPage)).wid.isEmpty;
         frame += 1
       ) {
         await tester.pump();
+        expect(tester.state(find.byType(LocationChatPanel)), same(panelState));
+        expect(tester.element(selfAvatarFinder), same(selfAvatarElement));
+        expect(tester.element(openingAvatarFinder), same(openingAvatarElement));
+        expect(tester.getTopLeft(openingAvatarFinder).dx, openingAvatarX);
+        expect(
+          tester.state(find.byType(LocationChatAnchoredMessageList)),
+          same(listState),
+        );
+        expect(openingRow, findsOneWidget);
+        expect(narrationRow, findsOneWidget);
+        expect(
+          tester.getTopLeft(outgoingBubbleFinder).dy,
+          closeTo(outgoingTop, 0.1),
+        );
       }
 
       _expectOriginLaunchSuccessTelemetry(
@@ -14412,24 +14569,96 @@ void main() {
       );
       expect(chatroom.connectCount, 1);
       expect(chatroom.session.joinCount, 0);
+      expect(chatroom.session.sentMessages, isEmpty);
+      expect(openingRow, findsOneWidget);
+      expect(narrationRow, findsOneWidget);
+      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      expect(
+        tester.widget<ChatSelfMessageBubble>(outgoingBubbleFinder).message,
+        same(pendingBubble),
+      );
       final composerFinder = find.descendant(
         of: find.byType(LocationChatPanel),
         matching: find.byType(ChatComposer),
       );
       final composer = tester.widget<ChatComposer>(composerFinder);
-      composer.controller.text = 'send after connected';
+      expect(composer.controller.text, isEmpty);
       await tester.pump();
       expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isFalse);
       expect(find.text('message loaded after entering chat'), findsNothing);
 
+      chatroom.session.holdSendAcks = true;
       connectCompleter.complete();
       for (var frame = 0; frame < 8; frame += 1) {
         await tester.pump();
       }
 
       expect(chatroom.session.joinCount, 1);
-      expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
+      expect(chatroom.session.sentMessages, ['Enter this world']);
+      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      expect(outgoingBubbleFinder, findsOneWidget);
+      final clientMsgId = chatroom.session.sentClientMsgIds.single;
+      chatroom.session.emit(
+        ChatroomUserMessage(
+          sessionId: 'sess-1',
+          worldId: 'w_launched_from_origin',
+          locationId: 'l_o_test_1',
+          userId: 'u_mock',
+          code: 0,
+          codeMsg: 'ok',
+          ts: null,
+          messageId: 100,
+          locationMessageId: 100,
+          conversationRoundId: 'round-initial',
+          roundOrder: 0,
+          senderType: 'user',
+          senderId: 'u_mock',
+          senderName: 'Me',
+          content: 'Enter this world',
+          broadcast: true,
+          currentTime: '2026-09-01T00:00:00Z',
+          clientMsgId: clientMsgId,
+          createdAt: null,
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(ChatSendingBadge), findsNothing);
+      expect(pendingBubble.status, 'sent');
       expect(find.byType(WorldLocationChatLoadingPage), findsNothing);
+      expect(
+        tester.widget<ChatSelfMessageBubble>(outgoingBubbleFinder).message,
+        same(pendingBubble),
+        reason: 'The receipt and canonical echo must adopt the existing row.',
+      );
+      expect(tester.element(selfAvatarFinder), same(selfAvatarElement));
+      expect(
+        pendingBubble.avatarUrl,
+        openingSelfAvatar,
+        reason:
+            'A canonical echo without role metadata must not clear the visible avatar.',
+      );
+      final liveChatroom = tester
+          .widget<WorldLocationChatRouterHost>(
+            find.byType(WorldLocationChatRouterHost),
+          )
+          .chatroom!;
+      final worldBeforeRoleDetails = liveChatroom.state.world!;
+      liveChatroom.applyWorldSnapshot(
+        worldBeforeRoleDetails.copyWith(
+          characters: [
+            ...worldBeforeRoleDetails.characters,
+            {
+              'char_id': 'u_mock',
+              'name': 'Me',
+              'avatar': 'https://example.com/authoritative-self.png',
+              'location_id': 'l_o_test_1',
+            },
+          ],
+        ),
+      );
+      await tester.pump();
+      expect(pendingBubble.avatarUrl, contains('authoritative-self.png'));
+      expect(tester.element(selfAvatarFinder), same(selfAvatarElement));
 
       messagesCompleter.complete(
         transport._jsonResponse({
@@ -14437,6 +14666,38 @@ void main() {
           'err_msg': 'succ',
           'data': {
             'messages': const <Object?>[
+              {
+                'type': 'character',
+                'stream_type': '',
+                'global_message_id': 99,
+                'message_id': 99,
+                'location_message_id': 99,
+                'location_id': 'l_o_test_1',
+                'conversation_round_id': 99,
+                'sender_type': 'character',
+                'sender_id': 'c_world_selected',
+                'sender_name': 'Detail Character',
+                'message_type': 'text',
+                'created_at': '2026-07-30T07:59:00Z',
+                'payload': {'content': 'Welcome to the opening location.'},
+                'err_no': 0,
+                'err_msg': '',
+              },
+              {
+                'type': 'user',
+                'message_type': 'text',
+                'global_message_id': 100,
+                'message_id': 100,
+                'location_message_id': 100,
+                'location_id': 'l_o_test_1',
+                'conversation_round_id': 100,
+                'sender_type': 'user',
+                'sender_id': 'u_mock',
+                'user_id': 'u_mock',
+                'sender_name': 'Me',
+                'payload': {'content': 'Enter this world'},
+                'err_no': 0,
+              },
               {
                 'type': 'user',
                 'stream_type': '',
@@ -14466,17 +14727,383 @@ void main() {
       expect(find.byType(LocationChatPanel), findsOneWidget);
       expect(_visibleText('Opening Location'), findsWidgets);
       expect(find.text('message loaded after entering chat'), findsOneWidget);
+      expect(openingRow, findsOneWidget);
+      expect(tester.widget<ChatMessageRow>(openingRow).message.messageId, 99);
+      expect(tester.widget<ChatMessageRow>(openingRow).message.isMe, isTrue);
+      expect(tester.element(openingAvatarFinder), same(openingAvatarElement));
+      expect(tester.getTopLeft(openingAvatarFinder).dx, openingAvatarX);
+      expect(narrationRow, findsNothing);
+      expect(tester.element(selfAvatarFinder), same(selfAvatarElement));
+      expect(outgoingBubbleFinder, findsOneWidget);
       expect(chatroom.connectCount, 1);
       expect(chatroom.session.joinCount, 1);
       expect(transport.requestsFor('/api/v1/world/detail'), hasLength(1));
       expect(
-        transport.requestsFor('/aitown-chat/api/v2/messages'),
-        hasLength(1),
+        transport
+            .requestsFor('/aitown-chat/api/v2/messages')
+            .any((request) => request.uri.queryParameters['limit'] == '100'),
+        isTrue,
       );
       await tester.pump(const Duration(seconds: 2));
       AppStartupCoordinator.resetForTesting();
     },
   );
+
+  for (final scenario in [
+    (
+      detached: false,
+      closingKeyboard: false,
+      platform: TargetPlatform.android,
+      preset: false,
+    ),
+    (
+      detached: false,
+      closingKeyboard: false,
+      platform: TargetPlatform.android,
+      preset: true,
+    ),
+    (
+      detached: true,
+      closingKeyboard: false,
+      platform: TargetPlatform.android,
+      preset: false,
+    ),
+    (
+      detached: true,
+      closingKeyboard: false,
+      platform: TargetPlatform.android,
+      preset: true,
+    ),
+    (
+      detached: false,
+      closingKeyboard: true,
+      platform: TargetPlatform.iOS,
+      preset: false,
+    ),
+    (
+      detached: false,
+      closingKeyboard: true,
+      platform: TargetPlatform.android,
+      preset: false,
+    ),
+  ]) {
+    final detached = scenario.detached;
+    testWidgets(
+      'Origin opening handoff preserves ${detached ? 'a scrolled message' : 'the latest message'} on every frame${scenario.preset ? ' using the selected preset role' : ''}${scenario.closingKeyboard ? ' while the previous keyboard closes on ${scenario.platform.name}' : ''}',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        if (scenario.closingKeyboard) {
+          debugDefaultTargetPlatformOverride = scenario.platform;
+          addTearDown(() => debugDefaultTargetPlatformOverride = null);
+          resetAndroidSdkIntForTesting();
+          tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            GenesisMethodChannels.device,
+            (call) async =>
+                call.method == GenesisMethodChannels.getAndroidSdkInt
+                ? 35
+                : null,
+          );
+          addTearDown(() {
+            resetAndroidSdkIntForTesting();
+            tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+              GenesisMethodChannels.device,
+              null,
+            );
+          });
+          tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        }
+        AppStartupCoordinator.resetForTesting();
+        addTearDown(AppStartupCoordinator.resetForTesting);
+        final launch = Completer<TransportResponse>();
+        final history = Completer<TransportResponse>();
+        final connect = Completer<void>();
+        const avatar = 'assets/images/default_list_image.png';
+        final lines = List.generate(
+          28,
+          (index) =>
+              'Opening line $index. The team gathers in the locker room and waits for the match to begin.',
+        );
+        final origin = OriginDetail.fromJson({
+          'origin_id': 'o_test_1',
+          'characters': [
+            {'char_id': 'c_origin', 'name': 'Guide', 'avatar': avatar},
+          ],
+          'init_location_group': {
+            'location_id': 'l_o_test_1',
+            'initial_dialogue': [
+              for (final line in lines)
+                {'char_id': 'c_origin', 'content': line},
+            ],
+          },
+        });
+        final preview = originOpeningPreviewMessagesForTesting(origin, [
+          'l_o_test_1',
+        ]);
+        final chatroom = _FakeChatroomClient(connectCompleter: connect);
+        final transport = _RecordingV1ListTransport(
+          originLaunchCompleter: launch,
+          chatroomMessagesCompleter: history,
+          worldRelationStatus: 'joined',
+          worldLocations: const [
+            {
+              'location_id': 'l_o_test_1',
+              'location_name': 'Detail Location',
+              'image': '',
+            },
+          ],
+          worldCharacters: [
+            {
+              'char_id': 'c_world',
+              'name': 'Guide',
+              'avatar': avatar,
+              'location_id': 'l_o_test_1',
+              'type': scenario.preset ? 'user' : 'ai',
+              'player_uid': scenario.preset ? 'u_mock' : '',
+            },
+          ],
+          worldDetailTicksByRequest: const [<Map<String, Object?>>[]],
+          worldDetailTickCountsByRequest: const [0],
+        );
+        final outgoing = ChatMessageVm(
+          localId: 'pending-opening',
+          senderId: 'me',
+          senderName: 'Me',
+          text: 'Start the match',
+          isMe: true,
+          status: 'sending',
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'token',
+              chatroom: chatroom,
+            ),
+            child: MaterialApp(
+              onGenerateRoute: AppRouter.onGenerateRoute,
+              home: OriginLaunchWorldPage(
+                entry: OriginLaunchEntry(
+                  origin: origin,
+                  roleSelection: scenario.preset
+                      ? OriginRoleLaunchSelection.preset('c_origin')
+                      : OriginRoleLaunchSelection.custom(
+                          const OriginCustomRoleDraft(name: 'Me'),
+                        ),
+                  telemetryRoleId: scenario.preset
+                      ? 'c_origin'
+                      : 'current_user',
+                  location: const WorldLocationChatPanelDescriptor(
+                    locationId: 'l_o_test_1',
+                    locationName: 'Detail Location',
+                    backgroundImageUrl: '',
+                    backgroundPreviewImageUrl: '',
+                    isLeafLocation: true,
+                  ),
+                  message: outgoing,
+                  mentionCatalog: ChatMentionCatalog(),
+                  openingPreviewMessages: preview,
+                  openingPreviewEntities:
+                      originLocationOpeningPreviewEntitiesForTesting(
+                        origin.characters,
+                        preview,
+                        'l_o_test_1',
+                      ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final firstFrameOpening = tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .messages
+            .where((message) => message.text.startsWith('Opening line'))
+            .toList();
+        expect(firstFrameOpening, hasLength(lines.length));
+        expect(
+          firstFrameOpening.every((message) => message.isMe == scenario.preset),
+          isTrue,
+        );
+        for (var frame = 0; frame < 12; frame++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        if (scenario.closingKeyboard) {
+          expect(
+            tester.getBottomLeft(find.byType(ChatComposer)).dy,
+            closeTo(844, 0.1),
+            reason: 'The new chat must not inherit the old composer keyboard.',
+          );
+        }
+        final panelState = tester.state(find.byType(LocationChatPanel));
+        final listFinder = find.byType(LocationChatAnchoredMessageList);
+        final listState = tester.state(listFinder);
+        if (detached) await tester.drag(listFinder, const Offset(0, 420));
+        for (var frame = 0; frame < 20; frame++) {
+          await tester.pump(const Duration(milliseconds: 20));
+        }
+        final list = tester.widget<LocationChatAnchoredMessageList>(listFinder);
+        expect(list.coordinator.isDetached, detached);
+        final visibleBubble =
+            find.byType(ChatMessageRow).evaluate().firstWhere((element) {
+                  final rect = tester.getRect(find.byWidget(element.widget));
+                  return rect.top > 130 && rect.bottom < 700;
+                }).widget
+                as ChatMessageRow;
+        final anchorText = visibleBubble.message.text;
+        final anchor = detached
+            ? find.byWidgetPredicate(
+                (widget) =>
+                    widget is ChatMessageRow &&
+                    widget.message.text == anchorText,
+              )
+            : find.byWidgetPredicate(
+                (widget) =>
+                    widget is ChatSelfMessageBubble &&
+                    identical(widget.message, outgoing),
+              );
+        final anchorTop = tester.getTopLeft(anchor).dy;
+        expect(visibleBubble.message.senderName, 'Guide');
+        expect(visibleBubble.message.avatarUrl, avatar);
+        expect(visibleBubble.message.isMe, scenario.preset);
+        final openingAvatar = find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is ChatMessageRow && widget.message.text == anchorText,
+          ),
+          matching: find.byType(ChatAvatar),
+        );
+        final openingAvatarElement = tester.element(openingAvatar);
+        final avatarX = tester.getTopLeft(openingAvatar).dx;
+        void expectStableFrame() {
+          expect(
+            tester.state(find.byType(LocationChatPanel)),
+            same(panelState),
+          );
+          expect(tester.state(listFinder), same(listState));
+          expect(tester.element(openingAvatar), same(openingAvatarElement));
+          expect(tester.getTopLeft(openingAvatar).dx, avatarX);
+          expect(anchor, findsOneWidget);
+          expect(tester.getTopLeft(anchor).dy, closeTo(anchorTop, 0.1));
+          if (!detached) {
+            final position = tester
+                .widget<LocationChatAnchoredMessageList>(listFinder)
+                .coordinator
+                .controller
+                .position;
+            expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+          }
+        }
+
+        launch.complete(
+          transport._jsonResponse({
+            'err_no': 0,
+            'data': {'world_id': 'w_opening'},
+          }),
+        );
+        for (var frame = 0; frame < 12; frame++) {
+          if (scenario.closingKeyboard) {
+            tester.view.viewInsets = FakeViewPadding(
+              bottom: frame < 6 ? 300 - frame * 50 : 0,
+            );
+          }
+          await tester.pump(const Duration(milliseconds: 20));
+          expectStableFrame();
+        }
+        chatroom.session.holdSendAcks = true;
+        connect.complete();
+        for (var frame = 0; frame < 12; frame++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          expectStableFrame();
+        }
+        expect(chatroom.session.sentMessages, ['Start the match']);
+        history.complete(
+          transport._jsonResponse({
+            'err_no': 0,
+            'data': {
+              'messages': [
+                for (var index = 0; index < lines.length; index++)
+                  {
+                    'type': 'character',
+                    'message_type': 'text',
+                    'message_id': index + 1,
+                    'location_message_id': index + 1,
+                    'location_id': 'l_o_test_1',
+                    'conversation_round_id': 1,
+                    'sender_type': 'character',
+                    'sender_id': 'c_world',
+                    'sender_name': 'Guide',
+                    'payload': {
+                      'content': index == 0
+                          ? 'Opening line 0. Authoritative server text.'
+                          : lines[index],
+                    },
+                    'err_no': 0,
+                  },
+              ],
+              'has_more': false,
+              'newest_message_id': lines.length,
+            },
+          }),
+        );
+        for (var frame = 0; frame < 16; frame++) {
+          await tester.pump(const Duration(milliseconds: 20));
+          expectStableFrame();
+        }
+        final messages = tester
+            .widget<LocationChatAnchoredMessageList>(listFinder)
+            .messages;
+        final openingMessages = messages
+            .where((message) => message.text.startsWith('Opening line'))
+            .toList();
+        expect(openingMessages, hasLength(lines.length));
+        expect(
+          openingMessages.every((message) => message.isMe == scenario.preset),
+          isTrue,
+        );
+        expect(
+          openingMessages.first.text,
+          'Opening line 0. Authoritative server text.',
+        );
+        expect(
+          openingMessages.every(
+            (message) =>
+                (message.messageId ?? 0) > 0 && message.senderId == 'c_world',
+          ),
+          isTrue,
+        );
+        expect(
+          messages.where((message) => identical(message, outgoing)),
+          hasLength(1),
+        );
+        expect(chatroom.connectCount, 1);
+        expect(chatroom.session.joinCount, 1);
+        if (scenario.closingKeyboard) {
+          tester
+              .widget<ChatComposer>(find.byType(ChatComposer))
+              .focusNode!
+              .requestFocus();
+          await tester.pump();
+          for (final inset in [150.0, 300.0, 180.0, 0.0]) {
+            tester.view.viewInsets = FakeViewPadding(bottom: inset);
+            await tester.pump();
+            expect(
+              tester.getBottomLeft(find.byType(ChatComposer)).dy,
+              closeTo(844 - inset, 0.1),
+              reason:
+                  'Focusing the new composer restores normal keyboard tracking.',
+            );
+          }
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump(const Duration(seconds: 10));
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+  }
 
   testWidgets('Origin launch enters world without async confirmation polling', (
     WidgetTester tester,
@@ -15053,8 +15680,80 @@ void main() {
     },
   );
 
+  for (final launchSucceeds in [true, false]) {
+    testWidgets(
+      'Origin pending launch ignores late ${launchSucceeds ? 'success' : 'failure'} after leaving',
+      (WidgetTester tester) async {
+        AppStartupCoordinator.resetForTesting();
+        addTearDown(AppStartupCoordinator.resetForTesting);
+        final response = Completer<TransportResponse>();
+        final transport = _RecordingV1ListTransport(
+          originLaunchCompleter: response,
+        );
+        final chatroom = _FakeChatroomClient();
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialAuthToken: 'token',
+              chatroom: chatroom,
+            ),
+            child: MaterialApp(
+              onGenerateRoute: AppRouter.onGenerateRoute,
+              home: const OriginWorldPage(
+                oid: 'o_test_1',
+                originId: 0,
+                showOpeningSheetOnEntry: true,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final composer = tester.widget<LocationChatComposerInput>(
+          find.descendant(
+            of: find.byKey(const ValueKey('origin-expanded-opening-composer')),
+            matching: find.byType(LocationChatComposerInput),
+          ),
+        );
+        composer.controller.setSerializedText('Leave before launch finishes');
+        await tester.pump();
+        composer.onSend();
+        composer.onSend();
+        await _pumpUntilSingleOriginLaunchRequest(tester, transport);
+        await tester.pump();
+        expect(find.byType(OriginLaunchWorldPage), findsOneWidget);
+        expect(find.byType(ChatSendingBadge), findsOneWidget);
+        expect(chatroom.connectCount, 0);
+        Navigator.of(tester.element(find.byType(OriginLaunchWorldPage))).pop();
+        await tester.pump();
+        response.complete(
+          transport._jsonResponse({
+            'err_no': launchSucceeds ? 0 : 5000,
+            'err_msg': launchSucceeds ? 'succ' : 'Launch rejected',
+            'data': launchSucceeds
+                ? {'world_id': 'w_late_launch'}
+                : <String, Object?>{},
+          }),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(OriginLaunchWorldPage), findsNothing);
+        expect(find.byType(WorldPage), findsNothing);
+        expect(find.text('Launch failed'), findsNothing);
+        expect(chatroom.connectCount, 0);
+        expect(transport.requestsFor('/api/v1/origin/launch'), hasLength(1));
+        expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
+        expect(tester.takeException(), isNull);
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        AppStartupCoordinator.resetForTesting();
+      },
+    );
+  }
+
   testWidgets(
-    'Origin opening failed launch closes keyboard and restores normal list',
+    'Origin opening navigates immediately and keeps failed message for retry',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 844);
       tester.view.devicePixelRatio = 1;
@@ -15067,6 +15766,21 @@ void main() {
       final transport = _RecordingV1ListTransport(
         originLaunchCompleter: originLaunchCompleter,
         worldRelationStatus: 'approved',
+        originTicks: const [
+          {
+            'tick_no': 1,
+            'tick_result': {
+              'location_groups': [
+                {
+                  'location_id': 'l_o_test_1',
+                  'initial_dialogue': [
+                    {'char_id': 'nar', 'content': 'Opening context for retry.'},
+                  ],
+                },
+              ],
+            },
+          },
+        ],
       );
       await tester.pumpWidget(
         AppServicesScope(
@@ -15140,17 +15854,37 @@ void main() {
       );
       await tester.tap(sendButton);
       await _pumpUntilSingleOriginLaunchRequest(tester, transport);
-      expect(
-        tester.widget<EditableText>(editable).focusNode.hasFocus,
-        isTrue,
-        reason:
-            'The composer keeps focus while the launch request is pending and '
-            'dismisses the keyboard only after the request completes.',
-      );
-
-      tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pump();
-
+      expect(find.byType(OriginLaunchWorldPage), findsOneWidget);
+      expect(tester.widget<WorldPage>(find.byType(WorldPage)).wid, isEmpty);
+      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      final outgoing = tester
+          .widget<ChatSelfMessageBubble>(find.byType(ChatSelfMessageBubble))
+          .message;
+      expect(outgoing.text, message);
+      final openingContext = find.descendant(
+        of: find.byType(OriginLaunchWorldPage),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is ChatMessageRow &&
+              widget.message.text == 'Opening context for retry.',
+        ),
+      );
+      expect(openingContext, findsOneWidget);
+      expect(
+        tester
+            .widget<LocationChatComposerInput>(
+              find.descendant(
+                of: find.byType(OriginLaunchWorldPage),
+                matching: find.byType(LocationChatComposerInput),
+              ),
+            )
+            .controller
+            .text,
+        isEmpty,
+      );
+      expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
+      tester.view.viewInsets = FakeViewPadding.zero;
       originLaunchCompleter.complete(
         transport._jsonResponse({
           'err_no': 5000,
@@ -15158,98 +15892,25 @@ void main() {
           'data': <String, Object?>{},
         }),
       );
-      for (var frame = 0; frame < 10; frame += 1) {
+      for (
+        var frame = 0;
+        frame < 20 && outgoing.status != 'failed';
+        frame += 1
+      ) {
         await tester.pump();
-        if (!tester.widget<EditableText>(editable).focusNode.hasFocus) break;
       }
-
+      await tester.pump();
       expect(find.text('Launch failed'), findsOneWidget);
-      expect(tester.widget<EditableText>(editable).focusNode.hasFocus, isFalse);
-      expect(
-        tester
-            .widget<LocationChatComposerInput>(sharedComposer)
-            .controller
-            .serializedText,
-        message,
-        reason: 'A failed launch keeps the message available for retry.',
-      );
-
-      expect(
-        tester
-            .widget<PageView>(
-              find.byKey(const ValueKey<String>('origin-detail-sheet-pages')),
-            )
-            .physics,
-        isA<PageScrollPhysics>(),
-      );
-      expect(
-        tester
-            .widget<IgnorePointer>(
-              find.byKey(const ValueKey<String>('origin-opening-role-section')),
-            )
-            .ignoring,
-        isFalse,
-      );
-      expect(
-        tester
-            .widget<Opacity>(
-              find.byKey(
-                const ValueKey<String>(
-                  'origin-opening-role-section-settled-visibility',
-                ),
-              ),
-            )
-            .opacity,
-        1,
-      );
-      expect(
-        find.byKey(
-          const ValueKey<String>('origin-opening-keyboard-layout-spacer'),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: find.byKey(
-            const ValueKey<String>('origin-detail-sheet-page-Opening'),
-          ),
-          matching: find.byType(AbsorbPointer),
-        ),
-        findsNothing,
-        reason: 'A failed launch must remove the keyboard transition shield.',
-      );
-      final openingList = find.descendant(
-        of: find.byKey(
-          const ValueKey<String>('origin-detail-sheet-page-Opening'),
-        ),
-        matching: find.byType(CustomScrollView),
-      );
-      expect(
-        tester.widget<CustomScrollView>(openingList).physics,
-        isA<ClampingScrollPhysics>(),
-      );
-      final rolePager = find.descendant(
-        of: find.byKey(const ValueKey<String>('origin-opening-role-section')),
-        matching: find.byType(PageView),
-      );
-      final rolePageController = tester.widget<PageView>(rolePager).controller!;
-      await tester.drag(rolePager, const Offset(-300, 0));
-      await tester.pumpAndSettle();
-      expect(
-        rolePageController.page,
-        greaterThan(0),
-        reason: 'The role section must accept gestures after launch failure.',
-      );
-      final sheetSurface = find.byKey(
-        const ValueKey<String>('origin-detail-sheet-surface'),
-      );
-      expect(
-        tester.getBottomLeft(expandedComposer).dy,
-        closeTo(tester.getBottomLeft(sheetSurface).dy, 1),
-        reason: 'The composer returns to its normal bottom-docked position.',
-      );
+      expect(find.byType(ChatSendingBadge), findsNothing);
+      expect(find.byType(ChatFailedBadge), findsOneWidget);
+      expect(outgoing.text, message);
+      expect(openingContext, findsOneWidget);
+      expect(tester.widget<WorldPage>(find.byType(WorldPage)).wid, isEmpty);
+      expect(transport.requestsFor('/api/v1/world/detail'), isEmpty);
       await tester.pump(const Duration(seconds: 2));
+      await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
+      AppStartupCoordinator.resetForTesting();
     },
   );
 
@@ -15796,16 +16457,16 @@ void main() {
         action: 'worldo_launch_message',
         roleId: 'c_o_test_1',
       );
-      final sendingComposer = tester.widget<LocationChatComposerInput>(
-        sharedComposer,
-      );
-      expect(sendingComposer.sending, isTrue);
-      expect(sendingComposer.inputEnabled, isFalse);
-      expect(find.byKey(const ValueKey('origin-role-sheet')), findsNothing);
-      final launchChat = find.byKey(
-        const ValueKey<String>('origin-location-chat-l_o_test_1'),
-      );
-      expect(launchChat, findsNothing);
+      expect(find.byType(OriginLaunchWorldPage), findsOneWidget);
+      expect(tester.widget<WorldPage>(find.byType(WorldPage)).wid, isEmpty);
+      expect(chatroom.connectCount, 0);
+      final outgoing = tester
+          .widget<ChatSelfMessageBubble>(find.byType(ChatSelfMessageBubble))
+          .message;
+      expect(outgoing.text, message);
+      expect(outgoing.status, 'sending');
+      expect(find.byType(ChatSendingBadge), findsOneWidget);
+      expect(find.textContaining('<c_o_test_1>'), findsNothing);
       failedOriginLaunchCompleter.complete(
         transport._jsonResponse({
           'err_no': 5000,
@@ -15813,49 +16474,28 @@ void main() {
           'data': <String, Object?>{},
         }),
       );
-      for (var frame = 0; frame < 20; frame += 1) {
-        await tester.pump();
-        final restoredComposer = tester.widget<LocationChatComposerInput>(
-          sharedComposer,
-        );
-        if (!restoredComposer.sending && restoredComposer.inputEnabled) break;
-      }
-      final restoredComposer = tester.widget<LocationChatComposerInput>(
-        sharedComposer,
-      );
-      expect(restoredComposer.sending, isFalse);
-      expect(restoredComposer.inputEnabled, isTrue);
-      expect(find.text('Launch failed'), findsOneWidget);
-      expect(
-        tester
-            .widget<EditableText>(
-              find.descendant(
-                of: expandedComposer,
-                matching: find.byType(EditableText),
-              ),
-            )
-            .focusNode
-            .hasFocus,
-        isFalse,
-        reason: 'A failed launch must dismiss the message keyboard.',
-      );
-      expect(sharedComposerWidget.controller.serializedText, message);
-      expect(find.byType(WorldPage), findsNothing);
-
-      tester.view.viewInsets = FakeViewPadding.zero;
-      await tester.pump(const Duration(seconds: 2));
-      telemetry.events.clear();
-      await tester.tap(sharedComposerInput);
-      await tester.pump();
-      tester.widget<TextButton>(sendButton).onPressed!();
       for (
         var frame = 0;
-        frame < 20 && transport.requestsFor('/api/v1/origin/launch').length < 2;
+        frame < 20 && outgoing.status != 'failed';
         frame += 1
       ) {
         await tester.pump();
       }
+      await tester.pump();
+      expect(find.text('Launch failed'), findsOneWidget);
+      expect(find.byType(ChatFailedBadge), findsOneWidget);
+      expect(find.byType(ChatSendingBadge), findsNothing);
+      expect(chatroom.connectCount, 0);
+      tester.view.viewInsets = FakeViewPadding.zero;
+      await tester.pump(const Duration(seconds: 2));
+      telemetry.events.clear();
+      await tester.tap(
+        find.byKey(ValueKey('chat-message-retry-${outgoing.localId}')),
+      );
+      await tester.pump();
       expect(transport.requestsFor('/api/v1/origin/launch'), hasLength(2));
+      expect(outgoing.status, 'sending');
+      expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
       _expectOriginLaunchStartTelemetry(
         telemetry: telemetry,
         action: 'worldo_launch_message',

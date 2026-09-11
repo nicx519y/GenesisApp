@@ -37,14 +37,19 @@ const _locationChatAnchorRestoreCacheExtent = 1000000000.0;
 /// Owns every programmatic scroll-position change for location chat.
 class LocationChatScrollCoordinator extends ChangeNotifier {
   LocationChatScrollCoordinator({ScrollController? controller})
-    : controller = controller ?? ScrollController(),
-      _ownsController = controller == null;
+    : _ownsController = controller == null {
+    this.controller =
+        controller ??
+        _LocationChatScrollController(
+          shouldFollowLatest: () => shouldFollowLatest,
+        );
+  }
 
   static const double bottomTolerance = 24;
   static const double oldestMessageStopTolerance = 1;
   static const Duration bottomAnimationDuration = Duration(milliseconds: 220);
 
-  final ScrollController controller;
+  late final ScrollController controller;
   final bool _ownsController;
 
   LocationChatViewportMode _mode = LocationChatViewportMode.initializing;
@@ -279,6 +284,51 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     _commandGeneration += 1;
     if (_ownsController) controller.dispose();
     super.dispose();
+  }
+}
+
+class _LocationChatScrollController extends ScrollController {
+  _LocationChatScrollController({required this.shouldFollowLatest});
+
+  final bool Function() shouldFollowLatest;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _LocationChatScrollPosition(
+    physics: physics,
+    context: context,
+    oldPosition: oldPosition,
+    shouldFollowLatest: shouldFollowLatest,
+  );
+}
+
+class _LocationChatScrollPosition extends ScrollPositionWithSingleContext {
+  _LocationChatScrollPosition({
+    required super.physics,
+    required super.context,
+    super.oldPosition,
+    required this.shouldFollowLatest,
+  });
+
+  final bool Function() shouldFollowLatest;
+
+  @override
+  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
+    final firstLayout = !haveDimensions;
+    final accepted = super.applyContentDimensions(
+      minScrollExtent,
+      maxScrollExtent,
+    );
+    // Flutter skips dimension-correction physics on the first layout. Position
+    // the opening before paint instead of revealing the top then jumping down.
+    if (firstLayout && shouldFollowLatest() && pixels != maxScrollExtent) {
+      correctPixels(maxScrollExtent);
+      return false;
+    }
+    return accepted;
   }
 }
 
@@ -1516,15 +1566,9 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
       }
       return currentPixels;
     }
-    final wasNearBottom =
-        oldPosition.maxScrollExtent - newPosition.pixels <=
-        LocationChatScrollCoordinator.bottomTolerance;
-    if (wasNearBottom) return newPosition.maxScrollExtent;
-    return super.adjustPositionForNewDimensions(
-      oldPosition: oldPosition,
-      newPosition: newPosition,
-      isScrolling: isScrolling,
-      velocity: velocity,
-    );
+    // Layout can correct pixels while history, streaming content or the keyboard
+    // changes the extent. Only a user scroll should leave following-latest mode;
+    // comparing the corrected pixels with the old extent can lose the bottom.
+    return newPosition.maxScrollExtent;
   }
 }

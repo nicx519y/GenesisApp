@@ -147,6 +147,7 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
 
   String _locationChatMessageLayoutId(ChatMessageVm message) {
     return _tickProgressLayoutIdByMessageLocalId[message.localId] ??
+        _openingLayoutIds[message.localId] ??
         message.localId;
   }
 

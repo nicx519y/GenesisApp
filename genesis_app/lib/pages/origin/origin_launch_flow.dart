@@ -26,6 +26,7 @@ Future<String?> startOriginLaunch({
   required OriginDetail origin,
   required OriginRoleLaunchSelection roleSelection,
   required OriginLaunchSource launchSource,
+  bool Function()? shouldHandleResult,
 }) async {
   try {
     final services = AppServicesScope.of(context);
@@ -35,7 +36,7 @@ Future<String?> startOriginLaunch({
       presetCharacterId: roleSelection.presetCharacterId,
       customRole: roleSelection.customRole?.toPayload(),
     );
-    if (!context.mounted) return null;
+    if (!context.mounted || shouldHandleResult?.call() == false) return null;
 
     final wid = '${result['world_id'] ?? result['wid'] ?? ''}'.trim();
     if (wid.isEmpty) {
@@ -51,7 +52,7 @@ Future<String?> startOriginLaunch({
     );
     return wid;
   } catch (_) {
-    if (context.mounted) {
+    if (context.mounted && shouldHandleResult?.call() != false) {
       showGenesisToast(context, 'Launch failed', brightness: Brightness.dark);
     }
     return null;

@@ -64,6 +64,8 @@ import '../world/world_header.dart';
 import '../world/world_map_bubble_candidates.dart';
 import '../world/world_navigation.dart';
 import 'origin_launch_flow.dart';
+import 'origin_launch_world_page.dart';
+import '../world/world_location_chat_host.dart';
 import 'origin_role_portrait_image_provider.dart';
 import 'origin_world_layout.dart';
 
@@ -188,6 +190,11 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       OriginRoleAvatarSnapshotStore();
   OriginLaunchSource? _activeLaunchSource;
   bool get _launching => _activeLaunchSource != null;
+
+  void _beginOpeningMessageLaunch() {
+    setState(() => _activeLaunchSource = OriginLaunchSource.openingMessage);
+  }
+
   late bool _waitingForOpeningSheetExpansion;
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
@@ -869,53 +876,6 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       }
       return const <OriginMyLaunchPresetCharacter>[];
     }
-  }
-
-  Future<String?> _launchOrigin(
-    OriginDetail origin,
-    OriginRoleLaunchSelection roleSelection, {
-    required String telemetryRoleId,
-    required OriginLaunchSource launchSource,
-    String initialLocationId = '',
-    String initialMessageToSend = '',
-    ChatMentionCatalog? initialMentionCatalog,
-    bool enterWorldOnSuccess = true,
-  }) async {
-    if (_launching) return null;
-    setState(() => _activeLaunchSource = launchSource);
-    GenesisTelemetry.collectLog(
-      actionType: 'event',
-      action: launchSource.startAction,
-      object1: origin.oid,
-      object2: telemetryRoleId,
-    );
-    final launchedWorldId = await startOriginLaunch(
-      context: context,
-      origin: origin,
-      roleSelection: roleSelection,
-      launchSource: launchSource,
-    );
-    if (!mounted) return null;
-    if (launchedWorldId == null) {
-      setState(() => _activeLaunchSource = null);
-      return null;
-    }
-    setState(() {
-      _activeLaunchSource = null;
-      _launchedPresetRolesFuture = null;
-      _launchedPresetRolesPreparationFuture = null;
-      _launchedPresetRolesData = null;
-      _launchedPresetRolesCacheKey = '';
-    });
-    if (enterWorldOnSuccess) {
-      _enterLaunchedWorld(
-        launchedWorldId,
-        initialLocationId: initialLocationId,
-        initialMessageToSend: initialMessageToSend,
-        initialMentionCatalog: initialMentionCatalog,
-      );
-    }
-    return launchedWorldId;
   }
 
   Future<OriginCustomRoleDraft?> _customRoleFromProfile() async {

@@ -1335,6 +1335,10 @@ Query：
 
 登录用户基于一个 origin 模板创建新的 world 实例；接口只创建 world，不触发 tick。
 
+客户端 Opening Sheet 发送：登录检查通过后立即进入聊天界面，先显示当前地点的开场内容，再显示原消息和消息左侧的发送 loading，并在后台调用本接口。开场内容复用 Origin 的 `init_location_group`，缺失时回退到 ticks 的初始对白；角色对白使用真实聊天的气泡、角色名和头像组件，旁白和图片保留各自的聊天样式。
+
+取得 `world_id` 时保留同一个 World 页面、聊天列表和滚动状态，启动 World 数据加载、WebSocket 连接及目标地点 join，随后通过 `send_message` 提交同一条消息；消息正文不随 Launch 请求发送。预览持续保留到当前地点真实历史和分页信息加载成功，再原位替换为服务端记录；匹配的开场消息沿用显示锚点，正文、身份和消息 ID 则以真实数据为准。初始历史请求按开场条数扩大 limit（20–100），避免默认 20 条截断开场；空缓存和失败请求不能触发清空预览。发送 ACK 和新对话可独立继续，预览不会写入真实消息队列或数据库。收到发送 ACK 后结束消息 loading。Launch 失败时保留开场内容和失败气泡，点击重试重新 Launch；已有 World 的消息发送失败则走聊天室重试，不再 Launch。等待 Launch 时退出页面，迟到的结果不会重新打开页面或发送消息。
+
 请求 body（`OriginLaunchReq`）：
 
 - `origin_id*`: string，待 launch 的 origin 业务 id

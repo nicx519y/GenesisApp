@@ -503,6 +503,11 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
               if (request.start == null || newest == 0)
                 location: snapshotTruncated,
             },
+            latestHistoryLoads: {
+              ..._state.latestHistoryLoads,
+              if (request.start == null)
+                location: (limit: 100, hasMore: snapshotTruncated),
+            },
           ),
           inspirationReplacementLocation: request.start == null
               ? null

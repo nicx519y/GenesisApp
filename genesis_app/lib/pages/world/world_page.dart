@@ -48,6 +48,7 @@ import 'world_map_bubble_candidates.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
 import 'world_page_result.dart';
+import '../chat/location_chat_page.dart' show LocationChatOpeningPreview;
 import 'world_sections.dart';
 import 'world_update_push_banner.dart';
 import 'world_update_push_target.dart';
@@ -70,8 +71,12 @@ class WorldPage extends StatefulWidget {
     this.initiallyLaunched = false,
     this.initialName = '',
     this.initialLocationId = '',
+    this.initialLocationDescriptor,
     this.initialMessageToSend = '',
+    this.initialOutgoingMessage,
     this.initialMentionCatalog,
+    this.initialOpeningPreview,
+    this.onRetryInitialLaunch,
     this.initialDefinitionVersion = 0,
     this.initialMapLocationId = '',
   });
@@ -82,8 +87,12 @@ class WorldPage extends StatefulWidget {
   final bool initiallyLaunched;
   final String initialName;
   final String initialLocationId;
+  final WorldLocationChatPanelDescriptor? initialLocationDescriptor;
   final String initialMessageToSend;
+  final ChatMessageVm? initialOutgoingMessage;
   final ChatMentionCatalog? initialMentionCatalog;
+  final LocationChatOpeningPreview? initialOpeningPreview;
+  final VoidCallback? onRetryInitialLaunch;
   final int initialDefinitionVersion;
   final String initialMapLocationId;
 
@@ -218,7 +227,11 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       worldTickInProgress: _worldTickInProgress,
       worldTickProgressFailureRevision: _worldTickProgressFailureRevision,
       cache: _locationChatPageCache,
-      onBack: _closeCachedLocationChat,
+      openingPreview: widget.initialOpeningPreview,
+      onRetryInitialLaunch: widget.onRetryInitialLaunch,
+      onBack: widget.wid.isEmpty
+          ? () => Navigator.of(context).pop()
+          : _closeCachedLocationChat,
       onOverlayDismissed: _completePendingLocationChatLeave,
       onCharactersMovedLocationTap: (movement) =>
           unawaited(_openCharactersMovedTargetLocation(movement)),
@@ -241,7 +254,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
 
   Widget _buildInitialLocationChatPage({Widget? background}) {
     return PopScope(
-      canPop: false,
+      canPop: widget.wid.isEmpty,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
         _handleWorldPopBlocked();
@@ -420,6 +433,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     _locationChatPageCache.queueInitialMessageToSend(
       _pendingInitialLocationId,
       widget.initialMessageToSend,
+      outgoingMessage: widget.initialOutgoingMessage,
       mentionCatalog: widget.initialMentionCatalog,
     );
     _initialLocationChatEntry = _pendingInitialLocationId.isNotEmpty;
@@ -431,15 +445,17 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     );
     _syncWorldStatusBarForMainTab();
     if (_initialLocationChatEntry) {
-      final descriptor = WorldLocationChatPanelDescriptor(
-        locationId: _pendingInitialLocationId,
-        locationName: 'Location',
-        backgroundImageUrl: '',
-        backgroundPreviewImageUrl: '',
-        isLeafLocation: true,
-        localMessageLocationIds: <String>[_pendingInitialLocationId],
-        recentChatLocationPathIds: <String>[_pendingInitialLocationId],
-      );
+      final descriptor =
+          widget.initialLocationDescriptor ??
+          WorldLocationChatPanelDescriptor(
+            locationId: _pendingInitialLocationId,
+            locationName: 'Location',
+            backgroundImageUrl: '',
+            backgroundPreviewImageUrl: '',
+            isLeafLocation: true,
+            localMessageLocationIds: <String>[_pendingInitialLocationId],
+            recentChatLocationPathIds: <String>[_pendingInitialLocationId],
+          );
       _locationChatDescriptors = <String, WorldLocationChatPanelDescriptor>{
         descriptor.locationId: descriptor,
       };
@@ -447,18 +463,27 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       _locationChatPageCache.activate(descriptor);
       _locationChatPageCache.markReady(descriptor.locationId);
       _activeChatLocationId = descriptor.locationId;
-      _startWorldChatroom();
+      if (widget.wid.isNotEmpty) _startWorldChatroom();
       WorldDetailsStatusBarOverride.setStyle(
         kChatDarkHeaderSystemUiOverlayStyle,
       );
     }
-    _scheduleInitialWorldLoadAfterFrameworkFrame();
+    if (widget.wid.isNotEmpty) _scheduleInitialWorldLoadAfterFrameworkFrame();
+  }
+
+  @override
+  void didUpdateWidget(WorldPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.wid.isEmpty && widget.wid.isNotEmpty) {
+      _startWorldChatroom();
+      _scheduleInitialWorldLoadAfterFrameworkFrame();
+    }
   }
 
   @override
   void reassemble() {
     super.reassemble();
-    unawaited(_fetchWorld());
+    if (widget.wid.isNotEmpty) unawaited(_fetchWorld());
   }
 
   @override

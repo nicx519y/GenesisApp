@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -122,6 +123,96 @@ void main() {
 
     expect(find.byKey(placeholderKey), findsNothing);
     expect(cacheManager.getSingleFileCalls, 1);
+  });
+
+  testWidgets('keeps the visible frame until its replacement is decoded', (
+    tester,
+  ) async {
+    final firstImage = await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawColor(Colors.red, BlendMode.src);
+      final picture = recorder.endRecording();
+      try {
+        return await picture.toImage(2, 2);
+      } finally {
+        picture.dispose();
+      }
+    });
+    final secondImage = await tester.runAsync(() async {
+      final recorder = ui.PictureRecorder();
+      Canvas(recorder).drawColor(Colors.blue, BlendMode.src);
+      final picture = recorder.endRecording();
+      try {
+        return await picture.toImage(2, 2);
+      } finally {
+        picture.dispose();
+      }
+    });
+    addTearDown(firstImage!.dispose);
+    addTearDown(secondImage!.dispose);
+    final nextFrame = Completer<ImageInfo>();
+    debugGenesisStaticNetworkImageCompleter = (provider) =>
+        OneFrameImageStreamCompleter(
+          provider.imageUrl.endsWith('first.png')
+              ? Future.value(ImageInfo(image: firstImage.clone()))
+              : nextFrame.future,
+        );
+    addTearDown(() {
+      debugGenesisStaticNetworkImageCompleter = null;
+      PaintingBinding.instance.imageCache.clear();
+      PaintingBinding.instance.imageCache.clearLiveImages();
+    });
+    var loadCount = 0;
+    const placeholderKey = ValueKey('avatar-swap-placeholder');
+    Widget image(String name) => MaterialApp(
+      home: Scaffold(
+        body: GenesisStaticNetworkImage(
+          imageUrl: 'https://cache.test/avatar-swap-$name.png',
+          width: 40,
+          height: 40,
+          onImageLoaded: () => loadCount++,
+          placeholder: (_) => const SizedBox(key: placeholderKey),
+        ),
+      ),
+    );
+    await tester.pumpWidget(image('first'));
+    await tester.pump();
+    expect(loadCount, 1);
+    expect(find.byKey(placeholderKey), findsNothing);
+    expect(
+      tester
+          .widget<RawImage>(find.byType(RawImage))
+          .image!
+          .isCloneOf(firstImage),
+      isTrue,
+    );
+
+    await tester.pumpWidget(image('second'));
+    for (var frame = 0; frame < 5; frame++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.byKey(placeholderKey), findsNothing);
+      expect(
+        tester
+            .widget<RawImage>(find.byType(RawImage))
+            .image!
+            .isCloneOf(firstImage),
+        isTrue,
+      );
+      expect(loadCount, 1);
+    }
+    nextFrame.complete(ImageInfo(image: secondImage.clone()));
+    await tester.pump();
+    await tester.pump();
+    expect(loadCount, 2);
+    expect(
+      tester
+          .widget<RawImage>(find.byType(RawImage))
+          .image!
+          .isCloneOf(secondImage),
+      isTrue,
+    );
+    expect(find.byKey(placeholderKey), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   testWidgets('does not fail when a pending image completes after removal', (

@@ -639,6 +639,32 @@ void main() {
     },
   );
 
+  test(
+    'remote history readiness distinguishes failure from an empty result',
+    () async {
+      final http = _WorldChatroomHttpTransport()
+        ..failedMessageLocationIds.add('loc-1')
+        ..messagesByLocation['loc-1'] = [];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      await service.connect(worldId: 'world-1', identity: _identity());
+      await service.refreshLatestMessages(locationId: 'loc-1');
+      expect(service.state.latestHistoryLoads.keys, isNot(contains('loc-1')));
+      http.failedMessageLocationIds.clear();
+      final messages = await service.refreshLatestMessages(locationId: 'loc-1');
+      expect(messages, isEmpty);
+      expect(service.state.latestHistoryLoads.keys, contains('loc-1'));
+      expect(
+        service.state.copyWith(connected: false).latestHistoryLoads.keys,
+        contains('loc-1'),
+      );
+      await service.dispose();
+    },
+  );
+
   test('join fetches latest history for the joined location', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport()

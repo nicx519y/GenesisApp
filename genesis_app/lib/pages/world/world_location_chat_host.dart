@@ -135,6 +135,7 @@ class WorldLocationChatPageCache {
       <String, String>{};
   final Map<String, ChatMentionCatalog> _initialMentionCatalogByLocation =
       <String, ChatMentionCatalog>{};
+  final Map<String, ChatMessageVm> _initialOutgoingMessageByLocation = {};
   Set<String> _currentTilemapLocationIds = const <String>{};
 
   String activeLocationId = '';
@@ -232,10 +233,14 @@ class WorldLocationChatPageCache {
     String locationId,
     String message, {
     ChatMentionCatalog? mentionCatalog,
+    ChatMessageVm? outgoingMessage,
   }) {
     final resolvedLocationId = locationId.trim();
     if (resolvedLocationId.isEmpty || message.trim().isEmpty) return;
     _initialMessageToSendByLocation[resolvedLocationId] = message;
+    if (outgoingMessage != null) {
+      _initialOutgoingMessageByLocation[resolvedLocationId] = outgoingMessage;
+    }
     if (mentionCatalog != null) {
       _initialMentionCatalogByLocation[resolvedLocationId] = mentionCatalog;
     }
@@ -243,6 +248,10 @@ class WorldLocationChatPageCache {
 
   String takeInitialMessageToSend(String locationId) {
     return _initialMessageToSendByLocation.remove(locationId.trim()) ?? '';
+  }
+
+  ChatMessageVm? takeInitialOutgoingMessage(String locationId) {
+    return _initialOutgoingMessageByLocation.remove(locationId.trim());
   }
 
   ChatMentionCatalog? takeInitialMentionCatalog(String locationId) {
@@ -255,6 +264,7 @@ class WorldLocationChatPageCache {
     _readyLocationIds.clear();
     _draftTextByLocation.clear();
     _initialMessageToSendByLocation.clear();
+    _initialOutgoingMessageByLocation.clear();
     _initialMentionCatalogByLocation.clear();
     _currentTilemapLocationIds = const <String>{};
     _backgroundPreloader.preload(const <Object?>[]);
@@ -280,6 +290,8 @@ class WorldLocationChatRouterHost extends StatefulWidget {
     this.worldTickInProgress = false,
     this.worldTickProgressFailureRevision = 0,
     this.animateTransitions = true,
+    this.openingPreview,
+    this.onRetryInitialLaunch,
   });
 
   final String worldId;
@@ -293,6 +305,8 @@ class WorldLocationChatRouterHost extends StatefulWidget {
   final bool worldTickInProgress;
   final int worldTickProgressFailureRevision;
   final bool animateTransitions;
+  final LocationChatOpeningPreview? openingPreview;
+  final VoidCallback? onRetryInitialLaunch;
 
   @override
   State<WorldLocationChatRouterHost> createState() =>
@@ -413,6 +427,12 @@ class WorldLocationChatRouterHostState
                         widget.worldTickProgressFailureRevision,
                     descriptor: descriptor,
                     active: active,
+                    openingPreview:
+                        widget.openingPreview?.locationId ==
+                            descriptor.locationId
+                        ? widget.openingPreview
+                        : null,
+                    onRetryInitialLaunch: widget.onRetryInitialLaunch,
                     renderBackgroundImage: visible,
                     messageQueueInitializationCovered: widget
                         .isMessageQueueInitializationCovered(
@@ -425,6 +445,8 @@ class WorldLocationChatRouterHostState
                     initialMessageToSend: widget.cache.takeInitialMessageToSend(
                       descriptor.locationId,
                     ),
+                    initialOutgoingMessage: widget.cache
+                        .takeInitialOutgoingMessage(descriptor.locationId),
                     initialMentionCatalog: widget.cache
                         .takeInitialMentionCatalog(descriptor.locationId),
                     onDraftTextChanged: (text) {
@@ -483,7 +505,10 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.onBack,
     required this.initialDraftText,
     required this.initialMessageToSend,
+    this.initialOutgoingMessage,
     this.initialMentionCatalog,
+    this.openingPreview,
+    this.onRetryInitialLaunch,
     required this.onDraftTextChanged,
     required this.messageQueueInitializationCovered,
     required this.onCharactersMovedLocationTap,
@@ -499,7 +524,10 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   final VoidCallback onBack;
   final String initialDraftText;
   final String initialMessageToSend;
+  final ChatMessageVm? initialOutgoingMessage;
   final ChatMentionCatalog? initialMentionCatalog;
+  final LocationChatOpeningPreview? openingPreview;
+  final VoidCallback? onRetryInitialLaunch;
   final ValueChanged<String> onDraftTextChanged;
   final bool messageQueueInitializationCovered;
   final ChatCharacterMovementTap onCharactersMovedLocationTap;
@@ -513,7 +541,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
       requestFocus: false,
       pages: [
         MaterialPage<void>(
-          key: ValueKey(routeName),
+          key: ValueKey('world-location-chat-page-${descriptor.locationId}'),
           name: routeName,
           child: LocationChatPanel(
             key: ValueKey('world-location-chat-${descriptor.locationId}'),
@@ -531,7 +559,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             service: chatroom,
             worldTickInProgress: worldTickInProgress,
             worldTickProgressFailureRevision: worldTickProgressFailureRevision,
-            active: active,
+            active: active && worldId.isNotEmpty,
             leaveOnInactive: false,
             unauthorizedHandledByOwner: true,
             messageQueueInitializationCovered:
@@ -541,7 +569,13 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             onBack: onBack,
             initialDraftText: initialDraftText,
             initialMessageToSend: initialMessageToSend,
+            initialOutgoingMessage: initialOutgoingMessage,
             initialMentionCatalog: initialMentionCatalog,
+            openingPreviewMessages: openingPreview?.messages ?? const [],
+            openingPreviewEntities: openingPreview?.entities ?? const [],
+            openingPlayerCharacterId: openingPreview?.playerCharacterId ?? '',
+            retainOpeningPreviewUntilHistory: openingPreview != null,
+            onRetryInitialOutgoingMessage: onRetryInitialLaunch,
             onDraftTextChanged: onDraftTextChanged,
             onCharactersMovedLocationTap: onCharactersMovedLocationTap,
           ),

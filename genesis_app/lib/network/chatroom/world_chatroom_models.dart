@@ -68,6 +68,7 @@ class WorldChatroomState {
     this.entitiesByLocation = const <String, List<WorldChatroomEntity>>{},
     this.worldMessages = const <WorldChatroomMessage>[],
     this.messagesByLocation = const <String, List<WorldChatroomMessage>>{},
+    this.latestHistoryLoads = const <String, ({int limit, bool hasMore})>{},
     this.streamMessagesByKey = const <String, WorldChatroomMessage>{},
     this.conversationRoundStatesByLocation =
         const <String, ConversationRoundState>{},
@@ -99,6 +100,9 @@ class WorldChatroomState {
   final Map<String, List<WorldChatroomEntity>> entitiesByLocation;
   final List<WorldChatroomMessage> worldMessages;
   final Map<String, List<WorldChatroomMessage>> messagesByLocation;
+
+  /// Successful remote history loads, including an authoritative empty result.
+  final Map<String, ({int limit, bool hasMore})> latestHistoryLoads;
   final Map<String, WorldChatroomMessage> streamMessagesByKey;
   final Map<String, ConversationRoundState> conversationRoundStatesByLocation;
 
@@ -138,6 +142,7 @@ class WorldChatroomState {
     Map<String, List<WorldChatroomEntity>>? entitiesByLocation,
     List<WorldChatroomMessage>? worldMessages,
     Map<String, List<WorldChatroomMessage>>? messagesByLocation,
+    Map<String, ({int limit, bool hasMore})>? latestHistoryLoads,
     Map<String, WorldChatroomMessage>? streamMessagesByKey,
     Map<String, ConversationRoundState>? conversationRoundStatesByLocation,
     Map<String, int>? historyGenerationByLocation,
@@ -169,6 +174,7 @@ class WorldChatroomState {
       entitiesByLocation: entitiesByLocation ?? this.entitiesByLocation,
       worldMessages: worldMessages ?? this.worldMessages,
       messagesByLocation: messagesByLocation ?? this.messagesByLocation,
+      latestHistoryLoads: latestHistoryLoads ?? this.latestHistoryLoads,
       streamMessagesByKey: streamMessagesByKey ?? this.streamMessagesByKey,
       conversationRoundStatesByLocation:
           conversationRoundStatesByLocation ??

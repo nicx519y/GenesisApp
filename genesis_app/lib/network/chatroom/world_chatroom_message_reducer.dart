@@ -64,6 +64,17 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       response.messages,
       ticket: ticket,
     );
+    if (_historyIsCurrent(locationId, ticket)) {
+      _setState(
+        _state.copyWith(
+          latestHistoryLoads: {
+            ..._state.latestHistoryLoads,
+            if (limit >= (_state.latestHistoryLoads[locationId]?.limit ?? 0))
+              locationId: (limit: limit, hasMore: response.hasMore),
+          },
+        ),
+      );
+    }
     if (emitLatestFetched &&
         messages.isNotEmpty &&
         !_latestFetchedMessages.isClosed) {

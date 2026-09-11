@@ -1,6 +1,9 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatSendActions on _LocationChatPanelState {
+  String get _initialMessageText =>
+      _initialOutgoingMessage?.text ?? _textController.serializedText;
+
   void _maybeSendInitialMessage() {
     if (!_initialMessageSendPending || _initialMessageSendScheduled) return;
     if (!widget.active ||
@@ -10,7 +13,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _sending ||
-        isGenesisUgcTextBlank(_textController.serializedText)) {
+        isGenesisUgcTextBlank(_initialMessageText)) {
       return;
     }
     _initialMessageSendScheduled = true;
@@ -25,15 +28,16 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _sendAwaitingResponse ||
           _replyGenerationInProgress ||
           _sending ||
-          isGenesisUgcTextBlank(_textController.serializedText)) {
+          isGenesisUgcTextBlank(_initialMessageText)) {
         return;
       }
       _initialMessageSendPending = false;
-      await _send();
+      await _send(outgoingMessage: _initialOutgoingMessage);
     });
   }
 
   Future<void> _send({
+    ChatMessageVm? outgoingMessage,
     String? textOverride,
     ChatroomInspirationSource? inspirationSource,
     int? inspirationEpoch,
@@ -51,7 +55,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     }
     final draftAtSubmit = _textController.serializedText;
     final text = normalizeGenesisUgcTextForDisplay(
-      textOverride ?? draftAtSubmit,
+      textOverride ?? outgoingMessage?.text ?? draftAtSubmit,
     );
     if (isGenesisUgcTextBlank(text)) return;
 
@@ -104,24 +108,31 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     }
 
     final clientMsgId = _nextClientMsgId();
-    final localMessage = ChatMessageVm(
-      localId: 'local-$clientMsgId',
-      clientMsgId: clientMsgId,
-      senderId: _mySenderId,
-      senderName: _localSelfDisplayName(),
-      avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
-      isPlayerControlledRole: _identityCandidatesArePlayerControlledRole([
-        _myUserId,
-        _mySenderId,
-      ]),
-      text: text,
-      isMe: true,
-      status: 'sending',
-    );
+    final localMessage =
+        outgoingMessage ??
+        ChatMessageVm(
+          localId: 'local-$clientMsgId',
+          clientMsgId: clientMsgId,
+          senderId: _mySenderId,
+          senderName: _localSelfDisplayName(),
+          avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
+          isPlayerControlledRole: _identityCandidatesArePlayerControlledRole([
+            _myUserId,
+            _mySenderId,
+          ]),
+          text: text,
+          isMe: true,
+          status: 'sending',
+        );
 
     _setLocationChatState(() {
       _sending = true;
-      _messages.add(localMessage);
+      localMessage.clientMsgId = clientMsgId;
+      localMessage.text = text;
+      localMessage.status = 'sending';
+      localMessage.error = null;
+      if (!_messages.contains(localMessage)) _messages.add(localMessage);
+      if (outgoingMessage != null) return;
       if (_textController.serializedText == draftAtSubmit) {
         _hasDraftText = false;
         _textController.clear();
@@ -136,10 +147,12 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         'vm': LocationChatDebugSlice.debugRenderMessage(localMessage),
       },
     );
-    _scrollCoordinator.requestBottom(
-      reason: LocationChatBottomReason.sentMessage,
-      behavior: LocationChatBottomBehavior.jump,
-    );
+    if (outgoingMessage == null) {
+      _scrollCoordinator.requestBottom(
+        reason: LocationChatBottomReason.sentMessage,
+        behavior: LocationChatBottomBehavior.jump,
+      );
+    }
 
     await _submitLocalMessage(
       service: service,
@@ -323,6 +336,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             );
       _setLocationChatState(() {
         if (restoredDraft != null) {
+          if (identical(localMessage, _initialOutgoingMessage)) {
+            // Draft recovery ends the queued opening send. Otherwise later
+            // state updates would reinsert this message without a server id.
+            _initialOutgoingMessage = null;
+          }
           _hasDraftText = restoredDraft.trim().isNotEmpty;
           _textController.setSerializedText(restoredDraft);
         } else if (!receiptReceived) {
@@ -387,6 +405,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   }
 
   bool _syncHasMoreOlderMessagesForSource(List<WorldChatroomMessage> source) {
+    if (widget.active &&
+        widget.retainOpeningPreviewUntilHistory &&
+        !_openingPreviewResolved) {
+      return false;
+    }
     final hasOlderCursor = _oldestLocationMessageId(source) > 0;
     if (!hasOlderCursor && source.isNotEmpty) {
       _olderMessagesExhaustedByCursorlessContent = true;

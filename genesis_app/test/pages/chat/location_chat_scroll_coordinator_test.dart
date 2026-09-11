@@ -230,6 +230,106 @@ void main() {
     expect(coordinator.mode, LocationChatViewportMode.detached);
   });
 
+  test('following latest survives a layout-corrected scroll offset', () {
+    final physics = LocationChatBottomAnchoringScrollPhysics(
+      shouldFollowLatest: () => true,
+    );
+    final oldPosition = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 1200,
+      pixels: 1200,
+      viewportDimension: 400,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+    final newPosition = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 900,
+      pixels: 760,
+      viewportDimension: 600,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+    expect(
+      physics.adjustPositionForNewDimensions(
+        oldPosition: oldPosition,
+        newPosition: newPosition,
+        isScrolling: false,
+        velocity: 0,
+      ),
+      900,
+    );
+  });
+
+  testWidgets(
+    'following latest stays at bottom through history and keyboard changes',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      final messageCount = ValueNotifier<int>(40);
+      final focusNode = FocusNode();
+      addTearDown(coordinator.dispose);
+      addTearDown(messageCount.dispose);
+      addTearDown(focusNode.dispose);
+      addTearDown(tester.view.resetViewInsets);
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pumpWidget(
+        asyncViewport(coordinator, messageCount, composerFocusNode: focusNode),
+      );
+      await tester.pumpAndSettle();
+      for (final count in [24, 48, 12, 40]) {
+        messageCount.value = count;
+        tester.view.viewInsets = count.isEven && count > 30
+            ? const FakeViewPadding(bottom: 300)
+            : FakeViewPadding.zero;
+        for (var frame = 0; frame < 4; frame++) {
+          await tester.pump();
+          final position = coordinator.controller.position;
+          expect(coordinator.mode, LocationChatViewportMode.followingLatest);
+          expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+        }
+      }
+    },
+  );
+
+  testWidgets(
+    'uneven opening messages start at the bottom on the first frame',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final opening = messages(40);
+      for (var i = 0; i < opening.length; i++) {
+        opening[i].text = List.filled(
+          i % 4 == 0 ? 30 : 2,
+          'Opening line $i.',
+        ).join('\n');
+      }
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              messages: opening,
+              topTitle: '',
+              showDateDividers: false,
+            ),
+          ),
+        ),
+      );
+      final lastRow = find.byWidgetPredicate(
+        (widget) =>
+            widget is ChatMessageRow && identical(widget.message, opening.last),
+      );
+      expect(lastRow, findsOneWidget);
+      final initialBottom = tester.getBottomLeft(lastRow).dy;
+      for (var frame = 0; frame < 8; frame++) {
+        await tester.pump();
+        expect(tester.getBottomLeft(lastRow).dy, closeTo(initialBottom, 0.1));
+        final position = coordinator.controller.position;
+        expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+      }
+    },
+  );
+
   testWidgets('every enter positions the viewport at the latest message', (
     tester,
   ) async {
