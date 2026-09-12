@@ -376,6 +376,8 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         messageId: event.messageId,
         locationMessageId: event.locationMessageId,
         conversationRoundId: event.conversationRoundId,
+        conversationType: event.conversationType,
+        triggerUid: event.triggerUid,
         roundOrder: 0,
         locationId: event.locationId,
         businessType: event.businessType.isEmpty
@@ -422,6 +424,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       return;
     }
     accumulator.message = accumulator.message.copyWith(
+      conversationType: event.conversationType.isNotEmpty
+          ? event.conversationType
+          : accumulator.message.conversationType,
+      triggerUid: event.triggerUid.isNotEmpty
+          ? event.triggerUid
+          : accumulator.message.triggerUid,
       currentTime: event.currentTime.trim().isEmpty
           ? accumulator.message.currentTime
           : event.currentTime,
@@ -448,6 +456,8 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           messageId: event.messageId,
           locationMessageId: event.locationMessageId,
           conversationRoundId: event.conversationRoundId,
+          conversationType: event.conversationType,
+          triggerUid: event.triggerUid,
           roundOrder: 0,
           locationId: event.locationId,
           businessType: event.businessType.isEmpty
@@ -489,6 +499,12 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         locationMessageId: event.locationMessageId > 0
             ? event.locationMessageId
             : existing.locationMessageId,
+        conversationType: event.conversationType.isNotEmpty
+            ? event.conversationType
+            : existing.conversationType,
+        triggerUid: event.triggerUid.isNotEmpty
+            ? event.triggerUid
+            : existing.triggerUid,
         content: event.content.trim().isEmpty
             ? existing.content
             : event.content,
@@ -789,6 +805,21 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     if (existing.rawPayload['status'] == 20 && incoming.isLlmStreamMessage) {
       return existing;
     }
+    final needsConversationType =
+        incoming.conversationType.isEmpty &&
+        existing.conversationType.isNotEmpty;
+    final needsTriggerUid =
+        incoming.triggerUid.isEmpty && existing.triggerUid.isNotEmpty;
+    final mergedIncoming = needsConversationType || needsTriggerUid
+        ? incoming.copyWith(
+            conversationType: needsConversationType
+                ? existing.conversationType
+                : incoming.conversationType,
+            triggerUid: needsTriggerUid
+                ? existing.triggerUid
+                : incoming.triggerUid,
+          )
+        : incoming;
     final existingIsAuthoritativeStreamEnd =
         existing.isLlmStreamMessage && !existing.streaming;
     final incomingIsCanonicalFinal =
@@ -796,9 +827,9 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     if (!existingIsAuthoritativeStreamEnd ||
         !incomingIsCanonicalFinal ||
         !_sameStreamIdentity(existing, incoming)) {
-      return incoming;
+      return mergedIncoming;
     }
-    return incoming.copyWith(
+    return mergedIncoming.copyWith(
       globalMessageId: existing.globalMessageId > 0
           ? existing.globalMessageId
           : incoming.globalMessageId,

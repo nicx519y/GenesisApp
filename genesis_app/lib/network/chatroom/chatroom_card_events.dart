@@ -6,6 +6,7 @@ class ChatroomLlmCardStream extends ChatroomEvent {
     : worldId = message.worldId,
       locationId = message.locationId,
       userId = message.userId,
+      triggerUid = message.triggerUid,
       conversationRoundId = llmCardInt(message.conversationRoundId),
       globalMessageId = llmCardInt(message.globalMessageId),
       cardId = llmCardInt(message.payload['card_id']),
@@ -31,7 +32,13 @@ class ChatroomLlmCardStream extends ChatroomEvent {
       throw const FormatException('Invalid candidate stream');
     }
   }
-  final String worldId, locationId, userId, senderType, senderId, senderName;
+  final String worldId,
+      locationId,
+      userId,
+      triggerUid,
+      senderType,
+      senderId,
+      senderName;
   final int conversationRoundId, cardId, cardMessageIndex, globalMessageId;
   final int? seq, ts;
   final String streamType, content, currentTime;
@@ -44,6 +51,7 @@ class ChatroomLlmCardGenerationEnd extends ChatroomEvent {
     : worldId = message.worldId,
       locationId = message.locationId,
       userId = message.userId,
+      triggerUid = message.triggerUid,
       conversationRoundId = llmCardInt(message.conversationRoundId),
       cardId = llmCardInt(message.payload['card_id']),
       generationState = llmCardGenerationState(
@@ -63,7 +71,7 @@ class ChatroomLlmCardGenerationEnd extends ChatroomEvent {
       throw const FormatException('Invalid candidate terminal state');
     }
   }
-  final String worldId, locationId, userId;
+  final String worldId, locationId, userId, triggerUid;
   final int conversationRoundId, cardId;
   final ChatroomCardGenerationState generationState;
   final ChatroomCardBilling billing;
@@ -76,7 +84,7 @@ class ChatroomLlmCardGenerationEnd extends ChatroomEvent {
 void _validateCardEnvelope(ChatroomV2Message message) {
   if (message.worldId.trim().isEmpty ||
       message.locationId.trim().isEmpty ||
-      message.userId.trim().isEmpty) {
+      message.triggerUid.isEmpty) {
     throw const FormatException('Missing private candidate identity');
   }
   if ((message.messageId ?? 0) != 0 || (message.locationMessageId ?? 0) != 0) {

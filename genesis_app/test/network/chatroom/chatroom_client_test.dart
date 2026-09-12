@@ -34,6 +34,32 @@ void main() {
     );
   });
 
+  test(
+    'legacy WebSocket metadata stays top-level and reaches typed events',
+    () {
+      final event = chatroomLegacyEventFromEnvelope(
+        ChatroomEnvelope.fromJson({
+          'type': 'user_message',
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'conversation_round_id': 7,
+          'conversation_type': 'user_message',
+          'trigger_uid': ' user-1 ',
+          'payload': {
+            'sender_type': 'user',
+            'sender_id': 'character-1',
+            'content': 'hello',
+          },
+        }),
+      );
+
+      expect(event, isA<ChatroomUserMessage>());
+      final userMessage = event as ChatroomUserMessage;
+      expect(userMessage.conversationType, 'user_message');
+      expect(userMessage.triggerUid, ' user-1 ');
+    },
+  );
+
   test('parses the five new world timeline event types', () {
     ChatroomEvent parse(String type, Map<String, Object?> payload) {
       final isQueuedTimeline =
@@ -1622,6 +1648,8 @@ void main() {
         'message_id': 102,
         'location_message_id': 30,
         'conversation_round_id': 7360,
+        'conversation_type': 'user_message',
+        'trigger_uid': 'user-1',
         'tick_no': 7,
         'sub_tick_no': 3,
         'sender_type': 'character',
@@ -1650,7 +1678,41 @@ void main() {
       expect(message.conversationRoundId, 7360);
       expect(message.tickNo, 7);
       expect(message.subTickNo, 3);
+      expect(message.conversationType, 'user_message');
+      expect(message.triggerUid, 'user-1');
     });
+
+    test(
+      'round metadata is strict and absent from ordinary outbound frames',
+      () {
+        for (final invalid in <Object?>[null, 7, true, const <String>[]]) {
+          final message = ChatroomV2Message.fromJson(<String, dynamic>{
+            'type': 'character',
+            'conversation_type': invalid,
+            'trigger_uid': invalid,
+          });
+          expect(message.conversationType, isEmpty);
+          expect(message.triggerUid, isEmpty);
+        }
+
+        const exactUid = ' user-1\n';
+        final inbound = ChatroomV2Message.fromJson(const <String, dynamic>{
+          'type': 'character',
+          'conversation_type': 'go_on',
+          'trigger_uid': exactUid,
+        });
+        expect(inbound.conversationType, 'go_on');
+        expect(inbound.triggerUid, exactUid);
+
+        const outbound = ChatroomV2Message(
+          type: 'send_message',
+          worldId: 'world-1',
+          locationId: 'loc-1',
+        );
+        expect(outbound.toJson(), isNot(contains('conversation_type')));
+        expect(outbound.toJson(), isNot(contains('trigger_uid')));
+      },
+    );
 
     test('routes the V2 waiting conversation round control event', () {
       final event = chatroomEventFromV2Message(

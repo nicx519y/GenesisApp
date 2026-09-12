@@ -159,6 +159,38 @@ void main() {
     expect(explicitText.messageType, 'text');
   });
 
+  test('HTTP and storage round metadata require exact strings', () {
+    const exactUid = ' user-1\n';
+    final http = ChatroomHttpMessage.fromJson(const {
+      'conversation_type': 'go_on',
+      'trigger_uid': exactUid,
+    });
+    final stored = WorldChatroomMessage.fromStorageJson(const {
+      'conversation_round_id': '7',
+      'location_id': 'loc-1',
+      'conversation_type': 'go_on',
+      'trigger_uid': exactUid,
+    });
+    expect(http.conversationType, 'go_on');
+    expect(http.triggerUid, exactUid);
+    expect(stored.conversationType, 'go_on');
+    expect(stored.triggerUid, exactUid);
+
+    for (final invalid in <Object?>[null, 7, true, const <String>[]]) {
+      expect(
+        ChatroomHttpMessage.fromJson({'trigger_uid': invalid}).triggerUid,
+        isEmpty,
+      );
+      expect(
+        WorldChatroomMessage.fromStorageJson({
+          'location_id': 'loc-1',
+          'trigger_uid': invalid,
+        }).triggerUid,
+        isEmpty,
+      );
+    }
+  });
+
   test('plain user enter history synthesizes a timeline payload', () {
     final message = WorldChatroomMessage.fromHttpMessage(
       ChatroomHttpMessage.fromJson({
@@ -348,6 +380,75 @@ void main() {
     await alertSubscription.cancel();
     await service.dispose();
   });
+
+  for (final terminalFirst in [false, true]) {
+    test(
+      'candidate balance failure emits one Toast and Sheet event: $terminalFirst',
+      () async {
+        final socket = _FakeChatroomSocket();
+        final service = await _service(
+          socketTransport: _FakeChatroomTransport(socket),
+          useV2Protocol: true,
+        );
+        addTearDown(service.dispose);
+        await service.connect(worldId: 'world-1', identity: _identity());
+        final failures = <ChatroomFailureEvent>[];
+        final alerts = <GemBalanceAlert>[];
+        final a = service.failures.listen(failures.add);
+        final b = service.balanceAlerts.listen(alerts.add);
+        addTearDown(a.cancel);
+        addTearDown(b.cancel);
+        final error = {'err_no': 21001, 'err_msg': 'Insufficient balance'};
+        final fields = <String, Object?>{
+          'world_id': 'world-1',
+          'location_id': 'loc-1',
+          'conversation_round_id': 101,
+          'user_id': 'user-1',
+          'trigger_uid': 'user-1',
+          'stream_type': '',
+        };
+        void terminal() => socket.serverFrame('llm_card_generation_end', {
+          ...fields,
+          'err_no': 21001,
+          'err_msg': 'Insufficient balance',
+          'payload': {
+            'card_id': 103,
+            'generation_state': 'failed',
+            'billing': {'status': 'cancelled'},
+            'error': error,
+          },
+        });
+        void ack() => socket.serverFrame('ack', {
+          ...fields,
+          'client_msg_id': 'regen-failed',
+          'err_no': 0,
+          'err_msg': '',
+          'payload': {
+            'regeneration': {
+              'conversation_round_id': 101,
+              'original_card_id': 102,
+              'card_id': 103,
+              'generation_state': 'failed',
+              'billing': {'status': 'cancelled'},
+              'error': error,
+            },
+          },
+        });
+        if (terminalFirst) terminal();
+        ack();
+        terminal();
+        ack();
+        await _waitFor(() => alerts.isNotEmpty);
+        await Future<void>.delayed(Duration.zero);
+        expect(alerts, hasLength(1));
+        expect(alerts.single.kind, GemBalanceAlertKind.insufficient);
+        expect(
+          failures.where((failure) => failure.code == '21001'),
+          hasLength(1),
+        );
+      },
+    );
+  }
 
   test('connect hydrates world detail and user locations', () async {
     final socket = _FakeChatroomSocket();
@@ -4428,6 +4529,8 @@ void main() {
           'message_id': 83,
           'location_message_id': 20,
           'conversation_round_id': 803,
+          'conversation_type': 'opening',
+          'trigger_uid': '',
           'sender_type': 'narrator',
           'sender_id': 'narrator',
           'sender_name': 'Narrator',
@@ -4469,6 +4572,8 @@ void main() {
     expect(storedEnvelope['message_id'], 83);
     expect(storedEnvelope['location_message_id'], 20);
     expect(storedEnvelope['conversation_round_id'], 803);
+    expect(storedEnvelope['conversation_type'], 'opening');
+    expect(storedEnvelope['trigger_uid'], '');
     expect(storedEnvelope['client_msg_id'], 'client-http');
     expect(storedEnvelope['message_type'], 'image');
     expect(storedEnvelope['min_app_version'], 304);
@@ -4483,6 +4588,8 @@ void main() {
     final restored = WorldChatroomMessage.fromStorageJson(storedEnvelope);
     expect(restored.hasExplicitBusinessType, isTrue);
     expect(restored.businessType, 'narrator');
+    expect(restored.conversationType, 'opening');
+    expect(restored.triggerUid, '');
     expect(restored.clientMsgId, 'client-http');
     expect(restored.rawPayload['future_field'], 'preserved');
     await service.dispose();
@@ -5004,6 +5111,11 @@ Map<String, dynamic> _asV2HttpMessage(Map<String, dynamic> message) {
     'location_message_id':
         message['location_message_id'] ?? message['location_msg_id'] ?? 0,
     'conversation_round_id': message['conversation_round_id'] ?? 0,
+    if (message.containsKey('conversation_type'))
+      'conversation_type': message['conversation_type'],
+    'trigger_uid': message['trigger_uid'] is String
+        ? message['trigger_uid']
+        : '',
     'sender_type': senderType,
     'sender_id': message['sender_id'] ?? '',
     'sender_name': message['sender_name'] ?? '',
@@ -5820,6 +5932,8 @@ Map<String, dynamic> _mutationRow(
   'sender_id': 'char-1',
   'sender_name': 'Alice',
   'conversation_round_id': round,
+  'conversation_type': 'user_message',
+  'trigger_uid': 'user-1',
 };
 void _editFrame(
   _FakeChatroomSocket socket, {
@@ -5882,8 +5996,9 @@ void _messageMutationTests() {
   }
 
   test(
-    'batch blocks duplicate submission and refreshes HTTP range without WS',
+    'batch blocks duplicate submission and waits for WS range update',
     () async {
+      final socket = _FakeChatroomSocket();
       final http = _MutationHttpTransport()
         ..messagesByLocation['loc-1'] = [
           _mutationRow(1, 1, 9),
@@ -5891,7 +6006,7 @@ void _messageMutationTests() {
           _mutationRow(3, 3, 10),
           _mutationRow(4, 4, 11),
         ];
-      final service = await setup(_FakeChatroomSocket(), http);
+      final service = await setup(socket, http);
       final reply = Completer<TransportResponse>();
       http.write = (_) => reply.future;
       final operations = [
@@ -5939,6 +6054,15 @@ void _messageMutationTests() {
       );
       final result = await write;
       expect(result.endConversationRoundId, 11);
+      expect(
+        service.state.messagesByLocation['loc-1']!.map(
+          (m) => m.globalMessageId,
+        ),
+        [90001, 90002, 90003, 90004],
+      );
+      expect(service.state.messagesByLocation['loc-1']![1].content, 'original');
+      expect(http.historyRequests, hasLength(1));
+      _rangeFrame(socket, 10, 11, newest: 3);
       await _waitFor(
         () =>
             service.state.messagesByLocation['loc-1']!.length == 3 &&
@@ -5968,11 +6092,12 @@ void _messageMutationTests() {
   );
 
   test(
-    'batch ambiguous timeout refreshes committed state without retrying write',
+    'batch ambiguous timeout waits for WS range without retrying write',
     () async {
+      final socket = _FakeChatroomSocket();
       final http = _MutationHttpTransport()
         ..messagesByLocation['loc-1'] = [_mutationRow(1, 1, 10)];
-      final service = await setup(_FakeChatroomSocket(), http);
+      final service = await setup(socket, http);
       http.write = (_) async {
         http.messagesByLocation['loc-1'] = [];
         throw ApiException(message: 'timeout', kind: ApiExceptionKind.timeout);
@@ -5987,6 +6112,9 @@ void _messageMutationTests() {
         ),
         throwsA(isA<ApiException>()),
       );
+      expect(service.state.messagesByLocation['loc-1'], hasLength(1));
+      expect(http.historyRequests, hasLength(1));
+      _rangeFrame(socket, 10, 10);
       await _waitFor(() => service.state.messagesByLocation['loc-1']!.isEmpty);
       expect(http.writeRequests, hasLength(1));
       expect(service.state.newestLocationMessageIds['loc-1'], 0);
@@ -6001,19 +6129,16 @@ void _messageMutationTests() {
   );
 
   test(
-    'successful batch updates live messages and persistent cache before refresh',
+    'successful batch leaves live and cached history unchanged until WS range',
     () async {
+      final socket = _FakeChatroomSocket();
       final storage = MemoryChatroomMessageStorage();
       final http = _MutationHttpTransport()
         ..messagesByLocation['loc-1'] = [
           _mutationRow(1, 1, 10),
           _mutationRow(2, 2, 10),
         ];
-      final service = await setup(
-        _FakeChatroomSocket(),
-        http,
-        storage: storage,
-      );
+      final service = await setup(socket, http, storage: storage);
       final refresh = Completer<TransportResponse>();
       http.history = (_) => refresh.future;
 
@@ -6030,17 +6155,21 @@ void _messageMutationTests() {
       );
 
       final live = service.state.messagesByLocation['loc-1']!;
-      expect(live.map((message) => message.globalMessageId), [90001]);
-      expect(live.single.content, 'Optimistic edit');
+      expect(live.map((message) => message.globalMessageId), [90001, 90002]);
+      expect(live.first.content, 'original');
       final cached = (await storage.loadLatestMessages(
         ownerUid: 'user-1',
         worldId: 'world-1',
         locationId: 'loc-1',
         limit: 200,
       )).map(WorldChatroomMessage.fromStorageJson).toList();
-      expect(cached.map((message) => message.globalMessageId), [90001]);
-      expect(cached.single.content, 'Optimistic edit');
+      expect(cached.map((message) => message.globalMessageId), [90001, 90002]);
+      expect(cached.first.content, 'original');
 
+      http.messagesByLocation['loc-1'] = [
+        _mutationRow(1, 1, 10, content: 'Optimistic edit'),
+      ];
+      _rangeFrame(socket, 10, 10, newest: 1);
       await _waitFor(() => http.historyRequests.length == 2);
       refresh.complete(
         http._page([
@@ -6054,7 +6183,7 @@ void _messageMutationTests() {
   );
 
   test(
-    'batch HTTP range merges with in-flight WS range and discards stale response',
+    'batch HTTP response does not supersede an in-flight WS range refresh',
     () async {
       final http = _MutationHttpTransport()
         ..messagesByLocation['loc-1'] = [_mutationRow(1, 1, 10)];
@@ -6062,7 +6191,7 @@ void _messageMutationTests() {
       final service = await setup(socket, http);
       final old = Completer<TransportResponse>();
       http.history = (_) => old.future;
-      _rangeFrame(socket, 11, 12);
+      _rangeFrame(socket, 10, 10);
       await _waitFor(() => http.historyRequests.length == 2);
       final cancelled = http.historyRequests.last.cancellationToken!;
       http.history = (_) async => http._page([]);
@@ -6073,19 +6202,18 @@ void _messageMutationTests() {
           ChatroomLlmMessageOperation.delete(globalMessageId: 90001),
         ],
       );
-      await _waitFor(() => service.state.messagesByLocation['loc-1']!.isEmpty);
-      await _waitFor(() => http.historyRequests.length == 3);
-      expect(cancelled.isCancelled, isTrue);
+      expect(http.historyRequests, hasLength(2));
+      expect(cancelled.isCancelled, isFalse);
       expect(
         http.historyRequests.last.uri.queryParameters,
         allOf(
           containsPair('start_conversation_round_id', '10'),
-          containsPair('end_conversation_round_id', '12'),
+          containsPair('end_conversation_round_id', '10'),
           containsPair('since', '0'),
         ),
       );
-      old.complete(http._page([_mutationRow(1, 1, 10)]));
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+      old.complete(http._page([]));
+      await _waitFor(() => service.state.messagesByLocation['loc-1']!.isEmpty);
       expect(service.state.messagesByLocation['loc-1'], isEmpty);
     },
   );
@@ -6138,6 +6266,7 @@ void _messageMutationTests() {
           'world_id': 'world-1',
           'location_id': 'loc-1',
           'user_id': 'user-1',
+          'trigger_uid': 'user-1',
           'conversation_round_id': 10,
           'global_message_id': 9007199254740994,
           'sender_type': 'character',
@@ -6157,6 +6286,7 @@ void _messageMutationTests() {
         'world_id': 'world-1',
         'location_id': 'loc-1',
         'user_id': 'user-1',
+        'trigger_uid': 'user-1',
         'conversation_round_id': 10,
         'payload': {
           'card_id': 9007199254740993,
@@ -6498,56 +6628,57 @@ void _messageMutationTests() {
     },
   );
 
-  test(
-    'mutation successful write stays successful when fallback refresh fails',
-    () async {
-      final socket = _FakeChatroomSocket();
-      final http = _MutationHttpTransport()
-        ..messagesByLocation['loc-1'] = [_mutationRow(1, 1, 10)];
-      final service = await setup(socket, http);
-      http.history = (_) async =>
-          http._json({'err_no': 2004, 'err_msg': 'read failed'});
-      expect(
-        await service.batchMutateLlmMessages(
-          locationId: 'loc-1',
-          conversationRoundId: 10,
-          operations: [
-            ChatroomLlmMessageOperation.edit(
-              globalMessageId: 90001,
-              content: 'edit',
-            ),
-          ],
-        ),
-        isA<ChatroomMessageMutationResult>(),
-      );
-      await _waitFor(
-        () => service.state.lastFailure?.code == 'history_replacement_failed',
-      );
-      expect(http.writeRequests.single.method, 'POST');
-      expect(
-        http.writeRequests.single.headers.entries.any(
-          (e) =>
-              e.key.toLowerCase() == 'authorization' &&
-              e.value == 'Bearer token-1',
-        ),
-        isTrue,
-      );
-      http.history = null;
-      http.messagesByLocation['loc-1'] = [];
-      expect(
-        await service.batchMutateLlmMessages(
-          locationId: 'loc-1',
-          conversationRoundId: 10,
-          operations: [
-            ChatroomLlmMessageOperation.delete(globalMessageId: 90001),
-          ],
-        ),
-        isA<ChatroomMessageMutationResult>(),
-      );
-      await _waitFor(() => service.state.messagesByLocation['loc-1']!.isEmpty);
-      expect(http.writeRequests.last.method, 'POST');
-    },
-  );
+  test('mutation success does not invoke a fallback history refresh', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _MutationHttpTransport()
+      ..messagesByLocation['loc-1'] = [_mutationRow(1, 1, 10)];
+    final service = await setup(socket, http);
+    http.history = (_) async =>
+        http._json({'err_no': 2004, 'err_msg': 'read failed'});
+    expect(
+      await service.batchMutateLlmMessages(
+        locationId: 'loc-1',
+        conversationRoundId: 10,
+        operations: [
+          ChatroomLlmMessageOperation.edit(
+            globalMessageId: 90001,
+            content: 'edit',
+          ),
+        ],
+      ),
+      isA<ChatroomMessageMutationResult>(),
+    );
+    expect(
+      service.state.lastFailure?.code,
+      isNot('history_replacement_failed'),
+    );
+    expect(http.historyRequests, hasLength(1));
+    expect(http.writeRequests.single.method, 'POST');
+    expect(
+      http.writeRequests.single.headers.entries.any(
+        (e) =>
+            e.key.toLowerCase() == 'authorization' &&
+            e.value == 'Bearer token-1',
+      ),
+      isTrue,
+    );
+    http.history = null;
+    http.messagesByLocation['loc-1'] = [];
+    expect(
+      await service.batchMutateLlmMessages(
+        locationId: 'loc-1',
+        conversationRoundId: 10,
+        operations: [
+          ChatroomLlmMessageOperation.delete(globalMessageId: 90001),
+        ],
+      ),
+      isA<ChatroomMessageMutationResult>(),
+    );
+    expect(service.state.messagesByLocation['loc-1'], hasLength(1));
+    _rangeFrame(socket, 10, 10);
+    await _waitFor(() => service.state.messagesByLocation['loc-1']!.isEmpty);
+    expect(http.writeRequests.last.method, 'POST');
+  });
 
   test('mutation broadcast before HTTP response remains idempotent', () async {
     final socket = _FakeChatroomSocket();
@@ -6575,6 +6706,7 @@ void _messageMutationTests() {
       () =>
           service.state.messagesByLocation['loc-1']!.single.content == 'edited',
     );
+    final historyReadsAfterRange = http.historyRequests.length;
     http.messagesByLocation['loc-1'] = [
       _mutationRow(1, 1, 10, content: 'edited'),
     ];
@@ -6594,6 +6726,7 @@ void _messageMutationTests() {
           http.historyRequests.length >= 2 &&
           service.state.newestLocationMessageIds['loc-1'] == 1,
     );
+    expect(http.historyRequests, hasLength(historyReadsAfterRange));
     expect(service.state.messagesByLocation['loc-1']!.length, 1);
     expect(service.state.messagesByLocation['loc-1']!.single.content, 'edited');
   });
@@ -6818,7 +6951,7 @@ void _replyCompletionTests() {
     );
   }
   test(
-    'Go on round end replaces unfinished streams with empty authoritative history',
+    'Go on round end waits for range update to recover the canonical reply',
     () async {
       final socket = _FakeChatroomSocket();
       final http = _MutationHttpTransport()
@@ -6869,58 +7002,33 @@ void _replyCompletionTests() {
         'err_no': 0,
       });
       await pending;
-      socket.serverV2StreamFrame(
-        streamType: 'llm_stream_start',
-        senderId: 'char-1',
-        messageId: 2,
-        locationMessageId: 2,
-        roundId: 20,
-      );
-      socket.serverV2StreamFrame(
-        streamType: 'llm_chunk',
-        senderId: 'char-1',
-        messageId: 2,
-        locationMessageId: 2,
-        roundId: 20,
-        seq: 1,
-        content: 'Not persisted',
-      );
-      await _waitFor(
-        () => service.state.messagesByLocation['loc-1']!.any(
-          (m) => m.content == 'Not persisted',
-        ),
-      );
+      final readsBeforeRoundEnd = http.historyRequests.length;
       socket.serverEndConversationRound(locationId: 'loc-1', roundId: 20);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(http.historyRequests, hasLength(readsBeforeRoundEnd));
+      expect(actions.stateForRound('loc-1', 10)!.goOnPending, isTrue);
+
+      http.messagesByLocation['loc-1'] = [
+        {
+          ..._mutationRow(2, 2, 20, content: 'Persisted reply'),
+          'user_id': 'user-1',
+        },
+      ];
+      _rangeFrame(socket, 20, 20, newest: 2);
       await _waitFor(() => !actions.stateForRound('loc-1', 10)!.goOnPending);
       expect(
         service.state.messagesByLocation['loc-1']!.where(
           (m) => m.conversationRoundNumber == 20,
         ),
-        isEmpty,
+        hasLength(1),
       );
       expect(
-        service.state.streamMessagesByKey.values.where(
-          (m) => m.conversationRoundNumber == 20,
-        ),
-        isEmpty,
+        service.state.messagesByLocation['loc-1']!
+            .singleWhere((m) => m.conversationRoundNumber == 20)
+            .content,
+        'Persisted reply',
       );
-      expect(actions.stateForRound('loc-1', 20)!.error, isNotNull);
-      // A late single-message end cannot resurrect content after authoritative recovery.
-      socket.serverV2StreamFrame(
-        streamType: 'llm_stream_end',
-        senderId: 'char-1',
-        messageId: 2,
-        locationMessageId: 2,
-        roundId: 20,
-        content: 'Late reply',
-      );
-      await Future<void>.delayed(const Duration(milliseconds: 20));
-      expect(
-        service.state.messagesByLocation['loc-1']!.where(
-          (m) => m.conversationRoundNumber == 20,
-        ),
-        isEmpty,
-      );
+      expect(actions.stateForRound('loc-1', 20)!.error, isNull);
       expect(socket.sentTypes.where((type) => type == 'go_on'), hasLength(1));
     },
   );

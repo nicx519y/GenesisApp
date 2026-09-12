@@ -2,11 +2,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/models/location_tree.dart';
+import 'package:genesis_flutter_android/network/models/user_memory_settings.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_background_preloader.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
 import 'package:genesis_flutter_android/pages/world/world_location_chat_host.dart';
 
 void main() {
+  test(
+    'settings cache survives chat clearing and ends with WorldPage cache',
+    () {
+      final cache = WorldLocationChatPageCache();
+      const settings = UserMemorySettings(
+        memoryTokens: 48000,
+        minMemoryTokens: 8000,
+        maxMemoryTokens: 1000000,
+        worldId: 'world-1',
+        memoryUsedTokens: 6000,
+      );
+      cache.memoryModelPageCache.storeMemorySettings(settings);
+
+      cache.clear();
+      expect(cache.memoryModelPageCache.memorySettings, same(settings));
+
+      cache.dispose();
+      expect(cache.memoryModelPageCache.memorySettings, isNull);
+    },
+  );
+
   test('markReady reports true only for the first ready notification', () {
     final cache = WorldLocationChatPageCache();
     cache.syncDescriptors(const {

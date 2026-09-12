@@ -1,3 +1,5 @@
+import '../api_exception.dart';
+
 enum ChatroomFeatureQuotaScope {
   trialLifetime('trial_lifetime'),
   memberDaily('member_daily'),
@@ -75,9 +77,10 @@ class ChatroomFeatureQuotaSummary {
 class ChatroomFeatureQuotas {
   const ChatroomFeatureQuotas({
     required this.membershipStatus,
+    bool? isMember,
     required this.inspiration,
     required this.conversationEdit,
-  });
+  }) : isMember = isMember ?? membershipStatus == 1;
 
   factory ChatroomFeatureQuotas.fromJson(Object? value) {
     if (value is! Map) {
@@ -88,6 +91,10 @@ class ChatroomFeatureQuotas {
         !value.containsKey('conversation_edit')) {
       throw const FormatException('Missing feature quotas field');
     }
+    final isMember = value['is_member'];
+    if (isMember is! bool) {
+      throw const FormatException('Invalid feature quota is_member');
+    }
     final membershipStatus = value['membership_status'];
     if (membershipStatus is! int ||
         !const {0, 1, 2}.contains(membershipStatus)) {
@@ -95,6 +102,7 @@ class ChatroomFeatureQuotas {
     }
     return ChatroomFeatureQuotas(
       membershipStatus: membershipStatus,
+      isMember: isMember,
       inspiration: ChatroomFeatureQuotaSummary.fromJson(value['inspiration']),
       conversationEdit: ChatroomFeatureQuotaSummary.fromJson(
         value['conversation_edit'],
@@ -103,14 +111,91 @@ class ChatroomFeatureQuotas {
   }
 
   final int membershipStatus;
+  final bool isMember;
   final ChatroomFeatureQuotaSummary inspiration;
   final ChatroomFeatureQuotaSummary conversationEdit;
 
   Map<String, Object?> toJson() => {
     'membership_status': membershipStatus,
+    'is_member': isMember,
     'inspiration': inspiration.toJson(),
     'conversation_edit': conversationEdit.toJson(),
   };
+}
+
+/// Authoritative quota returned beside data by an inspiration or batch request.
+class ChatroomFeatureQuota extends ChatroomFeatureQuotaSummary {
+  const ChatroomFeatureQuota({
+    required this.feature,
+    required this.membershipStatus,
+    required this.isMember,
+    required this.consumed,
+    required super.scope,
+    required super.unlimited,
+    required super.limit,
+    required super.used,
+    required super.remaining,
+    required super.resetAtUnixSeconds,
+  });
+
+  final String feature;
+  final int membershipStatus;
+  final bool isMember;
+  final int consumed;
+
+  factory ChatroomFeatureQuota.fromJson(Object? value) {
+    if (value is! Map ||
+        !const {
+          'inspiration',
+          'conversation_edit',
+        }.contains(value['feature']) ||
+        value['membership_status'] is! int ||
+        !const {0, 1, 2}.contains(value['membership_status']) ||
+        value['is_member'] is! bool) {
+      throw const FormatException('Invalid operation feature quota');
+    }
+    final summary = ChatroomFeatureQuotaSummary.fromJson(value);
+    return ChatroomFeatureQuota(
+      feature: value['feature'] as String,
+      membershipStatus: value['membership_status'] as int,
+      isMember: value['is_member'] as bool,
+      consumed: _nonNegativeInt(value['consumed'], 'consumed'),
+      scope: summary.scope,
+      unlimited: summary.unlimited,
+      limit: summary.limit,
+      used: summary.used,
+      remaining: summary.remaining,
+      resetAtUnixSeconds: summary.resetAtUnixSeconds,
+    );
+  }
+
+  /// Optional metadata must never turn an already committed operation into an
+  /// apparent failure, which could cause a caller to submit it a second time.
+  static ChatroomFeatureQuota? tryParse(Object? value) {
+    try {
+      return ChatroomFeatureQuota.fromJson(value);
+    } on FormatException {
+      return null;
+    }
+  }
+
+  @override
+  Map<String, Object?> toJson() => {
+    ...super.toJson(),
+    'feature': feature,
+    'membership_status': membershipStatus,
+    'is_member': isMember,
+    'consumed': consumed,
+  };
+}
+
+class ChatroomFeatureQuotaException extends ApiException {
+  ChatroomFeatureQuotaException({
+    super.message = 'Feature quota exhausted',
+    this.quota,
+  }) : super(code: 2030, kind: ApiExceptionKind.business);
+
+  final ChatroomFeatureQuota? quota;
 }
 
 int _nonNegativeInt(Object? value, String field) {

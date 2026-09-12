@@ -122,6 +122,7 @@ import 'package:genesis_flutter_android/pages/me/user_info_page.dart';
 import 'package:genesis_flutter_android/pages/messages/message_category_list_page.dart';
 import 'package:genesis_flutter_android/pages/messages/messages_page.dart';
 import 'package:genesis_flutter_android/pages/discuss/post_detail_page.dart';
+import 'package:genesis_flutter_android/pages/gems/memory_model_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_page.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dart';
 import 'package:genesis_flutter_android/pages/origin/origin_role_portrait_image_provider.dart';
@@ -770,6 +771,48 @@ class _RecordingV1ListTransport implements HttpTransport {
     if (request.uri.path.endsWith('/gem/tasks') &&
         (dailyCheckInStatus != null || gemTasksCompleter != null)) {
       return gemTasksCompleter?.future ?? dailyCheckInResponse();
+    }
+    if (request.method == 'GET' &&
+        request.uri.path.endsWith('/user/memory-settings')) {
+      final worldId = request.uri.queryParameters['world_id'] ?? '';
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'memory_tokens': 48000,
+          'min_memory_tokens': 8000,
+          'max_memory_tokens': 1000000,
+          if (worldId.isNotEmpty) 'world_id': worldId,
+          if (worldId.isNotEmpty) 'memory_used_tokens': 6000,
+        },
+      });
+    }
+    if (request.method == 'GET' &&
+        request.uri.path.endsWith('/gem/model/list')) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'selected_model_code': 'top_pick_v3',
+          'list': [
+            {
+              'group_code': 'recommended',
+              'group_title': 'Recommended',
+              'models': [
+                {
+                  'model_code': 'top_pick_v3',
+                  'title': 'Top Pick V3',
+                  'tag': ['hot'],
+                  'estimated_next_message_gems_cent': 400,
+                  'estimated_next_tick_gems_cent': 400,
+                  'description': 'Balanced storytelling.',
+                  'range_text': '4-320 gems',
+                },
+              ],
+            },
+          ],
+        },
+      });
     }
     if (request.uri.path.endsWith('/world/map')) {
       final pendingResponse = worldMapCompleter;
@@ -2767,6 +2810,52 @@ void main() {
     OriginPendingSubmissionCoordinator.instance.resetForTesting();
     BlockedUserReviewReturn.resetForTesting();
   });
+
+  testWidgets(
+    'WorldPage defers settings requests until MemoryModelPage enters',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+        ),
+      );
+      await tester.pump();
+
+      expect(transport.requestsFor('/api/v1/user/memory-settings'), isEmpty);
+      expect(transport.requestsFor('/api/v1/gem/model/list'), isEmpty);
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: const MaterialApp(home: MemoryModelPage(worldId: 'w_test_1')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('6K'), findsOneWidget);
+      expect(find.text('Top Pick V3'), findsOneWidget);
+      final memoryRequests = transport.requestsFor(
+        '/api/v1/user/memory-settings',
+      );
+      expect(memoryRequests, hasLength(1));
+      expect(memoryRequests.single.uri.queryParameters, {
+        'world_id': 'w_test_1',
+      });
+      final modelRequests = transport.requestsFor('/api/v1/gem/model/list');
+      expect(modelRequests, hasLength(1));
+      expect(modelRequests.single.uri.queryParameters, {
+        'world_id': 'w_test_1',
+      });
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets(
     'WorldPage request and non-Tilemap render traces finish before Tilemap',

@@ -49,23 +49,11 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           WorldChatroomMessage.fromTickAdvanceMessage(e),
         );
       case ChatroomAiStreamStart e:
-        if (!_completedReplyRounds.contains(
-          '${e.locationId}:${e.conversationRoundId}',
-        )) {
-          _startStream(e);
-        }
+        _startStream(e);
       case ChatroomAiStreamChunk e:
-        if (!_completedReplyRounds.contains(
-          '${e.locationId}:${e.conversationRoundId}',
-        )) {
-          _appendStreamChunk(e);
-        }
+        _appendStreamChunk(e);
       case ChatroomAiStreamEnd e:
-        if (!_completedReplyRounds.contains(
-          '${e.locationId}:${e.conversationRoundId}',
-        )) {
-          _finishStream(e);
-        }
+        _finishStream(e);
       case ChatroomErrorEvent e:
         _recordFailure(ChatroomFailureEvent.fromError(e));
       case ChatroomFailureEvent e:
@@ -85,15 +73,10 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       case ChatroomJoined():
       case ChatroomDisconnected():
         break;
-      case ChatroomAck e:
-        if (e.code == 3001) {
-          _emitBalanceAlert(
-            GemBalanceAlert(
-              kind: GemBalanceAlertKind.insufficient,
-              message: e.errorDetail.isNotEmpty ? e.errorDetail : e.codeMsg,
-            ),
-          );
-        }
+      case ChatroomAck():
+        // ACK failures (including a failed regeneration receipt) pass through
+        // _recordFailure, which deduplicates both Toast and balance alerts.
+        break;
     }
   }
 

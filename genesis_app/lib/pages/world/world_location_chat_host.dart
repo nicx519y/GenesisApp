@@ -9,6 +9,7 @@ import '../../network/models/location_tree.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../chat/location_chat_background_preloader.dart';
 import '../chat/location_chat_page.dart';
+import '../gems/memory_model_page_cache.dart';
 import 'world_map_data.dart';
 import 'world_value_helpers.dart';
 
@@ -126,6 +127,7 @@ class WorldLocationChatPageCache {
            backgroundPreloader ?? LocationChatBackgroundPreloader();
 
   final LocationChatBackgroundPreloader _backgroundPreloader;
+  final MemoryModelPageCache memoryModelPageCache = MemoryModelPageCache();
   final Map<String, WorldLocationChatPanelDescriptor> _descriptors =
       <String, WorldLocationChatPanelDescriptor>{};
   final Set<String> _cachedLocationIds = <String>{};
@@ -263,6 +265,7 @@ class WorldLocationChatPageCache {
 
   void dispose() {
     clear();
+    memoryModelPageCache.dispose();
     _backgroundPreloader.dispose();
   }
 }
@@ -407,6 +410,7 @@ class WorldLocationChatRouterHostState
                       'world-location-chat-router-${descriptor.locationId}',
                     ),
                     worldId: widget.worldId,
+                    memoryModelPageCache: widget.cache.memoryModelPageCache,
                     chatroom: widget.chatroom,
                     worldTickInProgress: widget.worldTickInProgress,
                     worldTickProgressFailureRevision:
@@ -476,6 +480,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   const WorldLocationChatNestedRouterPage({
     super.key,
     required this.worldId,
+    required this.memoryModelPageCache,
     required this.chatroom,
     required this.descriptor,
     required this.active,
@@ -492,6 +497,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
   });
 
   final String worldId;
+  final MemoryModelPageCache memoryModelPageCache;
   final WorldChatroomService? chatroom;
   final WorldLocationChatPanelDescriptor descriptor;
   final bool active;
@@ -519,6 +525,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             key: ValueKey('world-location-chat-${descriptor.locationId}'),
             worldId: worldId,
             modelWorldId: worldId,
+            memoryModelPageCache: memoryModelPageCache,
             locationId: descriptor.locationId,
             locationName: descriptor.locationName,
             parentLocationName: descriptor.parentLocationName,

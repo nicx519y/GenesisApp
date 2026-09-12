@@ -9,16 +9,19 @@ final class LocationChatEditFeature {
     required this.onInvoke,
     required this.enabled,
     required this.busy,
+    this.freeUsesRemaining,
   });
 
   const LocationChatEditFeature.disabled()
     : onInvoke = null,
       enabled = false,
-      busy = false;
+      busy = false,
+      freeUsesRemaining = null;
 
   final VoidCallback? onInvoke;
   final bool enabled;
   final bool busy;
+  final int? freeUsesRemaining;
 
   VoidCallback? get invocation => enabled && !busy ? onInvoke : null;
 }
@@ -37,6 +40,7 @@ class LocationChatEditButton extends StatelessWidget {
   Widget build(BuildContext context) => LocationChatReplyFeatureButton(
     label: 'Edit',
     iconAsset: editSquareIconAsset,
+    loading: feature.busy,
     onTap: feature.invocation == null
         ? null
         : () {

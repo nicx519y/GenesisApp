@@ -11,6 +11,7 @@ import '../../platform/device/device_id_service.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../utils/genesis_ugc_text.dart';
 import 'chatroom_models.dart';
+import 'chatroom_failure_identity.dart';
 import 'chatroom_socket_transport.dart';
 import 'chatroom_timeline_payload.dart';
 
@@ -236,6 +237,10 @@ class ChatroomSession {
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
   final _streams = StreamController<ChatroomAiMessageStream>.broadcast();
   final _pendingAcks = <String, _PendingAck>{};
+  // Futures expire before an authoritative ACK necessarily arrives. Keep the
+  // operation type so late rejections still enter the correct failure path.
+  final _sentRequestTypes = <String, String>{};
+  final _reportedFailureOccurrences = <String>{};
   final _activeStreams = <String, ChatroomAiMessageStream>{};
   var _streamOrdinal = 0;
   late final StreamSubscription<String> _subscription;
@@ -519,6 +524,7 @@ class ChatroomSession {
             message: 'Failed to send chatroom $resolvedRequestType',
             sourceType: type,
             requestType: resolvedRequestType,
+            clientMsgId: resolvedClientMsgId,
             cause: e,
           ),
         );
@@ -534,6 +540,7 @@ class ChatroomSession {
               message: 'Timed out waiting for $resolvedRequestType ack',
               sourceType: 'ack',
               requestType: resolvedRequestType,
+              clientMsgId: resolvedClientMsgId,
               cause: resolvedClientMsgId,
             ),
           );
@@ -544,6 +551,10 @@ class ChatroomSession {
     }
 
     pending = _PendingAck(completer, requestType: resolvedRequestType);
+    _sentRequestTypes[resolvedClientMsgId] = resolvedRequestType;
+    if (_sentRequestTypes.length > 512) {
+      _sentRequestTypes.remove(_sentRequestTypes.keys.first);
+    }
     _pendingAcks[resolvedClientMsgId] = pending;
     unawaited(sendAttempt());
     return completer.future;
@@ -805,10 +816,19 @@ class ChatroomSession {
       final pending = pendingEntry?.value;
       if (event.ok) {
         pending?.complete(event);
+        final failure =
+            event.worldId == worldId &&
+                (event.userId.isEmpty || event.userId == userId)
+            ? chatroomRegenerationAckFailure(event)
+            : null;
+        if (failure != null) _emitFailure(failure);
       } else {
         final failure = ChatroomFailureEvent.fromPayloadEvent(
           event,
-          requestType: pending?.requestType ?? 'send_message',
+          requestType:
+              pending?.requestType ??
+              _sentRequestTypes[event.clientMsgId] ??
+              'send_message',
           clientMsgId: pendingEntry?.key ?? '',
         );
         pending?.completeError(failure);
@@ -865,11 +885,19 @@ class ChatroomSession {
           cause: event,
         ),
       );
-    } else if (event is ChatroomLlmCardGenerationEnd && event.errNo != 0) {
+    } else if (event is ChatroomLlmCardGenerationEnd &&
+        (event.errNo != 0 ||
+            event.generationState == ChatroomCardGenerationState.failed)) {
       _emitFailure(
         ChatroomFailureEvent(
-          code: event.errNo.toString(),
-          message: event.errMsg,
+          code:
+              (event.errNo != 0
+                      ? event.errNo
+                      : chatroomCardFailureCode(event.error))
+                  .toString(),
+          message: event.errMsg.isNotEmpty
+              ? event.errMsg
+              : chatroomCardFailureMessage(event.error),
           sourceType: 'llm_card_generation_end',
           requestType: 'regenerate_llm_card',
           cause: event,
@@ -990,6 +1018,13 @@ class ChatroomSession {
   }
 
   void _emitFailure(ChatroomFailureEvent failure) {
+    final occurrence = chatroomFailureOccurrenceKey(failure, worldId: worldId);
+    if (occurrence != null) {
+      if (!_reportedFailureOccurrences.add(occurrence)) return;
+      if (_reportedFailureOccurrences.length > 512) {
+        _reportedFailureOccurrences.remove(_reportedFailureOccurrences.first);
+      }
+    }
     if (!_failures.isClosed) {
       _failures.add(failure);
     }

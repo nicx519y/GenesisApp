@@ -518,12 +518,7 @@ void main() {
       paginated: true,
       missingOwners: true,
     );
-    var notFoundCount = 0;
-    await _pumpSearchPage(
-      tester,
-      transport,
-      onPageNotFound: (_) async => notFoundCount++,
-    );
+    await _pumpSearchPage(tester, transport);
     await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
@@ -546,7 +541,6 @@ void main() {
     expect(find.text('#Origin 21'), findsOneWidget);
     expect(find.byType(ProMembershipBadge), findsNothing);
     expect(find.byType(SearchPage), findsOneWidget);
-    expect(notFoundCount, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -558,12 +552,7 @@ void main() {
         paginated: true,
         searchErrorPage: errorPage,
       );
-      var notFoundCount = 0;
-      await _pumpSearchPage(
-        tester,
-        transport,
-        onPageNotFound: (_) async => notFoundCount++,
-      );
+      await _pumpSearchPage(tester, transport);
       await tester.enterText(find.byType(TextField), 'abc');
       await tester.pump(const Duration(milliseconds: 700));
       await tester.pumpAndSettle();
@@ -585,7 +574,6 @@ void main() {
         expect(find.text('Retry'), findsOneWidget);
       }
       expect(find.byType(SearchPage), findsOneWidget);
-      expect(notFoundCount, 0);
       expect(tester.takeException(), isNull);
     });
   }
@@ -1267,14 +1255,10 @@ Future<void> _pumpSearchPage(
   WidgetTester tester,
   _SearchPageTransport transport, {
   RouteFactory? onGenerateRoute,
-  Future<void> Function(String)? onPageNotFound,
 }) async {
   await tester.pumpWidget(
     AppServicesScope(
-      services: await _servicesWithTransport(
-        transport,
-        onPageNotFound: onPageNotFound,
-      ),
+      services: await _servicesWithTransport(transport),
       child: MaterialApp(
         home: const SearchPage(),
         onGenerateRoute: onGenerateRoute,
@@ -1285,18 +1269,9 @@ Future<void> _pumpSearchPage(
 }
 
 Future<AppServices> _servicesWithTransport(
-  _SearchPageTransport transport, {
-  Future<void> Function(String)? onPageNotFound,
-}) async {
+  _SearchPageTransport transport,
+) async {
   final base = ServiceRegistry.build(config: const AppConfig(useMock: true));
-  final apiClient = ApiClient(
-    baseUrl: 'http://localhost:8080/api/',
-    defaultHeaders: const {
-      'content-type': 'application/json',
-      'accept': 'application/json',
-    },
-    transport: transport,
-  );
   final healthClient = ApiClient(
     baseUrl: 'http://localhost:8080/',
     defaultHeaders: const {'accept': 'application/json'},
@@ -1307,12 +1282,10 @@ Future<AppServices> _servicesWithTransport(
   await sessionStore.saveAuthToken('test-token');
   final api = GenesisApi(
     // These regressions must exercise the production response processor.
-    apiClient: onPageNotFound == null ? apiClient : null,
     transport: transport,
     useMock: false,
     deviceIdService: base.deviceId,
     appHeaderProvider: () async => const {},
-    onPageNotFound: onPageNotFound,
     healthClient: healthClient,
     sessionStore: sessionStore,
   );

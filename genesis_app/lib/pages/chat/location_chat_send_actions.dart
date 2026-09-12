@@ -54,12 +54,72 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       textOverride ?? draftAtSubmit,
     );
     if (isGenesisUgcTextBlank(text)) return;
-
     final controller = _replyController;
+    final replyPresentationState = controller?.presentationStateFor(
+      widget.locationId,
+    );
+    final replyActionsSuppressionIdentity = inspirationSource != null
+        ? '${inspirationSource.worldId}/${inspirationSource.locationId}/${inspirationSource.roundId}'
+        : replyPresentationState != null
+        ? '${widget.worldId}/${widget.locationId}/${replyPresentationState.roundId}'
+        : null;
+    late final String clientMsgId;
+    late final ChatMessageVm localMessage;
+    var optimisticMessageAdded = false;
+
+    void addOptimisticMessage() {
+      clientMsgId = _nextClientMsgId();
+      localMessage = ChatMessageVm(
+        localId: 'local-$clientMsgId',
+        clientMsgId: clientMsgId,
+        senderId: _mySenderId,
+        senderName: _localSelfDisplayName(),
+        avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
+        isPlayerControlledRole: _identityCandidatesArePlayerControlledRole([
+          _myUserId,
+          _mySenderId,
+        ]),
+        text: text,
+        isMe: true,
+        status: 'sending',
+      );
+      _setLocationChatState(() {
+        _clearAckLoading();
+        _sending = true;
+        if (replyActionsSuppressionIdentity != null) {
+          _suppressedReplyActionsIdentity = replyActionsSuppressionIdentity;
+        }
+        _messages.add(localMessage);
+        if (_textController.serializedText == draftAtSubmit) {
+          _hasDraftText = false;
+          _textController.clear();
+        } else {
+          _hasDraftText = !isGenesisUgcTextBlank(
+            _textController.serializedText,
+          );
+        }
+      });
+      optimisticMessageAdded = true;
+      _recordPanelDebug(
+        action: 'optimisticSend',
+        details: {
+          'clientMsgId': clientMsgId,
+          'vm': LocationChatDebugSlice.debugRenderMessage(localMessage),
+        },
+      );
+      _scrollCoordinator.requestBottom(
+        reason: LocationChatBottomReason.sentMessage,
+        behavior: LocationChatBottomBehavior.jump,
+      );
+    }
+
+    // All send gestures insert the bubble and hide the previous reply's
+    // controls in the same state update, before any reply finalization awaits.
+    addOptimisticMessage();
+
     if (controller != null) {
       final location = widget.locationId;
       final bindingGeneration = _replyBindingGeneration;
-      _setLocationChatState(() => _sending = true);
       try {
         await controller.finalizeBeforeSend(
           location,
@@ -80,10 +140,33 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             bindingGeneration == _replyBindingGeneration &&
             widget.locationId == location &&
             identical(service, _service)) {
-          _setLocationChatState(() => _sending = false);
+          _setLocationChatState(() {
+            _sending = false;
+            if (optimisticMessageAdded) {
+              _messages.remove(localMessage);
+              if (isGenesisUgcTextBlank(_textController.serializedText) &&
+                  !isGenesisUgcTextBlank(draftAtSubmit)) {
+                _textController.setSerializedText(draftAtSubmit);
+                _hasDraftText = true;
+              }
+            }
+            if (_suppressedReplyActionsIdentity ==
+                replyActionsSuppressionIdentity) {
+              _suppressedReplyActionsIdentity = null;
+            }
+          });
           if (!isChatroomErrorPresentedGlobally(error)) {
             showGenesisToast(context, chatroomOperationErrorMessage(error));
           }
+        } else if (mounted && optimisticMessageAdded) {
+          _setLocationChatState(() {
+            _messages.remove(localMessage);
+            _sending = false;
+            if (_suppressedReplyActionsIdentity ==
+                replyActionsSuppressionIdentity) {
+              _suppressedReplyActionsIdentity = null;
+            }
+          });
         }
         return;
       }
@@ -92,60 +175,42 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           !widget.active ||
           location != widget.locationId ||
           !identical(service, _service)) {
+        if (mounted && optimisticMessageAdded) {
+          _setLocationChatState(() {
+            _messages.remove(localMessage);
+            _sending = false;
+            if (_suppressedReplyActionsIdentity ==
+                replyActionsSuppressionIdentity) {
+              _suppressedReplyActionsIdentity = null;
+            }
+          });
+        }
         return;
       }
       if (_chatroomState.joinedLocationId != location ||
           _chatroomState.inputBlocked ||
           _sendAwaitingResponse ||
           widget.worldTickInProgress) {
-        _setLocationChatState(() => _sending = false);
+        _setLocationChatState(() {
+          _sending = false;
+          if (optimisticMessageAdded) {
+            _messages.remove(localMessage);
+          }
+          if (_suppressedReplyActionsIdentity ==
+              replyActionsSuppressionIdentity) {
+            _suppressedReplyActionsIdentity = null;
+          }
+        });
         return;
       }
     }
-
-    final clientMsgId = _nextClientMsgId();
-    final localMessage = ChatMessageVm(
-      localId: 'local-$clientMsgId',
-      clientMsgId: clientMsgId,
-      senderId: _mySenderId,
-      senderName: _localSelfDisplayName(),
-      avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
-      isPlayerControlledRole: _identityCandidatesArePlayerControlledRole([
-        _myUserId,
-        _mySenderId,
-      ]),
-      text: text,
-      isMe: true,
-      status: 'sending',
-    );
-
-    _setLocationChatState(() {
-      _sending = true;
-      _messages.add(localMessage);
-      if (_textController.serializedText == draftAtSubmit) {
-        _hasDraftText = false;
-        _textController.clear();
-      } else {
-        _hasDraftText = !isGenesisUgcTextBlank(_textController.serializedText);
-      }
-    });
-    _recordPanelDebug(
-      action: 'optimisticSend',
-      details: {
-        'clientMsgId': clientMsgId,
-        'vm': LocationChatDebugSlice.debugRenderMessage(localMessage),
-      },
-    );
-    _scrollCoordinator.requestBottom(
-      reason: LocationChatBottomReason.sentMessage,
-      behavior: LocationChatBottomBehavior.jump,
-    );
 
     await _submitLocalMessage(
       service: service,
       localMessage: localMessage,
       clientMsgId: clientMsgId,
       isInitialSend: true,
+      replyActionsSuppressionIdentity: replyActionsSuppressionIdentity,
     );
   }
 
@@ -201,6 +266,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
 
     final clientMsgId = _nextClientMsgId();
     _setLocationChatState(() {
+      _clearAckLoading();
       message.clientMsgId = clientMsgId;
       message.status = 'sending';
       message.error = null;
@@ -224,8 +290,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     required ChatMessageVm localMessage,
     required String clientMsgId,
     required bool isInitialSend,
+    String? replyActionsSuppressionIdentity,
   }) async {
     var receiptReceived = false;
+    final sentLocationId = widget.locationId;
     try {
       if (isInitialSend) {
         unawaited(
@@ -251,6 +319,12 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       _setLocationChatState(() {
         localMessage.status = 'sent';
         _sending = false;
+        _startAckLoading(
+          service: service,
+          locationId: sentLocationId,
+          clientMsgId: clientMsgId,
+          localMessage: localMessage,
+        );
       });
       _recordPanelDebug(
         action: 'sendReceipt',
@@ -322,6 +396,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
               activeSendFailure: true,
             );
       _setLocationChatState(() {
+        if (!receiptReceived && _ackLoadingClientMsgId == clientMsgId) {
+          _clearAckLoading();
+        }
         if (restoredDraft != null) {
           _hasDraftText = restoredDraft.trim().isNotEmpty;
           _textController.setSerializedText(restoredDraft);
@@ -335,6 +412,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           localMessage.error = e.toString();
         }
         _sending = false;
+        if (!receiptReceived &&
+            _suppressedReplyActionsIdentity ==
+                replyActionsSuppressionIdentity) {
+          _suppressedReplyActionsIdentity = null;
+        }
       });
       if (restoredDraft != null && _shouldShowDraftRestoreToast(e)) {
         showGenesisToast(

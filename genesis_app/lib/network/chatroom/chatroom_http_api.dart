@@ -12,9 +12,35 @@ part '../../features/location_chat_reply/edit/src/chatroom_edit_http.dart';
 part '../../features/location_chat_reply/inspiration/src/chatroom_inspiration_http.dart';
 
 class ChatroomHttpApi {
-  const ChatroomHttpApi(this._client);
+  ChatroomHttpApi(this._client);
 
   final ApiClient _client;
+
+  /// Captured when a real operation starts so observers can reject responses
+  /// from an account that was replaced while the request was in flight.
+  void Function(ChatroomFeatureQuota quota)? Function()? onFeatureQuotaRequest;
+
+  ({Object? data, ChatroomFeatureQuota? quota}) _featureOperationResponse(
+    Map envelope,
+    String feature,
+    void Function(ChatroomFeatureQuota quota)? observer,
+  ) {
+    final parsed = ChatroomFeatureQuota.tryParse(envelope['quota']);
+    final quota = parsed?.feature == feature ? parsed : null;
+    if (quota != null && const {0, 2030}.contains(envelope['err_no'])) {
+      observer?.call(quota);
+    }
+    if (envelope['err_no'] == 2030) {
+      throw ChatroomFeatureQuotaException(
+        message: asString(
+          envelope['err_msg'],
+          fallback: 'Feature quota exhausted',
+        ),
+        quota: quota,
+      );
+    }
+    return (data: handleV1ResponseErrNo(envelope), quota: quota);
+  }
 
   /// GET /aitown-chat/api/v1/feature-quotas
   Future<ChatroomFeatureQuotas> getFeatureQuotas({

@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/debug/location_chat_debug_slice.dart';
 import '../genesis_api.dart';
-import '../api_exception.dart';
 import '../http_transport.dart';
 import '../json_utils.dart';
 import '../models/location_tree.dart';
@@ -17,6 +16,7 @@ import 'chatroom_http_models.dart';
 import 'chatroom_message_type.dart';
 import 'chatroom_message_storage.dart';
 import 'chatroom_models.dart';
+import 'chatroom_failure_identity.dart';
 import 'chatroom_reply_actions_controller.dart';
 import 'chatroom_reply_action_storage.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
@@ -226,7 +226,6 @@ class WorldChatroomService {
     _inspirations?.suspend();
   }
 
-  final _completedReplyRounds = <String>{};
   Future<void> Function()? _replyWalletRefresher;
 
   void setReplyWalletRefresher(Future<void> Function() refresh) {
@@ -246,19 +245,6 @@ class WorldChatroomService {
       isReady: (location) =>
           !_disposed && _state.connected && _state.joinedLocationId == location,
       isTickLocked: () => _state.inputBlocked,
-      refreshFormalRange: (location, start, end) => _requestHistoryReplacement(
-        locationId: location,
-        start: start,
-        end: end,
-        requireCurrent: true,
-      ),
-      replaceCompletedRound: _replaceCompletedReplyRound,
-      applyCommittedFormalEdit: (location, round, operations) =>
-          _applyCommittedFormalEdit(
-            locationId: location,
-            conversationRoundId: round,
-            operations: operations,
-          ),
       onGoOnAccepted: (location, round) => _bindWaitingConversationRound(
         locationId: location,
         conversationRoundId: '$round',
@@ -267,8 +253,7 @@ class WorldChatroomService {
         locationId: location,
         conversationRoundId: '$round',
       ),
-      refreshLatestHistory: (location) =>
-          refreshLocationHistory(locationId: location),
+      onFormalEditCommitted: _applyCommittedFormalEdit,
       refreshWallet: () async {
         await _replyWalletRefresher?.call();
       },
@@ -278,48 +263,6 @@ class WorldChatroomService {
     controller.addListener(_syncInspirationContexts);
     _observeReplyHistory();
     return controller;
-  }
-
-  Future<void> _replaceCompletedReplyRound(String location, int round) async {
-    final world = _worldId;
-    final owner = _storageOwnerUid;
-    _completedReplyRounds.add('$location:$round');
-    // Events already queued before the round end must settle before replacement.
-    await _eventQueue;
-    if (_disposed || world != _worldId || owner != _storageOwnerUid) {
-      throw StateError('The active chat changed during reply recovery');
-    }
-    bool inRound(WorldChatroomMessage message) =>
-        message.locationId == location &&
-        message.conversationRoundNumber == round;
-    _streamAccumulators.removeWhere((_, value) => inRound(value.message));
-    _setState(
-      _state.copyWith(
-        streamMessagesByKey: {
-          for (final entry in _state.streamMessagesByKey.entries)
-            if (!inRound(entry.value)) entry.key: entry.value,
-        },
-        messagesByLocation: {
-          ..._state.messagesByLocation,
-          location: [
-            for (final message
-                in _state.messagesByLocation[location] ??
-                    const <WorldChatroomMessage>[])
-              if (!inRound(message) || !message.streaming) message,
-          ],
-        },
-        worldMessages: [
-          for (final message in _state.worldMessages)
-            if (!inRound(message) || !message.streaming) message,
-        ],
-      ),
-    );
-    await _requestHistoryReplacement(
-      locationId: location,
-      start: round,
-      end: round,
-      requireCurrent: true,
-    );
   }
 
   void _observeReplyHistory() {
@@ -350,6 +293,7 @@ class WorldChatroomService {
   final _states = StreamController<WorldChatroomState>.broadcast();
   final _failures = StreamController<ChatroomFailureEvent>.broadcast();
   final _balanceAlerts = StreamController<GemBalanceAlert>.broadcast();
+  final _reportedFailureOccurrences = <Object>{};
   final _latestFetchedMessages =
       StreamController<List<WorldChatroomMessage>>.broadcast();
 
@@ -742,10 +686,10 @@ class WorldChatroomService {
       _inspirations?.dispose();
       _inspirations = null;
       _suspendInspirations();
-      _completedReplyRounds.clear();
       _cancelHistoryRefreshes();
       _deletedMessageIds.clear();
       _publishedContentUpdateOccurrences.clear();
+      _reportedFailureOccurrences.clear();
     }
     _worldId = nextWorldId;
     if (_worldId.isEmpty) {

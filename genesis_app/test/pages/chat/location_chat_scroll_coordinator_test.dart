@@ -85,6 +85,79 @@ void main() {
     );
   }
 
+  testWidgets('history loading keeps a new send and its dots below the row', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final original = [
+      for (var index = 1; index <= 3; index++)
+        ChatMessageVm(
+          localId: 'old-$index',
+          senderId: 'peer',
+          senderName: 'Peer',
+          text: 'old $index',
+          isMe: false,
+          status: 'sent',
+        ),
+    ];
+    final sent = ChatMessageVm(
+      localId: 'local-send',
+      clientMsgId: 'send-1',
+      senderId: 'me',
+      senderName: 'Me',
+      text: 'new send',
+      isMe: true,
+      status: 'sent',
+    );
+    Widget tree(List<ChatMessageVm> current, {bool loading = false}) =>
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: current,
+                topTitle: '',
+                oldestEdgeLoading: loading,
+                loadingAfterMessageLocalId: loading ? sent.localId : null,
+                loadingIdentity: loading ? sent.clientMsgId : null,
+                showDateDividers: false,
+                style: ChatUiStyleConfig.standard.copyWith(
+                  messageListPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(tree(original));
+    await tester.pump();
+    await tester.pumpWidget(
+      tree([
+        ChatMessageVm(
+          localId: 'prepended',
+          senderId: 'peer',
+          senderName: 'Peer',
+          text: 'prepended history',
+          isMe: false,
+          status: 'sent',
+        ),
+        ...original,
+        sent,
+      ], loading: true),
+    );
+    const dots = ValueKey<String>('location-chat-ack-loading-dots');
+    expect(find.text('new send'), findsOneWidget);
+    expect(find.byKey(dots), findsOneWidget);
+    expect(find.text('prepended history'), findsNothing);
+    expect(
+      tester.getTopLeft(find.byKey(dots)).dy,
+      greaterThan(tester.getBottomLeft(find.text('new send')).dy),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('location chat disables overscroll indicators', (tester) async {
     final coordinator = LocationChatScrollCoordinator();
     addTearDown(coordinator.dispose);

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../../network/api_exception.dart';
 import '../../network/chatroom/chatroom_models.dart';
+import '../../network/chatroom/chatroom_feature_quota_models.dart';
+import '../../network/chatroom/chatroom_failure_identity.dart';
 import '../common/genesis_center_toast.dart';
 
 const Set<String> _userInitiatedChatroomRequestTypes = <String>{
@@ -34,6 +36,7 @@ bool _isReplyActionBusinessFailure(ChatroomFailureEvent failure) {
 /// These errors are already presented by the HTTP interceptor or WS listener.
 /// Request futures and controller notifications must not present them again.
 bool isChatroomErrorPresentedGlobally(Object? error) => switch (error) {
+  ChatroomFeatureQuotaException() => false,
   ApiException e => e.kind == ApiExceptionKind.business,
   ChatroomFailureEvent() || ChatroomErrorEvent() => true,
   ChatroomPayloadEvent e => !e.ok,
@@ -175,7 +178,13 @@ StreamSubscription<ChatroomFailureEvent> bindChatroomFailureToast(
   // A single WS event can reach the service through both events and failures.
   // Deduplicate by event identity, while allowing identical text on a new try.
   final seen = <Object>[];
+  final seenOccurrences = <String>{};
   return failures.listen((failure) {
+    final occurrence = chatroomFailureOccurrenceKey(failure);
+    if (occurrence != null && !seenOccurrences.add(occurrence)) return;
+    if (seenOccurrences.length > 512) {
+      seenOccurrences.remove(seenOccurrences.first);
+    }
     final identity = failure.cause is ChatroomEvent ? failure.cause! : failure;
     if (seen.any((previous) => identical(previous, identity))) return;
     seen.add(identity);

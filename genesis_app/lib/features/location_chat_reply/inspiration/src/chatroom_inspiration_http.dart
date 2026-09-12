@@ -15,6 +15,7 @@ extension ChatroomInspirationHttp on ChatroomHttpApi {
     );
     final world = Uri.encodeComponent(_required(worldId, 'worldId'));
     final location = Uri.encodeComponent(_required(locationId, 'locationId'));
+    final quotaObserver = onFeatureQuotaRequest?.call();
     final json = await _client
         .copyWith(timeoutMs: 120000, retryPolicy: ApiRetryPolicy.none)
         .post<Object?>(
@@ -31,9 +32,16 @@ extension ChatroomInspirationHttp on ChatroomHttpApi {
         kind: ApiExceptionKind.response,
       );
     }
-    final data = handleV1ResponseErrNo(json);
+    final response = _featureOperationResponse(
+      json,
+      'inspiration',
+      quotaObserver,
+    );
     try {
-      final result = ChatroomInspirationResponse.fromJson(data);
+      final result = ChatroomInspirationResponse.fromJson(
+        response.data,
+        quota: response.quota,
+      );
       if (result.conversationRoundId != conversationRoundId) {
         throw const FormatException(
           'Inspiration response has a different source round',

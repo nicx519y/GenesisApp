@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordina
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 
 const _inspirationReplies = [
   'Good job!',
@@ -33,9 +34,12 @@ Widget _replyActions({
   bool regenerateBusy = false,
   bool goOnBusy = false,
   bool editBusy = false,
+  int? editFreeUsesRemaining,
+  int? inspirationFreeUsesRemaining,
   int cardIndex = 0,
   int cardCount = 0,
   bool cardsConfirmed = false,
+  bool cardSwitchEnabled = true,
   VoidCallback? onPreviousCard,
   VoidCallback? onNextCard,
   double? selfMessageBubbleMaxWidthCap,
@@ -56,23 +60,143 @@ Widget _replyActions({
     onInvoke: onEditReply,
     enabled: editEnabled,
     busy: editBusy,
+    freeUsesRemaining: editFreeUsesRemaining,
   ),
   inspirationFeature: LocationChatInspirationFeature(
     messages: inspirationFeature?.messages ?? inspirationMessages,
     loading: inspirationFeature?.loading ?? false,
     enabled: inspirationFeature?.enabled ?? true,
+    freeUsesRemaining: inspirationFreeUsesRemaining,
     onSend: onInspirationSend ?? inspirationFeature?.onSend,
     onEdit: onInspirationEdit ?? inspirationFeature?.onEdit,
   ),
   cardIndex: cardIndex,
   cardCount: cardCount,
   cardsConfirmed: cardsConfirmed,
+  cardSwitchEnabled: cardSwitchEnabled,
   onPreviousCard: onPreviousCard,
   onNextCard: onNextCard,
   selfMessageBubbleMaxWidthCap: selfMessageBubbleMaxWidthCap,
 );
 
 void main() {
+  testWidgets('free quota prompts appear on invocation and use secondary red', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: _replyActions(
+            style: kLocationChatStyle,
+            onEditReply: () {},
+            editFreeUsesRemaining: 1,
+            inspirationFreeUsesRemaining: 0,
+          ),
+        ),
+      ),
+    );
+    expect(find.byType(LocationChatSubscriptionPrompt), findsNothing);
+    await tester.tap(find.bySemanticsLabel('Edit'));
+    await tester.pumpAndSettle();
+    final prompt = find.byKey(const ValueKey('edit-subscription-prompt'));
+    expect(prompt, findsOneWidget);
+    final richText = tester.widget<Text>(
+      find.descendant(of: prompt, matching: find.byType(Text)),
+    );
+    expect(richText.style?.fontSize, 13);
+    final root = richText.textSpan! as TextSpan;
+    final message = root.children!.first as TextSpan;
+    expect((message.children!.last as TextSpan).text, '"1"');
+    expect(
+      (message.children!.last as TextSpan).style?.color,
+      GenesisColors.redSecondary,
+    );
+    expect(
+      (root.children!.last as TextSpan).style?.color,
+      GenesisColors.redSecondary,
+    );
+    expect((root.children!.last as TextSpan).text, '\nGet more >');
+    expect(
+      tester.getTopLeft(prompt).dy -
+          tester
+              .getBottomLeft(
+                find.byKey(
+                  const ValueKey('location-chat-reply-actions-four-icons'),
+                ),
+              )
+              .dy,
+      12,
+    );
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await tester.pumpAndSettle();
+    expect(prompt, findsNothing);
+    expect(
+      find.text('Free inspiration uses left: "0"\nGet more >'),
+      findsOneWidget,
+    );
+    final inspirationPrompt = find.byKey(
+      const ValueKey('inspiration-subscription-prompt'),
+    );
+    expect(
+      tester.getTopLeft(inspirationPrompt).dy -
+          tester
+              .getBottomLeft(
+                find.byKey(
+                  const ValueKey('location-chat-reply-actions-four-icons'),
+                ),
+              )
+              .dy,
+      12,
+    );
+    expect(
+      find.byKey(const ValueKey('inspiration-replies-carousel')),
+      findsNothing,
+    );
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Free inspiration uses left: "0"\nGet more >'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'free inspiration prompt wraps within its card width with scaled text',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(280, 800),
+              textScaler: TextScaler.linear(1.8),
+            ),
+            child: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 280,
+                  child: _replyActions(
+                    style: kLocationChatStyle,
+                    selfMessageBubbleMaxWidthCap: 200,
+                    inspirationFreeUsesRemaining: 2,
+                    inspirationMessages: const ['A saved suggestion.'],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      final prompt = find.byKey(
+        const ValueKey('inspiration-subscription-prompt'),
+      );
+      expect(tester.getSize(prompt).width, lessThanOrEqualTo(200));
+      expect(tester.getCenter(prompt).dx, 400);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('all four actions are available without membership', (
     tester,
   ) async {
@@ -169,7 +293,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('disabled actions keep four fixed slots and toolbar height', (
+  testWidgets('disabled actions collapse while an empty toolbar keeps height', (
     tester,
   ) async {
     Widget host({
@@ -215,28 +339,54 @@ void main() {
     expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.bySemanticsLabel('Go on'), findsNothing);
+    expect(find.byKey(const ValueKey('location-chat-go-on')), findsNothing);
     expect(find.bySemanticsLabel('Edit'), findsOneWidget);
     expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
 
     final regenerateLeft = tester.getTopLeft(
       find.byKey(const ValueKey('location-chat-regenerate')),
     );
-    final goOnLeft = tester.getTopLeft(
-      find.byKey(const ValueKey('location-chat-go-on')),
-    );
     final editLeft = tester.getTopLeft(find.bySemanticsLabel('Edit'));
     final inspirationLeft = tester.getTopLeft(
       find.bySemanticsLabel('Inspiration'),
     );
     expect(
-      goOnLeft.dx - regenerateLeft.dx,
+      editLeft.dx - regenerateLeft.dx,
       LocationChatReplyActions.centerSpacing,
     );
-    expect(editLeft.dx - goOnLeft.dx, LocationChatReplyActions.centerSpacing);
     expect(
       inspirationLeft.dx - editLeft.dx,
       LocationChatReplyActions.centerSpacing,
     );
+  });
+
+  testWidgets('opening capability renders Go on, Edit, and Inspiration only', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: _replyActions(
+            style: kLocationChatStyle,
+            regenerateEnabled: false,
+            goOnEnabled: true,
+            editEnabled: true,
+            inspirationFeature: const LocationChatInspirationFeature(
+              messages: _inspirationReplies,
+              loading: false,
+              enabled: true,
+            ),
+            onGoOn: () {},
+            onEditReply: () {},
+          ),
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Regenerate'), findsNothing);
+    expect(find.bySemanticsLabel('Go on'), findsOneWidget);
+    expect(find.bySemanticsLabel('Edit'), findsOneWidget);
+    expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
   });
 
   testWidgets(
@@ -305,6 +455,39 @@ void main() {
       );
     },
   );
+
+  testWidgets('locked pagination keeps both arrows visible and disabled', (
+    tester,
+  ) async {
+    var previousCalls = 0;
+    var nextCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: _replyActions(
+            style: kLocationChatStyle,
+            cardIndex: 1,
+            cardCount: 3,
+            cardSwitchEnabled: false,
+            onPreviousCard: () => previousCalls++,
+            onNextCard: () => nextCalls++,
+          ),
+        ),
+      ),
+    );
+    final previous = find.byKey(
+      const ValueKey('location-chat-reply-previous-card'),
+    );
+    final next = find.byKey(const ValueKey('location-chat-reply-next-card'));
+    expect(previous, findsOneWidget);
+    expect(next, findsOneWidget);
+    expect(tester.widget<IconButton>(previous).onPressed, isNull);
+    expect(tester.widget<IconButton>(next).onPressed, isNull);
+    await tester.tap(previous);
+    await tester.tap(next);
+    expect(previousCalls, 0);
+    expect(nextCalls, 0);
+  });
 
   testWidgets(
     'inspiration swipes through three previews matching the user bubble',
@@ -494,6 +677,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(sent, ['Good job!']);
     expect(edited, isEmpty);
+    expect(carousel, findsOneWidget);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
     expect(carousel, findsNothing);
 
     // Both ends of the strip respond, even far away from the centered icon.
@@ -519,7 +705,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('inspiration-reply-card-1')));
     await tester.pumpAndSettle();
     expect(sent.last, startsWith("You're right to ask for a plan."));
-    expect(carousel, findsNothing);
+    expect(carousel, findsOneWidget);
   });
   testWidgets('inspiration collapses when a retained chat page is reentered', (
     tester,
@@ -877,6 +1063,100 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('reply action slot stays at the tail across send and new reply', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final oldReply = ChatMessageVm(
+      localId: 'old-reply',
+      senderId: 'role',
+      senderName: 'Role',
+      text: 'Old reply',
+      isMe: false,
+      status: 'sent',
+    );
+    final userMessage = ChatMessageVm(
+      localId: 'new-user',
+      senderId: 'user',
+      senderName: 'User',
+      text: 'New user message',
+      isMe: true,
+      status: 'sending',
+    );
+    final newReply = ChatMessageVm(
+      localId: 'new-reply',
+      senderId: 'role',
+      senderName: 'Role',
+      text: 'New reply',
+      isMe: false,
+      status: 'sent',
+    );
+    Widget host(
+      List<ChatMessageVm> messages, {
+      required String round,
+      required bool actionsVisible,
+    }) => MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          width: 390,
+          height: 600,
+          child: LocationChatAnchoredMessageList(
+            coordinator: coordinator,
+            messages: messages,
+            topTitle: '',
+            replyActionsIdentity: round,
+            replyActionsVisible: actionsVisible,
+          ),
+        ),
+      ),
+    );
+
+    const slotKey = ValueKey('location-chat-reply-action-slot');
+    await tester.pumpWidget(
+      host([oldReply], round: 'round-1', actionsVisible: true),
+    );
+    final slot = find.byKey(slotKey);
+    final slotElement = slot.evaluate().single;
+    final slotHeight = tester.getSize(slot).height;
+    expect(
+      find.byKey(const ValueKey('location-chat-reply-control:round-1')),
+      findsOneWidget,
+    );
+
+    await tester.pumpWidget(
+      host([oldReply, userMessage], round: 'round-1', actionsVisible: false),
+    );
+    expect(slot.evaluate().single, same(slotElement));
+    expect(tester.getSize(slot).height, slotHeight);
+    expect(
+      find.byKey(const ValueKey('location-chat-reply-control:round-1')),
+      findsNothing,
+    );
+    expect(
+      tester.getTopLeft(slot).dy,
+      greaterThan(tester.getBottomLeft(find.text('New user message')).dy),
+    );
+
+    await tester.pumpWidget(
+      host(
+        [oldReply, userMessage, newReply],
+        round: 'round-2',
+        actionsVisible: true,
+      ),
+    );
+    expect(slot.evaluate().single, same(slotElement));
+    expect(tester.getSize(slot).height, slotHeight);
+    expect(
+      find.byKey(const ValueKey('location-chat-reply-control:round-2')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getTopLeft(slot).dy,
+      greaterThan(tester.getBottomLeft(find.text('New reply')).dy),
+    );
+  });
 
   testWidgets(
     'explicit card switches keep the round controls in the viewport',

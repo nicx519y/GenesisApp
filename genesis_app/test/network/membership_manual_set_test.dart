@@ -148,7 +148,6 @@ void main() {
   test(
     'unknown target UID is reported inline without global page navigation',
     () async {
-      var pageNotFound = false;
       transport.response = {
         'err_no': 1404,
         'err_msg': 'user not found',
@@ -159,7 +158,6 @@ void main() {
         useMock: false,
         sessionStore: MemoryUserSessionStore(),
         appHeaderProvider: () async => {},
-        onPageNotFound: (_) async => pageNotFound = true,
       );
       await expectLater(
         livePipelineApi.v1.membership.setManual(request),
@@ -171,7 +169,6 @@ void main() {
           ),
         ),
       );
-      expect(pageNotFound, isFalse);
       expect(transport.requests, hasLength(1));
     },
   );

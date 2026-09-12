@@ -23,12 +23,16 @@ ChatroomV2Message _v2(
   int round = _round,
   int id = _messageId,
   String user = 'u',
+  String conversationType = 'user_message',
+  String? triggerUid,
   String content = 'Original',
 }) => ChatroomV2Message(
   type: type,
   worldId: 'w',
   locationId: 'l',
   userId: user,
+  conversationType: conversationType,
+  triggerUid: triggerUid ?? user,
   globalMessageId: id,
   messageId: id,
   locationMessageId: id,
@@ -40,16 +44,31 @@ ChatroomV2Message _v2(
 );
 WorldChatroomMessage _formal({
   int round = _round,
+  int id = _messageId,
   String user = 'u',
   String type = 'character',
+  String conversationType = 'user_message',
+  String? triggerUid,
+  String content = 'Original',
 }) => WorldChatroomMessage.fromHttpMessage(
-  ChatroomHttpMessage.fromV2Message(_v2(type, round: round, user: user)),
+  ChatroomHttpMessage.fromV2Message(
+    _v2(
+      type,
+      round: round,
+      id: id,
+      user: user,
+      conversationType: conversationType,
+      triggerUid: triggerUid,
+      content: content,
+    ),
+  ),
 );
 ChatroomLlmCard _card(
   int id, {
   int index = 1,
   String content = 'Original',
   String generation = 'succeeded',
+  bool canEdit = true,
   bool canDelete = true,
   int messages = 2,
 }) => ChatroomLlmCard.fromJson({
@@ -57,7 +76,7 @@ ChatroomLlmCard _card(
   'card_index': index,
   'is_original': index == 1,
   'generation_state': generation,
-  'can_edit': generation == 'succeeded',
+  'can_edit': canEdit,
   'can_delete': canDelete,
   'messages': generation != 'succeeded'
       ? []
@@ -68,6 +87,8 @@ ChatroomLlmCard _card(
             'world_id': 'w',
             'location_id': 'l',
             'user_id': 'u',
+            'conversation_type': 'user_message',
+            'trigger_uid': 'u',
             'conversation_round_id': _round,
             'global_message_id': _messageId + i,
             'card_id': id,
@@ -84,6 +105,7 @@ ChatroomLlmCardsResponse _cards(
   List<ChatroomLlmCard> cards, {
   bool confirmed = false,
   bool canRegenerate = true,
+  bool? canConfirm,
   int selected = 0,
   int round = _round,
 }) => ChatroomLlmCardsResponse(
@@ -93,7 +115,7 @@ ChatroomLlmCardsResponse _cards(
   activeCardId: cards.isEmpty ? 0 : cards.last.cardId,
   confirmed: confirmed,
   canRegenerate: canRegenerate,
-  canConfirm: cards.isNotEmpty,
+  canConfirm: canConfirm ?? cards.isNotEmpty,
   list: cards,
   total: cards.length,
   rawJson: const {},
@@ -111,6 +133,7 @@ class _Api extends ChatroomHttpApi {
   Completer<void>? saveBarrier;
   Object? batchError;
   Object? selectionError;
+  bool selectionApplyBeforeError = true;
   bool applyBeforeError = false;
   @override
   Future<ChatroomLlmCardsResponse> getLlmCards({
@@ -208,6 +231,9 @@ class _Api extends ChatroomHttpApi {
     required String clientMsgId,
   }) async {
     calls.add('select:$cardId');
+    if (selectionError != null && !selectionApplyBeforeError) {
+      throw selectionError!;
+    }
     cards = _cards(cards.list, confirmed: true, selected: cardId);
     if (selectionError != null) throw selectionError!;
     return ChatroomCardSelection(
@@ -253,17 +279,13 @@ class _Harness {
   _Harness({
     ChatroomReplyActionStorage? storage,
     String owner = 'u',
+    String conversationType = 'user_message',
+    String? triggerUid,
     DateTime Function()? now,
     Duration regenerationStreamStartTimeout = const Duration(seconds: 30),
     Duration regenerationStreamEndTimeout = const Duration(seconds: 120),
     Duration goOnStreamStartTimeout = const Duration(seconds: 30),
     Duration goOnStreamEndTimeout = const Duration(seconds: 120),
-    Future<void> Function(
-      String locationId,
-      int roundId,
-      List<ChatroomLlmMessageOperation> operations,
-    )?
-    applyCommittedFormalEdit,
   }) {
     controller = ChatroomReplyActionsController(
       worldId: 'w',
@@ -272,10 +294,6 @@ class _Harness {
       session: () => session,
       isReady: (_) => ready,
       isTickLocked: () => locked,
-      refreshFormalRange: (location, start, end) async {
-        api.calls.add('refresh:$start');
-      },
-      applyCommittedFormalEdit: applyCommittedFormalEdit,
       refreshWallet: () async {
         walletRefreshes++;
       },
@@ -286,7 +304,13 @@ class _Harness {
       goOnStreamStartTimeout: goOnStreamStartTimeout,
       goOnStreamEndTimeout: goOnStreamEndTimeout,
     );
-    controller.observeMessages('l', [_formal(user: owner)]);
+    controller.observeMessages('l', [
+      _formal(
+        user: owner,
+        conversationType: conversationType,
+        triggerUid: triggerUid ?? owner,
+      ),
+    ]);
   }
   Future<ChatroomReplyEditorTarget> prepareEditor() async {
     await controller.restoreLocationCards('l');
@@ -319,6 +343,7 @@ ChatroomLlmCardStream _stream(
     worldId: 'w',
     locationId: 'l',
     userId: 'u',
+    triggerUid: 'u',
     conversationRoundId: _round,
     globalMessageId: id,
     senderType: 'character',
@@ -344,6 +369,7 @@ ChatroomLlmCardGenerationEnd _terminal(
     worldId: 'w',
     locationId: 'l',
     userId: 'u',
+    triggerUid: 'u',
     conversationRoundId: _round,
     payload: {
       'card_id': 102,
@@ -355,6 +381,471 @@ ChatroomLlmCardGenerationEnd _terminal(
 );
 
 void main() {
+  for (final failed in [true, false]) {
+    test(
+      'late terminal regeneration receipt resolves timeout without replay: failed=$failed',
+      () async {
+        final h = _Harness();
+        addTearDown(h.controller.dispose);
+        const timeout = ChatroomFailureEvent(
+          code: 'ack_timeout',
+          message: 'No ACK',
+        );
+        h.session.regenerateHandler = () async => throw timeout;
+        await expectLater(h.controller.regenerate('l'), throwsA(same(timeout)));
+        final requestId = h.session.requests.single.split(':').last;
+        h.api.calls.clear();
+        h.api.cards = _cards([
+          _card(101),
+          _card(
+            102,
+            index: 2,
+            generation: failed ? 'failed' : 'succeeded',
+            content: 'Completed late reply',
+            canEdit: !failed,
+            canDelete: !failed,
+          ),
+        ]);
+        final ack = ChatroomAck(
+          sessionId: '',
+          worldId: 'w',
+          locationId: 'l',
+          userId: 'u',
+          code: 0,
+          codeMsg: '',
+          ts: null,
+          clientMsgId: requestId,
+          cardConversationRoundId: _round,
+          regeneration: ChatroomCardRegeneration(
+            conversationRoundId: _round,
+            originalCardId: 101,
+            cardId: 102,
+            generationState: failed
+                ? ChatroomCardGenerationState.failed
+                : ChatroomCardGenerationState.succeeded,
+            billing: const ChatroomCardBilling(
+              status: ChatroomCardBillingStatus.notRequired,
+            ),
+            error: failed
+                ? {'err_no': 21001, 'err_msg': 'Insufficient balance'}
+                : null,
+          ),
+        );
+        h.controller.receiveEvent(ack);
+        h.controller.receiveEvent(ack);
+        await _settle();
+        expect(h.state.generating, isFalse);
+        expect(h.state.cardCount, 2);
+        expect(h.state.viewedCardId, failed ? 101 : 102);
+        expect(
+          h.state.displayedMessages.first.content,
+          failed ? 'Original' : 'Completed late reply',
+        );
+        expect(h.walletRefreshes, 1);
+        expect(h.api.calls, ['cards:$_round']);
+
+        final next = Completer<ChatroomCardRegeneration>();
+        h.session.regenerateHandler = () => next.future;
+        final newAction = h.controller.regenerate('l');
+        await _settle();
+        h.controller.receiveEvent(ack);
+        expect(h.state.viewedCardId, -1);
+        expect(h.state.generating, isTrue);
+        next.complete(
+          const ChatroomCardRegeneration(
+            conversationRoundId: _round,
+            originalCardId: 101,
+            cardId: 103,
+            generationState: ChatroomCardGenerationState.generating,
+            billing: ChatroomCardBilling(
+              status: ChatroomCardBillingStatus.reserved,
+            ),
+          ),
+        );
+        await newAction;
+        expect(h.state.viewedCardId, 103);
+        expect(h.session.requests, hasLength(2));
+        expect(h.walletRefreshes, 1);
+      },
+    );
+  }
+
+  test(
+    'late success receipt supersedes timeout recovery GET and restores view on read error',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      const timeout = ChatroomFailureEvent(
+        code: 'ack_timeout',
+        message: 'No ACK',
+      );
+      final staleRead = Completer<ChatroomLlmCardsResponse>();
+      h.api.cardsBarrier = staleRead;
+      h.session.regenerateHandler = () async => throw timeout;
+      final timedOut = h.controller.regenerate('l');
+      final rejected = expectLater(timedOut, throwsA(same(timeout)));
+      await _settle();
+      h.api.cardsError = StateError('New card read unavailable');
+      h.controller.receiveEvent(
+        ChatroomAck(
+          sessionId: '',
+          worldId: 'w',
+          locationId: 'l',
+          userId: 'u',
+          code: 0,
+          codeMsg: '',
+          ts: null,
+          clientMsgId: h.session.requests.single.split(':').last,
+          cardConversationRoundId: _round,
+          regeneration: const ChatroomCardRegeneration(
+            conversationRoundId: _round,
+            originalCardId: 101,
+            cardId: 102,
+            generationState: ChatroomCardGenerationState.succeeded,
+            billing: ChatroomCardBilling(
+              status: ChatroomCardBillingStatus.notRequired,
+            ),
+          ),
+        ),
+      );
+      await _settle();
+      staleRead.complete(_cards([]));
+      await rejected;
+      await _settle();
+      expect(h.state.generating, isFalse);
+      expect(h.state.viewedCardId, 101);
+      expect(h.state.displayedMessages.first.content, 'Original');
+      expect(h.state.cardCount, 2);
+      expect(
+        h.state.cards.last.generationState,
+        ChatroomCardGenerationState.succeeded,
+      );
+      expect(h.state.error, isA<StateError>());
+      expect(h.walletRefreshes, 1);
+      expect(h.session.requests, hasLength(1));
+    },
+  );
+
+  for (final regenerate in [true, false]) {
+    test(
+      'late balance ACK releases uncertain reply action: regenerate=$regenerate',
+      () async {
+        final h = _Harness();
+        addTearDown(h.controller.dispose);
+        const timeout = ChatroomFailureEvent(
+          code: 'ack_timeout',
+          message: 'No receipt yet',
+          sourceType: 'ack',
+        );
+        h.session.regenerateHandler = () async => throw timeout;
+        h.session.goOnHandler = (_) async => throw timeout;
+        Future<void> begin() async {
+          if (regenerate) {
+            await h.controller.regenerate('l');
+          } else {
+            await h.controller.goOn('l');
+          }
+        }
+
+        await expectLater(begin(), throwsA(same(timeout)));
+        final oldRequest = h.session.requests.last.split(':').last;
+        expect(regenerate ? h.state.generating : h.state.goOnPending, isTrue);
+        final lateAck = ChatroomAck(
+          sessionId: '',
+          worldId: 'w',
+          locationId: '',
+          userId: '',
+          code: 3001,
+          codeMsg: 'Insufficient balance',
+          ts: null,
+          clientMsgId: oldRequest,
+        );
+        h.controller.receiveEvent(lateAck);
+        await _settle();
+        expect(h.state.generating, isFalse);
+        expect(h.state.goOnPending, isFalse);
+        expect(h.state.cardCount, 0);
+        expect(h.state.displayedMessages.first.content, 'Original');
+        expect(h.state.canRegenerate, isTrue);
+        expect(h.state.canGoOn, isTrue);
+        expect(h.walletRefreshes, 1);
+
+        final regenAck = Completer<ChatroomCardRegeneration>();
+        final goAck = Completer<ChatroomGoOnReceipt>();
+        h.session.regenerateHandler = () => regenAck.future;
+        h.session.goOnHandler = (_) => goAck.future;
+        final second = begin();
+        final secondRejected = expectLater(second, throwsA(same(timeout)));
+        await _settle();
+        h.controller.receiveEvent(lateAck);
+        await _settle();
+        expect(regenerate ? h.state.generating : h.state.goOnPending, isTrue);
+        expect(h.walletRefreshes, 1);
+        expect(h.session.requests, hasLength(2));
+        if (regenerate) {
+          regenAck.completeError(timeout);
+        } else {
+          goAck.completeError(timeout);
+        }
+        await secondRejected;
+      },
+    );
+  }
+
+  test(
+    'succeeded ACK read failure restores complete view and later reads real candidate',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cardsError = StateError('Cards temporarily unavailable');
+      h.session.regenerateHandler = () async => const ChatroomCardRegeneration(
+        conversationRoundId: _round,
+        originalCardId: 101,
+        cardId: 102,
+        generationState: ChatroomCardGenerationState.succeeded,
+        billing: ChatroomCardBilling(
+          status: ChatroomCardBillingStatus.notRequired,
+        ),
+      );
+      await expectLater(h.controller.regenerate('l'), throwsStateError);
+      expect(h.state.generating, isFalse);
+      expect(h.state.viewedCardId, 101);
+      expect(h.state.displayedMessages.first.content, 'Original');
+      expect(h.state.cardCount, 2);
+      expect(h.state.cards.last.cardId, 102);
+      expect(
+        h.state.cards.last.generationState,
+        ChatroomCardGenerationState.succeeded,
+      );
+      expect(h.state.cards.last.messages, isEmpty);
+      expect(h.walletRefreshes, 1);
+      h.api.cardsError = null;
+      h.api.cards = _cards([
+        _card(101),
+        _card(102, index: 2, content: 'Recovered completed reply'),
+      ]);
+      await h.controller.restoreLocationCards('l');
+      await h.controller.browse('l', 1);
+      expect(
+        h.state.displayedMessages.first.content,
+        'Recovered completed reply',
+      );
+      expect(h.session.requests, hasLength(1));
+    },
+  );
+
+  for (final withCards in [false, true]) {
+    test(
+      'regeneration balance precheck preserves existing cards: $withCards',
+      () async {
+        final h = _Harness();
+        addTearDown(h.controller.dispose);
+        h.api.cards = _cards(withCards ? [_card(101)] : []);
+        await h.controller.restoreLocationCards('l');
+        h.api.calls.clear();
+        h.session.regenerateHandler = () async =>
+            throw const ChatroomFailureEvent(
+              code: '3001',
+              message: 'Insufficient balance',
+              requestType: 'regenerate_llm_card',
+            );
+        await expectLater(
+          h.controller.regenerate('l'),
+          throwsA(isA<ChatroomFailureEvent>()),
+        );
+        await _settle();
+        expect(h.state.generating, isFalse);
+        expect(h.state.cardCount, withCards ? 1 : 0);
+        expect(h.state.displayedMessages.first.content, 'Original');
+        expect(h.state.canRegenerate, isTrue);
+        expect(h.api.calls, isEmpty);
+        expect(h.walletRefreshes, 1);
+      },
+    );
+  }
+
+  test(
+    'Go on balance rejection creates no round and releases the source',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.session.goOnHandler = (_) async => throw const ChatroomFailureEvent(
+        code: '3001',
+        message: 'Insufficient balance',
+        requestType: 'go_on',
+      );
+      await expectLater(
+        h.controller.goOn('l'),
+        throwsA(isA<ChatroomFailureEvent>()),
+      );
+      await _settle();
+      expect(h.state.goOnPending, isFalse);
+      expect(h.state.goOnRoundId, isNull);
+      expect(h.state.canGoOn, isTrue);
+      expect(h.controller.statesFor('l'), hasLength(1));
+      expect(h.state.displayedMessages.first.content, 'Original');
+      expect(h.walletRefreshes, 1);
+    },
+  );
+
+  for (final terminalFirst in [false, true]) {
+    test(
+      'failed balance candidate reconciles once, terminal first: $terminalFirst',
+      () async {
+        final h = _Harness();
+        addTearDown(h.controller.dispose);
+        h.api.cards = _cards([_card(101)]);
+        await h.controller.restoreLocationCards('l');
+        h.api.calls.clear();
+        final ack = Completer<ChatroomCardRegeneration>();
+        h.session.regenerateHandler = () => ack.future;
+        final action = h.controller.regenerate('l');
+        await _settle();
+        final terminal = _terminal(
+          'failed',
+          errNo: 21001,
+          errMsg: 'Insufficient balance',
+        );
+        h.api.cards = _cards([
+          _card(101),
+          _card(
+            102,
+            index: 2,
+            generation: 'failed',
+            canEdit: false,
+            canDelete: false,
+          ),
+        ]);
+        if (terminalFirst) {
+          h.controller.receiveEvent(terminal);
+          expect(h.state.generating, isFalse);
+          expect(h.state.displayedMessages.first.content, 'Original');
+        }
+        ack.complete(
+          const ChatroomCardRegeneration(
+            conversationRoundId: _round,
+            originalCardId: 101,
+            cardId: 102,
+            generationState: ChatroomCardGenerationState.failed,
+            billing: ChatroomCardBilling(
+              status: ChatroomCardBillingStatus.cancelled,
+            ),
+            error: {'err_no': 21001, 'err_msg': 'Insufficient balance'},
+          ),
+        );
+        await action;
+        h.controller.receiveEvent(terminal);
+        h.controller.receiveEvent(terminal);
+        await _settle();
+        expect(h.state.generating, isFalse);
+        expect(h.state.cardCount, 2);
+        expect(h.state.viewedCardId, 101);
+        expect(h.state.displayedMessages.first.content, 'Original');
+        expect(
+          h.state.cards.last.generationState,
+          ChatroomCardGenerationState.failed,
+        );
+        expect(h.state.cards.last.canEdit, isFalse);
+        expect(h.state.canRegenerate, isTrue);
+        expect(h.api.calls, ['cards:$_round']);
+        expect(h.walletRefreshes, 1);
+      },
+    );
+  }
+
+  test(
+    'succeeded regeneration ACK loads full content without stream replay',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([
+        _card(101),
+        _card(102, index: 2, content: 'Recovered complete reply'),
+      ]);
+      h.session.regenerateHandler = () async => const ChatroomCardRegeneration(
+        conversationRoundId: _round,
+        originalCardId: 101,
+        cardId: 102,
+        generationState: ChatroomCardGenerationState.succeeded,
+        billing: ChatroomCardBilling(
+          status: ChatroomCardBillingStatus.notRequired,
+        ),
+      );
+      await h.controller.regenerate('l');
+      expect(h.state.generating, isFalse);
+      expect(h.state.viewedCardId, 102);
+      expect(
+        h.state.displayedMessages.first.content,
+        'Recovered complete reply',
+      );
+      expect(h.state.canEdit, isTrue);
+      expect(h.api.calls, ['cards:$_round']);
+      expect(h.walletRefreshes, 1);
+    },
+  );
+
+  test(
+    'late failed ACK cannot overwrite a new explicit regeneration',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(101)]);
+      await h.controller.restoreLocationCards('l');
+      final firstAck = Completer<ChatroomCardRegeneration>();
+      h.session.regenerateHandler = () => firstAck.future;
+      final first = h.controller.regenerate('l');
+      await _settle();
+      h.api.cards = _cards([
+        _card(101),
+        _card(
+          102,
+          index: 2,
+          generation: 'failed',
+          canEdit: false,
+          canDelete: false,
+        ),
+      ]);
+      h.controller.receiveEvent(_terminal('failed', errNo: 21001));
+      await _settle();
+      expect(h.state.canRegenerate, isTrue);
+      final secondAck = Completer<ChatroomCardRegeneration>();
+      h.session.regenerateHandler = () => secondAck.future;
+      final second = h.controller.regenerate('l');
+      await _settle();
+      firstAck.complete(
+        const ChatroomCardRegeneration(
+          conversationRoundId: _round,
+          originalCardId: 101,
+          cardId: 102,
+          generationState: ChatroomCardGenerationState.failed,
+          billing: ChatroomCardBilling(
+            status: ChatroomCardBillingStatus.cancelled,
+          ),
+          error: {'err_no': 21001, 'err_msg': 'Insufficient balance'},
+        ),
+      );
+      await first;
+      expect(h.state.viewedCardId, -1);
+      expect(h.state.generating, isTrue);
+      secondAck.complete(
+        const ChatroomCardRegeneration(
+          conversationRoundId: _round,
+          originalCardId: 101,
+          cardId: 103,
+          generationState: ChatroomCardGenerationState.generating,
+          billing: ChatroomCardBilling(
+            status: ChatroomCardBillingStatus.reserved,
+          ),
+        ),
+      );
+      await second;
+      expect(h.state.viewedCardId, 103);
+      expect(h.state.generating, isTrue);
+      expect(h.state.cardCount, 3);
+      expect(h.session.requests, hasLength(2));
+    },
+  );
+
   Future<void> historyCards(_Harness h, {bool Function()? current}) =>
       h.controller.loadHistoryCards(
         'l',
@@ -587,13 +1078,14 @@ void main() {
     },
   );
 
-  test('formal inspiration permits another owner and respects readiness', () {
+  test('another user cannot use reply actions and readiness still blocks', () {
     final h = _Harness();
     addTearDown(h.controller.dispose);
     h.controller.observeMessages('l', [_formal(user: 'another-user')]);
-    expect(h.state.inspirationSource!.cardId, isNull);
-    expect(h.state.inspirationSource!.sourceCardId, 0);
+    expect(h.state.inspirationSource, isNull);
     expect(h.state.canRegenerate, isFalse);
+    expect(h.state.canGoOn, isFalse);
+    expect(h.state.canEdit, isFalse);
     h.ready = false;
     expect(h.state.inspirationSource, isNull);
     h.ready = true;
@@ -671,19 +1163,57 @@ void main() {
     },
   );
 
+  test('reply eligibility uses trigger UID instead of user ID', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    h.controller.observeMessages('l', [
+      _formal(user: 'u', triggerUid: 'someone-else'),
+    ]);
+    expect(h.state.canGoOn, isFalse);
+    expect(h.state.canRegenerate, isFalse);
+    await expectLater(h.prepareEditor(), throwsStateError);
+    final own = _Harness();
+    addTearDown(own.controller.dispose);
+    own.controller.observeMessages('l', [
+      _formal(user: 'someone-else', triggerUid: 'u'),
+    ]);
+    expect(own.state.canRegenerate, isTrue);
+    expect(own.state.canGoOn, isTrue);
+    expect(own.state.canEdit, isTrue);
+    expect(own.state.inspirationSource, isNotNull);
+    own.locked = true;
+    expect(own.state.canGoOn, isFalse);
+  });
+
   test(
-    'ownership uses user ID and refuses to infer it from the character sender',
-    () async {
-      final h = _Harness();
-      addTearDown(h.controller.dispose);
-      h.controller.observeMessages('l', [_formal(user: 'someone-else')]);
-      expect(h.state.canGoOn, isFalse);
-      expect(h.state.canRegenerate, isFalse);
-      await expectLater(h.prepareEditor(), throwsStateError);
-      h.controller.observeMessages('l', [_formal()]);
-      expect(h.state.canGoOn, isTrue);
-      h.locked = true;
-      expect(h.state.canGoOn, isFalse);
+    'conversation type matrix is fail-closed and opening excludes regenerate',
+    () {
+      for (final type in ['user_message', 'go_on']) {
+        final h = _Harness(conversationType: type);
+        addTearDown(h.controller.dispose);
+        expect(h.state.canRegenerate, isTrue, reason: type);
+        expect(h.state.canGoOn, isTrue);
+        expect(h.state.canEdit, isTrue);
+        expect(h.state.inspirationSource, isNotNull);
+      }
+      final opening = _Harness(
+        owner: 'u',
+        conversationType: 'opening',
+        triggerUid: '',
+      );
+      addTearDown(opening.controller.dispose);
+      expect(opening.state.canRegenerate, isFalse);
+      expect(opening.state.canGoOn, isTrue);
+      expect(opening.state.canEdit, isTrue);
+      expect(opening.state.inspirationSource, isNotNull);
+      for (final type in ['', 'user_enter_location', 'tick', 'unknown']) {
+        final h = _Harness(conversationType: type);
+        addTearDown(h.controller.dispose);
+        expect(h.state.canRegenerate, isFalse, reason: type);
+        expect(h.state.canGoOn, isFalse, reason: type);
+        expect(h.state.canEdit, isFalse, reason: type);
+        expect(h.state.inspirationSource, isNull, reason: type);
+      }
     },
   );
 
@@ -781,8 +1311,9 @@ void main() {
       expect(h.api.calls, isEmpty);
       expect(h.state.cardPosition, 2);
       expect(h.state.displayedMessages, isEmpty);
+      expect(h.state.canSwitchCards, isFalse);
       await h.controller.browse('l', -1);
-      expect(h.state.displayedMessages.single.content, 'Original');
+      expect(h.state.displayedMessages, isEmpty);
       ack.complete(
         const ChatroomCardRegeneration(
           conversationRoundId: _round,
@@ -795,16 +1326,21 @@ void main() {
         ),
       );
       await action;
-      expect(h.state.viewedCardId, 101);
+      expect(h.state.viewedCardId, 102);
+      expect(h.state.canSwitchCards, isFalse);
       expect(h.state.cards.first.messages.single.content, 'Original');
       expect(h.state.cards.first.isOriginal, isTrue);
-      await h.controller.browse('l', 1);
       h.controller.receiveEvent(_stream('chunk', content: 'partial'));
+      expect(h.state.canSwitchCards, isFalse);
       h.controller.receiveEvent(
         _stream('end', content: 'Complete local reply'),
       );
       h.controller.receiveEvent(_terminal('succeeded'));
       await _settle();
+      expect(h.state.canSwitchCards, isTrue);
+      await h.controller.browse('l', -1);
+      expect(h.state.viewedCardId, 101);
+      await h.controller.browse('l', 1);
       final editor = await h.controller.prepareEditor('l');
       expect(editor.cardId, 102);
       expect(editor.messages.single.content, 'Complete local reply');
@@ -930,26 +1466,38 @@ void main() {
     },
   );
 
-  test('regeneration ACK loss queries cards once and unlocks', () async {
-    final h = _Harness();
-    addTearDown(h.controller.dispose);
-    h.api.cards = _cards([_card(101)]);
-    await h.controller.restoreLocationCards('l');
-    h.api.calls.clear();
-    h.session.regenerateHandler = () async =>
-        throw TimeoutException('lost ACK');
+  test(
+    'regeneration ACK loss stays locked until cards prove a terminal',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(101)]);
+      await h.controller.restoreLocationCards('l');
+      h.api.calls.clear();
+      h.session.regenerateHandler = () async =>
+          throw TimeoutException('lost ACK');
 
-    await expectLater(
-      h.controller.regenerate('l'),
-      throwsA(isA<TimeoutException>()),
-    );
+      await expectLater(
+        h.controller.regenerate('l'),
+        throwsA(isA<TimeoutException>()),
+      );
 
-    expect(h.api.calls, ['cards:$_round']);
-    expect(h.session.requests, hasLength(1));
-    expect(h.state.generating, isFalse);
-    expect(h.state.canRegenerate, isTrue);
-    expect(h.state.viewedCardId, 101);
-  });
+      expect(h.api.calls, ['cards:$_round']);
+      expect(h.session.requests, hasLength(1));
+      expect(h.state.generating, isTrue);
+      expect(h.state.canSwitchCards, isFalse);
+      expect(h.state.canRegenerate, isFalse);
+      expect(h.state.viewedCardId, -1);
+
+      h.api.cards = _cards([_card(101), _card(102, index: 2)]);
+      h.api.calls.clear();
+      await h.controller.reconnect();
+      expect(h.api.calls, ['cards:$_round']);
+      expect(h.state.generating, isFalse);
+      expect(h.state.canSwitchCards, isTrue);
+      expect(h.state.viewedCardId, 102);
+    },
+  );
 
   test(
     'entry discovers the latest own card group without saved metadata',
@@ -1058,21 +1606,51 @@ void main() {
     },
   );
 
-  test(
-    'entry can_regenerate=false preserves original and prevents local dispatch',
-    () async {
-      final h = _Harness();
-      addTearDown(h.controller.dispose);
-      h.api.cards = _cards([], canRegenerate: false);
-      await h.controller.restoreLocationCards('l');
-      h.api.calls.clear();
-      await expectLater(h.controller.regenerate('l'), throwsStateError);
-      expect(h.state.displayedMessages.single.content, 'Original');
-      expect(h.state.showCandidates, isFalse);
-      expect(h.session.requests, isEmpty);
-      expect(h.api.calls, isEmpty);
-    },
-  );
+  test('can_regenerate=false does not prevent local dispatch', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    h.api.cards = _cards([], canRegenerate: false);
+    await h.controller.restoreLocationCards('l');
+    h.api.calls.clear();
+    h.session.regenerateHandler = () async => const ChatroomCardRegeneration(
+      conversationRoundId: _round,
+      originalCardId: 101,
+      cardId: 102,
+      generationState: ChatroomCardGenerationState.generating,
+      billing: ChatroomCardBilling(status: ChatroomCardBillingStatus.reserved),
+    );
+
+    expect(h.state.canRegenerate, isTrue);
+    await h.controller.regenerate('l');
+
+    expect(h.state.showCandidates, isTrue);
+    expect(h.session.requests, hasLength(1));
+    expect(h.api.calls, isEmpty);
+  });
+
+  test('card can_edit and can_delete flags do not restrict editing', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    h.api.cards = _cards([_card(101, canEdit: false, canDelete: false)]);
+    await h.controller.restoreLocationCards('l');
+
+    expect(h.state.canEdit, isTrue);
+    final target = await h.controller.prepareEditor('l');
+    await h.controller.submitEdit(target, const [
+      ChatroomLlmMessageOperation.edit(
+        globalMessageId: _messageId,
+        content: 'Edited despite API flag',
+      ),
+      ChatroomLlmMessageOperation.delete(globalMessageId: _messageId + 1),
+    ]);
+
+    expect(h.api.calls, contains('batch-card:101'));
+    expect(h.state.viewedCard!.messages, hasLength(1));
+    expect(
+      h.state.viewedCard!.messages.single.content,
+      'Edited despite API flag',
+    );
+  });
 
   test(
     'candidate chunks dedupe seq, sort fixed indices, end replaces text, and browsing survives terminal',
@@ -1120,15 +1698,19 @@ void main() {
         ),
       );
       await action;
+      expect(h.state.canSwitchCards, isFalse);
       await h.controller.browse('l', -1);
+      expect(h.state.viewedCardId, 102);
       h.api.cards = _cards([
         _card(101),
         _card(102, index: 2, content: 'Saved candidate'),
       ]);
       h.controller.receiveEvent(_terminal('succeeded'));
       await _settle();
-      expect(h.state.viewedCardId, 101);
+      expect(h.state.canSwitchCards, isTrue);
+      expect(h.state.viewedCardId, 102);
       expect(h.walletRefreshes, 1);
+      await h.controller.browse('l', -1);
       await h.controller.browse('l', 1);
       expect(h.state.displayedMessages.first.content, 'Full');
       h.controller.receiveEvent(_stream('end', content: 'stale'));
@@ -1204,7 +1786,7 @@ void main() {
         ),
       ]);
       expect(h.api.calls.contains('batch-formal'), isTrue);
-      expect(h.api.calls.contains('refresh:$_round'), isTrue);
+      expect(h.state.formalReplyMessages.single.content, 'Original');
     },
   );
 
@@ -1239,16 +1821,9 @@ void main() {
   );
 
   test(
-    'isolated formal edit applies committed operations after server success',
+    'isolated formal edit waits for conversation range history update',
     () async {
-      final commits = <List<ChatroomLlmMessageOperation>>[];
-      final h = _Harness(
-        applyCommittedFormalEdit: (location, round, operations) async {
-          expect(location, 'l');
-          expect(round, _round);
-          commits.add(List.of(operations));
-        },
-      );
+      final h = _Harness();
       addTearDown(h.controller.dispose);
       final target = await h.prepareEditor();
       const operations = [
@@ -1260,9 +1835,8 @@ void main() {
 
       await h.controller.submitEdit(target, operations);
 
-      expect(commits, hasLength(1));
-      expect(commits.single.single.content, 'Optimistic edit');
-      expect(h.state.formalReplyMessages.single.content, 'Optimistic edit');
+      expect(h.api.calls, contains('batch-formal'));
+      expect(h.state.formalReplyMessages.single.content, 'Original');
     },
   );
 
@@ -1290,11 +1864,14 @@ void main() {
   );
 
   test(
-    'send preparation saves then selects the browsed full card and refreshes',
+    'send preparation saves and selects without refreshing formal history',
     () async {
       final h = _Harness();
       addTearDown(h.controller.dispose);
-      h.api.cards = _cards([_card(101), _card(102, index: 2, content: 'New')]);
+      h.api.cards = _cards([
+        _card(101, messages: 1),
+        _card(102, index: 2, content: 'New', messages: 1),
+      ]);
       await h.prepareEditor();
       await h.controller.browse('l', 1);
       final target = await h.prepareEditor();
@@ -1306,14 +1883,109 @@ void main() {
       ]);
       h.api.calls.clear();
       await h.controller.finalizeBeforeSend('l');
-      expect(h.api.calls, [
-        'cards:$_round',
-        'batch-card:102',
-        'select:102',
-        'refresh:$_round',
-      ]);
+      expect(h.api.calls, ['cards:$_round', 'batch-card:102', 'select:102']);
       expect(h.state.confirmed, isTrue);
       expect(h.state.showCandidates, isFalse);
+      expect(h.state.showCardPresentation, isTrue);
+      expect(h.state.displayedMessages.single.content, 'Draft');
+
+      final revision = h.state.presentationRevision;
+      h.controller.observeMessages('l', [_formal(content: 'Draft')]);
+      expect(h.state.showCardPresentation, isTrue);
+      expect(h.state.displayedMessages.single.content, 'Draft');
+      expect(h.state.presentationRevision, revision);
+
+      h.controller.observeMessages('l', [_formal(content: 'Later edit')]);
+      expect(h.state.showCardPresentation, isTrue);
+      expect(h.state.displayedMessages.single.content, 'Later edit');
+    },
+  );
+
+  test(
+    'accepted Go On keeps the selected source card as presentation state',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([
+        _card(101, messages: 1),
+        _card(102, index: 2, content: 'New', messages: 1),
+      ]);
+      await h.controller.restoreLocationCards('l');
+      await h.controller.browse('l', 1);
+      final ack = Completer<ChatroomGoOnReceipt>();
+      h.session.goOnHandler = (_) => ack.future;
+
+      final goOn = h.controller.goOn('l');
+      await _settle();
+      expect(h.state.confirmed, isTrue);
+      expect(h.controller.presentationStateFor('l'), same(h.state));
+      expect(h.state.displayedMessages.single.content, 'New');
+
+      ack.complete(
+        const ChatroomGoOnReceipt(
+          worldId: 'w',
+          locationId: 'l',
+          sourceConversationRoundId: _round,
+          conversationRoundId: _round + 1,
+          clientMsgId: 'go-on-test',
+        ),
+      );
+      await goOn;
+      expect(h.controller.stateFor('l')!.roundId, _round + 1);
+      expect(h.controller.presentationStateFor('l'), same(h.state));
+      expect(
+        h.controller
+            .presentationStateFor('l')!
+            .displayedMessages
+            .single
+            .content,
+        'New',
+      );
+
+      h.controller.observeMessages('l', [
+        _formal(
+          round: _round + 1,
+          id: _messageId + 20,
+          conversationType: 'go_on',
+          content: 'Continued',
+        ),
+      ]);
+      await _settle();
+      expect(h.state.goOnPending, isFalse);
+      expect(h.controller.presentationStateFor('l')!.roundId, _round + 1);
+    },
+  );
+
+  test('preflight card refresh retains the fixed viewed card', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    final original = _card(101, messages: 1);
+    final selected = _card(102, index: 2, content: 'New', messages: 1);
+    h.api.cards = _cards([original, selected]);
+    await h.controller.restoreLocationCards('l');
+    await h.controller.browse('l', 1);
+    h.api.cards = _cards([original]);
+
+    await h.controller.finalizeBeforeSend('l');
+
+    expect(h.state.selectedCardId, 102);
+    expect(h.state.viewedCardId, 102);
+    expect(h.state.displayedMessages.single.content, 'New');
+  });
+
+  test(
+    'can_confirm=false does not prevent selecting a complete card',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(101)], canConfirm: false);
+      await h.controller.restoreLocationCards('l');
+      h.api.calls.clear();
+
+      await h.controller.finalizeBeforeSend('l');
+
+      expect(h.api.calls, ['cards:$_round', 'select:101']);
+      expect(h.state.confirmed, isTrue);
     },
   );
 
@@ -1351,7 +2023,7 @@ void main() {
   );
 
   test(
-    'Go On ACK loss refreshes once, unlocks, and reconnect never submits again',
+    'Go On ACK loss stays locked across refresh and reconnect without resending',
     () async {
       final storage = MemoryChatroomReplyActionStorage();
       final h = _Harness(storage: storage);
@@ -1360,11 +2032,13 @@ void main() {
         h.controller.goOn('l'),
         throwsA(isA<TimeoutException>()),
       );
-      expect(h.state.goOnUnknown, isFalse);
-      expect(h.state.goOnPending, isFalse);
-      expect(h.state.canGoOn, isTrue);
+      expect(h.state.goOnUnknown, isTrue);
+      expect(h.state.goOnPending, isTrue);
+      expect(h.state.canGoOn, isFalse);
       await h.controller.reconnect();
       expect(h.session.requests.length, 1);
+      expect(h.state.goOnUnknown, isTrue);
+      expect(h.state.goOnPending, isTrue);
       final saved = await storage.load(
         ownerUid: 'u',
         worldId: 'w',
@@ -1376,8 +2050,8 @@ void main() {
       final restored = _Harness(storage: storage);
       addTearDown(restored.controller.dispose);
       await restored.controller.restoreLocationCards('l');
-      expect(restored.state.goOnUnknown, isFalse);
-      expect(restored.state.goOnPending, isFalse);
+      expect(restored.state.goOnUnknown, isTrue);
+      expect(restored.state.goOnPending, isTrue);
       expect(restored.session.requests, isEmpty);
       final other = _Harness(storage: storage, owner: 'another');
       addTearDown(other.controller.dispose);
@@ -1417,16 +2091,9 @@ void main() {
             _v2('end_conversation_round', round: _round + 1),
           ),
         );
-        h.api.history[_round + 1] = [
-          ChatroomHttpMessage.fromV2Message(
-            _v2(
-              'character',
-              round: _round + 1,
-              id: _messageId + 1,
-              content: 'Continued',
-            ),
-          ),
-        ];
+        h.controller.observeMessages('l', [
+          _formal(round: _round + 1).copyWith(content: 'Continued'),
+        ]);
         return ChatroomGoOnReceipt(
           worldId: 'w',
           locationId: 'l',
@@ -1443,7 +2110,7 @@ void main() {
       );
       expect(h.state.goOnPending, isFalse);
       expect(h.session.requests.length, 1);
-      expect(h.api.calls.contains('refresh:${_round + 1}'), isTrue);
+      expect(h.api.calls.where((call) => call.startsWith('refresh:')), isEmpty);
     },
   );
 
@@ -1488,22 +2155,20 @@ void main() {
         ),
       );
       await run;
-      h.api.history[_round + 1] = [
-        ChatroomHttpMessage.fromV2Message(_v2('user', round: _round + 1)),
-      ];
-      await h.controller.reconnect();
+      h.controller.observeMessages('l', [
+        _formal(round: _round + 1, type: 'user'),
+      ]);
+      await _settle();
       expect(h.state.goOnPending, isTrue);
       expect(h.session.requests.length, 1);
-      h.api.history[_round + 1] = [
-        ChatroomHttpMessage.fromV2Message(_v2('character', round: _round + 1)),
-      ];
-      await h.controller.reconnect();
+      h.controller.observeMessages('l', [_formal(round: _round + 1)]);
+      await _settle();
       expect(h.state.goOnPending, isFalse);
     },
   );
 
   test(
-    'accepted Go On without a stream start recovers once then unlocks',
+    'accepted Go On without a stream start times out without a history read',
     () async {
       final h = _Harness(
         goOnStreamStartTimeout: const Duration(milliseconds: 10),
@@ -1521,7 +2186,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 30));
       await _settle();
 
-      expect(h.api.calls, contains('history:${_round + 1}'));
+      expect(h.api.calls, isNot(contains('history:${_round + 1}')));
       expect(h.session.requests, hasLength(1));
       expect(h.state.goOnPending, isFalse);
       expect(h.controller.stateFor('l')!.roundId, _round);
@@ -1531,7 +2196,7 @@ void main() {
   );
 
   test(
-    'accepted Go On stream without an end recovers once then unlocks',
+    'accepted Go On stream without an end times out without a history read',
     () async {
       final h = _Harness(
         goOnStreamStartTimeout: const Duration(seconds: 1),
@@ -1565,7 +2230,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 30));
       await _settle();
 
-      expect(h.api.calls, contains('history:${_round + 1}'));
+      expect(h.api.calls, isNot(contains('history:${_round + 1}')));
       expect(h.session.requests, hasLength(1));
       expect(h.state.goOnPending, isFalse);
       expect(h.controller.stateFor('l')!.roundId, _round);
@@ -1575,9 +2240,12 @@ void main() {
   );
 
   test(
-    'completed Go On empty history restores the source round and unlocks',
+    'completed Go On without range content waits then times out and unlocks',
     () async {
-      final h = _Harness();
+      final h = _Harness(
+        goOnStreamStartTimeout: const Duration(seconds: 1),
+        goOnStreamEndTimeout: const Duration(milliseconds: 10),
+      );
       addTearDown(h.controller.dispose);
       h.session.goOnHandler = (request) async => ChatroomGoOnReceipt(
         worldId: 'w',
@@ -1597,6 +2265,7 @@ void main() {
           _v2('end_conversation_round', round: _round + 1),
         ),
       );
+      await Future<void>.delayed(const Duration(milliseconds: 30));
       await _settle();
       expect(h.controller.stateFor('l')!.roundId, _round);
       expect(h.controller.stateFor('l')!.displayedMessages, isNotEmpty);
@@ -1694,7 +2363,7 @@ void main() {
   );
 
   test(
-    'missing initial owner is queried once and never inferred from sender ID',
+    'missing metadata stays disabled until history supplies both fields',
     () async {
       final h = _Harness();
       addTearDown(h.controller.dispose);
@@ -1705,16 +2374,22 @@ void main() {
         session: () => h.session,
         isReady: (_) => true,
         isTickLocked: () => false,
-        refreshFormalRange: (_, _, _) async {},
         storage: MemoryChatroomReplyActionStorage(),
       );
       addTearDown(controller.dispose);
-      controller.observeMessages('l', [_formal(user: '')]);
+      controller.observeMessages('l', [
+        _formal(user: 'u', conversationType: '', triggerUid: 'u'),
+      ]);
       await _settle();
       expect(controller.stateFor('l')!.isOwnRound, isTrue);
-      controller.observeMessages('l', [_formal(user: '')]);
+      expect(controller.stateFor('l')!.canGoOn, isFalse);
+      expect(h.api.calls.where((call) => call.startsWith('history:')), isEmpty);
+      controller.observeMessages('l', [
+        _formal(user: '', conversationType: 'user_message', triggerUid: 'u'),
+      ]);
       await _settle();
-      expect(h.api.calls.where((call) => call == 'history:$_round').length, 1);
+      expect(controller.stateFor('l')!.canGoOn, isTrue);
+      expect(h.api.calls.where((call) => call.startsWith('history:')), isEmpty);
     },
   );
 
@@ -1809,14 +2484,21 @@ void main() {
       ]);
       await h.prepareEditor();
       await h.controller.browse('l', 1);
+      expect(h.state.viewedCardId, 101);
       h.controller.receiveEvent(_stream('chunk', content: 'Must disappear'));
-      expect(h.state.displayedMessages.single.content, 'Must disappear');
+      expect(
+        h.state.displayedMessages.first.content,
+        'Original',
+        reason: 'Generating cards cannot be opened by browsing.',
+      );
       h.api.cards = _cards([
         _card(101),
         _card(102, index: 2, generation: 'failed'),
       ]);
       h.controller.receiveEvent(_terminal('failed'));
       await _settle();
+      expect(h.state.canSwitchCards, isTrue);
+      await h.controller.browse('l', 1);
       expect(h.state.displayedMessages, isEmpty);
       expect(h.state.cardCount, 2);
       expect(h.state.cardPosition, 2);
@@ -1958,7 +2640,6 @@ void main() {
     () async {
       final h = _Harness();
       addTearDown(h.controller.dispose);
-      var refreshes = 0;
       final controller = ChatroomReplyActionsController(
         worldId: 'w',
         ownerUid: 'u',
@@ -1966,10 +2647,6 @@ void main() {
         session: () => h.session,
         isReady: (_) => true,
         isTickLocked: () => false,
-        refreshFormalRange: (_, _, _) async {},
-        refreshLatestHistory: (_) async {
-          refreshes++;
-        },
         storage: MemoryChatroomReplyActionStorage(),
       );
       addTearDown(controller.dispose);
@@ -1983,13 +2660,12 @@ void main() {
         controller.goOn('l'),
         throwsA(isA<ChatroomFailureEvent>()),
       );
-      expect(refreshes, 0);
       expect(controller.stateFor('l')!.canGoOn, isTrue);
       expect(controller.stateFor('l')!.goOnPending, isFalse);
     },
   );
   test(
-    'completed Go On receipt restores ownership absent from formal history',
+    'completed Go On receipt does not infer missing trigger metadata',
     () async {
       final storage = MemoryChatroomReplyActionStorage();
       final h = _Harness(storage: storage);
@@ -2001,11 +2677,15 @@ void main() {
         clientMsgId: request,
       );
       await h.controller.goOn('l');
-      h.api.history[_round + 1] = [
-        ChatroomHttpMessage.fromV2Message(
-          _v2('character', round: _round + 1, user: ''),
+      h.controller.observeMessages('l', [
+        _formal(
+          round: _round + 1,
+          user: '',
+          conversationType: 'go_on',
+          triggerUid: '',
         ),
-      ];
+      ]);
+      await _settle();
       await h.controller.reconnect();
       expect(h.state.goOnPending, isFalse);
       h.controller.dispose();
@@ -2013,11 +2693,25 @@ void main() {
       final restored = _Harness(storage: storage);
       addTearDown(restored.controller.dispose);
       restored.controller.observeMessages('l', [
-        _formal(round: _round + 1, user: ''),
+        _formal(
+          round: _round + 1,
+          user: '',
+          conversationType: 'go_on',
+          triggerUid: '',
+        ),
       ]);
       await restored.controller.restoreLocationCards('l');
       expect(restored.controller.stateFor('l')!.roundId, _round + 1);
-      expect(restored.controller.stateFor('l')!.isOwnRound, isTrue);
+      expect(restored.controller.stateFor('l')!.isOwnRound, isFalse);
+      expect(restored.controller.stateFor('l')!.canGoOn, isFalse);
+      restored.controller.observeMessages('l', [
+        _formal(
+          round: _round + 1,
+          user: '',
+          conversationType: 'go_on',
+          triggerUid: 'u',
+        ),
+      ]);
       expect(restored.controller.stateFor('l')!.canGoOn, isTrue);
     },
   );
@@ -2045,12 +2739,7 @@ void main() {
       ]);
       h.api.calls.clear();
       await h.controller.finalizeBeforeSend('l');
-      expect(h.api.calls, [
-        'cards:$_round',
-        'batch-card:102',
-        'select:102',
-        'refresh:$_round',
-      ]);
+      expect(h.api.calls, ['cards:$_round', 'batch-card:102', 'select:102']);
       final saved = (await storage.load(
         ownerUid: 'u',
         worldId: 'w',
@@ -2066,7 +2755,7 @@ void main() {
   );
 
   test(
-    'recovering a lost selection ACK retires only drafts of unselected cards',
+    'a read-only recovery completes a selection whose ACK was lost',
     () async {
       final storage = MemoryChatroomReplyActionStorage();
       final h = _Harness(storage: storage);
@@ -2088,14 +2777,14 @@ void main() {
         ),
       ]);
       h.api.selectionError = TimeoutException('lost ACK');
-      await expectLater(
-        h.controller.finalizeBeforeSend('l'),
-        throwsA(isA<TimeoutException>()),
-      );
+      await h.controller.finalizeBeforeSend('l');
+      expect(h.state.confirmed, isTrue);
+      expect(h.state.frozen, isFalse);
+      expect(h.state.error, isNull);
       h.api.selectionError = null;
       h.api.calls.clear();
       await h.controller.finalizeBeforeSend('l');
-      expect(h.api.calls, ['cards:$_round', 'refresh:$_round']);
+      expect(h.api.calls, isEmpty);
       final saved = (await storage.load(
         ownerUid: 'u',
         worldId: 'w',
@@ -2105,6 +2794,53 @@ void main() {
       h.api.calls.clear();
       await h.controller.finalizeBeforeSend('l');
       expect(h.api.calls, isEmpty);
+    },
+  );
+
+  test('definite selection rejection restores card switching', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    h.api.cards = _cards([_card(101), _card(102, index: 2)]);
+    await h.controller.restoreLocationCards('l');
+    await h.controller.browse('l', 1);
+    h.api.selectionApplyBeforeError = false;
+    h.api.selectionError = ApiException(
+      message: 'Selection rejected',
+      kind: ApiExceptionKind.business,
+      code: 5002,
+    );
+
+    await expectLater(
+      h.controller.finalizeBeforeSend('l'),
+      throwsA(isA<ApiException>()),
+    );
+
+    expect(h.state.confirmed, isFalse);
+    expect(h.state.frozen, isFalse);
+    expect(h.state.canSwitchCards, isTrue);
+  });
+
+  test(
+    'uncertain selection stays frozen when cards cannot prove its result',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(101), _card(102, index: 2)]);
+      await h.controller.restoreLocationCards('l');
+      await h.controller.browse('l', 1);
+      h.api.selectionApplyBeforeError = false;
+      h.api.selectionError = TimeoutException('lost selection ACK');
+      h.api.calls.clear();
+
+      await expectLater(
+        h.controller.finalizeBeforeSend('l'),
+        throwsA(isA<TimeoutException>()),
+      );
+
+      expect(h.state.confirmed, isFalse);
+      expect(h.state.frozen, isTrue);
+      expect(h.state.canSwitchCards, isFalse);
+      expect(h.api.calls.where((call) => call == 'cards:$_round').length, 2);
     },
   );
 

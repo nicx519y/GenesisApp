@@ -2,6 +2,7 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatPanelConnection on _LocationChatPanelState {
   Future<void> _closeChatroom() async {
+    _clearAckLoading();
     _detachReplyActions();
     final service = _service;
     final ownsService = _ownsService;
@@ -119,7 +120,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       final selectedModelCode = await Navigator.of(context, rootNavigator: true)
           .pushNamed<String>(
             RouteNames.memoryModel,
-            arguments: {'world_id': modelWorldId},
+            arguments: <String, Object?>{
+              'world_id': modelWorldId,
+              if (widget.memoryModelPageCache != null)
+                'page_cache': widget.memoryModelPageCache,
+            },
           );
       if (!mounted) return;
       final normalized = selectedModelCode?.trim() ?? '';
@@ -747,6 +752,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
     );
     _bindReplyActions();
+    final loadingResolved = _dismissAckLoadingIfVisible();
+    if (loadingResolved && !shouldRebuild && mounted) {
+      _setLocationChatState(() {});
+    }
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
     _maybeSendInitialMessage();
     if (changedMessages && wasFollowingLatest) {

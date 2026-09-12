@@ -79,7 +79,6 @@ class GenesisApi extends _GenesisApiContext
     super.appHeaderProvider,
     super.gatewayRequestInterceptor,
     super.onSessionExpired,
-    super.onPageNotFound,
     super.onChatroomMessageMutationError,
   });
 }

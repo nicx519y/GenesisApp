@@ -25,166 +25,115 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
     required List<ChatroomLlmMessageOperation> operations,
   }) async {
     locationId = locationId.trim();
-    final ticket = _historyTicket(locationId);
     final key = _messageMutationKey(locationId, conversationRoundId);
     if (!_pendingMessageMutationKeys.add(key)) {
       throw StateError('A batch for this round is already being submitted');
     }
-    bool sameSession() =>
-        !_disposed &&
-        _worldId == ticket.world &&
-        _storageOwnerUid == ticket.owner &&
-        _historySessionGeneration == ticket.session;
     try {
-      final result = await _api.chatroomHttp.batchMutateLlmMessages(
-        worldId: ticket.world,
+      return await _api.chatroomHttp.batchMutateLlmMessages(
+        worldId: _worldId,
         locationId: locationId,
         conversationRoundId: conversationRoundId,
         operations: operations,
       );
-      if (sameSession()) {
-        await _applyCommittedFormalEdit(
-          locationId: locationId,
-          conversationRoundId: conversationRoundId,
-          operations: operations,
-        );
-        _backgroundHistoryRefresh(
-          _requestHistoryReplacement(
-            locationId: locationId,
-            start: result.startConversationRoundId,
-            end: result.endConversationRoundId,
-          ),
-        );
-      }
-      return result;
-    } on ApiException catch (error) {
-      // Transport/invalid response failures may follow a committed batch.
-      // Refresh to reconcile; never automatically replay the write.
-      if (sameSession() &&
-          (error.kind != ApiExceptionKind.business ||
-              error.code == 2011 ||
-              error.code == 2013)) {
-        _backgroundHistoryRefresh(
-          _requestHistoryReplacement(locationId: locationId),
-        );
-      }
-      rethrow;
     } finally {
       _pendingMessageMutationKeys.remove(key);
     }
   }
 
-  Future<void> _applyCommittedFormalEdit({
-    required String locationId,
-    required int conversationRoundId,
-    required List<ChatroomLlmMessageOperation> operations,
-  }) async {
+  /// A successful Edit batch is already committed on the server. Apply its
+  /// exact changes locally before the independent range event arrives.
+  void _applyCommittedFormalEdit(
+    String locationId,
+    int roundId,
+    List<ChatroomLlmMessageOperation> operations,
+  ) {
+    if (_disposed || roundId <= 0 || operations.isEmpty) return;
     final location = locationId.trim();
-    if (_disposed ||
-        location.isEmpty ||
-        conversationRoundId <= 0 ||
-        operations.isEmpty) {
-      return;
-    }
-    final ticket = _historyTicket(location);
-    bool current() => _historyIsCurrent(location, ticket);
-    if (!current()) return;
-
-    final byId = {
+    final current = _state.messagesByLocation[location];
+    if (location.isEmpty || current == null) return;
+    final changes = {
       for (final operation in operations) operation.globalMessageId: operation,
     };
-    _deletedMessageIds
-        .putIfAbsent(location, () => <int>{})
-        .addAll(
-          operations
-              .where(
-                (operation) =>
-                    operation.action == ChatroomLlmMessageAction.delete,
-              )
-              .map((operation) => operation.globalMessageId),
-        );
+    bool target(WorldChatroomMessage message) =>
+        message.locationId == location &&
+        message.conversationRoundNumber == roundId &&
+        !message.streaming &&
+        changes.containsKey(message.globalMessageId);
+    if (!current.any(target)) return;
 
-    List<WorldChatroomMessage> apply(List<WorldChatroomMessage> messages) {
-      final next = <WorldChatroomMessage>[];
-      for (final message in messages) {
-        final operation =
-            message.locationId == location &&
-                message.conversationRoundNumber == conversationRoundId
-            ? byId[message.globalMessageId]
-            : null;
-        if (operation?.action == ChatroomLlmMessageAction.delete) continue;
-        if (operation?.action == ChatroomLlmMessageAction.edit) {
-          next.add(
-            message.copyWith(
-              content: operation!.content!,
-              rawPayload: {
-                ...message.rawPayload,
-                'content': operation.content!,
-              },
-            ),
-          );
-        } else {
-          next.add(message);
-        }
-      }
-      next.sort(_compareMessages);
-      return List<WorldChatroomMessage>.unmodifiable(next);
-    }
-
-    final locationMessages = apply(
-      _state.messagesByLocation[location] ?? const <WorldChatroomMessage>[],
+    WorldChatroomMessage edit(
+      WorldChatroomMessage message,
+      ChatroomLlmMessageOperation operation,
+    ) => message.copyWith(
+      content: operation.content,
+      rawPayload: {...message.rawPayload, 'content': operation.content},
     );
-    final streams =
-        <String, WorldChatroomMessage>{..._state.streamMessagesByKey}
-          ..removeWhere(
-            (_, message) =>
-                message.locationId == location &&
-                message.conversationRoundNumber == conversationRoundId &&
-                byId.containsKey(message.globalMessageId),
-          );
+
+    List<WorldChatroomMessage> apply(List<WorldChatroomMessage> messages) =>
+        List.unmodifiable([
+          for (final message in messages)
+            if (!target(message))
+              message
+            else if (changes[message.globalMessageId]!.action ==
+                ChatroomLlmMessageAction.edit)
+              edit(message, changes[message.globalMessageId]!),
+        ]);
+
+    final deleted = _deletedMessageIds.putIfAbsent(location, () => <int>{});
+    for (final operation in operations) {
+      if (operation.action == ChatroomLlmMessageAction.delete) {
+        deleted.add(operation.globalMessageId);
+      } else {
+        deleted.remove(operation.globalMessageId);
+      }
+    }
+    _invalidateHistory(location);
+    final streams = <String, WorldChatroomMessage>{};
+    for (final entry in _state.streamMessagesByKey.entries) {
+      final message = entry.value;
+      if (!target(message)) {
+        streams[entry.key] = message;
+      } else if (changes[message.globalMessageId]!.action ==
+          ChatroomLlmMessageAction.edit) {
+        streams[entry.key] = edit(message, changes[message.globalMessageId]!);
+      }
+    }
+    final updated = apply(current);
     _setState(
       _state.copyWith(
+        messagesByLocation: {..._state.messagesByLocation, location: updated},
         worldMessages: apply(_state.worldMessages),
-        messagesByLocation: {
-          ..._state.messagesByLocation,
-          location: locationMessages,
-        },
         streamMessagesByKey: streams,
       ),
     );
 
-    try {
-      await _withLocationWrite(location, () async {
-        if (!current() || ticket.owner.isEmpty) return;
+    final ticket = _historyTicket(location);
+    unawaited(
+      _withLocationWrite(location, () async {
+        if (!_historyIsCurrent(location, ticket) || ticket.owner.isEmpty) {
+          return;
+        }
         await _messageStorage.replaceMessages(
           ownerUid: ticket.owner,
           worldId: ticket.world,
           locationId: location,
-          messages: locationMessages
+          messages: updated
               .where(
                 (message) =>
-                    message.conversationRoundNumber == conversationRoundId,
+                    message.conversationRoundNumber == roundId &&
+                    !message.streaming,
               )
               .map(_storageJsonFromWorldMessage)
-              .toList(growable: false),
-          startConversationRoundId: conversationRoundId,
-          endConversationRoundId: conversationRoundId,
+              .toList(),
+          startConversationRoundId: roundId,
+          endConversationRoundId: roundId,
           maxMessagesPerLocation: _maxMessagesPerLocation,
-          isCurrent: current,
+          isCurrent: () => _historyIsCurrent(location, ticket),
         );
-      });
-    } catch (error) {
-      if (current()) {
-        _recordFailure(
-          ChatroomFailureEvent(
-            code: 'message_cache_failed',
-            message: 'Failed to cache edited messages',
-            sourceType: 'llm_messages_batch',
-            cause: error,
-          ),
-        );
-      }
-    }
+      }).catchError((Object _) {}),
+    );
+    _restartPendingHistory(location);
   }
 
   _HistoryTicket _historyTicket(String locationId) => (
@@ -264,7 +213,6 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
     int? start,
     int? end,
     bool preserveLive = false,
-    bool requireCurrent = false,
   }) {
     _throwIfDisposed();
     final location = locationId.trim();
@@ -302,32 +250,18 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
     }
     _historyRefreshes[location] = request;
     final ticket = _historyTicket(location);
-    return _runHistoryReplacement(
-      location,
-      request,
-      ticket,
-      requireCurrent: requireCurrent,
-    );
+    return _runHistoryReplacement(location, request, ticket);
   }
 
   Future<void> _runHistoryReplacement(
     String location,
     _LocationHistoryRefresh request,
-    _HistoryTicket ticket, {
-    bool requireCurrent = false,
-  }) async {
-    bool current() {
-      final valid =
-          _historyIsCurrent(location, ticket) &&
-          identical(_historyRefreshes[location], request) &&
-          !request.token.isCancelled;
-      if (!valid && requireCurrent) {
-        throw StateError(
-          'Reply history refresh was superseded; check status before continuing',
-        );
-      }
-      return valid;
-    }
+    _HistoryTicket ticket,
+  ) async {
+    bool current() =>
+        _historyIsCurrent(location, ticket) &&
+        identical(_historyRefreshes[location], request) &&
+        !request.token.isCancelled;
 
     try {
       if (request.start != null) {

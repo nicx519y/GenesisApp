@@ -1152,6 +1152,68 @@ void main() {
     expect(apiTransport.requests[2].bodyBytes, isNull);
   });
 
+  test('v1 user memory settings use world GET and global-only POST', () async {
+    final apiTransport = _FakeTransport(
+      handler: (request) {
+        final body = request.bodyBytes == null
+            ? const <String, dynamic>{}
+            : jsonDecode(utf8.decode(request.bodyBytes!))
+                  as Map<String, dynamic>;
+        final worldId = request.uri.queryParameters['world_id'];
+        final memoryTokens = body['memory_tokens'] ?? 48000;
+        final worldFields = worldId == null
+            ? ''
+            : ',"world_id":"$worldId","memory_used_tokens":6000';
+        return TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body:
+              '{"err_no":0,"err_msg":"succ","data":{"memory_tokens":$memoryTokens,"min_memory_tokens":8000,"max_memory_tokens":1000000$worldFields}}',
+        );
+      },
+    );
+    final api = _apiWith(
+      apiTransport,
+      _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"status":"ok"}',
+        ),
+      ),
+    );
+
+    final global = await api.v1.user.memorySettings();
+    final world = await api.v1.user.memorySettings(worldId: ' w_1 ');
+    final updatedGlobal = await api.v1.user.updateMemorySettings(
+      memoryTokens: 12400,
+    );
+
+    expect(global.memoryTokens, 48000);
+    expect(global.memoryUsedTokens, isNull);
+    expect(world.worldId, 'w_1');
+    expect(world.memoryUsedTokens, 6000);
+    expect(updatedGlobal.memoryTokens, 12400);
+    expect(apiTransport.requests.map((request) => request.method), [
+      'GET',
+      'GET',
+      'POST',
+    ]);
+    expect(
+      apiTransport.requests.map((request) => request.uri.path),
+      List<String>.filled(3, '/api/v1/user/memory-settings'),
+    );
+    expect(apiTransport.requests[0].uri.queryParameters, isEmpty);
+    expect(apiTransport.requests[1].uri.queryParameters, {'world_id': 'w_1'});
+    expect(jsonDecode(utf8.decode(apiTransport.requests[2].bodyBytes!)), {
+      'memory_tokens': 12400,
+    });
+    expect(
+      jsonDecode(utf8.decode(apiTransport.requests[2].bodyBytes!)),
+      isNot(contains('world_id')),
+    );
+  });
+
   test('bindDevice ignores but preserves a legacy guest uid', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
@@ -1309,8 +1371,6 @@ void main() {
         sessionStore: MemoryUserSessionStore(),
         appHeaderProvider: () async => {},
         onSessionExpired: (_) async => fail('Unexpected session expiry'),
-        onPageNotFound: (_) async =>
-            fail('Message errors must only show a toast'),
         onChatroomMessageMutationError: messages.add,
       );
       for (final errorCode in [
@@ -1398,8 +1458,6 @@ void main() {
         onSessionExpired: (message) async {
           expired.add(message);
         },
-        onPageNotFound: (_) async =>
-            fail('Inspiration errors should toast, not navigate'),
       );
       for (final errorCode in [2012, 5002, 1404, 10001]) {
         code = errorCode;
@@ -1509,8 +1567,7 @@ void main() {
     },
   );
 
-  test('v1 err_no 1404 triggers page not found callback', () async {
-    final notFound = Completer<String>();
+  test('v1 err_no 1404 remains a local business exception', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 200,
@@ -1526,9 +1583,6 @@ void main() {
       useMock: false,
       deviceIdService: const _TestDeviceIdService(),
       sessionStore: sessionStore,
-      onPageNotFound: (message) async {
-        if (!notFound.isCompleted) notFound.complete(message);
-      },
     );
 
     await expectLater(
@@ -1536,17 +1590,16 @@ void main() {
       throwsA(
         isA<ApiException>()
             .having((error) => error.code, 'code', 1404)
-            .having((error) => error.message, 'message', 'Page not found.'),
+            .having((error) => error.message, 'message', 'missing')
+            .having((error) => error.kind, 'kind', ApiExceptionKind.business),
       ),
     );
-    expect(await notFound.future, 'Page not found.');
     expect(apiTransport.lastRequest!.uri.path, '/api/v1/user/info');
   });
 
   test(
-    'search and badge 1404 stay local while user details still navigate',
+    'all v1 1404 errors stay local while session expiry remains global',
     () async {
-      var pageNotFoundCount = 0;
       var sessionExpiredCount = 0;
       var errorCode = 1404;
       final transport = _FakeTransport(
@@ -1565,7 +1618,6 @@ void main() {
         transport: transport,
         deviceIdService: const _TestDeviceIdService(),
         sessionStore: MemoryUserSessionStore(),
-        onPageNotFound: (_) async => pageNotFoundCount++,
         onSessionExpired: (_) async => sessionExpiredCount++,
       );
       final localRequests = <Future<Object?> Function()>[
@@ -1578,7 +1630,9 @@ void main() {
               rn: 20,
             ),
         () => api.v1.search.suggest(query: 'abc'),
-        () => api.v1.user.info(uid: 'u_missing', handlePageNotFound: false),
+        () => api.v1.user.info(uid: 'u_missing'),
+        () => api.v1.dm.list(peerUid: 'u_missing', pn: 1, rn: 20),
+        () => api.v1.dm.send(peerUid: 'u_missing', content: 'hello'),
       ];
       for (final request in localRequests) {
         await expectLater(
@@ -1589,18 +1643,13 @@ void main() {
                 .having((e) => e.message, 'message', 'missing'),
           ),
         );
-        expect(pageNotFoundCount, 0);
         expect(
           transport.lastRequest!.uri.queryParameters.keys,
-          everyElement(isIn(['keyword', 'type', 'pn', 'rn', 'query', 'uid'])),
+          everyElement(
+            isIn(['keyword', 'type', 'pn', 'rn', 'query', 'uid', 'peer_uid']),
+          ),
         );
       }
-
-      await expectLater(
-        api.v1.user.info(uid: 'u_missing'),
-        throwsA(isA<ApiException>().having((e) => e.code, 'code', 1404)),
-      );
-      expect(pageNotFoundCount, 1);
 
       errorCode = 10001;
       for (final request in localRequests) {
@@ -1610,12 +1659,10 @@ void main() {
         );
       }
       expect(sessionExpiredCount, localRequests.length);
-      expect(pageNotFoundCount, 1);
     },
   );
 
-  test('HTTP status 404 does not trigger page not found callback', () async {
-    var pageNotFoundCalled = false;
+  test('HTTP status 404 remains an HTTP status failure', () async {
     final apiTransport = _FakeTransport(
       handler: (_) => const TransportResponse(
         statusCode: 404,
@@ -1631,9 +1678,6 @@ void main() {
       useMock: false,
       deviceIdService: const _TestDeviceIdService(),
       sessionStore: sessionStore,
-      onPageNotFound: (message) async {
-        pageNotFoundCalled = true;
-      },
     );
 
     await expectLater(
@@ -1644,8 +1688,6 @@ void main() {
             .having((error) => error.kind, 'kind', ApiExceptionKind.httpStatus),
       ),
     );
-    await Future<void>.delayed(Duration.zero);
-    expect(pageNotFoundCalled, isFalse);
   });
 
   test('getOrigins uses GET /v1/origin/list for default category', () async {
@@ -5522,47 +5564,38 @@ void main() {
     });
   });
 
-  test(
-    'user followers 1404 stays in list error path without page-not-found callback',
-    () async {
-      var pageNotFoundCount = 0;
-      final transport = _FakeTransport(
-        handler: (_) => const TransportResponse(
-          statusCode: 200,
-          headers: {'content-type': 'application/json'},
-          body: '{"err_no":1404,"err_msg":"Page not found","data":{}}',
-        ),
-      );
-      final sessionStore = MemoryUserSessionStore();
-      await sessionStore.saveAuthToken('token');
-      final api = GenesisApi(
-        useMock: false,
-        transport: transport,
-        platformConfig: const _TestPlatformConfig(),
-        deviceIdService: const _TestDeviceIdService(),
-        sessionStore: sessionStore,
-        onPageNotFound: (_) async {
-          pageNotFoundCount += 1;
-        },
-      );
+  test('user followers 1404 stays in the list error path', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":1404,"err_msg":"Page not found","data":{}}',
+      ),
+    );
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveAuthToken('token');
+    final api = GenesisApi(
+      useMock: false,
+      transport: transport,
+      platformConfig: const _TestPlatformConfig(),
+      deviceIdService: const _TestDeviceIdService(),
+      sessionStore: sessionStore,
+    );
 
-      await expectLater(
-        api.v1.follow.followers(uid: 'u_peer', pn: 1, rn: 50),
-        throwsA(
-          isA<ApiException>()
-              .having((error) => error.code, 'code', 1404)
-              .having((error) => error.kind, 'kind', ApiExceptionKind.business),
-        ),
-      );
+    await expectLater(
+      api.v1.follow.followers(uid: 'u_peer', pn: 1, rn: 50),
+      throwsA(
+        isA<ApiException>()
+            .having((error) => error.code, 'code', 1404)
+            .having((error) => error.kind, 'kind', ApiExceptionKind.business),
+      ),
+    );
 
-      expect(transport.lastRequest!.uri.path, '/api/v1/user/followers');
-      expect(pageNotFoundCount, 0);
-    },
-  );
+    expect(transport.lastRequest!.uri.path, '/api/v1/user/followers');
+  });
 
-  test('tilemap 1404 stays local without page-not-found callback', () async {
+  test('tilemap 1404 stays in the local error path', () async {
     for (final source in const <String>['origin', 'world']) {
-      var pageNotFoundCount = 0;
       final transport = _FakeTransport(
         handler: (_) => const TransportResponse(
           statusCode: 200,
@@ -5576,9 +5609,6 @@ void main() {
         platformConfig: const _TestPlatformConfig(),
         deviceIdService: const _TestDeviceIdService(),
         sessionStore: MemoryUserSessionStore(),
-        onPageNotFound: (_) async {
-          pageNotFoundCount += 1;
-        },
       );
 
       final request = source == 'origin'
@@ -5594,7 +5624,6 @@ void main() {
       );
 
       expect(transport.lastRequest!.uri.path, '/api/v1/$source/map');
-      expect(pageNotFoundCount, 0);
     }
   });
 }

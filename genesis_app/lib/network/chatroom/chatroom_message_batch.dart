@@ -1,4 +1,5 @@
 import '../api_exception.dart';
+import 'chatroom_feature_quota_models.dart';
 
 enum ChatroomLlmMessageAction { edit, delete }
 
@@ -38,13 +39,18 @@ class ChatroomMessageMutationResult {
     required this.startConversationRoundId,
     required this.endConversationRoundId,
     required this.newestMessageId,
+    this.quota,
   });
 
   final int startConversationRoundId;
   final int endConversationRoundId;
   final int newestMessageId;
+  final ChatroomFeatureQuota? quota;
 
-  factory ChatroomMessageMutationResult.fromJson(Object? json) {
+  factory ChatroomMessageMutationResult.fromJson(
+    Object? json, {
+    ChatroomFeatureQuota? quota,
+  }) {
     if (json is Map) {
       final start = json['start_conversation_round_id'];
       final end = json['end_conversation_round_id'];
@@ -59,6 +65,7 @@ class ChatroomMessageMutationResult {
           startConversationRoundId: start,
           endConversationRoundId: end,
           newestMessageId: newest,
+          quota: quota,
         );
       }
     }

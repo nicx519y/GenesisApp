@@ -232,6 +232,8 @@ class WorldChatroomMessage {
     required this.messageId,
     int? locationMessageId,
     required this.conversationRoundId,
+    this.conversationType = '',
+    this.triggerUid = '',
     required this.roundOrder,
     this.tickNo = 0,
     this.subTickNo = 0,
@@ -260,6 +262,8 @@ class WorldChatroomMessage {
   final int messageId;
   final int locationMessageId;
   final String conversationRoundId;
+  final String conversationType;
+  final String triggerUid;
   final int roundOrder;
   final int tickNo;
   final int subTickNo;
@@ -320,6 +324,8 @@ class WorldChatroomMessage {
         () => message.locationMessageId,
       ),
       conversationRoundId: '${message.conversationRoundId}',
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       roundOrder: 0,
       tickNo: message.tickNo,
       subTickNo: message.subTickNo,
@@ -367,6 +373,12 @@ class WorldChatroomMessage {
         json['conversation_round_id'],
         fallback: '${asInt(json['conversation_round_id'])}',
       ),
+      conversationType: json['conversation_type'] is String
+          ? json['conversation_type'] as String
+          : '',
+      triggerUid: json['trigger_uid'] is String
+          ? json['trigger_uid'] as String
+          : '',
       roundOrder: asInt(json['round_order']),
       tickNo: asInt(json['tick_no']),
       subTickNo: asInt(json['sub_tick_no']),
@@ -411,6 +423,8 @@ class WorldChatroomMessage {
         () => message.locationMessageId,
       ),
       conversationRoundId: message.conversationRoundId,
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
       senderType: message.senderType.isEmpty ? 'user' : message.senderType,
@@ -439,6 +453,8 @@ class WorldChatroomMessage {
         () => message.locationMessageId,
       ),
       conversationRoundId: message.conversationRoundId,
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
       senderType: chatroomUserEnterLocationSenderType,
@@ -468,6 +484,8 @@ class WorldChatroomMessage {
         () => message.locationMessageId,
       ),
       conversationRoundId: message.conversationRoundId,
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       roundOrder: message.roundOrder,
       locationId: message.locationId,
       senderType:
@@ -498,6 +516,8 @@ class WorldChatroomMessage {
         () => message.locationMessageId,
       ),
       conversationRoundId: message.conversationRoundId,
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       roundOrder: message.roundOrder,
       tickNo: message.tickNo,
       subTickNo: message.subTickNo,
@@ -577,6 +597,8 @@ class WorldChatroomMessage {
       messageId: event.messageId,
       locationMessageId: _safeLocationMessageId(() => event.locationMessageId),
       conversationRoundId: event.conversationRoundId,
+      conversationType: event.conversationType,
+      triggerUid: event.triggerUid,
       roundOrder: event.roundOrder,
       tickNo: 0,
       locationId: event.locationId,
@@ -601,6 +623,8 @@ class WorldChatroomMessage {
     int? messageId,
     int? locationMessageId,
     String? conversationRoundId,
+    String? conversationType,
+    String? triggerUid,
     int? roundOrder,
     int? tickNo,
     int? subTickNo,
@@ -628,6 +652,8 @@ class WorldChatroomMessage {
       messageId: messageId ?? this.messageId,
       locationMessageId: locationMessageId ?? this.locationMessageId,
       conversationRoundId: conversationRoundId ?? this.conversationRoundId,
+      conversationType: conversationType ?? this.conversationType,
+      triggerUid: triggerUid ?? this.triggerUid,
       roundOrder: roundOrder ?? this.roundOrder,
       tickNo: tickNo ?? this.tickNo,
       subTickNo: subTickNo ?? this.subTickNo,

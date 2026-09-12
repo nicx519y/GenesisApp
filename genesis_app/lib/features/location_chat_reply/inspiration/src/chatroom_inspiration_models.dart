@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../../../../network/chatroom/chatroom_feature_quota_models.dart';
+
 class ChatroomInspirationSource {
   const ChatroomInspirationSource({
     required this.ownerUid,
@@ -37,13 +39,18 @@ class ChatroomInspirationResponse {
     required this.sourceCardId,
     required this.messages,
     required this.gatewayRequestId,
+    this.quota,
   });
 
   final int conversationRoundId, cardId, sourceCardId;
   final List<String> messages;
   final String gatewayRequestId;
+  final ChatroomFeatureQuota? quota;
 
-  factory ChatroomInspirationResponse.fromJson(Object? value) {
+  factory ChatroomInspirationResponse.fromJson(
+    Object? value, {
+    ChatroomFeatureQuota? quota,
+  }) {
     if (value is! Map) {
       throw const FormatException('Invalid inspiration response');
     }
@@ -69,6 +76,7 @@ class ChatroomInspirationResponse {
       sourceCardId: id('source_card_id'),
       messages: List<String>.unmodifiable(messages.cast<String>()),
       gatewayRequestId: gateway,
+      quota: quota,
     );
   }
 

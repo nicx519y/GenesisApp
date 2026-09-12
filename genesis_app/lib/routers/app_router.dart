@@ -14,6 +14,7 @@ import '../pages/legal/legal_document_page.dart';
 import '../pages/gems/gem_records_page.dart';
 import '../pages/gems/gem_wallet_page.dart';
 import '../pages/gems/memory_model_page.dart';
+import '../pages/gems/memory_model_page_cache.dart';
 import '../pages/search/search_page.dart';
 import '../pages/origin/origin_world_page.dart';
 import '../pages/world/world_page.dart';
@@ -143,7 +144,7 @@ class _LegalRouteArgs {
 }
 
 class _MemoryModelRouteArgs {
-  const _MemoryModelRouteArgs({required this.worldId});
+  const _MemoryModelRouteArgs({required this.worldId, this.pageCache});
 
   factory _MemoryModelRouteArgs.from(Object? raw) {
     final args = _RouteArgs(raw);
@@ -153,10 +154,12 @@ class _MemoryModelRouteArgs {
         'worldId',
         'wid',
       ], fallback: args.directString()).trim(),
+      pageCache: args.typed<MemoryModelPageCache>(const ['page_cache']),
     );
   }
 
   final String worldId;
+  final MemoryModelPageCache? pageCache;
 }
 
 class _OriginWorldRouteArgs {
@@ -713,7 +716,8 @@ sealed class AppRouter {
         final args = _MemoryModelRouteArgs.from(settings.arguments);
         return GenesisDarkPageRoute<String>(
           settings: settings,
-          builder: (_) => MemoryModelPage(worldId: args.worldId),
+          builder: (_) =>
+              MemoryModelPage(worldId: args.worldId, pageCache: args.pageCache),
         );
       case RouteNames.pageNotFound:
         return GenesisDarkPageRoute<void>(

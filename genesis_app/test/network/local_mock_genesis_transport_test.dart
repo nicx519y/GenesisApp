@@ -16,21 +16,57 @@ import 'package:genesis_flutter_android/network/models/search_v2.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 
 void main() {
-  test('local mock exposes structurally valid zero feature quotas', () async {
-    final quotas = await GenesisApi(
-      useMock: true,
-    ).chatroomHttp.getFeatureQuotas();
+  setUp(LocalMockGenesisTransport.instance.resetFeatureQuotaUsage);
+  test('local mock shares budget and keeps per-world usage capped', () async {
+    final api = GenesisApi(useMock: true);
+    const worldOne = 'w_memory_mock_one';
+    const worldTwo = 'w_memory_mock_two';
 
-    expect(quotas.membershipStatus, 0);
-    for (final quota in [quotas.inspiration, quotas.conversationEdit]) {
-      expect(quota.scope, ChatroomFeatureQuotaScope.trialLifetime);
-      expect(quota.unlimited, isFalse);
-      expect(quota.limit, 0);
-      expect(quota.used, 0);
-      expect(quota.remaining, 0);
-      expect(quota.resetAtUnixSeconds, isNull);
-    }
+    await api.v1.user.updateMemorySettings(memoryTokens: 12400);
+    final worldOneBefore = await api.v1.user.memorySettings(worldId: worldOne);
+    final worldTwoBefore = await api.v1.user.memorySettings(worldId: worldTwo);
+    await api.v1.user.updateMemorySettings(memoryTokens: 8000);
+    final worldOneAfter = await api.v1.user.memorySettings(worldId: worldOne);
+    final worldTwoAfter = await api.v1.user.memorySettings(worldId: worldTwo);
+
+    expect(worldOneBefore.memoryTokens, 12400);
+    expect(worldTwoBefore.memoryTokens, 12400);
+    expect(worldOneBefore.memoryUsedTokens, 6000);
+    expect(worldTwoBefore.memoryUsedTokens, 9000);
+    expect(worldOneAfter.memoryTokens, 8000);
+    expect(worldTwoAfter.memoryTokens, 8000);
+    expect(worldOneAfter.memoryUsedTokens, 6000);
+    expect(worldTwoAfter.memoryUsedTokens, 8000);
+
+    await expectLater(
+      api.v1.user.updateMemorySettings(memoryTokens: 7999),
+      throwsA(isA<ApiException>().having((error) => error.code, 'code', 4004)),
+    );
+    await expectLater(
+      api.v1.user.updateMemorySettings(memoryTokens: 0),
+      throwsA(isA<ApiException>().having((error) => error.code, 'code', 4004)),
+    );
+    await api.v1.user.updateMemorySettings(memoryTokens: 48000);
   });
+
+  test(
+    'local mock exposes independent lifetime trial feature quotas',
+    () async {
+      final quotas = await GenesisApi(
+        useMock: true,
+      ).chatroomHttp.getFeatureQuotas();
+
+      expect(quotas.membershipStatus, 0);
+      for (final quota in [quotas.inspiration, quotas.conversationEdit]) {
+        expect(quota.scope, ChatroomFeatureQuotaScope.trialLifetime);
+        expect(quota.unlimited, isFalse);
+        expect(quota.limit, 3);
+        expect(quota.used, 0);
+        expect(quota.remaining, 3);
+        expect(quota.resetAtUnixSeconds, isNull);
+      }
+    },
+  );
 
   test(
     'local mock never acknowledges a membership receipt or prepares a purchase identity',
@@ -121,6 +157,42 @@ void main() {
     expect(textHistory.messages, isNotEmpty);
     expect(
       textHistory.messages.every((message) => message.messageType == 'text'),
+      isTrue,
+    );
+    expect(
+      textHistory.messages.every(
+        (message) =>
+            message.conversationType == 'user_message' &&
+            message.triggerUid == 'u_mock_001',
+      ),
+      isTrue,
+    );
+    final legacyTextHistory = await api.chatroomHttp.getLegacyMessages(
+      worldId: 'w_mock_001',
+      locationId: 'loc_hub',
+      since: 0,
+      limit: 20,
+    );
+    expect(
+      legacyTextHistory.messages.every(
+        (message) =>
+            message.conversationType == 'user_message' &&
+            message.triggerUid == 'u_mock_001',
+      ),
+      isTrue,
+    );
+    final openingHistory = await api.chatroomHttp.getMessages(
+      worldId: 'w_mock_001',
+      locationId: 'loc_gate',
+      since: 0,
+      limit: 20,
+    );
+    expect(openingHistory.messages, isNotEmpty);
+    expect(
+      openingHistory.messages.every(
+        (message) =>
+            message.conversationType == 'opening' && message.triggerUid.isEmpty,
+      ),
       isTrue,
     );
 

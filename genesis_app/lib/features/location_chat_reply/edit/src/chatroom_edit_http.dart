@@ -12,13 +12,15 @@ extension ChatroomEditHttp on ChatroomHttpApi {
     required int conversationRoundId,
     required List<ChatroomLlmMessageOperation> operations,
   }) async {
+    final response = await _postLlmMessageBatch(
+      worldId: worldId,
+      locationId: locationId,
+      conversationRoundId: conversationRoundId,
+      operations: operations,
+    );
     final result = ChatroomMessageMutationResult.fromJson(
-      await _postLlmMessageBatch(
-        worldId: worldId,
-        locationId: locationId,
-        conversationRoundId: conversationRoundId,
-        operations: operations,
-      ),
+      response.data,
+      quota: response.quota,
     );
     if (result.startConversationRoundId > conversationRoundId ||
         result.endConversationRoundId < conversationRoundId) {
@@ -42,7 +44,7 @@ extension ChatroomEditHttp on ChatroomHttpApi {
       conversationRoundId: conversationRoundId,
       cardId: cardId,
     );
-    final data = await _postLlmMessageBatch(
+    final response = await _postLlmMessageBatch(
       worldId: worldId,
       locationId: locationId,
       conversationRoundId: conversationRoundId,
@@ -50,7 +52,10 @@ extension ChatroomEditHttp on ChatroomHttpApi {
       operations: operations,
     );
     try {
-      final result = ChatroomCardMutationResult.fromJson(data);
+      final result = ChatroomCardMutationResult.fromJson(
+        response.data,
+        quota: response.quota,
+      );
       if (result.conversationRoundId != conversationRoundId ||
           result.card.cardId != cardId) {
         throw const FormatException(
@@ -66,7 +71,7 @@ extension ChatroomEditHttp on ChatroomHttpApi {
     }
   }
 
-  Future<Object?> _postLlmMessageBatch({
+  Future<({Object? data, ChatroomFeatureQuota? quota})> _postLlmMessageBatch({
     required String worldId,
     required String locationId,
     required int conversationRoundId,
@@ -94,6 +99,7 @@ extension ChatroomEditHttp on ChatroomHttpApi {
         .toList(growable: false);
     final world = Uri.encodeComponent(_required(worldId, 'worldId'));
     final location = Uri.encodeComponent(_required(locationId, 'locationId'));
+    final quotaObserver = onFeatureQuotaRequest?.call();
     final json = await _client
         .copyWith(retryPolicy: ApiRetryPolicy.none)
         .post<Object?>(
@@ -110,6 +116,6 @@ extension ChatroomEditHttp on ChatroomHttpApi {
         kind: ApiExceptionKind.response,
       );
     }
-    return handleV1ResponseErrNo(json);
+    return _featureOperationResponse(json, 'conversation_edit', quotaObserver);
   }
 }

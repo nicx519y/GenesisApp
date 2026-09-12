@@ -177,7 +177,22 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     int socketTickNo = 0,
   }) {
     if (_disposed) return;
+    final occurrence =
+        chatroomFailureOccurrenceKey(failure, worldId: _worldId) ??
+        (failure.cause is ChatroomEvent ? failure.cause! : failure);
+    if (!_reportedFailureOccurrences.add(occurrence)) return;
+    if (_reportedFailureOccurrences.length > 512) {
+      _reportedFailureOccurrences.remove(_reportedFailureOccurrences.first);
+    }
     if (!_failures.isClosed) _failures.add(failure);
+    if (isChatroomBalanceFailureCode(failure.code)) {
+      _emitBalanceAlert(
+        GemBalanceAlert(
+          kind: GemBalanceAlertKind.insufficient,
+          message: failure.detail.isNotEmpty ? failure.detail : failure.message,
+        ),
+      );
+    }
     _setState(
       _stateWithSocketWorldProgress(
         _state.copyWith(lastFailure: failure),
@@ -267,6 +282,9 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
       'location_msg_id': message.locationMessageId,
       'location_id': message.locationId,
       'conversation_round_id': message.conversationRoundNumber,
+      if (message.conversationType.isNotEmpty)
+        'conversation_type': message.conversationType,
+      'trigger_uid': message.triggerUid,
       'round_order': message.roundOrder,
       'tick_no': message.tickNo,
       'sub_tick_no': message.subTickNo,
@@ -311,6 +329,9 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
           ? fallbackLocationId
           : message.locationId,
       'conversation_round_id': message.conversationRoundId,
+      if (message.conversationType.isNotEmpty)
+        'conversation_type': message.conversationType,
+      'trigger_uid': message.triggerUid,
       'round_order': 0,
       'tick_no': message.tickNo,
       'sub_tick_no': message.subTickNo,

@@ -25,7 +25,7 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hidden = onTap == null && !loading;
-    if (hidden) return const SizedBox.square(dimension: size);
+    if (hidden) return const SizedBox.shrink();
     return Semantics(
       container: true,
       label: label,

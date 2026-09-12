@@ -2,6 +2,10 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatReplyBinding on _LocationChatPanelState {
   void _detachReplyActions() {
+    _editQuotaChecking = false;
+    _editQuotaLoading = false;
+    _editQuotaQueried = false;
+    _inspirationQuotaQueried = false;
     _detachInspirations();
     _replyBindingGeneration++;
     _replyController?.removeListener(_onReplyActionsChanged);
@@ -13,6 +17,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _replyRegenerationBaselineCardIds = const <int>{};
     _replyRegenerationHasRenderedContent = false;
     _lastReplyStatusError = null;
+    _suppressedReplyActionsIdentity = null;
     _restoredReplyLocations.clear();
   }
 
@@ -48,12 +53,14 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         _syncInspirationView();
         final error = _replyController?.stateFor(widget.locationId)?.error;
         if (error != null &&
+            error is! ChatroomFeatureQuotaException &&
             !identical(error, _lastReplyStatusError) &&
             !_preparingReplyAction &&
             !isChatroomErrorPresentedGlobally(error)) {
           showGenesisToast(context, chatroomOperationErrorMessage(error));
         }
         _lastReplyStatusError = error;
+        _dismissAckLoadingIfVisible();
         _setLocationChatState(() {});
       }
     });
@@ -123,12 +130,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
 
   void _browseReplyCard(int delta) {
     final controller = _replyController;
-    if (controller == null ||
-        _sending ||
-        _preparingReplyAction ||
-        _inspirationLoading) {
-      return;
-    }
+    final state = controller?.stateFor(widget.locationId);
+    if (controller == null || !_replyCardSwitchEnabledFor(state)) return;
     unawaited(
       controller.browse(widget.locationId, delta).catchError((Object error) {
         debugPrint('[ReplyActions] card position persistence failed: $error');
@@ -141,12 +144,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     if (!mounted ||
         !widget.active ||
         state == null ||
-        _sending ||
-        _preparingReplyAction ||
-        _inspirationLoading ||
-        state.busy ||
-        state.frozen ||
-        !state.showCandidates) {
+        !_replyCardSwitchEnabledFor(state)) {
       return false;
     }
     final targetIndex = state.cards.indexWhere((card) => card.cardId == cardId);
@@ -156,40 +154,104 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     return state.viewedCardId == cardId;
   }
 
-  List<LocationChatReplyCard> _replyCardPages(ChatroomReplyRoundState? state) {
-    if (state == null || !state.showCandidates) return const [];
+  List<LocationChatReplyCard> _replyCardPages(
+    ChatroomReplyRoundState? state,
+    List<ChatMessageVm> currentReplyMessages,
+  ) {
+    if (state == null) return const [];
+    if (!state.showCardPresentation) {
+      return currentReplyMessages.isEmpty
+          ? const []
+          : [LocationChatReplyCard(id: 0, messages: currentReplyMessages)];
+    }
     return [
       for (final card in state.cards)
         LocationChatReplyCard(
           id: card.cardId,
-          messages: _replyMessageVms(
-            state.messagesForCard(card.cardId),
-            cardId: card.cardId,
-          ),
+          messages: card.cardId == state.viewedCardId
+              ? currentReplyMessages
+              : _replyMessageVms(
+                  state.messagesForCard(card.cardId),
+                  cardId: card.cardId,
+                ),
         ),
     ];
   }
 
-  ({List<ChatMessageVm> messages, int? anchorIndex}) _replyPresentation(
-    ChatroomReplyRoundState? state,
+  ({
+    List<ChatMessageVm> messages,
+    int? anchorIndex,
+    List<ChatMessageVm> replyMessages,
+  })
+  _replyPresentation(ChatroomReplyRoundState? state) {
+    var source = _locationChatDisplayMessages();
+    final controller = _replyController;
+    if (controller != null) {
+      for (final previous in controller.statesFor(widget.locationId)) {
+        if (identical(previous, state) ||
+            (state != null && previous.roundId >= state.roundId) ||
+            !previous.selectedCardAwaitingFormalHistory) {
+          continue;
+        }
+        final ids = _replyMessageIds(previous);
+        // Do not resurrect a round that has already scrolled out of the
+        // projected window. The round projection below is shared with Go On.
+        if (!source.any(
+          (message) =>
+              message.roundId == '${previous.roundId}' &&
+              ids.contains(message.globalMessageId),
+        )) {
+          continue;
+        }
+        source = _presentReplyRound(source, previous).messages;
+      }
+    }
+    if (state == null) {
+      return (messages: source, anchorIndex: null, replyMessages: const []);
+    }
+    return _presentReplyRound(source, state);
+  }
+
+  ({
+    List<ChatMessageVm> messages,
+    int? anchorIndex,
+    List<ChatMessageVm> replyMessages,
+  })
+  _presentReplyRound(
+    List<ChatMessageVm> source,
+    ChatroomReplyRoundState state,
   ) {
-    final source = _locationChatDisplayMessages();
-    if (state == null) return (messages: source, anchorIndex: null);
-    return buildLocationChatReplyPresentation(
+    final replyMessageIds = _replyMessageIds(state);
+    final candidateMessages = state.showCardPresentation
+        ? _replyMessageVms(state.displayedMessages, cardId: state.viewedCardId)
+        : null;
+    final presentation = buildLocationChatReplyPresentation(
       source: source,
       roundId: '${state.roundId}',
-      replyMessageIds: state.formalReplyMessages
-          .map((message) => message.globalMessageId)
-          .where((id) => id > 0)
-          .toSet(),
-      candidates: state.showCandidates
-          ? _replyMessageVms(
-              state.displayedMessages,
-              cardId: state.viewedCardId,
-            )
-          : null,
+      replyMessageIds: replyMessageIds,
+      candidates: candidateMessages,
+    );
+    final currentReplyMessages =
+        candidateMessages ??
+        [
+          for (final message in source)
+            if (message.roundId == '${state.roundId}' &&
+                message.globalMessageId > 0 &&
+                replyMessageIds.contains(message.globalMessageId))
+              message,
+        ];
+    return (
+      messages: presentation.messages,
+      anchorIndex: presentation.anchorIndex,
+      replyMessages: currentReplyMessages,
     );
   }
+
+  Set<int> _replyMessageIds(ChatroomReplyRoundState state) => state
+      .formalReplyMessages
+      .map((message) => message.globalMessageId)
+      .where((id) => id > 0)
+      .toSet();
 
   List<ChatMessageVm> _replyMessageVms(
     List<WorldChatroomMessage> source, {

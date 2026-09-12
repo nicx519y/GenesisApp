@@ -75,6 +75,7 @@ void main() {
   testWidgets(
     'arrows move whole pages in both directions and commit only once on settle',
     (tester) async {
+      expect(replyCardSwitchDuration, const Duration(milliseconds: 500));
       final key = GlobalKey<LocationChatReplyCardSwitcherState>();
       final commits = <int>[];
       final busy = <bool>[];
@@ -91,7 +92,9 @@ void main() {
         tester.getTopLeft(find.byKey(const ValueKey('body-2'))).dx,
         greaterThan(origin),
       );
-      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 399));
+      expect(commits, isEmpty);
+      await tester.pump(const Duration(milliseconds: 16));
       expect(commits, [2]);
       expect(busy, [true, false]);
       expect(first, findsNothing);
@@ -190,6 +193,34 @@ void main() {
     },
   );
 
+  testWidgets(
+    'disabling during drag cancels without commit and re-enable allows switching',
+    (tester) async {
+      final key = GlobalKey<LocationChatReplyCardSwitcherState>();
+      final commits = <int>[];
+      final busy = <bool>[];
+      await tester.pumpWidget(_host(key, commits, busy));
+      final area = find.byKey(const ValueKey('reply-card-gesture'));
+      final gesture = await tester.startGesture(tester.getCenter(area));
+      await gesture.moveBy(const Offset(-170, 0));
+      await tester.pump();
+      expect(find.byKey(const ValueKey('body-2')), findsOneWidget);
+
+      await tester.pumpWidget(_host(key, commits, busy, enabled: false));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(commits, isEmpty);
+      expect(busy.last, isFalse);
+      expect(find.byKey(const ValueKey('body-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('body-2')), findsNothing);
+
+      await tester.pumpWidget(_host(key, commits, busy));
+      key.currentState!.switchBy(1);
+      await tester.pumpAndSettle();
+      expect(commits, [2]);
+    },
+  );
+
   testWidgets('disabled animations commit immediately', (tester) async {
     final key = GlobalKey<LocationChatReplyCardSwitcherState>();
     final commits = <int>[];
@@ -198,6 +229,317 @@ void main() {
     await tester.pump();
     expect(commits, [2]);
     expect(find.byKey(const ValueKey('body-1')), findsNothing);
+  });
+
+  testWidgets('regenerate card preview keeps its vertical position on switch', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final cards = [
+      LocationChatReplyCard(id: 1, messages: [_message('first', 1)]),
+      LocationChatReplyCard(id: 2, messages: [_message('second', 1)]),
+    ];
+    var current = 1;
+    var revision = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            height: 600,
+            child: StatefulBuilder(
+              builder: (context, update) {
+                final selected = cards.firstWhere((card) => card.id == current);
+                return LocationChatAnchoredMessageList(
+                  coordinator: coordinator,
+                  topTitle: '',
+                  style: kLocationChatStyle,
+                  messages: selected.messages,
+                  replyCards: cards,
+                  replyCurrentCardId: current,
+                  replyActionsIdentity: 'regenerated-round',
+                  replyActionsAnchorIndex: selected.messages.length,
+                  replyPresentationRevision: revision,
+                  replyCardCount: cards.length,
+                  replyCardIndex: current - 1,
+                  onReplyCardSelected: (id) {
+                    update(() {
+                      current = id;
+                      revision++;
+                    });
+                    return true;
+                  },
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byKey(const ValueKey('reply-card-gesture'))),
+    );
+    await gesture.moveBy(const Offset(-30, 0));
+    await gesture.moveBy(const Offset(-170, 0));
+    await tester.pump();
+    final previewRow = tester.widget<ChatMessageRow>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is ChatMessageRow && widget.message.localId == 'second',
+      ),
+    );
+    expect(
+      previewRow.style?.rowBottomPadding,
+      LocationChatReplyActions.contentBottomGap,
+    );
+    final secondBubble = find.byKey(
+      const ValueKey('chat-message-bubble-second'),
+    );
+    final firstY = tester.getTopLeft(secondBubble).dy;
+    expect(
+      firstY,
+      closeTo(
+        tester
+            .getTopLeft(find.byKey(const ValueKey('chat-message-bubble-first')))
+            .dy,
+        0.1,
+      ),
+    );
+    await gesture.up();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(tester.getTopLeft(secondBubble).dy, closeTo(firstY, 0.1));
+    await tester.pumpAndSettle();
+    expect(tester.getTopLeft(secondBubble).dy, closeTo(firstY, 0.1));
+  });
+
+  testWidgets(
+    'regenerate keeps the old card visible behind a shrinking alpha edge until replacement',
+    (tester) async {
+      final key = GlobalKey<LocationChatReplyCardSwitcherState>();
+      final busy = <bool>[];
+      var currentCardId = 1;
+      var regenerationInProgress = false;
+      late StateSetter update;
+      final cards = [
+        LocationChatReplyCard(id: 1, messages: [_message('old', 2)]),
+        LocationChatReplyCard(id: 2, messages: [_message('new', 2)]),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return MediaQuery(
+                  data: const MediaQueryData(disableAnimations: false),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: 400,
+                      child: LocationChatReplyCardSwitcher(
+                        key: key,
+                        identity: 'regenerate-round',
+                        currentCardId: currentCardId,
+                        cards: cards,
+                        regenerationInProgress: regenerationInProgress,
+                        cardBuilder: (card) => SizedBox(
+                          key: ValueKey('regenerate-body-${card.id}'),
+                          height: card.id == 1 ? 180 : 120,
+                        ),
+                        onCommit: (_) => true,
+                        onBusyChanged: busy.add,
+                        onWillChangeLayout: () {},
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      key.currentState!.beginRegenerateCollapse();
+      expect(busy, [true]);
+      await tester.pump();
+      update(() {
+        currentCardId = 2;
+        regenerationInProgress = true;
+      });
+      await tester.pump(const Duration(milliseconds: 16));
+
+      expect(find.byKey(const ValueKey('regenerate-body-1')), findsOneWidget);
+      expect(find.byKey(const ValueKey('regenerate-body-2')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('reply-card-regenerate-gradient')),
+        findsOneWidget,
+      );
+      final firstHeight = tester
+          .getSize(
+            find.byKey(
+              const ValueKey('reply-card-regenerate-collapse-viewport'),
+            ),
+          )
+          .height;
+      expect(firstHeight, lessThan(180));
+      expect(firstHeight, greaterThan(0));
+
+      await tester.pump(const Duration(milliseconds: 80));
+      final secondHeight = tester
+          .getSize(
+            find.byKey(
+              const ValueKey('reply-card-regenerate-collapse-viewport'),
+            ),
+          )
+          .height;
+      expect(secondHeight, lessThan(firstHeight));
+      expect(find.byKey(const ValueKey('regenerate-body-2')), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 720));
+      expect(find.byKey(const ValueKey('regenerate-body-1')), findsNothing);
+      expect(find.byKey(const ValueKey('regenerate-body-2')), findsOneWidget);
+      expect(busy, [true, false]);
+
+      update(() => regenerationInProgress = false);
+      await tester.pump();
+      expect(find.byKey(const ValueKey('regenerate-body-2')), findsOneWidget);
+    },
+  );
+
+  testWidgets('regenerate failure reverses the partial collapse', (
+    tester,
+  ) async {
+    final key = GlobalKey<LocationChatReplyCardSwitcherState>();
+    final busy = <bool>[];
+    var currentCardId = 1;
+    var regenerationInProgress = false;
+    late StateSetter update;
+    final cards = [
+      LocationChatReplyCard(id: 1, messages: [_message('old', 2)]),
+      LocationChatReplyCard(id: -1, messages: []),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return MediaQuery(
+                data: const MediaQueryData(disableAnimations: false),
+                child: Align(
+                  alignment: Alignment.topLeft,
+                  child: SizedBox(
+                    width: 400,
+                    child: LocationChatReplyCardSwitcher(
+                      key: key,
+                      identity: 'failed-regenerate-round',
+                      currentCardId: currentCardId,
+                      cards: cards,
+                      regenerationInProgress: regenerationInProgress,
+                      cardBuilder: (card) => SizedBox(
+                        key: ValueKey('failed-regenerate-body-${card.id}'),
+                        height: card.id == 1 ? 180 : 0,
+                      ),
+                      onCommit: (_) => true,
+                      onBusyChanged: busy.add,
+                      onWillChangeLayout: () {},
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    key.currentState!.beginRegenerateCollapse();
+    expect(busy, [true]);
+    await tester.pump();
+    update(() {
+      currentCardId = -1;
+      regenerationInProgress = true;
+    });
+    await tester.pump(const Duration(milliseconds: 96));
+    final collapsedHeight = tester
+        .getSize(
+          find.byKey(const ValueKey('reply-card-regenerate-collapse-viewport')),
+        )
+        .height;
+
+    update(() {
+      currentCardId = 1;
+      regenerationInProgress = false;
+    });
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 48));
+    await tester.pump(const Duration(milliseconds: 48));
+    final recoveringHeight = tester
+        .getSize(
+          find.byKey(const ValueKey('reply-card-regenerate-collapse-viewport')),
+        )
+        .height;
+    expect(recoveringHeight, greaterThan(collapsedHeight));
+
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('failed-regenerate-body-1')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('failed-regenerate-body--1')),
+      findsNothing,
+    );
+    expect(busy, [true, false]);
+  });
+
+  testWidgets('reduced motion skips the regenerate collapse', (tester) async {
+    final key = GlobalKey<LocationChatReplyCardSwitcherState>();
+    var currentCardId = 1;
+    late StateSetter update;
+    final cards = [
+      LocationChatReplyCard(id: 1, messages: [_message('old', 2)]),
+      LocationChatReplyCard(id: 2, messages: [_message('new', 2)]),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return MediaQuery(
+                data: const MediaQueryData(disableAnimations: true),
+                child: LocationChatReplyCardSwitcher(
+                  key: key,
+                  identity: 'reduced-motion-regenerate',
+                  currentCardId: currentCardId,
+                  cards: cards,
+                  cardBuilder: (card) => SizedBox(
+                    key: ValueKey('reduced-motion-body-${card.id}'),
+                    height: 120,
+                  ),
+                  onCommit: (_) => true,
+                  onBusyChanged: (_) {},
+                  onWillChangeLayout: () {},
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+
+    key.currentState!.beginRegenerateCollapse();
+    update(() => currentCardId = 2);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('reduced-motion-body-1')), findsNothing);
+    expect(find.byKey(const ValueKey('reduced-motion-body-2')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('reply-card-regenerate-gradient')),
+      findsNothing,
+    );
   });
 
   testWidgets(

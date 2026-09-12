@@ -1,24 +1,32 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../ui/theme/genesis_dark_theme.dart';
-import '../../ui/components/genesis_primary_button.dart';
 import '../../components/page_header.dart';
+import '../../network/api_exception.dart';
 import '../../network/models/gem_model.dart';
-import '../../utils/gem_amount.dart';
+import '../../network/models/user_memory_settings.dart';
+import '../../ui/components/genesis_primary_button.dart';
+import '../../ui/components/genesis_refresh_indicator.dart';
+import '../../ui/theme/genesis_dark_theme.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../utils/gem_amount.dart';
+import 'memory_model_page_cache.dart';
 
 typedef GemModelCatalogLoader =
     Future<GemModelCatalog> Function(String worldId);
 typedef GemModelSelectionHandler =
     Future<GemModelSelection> Function(String worldId, String modelCode);
 typedef SelectedModelCodeCacheWriter = Future<void> Function(String modelCode);
+typedef UserMemorySettingsLoader =
+    Future<UserMemorySettings> Function(String? worldId);
+typedef UserMemorySettingsUpdater =
+    Future<UserMemorySettings> Function(int memoryTokens);
 
 class MemoryModelPage extends StatefulWidget {
   const MemoryModelPage({
@@ -27,40 +35,82 @@ class MemoryModelPage extends StatefulWidget {
     this.catalogLoader,
     this.selectionHandler,
     this.selectedModelCodeCacheWriter,
+    this.memorySettingsLoader,
+    this.memorySettingsUpdater,
+    this.pageCache,
   });
 
   final String worldId;
   final GemModelCatalogLoader? catalogLoader;
   final GemModelSelectionHandler? selectionHandler;
   final SelectedModelCodeCacheWriter? selectedModelCodeCacheWriter;
+  final UserMemorySettingsLoader? memorySettingsLoader;
+  final UserMemorySettingsUpdater? memorySettingsUpdater;
+  final MemoryModelPageCache? pageCache;
 
   @override
   State<MemoryModelPage> createState() => _MemoryModelPageState();
 }
 
 class _MemoryModelPageState extends State<MemoryModelPage> {
+  static const Duration _memoryAutosaveDelay = Duration(milliseconds: 500);
+
   GemModelCatalog? _catalog;
   Object? _error;
   bool _loading = false;
-  bool _saving = false;
   String _pendingModelCode = '';
+  String _confirmedModelCode = '';
   int _loadGeneration = 0;
   String _trackedPageWorldId = '';
+
+  int _memoryLoadGeneration = 0;
+  UserMemorySettings? _memorySettings;
+  Object? _memoryError;
+  bool _memoryLoading = false;
+  int _pendingMemoryTokens = 0;
+  int _modelRevision = 0;
+  int _memoryRevision = 0;
+  int? _modelInFlightRevision;
+  int? _memoryInFlightRevision;
+  int? _memoryUncertainRevision;
+  final Set<int> _queuedModelRevisions = <int>{};
+  final Set<int> _queuedMemoryRevisions = <int>{};
+  _ModelSaveRequest? _latestModelRequest;
+  _MemorySaveRequest? _latestMemoryRequest;
+  Timer? _memorySaveTimer;
+  Future<void> _modelSaveTail = Future<void>.value();
+  Future<void> _memorySaveTail = Future<void>.value();
+  bool _exitFlushStarted = false;
 
   @override
   void initState() {
     super.initState();
     _trackSwitchModelPage();
-    unawaited(_refresh());
+    unawaited(_refresh(useCache: true));
+    unawaited(_loadMemorySettings(useCache: true));
   }
 
   @override
   void didUpdateWidget(covariant MemoryModelPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.worldId != widget.worldId) {
+      _memorySaveTimer?.cancel();
+      _modelRevision += 1;
+      _memoryRevision += 1;
+      _latestModelRequest = null;
+      _latestMemoryRequest = null;
+      _memoryUncertainRevision = null;
       _trackSwitchModelPage();
-      unawaited(_refresh());
+      unawaited(_refresh(useCache: true));
+      unawaited(_loadMemorySettings(useCache: true));
     }
+  }
+
+  @override
+  void dispose() {
+    _flushPendingOnExit();
+    _memorySaveTimer?.cancel();
+    super.dispose();
   }
 
   void _trackSwitchModelPage() {
@@ -74,7 +124,9 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     );
   }
 
-  Future<GemModelCatalog> _loadCatalog() {
+  Future<GemModelCatalog> _loadCatalog({bool useCache = false}) {
+    final cached = useCache ? widget.pageCache?.modelCatalog : null;
+    if (cached != null) return Future<GemModelCatalog>.value(cached);
     final loader = widget.catalogLoader;
     if (loader != null) return loader(widget.worldId);
     return AppServicesScope.read(
@@ -82,35 +134,98 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     ).api.v1.gem.models(worldId: widget.worldId);
   }
 
-  Future<GemModelSelection> _saveSelection(String modelCode) {
-    final handler = widget.selectionHandler;
-    if (handler != null) return handler(widget.worldId, modelCode);
+  Future<UserMemorySettings> _loadMemory(String? worldId) {
+    final loader = widget.memorySettingsLoader;
+    if (loader != null) return loader(worldId);
     return AppServicesScope.read(
       context,
-    ).api.v1.gem.selectModel(worldId: widget.worldId, modelCode: modelCode);
+    ).api.v1.user.memorySettings(worldId: worldId);
   }
 
-  SelectedModelCodeCacheWriter? _resolveSelectedModelCodeCacheWriter() {
-    final writer = widget.selectedModelCodeCacheWriter;
-    if (writer != null) return writer;
-    if (widget.selectionHandler != null) return null;
-    final sessionStore = AppServicesScope.read(context).sessionStore;
-    return (modelCode) async {
-      final current = await sessionStore.readUserInfo();
-      final title = _catalog?.titlesByCode()[modelCode] ?? '';
-      await sessionStore.saveUserInfo(
-        userInfoWithSelectedGemModel(
-          current,
-          selectedModelCode: modelCode,
-          titlesByCode: title.isEmpty
-              ? const <String, String>{}
-              : <String, String>{modelCode: title},
-        ),
+  Future<void> _loadMemorySettings({
+    bool preservePending = false,
+    bool useCache = false,
+  }) async {
+    final pageCache = widget.pageCache;
+    final worldId = widget.worldId.trim();
+    final generation = ++_memoryLoadGeneration;
+    setState(() {
+      _memoryLoading = true;
+      _memoryError = null;
+      if (!preservePending) {
+        _memorySettings = null;
+        _pendingMemoryTokens = 0;
+        _latestMemoryRequest = null;
+        _memoryUncertainRevision = null;
+      }
+    });
+    try {
+      final loaded = _validatedMemorySettings(
+        await (useCache && pageCache?.memorySettings != null
+            ? Future<UserMemorySettings>.value(pageCache!.memorySettings!)
+            : _loadMemory(worldId)),
+        requireWorldUsage: true,
+        expectedWorldId: worldId,
       );
-    };
+      if (generation != _memoryLoadGeneration) return;
+      pageCache?.storeMemorySettings(loaded);
+      if (!mounted) return;
+      setState(() {
+        _memorySettings = loaded;
+        if (!preservePending || _latestMemoryRequest == null) {
+          _pendingMemoryTokens = loaded.memoryTokens;
+        } else {
+          _pendingMemoryTokens = _pendingMemoryTokens.clamp(
+            loaded.minMemoryTokens,
+            loaded.maxMemoryTokens,
+          );
+        }
+        _memoryLoading = false;
+      });
+    } catch (error) {
+      debugPrint('[GemModel] load memory settings failed: $error');
+      if (!mounted || generation != _memoryLoadGeneration) return;
+      setState(() {
+        _memoryError = error;
+        _memoryLoading = false;
+      });
+    }
   }
 
-  Future<void> _refresh({bool preserveContent = false}) async {
+  UserMemorySettings _validatedMemorySettings(
+    UserMemorySettings settings, {
+    bool requireWorldUsage = false,
+    String? expectedWorldId,
+  }) {
+    final memoryUsedTokens = settings.memoryUsedTokens;
+    final responseWorldId = settings.worldId?.trim() ?? '';
+    if (settings.minMemoryTokens <= 0 ||
+        settings.maxMemoryTokens < settings.minMemoryTokens ||
+        settings.memoryTokens < settings.minMemoryTokens ||
+        settings.memoryTokens > settings.maxMemoryTokens ||
+        (requireWorldUsage && responseWorldId.isEmpty) ||
+        (expectedWorldId != null && responseWorldId != expectedWorldId) ||
+        (requireWorldUsage && memoryUsedTokens == null) ||
+        (memoryUsedTokens != null &&
+            (memoryUsedTokens < 0 ||
+                memoryUsedTokens > settings.memoryTokens))) {
+      throw const FormatException('Invalid memory settings range');
+    }
+    return settings;
+  }
+
+  Future<void> _refreshAll() async {
+    await Future.wait<void>([
+      _refresh(preserveContent: true),
+      _loadMemorySettings(preservePending: _latestMemoryRequest != null),
+    ]);
+  }
+
+  Future<void> _refresh({
+    bool preserveContent = false,
+    bool useCache = false,
+  }) async {
+    final pageCache = widget.pageCache;
     final generation = ++_loadGeneration;
     setState(() {
       _loading = true;
@@ -118,11 +233,16 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       if (!preserveContent) _catalog = null;
     });
     try {
-      final catalog = await _loadCatalog();
-      if (!mounted || generation != _loadGeneration) return;
+      final catalog = await _loadCatalog(useCache: useCache);
+      if (generation != _loadGeneration) return;
+      pageCache?.storeModelCatalog(catalog);
+      if (!mounted) return;
       setState(() {
         _catalog = catalog;
-        _pendingModelCode = catalog.selectedModelCode;
+        _confirmedModelCode = catalog.selectedModelCode.trim();
+        if (_latestModelRequest == null) {
+          _pendingModelCode = _confirmedModelCode;
+        }
         _loading = false;
       });
     } catch (error) {
@@ -136,232 +256,833 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
 
   void _selectModel(GemModel model) {
     final modelCode = model.modelCode.trim();
-    if (modelCode.isEmpty || _saving || modelCode == _pendingModelCode) return;
+    if (modelCode.isEmpty || modelCode == _pendingModelCode) return;
     setState(() => _pendingModelCode = modelCode);
+    _modelRevision += 1;
+
+    if (modelCode == _confirmedModelCode &&
+        _modelInFlightRevision == null &&
+        _queuedModelRevisions.isEmpty) {
+      _latestModelRequest = null;
+      return;
+    }
+
+    final request = _captureModelSaveRequest(_modelRevision, modelCode);
+    _latestModelRequest = request;
+    _enqueueModelSave(request, showFailure: true);
   }
 
-  Future<void> _submitSelection() async {
-    final modelCode = _pendingModelCode.trim();
-    if (modelCode.isEmpty || _saving) return;
-    final worldId = widget.worldId.trim();
-    if (worldId.isNotEmpty) {
-      GenesisTelemetry.collectLog(
-        actionType: 'pay_event',
-        action: 'switch_model_save',
-        object1: worldId,
-        object2: modelCode,
-      );
+  void _changeMemory(int memoryTokens) {
+    if (memoryTokens == _pendingMemoryTokens) return;
+    setState(() => _pendingMemoryTokens = memoryTokens);
+    _memoryRevision += 1;
+    _memoryUncertainRevision = null;
+    _memorySaveTimer?.cancel();
+
+    final settings = _memorySettings;
+    if (settings == null) return;
+    if (memoryTokens == settings.memoryTokens &&
+        _memoryInFlightRevision == null &&
+        _queuedMemoryRevisions.isEmpty) {
+      _latestMemoryRequest = null;
+      return;
     }
-    final cacheWriter = _resolveSelectedModelCodeCacheWriter();
-    setState(() => _saving = true);
+
+    final request = _captureMemorySaveRequest(_memoryRevision, memoryTokens);
+    _latestMemoryRequest = request;
+    _memorySaveTimer = Timer(
+      _memoryAutosaveDelay,
+      () => _enqueueMemorySave(request, showFailure: true),
+    );
+  }
+
+  _ModelSaveRequest _captureModelSaveRequest(int revision, String modelCode) {
+    final worldId = widget.worldId.trim();
+    final injectedHandler = widget.selectionHandler;
+    final api = injectedHandler == null
+        ? AppServicesScope.read(context).api
+        : null;
+    Future<GemModelSelection> save() => injectedHandler != null
+        ? injectedHandler(worldId, modelCode)
+        : api!.v1.gem.selectModel(worldId: worldId, modelCode: modelCode);
+
+    final injectedWriter = widget.selectedModelCodeCacheWriter;
+    SelectedModelCodeCacheWriter? cacheWriter = injectedWriter;
+    if (cacheWriter == null && injectedHandler == null) {
+      final sessionStore = AppServicesScope.read(context).sessionStore;
+      final title = _catalog?.titlesByCode()[modelCode] ?? '';
+      cacheWriter = (selectedModelCode) async {
+        final current = await sessionStore.readUserInfo();
+        await sessionStore.saveUserInfo(
+          userInfoWithSelectedGemModel(
+            current,
+            selectedModelCode: selectedModelCode,
+            titlesByCode: title.isEmpty
+                ? const <String, String>{}
+                : <String, String>{selectedModelCode: title},
+          ),
+        );
+      };
+    }
+    return _ModelSaveRequest(
+      revision: revision,
+      modelCode: modelCode,
+      worldId: worldId,
+      save: save,
+      cacheWriter: cacheWriter,
+    );
+  }
+
+  _MemorySaveRequest _captureMemorySaveRequest(int revision, int memoryTokens) {
+    final worldId = widget.worldId.trim();
+    final injectedUpdater = widget.memorySettingsUpdater;
+    final injectedLoader = widget.memorySettingsLoader;
+    final services = injectedUpdater == null || injectedLoader == null
+        ? AppServicesScope.read(context)
+        : null;
+    return _MemorySaveRequest(
+      revision: revision,
+      memoryTokens: memoryTokens,
+      worldId: worldId,
+      save: () => injectedUpdater != null
+          ? injectedUpdater(memoryTokens)
+          : services!.api.v1.user.updateMemorySettings(
+              memoryTokens: memoryTokens,
+            ),
+      loadGlobal: () => injectedLoader != null
+          ? injectedLoader(null)
+          : services!.api.v1.user.memorySettings(),
+      loadWorld: () => injectedLoader != null
+          ? injectedLoader(worldId)
+          : services!.api.v1.user.memorySettings(worldId: worldId),
+    );
+  }
+
+  void _enqueueModelSave(
+    _ModelSaveRequest request, {
+    required bool showFailure,
+  }) {
+    if (_queuedModelRevisions.contains(request.revision) ||
+        _modelInFlightRevision == request.revision) {
+      return;
+    }
+    _queuedModelRevisions.add(request.revision);
+    _modelSaveTail = _modelSaveTail
+        .catchError((Object _) {})
+        .then((_) => _performModelSave(request, showFailure: showFailure));
+    unawaited(_modelSaveTail);
+  }
+
+  Future<void> _performModelSave(
+    _ModelSaveRequest request, {
+    required bool showFailure,
+  }) async {
+    _queuedModelRevisions.remove(request.revision);
+    if (request.revision != _modelRevision ||
+        _latestModelRequest?.revision != request.revision) {
+      return;
+    }
+    _modelInFlightRevision = request.revision;
     try {
-      final result = await _saveSelection(modelCode);
-      final responseModelCode = result.selectedModelCode.trim();
-      final selectedModelCode = responseModelCode.isEmpty
-          ? modelCode
-          : responseModelCode;
+      if (request.worldId.isNotEmpty) {
+        GenesisTelemetry.collectLog(
+          actionType: 'pay_event',
+          action: 'switch_model_save',
+          object1: request.worldId,
+          object2: request.modelCode,
+        );
+      }
+      final result = await request.save();
+      final responseCode = result.selectedModelCode.trim();
+      final selectedModelCode = responseCode.isEmpty
+          ? request.modelCode
+          : responseCode;
       try {
-        await cacheWriter?.call(selectedModelCode);
+        await request.cacheWriter?.call(selectedModelCode);
       } catch (error) {
         debugPrint('[GemModel] cache selected model failed: $error');
       }
-      if (!mounted) return;
-      setState(() {
-        _catalog = _catalog?.copyWith(selectedModelCode: selectedModelCode);
-        _pendingModelCode = selectedModelCode;
-      });
-      showGenesisToast(
-        context,
-        'Switched successfully',
-        brightness: Brightness.dark,
+      _confirmedModelCode = selectedModelCode;
+      final updatedCatalog = _catalog?.copyWith(
+        selectedModelCode: selectedModelCode,
       );
-    } catch (_) {
+      if (updatedCatalog != null) {
+        widget.pageCache?.storeModelCatalog(updatedCatalog);
+      }
       if (!mounted) return;
       setState(() {
-        _pendingModelCode = _catalog?.selectedModelCode ?? '';
+        _catalog = updatedCatalog;
+        if (request.revision == _modelRevision) {
+          _pendingModelCode = selectedModelCode;
+          _latestModelRequest = null;
+        }
       });
-      showGenesisToast(context, 'Switched failed', brightness: Brightness.dark);
+    } catch (error, stackTrace) {
+      debugPrint('[GemModel] autosave model failed: $error');
+      GenesisTelemetry.captureException(error, stackTrace);
+      if (mounted && showFailure) {
+        showGenesisToast(context, 'Save failed', brightness: Brightness.dark);
+      }
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (_modelInFlightRevision == request.revision) {
+        _modelInFlightRevision = null;
+      }
+    }
+  }
+
+  void _enqueueMemorySave(
+    _MemorySaveRequest request, {
+    required bool showFailure,
+  }) {
+    if (_queuedMemoryRevisions.contains(request.revision) ||
+        _memoryInFlightRevision == request.revision ||
+        _memoryUncertainRevision == request.revision) {
+      return;
+    }
+    _queuedMemoryRevisions.add(request.revision);
+    _memorySaveTail = _memorySaveTail
+        .catchError((Object _) {})
+        .then((_) => _performMemorySave(request, showFailure: showFailure));
+    unawaited(_memorySaveTail);
+  }
+
+  Future<void> _performMemorySave(
+    _MemorySaveRequest request, {
+    required bool showFailure,
+  }) async {
+    _queuedMemoryRevisions.remove(request.revision);
+    if (request.revision != _memoryRevision ||
+        _latestMemoryRequest?.revision != request.revision) {
+      return;
+    }
+    _memoryInFlightRevision = request.revision;
+    try {
+      final saved = _validatedMemorySettings(await request.save());
+      UserMemorySettings currentWorld;
+      try {
+        currentWorld = _validatedMemorySettings(
+          await request.loadWorld(),
+          requireWorldUsage: true,
+          expectedWorldId: request.worldId,
+        );
+      } catch (error) {
+        debugPrint('[GemModel] refresh saved memory usage failed: $error');
+        final previous = _memorySettings;
+        currentWorld = UserMemorySettings(
+          memoryTokens: saved.memoryTokens,
+          minMemoryTokens: saved.minMemoryTokens,
+          maxMemoryTokens: saved.maxMemoryTokens,
+          worldId: previous?.worldId,
+          memoryUsedTokens: previous?.memoryUsedTokens?.clamp(
+            0,
+            saved.memoryTokens,
+          ),
+        );
+      }
+      widget.pageCache?.storeMemorySettings(currentWorld);
+      widget.pageCache?.clearModelCatalog();
+      if (!mounted) return;
+      setState(() {
+        _memorySettings = currentWorld;
+        _memoryError = null;
+        if (request.revision == _memoryRevision) {
+          _pendingMemoryTokens = saved.memoryTokens;
+          _latestMemoryRequest = null;
+          _memoryUncertainRevision = null;
+        }
+      });
+      await _refresh(preserveContent: true);
+    } catch (error, stackTrace) {
+      debugPrint('[GemModel] autosave memory failed: $error');
+      GenesisTelemetry.captureException(error, stackTrace);
+      if (_isUncertainMemorySave(error)) {
+        _memoryUncertainRevision = request.revision;
+        try {
+          await request.loadGlobal();
+        } catch (reconcileError) {
+          debugPrint(
+            '[GemModel] reconcile uncertain memory save failed: '
+            '$reconcileError',
+          );
+        }
+        if (mounted && showFailure) {
+          showGenesisToast(
+            context,
+            'Save result not confirmed',
+            brightness: Brightness.dark,
+          );
+        }
+      } else if (mounted && showFailure) {
+        showGenesisToast(context, 'Save failed', brightness: Brightness.dark);
+      }
+    } finally {
+      if (_memoryInFlightRevision == request.revision) {
+        _memoryInFlightRevision = null;
+      }
+    }
+  }
+
+  void _flushPendingOnExit() {
+    if (_exitFlushStarted) return;
+    _exitFlushStarted = true;
+    _memorySaveTimer?.cancel();
+    final modelRequest = _latestModelRequest;
+    if (modelRequest != null) {
+      _enqueueModelSave(modelRequest, showFailure: false);
+    }
+    final memoryRequest = _latestMemoryRequest;
+    if (memoryRequest != null &&
+        _memoryUncertainRevision != memoryRequest.revision) {
+      _enqueueMemorySave(memoryRequest, showFailure: false);
     }
   }
 
   void _closePage() {
-    Navigator.of(context).pop(_catalog?.selectedModelCode ?? '');
+    _flushPendingOnExit();
+    Navigator.of(context).pop(_confirmedModelCode);
   }
 
   @override
   Widget build(BuildContext context) {
-    return GenesisDarkTheme(
-      child: Builder(
-        builder: (context) => Scaffold(
-          backgroundColor: GenesisColors.darkBackground,
-          appBar: GenesisBackAppBar(
+    return PopScope(
+      canPop: true,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) _flushPendingOnExit();
+      },
+      child: GenesisDarkTheme(
+        child: Builder(
+          builder: (context) => Scaffold(
             backgroundColor: GenesisColors.darkBackground,
-            foregroundColor: GenesisColors.darkTextPrimary,
-            systemOverlayStyle: SystemUiOverlayStyle.light,
-            pageName: 'Model',
-            titleStyle: const TextStyle(color: GenesisColors.darkTextPrimary),
-            onBack: _closePage,
-            actions: [
-              _ModelSaveAction(
-                saving: _saving,
-                enabled:
-                    !_loading &&
-                    _pendingModelCode.trim().isNotEmpty &&
-                    _pendingModelCode.trim() !=
-                        (_catalog?.selectedModelCode.trim() ?? ''),
-                onPressed: _submitSelection,
-              ),
-            ],
+            appBar: _MemoryModelAppBar(onBack: _closePage),
+            body: SafeArea(top: false, child: _buildBody()),
           ),
-          body: SafeArea(child: _buildBody()),
         ),
       ),
     );
   }
 
   Widget _buildBody() {
+    return GenesisRefreshIndicator(
+      onRefresh: _refreshAll,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          _buildMemoryArea(),
+          const SizedBox(height: 24),
+          const _SectionTitle(title: 'Choose model'),
+          const SizedBox(height: 12),
+          _buildModelArea(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMemoryArea() {
+    final settings = _memorySettings;
+    if (settings == null && _memoryLoading) {
+      return const KeyedSubtree(
+        key: ValueKey('memory-settings-loading'),
+        child: _MemorySettingsLoadingSkeleton(
+          key: ValueKey('memory-settings-loading-skeleton'),
+        ),
+      );
+    }
+    if (settings == null && _memoryError != null) {
+      return _MemoryLoadError(onRetry: () => unawaited(_loadMemorySettings()));
+    }
+    if (settings == null) return const SizedBox.shrink();
+
+    return Column(
+      children: [
+        _CurrentMemorySummary(memoryUsedTokens: settings.memoryUsedTokens!),
+        const SizedBox(height: 30),
+        const Align(
+          alignment: Alignment.centerLeft,
+          child: _SectionTitle(title: 'Max memory limit'),
+        ),
+        const SizedBox(height: 10),
+        _MaxMemoryLimitCard(
+          memoryTokens: _pendingMemoryTokens,
+          minMemoryTokens: settings.minMemoryTokens,
+          maxMemoryTokens: settings.maxMemoryTokens,
+          enabled: !_memoryLoading,
+          onChanged: _changeMemory,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildModelArea() {
     final catalog = _catalog;
     if (catalog == null && _loading) {
-      return const Center(
-        child: SizedBox.square(
-          dimension: 24,
-          child: GenesisLoadingIndicator(
-            key: ValueKey('gem-model-page-loading'),
-            strokeWidth: 2,
-          ),
+      return const KeyedSubtree(
+        key: ValueKey('gem-model-page-loading'),
+        child: _ModelCatalogLoadingSkeleton(
+          key: ValueKey('gem-model-page-loading-skeleton'),
         ),
       );
     }
     if (catalog == null && _error != null) {
       return _ModelLoadError(onRetry: () => unawaited(_refresh()));
     }
-    if (catalog == null || catalog.groups.isEmpty) {
-      return GenesisRefreshIndicator(
-        onRefresh: () => _refresh(preserveContent: true),
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 180),
-            Center(
-              child: Text(
-                'No models available',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: GenesisColors.darkTextTertiary,
-                ),
-              ),
+    final models =
+        catalog?.groups
+            .expand((group) => group.models)
+            .toList(growable: false) ??
+        const <GemModel>[];
+    if (models.isEmpty) {
+      return const SizedBox(
+        height: 140,
+        child: Center(
+          child: Text(
+            'No models available',
+            style: TextStyle(
+              fontSize: 14,
+              color: GenesisColors.darkTextTertiary,
             ),
-          ],
+          ),
         ),
       );
     }
 
-    return GenesisRefreshIndicator(
-      onRefresh: () => _refresh(preserveContent: true),
-      child: ListView.builder(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-        physics: const AlwaysScrollableScrollPhysics(),
-        itemCount: catalog.groups.length,
-        itemBuilder: (context, index) {
-          final group = catalog.groups[index];
-          return Padding(
-            padding: EdgeInsets.only(
-              bottom: index == catalog.groups.length - 1 ? 0 : 24,
-            ),
-            child: _GemModelGroupSection(
-              group: group,
-              selectedModelCode: _pendingModelCode,
-              currentModelCode: catalog.selectedModelCode,
-              enabled: !_saving,
-              onModelTap: _selectModel,
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ModelSaveAction extends StatelessWidget {
-  const _ModelSaveAction({
-    required this.saving,
-    required this.enabled,
-    required this.onPressed,
-  });
-
-  final bool saving;
-  final bool enabled;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 16),
-      child: Center(
-        child: GenesisPrimaryButton(
-          key: const ValueKey('gem-model-save'),
-          label: 'Save',
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-          width: 64,
-          height: 32,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          backgroundColor: GenesisColors.redPrimary,
-          foregroundColor: GenesisColors.darkTextPrimary,
-          isLoading: saving,
-          onPressed: enabled && !saving ? onPressed : null,
-        ),
-      ),
-    );
-  }
-}
-
-class _GemModelGroupSection extends StatelessWidget {
-  const _GemModelGroupSection({
-    required this.group,
-    required this.selectedModelCode,
-    required this.currentModelCode,
-    required this.enabled,
-    required this.onModelTap,
-  });
-
-  final GemModelGroup group;
-  final String selectedModelCode;
-  final String currentModelCode;
-  final bool enabled;
-  final ValueChanged<GemModel> onModelTap;
-
-  @override
-  Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          group.groupTitle,
-          style: const TextStyle(
-            fontSize: 16,
-            height: 20 / 16,
-            fontWeight: FontWeight.w600,
-            color: GenesisColors.darkTextPrimary,
-          ),
-        ),
-        const SizedBox(height: 12),
-        for (var index = 0; index < group.models.length; index += 1) ...[
+        for (var index = 0; index < models.length; index += 1) ...[
           _GemModelTile(
-            model: group.models[index],
-            selected: group.models[index].modelCode == selectedModelCode,
+            model: models[index],
+            selected: models[index].modelCode == _pendingModelCode,
             isCurrentModel:
-                group.models[index].modelCode == currentModelCode.trim(),
-            enabled: enabled,
-            onTap: () => onModelTap(group.models[index]),
+                models[index].modelCode == catalog!.selectedModelCode.trim(),
+            enabled: true,
+            onTap: () => _selectModel(models[index]),
           ),
-          if (index != group.models.length - 1) const SizedBox(height: 10),
+          if (index != models.length - 1) const SizedBox(height: 12),
         ],
       ],
     );
   }
+}
+
+class _ModelSaveRequest {
+  const _ModelSaveRequest({
+    required this.revision,
+    required this.modelCode,
+    required this.worldId,
+    required this.save,
+    required this.cacheWriter,
+  });
+
+  final int revision;
+  final String modelCode;
+  final String worldId;
+  final Future<GemModelSelection> Function() save;
+  final SelectedModelCodeCacheWriter? cacheWriter;
+}
+
+class _MemorySaveRequest {
+  const _MemorySaveRequest({
+    required this.revision,
+    required this.memoryTokens,
+    required this.worldId,
+    required this.save,
+    required this.loadGlobal,
+    required this.loadWorld,
+  });
+
+  final int revision;
+  final int memoryTokens;
+  final String worldId;
+  final Future<UserMemorySettings> Function() save;
+  final Future<UserMemorySettings> Function() loadGlobal;
+  final Future<UserMemorySettings> Function() loadWorld;
+}
+
+class _MemoryModelAppBar extends StatelessWidget
+    implements PreferredSizeWidget {
+  const _MemoryModelAppBar({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(58);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      toolbarHeight: preferredSize.height,
+      automaticallyImplyLeading: false,
+      backgroundColor: GenesisColors.darkBackground,
+      foregroundColor: GenesisColors.darkTextPrimary,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      systemOverlayStyle: SystemUiOverlayStyle.light,
+      titleSpacing: 12,
+      leadingWidth: 66,
+      leading: Padding(
+        padding: const EdgeInsets.only(left: 20),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: _MemoryModelBackButton(onPressed: onBack),
+        ),
+      ),
+      title: const PageTitleText(
+        pageName: 'Memory & Model',
+        style: TextStyle(color: GenesisColors.darkTextPrimary),
+      ),
+    );
+  }
+}
+
+class _MemoryModelBackButton extends StatelessWidget {
+  const _MemoryModelBackButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Back',
+      child: Material(
+        key: const ValueKey('memory-model-back'),
+        color: GenesisColors.darkFaintFill,
+        borderRadius: BorderRadius.circular(10),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          splashFactory: NoSplash.splashFactory,
+          child: const SizedBox.square(
+            dimension: 34,
+            child: Icon(
+              Icons.arrow_back_ios_new,
+              size: 17,
+              color: GenesisColors.darkTextPrimary,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MemorySettingsLoadingSkeleton extends StatelessWidget {
+  const _MemorySettingsLoadingSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        _MemoryModelLoadingBone(width: 72, height: 38),
+        SizedBox(height: 8),
+        _MemoryModelLoadingBone(width: 168, height: 14),
+        SizedBox(height: 30),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _MemoryModelLoadingBone(width: 144, height: 22),
+        ),
+        SizedBox(height: 10),
+        _MemoryModelLoadingBone(height: 93, borderRadius: 14),
+      ],
+    );
+  }
+}
+
+class _ModelCatalogLoadingSkeleton extends StatelessWidget {
+  const _ModelCatalogLoadingSkeleton({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      children: [
+        _MemoryModelLoadingBone(height: 126, borderRadius: 14),
+        SizedBox(height: 12),
+        _MemoryModelLoadingBone(height: 126, borderRadius: 14),
+        SizedBox(height: 12),
+        _MemoryModelLoadingBone(height: 126, borderRadius: 14),
+      ],
+    );
+  }
+}
+
+class _MemoryModelLoadingBone extends StatelessWidget {
+  const _MemoryModelLoadingBone({
+    this.width,
+    required this.height,
+    this.borderRadius = 4,
+  });
+
+  final double? width;
+  final double height;
+  final double borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: GenesisColors.darkFaintFill,
+        borderRadius: BorderRadius.circular(borderRadius),
+      ),
+      child: SizedBox(width: width ?? double.infinity, height: height),
+    );
+  }
+}
+
+class _CurrentMemorySummary extends StatelessWidget {
+  const _CurrentMemorySummary({required this.memoryUsedTokens});
+
+  final int memoryUsedTokens;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(
+          formatMemoryTokens(memoryUsedTokens),
+          key: const ValueKey('memory-model-current-usage'),
+          style: const TextStyle(
+            fontSize: 32,
+            height: 38 / 32,
+            fontWeight: FontWeight.w700,
+            color: GenesisColors.darkTextPrimary,
+          ),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Your current memory usage',
+          style: TextStyle(
+            fontSize: 13,
+            height: 18 / 13,
+            fontWeight: FontWeight.w400,
+            color: GenesisColors.darkTextTertiary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        fontSize: 16,
+        height: 22 / 16,
+        fontWeight: FontWeight.w600,
+        color: GenesisColors.darkTextPrimary,
+      ),
+    );
+  }
+}
+
+class _MaxMemoryLimitCard extends StatelessWidget {
+  const _MaxMemoryLimitCard({
+    required this.memoryTokens,
+    required this.minMemoryTokens,
+    required this.maxMemoryTokens,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final int memoryTokens;
+  final int minMemoryTokens;
+  final int maxMemoryTokens;
+  final bool enabled;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final sliderValue = memorySliderValueForTokens(
+      memoryTokens,
+      minMemoryTokens: minMemoryTokens,
+      maxMemoryTokens: maxMemoryTokens,
+    );
+    return Container(
+      key: const ValueKey('memory-model-max-memory-card'),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
+      decoration: BoxDecoration(
+        color: GenesisColors.darkCardBackground,
+        border: Border.all(color: GenesisColors.darkCardBorder),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          SizedBox(
+            height: 58,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                const bubbleWidth = 44.0;
+                const sliderOverflow = 11.0;
+                const thumbRadius = 10.0;
+                final sliderWidth = constraints.maxWidth + sliderOverflow * 2;
+                final thumbCenter =
+                    -sliderOverflow +
+                    thumbRadius +
+                    sliderValue * (sliderWidth - thumbRadius * 2);
+                final bubbleLeft = (thumbCenter - bubbleWidth / 2).clamp(
+                  -15.0,
+                  constraints.maxWidth + 15 - bubbleWidth,
+                );
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      left: bubbleLeft,
+                      top: 0,
+                      child: _MemoryValueBubble(
+                        value: formatMemoryTokens(memoryTokens),
+                        pointerCenterX: thumbCenter - bubbleLeft,
+                      ),
+                    ),
+                    Positioned(
+                      left: -sliderOverflow,
+                      right: -sliderOverflow,
+                      top: 10,
+                      height: 48,
+                      child: SliderTheme(
+                        data: SliderTheme.of(context).copyWith(
+                          trackHeight: 4,
+                          activeTrackColor: GenesisColors.redPrimary,
+                          inactiveTrackColor: GenesisColors.darkFaintFill,
+                          disabledActiveTrackColor: GenesisColors.redPrimary,
+                          disabledInactiveTrackColor:
+                              GenesisColors.darkFaintFill,
+                          thumbColor: GenesisColors.darkTextPrimary,
+                          disabledThumbColor: GenesisColors.darkTextTertiary,
+                          overlayColor: GenesisColors.redPrimary.withValues(
+                            alpha: 0.16,
+                          ),
+                          overlayShape: const RoundSliderOverlayShape(
+                            overlayRadius: 24,
+                          ),
+                          thumbShape: const RoundSliderThumbShape(
+                            enabledThumbRadius: 10,
+                            disabledThumbRadius: 10,
+                            elevation: 2,
+                            pressedElevation: 2,
+                          ),
+                        ),
+                        child: Slider(
+                          key: const ValueKey('memory-model-max-memory-slider'),
+                          value: sliderValue,
+                          onChanged:
+                              enabled && minMemoryTokens < maxMemoryTokens
+                              ? (value) => onChanged(
+                                  memoryTokensForSliderValue(
+                                    value,
+                                    minMemoryTokens: minMemoryTokens,
+                                    maxMemoryTokens: maxMemoryTokens,
+                                  ),
+                                )
+                              : null,
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                formatMemoryTokens(minMemoryTokens),
+                key: const ValueKey('memory-model-min-memory'),
+                style: const TextStyle(
+                  fontSize: 11,
+                  height: 14 / 11,
+                  color: GenesisColors.darkTextTertiary,
+                ),
+              ),
+              Text(
+                formatMemoryTokens(maxMemoryTokens),
+                key: const ValueKey('memory-model-max-memory'),
+                style: const TextStyle(
+                  fontSize: 11,
+                  height: 14 / 11,
+                  color: GenesisColors.darkTextTertiary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemoryValueBubble extends StatelessWidget {
+  const _MemoryValueBubble({required this.value, required this.pointerCenterX});
+
+  final String value;
+  final double pointerCenterX;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      value: value,
+      child: SizedBox(
+        width: 44,
+        height: 22,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Container(
+              key: const ValueKey('memory-model-max-memory-value'),
+              width: 44,
+              height: 18,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: GenesisColors.darkTextPrimary,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 10,
+                  height: 12 / 10,
+                  fontWeight: FontWeight.w600,
+                  color: GenesisColors.textPrimary,
+                ),
+              ),
+            ),
+            Positioned(
+              left: pointerCenterX - 4,
+              top: 18,
+              child: const CustomPaint(
+                key: ValueKey('memory-model-max-memory-pointer'),
+                size: Size(8, 4),
+                painter: _MemoryBubblePointerPainter(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MemoryBubblePointerPainter extends CustomPainter {
+  const _MemoryBubblePointerPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = GenesisColors.darkTextPrimary);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _GemModelTile extends StatelessWidget {
@@ -381,19 +1102,23 @@ class _GemModelTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = selected
-        ? GenesisColors.redPrimary
-        : GenesisColors.darkFaintFill;
     return Semantics(
       button: true,
       selected: selected,
       enabled: enabled,
       child: Material(
         key: ValueKey<String>('gem-model-${model.modelCode}'),
-        color: GenesisColors.darkRaisedBackground,
+        color: selected
+            ? GenesisColors.redPrimary.withValues(alpha: 0.12)
+            : GenesisColors.darkCardBackground,
         shape: RoundedRectangleBorder(
-          side: BorderSide(color: borderColor, width: selected ? 1.2 : 1),
-          borderRadius: BorderRadius.circular(8),
+          side: BorderSide(
+            color: selected
+                ? GenesisColors.redPrimary
+                : GenesisColors.darkCardBorder,
+            width: selected ? 1.5 : 1,
+          ),
+          borderRadius: BorderRadius.circular(14),
         ),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -401,7 +1126,7 @@ class _GemModelTile extends StatelessWidget {
           splashFactory: NoSplash.splashFactory,
           overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 12, 10, 12),
+            padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -411,7 +1136,7 @@ class _GemModelTile extends StatelessWidget {
                     isCurrentModel: isCurrentModel,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 10),
                 Padding(
                   padding: const EdgeInsets.only(top: 1),
                   child: _GemModelSelectionIndicator(selected: selected),
@@ -436,11 +1161,11 @@ class _GemModelTileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final rangeText = model.rangeText.trim();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             if (isCurrentModel) ...[
@@ -449,11 +1174,11 @@ class _GemModelTileContent extends StatelessWidget {
                 width: 6,
                 height: 6,
                 decoration: const BoxDecoration(
-                  color: GenesisColors.brand,
+                  color: GenesisColors.redSecondary,
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 5),
+              const SizedBox(width: 7),
             ],
             Flexible(
               child: Text(
@@ -461,52 +1186,62 @@ class _GemModelTileContent extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 14,
-                  height: 16 / 14,
+                  fontSize: 16,
+                  height: 20 / 16,
                   fontWeight: FontWeight.w600,
                   color: GenesisColors.darkTextPrimary,
                 ),
               ),
             ),
             for (final tag in model.tags) ...[
-              const SizedBox(width: 5),
+              const SizedBox(width: 7),
               _GemModelTag(label: tag),
             ],
           ],
         ),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: Text.rich(
-            TextSpan(
-              text: 'Estimated next message: ',
-              children: [
-                TextSpan(
-                  text:
-                      '${formatGemCent(model.estimatedNextMessageGemsCent)} gems',
-                  style: const TextStyle(color: GenesisColors.redSecondary),
-                ),
-              ],
-            ),
-            key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
-            style: const TextStyle(
-              fontSize: 12,
-              height: 12 / 12,
-              fontWeight: FontWeight.w400,
-              color: GenesisColors.darkTextSecondary,
-            ),
+        Text.rich(
+          TextSpan(
+            text: 'Estimated next message ',
+            children: [
+              TextSpan(
+                text:
+                    '${formatGemCent(model.estimatedNextMessageGemsCent)} gems',
+                style: const TextStyle(color: GenesisColors.redSecondary),
+              ),
+            ],
+          ),
+          key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
+          style: const TextStyle(
+            fontSize: 13,
+            height: 18 / 13,
+            fontWeight: FontWeight.w400,
+            color: GenesisColors.darkTextTertiary,
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 7),
         Text(
           model.description,
           style: const TextStyle(
-            fontSize: 12,
-            height: 14 / 12,
+            fontSize: 13,
+            height: 18 / 13,
             fontWeight: FontWeight.w400,
             color: GenesisColors.darkTextSecondary,
           ),
         ),
+        if (rangeText.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Text(
+            rangeText,
+            key: ValueKey<String>('gem-model-range-${model.modelCode}'),
+            style: const TextStyle(
+              fontSize: 11,
+              height: 14 / 11,
+              fontWeight: FontWeight.w400,
+              color: GenesisColors.darkTextTertiary,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -523,25 +1258,28 @@ class _GemModelTag extends StatelessWidget {
     final displayLabel = normalizedLabel.isEmpty
         ? ''
         : '${normalizedLabel[0].toUpperCase()}${normalizedLabel.substring(1)}';
-    final backgroundColor = normalizedLabel == 'hot'
-        ? const Color(0xFFFF7A1A)
-        : GenesisColors.redPrimary;
+    final outlined = normalizedLabel == 'hot';
     return Container(
       key: ValueKey<String>('gem-model-tag-$normalizedLabel'),
       height: 20,
       padding: const EdgeInsets.symmetric(horizontal: 8),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(8),
+        color: outlined ? Colors.transparent : GenesisColors.redPrimary,
+        border: outlined
+            ? Border.all(color: GenesisColors.redSecondary, width: 1)
+            : null,
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         displayLabel,
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 10,
-          height: 14 / 10,
+          height: 13 / 10,
           fontWeight: FontWeight.w600,
-          color: GenesisColors.darkTextPrimary,
+          color: outlined
+              ? GenesisColors.redSecondary
+              : GenesisColors.darkTextPrimary,
         ),
       ),
     );
@@ -556,24 +1294,27 @@ class _GemModelSelectionIndicator extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 15,
-      height: 15,
+      width: 20,
+      height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: selected ? GenesisColors.redPrimary : Colors.transparent,
         border: Border.all(
           color: selected
               ? GenesisColors.redPrimary
-              : GenesisColors.darkFaintFill,
-          width: 1,
+              : GenesisColors.darkTextTertiary,
+          width: 2,
         ),
       ),
       alignment: Alignment.center,
       child: selected
-          ? const Icon(
-              Icons.check_rounded,
-              size: 12,
-              color: GenesisColors.darkTextPrimary,
+          ? const SizedBox.square(
+              dimension: 9,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: GenesisColors.redPrimary,
+                  shape: BoxShape.circle,
+                ),
+              ),
             )
           : null,
     );
@@ -587,20 +1328,121 @@ class _ModelLoadError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'Load failed',
-            style: TextStyle(
-              fontSize: 14,
-              color: GenesisColors.darkTextTertiary,
+    return SizedBox(
+      height: 140,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Load failed',
+              style: TextStyle(
+                fontSize: 14,
+                color: GenesisColors.darkTextTertiary,
+              ),
             ),
-          ),
-          const SizedBox(height: 14),
-          GenesisPrimaryButton(onPressed: onRetry, label: 'Retry'),
-        ],
+            const SizedBox(height: 14),
+            GenesisPrimaryButton(
+              onPressed: onRetry,
+              label: 'Retry',
+              fullWidth: false,
+              width: 96,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+@visibleForTesting
+double memorySliderValueForTokens(
+  int memoryTokens, {
+  required int minMemoryTokens,
+  required int maxMemoryTokens,
+}) {
+  if (minMemoryTokens <= 0 || maxMemoryTokens <= minMemoryTokens) return 0;
+  final normalized = memoryTokens.clamp(minMemoryTokens, maxMemoryTokens);
+  return math.log(normalized / minMemoryTokens) /
+      math.log(maxMemoryTokens / minMemoryTokens);
+}
+
+@visibleForTesting
+int memoryTokensForSliderValue(
+  double value, {
+  required int minMemoryTokens,
+  required int maxMemoryTokens,
+}) {
+  if (minMemoryTokens <= 0 || maxMemoryTokens <= minMemoryTokens) {
+    return minMemoryTokens;
+  }
+  final normalized = value.clamp(0.0, 1.0);
+  if (normalized <= 0) return minMemoryTokens;
+  if (normalized >= 1) return maxMemoryTokens;
+  final memoryTokens =
+      minMemoryTokens * math.pow(maxMemoryTokens / minMemoryTokens, normalized);
+  final roundedToOneK = (memoryTokens / 1000).round() * 1000;
+  return roundedToOneK.clamp(minMemoryTokens, maxMemoryTokens);
+}
+
+@visibleForTesting
+String formatMemoryTokens(int memoryTokens) {
+  if (memoryTokens.abs() >= 1000000) {
+    return '${_compactMemoryNumber(memoryTokens / 1000000)}M';
+  }
+  if (memoryTokens.abs() >= 1000) {
+    return '${_compactMemoryNumber(memoryTokens / 1000)}K';
+  }
+  return memoryTokens.toString();
+}
+
+String _compactMemoryNumber(double value) {
+  final rounded = (value * 10).round() / 10;
+  return rounded == rounded.truncateToDouble()
+      ? rounded.toInt().toString()
+      : rounded.toStringAsFixed(1);
+}
+
+bool _isUncertainMemorySave(Object error) {
+  if (error is TimeoutException) return true;
+  return error is ApiException &&
+      (error.code == 5000 ||
+          error.kind == ApiExceptionKind.timeout ||
+          error.kind == ApiExceptionKind.transport ||
+          error.retryable);
+}
+
+class _MemoryLoadError extends StatelessWidget {
+  const _MemoryLoadError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey('memory-settings-load-error'),
+      height: 190,
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Memory settings unavailable',
+              style: TextStyle(
+                fontSize: 14,
+                color: GenesisColors.darkTextTertiary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            GenesisPrimaryButton(
+              key: const ValueKey('memory-settings-retry'),
+              onPressed: onRetry,
+              label: 'Retry',
+              fullWidth: false,
+              width: 96,
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,4 @@
+import 'chatroom_feature_quota_models.dart';
 import 'chatroom_models.dart' show ChatroomV2Message;
 
 /// Contract-only models. Candidate snapshots are separate from formal messages.
@@ -215,6 +216,8 @@ class ChatroomLlmCard {
   });
 
   final int cardId, cardIndex;
+  // Retained for wire compatibility only. Client edit/delete eligibility must
+  // not depend on these server capability hints.
   final bool isOriginal, canEdit, canDelete;
   final ChatroomCardGenerationState generationState;
   final List<ChatroomLlmCardMessage> messages;
@@ -269,16 +272,22 @@ class ChatroomCardMutationResult {
   const ChatroomCardMutationResult({
     required this.conversationRoundId,
     required this.card,
+    this.quota,
   });
   final int conversationRoundId;
   final ChatroomLlmCard card;
+  final ChatroomFeatureQuota? quota;
 
-  factory ChatroomCardMutationResult.fromJson(Object? value) {
+  factory ChatroomCardMutationResult.fromJson(
+    Object? value, {
+    ChatroomFeatureQuota? quota,
+  }) {
     final json = llmCardMap(value);
     final round = llmCardInt(json['conversation_round_id']);
     return ChatroomCardMutationResult(
       conversationRoundId: round,
       card: ChatroomLlmCard.fromJson(json['card'], conversationRoundId: round),
+      quota: quota,
     );
   }
 }
@@ -301,6 +310,8 @@ class ChatroomLlmCardsResponse {
   final int selectedCardId;
   final int activeCardId;
   final bool confirmed;
+  // Retained for wire compatibility only. Client reply-action eligibility
+  // must not depend on these server capability hints.
   final bool canRegenerate;
   final bool canConfirm;
 

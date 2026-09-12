@@ -61,6 +61,7 @@ Map<String, Object?> _frame(
   'world_id': world,
   'location_id': location,
   'user_id': user,
+  'trigger_uid': user,
   'conversation_round_id': _id,
   if (type == 'llm_card_stream') 'global_message_id': _id + 3,
   'sender_type': 'character',
@@ -82,6 +83,7 @@ Map<String, Object?> _card({int cardId = _id, String content = 'Hello'}) => {
   'messages': [
     {
       ..._frame('character', payload: {'content': content}),
+      'conversation_type': 'user_message',
       'card_id': cardId,
       'card_message_index': 1,
       'global_message_id': _id + 3,
@@ -175,6 +177,193 @@ Future<ChatroomSession> _session(
 }
 
 void main() {
+  for (final state in ['failed', 'succeeded']) {
+    test(
+      'late regeneration $state receipt stays visible after ACK timeout',
+      () async {
+        final socket = _Socket();
+        final session = await _session(socket);
+        final events = <ChatroomAck>[];
+        final subscription = session.events
+            .where((event) => event is ChatroomAck)
+            .cast<ChatroomAck>()
+            .listen(events.add);
+        addTearDown(subscription.cancel);
+        final action = session.regenerateLlmCard(
+          locationId: 'l',
+          conversationRoundId: _id,
+          clientMsgId: 'late-receipt',
+        );
+        await expectLater(
+          action,
+          throwsA(
+            isA<ChatroomFailureEvent>().having(
+              (failure) => failure.code,
+              'code',
+              'ack_timeout',
+            ),
+          ),
+        );
+        socket.emit({
+          ..._frame('ack', payload: {'regeneration': _regen(state)}),
+          'client_msg_id': 'late-receipt',
+        });
+        await _tick();
+        expect(events, hasLength(1));
+        expect(events.single.clientMsgId, 'late-receipt');
+        expect(events.single.regeneration!.generationState.name, state);
+        expect(
+          socket.sent.where((frame) => frame['type'] == 'regenerate_llm_card'),
+          hasLength(1),
+        );
+      },
+    );
+  }
+
+  for (final type in ['go_on', 'regenerate_llm_card']) {
+    test('$type late balance ACK retains operation after timeout', () async {
+      final socket = _Socket();
+      final session = await _session(socket);
+      final failures = <ChatroomFailureEvent>[];
+      final subscription = session.failures.listen(failures.add);
+      addTearDown(subscription.cancel);
+      final Future<Object> action = type == 'go_on'
+          ? session.goOn(
+              locationId: 'l',
+              sourceConversationRoundId: _id,
+              clientMsgId: 'late-balance',
+            )
+          : session.regenerateLlmCard(
+              locationId: 'l',
+              conversationRoundId: _id,
+              clientMsgId: 'late-balance',
+            );
+      await expectLater(
+        action,
+        throwsA(
+          isA<ChatroomFailureEvent>().having(
+            (e) => e.code,
+            'code',
+            'ack_timeout',
+          ),
+        ),
+      );
+      final frame = {
+        ..._frame('ack', code: 3001),
+        'client_msg_id': 'late-balance',
+        'location_id': '',
+        'trigger_uid': '',
+      };
+      socket.emit(frame);
+      socket.emit(frame);
+      await _tick();
+      expect(failures.map((failure) => failure.code), ['ack_timeout', '3001']);
+      expect(
+        failures.map((failure) => failure.requestType),
+        everyElement(type),
+      );
+      expect(
+        failures.map((failure) => failure.clientMsgId),
+        everyElement('late-balance'),
+      );
+      expect(socket.sent.where((frame) => frame['type'] == type), hasLength(1));
+    });
+  }
+
+  for (final type in ['go_on', 'regenerate_llm_card']) {
+    test(
+      '$type empty balance ACK rejects without waiting for a terminal',
+      () async {
+        final socket = _Socket();
+        final session = await _session(socket);
+        final failures = <ChatroomFailureEvent>[];
+        final subscription = session.failures.listen(failures.add);
+        addTearDown(subscription.cancel);
+        final Future<Object> action = type == 'go_on'
+            ? session.goOn(
+                locationId: 'l',
+                sourceConversationRoundId: _id,
+                clientMsgId: 'balance-request',
+              )
+            : session.regenerateLlmCard(
+                locationId: 'l',
+                conversationRoundId: _id,
+                clientMsgId: 'balance-request',
+              );
+        final rejected = expectLater(
+          action,
+          throwsA(
+            isA<ChatroomFailureEvent>()
+                .having((e) => e.code, 'code', '3001')
+                .having((e) => e.requestType, 'requestType', type),
+          ),
+        );
+        await _tick();
+        final frame = {
+          ..._frame('ack', code: 3001),
+          'client_msg_id': 'balance-request',
+          'location_id': '',
+          'trigger_uid': '',
+        };
+        socket.emit(frame);
+        await rejected;
+        socket.emit(frame);
+        await _tick();
+        expect(failures, hasLength(1));
+        expect(
+          socket.sent.where((frame) => frame['type'] == type),
+          hasLength(1),
+        );
+      },
+    );
+  }
+
+  for (final terminalFirst in [false, true]) {
+    test(
+      'failed regeneration ACK and terminal dedupe by candidate: $terminalFirst',
+      () async {
+        final socket = _Socket();
+        final session = await _session(socket);
+        final failures = <ChatroomFailureEvent>[];
+        final subscription = session.failures.listen(failures.add);
+        addTearDown(subscription.cancel);
+        final action = session.regenerateLlmCard(
+          locationId: 'l',
+          conversationRoundId: _id,
+          clientMsgId: 'request-1',
+        );
+        await _tick();
+        final error = {'err_no': 21001, 'err_msg': 'Insufficient balance'};
+        final terminal = _frame(
+          'llm_card_generation_end',
+          code: 21001,
+          payload: {
+            'card_id': _id + 1,
+            'generation_state': 'failed',
+            'billing': _billing('cancelled'),
+            'error': error,
+          },
+        );
+        final ack = _frame(
+          'ack',
+          payload: {
+            'regeneration': {..._regen('failed'), 'error': error},
+          },
+        );
+        if (terminalFirst) socket.emit(terminal);
+        socket.emit(ack);
+        final receipt = await action;
+        expect(receipt.generationState, ChatroomCardGenerationState.failed);
+        socket.emit(terminal);
+        socket.emit(ack);
+        await _tick();
+        expect(failures, hasLength(1));
+        expect(failures.single.code, '21001');
+        expect(failures.single.requestType, 'regenerate_llm_card');
+      },
+    );
+  }
+
   test(
     'Go on sends exact body and accepts a new round before any user echo',
     () async {
@@ -562,6 +751,13 @@ void main() {
       expect(card.messages.last.globalMessageId, _id + 4);
       expect(card.messages.first.message.senderId, 'c');
       expect(card.messages.first.message.payload['content'], 'Hello');
+      expect(card.messages.first.message.conversationType, 'user_message');
+      expect(card.messages.first.message.triggerUid, 'u');
+      final invalidTrigger = ChatroomLlmCardMessage.fromJson({
+        ...first,
+        'trigger_uid': 7,
+      });
+      expect(invalidTrigger.message.triggerUid, isEmpty);
       for (final key in [
         'card_id',
         'global_message_id',
@@ -1123,7 +1319,7 @@ void main() {
         }
       }
       await _tick();
-      expect(failures.map((e) => e.code), ['2023', '10001', '2023', '10001']);
+      expect(failures.map((e) => e.code), ['2023', '10001']);
       expect(failures.map((e) => e.message), everyElement('server failure'));
       expect(
         failures.map((e) => e.requestType),

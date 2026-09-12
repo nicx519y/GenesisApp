@@ -28,6 +28,7 @@ import '../debug/location_chat_debug_storage.dart';
 import '../gems/gem_wallet_store.dart';
 import '../membership/membership_catalog.dart';
 import '../membership/membership_access_store.dart';
+import '../membership/chatroom_feature_quota_store.dart';
 import '../membership/membership_purchase_service.dart';
 import '../../platform/billing/membership_checkout_platform.dart';
 import '../../platform/billing/membership_pending_store.dart';
@@ -62,6 +63,7 @@ class AppServices {
     this.membershipPurchases,
     MembershipCatalog? membershipCatalog,
     UserMembershipStatusStore? userMemberships,
+    ChatroomFeatureQuotaStore? featureQuotas,
     ValueNotifier<int>? sessionRevision,
     AppGlobalConfigStore? appGlobalConfig,
   }) : membershipCatalog =
@@ -94,9 +96,7 @@ class AppServices {
     this.userMemberships =
         userMemberships ??
         UserMembershipStatusStore(
-          // A missing badge owner must not replace the page hosting the name.
-          loadUser: (uid) =>
-              api.v1.user.info(uid: uid, handlePageNotFound: false),
+          loadUser: (uid) => api.v1.user.info(uid: uid),
         );
     membership = MembershipAccessStore(
       wallet: this.gemWallet,
@@ -105,6 +105,15 @@ class AppServices {
           (await sessionStore.readAuthToken())?.trim().isNotEmpty == true,
       serverNow: () => gatewayAuth?.serverClock.now,
     );
+    this.featureQuotas =
+        featureQuotas ??
+        ChatroomFeatureQuotaStore(
+          loadQuotas: api.chatroomHttp.getFeatureQuotas,
+          refreshMembership: this.gemWallet.refreshAfterMembershipChanged,
+        );
+    api.chatroomHttp.onFeatureQuotaRequest = this.featureQuotas.beginOperation;
+    this.gemWallet.state.addListener(_featureQuotaMembershipChanged);
+    _featureQuotaMembershipChanged();
     this.sessionRevision.addListener(_membershipSessionChanged);
   }
 
@@ -126,14 +135,49 @@ class AppServices {
   final GemWalletStore gemWallet;
   late final MembershipAccessStore membership;
   late final UserMembershipStatusStore userMemberships;
+  late final ChatroomFeatureQuotaStore featureQuotas;
   final BillingService? billing;
   final MembershipPurchaseService? membershipPurchases;
   final MembershipCatalog membershipCatalog;
   final AppGlobalConfigStore appGlobalConfig;
   final ValueNotifier<int> sessionRevision;
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
+  (String?, int, String, DateTime?)? _quotaMembershipSignature;
+
+  void _featureQuotaMembershipChanged() {
+    final snapshot = gemWallet.state.value;
+    final walletMembership = snapshot.membership;
+    if (snapshot.isRefreshing ||
+        snapshot.lastError != null ||
+        snapshot.updatedAt == null ||
+        walletMembership == null) {
+      return;
+    }
+    final signature = (
+      snapshot.ownerUid,
+      walletMembership.status,
+      walletMembership.planCode,
+      walletMembership.expiresAt,
+    );
+    if (_quotaMembershipSignature == signature) return;
+    _quotaMembershipSignature = signature;
+    final session = sessionRevision.value;
+    final refreshQuotas = featureQuotas.hasRequested;
+    membership.checkVip((isMember) {
+      if (session != sessionRevision.value ||
+          signature != _quotaMembershipSignature) {
+        return;
+      }
+      if (isMember != null) featureQuotas.confirmMembership(isMember);
+      if (refreshQuotas) {
+        unawaited(featureQuotas.refreshAfterMembershipChanged());
+      }
+    });
+  }
 
   void _membershipSessionChanged() {
+    _quotaMembershipSignature = null;
+    featureQuotas.resetForSession();
     userMemberships.reset();
     membershipCatalog.resetForSession();
     membership.resetForSession();
@@ -150,10 +194,14 @@ class AppServices {
 
   void dispose() {
     sessionRevision.removeListener(_membershipSessionChanged);
+    gemWallet.state.removeListener(_featureQuotaMembershipChanged);
+    api.chatroomHttp.onFeatureQuotaRequest = null;
+    _quotaMembershipSignature = null;
     pendingLoginCheckInUid.dispose();
     billing?.dispose();
     membershipPurchases?.dispose();
     userMemberships.dispose();
+    featureQuotas.dispose();
     membership.dispose();
     gemWallet.dispose();
     appGlobalConfig.dispose();
@@ -182,20 +230,7 @@ class ServiceRegistry {
         ProviderIdentityAuthService(sessionStore: sessionStore);
     final sessionRevision = sessionRevisionOverride ?? ValueNotifier<int>(0);
     GemWalletStore? gemWalletStore;
-    var handlingPageNotFound = false;
     var handlingSessionExpired = false;
-    Future<void> handlePageNotFound(String _) async {
-      if (handlingPageNotFound) return;
-      handlingPageNotFound = true;
-      try {
-        final navigator = genesisNavigatorKey.currentState;
-        await navigator?.pushReplacementNamed(RouteNames.pageNotFound);
-      } finally {
-        await Future<void>.delayed(const Duration(seconds: 1));
-        handlingPageNotFound = false;
-      }
-    }
-
     Future<void> handleSessionExpired(String _) async {
       if (handlingSessionExpired) return;
       handlingSessionExpired = true;
@@ -278,7 +313,6 @@ class ServiceRegistry {
       appHeaderProvider: appRequestHeaders.headers,
       gatewayRequestInterceptor: gatewayRequestInterceptor,
       onSessionExpired: handleSessionExpired,
-      onPageNotFound: handlePageNotFound,
       onChatroomMessageMutationError: (message) {
         final overlay = genesisNavigatorKey.currentState?.overlay;
         if (overlay != null) showGenesisToastInOverlay(overlay, message);

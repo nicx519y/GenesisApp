@@ -6,8 +6,10 @@ extension ChatroomGoOnFeatureImplementation on ChatroomReplyActionsController {
     await restore(locationId);
     final state = await _target(locationId);
     if (!state.canGoOn) throw StateError('This round cannot continue');
+    final dispatchGeneration = ++state._goOnDispatchGeneration;
+    final requestId = _request('go-on');
     // Block a second tap synchronously, before any save/select awaits.
-    state._goOn = _PendingGoOn(_request('go-on'));
+    state._goOn = _PendingGoOn(requestId);
     state._error = null;
     _notify();
     var dispatched = false;
@@ -18,16 +20,17 @@ extension ChatroomGoOnFeatureImplementation on ChatroomReplyActionsController {
       }
       state._busy = true;
       await _persist(state);
+      final session = _requireSession();
       dispatched = true;
-      final receipt = await _requireSession().goOn(
+      final receipt = await session.goOn(
         locationId: locationId,
         sourceConversationRoundId: state.roundId,
         clientMsgId: state._goOn!.clientMsgId,
       );
       _checkCurrent();
+      if (dispatchGeneration != state._goOnDispatchGeneration) return receipt;
       state._goOn!.roundId = receipt.conversationRoundId;
       final next = _state(locationId, receipt.conversationRoundId);
-      next._owner = ownerUid;
       if (!next._ended) {
         next._active = true;
         _onGoOnAccepted?.call(locationId, receipt.conversationRoundId);
@@ -49,30 +52,33 @@ extension ChatroomGoOnFeatureImplementation on ChatroomReplyActionsController {
       }
       return receipt;
     } catch (error) {
-      if (!_disposed) {
+      if (!_disposed && dispatchGeneration == state._goOnDispatchGeneration) {
         state._error = error;
-        if (!dispatched || _goOnDefiniteRejection(error)) {
+        if (!dispatched || _definiteRejection(error)) {
           state._goOn = null;
         } else {
           state._goOn!.uncertain = true;
         }
         await _persist(state);
+        if (error is ChatroomFailureEvent &&
+            isChatroomBalanceFailureCode(error.code)) {
+          unawaited(_refreshRejectedReplyBalance(state, requestId));
+        }
         if (state._goOn case final pending?
             when pending.uncertain && !pending.finished) {
-          try {
-            await _refreshLatestHistory?.call(locationId);
-          } catch (_) {
-            // The original request error remains the useful user-facing cause.
-          }
+          // A refresh without a correlated terminal result cannot prove that
+          // this non-idempotent request failed. Keep the receipt pending so a
+          // late event or reconnect recovery can resolve it without resending.
           if (!_disposed && identical(state._goOn, pending)) {
-            pending.finished = true;
             await _persist(state);
           }
         }
       }
       rethrow;
     } finally {
-      state._busy = false;
+      if (dispatchGeneration == state._goOnDispatchGeneration) {
+        state._busy = false;
+      }
       _notify();
     }
   }

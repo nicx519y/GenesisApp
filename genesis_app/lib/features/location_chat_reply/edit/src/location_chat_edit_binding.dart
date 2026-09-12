@@ -10,21 +10,48 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
     if (controller == null ||
         _sending ||
         _replyCardTransitionBusy ||
+        _editQuotaChecking ||
         _preparingReplyAction ||
         _inspirationLoading ||
         _replyEditorOpen) {
       return;
     }
     final location = widget.locationId;
+    final requestedRound = controller.stateFor(location)?.roundId;
     final bindingGeneration = _replyBindingGeneration;
+    final services = _quotaServices;
+    final session = services?.sessionRevision.value;
     bool currentEditor() =>
         mounted &&
         widget.active &&
         bindingGeneration == _replyBindingGeneration &&
         identical(controller, _replyController) &&
+        controller.stateFor(location)?.roundId == requestedRound &&
+        identical(services, _quotaServices) &&
+        session == services?.sessionRevision.value &&
         location == widget.locationId;
-    _setLocationChatState(() => _preparingReplyAction = true);
+    _editQuotaChecking = true;
     try {
+      if (!await _checkReplyFeatureQuota(
+            'conversation_edit',
+            current: currentEditor,
+            onQuotaLookupStarted: () {
+              if (!currentEditor()) return;
+              _setLocationChatState(() {
+                _preparingReplyAction = true;
+                _editQuotaLoading = true;
+              });
+            },
+          ) ||
+          !currentEditor()) {
+        return;
+      }
+      if (!_editQuotaLoading) {
+        _setLocationChatState(() {
+          _preparingReplyAction = true;
+          _editQuotaLoading = true;
+        });
+      }
       final target = await controller.prepareEditor(location);
       if (!currentEditor()) {
         return;
@@ -50,6 +77,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
                   content: text,
                 ),
       ];
+      _setLocationChatState(() => _editQuotaLoading = false);
       await _openReplyEditor(
         LocationChatEditPageArgs(
           worldId: widget.worldId,
@@ -58,14 +86,24 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
           cardId: target.cardId,
           messages: messages,
           style: style,
-          canEdit: target.canEdit,
-          canDelete: target.canDelete,
           backgroundImageUrl: widget.backgroundImageUrl,
           backgroundPreviewImageUrl: widget.backgroundPreviewImageUrl,
           selfMessageBubbleMaxWidthCap: selfCap,
           otherMessageBubbleMaxWidthCap: otherCap,
           mentionCatalog: _textController.catalog,
-          onSave: (result) => controller.submitEdit(target, operations(result)),
+          onSave: (result) async {
+            if (!currentEditor()) {
+              throw StateError('This chat is no longer active.');
+            }
+            try {
+              await controller.submitEdit(target, operations(result));
+            } on ChatroomFeatureQuotaException {
+              if (currentEditor()) {
+                _setLocationChatState(() => _editQuotaQueried = true);
+              }
+              rethrow;
+            }
+          },
         ),
       );
     } catch (error) {
@@ -77,9 +115,15 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
     } finally {
       if (mounted &&
           bindingGeneration == _replyBindingGeneration &&
+          identical(services, _quotaServices) &&
+          session == services?.sessionRevision.value &&
           widget.locationId == location &&
           identical(controller, _replyController)) {
-        _setLocationChatState(() => _preparingReplyAction = false);
+        _setLocationChatState(() {
+          _editQuotaChecking = false;
+          _preparingReplyAction = false;
+          _editQuotaLoading = false;
+        });
       }
     }
   }

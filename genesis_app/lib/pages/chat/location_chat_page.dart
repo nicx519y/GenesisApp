@@ -15,6 +15,7 @@ import '../../app/debug/location_chat_debug_slice.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/recent_chat/recent_world_chat_store.dart';
+import '../../app/membership/chatroom_feature_quota_store.dart';
 import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
@@ -32,6 +33,8 @@ import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../components/world_new_badge.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
+import '../../network/api_exception.dart';
+import '../../network/chatroom/chatroom_feature_quota_models.dart';
 import '../../network/chatroom/chatroom_message_type.dart';
 import '../../network/chatroom/chatroom_models.dart';
 import '../../network/chatroom/chatroom_message_batch.dart';
@@ -58,14 +61,17 @@ import 'location_chat_scroll_coordinator.dart';
 import 'location_chat_reply_presentation.dart';
 import 'location_chat_reply_card_switcher.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
+import '../gems/memory_model_page_cache.dart';
 import '../world/world_constants.dart' show worldCharacterAvatarLogicalSize;
 
 part 'location_chat_panel_connection.dart';
 part 'location_chat_message_reconciler.dart';
 part 'location_chat_send_actions.dart';
+part 'location_chat_ack_loading.dart';
 part '../../features/location_chat_reply/regenerate/src/location_chat_regenerate_binding.dart';
 part '../../features/location_chat_reply/go_on/src/location_chat_go_on_binding.dart';
 part 'location_chat_reply_binding.dart';
+part '../../features/location_chat_reply/shared/location_chat_feature_quota_binding.dart';
 part '../../features/location_chat_reply/edit/src/location_chat_edit_binding.dart';
 part '../../features/location_chat_reply/inspiration/src/location_chat_inspiration_binding.dart';
 part '../../features/location_chat_reply/edit/src/location_chat_edit_page.dart';
@@ -300,6 +306,7 @@ class LocationChatPanel extends StatefulWidget {
     super.key,
     required this.worldId,
     this.modelWorldId,
+    this.memoryModelPageCache,
     required this.locationId,
     this.isLeafLocation = true,
     this.localMessageLocationIds = const <String>[],
@@ -343,6 +350,7 @@ class LocationChatPanel extends StatefulWidget {
   /// Set only when this panel belongs to a launched World. Worldo previews
   /// leave this null so model UI and model API requests stay disabled.
   final String? modelWorldId;
+  final MemoryModelPageCache? memoryModelPageCache;
   final String locationId;
   final bool isLeafLocation;
   final List<String> localMessageLocationIds;
@@ -409,6 +417,13 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _replyRegenerationHasRenderedContent = false;
   Object? _lastReplyStatusError;
   bool _replyEditorOpen = false;
+  bool _editQuotaChecking = false;
+  bool _editQuotaLoading = false;
+  bool _editQuotaQueried = false;
+  bool _inspirationQuotaChecking = false;
+  bool _inspirationQuotaQueried = false;
+  AppServices? _quotaServices;
+  ChatroomFeatureQuotaStore? _featureQuotas;
   final Object _rosterTapRegionGroup = Object();
   final BackdropKey _surfaceBackdropKey = BackdropKey();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
@@ -437,6 +452,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   List<WorldChatroomEntity>? _lastActiveOccupants;
   List<WorldChatroomEntity>? _exitRetainedOccupants;
   bool _sending = false;
+  String? _ackLoadingClientMsgId;
+  String? _ackLoadingMessageLocalId;
+  Timer? _ackLoadingTimeout;
+  String? _suppressedReplyActionsIdentity;
   bool _rosterOpen = false;
   bool _mentionSheetOpen = false;
   bool _mentionComposerPositionFrozen = false;
@@ -500,6 +519,23 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           ?.statesFor(widget.locationId)
           .any((state) => state.goOnPending) ??
       false;
+
+  bool get _replyActionsBlocked {
+    final state = _service?.state ?? _chatroomState;
+    return _sending ||
+        _sendAwaitingResponse ||
+        state.inputBlocked ||
+        widget.worldTickInProgress ||
+        _awaitingTickProgressMessage ||
+        _replyGoOnPending ||
+        _inspirationLoading ||
+        _preparingReplyAction;
+  }
+
+  bool _replyCardSwitchEnabledFor(ChatroomReplyRoundState? state) =>
+      widget.active &&
+      !_replyActionsBlocked &&
+      (state?.canSwitchCards ?? false);
 
   bool _replyGoOnContentIsRendering(List<ChatMessageVm> messages) {
     final pendingSources = _replyController
@@ -634,6 +670,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   @override
   void dispose() {
+    _clearAckLoading();
+    _unbindFeatureQuotas();
     locationChatHeaderEffectSettings.removeListener(
       _handleHeaderEffectSettingsChanged,
     );
@@ -771,6 +809,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _bindFeatureQuotas(AppServicesScope.of(context));
     final userInfoRevision = AppServicesScope.of(
       context,
     ).sessionStore.userInfoRevision;
@@ -929,9 +968,21 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     );
     final headerHeight = _locationChatHeaderHeight(style);
     final replyState = _replyController?.stateFor(widget.locationId);
+    final replyPresentationState = _replyController?.presentationStateFor(
+      widget.locationId,
+    );
     final replyGoOnPending = _replyGoOnPending;
-    final replyPresentation = _replyPresentation(replyState);
+    final replyPresentation = _replyPresentation(replyPresentationState);
+    final replyActionsIdentity = replyPresentationState == null
+        ? null
+        : '${widget.worldId}/${widget.locationId}/${replyPresentationState.roundId}';
     final displayMessages = replyPresentation.messages;
+    final loadingRoundId = _ackLoadingRoundId();
+    final loadingAfterMessageLocalId =
+        _ackLoadingMessageLocalId != null &&
+            !_hasVisibleAiReplyForRound(displayMessages, loadingRoundId)
+        ? _ackLoadingMessageLocalId
+        : null;
     final regenerationInProgress =
         (replyState?.generating ?? false) ||
         (_replyRequestLoading && _replyLoadingForRegeneration);
@@ -942,15 +993,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     final goOnContentIsRendering = _replyGoOnContentIsRendering(
       displayMessages,
     );
-    final replyBlocked =
-        _sending ||
-        _sendAwaitingResponse ||
-        inputBlocked ||
-        widget.worldTickInProgress ||
-        _awaitingTickProgressMessage ||
-        replyGoOnPending ||
-        _inspirationLoading ||
-        _preparingReplyAction;
+    final replyBlocked = _replyActionsBlocked;
+    final replyCardSwitchEnabled = _replyCardSwitchEnabledFor(
+      replyPresentationState,
+    );
     final regenerateFeature = _regenerateFeature(
       replyBlocked,
       replyState,
@@ -982,20 +1028,27 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         coordinator: _scrollCoordinator,
         active: widget.active,
         messages: displayMessages,
+        loadingAfterMessageLocalId: loadingAfterMessageLocalId,
+        loadingIdentity: _ackLoadingClientMsgId,
         messageLayoutId: _locationChatMessageLayoutId,
-        replyActionsIdentity: replyState == null
-            ? null
-            : '${widget.worldId}/${widget.locationId}/${replyState.roundId}',
+        replyActionsIdentity: replyActionsIdentity,
+        replyActionsMessageId:
+            replyPresentation.replyMessages.lastOrNull?.localId,
         replyActionsAnchorIndex: replyPresentation.anchorIndex,
-        replyPresentationRevision: replyState?.presentationRevision ?? 0,
-        replyCards: _replyCardPages(replyState),
-        replyCurrentCardId: replyState?.viewedCardId ?? 0,
+        replyActionsVisible:
+            !goOnContentIsRendering &&
+            _suppressedReplyActionsIdentity != replyActionsIdentity,
+        replyPresentationRevision:
+            replyPresentationState?.presentationRevision ?? 0,
+        replyCards: _replyCardPages(
+          replyPresentationState,
+          replyPresentation.replyMessages,
+        ),
+        replyCurrentCardId: replyPresentationState?.viewedCardId ?? 0,
         replyCardBindingIdentity:
-            '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyState?.roundId}',
-        replyCardSwitchEnabled:
-            !replyBlocked &&
-            !(replyState?.busy ?? true) &&
-            !(replyState?.frozen ?? true),
+            '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyPresentationState?.roundId}',
+        replyCardSwitchEnabled: replyCardSwitchEnabled,
+        replyRegenerationInProgress: regenerationInProgress,
         onReplyCardSelected: _commitReplyCard,
         onReplyCardTransitionChanged: (busy) {
           if (mounted) {
@@ -1006,9 +1059,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         regenerateFeature: regenerateFeature,
         goOnFeature: goOnFeature,
         editFeature: editFeature,
-        replyCardIndex: math.max(0, (replyState?.cardPosition ?? 1) - 1),
-        replyCardCount: replyState?.cardCount ?? 0,
-        replyCardsConfirmed: replyState?.confirmed ?? false,
+        replyCardIndex: math.max(
+          0,
+          (replyPresentationState?.cardPosition ?? 1) - 1,
+        ),
+        replyCardCount: replyPresentationState?.cardCount ?? 0,
+        replyCardsConfirmed: replyPresentationState?.confirmed ?? false,
+        showConfirmedCardPagination:
+            (replyPresentationState?.confirmed ?? false) &&
+            (replyPresentationState?.goOnPending ?? false) &&
+            !goOnContentIsRendering,
         onPreviousReplyCard: () => _browseReplyCard(-1),
         onNextReplyCard: () => _browseReplyCard(1),
         inspirationFeature: inspirationFeature,

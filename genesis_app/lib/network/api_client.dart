@@ -17,7 +17,6 @@ class ApiResponse {
     required this.bodyBytes,
     required this.data,
     required this.uri,
-    this.handlePageNotFound = true,
   });
 
   final int statusCode;
@@ -26,9 +25,6 @@ class ApiResponse {
   final List<int> bodyBytes;
   final Object? data;
   final Uri uri;
-
-  /// Local response policy; never sent as a header or request parameter.
-  final bool handlePageNotFound;
 }
 
 enum ApiResponseType { json, text, bytes }
@@ -146,7 +142,6 @@ class ApiClient {
     Map<String, Object?>? query,
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
-    bool handlePageNotFound = true,
     NetworkProgressCallback? onSendProgress,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
@@ -158,7 +153,6 @@ class ApiClient {
       query: query,
       headers: headers,
       responseProcessor: responseProcessor,
-      handlePageNotFound: handlePageNotFound,
       onSendProgress: onSendProgress,
       onReceiveProgress: onReceiveProgress,
       cancellationToken: cancellationToken,
@@ -306,7 +300,6 @@ class ApiClient {
     Object? body,
     Map<String, String>? headers,
     ApiResponseProcessor? responseProcessor,
-    bool handlePageNotFound = true,
     NetworkProgressCallback? onSendProgress,
     NetworkProgressCallback? onReceiveProgress,
     NetworkCancellationToken? cancellationToken,
@@ -574,7 +567,6 @@ class ApiClient {
       bodyBytes: bodyBytes,
       data: decoded,
       uri: uri,
-      handlePageNotFound: handlePageNotFound,
     );
     collectRequest?.inspectResponse(
       response: apiResponse,

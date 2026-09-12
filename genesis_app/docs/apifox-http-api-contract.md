@@ -45,7 +45,7 @@ Origin detail 增量核对时间：2026-08-05
 
 ## 总览
 
-本文档当前覆盖 56 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
+本文档当前覆盖 58 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -59,6 +59,8 @@ Origin detail 增量核对时间：2026-08-05
 | 用户 | GET | `/api/v1/user/followers` | 用户粉丝列表 |
 | 用户 | GET | `/api/v1/user/info` | user Info |
 | 用户 | POST | `/api/v1/user/oauth/apple` | Apple login |
+| 用户 | GET | `/api/v1/user/memory-settings` | 查询当前用户全局 Memory 预算及指定 Worldo 用量 |
+| 用户 | POST | `/api/v1/user/memory-settings` | 保存全局 Memory 预算 |
 | 用户 | GET | `/api/v1/user/world-history-settings` | 查询当前用户 World History 水位设置 |
 | 用户 | PUT | `/api/v1/user/world-history-settings` | 原子更新当前用户 World History 水位设置 |
 | 用户 | DELETE | `/api/v1/user/world-history-settings` | 重置当前用户 World History 水位设置 |
@@ -568,6 +570,30 @@ Query：
 - `pn*`: integer
 - `rn*`: integer
 - `list*`: `{ user: UserInfo, relation: UserRelation }[]`
+
+### GET `/api/v1/user/memory-settings`
+
+查询当前登录用户的全局 Memory 预算；传 Worldo 时同时返回其实际用量。可选 query：
+
+- `world_id`: string；省略或空白只返回全局预算，非空时额外返回指定 Worldo 的实际用量。
+
+响应 `data`：
+
+- `memory_tokens*`: integer，全局 Memory 预算
+- `min_memory_tokens*`: integer，允许提交的正值下限
+- `max_memory_tokens*`: integer，允许提交的上限
+- `world_id`: string，仅 Worldo 查询返回
+- `memory_used_tokens`: integer，仅 Worldo 查询返回；当前 Worldo 的实际用量，允许为 `0`，且不超过当前全局预算
+
+客户端必须使用响应范围和预算值展示滑杆，并使用 `memory_used_tokens` 展示实际用量；不得写死下限或上限。当前滑杆交互按 1K 步长取整，服务端返回的动态边界值保持可达。
+
+### POST `/api/v1/user/memory-settings`
+
+保存全局 Memory 预算。JSON body：
+
+- `memory_tokens*`: integer；必须位于接口返回范围内
+
+客户端不得发送 `world_id`，成功响应为全局设置且允许缺少 `world_id/memory_used_tokens`。仅 `err_no=0` 表示成功；旧 PUT 路由不再使用。系统错误、超时或连接中断属于不确定结果，客户端应对全局 GET 核对，不自动重试或将核对结果改判为保存成功。
 
 ### GET `/api/v1/user/world-history-settings`
 
@@ -1373,35 +1399,32 @@ Query：
 
 ### GET `/aitown-chat/api/v1/feature-quotas`
 
-查询当前登录用户账户级的 Inspiration 与 Conversation Edit 额度。请求无业务参数，不按 world、location 或历史会员周期查询；接口只读，不消耗额度、不触发模型调用。额度耗尽仍返回成功，服务端缺失的使用记录按已使用 0 次计算。响应不应缓存，服务端返回 `Cache-Control: no-store`。
+2026-09-11：依据 `inspiration-edit-client-guide.md`。查询当前登录账号的两项独立额度，无业务参数，不按世界、地点、轮次或卡片区分。接口只读且返回 `Cache-Control: no-store`；耗尽仍为 `err_no=0`。
+
+非会员（`membership_status=0`）和会员已失效（`2`）的 Inspiration、Conversation Edit 各有账号累计 3 次，不按天重置；有效会员（`1`、`is_member=true`）两项均无限次。会员使用单独累计 `used`，不会消耗非会员试用次数，失效后沿用原试用剩余次数。
 
 成功响应 `data`：
 
 ```json
 {
   "membership_status": 0,
+  "is_member": false,
   "inspiration": {
-    "scope": "trial_lifetime",
-    "unlimited": false,
-    "limit": 3,
-    "used": 1,
-    "remaining": 2,
-    "reset_at": null
+    "scope": "trial_lifetime", "unlimited": false,
+    "limit": 3, "used": 1, "remaining": 2, "reset_at": null
   },
   "conversation_edit": {
-    "scope": "member_daily",
-    "unlimited": false,
-    "limit": 10,
-    "used": 4,
-    "remaining": 6,
-    "reset_at": 1798761600
+    "scope": "trial_lifetime", "unlimited": false,
+    "limit": 3, "used": 2, "remaining": 1, "reset_at": null
   }
 }
 ```
 
-示例数字仅说明数据结构，不代表正式会员配置。`membership_status` 允许 `0/1/2`，本契约不为这些数字补充未定义的业务名称。`scope` 仅允许 `trial_lifetime`、`member_daily`、`member_unlimited`。`limit`、`remaining` 和 `reset_at` 可为 null；`reset_at` 是 Unix 秒，仅每日额度返回下一次 UTC 零点。
+会员两项均返回 `scope=member_unlimited`、`unlimited=true`，`limit/remaining/reset_at=null`，`used` 保留成功用量。客户端先判断 `unlimited`，不能将 null 解释成 0。当前没有每日限额；解析器保留旧 `member_daily` 枚举以兼容已保存结构。
 
-Flutter 入口为 `ChatroomHttpApi.getFeatureQuotas`，返回 `ChatroomFeatureQuotas`。客户端不缓存、不推导或补造额度；成功响应缺少必填字段、字段类型错误、未知 scope 或负数额度均视为响应格式异常。
+Flutter 入口 `ChatroomHttpApi.getFeatureQuotas` 返回 `ChatroomFeatureQuotas`，解析 `membership_status`、`is_member` 及两项完整 summary；缺必填字段、类型错误、未知 scope 或负数额度属于响应格式异常。`ChatroomFeatureQuotaStore` 在账号范围内保留服务端快照并合并并发请求，切换账号清理状态并忽略旧响应，不推导或本地扣减次数。
+
+Location Chat 按产品约定在点击 Edit 或展开 Inspiration 时先检查本地会员状态：确认有效会员直接使用，否则请求本接口；进入页面、按钮出现、收起 Inspiration 均不发起次数查询。查询失败保留之前已知次数与草稿。购买/恢复会员后刷新状态，失败操作不自动重发。
 
 | 错误号 | 含义 |
 | --- | --- |
@@ -1409,7 +1432,51 @@ Flutter 入口为 `ChatroomHttpApi.getFeatureQuotas`，返回 `ChatroomFeatureQu
 | 5002 | 使用量查询失败 |
 | 5003 | 当前会员数据无效 |
 
-业务错误的 `data` 为空对象，客户端保留服务端 `err_msg` 和错误码，不生成额度对象。
+业务错误不生成额度对象，也不将现有余额清零。
+
+### 操作响应的公共 `quota`
+
+Inspiration 及正式/候选 batch 在 HTTP 200 envelope 的 `data` 同级返回可选 `quota`，成功和 `2030` 都可携带：
+
+```json
+{
+  "feature": "conversation_edit",
+  "membership_status": 0, "is_member": false,
+  "scope": "trial_lifetime", "unlimited": false,
+  "limit": 3, "used": 3, "remaining": 0, "reset_at": null,
+  "consumed": 1
+}
+```
+
+`feature` 为 `inspiration` 或 `conversation_edit`，`consumed` 是本次消费：新灵感及成功 batch 为 1，复用灵感及额度耗尽为 0。一次 batch 包含多条编辑/删除仍只计 1 次，提交相同正文也计次；失败不计次。
+
+成功结果模型提供可选 `ChatroomFeatureQuota quota`。`remaining=0` 的最后一次操作仍已成功，不撤销正文或灵感；缺失、格式错误或功能不匹配的可选 quota 不把已提交成功改成失败。真实 POST 开始时捕获 `ChatroomHttpApi.onFeatureQuotaRequest` 回调，在合法成功/2030 响应中更新对应额度；GET 和灵感缓存复用不调用该回调，缓存序列化也不保存旧 quota。
+
+`err_no=2030` 抛出 `ChatroomFeatureQuotaException`（保留可选 quota），英文文案为 `Feature quota exhausted`。仅 Inspiration 和 batch 的 2030 绕开通用业务 Toast：入口显示内联次数提示，Edit 保存由页面显示一次 Toast 并保留文字/删除草稿；其他业务错误和鉴权继续原有通路。
+
+### POST `/aitown-chat/api/v1/worlds/{world_id}/locations/{location_id}/inspiration`
+
+请求 `{"conversation_round_id":7358}`；来源轮次必须为正整数，可选正数 `card_id` 指定候选，省略/null 表示正式来源，不能传 0。`refresh` 不用于强制换一组。客户端 timeout 为 120 秒，不自动重试请求。
+
+成功示例：
+
+```json
+{
+  "err_no": 0, "err_msg": "succ",
+  "data": {
+    "conversation_round_id": 7358, "card_id": 0, "source_card_id": 0,
+    "messages": ["我想再听听刚才的事。", "一起去附近走走？", "坐下来慢慢聊吧。"],
+    "gateway_request_id": "request_example"
+  },
+  "quota": {
+    "feature": "inspiration", "membership_status": 0, "is_member": false,
+    "scope": "trial_lifetime", "unlimited": false,
+    "limit": 3, "used": 3, "remaining": 0, "reset_at": null, "consumed": 1
+  }
+}
+```
+
+相同账号、世界、地点、轮次及来源卡片的已有灵感直接复用，`consumed=0`；原文编辑不使保存结果失效。即使 remaining 为 0 仍允许读取相同来源，只有需要新生成时才返回 `2030`、`data={}`。成功响应中的消息为非空字符串数组，按服务端顺序展示；新生成 3 条，历史保存结果保留原数量。
 
 ### GET `/aitown-chat/api/ulocation`
 
@@ -1488,6 +1555,8 @@ Query：
 
 `data` 为上述扁平对象，单地点接口不返回 world 级接口使用的 `locations[]` 包装。`messages[]` 可同时包含普通 location 消息及三类时间线记录；时间线记录的 `location_message_id` 既可能为正数，也可能为 `0`。
 
+每条消息还可返回顶层 `conversation_type`，并始终返回字符串 `trigger_uid`。同轮的用户消息、角色回复和旁白回复复用同一个触发 UID；opening、Tick 或无法识别触发者时为 `""`。旧服务/旧缓存缺失字段，或字段类型不是字符串时，客户端统一解析为空字符串，不使用 `user_id`、`sender_id`、消息类型或轮次 ID 补推。
+
 图片消息仅在单条 `ChatroomMessageDTO` 中新增 `message_type`，不改变现有响应 envelope、消息 ID 字段或时间字段。例如：
 
 ```json
@@ -1542,13 +1611,14 @@ Query：
 | 2012 | 非轮次发起人 |
 | 2013 | 批次存在已删除目标 |
 | 2014 | 含删除操作但环境未启用删除 |
+| 2030 | Conversation Edit 试用次数耗尽；data=false，顶层 quota.consumed=0 |
 | 2004 | 存储或地点锁操作失败 |
 
-除 `10001` 外，非零业务错误通过全局 Toast 显示服务端 `err_msg`，同时抛出保留错误码的异常；调用方保留草稿、不重复弹提示。
-`ChatroomHttpApi.batchMutateLlmMessages` 返回 `ChatroomMessageMutationResult`；`WorldChatroomService` 同名入口会合并 HTTP 返回范围与 WS 待刷新范围，并阻止同轮在途重复提交。`isMutatingLlmMessages` 可用于提交状态判断。
-写成功与后续同步失败分别报告。网络超时、中断或响应格式异常时服务层安排权威快照确认结果，所有批量写入均不自动重发（包含 Gateway 返回验签错误的情况）。
-Location Chat 编辑页直接使用 batch API：合法成功响应即结束本次编辑，不等待或主动发起正式历史刷新；
-后续 `conversation_range_updated` 作为独立控制事件更新正式历史。编辑页中的空白文字改动转换为 `delete`，不发送空白 `edit`；
+除 `10001` 和 `2030` 外，非零业务错误通过全局 Toast 显示服务端 `err_msg`，同时抛出保留错误码的异常；调用方保留草稿、不重复弹提示。2030 由功能层处理，规则见上方公共 quota。成功 batch 的顶层 quota 更新 Conversation Edit 的服务器快照，免费最后一次 remaining=0 仍正常提交。
+`ChatroomHttpApi.batchMutateLlmMessages` 返回 `ChatroomMessageMutationResult`；`WorldChatroomService` 同名入口只阻止同轮在途重复提交，不使用 HTTP 返回范围修改或刷新正式历史。`isMutatingLlmMessages` 可用于提交状态判断。
+网络超时、中断或响应格式异常时保持结果不确定，等待 `conversation_range_updated` 或后续连接级同步确认；所有批量写入均不自动重发（包含 Gateway 返回验签错误的情况）。
+Location Chat 编辑页直接使用 batch API：合法成功响应即结束本次编辑，不在 Reply Action 内修改、等待或主动刷新正式历史；
+后续 `conversation_range_updated` 是更新正式历史的唯一入口。编辑页中的空白文字改动转换为 `delete`，不发送空白 `edit`；
 但编辑页和提交层都会保证至少保留一个气泡，不向服务端提交全删 batch。
 
 后端事务、地点锁和 MySQL 原子性需在服务端工程验证，本地 mock 仅用于客户端契约与整批校验回归。
@@ -1568,6 +1638,7 @@ Location Chat 编辑页直接使用 batch API：合法成功响应即结束本�
 
 GET 不创建卡组。响应 data 包含 `conversation_round_id`、`original_card_id`、`selected_card_id`、`active_card_id`、`confirmed`、`can_regenerate`、`can_confirm`、`list`、`total`。无卡组为空列表及 0 值卡片 ID，全部卡片按 `card_index` 升序一次返回，`total=list.length`，最多 10 条（包含成功、失败和在途尝试）。
 `ChatroomLlmCardsResponse.list` 为类型化 `ChatroomLlmCard` 列表。每张卡包含 cardId/cardIndex/isOriginal/generationState/canEdit/canDelete/messages/billing/createdAt/error，并保留 rawJson。查询验证返回轮次与请求一致。
+客户端为协议兼容继续解析和缓存 `can_regenerate`、`can_confirm`、`can_edit`、`can_delete`，但这些服务端 capability hint 不参与 Reply Actions、候选确认或编辑/删除的可用性判断。
 `ChatroomLlmCardMessage.message` 复用 `ChatroomV2Message`，正文为 `payload.content`；外加固定 cardId/cardMessageIndex/globalMessageId，保留原始 JSON。候选查询不返回 message_id/location_message_id，连原卡也不例外；未成功卡 messages 为空。删除后索引可以为 1、3，不补位。数字 ID 严格按 Dart int 解析，拒绝字符串或浮点数；移动端大于 2^53 的 ID 保持无损。
 
 候选编辑复用 `/batch`：
@@ -1578,7 +1649,7 @@ GET 不创建卡组。响应 data 包含 `conversation_round_id`、`original_car
 
 仅 body 是否提供 card_id 决定分支：省略为正式消息，正整数为候选；null、0、负数、字符串不能回退。公开正式入口 `batchMutateLlmMessages` 及返回类型保持不变，候选入口要求正数 cardId，两者共享 1～100 个操作的校验及发送逻辑。edit 原样保存，delete 不带 content，目标 ID 不重复。
 
-候选成功 data 为 `{conversation_round_id, card}`，card 与 GET 卡片结构相同。返回 `ChatroomCardMutationResult` 并验证轮次/卡片匹配；不返回正式刷新范围，不修改缓存、不选卡或触发正式历史刷新。至少保留一条消息、权限及 confirmed 状态由后端校验，2020/2021/2025 等错误码按现有业务异常透传。
+候选成功 data 为 `{conversation_round_id, card}`，card 与 GET 卡片结构相同；顶层 quota 与正式 batch 相同，共享 Conversation Edit 额度。采用候选不再次消耗编辑次数。返回 `ChatroomCardMutationResult` 并验证轮次/卡片匹配；不返回正式刷新范围，不修改缓存、不选卡或触发正式历史刷新。至少保留一条消息、权限及 confirmed 状态由后端校验，2020/2021/2025 等错误码按现有业务异常透传。
 
 候选批量写没有持久化请求幂等，不自动重试，包括 Gateway 响应后的重试；结果不明须由后续业务先 GET /cards 核对。重生成可显式复用请求 ID 恢复同一尝试；选卡可显式复用同卡及请求记录；Go On 不具备业务幂等，不能盲目重发。
 
@@ -1595,7 +1666,7 @@ GET 不创建卡组。响应 data 包含 `conversation_round_id`、`original_car
 {"conversation_round_id":7358,"selected_card_id":9902,"confirmed":true,"start_conversation_round_id":7358,"end_conversation_round_id":7359,"newest_message_id":14}
 ```
 
-返回 `ChatroomCardSelection`，包含完整闭区间与整个地点最新序号，允许最新序号为 0；HTTP 层校验确认结果与请求轮次/卡片匹配。这里只返回结果，不自动确认其他卡、不修改历史或安排范围刷新，后续业务接入时复用已有范围刷新流程。
+返回 `ChatroomCardSelection`，包含完整闭区间与整个地点最新序号，允许最新序号为 0；HTTP 层校验确认结果与请求轮次/卡片匹配。这里只返回结果，不自动确认其他卡、不修改历史或安排范围刷新。Location Chat 仅据此完成本地选卡状态并解除操作锁，不使用响应范围主动刷新；正式历史只由后续 `conversation_range_updated` 更新。
 
 已在指南中明确的业务码：2020 已固定其他卡；2021 卡组未确认时尝试批量编辑/删除；2023 重生成次数达到上限。完整错误码表在未附的 OpenAPI 中，客户端不猜测，所有非零码保留原始 code/message。
 HTTP 10001 沿用全局登录失效流程，其余非零业务错误通过现有全局 Toast 显示 err_msg。响应形状异常不能视为确认成功。
@@ -1640,6 +1711,8 @@ Query：
         "message_id": 101,
         "location_message_id": 29,
         "conversation_round_id": 7359,
+        "conversation_type": "tick",
+        "trigger_uid": "",
         "sender_type": "tick",
         "sender_id": "tick",
         "sender_name": "SubTick",
@@ -1663,6 +1736,21 @@ Query：
   }
 }
 ```
+
+### 轮次元数据与回复按钮资格
+
+`GET /aitown-chat/api/messages` 和 `GET /aitown-chat/api/v2/messages` 的消息在顶层返回 `conversation_type` 与 `trigger_uid`；候选卡查询的 `data.list[].messages[]` 使用相同解析规则。客户端请求体、query、鉴权和订阅不新增 `trigger_uid`。
+
+UID 原字符串保存并精确比较；空字符串永远不匹配当前用户。Location Chat 只按最新 conversation 的服务端元数据决定业务资格，并继续叠加最新轮次、轮次完成、连接就绪、Tick 锁定、busy/frozen、候选卡完整性和生成数量等既有安全条件：
+
+| 最新 conversation | Regenerate | Go On | Edit | 灵感回复 |
+| --- | ---: | ---: | ---: | ---: |
+| `trigger_uid == 当前 UID` 且 `conversation_type=user_message` | ✓ | ✓ | ✓ | ✓ |
+| `trigger_uid == 当前 UID` 且 `conversation_type=go_on` | ✓ | ✓ | ✓ | ✓ |
+| `conversation_type=opening` | — | ✓ | ✓ | ✓ |
+| 其他用户、`user_enter_location`、`tick`、缺失/未知/冲突字段 | — | — | — | — |
+
+实时 WS 当前只为 opening 下发 `conversation_type`。只有非空 `trigger_uid`、尚无 `conversation_type` 的实时轮次严格保持四个按钮不可用，直到正常历史刷新提供类型；客户端不主动为此查询历史，也不从 WS `type` 或本地动作推断。
 
 ### POST `/aitown-chat/internal/tick/lock`
 
@@ -2361,7 +2449,7 @@ query：
 
 ## 当前代码对齐状态
 
-截至 2026-08-10，本文档覆盖的 53 个接口已完成主要 HTTP 契约对齐；Collect 已切换为 SQLite 持久化队列和 `events[]` 批量协议，其余接口继续按各自文档维护当前封装、本地 mock 与测试：
+截至 2026-09-11，本文档覆盖的 55 个接口已完成主要 HTTP 契约对齐；Collect 已切换为 SQLite 持久化队列和 `events[]` 批量协议，其余接口继续按各自文档维护当前封装、本地 mock 与测试：
 
 | Apifox 接口 | 当前实现状态 |
 | --- | --- |
@@ -2375,6 +2463,8 @@ query：
 | `POST /api/v1/user/unfollow` | `FollowV1Api.unfollow` body 已改为 `target_uid`，响应按空对象处理。 |
 | `GET /api/v1/user/following` | 已新增 `FollowV1Api.following(uid,pn,rn)`。 |
 | `GET /api/v1/user/followers` | 已新增 `FollowV1Api.followers(uid,pn,rn)`。 |
+| `GET /api/v1/user/memory-settings` | 已新增 `UserV1Api.memorySettings(worldId)`；进入 `WorldPage` 时即传当前 Worldo 发起请求并缓存 Future，Memory & Model 首屏只消费预取结果，不重复 GET；主动 Retry、下拉刷新及保存后的实际用量刷新仍请求服务端。 |
+| `POST /api/v1/user/memory-settings` | 已新增全局预算接口 `UserV1Api.updateMemorySettings(memoryTokens)`，body 仅发送 `memory_tokens`；页面滑杆交互 5 秒防抖自动保存，成功后刷新 Worldo 实际用量和模型报价，不确定结果只做全局 GET 核对且不自动重试。 |
 | `GET /api/v1/user/world-history-settings` | 已新增 `UserV1Api.worldHistorySettings`，解析当前生效值、持久化值、来源和降级状态；Developer Page 仅在测试环境且存在完整登录 session 时显示入口。 |
 | `PUT /api/v1/user/world-history-settings` | 已新增 `UserV1Api.updateWorldHistorySettings`，JSON body 原子提交 `high_watermark/low_watermark`，Developer Page 在提交前校验 Apifox 范围。 |
 | `DELETE /api/v1/user/world-history-settings` | 已新增 `UserV1Api.resetWorldHistorySettings`，无 body，成功后用服务端返回的默认生效值刷新输入框。 |

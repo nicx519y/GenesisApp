@@ -35,6 +35,8 @@ Flutter 在 Gateway signer 完成后，以不区分大小写的方式读取最�
   "message_id": 102,
   "location_message_id": 30,
   "conversation_round_id": 7360,
+  "conversation_type": "user_message",
+  "trigger_uid": "user_1",
   "sender_type": "user",
   "sender_id": "char_1",
   "sender_name": "Alice",
@@ -57,6 +59,8 @@ Flutter 在 Gateway signer 完成后，以不区分大小写的方式读取最�
 - `type` 是业务类型；落库内容使用 `user`、`character`、`narrator`、`tick` 等值。
 - `stream_type` 是独立路由轴，只允许 `""`、`llm_stream_start`、`llm_chunk`、`llm_stream_end`。解析时必须先路由 `stream_type`，再路由 `type`。
 - V2 ID 使用全称 `global_message_id/message_id/location_message_id`。旧别名只存在于 legacy adapter。
+- `trigger_uid` 是轮次触发用户 UID，位于顶层并在同轮 user/character/narrator、LLM start/chunk/end、waiting/end 和候选私有流中保持一致；opening、Tick 及无可用触发者的控制事件为字符串空值。UID 原样保存并精确比较，缺失、`null` 或非字符串兼容为空，不能由 `user_id/sender_id/type/round id` 补齐。
+- `conversation_type` 是可选顶层字符串，取值包括 `user_message/user_enter_location/go_on/opening/tick`。地点历史可同时返回两个字段；实时 WS 当前只保证 opening 下发该字段，因此收到非空 `trigger_uid` 时协议解析不要求 `conversation_type` 同时存在。
 - `current_time` 是消息产生时的世界时间元数据，位于顶层；客户端暂时兼容旧数据放在 `payload.current_time` 的情况。
 - 元数据位于顶层，业务正文、Tick 内容和流式 `seq/content` 位于 `payload`。
 - `payload`、整数 `err_no` 和字符串 `err_msg` 是统一字段。未知扩展字段可以忽略，但 payload 非 object、未知 `stream_type` 或未知业务 `type` 是单帧协议错误。
@@ -65,6 +69,8 @@ Flutter 在 Gateway signer 完成后，以不区分大小写的方式读取最�
 ## V2 客户端上行
 
 所有 V2 上行都包含 `type/stream_type/ts/client_msg_id/payload/err_no/err_msg`。`join`、`send_message` 和 `user_enter_location` 还包含 `world_id`。
+
+所有客户端上行都不新增 `trigger_uid` 或 `conversation_type`；它们是服务端下行元数据，不改变连接、加入地点、鉴权、订阅或既有请求权限。
 
 `join`：
 
@@ -159,6 +165,8 @@ V2 ACK 只表示服务端收到并受理了对应命令。客户端内部 API �
 
 普通 typed message 保留 `businessType/streamType/minAppVersion/rawPayload`。地点级 Tick 另暴露 `v2TickPayload` 与 `isV2LocationTick`；`ChatroomV2TickPayload` 保存 `current_time/tick_no/sub_tick_no/global/story_events/characters_moved`，也支持历史纯文本 `payload.content` 回退。`tick_no=0` 和 `sub_tick_no=0` 都是有效值，不能用正数判断字段是否存在。
 
+Location Chat 对最新 conversation 的四个回复功能采用集中、失败关闭的资格判断：当前用户触发的 `user_message/go_on` 可用 Regenerate、Go On、Edit、灵感回复；`opening` 不要求 UID 匹配，可用 Go On、Edit、灵感回复但不可 Regenerate；其他用户、`user_enter_location`、`tick`、缺失/未知/冲突元数据均全部不可用。实时轮次只有 `trigger_uid` 而缺少 `conversation_type` 时严格等待正常历史刷新，不主动查历史，也不从 WS 类型或本地动作推断。资格之上仍保留最新轮次、完成态、连接、Tick 锁、busy/frozen、候选卡和生成上限等操作安全门槛。
+
 V2 只把地点级 `type=tick` 当作 canonical Tick：
 
 - `global_message_id`：LocationMessage 自身 ID
@@ -202,7 +210,7 @@ V2 地点聊天不跟随控制通知中的 legacy `detail_url`：`world_new_mess
 {"type":"ack","world_id":"world_001","location_id":"loc_001","conversation_round_id":102,"client_msg_id":"go-on-001","payload":{"billing":{"price":1,"price_cent":120,"pricing_version":"round_v3"}},"err_no":0,"err_msg":""}
 ```
 
-成功返回 `ChatroomGoOnReceipt`，包含世界、地点、来源轮次、新轮次、请求 ID 和可选 `ChatroomRoundBilling`。匹配世界/地点并验证新轮次后，ACK 即完成 Future；不等待用户消息回显或三层正式消息 ID。`receiptConversationRoundId` 与历史消息元数据分开，不改变 `hasCanonicalMessageMetadata`。billing 不要求候选专用 status；缺失价格不补造，精确费用取 price_cent（示例 1.20 Gem），接口不刷新或增减钱包。
+成功返回 `ChatroomGoOnReceipt`，包含世界、地点、来源轮次、新轮次、请求 ID 和可选 `ChatroomRoundBilling`。匹配世界/地点并验证新轮次后，ACK 即完成 Future；不等待用户消息回显或三层正式消息 ID。`receiptConversationRoundId` 与历史消息元数据分开，不改变 `hasCanonicalMessageMetadata`。billing 不要求候选专用 status；缺失价格不补造，精确费用取 price_cent（示例 1.20 Gem），接口不刷新或增减钱包。Location Chat 的 Go On 在 ACK、结束或不确定结果前后都不主动拉取正式历史；正式历史只由 `conversation_range_updated` 更新，连接初始化/重连的系统级同步除外。
 
 **Go On 的 client_msg_id 不提供业务幂等。** ACK 超时、发送异常、断线均返回异常且绝不自动重发/重连补发；超时代表结果不明，不能据此判断服务器未受理。迟到 ACK 仍通过 events 暴露。后续业务恢复须按新轮次查询历史，无 ACK 时没有按请求 ID 查询受理结果的接口。本次不加入自动查询或恢复记录。
 
@@ -230,6 +238,15 @@ V2 `type=error` 解析为 `ChatroomErrorEvent`，保留 world/location/round/use
 - `ack.payload.selection`：与 HTTP select 的 `ChatroomCardSelection` 完全相同，含最终卡和刷新范围。接口仅返回结果，未接业务刷新或自动确认。
 - 错误 ACK 保留现有 `ChatroomFailureEvent` code/message/clientMsgId/requestType，不当作候选成功。
 
+余额失败补充（2026-09-11，目标环境须部署 regenerate 前置余额预检查）：
+
+- Go on 与 regenerate 都可返回外层 `err_no=3001`、`payload={}`。按外层 `client_msg_id` 关联请求，立即撤销本次等待并保留原回复；Go on 不创建新轮次或气泡，regenerate 不新增候选或次数。错误 ACK 的 `location_id`、`trigger_uid` 可以缺失或为空。
+- regenerate 外层 `0` 必须继续读取内部状态：`failed` 读取 `error.err_no` / `error.err_msg`，保留真实失败候选以计次、立即恢复此前完整卡，并刷新卡组和钱包；`succeeded` 查询完整卡片（幂等回执不重放流）；仅非终态继续等待。
+- 余额相关错误只识别 `3001`、`21001`，复用发消息的错误 Toast、Gems 购买 Sheet 与钱包刷新；其余错误走通用失败提示。`3001` 也可能表示余额检查服务异常，不将余额本地设为 0。
+- `llm_card_generation_end` 与失败 ACK 可重复或乱序到达；有候选按 world / location / round / card 去重，无候选按 world / client_msg_id 去重，同一失败只提示一次。transport timeout 与后续明确业务拒绝分别处理，不能让超时吞掉充值提示。
+- ACK 超时后保留请求关联，仍消费迟到的明确错误及 regenerate 终态回执。迟到结果须匹配原请求和轮次，不能覆盖用户后来发起的新操作；成功回执查卡失败时保留真实候选、显示此前完整回复并刷新钱包，后续通过只读查询恢复内容。
+- 失败候选仍占用每轮最多 9 次的机会，次数以卡组真实记录为准。`billing.status=cancelled/reserved`、`price_cent=null` 不用于本地增减钱包。充值后只刷新，由用户主动再次操作；不自动重发 Go on，不改变既有结果不明时的恢复流程。
+
 候选流：
 
 ```json
@@ -250,7 +267,7 @@ generation_state：preparing / queued / generating / succeeded / failed。
 billing.status：not_required / not_started / reserved / committed / cancelled；price_cent 为整数 cent 或 null，pricing_version 原样保存。原卡 not_required 不表示原始消息免费。ACK、终态模型不推算费用，不进行预占、结算或退款。
 
 断线不迁移/重播私有流，恢复依赖 GET /cards；后续业务需按指南实现退避查询、待确认记录及固定卡触发。目前没有自动重生成、后台轮询、自动选卡或新消息拦截。
-确认产生的 conversation_range_updated 继续使用既有正式历史范围刷新机制；候选事件自身不触发该机制。
+确认产生的 `conversation_range_updated` 是正式历史范围刷新的唯一业务入口；选卡响应、Regenerate、Go On、Edit 和灵感回复自身均不触发该机制。
 
 ### `conversation_range_updated`（批量编辑 / 删除）
 
@@ -262,12 +279,12 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 
 此事件是控制通知，不携带正文或删除列表，不追加普通气泡、不进入流式拼装、不发送客户端 ACK；`ts` 不作为版本号。
 
-- HTTP 成功响应和 WS 通知共用范围刷新流程，重复通知合并；操作端在漏广播时仍可通过 HTTP 返回范围刷新。
+- 只有 WS `conversation_range_updated` 启动业务范围刷新；HTTP 成功响应中的范围只作协议返回，不由 Reply Actions 或批量编辑入口主动消费。
 - 收到范围后废弃旧历史请求与分页状态；从 `since=0, limit=100` 开始，携带原闭区间，以已返回的最小正 `location_message_id` 前翻，直到 `has_more=false`，游标不前进视为失败。
 - 新范围到达时取消旧请求、合并未完成范围并重拉；全部页成功后在内存与 SQLite 原子替换闭区间，空结果也清除旧消息，范围外保留。失败不提交部分结果，保留待刷新范围。
 - 消息按稳定全局 ID 去重、按新地点序号排序。地点最新序号允许降低到 0，不复用世界 `lastMessageId`。SQLite 沿用版本 4 和每地点 200 条上限，写入按地点串行。
 - 初始化、补洞、缓存读取和翻页受请求代次保护；活跃流式缓存独立，完成事件与刷新协调，旧历史响应不得覆盖新内容。
-- 加入、重连或显式 `refreshLocationHistory` 从最新页重建最多 200 条缓存。网络写入结果不明时先刷新确认，不自动重发整批。
+- 加入、重连或显式 `refreshLocationHistory` 属于系统级同步，从最新页重建最多 200 条缓存。网络写入结果不明时等待范围事件或后续连接级同步，不自动重发整批。
 - 编辑状态 `status=20` 由服务端保存，历史不包含该状态；客户端不新增已编辑视觉标记。
 
 ### `waiting_conversation_round`
@@ -911,6 +928,7 @@ Query：
 | 错误码 | message | 注释 |
 | --- | --- | --- |
 | `3001` | 余额不足 | 用户余额不足，请充值后重试 |
+| `21001` | 费用预占余额不足 | 已创建的 regenerate 候选可能透传此错误；刷新钱包并展示 Gems 购买入口 |
 | `2001` | 创建会话失败 | 创建 Session 时发生错误 |
 | `2002` | 生成消息ID失败 | Redis 生成消息 ID 失败 |
 | `2003` | 生成轮次ID失败 | Redis 生成轮次 ID 失败 |

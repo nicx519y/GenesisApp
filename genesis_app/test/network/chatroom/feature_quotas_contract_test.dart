@@ -32,6 +32,7 @@ Map<String, Object?> _quotas({
   Object? conversationEdit,
 }) => {
   'membership_status': membershipStatus,
+  'is_member': membershipStatus == 1,
   'inspiration': inspiration ?? _quota(),
   'conversation_edit':
       conversationEdit ??

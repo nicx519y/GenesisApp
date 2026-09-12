@@ -76,8 +76,6 @@ class LocationChatEditPageArgs {
     required this.style,
     required this.onSave,
     this.cardId,
-    this.canEdit = true,
-    this.canDelete = true,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
     this.selfMessageBubbleMaxWidthCap,
@@ -90,11 +88,10 @@ class LocationChatEditPageArgs {
   final int roundId;
   final int? cardId;
   final List<ChatMessageVm> messages;
-  final bool canEdit;
-  final bool canDelete;
 
   /// Resolves when this editor's batch request succeeds.
-  /// All failures are presented through the global toast.
+  /// Quota failures are presented once here; other business failures use the
+  /// global presenter. A failed save always retains this editor's draft.
   final Future<void> Function(LocationChatEditResult result) onSave;
   final ChatUiStyleConfig style;
   final String? backgroundImageUrl;
@@ -125,7 +122,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
   bool _saving = false;
   bool _completed = false;
   bool get _inputEnabled => !_saving;
-  bool get _canDelete => _inputEnabled && widget.args.canDelete;
+  bool get _canDelete => _inputEnabled;
 
   LocationChatEditResult _draft() => LocationChatEditResult(
     texts: Map.unmodifiable({
@@ -317,7 +314,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
               child: ChatMentionScope(
                 catalog: args.mentionCatalog ?? ChatMentionCatalog.empty,
                 child: ChatMessageEditorScope(
-                  controllers: args.canEdit ? _controllers : const {},
+                  controllers: _controllers,
                   onEditorActivated: _activateEditor,
                   onEditorDeactivated: (id) {
                     if (_activeMessageId == id) _activeMessageId = null;
@@ -402,7 +399,11 @@ extension _LocationChatEditActions on _LocationChatPanelState {
     double? otherCap,
   ) => LocationChatEditFeature(
     enabled: !replyBlocked && (replyState?.canEdit ?? false),
-    busy: _preparingReplyAction,
+    busy: _editQuotaLoading,
+    freeUsesRemaining: _freeUsesRemaining(
+      'conversation_edit',
+      queried: _editQuotaQueried,
+    ),
     onInvoke: () => unawaited(_editCurrentReply(style, selfCap, otherCap)),
   );
 

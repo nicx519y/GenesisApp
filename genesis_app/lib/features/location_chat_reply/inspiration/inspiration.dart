@@ -25,6 +25,7 @@ final class LocationChatInspirationFeature {
     this.onExpandedChanged,
     this.onSend,
     this.onEdit,
+    this.freeUsesRemaining,
   });
 
   const LocationChatInspirationFeature.disabled()
@@ -33,11 +34,13 @@ final class LocationChatInspirationFeature {
       enabled = false,
       onExpandedChanged = null,
       onSend = null,
-      onEdit = null;
+      onEdit = null,
+      freeUsesRemaining = null;
 
   final List<String> messages;
   final bool loading;
   final bool enabled;
+  final int? freeUsesRemaining;
   final ValueChanged<bool>? onExpandedChanged;
   final ValueChanged<String>? onSend;
   final ValueChanged<String>? onEdit;

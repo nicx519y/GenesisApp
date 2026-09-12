@@ -1,5 +1,6 @@
 import '../json_utils.dart';
 import '../api_exception.dart';
+import '../models/user_memory_settings.dart';
 import '../models/world_history_settings.dart';
 import 'v1_api_resource.dart';
 
@@ -8,7 +9,7 @@ typedef CurrentUserInfoSessionProvider =
     Future<CurrentUserInfoSession?> Function();
 
 class UserV1Api extends V1ApiResource {
-  const UserV1Api(
+  UserV1Api(
     super.client, {
     CurrentUserInfoSessionProvider? currentUserInfoSessionProvider,
   }) : _currentUserInfoSessionProvider = currentUserInfoSessionProvider;
@@ -120,16 +121,12 @@ class UserV1Api extends V1ApiResource {
   ///
   /// For the current account, UUID and selected model code are siblings of
   /// `user` in this result.
-  Future<Map<String, dynamic>> info({
-    String? uid,
-    bool handlePageNotFound = true,
-  }) async {
+  Future<Map<String, dynamic>> info({String? uid}) async {
     final resolvedUid = uid?.trim() ?? '';
     if (resolvedUid.isNotEmpty) {
       return getMapWithHeaders(
         'user/info',
         query: v1Query({'uid': resolvedUid}),
-        handlePageNotFound: handlePageNotFound,
       );
     }
 
@@ -142,7 +139,6 @@ class UserV1Api extends V1ApiResource {
       'user/info',
       query: {'uid': session.uid},
       headers: {'authorization': _bearerToken(session.authToken)},
-      handlePageNotFound: handlePageNotFound,
     );
     _validateCurrentUserInfo(response, expectedUid: session.uid);
     return response;
@@ -239,6 +235,27 @@ class UserV1Api extends V1ApiResource {
   /// ```
   Future<Map<String, dynamic>> blocks({int? pn, int? rn}) {
     return getMap('user/blocks', v1Query({'pn': pn, 'rn': rn}));
+  }
+
+  /// GET /api/v1/user/memory-settings
+  Future<UserMemorySettings> memorySettings({String? worldId}) async {
+    final resolvedWorldId = worldId?.trim() ?? '';
+    final data = await getMap(
+      'user/memory-settings',
+      v1Query({'world_id': resolvedWorldId}),
+    );
+    return UserMemorySettings.fromJson(data);
+  }
+
+  /// POST /api/v1/user/memory-settings
+  Future<UserMemorySettings> updateMemorySettings({
+    required int memoryTokens,
+  }) async {
+    final data = await postMap(
+      'user/memory-settings',
+      v1Body({'memory_tokens': memoryTokens}),
+    );
+    return UserMemorySettings.fromJson(data);
   }
 
   /// GET /api/v1/user/world-history-settings

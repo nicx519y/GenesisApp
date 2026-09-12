@@ -32,8 +32,6 @@ Future<void> openEditor(
   required Future<void> Function(LocationChatEditResult) onSave,
   List<ChatMessageVm>? messages,
   int? cardId,
-  bool canEdit = true,
-  bool canDelete = true,
   GlobalKey<NavigatorState>? navigatorKey,
 }) async {
   await tester.pumpWidget(
@@ -51,8 +49,6 @@ Future<void> openEditor(
                     locationId: 'location',
                     roundId: 2,
                     cardId: cardId,
-                    canEdit: canEdit,
-                    canDelete: canDelete,
                     messages:
                         messages ??
                         [
@@ -616,25 +612,23 @@ void main() {
   }
 
   testWidgets(
-    'unchanged Save avoids requests and read-only permissions are enforced',
+    'unchanged Save avoids requests while editor remains interactive',
     (tester) async {
       var saves = 0;
       await openEditor(
         tester,
-        canEdit: false,
-        canDelete: false,
         onSave: (_) async {
           saves++;
         },
       );
-      expect(find.byType(TextField), findsNothing);
+      expect(find.byType(TextField), findsWidgets);
       expect(
         tester
             .widget<IconButton>(
               find.byKey(const ValueKey('location-chat-edit-delete-reply')),
             )
             .onPressed,
-        isNull,
+        isNotNull,
       );
       await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
       await tester.pumpAndSettle();

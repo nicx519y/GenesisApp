@@ -19,7 +19,6 @@ abstract class _GenesisApiContext {
     RequestHeaderProvider? appHeaderProvider,
     GatewayRequestInterceptor? gatewayRequestInterceptor,
     Future<void> Function(String message)? onSessionExpired,
-    Future<void> Function(String message)? onPageNotFound,
     void Function(String message)? onChatroomMessageMutationError,
   }) {
     final resolvedPlatformConfig =
@@ -32,7 +31,6 @@ abstract class _GenesisApiContext {
     _appHeaderProvider =
         appHeaderProvider ?? AppRequestHeaderProvider().headers;
     _onSessionExpired = onSessionExpired;
-    _onPageNotFound = onPageNotFound;
     _onChatroomMessageMutationError = onChatroomMessageMutationError;
     final resolvedTransport = _resolveTransport(
       transport: transport,
@@ -106,7 +104,6 @@ abstract class _GenesisApiContext {
   late final IdentityAuthService _identityAuthService;
   late final RequestHeaderProvider _appHeaderProvider;
   late final Future<void> Function(String message)? _onSessionExpired;
-  late final Future<void> Function(String message)? _onPageNotFound;
   late final void Function(String message)? _onChatroomMessageMutationError;
 
   Future<Map<String, String>> _runtimeRequestHeaders() async {
@@ -156,11 +153,16 @@ abstract class _GenesisApiContext {
         // Session expiry has already taken the global sign-out path above.
         // Keep the envelope intact so ChatroomHttpApi still throws its business
         // exception, allowing the service to refresh history for 2011 / 2013.
-        _onChatroomMessageMutationError?.call(asString(envelope['err_msg']));
+        final quotaFailure =
+            envelope['err_no'] == 2030 &&
+            (response.uri.pathSegments.last == 'inspiration' ||
+                response.uri.pathSegments.last == 'batch');
+        if (!quotaFailure) {
+          _onChatroomMessageMutationError?.call(asString(envelope['err_msg']));
+        }
       }
       return data;
     }
-    _throwIfPageNotFound(response);
     return data;
   }
 
@@ -200,42 +202,5 @@ abstract class _GenesisApiContext {
       uri: response.uri,
       kind: ApiExceptionKind.business,
     );
-  }
-
-  void _throwIfPageNotFound(ApiResponse response) {
-    if (!response.handlePageNotFound ||
-        _isRecoverablePageNotFound(response.uri)) {
-      return;
-    }
-
-    final data = response.data;
-    final int? errNo;
-    if (data is Map) {
-      final map = asJsonMap(data);
-      final errNoRaw = map.containsKey('err_no') ? map['err_no'] : map['errNo'];
-      errNo = asInt(errNoRaw);
-    } else {
-      errNo = null;
-    }
-    if (errNo != 1404) return;
-
-    const message = 'Page not found.';
-    final handler = _onPageNotFound;
-    if (handler != null) unawaited(handler(message));
-    throw ApiException(
-      message: message,
-      code: errNo,
-      statusCode: response.statusCode,
-      responseBody: response.body,
-      responseHeaders: response.headers,
-      uri: response.uri,
-      kind: ApiExceptionKind.business,
-    );
-  }
-
-  bool _isRecoverablePageNotFound(Uri uri) {
-    return uri.path == '/api/v1/user/followers' ||
-        uri.path == '/api/v1/origin/map' ||
-        uri.path == '/api/v1/world/map';
   }
 }

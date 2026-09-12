@@ -6,7 +6,10 @@ import 'package:flutter/rendering.dart';
 
 import '../../components/chat/shared/chat_ui.dart';
 
-const replyCardSwitchDuration = Duration(milliseconds: 240);
+const replyCardSwitchDuration = Duration(milliseconds: 500);
+const _replyCardRegenerateCollapseDuration = Duration(milliseconds: 800);
+const _replyCardRegenerateFadeRampFraction = 60 / 800;
+const _replyCardRegenerateFadeExtent = 48.0;
 
 class LocationChatReplyCard {
   const LocationChatReplyCard({
@@ -19,7 +22,8 @@ class LocationChatReplyCard {
   final Widget? status;
 }
 
-/// Owns only the transient gesture. The owner commits business state on settle.
+/// Owns presentation-only card transitions. Business state stays with the
+/// parent and is committed only after the relevant interaction settles.
 class LocationChatReplyCardSwitcher extends StatefulWidget {
   const LocationChatReplyCardSwitcher({
     super.key,
@@ -31,6 +35,7 @@ class LocationChatReplyCardSwitcher extends StatefulWidget {
     required this.onBusyChanged,
     required this.onWillChangeLayout,
     this.enabled = true,
+    this.regenerationInProgress = false,
   });
   final String identity;
   final List<LocationChatReplyCard> cards;
@@ -40,6 +45,7 @@ class LocationChatReplyCardSwitcher extends StatefulWidget {
   final ValueChanged<bool> onBusyChanged;
   final VoidCallback onWillChangeLayout;
   final bool enabled;
+  final bool regenerationInProgress;
 
   @override
   State<LocationChatReplyCardSwitcher> createState() =>
@@ -48,13 +54,19 @@ class LocationChatReplyCardSwitcher extends StatefulWidget {
 
 class LocationChatReplyCardSwitcherState
     extends State<LocationChatReplyCardSwitcher>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late final AnimationController _animation;
+  late final AnimationController _regenerateCollapseAnimation;
   late int _displayedId;
   int? _targetId;
+  LocationChatReplyCard? _regenerateOriginalCard;
+  int? _regenerateSourceId;
   int _delta = 0, _generation = 0;
   double _progress = 0, _dragDistance = 0, _width = 1;
   bool _busy = false, _dragging = false;
+  bool _showRegenerateSnapshot = false;
+  bool _regenerateReplacementObserved = false;
+  bool _regenerateTransitionUpdateScheduled = false;
   double _from = 0, _to = 0;
 
   LocationChatReplyCard? _card(int? id) =>
@@ -83,18 +95,154 @@ class LocationChatReplyCardSwitcherState
                 (_to - _from) * Curves.easeOutCubic.transform(_animation.value),
           );
         });
+    _regenerateCollapseAnimation =
+        AnimationController(
+            vsync: this,
+            duration: _replyCardRegenerateCollapseDuration,
+          )
+          ..addListener(() => setState(() {}))
+          ..addStatusListener(_handleRegenerateCollapseStatus);
   }
 
   @override
   void didUpdateWidget(LocationChatReplyCardSwitcher oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.identity != oldWidget.identity ||
-        widget.currentCardId != oldWidget.currentCardId ||
+    if (widget.identity != oldWidget.identity) {
+      _cancelRegenerateCollapse(deferred: true);
+      _reset(deferred: true);
+      _displayedId = widget.currentCardId;
+      return;
+    }
+    if (_regenerateOriginalCard != null) {
+      _syncRegenerateCollapse();
+      return;
+    }
+    if (widget.currentCardId != oldWidget.currentCardId ||
         !widget.enabled ||
         (_targetId != null && _card(_targetId) == null)) {
       _reset(deferred: true);
       _displayedId = widget.currentCardId;
     }
+  }
+
+  /// Starts a presentation-only collapse. The owner must invoke Regenerate
+  /// first so this transition's busy callback cannot block its own request.
+  void beginRegenerateCollapse() {
+    if (_busy || _regenerateOriginalCard != null) return;
+    final current = _card(_displayedId);
+    if (current == null ||
+        (current.messages.isEmpty && current.status == null) ||
+        MediaQuery.disableAnimationsOf(context)) {
+      return;
+    }
+    _regenerateOriginalCard = LocationChatReplyCard(
+      id: current.id,
+      messages: List<ChatMessageVm>.unmodifiable(current.messages),
+      status: current.status,
+    );
+    _regenerateSourceId = current.id;
+    _showRegenerateSnapshot = true;
+    _regenerateReplacementObserved = false;
+    _setBusy(true);
+    _regenerateCollapseAnimation.forward(from: 0);
+  }
+
+  void _syncRegenerateCollapse() {
+    final sourceId = _regenerateSourceId;
+    if (sourceId == null) return;
+    if (widget.currentCardId != sourceId) {
+      _regenerateReplacementObserved = true;
+      _displayedId = widget.currentCardId;
+    }
+    if (!widget.regenerationInProgress && widget.currentCardId == sourceId) {
+      _scheduleRegenerateTransitionUpdate();
+      return;
+    }
+    if (!widget.regenerationInProgress &&
+        widget.currentCardId != sourceId &&
+        _regenerateCollapseAnimation.isCompleted) {
+      _scheduleRegenerateTransitionUpdate();
+    }
+  }
+
+  void _scheduleRegenerateTransitionUpdate() {
+    if (_regenerateTransitionUpdateScheduled) return;
+    _regenerateTransitionUpdateScheduled = true;
+    scheduleMicrotask(() {
+      _regenerateTransitionUpdateScheduled = false;
+      if (!mounted || _regenerateOriginalCard == null) return;
+      if (!widget.regenerationInProgress &&
+          widget.currentCardId == _regenerateSourceId) {
+        _recoverRegenerateSource();
+      } else if (!widget.regenerationInProgress &&
+          _regenerateCollapseAnimation.isCompleted) {
+        _finishRegenerateTransition();
+      }
+    });
+  }
+
+  void _handleRegenerateCollapseStatus(AnimationStatus status) {
+    if (!mounted) return;
+    if (status == AnimationStatus.completed) {
+      setState(() {
+        _showRegenerateSnapshot = false;
+        _displayedId = widget.currentCardId;
+      });
+      _setBusy(false);
+      if (!widget.regenerationInProgress) {
+        if (widget.currentCardId == _regenerateSourceId) {
+          _recoverRegenerateSource();
+        } else {
+          _finishRegenerateTransition();
+        }
+      }
+      return;
+    }
+    if (status == AnimationStatus.dismissed &&
+        _regenerateOriginalCard != null) {
+      _finishRegenerateTransition();
+    }
+  }
+
+  void _recoverRegenerateSource() {
+    if (_regenerateOriginalCard == null) return;
+    _regenerateCollapseAnimation.stop();
+    setState(() {
+      _displayedId = _regenerateSourceId!;
+      _showRegenerateSnapshot = true;
+    });
+    _setBusy(true);
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _finishRegenerateTransition();
+    } else {
+      _regenerateCollapseAnimation.reverse();
+    }
+  }
+
+  void _finishRegenerateTransition() {
+    _regenerateCollapseAnimation.stop();
+    setState(() {
+      _regenerateOriginalCard = null;
+      _regenerateSourceId = null;
+      _showRegenerateSnapshot = false;
+      _regenerateReplacementObserved = false;
+      _regenerateTransitionUpdateScheduled = false;
+      _displayedId = widget.currentCardId;
+    });
+    _regenerateCollapseAnimation.value = 0;
+    _setBusy(false);
+  }
+
+  void _cancelRegenerateCollapse({bool deferred = false}) {
+    if (_regenerateOriginalCard == null) return;
+    _regenerateCollapseAnimation.stop();
+    _regenerateOriginalCard = null;
+    _regenerateSourceId = null;
+    _showRegenerateSnapshot = false;
+    _regenerateReplacementObserved = false;
+    _regenerateTransitionUpdateScheduled = false;
+    _regenerateCollapseAnimation.value = 0;
+    _setBusy(false, deferred: deferred);
   }
 
   void _setBusy(bool value, {bool deferred = false}) {
@@ -184,18 +332,57 @@ class LocationChatReplyCardSwitcherState
   void dispose() {
     _generation++;
     _animation.dispose();
+    _regenerateCollapseAnimation
+      ..removeStatusListener(_handleRegenerateCollapseStatus)
+      ..dispose();
     _setBusy(false, deferred: true);
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final current = _card(_displayedId);
+    final current = _showRegenerateSnapshot
+        ? _regenerateOriginalCard
+        : _regenerateOriginalCard != null && !_regenerateReplacementObserved
+        ? null
+        : _card(_displayedId);
     if (current == null) return const SizedBox.shrink();
     final target = _card(_targetId);
     return LayoutBuilder(
       builder: (context, constraints) {
         _width = math.max(1, constraints.maxWidth);
+        Widget deck = ClipRect(
+          child: _SlidingCardLayout(
+            progress: _progress,
+            delta: _delta,
+            children: [
+              IgnorePointer(
+                key: ValueKey('reply-card-page-${current.id}'),
+                ignoring: _busy,
+                child: widget.cardBuilder(current),
+              ),
+              if (target != null)
+                ExcludeSemantics(
+                  key: ValueKey('reply-card-page-${target.id}'),
+                  child: IgnorePointer(child: widget.cardBuilder(target)),
+                ),
+            ],
+          ),
+        );
+        if (_showRegenerateSnapshot) {
+          final collapseProgress = Curves.easeInOutCubic.transform(
+            _regenerateCollapseAnimation.value,
+          );
+          deck = _RegenerateCollapseViewport(
+            progress: collapseProgress,
+            fadeStrength: math.min(
+              1,
+              _regenerateCollapseAnimation.value /
+                  _replyCardRegenerateFadeRampFraction,
+            ),
+            child: RepaintBoundary(child: deck),
+          );
+        }
         return Listener(
           onPointerCancel: (_) {
             if (_dragging) unawaited(_settle(commit: false));
@@ -211,27 +398,66 @@ class LocationChatReplyCardSwitcherState
                     if (_dragging) unawaited(_settle(commit: false));
                   }
                 : null,
-            child: ClipRect(
-              child: _SlidingCardLayout(
-                progress: _progress,
-                delta: _delta,
-                children: [
-                  IgnorePointer(
-                    key: ValueKey('reply-card-page-${current.id}'),
-                    ignoring: _busy,
-                    child: widget.cardBuilder(current),
-                  ),
-                  if (target != null)
-                    ExcludeSemantics(
-                      key: ValueKey('reply-card-page-${target.id}'),
-                      child: IgnorePointer(child: widget.cardBuilder(target)),
-                    ),
-                ],
-              ),
-            ),
+            child: deck,
           ),
         );
       },
+    );
+  }
+}
+
+class _RegenerateCollapseViewport extends StatelessWidget {
+  const _RegenerateCollapseViewport({
+    required this.progress,
+    required this.fadeStrength,
+    required this.child,
+  });
+
+  final double progress;
+  final double fadeStrength;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final visibleFactor = 1 - progress;
+    if (visibleFactor <= 0) return const SizedBox.shrink();
+    final clipped = Align(
+      alignment: Alignment.topCenter,
+      heightFactor: visibleFactor,
+      child: child,
+    );
+    if (fadeStrength <= 0) {
+      return ClipRect(
+        key: const ValueKey('reply-card-regenerate-collapse-viewport'),
+        child: clipped,
+      );
+    }
+    return ClipRect(
+      key: const ValueKey('reply-card-regenerate-collapse-viewport'),
+      child: ShaderMask(
+        key: const ValueKey('reply-card-regenerate-gradient'),
+        blendMode: BlendMode.dstIn,
+        shaderCallback: (bounds) {
+          if (bounds.height <= 0) {
+            return const LinearGradient(
+              colors: [Colors.transparent, Colors.transparent],
+            ).createShader(bounds);
+          }
+          final fadeExtent = math.min(
+            bounds.height,
+            _replyCardRegenerateFadeExtent * fadeStrength,
+          );
+          final opaqueStop = ((bounds.height - fadeExtent) / bounds.height)
+              .clamp(0.0, 1.0);
+          return LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: const [Colors.white, Colors.white, Colors.transparent],
+            stops: [0, opaqueStop, 1],
+          ).createShader(bounds);
+        },
+        child: clipped,
+      ),
     );
   }
 }

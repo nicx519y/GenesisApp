@@ -30,8 +30,6 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       roundId: state.roundId,
       cardId: targetCardId,
       messages: List.unmodifiable(messages),
-      canEdit: card?.canEdit ?? true,
-      canDelete: card?.canDelete ?? true,
       state: state,
     );
   }
@@ -163,26 +161,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       operations: operations,
     );
     if (_disposed) return;
-    await _applyCommittedFormalEdit?.call(
-      target.locationId,
-      target.roundId,
-      operations,
-    );
-    if (_disposed) return;
-    final byId = {
-      for (final operation in operations) operation.globalMessageId: operation,
-    };
-    final updated = <WorldChatroomMessage>[];
-    for (final message in target._state._formal) {
-      final operation = byId[message.globalMessageId];
-      if (operation?.action == ChatroomLlmMessageAction.delete) continue;
-      updated.add(
-        operation == null
-            ? message
-            : message.copyWith(content: operation.content!),
-      );
-    }
-    target._state._formal = updated;
+    _onFormalEditCommitted?.call(target.locationId, target.roundId, operations);
     target._state._drafts.remove(0);
     target._state._draftBaselines.remove(0);
     target._state._uncertainBatches.remove(0);
@@ -200,19 +179,12 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     if (operations.isEmpty) return;
     if (state._uncertainBatches.contains(key)) {
       final current = target.cardId == null
-          ? await _loadRound(state.locationId, state.roundId)
+          ? List<WorldChatroomMessage>.of(state._formal)
           : await _reloadCardMessages(state, target.cardId!);
       if (_operationsApplied(operations, current)) {
         state._drafts.remove(key);
         state._draftBaselines.remove(key);
         state._uncertainBatches.remove(key);
-        if (target.cardId == null) {
-          await _refreshFormalRange(
-            state.locationId,
-            state.roundId,
-            state.roundId,
-          );
-        }
         await _persist(state);
         return;
       }
@@ -235,7 +207,14 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     // Persist ambiguity before dispatch so process death during POST also
     // requires a read before retrying (particularly for delete operations).
     state._uncertainBatches.add(key);
-    await _persist(state);
+    try {
+      await _persist(state);
+    } catch (_) {
+      // The mutating request was never dispatched, so this failure is known
+      // and must not leave the reply frozen behind a recovery receipt.
+      state._uncertainBatches.remove(key);
+      rethrow;
+    }
     try {
       if (target.cardId != null) {
         final result = await _http.batchMutateLlmCardMessages(
@@ -252,19 +231,18 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         state._authoritativeCards.add(target.cardId!);
         state._streamMessages.remove(target.cardId);
       } else {
-        final result = await _http.batchMutateLlmMessages(
+        await _http.batchMutateLlmMessages(
           worldId: worldId,
           locationId: state.locationId,
           conversationRoundId: state.roundId,
           operations: operations,
         );
         _checkCurrent();
-        await _refreshFormalRange(
+        _onFormalEditCommitted?.call(
           state.locationId,
-          result.startConversationRoundId,
-          result.endConversationRoundId,
+          state.roundId,
+          operations,
         );
-        state._formal = await _loadRound(state.locationId, state.roundId);
       }
       _checkCurrent();
       ++state._generation;
@@ -320,12 +298,8 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         throw ArgumentError('The edit target has changed');
       }
       if (operation.action == ChatroomLlmMessageAction.delete) {
-        if (!target.canDelete) {
-          throw StateError('Deleting this candidate is disabled');
-        }
         deletes++;
-      } else if (!target.canEdit ||
-          messages[operation.globalMessageId]!.messageType == 'image') {
+      } else if (messages[operation.globalMessageId]!.messageType == 'image') {
         throw StateError('This message cannot be edited');
       }
     }

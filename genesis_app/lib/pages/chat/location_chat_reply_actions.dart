@@ -11,6 +11,7 @@ import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/tokens/genesis_spacing.dart';
 import '../../ui/tokens/genesis_typography.dart';
 
 part '../../features/location_chat_reply/inspiration/src/location_chat_inspiration_replies.dart';
@@ -33,6 +34,7 @@ class LocationChatReplyActions extends StatefulWidget {
     this.cardIndex = 0,
     this.cardCount = 0,
     this.cardsConfirmed = false,
+    this.cardSwitchEnabled = true,
     this.onPreviousCard,
     this.onNextCard,
     this.editPromptExpanded,
@@ -49,6 +51,7 @@ class LocationChatReplyActions extends StatefulWidget {
   final int cardIndex;
   final int cardCount;
   final bool cardsConfirmed;
+  final bool cardSwitchEnabled;
   final VoidCallback? onPreviousCard;
   final VoidCallback? onNextCard;
   final bool? editPromptExpanded;
@@ -72,6 +75,7 @@ class LocationChatReplyActions extends StatefulWidget {
 }
 
 class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
+  bool _localEditPromptExpanded = false;
   bool _localInspirationExpanded = false;
   int _localInspirationPage = 0;
   bool get _inspirationExpanded =>
@@ -80,10 +84,13 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
   void _setEditPromptExpanded(bool expanded) {
     if (widget.onEditPromptExpandedChanged case final onChanged?) {
       onChanged(expanded);
+    } else {
+      setState(() => _localEditPromptExpanded = expanded);
     }
   }
 
   void _toggleInspiration() {
+    if (_inspirationExpanded && _inspiration.freeUsesRemaining == 0) return;
     _setEditPromptExpanded(false);
     _setInspirationExpanded(!_inspirationExpanded);
   }
@@ -109,31 +116,35 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
   @override
   Widget build(BuildContext context) {
     final actionButtons = <Widget>[
-      LocationChatRegenerateButton(
-        key: const ValueKey('location-chat-regenerate'),
-        feature: _regenerate,
-        onBeforeInvoke: () => _setEditPromptExpanded(false),
-      ),
-      LocationChatGoOnButton(
-        key: const ValueKey('location-chat-go-on'),
-        feature: _goOn,
-        onBeforeInvoke: () => _setEditPromptExpanded(false),
-      ),
-      LocationChatEditButton(
-        key: const ValueKey('location-chat-edit'),
-        feature: _edit,
-        onBeforeInvoke: () {
-          _setEditPromptExpanded(false);
-          _setInspirationExpanded(false);
-        },
-      ),
-      LocationChatInspirationButton(
-        key: const ValueKey('location-chat-inspiration'),
-        feature: _inspiration,
-        expanded: _inspirationExpanded,
-        onBeforeInvoke: () => _setEditPromptExpanded(false),
-        onToggle: _toggleInspiration,
-      ),
+      if (_regenerate.invocation != null || _regenerate.busy)
+        LocationChatRegenerateButton(
+          key: const ValueKey('location-chat-regenerate'),
+          feature: _regenerate,
+          onBeforeInvoke: () => _setEditPromptExpanded(false),
+        ),
+      if (_goOn.invocation != null || _goOn.busy)
+        LocationChatGoOnButton(
+          key: const ValueKey('location-chat-go-on'),
+          feature: _goOn,
+          onBeforeInvoke: () => _setEditPromptExpanded(false),
+        ),
+      if (_edit.invocation != null || _edit.busy)
+        LocationChatEditButton(
+          key: const ValueKey('location-chat-edit'),
+          feature: _edit,
+          onBeforeInvoke: () {
+            _setEditPromptExpanded(true);
+            _setInspirationExpanded(false);
+          },
+        ),
+      if (_inspiration.enabled || _inspiration.loading)
+        LocationChatInspirationButton(
+          key: const ValueKey('location-chat-inspiration'),
+          feature: _inspiration,
+          expanded: _inspirationExpanded,
+          onBeforeInvoke: () => _setEditPromptExpanded(false),
+          onToggle: _toggleInspiration,
+        ),
     ];
 
     return Column(
@@ -148,7 +159,9 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               IconButton(
                 key: const ValueKey('location-chat-reply-previous-card'),
                 tooltip: 'Previous reply',
-                onPressed: widget.cardIndex > 0 ? widget.onPreviousCard : null,
+                onPressed: widget.cardSwitchEnabled && widget.cardIndex > 0
+                    ? widget.onPreviousCard
+                    : null,
                 icon: const Icon(Icons.chevron_left, size: 20),
                 color: GenesisColors.darkTextPrimary,
                 disabledColor: GenesisColors.darkTextTertiary,
@@ -169,7 +182,9 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               IconButton(
                 key: const ValueKey('location-chat-reply-next-card'),
                 tooltip: 'Next reply',
-                onPressed: widget.cardIndex < widget.cardCount - 1
+                onPressed:
+                    widget.cardSwitchEnabled &&
+                        widget.cardIndex < widget.cardCount - 1
                     ? widget.onNextCard
                     : null,
                 icon: const Icon(Icons.chevron_right, size: 20),
@@ -184,31 +199,38 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           padding: EdgeInsets.only(
             left: style.avatarSize + style.avatarBubbleGap,
           ),
-          child: Row(
-            key: const ValueKey('location-chat-reply-actions-four-icons'),
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              for (var index = 0; index < actionButtons.length; index++) ...[
-                if (index > 0)
-                  const SizedBox(
-                    width:
-                        LocationChatReplyActions.centerSpacing -
-                        LocationChatReplyActions.buttonSize,
-                  ),
-                actionButtons[index],
+          child: SizedBox(
+            height: LocationChatReplyActions.buttonSize,
+            child: Row(
+              key: const ValueKey('location-chat-reply-actions-four-icons'),
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
+              children: [
+                for (var index = 0; index < actionButtons.length; index++) ...[
+                  if (index > 0)
+                    const SizedBox(
+                      width:
+                          LocationChatReplyActions.centerSpacing -
+                          LocationChatReplyActions.buttonSize,
+                    ),
+                  actionButtons[index],
+                ],
               ],
-            ],
+            ),
           ),
         ),
+        if ((widget.editPromptExpanded ?? _localEditPromptExpanded) &&
+            _edit.freeUsesRemaining != null)
+          _quotaPrompt(
+            feature: 'edit',
+            message: 'Free Edition uses left: ',
+            remaining: _edit.freeUsesRemaining!,
+          ),
         if (_inspirationExpanded && _inspiration.messages.isNotEmpty) ...[
           const SizedBox(height: 12),
           _InspirationReplies(
             replies: _inspiration.messages,
-            onSend: (text) {
-              _setInspirationExpanded(false);
-              _inspiration.onSend?.call(text);
-            },
+            onSend: (text) => _inspiration.onSend?.call(text),
             onEdit: (text) {
               _setInspirationExpanded(false);
               _inspiration.onEdit?.call(text);
@@ -222,9 +244,63 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             },
           ),
         ],
+        if (_inspirationExpanded && _inspiration.freeUsesRemaining != null)
+          _quotaPrompt(
+            feature: 'inspiration',
+            message: 'Free inspiration uses left: ',
+            remaining: _inspiration.freeUsesRemaining!,
+          ),
       ],
     );
   }
+
+  Widget _quotaPrompt({
+    required String feature,
+    required String message,
+    required int remaining,
+  }) => Padding(
+    padding: const EdgeInsets.only(top: GenesisSpacing.xl),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = math.max(
+          0.0,
+          constraints.maxWidth -
+              style.avatarSize -
+              style.avatarBubbleGap -
+              style.avatarSideSpacerWidth,
+        );
+        final width = math.min(
+          availableWidth,
+          math.min(
+            chatNormalBubbleMaxWidth(context, style),
+            widget.selfMessageBubbleMaxWidthCap ?? double.infinity,
+          ),
+        );
+        return Center(
+          child: SizedBox(
+            width: width,
+            child: Center(
+              child: LocationChatSubscriptionPrompt(
+                style: style,
+                promptKey: ValueKey('$feature-subscription-prompt'),
+                semanticsLabel: '$message$remaining. Get more',
+                message: TextSpan(
+                  children: [
+                    TextSpan(text: message),
+                    TextSpan(
+                      text: '"$remaining"',
+                      style: const TextStyle(color: GenesisColors.redSecondary),
+                    ),
+                  ],
+                ),
+                actionLabel: 'Get more >',
+              ),
+            ),
+          ),
+        );
+      },
+    ),
+  );
 }
 
 /// Shared appearance for inline subscription prompts below reply actions.
@@ -260,9 +336,12 @@ class LocationChatSubscriptionPrompt extends StatelessWidget {
         child: Container(
           padding: style.bubblePadding,
           decoration: BoxDecoration(
-            color: chatNarratorMessageBackgroundColor(
-              style,
-            ).withValues(alpha: style.selfBubbleColor.a),
+            color:
+                (style.useScenePlateBubbleGeometry &&
+                            !style.useConfiguredScenePlateSystemStyle
+                        ? GenesisColors.darkBackground
+                        : chatNarratorMessageBackgroundColor(style))
+                    .withValues(alpha: style.selfBubbleColor.a),
             borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
           ),
           child: Text.rich(
@@ -271,7 +350,7 @@ class LocationChatSubscriptionPrompt extends StatelessWidget {
                 message,
                 TextSpan(
                   text: '${singleLine ? ' ' : '\n'}$actionLabel',
-                  style: const TextStyle(color: GenesisColors.brand),
+                  style: const TextStyle(color: GenesisColors.redSecondary),
                 ),
               ],
             ),

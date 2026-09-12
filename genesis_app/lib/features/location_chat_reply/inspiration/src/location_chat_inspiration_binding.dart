@@ -16,6 +16,10 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
       LocationChatInspirationFeature(
         messages: _inspirationMessages,
         loading: _inspirationLoading,
+        freeUsesRemaining: _freeUsesRemaining(
+          'inspiration',
+          queried: _inspirationQuotaQueried,
+        ),
         enabled:
             !replyBlocked &&
             _currentInspirationSource != null &&
@@ -60,6 +64,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     _inspirationRequestSource = null;
     _inspirationDisplayedSource = null;
     _inspirationEpoch = null;
+    _inspirationQuotaChecking = false;
     _inspirationLoading = false;
   }
 
@@ -89,7 +94,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
   void _onInspirationExpanded(bool expanded) {
     if (expanded) {
       unawaited(_loadInspirations());
-    } else if (_inspirationLoading) {
+    } else if (_inspirationQuotaChecking || _inspirationLoading) {
       _setLocationChatState(_resetInspiration);
     }
   }
@@ -101,26 +106,48 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     if (service == null ||
         controller == null ||
         source == null ||
+        _inspirationQuotaChecking ||
         _inspirationLoading) {
       return;
     }
+    _inspirationQuotaChecking = true;
     final generation = ++_inspirationRequestGeneration;
     final binding = _replyBindingGeneration;
+    final services = _quotaServices;
+    final session = services?.sessionRevision.value;
     bool current() =>
         mounted &&
         widget.active &&
         generation == _inspirationRequestGeneration &&
         binding == _replyBindingGeneration &&
         identical(service, _service) &&
+        identical(services, _quotaServices) &&
+        session == services?.sessionRevision.value &&
         source.sameOrigin(_currentInspirationSource);
     _setLocationChatState(() {
       _inspirationRequestSource = source;
-      _inspirationDisplayedSource = null;
-      _inspirationMessages = const [];
-      _inspirationLoading = true;
-      _inspirationEpoch = null;
+      if (!source.sameOrigin(_inspirationDisplayedSource)) {
+        _inspirationDisplayedSource = null;
+        _inspirationMessages = const [];
+        _inspirationEpoch = null;
+      }
     });
     try {
+      if (!await _checkReplyFeatureQuota(
+            'inspiration',
+            current: current,
+            onQuotaLookupStarted: () {
+              if (current()) {
+                _setLocationChatState(() => _inspirationLoading = true);
+              }
+            },
+          ) ||
+          !current()) {
+        return;
+      }
+      if (!_inspirationLoading) {
+        _setLocationChatState(() => _inspirationLoading = true);
+      }
       await service.ensureInspirationHistory(source.locationId);
       if (!current()) return;
       final verified = _currentInspirationSource!;
@@ -136,12 +163,24 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         _inspirationMessages = result.messages;
       });
     } catch (error) {
+      if (error is ChatroomFeatureQuotaException) {
+        if (mounted && current()) {
+          _setLocationChatState(() => _inspirationQuotaQueried = true);
+          if (error.quota == null) {
+            showGenesisToast(context, error.message);
+          }
+        }
+        return;
+      }
       if (mounted && current() && !isChatroomErrorPresentedGlobally(error)) {
         showGenesisToast(context, chatroomOperationErrorMessage(error));
       }
     } finally {
       if (mounted && generation == _inspirationRequestGeneration) {
-        _setLocationChatState(() => _inspirationLoading = false);
+        _setLocationChatState(() {
+          _inspirationQuotaChecking = false;
+          _inspirationLoading = false;
+        });
       }
     }
   }

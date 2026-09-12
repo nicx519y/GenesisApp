@@ -19,6 +19,8 @@ class ChatroomHttpMessage {
     required this.locationMessageId,
     required this.locationId,
     required this.conversationRoundId,
+    this.conversationType = '',
+    this.triggerUid = '',
     this.tickNo = 0,
     this.subTickNo = 0,
     required this.senderType,
@@ -48,6 +50,8 @@ class ChatroomHttpMessage {
   final int locationMessageId;
   final String locationId;
   final int conversationRoundId;
+  final String conversationType;
+  final String triggerUid;
   final int tickNo;
   final int subTickNo;
   final String senderType;
@@ -115,6 +119,12 @@ class ChatroomHttpMessage {
       ),
       locationId: asString(json['location_id']),
       conversationRoundId: asInt(json['conversation_round_id']),
+      conversationType: json['conversation_type'] is String
+          ? json['conversation_type'] as String
+          : '',
+      triggerUid: json['trigger_uid'] is String
+          ? json['trigger_uid'] as String
+          : '',
       tickNo: asInt(json['tick_no']),
       subTickNo: asInt(json['sub_tick_no']),
       senderType: asString(json['sender_type']),
@@ -168,6 +178,8 @@ class ChatroomHttpMessage {
       locationMessageId: message.locationMessageId ?? 0,
       locationId: message.locationId,
       conversationRoundId: message.conversationRoundId ?? 0,
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       tickNo: message.tickNo ?? tickPayload?.tickNo ?? 0,
       subTickNo: message.subTickNo ?? tickPayload?.subTickNo ?? 0,
       senderType: message.senderType,

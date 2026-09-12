@@ -71,6 +71,8 @@ class ChatroomV2Message {
     this.messageId,
     this.locationMessageId,
     this.conversationRoundId,
+    this.conversationType = '',
+    this.triggerUid = '',
     this.tickNo,
     this.subTickNo,
     this.senderType = '',
@@ -97,6 +99,8 @@ class ChatroomV2Message {
   final int? messageId;
   final int? locationMessageId;
   final int? conversationRoundId;
+  final String conversationType;
+  final String triggerUid;
   final int? tickNo;
   final int? subTickNo;
   final String senderType;
@@ -179,6 +183,8 @@ class ChatroomV2Message {
       conversationRoundId: json['conversation_round_id'] == null
           ? null
           : asInt(json['conversation_round_id']),
+      conversationType: _strictProtocolString(json['conversation_type']),
+      triggerUid: _strictProtocolString(json['trigger_uid']),
       tickNo: json['tick_no'] == null ? null : asInt(json['tick_no']),
       subTickNo: json['sub_tick_no'] == null
           ? null
@@ -233,6 +239,8 @@ class ChatroomV2Message {
       if (locationMessageId != null) 'location_message_id': locationMessageId,
       if (conversationRoundId != null)
         'conversation_round_id': conversationRoundId,
+      if (conversationType.isNotEmpty) 'conversation_type': conversationType,
+      if (triggerUid.isNotEmpty) 'trigger_uid': triggerUid,
       if (tickNo != null) 'tick_no': tickNo,
       if (subTickNo != null) 'sub_tick_no': subTickNo,
       if (senderType.isNotEmpty) 'sender_type': senderType,
@@ -415,6 +423,8 @@ class ChatroomEnvelope {
     this.msgId,
     this.locationMsgId,
     this.conversationRoundId,
+    this.conversationType = '',
+    this.triggerUid = '',
     this.tickNo,
     this.subTickNo,
     this.clientMsgId = '',
@@ -445,6 +455,8 @@ class ChatroomEnvelope {
   final int? msgId;
   final int? locationMsgId;
   final int? conversationRoundId;
+  final String conversationType;
+  final String triggerUid;
   final int? tickNo;
   final int? subTickNo;
   final String clientMsgId;
@@ -490,6 +502,8 @@ class ChatroomEnvelope {
       conversationRoundId: json['conversation_round_id'] == null
           ? null
           : asInt(json['conversation_round_id']),
+      conversationType: _strictProtocolString(json['conversation_type']),
+      triggerUid: _strictProtocolString(json['trigger_uid']),
       tickNo: json['tick_no'] == null ? null : asInt(json['tick_no']),
       subTickNo: json['sub_tick_no'] == null
           ? null
@@ -529,6 +543,8 @@ class ChatroomEnvelope {
       msgId: message.messageId,
       locationMsgId: message.locationMessageId,
       conversationRoundId: message.conversationRoundId,
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       tickNo:
           message.tickNo ??
           (message.payload.containsKey('tick_no')
@@ -597,6 +613,8 @@ class ChatroomEnvelope {
       messageId: msgId,
       locationMessageId: locationMsgId,
       conversationRoundId: conversationRoundId,
+      conversationType: conversationType,
+      triggerUid: triggerUid,
       tickNo: tickNo,
       subTickNo: subTickNo,
       senderType: senderType,
@@ -648,6 +666,10 @@ class ChatroomEnvelope {
     if (conversationRoundId != null) {
       merged['conversation_round_id'] = conversationRoundId;
     }
+    if (conversationType.isNotEmpty) {
+      merged['conversation_type'] = conversationType;
+    }
+    merged['trigger_uid'] = triggerUid;
     if (tickNo != null) merged['tick_no'] = tickNo;
     if (subTickNo != null) merged['sub_tick_no'] = subTickNo;
     if (clientMsgId.isNotEmpty) merged['client_msg_id'] = clientMsgId;
@@ -671,6 +693,8 @@ sealed class ChatroomPayloadEvent extends ChatroomEvent {
     required this.code,
     required this.codeMsg,
     required this.ts,
+    this.conversationType = '',
+    this.triggerUid = '',
   });
 
   final String sessionId;
@@ -680,6 +704,8 @@ sealed class ChatroomPayloadEvent extends ChatroomEvent {
   final int code;
   final String codeMsg;
   final DateTime? ts;
+  final String conversationType;
+  final String triggerUid;
 
   bool get ok => code == 0;
 }
@@ -807,6 +833,8 @@ class ChatroomAck extends ChatroomPayloadEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.conversationType,
+    super.triggerUid,
     this.globalMessageId = 0,
     this.messageId = 0,
     this.locationMessageId = 0,
@@ -855,6 +883,8 @@ class ChatroomAck extends ChatroomPayloadEvent {
       code: _wsCode(payload),
       codeMsg: asString(payload['err_msg']),
       ts: asDateTime(payload['ts']),
+      conversationType: _strictProtocolString(payload['conversation_type']),
+      triggerUid: _strictProtocolString(payload['trigger_uid']),
       globalMessageId: asInt(payload['global_msg_id']),
       messageId: asInt(payload['msg_id']),
       locationMessageId: asInt(payload['location_msg_id']),
@@ -886,6 +916,8 @@ class ChatroomAck extends ChatroomPayloadEvent {
       code: message.errNo,
       codeMsg: message.errMsg,
       ts: asDateTime(message.ts),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       clientMsgId: message.clientMsgId,
       errorDetail: asString(message.payload['err_detail']),
       receiptConversationRoundId: message.conversationRoundId,
@@ -1032,6 +1064,8 @@ class ChatroomWaitingConversationRound extends ChatroomPayloadEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.conversationType,
+    super.triggerUid,
     required this.conversationRoundId,
   });
 
@@ -1060,6 +1094,8 @@ class ChatroomWaitingConversationRound extends ChatroomPayloadEvent {
       code: message.errNo,
       codeMsg: message.errMsg,
       ts: asDateTime(message.ts),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       conversationRoundId: conversationRoundId,
     );
   }
@@ -1077,6 +1113,8 @@ class ChatroomEndConversationRound extends ChatroomPayloadEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.conversationType,
+    super.triggerUid,
     required this.conversationRoundId,
   });
 
@@ -1105,6 +1143,8 @@ class ChatroomEndConversationRound extends ChatroomPayloadEvent {
       code: message.errNo,
       codeMsg: message.errMsg,
       ts: asDateTime(message.ts),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       conversationRoundId: conversationRoundId,
     );
   }
@@ -1119,6 +1159,8 @@ sealed class ChatroomMessageEvent extends ChatroomPayloadEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.conversationType,
+    super.triggerUid,
     this.globalMessageId = 0,
     required this.messageId,
     this.locationMessageId = 0,
@@ -1162,6 +1204,8 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.conversationType,
+    super.triggerUid,
     super.globalMessageId,
     required super.messageId,
     super.locationMessageId,
@@ -1196,6 +1240,8 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
       code: _wsCode(payload),
       codeMsg: asString(payload['err_msg']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
+      conversationType: _strictProtocolString(payload['conversation_type']),
+      triggerUid: _strictProtocolString(payload['trigger_uid']),
       globalMessageId: asInt(payload['global_msg_id']),
       messageId: asInt(payload['msg_id']),
       locationMessageId: asInt(payload['location_msg_id']),
@@ -1222,6 +1268,8 @@ class ChatroomUserMessage extends ChatroomMessageEvent {
       code: message.errNo,
       codeMsg: message.errMsg,
       ts: asDateTime(message.ts),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       globalMessageId: message.globalMessageId ?? 0,
       messageId: message.messageId ?? 0,
       locationMessageId: message.locationMessageId ?? 0,
@@ -1261,6 +1309,8 @@ class ChatroomUserEnterLocationMessage extends ChatroomMessageEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.conversationType,
+    super.triggerUid,
     super.globalMessageId,
     required super.messageId,
     super.locationMessageId,
@@ -1315,6 +1365,8 @@ class ChatroomUserEnterLocationMessage extends ChatroomMessageEvent {
       code: _wsCode(payload),
       codeMsg: envelope.errMsg,
       ts: asDateTime(envelope.ts),
+      conversationType: envelope.conversationType,
+      triggerUid: envelope.triggerUid,
       globalMessageId: envelope.globalMsgId ?? 0,
       messageId: messageId,
       locationMessageId: locationMessageId,
@@ -1345,6 +1397,8 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.conversationType,
+    super.triggerUid,
     super.globalMessageId,
     required super.messageId,
     super.locationMessageId,
@@ -1378,6 +1432,8 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
       code: _wsCode(payload),
       codeMsg: asString(payload['err_msg']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
+      conversationType: _strictProtocolString(payload['conversation_type']),
+      triggerUid: _strictProtocolString(payload['trigger_uid']),
       globalMessageId: asInt(payload['global_msg_id']),
       messageId: asInt(payload['msg_id']),
       locationMessageId: asInt(payload['location_msg_id']),
@@ -1411,6 +1467,8 @@ class ChatroomNarratorMessage extends ChatroomMessageEvent {
       code: message.errNo,
       codeMsg: message.errMsg,
       ts: asDateTime(message.ts),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       globalMessageId: message.globalMessageId ?? 0,
       messageId: message.messageId ?? 0,
       locationMessageId: message.locationMessageId ?? 0,
@@ -1447,6 +1505,8 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
     required super.code,
     required super.codeMsg,
     required super.ts,
+    super.conversationType,
+    super.triggerUid,
     super.globalMessageId,
     required super.messageId,
     super.locationMessageId,
@@ -1486,6 +1546,8 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
       code: _wsCode(payload),
       codeMsg: asString(payload['err_msg']),
       ts: asDateTime(payload['ts'] ?? envelope.ts),
+      conversationType: _strictProtocolString(payload['conversation_type']),
+      triggerUid: _strictProtocolString(payload['trigger_uid']),
       globalMessageId: asInt(payload['global_msg_id']),
       messageId: asInt(payload['msg_id']),
       locationMessageId: asInt(payload['location_msg_id']),
@@ -1517,6 +1579,8 @@ class ChatroomTickAdvanceMessage extends ChatroomMessageEvent {
       code: message.errNo,
       codeMsg: message.errMsg,
       ts: asDateTime(message.ts),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       globalMessageId: message.globalMessageId ?? 0,
       messageId: message.messageId ?? 0,
       locationMessageId: message.locationMessageId ?? 0,
@@ -1585,6 +1649,8 @@ class ChatroomAiStreamStart extends ChatroomEvent {
     required this.messageId,
     this.locationMessageId = 0,
     required this.conversationRoundId,
+    this.conversationType = '',
+    this.triggerUid = '',
     required this.roundOrder,
     required this.senderType,
     required this.senderId,
@@ -1604,6 +1670,8 @@ class ChatroomAiStreamStart extends ChatroomEvent {
   final int messageId;
   final int locationMessageId;
   final String conversationRoundId;
+  final String conversationType;
+  final String triggerUid;
   final int roundOrder;
   final String senderType;
   final String senderId;
@@ -1634,6 +1702,8 @@ class ChatroomAiStreamStart extends ChatroomEvent {
       messageId: asInt(payload['msg_id']),
       locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: roundId,
+      conversationType: _strictProtocolString(payload['conversation_type']),
+      triggerUid: _strictProtocolString(payload['trigger_uid']),
       roundOrder: 0,
       senderType: asString(payload['sender_type'], fallback: 'character'),
       senderId: asString(payload['sender_id']),
@@ -1651,6 +1721,8 @@ class ChatroomAiStreamStart extends ChatroomEvent {
       messageId: message.messageId ?? 0,
       locationMessageId: message.locationMessageId ?? 0,
       conversationRoundId: _stringId(message.conversationRoundId),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       roundOrder: asInt(message.payload['round_order']),
       senderType: message.senderType.isEmpty
           ? message.type
@@ -1676,6 +1748,8 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
     required this.messageId,
     this.locationMessageId = 0,
     required this.conversationRoundId,
+    this.conversationType = '',
+    this.triggerUid = '',
     required this.senderId,
     required this.seq,
     required this.chunk,
@@ -1695,6 +1769,8 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
   final int messageId;
   final int locationMessageId;
   final String conversationRoundId;
+  final String conversationType;
+  final String triggerUid;
   final String senderId;
   final int seq;
   final String chunk;
@@ -1724,6 +1800,8 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
       messageId: asInt(payload['msg_id']),
       locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
+      conversationType: _strictProtocolString(payload['conversation_type']),
+      triggerUid: _strictProtocolString(payload['trigger_uid']),
       senderId: asString(payload['sender_id']),
       seq: asInt(payload['seq']),
       chunk: asString(payload['content']),
@@ -1741,6 +1819,8 @@ class ChatroomAiStreamChunk extends ChatroomEvent {
       messageId: message.messageId ?? 0,
       locationMessageId: message.locationMessageId ?? 0,
       conversationRoundId: _stringId(message.conversationRoundId),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       senderId: message.senderId,
       seq: asInt(message.payload['seq']),
       chunk: asString(message.payload['content']),
@@ -1766,6 +1846,8 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
     required this.messageId,
     this.locationMessageId = 0,
     required this.conversationRoundId,
+    this.conversationType = '',
+    this.triggerUid = '',
     required this.senderId,
     required this.content,
     required this.createdAt,
@@ -1784,6 +1866,8 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
   final int messageId;
   final int locationMessageId;
   final String conversationRoundId;
+  final String conversationType;
+  final String triggerUid;
   final String senderId;
   final String content;
   final DateTime? createdAt;
@@ -1812,6 +1896,8 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
       messageId: asInt(payload['msg_id']),
       locationMessageId: asInt(payload['location_msg_id']),
       conversationRoundId: asString(payload['conversation_round_id']),
+      conversationType: _strictProtocolString(payload['conversation_type']),
+      triggerUid: _strictProtocolString(payload['trigger_uid']),
       senderId: asString(payload['sender_id']),
       content: asString(payload['content']),
       createdAt: asDateTime(payload['ts'] ?? envelope.ts),
@@ -1828,6 +1914,8 @@ class ChatroomAiStreamEnd extends ChatroomEvent {
       messageId: message.messageId ?? 0,
       locationMessageId: message.locationMessageId ?? 0,
       conversationRoundId: _stringId(message.conversationRoundId),
+      conversationType: message.conversationType,
+      triggerUid: message.triggerUid,
       senderId: message.senderId,
       content: asString(message.payload['content']),
       createdAt: asDateTime(
@@ -2484,6 +2572,8 @@ Map<String, dynamic> _optionalJsonMap(Object? value) {
   if (value == null) return const <String, dynamic>{};
   return asJsonMap(value);
 }
+
+String _strictProtocolString(Object? value) => value is String ? value : '';
 
 int? _optionalIntAlias(
   Map<String, dynamic> json, {

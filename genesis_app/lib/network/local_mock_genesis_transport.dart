@@ -19,6 +19,12 @@ class LocalMockGenesisTransport implements HttpTransport {
 
   final _state = _MockState();
 
+  @visibleForTesting
+  void resetFeatureQuotaUsage() {
+    _state._featureQuotaUsed.clear();
+    _state._savedInspirations.clear();
+  }
+
   /// Adds an opt-in timeline bundle without changing the default mock seed.
   void seedChatroomTimelineMessages({
     required String worldId,
@@ -303,19 +309,7 @@ class LocalMockGenesisTransport implements HttpTransport {
     Map<String, dynamic> body,
   ) async {
     if (method == 'GET' && path == 'aitown-chat/api/v1/feature-quotas') {
-      const emptyQuota = {
-        'scope': 'trial_lifetime',
-        'unlimited': false,
-        'limit': 0,
-        'used': 0,
-        'remaining': 0,
-        'reset_at': null,
-      };
-      return _v1Ok({
-        'membership_status': 0,
-        'inspiration': emptyQuota,
-        'conversation_edit': emptyQuota,
-      });
+      return _v1Ok(_state.featureQuotas());
     }
 
     if (method == 'GET' && path == 'aitown-chat/api/ulocation') {
@@ -361,10 +355,7 @@ class LocalMockGenesisTransport implements HttpTransport {
         RegExp(
           r'^aitown-chat/api/v1/worlds/[^/]+/locations/[^/]+/inspiration$',
         ).hasMatch(path)) {
-      return _error(
-        501,
-        'Inspiration generation is not simulated by the local transport',
-      );
+      return _ok(_state.chatroomInspirations(path: path, body: body));
     }
 
     final cards = RegExp(
@@ -554,6 +545,21 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'user/blocks') {
       return _v1Ok(_paged(_state.v1UserBlocks(), query));
+    }
+
+    if (method == 'GET' && path == 'user/memory-settings') {
+      return _v1Ok(_state.v1UserMemorySettings(query['world_id']));
+    }
+
+    if (method == 'POST' && path == 'user/memory-settings') {
+      final memoryTokens = body['memory_tokens'];
+      if (memoryTokens is! int) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      if (!_state.isValidV1MemoryTokens(memoryTokens)) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
+      return _v1Ok(_state.updateV1UserMemorySettings(memoryTokens));
     }
 
     if (method == 'GET' && path == 'user/world-history-settings') {
@@ -1260,6 +1266,7 @@ class _MockState {
   final Set<String> _v1BlockedUsers = <String>{'u_mock_peer'};
   final Map<String, int> _v1GrantedGemCentByPurchaseToken = <String, int>{};
   final Map<String, String> _v1SelectedGemModelByWorldId = <String, String>{};
+  final Map<String, int> _v1MemoryUsedTokensByWorldId = <String, int>{};
   String _v1SelectedGemModelCode = 'top_pick_v3';
   final Map<String, String> _v1GemTaskStatuses = <String, String>{
     'create_first_worldo': 'in_progress',
@@ -1269,6 +1276,7 @@ class _MockState {
     'discord_follow': 'in_progress',
   };
   int _v1GemBalanceCent = 43000;
+  int _v1GlobalMemoryTokens = 48000;
   int _v1DirectMessageUnreadCount = 1;
   int _v1WorldHistoryHighWatermark = 25;
   int _v1WorldHistoryLowWatermark = 15;
@@ -1301,6 +1309,41 @@ class _MockState {
   Map<String, dynamic> get _v1Origin => _v1Origins.first;
 
   Map<String, dynamic> get _v1World => _v1Worlds.first;
+
+  static const int _v1MinMemoryTokens = 8000;
+  static const int _v1MaxMemoryTokens = 1000000;
+
+  bool isValidV1MemoryTokens(int memoryTokens) {
+    return memoryTokens >= _v1MinMemoryTokens &&
+        memoryTokens <= _v1MaxMemoryTokens;
+  }
+
+  Map<String, dynamic> v1UserMemorySettings(String? rawWorldId) {
+    final worldId = rawWorldId?.trim() ?? '';
+    if (worldId.isEmpty) {
+      return <String, dynamic>{
+        'memory_tokens': _v1GlobalMemoryTokens,
+        'min_memory_tokens': _v1MinMemoryTokens,
+        'max_memory_tokens': _v1MaxMemoryTokens,
+      };
+    }
+    final memoryUsedTokens = _v1MemoryUsedTokensByWorldId.putIfAbsent(
+      worldId,
+      () => worldId.endsWith('two') ? 9000 : 6000,
+    );
+    return <String, dynamic>{
+      'memory_tokens': _v1GlobalMemoryTokens,
+      'min_memory_tokens': _v1MinMemoryTokens,
+      'max_memory_tokens': _v1MaxMemoryTokens,
+      'world_id': worldId,
+      'memory_used_tokens': memoryUsedTokens.clamp(0, _v1GlobalMemoryTokens),
+    };
+  }
+
+  Map<String, dynamic> updateV1UserMemorySettings(int memoryTokens) {
+    _v1GlobalMemoryTokens = memoryTokens;
+    return v1UserMemorySettings(null);
+  }
 
   Map<String, dynamic> v1WorldHistorySettings() {
     return <String, dynamic>{
@@ -1531,6 +1574,8 @@ class _MockState {
         senderId: 'player1',
         senderName: '${me['display_name']}',
         userId: userId,
+        conversationType: 'user_message',
+        triggerUid: userId,
         content: text,
       ),
     );
@@ -1704,6 +1749,106 @@ class _MockState {
   // checks remain server-owned and are covered by the HTTP contract tests.
   final Set<String> _deletedChatroomLlmMessages = <String>{};
 
+  final Map<String, int> _featureQuotaUsed = <String, int>{};
+  final Map<String, Map<String, dynamic>> _savedInspirations = {};
+
+  int get _featureMembershipStatus => asInt(_v1User['membership_status']);
+  bool get _featureIsMember => _featureMembershipStatus == 1;
+  String _featureUsageKey(String feature) =>
+      '${_v1User['uid']}::$feature::$_featureIsMember';
+
+  Map<String, dynamic> _featureQuotaSummary(String feature) {
+    final used = _featureQuotaUsed[_featureUsageKey(feature)] ?? 0;
+    return {
+      'scope': _featureIsMember ? 'member_unlimited' : 'trial_lifetime',
+      'unlimited': _featureIsMember,
+      'limit': _featureIsMember ? null : 3,
+      'used': used,
+      'remaining': _featureIsMember ? null : (3 - used).clamp(0, 3),
+      'reset_at': null,
+    };
+  }
+
+  Map<String, dynamic> featureQuotas() => {
+    'membership_status': _featureMembershipStatus,
+    'is_member': _featureIsMember,
+    'inspiration': _featureQuotaSummary('inspiration'),
+    'conversation_edit': _featureQuotaSummary('conversation_edit'),
+  };
+
+  Map<String, dynamic> _operationQuota(String feature, {int consumed = 0}) => {
+    ..._featureQuotaSummary(feature),
+    'feature': feature,
+    'membership_status': _featureMembershipStatus,
+    'is_member': _featureIsMember,
+    'consumed': consumed,
+  };
+
+  bool _featureExhausted(String feature) =>
+      !_featureIsMember &&
+      (_featureQuotaUsed[_featureUsageKey(feature)] ?? 0) >= 3;
+
+  void _consumeFeature(String feature) {
+    final key = _featureUsageKey(feature);
+    _featureQuotaUsed[key] = (_featureQuotaUsed[key] ?? 0) + 1;
+  }
+
+  Map<String, dynamic> _featureExhaustedEnvelope(String feature) => {
+    'err_no': 2030,
+    'err_msg': 'Feature quota exhausted',
+    'data': feature == 'inspiration' ? <String, dynamic>{} : false,
+    'quota': _operationQuota(feature),
+  };
+
+  Map<String, dynamic> chatroomInspirations({
+    required String path,
+    required Map<String, dynamic> body,
+  }) {
+    final round = body['conversation_round_id'];
+    final card = body['card_id'];
+    if (round is! int ||
+        round <= 0 ||
+        (card != null && (card is! int || card <= 0))) {
+      return {
+        'err_no': 1001,
+        'err_msg': 'Invalid inspiration source',
+        'data': {},
+      };
+    }
+    final key = '${_v1User['uid']}::$path::$round::${card ?? 0}';
+    final saved = _savedInspirations[key];
+    if (saved != null) {
+      return {
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': saved,
+        'quota': _operationQuota('inspiration'),
+      };
+    }
+    if (_featureExhausted('inspiration')) {
+      return _featureExhaustedEnvelope('inspiration');
+    }
+    final data = <String, dynamic>{
+      'conversation_round_id': round,
+      'card_id': card ?? 0,
+      'source_card_id': card ?? 0,
+      'messages': [
+        'Tell me more.',
+        'What happened next?',
+        'Let us explore together.',
+      ],
+      'gateway_request_id': 'mock-inspiration-$round-${card ?? 0}',
+    };
+    _savedInspirations[key] = data;
+    _consumeFeature('inspiration');
+    return {
+      'err_no': 0,
+      'err_msg': 'succ',
+      'data': data,
+      'quota': _operationQuota('inspiration', consumed: 1),
+    };
+  }
+
   Map<String, dynamic> mutateChatroomLlmMessages({
     required String worldId,
     required String locationId,
@@ -1764,6 +1909,9 @@ class _MockState {
       }
       targets.add(target);
     }
+    if (_featureExhausted('conversation_edit')) {
+      return _featureExhaustedEnvelope('conversation_edit');
+    }
     // All validation precedes the synchronous commit: a failed batch changes nothing.
     final deletedIds = <int>{};
     final deletedCursors = <int>[];
@@ -1810,6 +1958,7 @@ class _MockState {
       if (cursor > newest) newest = cursor;
     }
     _chatroomLocationMessageSeq['$worldId::$locationId'] = newest;
+    _consumeFeature('conversation_edit');
     return {
       'err_no': 0,
       'err_msg': 'succ',
@@ -1818,6 +1967,7 @@ class _MockState {
         'end_conversation_round_id': end,
         'newest_message_id': newest,
       },
+      'quota': _operationQuota('conversation_edit', consumed: 1),
     };
   }
 
@@ -1846,6 +1996,8 @@ class _MockState {
         senderId: 'tick',
         senderName: 'SubTick',
         userId: '',
+        conversationType: 'tick',
+        triggerUid: '',
         content: 'The mock timeline advanced.',
         tickNo: 4,
         subTickNo: 1,
@@ -1942,6 +2094,8 @@ class _MockState {
           userId: payload is ChatroomUserEnterLocationPayload
               ? 'u_mock_iris'
               : '',
+          conversationType: 'user_enter_location',
+          triggerUid: 'u_mock_iris',
           content: content,
           messageType: payload is ChatroomUserEnterLocationPayload
               ? 'text'
@@ -2006,6 +2160,8 @@ class _MockState {
           senderId: 'nar',
           senderName: '旁白',
           userId: '',
+          conversationType: 'opening',
+          triggerUid: '',
           content: asString(group['location_summary']),
         );
         _chatroomMessages.add(message);
@@ -2030,6 +2186,8 @@ class _MockState {
           senderId: senderId,
           senderName: asString(line['char_name'], fallback: '旁白'),
           userId: '',
+          conversationType: 'opening',
+          triggerUid: '',
           content: asString(line['content']),
           messageType:
               normalizedSenderId == 'nar_pic' || normalizedSenderId == 'image'
@@ -5059,6 +5217,8 @@ class _MockState {
         'sender_id': 'player1',
         'sender_name': 'Mock User',
         'user_id': 'u_mock_001',
+        'conversation_type': 'user_message',
+        'trigger_uid': 'u_mock_001',
         'content': '大家好',
         'created_at': '2026-05-29 10:00:00',
       },
@@ -5070,6 +5230,8 @@ class _MockState {
         'sender_id': 'c_mock_iris',
         'sender_name': 'Iris Vale',
         'user_id': '',
+        'conversation_type': 'user_message',
+        'trigger_uid': 'u_mock_001',
         'content': '你好呀',
         'created_at': '2026-05-29 10:00:05',
       },
@@ -5081,6 +5243,8 @@ class _MockState {
         'sender_id': 'nar',
         'sender_name': '旁白',
         'user_id': '',
+        'conversation_type': 'opening',
+        'trigger_uid': '',
         'content': '夜幕降临...',
         'created_at': '2026-05-29 11:00:00',
       },
@@ -5096,6 +5260,8 @@ class _MockState {
           senderId: '${item['sender_id']}',
           senderName: '${item['sender_name']}',
           userId: '${item['user_id']}',
+          conversationType: '${item['conversation_type']}',
+          triggerUid: '${item['trigger_uid']}',
           content: '${item['content']}',
           createdAt: '${item['created_at']}',
         ),
@@ -5127,6 +5293,8 @@ class _MockState {
     required String senderId,
     required String senderName,
     required String userId,
+    String conversationType = '',
+    String triggerUid = '',
     required String content,
     String messageType = 'text',
     int tickNo = 0,
@@ -5155,6 +5323,8 @@ class _MockState {
       'world_id': resolvedWorldId,
       'location_id': locationId,
       'conversation_round_id': conversationRoundId,
+      if (conversationType.isNotEmpty) 'conversation_type': conversationType,
+      'trigger_uid': triggerUid,
       'round_order': roundOrder,
       'tick_no': tickNo,
       if (subTickNo > 0) 'sub_tick_no': subTickNo,
@@ -5176,6 +5346,9 @@ class _MockState {
 
   Map<String, dynamic> _chatroomResponseMessage(Map<String, dynamic> message) {
     final copy = _deepCopyMap(message);
+    copy['trigger_uid'] = copy['trigger_uid'] is String
+        ? copy['trigger_uid'] as String
+        : '';
     copy.remove('world_id');
     copy.remove('round_order');
     copy.remove('type');
@@ -5216,6 +5389,11 @@ class _MockState {
       'message_id': asInt(message['message_id']),
       'location_message_id': asInt(message['location_message_id']),
       'conversation_round_id': asInt(message['conversation_round_id']),
+      if (asString(message['conversation_type']).isNotEmpty)
+        'conversation_type': asString(message['conversation_type']),
+      'trigger_uid': message['trigger_uid'] is String
+          ? message['trigger_uid'] as String
+          : '',
       'sender_type': senderType,
       'sender_id': senderId,
       'sender_name': asString(message['sender_name']),

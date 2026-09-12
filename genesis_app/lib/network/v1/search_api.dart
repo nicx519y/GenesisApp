@@ -25,7 +25,6 @@ class SearchV1Api extends V1ApiResource {
     final json = await client.get<Object?>(
       'v2/search',
       query: v1Query({'keyword': query, 'type': type, 'pn': pn, 'rn': rn}),
-      handlePageNotFound: false,
     );
     final data = handleV1ResponseErrNo(json);
     return SearchV2Response.fromJson(asJsonMap(data));
@@ -50,7 +49,6 @@ class SearchV1Api extends V1ApiResource {
     return getMapWithHeaders(
       'search/suggest',
       query: v1Query({'query': query, 'type': type, 'limit': limit}),
-      handlePageNotFound: false,
     );
   }
 }
