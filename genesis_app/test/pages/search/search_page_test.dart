@@ -780,6 +780,86 @@ void main() {
     expect(painter.didExceedMaxLines, isFalse);
   });
 
+  testWidgets('keeps emoji whole when narrowing a matched Brief', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final brief = '12345678901234567😀 ${'long context ' * 16}needle';
+    final transport = _SearchPageTransport(
+      originBrief: brief,
+      originBriefHighlightRanges: [
+        {'start': brief.indexOf('needle'), 'length': 6},
+      ],
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'needle');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final rendered = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('origin-summary-brief')).first,
+    );
+    expect(tester.takeException(), isNull);
+    expect(rendered.textSpan?.toPlainText(), contains('😀'));
+    expect(rendered.textSpan?.toPlainText(), contains('needle'));
+  });
+
+  testWidgets('expands a server highlight that splits an emoji', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    const brief = 'A😀B';
+    final transport = _SearchPageTransport(
+      originBrief: brief,
+      originBriefHighlightRanges: const [
+        {'start': 2, 'length': 1},
+      ],
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'emoji');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final rendered = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('origin-summary-brief')).first,
+    );
+    expect(tester.takeException(), isNull);
+    expect(rendered.textSpan?.toPlainText(), brief);
+    expect(_highlightedTextParts(rendered), contains('😀'));
+  });
+
+  testWidgets('replaces malformed UTF-16 in a server Brief', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(430, 1200);
+    addTearDown(tester.view.reset);
+
+    final transport = _SearchPageTransport(
+      originBrief: 'A\uD83DB',
+      originBriefHighlightRanges: const [
+        {'start': 0, 'length': 1},
+      ],
+    );
+    await _pumpSearchPage(tester, transport);
+
+    await tester.enterText(find.byType(TextField), 'broken');
+    await tester.pump(const Duration(milliseconds: 700));
+    await tester.pumpAndSettle();
+
+    final rendered = tester.widget<Text>(
+      find.byKey(const ValueKey<String>('origin-summary-brief')).first,
+    );
+    expect(tester.takeException(), isNull);
+    expect(rendered.textSpan?.toPlainText(), 'A\uFFFDB');
+  });
+
   testWidgets('highlights every documented v2 search match field', (
     tester,
   ) async {
@@ -1320,6 +1400,8 @@ class _SearchPageTransport implements HttpTransport {
     this.longOriginContent = false,
     this.originNameMatchOnly = false,
     this.trailingBriefMatch = false,
+    this.originBrief,
+    this.originBriefHighlightRanges,
     this.includeTagMatches = false,
     this.includeIdMatches = false,
     this.paginated = false,
@@ -1334,6 +1416,8 @@ class _SearchPageTransport implements HttpTransport {
   final bool longOriginContent;
   final bool originNameMatchOnly;
   final bool trailingBriefMatch;
+  final String? originBrief;
+  final List<Map<String, int>>? originBriefHighlightRanges;
   final bool includeTagMatches;
   final bool includeIdMatches;
   final bool paginated;
@@ -1389,6 +1473,8 @@ class _SearchPageTransport implements HttpTransport {
           longOriginContent: longOriginContent,
           originNameMatchOnly: originNameMatchOnly,
           trailingBriefMatch: trailingBriefMatch,
+          originBrief: originBrief,
+          originBriefHighlightRanges: originBriefHighlightRanges,
           includeTagMatches: includeTagMatches,
           includeIdMatches: includeIdMatches,
           paginated: paginated,
@@ -1435,6 +1521,8 @@ Map<String, dynamic> _section(
   bool longOriginContent = false,
   bool originNameMatchOnly = false,
   bool trailingBriefMatch = false,
+  String? originBrief,
+  List<Map<String, int>>? originBriefHighlightRanges,
   bool includeTagMatches = false,
   bool includeIdMatches = false,
   bool paginated = false,
@@ -1470,6 +1558,8 @@ Map<String, dynamic> _section(
           longOriginContent: longOriginContent,
           originNameMatchOnly: originNameMatchOnly,
           trailingBriefMatch: trailingBriefMatch,
+          originBrief: originBrief,
+          originBriefHighlightRanges: originBriefHighlightRanges,
           includeTagMatches: includeTagMatches,
           includeIdMatches: includeIdMatches,
         ),
@@ -1495,6 +1585,8 @@ Map<String, dynamic> _item(
   bool longOriginContent = false,
   bool originNameMatchOnly = false,
   bool trailingBriefMatch = false,
+  String? originBrief,
+  List<Map<String, int>>? originBriefHighlightRanges,
   bool includeTagMatches = false,
   bool includeIdMatches = false,
 }) {
@@ -1503,11 +1595,13 @@ Map<String, dynamic> _item(
       'origin_id': 'origin_$index',
       'origin_name': 'Origin $index',
       'origin_version': '$index',
-      'brief': trailingBriefMatch
-          ? _trailingMatchBrief
-          : longOriginContent
-          ? _longOriginBrief
-          : 'Origin brief $index',
+      'brief':
+          originBrief ??
+          (trailingBriefMatch
+              ? _trailingMatchBrief
+              : longOriginContent
+              ? _longOriginBrief
+              : 'Origin brief $index'),
       'language': 'en',
       'owner': {
         'uid': 'owner_$index',
@@ -1556,22 +1650,26 @@ Map<String, dynamic> _item(
         if (!originNameMatchOnly) ...[
           {
             'field': 'brief',
-            'highlight_ranges': [
-              if (trailingBriefMatch) ...[
-                {
-                  'start': _trailingMatchBrief.indexOf('rooftop'),
-                  'length': 'rooftop'.length,
-                },
-              ] else ...[
-                {'start': 0, 'length': 6},
-                {'start': 7, 'length': 5},
-              ],
-              if (longOriginContent)
-                {
-                  'start': _longOriginBrief.indexOf('Latest Version visible'),
-                  'length': 'Latest Version visible'.length,
-                },
-            ],
+            'highlight_ranges':
+                originBriefHighlightRanges ??
+                [
+                  if (trailingBriefMatch) ...[
+                    {
+                      'start': _trailingMatchBrief.indexOf('rooftop'),
+                      'length': 'rooftop'.length,
+                    },
+                  ] else ...[
+                    {'start': 0, 'length': 6},
+                    {'start': 7, 'length': 5},
+                  ],
+                  if (longOriginContent)
+                    {
+                      'start': _longOriginBrief.indexOf(
+                        'Latest Version visible',
+                      ),
+                      'length': 'Latest Version visible'.length,
+                    },
+                ],
           },
           if (!longOriginContent)
             {

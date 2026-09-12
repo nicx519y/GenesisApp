@@ -3,7 +3,12 @@ import 'dart:async';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../components/origin/origin_item_cover_throttled_image_provider.dart';
 import 'telemetry_upload_policy.dart';
+
+@visibleForTesting
+bool shouldRecordFirebaseFlutterError(FlutterErrorDetails details) =>
+    details.exception is! OriginItemCoverLoadCancelledException;
 
 @visibleForTesting
 Future<void> recordFirebaseCrashlyticsBestEffort(
@@ -69,7 +74,10 @@ class FirebaseCrashReporting {
       } else {
         FlutterError.presentError(details);
       }
-      if (!_enabled) return;
+      // A card leaving the viewport or losing its queue slot is expected.
+      // An image stream without a listener may still surface that cancellation
+      // through FlutterError, but it is not an app crash.
+      if (!_enabled || !shouldRecordFirebaseFlutterError(details)) return;
       unawaited(
         recordFirebaseCrashlyticsBestEffort(
           () => FirebaseCrashlytics.instance.recordFlutterFatalError(details),

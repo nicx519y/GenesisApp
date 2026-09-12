@@ -389,12 +389,13 @@ class _SearchBriefExcerpt extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ranges = _mergedSearchHighlightRanges(text, highlightRanges);
+    final safeText = _wellFormedSearchText(text);
+    final ranges = _mergedSearchHighlightRanges(safeText, highlightRanges);
     return LayoutBuilder(
       builder: (context, constraints) {
         final excerpt = _searchBriefExcerptForWidth(
           context,
-          text: text,
+          text: safeText,
           ranges: ranges,
           maxWidth: constraints.maxWidth,
         );
@@ -484,8 +485,14 @@ _SearchBriefExcerptData _buildSearchBriefExcerpt(
   final windows = <_SearchHighlightRange>[];
   for (final range in ranges) {
     final expanded = _SearchHighlightRange(
-      (range.start - contextLength).clamp(0, text.length).toInt(),
-      (range.end + contextLength).clamp(0, text.length).toInt(),
+      _searchSafeStart(
+        text,
+        (range.start - contextLength).clamp(0, text.length).toInt(),
+      ),
+      _searchSafeEnd(
+        text,
+        (range.end + contextLength).clamp(0, text.length).toInt(),
+      ),
     );
     if (windows.isEmpty || expanded.start > windows.last.end) {
       windows.add(expanded);
@@ -536,7 +543,7 @@ int _searchBriefLeadingContextEnd(String text, int omittedEnd) {
   const preferredLength = 18;
   if (omittedEnd <= preferredLength) return omittedEnd;
   final boundary = text.lastIndexOf(' ', preferredLength);
-  return boundary > 0 ? boundary : preferredLength;
+  return boundary > 0 ? boundary : _searchSafeEnd(text, preferredLength);
 }
 
 class _SearchBriefExcerptData {
@@ -649,25 +656,26 @@ TextSpan _highlightedSearchSpan(
   String text,
   Iterable<SearchV2HighlightRange> ranges,
 ) {
-  final merged = _mergedSearchHighlightRanges(text, ranges);
-  if (merged.isEmpty) return TextSpan(text: text);
+  final safeText = _wellFormedSearchText(text);
+  final merged = _mergedSearchHighlightRanges(safeText, ranges);
+  if (merged.isEmpty) return TextSpan(text: safeText);
 
   final spans = <InlineSpan>[];
   var offset = 0;
   for (final range in merged) {
     if (range.start > offset) {
-      spans.add(TextSpan(text: text.substring(offset, range.start)));
+      spans.add(TextSpan(text: safeText.substring(offset, range.start)));
     }
     spans.add(
       TextSpan(
-        text: text.substring(range.start, range.end),
+        text: safeText.substring(range.start, range.end),
         style: _searchMatchStyle,
       ),
     );
     offset = range.end;
   }
-  if (offset < text.length) {
-    spans.add(TextSpan(text: text.substring(offset)));
+  if (offset < safeText.length) {
+    spans.add(TextSpan(text: safeText.substring(offset)));
   }
   return TextSpan(children: spans);
 }
@@ -680,8 +688,14 @@ List<_SearchHighlightRange> _mergedSearchHighlightRanges(
   final normalized = <_SearchHighlightRange>[];
   for (final range in ranges) {
     if (range.length <= 0 || range.start >= text.length) continue;
-    final start = range.start.clamp(0, text.length).toInt();
-    final end = (range.start + range.length).clamp(0, text.length).toInt();
+    final start = _searchSafeStart(
+      text,
+      range.start.clamp(0, text.length).toInt(),
+    );
+    final end = _searchSafeEnd(
+      text,
+      (range.start + range.length).clamp(0, text.length).toInt(),
+    );
     if (end > start) normalized.add(_SearchHighlightRange(start, end));
   }
   normalized.sort((a, b) => a.start.compareTo(b.start));
@@ -701,6 +715,55 @@ List<_SearchHighlightRange> _mergedSearchHighlightRanges(
     );
   }
   return merged;
+}
+
+// Search offsets are UTF-16 code units, but a TextSpan must never contain only
+// one half of a surrogate pair. Expand a cut to include the complete rune.
+int _searchSafeStart(String text, int offset) {
+  if (offset > 0 &&
+      offset < text.length &&
+      _isHighSurrogate(text.codeUnitAt(offset - 1)) &&
+      _isLowSurrogate(text.codeUnitAt(offset))) {
+    return offset - 1;
+  }
+  return offset;
+}
+
+int _searchSafeEnd(String text, int offset) {
+  if (offset > 0 &&
+      offset < text.length &&
+      _isHighSurrogate(text.codeUnitAt(offset - 1)) &&
+      _isLowSurrogate(text.codeUnitAt(offset))) {
+    return offset + 1;
+  }
+  return offset;
+}
+
+bool _isHighSurrogate(int codeUnit) => codeUnit >= 0xD800 && codeUnit <= 0xDBFF;
+
+bool _isLowSurrogate(int codeUnit) => codeUnit >= 0xDC00 && codeUnit <= 0xDFFF;
+
+// Replace malformed input without changing UTF-16 offsets from the search API.
+String _wellFormedSearchText(String text) {
+  StringBuffer? output;
+  var segmentStart = 0;
+  for (var index = 0; index < text.length; index += 1) {
+    final codeUnit = text.codeUnitAt(index);
+    if (_isHighSurrogate(codeUnit) &&
+        index + 1 < text.length &&
+        _isLowSurrogate(text.codeUnitAt(index + 1))) {
+      index += 1;
+      continue;
+    }
+    if (!_isHighSurrogate(codeUnit) && !_isLowSurrogate(codeUnit)) continue;
+    output ??= StringBuffer();
+    output.write(text.substring(segmentStart, index));
+    output.writeCharCode(0xFFFD);
+    segmentStart = index + 1;
+  }
+  if (output == null) return text;
+  output.write(text.substring(segmentStart));
+  return output.toString();
 }
 
 class _SearchHighlightRange {
