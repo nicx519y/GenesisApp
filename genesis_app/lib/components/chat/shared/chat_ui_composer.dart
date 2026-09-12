@@ -23,6 +23,7 @@ class ChatComposer extends StatelessWidget {
     this.onSecondaryLeadingShortcutPressed,
     this.composerHeader,
     this.sendIcon = ChatComposerSendIcon.send,
+    this.animateSendButton = true,
     this.pinActionsToBottom = false,
     this.backdropGroupKey,
   });
@@ -45,6 +46,7 @@ class ChatComposer extends StatelessWidget {
   final VoidCallback? onSecondaryLeadingShortcutPressed;
   final Widget? composerHeader;
   final ChatComposerSendIcon sendIcon;
+  final bool animateSendButton;
   final bool pinActionsToBottom;
 
   /// Groups only the outer composer blur with non-overlapping filters.
@@ -228,6 +230,7 @@ class ChatComposer extends StatelessWidget {
                       if (style.showComposerSendButton) ...[
                         SizedBox(width: style.composerActionGap),
                         _ComposerSendButton(
+                          animate: animateSendButton,
                           sending: sending,
                           onPressed: sendEnabled ? onSend : null,
                           label: sendLabel,
@@ -447,6 +450,7 @@ class _ComposerIconButton extends StatelessWidget {
 
 class _ComposerSendButton extends StatelessWidget {
   const _ComposerSendButton({
+    required this.animate,
     required this.sending,
     required this.onPressed,
     required this.style,
@@ -455,6 +459,7 @@ class _ComposerSendButton extends StatelessWidget {
   });
 
   final bool sending;
+  final bool animate;
   final VoidCallback? onPressed;
   final ChatUiStyleConfig style;
   final ChatComposerSendIcon icon;
@@ -481,26 +486,33 @@ class _ComposerSendButton extends StatelessWidget {
             ),
           ),
           child: TextButton(
-            style: TextButton.styleFrom(
-              fixedSize: Size(
-                style.composerSendButtonWidth,
-                style.composerSendButtonHeight,
-              ),
-              minimumSize: Size(
-                style.composerSendButtonWidth,
-                style.composerSendButtonHeight,
-              ),
-              padding: EdgeInsets.zero,
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              foregroundColor: style.composerSendButtonIconColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(
-                  style.composerSendButtonBorderRadius,
+            style:
+                TextButton.styleFrom(
+                  fixedSize: Size(
+                    style.composerSendButtonWidth,
+                    style.composerSendButtonHeight,
+                  ),
+                  minimumSize: Size(
+                    style.composerSendButtonWidth,
+                    style.composerSendButtonHeight,
+                  ),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  foregroundColor: style.composerSendButtonIconColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(
+                      style.composerSendButtonBorderRadius,
+                    ),
+                  ),
+                ).copyWith(
+                  animationDuration: animate ? null : Duration.zero,
+                  splashFactory: animate ? null : NoSplash.splashFactory,
+                  overlayColor: animate
+                      ? null
+                      : const WidgetStatePropertyAll(Colors.transparent),
                 ),
-              ),
-            ),
             onPressed: enabled ? onPressed : null,
-            child: sending
+            child: sending && animate
                 ? SizedBox(
                     width: style.composerSendButtonLoadingSize,
                     height: style.composerSendButtonLoadingSize,

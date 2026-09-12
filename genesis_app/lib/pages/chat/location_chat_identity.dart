@@ -16,6 +16,16 @@ String resolveLocationChatAvatarUrlForTesting({
 }
 
 extension _LocationChatIdentity on _LocationChatPanelState {
+  bool _isSelectedOpeningPlayerMessage(WorldChatroomMessage message) {
+    final characterId = _chatroomIdentityKey(widget.openingPlayerCharacterId);
+    if (characterId.isEmpty) return false;
+    final senderId = _chatroomIdentityKey(message.senderId);
+    // Matched opening rows also establish the selected role's World character ID,
+    // including authoritative lines whose text changed during creation.
+    return senderId == characterId ||
+        _openingPlayerCharacterIds.contains(senderId);
+  }
+
   String _messageSenderDisplayName(
     WorldChatroomMessage message, {
     WorldChatroomState? identityState,
@@ -23,7 +33,14 @@ extension _LocationChatIdentity on _LocationChatPanelState {
     final state = identityState ?? _chatroomState;
     return resolveLocationChatMessageSenderNameForTesting(
       senderId: message.senderId,
-      senderName: message.senderName,
+      senderName:
+          message.senderName.isNotEmpty &&
+              message.senderName != message.senderId
+          ? message.senderName
+          : firstNonEmpty([
+              _entityNameForIdentity(message.senderId, identityState: state),
+              message.senderName,
+            ]),
       characters: state.world?.characters ?? const <Map<String, dynamic>>[],
     );
   }
@@ -32,6 +49,7 @@ extension _LocationChatIdentity on _LocationChatPanelState {
     WorldChatroomMessage message, {
     WorldChatroomState? identityState,
   }) {
+    if (_isSelectedOpeningPlayerMessage(message)) return true;
     return _identityCandidatesArePlayerControlledRole([
       message.userId,
       message.senderId,

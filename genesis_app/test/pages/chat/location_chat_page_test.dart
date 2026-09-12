@@ -5168,6 +5168,136 @@ void main() {
     expect(reconciled, [sent]);
   });
 
+  for (final fromOpening in [true, false]) {
+    testWidgets(
+      '${fromOpening ? 'Opening' : 'Regular'} balance rejection keeps the draft without resurrecting its bubble',
+      (tester) async {
+        final harness = await _connectedLocationChatTestService();
+        final service = harness.service;
+        final socket = harness.socket;
+        final outgoing = ChatMessageVm(
+          localId: 'opening-pending-balance',
+          senderId: 'user-1',
+          senderName: 'Player One',
+          text: 'little',
+          isMe: true,
+          status: 'sending',
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: harness.services,
+            child: MaterialApp(
+              home: LocationChatPanel(
+                worldId: 'world-current',
+                locationId: 'location-current',
+                service: service,
+                leaveOnInactive: false,
+                messageQueueInitializationCovered: true,
+                initialOutgoingMessage: fromOpening ? outgoing : null,
+              ),
+            ),
+          ),
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => service.state.joinedLocationId == 'location-current',
+        );
+        final composerFinder = find.byType(ChatComposer);
+        if (!fromOpening) {
+          tester.widget<ChatComposer>(composerFinder).controller.text =
+              'little';
+          await tester.pump();
+          unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
+        }
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => socket.sendMessageCount == 1,
+        );
+        await tester.pump();
+        expect(find.byType(ChatSendingBadge), findsOneWidget);
+        if (fromOpening) {
+          final bubble = tester.widget<ChatSelfMessageBubble>(
+            find.byType(ChatSelfMessageBubble),
+          );
+          expect(identical(bubble.message, outgoing), isTrue);
+        }
+
+        socket.serverV2AckForLatestSend(errNo: 3001);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () =>
+              tester.widget<ChatComposer>(composerFinder).controller.text ==
+              'little',
+        );
+        await tester.pump();
+        expect(find.byType(ChatSendingBadge), findsNothing);
+        expect(find.byType(ChatSelfMessageBubble), findsNothing);
+        expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
+
+        // Later server/state updates must not reinsert the rejected opening
+        // message, even though it never received a canonical message id.
+        socket.serverV2Tick(
+          messageId: 1,
+          locationMessageId: 1,
+          globalText: 'New server content',
+        );
+        socket.serverWaitingConversationRound(roundId: 301);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => service.state.waitingConversationRoundIdsByLocation.isNotEmpty,
+        );
+        await tester.pump();
+        expect(find.byType(ChatSendingBadge), findsNothing);
+        expect(find.byType(ChatSelfMessageBubble), findsNothing);
+        expect(
+          tester.widget<ChatComposer>(composerFinder).controller.text,
+          'little',
+        );
+        expect(socket.sendMessageCount, 1);
+
+        socket.serverEndConversationRound(roundId: 301);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => service.state.waitingConversationRoundIdsByLocation.isEmpty,
+        );
+        // Editing and resending must create just one new attempt using the
+        // restored composer, rather than the stale initial outgoing message.
+        tester.widget<ChatComposer>(composerFinder).controller.text =
+            'little again';
+        await tester.pump();
+        unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => socket.sendMessageCount == 2,
+        );
+        await tester.pump();
+        expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
+        expect(
+          tester
+              .widget<ChatSelfMessageBubble>(find.byType(ChatSelfMessageBubble))
+              .message
+              .text,
+          'little again',
+        );
+        socket.serverV2AckForLatestSend(errNo: 3001);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () =>
+              tester.widget<ChatComposer>(composerFinder).controller.text ==
+              'little again',
+        );
+        await tester.pump();
+        expect(find.byType(ChatSelfMessageBubble), findsNothing);
+        expect(find.byType(ChatSendingBadge), findsNothing);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        unawaited(service.dispose());
+        await tester.pump(const Duration(seconds: 20));
+      },
+    );
+  }
+
   test('ack 3001 removes the optimistic message and restores its draft', () {
     final localMessage = ChatMessageVm(
       localId: 'local-balance',
@@ -6013,17 +6143,28 @@ void main() {
         matching: find.byType(Scrollable),
       );
       final position = tester.state<ScrollableState>(scrollable).position;
-      for (final offset in <double>[0, position.maxScrollExtent]) {
-        position.jumpTo(offset);
+      var narratorTextVisible = false;
+      for (final offset in <double>[position.maxScrollExtent, 0]) {
+        if (offset == 0) {
+          // A user drag leaves following-latest mode before inspecting older
+          // images; a direct jump would be corrected back to the live tail.
+          await tester.drag(scrollable, const Offset(0, 1200));
+        } else {
+          position.jumpTo(offset);
+        }
         await tester.pump();
         renderedImageUrls.addAll(
           tester
               .widgetList<ChatImageMessage>(find.byType(ChatImageMessage))
               .map((widget) => widget.message.imageUrl),
         );
+        narratorTextVisible |= find
+            .text('Visible narrator text')
+            .evaluate()
+            .isNotEmpty;
       }
       expect(renderedImageUrls, containsAll(<String>[narPicImage, narImage]));
-      expect(find.text('Visible narrator text'), findsOneWidget);
+      expect(narratorTextVisible, isTrue);
       expect(find.text('https://cdn.example.com/blocked.png'), findsNothing);
       expect(find.text('https://cdn.example.com/future.bin'), findsNothing);
       expect(find.byType(ChatAvatar), findsNothing);

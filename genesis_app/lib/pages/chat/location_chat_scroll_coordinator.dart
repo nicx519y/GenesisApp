@@ -113,18 +113,24 @@ const _locationChatAnchorRestoreCacheExtent = 1000000000.0;
 /// Owns every programmatic scroll-position change for location chat.
 class LocationChatScrollCoordinator extends ChangeNotifier {
   LocationChatScrollCoordinator({ScrollController? controller})
-    : controller = controller ?? ScrollController(),
-      _ownsController = controller == null;
+    : _ownsController = controller == null {
+    this.controller =
+        controller ??
+        _LocationChatScrollController(
+          shouldFollowLatest: () => shouldSnapToLatestOnLayout,
+        );
+  }
 
   static const double bottomTolerance = 24;
   static const double oldestMessageStopTolerance = 1;
   static const Duration bottomAnimationDuration = Duration(milliseconds: 220);
 
-  final ScrollController controller;
+  late final ScrollController controller;
   final bool _ownsController;
 
   LocationChatViewportMode _mode = LocationChatViewportMode.initializing;
   int _commandGeneration = 0;
+  int? _animatedBottomScrollGeneration;
   bool _entryRevealScheduled = false;
   double? _oldestMessageStopOffset;
   bool _userDragActive = false;
@@ -134,6 +140,8 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   LocationChatViewportMode get mode => _mode;
   bool get isDetached => _mode == LocationChatViewportMode.detached;
   bool get shouldFollowLatest => !isDetached;
+  bool get shouldSnapToLatestOnLayout =>
+      shouldFollowLatest && _animatedBottomScrollGeneration == null;
   int get commandGeneration => _commandGeneration;
   double? get oldestMessageStopOffset => _oldestMessageStopOffset;
   bool get shouldStopAtOldestMessage =>
@@ -181,6 +189,8 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   }) {
     if (_disposed) return;
     final generation = ++_commandGeneration;
+    _animatedBottomScrollGeneration =
+        behavior == LocationChatBottomBehavior.animate ? generation : null;
     _entryRevealScheduled = false;
     _setMode(LocationChatViewportMode.followingLatest);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -312,6 +322,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
 
   void _cancelPendingCommands() {
     _commandGeneration += 1;
+    _animatedBottomScrollGeneration = null;
   }
 
   bool _commandIsCurrent(int generation) {
@@ -334,11 +345,17 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     int generation, {
     required bool settleAtLatest,
   }) async {
-    await controller.animateTo(
-      target,
-      duration: duration,
-      curve: Curves.easeOut,
-    );
+    try {
+      await controller.animateTo(
+        target,
+        duration: duration,
+        curve: Curves.easeOut,
+      );
+    } finally {
+      if (_animatedBottomScrollGeneration == generation) {
+        _animatedBottomScrollGeneration = null;
+      }
+    }
     if (settleAtLatest &&
         _commandIsCurrent(generation) &&
         controller.hasClients &&
@@ -355,6 +372,51 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     _commandGeneration += 1;
     if (_ownsController) controller.dispose();
     super.dispose();
+  }
+}
+
+class _LocationChatScrollController extends ScrollController {
+  _LocationChatScrollController({required this.shouldFollowLatest});
+
+  final bool Function() shouldFollowLatest;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _LocationChatScrollPosition(
+    physics: physics,
+    context: context,
+    oldPosition: oldPosition,
+    shouldFollowLatest: shouldFollowLatest,
+  );
+}
+
+class _LocationChatScrollPosition extends ScrollPositionWithSingleContext {
+  _LocationChatScrollPosition({
+    required super.physics,
+    required super.context,
+    super.oldPosition,
+    required this.shouldFollowLatest,
+  });
+
+  final bool Function() shouldFollowLatest;
+
+  @override
+  bool applyContentDimensions(double minScrollExtent, double maxScrollExtent) {
+    final firstLayout = !haveDimensions;
+    final accepted = super.applyContentDimensions(
+      minScrollExtent,
+      maxScrollExtent,
+    );
+    // Flutter skips dimension-correction physics on the first layout. Position
+    // the opening before paint instead of revealing the top then jumping down.
+    if (firstLayout && shouldFollowLatest() && pixels != maxScrollExtent) {
+      correctPixels(maxScrollExtent);
+      return false;
+    }
+    return accepted;
   }
 }
 
@@ -1266,7 +1328,7 @@ class _LocationChatAnchoredMessageListState
 
   ScrollPhysics _messageScrollPhysics() {
     return LocationChatBottomAnchoringScrollPhysics(
-      shouldFollowLatest: () => widget.coordinator.shouldFollowLatest,
+      shouldFollowLatest: () => widget.coordinator.shouldSnapToLatestOnLayout,
       oldestMessageStopOffset: () => widget.coordinator.oldestMessageStopOffset,
       shouldStopAtOldestMessage: () =>
           widget.coordinator.shouldStopAtOldestMessage,
@@ -1735,15 +1797,19 @@ class LocationChatBottomAnchoringScrollPhysics extends ClampingScrollPhysics {
       }
       return currentPixels;
     }
-    final wasNearBottom =
-        oldPosition.maxScrollExtent - newPosition.pixels <=
-        LocationChatScrollCoordinator.bottomTolerance;
-    if (wasNearBottom) return newPosition.maxScrollExtent;
-    return super.adjustPositionForNewDimensions(
-      oldPosition: oldPosition,
-      newPosition: newPosition,
-      isScrolling: isScrolling,
-      velocity: velocity,
-    );
+    if (isScrolling) {
+      // Preserve an in-progress animated scroll or drag. A reply-generation
+      // animation settles at the latest extent when it completes.
+      return super.adjustPositionForNewDimensions(
+        oldPosition: oldPosition,
+        newPosition: newPosition,
+        isScrolling: isScrolling,
+        velocity: velocity,
+      );
+    }
+    // Layout can correct pixels while history, streaming content or the keyboard
+    // changes the extent. Only a user scroll should leave following-latest mode;
+    // comparing the corrected pixels with the old extent can lose the bottom.
+    return newPosition.maxScrollExtent;
   }
 }

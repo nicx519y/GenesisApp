@@ -53,10 +53,11 @@ class GemBillingPurchaseDialog extends StatelessWidget {
          key: key,
          state: state,
          onConfirm: onConfirm,
-         processingLabel: 'Purchasing VIP',
-         successTitle: 'VIP purchase successful!',
-         successMessage: 'Your VIP purchase is confirmed.',
-         successIconAsset: proCrownFilledIconAsset,
+         processingLabel: 'Purchasing Premium',
+         successTitle: 'Purchase successful!',
+         successMessage: 'Premium have been granted.',
+         successIconAsset: proCrownGoldIconAsset,
+         confirmLabel: 'Enjoy it',
        );
 
   const GemBillingPurchaseDialog({
@@ -67,6 +68,7 @@ class GemBillingPurchaseDialog extends StatelessWidget {
     this.successTitle = 'Purchase successful!',
     this.successMessage,
     this.successIconAsset = gemStackIconAsset,
+    this.confirmLabel = 'OK',
   });
 
   final ValueListenable<GemBillingPurchaseDialogState> state;
@@ -75,6 +77,7 @@ class GemBillingPurchaseDialog extends StatelessWidget {
   final String successTitle;
   final String? successMessage;
   final String successIconAsset;
+  final String confirmLabel;
   static const double _processingHeight = 202;
   static const double _successContentHeight = 150;
   static const double _titleHorizontalPadding = 24;
@@ -86,7 +89,7 @@ class GemBillingPurchaseDialog extends StatelessWidget {
       builder: (context, value, _) {
         final isSuccess = value.phase == GemBillingPurchaseDialogPhase.success;
         return PopScope(
-          // The purchase result must be acknowledged explicitly with OK.
+          // The purchase result must be acknowledged explicitly.
           canPop: false,
           child: GenesisActionBox<bool>(
             title: '',
@@ -121,7 +124,12 @@ class GemBillingPurchaseDialog extends StatelessWidget {
               ],
             ),
             actions: isSuccess
-                ? const [GenesisActionBoxAction<bool>(label: 'OK', value: true)]
+                ? [
+                    GenesisActionBoxAction<bool>(
+                      label: confirmLabel,
+                      value: true,
+                    ),
+                  ]
                 : const [],
             showCancel: false,
             onActionSelected: (_) => onConfirm(),

@@ -8,6 +8,7 @@ class ChatMessageBubble extends StatelessWidget {
     this.onTap,
     this.style,
     this.borderRadius,
+    this.border,
   });
 
   final ChatMessageVm message;
@@ -15,6 +16,7 @@ class ChatMessageBubble extends StatelessWidget {
   final VoidCallback? onTap;
   final ChatUiStyleConfig? style;
   final BorderRadius? borderRadius;
+  final Border? border;
 
   @override
   Widget build(BuildContext context) {
@@ -55,6 +57,9 @@ class ChatMessageBubble extends StatelessWidget {
       key: ValueKey<String>('chat-message-bubble-${message.localId}'),
       padding: style.bubblePadding,
       decoration: BoxDecoration(color: background, borderRadius: borderRadius),
+      foregroundDecoration: border == null
+          ? null
+          : BoxDecoration(border: border, borderRadius: borderRadius),
       child: editor != null
           ? _ChatMessageTextEditor(
               messageId: message.localId,

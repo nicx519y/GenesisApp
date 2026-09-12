@@ -69,14 +69,14 @@ Future<CreateOriginDraft> _uploadGeneratedImages(
     generated: generated,
     downloadImage: (sourceUrl) async {
       if (!context.mounted) {
-        throw StateError('Debug image generation was cancelled.');
+        throw StateError('Debug image generation was canceled.');
       }
       final bytes = await downloadClient.downloadBytes(sourceUrl.toString());
       return Uint8List.fromList(bytes);
     },
     uploadImage: (image) async {
       if (!context.mounted) {
-        throw StateError('Debug image generation was cancelled.');
+        throw StateError('Debug image generation was canceled.');
       }
       final uploaded = await uploadApi.image(
         bytes: image.bytes,

@@ -16,6 +16,29 @@ import '../../support/membership_fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('legacy ownership rejection does not imply Apple finish', () {
+    final record = MembershipPurchaseRecord(
+      requestId: 'legacy-mismatch',
+      product: membershipProduct(provider: MembershipProvider.apple),
+      accountUuid: support.accountUuid,
+      ownerUid: 'user-test',
+      transactionId: '100',
+      state: 'purchased',
+      reportStatus: 'rejected',
+      reportReason: 'account_mismatch',
+      finished: true,
+    );
+    expect(
+      MembershipPurchaseRecord.fromJson(record.toJson()).finished,
+      isFalse,
+    );
+    final completed = record.copyWith(reportStatus: 'completed');
+    expect(
+      MembershipPurchaseRecord.fromJson(completed.toJson()).finished,
+      isTrue,
+    );
+  });
+
   for (final provider in MembershipProvider.values) {
     test(
       '$provider legacy claim proof drops stored plan without losing credentials',

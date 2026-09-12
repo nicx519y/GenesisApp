@@ -356,7 +356,7 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             kind: BillingUiEventKind.failure,
             productId: productId,
             attemptId: attemptId,
-            message: 'Purchase cancelled.',
+            message: 'Purchase canceled.',
             debugInfo: purchaseDebugInfo(
               'gems.store_callback',
               status: purchase.status.name,

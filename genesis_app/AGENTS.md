@@ -374,6 +374,10 @@ HTTP 映射层的图片规则：
 
 ## 名称展示规则
 
+- 会员文案中，已持有的订阅、订阅升级及订阅不可用使用 `subscription`；月付/年付套餐选项、套餐列表和 `selected plan` 使用 `plan`。
+
+- 用户可见的会员名称统一使用 `Premium`，包括页面、购买浮层、Toast 与 Developer 页面；不使用 `VIP`。取消提示统一采用美式拼写 `canceled`，不使用 `cancelled`。外部协议字段、商店错误码、内部标识和诊断代码保留兼容，不因展示文案调整而改名。
+
 - Worldo 创建者的界面标签统一为 `Creator`，覆盖详情、Discuss 摘要和搜索结果；内部 `originator` 模型字段和接口字段保持兼容。
 
 - Origin（即 Worldo）name 在所有展示位置前加 `#`；使用 `originDisplayName`，避免重复添加。

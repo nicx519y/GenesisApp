@@ -1998,11 +1998,12 @@ void main() {
       await tester.pumpWidget(build(chatMessages(1, 80)));
       await tester.pumpAndSettle();
       final retainedMessage = find.byKey(const ValueKey<String>('m30'));
+      // Reading history leaves follow-latest mode before changing the offset.
+      coordinator.deactivate();
       controller.jumpTo(controller.position.maxScrollExtent * 29 / 80);
       await tester.pumpAndSettle();
       await tester.ensureVisible(retainedMessage);
       await tester.pumpAndSettle();
-      coordinator.deactivate();
       expect(
         controller.position.maxScrollExtent - controller.position.pixels,
         greaterThan(24),
@@ -4353,6 +4354,53 @@ void main() {
       }),
       findsOneWidget,
     );
+  });
+
+  testWidgets('static send button keeps its icon and rejects repeat taps', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: 'hello');
+    final sending = ValueNotifier(false);
+    var sendCount = 0;
+    addTearDown(controller.dispose);
+    addTearDown(sending.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ValueListenableBuilder<bool>(
+            valueListenable: sending,
+            builder: (context, value, _) => ChatComposer(
+              controller: controller,
+              inputEnabled: true,
+              sendEnabled: true,
+              sending: value,
+              animateSendButton: false,
+              onSend: () async {
+                sendCount++;
+                sending.value = true;
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+    final button = find.widgetWithIcon(TextButton, Icons.send);
+    final style = tester.widget<TextButton>(button).style!;
+    expect(style.animationDuration, Duration.zero);
+    expect(style.splashFactory, NoSplash.splashFactory);
+    expect(
+      style.overlayColor!.resolve({WidgetState.pressed}),
+      Colors.transparent,
+    );
+    await tester.tap(button);
+    await tester.pump();
+    for (var frame = 0; frame < 10; frame++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.byIcon(Icons.send), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+    }
+    await tester.tap(button);
+    expect(sendCount, 1);
   });
 
   testWidgets('chat composer send button shows spinner while sending', (

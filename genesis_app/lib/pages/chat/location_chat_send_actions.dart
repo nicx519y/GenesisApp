@@ -1,6 +1,9 @@
 part of 'location_chat_page.dart';
 
 extension _LocationChatSendActions on _LocationChatPanelState {
+  String get _initialMessageText =>
+      _initialOutgoingMessage?.text ?? _textController.serializedText;
+
   void _maybeSendInitialMessage() {
     if (!_initialMessageSendPending || _initialMessageSendScheduled) return;
     if (!widget.active ||
@@ -10,7 +13,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _sending ||
-        isGenesisUgcTextBlank(_textController.serializedText)) {
+        isGenesisUgcTextBlank(_initialMessageText)) {
       return;
     }
     _initialMessageSendScheduled = true;
@@ -25,15 +28,16 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _sendAwaitingResponse ||
           _replyGenerationInProgress ||
           _sending ||
-          isGenesisUgcTextBlank(_textController.serializedText)) {
+          isGenesisUgcTextBlank(_initialMessageText)) {
         return;
       }
       _initialMessageSendPending = false;
-      await _send();
+      await _send(outgoingMessage: _initialOutgoingMessage);
     });
   }
 
   Future<void> _send({
+    ChatMessageVm? outgoingMessage,
     String? textOverride,
     ChatroomInspirationSource? inspirationSource,
     int? inspirationEpoch,
@@ -51,7 +55,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     }
     final draftAtSubmit = _textController.serializedText;
     final text = normalizeGenesisUgcTextForDisplay(
-      textOverride ?? draftAtSubmit,
+      textOverride ?? outgoingMessage?.text ?? draftAtSubmit,
     );
     if (isGenesisUgcTextBlank(text)) return;
     final controller = _replyController;
@@ -63,33 +67,44 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         : replyPresentationState != null
         ? '${widget.worldId}/${widget.locationId}/${replyPresentationState.roundId}'
         : null;
+    final outgoingClientMsgId = outgoingMessage?.clientMsgId;
+    final outgoingText = outgoingMessage?.text;
+    final outgoingStatus = outgoingMessage?.status;
+    final outgoingError = outgoingMessage?.error;
     late final String clientMsgId;
     late final ChatMessageVm localMessage;
     var optimisticMessageAdded = false;
 
     void addOptimisticMessage() {
       clientMsgId = _nextClientMsgId();
-      localMessage = ChatMessageVm(
-        localId: 'local-$clientMsgId',
-        clientMsgId: clientMsgId,
-        senderId: _mySenderId,
-        senderName: _localSelfDisplayName(),
-        avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
-        isPlayerControlledRole: _identityCandidatesArePlayerControlledRole([
-          _myUserId,
-          _mySenderId,
-        ]),
-        text: text,
-        isMe: true,
-        status: 'sending',
-      );
+      localMessage =
+          outgoingMessage ??
+          ChatMessageVm(
+            localId: 'local-$clientMsgId',
+            clientMsgId: clientMsgId,
+            senderId: _mySenderId,
+            senderName: _localSelfDisplayName(),
+            avatarUrl: _resizedLocationChatAvatarUrl(_localSelfAvatarUrl()),
+            isPlayerControlledRole: _identityCandidatesArePlayerControlledRole([
+              _myUserId,
+              _mySenderId,
+            ]),
+            text: text,
+            isMe: true,
+            status: 'sending',
+          );
       _setLocationChatState(() {
         _clearAckLoading();
         _sending = true;
         if (replyActionsSuppressionIdentity != null) {
           _suppressedReplyActionsIdentity = replyActionsSuppressionIdentity;
         }
-        _messages.add(localMessage);
+        localMessage.clientMsgId = clientMsgId;
+        localMessage.text = text;
+        localMessage.status = 'sending';
+        localMessage.error = null;
+        if (!_messages.contains(localMessage)) _messages.add(localMessage);
+        if (outgoingMessage != null) return;
         if (_textController.serializedText == draftAtSubmit) {
           _hasDraftText = false;
           _textController.clear();
@@ -107,10 +122,28 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           'vm': LocationChatDebugSlice.debugRenderMessage(localMessage),
         },
       );
-      _scrollCoordinator.requestBottom(
-        reason: LocationChatBottomReason.sentMessage,
-        behavior: LocationChatBottomBehavior.jump,
-      );
+      if (outgoingMessage == null) {
+        _scrollCoordinator.requestBottom(
+          reason: LocationChatBottomReason.sentMessage,
+          behavior: LocationChatBottomBehavior.jump,
+        );
+      }
+    }
+
+    void rollbackOptimisticMessage() {
+      if (outgoingMessage == null) {
+        _messages.remove(localMessage);
+        if (isGenesisUgcTextBlank(_textController.serializedText) &&
+            !isGenesisUgcTextBlank(draftAtSubmit)) {
+          _textController.setSerializedText(draftAtSubmit);
+          _hasDraftText = true;
+        }
+      } else {
+        localMessage.clientMsgId = outgoingClientMsgId!;
+        localMessage.text = outgoingText!;
+        localMessage.status = outgoingStatus!;
+        localMessage.error = outgoingError;
+      }
     }
 
     // All send gestures insert the bubble and hide the previous reply's
@@ -143,12 +176,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _setLocationChatState(() {
             _sending = false;
             if (optimisticMessageAdded) {
-              _messages.remove(localMessage);
-              if (isGenesisUgcTextBlank(_textController.serializedText) &&
-                  !isGenesisUgcTextBlank(draftAtSubmit)) {
-                _textController.setSerializedText(draftAtSubmit);
-                _hasDraftText = true;
-              }
+              rollbackOptimisticMessage();
             }
             if (_suppressedReplyActionsIdentity ==
                 replyActionsSuppressionIdentity) {
@@ -160,7 +188,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           }
         } else if (mounted && optimisticMessageAdded) {
           _setLocationChatState(() {
-            _messages.remove(localMessage);
+            rollbackOptimisticMessage();
             _sending = false;
             if (_suppressedReplyActionsIdentity ==
                 replyActionsSuppressionIdentity) {
@@ -177,7 +205,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           !identical(service, _service)) {
         if (mounted && optimisticMessageAdded) {
           _setLocationChatState(() {
-            _messages.remove(localMessage);
+            rollbackOptimisticMessage();
             _sending = false;
             if (_suppressedReplyActionsIdentity ==
                 replyActionsSuppressionIdentity) {
@@ -194,7 +222,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _setLocationChatState(() {
           _sending = false;
           if (optimisticMessageAdded) {
-            _messages.remove(localMessage);
+            rollbackOptimisticMessage();
           }
           if (_suppressedReplyActionsIdentity ==
               replyActionsSuppressionIdentity) {
@@ -400,6 +428,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _clearAckLoading();
         }
         if (restoredDraft != null) {
+          if (identical(localMessage, _initialOutgoingMessage)) {
+            // Draft recovery ends the queued opening send. Otherwise later
+            // state updates would reinsert this message without a server id.
+            _initialOutgoingMessage = null;
+          }
           _hasDraftText = restoredDraft.trim().isNotEmpty;
           _textController.setSerializedText(restoredDraft);
         } else if (!receiptReceived) {
@@ -469,6 +502,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   }
 
   bool _syncHasMoreOlderMessagesForSource(List<WorldChatroomMessage> source) {
+    if (widget.active &&
+        widget.retainOpeningPreviewUntilHistory &&
+        !_openingPreviewResolved) {
+      return false;
+    }
     final hasOlderCursor = _oldestLocationMessageId(source) > 0;
     if (!hasOlderCursor && source.isNotEmpty) {
       _olderMessagesExhaustedByCursorlessContent = true;

@@ -1361,6 +1361,10 @@ Query：
 
 登录用户基于一个 origin 模板创建新的 world 实例；接口只创建 world，不触发 tick。
 
+客户端 Opening Sheet 发送：登录检查通过后立即进入聊天界面，先显示当前地点的开场内容，再显示原消息和消息左侧的发送 loading，并在后台调用本接口。开场内容复用 Origin 的 `init_location_group`，缺失时回退到 ticks 的初始对白；角色对白使用真实聊天的气泡、角色名和头像组件，旁白和图片保留各自的聊天样式。
+
+取得 `world_id` 时保留同一个 World 页面、聊天列表和滚动状态，启动 World 数据加载、WebSocket 连接及目标地点 join，随后通过 `send_message` 提交同一条消息；消息正文不随 Launch 请求发送。预览持续保留到当前地点真实历史和分页信息加载成功，再原位替换为服务端记录；匹配的开场消息沿用显示锚点，正文、身份和消息 ID 则以真实数据为准。初始历史请求按开场条数扩大 limit（20–100），避免默认 20 条截断开场；空缓存和失败请求不能触发清空预览。发送 ACK 和新对话可独立继续，预览不会写入真实消息队列或数据库。收到发送 ACK 后结束消息 loading。Launch 失败时保留开场内容和失败气泡，点击重试重新 Launch；已有 World 的消息发送失败则走聊天室重试，不再 Launch。等待 Launch 时退出页面，迟到的结果不会重新打开页面或发送消息。
+
 请求 body（`OriginLaunchReq`）：
 
 - `origin_id*`: string，待 launch 的 origin 业务 id
@@ -2620,7 +2624,7 @@ World：
 - 年付卡片使用接口全年价格除以 `billing_months` 后的月均价格；底部按钮使用接口完整周期价格。币种和月额度相同且年付更便宜时，以月付价格乘 12 与年付全年价格比较计算 Save 百分比，不写死金额或折扣。实际支付金额仍由商店确认。
 - 共享 `ProSubscriptionContent` 同时覆盖钱包页和购买弹层，保留原有布局、样式及两个套餐卡片，绑定接口价格、折扣与权益数据。每次进入先显示缓存，同时重新请求接口，成功后更新页面及缓存；请求失败保留已显示的缓存，成功返回空列表则清空旧商品。缓存包括标题、权益、价格、套餐和按钮展示状态，使用内存及本地持久化，重启后也可读取，按账号（含游客）、平台及 API 环境隔离；不保存商品响应中的 `account_uuid/purchase_token`。账号切换先清除内存展示，再读取目标账号缓存并刷新，迟到的旧请求不能覆盖新账号状态。HTTP 请求仍走 `no-store`，本地缓存只用于页面展示，实际付款前仍重新获取购买资格及凭据。
 - 无缓存时，首次加载与 Buy Gems 一致，在内容区居中显示 24×24、线宽 2.5、`kGemAccentColor` 的转圈；请求完成后显示原有内容。不新增错误、登录、空列表、停售或首购优惠的 UI。缺少数据时金额和折扣文字留空，不回退到预览价格；缺少商品或价格时，点击原按钮可重新查询。
-- 原商品内 `can_purchase`、`purchase_block_reason` 已移除，不解析、不缓存、不参与判断。顶层 `vip_status=monthly` 时仅月套餐显示 `Subscribed` 并拦截；`yearly` 时两种套餐均显示 `Subscribed` 并拦截；`none` 或空字符串允许两种套餐，沿用原金额按钮。拦截统一提示 `You already have this VIP plan.`，不查询或调起支付平台。缓存状态和网络刷新状态使用同一判断；实际购买前重新请求商品列表，校验最新状态和商品标识。缺失、null、未知状态或请求失败不使用旧数据继续付款。不会用旧订单记录永久阻止购买。
+- 原商品内 `can_purchase`、`purchase_block_reason` 已移除，不解析、不缓存、不参与判断。顶层 `vip_status=monthly` 时仅月套餐显示 `Subscribed` 并拦截；`yearly` 时年套餐显示 `Subscribed`，月套餐沿用原金额按钮；`none` 或空字符串允许两种套餐，沿用原金额按钮。点击 `Subscribed` 仍提示 `You already have this VIP plan.`。年会员点击月套餐以 `downgrade_not_allowed` 拦截，使用项目统一 `GenesisActionBox`：标题 `Notification`，正文 `Worldo Premium is active in your subscription and does not support downgrades.`，单个确认按钮 `Got It`。两种拦截均不查询或调起支付平台。缓存状态和网络刷新状态使用同一判断及提示；实际购买前重新请求商品列表，校验最新状态和商品标识。缺失、null、未知状态或请求失败不使用旧数据继续付款。不会用旧订单记录永久阻止购买。
 - 展示缓存升级为 v2，保存顶层 `vip_status`，v1 缓存失效。客户端允许购买后，Google/Apple 具体查询、发起及回调错误按 [VIP 平台错误文案](vip-purchase-error-messages.md) 显示；取消、待支付和服务端确认中保持各自流程，不把启动支付成功视为到账。
 - 登录资格按服务端会话判断；游客商品查询使用与 guest prepare 一致的设备 ID，通过 `X-Device-ID` 请求头传递并复用 Gateway 签名，不把 uid/device_id 放入 URL。页面缓存的按钮状态不能代替付款前的实时资格校验；最新资格允许时，按选中商品进入现有商店购买及上报流程。订阅切换的扣款与生效以商店和服务端核验结果为准。
 - report 和游客 claim 取得有效状态后通知页面静默刷新资格。后台补报不触发商店历史恢复，也不以本地 pending/accepted 或旧恢复记录阻止新购买；购买前仍检查最新服务端资格，当前正在发起的支付保留防重复点击。
@@ -2648,9 +2652,10 @@ World：
 - 登录购买上报 `POST /api/v1/membership/purchase/report`；游客上报 `POST /api/v1/membership/guest/purchase/report`，游客请求额外携带平级 `account_uuid`。共同字段为 `provider`、`store_product_id`；Google 额外传 `purchase_token`；Apple 额外传 `transaction_id`，游客 report/claim 还必须传 `signed_transaction`（StoreKit 签名交易 JWS）。2026-09-10 按用户最新要求，Android / iOS 登录 report、游客 report、claim 的首次请求、补报及重试均不发送 plan_code、request_id；两种 HTTP 请求模型已删除 requestId 字段及其校验。Google base_plan_id 也继续省略；商品目录及本地 checkout 保留套餐、base plan 与 offer 用于选择和匹配。prepare/check 原本就不传 plan_code 或 request_id。不传金额、uid、任意 payload 或客户端猜测的生产环境。
 - 游客 report 与 claim 使用同一原购买证明，除可刷新的 Apple JWS 外，购买参数保持一致。本地 request_id 仅用于关联回调、弹窗、持久化队列及清理，不进入 HTTP 请求、查询参数或请求头。当前刷新后的 Apifox 已允许省略 plan_code，但仍将 request_id 标为必填；客户端按本次明确要求实现，后端需要同步支持无 request_id 的验单与幂等处理，客户端删除字段不代表已完成服务器联调或修复旧幂等记录。
 - 响应必须有合法业务 envelope、`data.status` 和 `report_id`。`completed`、`accepted`、`rejected` 均表示服务端可靠接管；未取得有效状态时保留凭据和原请求键，以退避计时、回前台及重启恢复重试。同一次重试不改变凭据或套餐；新 Google 续费订单即使沿用 token 也产生新的操作键。
-- 服务端收到 report 后先持久化购买记录再同步校验，当次成功直接返回 `completed`，不要求先返回 `accepted`。`completed` 表示官方校验及状态同步完成，不保证当前会员仍有效或额外发放；登录购买随后刷新 `/gem/wallet` 的会员摘要。`accepted` 仅表示可靠保存但仍在处理（包括待付款、平台超时、并发或人工核查），不显示购买成功，仍保留待处理记录并使用原请求键重试。`rejected` 是明确拒绝，保存并展示对应 reason，停止重报；`account_mismatch` 不 finish 其他账号的 Apple 交易。
+- 服务端收到 report 后先持久化购买记录再同步校验，当次成功直接返回 `completed`，不要求先返回 `accepted`。`completed` 表示官方校验及状态同步完成，不保证当前会员仍有效或额外发放；登录购买随后刷新 `/gem/wallet` 的会员摘要。`accepted` 仅表示可靠保存但仍在处理（包括待付款、平台超时、并发或人工核查），不显示购买成功，仍保留待处理记录并使用原请求键重试。`rejected` 是明确拒绝，保存并展示对应 reason，停止重报；`account_mismatch` 不 finish 其他账号的 Apple 交易，也不把本地 `finished` 标为 true。旧版本对该拒绝原因写入的假完成标记读取时忽略。
 - Google 初次订阅 acknowledge 由服务端负责。已付款的 Apple 交易在服务端可靠接管、响应已本地保存后 finish；仍待付款且仅 accepted 时不 finish。平台先返回 pending 后，若服务端重试已取得 completed，则按官方确认完成后续 finish/清理，不再依赖另一次平台回调。已经取得 `completed/rejected` 的记录在 finish 或本地清理失败后仅重试剩余步骤，不重复上报。
 - VIP 本地持久化只用于 report 重试和游客购买身份/认领。准备、取消、调起失败及无凭据回调不保存历史订单；登录购买 completed/rejected 后清理重试记录，不另存成功订单归档。游客付款后单独缓存原 UUID、套餐、request_id 和绑定所需凭据，绑定 completed 后删除购买凭据，保留标记为已绑定的 UUID 供下次未登录启动 check，不重复 claim。
+- iOS 历史交易查询从 `Transaction.all` 保留每笔已验证交易的 JWS，包括已 finish 的原订单；重启后的游客 report/claim 按原交易 ID、商品及 UUID 恢复签名，不用最新续费交易替换原凭据。重装后无本地 report 的认领仅在 `claim=completed` 后 finish 本次证明对应的 Apple 交易，再清理认领凭据；finish 失败保留 completed claim 及凭据，重启后只重试收尾，不重复 claim。`accepted/rejected` 不触发该收尾，也不批量 finish 订阅链中其他交易。原生 finish 查不到已验证交易时返回明确错误，不让 Dart 一直等待。
 - `purchased/restored` 回调缺少凭据时不发送 report，也不生成旧订单恢复记录或阻止新购买；本次操作在内存中保留，迟到的真实回调仍可按原套餐上报。客户端不再通过旧缓存判定 purchase_processing，购买资格由最新商品接口决定，当前正在发起的支付仍防重复点击。
 - GEMS 回调与商店恢复入口增加会员分流，已知 GEMS 操作和持久记录沿用原处理。VIP 不进入 Gem 上报、发货弹窗或 Gem 埋点路径；互相购买期间拦截重复调起。普通 GEMS 请求和 TAB 按需加载保持原逻辑。
 - 会员接口继续排除 App 持久化网络捕获和原生 body 采集，使用支持按请求排除采集的 HTTP/2 传输。按产品要求，Debug 包的 Flutter DevTools 对 products、prepare、report、check、claim 显示原始 URI/header/body/响应及错误，不替换 UUID、token 或 JWS；非 Debug 的 products/report/check 保持脱敏，prepare/claim 不创建 profile。普通日志仍只记状态或错误类型。

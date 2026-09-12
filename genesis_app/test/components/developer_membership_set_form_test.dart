@@ -88,7 +88,10 @@ void main() {
       pending.complete(result);
       await tester.pumpAndSettle();
       expect(saved, [result]);
-      expect(find.textContaining('VIP updated\nuid: u_target'), findsOneWidget);
+      expect(
+        find.textContaining('Premium updated\nuid: u_target'),
+        findsOneWidget,
+      );
       expect(
         tester.widget<OutlinedButton>(field('submit')).onPressed,
         isNotNull,
@@ -119,7 +122,7 @@ void main() {
       await tester.tap(field('submit'));
       await tester.pumpAndSettle();
       expect(calls, 1);
-      expect(find.textContaining('VIP request failed:'), findsOneWidget);
+      expect(find.textContaining('Premium request failed:'), findsOneWidget);
       expect(
         tester.widget<TextFormField>(field('uid')).controller!.text,
         'u_target',
@@ -149,9 +152,9 @@ void main() {
       await tester.tap(field('submit'));
       await tester.pumpAndSettle();
       expect(calls, 1);
-      expect(find.textContaining('VIP updated'), findsOneWidget);
+      expect(find.textContaining('Premium updated'), findsOneWidget);
       expect(find.textContaining('Wallet refresh failed:'), findsOneWidget);
-      expect(find.textContaining('VIP request failed:'), findsNothing);
+      expect(find.textContaining('Premium request failed:'), findsNothing);
     },
   );
 

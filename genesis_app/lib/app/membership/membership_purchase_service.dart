@@ -700,7 +700,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
               report.status == MembershipReportStatus.completed && !record.paid
               ? 'purchased'
               : null,
-          finished: report.reason == 'account_mismatch' ? true : null,
         );
         await _save(record);
       }
@@ -714,9 +713,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           await refreshWallet?.call();
         } catch (_) {}
       }
-      // All three statuses acknowledge durable server takeover. Never finish pending payments.
+      // Ownership rejection ends this report, not the Apple transaction.
+      // Never finish another account's transaction or a pending payment.
       if (provider == MembershipProvider.apple &&
           record.paid &&
+          record.reportReason != 'account_mismatch' &&
           !record.finished) {
         await platform.finishAppleTransaction(record.transactionId);
         record = record.copyWith(finished: true);

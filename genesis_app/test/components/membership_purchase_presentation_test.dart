@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
@@ -42,6 +43,50 @@ Future<void> open(WidgetTester tester, service.Harness h) async {
 
 void main() {
   for (final provider in MembershipProvider.values) {
+    testWidgets(
+      '$provider fresh yearly status blocks monthly with the shared downgrade dialog',
+      (tester) async {
+        final h = service.Harness(provider: provider)
+          ..vipStatus = MembershipVipStatus.yearly;
+        addTearDown(h.service.dispose);
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        // The displayed catalog still says none; checkout must use fresh status.
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GenesisTheme.light(),
+            home: Scaffold(body: subscription(h)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+        await tester.pumpAndSettle();
+        expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+        await tester.pumpAndSettle();
+        expect(h.eligibilityQueries, 1);
+        expect(h.platform.launches, 0);
+        expect(h.platform.product, isNull);
+        expect(h.reports, isEmpty);
+        expect(find.text('Purchasing VIP'), findsNothing);
+        expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
+        expect(find.text('Notification'), findsOneWidget);
+        expect(
+          find.text(
+            'Worldo Premium is active in your subscription and does not support downgrades.',
+          ),
+          findsOneWidget,
+        );
+        await tester.tap(find.text('Got It'));
+        await tester.pumpAndSettle();
+        expect(find.byType(Dialog), findsNothing);
+        expect(find.byType(ProSubscriptionContent), findsOneWidget);
+        expect(h.service.isBusy, isFalse);
+      },
+    );
+
     for (final stage in ['prepare', 'launch', 'callback']) {
       testWidgets(
         '$provider $stage preserves native errors through the VIP dialog',
@@ -107,7 +152,7 @@ void main() {
       h.platform.onPrepare = () => prepare.future;
       h.reportHandler = (_) => report.future;
       await open(tester, h);
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       expect(find.text('Purchasing Gems'), findsNothing);
       expect(h.platform.launches, 0);
       final dialog = find.byType(Dialog);
@@ -131,17 +176,17 @@ void main() {
       final callback = h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pump();
       expect(h.reports, hasLength(1));
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       // A matched store callback ends the 90-second store wait; the report
       // request owns its timeout and continues using the same processing UI.
       await tester.pump(const Duration(seconds: 91));
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       report.complete(service.completed);
       await callback;
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsOneWidget);
+      expect(find.text('Purchase successful!'), findsOneWidget);
       expect(
-        find.text('Your VIP purchase is confirmed.', findRichText: true),
+        find.text('Premium have been granted.', findRichText: true),
         findsOneWidget,
       );
       expect(
@@ -151,8 +196,8 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
       await navigator.maybePop();
       await tester.pump();
-      expect(find.text('OK'), findsOneWidget);
-      await tester.tap(find.text('OK'));
+      expect(find.text('Enjoy it'), findsOneWidget);
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
       expect(dialog, findsNothing);
       expect(find.byType(ProSubscriptionContent), findsOneWidget);
@@ -212,19 +257,19 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
         await tester.pump(const Duration(milliseconds: 300));
         expect(find.byType(Dialog), findsNothing);
-        expect(find.text('VIP purchase successful!'), findsNothing);
+        expect(find.text('Purchase successful!'), findsNothing);
         expect(find.byType(ProSubscriptionContent), findsOneWidget);
         final message = switch (outcome) {
-          'cancelled' => 'VIP purchase cancelled.',
-          'pending' => 'VIP payment is pending.',
-          'accepted' => 'Your VIP purchase is being confirmed.',
+          'cancelled' => 'Premium purchase canceled.',
+          'pending' => 'Premium payment is pending.',
+          'accepted' => 'Your Premium purchase is being confirmed.',
           'deferred' || 'storage failure' || 'stream failure' =>
-            'VIP purchase confirmation is delayed. Please check again later.',
+            'Premium purchase confirmation is delayed. Please check again later.',
           'failed' =>
-            'The store could not open this VIP purchase. Please try again.',
+            'The store could not open this Premium purchase. Please try again.',
           'query failure' =>
-            'This VIP plan is currently unavailable in the store. Please refresh the page and try again.',
-          _ => 'VIP purchase failed.',
+            'This Premium subscription is currently unavailable in the store. Please refresh the page and try again.',
+          _ => 'Premium purchase failed.',
         };
         final toast = find.textContaining('\n$message');
         expect(toast, findsOneWidget);
@@ -262,12 +307,12 @@ void main() {
         h.purchase(token: 'older-token', transaction: 'renewal-transaction'),
       );
       await tester.pump();
-      expect(find.text('Purchasing VIP'), findsOneWidget);
-      expect(find.text('VIP purchase successful!'), findsNothing);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
+      expect(find.text('Purchase successful!'), findsNothing);
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
-      expect(find.text('VIP purchase successful!'), findsOneWidget);
-      await tester.tap(find.text('OK'));
+      expect(find.text('Purchase successful!'), findsOneWidget);
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
     },
   );
@@ -329,7 +374,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
     await tester.pump(const Duration(milliseconds: 250));
-    expect(find.text('Purchasing VIP'), findsOneWidget);
+    expect(find.text('Purchasing Premium'), findsOneWidget);
     visible.value = false;
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsNothing);
@@ -382,11 +427,11 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
       await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('Purchasing VIP'), findsOneWidget);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
       expect(h.platform.launches, 2);
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('OK'));
+      await tester.tap(find.text('Enjoy it'));
       await tester.pumpAndSettle();
       expect(find.byType(ProSubscriptionContent), findsNothing);
       expect(find.text('Open'), findsOneWidget);

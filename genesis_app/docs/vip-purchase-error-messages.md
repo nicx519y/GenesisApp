@@ -14,9 +14,9 @@
 | --- | --- | --- | --- |
 | `none` 或 `""` | 原 Monthly + 金额 | 原 Yearly + 金额 | 重新拉取列表校验后，正常查询商品并发起支付 |
 | `monthly` | `Subscribed` | 原 Yearly + 金额 | 月套餐直接拦截；年套餐可继续 |
-| `yearly` | `Subscribed` | `Subscribed` | 两种套餐均直接拦截 |
+| `yearly` | 原 Monthly + 金额 | `Subscribed` | 月套餐弹出不支持降级提示；年套餐直接拦截 |
 
-拦截提示统一为 `You already have this VIP plan.`；不请求支付平台。按钮颜色、尺寸、卡片样式不变。缓存先展示，接口返回后刷新；缓存版本 v2 包含会员状态，按账号、平台、环境隔离，不保存商品 `account_uuid` 和升级 `purchase_token`。缺失、null 或未知 `vip_status` 是无效响应，不当作非会员；旧 v1 缓存失效。缓存不能代替实际购买前的实时校验。
+点击 `Subscribed` 按钮仍提示 `You already have this VIP plan.`。年会员点击月套餐以 `downgrade_not_allowed` 拦截，复用项目 `GenesisActionBox` 弹窗：标题 `Notification`，正文 `Worldo Premium is active in your subscription and does not support downgrades.`，单个按钮 `Got It`，关闭后留在当前页面。两种拦截均不请求支付平台；点击前的缓存判断和购买前重新请求商品列表的最新状态判断使用相同提示。按钮颜色、尺寸、卡片样式不变。缓存先展示，接口返回后刷新；缓存版本 v2 包含会员状态，按账号、平台、环境隔离，不保存商品 `account_uuid` 和升级 `purchase_token`。缺失、null 或未知 `vip_status` 是无效响应，不当作非会员；旧 v1 缓存失效。缓存不能代替实际购买前的实时校验。
 
 ## 2. Google Play 主错误码
 

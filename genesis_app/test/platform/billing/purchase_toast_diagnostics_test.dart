@@ -35,7 +35,10 @@ void main() {
         error: StateError('private-cause'),
       ),
     );
-    final text = purchaseToastMessage('VIP purchase failed.', debugInfo: info);
+    final text = purchaseToastMessage(
+      'Premium purchase failed.',
+      debugInfo: info,
+    );
     expect(text.split('\n'), hasLength(2));
     expect(
       text,
@@ -47,7 +50,7 @@ void main() {
     expect(text, contains('message=verification failed'));
     expect(text, isNot(contains('private-')));
     expect(text, isNot(contains('4b74ec68-7abc')));
-    expect(text, endsWith('\nVIP purchase failed.'));
+    expect(text, endsWith('\nPremium purchase failed.'));
   });
 
   test('platform errors preserve code and message but omit native details', () {

@@ -31,7 +31,12 @@ void main() {
               expect(h.eligibilityQueries, 1);
               expect(h.platform.launches, blocked ? 0 : 1);
               if (blocked) {
-                expect(events.last.reason, 'already_subscribed');
+                expect(
+                  events.last.reason,
+                  status == MembershipVipStatus.yearly && !yearly
+                      ? 'downgrade_not_allowed'
+                      : 'already_subscribed',
+                );
                 expect(h.platform.product, isNull);
                 expect(h.guestPrepares, 0);
                 expect(h.store.records, isEmpty);
@@ -231,6 +236,14 @@ void main() {
       expect(h.platform.finishes, 0);
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
+      expect(h.store.completedRecords.last.reportReason, 'account_mismatch');
+      expect(h.store.completedRecords.last.finished, isFalse);
+      expect(h.service.state.value, MembershipCheckoutState.rejected);
+      expect(h.service.isBusy, isFalse);
+      await h.service.interceptPurchase(h.purchase());
+      await h.service.recover();
+      expect(h.reports, hasLength(1));
+      expect(h.platform.finishes, 0);
     },
   );
 }

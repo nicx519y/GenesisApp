@@ -7,9 +7,36 @@ import '../../app/membership/membership_purchase_eligibility.dart';
 import '../../network/models/membership_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
+import '../common/genesis_action_box.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_modal_routes.dart';
 import 'gem_billing_purchase_dialog.dart';
+
+Future<void> showMembershipPurchaseFailure(
+  BuildContext context,
+  String reason, {
+  String? debugInfo,
+}) async {
+  if (reason == 'downgrade_not_allowed') {
+    await showGenesisActionBox<bool>(
+      context: context,
+      title: 'Notification',
+      titleHeight: null,
+      titleContent: const Text(
+        'Worldo Premium is active in your subscription and does not support downgrades.',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 14, height: 1.4),
+      ),
+      actions: const [GenesisActionBoxAction(label: 'Got It', value: true)],
+      showCancel: false,
+    );
+    return;
+  }
+  showGenesisToast(
+    context,
+    membershipPurchaseFailureMessage(reason, debugInfo: debugInfo),
+  );
+}
 
 /// Owns only the dialog for this user's purchase, never background restore UI.
 class MembershipPurchasePresentation {
@@ -83,18 +110,24 @@ class MembershipPurchasePresentation {
                   status: event.state.name,
                   reason: event.reason,
                 );
-            showGenesisToast(
-              context,
-              event.reason == null
-                  ? purchaseToastMessage(
-                      event.storeFailure?.message ?? _message(event.state),
-                      debugInfo: debugInfo,
-                    )
-                  : membershipPurchaseFailureMessage(
-                      event.reason!,
-                      debugInfo: debugInfo,
-                    ),
-            );
+            final reason = event.reason;
+            if (reason != null) {
+              unawaited(
+                showMembershipPurchaseFailure(
+                  context,
+                  reason,
+                  debugInfo: debugInfo,
+                ),
+              );
+            } else {
+              showGenesisToast(
+                context,
+                purchaseToastMessage(
+                  event.storeFailure?.message ?? _message(event.state),
+                  debugInfo: debugInfo,
+                ),
+              );
+            }
           }
       }
     }, onDone: () => _close(false));
@@ -110,7 +143,7 @@ class MembershipPurchasePresentation {
           showGenesisToast(
             context,
             purchaseToastMessage(
-              'VIP purchase failed.',
+              'Premium purchase failed.',
               debugInfo: purchaseDebugInfo(
                 'vip.checkout_exception',
                 error: error,
@@ -137,12 +170,13 @@ class MembershipPurchasePresentation {
   }
 
   String _message(MembershipCheckoutState state) => switch (state) {
-    MembershipCheckoutState.canceled => 'VIP purchase cancelled.',
-    MembershipCheckoutState.pending => 'VIP payment is pending.',
-    MembershipCheckoutState.accepted => 'Your VIP purchase is being confirmed.',
+    MembershipCheckoutState.canceled => 'Premium purchase canceled.',
+    MembershipCheckoutState.pending => 'Premium payment is pending.',
+    MembershipCheckoutState.accepted =>
+      'Your Premium purchase is being confirmed.',
     MembershipCheckoutState.deferred =>
-      'VIP purchase confirmation is delayed. Please check again later.',
-    _ => 'VIP purchase failed.',
+      'Premium purchase confirmation is delayed. Please check again later.',
+    _ => 'Premium purchase failed.',
   };
 
   void _close(bool confirmed) {

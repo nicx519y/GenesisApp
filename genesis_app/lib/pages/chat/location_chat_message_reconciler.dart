@@ -5,7 +5,17 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     List<WorldChatroomMessage> source, {
     WorldChatroomState? identityState,
   }) {
-    final resolvedIdentityState = identityState ?? _chatroomState;
+    final realIdentityState = identityState ?? _chatroomState;
+    final resolvedIdentityState = widget.retainOpeningPreviewUntilHistory
+        ? realIdentityState.copyWith(
+            entitiesById: {
+              for (final entity in widget.openingPreviewEntities)
+                entity.id: entity,
+              ...realIdentityState.entitiesById,
+            },
+          )
+        : realIdentityState;
+    source = _openingRenderMessages(source, realIdentityState);
     final renderWindow = _visibleLocationChatMessages(
       source,
       renderedLocationMessageIds: _renderedLocationMessageIds(),
@@ -114,6 +124,15 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
           continue;
         }
         usedLocalIds.add(existing.localId);
+        if (parsed.isMe && identical(existing, _initialOutgoingMessage)) {
+          _initialOutgoingMessageReconciled = true;
+        }
+        // Message echoes can arrive before role/avatar metadata. Keep the
+        // already displayed self avatar until a real replacement is available.
+        final avatarUrl =
+            parsed.avatarUrl.isEmpty && existing.isMe && parsed.isMe
+            ? existing.avatarUrl
+            : parsed.avatarUrl;
         if (existing.globalMessageId != parsed.globalMessageId ||
             existing.messageId != parsed.messageId ||
             existing.locationMessageId != parsed.locationMessageId ||
@@ -123,7 +142,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
             existing.senderName != parsed.senderName ||
             existing.isMe != parsed.isMe ||
             existing.isPlayerControlledRole != parsed.isPlayerControlledRole ||
-            existing.avatarUrl != parsed.avatarUrl ||
+            existing.avatarUrl != avatarUrl ||
             existing.imageUrl != parsed.imageUrl ||
             existing.timelinePayload != parsed.timelinePayload ||
             existing.text != parsed.text ||
@@ -141,7 +160,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         existing.senderName = parsed.senderName;
         existing.isMe = parsed.isMe;
         existing.isPlayerControlledRole = parsed.isPlayerControlledRole;
-        existing.avatarUrl = parsed.avatarUrl;
+        existing.avatarUrl = avatarUrl;
         existing.imageUrl = parsed.imageUrl;
         existing.timelinePayload = parsed.timelinePayload;
         existing.text = parsed.text;
@@ -177,6 +196,15 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         next.add(nextMessage);
       }
     }
+    final queuedMessage = _initialOutgoingMessage;
+    // The send future can assign server IDs before the queued state updates
+    // reach this list. Retain the row until reconciliation adopts its echo.
+    if (queuedMessage != null &&
+        !_initialOutgoingMessageReconciled &&
+        !next.contains(queuedMessage) &&
+        usedLocalIds.add(queuedMessage.localId)) {
+      next.add(queuedMessage);
+    }
     preserveUnmatchedLocationChatLocalMessages(
       previous: previous,
       reconciled: next,
@@ -197,6 +225,86 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         ..addAll(next);
     }
     return changed;
+  }
+
+  List<WorldChatroomMessage> _openingRenderMessages(
+    List<WorldChatroomMessage> source,
+    WorldChatroomState state,
+  ) {
+    final preview = widget.openingPreviewMessages;
+    if (!widget.retainOpeningPreviewUntilHistory ||
+        _openingPreviewResolved ||
+        preview.isEmpty ||
+        source.any(preview.contains)) {
+      return source;
+    }
+    final history = state.latestHistoryLoads[widget.locationId];
+    if (history == null || history.limit < _openingPreviewHistoryLimit) {
+      // Keep the opening intact until history and pagination metadata are ready.
+      // Socket ACKs and the new conversation can still advance independently.
+      final outgoing = _initialOutgoingMessage;
+      final clientId = outgoing?.clientMsgId ?? '';
+      final canonical = clientId.isEmpty
+          ? null
+          : source
+                .where((message) => message.clientMsgId == clientId)
+                .firstOrNull;
+      final sentId =
+          canonical?.locationMessageId ?? outgoing?.locationMessageId ?? 0;
+      return [
+        ...preview,
+        ...source.where(
+          (message) =>
+              (clientId.isNotEmpty && message.clientMsgId == clientId) ||
+              (sentId > 0 &&
+                  (message.locationMessageId >= sentId || message.streaming)),
+        ),
+      ];
+    }
+    final remaining = source.toList();
+    for (final placeholder in preview) {
+      final text = locationChatMessageDisplayText(placeholder).trim();
+      final uniqueText =
+          preview
+              .where(
+                (message) =>
+                    locationChatMessageDisplayText(message).trim() == text,
+              )
+              .length ==
+          1;
+      final match = remaining.indexWhere(
+        (message) =>
+            !message.streaming &&
+            message.tickNo <= 1 &&
+            locationChatResolvedSenderType(message) ==
+                locationChatResolvedSenderType(placeholder) &&
+            locationChatMessageDisplayText(message).trim() == text &&
+            (message.senderId == placeholder.senderId ||
+                uniqueText ||
+                _messageSenderDisplayName(message, identityState: state) ==
+                    _messageSenderDisplayName(placeholder)),
+      );
+      if (match < 0) {
+        continue;
+      }
+      final real = remaining.removeAt(match);
+      final layoutId = locationChatMessageLocalId(placeholder);
+      final realId = locationChatMessageLocalId(real);
+      _openingLayoutIds.removeWhere(
+        (key, value) => value == layoutId && key != realId,
+      );
+      _openingLayoutIds[realId] = layoutId;
+      final selectedRole = _chatroomIdentityKey(
+        widget.openingPlayerCharacterId,
+      );
+      if (selectedRole.isNotEmpty &&
+          _chatroomIdentityKey(placeholder.senderId) == selectedRole) {
+        _openingPlayerCharacterIds.add(_chatroomIdentityKey(real.senderId));
+      }
+    }
+    _openingPreviewResolved = true;
+    _olderMessagesExhaustedByRemote = !history.hasMore;
+    return source;
   }
 
   Set<int> _renderedLocationMessageIds() {
@@ -365,6 +473,10 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     if (content.isEmpty) return null;
     final now = DateTime.now();
     for (final candidate in previous.reversed) {
+      if (_initialMessageSendPending &&
+          identical(candidate, _initialOutgoingMessage)) {
+        continue;
+      }
       if (usedLocalIds.contains(candidate.localId)) continue;
       if (!candidate.isMe) continue;
       if (candidate.status != 'sending' && candidate.status != 'sent') {
@@ -448,6 +560,8 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     WorldChatroomMessage message, {
     WorldChatroomState? identityState,
   }) {
+    if (_isSelectedOpeningPlayerMessage(message)) return true;
+    if (widget.openingPreviewMessages.contains(message)) return false;
     final world = (identityState ?? _chatroomState).world;
     return _locationChatMessageBelongsToCurrentRole(
       messageBusinessType:

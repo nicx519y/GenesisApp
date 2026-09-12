@@ -31,6 +31,7 @@ Future<void> waitForIosStartupNetwork({
   var receivedResponse = false;
   var requestInFlight = false;
   var retryAfterResume = false;
+  var clientClosed = false;
   final ready = Completer<void>();
   final abort = Completer<void>();
   Timer? foregroundTimer;
@@ -42,6 +43,16 @@ Future<void> waitForIosStartupNetwork({
 
   void finish() {
     if (!ready.isCompleted) ready.complete();
+  }
+
+  void closeClient() {
+    if (clientClosed) return;
+    clientClosed = true;
+    try {
+      client.close();
+    } catch (error) {
+      debugPrint('[Startup] iOS network cleanup failed: $error');
+    }
   }
 
   void updateForegroundWait() {
@@ -70,16 +81,20 @@ Future<void> waitForIosStartupNetwork({
         abortTrigger: abort.future,
       )..followRedirects = false;
       final response = await client.send(request);
-      if (ready.isCompleted) return;
-      receivedResponse = true;
-      unawaited(response.stream.drain<void>().catchError((Object _) {}));
-      if (canContinue()) finish();
+      if (!ready.isCompleted) {
+        receivedResponse = true;
+        if (canContinue()) finish();
+      }
+      // Headers can arrive before URLSession removes the running task. Drain
+      // late responses too so cleanup waits for completion or cancellation.
+      await response.stream.drain<void>();
     } catch (error) {
       if (!ready.isCompleted) {
         debugPrint('[Startup] iOS network preparation pending: $error');
       }
     } finally {
       requestInFlight = false;
+      if (ready.isCompleted) closeClient();
       // The prompt may close before the pre-authorization request fails.
       // In that order, still issue the pending post-authorization probe.
       if (!ready.isCompleted && retryAfterResume && !receivedResponse) {
@@ -111,7 +126,9 @@ Future<void> waitForIosStartupNetwork({
     foregroundTimer?.cancel();
     observer.dispose();
     abort.complete();
-    client.close();
+    // Aborting is asynchronous. Let probe() close the client after the native
+    // task finishes; cleanup must not delay or throw out of startup.
+    if (!requestInFlight) closeClient();
   }
 }
 

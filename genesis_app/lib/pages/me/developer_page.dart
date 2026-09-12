@@ -856,7 +856,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                 ValueListenableBuilder<bool>(
                   valueListenable: membershipGuestLoginDebugSettings.listenable,
                   builder: (context, forceLogin, _) => _DeveloperToggleRow(
-                    sectionTitle: 'VIP',
+                    sectionTitle: 'Premium',
                     label: 'Force login after guest purchase',
                     value: forceLogin,
                     enabled:
@@ -1057,7 +1057,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(
-          label: 'Preview VIP purchase overlay',
+          label: 'Preview Premium purchase overlay',
           onPressed: _showMembershipPurchaseOverlayPreview,
           backgroundColor: const Color(0xFFE1E1E3),
           foregroundColor: Colors.black,

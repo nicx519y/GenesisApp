@@ -292,18 +292,62 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
       telemetryRoleId = characterId;
     }
 
-    final worldId = await _launchOrigin(
-      origin,
-      roleSelection,
-      telemetryRoleId: telemetryRoleId,
-      launchSource: OriginLaunchSource.openingMessage,
-      initialLocationId: locationId,
-      initialMessageToSend: message,
-      initialMentionCatalog: mentionCatalog,
+    if (_launching) return _OriginLocationChatSendResult.notLaunched;
+    final locationNode = origin.processedLocationTree.nodeById(locationId);
+    final location = locationNode?.value;
+    final parentNode = origin.processedLocationTree.nodeById(
+      locationNode?.parentId ?? '',
     );
-    return worldId == null
-        ? _OriginLocationChatSendResult.notLaunched
-        : _OriginLocationChatSendResult.launched;
+    final role = _locationChatRoleOption(origin);
+    final locationImage = location?.imageResource.xlUrl.trim() ?? '';
+    final background = _resolveAssetUrl(
+      locationImage.isNotEmpty ? locationImage : location?.icon ?? '',
+    );
+    final openingMessages = _originLocationOpeningPreviewMessages(origin, [
+      locationId,
+    ]);
+    _beginOpeningMessageLaunch();
+    FocusManager.instance.primaryFocus?.unfocus();
+    openWorldFromMyWorldsRoot(
+      Navigator.of(context),
+      arguments: {
+        'pending_origin_launch': OriginLaunchEntry(
+          origin: origin,
+          roleSelection: roleSelection,
+          telemetryRoleId: telemetryRoleId,
+          location: WorldLocationChatPanelDescriptor(
+            locationId: locationId,
+            locationName: location?.name ?? 'Location',
+            parentLocationName: parentNode?.id == originSyntheticRootLocationId
+                ? ''
+                : parentNode?.value.name ?? '',
+            backgroundImageUrl: background,
+            backgroundPreviewImageUrl: background,
+            isLeafLocation: true,
+            localMessageLocationIds: [locationId],
+            recentChatLocationPathIds: [locationId],
+          ),
+          message: ChatMessageVm(
+            localId: 'origin-launch-${DateTime.now().microsecondsSinceEpoch}',
+            senderId: selectedRoleId,
+            senderName: role.name,
+            avatarUrl: role.avatarSnapshotSourceKey,
+            isPlayerControlledRole: true,
+            text: message,
+            isMe: true,
+            status: 'sending',
+          ),
+          mentionCatalog: mentionCatalog,
+          openingPreviewMessages: openingMessages,
+          openingPreviewEntities: _originLocationOpeningPreviewEntities(
+            origin.characters,
+            openingMessages,
+            locationId,
+          ),
+        ),
+      },
+    );
+    return _OriginLocationChatSendResult.launched;
   }
 }
 
@@ -505,6 +549,7 @@ class _OriginLocationChatLaunchComposerState
       inputEnabled: !widget.launching,
       sendEnabled: sendEnabled,
       sending: widget.sending,
+      animateSendButton: false,
       onSend: _send,
       onHeightChanged: widget.onInputDockHeightChanged,
       composerHeader: null,
@@ -1038,7 +1083,9 @@ List<WorldChatroomEntity> originLocationOpeningPreviewEntitiesForTesting(
     entities.add(
       WorldChatroomEntity(
         id: senderId,
-        name: message.senderName.trim().isNotEmpty
+        name:
+            message.senderName.trim().isNotEmpty &&
+                message.senderName != senderId
             ? message.senderName.trim()
             : character.name,
         avatarUrl: _resolveAssetUrl(character.avatar),
