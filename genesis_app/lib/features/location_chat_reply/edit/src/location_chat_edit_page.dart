@@ -275,7 +275,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
   @override
   Widget build(BuildContext context) {
     final args = widget.args;
-    final style = args.style;
+    final style = args.style.copyWith(bubbleBackdropBlurSigma: 0);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: kChatDarkHeaderSystemUiOverlayStyle,
       child: Scaffold(
