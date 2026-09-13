@@ -54,6 +54,7 @@ import '../../app/version/force_upgrade_gate.dart';
 import '../../network/models/app_version_check.dart';
 import 'about_us_page.dart';
 import 'developer_membership_set_form.dart';
+import 'developer_personalization_preview.dart';
 
 part 'developer_endpoint_actions.dart';
 part 'developer_version_actions.dart';
@@ -1033,6 +1034,13 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
               ),
             ),
           ],
+        ),
+        const SizedBox(height: _itemGap),
+        GenesisPrimaryButton(
+          label: 'Preview new user onboarding',
+          onPressed: _showPersonalizationPreview,
+          backgroundColor: const Color(0xFFE1E1E3),
+          foregroundColor: Colors.black,
         ),
         const SizedBox(height: _itemGap),
         GenesisPrimaryButton(

@@ -93,6 +93,49 @@ void main() {
     expect(parts.last.style!.fontSize, lessThan(18));
   });
 
+  testWidgets('membership title stays fixed when account status changes', (
+    tester,
+  ) async {
+    double? titleOffset;
+    double? detailsCenter;
+    for (final card in [
+      const ProfileMembershipCard(),
+      ProfileMembershipCard(
+        isActive: true,
+        membershipExpiresAt: DateTime.utc(2027, 9, 7),
+      ),
+      ProfileMembershipCard(
+        isExpired: true,
+        membershipExpiresAt: DateTime.utc(2026, 8, 1),
+      ),
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(body: SizedBox(width: 358, child: card)),
+        ),
+      );
+      final bounds = tester.getRect(find.byType(ProfileMembershipCard));
+      final title = tester.getRect(find.text('Worldo Premium'));
+      final offset = title.top - bounds.top;
+      titleOffset ??= offset;
+      expect(offset, closeTo(titleOffset, 0.01));
+      expect(bounds.height, 82);
+      final details = tester.getRect(
+        find.byKey(
+          ValueKey(
+            card.isActive || card.isExpired
+                ? 'user-profile-membership-expiry'
+                : 'user-profile-membership-offer',
+          ),
+        ),
+      );
+      final center = details.center.dy - bounds.top;
+      detailsCenter ??= center;
+      expect(center, closeTo(detailsCenter, 0.01));
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('9k membership card offers the plan at 82 high', (tester) async {
     await tester.pumpWidget(
       const MaterialApp(
@@ -112,7 +155,7 @@ void main() {
     expect(subscribe.center.dy, closeTo(card.center.dy, 0.5));
   });
 
-  testWidgets('9k2 membership card drops to 68 high and tags the plan', (
+  testWidgets('active membership card stays 82 high and tags the plan', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -129,7 +172,7 @@ void main() {
       ),
     );
     final card = tester.getRect(find.byType(ProfileMembershipCard));
-    expect(card.height, 68);
+    expect(card.height, 82);
     expect(
       find.byKey(const ValueKey('user-profile-membership-subscribe')),
       findsNothing,
@@ -141,7 +184,7 @@ void main() {
     expect(find.text('Expires 2027-09-07'), findsOneWidget);
   });
 
-  testWidgets('a lapsed plan keeps the 9k2 shape and still offers renewal', (
+  testWidgets('a lapsed plan stays 82 high and still offers renewal', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -158,7 +201,7 @@ void main() {
       ),
     );
     final card = tester.getRect(find.byType(ProfileMembershipCard));
-    expect(card.height, 68);
+    expect(card.height, 82);
     // Status tag moves to the second line so the wordmark and Subscribe fit.
     final tag = tester.getRect(
       find.byKey(const ValueKey('user-profile-membership-expired-tag')),

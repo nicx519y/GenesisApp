@@ -65,6 +65,19 @@ const List<WorldContentUpdateNotice> _multiWorldUpdatePushPreviewNotices = [
 ];
 
 extension _DeveloperPreviews on _DeveloperPageContentState {
+  Future<void> _showPersonalizationPreview() async {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final scenario = await selectPersonalizationPreviewScenario(context);
+    if (scenario == null || !navigator.mounted) {
+      return;
+    }
+    if (widget.dismissBeforePreview) {
+      await widget.onDismissBeforePreview?.call();
+    }
+    if (!navigator.mounted) return;
+    await showDeveloperPersonalizationPreview(navigator.context, scenario);
+  }
+
   Future<void> _showForceUpgradePreview() async {
     final navigator = Navigator.of(context, rootNavigator: true);
     if (widget.dismissBeforePreview) {
@@ -160,11 +173,12 @@ extension _DeveloperPreviews on _DeveloperPageContentState {
         );
       }
     } catch (_) {
-      if (navigator.mounted)
+      if (navigator.mounted) {
         showGenesisToast(
           navigator.context,
           'Could not load Worldo preview. Showing default preview.',
         );
+      }
     }
     if (!navigator.mounted) return;
     await showGeneralDialog<void>(
