@@ -161,22 +161,21 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
               title: '',
               height: height,
               padding: const EdgeInsets.only(bottom: 14),
-              titleBottomSpacing: 12,
-              titleWidget: _PersonalizationHeader(
+              insetBody: false,
+              header: _PersonalizationHeader(
                 step: _step,
                 onBack: _signingIn == null ? _backToForm : null,
                 onSkip: () => Navigator.of(context).pop(_profile),
               ),
               child: SizedBox(
                 key: const ValueKey('personalization-body'),
-                child: _step == PersonalizationStep.subscription
-                    ? _subscription()
-                    : Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: _step == PersonalizationStep.form
-                            ? _form()
-                            : _login(),
-                      ),
+                child: GenesisActionSheetBody(
+                  child: _step == PersonalizationStep.subscription
+                      ? _subscription()
+                      : _step == PersonalizationStep.form
+                      ? _form()
+                      : _login(),
+                ),
               ),
             ),
           ),
@@ -391,8 +390,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
   );
 }
 
-/// One header for the whole flow. Measure the longest title in every step so
-/// changing content or controls never shifts the header/body boundary.
+/// All steps share the standard fixed-height action header.
 class _PersonalizationHeader extends StatelessWidget {
   const _PersonalizationHeader({
     required this.step,
@@ -406,113 +404,47 @@ class _PersonalizationHeader extends StatelessWidget {
   static const formTitle = 'Personalize Your Worldo Experience';
 
   @override
-  Widget build(BuildContext context) {
-    final style = GenesisTypography.pageTitle.copyWith(
-      color: GenesisColors.darkTextPrimary,
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final painter = TextPainter(
-          text: TextSpan(text: formTitle, style: style),
-          textDirection: Directionality.of(context),
-          textScaler: MediaQuery.textScalerOf(context),
-        )..layout(maxWidth: math.max(1, constraints.maxWidth - 40));
-        final contentHeight = math.max(56.0, painter.height);
-        painter.dispose();
-        return SizedBox(
-          key: const ValueKey('personalization-header'),
-          height: contentHeight + 20,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned.fill(
-                  left: switch (step) {
-                    PersonalizationStep.signIn => 52,
-                    PersonalizationStep.subscription => 30,
-                    PersonalizationStep.form => 0,
-                  },
-                  right: step == PersonalizationStep.subscription ? 64 : 0,
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: Text(
-                      switch (step) {
-                        PersonalizationStep.form => formTitle,
-                        PersonalizationStep.signIn => 'Sign in',
-                        PersonalizationStep.subscription => 'Subscription',
-                      },
-                      key: const ValueKey('personalization-header-title'),
-                      style: style,
-                    ),
-                  ),
-                ),
-                if (step == PersonalizationStep.signIn)
-                  Positioned(
-                    left: 0,
-                    top:
-                        (MediaQuery.textScalerOf(context).scale(20) * 1.4 -
-                            44) /
-                        2,
-                    child: SizedBox(
-                      width: 44,
-                      height: 44,
-                      child: IconButton(
-                        key: const ValueKey('personalization-back'),
-                        tooltip: 'Back',
-                        onPressed: onBack,
-                        padding: EdgeInsets.zero,
-                        icon: const Icon(
-                          Icons.arrow_back_ios_new_rounded,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (step == PersonalizationStep.subscription)
-                  Positioned(
-                    left: 0,
-                    top:
-                        (MediaQuery.textScalerOf(context).scale(20) * 1.4 -
-                            22) /
-                        2,
-                    child: SvgPicture.asset(
-                      proCrownIconAsset,
-                      key: const ValueKey('personalization-subscription-icon'),
-                      width: 22,
-                      height: 22,
-                      colorFilter: const ColorFilter.mode(
-                        GenesisColors.darkTextPrimary,
-                        BlendMode.srcIn,
-                      ),
-                    ),
-                  ),
-                if (step == PersonalizationStep.subscription)
-                  Positioned(
-                    right: 0,
-                    top:
-                        (MediaQuery.textScalerOf(context).scale(20) * 1.4 -
-                            44) /
-                        2,
-                    child: SizedBox(
-                      height: 44,
-                      child: TextButton(
-                        key: const ValueKey('personalization-skip'),
-                        onPressed: onSkip,
-                        style: TextButton.styleFrom(
-                          foregroundColor: GenesisColors.darkTextPrimary,
-                          minimumSize: const Size(44, 44),
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                        ),
-                        child: const Text('Skip'),
-                      ),
-                    ),
-                  ),
-              ],
+  Widget build(BuildContext context) => GenesisActionSheetHeader(
+    key: const ValueKey('personalization-header'),
+    titleKey: const ValueKey('personalization-header-title'),
+    title: switch (step) {
+      PersonalizationStep.form => formTitle,
+      PersonalizationStep.signIn => 'Sign in',
+      PersonalizationStep.subscription => 'Subscription',
+    },
+    leading: switch (step) {
+      PersonalizationStep.form => null,
+      PersonalizationStep.signIn => IconButton(
+        key: const ValueKey('personalization-back'),
+        tooltip: 'Back',
+        onPressed: onBack,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints.tightFor(width: 28, height: 24),
+        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+      ),
+      PersonalizationStep.subscription => SvgPicture.asset(
+        proCrownIconAsset,
+        key: const ValueKey('personalization-subscription-icon'),
+        width: 22,
+        height: 22,
+        colorFilter: const ColorFilter.mode(
+          GenesisColors.darkTextPrimary,
+          BlendMode.srcIn,
+        ),
+      ),
+    },
+    trailing: step == PersonalizationStep.subscription
+        ? TextButton(
+            key: const ValueKey('personalization-skip'),
+            onPressed: onSkip,
+            style: TextButton.styleFrom(
+              foregroundColor: GenesisColors.darkTextPrimary,
+              minimumSize: const Size(44, 28),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
             ),
-          ),
-        );
-      },
-    );
-  }
+            child: const Text('Skip'),
+          )
+        : null,
+  );
 }

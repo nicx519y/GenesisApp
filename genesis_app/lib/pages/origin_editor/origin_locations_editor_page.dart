@@ -8,12 +8,10 @@ class OriginLocationsEditorPage extends StatefulWidget {
   const OriginLocationsEditorPage({
     super.key,
     required this.repository,
-    this.useLocationTree = false,
     this.locationIdGenerator = const UuidLocationIdGenerator(),
   });
 
   final OriginDraftRepository repository;
-  final bool useLocationTree;
   final LocationIdGenerator locationIdGenerator;
 
   @override
@@ -39,7 +37,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
       'work too.';
   static const String _completeRequiredLocationMessage =
       'Please complete this location or delete it.';
-  final List<_LocationForm> _forms = <_LocationForm>[];
   final List<_L1LocationForm> _treeForms = <_L1LocationForm>[];
   final Set<String> _reservedLocationIds = <String>{};
   String _openingLocationId = '';
@@ -81,22 +78,12 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
           .map((item) => item.locationId.trim())
           .where((item) => item.isNotEmpty),
     );
-    if (widget.useLocationTree) {
-      _treeForms.addAll(_createLocationTrees(source));
-      _requiredInlineLocationId = _firstIncompleteParentLocationId();
-      _inlineEditingLocationId = _requiredInlineLocationId;
-      _inlineNameController.text =
-          _inlineLocationNameController(_inlineEditingLocationId)?.text ?? '';
-    } else {
-      for (final item in source) {
-        _forms.add(
-          _LocationForm.fromDraft(
-            item,
-            createLocationId: _generateUniqueLocationId,
-          ),
-        );
-      }
-    }
+    _treeForms.addAll(_createLocationTrees(source));
+    _requiredInlineLocationId = _firstIncompleteParentLocationId();
+    _inlineEditingLocationId = _requiredInlineLocationId;
+    _inlineNameController.text =
+        _inlineLocationNameController(_inlineEditingLocationId)?.text ?? '';
+
     if (!mounted) return;
     setState(() {});
     if (_requiredInlineLocationId != null) {
@@ -120,40 +107,29 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
 
   Future<void> _saveLocations() async {
     if (_blockForRequiredLocation()) return;
-    if (widget.useLocationTree) {
-      for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) {
-        final l1 = _treeForms[l1Index];
-        if (l1.name.text.trim().isEmpty) {
-          _showError('L1 location name is required.');
+    for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) {
+      final l1 = _treeForms[l1Index];
+      if (l1.name.text.trim().isEmpty) {
+        _showError('L1 location name is required.');
+        return;
+      }
+      for (int l2Index = 0; l2Index < l1.children.length; l2Index++) {
+        final l2 = l1.children[l2Index];
+        if (l2.name.text.trim().isEmpty) {
+          _showError(
+            '${_locationNameLabel(l1.name, fallback: 'This L1 location')} '
+            'has an L2 location that needs a name.',
+          );
           return;
         }
-        for (int l2Index = 0; l2Index < l1.children.length; l2Index++) {
-          final l2 = l1.children[l2Index];
-          if (l2.name.text.trim().isEmpty) {
+        for (int l3Index = 0; l3Index < l2.children.length; l3Index++) {
+          if (l2.children[l3Index].name.text.trim().isEmpty) {
             _showError(
-              '${_locationNameLabel(l1.name, fallback: 'This L1 location')} '
-              'has an L2 location that needs a name.',
+              '${_locationNameLabel(l2.name, fallback: 'This L2 location')} '
+              'has an L3 location that needs a name.',
             );
             return;
           }
-          for (int l3Index = 0; l3Index < l2.children.length; l3Index++) {
-            if (l2.children[l3Index].name.text.trim().isEmpty) {
-              _showError(
-                '${_locationNameLabel(l2.name, fallback: 'This L2 location')} '
-                'has an L3 location that needs a name.',
-              );
-              return;
-            }
-          }
-        }
-      }
-    } else {
-      for (int i = 0; i < _forms.length; i++) {
-        final form = _forms[i];
-        if (!form.hasContent) continue;
-        if (form.name.text.trim().isEmpty) {
-          _showError('Location name is required.');
-          return;
         }
       }
     }
@@ -210,26 +186,17 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
   }
 
   bool get _canSaveCurrentLocations {
-    if (widget.useLocationTree) {
-      if (_treeForms.isEmpty || _l3LocationCount == 0) return false;
-      for (final l1 in _treeForms) {
-        if (l1.name.text.trim().isEmpty || l1.children.isEmpty) return false;
-        for (final l2 in l1.children) {
-          if (l2.name.text.trim().isEmpty || l2.children.isEmpty) return false;
-          if (l2.children.any((item) => item.name.text.trim().isEmpty)) {
-            return false;
-          }
+    if (_treeForms.isEmpty || _l3LocationCount == 0) return false;
+    for (final l1 in _treeForms) {
+      if (l1.name.text.trim().isEmpty || l1.children.isEmpty) return false;
+      for (final l2 in l1.children) {
+        if (l2.name.text.trim().isEmpty || l2.children.isEmpty) return false;
+        if (l2.children.any((item) => item.name.text.trim().isEmpty)) {
+          return false;
         }
       }
-      return true;
     }
-    var hasCompleteLocation = false;
-    for (final form in _forms) {
-      if (!form.hasContent) continue;
-      if (form.name.text.trim().isEmpty) return false;
-      hasCompleteLocation = true;
-    }
-    return hasCompleteLocation;
+    return true;
   }
 
   bool get _canUseSaveButton {
@@ -239,43 +206,30 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
 
   String get _saveDisabledReason {
     if (_isSaving) return 'Saving is already in progress.';
-    if (widget.useLocationTree) {
-      if (_treeForms.isEmpty) return 'Add at least one L1 location.';
-      for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) {
-        final l1 = _treeForms[l1Index];
-        if (l1.name.text.trim().isEmpty) {
-          return 'L1 location name is required.';
-        }
-        if (l1.children.isEmpty) {
-          return _l1NeedsL2Message(l1);
-        }
-        for (int l2Index = 0; l2Index < l1.children.length; l2Index++) {
-          final l2 = l1.children[l2Index];
-          if (l2.name.text.trim().isEmpty) {
-            return '${_locationNameLabel(l1.name, fallback: 'This L1 location')} '
-                'has an L2 location that needs a name.';
-          }
-          if (l2.children.isEmpty) {
-            return _l2NeedsL3Message(l2);
-          }
-          for (int l3Index = 0; l3Index < l2.children.length; l3Index++) {
-            if (l2.children[l3Index].name.text.trim().isEmpty) {
-              return '${_locationNameLabel(l2.name, fallback: 'This L2 location')} '
-                  'has an L3 location that needs a name.';
-            }
-          }
-        }
+    if (_treeForms.isEmpty) return 'Add at least one L1 location.';
+    for (int l1Index = 0; l1Index < _treeForms.length; l1Index++) {
+      final l1 = _treeForms[l1Index];
+      if (l1.name.text.trim().isEmpty) {
+        return 'L1 location name is required.';
       }
-    } else {
-      for (int index = 0; index < _forms.length; index++) {
-        final form = _forms[index];
-        if (!form.hasContent) continue;
-        if (form.name.text.trim().isEmpty) {
-          return 'Location name is required.';
-        }
+      if (l1.children.isEmpty) {
+        return _l1NeedsL2Message(l1);
       }
-      if (!_forms.any((form) => form.hasContent)) {
-        return 'Please create at least one location.';
+      for (int l2Index = 0; l2Index < l1.children.length; l2Index++) {
+        final l2 = l1.children[l2Index];
+        if (l2.name.text.trim().isEmpty) {
+          return '${_locationNameLabel(l1.name, fallback: 'This L1 location')} '
+              'has an L2 location that needs a name.';
+        }
+        if (l2.children.isEmpty) {
+          return _l2NeedsL3Message(l2);
+        }
+        for (int l3Index = 0; l3Index < l2.children.length; l3Index++) {
+          if (l2.children[l3Index].name.text.trim().isEmpty) {
+            return '${_locationNameLabel(l2.name, fallback: 'This L2 location')} '
+                'has an L3 location that needs a name.';
+          }
+        }
       }
     }
     return 'Complete all required location fields before saving.';
@@ -310,9 +264,6 @@ class _OriginLocationsEditorPageState extends State<OriginLocationsEditorPage> {
     _nextInlineNameController.dispose();
     _inlineNameFocusNode.dispose();
     _nextInlineNameFocusNode.dispose();
-    for (final form in _forms) {
-      form.dispose();
-    }
     for (final form in _treeForms) {
       form.dispose();
     }

@@ -3,7 +3,6 @@ import '../../app/membership/membership_catalog.dart';
 
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
-import '../page_header.dart';
 import 'pro_subscription_content.dart';
 import 'wallet_purchase_tabs.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -80,29 +79,14 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
         builder: (context, constraints) => GenesisBottomSheetPanel(
           title: '',
           height: constraints.maxHeight,
-          // Retain the existing close center (32px) and body start (64px).
-          padding: const EdgeInsets.fromLTRB(0, 7, 0, 10),
-          titleBottomSpacing: 7,
-          titleWidget: SizedBox(
-            height: kGenesisTopBarHeight,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 56),
-                  child: Center(child: WalletPurchaseTabs(controller: _tabs)),
-                ),
-                Positioned(
-                  right: 20,
-                  child:
-                      widget.headerTrailing ??
-                      GenesisBottomSheetCloseButton(
-                        buttonKey: const ValueKey('gem-purchase-sheet-close'),
-                        onPressed: () => Navigator.of(context).pop(),
-                      ),
-                ),
-              ],
-            ),
+          padding: const EdgeInsets.only(bottom: 10),
+          insetBody: false,
+          header: GenesisActionSheetHeader.tabs(
+            tabs: WalletPurchaseTabs(controller: _tabs),
+            trailing: widget.headerTrailing,
+            showClose: true,
+            closeButtonKey: const ValueKey('gem-purchase-sheet-close'),
+            onClose: () => Navigator.of(context).pop(),
           ),
           child: TabBarView(
             key: const ValueKey('purchase-sheet-pages'),
@@ -110,19 +94,22 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
             children: [
               _PurchaseSheetPage(
                 allowDragDismiss: widget.allowDragDismiss,
-                child: _subscriptionVisited
-                    ? widget.subscriptionBuilder?.call(context) ??
-                          ProSubscriptionContent(
-                            productsLoader: widget.membershipProductsLoader,
-                            closeOnPurchaseSuccess: true,
-                          )
-                    : const SizedBox.expand(),
+                child: GenesisActionSheetBody(
+                  child: _subscriptionVisited
+                      ? widget.subscriptionBuilder?.call(context) ??
+                            ProSubscriptionContent(
+                              productsLoader: widget.membershipProductsLoader,
+                              closeOnPurchaseSuccess: true,
+                              topSpacing: 0,
+                              horizontalInset: 0,
+                            )
+                      : const SizedBox.expand(),
+                ),
               ),
               if (widget.showBuyGems)
                 _PurchaseSheetPage(
                   allowDragDismiss: widget.allowDragDismiss,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: GenesisActionSheetBody(
                     child: _gemsVisited
                         ? Builder(builder: widget.gemsBuilder)
                         : const SizedBox.expand(),

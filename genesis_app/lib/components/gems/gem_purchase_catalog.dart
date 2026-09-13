@@ -21,18 +21,24 @@ class GemPurchaseCatalogSection extends StatelessWidget {
     required this.balanceCent,
     required this.catalog,
     this.balanceKey = const ValueKey<String>('gem-wallet-balance'),
+    this.compactBalance = false,
   });
 
   final int balanceCent;
   final Key balanceKey;
   final Widget catalog;
+  final bool compactBalance;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        GemBalancePanel(balanceCent: balanceCent, balanceKey: balanceKey),
+        GemBalancePanel(
+          balanceCent: balanceCent,
+          balanceKey: balanceKey,
+          compact: compactBalance,
+        ),
         const SizedBox(height: 10),
         catalog,
       ],
@@ -45,17 +51,22 @@ class GemBalancePanel extends StatelessWidget {
     super.key,
     required this.balanceCent,
     this.balanceKey = const ValueKey<String>('gem-wallet-balance'),
+    this.compact = false,
   });
 
   final int balanceCent;
   final Key balanceKey;
+
+  /// Purchase sheets start the balance content at the header boundary.
+  /// Wallet keeps its existing fixed-height presentation.
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
-      height: 95,
+      height: compact ? null : 95,
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,

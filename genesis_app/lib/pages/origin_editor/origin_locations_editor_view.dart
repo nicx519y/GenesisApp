@@ -1,43 +1,5 @@
 part of 'origin_editor_pages.dart';
 
-extension _OriginLocationsEditorView on _OriginLocationsEditorPageState {
-  List<Widget> _editorChildren() {
-    return <Widget>[
-      Align(
-        alignment: Alignment.centerRight,
-        child: Text(
-          '${_forms.length}/'
-          '${_OriginLocationsEditorPageState._maxLocations} (Added / Max)',
-          style: const TextStyle(
-            color: GenesisColors.darkTextTertiary,
-            fontSize: 14,
-            height: 1.2,
-          ),
-        ),
-      ),
-      const SizedBox(height: 12),
-      for (int i = 0; i < _forms.length; i++) ...[
-        _LocationCard(
-          index: i + 1,
-          form: _forms[i],
-          nextFocusNode: i + 1 < _forms.length
-              ? _forms[i + 1].nameFocusNode
-              : null,
-          characters: _finalCharacters,
-          onChanged: _onFormChanged,
-          onPickCharacters: () => _openCharacterPicker(i),
-          onRemoveCharacter: (charId) =>
-              _removeCharacterFromLocation(i, charId),
-          onDelete: () => _requestRemoveLocation(i),
-        ),
-        const SizedBox(height: 24),
-      ],
-      CreateAddButton(label: '+ Add Location', onTap: _addLocation),
-      const SizedBox(height: 12),
-    ];
-  }
-}
-
 class _LocationsModeSwitch extends StatelessWidget {
   const _LocationsModeSwitch({required this.mode, required this.onChanged});
 

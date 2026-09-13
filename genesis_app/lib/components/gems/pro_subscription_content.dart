@@ -42,6 +42,7 @@ class ProSubscriptionContent extends StatefulWidget {
     this.purchaseService,
     this.closeOnPurchaseSuccess = false,
     this.topSpacing = 10,
+    this.horizontalInset = 20,
   });
 
   final MembershipCatalogLoader? productsLoader;
@@ -52,6 +53,9 @@ class ProSubscriptionContent extends StatefulWidget {
 
   /// Embedded flows can let their shared header own the content spacing.
   final double topSpacing;
+
+  /// Set to zero when GenesisActionSheetBody owns the outer spacing.
+  final double horizontalInset;
 
   @override
   State<ProSubscriptionContent> createState() => _ProSubscriptionContentState();
@@ -250,7 +254,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
         Expanded(
           child: Container(
             key: const ValueKey('pro-benefits-card'),
-            margin: const EdgeInsets.symmetric(horizontal: 20),
+            margin: EdgeInsets.symmetric(horizontal: widget.horizontalInset),
             decoration: BoxDecoration(
               color: GenesisColors.darkPurchaseCardBackground,
               borderRadius: BorderRadius.circular(8),
@@ -305,7 +309,12 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
+          padding: EdgeInsets.fromLTRB(
+            widget.horizontalInset,
+            36,
+            widget.horizontalInset,
+            0,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [

@@ -106,6 +106,37 @@ void main() {
     );
   });
 
+  testWidgets('composer close button dismisses editor and keyboard', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DiscussPostInput(
+            bizId: 'o_test_1',
+            requireLogin: false,
+            submitter: (content, images) async => <String, dynamic>{},
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Write a post').first);
+    await tester.pumpAndSettle();
+    final sheet = tester.getRect(
+      find.byKey(const ValueKey('discuss-composer-sheet')),
+    );
+    final field = find.widgetWithText(TextField, 'Write a post').last;
+    expect(tester.getTopLeft(field).dy - sheet.top, 68);
+    final close = find.byKey(const ValueKey('discuss-composer-close'));
+    expect(sheet.right - tester.getRect(close).right, 16);
+    expect(tester.getRect(close).center.dy - sheet.top, 34);
+    await tester.enterText(field, 'Draft');
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('discuss-composer-sheet')), findsNothing);
+    expect(tester.testTextInput.isVisible, isFalse);
+  });
+
   testWidgets('keeps the global status bar transparent while composer opens', (
     WidgetTester tester,
   ) async {

@@ -194,7 +194,7 @@ class _DiscussPageState extends State<DiscussPage> {
                         ),
                         controller: _scrollController,
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: EdgeInsets.fromLTRB(20, 10, 20, bottomPadding),
+                        padding: EdgeInsets.fromLTRB(16, 10, 16, bottomPadding),
                         children: [
                           _DiscussOriginSummary(origin: data),
                           const Padding(
@@ -248,7 +248,7 @@ class _DiscussPageState extends State<DiscussPage> {
                       child: SafeArea(
                         top: false,
                         child: Padding(
-                          padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+                          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
                           child: DiscussPostInput(
                             bizId: data.oid,
                             backgroundColor: DiscussDarkColors.inputFill,
@@ -344,7 +344,7 @@ class _DiscussPageLoadingSkeleton extends StatelessWidget {
     return ListView(
       key: const ValueKey<String>('discuss-page-loading-skeleton'),
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 24),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
       children: const [
         _DiscussOriginSummarySkeleton(),
         Padding(

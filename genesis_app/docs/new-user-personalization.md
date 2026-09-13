@@ -26,9 +26,10 @@ Developer Page → button → **Preview new user onboarding**（紧挨 Creating 
 
 - 沿用现有深色公共面板、顶部圆角、Inter 字体、品牌红和公共按钮。
 - 表单、登录、订阅在**同一条 modal route、同一面板**内切换。高度统一与订阅 sheet 对齐，为屏幕高度的 80%，同时避开顶部安全区；底部含系统安全区。三个步骤之间不做高度动画，不反复关闭和打开 sheet。
-- 三个步骤统一复用同一 Header：标题均使用公共 `GenesisTypography.pageTitle`（20px / 600、行高 1.4），左对齐；Header 左右 20px、上方 12px、下方 8px，默认高度 76px；三个标题均顶部对齐，文字布局顶部距 sheet 顶部固定 12px。禁止靠底部对齐或垂直居中造成标题上方大段空白。Header 后间距为 12px，正文起点保持一致。
-- 表单完整标题 **Personalize Your Worldo Experience** 允许自然换行。三个步骤均按这个最长标题计算 Header 高度：大字体或窄屏需要更高 Header 时，三步同步采用同一高度，正文起始位置也保持一致，不随切换变化。
+- 三个步骤统一复用 `GenesisActionSheetHeader`：Header 固定高 68，标题 18px / 600、行高 24px，左对齐，左右边距 16px，标题与左右操作在 Header 内垂直居中；正文从 y=68 开始，不额外叠加顶部间距。长标题单行显示，窄屏或大字体不足时省略，三步之间不改变 Header 和 Sheet 高度。
+- 表单标题保留 **Personalize Your Worldo Experience**；单行放不下时省略，完整文案仍用于读屏。
 - 登录步骤在同一 Header 增加左侧返回按钮；订阅步骤在同一 Header 右侧显示 Skip。Subscription 使用相同标题样式，保留标题前的 22px 原皇冠图标；不套用 Wallet 的居中 Tab 与下划线。订阅正文继续复用原组件，在本流程设置 topSpacing 为 0，避免再叠加默认的 10px 顶部留白。
+- 三步正文统一使用 `GenesisActionSheetBody`，左右外边距 16，与 Header 对齐；表单选项、登录按钮、订阅权益卡、套餐和主按钮均遵守该边界。订阅内容设置 `horizontalInset: 0`，避免重复留白。
 - Gender：Male / Female / Non_binary，三个等宽单选按钮。Age：18-24 / 25-34 / 35-44 / 45+，两列两行。两组均展示 Required；不预选。
 - 选项最小高度 52px，圆角 8px，间距 8px；未选为深色卡片，选中为红色描边与浅红填充，辅以读屏选中状态。不用性别图标或性别配色。
 - Continue 固定在内容底部附近，高 48px；两个字段都有值才启用，禁用态引用公共 token。
@@ -125,6 +126,6 @@ flutter test test/components/personalization_sheet_test.dart test/components/pur
 
 ### 当前 Header 布局与验证
 
-三个标题均从 sheet 顶部下方 12px 开始，顶部对齐，不再采用居中或底部对齐。Header 默认总高 76px，标题统一 20px / 600；皇冠、返回、Skip 与标题首行对齐。保留完整两行表单标题，正文起点仍一致。以前按标题底部固定 20px 间距的方案已由此布局替代。
+三个步骤均使用 `GenesisActionSheetHeader`，固定高 68，18 / 600，左右边距 16，标题与左右操作垂直居中；正文起点为 68。返回、皇冠和 Skip 保留。尺寸不随步骤切换而变化，Mention 保留独立规范。
 
-执行 `flutter test test/components/personalization_sheet_test.dart --dart-define=UPDATE_PERSONALIZATION_PREVIEWS=true --reporter expanded`，9 项通过；测试直接验证三种标题距 header 顶部均为 12px，也覆盖 Developer 关闭被遮挡预览的行为。执行 `flutter analyze lib/components/onboarding/personalization_sheet.dart test/components/personalization_sheet_test.dart` 无问题。`dart format` 和 `git diff --check` 通过；已重新生成并查看表单、登录和订阅截图，尚未真机验收。
+`test/components/personalization_sheet_test.dart` 验证步骤切换时 Header 高度、标题样式和正文起点一致，以及小屏大字体下的滚动和开发预览退出。

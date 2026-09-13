@@ -22726,12 +22726,7 @@ void main() {
       ),
     );
     await tester.pumpWidget(
-      MaterialApp(
-        home: OriginLocationsEditorPage(
-          repository: repository,
-          useLocationTree: true,
-        ),
-      ),
+      MaterialApp(home: OriginLocationsEditorPage(repository: repository)),
     );
     await tester.pumpAndSettle();
 
@@ -23259,12 +23254,7 @@ void main() {
         ),
       );
       await tester.pumpWidget(
-        MaterialApp(
-          home: OriginLocationsEditorPage(
-            repository: repository,
-            useLocationTree: true,
-          ),
-        ),
+        MaterialApp(home: OriginLocationsEditorPage(repository: repository)),
       );
       await tester.pumpAndSettle();
 
@@ -23339,12 +23329,7 @@ void main() {
         ),
       );
       await tester.pumpWidget(
-        MaterialApp(
-          home: OriginLocationsEditorPage(
-            repository: repository,
-            useLocationTree: true,
-          ),
-        ),
+        MaterialApp(home: OriginLocationsEditorPage(repository: repository)),
       );
       await tester.pumpAndSettle();
 
@@ -23429,12 +23414,7 @@ void main() {
       ),
     );
     await tester.pumpWidget(
-      MaterialApp(
-        home: OriginLocationsEditorPage(
-          repository: repository,
-          useLocationTree: true,
-        ),
-      ),
+      MaterialApp(home: OriginLocationsEditorPage(repository: repository)),
     );
     await tester.pumpAndSettle();
 
@@ -24294,12 +24274,7 @@ void main() {
         ),
       );
       await tester.pumpWidget(
-        MaterialApp(
-          home: OriginLocationsEditorPage(
-            repository: repository,
-            useLocationTree: true,
-          ),
-        ),
+        MaterialApp(home: OriginLocationsEditorPage(repository: repository)),
       );
       await tester.pumpAndSettle();
 

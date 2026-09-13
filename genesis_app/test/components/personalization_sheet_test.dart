@@ -45,13 +45,16 @@ void main() {
       final header = tester.getRect(control('header'));
       final body = tester.getRect(control('body'));
       final titleStyle = tester.widget<Text>(control('header-title')).style;
+      expect(header.height, 68);
+      expect(body.top, header.bottom);
+      expect(titleStyle?.fontSize, 18);
       void expectSameHeader() {
         expect(tester.getRect(control('header')), header);
         expect(tester.getRect(control('body')), body);
         expect(tester.widget<Text>(control('header-title')).style, titleStyle);
         expect(
-          tester.getRect(control('header-title')).top - header.top,
-          closeTo(12, .01),
+          tester.getRect(control('header-title')).center.dy,
+          closeTo(header.center.dy, .01),
         );
       }
 
@@ -177,6 +180,7 @@ void main() {
                   },
                   subscriptionBuilder: (_) => ProSubscriptionContent(
                     topSpacing: 0,
+                    horizontalInset: 0,
                     productsLoader: loadPersonalizationPreviewCatalog,
                     purchaseHandler: (_) async {},
                   ),
@@ -241,13 +245,16 @@ void main() {
       final header = tester.getRect(control('header'));
       final body = tester.getRect(control('body'));
       final titleStyle = tester.widget<Text>(control('header-title')).style;
+      expect(header.height, 68);
+      expect(body.top, header.bottom);
+      expect(titleStyle?.fontSize, 18);
       void expectSameHeader() {
         expect(tester.getRect(control('header')), header);
         expect(tester.getRect(control('body')), body);
         expect(tester.widget<Text>(control('header-title')).style, titleStyle);
         expect(
-          tester.getRect(control('header-title')).top - header.top,
-          closeTo(12, .01),
+          tester.getRect(control('header-title')).center.dy,
+          closeTo(header.center.dy, .01),
         );
       }
 
@@ -263,6 +270,9 @@ void main() {
       expect(enabled(tester), isFalse);
       await tap(tester, '25-34');
       expect(enabled(tester), isTrue);
+      final continueRect = tester.getRect(control('continue'));
+      expect(continueRect.left - panel.left, 16);
+      expect(panel.right - continueRect.right, 16);
       await capture(tester, 'selected');
       await tap(tester, 'sign-in');
       expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
@@ -280,6 +290,11 @@ void main() {
         tester.getRect(find.byKey(const ValueKey('pro-benefits-card'))).top,
         tester.getRect(control('body')).top,
       );
+      for (final key in ['pro-benefits-card', 'pro-subscribe-button']) {
+        final rect = tester.getRect(find.byKey(ValueKey(key)));
+        expect(rect.left - panel.left, 16);
+        expect(panel.right - rect.right, 16);
+      }
       await capture(tester, 'subscription');
       await tap(tester, 'skip');
       expect(find.byType(PersonalizationSheet), findsNothing);

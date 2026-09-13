@@ -36,7 +36,7 @@
 | 会员／充值 Sheet，包括会话资格恢复时的等待状态 | PurchaseOptionsSheet、PurchaseSessionBuilder 提供深色容器，GemPurchaseBottomSheet 只提供内嵌内容；独立 Gems 外壳已移除。普通 Sheet 是 raised，不是半透明操作框 |
 | Create / Publishing / World Progressing 等待及 Developer Creating 预览 | OriginGenerationWaitOverlay / GenesisGenerationWaitOverlay 的实际调用明确指定 dark；40% 共享浮层色、Blur 14 |
 | 登录 Sheet | 自带 GenesisDarkTheme、深色面板与公共关闭按钮 |
-| Discuss / Post Detail 发帖回复弹层 | 已深色；独立编辑器布局和 darkFaintSurface 保留。所有正式入口未启用图片添加，附件删除仅保留代码，不列为可见遗漏 |
+| Discuss / Post Detail 发帖回复弹层 | 已深色；独立编辑器布局保留，弹层底色统一为 darkRaisedBackground。所有正式入口未启用图片添加，附件删除仅保留代码，不列为可见遗漏 |
 | Me 修改昵称、Feedback、Report 输入弹窗 | ActionBox 与输入正文已深色；昵称输入仍是下划线式布局，未按标准填充输入框统一，不能称为所有输入完全一致 |
 | Notifications 申请详情、Approve / Reject | ActionBox 和自定义详情内容使用三级文字 token |
 | Launch → Setup Your Role | 深色 Preset / Custom，公共 Sheet / 关闭／主按钮；Playing 已移除 |

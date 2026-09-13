@@ -235,7 +235,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
                     key: ValueKey<String>(
                       'post-detail-session-$_loadGeneration',
                     ),
-                    padding: EdgeInsets.fromLTRB(20, 20, 20, bottomPadding),
+                    padding: EdgeInsets.fromLTRB(16, 20, 16, bottomPadding),
                     children: [
                       _PostDetailRoot(
                         controller: _controller,
@@ -644,7 +644,7 @@ class _PostDetailCommentBar extends StatelessWidget {
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 14),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onTap,

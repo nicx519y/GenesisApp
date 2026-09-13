@@ -25,7 +25,6 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
   }
 
   List<WorldMapLocationNode> _previewLocationNodes() {
-    if (!widget.useLocationTree) return const <WorldMapLocationNode>[];
     final charactersById = <String, CharacterDraft>{
       for (final character in _finalCharacters)
         if (character.charId.trim().isNotEmpty)
@@ -68,27 +67,6 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
                 ],
               ),
           ],
-        ),
-    ];
-  }
-
-  List<WorldPoint> _previewFlatPoints() {
-    if (widget.useLocationTree) return const <WorldPoint>[];
-    final charactersById = <String, CharacterDraft>{
-      for (final character in _finalCharacters)
-        if (character.charId.trim().isNotEmpty)
-          character.charId.trim(): character,
-    };
-    return <WorldPoint>[
-      for (final form in _forms)
-        _previewPoint(
-          id: form.locationId,
-          name: _previewName(form.name, 'Location'),
-          depth: form.level > 0 ? form.level - 1 : 0,
-          imageUrl: form.imageUrl.text.trim(),
-          imageBytes: form.previewImageBytes,
-          description: form.description.text.trim(),
-          users: _previewUsers(form, charactersById),
         ),
     ];
   }
@@ -149,7 +127,7 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
       key: ValueKey<String>(
         editable ? 'locations-edit-list' : 'locations-preview-list',
       ),
-      points: _previewFlatPoints(),
+      points: const <WorldPoint>[],
       locationNodes: _previewLocationNodes(),
       enableOuterScrollHandoff: false,
       physics: const ClampingScrollPhysics(),
@@ -205,29 +183,6 @@ extension _OriginLocationsPreview on _OriginLocationsEditorPageState {
   }
 
   Widget _buildEditBody() {
-    if (!widget.useLocationTree) {
-      return CreateKeyboardDismissArea(
-        child: SafeArea(
-          top: false,
-          child: Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: const EdgeInsets.fromLTRB(12, 8, 12, 28),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: _editorChildren(),
-                  ),
-                ),
-              ),
-              _buildBottomSaveAction(),
-            ],
-          ),
-        ),
-      );
-    }
     return SafeArea(
       top: false,
       child: Column(

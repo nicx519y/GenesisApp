@@ -470,6 +470,9 @@ class _DiscussComposerSheetState extends State<_DiscussComposerSheet>
                       onPickImages: _pickAndUploadImages,
                       onRemoveImage: _removeImage,
                       onSend: _send,
+                      onClose: _submitting || _closing || _pickerOpen
+                          ? null
+                          : () => unawaited(_dismiss()),
                     ),
                   ),
                 ),

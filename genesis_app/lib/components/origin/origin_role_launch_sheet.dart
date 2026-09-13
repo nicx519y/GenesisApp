@@ -357,7 +357,6 @@ class _OriginRoleLaunchSheetState extends State<OriginRoleLaunchSheet> {
                       key: const ValueKey('origin-role-sheet'),
                       title: 'Setup Your Role',
                       height: targetHeight,
-                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 14),
                       trailing: GenesisBottomSheetCloseButton(
                         buttonKey: const ValueKey('origin-role-sheet-close'),
                         onPressed: _launching ? null : _dismiss,

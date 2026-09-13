@@ -354,6 +354,7 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
         builder: (context, walletState, _) => GemPurchaseCatalogSection(
           balanceCent: walletState.balanceCent ?? 0,
           balanceKey: const ValueKey<String>('gem-purchase-sheet-balance'),
+          compactBalance: true,
           catalog: _buildProducts(),
         ),
       ),

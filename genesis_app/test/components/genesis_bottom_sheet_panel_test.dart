@@ -49,6 +49,53 @@ void main() {
     },
   );
 
+  testWidgets('dark action header stays 68 with and without close', (
+    tester,
+  ) async {
+    for (final closable in [false, true]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GenesisDarkTheme(
+            child: Scaffold(
+              body: GenesisBottomSheetPanel(
+                title: 'Submit',
+                height: 300,
+                trailing: closable
+                    ? GenesisBottomSheetCloseButton(onPressed: () {})
+                    : null,
+                child: const SizedBox.expand(key: ValueKey('action-body')),
+              ),
+            ),
+          ),
+        ),
+      );
+      final panel = tester.getRect(find.byType(GenesisBottomSheetPanel));
+      final title = tester.getRect(find.text('Submit'));
+      final header = tester.getRect(find.byType(GenesisActionSheetHeader));
+      expect(header.height, 68);
+      final bodyRect = tester.getRect(
+        find.byKey(const ValueKey('action-body')),
+      );
+      expect(bodyRect.left - panel.left, 16);
+      expect(panel.right - bodyRect.right, 16);
+      expect(title.left - panel.left, 16);
+      expect(title.center.dy, header.center.dy);
+      expect(
+        tester.getTopLeft(find.byKey(const ValueKey('action-body'))).dy -
+            panel.top,
+        68,
+      );
+      final style = tester.widget<Text>(find.text('Submit')).style!;
+      expect(style.fontSize, 18);
+      expect(style.fontWeight, FontWeight.w600);
+      if (closable) {
+        final close = tester.getRect(find.byType(GenesisDarkCloseButton));
+        expect(panel.right - close.right, 16);
+        expect(close.center.dy, header.center.dy);
+      }
+    }
+  });
+
   testWidgets('standard bottom sheet header uses shared spacing and type', (
     tester,
   ) async {
