@@ -30,12 +30,12 @@ extension _LocationChatFeatureQuotaBinding on _LocationChatPanelState {
   }
 
   void _onFeatureQuotasChanged() {
-    if (mounted) _setLocationChatState(() {});
+    if (mounted) _setReplyControlsState(() {});
   }
 
   void _onFeatureQuotaSessionChanged() {
     if (!mounted) return;
-    _setLocationChatState(() {
+    _setReplyControlsState(() {
       _editQuotaQueried = false;
       _inspirationQuotaQueried = false;
       if (_editQuotaChecking || _editQuotaLoading) {
@@ -108,7 +108,7 @@ extension _LocationChatFeatureQuotaBinding on _LocationChatPanelState {
   }
 
   void _revealReplyFeatureQuota(String feature) {
-    _setLocationChatState(() {
+    _setReplyControlsState(() {
       if (feature == 'conversation_edit') {
         _editQuotaQueried = true;
       } else {

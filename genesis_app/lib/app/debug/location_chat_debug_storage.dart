@@ -16,6 +16,45 @@ class LocationChatDebugChatroomMessageStorage
   }
 
   @override
+  Future<List<Map<String, dynamic>>> loadReplySnapshots({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+  }) => _delegate.loadReplySnapshots(
+    ownerUid: ownerUid,
+    worldId: worldId,
+    locationId: locationId,
+  );
+  @override
+  Future<void> saveReplySnapshot({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int roundId,
+    required Map<String, dynamic> value,
+    bool Function()? isCurrent,
+  }) => _delegate.saveReplySnapshot(
+    ownerUid: ownerUid,
+    worldId: worldId,
+    locationId: locationId,
+    roundId: roundId,
+    value: value,
+    isCurrent: isCurrent,
+  );
+  @override
+  Future<void> importLegacyReplySnapshots({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required List<Map<String, dynamic>> values,
+  }) => _delegate.importLegacyReplySnapshots(
+    ownerUid: ownerUid,
+    worldId: worldId,
+    locationId: locationId,
+    values: values,
+  );
+
+  @override
   /// Atomically replaces a closed round range; omitted bounds replace the location.
   Future<void> replaceMessages({
     required String ownerUid,

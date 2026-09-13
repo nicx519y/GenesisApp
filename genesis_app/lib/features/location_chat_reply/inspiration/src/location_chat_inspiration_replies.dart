@@ -1,5 +1,9 @@
 part of '../../../../pages/chat/location_chat_reply_actions.dart';
 
+/// Counts actual text layouts, rather than widget builds, in debug/test runs.
+@visibleForTesting
+int debugLocationChatInspirationTextLayoutCount = 0;
+
 class _InspirationReplies extends StatefulWidget {
   const _InspirationReplies({
     required this.style,
@@ -25,6 +29,7 @@ class _InspirationReplies extends StatefulWidget {
 
 class _InspirationRepliesState extends State<_InspirationReplies> {
   PageController? _pageController;
+  final _heightCache = _InspirationHeightCache();
   double _viewportFraction = 1;
   late int _currentPage = widget.initialPage.clamp(
     0,
@@ -106,29 +111,14 @@ class _InspirationRepliesState extends State<_InspirationReplies> {
         );
         // Match text scaling and padding while giving the horizontal viewport
         // enough height for every suggestion, without clipping long replies.
-        var contentHeight = 0.0;
-        for (final reply in replies) {
-          final painter =
-              TextPainter(
-                text: TextSpan(
-                  text: reply,
-                  style: GenesisTypography.resolve(
-                    context,
-                    style.bubbleTextStyle,
-                  ),
-                ),
-                textDirection: Directionality.of(context),
-                textScaler: MediaQuery.textScalerOf(context),
-              )..layout(
-                maxWidth: math.max(
-                  1,
-                  width - bubbleStyle.bubblePadding.horizontal,
-                ),
-              );
-          contentHeight = math.max(contentHeight, painter.height);
-          painter.dispose();
-        }
-        final carouselHeight = contentHeight + style.bubblePadding.vertical + 2;
+        final carouselHeight = _heightCache.measure(
+          replies: replies,
+          textWidth: math.max(1, width - bubbleStyle.bubblePadding.horizontal),
+          textStyle: GenesisTypography.resolve(context, style.bubbleTextStyle),
+          textDirection: Directionality.of(context),
+          textScaler: MediaQuery.textScalerOf(context),
+          padding: bubbleStyle.bubblePadding,
+        );
         // Expand the paging viewport asymmetrically so the active card keeps
         // the original user-bubble position while its neighbors remain visible.
         final rightInset = style.avatarSize + style.avatarBubbleGap;
@@ -229,5 +219,64 @@ class _InspirationRepliesState extends State<_InspirationReplies> {
         );
       },
     );
+  }
+}
+
+/// A single result lives only as long as the mounted suggestions carousel.
+class _InspirationHeightCache {
+  List<String>? _replies;
+  double? _textWidth;
+  TextStyle? _textStyle;
+  TextDirection? _textDirection;
+  TextScaler? _textScaler;
+  EdgeInsets? _padding;
+  double _height = 0;
+
+  double measure({
+    required List<String> replies,
+    required double textWidth,
+    required TextStyle textStyle,
+    required TextDirection textDirection,
+    required TextScaler textScaler,
+    required EdgeInsets padding,
+  }) {
+    if (_textWidth == textWidth &&
+        _textStyle == textStyle &&
+        _textDirection == textDirection &&
+        _textScaler == textScaler &&
+        _padding == padding &&
+        _sameReplies(replies)) {
+      return _height;
+    }
+    var contentHeight = 0.0;
+    for (final reply in replies) {
+      final painter = TextPainter(
+        text: TextSpan(text: reply, style: textStyle),
+        textDirection: textDirection,
+        textScaler: textScaler,
+      )..layout(maxWidth: textWidth);
+      assert(() {
+        debugLocationChatInspirationTextLayoutCount++;
+        return true;
+      }());
+      contentHeight = math.max(contentHeight, painter.height);
+      painter.dispose();
+    }
+    _replies = List<String>.unmodifiable(replies);
+    _textWidth = textWidth;
+    _textStyle = textStyle;
+    _textDirection = textDirection;
+    _textScaler = textScaler;
+    _padding = padding;
+    return _height = contentHeight + padding.vertical + 2;
+  }
+
+  bool _sameReplies(List<String> replies) {
+    final previous = _replies;
+    if (previous == null || previous.length != replies.length) return false;
+    for (var index = 0; index < replies.length; index++) {
+      if (previous[index] != replies[index]) return false;
+    }
+    return true;
   }
 }

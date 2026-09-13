@@ -11,7 +11,7 @@ extension ChatroomGoOnFeatureImplementation on ChatroomReplyActionsController {
     // Block a second tap synchronously, before any save/select awaits.
     state._goOn = _PendingGoOn(requestId);
     state._error = null;
-    _notify();
+    _notify(state.locationId);
     var dispatched = false;
     try {
       await finalizeBeforeSend(locationId);
@@ -79,7 +79,7 @@ extension ChatroomGoOnFeatureImplementation on ChatroomReplyActionsController {
       if (dispatchGeneration == state._goOnDispatchGeneration) {
         state._busy = false;
       }
-      _notify();
+      _notify(state.locationId);
     }
   }
 }

@@ -5,6 +5,41 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_reply_action_s
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test('one malformed SQLite row does not hide valid reply state', () async {
+    sqfliteFfiInit();
+    final directory = await Directory.systemTemp.createTemp('reply-state-');
+    final path = '${directory.path}/actions.db';
+    final storage = SqfliteChatroomReplyActionStorage(
+      databasePath: path,
+      databaseFactoryOverride: databaseFactoryFfi,
+    );
+    addTearDown(() async {
+      await storage.close();
+      await directory.delete(recursive: true);
+    });
+    await storage.save(
+      ownerUid: 'u',
+      worldId: 'w',
+      locationId: 'l',
+      roundId: 1,
+      value: {'round_id': 1},
+    );
+    final db = await databaseFactoryFfi.openDatabase(
+      path,
+      options: OpenDatabaseOptions(version: 1, singleInstance: false),
+    );
+    await db.rawInsert(
+      'INSERT INTO reply_actions '
+      '(owner_uid, world_id, location_id, round_id, value) '
+      'VALUES (?, ?, ?, ?, ?)',
+      ['u', 'w', 'l', 2, '{invalid json'],
+    );
+    await db.close();
+    expect(await storage.load(ownerUid: 'u', worldId: 'w', locationId: 'l'), [
+      {'round_id': 1},
+    ]);
+  });
+
   test(
     'closing an old account store leaves the next account connection usable',
     () async {

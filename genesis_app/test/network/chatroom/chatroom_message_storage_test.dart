@@ -6,6 +6,88 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storag
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 void main() {
+  test(
+    'database v4 upgrades to v5 without losing messages and supports reply companions',
+    () async {
+      sqfliteFfiInit();
+      final dir = await Directory.systemTemp.createTemp('chatroom-v5-');
+      final path = '${dir.path}/messages.db';
+      final old = await databaseFactoryFfi.openDatabase(
+        path,
+        options: OpenDatabaseOptions(
+          version: 4,
+          onCreate: (db, _) => db.execute(_createV3TableSql),
+        ),
+      );
+      await old.insert(
+        'chatroom_messages',
+        _row(_message(messageId: 1, locationMessageId: 1)),
+      );
+      await old.close();
+      final storage = SqfliteChatroomMessageStorage(
+        databasePath: path,
+        databaseFactoryOverride: databaseFactoryFfi,
+      );
+      try {
+        expect(
+          await storage.loadLatestMessages(
+            ownerUid: 'user-1',
+            worldId: 'world-1',
+            locationId: 'loc-1',
+            limit: 20,
+          ),
+          hasLength(1),
+        );
+        await storage.saveReplySnapshot(
+          ownerUid: 'user-1',
+          worldId: 'world-1',
+          locationId: 'loc-1',
+          roundId: 1,
+          value: {'round_id': 1, 'cards_resolved': true},
+        );
+        expect(
+          (await storage.loadReplySnapshots(
+            ownerUid: 'user-1',
+            worldId: 'world-1',
+            locationId: 'loc-1',
+          )).single['cards_resolved'],
+          true,
+        );
+        await expectLater(
+          storage.replaceMessages(
+            ownerUid: 'user-1',
+            worldId: 'world-1',
+            locationId: 'loc-1',
+            messages: [],
+            isCurrent: () => false,
+          ),
+          throwsStateError,
+        );
+        expect(
+          await storage.loadLatestMessages(
+            ownerUid: 'user-1',
+            worldId: 'world-1',
+            locationId: 'loc-1',
+            limit: 20,
+          ),
+          hasLength(1),
+        );
+        expect(
+          await storage.loadReplySnapshots(
+            ownerUid: 'user-1',
+            worldId: 'world-1',
+            locationId: 'loc-1',
+          ),
+          hasLength(1),
+          reason: 'Message deletion and companion pruning roll back together',
+        );
+      } finally {
+        await storage.close();
+        await dir.delete(recursive: true);
+      }
+    },
+  );
+
   test('canonical V2 tick uses its positive location cursor', () async {
     final storage = MemoryChatroomMessageStorage();
     await storage.mergeMessages(

@@ -10,6 +10,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_api.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
+import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_reply_action_storage.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
@@ -278,6 +279,7 @@ class _Session implements ChatroomSession {
 class _Harness {
   _Harness({
     ChatroomReplyActionStorage? storage,
+    ChatroomMessageStorage? snapshotStorage,
     String owner = 'u',
     String conversationType = 'user_message',
     String? triggerUid,
@@ -298,6 +300,7 @@ class _Harness {
         walletRefreshes++;
       },
       storage: storage ?? MemoryChatroomReplyActionStorage(),
+      snapshotStorage: snapshotStorage,
       now: now,
       regenerationStreamStartTimeout: regenerationStreamStartTimeout,
       regenerationStreamEndTimeout: regenerationStreamEndTimeout,
@@ -381,6 +384,230 @@ ChatroomLlmCardGenerationEnd _terminal(
 );
 
 void main() {
+  test(
+    'inspiration tail changes controls without replacing formal reply bodies',
+    () {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      final formal = h.state.formalReplyMessages;
+      final before = h.controller.revisionsForLocation('l');
+      var changes = 0;
+      h.controller.changesForLocation('l').addListener(() => changes++);
+      h.controller.observeMessages('l', [
+        ...formal,
+        _formal(type: 'user', id: _messageId + 1),
+      ]);
+      expect(h.state.formalReplyMessages, same(formal));
+      expect(h.state.inspirationTailMessageId, _messageId + 1);
+      final after = h.controller.revisionsForLocation('l');
+      expect(after.contentRevision, before.contentRevision);
+      expect(after.structureRevision, before.structureRevision);
+      expect(after.controlsRevision, before.controlsRevision + 1);
+      expect(changes, 1);
+    },
+  );
+
+  test(
+    'location notifications batch synchronously and ignore rewrapped history',
+    () {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      var global = 0;
+      var local = 0;
+      var other = 0;
+      h.controller.addListener(() => global++);
+      h.controller.changesForLocation('l').addListener(() => local++);
+      h.controller.changesForLocation('other').addListener(() => other++);
+      final formal = h.state.formalReplyMessages;
+      final before = h.controller.revisionsForLocation('l');
+      h.controller.observeMessages('l', [...formal]);
+      expect(h.state.formalReplyMessages, same(formal));
+      expect(h.controller.revisionsForLocation('l'), same(before));
+      expect(global, 0);
+      h.controller.batchChanges(() {
+        h.controller.observeMessages('l', [_formal(content: 'one')]);
+        h.controller.observeMessages('l', [_formal(content: 'two')]);
+        h.controller.observeMessages('other', [
+          _formal().copyWith(locationId: 'other'),
+        ]);
+        expect(global, 0);
+      });
+      expect(global, 1);
+      expect(local, 1);
+      expect(other, 1);
+      expect(h.state.formalReplyMessages.single.content, 'two');
+      expect(
+        h.controller.revisionsForLocation('l').structureRevision,
+        before.structureRevision,
+      );
+      expect(
+        h.controller.revisionsForLocation('l').contentRevision,
+        before.contentRevision + 1,
+      );
+      final afterContent = h.controller.revisionsForLocation('l');
+      h.ready = false;
+      h.controller.refreshAvailability();
+      final afterAvailability = h.controller.revisionsForLocation('l');
+      expect(afterAvailability.contentRevision, afterContent.contentRevision);
+      expect(
+        afterAvailability.structureRevision,
+        afterContent.structureRevision,
+      );
+      expect(
+        afterAvailability.controlsRevision,
+        afterContent.controlsRevision + 1,
+      );
+    },
+  );
+
+  test(
+    'candidate snapshots reuse lists and unaffected rows across chunks',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([
+        _card(101),
+        _card(102, index: 2, generation: 'generating'),
+      ]);
+      await h.controller.restoreLocationCards('l');
+      var local = 0;
+      var other = 0;
+      h.controller.changesForLocation('l').addListener(() => local++);
+      h.controller.changesForLocation('other').addListener(() => other++);
+      final original = h.state.messagesForCard(101);
+      h.controller.receiveEvent(_stream('chunk', content: 'A'));
+      h.controller.receiveEvent(
+        _stream('chunk', content: 'second', id: _messageId + 1),
+      );
+      final first = h.state.messagesForCard(102);
+      expect(h.state.messagesForCard(102), same(first));
+      final revision = h.state.cardContentRevision(102);
+      final structure = h.state.structureRevision;
+      final controls = h.state.controlsRevision;
+      final unchangedMessageRevision = h.state.messageContentRevision(
+        102,
+        _messageId + 1,
+      );
+      h.controller.receiveEvent(_stream('chunk', seq: 2, content: 'B'));
+      final second = h.state.messagesForCard(102);
+      expect(second, isNot(same(first)));
+      expect(second.first.content, 'AB');
+      expect(second.last, same(first.last));
+      expect(h.state.cardContentRevision(102), revision + 1);
+      expect(h.state.structureRevision, structure);
+      expect(h.state.controlsRevision, controls);
+      expect(
+        h.state.messageContentRevision(102, _messageId + 1),
+        unchangedMessageRevision,
+      );
+      expect(h.state.messagesForCard(101), same(original));
+      final notifications = local;
+      h.controller.receiveEvent(_stream('chunk', seq: 2, content: 'duplicate'));
+      expect(local, notifications);
+      expect(h.state.messagesForCard(102), same(second));
+      expect(other, 0);
+      h.controller.receiveEvent(_stream('chunk', seq: 4, content: 'D'));
+      h.controller.receiveEvent(_stream('chunk', seq: 3, content: 'C'));
+      expect(h.state.messagesForCard(102).first.content, 'ABCD');
+      h.controller.receiveEvent(_stream('chunk', seq: 5, content: 'E'));
+      expect(h.state.messagesForCard(102).first.content, 'ABCDE');
+      h.controller.receiveEvent(_stream('end', content: 'authoritative'));
+      final ended = h.state.messagesForCard(102);
+      expect(ended.first.content, 'authoritative');
+      expect(ended.first.streaming, isFalse);
+      h.controller.receiveEvent(_stream('chunk', seq: 6, content: 'late'));
+      expect(h.state.messagesForCard(102), same(ended));
+    },
+  );
+
+  test(
+    'empty candidate chunks retain content versions and receipt bookkeeping',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([
+        _card(101),
+        _card(102, index: 2, generation: 'generating'),
+      ]);
+      await h.controller.restoreLocationCards('l');
+      h.controller.receiveEvent(_stream('start'));
+      final messages = h.state.messagesForCard(102);
+      final revision = h.state.cardContentRevision(102);
+      expect(h.state.hasCandidateChunk(102), isFalse);
+      h.controller.receiveEvent(_stream('chunk', content: ''));
+      expect(h.state.hasCandidateChunk(102), isTrue);
+      expect(h.state.cardContentRevision(102), revision);
+      expect(h.state.messagesForCard(102), same(messages));
+      expect(messages.single.content, isEmpty);
+    },
+  );
+
+  test(
+    'authoritative card refresh only replaces messages whose values changed',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([_card(101)]);
+      await h.controller.restoreLocationCards('l');
+      final before = h.state.messagesForCard(101);
+      final contentRevision = h.state.cardContentRevision(101);
+      await h.controller.clearCardsCache('l');
+      h.api.cards = _cards([_card(101)]);
+      await h.controller.restoreLocationCards('l');
+      expect(h.state.messagesForCard(101), same(before));
+      expect(h.state.cardContentRevision(101), contentRevision);
+      await h.controller.clearCardsCache('l');
+      h.api.cards = _cards([_card(101, content: 'Edited')]);
+      await h.controller.restoreLocationCards('l');
+      final after = h.state.messagesForCard(101);
+      expect(after.first, isNot(same(before.first)));
+      expect(after.first.content, 'Edited');
+      expect(after.last, same(before.last));
+      expect(h.state.cardContentRevision(101), contentRevision + 1);
+    },
+  );
+
+  test('invalid saved reply metadata cannot block other rounds', () async {
+    final storage = MemoryChatroomReplyActionStorage();
+    await storage.save(
+      ownerUid: 'u',
+      worldId: 'w',
+      locationId: 'l',
+      roundId: _round,
+      value: {
+        'round_id': _round,
+        'draft_baselines': {
+          'invalid': {'bad': true},
+          '101': {'invalid': true, '12': 'Original'},
+        },
+        'viewed_card_id': 'invalid',
+        'fixed_card_id': 'invalid',
+        'drafts': {
+          '101': ['invalid operation'],
+        },
+        'uncertain_batches': 'invalid',
+        'go_on': {'round_id': 'invalid'},
+      },
+    );
+    await storage.save(
+      ownerUid: 'u',
+      worldId: 'w',
+      locationId: 'l',
+      roundId: _round + 1,
+      value: {
+        'round_id': _round + 1,
+        'viewed_card_id': 102,
+        'cards_cached_at': DateTime.now().millisecondsSinceEpoch,
+        'cards_cache': {'list': 'invalid'},
+      },
+    );
+    final h = _Harness(storage: storage);
+    addTearDown(h.controller.dispose);
+    await h.controller.restore('l');
+    expect(h.controller.stateForRound('l', _round)?.viewedCardId, 0);
+    expect(h.controller.stateForRound('l', _round + 1)?.viewedCardId, 102);
+  });
+
   for (final failed in [true, false]) {
     test(
       'late terminal regeneration receipt resolves timeout without replay: failed=$failed',
@@ -846,12 +1073,195 @@ void main() {
     },
   );
 
+  for (final type in [
+    'opening',
+    'user_enter_location',
+    'tick',
+    'user_message',
+  ]) {
+    test(
+      'persist support without cards response restores an empty deck for $type',
+      () async {
+        final snapshots = MemoryChatroomMessageStorage();
+        await snapshots.upsertMessage(
+          ownerUid: 'u',
+          worldId: 'w',
+          locationId: 'l',
+          message: {
+            'msg_id': _messageId,
+            'global_msg_id': _messageId,
+            'location_msg_id': _messageId,
+            'conversation_round_id': _round,
+            'location_id': 'l',
+            'sender_type': 'character',
+            'content': 'Original',
+          },
+        );
+        final first = _Harness(
+          conversationType: type,
+          snapshotStorage: snapshots,
+        );
+        addTearDown(first.controller.dispose);
+        await first.controller.persistHistorySupport('l');
+        expect(first.api.calls, isEmpty);
+        final saved = (await snapshots.loadReplySnapshots(
+          ownerUid: 'u',
+          worldId: 'w',
+          locationId: 'l',
+        )).single;
+        expect(saved['cards_resolved'], true);
+        await snapshots.saveReplySnapshot(
+          ownerUid: 'u',
+          worldId: 'w',
+          locationId: 'l',
+          roundId: _round,
+          value: {
+            ...saved,
+            'capability_version': 1,
+            'supported_actions': {
+              'regenerate': false,
+              'go_on': false,
+              'edit': false,
+              'inspiration': false,
+            },
+          },
+        );
+        final cached = ChatroomLlmCardsResponse.fromJson(saved['cards_cache']);
+        expect(cached.list, isEmpty);
+        expect(cached.total, 0);
+        final restored = _Harness(
+          conversationType: type,
+          snapshotStorage: snapshots,
+        );
+        addTearDown(restored.controller.dispose);
+        await restored.controller.restore('l');
+        expect(restored.controller.historyCardsResolved('l'), true);
+        expect(restored.state.supportsGoOn, true);
+        expect(restored.state.supportsRegenerate, type == 'user_message');
+        expect(restored.state.supportsEdit, type != 'tick');
+        expect(restored.state.supportsInspiration, true);
+        final rewritten = (await snapshots.loadReplySnapshots(
+          ownerUid: 'u',
+          worldId: 'w',
+          locationId: 'l',
+        )).single;
+        expect(rewritten['capability_version'], 2);
+        expect((rewritten['supported_actions'] as Map)['go_on'], true);
+        expect((rewritten['supported_actions'] as Map)['edit'], type != 'tick');
+        expect(restored.api.calls, isEmpty);
+      },
+    );
+  }
+
   Future<void> historyCards(_Harness h, {bool Function()? current}) =>
       h.controller.loadHistoryCards(
         'l',
         roundIds: {_round},
         isCurrent: current ?? () => true,
       );
+
+  for (final sqlite in [false, true]) {
+    test(
+      'terminal candidate streams persist without GET and partial generation preserves the complete deck sqlite=$sqlite',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'reply-stream-durable-',
+        );
+        sqfliteFfiInit();
+        ChatroomMessageStorage snapshots = sqlite
+            ? SqfliteChatroomMessageStorage(
+                databasePath: '${directory.path}/messages.db',
+                databaseFactoryOverride: databaseFactoryFfi,
+              )
+            : MemoryChatroomMessageStorage();
+        addTearDown(() async {
+          if (snapshots is SqfliteChatroomMessageStorage) {
+            await snapshots.close();
+          }
+          await directory.delete(recursive: true);
+        });
+        await snapshots.upsertMessage(
+          ownerUid: 'u',
+          worldId: 'w',
+          locationId: 'l',
+          message: {
+            'msg_id': _messageId,
+            'global_msg_id': _messageId,
+            'location_msg_id': _messageId,
+            'conversation_round_id': _round,
+            'location_id': 'l',
+            'sender_type': 'character',
+            'content': 'Original',
+          },
+        );
+        final storage = MemoryChatroomReplyActionStorage();
+        final h = _Harness(storage: storage, snapshotStorage: snapshots);
+        await historyCards(h);
+        h.api.calls.clear();
+        h.session.regenerateHandler = () async =>
+            const ChatroomCardRegeneration(
+              conversationRoundId: _round,
+              originalCardId: 101,
+              cardId: 102,
+              generationState: ChatroomCardGenerationState.generating,
+              billing: ChatroomCardBilling(
+                status: ChatroomCardBillingStatus.reserved,
+              ),
+            );
+        await h.controller.regenerate('l');
+        h.controller.receiveEvent(
+          _stream('end', content: 'Complete local reply'),
+        );
+        h.controller.receiveEvent(_terminal('succeeded'));
+        await _settle();
+        await h.controller.browse('l', -1);
+        await h.controller.browse('l', 1);
+        expect(h.api.calls, isEmpty);
+        h.controller.dispose();
+        if (sqlite) {
+          await (snapshots as SqfliteChatroomMessageStorage).close();
+          snapshots = SqfliteChatroomMessageStorage(
+            databasePath: '${directory.path}/messages.db',
+            databaseFactoryOverride: databaseFactoryFfi,
+          );
+        }
+        final next = _Harness(storage: storage, snapshotStorage: snapshots);
+        addTearDown(next.controller.dispose);
+        await next.controller.restore('l');
+        expect(next.state.cards.map((c) => c.cardId), [101, 102]);
+        expect(next.state.viewedCardId, 102);
+        expect(
+          next.state.displayedMessages.single.content,
+          'Complete local reply',
+        );
+        expect(next.state.cards.last.messages.single.isLlmStreamMessage, true);
+        expect(next.state.supportsEdit, true);
+        expect(next.api.calls, isEmpty);
+        final before = (await snapshots.loadReplySnapshots(
+          ownerUid: 'u',
+          worldId: 'w',
+          locationId: 'l',
+        )).single;
+        next.session.regenerateHandler = () async =>
+            const ChatroomCardRegeneration(
+              conversationRoundId: _round,
+              originalCardId: 101,
+              cardId: 103,
+              generationState: ChatroomCardGenerationState.generating,
+              billing: ChatroomCardBilling(
+                status: ChatroomCardBillingStatus.reserved,
+              ),
+            );
+        await next.controller.regenerate('l');
+        final after = (await snapshots.loadReplySnapshots(
+          ownerUid: 'u',
+          worldId: 'w',
+          locationId: 'l',
+        )).single;
+        expect(after['cards_cache'], before['cards_cache']);
+      },
+    );
+  }
 
   test(
     'SQLite card cache survives closing and reopening the database',
@@ -889,7 +1299,7 @@ void main() {
           worldId: 'w',
           locationId: 'l',
         );
-        expect(saved.single, isNot(contains('cards_cache')));
+        expect(saved.single, contains('cards_cache'));
         expect(saved.single, contains('go_on'));
       } finally {
         second.controller.dispose();
@@ -945,7 +1355,7 @@ void main() {
         worldId: 'w',
         locationId: 'l',
       )).single;
-      expect(saved, isNot(contains('cards_cache')));
+      expect(saved, contains('cards_cache'));
       expect(saved['viewed_card_id'], 101);
       expect(saved, contains('drafts'));
       await historyCards(restored);
@@ -957,32 +1367,29 @@ void main() {
     },
   );
 
-  test(
-    'expired cards are removed on restore and do not extend on cache hits',
-    () async {
-      var now = DateTime.utc(2026, 9, 9);
-      final storage = MemoryChatroomReplyActionStorage();
-      final first = _Harness(storage: storage, now: () => now);
-      first.api.cards = _cards([_card(101)]);
-      await historyCards(first);
-      now = now.add(const Duration(hours: 23));
-      await historyCards(first);
-      expect(first.api.calls, ['cards:$_round']);
-      first.controller.dispose();
-      now = now.add(const Duration(hours: 1));
-      final next = _Harness(storage: storage, now: () => now);
-      addTearDown(next.controller.dispose);
-      await next.controller.restore('l');
-      final saved = (await storage.load(
-        ownerUid: 'u',
-        worldId: 'w',
-        locationId: 'l',
-      )).single;
-      expect(saved, isNot(contains('cards_cache')));
-      await historyCards(next);
-      expect(next.api.calls, ['cards:$_round']);
-    },
-  );
+  test('cards remain available after more than 24 hours', () async {
+    var now = DateTime.utc(2026, 9, 9);
+    final storage = MemoryChatroomReplyActionStorage();
+    final first = _Harness(storage: storage, now: () => now);
+    first.api.cards = _cards([_card(101)]);
+    await historyCards(first);
+    now = now.add(const Duration(hours: 23));
+    await historyCards(first);
+    expect(first.api.calls, ['cards:$_round']);
+    first.controller.dispose();
+    now = now.add(const Duration(days: 10));
+    final next = _Harness(storage: storage, now: () => now);
+    addTearDown(next.controller.dispose);
+    await next.controller.restore('l');
+    final saved = (await storage.load(
+      ownerUid: 'u',
+      worldId: 'w',
+      locationId: 'l',
+    )).single;
+    expect(saved, contains('cards_cache'));
+    await historyCards(next);
+    expect(next.api.calls, isEmpty);
+  });
 
   test(
     'invalidated in-flight card responses cannot revive persisted cache',
@@ -1031,28 +1438,25 @@ void main() {
     expect(h.api.calls, hasLength(4));
   });
 
-  test(
-    'new rounds and disconnect discard old snapshots without removing drafts',
-    () async {
-      final storage = MemoryChatroomReplyActionStorage();
-      final h = _Harness(storage: storage);
-      addTearDown(h.controller.dispose);
-      h.api.cards = _cards([_card(101)]);
-      await historyCards(h);
-      h.controller.invalidateCardsOnDisconnect();
-      await historyCards(h);
-      expect(h.api.calls, hasLength(2));
-      h.controller.observeMessages('l', [_formal(round: _round + 1)]);
-      await _settle();
-      final saved = await storage.load(
-        ownerUid: 'u',
-        worldId: 'w',
-        locationId: 'l',
-      );
-      expect(saved.single, isNot(contains('cards_cache')));
-      expect(saved.single, contains('drafts'));
-    },
-  );
+  test('new rounds and disconnect retain snapshots and drafts', () async {
+    final storage = MemoryChatroomReplyActionStorage();
+    final h = _Harness(storage: storage);
+    addTearDown(h.controller.dispose);
+    h.api.cards = _cards([_card(101)]);
+    await historyCards(h);
+    h.controller.invalidateCardsOnDisconnect();
+    await historyCards(h);
+    expect(h.api.calls, hasLength(2));
+    h.controller.observeMessages('l', [_formal(round: _round + 1)]);
+    await _settle();
+    final saved = await storage.load(
+      ownerUid: 'u',
+      worldId: 'w',
+      locationId: 'l',
+    );
+    expect(saved.single, contains('cards_cache'));
+    expect(saved.single, contains('drafts'));
+  });
 
   test(
     'candidate previews read local streams without browsing or persistence',
@@ -1183,39 +1587,190 @@ void main() {
     expect(own.state.inspirationSource, isNotNull);
     own.locked = true;
     expect(own.state.canGoOn, isFalse);
+    expect(own.state.supportsGoOn, isTrue);
   });
 
   test(
-    'conversation type matrix is fail-closed and opening excludes regenerate',
-    () {
-      for (final type in ['user_message', 'go_on']) {
-        final h = _Harness(conversationType: type);
+    'latest conversation action matrix follows type and trigger UID',
+    () async {
+      for (final entry in [
+        (
+          type: 'opening',
+          uid: '',
+          regenerate: false,
+          goOn: true,
+          edit: true,
+          inspiration: true,
+        ),
+        (
+          type: 'user_enter_location',
+          uid: 'u',
+          regenerate: false,
+          goOn: true,
+          edit: true,
+          inspiration: true,
+        ),
+        (
+          type: 'user_enter_location',
+          uid: 'another-user',
+          regenerate: false,
+          goOn: true,
+          edit: true,
+          inspiration: true,
+        ),
+        (
+          type: 'tick',
+          uid: '',
+          regenerate: false,
+          goOn: true,
+          edit: false,
+          inspiration: true,
+        ),
+        (
+          type: 'user_message',
+          uid: 'u',
+          regenerate: true,
+          goOn: true,
+          edit: true,
+          inspiration: true,
+        ),
+        (
+          type: 'go_on',
+          uid: 'u',
+          regenerate: true,
+          goOn: true,
+          edit: true,
+          inspiration: true,
+        ),
+        (
+          type: 'user_message',
+          uid: 'another-user',
+          regenerate: false,
+          goOn: false,
+          edit: false,
+          inspiration: false,
+        ),
+        (
+          type: 'go_on',
+          uid: 'another-user',
+          regenerate: false,
+          goOn: false,
+          edit: false,
+          inspiration: false,
+        ),
+        (
+          type: '',
+          uid: 'u',
+          regenerate: false,
+          goOn: false,
+          edit: false,
+          inspiration: false,
+        ),
+        (
+          type: 'unknown',
+          uid: 'u',
+          regenerate: false,
+          goOn: false,
+          edit: false,
+          inspiration: false,
+        ),
+      ]) {
+        final h = _Harness(conversationType: entry.type, triggerUid: entry.uid);
         addTearDown(h.controller.dispose);
-        expect(h.state.canRegenerate, isTrue, reason: type);
-        expect(h.state.canGoOn, isTrue);
-        expect(h.state.canEdit, isTrue);
-        expect(h.state.inspirationSource, isNotNull);
-      }
-      final opening = _Harness(
-        owner: 'u',
-        conversationType: 'opening',
-        triggerUid: '',
-      );
-      addTearDown(opening.controller.dispose);
-      expect(opening.state.canRegenerate, isFalse);
-      expect(opening.state.canGoOn, isTrue);
-      expect(opening.state.canEdit, isTrue);
-      expect(opening.state.inspirationSource, isNotNull);
-      for (final type in ['', 'user_enter_location', 'tick', 'unknown']) {
-        final h = _Harness(conversationType: type);
-        addTearDown(h.controller.dispose);
-        expect(h.state.canRegenerate, isFalse, reason: type);
-        expect(h.state.canGoOn, isFalse, reason: type);
-        expect(h.state.canEdit, isFalse, reason: type);
-        expect(h.state.inspirationSource, isNull, reason: type);
+        final reason = '${entry.type}/${entry.uid}';
+        expect(h.state.supportsRegenerate, entry.regenerate, reason: reason);
+        expect(h.state.supportsGoOn, entry.goOn, reason: reason);
+        expect(h.state.supportsEdit, entry.edit, reason: reason);
+        expect(h.state.supportsInspiration, entry.inspiration, reason: reason);
+        expect(h.state.canRegenerate, entry.regenerate, reason: reason);
+        expect(h.state.canGoOn, entry.goOn, reason: reason);
+        expect(h.state.canEdit, entry.edit, reason: reason);
+        expect(
+          h.state.inspirationSource != null,
+          entry.inspiration,
+          reason: reason,
+        );
+        if (entry.inspiration && !entry.regenerate) {
+          expect(h.state.inspirationSource!.cardId, isNull, reason: reason);
+        }
+        if (entry.type == 'tick') {
+          await expectLater(h.prepareEditor(), throwsStateError);
+        }
       }
     },
   );
+
+  test('Enter and Tick still require a completed AI reply', () {
+    for (final type in ['user_enter_location', 'tick']) {
+      final h = _Harness(conversationType: type);
+      addTearDown(h.controller.dispose);
+      h.controller.observeMessages('l', [
+        _formal(type: type, conversationType: type),
+      ]);
+      h.controller.receiveEvent(
+        ChatroomEndConversationRound(
+          sessionId: '',
+          worldId: 'w',
+          locationId: 'l',
+          userId: '',
+          code: 0,
+          codeMsg: '',
+          ts: null,
+          conversationType: type,
+          triggerUid: 'u',
+          conversationRoundId: '$_round',
+        ),
+      );
+      expect(h.state.complete, isTrue);
+      expect(h.state.supportsGoOn, isFalse, reason: type);
+      expect(h.state.supportsEdit, isFalse, reason: type);
+      expect(h.state.supportsInspiration, isFalse, reason: type);
+      expect(h.state.inspirationSource, isNull, reason: type);
+    }
+  });
+
+  test('conflicting round metadata closes every reply action', () {
+    final h = _Harness(conversationType: 'user_enter_location');
+    addTearDown(h.controller.dispose);
+    h.controller.observeMessages('l', [_formal(conversationType: 'tick')]);
+    expect(h.state.supportsRegenerate, isFalse);
+    expect(h.state.supportsGoOn, isFalse);
+    expect(h.state.supportsEdit, isFalse);
+    expect(h.state.supportsInspiration, isFalse);
+    expect(h.state.inspirationSource, isNull);
+  });
+
+  test('canonical Tick does not invalidate its own completed reply', () {
+    final h = _Harness(conversationType: 'tick', triggerUid: '');
+    addTearDown(h.controller.dispose);
+    h.controller.receiveEvent(
+      ChatroomTickAdvanceMessage(
+        sessionId: '',
+        worldId: 'w',
+        locationId: 'l',
+        userId: '',
+        code: 0,
+        codeMsg: '',
+        ts: null,
+        messageId: _messageId + 1,
+        globalMessageId: _messageId + 1,
+        locationMessageId: _messageId + 1,
+        conversationRoundId: '$_round',
+        roundOrder: 0,
+        senderType: 'tick',
+        senderId: 'tick',
+        senderName: '',
+        content: '',
+        broadcast: true,
+        tickNo: 1,
+        subTickNo: 0,
+        currentTime: '',
+      ),
+    );
+    expect(h.state.canGoOn, isTrue);
+    expect(h.state.canEdit, isFalse);
+    expect(h.state.inspirationSource, isNotNull);
+  });
 
   for (final entry in <(String, String, String)>[
     ('literal newline', r'A\nB', 'A\nB'),
@@ -1487,6 +2042,9 @@ void main() {
       expect(h.state.generating, isTrue);
       expect(h.state.canSwitchCards, isFalse);
       expect(h.state.canRegenerate, isFalse);
+      expect(h.state.supportsGoOn, isTrue);
+      expect(h.state.supportsEdit, isTrue);
+      expect(h.state.supportsInspiration, isTrue);
       expect(h.state.viewedCardId, -1);
 
       h.api.cards = _cards([_card(101), _card(102, index: 2)]);

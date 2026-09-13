@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/edit/edit.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/go_on/go_on.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/inspiration/inspiration.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/regenerate.dart';
+import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
@@ -34,6 +36,9 @@ Widget _replyActions({
   bool regenerateBusy = false,
   bool goOnBusy = false,
   bool editBusy = false,
+  LocationChatReplyActionState? regenerateState,
+  LocationChatReplyActionState? goOnState,
+  LocationChatReplyActionState? editState,
   int? editFreeUsesRemaining,
   int? inspirationFreeUsesRemaining,
   int cardIndex = 0,
@@ -48,24 +53,38 @@ Widget _replyActions({
   isMember: isMember,
   regenerateFeature: LocationChatRegenerateFeature(
     onInvoke: onRegenerate,
-    enabled: regenerateEnabled,
-    busy: regenerateBusy,
+    state:
+        regenerateState ??
+        (regenerateBusy
+            ? LocationChatReplyActionState.busy
+            : regenerateEnabled && onRegenerate != null
+            ? LocationChatReplyActionState.idle
+            : LocationChatReplyActionState.none),
   ),
   goOnFeature: LocationChatGoOnFeature(
     onInvoke: onGoOn,
-    enabled: goOnEnabled,
-    busy: goOnBusy,
+    state:
+        goOnState ??
+        (goOnBusy
+            ? LocationChatReplyActionState.busy
+            : goOnEnabled && onGoOn != null
+            ? LocationChatReplyActionState.idle
+            : LocationChatReplyActionState.none),
   ),
   editFeature: LocationChatEditFeature(
     onInvoke: onEditReply,
-    enabled: editEnabled,
-    busy: editBusy,
+    state:
+        editState ??
+        (editBusy
+            ? LocationChatReplyActionState.busy
+            : editEnabled && onEditReply != null
+            ? LocationChatReplyActionState.idle
+            : LocationChatReplyActionState.none),
     freeUsesRemaining: editFreeUsesRemaining,
   ),
   inspirationFeature: LocationChatInspirationFeature(
     messages: inspirationFeature?.messages ?? inspirationMessages,
-    loading: inspirationFeature?.loading ?? false,
-    enabled: inspirationFeature?.enabled ?? true,
+    state: inspirationFeature?.state ?? LocationChatReplyActionState.idle,
     freeUsesRemaining: inspirationFreeUsesRemaining,
     onSend: onInspirationSend ?? inspirationFeature?.onSend,
     onEdit: onInspirationEdit ?? inspirationFeature?.onEdit,
@@ -209,8 +228,7 @@ void main() {
             isMember: false,
             inspirationFeature: const LocationChatInspirationFeature(
               messages: _inspirationReplies,
-              loading: false,
-              enabled: true,
+              state: LocationChatReplyActionState.idle,
             ),
             onRegenerate: () => calls++,
             onGoOn: () => calls++,
@@ -244,8 +262,7 @@ void main() {
         body: _replyActions(
           inspirationFeature: const LocationChatInspirationFeature(
             messages: _inspirationReplies,
-            loading: false,
-            enabled: true,
+            state: LocationChatReplyActionState.idle,
           ),
           style: kLocationChatStyle,
           onRegenerate: () => calls.add('regenerate'),
@@ -293,7 +310,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('disabled actions collapse while an empty toolbar keeps height', (
+  testWidgets('none actions collapse while an empty toolbar keeps height', (
     tester,
   ) async {
     Widget host({
@@ -316,8 +333,7 @@ void main() {
           inspirationFeature: inspirationEnabled
               ? const LocationChatInspirationFeature(
                   messages: _inspirationReplies,
-                  loading: false,
-                  enabled: true,
+                  state: LocationChatReplyActionState.idle,
                 )
               : const LocationChatInspirationFeature.disabled(),
         ),
@@ -360,6 +376,72 @@ void main() {
     );
   });
 
+  testWidgets('disabled stays gray and slotful; busy spins; idle can invoke', (
+    tester,
+  ) async {
+    var calls = 0;
+    Widget host(LocationChatReplyActionState regenerateState) => MaterialApp(
+      home: Scaffold(
+        body: _replyActions(
+          style: kLocationChatStyle,
+          onRegenerate: () => calls++,
+          regenerateState: regenerateState,
+          goOnState: LocationChatReplyActionState.none,
+          editState: LocationChatReplyActionState.busy,
+          inspirationFeature: const LocationChatInspirationFeature(
+            messages: [],
+            state: LocationChatReplyActionState.idle,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(host(LocationChatReplyActionState.disabled));
+    final regenerate = find.bySemanticsLabel('Regenerate');
+    expect(regenerate, findsOneWidget);
+    expect(tester.widget<Semantics>(regenerate).properties.enabled, isFalse);
+    expect(
+      tester
+          .widget<SvgPicture>(
+            find.descendant(of: regenerate, matching: find.byType(SvgPicture)),
+          )
+          .colorFilter,
+      const ColorFilter.mode(GenesisColors.darkTextTertiary, BlendMode.srcIn),
+    );
+    expect(find.bySemanticsLabel('Go on'), findsNothing);
+    expect(find.bySemanticsLabel('Edit'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(
+      tester.widget<Semantics>(find.bySemanticsLabel('Edit')).properties.value,
+      'Loading',
+    );
+    expect(
+      tester.getTopLeft(find.bySemanticsLabel('Edit')).dx -
+          tester.getTopLeft(regenerate).dx,
+      LocationChatReplyActions.centerSpacing,
+    );
+    expect(
+      tester.getTopLeft(find.bySemanticsLabel('Inspiration')).dx -
+          tester.getTopLeft(find.bySemanticsLabel('Edit')).dx,
+      LocationChatReplyActions.centerSpacing,
+    );
+    await tester.tap(regenerate);
+    await tester.pump();
+    expect(calls, 0);
+
+    await tester.pumpWidget(host(LocationChatReplyActionState.idle));
+    expect(tester.widget<Semantics>(regenerate).properties.enabled, isTrue);
+    expect(
+      tester
+          .widget<SvgPicture>(
+            find.descendant(of: regenerate, matching: find.byType(SvgPicture)),
+          )
+          .colorFilter,
+      const ColorFilter.mode(GenesisColors.darkTextPrimary, BlendMode.srcIn),
+    );
+    await tester.tap(regenerate);
+    expect(calls, 1);
+  });
+
   testWidgets('opening capability renders Go on, Edit, and Inspiration only', (
     tester,
   ) async {
@@ -373,8 +455,7 @@ void main() {
             editEnabled: true,
             inspirationFeature: const LocationChatInspirationFeature(
               messages: _inspirationReplies,
-              loading: false,
-              enabled: true,
+              state: LocationChatReplyActionState.idle,
             ),
             onGoOn: () {},
             onEditReply: () {},
@@ -405,8 +486,7 @@ void main() {
                 return _replyActions(
                   inspirationFeature: const LocationChatInspirationFeature(
                     messages: _inspirationReplies,
-                    loading: false,
-                    enabled: true,
+                    state: LocationChatReplyActionState.idle,
                   ),
                   style: kLocationChatStyle,
                   cardIndex: page,
@@ -524,8 +604,7 @@ void main() {
                           inspirationFeature:
                               const LocationChatInspirationFeature(
                                 messages: _inspirationReplies,
-                                loading: false,
-                                enabled: true,
+                                state: LocationChatReplyActionState.idle,
                               ),
                           style: style,
                           selfMessageBubbleMaxWidthCap: 230,
@@ -627,8 +706,7 @@ void main() {
               child: _replyActions(
                 inspirationFeature: const LocationChatInspirationFeature(
                   messages: _inspirationReplies,
-                  loading: false,
-                  enabled: true,
+                  state: LocationChatReplyActionState.idle,
                 ),
                 style: kLocationChatStyle,
                 onInspirationSend: sent.add,
@@ -732,8 +810,7 @@ void main() {
           child: LocationChatAnchoredMessageList(
             inspirationFeature: const LocationChatInspirationFeature(
               messages: _inspirationReplies,
-              loading: false,
-              enabled: true,
+              state: LocationChatReplyActionState.idle,
             ),
             coordinator: coordinator,
             active: active,
@@ -805,8 +882,7 @@ void main() {
               child: LocationChatAnchoredMessageList(
                 inspirationFeature: const LocationChatInspirationFeature(
                   messages: _inspirationReplies,
-                  loading: false,
-                  enabled: true,
+                  state: LocationChatReplyActionState.idle,
                 ),
                 coordinator: coordinator,
                 messages: messages,
@@ -948,8 +1024,7 @@ void main() {
                 child: LocationChatAnchoredMessageList(
                   inspirationFeature: const LocationChatInspirationFeature(
                     messages: _inspirationReplies,
-                    loading: false,
-                    enabled: true,
+                    state: LocationChatReplyActionState.idle,
                   ),
                   coordinator: coordinator,
                   messages: messages,
@@ -1015,8 +1090,7 @@ void main() {
             child: LocationChatAnchoredMessageList(
               inspirationFeature: const LocationChatInspirationFeature(
                 messages: _inspirationReplies,
-                loading: false,
-                enabled: true,
+                state: LocationChatReplyActionState.idle,
               ),
               coordinator: coordinator,
               messages: messages,
@@ -1185,8 +1259,7 @@ void main() {
                   child: LocationChatAnchoredMessageList(
                     inspirationFeature: const LocationChatInspirationFeature(
                       messages: _inspirationReplies,
-                      loading: false,
-                      enabled: true,
+                      state: LocationChatReplyActionState.idle,
                     ),
                     coordinator: coordinator,
                     topTitle: '',
@@ -1266,8 +1339,7 @@ void main() {
               child: LocationChatAnchoredMessageList(
                 inspirationFeature: const LocationChatInspirationFeature(
                   messages: _inspirationReplies,
-                  loading: false,
-                  enabled: true,
+                  state: LocationChatReplyActionState.idle,
                 ),
                 coordinator: coordinator,
                 topTitle: '',

@@ -231,6 +231,9 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
         maxMessagesPerLocation: _maxMessagesPerLocation,
       );
     });
+    if (_historyIsCurrent(locationId, ticket)) {
+      await _replyActionsController?.persistHistorySupport(locationId);
+    }
     if (LocationChatDebugSlice.enabled) {
       LocationChatDebugSlice.recordEvent(
         source: 'service',
@@ -376,6 +379,7 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     } finally {
       _inspirationReplacementLocation = null;
     }
+    _syncEntrySnapshots();
     if (!_states.isClosed) _states.add(state);
   }
 

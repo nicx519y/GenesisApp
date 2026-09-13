@@ -46,7 +46,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     _validateOperations(target, operations, allowBlankDraft: true);
     _storeDraft(state, target, operations);
     await _persist(state);
-    _notify();
+    _notify(state.locationId);
   }
 
   void _storeDraft(
@@ -81,7 +81,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     state._drafts.remove(target.cardId ?? 0);
     state._draftBaselines.remove(target.cardId ?? 0);
     await _persist(state);
-    _notify();
+    _notify(state.locationId);
   }
 
   Future<void> save(
@@ -98,7 +98,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     _storeDraft(state, target, operations);
     state._busy = true;
     state._error = null;
-    _notify();
+    _notify(state.locationId);
     try {
       await _persist(state);
       await _saveDraft(state, target);
@@ -109,7 +109,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       rethrow;
     } finally {
       state._busy = false;
-      _notify();
+      _notify(state.locationId);
       if (state.frozen && !_disposed && state.error == null) {
         _background(state, () => finalizeBeforeSend(state.locationId));
       }
@@ -149,7 +149,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
       state._draftBaselines.remove(cardId);
       state._uncertainBatches.remove(cardId);
       state._presentationRevision++;
-      _notify();
+      _notify(state.locationId);
       unawaited(_persist(state).catchError((Object _) {}));
       return;
     }
@@ -166,7 +166,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     target._state._draftBaselines.remove(0);
     target._state._uncertainBatches.remove(0);
     target._state._presentationRevision++;
-    _notify();
+    _notify(target.locationId);
     unawaited(_persist(target._state).catchError((Object _) {}));
   }
 
@@ -230,6 +230,7 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
         state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
         state._authoritativeCards.add(target.cardId!);
         state._streamMessages.remove(target.cardId);
+        state._cardsNeedRefresh = false;
       } else {
         await _http.batchMutateLlmMessages(
           worldId: worldId,

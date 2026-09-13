@@ -1,26 +1,30 @@
 part of 'world_chatroom_service.dart';
 
 extension _WorldChatroomHistoryRepository on WorldChatroomService {
-  Future<void> _loadReplyCardsForHistory(
+  Future<bool> _loadReplyCardsForHistory(
     String locationId,
     Iterable<WorldChatroomMessage> messages,
     _HistoryTicket ticket,
   ) async {
     bool current() => _historyIsCurrent(locationId, ticket);
-    if (!current()) return;
+    if (!current()) return false;
     final rounds = messages
         .map((message) => message.conversationRoundNumber)
         .where((round) => round > 0)
         .toSet();
-    if (rounds.isEmpty) return;
+    if (rounds.isEmpty) return true;
     try {
       await replyActions?.loadHistoryCards(
         locationId,
         roundIds: rounds,
         isCurrent: current,
       );
-    } catch (error) {
-      if (!current()) return;
+      await replyActions?.persistHistorySupport(locationId);
+      return current();
+    } catch (error, stack) {
+      if (!current()) return false;
+      debugPrint('[ReplyActions] history refresh failed: $error');
+      debugPrintStack(stackTrace: stack, maxFrames: 12);
       _recordFailure(
         ChatroomFailureEvent(
           code: 'card_history_failed',
@@ -29,18 +33,38 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
           cause: error,
         ),
       );
+      return false;
     }
   }
 
   Future<void> _initializeLeafLocationQueue({
     required String locationId,
     required int latestLimit,
+  }) {
+    final key = (locationId, latestLimit, _historyTicket(locationId));
+    return _entryNetworkReads.putIfAbsent(key, () async {
+      try {
+        await _runLeafLocationQueueInitialization(
+          locationId: locationId,
+          latestLimit: latestLimit,
+        );
+      } finally {
+        _entryNetworkReads.remove(key);
+      }
+    });
+  }
+
+  Future<void> _runLeafLocationQueueInitialization({
+    required String locationId,
+    required int latestLimit,
   }) async {
     final resolvedLocationId = locationId.trim();
     if (resolvedLocationId.isEmpty || _worldId.isEmpty) return;
+    final ticket = _historyTicket(resolvedLocationId);
+    _beginEntryRead(resolvedLocationId);
+    Object? entryError;
     try {
       _requireHistoryAvailable(resolvedLocationId);
-      final ticket = _historyTicket(resolvedLocationId);
       _recordServiceQueueDebug(
         action: 'leafQueueInitLocationStart',
         locationId: resolvedLocationId,
@@ -68,11 +92,19 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
         },
       );
     } catch (error) {
+      entryError = error;
       _recordServiceQueueDebug(
         action: 'leafQueueInitLocationFailed',
         locationId: resolvedLocationId,
         details: {'error': '$error'},
       );
+    } finally {
+      _endEntryRead(resolvedLocationId, ticket, error: entryError);
+      if (_historyIsCurrent(resolvedLocationId, ticket) &&
+          _entryChannel(resolvedLocationId).value.phase ==
+              ChatroomEntryPhase.ready) {
+        _entryNetworkVerified[resolvedLocationId] = ticket;
+      }
     }
   }
 

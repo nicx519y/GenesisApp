@@ -1,6 +1,8 @@
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_client.dart';
@@ -20,6 +22,48 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test(
+    'reply observation ignores rewrapped unchanged location queues',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _MutationHttpTransport()
+        ..messagesByLocation['loc-1'] = [_mutationRow(1, 1, 10)];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.initializeLeafLocationQueues(locationIds: ['loc-1']);
+      final replies = service.replyActions!;
+      final formal = replies.stateFor('loc-1')!.formalReplyMessages;
+      var global = 0;
+      var firstLocation = 0;
+      replies.addListener(() => global++);
+      replies.changesForLocation('loc-1').addListener(() => firstLocation++);
+      service.applyWorldSnapshot(_worldSnapshot());
+      expect(replies.stateFor('loc-1')!.formalReplyMessages, same(formal));
+      expect(global, 0);
+      socket.serverV2Message(
+        type: 'character',
+        senderId: 'char-1',
+        senderName: 'Alice',
+        messageId: 2,
+        locationMessageId: 1,
+        roundId: 20,
+        content: 'Another location',
+        locationId: 'loc-2',
+      );
+      await _waitFor(() => replies.stateFor('loc-2') != null);
+      expect(replies.stateFor('loc-1')!.formalReplyMessages, same(formal));
+      expect(firstLocation, 0);
+      expect(global, 1);
+    },
+  );
+
   _replyCompletionTests();
   _messageMutationTests();
   test('WorldChatroomMessage defaults missing location message id to zero', () {
@@ -5846,6 +5890,7 @@ class _FakeChatroomSocket implements ChatroomSocket {
 
 class _MutationHttpTransport extends _WorldChatroomHttpTransport {
   final cardRequests = <TransportRequest>[];
+  final cards = <Map<String, dynamic>>[];
   Completer<void>? cardBarrier;
   Object? cardError;
   final historyRequests = <TransportRequest>[];
@@ -5901,14 +5946,14 @@ class _MutationHttpTransport extends _WorldChatroomHttpTransport {
           'conversation_round_id': int.parse(
             request.uri.queryParameters['conversation_round_id']!,
           ),
-          'original_card_id': 0,
+          'original_card_id': cards.isEmpty ? 0 : cards.first['card_id'],
           'selected_card_id': 0,
           'active_card_id': 0,
           'confirmed': false,
           'can_regenerate': true,
           'can_confirm': false,
-          'list': [],
-          'total': 0,
+          'list': cards,
+          'total': cards.length,
         },
       });
     }
@@ -6834,6 +6879,460 @@ class _BlockingMutationStorage extends MemoryChatroomMessageStorage {
 }
 
 void _replyCompletionTests() {
+  Future<void> joinV2(
+    WorldChatroomService service,
+    _FakeChatroomSocket socket,
+    String location,
+  ) async {
+    final count = socket.sentTypes.where((type) => type == 'join').length;
+    final joining = service.join(locationId: location);
+    await _waitFor(
+      () => socket.sentTypes.where((type) => type == 'join').length > count,
+    );
+    final frame = socket.sent
+        .map((raw) => jsonDecode(raw) as Map)
+        .lastWhere((frame) => frame['type'] == 'join');
+    socket.serverV2Ack(clientMsgId: frame['client_msg_id'] as String);
+    await joining;
+    for (var i = 0; i < 10; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
+  test(
+    'join waits for a map preload still queued behind another location',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _MutationHttpTransport();
+      final response = Completer<TransportResponse>();
+      http.history = (request) =>
+          request.uri.queryParameters['location_id'] == 'loc-1'
+          ? response.future
+          : Future.value(http._page([], newest: 0));
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final preload = service.initializeLeafLocationQueues(
+        locationIds: ['loc-1', 'loc-2'],
+        concurrency: 1,
+      );
+      await _waitFor(() => http.historyRequests.length == 1);
+      await joinV2(service, socket, 'loc-2');
+      expect(http.historyRequests, hasLength(1));
+      response.complete(http._page([], newest: 0));
+      await preload;
+      for (var i = 0; i < 10; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(http.historyRequests, hasLength(2));
+      expect(
+        service.entryForLocation('loc-2').value.phase,
+        ChatroomEntryPhase.ready,
+      );
+    },
+  );
+
+  for (final reason in ['failed', 'local only', 'reconnected', 'cleared']) {
+    test('join refreshes history when map preload is $reason', () async {
+      final socket = _FakeChatroomSocket();
+      final secondSocket = _FakeChatroomSocket();
+      final http = _MutationHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          {..._mutationRow(1, 1, 10), 'user_id': 'user-1'},
+        ];
+      final service = await _service(
+        socketTransport: _SequencedChatroomTransport([socket, secondSocket]),
+        httpTransport: http,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      if (reason == 'local only') {
+        await service.prepareLocalEntry('loc-1');
+      } else {
+        if (reason == 'failed') http.cardError = StateError('offline cards');
+        await service.initializeLeafLocationQueues(locationIds: ['loc-1']);
+        http.cardError = null;
+      }
+      if (reason == 'reconnected') {
+        await service.disconnect();
+        await service.connect(worldId: 'world-1', identity: _identity());
+      }
+      if (reason == 'cleared') await service.clearCachedMessages();
+      final requests = http.historyRequests.length;
+      await joinV2(
+        service,
+        reason == 'reconnected' ? secondSocket : socket,
+        'loc-1',
+      );
+      await _waitFor(() => http.historyRequests.length > requests);
+      expect(http.historyRequests, hasLength(requests + 1));
+      await _waitFor(
+        () =>
+            service.entryForLocation('loc-1').value.phase ==
+            ChatroomEntryPhase.ready,
+      );
+    });
+  }
+
+  for (final pending in [false, true]) {
+    test(
+      'join reuses ${pending ? "pending" : "completed"} map preload',
+      () async {
+        final socket = _FakeChatroomSocket();
+        final http = _MutationHttpTransport()
+          ..messagesByLocation['loc-1'] = [
+            {..._mutationRow(1, 1, 10), 'user_id': 'user-1'},
+          ];
+        if (pending) http.cardBarrier = Completer<void>();
+        final service = await _service(
+          socketTransport: _FakeChatroomTransport(socket),
+          httpTransport: http,
+          useV2Protocol: true,
+          refreshInitialSnapshotOnConnect: false,
+        );
+        addTearDown(service.dispose);
+        await service.connect(worldId: 'world-1', identity: _identity());
+        final preload = service.initializeLeafLocationQueues(
+          locationIds: ['loc-1'],
+        );
+        if (pending) {
+          await _waitFor(() => http.cardRequests.isNotEmpty);
+        } else {
+          await preload;
+        }
+        final joining = service.join(locationId: 'loc-1');
+        await _waitFor(() => socket.sentTypes.contains('join'));
+        socket.serverV2Ack(
+          clientMsgId:
+              socket.sent
+                      .map((raw) => jsonDecode(raw) as Map)
+                      .lastWhere(
+                        (frame) => frame['type'] == 'join',
+                      )['client_msg_id']
+                  as String,
+        );
+        await joining;
+        for (var i = 0; i < 10; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(
+          http.historyRequests,
+          hasLength(1),
+          reason: 'Join must not compete with map preloading',
+        );
+        if (pending) http.cardBarrier!.complete();
+        await preload;
+        for (var i = 0; i < 10; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(http.historyRequests, hasLength(1));
+        expect(http.cardRequests, hasLength(1));
+        expect(
+          service.entryForLocation('loc-1').value.phase,
+          ChatroomEntryPhase.ready,
+        );
+        await service.leave();
+        final joinCount = socket.sentTypes
+            .where((type) => type == 'join')
+            .length;
+        final reopening = service.join(locationId: 'loc-1');
+        await _waitFor(
+          () =>
+              socket.sentTypes.where((type) => type == 'join').length >
+              joinCount,
+        );
+        socket.serverV2Ack(
+          clientMsgId:
+              socket.sent
+                      .map((raw) => jsonDecode(raw) as Map)
+                      .lastWhere(
+                        (frame) => frame['type'] == 'join',
+                      )['client_msg_id']
+                  as String,
+        );
+        await reopening;
+        for (var i = 0; i < 10; i++) {
+          await Future<void>.delayed(Duration.zero);
+        }
+        expect(
+          http.historyRequests,
+          hasLength(1),
+          reason: 'Reopening within the same socket session reuses the queue',
+        );
+      },
+    );
+  }
+
+  test(
+    'opening history persists empty cards without a card refresh failure',
+    () async {
+      final http = _MutationHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          {
+            ..._mutationRow(1, 1, 10),
+            'user_id': 'user-1',
+            'conversation_type': 'opening',
+          },
+        ];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: http,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      await service.initializeLeafLocationQueues(locationIds: ['loc-1']);
+      expect(
+        http.cardRequests,
+        isEmpty,
+        reason: 'Opening rounds do not query candidate cards',
+      );
+      expect(service.state.lastFailure?.cause, isNull);
+      final entry = service.entryForLocation('loc-1').value;
+      expect(entry.phase, ChatroomEntryPhase.ready);
+      expect(entry.snapshot!.actions!.supportsGoOn, true);
+      expect(entry.snapshot!.actions!.supportsRegenerate, false);
+    },
+  );
+
+  test(
+    'all local entries restore before a slow network preload consumes the worker',
+    () async {
+      final storage = MemoryChatroomMessageStorage();
+      for (final location in ['loc-1', 'loc-2']) {
+        await storage.upsertMessage(
+          ownerUid: 'user-1',
+          worldId: 'world-1',
+          locationId: location,
+          message: {
+            'global_msg_id': 1,
+            'msg_id': 1,
+            'location_msg_id': 1,
+            'location_id': location,
+            'conversation_round_id': 1,
+            'sender_type': 'user',
+            'content': 'local message',
+          },
+        );
+      }
+      final response = Completer<TransportResponse>();
+      final http = _MutationHttpTransport()..history = (_) => response.future;
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: http,
+        messageStorage: storage,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final loading = service.initializeLeafLocationQueues(
+        locationIds: ['loc-1', 'loc-2'],
+        concurrency: 1,
+      );
+      await _waitFor(() => http.historyRequests.isNotEmpty);
+      expect(
+        service.entryForLocation('loc-2').value.phase,
+        ChatroomEntryPhase.ready,
+      );
+      expect(
+        service
+            .entryForLocation('loc-2')
+            .value
+            .snapshot!
+            .messages
+            .single
+            .content,
+        'local message',
+      );
+      response.complete(http._page([], newest: 0));
+      await loading;
+    },
+  );
+
+  test(
+    'service rebuild restores message database cards, position and capabilities without network',
+    () async {
+      sqfliteFfiInit();
+      final directory = await Directory.systemTemp.createTemp(
+        'entry-service-restart-',
+      );
+      final path = '${directory.path}/messages.db';
+      final firstStorage = SqfliteChatroomMessageStorage(
+        databasePath: path,
+        databaseFactoryOverride: databaseFactoryFfi,
+      );
+      final firstHttp = _MutationHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          {..._mutationRow(1, 1, 10), 'user_id': 'user-1'},
+        ];
+      firstHttp.cards.addAll([
+        for (var index = 1; index <= 2; index++)
+          {
+            'card_id': 200 + index,
+            'card_index': index,
+            'is_original': index == 1,
+            'generation_state': 'succeeded',
+            'created_at': '2026-09-01',
+            'can_edit': true,
+            'can_delete': true,
+            'billing': {'status': 'not_required'},
+            'messages': [
+              {
+                'type': 'character',
+                'world_id': 'world-1',
+                'location_id': 'loc-1',
+                'conversation_round_id': 10,
+                'conversation_type': 'user_message',
+                'trigger_uid': 'user-1',
+                'global_message_id': 200 + index,
+                'card_id': 200 + index,
+                'card_message_index': 1,
+                'sender_type': 'character',
+                'sender_id': 'c',
+                'payload': {'content': 'Cached card $index'},
+              },
+            ],
+          },
+      ]);
+      final first = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: firstHttp,
+        messageStorage: firstStorage,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      await first.connect(worldId: 'world-1', identity: _identity());
+      await first.initializeLeafLocationQueues(locationIds: ['loc-1']);
+      await first.replyActions!.browse('loc-1', 1);
+      await first.dispose();
+      await firstStorage.close();
+      final reopened = SqfliteChatroomMessageStorage(
+        databasePath: path,
+        databaseFactoryOverride: databaseFactoryFfi,
+      );
+      final offline = _MutationHttpTransport()
+        ..cardError = StateError('must not fetch');
+      final second = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: offline,
+        messageStorage: reopened,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      try {
+        await second.connect(worldId: 'world-1', identity: _identity());
+        await second.prepareLocalEntry('loc-1');
+        final entry = second.entryForLocation('loc-1').value;
+        expect(entry.phase, ChatroomEntryPhase.ready);
+        expect(entry.snapshot!.messages, hasLength(1));
+        expect(entry.snapshot!.reply!.cards.map((c) => c.cardId), [201, 202]);
+        expect(entry.snapshot!.reply!.viewedCardId, 202);
+        expect(
+          entry.snapshot!.reply!.displayedMessages.single.content,
+          'Cached card 2',
+        );
+        expect(entry.snapshot!.actions!.supportsEdit, true);
+        expect(entry.snapshot!.actions!.canEdit, false);
+        expect(offline.historyRequests, isEmpty);
+        expect(offline.cardRequests, isEmpty);
+      } finally {
+        await second.dispose();
+        await reopened.close();
+        await directory.delete(recursive: true);
+      }
+    },
+  );
+
+  test(
+    'cold card failure exposes fetched formal messages and remains failed',
+    () async {
+      final http = _MutationHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          {..._mutationRow(1, 1, 10), 'user_id': 'user-1'},
+        ]
+        ..cardError = StateError('offline cards');
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: http,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      await service.initializeLeafLocationQueues(locationIds: ['loc-1']);
+      final entry = service.entryForLocation('loc-1').value;
+      expect(entry.phase, ChatroomEntryPhase.failed);
+      expect(entry.snapshot!.messages, hasLength(1));
+      expect(entry.snapshot!.reply, isNull);
+    },
+  );
+
+  test(
+    'entry publishes batches, preserves complete content on failure, and clear does not revive cards',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final http = _MutationHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          {..._mutationRow(1, 1, 10), 'user_id': 'user-1'},
+        ];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        httpTransport: http,
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      service.applyWorldSnapshot(_worldSnapshot());
+      await service.initializeLeafLocationQueues(locationIds: ['loc-1']);
+      final entry = service.entryForLocation('loc-1');
+      final previous = entry.value.snapshot!;
+      http.messagesByLocation['loc-1']!.add({
+        ..._mutationRow(2, 2, 11),
+        'user_id': 'user-1',
+      });
+      http.cardBarrier = Completer<void>();
+      final first = service.initializeLeafLocationQueues(
+        locationIds: ['loc-1'],
+      );
+      final duplicate = service.initializeLeafLocationQueues(
+        locationIds: ['loc-1'],
+      );
+      await _waitFor(() => http.cardRequests.length == 2);
+      expect(entry.value.phase, ChatroomEntryPhase.preparing);
+      expect(entry.value.snapshot, same(previous));
+      expect(
+        entry.value.snapshot!.reply!.supportsEdit,
+        true,
+        reason: 'Buffered support does not follow a newer live round',
+      );
+      http.cardBarrier!.complete();
+      await Future.wait([first, duplicate]);
+      expect(http.cardRequests, hasLength(2));
+      expect(entry.value.phase, ChatroomEntryPhase.ready);
+      expect(entry.value.snapshot!.reply!.roundId, 11);
+      final complete = entry.value.snapshot;
+      await service.replyActions!.clearCardsCache('loc-1');
+      http.cardError = StateError('offline');
+      await service.initializeLeafLocationQueues(locationIds: ['loc-1']);
+      expect(entry.value.phase, ChatroomEntryPhase.failed);
+      expect(entry.value.snapshot, same(complete));
+      await service.clearCachedMessages();
+      await service.prepareLocalEntry('loc-1');
+      expect(entry.value.snapshot, isNull);
+      expect(service.replyActions!.presentationStateFor('loc-1'), isNull);
+    },
+  );
+
   test(
     'unjoined preload, latest refresh and pagination share card history loading',
     () async {
@@ -6859,8 +7358,17 @@ void _replyCompletionTests() {
           .then((_) => completed = true);
       await _waitFor(() => http.cardRequests.isNotEmpty);
       expect(completed, isFalse, reason: 'History includes the card read');
+      expect(
+        service.entryForLocation('loc-1').value.phase,
+        ChatroomEntryPhase.preparing,
+      );
+      expect(service.entryForLocation('loc-1').value.snapshot, isNull);
       http.cardBarrier!.complete();
       await loading;
+      final completeEntry = service.entryForLocation('loc-1').value;
+      expect(completeEntry.phase, ChatroomEntryPhase.ready);
+      expect(completeEntry.snapshot!.messages, hasLength(2));
+      expect(completeEntry.snapshot!.reply!.supportsEdit, true);
       expect(socket.sentTypes, isNot(contains('join')));
       expect(http.cardRequests, hasLength(1));
       expect(
@@ -6874,8 +7382,13 @@ void _replyCompletionTests() {
           .lastWhere((frame) => frame['type'] == 'join');
       socket.serverV2Ack(clientMsgId: join['client_msg_id'] as String);
       await joining;
-      await _waitFor(
-        () => service.state.historyHasMoreByLocation.containsKey('loc-1'),
+      for (var i = 0; i < 10; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(
+        http.historyRequests,
+        hasLength(1),
+        reason: 'Joining reuses the completed map history preload',
       );
       await service.replyActions!.loadHistoryCards(
         'loc-1',

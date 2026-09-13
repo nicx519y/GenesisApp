@@ -1,8 +1,9 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 
-/// Private operation metadata and expiring card snapshots, separate from formal history.
+/// Private drafts and recovery receipts. Legacy card bodies migrate to message storage.
 abstract class ChatroomReplyActionStorage {
   Future<List<Map<String, dynamic>>> load({
     required String ownerUid,
@@ -69,13 +70,19 @@ CREATE TABLE reply_actions (
       where: 'owner_uid = ? AND world_id = ? AND location_id = ?',
       whereArgs: [ownerUid, worldId, locationId],
     );
-    return rows
-        .map(
-          (row) => Map<String, dynamic>.from(
-            jsonDecode(row['value'] as String) as Map,
-          ),
-        )
-        .toList(growable: false);
+    final saved = <Map<String, dynamic>>[];
+    for (final row in rows) {
+      try {
+        final value = jsonDecode(row['value'] as String);
+        if (value is! Map) throw const FormatException('Invalid reply state');
+        saved.add(Map<String, dynamic>.from(value));
+      } catch (error) {
+        debugPrint(
+          '[ReplyActions] skipping invalid saved row: ${error.runtimeType}',
+        );
+      }
+    }
+    return saved;
   }
 
   @override

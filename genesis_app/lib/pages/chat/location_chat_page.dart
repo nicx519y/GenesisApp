@@ -31,6 +31,7 @@ import '../../features/location_chat_reply/edit/edit.dart';
 import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
+import '../../features/location_chat_reply/shared/reply_action_state.dart';
 import '../../components/world_new_badge.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/api_exception.dart';
@@ -60,6 +61,7 @@ import '../../ui/components/genesis_delete_button.dart';
 import 'location_chat_scroll_coordinator.dart';
 import 'location_chat_reply_presentation.dart';
 import 'location_chat_reply_card_switcher.dart';
+import 'location_chat_reply_render_snapshot.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
 import '../gems/memory_model_page_cache.dart';
 import '../world/world_constants.dart' show worldCharacterAvatarLogicalSize;
@@ -100,6 +102,12 @@ const double _locationChatOlderMessagesTriggerExtent = 180;
 const Duration _locationChatOlderMessagesIdleDelay = Duration(milliseconds: 80);
 const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
+
+@visibleForTesting
+int debugLocationChatReplyProjectionCount = 0;
+
+@visibleForTesting
+int debugLocationChatReplyMessageParseCount = 0;
 
 @visibleForTesting
 Future<void> runLocationChatMetadataUpdateBestEffort(
@@ -362,6 +370,7 @@ class LocationChatPanel extends StatefulWidget {
     this.initialMentionCatalog,
     this.onDraftTextChanged,
     this.messageQueueInitializationCovered = false,
+    this.usePreparedEntry = false,
     this.unauthorizedHandledByOwner = false,
     this.onCharactersMovedLocationTap,
   });
@@ -413,6 +422,7 @@ class LocationChatPanel extends StatefulWidget {
   final ChatMentionCatalog? initialMentionCatalog;
   final ValueChanged<String>? onDraftTextChanged;
   final bool messageQueueInitializationCovered;
+  final bool usePreparedEntry;
   final bool unauthorizedHandledByOwner;
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
 
@@ -421,11 +431,65 @@ class LocationChatPanel extends StatefulWidget {
 }
 
 class _LocationChatPanelState extends State<LocationChatPanel> {
+  ValueListenable<ChatroomLocationEntry>? _entryChanges;
+  bool get _usesPreparedEntry =>
+      widget.usePreparedEntry && widget.service != null;
+  ChatroomLocationEntry? get _preparedEntry => _usesPreparedEntry
+      ? _service?.entryForLocation(widget.locationId).value
+      : null;
+  ChatroomReplyRoundState? get _displayReplyState => _usesPreparedEntry
+      ? _preparedEntry?.snapshot?.reply
+      : _replyController?.presentationStateFor(widget.locationId);
+
   late final LocationChatScrollCoordinator _scrollCoordinator;
   ScrollController get _scrollController => _scrollCoordinator.controller;
   late final LocationChatMentionEditingController _textController;
   final _composerFocusNode = FocusNode();
   ChatroomReplyActionsController? _replyController;
+  Listenable? _replyLocationChanges;
+  final ValueNotifier<int> _replyControlsRevision = ValueNotifier<int>(0);
+  Object? _lastReplyBodyRevision;
+  int _replyProjectionEpoch = 0;
+  Object? _replyProjectionKey;
+  ({
+    List<ChatMessageVm> messages,
+    int? anchorIndex,
+    List<ChatMessageVm> replyMessages,
+  })?
+  _replyProjectionCache;
+  Object? _replyIdentityCacheKey;
+  _LocationChatTimelineIdentityIndex? _replyIdentityCache;
+  final Map<String, _LocationChatReplyVmCache> _replyVmCaches = {};
+  late final ChatUiStyleConfig _defaultMessageStyle = kLocationChatStyle;
+  Object? _resolvedMessageStyleKey;
+  ChatUiStyleConfig? _resolvedMessageStyle;
+  late final ChatMessageLongPressStart _messageLongPressHandler =
+      _showMessageActionMenu;
+  late final ChatMessageTap _failedMessageTapHandler = _handleFailedMessageTap;
+  late final ChatCharacterMovementTap _movementTapHandler = _handleMovementTap;
+  late final ValueChanged<bool> _replyTransitionChangedHandler =
+      _handleReplyTransitionChanged;
+
+  void _handleFailedMessageTap(ChatMessageVm message) {
+    final retryInitial = widget.onRetryInitialOutgoingMessage;
+    if (identical(message, _initialOutgoingMessage) && retryInitial != null) {
+      retryInitial();
+    } else {
+      unawaited(_retryFailedMessage(message));
+    }
+  }
+
+  void _handleMovementTap(ChatCharacterMovementVm movement) {
+    final location = movement.toLocationId.trim();
+    if (location.isNotEmpty && location != widget.locationId.trim()) {
+      widget.onCharactersMovedLocationTap?.call(movement);
+    }
+  }
+
+  void _handleReplyTransitionChanged(bool busy) {
+    if (mounted) _setReplyControlsState(() => _replyCardTransitionBusy = busy);
+  }
+
   ChatroomInspirationController? _inspirationController;
   ChatroomInspirationSource? _inspirationRequestSource;
   ChatroomInspirationSource? _inspirationDisplayedSource;
@@ -441,6 +505,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _replyCardTransitionBusy = false;
   bool _replyRequestLoading = false;
   bool _replyLoadingForRegeneration = false;
+  ({bool regenerate, bool edit, bool inspiration})? _goOnPreAckCapabilities;
   Set<int> _replyRegenerationBaselineCardIds = const <int>{};
   bool _replyRegenerationHasRenderedContent = false;
   Object? _lastReplyStatusError;
@@ -565,8 +630,20 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         _awaitingTickProgressMessage ||
         _replyGoOnPending ||
         _inspirationLoading ||
-        _preparingReplyAction;
+        _preparingReplyAction ||
+        (_usesPreparedEntry &&
+            _preparedEntry?.phase != ChatroomEntryPhase.ready);
   }
+
+  bool get _regenerateReplyOperationActive =>
+      (_replyController?.stateFor(widget.locationId)?.generating ?? false) ||
+      (_replyRequestLoading && _replyLoadingForRegeneration);
+  bool get _goOnReplyOperationActive =>
+      _replyGoOnPending ||
+      (_replyRequestLoading && !_replyLoadingForRegeneration);
+  bool get _editReplyOperationActive => _editQuotaChecking || _editQuotaLoading;
+  bool get _inspirationReplyOperationActive =>
+      _inspirationQuotaChecking || _inspirationLoading;
 
   bool _replyCardSwitchEnabledFor(ChatroomReplyRoundState? state) =>
       widget.active &&
@@ -626,7 +703,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       );
 
   void _setLocationChatState(VoidCallback callback) {
-    setState(callback);
+    setState(() {
+      callback();
+      _replyProjectionEpoch++;
+    });
+  }
+
+  void _setReplyControlsState(VoidCallback callback) {
+    callback();
+    _replyControlsRevision.value++;
   }
 
   void _handleViewportCoordinatorChanged() {
@@ -727,6 +812,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       _handleBubbleLayoutSettingsChanged,
     );
     _detachReplyActions();
+    _replyControlsRevision.dispose();
     _cancelOlderMessagesLoadSchedule();
     _selectedModelLoadGeneration++;
     _timelineVmCache.clear();
@@ -751,6 +837,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void didUpdateWidget(LocationChatPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _replyProjectionEpoch++;
     final modelWorldIdChanged =
         (oldWidget.modelWorldId?.trim() ?? '') != _modelWorldId;
     if (modelWorldIdChanged) {
@@ -901,10 +988,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         _chatroomState.joining ||
         (_chatroomState.connected && !joined);
     final inputBlocked = _chatroomState.inputBlocked;
-    final style = resolveLocationChatHeaderEffectStyle(
-      baseStyle: widget.style ?? kLocationChatStyle,
-      settings: locationChatHeaderEffectSettings.value,
-    );
+    final styleKey = (widget.style, locationChatHeaderEffectSettings.value);
+    if (_resolvedMessageStyleKey != styleKey || _resolvedMessageStyle == null) {
+      _resolvedMessageStyleKey = styleKey;
+      _resolvedMessageStyle = resolveLocationChatHeaderEffectStyle(
+        baseStyle: widget.style ?? _defaultMessageStyle,
+        settings: locationChatHeaderEffectSettings.value,
+      );
+    }
+    final style = _resolvedMessageStyle!;
     final logicalWidth = MediaQuery.sizeOf(context).width;
     final ordinaryMessageBubbleMaxWidthCaps =
         locationChatOrdinaryMessageBubbleMaxWidthCapsForMetrics(
@@ -925,30 +1017,33 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     } else {
       composer =
           widget.composerReplacement ??
-          LocationChatComposerInput(
-            controller: _textController,
-            focusNode: _composerFocusNode,
-            hintText: 'Text...',
-            inputEnabled:
-                widget.active &&
-                !(_initialMessageSendPending &&
-                    _initialOutgoingMessage != null),
-            sendEnabled:
-                widget.active &&
-                joined &&
-                _hasDraftText &&
-                !_sending &&
-                !_replyCardTransitionBusy &&
-                !_replyGenerationInProgress &&
-                !_initialMessageSendPending &&
-                !_sendAwaitingResponse &&
-                !inputBlocked,
-            sending: false,
-            onSend: _send,
-            style: style,
-            keepShortcutsVisible:
-                widget.active && _mentionComposerPositionFrozen,
-            backdropGroupKey: _surfaceBackdropKey,
+          ValueListenableBuilder<int>(
+            valueListenable: _replyControlsRevision,
+            builder: (context, _, child) => LocationChatComposerInput(
+              controller: _textController,
+              focusNode: _composerFocusNode,
+              hintText: 'Text...',
+              inputEnabled:
+                  widget.active &&
+                  !(_initialMessageSendPending &&
+                      _initialOutgoingMessage != null),
+              sendEnabled:
+                  widget.active &&
+                  joined &&
+                  _hasDraftText &&
+                  !_sending &&
+                  !_replyCardTransitionBusy &&
+                  !_replyGenerationInProgress &&
+                  !_initialMessageSendPending &&
+                  !_sendAwaitingResponse &&
+                  !inputBlocked,
+              sending: false,
+              onSend: _send,
+              style: style,
+              keepShortcutsVisible:
+                  widget.active && _mentionComposerPositionFrozen,
+              backdropGroupKey: _surfaceBackdropKey,
+            ),
           );
     }
     final headerForeground =
@@ -1031,13 +1126,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     // Keep its controls from appearing below that message before its echo.
     final awaitingOpeningEcho =
         _initialOutgoingMessage != null && !_initialOutgoingMessageReconciled;
-    final replyState = awaitingOpeningEcho
-        ? null
-        : _replyController?.stateFor(widget.locationId);
     final replyPresentationState = awaitingOpeningEcho
         ? null
-        : _replyController?.presentationStateFor(widget.locationId);
-    final replyGoOnPending = _replyGoOnPending;
+        : _displayReplyState;
     final replyPresentation = _replyPresentation(replyPresentationState);
     final replyActionsIdentity = replyPresentationState == null
         ? null
@@ -1049,39 +1140,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             !_hasVisibleAiReplyForRound(displayMessages, loadingRoundId)
         ? _ackLoadingMessageLocalId
         : null;
-    final regenerationInProgress =
-        (replyState?.generating ?? false) ||
-        (_replyRequestLoading && _replyLoadingForRegeneration);
-    if (regenerationInProgress &&
-        _replyRegenerationContentIsRendering(replyState, displayMessages)) {
-      _replyRegenerationHasRenderedContent = true;
-    }
-    final goOnContentIsRendering = _replyGoOnContentIsRendering(
-      displayMessages,
-    );
-    final replyBlocked = _replyActionsBlocked;
-    final replyCardSwitchEnabled = _replyCardSwitchEnabledFor(
-      replyPresentationState,
-    );
-    final regenerateFeature = _regenerateFeature(
-      replyBlocked,
-      replyState,
-      _replyRegenerationHasRenderedContent,
-    );
-    final goOnFeature = _goOnFeature(
-      replyBlocked,
-      replyState,
-      replyGoOnPending,
-      goOnContentIsRendering,
-    );
-    final editFeature = _editFeature(
-      replyBlocked,
-      replyState,
-      style,
-      ordinaryMessageBubbleMaxWidthCaps.selfMessage,
-      ordinaryMessageBubbleMaxWidthCaps.otherMessage,
-    );
-    final inspirationFeature = _inspirationFeature(replyBlocked);
     final managesKeyboardInset = locationChatManagesKeyboardInsetForTesting(
       platform: Theme.of(context).platform,
       androidSdkInt: _androidSdkInt,
@@ -1089,88 +1147,144 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     final bottomSafeAreaInset = GenesisSafeAreaInsets.bottom(context);
     final messageList = ChatMentionScope(
       catalog: _textController.catalog,
-      child: LocationChatAnchoredMessageList(
-        key: const ValueKey<String>('location-chat-message-list'),
-        coordinator: _scrollCoordinator,
-        active: widget.active,
-        messages: displayMessages,
-        loadingAfterMessageLocalId: loadingAfterMessageLocalId,
-        loadingIdentity: _ackLoadingClientMsgId,
-        messageLayoutId: _locationChatMessageLayoutId,
-        replyActionsIdentity: replyActionsIdentity,
-        replyActionsMessageId:
-            replyPresentation.replyMessages.lastOrNull?.localId,
-        replyActionsAnchorIndex: replyPresentation.anchorIndex,
-        replyActionsVisible:
-            !goOnContentIsRendering &&
-            _suppressedReplyActionsIdentity != replyActionsIdentity,
-        replyPresentationRevision:
-            replyPresentationState?.presentationRevision ?? 0,
-        replyCards: _replyCardPages(
-          replyPresentationState,
-          replyPresentation.replyMessages,
-        ),
-        replyCurrentCardId: replyPresentationState?.viewedCardId ?? 0,
-        replyCardBindingIdentity:
-            '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyPresentationState?.roundId}',
-        replyCardSwitchEnabled: replyCardSwitchEnabled,
-        replyRegenerationInProgress: regenerationInProgress,
-        onReplyCardSelected: _commitReplyCard,
-        onReplyCardTransitionChanged: (busy) {
-          if (mounted) {
-            _setLocationChatState(() => _replyCardTransitionBusy = busy);
+      child: ValueListenableBuilder<int>(
+        valueListenable: _replyControlsRevision,
+        builder: (context, _, child) {
+          final replyState = awaitingOpeningEcho
+              ? null
+              : (_usesPreparedEntry
+                    ? _preparedEntry?.snapshot?.actions
+                    : _replyController?.stateFor(widget.locationId));
+          final replyGoOnPending = _replyGoOnPending;
+          final regenerationInProgress =
+              (replyState?.generating ?? false) ||
+              (_replyRequestLoading && _replyLoadingForRegeneration);
+          if (regenerationInProgress &&
+              _replyRegenerationContentIsRendering(
+                replyState,
+                displayMessages,
+              )) {
+            _replyRegenerationHasRenderedContent = true;
           }
+          final regenerationContentRendering =
+              regenerationInProgress && _replyRegenerationHasRenderedContent;
+          final goOnContentIsRendering = _replyGoOnContentIsRendering(
+            displayMessages,
+          );
+          final acceptedGoOnSource = _replyController
+              ?.statesFor(widget.locationId)
+              .where((state) => state.goOnPending && state.goOnRoundId != null)
+              .firstOrNull;
+          final goOnAwaitingRenderedContent =
+              acceptedGoOnSource != null && !goOnContentIsRendering;
+          final goOnPreAckCapabilities =
+              _goOnReplyOperationActive && !goOnAwaitingRenderedContent
+              ? _goOnPreAckCapabilities
+              : null;
+          final replyBlocked = _replyActionsBlocked;
+          final replyCardSwitchEnabled = _replyCardSwitchEnabledFor(
+            replyPresentationState,
+          );
+          final regenerateFeature = goOnAwaitingRenderedContent
+              ? const LocationChatRegenerateFeature.disabled()
+              : _regenerateFeature(
+                  replyBlocked,
+                  replyState,
+                  regenerationContentRendering,
+                  supportedOverride: goOnPreAckCapabilities?.regenerate,
+                );
+          final goOnFeature = goOnAwaitingRenderedContent
+              ? const LocationChatGoOnFeature.disabled()
+              : _goOnFeature(
+                  replyBlocked,
+                  replyState,
+                  replyGoOnPending,
+                  goOnContentIsRendering,
+                );
+          final editFeature = goOnAwaitingRenderedContent
+              ? const LocationChatEditFeature.disabled()
+              : _editFeature(
+                  replyBlocked,
+                  replyState,
+                  style,
+                  ordinaryMessageBubbleMaxWidthCaps.selfMessage,
+                  ordinaryMessageBubbleMaxWidthCaps.otherMessage,
+                  supportedOverride: goOnPreAckCapabilities?.edit,
+                );
+          final inspirationFeature = goOnAwaitingRenderedContent
+              ? const LocationChatInspirationFeature.disabled()
+              : _inspirationFeature(
+                  replyBlocked,
+                  supportedOverride: goOnPreAckCapabilities?.inspiration,
+                );
+          return LocationChatAnchoredMessageList(
+            key: const ValueKey<String>('location-chat-message-list'),
+            coordinator: _scrollCoordinator,
+            active: widget.active,
+            messages: displayMessages,
+            loadingAfterMessageLocalId: loadingAfterMessageLocalId,
+            loadingIdentity: _ackLoadingClientMsgId,
+            goOnAwaitingContentIdentity: goOnAwaitingRenderedContent
+                ? 'go-on:${acceptedGoOnSource.roundId}:${acceptedGoOnSource.goOnRoundId}'
+                : null,
+            messageLayoutId: _locationChatMessageLayoutId,
+            replyActionsIdentity: replyActionsIdentity,
+            replyActionsMessageId:
+                replyPresentation.replyMessages.lastOrNull?.localId,
+            replyActionsAnchorIndex: replyPresentation.anchorIndex,
+            replyActionsVisible:
+                !goOnContentIsRendering &&
+                _suppressedReplyActionsIdentity != replyActionsIdentity,
+            replyPresentationRevision:
+                replyPresentationState?.presentationRevision ?? 0,
+            replyCards: _replyCardPages(
+              replyPresentationState,
+              replyPresentation.replyMessages,
+            ),
+            replyCurrentCardId: replyPresentationState?.viewedCardId ?? 0,
+            replyCardBindingIdentity:
+                '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyPresentationState?.roundId}',
+            replyCardSwitchEnabled: replyCardSwitchEnabled,
+            replyRegenerationInProgress: regenerationInProgress,
+            onReplyCardSelected: _commitReplyCard,
+            onReplyCardTransitionChanged: _replyTransitionChangedHandler,
+            isMember: widget.isMember,
+            regenerateFeature: regenerateFeature,
+            goOnFeature: goOnFeature,
+            editFeature: editFeature,
+            replyCardIndex: math.max(
+              0,
+              (replyPresentationState?.cardPosition ?? 1) - 1,
+            ),
+            replyCardCount: replyPresentationState?.cardCount ?? 0,
+            replyCardsConfirmed: replyPresentationState?.confirmed ?? false,
+            showConfirmedCardPagination:
+                (replyPresentationState?.confirmed ?? false) &&
+                (replyPresentationState?.goOnPending ?? false) &&
+                !goOnContentIsRendering,
+            onPreviousReplyCard: () => _browseReplyCard(-1),
+            onNextReplyCard: () => _browseReplyCard(1),
+            inspirationFeature: inspirationFeature,
+            inspirationIdentity:
+                '${_currentInspirationSource?.key}:$_inspirationResetRevision',
+            topTitle: '',
+            oldestEdgeLoading: _showOlderMessagesLoading,
+            onOldestEdgeLoadingCollapsed: _handleOlderMessagesLoadingCollapsed,
+            onMessageLongPressStart: _messageLongPressHandler,
+            onFailedMessageTap: _failedMessageTapHandler,
+            onCharactersMovedLocationTap:
+                widget.onCharactersMovedLocationTap == null
+                ? null
+                : _movementTapHandler,
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            showDateDividers: false,
+            selfMessageBubbleMaxWidthCap:
+                ordinaryMessageBubbleMaxWidthCaps.selfMessage,
+            otherMessageBubbleMaxWidthCap:
+                ordinaryMessageBubbleMaxWidthCaps.otherMessage,
+            style: style,
+          );
         },
-        isMember: widget.isMember,
-        regenerateFeature: regenerateFeature,
-        goOnFeature: goOnFeature,
-        editFeature: editFeature,
-        replyCardIndex: math.max(
-          0,
-          (replyPresentationState?.cardPosition ?? 1) - 1,
-        ),
-        replyCardCount: replyPresentationState?.cardCount ?? 0,
-        replyCardsConfirmed: replyPresentationState?.confirmed ?? false,
-        showConfirmedCardPagination:
-            (replyPresentationState?.confirmed ?? false) &&
-            (replyPresentationState?.goOnPending ?? false) &&
-            !goOnContentIsRendering,
-        onPreviousReplyCard: () => _browseReplyCard(-1),
-        onNextReplyCard: () => _browseReplyCard(1),
-        inspirationFeature: inspirationFeature,
-        inspirationIdentity:
-            '${_currentInspirationSource?.key}:$_inspirationResetRevision',
-        topTitle: '',
-        oldestEdgeLoading: _showOlderMessagesLoading,
-        onOldestEdgeLoadingCollapsed: _handleOlderMessagesLoadingCollapsed,
-        onMessageLongPressStart: _showMessageActionMenu,
-        onFailedMessageTap: (message) {
-          final retryInitial = widget.onRetryInitialOutgoingMessage;
-          if (identical(message, _initialOutgoingMessage) &&
-              retryInitial != null) {
-            retryInitial();
-          } else {
-            unawaited(_retryFailedMessage(message));
-          }
-        },
-        onCharactersMovedLocationTap:
-            widget.onCharactersMovedLocationTap == null
-            ? null
-            : (movement) {
-                final targetLocationId = movement.toLocationId.trim();
-                if (targetLocationId.isEmpty ||
-                    targetLocationId == widget.locationId.trim()) {
-                  return;
-                }
-                widget.onCharactersMovedLocationTap!(movement);
-              },
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        showDateDividers: false,
-        selfMessageBubbleMaxWidthCap:
-            ordinaryMessageBubbleMaxWidthCaps.selfMessage,
-        otherMessageBubbleMaxWidthCap:
-            ordinaryMessageBubbleMaxWidthCaps.otherMessage,
-        style: style,
       ),
     );
 

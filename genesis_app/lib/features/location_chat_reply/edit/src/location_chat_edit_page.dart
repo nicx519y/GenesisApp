@@ -396,10 +396,19 @@ extension _LocationChatEditActions on _LocationChatPanelState {
     ChatroomReplyRoundState? replyState,
     ChatUiStyleConfig style,
     double? selfCap,
-    double? otherCap,
-  ) => LocationChatEditFeature(
-    enabled: !replyBlocked && (replyState?.canEdit ?? false),
-    busy: _editQuotaLoading,
+    double? otherCap, {
+    bool? supportedOverride,
+  }) => LocationChatEditFeature(
+    state: resolveLocationChatReplyActionState(
+      showWhenUnavailable: _usesPreparedEntry,
+      busy: _editQuotaLoading,
+      supported: supportedOverride ?? replyState?.supportsEdit ?? false,
+      otherReplyOperationActive:
+          _regenerateReplyOperationActive ||
+          _goOnReplyOperationActive ||
+          _inspirationReplyOperationActive,
+      canInvoke: !replyBlocked && (replyState?.canEdit ?? false),
+    ),
     freeUsesRemaining: _freeUsesRemaining(
       'conversation_edit',
       queried: _editQuotaQueried,

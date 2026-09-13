@@ -154,18 +154,7 @@ extension _WorldChatroomConnection on WorldChatroomService {
           ),
         );
         _backgroundHistoryRefresh(
-          refreshLocationHistory(locationId: joinedLocationId).then((_) async {
-            if (_disposed ||
-                _session != session ||
-                _desiredLocationId != joinedLocationId ||
-                _state.joinedLocationId != joinedLocationId) {
-              return;
-            }
-            await replyActions?.restoreLocationCards(
-              joinedLocationId,
-              reloadCards: false,
-            );
-          }),
+          _restoreJoinedLocation(session, joinedLocationId),
         );
       }
       return joined;
@@ -173,6 +162,27 @@ extension _WorldChatroomConnection on WorldChatroomService {
       _setState(_state.copyWith(joining: false, joinedLocationId: ''));
       rethrow;
     }
+  }
+
+  Future<void> _restoreJoinedLocation(
+    ChatroomSession session,
+    String location,
+  ) async {
+    bool stillJoined() =>
+        !_disposed &&
+        _session == session &&
+        _desiredLocationId == location &&
+        _state.joinedLocationId == location;
+    final ticket = _historyTicket(location);
+    final preload = _entryPreloads[(location, ticket)];
+    if (preload != null) await preload;
+    if (!stillJoined() || !_historyIsCurrent(location, ticket)) return;
+    // Disk readiness alone is not proof of a successful network preload.
+    if (_entryNetworkVerified[location] != ticket) {
+      await refreshLocationHistory(locationId: location);
+    }
+    if (!stillJoined()) return;
+    await replyActions?.restoreLocationCards(location, reloadCards: false);
   }
 
   void _attachSession(ChatroomSession session) {

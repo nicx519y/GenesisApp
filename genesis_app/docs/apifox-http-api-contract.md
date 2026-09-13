@@ -1745,14 +1745,18 @@ Query：
 
 `GET /aitown-chat/api/messages` 和 `GET /aitown-chat/api/v2/messages` 的消息在顶层返回 `conversation_type` 与 `trigger_uid`；候选卡查询的 `data.list[].messages[]` 使用相同解析规则。客户端请求体、query、鉴权和订阅不新增 `trigger_uid`。
 
-UID 原字符串保存并精确比较；空字符串永远不匹配当前用户。Location Chat 只按最新 conversation 的服务端元数据决定业务资格，并继续叠加最新轮次、轮次完成、连接就绪、Tick 锁定、busy/frozen、候选卡完整性和生成数量等既有安全条件：
+UID 原字符串保存并精确比较；空字符串永远不匹配当前用户。Location Chat 只按最新 conversation 的服务端元数据决定业务资格，并继续叠加最新轮次、已完成且有正式 AI 回复、连接就绪、Tick 锁定、busy/frozen、候选卡完整性和生成数量等既有安全条件：
 
 | 最新 conversation | Regenerate | Go On | Edit | 灵感回复 |
 | --- | ---: | ---: | ---: | ---: |
 | `trigger_uid == 当前 UID` 且 `conversation_type=user_message` | ✓ | ✓ | ✓ | ✓ |
 | `trigger_uid == 当前 UID` 且 `conversation_type=go_on` | ✓ | ✓ | ✓ | ✓ |
-| `conversation_type=opening` | — | ✓ | ✓ | ✓ |
-| 其他用户、`user_enter_location`、`tick`、缺失/未知/冲突字段 | — | — | — | — |
+| `conversation_type=opening`，不限触发者 | — | ✓ | ✓ | ✓ |
+| `conversation_type=user_enter_location`，不限触发者 | — | ✓ | ✓ | ✓ |
+| `conversation_type=tick`，不限触发者 | — | ✓ | — | ✓ |
+| 其他用户触发的正常对话、缺失/未知/冲突字段 | — | — | — | — |
+
+候选卡读取与切换、Regenerate 仍仅用于本人触发的正常对话；Enter、Tick、Opening 的灵感请求使用正式轮次，不传候选 `card_id`。Regenerate 保留每轮最多 10 张回复卡（含原卡）的限制；Edit 和 Inspiration 的会员／额度检查仅在用户点击相应入口时发生，Regenerate、Go On 的 Gems 余额由服务端在请求时判断。
 
 实时 WS 当前只为 opening 下发 `conversation_type`。只有非空 `trigger_uid`、尚无 `conversation_type` 的实时轮次严格保持四个按钮不可用，直到正常历史刷新提供类型；客户端不主动为此查询历史，也不从 WS `type` 或本地动作推断。
 

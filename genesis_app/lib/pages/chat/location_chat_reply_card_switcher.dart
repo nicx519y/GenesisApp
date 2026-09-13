@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../components/chat/shared/chat_ui.dart';
+import 'location_chat_reply_layout_bridge.dart';
+import 'location_chat_reply_render_snapshot.dart';
 
 const replyCardSwitchDuration = Duration(milliseconds: 500);
 const _replyCardRegenerateCollapseDuration = Duration(milliseconds: 800);
@@ -14,11 +16,25 @@ const _replyCardRegenerateFadeExtent = 48.0;
 class LocationChatReplyCard {
   const LocationChatReplyCard({
     required this.id,
-    required this.messages,
+    required List<ChatMessageVm> messages,
     this.status,
-  });
+    this.contentIdentity,
+  }) : _messages = messages,
+       _resolveMessages = null;
+
+  const LocationChatReplyCard.lazy({
+    required this.id,
+    required List<ChatMessageVm> Function() resolveMessages,
+    this.status,
+    this.contentIdentity,
+  }) : _messages = null,
+       _resolveMessages = resolveMessages;
+
   final int id;
-  final List<ChatMessageVm> messages;
+  final List<ChatMessageVm>? _messages;
+  final List<ChatMessageVm> Function()? _resolveMessages;
+  List<ChatMessageVm> get messages => _messages ?? _resolveMessages!();
+  final Object? contentIdentity;
   final Widget? status;
 }
 
@@ -36,6 +52,8 @@ class LocationChatReplyCardSwitcher extends StatefulWidget {
     required this.onWillChangeLayout,
     this.enabled = true,
     this.regenerationInProgress = false,
+    this.layoutBridge,
+    this.cardBuilderIdentity,
   });
   final String identity;
   final List<LocationChatReplyCard> cards;
@@ -43,9 +61,14 @@ class LocationChatReplyCardSwitcher extends StatefulWidget {
   final Widget Function(LocationChatReplyCard card) cardBuilder;
   final bool Function(int cardId) onCommit;
   final ValueChanged<bool> onBusyChanged;
+
+  /// Captures the viewport once per switch/drag. Animation ticks are handled
+  /// by the render layout bridge and never invoke this callback.
   final VoidCallback onWillChangeLayout;
   final bool enabled;
   final bool regenerationInProgress;
+  final LocationChatReplyLayoutBridge? layoutBridge;
+  final Object? cardBuilderIdentity;
 
   @override
   State<LocationChatReplyCardSwitcher> createState() =>
@@ -58,6 +81,12 @@ class LocationChatReplyCardSwitcherState
   late final AnimationController _animation;
   late final AnimationController _regenerateCollapseAnimation;
   late int _displayedId;
+  final _CardMotion _motion = _CardMotion();
+  final Map<
+    int,
+    ({Object identity, List<ChatMessageVm> snapshot, Widget child})
+  >
+  _cardChildren = {};
   int? _targetId;
   LocationChatReplyCard? _regenerateOriginalCard;
   int? _regenerateSourceId;
@@ -84,30 +113,29 @@ class LocationChatReplyCardSwitcherState
     super.initState();
     _displayedId = widget.currentCardId;
     _animation =
-        AnimationController(
-          vsync: this,
-          duration: replyCardSwitchDuration,
-        )..addListener(() {
-          widget.onWillChangeLayout();
-          setState(
-            () => _progress =
+        AnimationController(vsync: this, duration: replyCardSwitchDuration)
+          ..addListener(() {
+            _progress =
                 _from +
-                (_to - _from) * Curves.easeOutCubic.transform(_animation.value),
-          );
-        });
-    _regenerateCollapseAnimation =
-        AnimationController(
-            vsync: this,
-            duration: _replyCardRegenerateCollapseDuration,
-          )
-          ..addListener(() => setState(() {}))
-          ..addStatusListener(_handleRegenerateCollapseStatus);
+                (_to - _from) * Curves.easeOutCubic.transform(_animation.value);
+            _motion.update(_progress, _delta);
+          });
+    _regenerateCollapseAnimation = AnimationController(
+      vsync: this,
+      duration: _replyCardRegenerateCollapseDuration,
+    )..addStatusListener(_handleRegenerateCollapseStatus);
   }
 
   @override
   void didUpdateWidget(LocationChatReplyCardSwitcher oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.cardBuilderIdentity != oldWidget.cardBuilderIdentity ||
+        (widget.cardBuilderIdentity == null &&
+            widget.cardBuilder != oldWidget.cardBuilder)) {
+      _cardChildren.clear();
+    }
     if (widget.identity != oldWidget.identity) {
+      _cardChildren.clear();
       _cancelRegenerateCollapse(deferred: true);
       _reset(deferred: true);
       _displayedId = widget.currentCardId;
@@ -137,13 +165,14 @@ class LocationChatReplyCardSwitcherState
     }
     _regenerateOriginalCard = LocationChatReplyCard(
       id: current.id,
-      messages: List<ChatMessageVm>.unmodifiable(current.messages),
+      messages: freezeLocationChatReplyMessages(current.messages),
       status: current.status,
     );
     _regenerateSourceId = current.id;
     _showRegenerateSnapshot = true;
     _regenerateReplacementObserved = false;
     _setBusy(true);
+    setState(() {});
     _regenerateCollapseAnimation.forward(from: 0);
   }
 
@@ -263,13 +292,17 @@ class LocationChatReplyCardSwitcherState
     _progress = 0;
     _targetId = null;
     _delta = 0;
+    _motion.update(0, 0);
     _setBusy(false, deferred: deferred);
   }
 
   void switchBy(int delta) {
     if (!widget.enabled || _busy || _neighbor(delta) == null) return;
-    _delta = delta;
-    _targetId = _neighbor(delta)!.id;
+    widget.onWillChangeLayout();
+    setState(() {
+      _delta = delta;
+      _targetId = _neighbor(delta)!.id;
+    });
     _setBusy(true);
     unawaited(_settle(commit: true));
   }
@@ -288,7 +321,6 @@ class LocationChatReplyCardSwitcherState
       }
     }
     if (!mounted || generation != _generation || !widget.enabled) return;
-    widget.onWillChangeLayout();
     if (commit &&
         target != null &&
         _card(target) != null &&
@@ -302,6 +334,7 @@ class LocationChatReplyCardSwitcherState
     if (_busy || !widget.enabled) return;
     _dragging = true;
     _dragDistance = 0;
+    widget.onWillChangeLayout();
     _setBusy(true);
   }
 
@@ -310,13 +343,13 @@ class LocationChatReplyCardSwitcherState
     _dragDistance = (_dragDistance + details.delta.dx).clamp(-_width, _width);
     final delta = _dragDistance < 0 ? 1 : -1;
     final neighbor = _neighbor(delta);
-    widget.onWillChangeLayout();
-    setState(() {
-      _delta = delta;
-      _targetId = neighbor?.id;
-      final distance = _dragDistance.abs() / _width;
-      _progress = neighbor == null ? math.min(0.12, distance * 0.25) : distance;
-    });
+    final targetChanged = _targetId != neighbor?.id;
+    _delta = delta;
+    _targetId = neighbor?.id;
+    final distance = _dragDistance.abs() / _width;
+    _progress = neighbor == null ? math.min(0.12, distance * 0.25) : distance;
+    _motion.update(_progress, _delta);
+    if (targetChanged) setState(() {});
   }
 
   void _endDrag(DragEndDetails details) {
@@ -332,11 +365,47 @@ class LocationChatReplyCardSwitcherState
   void dispose() {
     _generation++;
     _animation.dispose();
+    _motion.dispose();
+    _cardChildren.clear();
     _regenerateCollapseAnimation
       ..removeStatusListener(_handleRegenerateCollapseStatus)
       ..dispose();
     _setBusy(false, deferred: true);
     super.dispose();
+  }
+
+  bool _sameMessages(List<ChatMessageVm> first, List<ChatMessageVm> second) {
+    if (first.length != second.length) return false;
+    for (var i = 0; i < first.length; i++) {
+      if (!locationChatReplyMessagesEqual(first[i], second[i])) return false;
+    }
+    return true;
+  }
+
+  Widget _childFor(LocationChatReplyCard card) {
+    final identity = (
+      card.contentIdentity ?? card.messages,
+      card.status,
+      card.id == widget.currentCardId,
+      widget.cardBuilderIdentity,
+    );
+    final cached = _cardChildren[card.id];
+    final messages = card.messages;
+    if (cached != null &&
+        cached.identity == identity &&
+        (card.contentIdentity != null ||
+            _sameMessages(cached.snapshot, messages))) {
+      return cached.child;
+    }
+    final child = RepaintBoundary(child: widget.cardBuilder(card));
+    _cardChildren[card.id] = (
+      identity: identity,
+      snapshot: card.contentIdentity == null
+          ? freezeLocationChatReplyMessages(messages)
+          : const [],
+      child: child,
+    );
+    return child;
   }
 
   @override
@@ -346,41 +415,43 @@ class LocationChatReplyCardSwitcherState
         : _regenerateOriginalCard != null && !_regenerateReplacementObserved
         ? null
         : _card(_displayedId);
-    if (current == null) return const SizedBox.shrink();
+    if (current == null) {
+      _cardChildren.clear();
+      return const SizedBox.shrink();
+    }
     final target = _card(_targetId);
+    _cardChildren.removeWhere((id, _) => id != current.id && id != target?.id);
+    final currentChild = _childFor(current);
+    final targetChild = target == null ? null : _childFor(target);
     return LayoutBuilder(
       builder: (context, constraints) {
         _width = math.max(1, constraints.maxWidth);
         Widget deck = ClipRect(
           child: _SlidingCardLayout(
-            progress: _progress,
-            delta: _delta,
+            motion: _motion,
+            bridge: _showRegenerateSnapshot ? null : widget.layoutBridge,
             children: [
               IgnorePointer(
                 key: ValueKey('reply-card-page-${current.id}'),
                 ignoring: _busy,
-                child: widget.cardBuilder(current),
+                child: currentChild,
               ),
               if (target != null)
                 ExcludeSemantics(
                   key: ValueKey('reply-card-page-${target.id}'),
-                  child: IgnorePointer(child: widget.cardBuilder(target)),
+                  child: IgnorePointer(child: targetChild),
                 ),
             ],
           ),
         );
         if (_showRegenerateSnapshot) {
-          final collapseProgress = Curves.easeInOutCubic.transform(
-            _regenerateCollapseAnimation.value,
-          );
-          deck = _RegenerateCollapseViewport(
-            progress: collapseProgress,
-            fadeStrength: math.min(
-              1,
-              _regenerateCollapseAnimation.value /
-                  _replyCardRegenerateFadeRampFraction,
+          deck = KeyedSubtree(
+            key: const ValueKey('reply-card-regenerate-gradient'),
+            child: _RegenerateCollapseViewport(
+              key: const ValueKey('reply-card-regenerate-collapse-viewport'),
+              animation: _regenerateCollapseAnimation,
+              child: deck,
             ),
-            child: RepaintBoundary(child: deck),
           );
         }
         return Listener(
@@ -406,79 +477,118 @@ class LocationChatReplyCardSwitcherState
   }
 }
 
-class _RegenerateCollapseViewport extends StatelessWidget {
+class _RegenerateCollapseViewport extends SingleChildRenderObjectWidget {
   const _RegenerateCollapseViewport({
-    required this.progress,
-    required this.fadeStrength,
-    required this.child,
+    super.key,
+    required this.animation,
+    required super.child,
   });
-
-  final double progress;
-  final double fadeStrength;
-  final Widget child;
+  final Animation<double> animation;
 
   @override
-  Widget build(BuildContext context) {
-    final visibleFactor = 1 - progress;
-    if (visibleFactor <= 0) return const SizedBox.shrink();
-    final clipped = Align(
-      alignment: Alignment.topCenter,
-      heightFactor: visibleFactor,
-      child: child,
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderRegenerateCollapseViewport(animation);
+}
+
+class _RenderRegenerateCollapseViewport extends RenderProxyBox {
+  _RenderRegenerateCollapseViewport(this.animation);
+  final Animation<double> animation;
+  final LayerHandle<ShaderMaskLayer> _shaderLayer =
+      LayerHandle<ShaderMaskLayer>();
+
+  @override
+  bool get alwaysNeedsCompositing => true;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    animation.addListener(markNeedsLayout);
+  }
+
+  @override
+  void detach() {
+    animation.removeListener(markNeedsLayout);
+    super.detach();
+  }
+
+  @override
+  void dispose() {
+    _shaderLayer.layer = null;
+    super.dispose();
+  }
+
+  @override
+  void performLayout() {
+    child!.layout(constraints, parentUsesSize: true);
+    final factor = 1 - Curves.easeInOutCubic.transform(animation.value);
+    size = constraints.constrain(
+      Size(child!.size.width, child!.size.height * factor),
     );
-    if (fadeStrength <= 0) {
-      return ClipRect(
-        key: const ValueKey('reply-card-regenerate-collapse-viewport'),
-        child: clipped,
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (size.height <= 0) return;
+    context.pushClipRect(needsCompositing, offset, Offset.zero & size, (
+      context,
+      offset,
+    ) {
+      final strength = math.min(
+        1.0,
+        animation.value / _replyCardRegenerateFadeRampFraction,
       );
-    }
-    return ClipRect(
-      key: const ValueKey('reply-card-regenerate-collapse-viewport'),
-      child: ShaderMask(
-        key: const ValueKey('reply-card-regenerate-gradient'),
-        blendMode: BlendMode.dstIn,
-        shaderCallback: (bounds) {
-          if (bounds.height <= 0) {
-            return const LinearGradient(
-              colors: [Colors.transparent, Colors.transparent],
-            ).createShader(bounds);
-          }
-          final fadeExtent = math.min(
-            bounds.height,
-            _replyCardRegenerateFadeExtent * fadeStrength,
-          );
-          final opaqueStop = ((bounds.height - fadeExtent) / bounds.height)
-              .clamp(0.0, 1.0);
-          return LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: const [Colors.white, Colors.white, Colors.transparent],
-            stops: [0, opaqueStop, 1],
-          ).createShader(bounds);
-        },
-        child: clipped,
-      ),
-    );
+      if (strength <= 0) {
+        super.paint(context, offset);
+        return;
+      }
+      final extent = math.min(
+        size.height,
+        _replyCardRegenerateFadeExtent * strength,
+      );
+      final shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: const [Colors.white, Colors.white, Colors.transparent],
+        stops: [0, ((size.height - extent) / size.height).clamp(0.0, 1.0), 1],
+      ).createShader(Offset.zero & size);
+      final layer = _shaderLayer.layer ??= ShaderMaskLayer();
+      layer
+        ..shader = shader
+        ..maskRect = offset & size
+        ..blendMode = BlendMode.dstIn;
+      context.pushLayer(layer, super.paint, offset);
+    });
+  }
+}
+
+class _CardMotion extends ChangeNotifier {
+  double progress = 0;
+  int delta = 0;
+  void update(double value, int direction) {
+    if (progress == value && delta == direction) return;
+    progress = value;
+    delta = direction;
+    notifyListeners();
   }
 }
 
 class _SlidingCardLayout extends MultiChildRenderObjectWidget {
   const _SlidingCardLayout({
-    required this.progress,
-    required this.delta,
+    required this.motion,
+    required this.bridge,
     required super.children,
   });
-  final double progress;
-  final int delta;
+  final _CardMotion motion;
+  final LocationChatReplyLayoutBridge? bridge;
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderSlidingCards(progress, delta);
+      _RenderSlidingCards(motion, bridge);
   @override
   void updateRenderObject(
     BuildContext context,
     _RenderSlidingCards renderObject,
   ) {
-    renderObject.update(progress, delta);
+    renderObject.bridge = bridge;
   }
 }
 
@@ -489,14 +599,22 @@ class _RenderSlidingCards extends RenderBox
     with
         ContainerRenderObjectMixin<RenderBox, _CardParentData>,
         RenderBoxContainerDefaultsMixin<RenderBox, _CardParentData> {
-  _RenderSlidingCards(this.progress, this.delta);
-  double progress;
-  int delta;
-  void update(double nextProgress, int nextDelta) {
-    if (progress == nextProgress && delta == nextDelta) return;
-    progress = nextProgress;
-    delta = nextDelta;
-    markNeedsLayout();
+  _RenderSlidingCards(this.motion, this.bridge);
+  final _CardMotion motion;
+  LocationChatReplyLayoutBridge? bridge;
+  double get progress => motion.progress;
+  int get delta => motion.delta;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    motion.addListener(markNeedsLayout);
+  }
+
+  @override
+  void detach() {
+    motion.removeListener(markNeedsLayout);
+    super.detach();
   }
 
   @override
@@ -520,6 +638,7 @@ class _RenderSlidingCards extends RenderBox
         ((second?.size.height ?? first.size.height) - first.size.height) *
             progress;
     size = constraints.constrain(Size(constraints.maxWidth, height));
+    bridge?.reportHeight(size.height);
     (first.parentData! as _CardParentData).offset = Offset(
       -delta * progress * size.width,
       size.height - first.size.height,

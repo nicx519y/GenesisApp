@@ -295,8 +295,10 @@ class WorldLocationChatRouterHost extends StatefulWidget {
     this.animateTransitions = true,
     this.openingPreview,
     this.onRetryInitialLaunch,
+    this.usePreparedEntry = false,
   });
 
+  final bool usePreparedEntry;
   final String worldId;
   final WorldChatroomService? chatroom;
   final WorldLocationChatPageCache cache;
@@ -355,6 +357,7 @@ class WorldLocationChatRouterHostState
         : _displayLocationId;
     final cachedIds = widget.cache.cachedLocationIds.toList(growable: false);
     final showSkeleton =
+        !widget.usePreparedEntry &&
         activeLocationId.isNotEmpty &&
         activeDescriptor != null &&
         !widget.cache.isReady(activeLocationId);
@@ -410,7 +413,7 @@ class WorldLocationChatRouterHostState
         child: Offstage(
           offstage: !visible,
           child: Opacity(
-            opacity: visible && ready ? 1 : 0,
+            opacity: visible && (ready || widget.usePreparedEntry) ? 1 : 0,
             child: TickerMode(
               enabled: visible,
               child: SizedBox.expand(
@@ -426,6 +429,7 @@ class WorldLocationChatRouterHostState
                     worldId: widget.worldId,
                     memoryModelPageCache: widget.cache.memoryModelPageCache,
                     chatroom: widget.chatroom,
+                    usePreparedEntry: widget.usePreparedEntry,
                     worldTickInProgress: widget.worldTickInProgress,
                     worldTickProgressFailureRevision:
                         widget.worldTickProgressFailureRevision,
@@ -519,8 +523,10 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
     required this.onCharactersMovedLocationTap,
     this.worldTickInProgress = false,
     this.worldTickProgressFailureRevision = 0,
+    this.usePreparedEntry = false,
   });
 
+  final bool usePreparedEntry;
   final String worldId;
   final MemoryModelPageCache memoryModelPageCache;
   final WorldChatroomService? chatroom;
@@ -564,6 +570,7 @@ class WorldLocationChatNestedRouterPage extends StatelessWidget {
             localMessageLocationIds: descriptor.localMessageLocationIds,
             recentChatLocationPathIds: descriptor.recentChatLocationPathIds,
             service: chatroom,
+            usePreparedEntry: usePreparedEntry,
             worldTickInProgress: worldTickInProgress,
             worldTickProgressFailureRevision: worldTickProgressFailureRevision,
             active: active && worldId.isNotEmpty,

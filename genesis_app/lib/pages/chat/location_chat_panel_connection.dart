@@ -452,12 +452,17 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       );
       if (serviceOwnerUid.isNotEmpty) {
         if (!_isCurrentService(service, generation)) return;
-        await service.hydrateLocalMessages(
-          worldId: widget.worldId,
-          locationId: widget.locationId,
-          ownerUid: serviceOwnerUid,
-          locationAliases: widget.localMessageLocationIds,
-        );
+        await (_usesPreparedEntry
+            ? service.prepareLocalEntry(
+                widget.locationId,
+                aliases: widget.localMessageLocationIds,
+              )
+            : service.hydrateLocalMessages(
+                worldId: widget.worldId,
+                locationId: widget.locationId,
+                ownerUid: serviceOwnerUid,
+                locationAliases: widget.localMessageLocationIds,
+              ));
         if (!_isCurrentService(service, generation)) return;
         _syncFromServiceState(service);
         _logPanelMetric(
@@ -626,7 +631,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     if (widget.retainOpeningPreviewUntilHistory && !_openingPreviewResolved) {
       return 'openingPreview';
     }
-    if (widget.messageQueueInitializationCovered) return '';
+    if (_usesPreparedEntry || widget.messageQueueInitializationCovered) {
+      return '';
+    }
     if (_messages.isEmpty) return 'empty';
     return _hasVisibleAiMessageMissingCurrentTime() ? 'missingCurrentTime' : '';
   }
@@ -652,6 +659,16 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   void _handleChatroomState(WorldChatroomState state) {
+    if (_usesPreparedEntry) {
+      final entry = _service?.entryForLocation(widget.locationId).value;
+      state = state.copyWith(
+        messagesByLocation: {
+          ...state.messagesByLocation,
+          widget.locationId:
+              entry?.snapshot?.messages ?? const <WorldChatroomMessage>[],
+        },
+      );
+    }
     if (!mounted) return;
     final historyChanged =
         (_chatroomState.historyGenerationByLocation[widget.locationId] ?? 0) !=

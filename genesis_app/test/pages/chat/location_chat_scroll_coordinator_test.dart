@@ -148,12 +148,71 @@ void main() {
       ], loading: true),
     );
     const dots = ValueKey<String>('location-chat-ack-loading-dots');
+    const actionSlot = ValueKey('location-chat-reply-action-slot');
     expect(find.text('new send'), findsOneWidget);
     expect(find.byKey(dots), findsOneWidget);
+    expect(
+      find.ancestor(of: find.byKey(dots), matching: find.byKey(actionSlot)),
+      findsOneWidget,
+    );
     expect(find.text('prepended history'), findsNothing);
     expect(
       tester.getTopLeft(find.byKey(dots)).dy,
       greaterThan(tester.getBottomLeft(find.text('new send')).dy),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('ACK dots replace the empty action row without changing height', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final sent = ChatMessageVm(
+      localId: 'sent-message',
+      clientMsgId: 'sent-client',
+      senderId: 'me',
+      senderName: 'Me',
+      text: 'Waiting for reply',
+      isMe: true,
+      status: 'sent',
+    );
+    Widget tree({required bool loading}) => MaterialApp(
+      home: Scaffold(
+        body: SizedBox(
+          height: 360,
+          child: LocationChatAnchoredMessageList(
+            coordinator: coordinator,
+            messages: [sent],
+            topTitle: '',
+            loadingAfterMessageLocalId: loading ? sent.localId : null,
+            loadingIdentity: loading ? sent.clientMsgId : null,
+            showDateDividers: false,
+            style: ChatUiStyleConfig.standard.copyWith(
+              messageListPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    const slotKey = ValueKey('location-chat-reply-action-slot');
+    const dotsKey = ValueKey<String>('location-chat-ack-loading-dots');
+    await tester.pumpWidget(tree(loading: false));
+    final slot = find.byKey(slotKey);
+    final height = tester.getSize(slot).height;
+    final messageTop = tester.getTopLeft(find.text('Waiting for reply')).dy;
+
+    await tester.pumpWidget(tree(loading: true));
+    expect(tester.getSize(slot).height, height);
+    expect(
+      tester.getTopLeft(find.text('Waiting for reply')).dy,
+      closeTo(messageTop, 0.1),
+    );
+    expect(find.byKey(dotsKey), findsOneWidget);
+    expect(
+      find.ancestor(of: find.byKey(dotsKey), matching: slot),
+      findsOneWidget,
     );
     await tester.pumpWidget(const SizedBox.shrink());
   });
