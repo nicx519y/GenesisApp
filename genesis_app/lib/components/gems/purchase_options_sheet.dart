@@ -79,7 +79,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
         builder: (context, constraints) => GenesisBottomSheetPanel(
           title: '',
           height: constraints.maxHeight,
-          padding: const EdgeInsets.only(bottom: 10),
+          padding: EdgeInsets.zero,
           insetBody: false,
           header: GenesisActionSheetHeader.tabs(
             tabs: WalletPurchaseTabs(controller: _tabs),
@@ -110,6 +110,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                 _PurchaseSheetPage(
                   allowDragDismiss: widget.allowDragDismiss,
                   child: GenesisActionSheetBody(
+                    bottom: 10,
                     child: _gemsVisited
                         ? Builder(builder: widget.gemsBuilder)
                         : const SizedBox.expand(),

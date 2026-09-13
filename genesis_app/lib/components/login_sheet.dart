@@ -113,19 +113,7 @@ class _LoginSheetState extends State<LoginSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(
-                    width: double.infinity,
-                    child: Text(
-                      'Sign up and get 250 Gems!',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: GenesisColors.redSecondary,
-                        height: 1.35,
-                      ),
-                    ),
-                  ),
+                  const LoginSignupRewardText(),
                   const SizedBox(height: 12),
                   LoginProviderButtons(
                     loggingInProvider: _submittingProvider,
