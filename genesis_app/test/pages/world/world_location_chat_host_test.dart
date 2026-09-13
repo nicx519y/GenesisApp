@@ -178,6 +178,7 @@ void main() {
                 openedMovement = movement;
               },
               animateTransitions: false,
+              usePreparedEntry: true,
             );
           },
         ),
@@ -192,6 +193,7 @@ void main() {
         .toList(growable: false);
 
     expect(panels(), hasLength(2));
+    expect(panels().every((panel) => panel.usePreparedEntry), true);
     expect(panels().where((panel) => panel.renderBackgroundImage), isEmpty);
     final firstState = tester.state(
       find.byKey(
@@ -208,6 +210,19 @@ void main() {
 
     rebuildHost(() => cache.activate(first));
     await tester.pump();
+    expect(cache.isReady('loc_1'), false);
+    final firstPanel = find.byKey(
+      const ValueKey<String>('world-location-chat-loc_1'),
+    );
+    expect(
+      tester
+          .widget<Opacity>(
+            find.ancestor(of: firstPanel, matching: find.byType(Opacity)).first,
+          )
+          .opacity,
+      1,
+      reason: 'The actual chat page is visible before a readiness callback',
+    );
 
     expect(
       panels()

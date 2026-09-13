@@ -5,7 +5,29 @@ import 'package:sqflite/sqflite.dart';
 import '../json_utils.dart';
 import 'chatroom_timeline_payload.dart';
 
+part 'chatroom_reply_snapshot_storage.dart';
+
 abstract class ChatroomMessageStorage {
+  Future<List<Map<String, dynamic>>> loadReplySnapshots({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+  });
+  Future<void> saveReplySnapshot({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required int roundId,
+    required Map<String, dynamic> value,
+    bool Function()? isCurrent,
+  });
+  Future<void> importLegacyReplySnapshots({
+    required String ownerUid,
+    required String worldId,
+    required String locationId,
+    required List<Map<String, dynamic>> values,
+  });
+
   Future<List<Map<String, dynamic>>> loadLatestMessages({
     required String ownerUid,
     required String worldId,
@@ -61,7 +83,9 @@ abstract class ChatroomMessageStorage {
   Future<void> clearCache(String ownerUid);
 }
 
-class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
+class SqfliteChatroomMessageStorage
+    with _SqliteReplySnapshots
+    implements ChatroomMessageStorage {
   SqfliteChatroomMessageStorage({
     this.databaseName = 'genesis_chatroom_messages.db',
     DatabaseFactory? databaseFactoryOverride,
@@ -73,6 +97,7 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
   final DatabaseFactory? _databaseFactory;
   Database? _database;
 
+  @override
   Future<Database> get _db async {
     final existing = _database;
     if (existing != null) return existing;
@@ -82,11 +107,12 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
     final db = await factory.openDatabase(
       path,
       options: OpenDatabaseOptions(
-        version: 4,
+        version: 5,
         onCreate: (db, _) async {
           await db.execute(_createChatroomMessagesSql);
           await db.execute(_createChatroomMessagesIndexSql);
           await db.execute(_createChatroomMessagesLocationUniqueSql);
+          await _createReplySnapshotTables(db);
         },
         onUpgrade: (db, oldVersion, _) async {
           if (oldVersion < 2) {
@@ -106,6 +132,7 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
           if (oldVersion < 4) {
             await _deleteLegacySupplementalRows(db);
           }
+          if (oldVersion < 5) await _createReplySnapshotTables(db);
         },
       ),
     );
@@ -227,34 +254,37 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
   }) async {
     if (maxLocationMessageId <= 0) return;
     final db = await _db;
-    final rows = await db.query(
-      'chatroom_messages',
-      where: 'owner_uid = ? AND world_id = ? AND location_id = ?',
-      whereArgs: [ownerUid, worldId, locationId],
-    );
-    for (final row in rows.where((row) {
-      final message = _messageFromRow(row);
-      return message != null &&
-          _messageIsAtOrBeforeLocationCursor(
-            message,
-            maxLocationMessageId,
-            maxWorldMessageId: maxWorldMessageId,
-          );
-    })) {
-      await db.delete(
+    await db.transaction((txn) async {
+      final rows = await txn.query(
         'chatroom_messages',
-        where:
-            'owner_uid = ? AND world_id = ? AND location_id = ? '
-            'AND location_msg_id = ? AND msg_id = ?',
-        whereArgs: [
-          ownerUid,
-          worldId,
-          locationId,
-          row['location_msg_id'],
-          row['msg_id'],
-        ],
+        where: 'owner_uid = ? AND world_id = ? AND location_id = ?',
+        whereArgs: [ownerUid, worldId, locationId],
       );
-    }
+      for (final row in rows.where((row) {
+        final message = _messageFromRow(row);
+        return message != null &&
+            _messageIsAtOrBeforeLocationCursor(
+              message,
+              maxLocationMessageId,
+              maxWorldMessageId: maxWorldMessageId,
+            );
+      })) {
+        await txn.delete(
+          'chatroom_messages',
+          where:
+              'owner_uid = ? AND world_id = ? AND location_id = ? '
+              'AND location_msg_id = ? AND msg_id = ?',
+          whereArgs: [
+            ownerUid,
+            worldId,
+            locationId,
+            row['location_msg_id'],
+            row['msg_id'],
+          ],
+        );
+      }
+      await _pruneReplySnapshots(txn, ownerUid, worldId, locationId);
+    });
   }
 
   @override
@@ -291,6 +321,15 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
       for (final message in next) {
         await _insertMessage(txn, ownerUid, worldId, locationId, message);
       }
+      await _pruneReplySnapshots(txn, ownerUid, worldId, locationId);
+      await _markReplySnapshotsStale(
+        txn,
+        ownerUid,
+        worldId,
+        locationId,
+        startConversationRoundId,
+        endConversationRoundId,
+      );
       if (isCurrent?.call() == false) {
         throw StateError('Stale history transaction');
       }
@@ -300,11 +339,24 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
   @override
   Future<void> clearCache(String ownerUid) async {
     final db = await _db;
-    await db.delete(
-      'chatroom_messages',
-      where: 'owner_uid = ?',
-      whereArgs: [ownerUid],
-    );
+    await db.transaction((txn) async {
+      await txn.delete(
+        'chatroom_messages',
+        where: 'owner_uid = ?',
+        whereArgs: [ownerUid],
+      );
+      await txn.delete(
+        'chatroom_reply_snapshots',
+        where: 'owner_uid = ?',
+        whereArgs: [ownerUid],
+      );
+      // A clear is also a migration tombstone for locations not visited yet.
+      await txn.insert('chatroom_reply_migrations', {
+        'owner_uid': ownerUid,
+        'world_id': '*',
+        'location_id': '*',
+      }, conflictAlgorithm: ConflictAlgorithm.ignore);
+    });
   }
 
   Future<void> _insertMessage(
@@ -401,10 +453,13 @@ class SqfliteChatroomMessageStorage implements ChatroomMessageStorage {
         ],
       );
     }
+    await _pruneReplySnapshots(executor, ownerUid, worldId, locationId);
   }
 }
 
-class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
+class MemoryChatroomMessageStorage
+    with _MemoryReplySnapshots
+    implements ChatroomMessageStorage {
   final Map<String, Map<String, Map<String, dynamic>>> _messages = {};
 
   @override
@@ -469,6 +524,7 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
       );
     }
     _prune(bucket, maxMessagesPerLocation);
+    _pruneReplies(ownerUid, worldId, locationId);
   }
 
   @override
@@ -493,6 +549,7 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
       _storageLocationMessageId(message),
     );
     _prune(bucket, maxMessagesPerLocation);
+    _pruneReplies(ownerUid, worldId, locationId);
   }
 
   @override
@@ -512,6 +569,7 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
         maxWorldMessageId: maxWorldMessageId,
       );
     });
+    _pruneReplies(ownerUid, worldId, locationId);
   }
 
   @override
@@ -542,13 +600,24 @@ class MemoryChatroomMessageStorage implements ChatroomMessageStorage {
         _storageLocationMessageId(message),
       );
     }
+    _pruneReplies(ownerUid, worldId, locationId);
+    for (final entry in _replyBucket(ownerUid, worldId, locationId).entries) {
+      if (startConversationRoundId == null ||
+          (entry.key >= startConversationRoundId &&
+              entry.key <= endConversationRoundId!)) {
+        entry.value['needs_refresh'] = true;
+      }
+    }
   }
 
   @override
   Future<void> clearCache(String ownerUid) async {
     _messages.removeWhere((key, _) => key.startsWith('$ownerUid\u001F'));
+    _replySnapshots.removeWhere((key, _) => key.startsWith('$ownerUid\u001F'));
+    _clearedReplyOwners.add(ownerUid);
   }
 
+  @override
   Map<String, Map<String, dynamic>> _bucket(
     String ownerUid,
     String worldId,

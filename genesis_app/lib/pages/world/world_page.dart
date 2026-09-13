@@ -224,6 +224,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
     return WorldLocationChatRouterHost(
       worldId: widget.wid,
       chatroom: _worldChatroom,
+      usePreparedEntry: !_initialLocationChatEntry,
       worldTickInProgress: _worldTickInProgress,
       worldTickProgressFailureRevision: _worldTickProgressFailureRevision,
       cache: _locationChatPageCache,
@@ -238,8 +239,7 @@ class _WorldPageState extends State<WorldPage> with TickerProviderStateMixin {
       animateTransitions: _locationChatTransitionsEnabled,
       isMessageQueueInitializationCovered: (locationId) {
         final resolvedLocationId = locationId.trim();
-        return _preloadedLocationMessageIds.contains(resolvedLocationId) ||
-            _preloadingLocationMessageFutures.containsKey(resolvedLocationId);
+        return _preloadedLocationMessageIds.contains(resolvedLocationId);
       },
       onPanelReady: (locationId) {
         final becameReady = _locationChatPageCache.markReady(locationId);

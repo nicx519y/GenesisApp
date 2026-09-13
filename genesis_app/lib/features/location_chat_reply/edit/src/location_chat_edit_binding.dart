@@ -37,7 +37,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
             current: currentEditor,
             onQuotaLookupStarted: () {
               if (!currentEditor()) return;
-              _setLocationChatState(() {
+              _setReplyControlsState(() {
                 _preparingReplyAction = true;
                 _editQuotaLoading = true;
               });
@@ -47,7 +47,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
         return;
       }
       if (!_editQuotaLoading) {
-        _setLocationChatState(() {
+        _setReplyControlsState(() {
           _preparingReplyAction = true;
           _editQuotaLoading = true;
         });
@@ -77,7 +77,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
                   content: text,
                 ),
       ];
-      _setLocationChatState(() => _editQuotaLoading = false);
+      _setReplyControlsState(() => _editQuotaLoading = false);
       await _openReplyEditor(
         LocationChatEditPageArgs(
           worldId: widget.worldId,
@@ -99,7 +99,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
               await controller.submitEdit(target, operations(result));
             } on ChatroomFeatureQuotaException {
               if (currentEditor()) {
-                _setLocationChatState(() => _editQuotaQueried = true);
+                _setReplyControlsState(() => _editQuotaQueried = true);
               }
               rethrow;
             }
@@ -119,7 +119,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
           session == services?.sessionRevision.value &&
           widget.locationId == location &&
           identical(controller, _replyController)) {
-        _setLocationChatState(() {
+        _setReplyControlsState(() {
           _editQuotaChecking = false;
           _preparingReplyAction = false;
           _editQuotaLoading = false;

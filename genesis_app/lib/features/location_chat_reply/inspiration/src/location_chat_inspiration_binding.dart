@@ -12,23 +12,39 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     }
   }
 
-  LocationChatInspirationFeature _inspirationFeature(bool replyBlocked) =>
-      LocationChatInspirationFeature(
-        messages: _inspirationMessages,
-        loading: _inspirationLoading,
-        freeUsesRemaining: _freeUsesRemaining(
-          'inspiration',
-          queried: _inspirationQuotaQueried,
-        ),
-        enabled:
-            !replyBlocked &&
-            _currentInspirationSource != null &&
-            !_sending &&
-            !_preparingReplyAction,
-        onExpandedChanged: _onInspirationExpanded,
-        onSend: _sendInspiration,
-        onEdit: _editInspiration,
-      );
+  LocationChatInspirationFeature _inspirationFeature(
+    bool replyBlocked, {
+    bool? supportedOverride,
+  }) => LocationChatInspirationFeature(
+    messages: _inspirationMessages,
+    state: resolveLocationChatReplyActionState(
+      showWhenUnavailable: _usesPreparedEntry,
+      busy: _inspirationLoading,
+      supported:
+          supportedOverride ??
+          (_usesPreparedEntry
+                  ? _displayReplyState
+                  : _replyController?.stateFor(widget.locationId))
+              ?.supportsInspiration ??
+          false,
+      otherReplyOperationActive:
+          _regenerateReplyOperationActive ||
+          _goOnReplyOperationActive ||
+          _editReplyOperationActive,
+      canInvoke:
+          !replyBlocked &&
+          _currentInspirationSource != null &&
+          !_sending &&
+          !_preparingReplyAction,
+    ),
+    freeUsesRemaining: _freeUsesRemaining(
+      'inspiration',
+      queried: _inspirationQuotaQueried,
+    ),
+    onExpandedChanged: _onInspirationExpanded,
+    onSend: _sendInspiration,
+    onEdit: _editInspiration,
+  );
 
   ChatroomInspirationSource? get _currentInspirationSource {
     if (!widget.active ||
@@ -79,7 +95,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     _resetInspiration();
     // Service notifications can arrive while a parent is rebuilding.
     scheduleMicrotask(() {
-      if (mounted) _setLocationChatState(() {});
+      if (mounted) _setReplyControlsState(() {});
     });
   }
 
@@ -95,7 +111,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     if (expanded) {
       unawaited(_loadInspirations());
     } else if (_inspirationQuotaChecking || _inspirationLoading) {
-      _setLocationChatState(_resetInspiration);
+      _setReplyControlsState(_resetInspiration);
     }
   }
 
@@ -124,7 +140,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         identical(services, _quotaServices) &&
         session == services?.sessionRevision.value &&
         source.sameOrigin(_currentInspirationSource);
-    _setLocationChatState(() {
+    _setReplyControlsState(() {
       _inspirationRequestSource = source;
       if (!source.sameOrigin(_inspirationDisplayedSource)) {
         _inspirationDisplayedSource = null;
@@ -138,7 +154,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
             current: current,
             onQuotaLookupStarted: () {
               if (current()) {
-                _setLocationChatState(() => _inspirationLoading = true);
+                _setReplyControlsState(() => _inspirationLoading = true);
               }
             },
           ) ||
@@ -146,7 +162,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         return;
       }
       if (!_inspirationLoading) {
-        _setLocationChatState(() => _inspirationLoading = true);
+        _setReplyControlsState(() => _inspirationLoading = true);
       }
       await service.ensureInspirationHistory(source.locationId);
       if (!current()) return;
@@ -158,14 +174,14 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
       if (latest.cardId != null && latest.sourceCardId != result.sourceCardId) {
         return;
       }
-      _setLocationChatState(() {
+      _setReplyControlsState(() {
         _inspirationDisplayedSource = verified;
         _inspirationMessages = result.messages;
       });
     } catch (error) {
       if (error is ChatroomFeatureQuotaException) {
         if (mounted && current()) {
-          _setLocationChatState(() => _inspirationQuotaQueried = true);
+          _setReplyControlsState(() => _inspirationQuotaQueried = true);
           if (error.quota == null) {
             showGenesisToast(context, error.message);
           }
@@ -177,7 +193,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
       }
     } finally {
       if (mounted && generation == _inspirationRequestGeneration) {
-        _setLocationChatState(() {
+        _setReplyControlsState(() {
           _inspirationQuotaChecking = false;
           _inspirationLoading = false;
         });

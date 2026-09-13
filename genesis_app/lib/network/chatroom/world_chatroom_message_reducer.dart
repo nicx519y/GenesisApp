@@ -51,6 +51,14 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     bool emitLatestFetched = true,
   }) async {
     if (_worldId.isEmpty) return const <WorldChatroomMessage>[];
+    // A map entry's disk batch must finish before join history can replace it.
+    final localRead =
+        _entryLocalReads[(locationId, _historyTicket(locationId))];
+    if (localRead != null) {
+      try {
+        await localRead;
+      } catch (_) {}
+    }
     _requireHistoryAvailable(locationId);
     final ticket = _historyTicket(locationId);
     final response = await _api.chatroomHttp.getMessages(
@@ -291,58 +299,74 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     if (!_historyIsCurrent(locationId, ticket)) {
       return const <WorldChatroomMessage>[];
     }
-    final worldMessages = messages
-        .map(
-          (message) => _worldMessageFromHttpMessage(
-            message,
-            fallbackLocationId: locationId,
-          ),
-        )
-        .toList(growable: false);
-    await _withLocationWrite(locationId, () async {
-      if (!_historyIsCurrent(locationId, ticket)) return;
-      if (ticket.owner.isNotEmpty && ticket.world.isNotEmpty) {
-        await _messageStorage.mergeMessages(
-          ownerUid: ticket.owner,
-          worldId: ticket.world,
+    _beginEntryRead(locationId);
+    Object? entryError;
+    try {
+      final worldMessages = messages
+          .map(
+            (message) => _worldMessageFromHttpMessage(
+              message,
+              fallbackLocationId: locationId,
+            ),
+          )
+          .toList(growable: false);
+      await _withLocationWrite(locationId, () async {
+        if (!_historyIsCurrent(locationId, ticket)) return;
+        if (ticket.owner.isNotEmpty && ticket.world.isNotEmpty) {
+          await _messageStorage.mergeMessages(
+            ownerUid: ticket.owner,
+            worldId: ticket.world,
+            locationId: locationId,
+            messages: messages
+                .map(
+                  (m) => _storageJsonFromHttpMessage(
+                    m,
+                    fallbackLocationId: locationId,
+                  ),
+                )
+                .toList(),
+            maxMessagesPerLocation: _maxMessagesPerLocation,
+          );
+        }
+        if (_historyIsCurrent(locationId, ticket)) {
+          _upsertMessages(worldMessages, persist: false);
+        }
+      });
+      if (!_historyIsCurrent(locationId, ticket)) {
+        return const <WorldChatroomMessage>[];
+      }
+      final cardsLoaded = await _loadReplyCardsForHistory(
+        locationId,
+        worldMessages,
+        ticket,
+      );
+      if (!cardsLoaded) {
+        entryError = StateError('Reply cards could not be loaded');
+      }
+      if (!_historyIsCurrent(locationId, ticket)) {
+        return const <WorldChatroomMessage>[];
+      }
+      if (LocationChatDebugSlice.enabled) {
+        LocationChatDebugSlice.recordEvent(
+          source: 'service',
+          action: 'mergeFetched',
+          worldId: _worldId,
           locationId: locationId,
-          messages: messages
-              .map(
-                (m) => _storageJsonFromHttpMessage(
-                  m,
-                  fallbackLocationId: locationId,
-                ),
-              )
-              .toList(),
-          maxMessagesPerLocation: _maxMessagesPerLocation,
+          details: {
+            'incoming': messages.length,
+            'messages': LocationChatDebugSlice.debugWorldMessageQueue(
+              worldMessages,
+            ),
+          },
         );
       }
-      if (_historyIsCurrent(locationId, ticket)) {
-        _upsertMessages(worldMessages, persist: false);
-      }
-    });
-    if (!_historyIsCurrent(locationId, ticket)) {
-      return const <WorldChatroomMessage>[];
+      return worldMessages;
+    } catch (error) {
+      entryError = error;
+      rethrow;
+    } finally {
+      _endEntryRead(locationId, ticket, error: entryError);
     }
-    await _loadReplyCardsForHistory(locationId, worldMessages, ticket);
-    if (!_historyIsCurrent(locationId, ticket)) {
-      return const <WorldChatroomMessage>[];
-    }
-    if (LocationChatDebugSlice.enabled) {
-      LocationChatDebugSlice.recordEvent(
-        source: 'service',
-        action: 'mergeFetched',
-        worldId: _worldId,
-        locationId: locationId,
-        details: {
-          'incoming': messages.length,
-          'messages': LocationChatDebugSlice.debugWorldMessageQueue(
-            worldMessages,
-          ),
-        },
-      );
-    }
-    return worldMessages;
   }
 
   void _startStream(ChatroomAiStreamStart event) {

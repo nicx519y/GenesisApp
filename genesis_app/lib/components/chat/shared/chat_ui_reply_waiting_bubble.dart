@@ -2,9 +2,14 @@ part of 'chat_ui_library.dart';
 
 /// Waiting reply with AI text/fill colors and four equal rounded corners.
 class ChatReplyWaitingBubble extends StatefulWidget {
-  const ChatReplyWaitingBubble({super.key, required this.style});
+  const ChatReplyWaitingBubble({
+    super.key,
+    required this.style,
+    this.inActionSlot = false,
+  });
 
   final ChatUiStyleConfig style;
+  final bool inActionSlot;
 
   @override
   State<ChatReplyWaitingBubble> createState() => _ChatReplyWaitingBubbleState();
@@ -31,8 +36,10 @@ class _ChatReplyWaitingBubbleState extends State<ChatReplyWaitingBubble>
       liveRegion: true,
       child: Padding(
         padding: EdgeInsets.only(
-          left: widget.style.avatarSize + widget.style.avatarBubbleGap,
-          bottom: widget.style.rowBottomPadding,
+          left: widget.inActionSlot
+              ? 0
+              : widget.style.avatarSize + widget.style.avatarBubbleGap,
+          bottom: widget.inActionSlot ? 0 : widget.style.rowBottomPadding,
         ),
         child: Align(
           alignment: Alignment.centerLeft,

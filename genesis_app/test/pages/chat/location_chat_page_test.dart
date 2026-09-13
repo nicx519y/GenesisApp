@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/app/bootstrap/app_services_scope.dart';
 import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
@@ -27,6 +28,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_message_storag
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_reply_action_storage.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/inspiration/inspiration.dart';
+import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
 import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
@@ -71,6 +73,378 @@ Finder _replyActionLoading(String label) => find.descendant(
 );
 
 void main() {
+  testWidgets(
+    'reopened database renders last browsed card in the first frame',
+    (tester) async {
+      // Real disk I/O must not start the fixture's Android billing connection.
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      sqfliteFfiInit();
+      final directory = Directory.systemTemp.createTempSync(
+        'reply-page-reopen-',
+      );
+      final path = '${directory.path}/messages.db';
+      final storage = SqfliteChatroomMessageStorage(
+        databasePath: path,
+        databaseFactoryOverride: databaseFactoryFfiNoIsolate,
+      );
+      final backend = _LocationChatReplyHttpTransport()..seedReplyRound();
+      backend.cards.addAll([
+        backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
+        backend._cardJson(502, 2, 'succeeded', 'Last browsed reply.'),
+        backend._cardJson(503, 3, 'succeeded', 'Unviewed reply.'),
+      ]);
+      final first = await _connectedLocationChatTestService(
+        replyTransport: backend,
+        messageStorage: storage,
+      );
+      await tester.runAsync(() async {
+        await first.service.initializeLeafLocationQueues(
+          locationIds: ['location-current'],
+        );
+        await first.service.replyActions!.browse('location-current', 1);
+      });
+      unawaited(first.service.dispose());
+      await tester.pump();
+      await tester.runAsync(storage.close);
+      final reopened = SqfliteChatroomMessageStorage(
+        databasePath: path,
+        databaseFactoryOverride: databaseFactoryFfiNoIsolate,
+      );
+      // The second service has fresh operation storage and no server cards.
+      final second = await _connectedLocationChatTestService(
+        replyTransport: _LocationChatReplyHttpTransport(),
+        messageStorage: reopened,
+      );
+      debugDefaultTargetPlatformOverride = null;
+      second.socket.autoJoinAck = false;
+      await tester.runAsync(
+        () => second.service.prepareLocalEntry('location-current'),
+      );
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: second.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: second.service,
+              usePreparedEntry: true,
+              isMember: true,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        ),
+      );
+      // No follow-up pump: both the body and page indicator must already match.
+      expect(find.text('Last browsed reply.'), findsOneWidget);
+      expect(find.text('2 / 3'), findsOneWidget);
+      expect(find.text('Original reply.'), findsNothing);
+      expect(find.text('Unviewed reply.'), findsNothing);
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(list.replyCurrentCardId, 502);
+      expect(list.replyCardIndex, 1);
+      expect(list.editFeature.state, LocationChatReplyActionState.disabled);
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(second.service.dispose());
+      await tester.pump();
+      await tester.runAsync(() async {
+        await reopened.close();
+        await directory.delete(recursive: true);
+      });
+    },
+  );
+
+  for (final prepared in [false, true]) {
+    for (final cardCount in [2, 10]) {
+      testWidgets(
+        'Go On preserves all $cardCount card toolbar slots before ACK prepared=$prepared',
+        (tester) async {
+          final backend = _LocationChatReplyHttpTransport();
+          final harness = await _mountCompletedReplyActionPanel(
+            tester,
+            backend: backend,
+            usePreparedEntry: prepared,
+          );
+          backend.cards.addAll([
+            for (var index = 1; index <= cardCount; index++)
+              backend._cardJson(
+                500 + index,
+                index,
+                'succeeded',
+                index == 1 ? 'Original reply.' : 'Candidate $index.',
+              ),
+          ]);
+          unawaited(
+            harness.service.refreshLatestMessages(
+              locationId: 'location-current',
+            ),
+          );
+          await _pumpUntilLocationChatTest(
+            tester,
+            () =>
+                harness.service.replyActions!
+                    .stateFor('location-current')!
+                    .cardCount ==
+                cardCount,
+          );
+          await tester.pumpAndSettle();
+          backend.selectionBarrier = Completer<void>();
+          await tester.tap(find.bySemanticsLabel('Go on'));
+          await _pumpUntilLocationChatTest(
+            tester,
+            () => backend.selectionRequests.isNotEmpty,
+          );
+          backend.selectionBarrier!.complete();
+          for (var frame = 0; frame < 30; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            for (final label in [
+              'Regenerate',
+              'Go on',
+              'Edit',
+              'Inspiration',
+            ]) {
+              expect(
+                find.bySemanticsLabel(label),
+                findsOneWidget,
+                reason:
+                    '$label must stay in the toolbar through confirmation, frame $frame',
+              );
+            }
+          }
+          expect(harness.socket.replyActionFrames('go_on'), hasLength(1));
+          harness.socket.serverReplyActionAck('go_on', roundId: 401);
+          for (var frame = 0; frame < 30; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            final visible = ['Regenerate', 'Go on', 'Edit', 'Inspiration']
+                .where(
+                  (label) => find.bySemanticsLabel(label).evaluate().isNotEmpty,
+                )
+                .length;
+            expect(
+              visible,
+              anyOf(0, 4),
+              reason: 'All slots disappear together on ACK',
+            );
+          }
+          expect(
+            find.byKey(
+              const ValueKey<String>('location-chat-ack-loading-dots'),
+            ),
+            findsOneWidget,
+          );
+          harness.socket.serverV2StreamFrame(
+            streamType: 'llm_chunk',
+            roundId: 401,
+            messageId: 402,
+            locationMessageId: 303,
+            seq: 1,
+            content: 'Continuation chunk.',
+            conversationType: 'go_on',
+          );
+          await _pumpUntilLocationChatTest(
+            tester,
+            () => find.text('Continuation chunk.').evaluate().isNotEmpty,
+          );
+          expect(
+            find.byKey(
+              const ValueKey<String>('location-chat-ack-loading-dots'),
+            ),
+            findsNothing,
+          );
+          for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+            expect(find.bySemanticsLabel(label), findsNothing);
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+          unawaited(harness.service.dispose());
+          await tester.pump();
+        },
+      );
+    }
+  }
+
+  for (final mode in ['ordinary', 'candidates', 'confirmed']) {
+    testWidgets(
+      'prepared entry first frame includes $mode and supported disabled toolbar before join',
+      (tester) async {
+        final backend = _LocationChatReplyHttpTransport()..seedReplyRound();
+        if (mode != 'ordinary') {
+          backend.cards.addAll([
+            backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
+            backend._cardJson(502, 2, 'succeeded', 'Candidate reply.'),
+          ]);
+        }
+        if (mode == 'confirmed') {
+          backend.selectedCardId = 502;
+          backend.commitSelectedCardToHistory();
+        }
+        final harness = await _connectedLocationChatTestService(
+          replyTransport: backend,
+        );
+        harness.socket.autoJoinAck = false;
+        await tester.runAsync(
+          () => harness.service.initializeLeafLocationQueues(
+            locationIds: ['location-current'],
+          ),
+        );
+        if (mode == 'candidates') {
+          await tester.runAsync(
+            () => harness.service.replyActions!.browse('location-current', 1),
+          );
+        }
+        expect(
+          harness.service.entryForLocation('location-current').value.phase,
+          ChatroomEntryPhase.ready,
+        );
+        var active = true;
+        late StateSetter changeActive;
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: harness.services,
+            child: MaterialApp(
+              home: StatefulBuilder(
+                builder: (context, setState) {
+                  changeActive = setState;
+                  return LocationChatPanel(
+                    active: active,
+                    worldId: 'world-current',
+                    locationId: 'location-current',
+                    service: harness.service,
+                    usePreparedEntry: true,
+                    isMember: true,
+                    leaveOnInactive: false,
+                    messageQueueInitializationCovered: true,
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        // Exactly the first widget frame: no settle or follow-up pump before assertions.
+        final list = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        expect(
+          find.textContaining(
+            mode == 'ordinary' ? 'Original reply.' : 'Candidate reply.',
+          ),
+          findsWidgets,
+        );
+        expect(list.editFeature.state, LocationChatReplyActionState.disabled);
+        expect(list.goOnFeature.state, LocationChatReplyActionState.disabled);
+        expect(
+          list.inspirationFeature.state,
+          LocationChatReplyActionState.disabled,
+        );
+        expect(
+          list.regenerateFeature.state,
+          mode == 'confirmed'
+              ? LocationChatReplyActionState.none
+              : LocationChatReplyActionState.disabled,
+        );
+        expect(harness.service.state.joinedLocationId, isEmpty);
+        if (mode == 'candidates') expect(find.text('2 / 2'), findsOneWidget);
+        harness.socket.serverReplyActionAck('join', roundId: 301);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.service.state.joinedLocationId == 'location-current',
+        );
+        if (mode == 'candidates') {
+          changeActive(() => active = false);
+          await tester.pump();
+          await tester.runAsync(
+            () => harness.service.replyActions!.browse('location-current', -1),
+          );
+          changeActive(() => active = true);
+          await tester.pump(); // First reactivation frame, without settling.
+          expect(find.text('1 / 2'), findsOneWidget);
+          expect(find.textContaining('Original reply.'), findsWidgets);
+          expect(
+            tester
+                .widget<LocationChatAnchoredMessageList>(
+                  find.byType(LocationChatAnchoredMessageList),
+                )
+                .editFeature
+                .state,
+            LocationChatReplyActionState.idle,
+          );
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump();
+      },
+    );
+  }
+
+  testWidgets('prepared entry preserves live candidate chunk rendering', (
+    tester,
+  ) async {
+    final backend = _LocationChatReplyHttpTransport();
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+      usePreparedEntry: true,
+    );
+    final list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    list.regenerateFeature.onInvoke!();
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.replyActionFrames('regenerate_llm_card').isNotEmpty,
+    );
+    harness.socket.serverReplyActionAck(
+      'regenerate_llm_card',
+      roundId: 301,
+      payload: {
+        'regeneration': {
+          'conversation_round_id': 301,
+          'original_card_id': 501,
+          'card_id': 502,
+          'generation_state': 'generating',
+          'billing': {'status': 'reserved'},
+        },
+      },
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          harness.service.replyActions!
+              .stateFor('location-current')!
+              .viewedCardId ==
+          502,
+    );
+    harness.socket.serverCandidateStream(
+      streamType: 'chunk',
+      content: 'Live prepared candidate',
+      seq: 1,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(find.textContaining('Live prepared candidate'), findsWidgets);
+    expect(
+      harness.service
+          .entryForLocation('location-current')
+          .value
+          .snapshot!
+          .reply!
+          .hasCandidateChunk(502),
+      true,
+    );
+    harness.socket.serverCandidateStream(
+      streamType: 'end',
+      content: 'Live prepared candidate',
+    );
+    harness.socket.serverCandidateGenerationEnd();
+    await tester.pump();
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump();
+  });
+
   setUp(() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -1832,6 +2206,23 @@ void main() {
         tester,
         () => backend.quotaRequests == 1,
       );
+      final editLoadingList = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(
+        editLoadingList.editFeature.state,
+        LocationChatReplyActionState.busy,
+      );
+      for (final label in ['Regenerate', 'Go on', 'Inspiration']) {
+        expect(
+          tester
+              .widget<Semantics>(find.bySemanticsLabel(label))
+              .properties
+              .enabled,
+          isFalse,
+          reason: '$label remains visible but disabled while Edit prepares.',
+        );
+      }
       await tester.tap(find.bySemanticsLabel('Edit'));
       await tester.pump();
       expect(backend.quotaRequests, 1);
@@ -2282,6 +2673,64 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  for (final entry in [
+    (type: 'user_enter_location', uid: 'another-user', edit: true),
+    (type: 'tick', uid: '', edit: false),
+  ]) {
+    testWidgets('${entry.type} maps reply capability to toolbar buttons', (
+      tester,
+    ) async {
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: _LocationChatReplyHttpTransport(),
+        conversationType: entry.type,
+        triggerUid: entry.uid,
+        waitForEdit: entry.edit,
+      );
+
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(find.bySemanticsLabel('Regenerate'), findsNothing);
+      expect(find.bySemanticsLabel('Go on'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Edit'),
+        entry.edit ? findsOneWidget : findsNothing,
+      );
+      expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
+      expect(list.goOnFeature.enabled, isTrue);
+      expect(list.editFeature.enabled, entry.edit);
+      expect(list.inspirationFeature.enabled, isTrue);
+      if (entry.edit) {
+        await tester.tap(find.bySemanticsLabel('Edit'));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => find.byType(LocationChatEditPage).evaluate().isNotEmpty,
+        );
+      } else {
+        await tester.tap(find.bySemanticsLabel('Go on'));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.replyActionFrames('go_on').length == 1,
+        );
+        harness.socket.serverReplyActionAck(
+          'go_on',
+          roundId: 301,
+          errNo: 2015,
+          errMsg: 'Source rejected',
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => find.text('Source rejected').evaluate().isNotEmpty,
+        );
+      }
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    });
+  }
+
   for (final action in [
     ('Regenerate', 'regenerate_llm_card'),
     ('Go on', 'go_on'),
@@ -2396,6 +2845,16 @@ void main() {
       expect(_replyActionLoading('Regenerate'), findsOneWidget);
       expect(_replyActionLoading('Go on'), findsNothing);
       expect(_replyActionLoading('Inspiration'), findsNothing);
+      for (final label in ['Go on', 'Edit', 'Inspiration']) {
+        expect(
+          tester
+              .widget<Semantics>(find.bySemanticsLabel(label))
+              .properties
+              .enabled,
+          isFalse,
+          reason: '$label stays gray while Regenerate runs.',
+        );
+      }
       expect(find.text('Generating…'), findsNothing);
       expect(find.text('Waiting for the next reply…'), findsNothing);
       expect(find.text('Check status'), findsNothing);
@@ -2513,9 +2972,28 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
-      expect(_replyActionLoading('Regenerate'), findsNothing);
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(
+        list.regenerateFeature.state,
+        LocationChatReplyActionState.disabled,
+      );
+      expect(list.goOnFeature.state, LocationChatReplyActionState.disabled);
+      expect(list.editFeature.state, LocationChatReplyActionState.disabled);
+      expect(
+        list.inspirationFeature.state,
+        LocationChatReplyActionState.disabled,
+      );
       for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
-        expect(find.bySemanticsLabel(label), findsNothing);
+        expect(_replyActionLoading(label), findsNothing);
+        expect(
+          tester
+              .widget<Semantics>(find.bySemanticsLabel(label))
+              .properties
+              .enabled,
+          isFalse,
+        );
       }
       expect(
         tester
@@ -2575,6 +3053,16 @@ void main() {
             )
             .replyCardSwitchEnabled,
       );
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+        expect(_replyActionLoading(label), findsNothing);
+      }
+      expect(list.regenerateFeature.state, LocationChatReplyActionState.idle);
+      expect(list.goOnFeature.state, LocationChatReplyActionState.idle);
+      expect(list.editFeature.state, LocationChatReplyActionState.idle);
+      expect(list.inspirationFeature.state, LocationChatReplyActionState.idle);
       expect(tester.widget<IconButton>(previous).onPressed, isNotNull);
       expect(tester.widget<IconButton>(next).onPressed, isNull);
       await tester.tap(previous);
@@ -2652,8 +3140,22 @@ void main() {
         findsNothing,
       );
       expect(_replyActionLoading('Go on'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('location-chat-ack-loading-dots')),
+        findsNothing,
+      );
       expect(_replyActionLoading('Regenerate'), findsNothing);
       expect(_replyActionLoading('Inspiration'), findsNothing);
+      for (final label in ['Regenerate', 'Edit', 'Inspiration']) {
+        expect(
+          tester
+              .widget<Semantics>(find.bySemanticsLabel(label))
+              .properties
+              .enabled,
+          isFalse,
+          reason: '$label stays gray while Go on runs.',
+        );
+      }
       expect(find.text('Generating…'), findsNothing);
       expect(find.text('Waiting for the next reply…'), findsNothing);
       expect(find.text('Check status'), findsNothing);
@@ -2675,6 +3177,20 @@ void main() {
       expect(harness.socket.sendMessageCount, 0);
 
       harness.socket.serverReplyActionAck('go_on', roundId: 401);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness.service.replyActions!
+                .stateForRound('location-current', 301)
+                ?.goOnRoundId ==
+            401,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('location-chat-ack-loading-dots')),
+        findsOneWidget,
+        reason:
+            'Accepted Go On replaces the spinner before waiting or stream events.',
+      );
       harness.socket.serverWaitingConversationRound(roundId: 401);
       await _pumpUntilLocationChatTest(
         tester,
@@ -2696,15 +3212,25 @@ void main() {
         find.byKey(const ValueKey('location-chat-loading-bubble')),
         findsNothing,
       );
-      expect(_replyActionLoading('Go on'), findsOneWidget);
+      expect(_replyActionLoading('Go on'), findsNothing);
+      const goOnDots = ValueKey<String>('location-chat-ack-loading-dots');
+      expect(find.byKey(goOnDots), findsOneWidget);
       expect(
-        tester
-            .widget<LocationChatAnchoredMessageList>(
-              find.byType(LocationChatAnchoredMessageList),
-            )
-            .replyActionsVisible,
-        isTrue,
+        find.ancestor(of: find.byKey(goOnDots), matching: actionSlot),
+        findsOneWidget,
       );
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(list.goOnAwaitingContentIdentity, 'go-on:301:401');
+      expect(list.regenerateFeature.state, LocationChatReplyActionState.none);
+      expect(list.goOnFeature.state, LocationChatReplyActionState.none);
+      expect(list.editFeature.state, LocationChatReplyActionState.none);
+      expect(list.inspirationFeature.state, LocationChatReplyActionState.none);
+      for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+        expect(find.bySemanticsLabel(label), findsNothing);
+      }
+      expect(list.replyActionsVisible, isTrue);
       harness.socket.serverV2StreamFrame(
         streamType: 'llm_chunk',
         roundId: 401,
@@ -2722,19 +3248,15 @@ void main() {
         final hasGoOnContent =
             list.messages.any((message) => message.text == 'The story') &&
             find.text('The story').evaluate().isNotEmpty;
-        final hasOldActionRow = find
-            .byKey(
-              const ValueKey(
-                'location-chat-reply-control:world-current/location-current/301',
-              ),
-            )
+        final hasWaitingBubble = find
+            .byKey(const ValueKey('location-chat-reply-control:go-on:301:401'))
             .evaluate()
             .isNotEmpty;
         expect(
-          hasGoOnContent == hasOldActionRow,
+          hasGoOnContent == hasWaitingBubble,
           isFalse,
           reason:
-              'The first Go On content and old action-row removal must be painted in the same frame.',
+              'The first Go On content and waiting bubble removal must be painted in the same frame.',
         );
         if (hasGoOnContent) {
           goOnContentRendered = true;
@@ -2748,6 +3270,7 @@ void main() {
         findsNothing,
       );
       expect(_replyActionLoading('Go on'), findsNothing);
+      expect(find.byKey(goOnDots), findsNothing);
       for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
         expect(find.bySemanticsLabel(label), findsNothing);
       }
@@ -2909,6 +3432,20 @@ void main() {
       find.byType(LocationChatAnchoredMessageList),
     );
     expect(list.replyCardsConfirmed, isTrue);
+    expect(
+      list.regenerateFeature.state,
+      LocationChatReplyActionState.disabled,
+      reason: 'Selecting a card must not hide Regenerate before Go On ACK.',
+    );
+    expect(list.goOnFeature.state, LocationChatReplyActionState.busy);
+    expect(list.editFeature.state, LocationChatReplyActionState.disabled);
+    expect(
+      list.inspirationFeature.state,
+      LocationChatReplyActionState.disabled,
+    );
+    for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+      expect(find.bySemanticsLabel(label), findsOneWidget);
+    }
     expect(list.replyCurrentCardId, 502);
     expect(list.replyCards.map((card) => card.id), contains(502));
     expect(
@@ -2959,16 +3496,23 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('location-chat-reply-pagination')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
-      find.byKey(
-        const ValueKey(
-          'location-chat-reply-control:world-current/location-current/301',
-        ),
-      ),
+      find.byKey(const ValueKey('location-chat-reply-control:go-on:301:401')),
       findsOneWidget,
-      reason: 'The ACK keeps actions until Go On content begins rendering.',
+      reason: 'The ACK replaces actions with loading until content renders.',
+    );
+    expect(list.regenerateFeature.state, LocationChatReplyActionState.none);
+    expect(list.goOnFeature.state, LocationChatReplyActionState.none);
+    expect(list.editFeature.state, LocationChatReplyActionState.none);
+    expect(list.inspirationFeature.state, LocationChatReplyActionState.none);
+    for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+      expect(find.bySemanticsLabel(label), findsNothing);
+    }
+    expect(
+      find.byKey(const ValueKey<String>('location-chat-ack-loading-dots')),
+      findsOneWidget,
     );
     expect(find.text('Continuation chunk.'), findsNothing);
 
@@ -2996,7 +3540,7 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('location-chat-reply-pagination')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
       find.byKey(selectedMessageKey).evaluate().single,
@@ -3007,11 +3551,7 @@ void main() {
       same(replyDeckElement),
     );
     expect(
-      find.byKey(
-        const ValueKey(
-          'location-chat-reply-control:world-current/location-current/301',
-        ),
-      ),
+      find.byKey(const ValueKey('location-chat-reply-control:go-on:301:401')),
       findsOneWidget,
     );
     tester.view.physicalSize = Size(
@@ -3034,14 +3574,10 @@ void main() {
     await tester.pump();
     expect(
       find.byKey(const ValueKey('location-chat-reply-pagination')),
-      findsOneWidget,
+      findsNothing,
     );
     expect(
-      find.byKey(
-        const ValueKey(
-          'location-chat-reply-control:world-current/location-current/301',
-        ),
-      ),
+      find.byKey(const ValueKey('location-chat-reply-control:go-on:301:401')),
       findsOneWidget,
     );
     harness.socket.serverV2StreamFrame(
@@ -3064,27 +3600,18 @@ void main() {
             (message) => message.text == 'Continuation chunk.',
           ) &&
           find.text('Continuation chunk.').evaluate().isNotEmpty;
-      final hasOldActionRow = find
-          .byKey(
-            const ValueKey(
-              'location-chat-reply-control:world-current/location-current/301',
-            ),
-          )
-          .evaluate()
-          .isNotEmpty;
-      final hasOldPagination = find
-          .byKey(const ValueKey('location-chat-reply-pagination'))
+      final hasWaitingBubble = find
+          .byKey(const ValueKey('location-chat-reply-control:go-on:301:401'))
           .evaluate()
           .isNotEmpty;
       expect(
-        hasGoOnContent == hasOldActionRow,
+        hasGoOnContent == hasWaitingBubble,
         isFalse,
-        reason: 'Go On content and the old action row change in one frame.',
+        reason: 'Go On content and its waiting bubble change in one frame.',
       );
       expect(
-        hasGoOnContent == hasOldPagination,
-        isFalse,
-        reason: 'Go On content and the old card pager change in one frame.',
+        find.byKey(const ValueKey('location-chat-reply-pagination')),
+        findsNothing,
       );
       if (hasGoOnContent) {
         goOnContentRendered = true;
@@ -3093,11 +3620,11 @@ void main() {
     }
     expect(goOnContentRendered, isTrue);
     expect(
-      find.byKey(
-        const ValueKey(
-          'location-chat-reply-control:world-current/location-current/301',
-        ),
-      ),
+      find.byKey(const ValueKey('location-chat-reply-control:go-on:301:401')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('location-chat-ack-loading-dots')),
       findsNothing,
     );
     expect(
@@ -3316,6 +3843,254 @@ void main() {
   );
 
   testWidgets(
+    'ten completed cards keep Regenerate visible with a limit toast',
+    (tester) async {
+      final backend = _LocationChatReplyHttpTransport();
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+      );
+      backend.cards.addAll(
+        List.generate(
+          10,
+          (index) => backend._cardJson(
+            501 + index,
+            index + 1,
+            'succeeded',
+            index == 0 ? 'Original reply.' : 'Candidate $index.',
+          ),
+        ),
+      );
+      unawaited(
+        harness.service.refreshLatestMessages(locationId: 'location-current'),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness.service.replyActions!
+                .stateFor('location-current')!
+                .cardCount ==
+            10,
+      );
+      await tester.pumpAndSettle();
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(
+        list.regenerateFeature.state,
+        LocationChatReplyActionState.disabled,
+      );
+      expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
+      expect(_replyActionLoading('Regenerate'), findsNothing);
+      final requestsBeforeTap = backend.requests.length;
+
+      await tester.tap(find.bySemanticsLabel('Regenerate'));
+      await tester.pump();
+      expect(find.text('You can generate up to 10 replies.'), findsOneWidget);
+      expect(harness.socket.replyActionFrames('regenerate_llm_card'), isEmpty);
+      expect(backend.requests, hasLength(requestsBeforeTap));
+      expect(
+        harness.service.replyActions!.stateFor('location-current')!.cardCount,
+        10,
+      );
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump();
+    },
+  );
+
+  testWidgets('reply presentation parses only the current and requested card', (
+    tester,
+  ) async {
+    final backend = _LocationChatReplyHttpTransport();
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+    );
+    backend.cards.addAll(
+      List.generate(
+        10,
+        (index) => backend._cardJson(
+          501 + index,
+          index + 1,
+          'succeeded',
+          'Candidate $index.',
+        ),
+      ),
+    );
+    debugLocationChatReplyMessageParseCount = 0;
+    unawaited(
+      harness.service.refreshLatestMessages(locationId: 'location-current'),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          harness.service.replyActions!
+              .stateFor('location-current')!
+              .cardCount ==
+          10,
+    );
+    await tester.pumpAndSettle();
+    expect(
+      debugLocationChatReplyMessageParseCount,
+      1,
+      reason: 'Unseen candidate bodies are not parsed while building the page.',
+    );
+    final parses = debugLocationChatReplyMessageParseCount;
+    await tester.tap(
+      find.byKey(const ValueKey('location-chat-reply-next-card')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      debugLocationChatReplyMessageParseCount - parses,
+      1,
+      reason: 'Only the newly requested neighboring card is parsed.',
+    );
+    expect(find.text('2 / 10'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump();
+  });
+
+  testWidgets(
+    'selected card refreshes its body after promotion and a formal history edit',
+    (tester) async {
+      final backend = _LocationChatReplyHttpTransport();
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+      );
+      backend.cards.addAll([
+        backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
+        backend._cardJson(502, 2, 'succeeded', 'Candidate reply.'),
+      ]);
+      final controller = harness.service.replyActions!;
+      unawaited(
+        harness.service.refreshLatestMessages(locationId: 'location-current'),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => controller.stateFor('location-current')!.cardCount == 2,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('location-chat-reply-next-card')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Candidate reply.'), findsOneWidget);
+
+      // Use the normal selection transaction, keeping this round current so
+      // later authoritative edits still render inside its mounted reply deck.
+      var finalized = false;
+      unawaited(
+        controller.finalizeBeforeSend('location-current').then((_) {
+          finalized = true;
+        }),
+      );
+      await _pumpUntilLocationChatTest(tester, () => finalized);
+      await tester.pumpAndSettle();
+      final state = controller.stateFor('location-current')!;
+      expect(state.confirmed, isTrue);
+      expect(state.selectedCardAwaitingFormalHistory, isTrue);
+      expect(backend.selectionRequests, hasLength(1));
+
+      backend.commitSelectedCardToHistory();
+      harness.socket.serverConversationRangeUpdated(start: 301, end: 301);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            !state.selectedCardAwaitingFormalHistory &&
+            state.displayedMessages.single.locationMessageId == 502,
+      );
+      await tester.pumpAndSettle();
+      expect(state.showCardPresentation, isTrue);
+      expect(find.text('Candidate reply.'), findsOneWidget);
+      final candidateRevision = state.cardContentRevision(502);
+      final deckElement = find
+          .byKey(const ValueKey('reply-card-gesture'))
+          .evaluate()
+          .single;
+
+      // The card remains a candidate snapshot, while this formal message is
+      // edited and published through the authoritative range-update protocol.
+      backend.messages.singleWhere(
+        (message) => message['global_message_id'] == 90502,
+      )['payload'] = {
+        'content': 'Revised formal reply.',
+      };
+      harness.socket.serverConversationRangeUpdated(start: 301, end: 301);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => state.displayedMessages.single.content == 'Revised formal reply.',
+      );
+      await tester.pumpAndSettle();
+
+      expect(state.cardContentRevision(502), candidateRevision);
+      expect(state.messagesForCard(502).single.content, 'Candidate reply.');
+      expect(
+        find.byKey(const ValueKey('reply-card-gesture')).evaluate().single,
+        same(deckElement),
+      );
+      expect(find.text('Revised formal reply.'), findsOneWidget);
+      expect(find.text('Candidate reply.'), findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump();
+    },
+  );
+
+  testWidgets('inspiration result and loading reuse the message projection', (
+    tester,
+  ) async {
+    final barrier = Completer<void>();
+    final backend = _LocationChatReplyHttpTransport()
+      ..inspirationBarrier = barrier;
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+    );
+    var list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    list.inspirationFeature.onExpandedChanged!(true);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => backend.inspirationRequests.isNotEmpty,
+    );
+    list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    final messages = list.messages;
+    final projections = debugLocationChatReplyProjectionCount;
+    final parses = debugLocationChatReplyMessageParseCount;
+    await tester.pump(const Duration(milliseconds: 100));
+    barrier.complete();
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .inspirationFeature
+          .messages
+          .isNotEmpty,
+    );
+    await tester.pumpAndSettle();
+    list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(list.inspirationFeature.loading, isFalse);
+    expect(identical(list.messages, messages), isTrue);
+    expect(debugLocationChatReplyProjectionCount, projections);
+    expect(debugLocationChatReplyMessageParseCount, parses);
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump();
+  });
+
+  testWidgets(
     'inspiration locks cards only while loading and source changes clear results',
     (tester) async {
       final barrier = Completer<void>();
@@ -3431,7 +4206,13 @@ void main() {
     expect(loadingList.editFeature.enabled, isFalse);
     expect(loadingList.replyCardSwitchEnabled, isFalse);
     for (final action in ['Regenerate', 'Go on', 'Edit']) {
-      expect(find.bySemanticsLabel(action), findsNothing);
+      expect(
+        tester
+            .widget<Semantics>(find.bySemanticsLabel(action))
+            .properties
+            .enabled,
+        isFalse,
+      );
     }
     expect(
       find.byKey(const ValueKey('location-chat-loading-bubble')),
@@ -4110,6 +4891,9 @@ void main() {
       );
       expect(find.text('New message from the composer.'), findsOneWidget);
       expect(list.replyActionsVisible, isFalse);
+      const actionSlotKey = ValueKey('location-chat-reply-action-slot');
+      final actionSlot = find.byKey(actionSlotKey);
+      final actionSlotHeightBeforeAck = tester.getSize(actionSlot).height;
       final optimisticBubbleTop = tester
           .getTopLeft(find.text('New message from the composer.'))
           .dy;
@@ -4169,10 +4953,26 @@ void main() {
         const ValueKey<String>('location-chat-ack-loading-dots'),
       );
       expect(dots, findsOneWidget);
+      expect(tester.getSize(actionSlot).height, actionSlotHeightBeforeAck);
+      expect(find.ancestor(of: dots, matching: actionSlot), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('location-chat-regenerate')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('location-chat-go-on')), findsNothing);
+      expect(find.byKey(const ValueKey('location-chat-edit')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('location-chat-inspiration')),
+        findsNothing,
+      );
       expect(
         tester.getTopLeft(find.text('New message from the composer.')).dy,
-        lessThanOrEqualTo(optimisticBubbleTop),
-        reason: 'The new loading row may move the bubble up to stay visible.',
+        closeTo(optimisticBubbleTop, 0.1),
+        reason: 'ACK loading reuses the existing action slot height.',
       );
       expect(
         tester.getTopLeft(dots).dy,
@@ -8214,8 +9014,10 @@ _mountCompletedReplyActionPanel(
   WidgetTester tester, {
   required _LocationChatReplyHttpTransport backend,
   bool isMember = true,
+  bool usePreparedEntry = false,
   String conversationType = 'user_message',
   String triggerUid = 'user-1',
+  bool waitForEdit = true,
 }) async {
   final harness = await _connectedLocationChatTestService(
     replyTransport: backend,
@@ -8236,6 +9038,7 @@ _mountCompletedReplyActionPanel(
           locationId: 'location-current',
           service: harness.service,
           isMember: isMember,
+          usePreparedEntry: usePreparedEntry,
           leaveOnInactive: false,
           messageQueueInitializationCovered: true,
         ),
@@ -8268,15 +9071,12 @@ _mountCompletedReplyActionPanel(
     conversationType: conversationType,
     triggerUid: triggerUid,
   );
-  await _pumpUntilLocationChatTest(
-    tester,
-    () => tester
-        .widget<LocationChatAnchoredMessageList>(
-          find.byType(LocationChatAnchoredMessageList),
-        )
-        .editFeature
-        .enabled,
-  );
+  await _pumpUntilLocationChatTest(tester, () {
+    final list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    return waitForEdit ? list.editFeature.enabled : list.goOnFeature.enabled;
+  });
   await tester.pumpAndSettle();
   return harness;
 }
@@ -8900,6 +9700,7 @@ class _LocationChatTestTransport implements ChatroomSocketTransport {
 }
 
 class _LocationChatTestSocket implements ChatroomSocket {
+  bool autoJoinAck = true;
   final _messages = StreamController<String>.broadcast();
   final List<Map<String, dynamic>> _sentFrames = <Map<String, dynamic>>[];
 
@@ -9006,7 +9807,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
   Future<void> send(String message) async {
     final frame = jsonDecode(message) as Map<String, dynamic>;
     _sentFrames.add(frame);
-    if (frame['type'] != 'join') return;
+    if (frame['type'] != 'join' || !autoJoinAck) return;
     final clientMsgId = '${frame['client_msg_id'] ?? ''}';
     scheduleMicrotask(() {
       _serverFrame('ack', {

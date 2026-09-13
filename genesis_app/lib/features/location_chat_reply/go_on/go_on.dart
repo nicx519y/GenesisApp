@@ -2,25 +2,23 @@ import 'package:flutter/material.dart';
 
 import '../../../icons/custom_icon_assets.dart';
 import '../shared/reply_feature_button.dart';
+import '../shared/reply_action_state.dart';
 
 /// Public invocation contract for continuing from the current reply round.
 final class LocationChatGoOnFeature {
-  const LocationChatGoOnFeature({
-    required this.onInvoke,
-    required this.enabled,
-    required this.busy,
-  });
+  const LocationChatGoOnFeature({required this.onInvoke, required this.state});
 
   const LocationChatGoOnFeature.disabled()
     : onInvoke = null,
-      enabled = false,
-      busy = false;
+      state = LocationChatReplyActionState.none;
 
   final VoidCallback? onInvoke;
-  final bool enabled;
-  final bool busy;
+  final LocationChatReplyActionState state;
+  bool get enabled => state == LocationChatReplyActionState.idle;
+  bool get busy => state == LocationChatReplyActionState.busy;
 
-  VoidCallback? get invocation => enabled && !busy ? onInvoke : null;
+  VoidCallback? get invocation =>
+      state == LocationChatReplyActionState.idle ? onInvoke : null;
 }
 
 class LocationChatGoOnButton extends StatelessWidget {
@@ -37,7 +35,7 @@ class LocationChatGoOnButton extends StatelessWidget {
   Widget build(BuildContext context) => LocationChatReplyFeatureButton(
     label: 'Go on',
     iconAsset: goOnIconAsset,
-    loading: feature.busy,
+    state: feature.state,
     onTap: feature.invocation == null
         ? null
         : () {

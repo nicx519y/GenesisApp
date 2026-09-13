@@ -24,6 +24,16 @@ import '../app/membership/membership_purchase_service_test.dart' as support;
 const surfaceKey = ValueKey('subscription-test-surface');
 const buttonKey = ValueKey('pro-subscribe-button');
 
+class _InjectedCacheCatalog extends MembershipCatalog {
+  _InjectedCacheCatalog({required this.loadCache, required super.loadProducts})
+    : super(provider: MembershipProvider.google);
+
+  final Future<MembershipCatalogData?> Function() loadCache;
+
+  @override
+  Future<MembershipCatalogData?> loadCached() => loadCache();
+}
+
 Widget page(
   MembershipCatalogLoader? loader, {
   MembershipCatalog? catalog,
@@ -237,6 +247,64 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('Subscribed'), findsNothing);
+    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+  });
+
+  testWidgets('unsupported cached plan does not crash before fresh catalog', (
+    tester,
+  ) async {
+    final fresh = Completer<MembershipProductList>();
+    final monthly = membershipProduct();
+    final unsupported = MembershipProduct(
+      title: monthly.title,
+      benefits: monthly.benefits,
+      planCode: 'pro_weekly',
+      provider: monthly.provider,
+      storeProductId: monthly.storeProductId,
+      basePlanId: monthly.basePlanId,
+      billingMonths: monthly.billingMonths,
+      monthlyGemsCent: monthly.monthlyGemsCent,
+      priceCurrencyCode: monthly.priceCurrencyCode,
+      priceAmount: monthly.priceAmount,
+    );
+    final catalog = _InjectedCacheCatalog(
+      loadCache: () async => MembershipCatalogData(
+        offers: [MembershipOffer(product: unsupported)],
+      ),
+      loadProducts: (_) => fresh.future,
+    );
+    await tester.pumpWidget(page(null, catalog: catalog));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byKey(buttonKey), findsOneWidget);
+    fresh.complete(
+      MembershipProductList(
+        vipStatus: MembershipVipStatus.none,
+        products: [membershipProduct(yearly: true)],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+  });
+
+  testWidgets('cache read failure does not escape the background load', (
+    tester,
+  ) async {
+    final fresh = Completer<MembershipProductList>();
+    final catalog = _InjectedCacheCatalog(
+      loadCache: () async => throw StateError('cache unavailable'),
+      loadProducts: (_) => fresh.future,
+    );
+    await tester.pumpWidget(page(null, catalog: catalog));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    fresh.complete(
+      MembershipProductList(
+        vipStatus: MembershipVipStatus.none,
+        products: [membershipProduct(yearly: true)],
+      ),
+    );
+    await tester.pumpAndSettle();
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {

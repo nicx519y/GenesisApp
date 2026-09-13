@@ -150,17 +150,23 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     var freshApplied = false;
     if (source != null && cached == null) {
       unawaited(() async {
-        final snapshot = await source.loadCached();
-        if (!mounted ||
-            request != _requestGeneration ||
-            freshApplied ||
-            snapshot == null) {
-          return;
+        try {
+          final snapshot = await source.loadCached();
+          if (!mounted ||
+              request != _requestGeneration ||
+              freshApplied ||
+              snapshot == null) {
+            return;
+          }
+          setState(() {
+            _applyCatalog(snapshot);
+            _loading = false;
+          });
+        } catch (error) {
+          debugPrint(
+            '[Membership] catalog cache display failed: ${error.runtimeType}',
+          );
         }
-        setState(() {
-          _applyCatalog(snapshot);
-          _loading = false;
-        });
       }());
     }
     try {
@@ -184,7 +190,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     _offers = catalog.offers;
     _vipStatus = catalog.vipStatus;
     if (_offerFor(_plan) == null && _offers.isNotEmpty) {
-      _plan = _ProPlan.values.firstWhere((plan) => _offerFor(plan) != null);
+      _plan = _ProPlan.values.firstWhere(
+        (plan) => _offerFor(plan) != null,
+        orElse: () => _plan,
+      );
     }
   }
 

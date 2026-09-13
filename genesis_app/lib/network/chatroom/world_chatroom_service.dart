@@ -25,6 +25,7 @@ export 'chatroom_reply_actions_controller.dart';
 import 'chatroom_timeline_payload.dart';
 
 part 'world_chatroom_connection.dart';
+part 'world_chatroom_entry.dart';
 part 'world_chatroom_history_repository.dart';
 part 'world_chatroom_message_mutations.dart';
 part 'world_chatroom_event_projection.dart';
@@ -171,8 +172,27 @@ class WorldChatroomService {
        _conversationRoundTimeout = conversationRoundTimeout,
        _refreshInitialSnapshotOnConnect = refreshInitialSnapshotOnConnect;
 
+  final _entryChannels = <String, ValueNotifier<ChatroomLocationEntry>>{};
+  final _entryLocalReads = <(String, _HistoryTicket), Future<void>>{};
+  final _entryNetworkReads = <(String, int, _HistoryTicket), Future<void>>{};
+  final _entryPreloads = <(String, _HistoryTicket), Future<void>>{};
+  final _entryNetworkVerified = <String, _HistoryTicket>{};
+  final _entryLocalReady = <String>{};
+  final _entryReadDepth = <(String, _HistoryTicket), int>{};
+  final _entryReadErrors = <(String, _HistoryTicket), Object>{};
+  final _entrySources = <String, Object>{};
   final ChatroomReplyActionStorage? _replyActionStorage;
   ChatroomReplyActionsController? _replyActionsController;
+  final _observedReplyHistory =
+      <
+        String,
+        ({
+          List<WorldChatroomMessage> messages,
+          Set<int> activeRounds,
+          int historyGeneration,
+        })
+      >{};
+  (bool, String, bool)? _replyAvailability;
   final ChatroomInspirationStorage? _inspirationStorage;
   ChatroomInspirationController? _inspirations;
   final _inspirationValidatedLocations = <String>{};
@@ -258,9 +278,11 @@ class WorldChatroomService {
         await _replyWalletRefresher?.call();
       },
       storage: _replyActionStorage,
+      snapshotStorage: _messageStorage,
     );
     _replyActionsController = controller;
     controller.addListener(_syncInspirationContexts);
+    controller.addListener(_syncEntrySnapshots);
     _observeReplyHistory();
     return controller;
   }
@@ -268,19 +290,58 @@ class WorldChatroomService {
   void _observeReplyHistory() {
     final controller = _replyActionsController;
     if (controller == null) return;
-    for (final entry in _state.messagesByLocation.entries) {
-      final round = int.tryParse(
-        _state
-                .conversationRoundStatesByLocation[entry.key]
-                ?.conversationRoundId ??
-            '',
+    controller.batchChanges(() {
+      final locations = <String>{
+        ..._state.messagesByLocation.keys,
+        ..._state.conversationRoundStatesByLocation.keys,
+        ..._observedReplyHistory.keys,
+      };
+      for (final location in locations) {
+        final messages =
+            _state.messagesByLocation[location] ??
+            const <WorldChatroomMessage>[];
+        final round = int.tryParse(
+          _state
+                  .conversationRoundStatesByLocation[location]
+                  ?.conversationRoundId ??
+              '',
+        );
+        final activeRounds = {if (round != null && round > 0) round};
+        final generation = _state.historyGenerationByLocation[location] ?? 0;
+        final previous = _observedReplyHistory[location];
+        if (previous != null &&
+            previous.historyGeneration == generation &&
+            listEquals(previous.messages, messages) &&
+            setEquals(previous.activeRounds, activeRounds)) {
+          continue;
+        }
+        _observedReplyHistory[location] = (
+          messages: List.of(messages, growable: false),
+          activeRounds: activeRounds,
+          historyGeneration: generation,
+        );
+        controller.observeMessages(
+          location,
+          messages,
+          activeRoundIds: activeRounds,
+        );
+        controller.reconcileRetainedRounds(location, {
+          for (final message in messages) message.conversationRoundNumber,
+        }, activeRounds);
+      }
+      final availability = (
+        _state.connected,
+        _state.joinedLocationId,
+        _state.inputBlocked,
       );
-      controller.observeMessages(
-        entry.key,
-        entry.value,
-        activeRoundIds: {if (round != null && round > 0) round},
-      );
-    }
+      if (availability != _replyAvailability) {
+        _replyAvailability = availability;
+        controller.refreshAvailability();
+      }
+    });
+    // Replacement is a synchronous semantic signal even when message object
+    // identities and round metadata did not change.
+    if (_inspirationReplacementLocation != null) _syncInspirationContexts();
   }
 
   final GenesisApi _api;
@@ -683,6 +744,9 @@ class WorldChatroomService {
         (_identity != null && _identity!.userId != identity.userId)) {
       _replyActionsController?.dispose();
       _replyActionsController = null;
+      _clearEntrySnapshots();
+      _observedReplyHistory.clear();
+      _replyAvailability = null;
       _inspirations?.dispose();
       _inspirations = null;
       _suspendInspirations();
@@ -960,14 +1024,61 @@ class WorldChatroomService {
         'concurrency': concurrency,
       },
     );
-    await _runLimited<String>(
-      ids,
-      math.max(1, concurrency),
-      (locationId) => _initializeLeafLocationQueue(
-        locationId: locationId,
-        latestLimit: latestLimit,
-      ),
-    );
+    // Register queued locations before disk I/O so a join can reuse a preload
+    // even when its network worker has not started yet.
+    final preloads = <String, Completer<void>>{};
+    final tickets = <String, _HistoryTicket>{};
+    final waiting = <Future<void>>[];
+    for (final location in ids) {
+      final ticket = _historyTicket(location);
+      final key = (location, ticket);
+      final existing = _entryPreloads[key];
+      if (existing != null) {
+        waiting.add(existing);
+        continue;
+      }
+      final completer = Completer<void>();
+      preloads[location] = completer;
+      tickets[location] = ticket;
+      _entryPreloads[key] = completer.future;
+      _entryNetworkVerified.remove(location);
+    }
+    try {
+      // Restore all local entries before slow network jobs consume the worker slots.
+      await _runLimited<String>(
+        preloads.keys.toList(),
+        math.max(1, concurrency),
+        (locationId) async {
+          try {
+            await prepareLocalEntry(locationId);
+          } catch (_) {}
+        },
+      );
+      await _runLimited<String>(
+        preloads.keys.toList(),
+        math.max(1, concurrency),
+        (locationId) async {
+          try {
+            if (!_historyIsCurrent(locationId, tickets[locationId]!)) return;
+            await _initializeLeafLocationQueue(
+              locationId: locationId,
+              latestLimit: latestLimit,
+            );
+          } finally {
+            preloads[locationId]!.complete();
+          }
+        },
+      );
+      await Future.wait(waiting);
+    } finally {
+      for (final entry in preloads.entries) {
+        if (!entry.value.isCompleted) entry.value.complete();
+        final key = (entry.key, tickets[entry.key]!);
+        if (identical(_entryPreloads[key], entry.value.future)) {
+          _entryPreloads.remove(key);
+        }
+      }
+    }
     _logChatroomHydrateMetric(
       'leaf queue init done world=$_worldId locations=${ids.length} '
       'elapsed=${stopwatch?.elapsedMilliseconds}ms',
@@ -1300,11 +1411,12 @@ class WorldChatroomService {
     if (ownerUid.isEmpty) return;
     _cancelHistoryRefreshes();
     await Future.wait(_locationWrites.values.toList());
+    _clearEntrySnapshots();
     await _messageStorage.clearCache(ownerUid);
     final replies = _replyActionsController;
     if (replies != null) {
       for (final location in replies.locationIds.toList()) {
-        await replies.clearCardsCache(location);
+        await replies.forgetCachedPresentation(location);
       }
     }
     _deletedMessageIds.clear();

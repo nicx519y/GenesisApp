@@ -19,7 +19,7 @@ extension ChatroomRegenerateFeatureImplementation
         ? state._viewedCardId
         : state._lastCompleteCardId;
     final originalMessages = state.formalReplyMessages;
-    _notify();
+    _notify(state.locationId);
     var dispatched = false;
     var candidatePrepared = false;
     var receiptReceived = false;
@@ -58,7 +58,7 @@ extension ChatroomRegenerateFeatureImplementation
       state._generating = true;
       state._regenerationRequestId = requestId = _request('regenerate');
       await _persist(state);
-      _notify();
+      _notify(state.locationId);
       final session = _requireSession();
       dispatched = true;
       final receipt = await session.regenerateLlmCard(
@@ -129,7 +129,7 @@ extension ChatroomRegenerateFeatureImplementation
       return;
     }
     state._regenerateDispatching = false;
-    _notify();
+    _notify(state.locationId);
     if (state.frozen) {
       if ((state._fixedCardId ?? 0) <= 0) {
         state._fixedCardId = state.lastCompleteCardId;
@@ -285,7 +285,7 @@ extension ChatroomRegenerateFeatureImplementation
         sourceType: 'ack',
         cause: receipt,
       );
-      _notify();
+      _notify(state.locationId);
       _background(
         state,
         () => _refreshRegenerationOutcome(

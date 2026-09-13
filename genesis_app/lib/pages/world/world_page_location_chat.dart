@@ -608,7 +608,13 @@ extension _WorldPageLocationChat on _WorldPageState {
         .initializeLeafLocationQueues(locationIds: pendingIds)
         .then((_) {
           if (!identical(_worldChatroom, chatroom)) return;
-          _preloadedLocationMessageIds.addAll(pendingIds);
+          _preloadedLocationMessageIds.addAll(
+            pendingIds.where(
+              (id) =>
+                  chatroom.entryForLocation(id).value.phase ==
+                  ChatroomEntryPhase.ready,
+            ),
+          );
         })
         .catchError((Object error) {
           _logLocationChatMetric('message preload failed error=$error');
@@ -685,7 +691,10 @@ extension _WorldPageLocationChat on _WorldPageState {
               !_locationChatDescriptors.containsKey(locationId)) {
             return;
           }
-          _preloadedLocationMessageIds.add(locationId);
+          if (chatroom.entryForLocation(locationId).value.phase ==
+              ChatroomEntryPhase.ready) {
+            _preloadedLocationMessageIds.add(locationId);
+          }
           _logLocationChatMetric(
             'message preload done location=$locationId '
             'stateCount=${chatroom.state.messagesByLocation[locationId]?.length ?? 0}',

@@ -4,12 +4,574 @@ import 'package:genesis_flutter_android/features/location_chat_reply/edit/edit.d
 import 'package:genesis_flutter_android/features/location_chat_reply/go_on/go_on.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/inspiration/inspiration.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/regenerate.dart';
+import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_card_switcher.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_reply_layout_bridge.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 
 void main() {
+  testWidgets('stable rows still render in-place message mutations', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final historyMessage = _message('history-mutable', 1);
+    final replyMessage = _message('reply-mutable', 1);
+    final messages = [historyMessage, replyMessage];
+    final cards = [
+      LocationChatReplyCard(id: 1, messages: [replyMessage]),
+    ];
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                topTitle: '',
+                messages: messages,
+                replyCards: cards,
+                replyCurrentCardId: 1,
+                replyActionsIdentity: 'mutable-round',
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    update(() {
+      historyMessage.text = 'Changed history content';
+      replyMessage.text = 'Changed reply content';
+    });
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Changed history content', findRichText: true),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Changed reply content', findRichText: true),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'single reply updates retain unaffected rows and invalidate date and tail neighbors',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      ChatMessageVm message(String id, DateTime createdAt) => ChatMessageVm(
+        localId: id,
+        senderId: 'role',
+        senderName: 'Role',
+        text: id,
+        isMe: false,
+        status: 'sent',
+        createdAt: createdAt,
+      );
+      final history = message('reuse-history', DateTime(2026, 9, 13, 22));
+      var replies = [
+        message('reuse-first', DateTime(2026, 9, 13, 23)),
+        message('reuse-middle', DateTime(2026, 9, 14)),
+        message('reuse-last', DateTime(2026, 9, 14, 0, 10)),
+      ];
+      var messages = [history, ...replies];
+      var cards = [LocationChatReplyCard(id: 1, messages: replies)];
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return LocationChatAnchoredMessageList(
+                  coordinator: coordinator,
+                  topTitle: '',
+                  messages: messages,
+                  replyCards: cards,
+                  replyCurrentCardId: 1,
+                  replyActionsIdentity: 'reuse-round',
+                  replyActionsMessageId: 'reuse-last',
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      ChatMessageRow row(String id) =>
+          tester.widget<ChatMessageRow>(find.byKey(ValueKey(id)));
+      final originalHistory = row('reuse-history');
+      final originalFirst = row('reuse-first');
+      final originalMiddle = row('reuse-middle');
+      final originalLast = row('reuse-last');
+      expect(originalMiddle.showDateDivider, isTrue);
+      expect(originalLast.showDateDivider, isFalse);
+      expect(
+        originalLast.style!.rowBottomPadding,
+        LocationChatReplyActions.contentBottomGap,
+      );
+
+      // The reconciler updates the existing VM during a streaming reply.
+      update(() => replies[1].text = 'A newly streamed middle message');
+      await tester.pumpAndSettle();
+      final streamedMiddle = row('reuse-middle');
+      expect(streamedMiddle, isNot(same(originalMiddle)));
+      expect(streamedMiddle.message.text, 'A newly streamed middle message');
+      expect(row('reuse-history'), same(originalHistory));
+      expect(row('reuse-first'), same(originalFirst));
+      expect(row('reuse-last'), same(originalLast));
+
+      // Dividers use a gap greater than 30 minutes. Correcting the middle
+      // timestamp changes its gap from 60 to 20, and the next gap from 10 to 50.
+      update(() {
+        replies = [
+          replies.first,
+          message('reuse-middle', DateTime(2026, 9, 13, 23, 20))
+            ..text = replies[1].text,
+          replies.last,
+        ];
+        cards = [LocationChatReplyCard(id: 1, messages: replies)];
+        messages = [history, ...replies];
+      });
+      await tester.pumpAndSettle();
+      final correctedMiddle = row('reuse-middle');
+      final dateNeighbor = row('reuse-last');
+      expect(correctedMiddle, isNot(same(streamedMiddle)));
+      expect(correctedMiddle.showDateDivider, isFalse);
+      expect(dateNeighbor, isNot(same(originalLast)));
+      expect(dateNeighbor.showDateDivider, isTrue);
+      expect(row('reuse-history'), same(originalHistory));
+      expect(row('reuse-first'), same(originalFirst));
+
+      // Inserting a live tail restores only the card's final normal row gap.
+      update(() {
+        messages = [
+          history,
+          ...replies,
+          ChatMessageVm(
+            localId: 'reuse-live-tail',
+            senderId: 'me',
+            senderName: 'Me',
+            text: 'Live tail',
+            isMe: true,
+            status: 'sent',
+            createdAt: DateTime(2026, 9, 14, 2),
+          ),
+        ];
+      });
+      await tester.pumpAndSettle();
+      final tailNeighbor = row('reuse-last');
+      expect(tailNeighbor, isNot(same(dateNeighbor)));
+      expect(
+        tailNeighbor.style!.rowBottomPadding,
+        ChatUiStyleConfig.standard.rowBottomPadding,
+      );
+      expect(row('reuse-first'), same(originalFirst));
+      expect(row('reuse-middle'), same(correctedMiddle));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('regenerate freezes mutable messages until the snapshot leaves', (
+    tester,
+  ) async {
+    final key = GlobalKey<LocationChatReplyCardSwitcherState>();
+    final original = _message('snapshot', 1)..text = 'Original text';
+    final cards = [
+      LocationChatReplyCard(id: 1, messages: [original]),
+    ];
+    late StateSetter update;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return Align(
+                alignment: Alignment.topLeft,
+                child: LocationChatReplyCardSwitcher(
+                  key: key,
+                  identity: 'snapshot-round',
+                  cards: cards,
+                  currentCardId: 1,
+                  regenerationInProgress: true,
+                  cardBuilderIdentity: 'stable',
+                  cardBuilder: (card) => SizedBox(
+                    height: 200,
+                    child: Text(card.messages.single.text),
+                  ),
+                  onCommit: (_) => true,
+                  onBusyChanged: (_) {},
+                  onWillChangeLayout: () {},
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    key.currentState!.beginRegenerateCollapse();
+    await tester.pump();
+    update(() => original.text = 'Mutated source');
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Original text'), findsOneWidget);
+    expect(find.text('Mutated source'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 500));
+    // Deliver the terminal vsync as well as the nominal duration boundary.
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(find.text('Original text'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('child relayout during a switch uses its actual new height', (
+    tester,
+  ) async {
+    final bridge = LocationChatReplyLayoutBridge();
+    final scroll = ScrollController();
+    final height = ValueNotifier<double>(400);
+    final switcherKey = GlobalKey<LocationChatReplyCardSwitcherState>();
+    final toolbarKey = GlobalKey();
+    addTearDown(scroll.dispose);
+    addTearDown(height.dispose);
+    var current = 1;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, update) => SingleChildScrollView(
+              controller: scroll,
+              physics: LocationChatBottomAnchoringScrollPhysics(
+                shouldFollowLatest: () => false,
+                takePresentationLayoutCorrection: () => bridge.correction,
+              ),
+              child: Column(
+                children: [
+                  const SizedBox(height: 1000),
+                  LocationChatReplyCardSwitcher(
+                    key: switcherKey,
+                    identity: 'child-relayout',
+                    currentCardId: current,
+                    cards: const [
+                      LocationChatReplyCard(id: 1, messages: []),
+                      LocationChatReplyCard(id: 2, messages: []),
+                    ],
+                    layoutBridge: bridge,
+                    cardBuilderIdentity: 'stable-child-layout',
+                    cardBuilder: (card) => card.id == 1
+                        ? const SizedBox(height: 120)
+                        : ValueListenableBuilder<double>(
+                            valueListenable: height,
+                            builder: (context, value, _) =>
+                                SizedBox(height: value),
+                          ),
+                    onWillChangeLayout: () => bridge.begin(
+                      position: scroll.position,
+                      commandGeneration: 1,
+                      currentGeneration: () => 1,
+                    ),
+                    onCommit: (id) {
+                      update(() => current = id);
+                      return true;
+                    },
+                    onBusyChanged: (busy) {
+                      if (!busy) {
+                        WidgetsBinding.instance.addPostFrameCallback(
+                          (_) => bridge.cancel(),
+                        );
+                      }
+                    },
+                  ),
+                  SizedBox(key: toolbarKey, height: 48),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    final initialY = tester.getTopLeft(find.byKey(toolbarKey)).dy;
+    switcherKey.currentState!.switchBy(1);
+    await tester.pump();
+    for (var frame = 0; frame < 36; frame++) {
+      // Models an image finishing its layout without rebuilding the card body.
+      if (frame == 10) height.value = 650;
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        tester.getTopLeft(find.byKey(toolbarKey)).dy,
+        closeTo(initialY, 1),
+        reason: 'child relayout at frame $frame',
+      );
+      expect(tester.takeException(), isNull);
+    }
+    expect(current, 2);
+  });
+
+  testWidgets(
+    'vertical dragging during a card switch keeps control after commit',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final history = List.generate(30, (i) => _message('drag-history-$i', 3));
+      final cards = [
+        LocationChatReplyCard(id: 1, messages: [_message('drag-short', 3)]),
+        LocationChatReplyCard(id: 2, messages: [_message('drag-long', 18)]),
+      ];
+      var current = 1;
+      var revision = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, update) =>
+                  NotificationListener<ScrollNotification>(
+                    onNotification: coordinator.handleScrollNotification,
+                    child: LocationChatAnchoredMessageList(
+                      coordinator: coordinator,
+                      topTitle: '',
+                      messages: [...history, ...cards[current - 1].messages],
+                      replyCards: cards,
+                      replyCurrentCardId: current,
+                      replyActionsIdentity: 'drag-round',
+                      replyCardCount: 2,
+                      replyCardIndex: current - 1,
+                      replyPresentationRevision: revision,
+                      onReplyCardSelected: (id) {
+                        update(() {
+                          current = id;
+                          revision++;
+                        });
+                        return true;
+                      },
+                    ),
+                  ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('location-chat-reply-next-card')),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 160));
+      final gesture = await tester.startGesture(const Offset(200, 120));
+      await gesture.moveBy(const Offset(0, 100));
+      await tester.pump();
+      expect(coordinator.isDetached, isTrue);
+      final visibleHistory =
+          find
+                  .byWidgetPredicate(
+                    (widget) =>
+                        widget is ChatMessageRow &&
+                        widget.message.localId.startsWith('drag-history-'),
+                  )
+                  .evaluate()
+                  .where((element) {
+                    final y = tester
+                        .getTopLeft(find.byWidget(element.widget))
+                        .dy;
+                    return y >= 0 && y < 500;
+                  })
+                  .first
+                  .widget
+              as ChatMessageRow;
+      final row = find.byKey(ValueKey(visibleHistory.message.localId));
+      final top = tester.getTopLeft(row).dy;
+      for (var frame = 0; frame < 36; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          tester.getTopLeft(row).dy,
+          closeTo(top, 1),
+          reason: 'user drag owns the viewport at frame $frame',
+        );
+        expect(tester.takeException(), isNull);
+      }
+      expect(current, 2);
+      await gesture.up();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('switch and regenerate frames reuse mounted card bodies', (
+    tester,
+  ) async {
+    final key = GlobalKey<LocationChatReplyCardSwitcherState>();
+    final builds = <int, int>{};
+    var current = 1;
+    var regenerating = false;
+    late StateSetter update;
+    final cards = [
+      LocationChatReplyCard(id: 1, messages: [_message('one', 1)]),
+      LocationChatReplyCard(id: 2, messages: [_message('two', 2)]),
+      LocationChatReplyCard(id: 3, messages: [_message('three', 3)]),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 390,
+                  child: LocationChatReplyCardSwitcher(
+                    key: key,
+                    identity: 'body-counts',
+                    cards: cards,
+                    currentCardId: current,
+                    regenerationInProgress: regenerating,
+                    cardBuilderIdentity: 'fixed-environment',
+                    cardBuilder: (card) {
+                      builds.update(
+                        card.id,
+                        (value) => value + 1,
+                        ifAbsent: () => 1,
+                      );
+                      return SizedBox(
+                        height: card.id * 100,
+                        child: Text(card.messages.single.text),
+                      );
+                    },
+                    onCommit: (id) {
+                      update(() => current = id);
+                      return true;
+                    },
+                    onBusyChanged: (_) {},
+                    onWillChangeLayout: () {},
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    expect(builds, {1: 1});
+    key.currentState!.switchBy(1);
+    await tester.pump();
+    final mountedBuilds = Map<int, int>.of(builds);
+    for (var frame = 0; frame < 30; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(builds, mountedBuilds, reason: 'switch frame $frame');
+      expect(find.byKey(const ValueKey('reply-card-page-3')), findsNothing);
+    }
+    await tester.pumpAndSettle();
+    expect(current, 2);
+    update(() => regenerating = true);
+    key.currentState!.beginRegenerateCollapse();
+    await tester.pump();
+    final collapseBuilds = Map<int, int>.of(builds);
+    for (var frame = 0; frame < 48; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(builds, collapseBuilds, reason: 'collapse frame $frame');
+    }
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final historyCount in [100, 1000]) {
+    testWidgets('switch retains lazy history with $historyCount rows', (
+      tester,
+    ) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final history = List.generate(
+        historyCount,
+        (i) => _message('history-$i', 3),
+      );
+      final cards = [
+        LocationChatReplyCard(id: 1, messages: [_message('short', 3)]),
+        LocationChatReplyCard(id: 2, messages: [_message('long', 18)]),
+      ];
+      var current = 1;
+      var revision = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 390,
+              child: StatefulBuilder(
+                builder: (context, update) {
+                  final selected = cards.firstWhere(
+                    (card) => card.id == current,
+                  );
+                  return NotificationListener<ScrollNotification>(
+                    onNotification: coordinator.handleScrollNotification,
+                    child: LocationChatAnchoredMessageList(
+                      coordinator: coordinator,
+                      topTitle: '',
+                      messages: [...history, ...selected.messages],
+                      replyCards: cards,
+                      replyCurrentCardId: current,
+                      replyActionsIdentity: 'large-history',
+                      replyCardCount: 2,
+                      replyCardIndex: current - 1,
+                      replyPresentationRevision: revision,
+                      onReplyCardSelected: (id) {
+                        update(() {
+                          current = id;
+                          revision++;
+                        });
+                        return true;
+                      },
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      var historyBuilds = 0;
+      final previousBuildCallback = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previousBuildCallback?.call(element, builtOnce);
+        final widget = element.widget;
+        if (widget is ChatMessageRow &&
+            widget.message.localId.startsWith('history-')) {
+          historyBuilds++;
+        }
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previousBuildCallback);
+      final controls = find.byKey(
+        const ValueKey('reply-actions-large-history'),
+      );
+      final initialY = tester.getTopLeft(controls).dy;
+      if (historyCount == 1000) coordinator.deactivate();
+      for (final direction in ['next', 'previous', 'next', 'previous']) {
+        await tester.tap(
+          find.byKey(ValueKey('location-chat-reply-$direction-card')),
+        );
+        await tester.pump();
+        for (var frame = 0; frame < 36; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(
+            tester.getTopLeft(controls).dy,
+            closeTo(initialY, 1),
+            reason: '$historyCount rows, $direction, frame $frame',
+          );
+          expect(find.byKey(const ValueKey('history-0')), findsNothing);
+          expect(tester.takeException(), isNull);
+        }
+      }
+      expect(
+        historyBuilds,
+        lessThan(40),
+        reason: 'animation must not rebuild the loaded history',
+      );
+    });
+  }
+
   testWidgets(
     'a short fast swipe advances and ordinary vertical scrolling and long press remain available',
     (tester) async {
@@ -578,23 +1140,19 @@ void main() {
                     replyCardIndex: current - 1,
                     regenerateFeature: LocationChatRegenerateFeature(
                       onInvoke: () => regenerateCalls++,
-                      enabled: true,
-                      busy: false,
+                      state: LocationChatReplyActionState.idle,
                     ),
                     goOnFeature: const LocationChatGoOnFeature(
                       onInvoke: null,
-                      enabled: true,
-                      busy: false,
+                      state: LocationChatReplyActionState.idle,
                     ),
                     editFeature: const LocationChatEditFeature(
                       onInvoke: null,
-                      enabled: true,
-                      busy: false,
+                      state: LocationChatReplyActionState.idle,
                     ),
                     inspirationFeature: const LocationChatInspirationFeature(
                       messages: [],
-                      loading: false,
-                      enabled: true,
+                      state: LocationChatReplyActionState.idle,
                     ),
                     onReplyCardSelected: (id) {
                       update(() {
@@ -777,7 +1335,7 @@ void main() {
             find.byKey(ValueKey('location-chat-reply-$direction-card')),
           );
           await tester.pump();
-          for (var frame = 0; frame < 16; frame++) {
+          for (var frame = 0; frame < 36; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
             expect(
               tester.getTopLeft(controls).dy,

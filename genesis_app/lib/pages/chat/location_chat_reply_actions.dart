@@ -8,6 +8,7 @@ import '../../features/location_chat_reply/edit/edit.dart';
 import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
+import '../../features/location_chat_reply/shared/reply_action_state.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../components/gems/gem_purchase_bottom_sheet.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -39,6 +40,7 @@ class LocationChatReplyActions extends StatefulWidget {
     this.onNextCard,
     this.editPromptExpanded,
     this.onEditPromptExpandedChanged,
+    this.loadingIndicator,
   });
 
   final bool isMember;
@@ -56,6 +58,9 @@ class LocationChatReplyActions extends StatefulWidget {
   final VoidCallback? onNextCard;
   final bool? editPromptExpanded;
   final ValueChanged<bool>? onEditPromptExpandedChanged;
+
+  /// Replaces the action buttons while a sent message awaits reply content.
+  final Widget? loadingIndicator;
   final ChatUiStyleConfig style;
   final double? selfMessageBubbleMaxWidthCap;
   final int? inspirationPage;
@@ -140,42 +145,47 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
       visualDensity: VisualDensity.standard,
     );
     final actionButtons = <Widget>[
-      if (_regenerate.invocation != null || _regenerate.busy)
-        LocationChatRegenerateButton(
-          key: const ValueKey('location-chat-regenerate'),
-          feature: _regenerate,
-          onBeforeInvoke: () => _setEditPromptExpanded(false),
-        ),
-      if (_goOn.invocation != null || _goOn.busy)
-        LocationChatGoOnButton(
-          key: const ValueKey('location-chat-go-on'),
-          feature: _goOn,
-          onBeforeInvoke: () => _setEditPromptExpanded(false),
-        ),
-      if (_edit.invocation != null || _edit.busy)
-        LocationChatEditButton(
-          key: const ValueKey('location-chat-edit'),
-          feature: _edit,
-          onBeforeInvoke: () {
-            _setEditPromptExpanded(true);
-            _setInspirationExpanded(false);
-          },
-        ),
-      if (_inspiration.enabled || _inspiration.loading)
-        LocationChatInspirationButton(
-          key: const ValueKey('location-chat-inspiration'),
-          feature: _inspiration,
-          expanded: _inspirationExpanded,
-          onBeforeInvoke: () => _setEditPromptExpanded(false),
-          onToggle: _toggleInspiration,
-        ),
+      if (widget.loadingIndicator case final indicator?) indicator,
+      if (widget.loadingIndicator == null) ...[
+        if (_regenerate.state != LocationChatReplyActionState.none)
+          LocationChatRegenerateButton(
+            key: const ValueKey('location-chat-regenerate'),
+            feature: _regenerate,
+            onBeforeInvoke: () => _setEditPromptExpanded(false),
+          ),
+        if (_goOn.state != LocationChatReplyActionState.none)
+          LocationChatGoOnButton(
+            key: const ValueKey('location-chat-go-on'),
+            feature: _goOn,
+            onBeforeInvoke: () => _setEditPromptExpanded(false),
+          ),
+        if (_edit.state != LocationChatReplyActionState.none)
+          LocationChatEditButton(
+            key: const ValueKey('location-chat-edit'),
+            feature: _edit,
+            onBeforeInvoke: () {
+              _setEditPromptExpanded(true);
+              _setInspirationExpanded(false);
+            },
+          ),
+        if (_inspiration.state != LocationChatReplyActionState.none)
+          LocationChatInspirationButton(
+            key: const ValueKey('location-chat-inspiration'),
+            feature: _inspiration,
+            expanded: _inspirationExpanded,
+            onBeforeInvoke: () => _setEditPromptExpanded(false),
+            onToggle: _toggleInspiration,
+          ),
+      ],
     ];
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.cardCount > 1 && !widget.cardsConfirmed) ...[
+        if (widget.loadingIndicator == null &&
+            widget.cardCount > 1 &&
+            !widget.cardsConfirmed) ...[
           Row(
             key: const ValueKey('location-chat-reply-pagination'),
             mainAxisAlignment: MainAxisAlignment.center,
@@ -246,14 +256,17 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             ),
           ),
         ),
-        if ((widget.editPromptExpanded ?? _localEditPromptExpanded) &&
+        if (widget.loadingIndicator == null &&
+            (widget.editPromptExpanded ?? _localEditPromptExpanded) &&
             _edit.freeUsesRemaining != null)
           _quotaPrompt(
             feature: 'edit',
             message: 'Free Edition uses left: ',
             remaining: _edit.freeUsesRemaining!,
           ),
-        if (_inspirationExpanded && _inspiration.messages.isNotEmpty) ...[
+        if (widget.loadingIndicator == null &&
+            _inspirationExpanded &&
+            _inspiration.messages.isNotEmpty) ...[
           const SizedBox(height: LocationChatReplyActions.contentBottomGap),
           _InspirationReplies(
             replies: _inspiration.messages,
@@ -271,7 +284,9 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             },
           ),
         ],
-        if (_inspirationExpanded && _inspiration.freeUsesRemaining != null)
+        if (widget.loadingIndicator == null &&
+            _inspirationExpanded &&
+            _inspiration.freeUsesRemaining != null)
           _quotaPrompt(
             feature: 'inspiration',
             message: 'Free inspiration uses left: ',

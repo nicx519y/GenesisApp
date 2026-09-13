@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../ui/tokens/genesis_colors.dart';
+import 'reply_action_state.dart';
+
 /// Shared visual primitive. Feature directories own the semantic label, icon,
 /// availability, and invocation policy.
 class LocationChatReplyFeatureButton extends StatelessWidget {
@@ -9,8 +12,9 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
     required this.label,
     required this.iconAsset,
     required this.onTap,
+    this.onDisabledTap,
     this.expanded,
-    this.loading = false,
+    required this.state,
   });
 
   static const double size = 32;
@@ -19,17 +23,24 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
   final String label;
   final String iconAsset;
   final VoidCallback? onTap;
+  final VoidCallback? onDisabledTap;
   final bool? expanded;
-  final bool loading;
+  final LocationChatReplyActionState state;
 
   @override
   Widget build(BuildContext context) {
-    final hidden = onTap == null && !loading;
-    if (hidden) return const SizedBox.shrink();
+    if (state == LocationChatReplyActionState.none) {
+      return const SizedBox.shrink();
+    }
+    final loading = state == LocationChatReplyActionState.busy;
+    final enabled = state == LocationChatReplyActionState.idle && onTap != null;
+    final disabledTap = state == LocationChatReplyActionState.disabled
+        ? onDisabledTap
+        : null;
     return Semantics(
       container: true,
       label: label,
-      enabled: onTap != null,
+      enabled: enabled || disabledTap != null,
       button: true,
       expanded: expanded,
       liveRegion: loading,
@@ -39,7 +50,7 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
         excludeFromSemantics: true,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: onTap,
+          onTap: enabled ? onTap : disabledTap,
           child: SizedBox.square(
             dimension: size,
             child: Center(
@@ -50,15 +61,17 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         strokeCap: StrokeCap.round,
-                        color: Color(0xF2FFFFFF),
+                        color: GenesisColors.darkTextPrimary,
                       ),
                     )
                   : SvgPicture.asset(
                       iconAsset,
                       width: iconSize,
                       height: iconSize,
-                      colorFilter: const ColorFilter.mode(
-                        Color(0xF2FFFFFF),
+                      colorFilter: ColorFilter.mode(
+                        state == LocationChatReplyActionState.disabled
+                            ? GenesisColors.darkTextTertiary
+                            : GenesisColors.darkTextPrimary,
                         BlendMode.srcIn,
                       ),
                       excludeFromSemantics: true,

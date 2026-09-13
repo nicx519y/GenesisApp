@@ -41,4 +41,26 @@ void main() {
     expect(tester.getTopLeft(surfaceFinder).dx, 60);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets('waiting bubble in an action slot uses the slot alignment', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Padding(
+            padding: const EdgeInsets.only(left: 60),
+            child: ChatReplyWaitingBubble(
+              style: kLocationChatStyle,
+              inActionSlot: true,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final surface = find.byType(ChatBubbleSurface);
+    expect(tester.getTopLeft(surface).dx, 60);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }

@@ -111,27 +111,33 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
     final ticket = _historyTicket(location);
     unawaited(
       _withLocationWrite(location, () async {
-        if (!_historyIsCurrent(location, ticket) || ticket.owner.isEmpty) {
-          return;
-        }
-        await _messageStorage.replaceMessages(
-          ownerUid: ticket.owner,
-          worldId: ticket.world,
-          locationId: location,
-          messages: updated
-              .where(
-                (message) =>
-                    message.conversationRoundNumber == roundId &&
-                    !message.streaming,
-              )
-              .map(_storageJsonFromWorldMessage)
-              .toList(),
-          startConversationRoundId: roundId,
-          endConversationRoundId: roundId,
-          maxMessagesPerLocation: _maxMessagesPerLocation,
-          isCurrent: () => _historyIsCurrent(location, ticket),
-        );
-      }).catchError((Object _) {}),
+            if (!_historyIsCurrent(location, ticket) || ticket.owner.isEmpty) {
+              return;
+            }
+            await _messageStorage.replaceMessages(
+              ownerUid: ticket.owner,
+              worldId: ticket.world,
+              locationId: location,
+              messages: updated
+                  .where(
+                    (message) =>
+                        message.conversationRoundNumber == roundId &&
+                        !message.streaming,
+                  )
+                  .map(_storageJsonFromWorldMessage)
+                  .toList(),
+              startConversationRoundId: roundId,
+              endConversationRoundId: roundId,
+              maxMessagesPerLocation: _maxMessagesPerLocation,
+              isCurrent: () => _historyIsCurrent(location, ticket),
+            );
+          })
+          .then((_) async {
+            if (_historyIsCurrent(location, ticket)) {
+              await _replyActionsController?.persistHistorySupport(location);
+            }
+          })
+          .catchError((Object _) {}),
     );
     _restartPendingHistory(location);
   }
@@ -176,6 +182,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
 
   void _cancelHistoryRefreshes() {
     _historySessionGeneration += 1;
+    _entryNetworkVerified.clear();
     for (final request in _historyRefreshes.values) {
       request.token.cancel();
     }
@@ -263,6 +270,8 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
         identical(_historyRefreshes[location], request) &&
         !request.token.isCancelled;
 
+    _beginEntryRead(location);
+    Object? entryError;
     try {
       if (request.start != null) {
         await _replyActionsController?.clearCardsCache(
@@ -449,9 +458,12 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
         );
       });
       if (_historyIsCurrent(location, ticket)) {
-        await _loadReplyCardsForHistory(location, incoming, ticket);
+        if (!await _loadReplyCardsForHistory(location, incoming, ticket)) {
+          entryError = StateError('Reply cards could not be loaded');
+        }
       }
     } catch (error) {
+      entryError = error;
       if (!current()) return;
       _recordFailure(
         ChatroomFailureEvent(
@@ -463,6 +475,8 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
       );
       // Retain the invalid range. A retry unions it with the next notification.
       rethrow;
+    } finally {
+      _endEntryRead(location, ticket, error: entryError);
     }
   }
 

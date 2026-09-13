@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../icons/custom_icon_assets.dart';
 import '../shared/reply_feature_button.dart';
+import '../shared/reply_action_state.dart';
 
 export 'src/chatroom_inspiration_controller.dart'
     show ChatroomInspirationController;
@@ -20,8 +21,7 @@ export 'src/chatroom_inspiration_storage.dart'
 final class LocationChatInspirationFeature {
   const LocationChatInspirationFeature({
     required this.messages,
-    required this.loading,
-    required this.enabled,
+    required this.state,
     this.onExpandedChanged,
     this.onSend,
     this.onEdit,
@@ -30,16 +30,16 @@ final class LocationChatInspirationFeature {
 
   const LocationChatInspirationFeature.disabled()
     : messages = const [],
-      loading = false,
-      enabled = false,
+      state = LocationChatReplyActionState.none,
       onExpandedChanged = null,
       onSend = null,
       onEdit = null,
       freeUsesRemaining = null;
 
   final List<String> messages;
-  final bool loading;
-  final bool enabled;
+  final LocationChatReplyActionState state;
+  bool get enabled => state == LocationChatReplyActionState.idle;
+  bool get loading => state == LocationChatReplyActionState.busy;
   final int? freeUsesRemaining;
   final ValueChanged<bool>? onExpandedChanged;
   final ValueChanged<String>? onSend;
@@ -65,8 +65,8 @@ class LocationChatInspirationButton extends StatelessWidget {
     label: 'Inspiration',
     iconAsset: inspirationIconAsset,
     expanded: expanded,
-    loading: feature.loading,
-    onTap: !feature.enabled || feature.loading
+    state: feature.state,
+    onTap: feature.state != LocationChatReplyActionState.idle
         ? null
         : () {
             onBeforeInvoke?.call();
