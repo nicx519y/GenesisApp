@@ -5,7 +5,6 @@ import 'package:genesis_flutter_android/ui/components/genesis_dark_close_button.
 import 'package:genesis_flutter_android/components/gems/gem_purchase_bottom_sheet.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
-import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
@@ -49,8 +48,6 @@ void main() {
                   return loadTestMembershipOffers();
                 },
                 gemsBuilder: (_) => GemPurchaseBottomSheet(
-                  embedded: true,
-                  alert: const GemBalanceAlert(kind: GemBalanceAlertKind.low),
                   productsLoader: () async {
                     products++;
                     return [];
@@ -211,7 +208,7 @@ void main() {
     );
     expect(
       (panel.decoration as BoxDecoration).color,
-      GenesisColors.darkCardBackground,
+      GenesisColors.darkFaintFill,
     );
     expect(
       tester.widget<Text>(find.text('Subscription')).style?.color,

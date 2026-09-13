@@ -199,7 +199,7 @@ class GemProductCard extends StatelessWidget {
             child: Container(
               clipBehavior: Clip.none,
               decoration: BoxDecoration(
-                color: GenesisColors.darkCardBackground,
+                color: GenesisColors.darkPurchaseCardBackground,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: GenesisColors.darkCardBorder),
               ),

@@ -5,18 +5,15 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
-import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/gem_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 import '../../utils/gem_amount.dart';
 import '../common/genesis_center_toast.dart';
-import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
 import 'gem_billing_purchase_dialog.dart';
 import 'gem_purchase_state.dart';
-import '../../ui/theme/genesis_dark_theme.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import 'gem_purchase_catalog.dart';
 import 'purchase_options_sheet.dart';
@@ -26,7 +23,6 @@ typedef GemPurchaseProductsLoader = Future<List<GemProduct>> Function();
 
 Future<void> showGemPurchaseBottomSheet(
   BuildContext context, {
-  required GemBalanceAlert alert,
   String? analyticsTrigger,
   GemPurchaseProductsLoader? productsLoader,
   GemWalletStore? walletStore,
@@ -72,8 +68,6 @@ Future<void> showGemPurchaseBottomSheet(
       alignment: Alignment.bottomCenter,
       child: PurchaseOptionsSheet(
         gemsBuilder: (_) => GemPurchaseBottomSheet(
-          embedded: true,
-          alert: alert,
           productsLoader: resolvedProductsLoader,
           walletStore: resolvedWalletStore,
           billingService: resolvedBillingService,
@@ -104,8 +98,6 @@ Future<void> showSubscriptionPurchaseBottomSheet(BuildContext context) async {
           gemsBuilder: (_) => services == null || billingService == null
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(
-                  embedded: true,
-                  alert: const GemBalanceAlert(kind: GemBalanceAlertKind.low),
                   productsLoader: () async =>
                       (await services.api.v1.gem.products()).products,
                   walletStore: services.gemWallet,
@@ -132,23 +124,20 @@ void _trackGemPurchaseSheetShow(
   );
 }
 
+/// Buy Gems content embedded in PurchaseOptionsSheet, which owns the header.
 class GemPurchaseBottomSheet extends StatefulWidget {
   const GemPurchaseBottomSheet({
     super.key,
-    required this.alert,
     required this.productsLoader,
     required this.walletStore,
     required this.billingService,
     required this.payTrackPageId,
-    this.embedded = false,
   });
 
-  final GemBalanceAlert alert;
   final GemPurchaseProductsLoader productsLoader;
   final GemWalletStore walletStore;
   final BillingService billingService;
   final String payTrackPageId;
-  final bool embedded;
 
   @override
   State<GemPurchaseBottomSheet> createState() => _GemPurchaseBottomSheetState();
@@ -355,13 +344,9 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
     dialogState.dispose();
   }
 
-  String get _title => widget.alert.kind == GemBalanceAlertKind.insufficient
-      ? 'Insufficient Gems'
-      : 'Low Gems';
-
   @override
   Widget build(BuildContext context) {
-    final content = SingleChildScrollView(
+    return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.only(bottom: 14),
       child: ValueListenableBuilder<GemWalletState>(
@@ -371,25 +356,6 @@ class _GemPurchaseBottomSheetState extends State<GemPurchaseBottomSheet> {
           balanceKey: const ValueKey<String>('gem-purchase-sheet-balance'),
           catalog: _buildProducts(),
         ),
-      ),
-    );
-    if (widget.embedded) {
-      return content;
-    }
-    return GenesisDarkTheme(
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return GenesisBottomSheetPanel(
-            title: _title,
-            height: constraints.maxHeight,
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
-            trailing: GenesisBottomSheetCloseButton(
-              buttonKey: const ValueKey<String>('gem-purchase-sheet-close'),
-              onPressed: () => Navigator.of(context).pop(),
-            ),
-            child: content,
-          );
-        },
       ),
     );
   }

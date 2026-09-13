@@ -268,7 +268,7 @@ class _TaskRow extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 62),
       padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
       decoration: BoxDecoration(
-        color: GenesisColors.darkCardBackground,
+        color: GenesisColors.darkPurchaseCardBackground,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: GenesisColors.darkCardBorder),
       ),

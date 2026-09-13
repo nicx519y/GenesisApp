@@ -5,6 +5,7 @@ const proGold = Color(0xFFD8B568);
 const proLightGold = Color(0xFFF5DFA3);
 const proGoldInk = Color(0xFFA0782C);
 const proPurchaseAccent = proGold;
+
 final proPurchaseTint = proGold.withValues(alpha: 0.12);
 const proPurchaseInk = Color(0xFF38240D);
 const proCopperAccent = Color(0xFFD94E3B);

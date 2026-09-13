@@ -252,7 +252,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
             key: const ValueKey('pro-benefits-card'),
             margin: const EdgeInsets.symmetric(horizontal: 20),
             decoration: BoxDecoration(
-              color: GenesisColors.darkCardBackground,
+              color: GenesisColors.darkPurchaseCardBackground,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: GenesisColors.darkCardBorder),
             ),
@@ -428,10 +428,7 @@ class _ProBenefit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final locked = status == MembershipBenefitDisplay.locked;
-    final color = locked
-        ? GenesisColors.darkTextTertiary
-        : GenesisColors.darkTextSecondary;
+    const color = GenesisColors.darkTextPrimary;
     final (statusIcon, statusColor, statusLabel) = switch (status) {
       MembershipBenefitDisplay.enhanced => (
         null,
@@ -445,7 +442,7 @@ class _ProBenefit extends StatelessWidget {
       ),
       MembershipBenefitDisplay.locked => (
         Icons.lock_outline_rounded,
-        GenesisColors.darkTextTertiary,
+        GenesisColors.darkTextPrimary,
         'Higher tier required',
       ),
     };
@@ -539,7 +536,7 @@ class _ProPlanCard extends StatelessWidget {
           Material(
             color: selected
                 ? proPurchaseTint
-                : GenesisColors.darkCardBackground,
+                : GenesisColors.darkPurchaseCardBackground,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
               side: BorderSide(

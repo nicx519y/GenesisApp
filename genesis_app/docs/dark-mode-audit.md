@@ -33,7 +33,7 @@
 | 公共操作框：退出、删除、保存离开确认、完成提示、取消关注等 | GenesisActionBox 自带局部深色；40% darkOverlayBackground、Blur 14、浅白描边。浅色调用页也不会让面板回白 |
 | 签到、签到成功、任务成功 | 共用深色 ActionBox；奖励说明二级白，普通动作一级白，红色动作 redSecondary，禁用三级白 |
 | 会员／Gems 购买处理中、成功；游客购买后的强制登录 | 购买结果走 GemBillingPurchaseDialog → ActionBox；游客登录走现有深色 Login Sheet。复核新增恢复／异常处理调用链没有另建白色结果框 |
-| 会员／充值 Sheet，包括会话资格恢复时的等待状态 | PurchaseOptionsSheet、GemPurchaseBottomSheet、PurchaseSessionBuilder 均有深色配置；普通 Sheet 是 raised，不是半透明操作框 |
+| 会员／充值 Sheet，包括会话资格恢复时的等待状态 | PurchaseOptionsSheet、PurchaseSessionBuilder 提供深色容器，GemPurchaseBottomSheet 只提供内嵌内容；独立 Gems 外壳已移除。普通 Sheet 是 raised，不是半透明操作框 |
 | Create / Publishing / World Progressing 等待及 Developer Creating 预览 | OriginGenerationWaitOverlay / GenesisGenerationWaitOverlay 的实际调用明确指定 dark；40% 共享浮层色、Blur 14 |
 | 登录 Sheet | 自带 GenesisDarkTheme、深色面板与公共关闭按钮 |
 | Discuss / Post Detail 发帖回复弹层 | 已深色；独立编辑器布局和 darkFaintSurface 保留。所有正式入口未启用图片添加，附件删除仅保留代码，不列为可见遗漏 |

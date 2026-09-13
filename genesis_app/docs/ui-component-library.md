@@ -168,3 +168,15 @@ SecendTabs(
 - `lib/components/secend_tabs.dart`：已变成 UI 层 `SecendTabs` 的兼容 re-export。
 - `lib/pages/create/*`：表单输入框、图片占位块、底部主按钮重复度高，适合下一轮迁移到 `GenesisPrimaryButton` 和表单字段组件。
 - `lib/components/origin/*`：卡片、统计项、详情区可以逐步收敛到统一卡片 token。
+
+
+### 游客订阅后的强制登录预览
+
+Developer Page → button → **Preview guest subscription login**（Creating 下方）。入口直接复用 `LoginSheet(isDismissible: false)`，用于检查游客订阅后必须登录的界面，不需要先购买订阅。
+
+- 点击遮罩、下拉和系统返回均不能关闭登录面板。
+- 面板外的 **Close preview** 是开发退出控件，不属于正式登录 UI。
+- 点击 Google / Apple 模拟登录成功并关闭预览；不会调用 OAuth、创建订单或更改真实账号。
+- 模拟登录等待期间退出，迟到的结果不会再次关闭底层页面。
+
+Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurchaseBottomSheet` 仅保留内嵌内容，已删除独立 header、关闭按钮、`embedded` 开关和旧的 `alert` 展示参数；余额告警入口仍保留实际告警到购买埋点的映射。
