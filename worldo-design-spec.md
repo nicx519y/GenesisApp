@@ -4,6 +4,8 @@ Date: 2026-06-09
 Source: Figma file `stitch trial`, Page 1
 Brand note: the logo name is `worldo`.
 
+Current dark Location Chat bubble styles are specified in [Location Chat 基础气泡设计规范](genesis_app/docs/location-chat-bubble-design.md). That document takes precedence over this early light-theme reference for chat bubbles.
+
 ## 1. Product Direction
 
 worldo is a mobile-first story/world creation and discovery app. The current UI supports browsing worlds, reading origin details, tracking story progress, discussing worlds, messaging users, and signing in to unlock personal Origins and Worlds.
@@ -450,4 +452,3 @@ Before designing a new worldo page:
 - Reuse tabs, search field, stats row, and section header patterns before inventing new controls.
 - Make empty states illustration-led and quiet.
 - Confirm brand spelling as `worldo`.
-

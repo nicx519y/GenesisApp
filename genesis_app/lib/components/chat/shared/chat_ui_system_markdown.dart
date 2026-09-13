@@ -9,7 +9,7 @@ class _InlineMarkdownText extends StatelessWidget {
     this.textAlign,
     this.softItalic = false,
     this.softItalicPerToken = false,
-    this.emphasisColor = const Color(0xFF888888),
+    this.emphasisColor = kChatBubbleEmphasisColor,
   }) : assert(!softItalic || !softItalicPerToken);
 
   final String text;

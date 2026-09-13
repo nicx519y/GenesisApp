@@ -361,6 +361,9 @@ HTTP 映射层的图片规则：
 
 ## 共享组件边界
 
+- Location Chat 基础气泡的设计规范以 `docs/location-chat-bubble-design.md` 为准，覆盖 AI、自己发送、旁白和发送后等待回复。修改这些类型时同步文档与 `lib/components/chat/shared/chat_scene_plate_tokens.dart`。
+- 基础底框统一使用 `ChatBubbleSurface`；正文使用 `ChatMessageBubble`，旁白使用 `ChatNarratorMessageBubble`，等待使用 `ChatReplyWaitingBubble`。页面只管理显示时机和布局，不复制气泡颜色、圆角或等待动画实现。
+
 - 通用底部弹层：`GenesisBottomSheetPanel`
 - 通用确认/操作框：`genesis_action_box.dart`
 - 居中 toast：`showGenesisToast`，不要用 `SnackBar` 替代项目内短提示。
