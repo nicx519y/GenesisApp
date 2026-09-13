@@ -115,6 +115,30 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep the page label's inset equal to the action icon's inset (7.5).
+    // Combined with the preceding message's 8.5 gap, this gives 16 above it.
+    final paginationTextPainter = TextPainter(
+      text: TextSpan(
+        text: '${widget.cardIndex + 1} / ${widget.cardCount}',
+        style: DefaultTextStyle.of(context).style.merge(
+          const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1.4,
+          ),
+        ),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final paginationHeight = paginationTextPainter.height + 15;
+    paginationTextPainter.dispose();
+    final paginationButtonStyle = IconButton.styleFrom(
+      minimumSize: Size(48, paginationHeight),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+    );
     final actionButtons = <Widget>[
       if (_regenerate.invocation != null || _regenerate.busy)
         LocationChatRegenerateButton(
@@ -158,6 +182,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             children: [
               IconButton(
                 key: const ValueKey('location-chat-reply-previous-card'),
+                style: paginationButtonStyle,
                 tooltip: 'Previous reply',
                 onPressed: widget.cardSwitchEnabled && widget.cardIndex > 0
                     ? widget.onPreviousCard
@@ -181,6 +206,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               ),
               IconButton(
                 key: const ValueKey('location-chat-reply-next-card'),
+                style: paginationButtonStyle,
                 tooltip: 'Next reply',
                 onPressed:
                     widget.cardSwitchEnabled &&
@@ -193,7 +219,8 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          // Label bottom inset 7.5 + gap 1 + action icon inset 7.5 = 16.
+          const SizedBox(height: 1),
         ],
         Padding(
           padding: EdgeInsets.only(
@@ -227,7 +254,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             remaining: _edit.freeUsesRemaining!,
           ),
         if (_inspirationExpanded && _inspiration.messages.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          const SizedBox(height: LocationChatReplyActions.contentBottomGap),
           _InspirationReplies(
             replies: _inspiration.messages,
             onSend: (text) => _inspiration.onSend?.call(text),
@@ -259,7 +286,11 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
     required String message,
     required int remaining,
   }) => Padding(
-    padding: const EdgeInsets.only(top: GenesisSpacing.xl),
+    padding: EdgeInsets.only(
+      top: feature == 'inspiration' && _inspiration.messages.isNotEmpty
+          ? GenesisSpacing.xl
+          : LocationChatReplyActions.contentBottomGap,
+    ),
     child: LayoutBuilder(
       builder: (context, constraints) {
         final availableWidth = math.max(
