@@ -265,6 +265,134 @@ void main() {
     }
   }
 
+  for (final action in [
+    (label: 'Regenerate', requestType: 'regenerate_llm_card'),
+    (label: 'Go on', requestType: 'go_on'),
+  ]) {
+    testWidgets(
+      'a Tick retires in-flight ${action.label} controls and card pagination',
+      (tester) async {
+        final backend = _LocationChatReplyHttpTransport();
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: backend,
+        );
+        backend.cards.addAll([
+          backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
+          backend._cardJson(502, 2, 'succeeded', 'Candidate reply.'),
+        ]);
+        unawaited(
+          harness.service.refreshLatestMessages(locationId: 'location-current'),
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () =>
+              harness.service.replyActions!
+                  .stateForRound('location-current', 301)!
+                  .cardCount ==
+              2,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('location-chat-reply-pagination')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.bySemanticsLabel(action.label));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () =>
+              harness.socket.replyActionFrames(action.requestType).length == 1,
+        );
+        final oldRound = harness.service.replyActions!.stateForRound(
+          'location-current',
+          301,
+        )!;
+        expect(
+          action.requestType == 'go_on'
+              ? oldRound.goOnPending
+              : oldRound.generating,
+          isTrue,
+        );
+
+        harness.socket.serverV2Tick(
+          messageId: 401,
+          locationMessageId: 401,
+          globalText: 'The world advanced.',
+        );
+        await _pumpUntilLocationChatTest(tester, () {
+          final list = tester.widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          );
+          return list.messages.any((message) => message.isTick) &&
+              harness.service.replyActions!
+                      .stateFor('location-current')
+                      ?.roundId ==
+                  401;
+        });
+        await tester.pump();
+        final list = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        expect(list.messages.any((message) => message.isTick), isTrue);
+        expect(oldRound.invalidatedByTick, isTrue);
+        expect(
+          action.requestType == 'go_on'
+              ? oldRound.goOnPending
+              : oldRound.generating,
+          isTrue,
+          reason: 'The Tick must be displayed before the old request finishes.',
+        );
+        expect(list.regenerateFeature.state, LocationChatReplyActionState.none);
+        expect(list.goOnFeature.state, LocationChatReplyActionState.none);
+        expect(list.editFeature.state, LocationChatReplyActionState.none);
+        expect(
+          list.inspirationFeature.state,
+          LocationChatReplyActionState.none,
+        );
+        expect(list.replyCardCount, 0);
+        expect(list.replyCardSwitchEnabled, isFalse);
+        expect(
+          find.byKey(const ValueKey('location-chat-reply-pagination')),
+          findsNothing,
+        );
+        for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+          expect(find.bySemanticsLabel(label), findsNothing);
+        }
+        expect(
+          harness.socket.replyActionFrames(action.requestType),
+          hasLength(1),
+        );
+        harness.socket.serverReplyActionAck(
+          action.requestType,
+          roundId: 301,
+          errNo: 2015,
+          errMsg: 'Source expired',
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => action.requestType == 'go_on'
+              ? !oldRound.goOnPending
+              : !oldRound.generating,
+        );
+        final settledList = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        expect(
+          settledList.goOnFeature.state,
+          LocationChatReplyActionState.none,
+        );
+        expect(
+          find.byKey(const ValueKey('location-chat-reply-pagination')),
+          findsNothing,
+        );
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+  }
+
   for (final mode in ['ordinary', 'candidates', 'confirmed']) {
     testWidgets(
       'prepared entry first frame includes $mode and supported disabled toolbar before join',

@@ -1155,6 +1155,18 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               : (_usesPreparedEntry
                     ? _preparedEntry?.snapshot?.actions
                     : _replyController?.stateFor(widget.locationId));
+          // A Tick can supersede an in-flight action before its ACK clears the
+          // old toolbar. Keep its candidate content, but retire its controls.
+          final tickSupersededReply =
+              (replyPresentationState?.invalidatedByTick ?? false) ||
+              (_replyController
+                      ?.statesFor(widget.locationId)
+                      .any(
+                        (source) =>
+                            source.invalidatedByTick &&
+                            (source.generating || source.goOnPending),
+                      ) ??
+                  false);
           final replyGoOnPending = _replyGoOnPending;
           final regenerationInProgress =
               (replyState?.generating ?? false) ||
@@ -1176,7 +1188,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               .where((state) => state.goOnPending && state.goOnRoundId != null)
               .firstOrNull;
           final goOnAwaitingRenderedContent =
-              acceptedGoOnSource != null && !goOnContentIsRendering;
+              !tickSupersededReply &&
+              acceptedGoOnSource != null &&
+              !goOnContentIsRendering;
           final goOnPreAckCapabilities =
               _goOnReplyOperationActive && !goOnAwaitingRenderedContent
               ? _goOnPreAckCapabilities
@@ -1185,7 +1199,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           final replyCardSwitchEnabled = _replyCardSwitchEnabledFor(
             replyPresentationState,
           );
-          final regenerateFeature = goOnAwaitingRenderedContent
+          final regenerateFeature =
+              tickSupersededReply || goOnAwaitingRenderedContent
               ? const LocationChatRegenerateFeature.disabled()
               : _regenerateFeature(
                   replyBlocked,
@@ -1193,7 +1208,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   regenerationContentRendering,
                   supportedOverride: goOnPreAckCapabilities?.regenerate,
                 );
-          final goOnFeature = goOnAwaitingRenderedContent
+          final goOnFeature = tickSupersededReply || goOnAwaitingRenderedContent
               ? const LocationChatGoOnFeature.disabled()
               : _goOnFeature(
                   replyBlocked,
@@ -1201,7 +1216,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   replyGoOnPending,
                   goOnContentIsRendering,
                 );
-          final editFeature = goOnAwaitingRenderedContent
+          final editFeature = tickSupersededReply || goOnAwaitingRenderedContent
               ? const LocationChatEditFeature.disabled()
               : _editFeature(
                   replyBlocked,
@@ -1211,7 +1226,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   ordinaryMessageBubbleMaxWidthCaps.otherMessage,
                   supportedOverride: goOnPreAckCapabilities?.edit,
                 );
-          final inspirationFeature = goOnAwaitingRenderedContent
+          final inspirationFeature =
+              tickSupersededReply || goOnAwaitingRenderedContent
               ? const LocationChatInspirationFeature.disabled()
               : _inspirationFeature(
                   replyBlocked,
@@ -1244,7 +1260,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             replyCurrentCardId: replyPresentationState?.viewedCardId ?? 0,
             replyCardBindingIdentity:
                 '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyPresentationState?.roundId}',
-            replyCardSwitchEnabled: replyCardSwitchEnabled,
+            replyCardSwitchEnabled:
+                !tickSupersededReply && replyCardSwitchEnabled,
             replyRegenerationInProgress: regenerationInProgress,
             onReplyCardSelected: _commitReplyCard,
             onReplyCardTransitionChanged: _replyTransitionChangedHandler,
@@ -1256,9 +1273,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               0,
               (replyPresentationState?.cardPosition ?? 1) - 1,
             ),
-            replyCardCount: replyPresentationState?.cardCount ?? 0,
+            replyCardCount: tickSupersededReply
+                ? 0
+                : replyPresentationState?.cardCount ?? 0,
             replyCardsConfirmed: replyPresentationState?.confirmed ?? false,
             showConfirmedCardPagination:
+                !tickSupersededReply &&
                 (replyPresentationState?.confirmed ?? false) &&
                 (replyPresentationState?.goOnPending ?? false) &&
                 !goOnContentIsRendering,

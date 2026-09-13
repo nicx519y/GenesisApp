@@ -171,6 +171,7 @@ class ChatroomReplyRoundState {
       _cards.any((card) => !_terminal(card.generationState));
   bool get busy => _busy;
   bool get frozen => _frozen;
+  bool get invalidatedByTick => _invalidated;
   Object? get error => _error;
   bool get complete => !_active && (_ended || _formal.any(_isReply));
   bool get isLatest =>
