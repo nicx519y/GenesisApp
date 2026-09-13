@@ -40,7 +40,6 @@ Future<void> showGemBalancePrompt(
 }) {
   return showGemPurchaseBottomSheet(
     context,
-    alert: alert,
     analyticsTrigger: _resolvedGemPurchaseSheetTrigger(alert, analyticsTrigger),
     productsLoader: productsLoader,
     walletStore: walletStore,

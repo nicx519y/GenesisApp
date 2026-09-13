@@ -1,59 +1,38 @@
 part of 'origin_editor_pages.dart';
 
-class _LocationCard extends StatelessWidget {
-  const _LocationCard({
+class _LocationFields extends StatelessWidget {
+  const _LocationFields({
     super.key,
-    required this.index,
-    this.title,
     required this.form,
     required this.nextFocusNode,
     required this.characters,
     required this.onChanged,
-    required this.onPickCharacters,
     required this.onRemoveCharacter,
-    required this.onDelete,
-    this.deleteEnabled = true,
-    this.onDeleteDisabled,
-    this.showHeader = true,
-    this.showBorder = true,
-    this.titleFontSize = 16,
-    this.titleSuffix,
     this.nameFieldLabel = 'Location Name *',
     this.nameFieldHintText = 'eg. Main Street',
     this.nameFieldNote,
     this.fieldLabelFontWeight = FontWeight.w600,
-    this.availableCharacters,
-    this.onAddCharacter,
+    required this.availableCharacters,
+    required this.onAddCharacter,
   });
 
-  final int index;
-  final String? title;
   final _LocationForm form;
   final FocusNode? nextFocusNode;
   final List<CharacterDraft> characters;
   final VoidCallback onChanged;
-  final VoidCallback onPickCharacters;
   final ValueChanged<String> onRemoveCharacter;
-  final VoidCallback onDelete;
-  final bool deleteEnabled;
-  final VoidCallback? onDeleteDisabled;
-  final bool showHeader;
-  final bool showBorder;
-  final double titleFontSize;
-  final String? titleSuffix;
   final String nameFieldLabel;
   final String nameFieldHintText;
   final String? nameFieldNote;
   final FontWeight fieldLabelFontWeight;
-  final List<CharacterDraft>? availableCharacters;
-  final ValueChanged<String>? onAddCharacter;
+  final List<CharacterDraft> availableCharacters;
+  final ValueChanged<String> onAddCharacter;
 
   @override
   Widget build(BuildContext context) {
     final fields = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (showHeader) const SizedBox(height: 6),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -99,24 +78,13 @@ class _LocationCard extends StatelessWidget {
           form: form,
           characters: characters,
           labelFontWeight: fieldLabelFontWeight,
-          onPickCharacters: onPickCharacters,
           onRemoveCharacter: onRemoveCharacter,
           availableCharacters: availableCharacters,
           onAddCharacter: onAddCharacter,
         ),
       ],
     );
-    if (!showHeader) return fields;
-    return CreateFormCard(
-      title: title ?? 'Location $index',
-      onDelete: onDelete,
-      deleteEnabled: deleteEnabled,
-      onDeleteDisabled: onDeleteDisabled,
-      showBorder: showBorder,
-      titleFontSize: titleFontSize,
-      titleSuffix: titleSuffix,
-      child: fields,
-    );
+    return fields;
   }
 }
 
@@ -125,28 +93,23 @@ class _InitialCharactersField extends StatelessWidget {
     required this.form,
     required this.characters,
     required this.labelFontWeight,
-    required this.onPickCharacters,
     required this.onRemoveCharacter,
-    this.availableCharacters,
-    this.onAddCharacter,
+    required this.availableCharacters,
+    required this.onAddCharacter,
   });
 
   final _LocationForm form;
   final List<CharacterDraft> characters;
   final FontWeight labelFontWeight;
-  final VoidCallback onPickCharacters;
   final ValueChanged<String> onRemoveCharacter;
-  final List<CharacterDraft>? availableCharacters;
-  final ValueChanged<String>? onAddCharacter;
+  final List<CharacterDraft> availableCharacters;
+  final ValueChanged<String> onAddCharacter;
 
   @override
   Widget build(BuildContext context) {
     final selectedCharacters = _selectedCharacters;
-    final usesInlineSelection = availableCharacters != null;
     final selectionField = Container(
-      key: usesInlineSelection
-          ? const ValueKey('location-character-selection')
-          : null,
+      key: const ValueKey('location-character-selection'),
       constraints: const BoxConstraints(minHeight: 40),
       decoration: BoxDecoration(
         color: GenesisColors.darkFaintFill,
@@ -155,9 +118,7 @@ class _InitialCharactersField extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final leftPadding = selectedCharacters.isEmpty ? 14.0 : 4.0;
-          final trailingWidth = usesInlineSelection ? 0.0 : 46.0;
-          final chipAreaWidth =
-              constraints.maxWidth - leftPadding - trailingWidth;
+          final chipAreaWidth = constraints.maxWidth - leftPadding;
           final chipsWrap = _chipsWillWrap(
             context,
             selectedCharacters,
@@ -181,9 +142,7 @@ class _InitialCharactersField extends StatelessWidget {
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Text(
-                              usesInlineSelection
-                                  ? 'Select from available characters below'
-                                  : 'Select initial characters',
+                              'Select from available characters below',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
@@ -214,18 +173,6 @@ class _InitialCharactersField extends StatelessWidget {
                           ),
                         ),
                 ),
-                if (!usesInlineSelection) ...[
-                  const SizedBox(width: 4),
-                  const SizedBox(
-                    width: 38,
-                    height: 32,
-                    child: Icon(
-                      Icons.add,
-                      color: GenesisColors.redSecondary,
-                      size: 28,
-                    ),
-                  ),
-                ],
               ],
             ),
           );
@@ -246,67 +193,57 @@ class _InitialCharactersField extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 10),
-        if (usesInlineSelection)
-          selectionField
-        else
-          GestureDetector(
-            key: const ValueKey('location-character-picker'),
-            behavior: HitTestBehavior.opaque,
-            onTap: onPickCharacters,
-            child: selectionField,
-          ),
+        selectionField,
         const SizedBox(height: 8),
         const CreateFormNote(
           note: 'The characters who start here when the worldo begins.',
         ),
-        if (usesInlineSelection) ...[
-          const SizedBox(height: 14),
-          Align(
-            key: const ValueKey('available-initial-characters-label'),
-            alignment: Alignment.center,
-            child: Text(
-              'Available to select',
-              style: TextStyle(
-                color: GenesisColors.darkTextPrimary,
-                fontSize: 14,
-                height: 1.2,
-                fontWeight: labelFontWeight,
-              ),
+        const SizedBox(height: 14),
+        Align(
+          key: const ValueKey('available-initial-characters-label'),
+          alignment: Alignment.center,
+          child: Text(
+            'Available to select',
+            style: TextStyle(
+              color: GenesisColors.darkTextPrimary,
+              fontSize: 14,
+              height: 1.2,
+              fontWeight: labelFontWeight,
             ),
           ),
-          const SizedBox(height: 8),
-          if (availableCharacters!.isEmpty)
-            Text(
-              characters.isEmpty
-                  ? 'No characters yet. Create characters first, then choose '
-                        'where they start.'
-                  : 'No characters available. All characters already have '
-                        'an initial location.',
-              key: const ValueKey('available-initial-characters-empty'),
-              style: const TextStyle(
-                color: GenesisColors.darkTextTertiary,
-                fontSize: 13,
-                height: 1.2,
-              ),
-            )
-          else
-            Wrap(
-              key: const ValueKey('available-initial-characters'),
-              direction: Axis.horizontal,
-              alignment: WrapAlignment.start,
-              spacing: 6,
-              runSpacing: 6,
-              children: [
-                for (final character in availableCharacters!)
-                  _AvailableInitialCharacterChip(
-                    characterId: character.charId.trim(),
-                    avatarUrl: character.avatarUrl.trim(),
-                    name: character.name.trim(),
-                    onAdd: onAddCharacter!,
-                  ),
-              ],
+        ),
+        const SizedBox(height: 8),
+        if (availableCharacters.isEmpty)
+          Text(
+            characters.isEmpty
+                ? 'No characters yet. Create characters first, then choose '
+                      'where they start.'
+                : 'No characters available. All characters already have '
+                      'an initial location.',
+            key: const ValueKey('available-initial-characters-empty'),
+            style: const TextStyle(
+              color: GenesisColors.darkTextTertiary,
+              fontSize: 13,
+              height: 1.2,
             ),
-        ],
+          )
+        else
+          Wrap(
+            key: const ValueKey('available-initial-characters'),
+            direction: Axis.horizontal,
+            alignment: WrapAlignment.start,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (final character in availableCharacters)
+                _AvailableInitialCharacterChip(
+                  characterId: character.charId.trim(),
+                  avatarUrl: character.avatarUrl.trim(),
+                  name: character.name.trim(),
+                  onAdd: onAddCharacter,
+                ),
+            ],
+          ),
       ],
     );
   }
@@ -473,178 +410,6 @@ class _InitialCharacterChip extends StatelessWidget {
   }
 }
 
-class _CharacterPickerSheet extends StatefulWidget {
-  const _CharacterPickerSheet({
-    required this.characters,
-    required this.initialSelectedIds,
-  });
-
-  final List<CharacterDraft> characters;
-  final Set<String> initialSelectedIds;
-
-  @override
-  State<_CharacterPickerSheet> createState() => _CharacterPickerSheetState();
-}
-
-class _CharacterPickerSheetState extends State<_CharacterPickerSheet> {
-  late final Set<String> _selectedIds = <String>{...widget.initialSelectedIds};
-
-  @override
-  Widget build(BuildContext context) {
-    return GenesisBottomSheetPanel(
-      backgroundColor: GenesisColors.darkBackground,
-      title: 'Select Characters',
-      height: MediaQuery.sizeOf(context).height * 0.58,
-      trailing: GenesisBottomSheetCloseButton(
-        onPressed: () => Navigator.of(context).pop(),
-      ),
-      child: Column(
-        children: [
-          Expanded(
-            child: GridView.builder(
-              padding: EdgeInsets.zero,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 3,
-                mainAxisExtent: 116,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 2,
-              ),
-              itemCount: widget.characters.length,
-              itemBuilder: (context, index) {
-                final character = widget.characters[index];
-                final charId = character.charId.trim();
-                final selected = _selectedIds.contains(charId);
-                return _CharacterPickerTile(
-                  character: character,
-                  selected: selected,
-                  onTap: () {
-                    setState(() {
-                      if (selected) {
-                        _selectedIds.remove(charId);
-                      } else {
-                        _selectedIds.add(charId);
-                      }
-                    });
-                  },
-                );
-              },
-            ),
-          ),
-          const SizedBox(height: 18),
-          Row(
-            children: [
-              Expanded(
-                child: GenesisPrimaryButton(
-                  label: 'Cancel',
-                  onPressed: () => Navigator.of(context).pop(),
-                  backgroundColor: GenesisColors.darkFaintFill,
-                  foregroundColor: GenesisColors.darkTextPrimary,
-                ),
-              ),
-              const SizedBox(width: 18),
-              Expanded(
-                child: GenesisPrimaryButton(
-                  label: 'Select',
-                  onPressed: () =>
-                      Navigator.of(context).pop(_selectedIds.toList()),
-                  backgroundColor: GenesisColors.redPrimary,
-                  foregroundColor: GenesisColors.darkTextPrimary,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CharacterPickerTile extends StatelessWidget {
-  const _CharacterPickerTile({
-    required this.character,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final CharacterDraft character;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      key: ValueKey('character-picker-tile-${character.charId.trim()}'),
-      borderRadius: BorderRadius.circular(12),
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(
-            width: 82,
-            height: 82,
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                GenesisCharacterAvatar(
-                  url: character.avatarUrl.trim(),
-                  name: character.name,
-                  size: 82,
-                  borderRadius: GenesisAvatarRadii.character,
-                ),
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: Container(
-                    width: 26,
-                    height: 26,
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? GenesisColors.redPrimary
-                          : GenesisColors.darkFaintFill,
-                      borderRadius: BorderRadius.circular(7),
-                      border: Border.all(
-                        color: GenesisColors.darkFaintFill,
-                        width: 2,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x33000000),
-                          blurRadius: 5,
-                          offset: Offset(0, 1),
-                        ),
-                      ],
-                    ),
-                    child: selected
-                        ? const Icon(
-                            Icons.check,
-                            color: GenesisColors.darkTextPrimary,
-                            size: 18,
-                          )
-                        : null,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 7),
-          Text(
-            character.name.trim(),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 14,
-              height: 1.1,
-              fontWeight: FontWeight.w400,
-              color: GenesisColors.darkTextPrimary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _LocationForm {
   _LocationForm({
     required this.locationId,
@@ -656,18 +421,6 @@ class _LocationForm {
     required this.selectedCharacterIds,
     this.previewImageBytes,
   });
-
-  factory _LocationForm.empty({required String locationId}) {
-    return _LocationForm(
-      locationId: locationId,
-      parentLocationId: '',
-      level: 0,
-      imageUrl: TextEditingController(),
-      name: TextEditingController(),
-      description: TextEditingController(),
-      selectedCharacterIds: <String>[],
-    );
-  }
 
   factory _LocationForm.treeLeaf({
     required String locationId,
@@ -683,23 +436,6 @@ class _LocationForm {
       description: TextEditingController(text: draft?.description ?? ''),
       selectedCharacterIds:
           draft?.initialCharacterIds.toList(growable: true) ?? <String>[],
-    );
-  }
-
-  factory _LocationForm.fromDraft(
-    LocationDraft draft, {
-    required String Function() createLocationId,
-  }) {
-    return _LocationForm(
-      locationId: draft.locationId.trim().isEmpty
-          ? createLocationId()
-          : draft.locationId.trim(),
-      parentLocationId: draft.parentLocationId,
-      level: draft.level,
-      imageUrl: TextEditingController(text: draft.imageUrl),
-      name: TextEditingController(text: draft.name),
-      description: TextEditingController(text: draft.description),
-      selectedCharacterIds: draft.initialCharacterIds,
     );
   }
 
@@ -739,22 +475,5 @@ class _LocationForm {
     name.dispose();
     description.dispose();
     nameFocusNode.dispose();
-  }
-
-  bool get hasContent {
-    return [
-          imageUrl,
-          name,
-          description,
-        ].any((controller) => controller.text.trim().isNotEmpty) ||
-        selectedCharacterIds.isNotEmpty;
-  }
-
-  void clear() {
-    imageUrl.clear();
-    name.clear();
-    description.clear();
-    selectedCharacterIds = <String>[];
-    previewImageBytes = null;
   }
 }

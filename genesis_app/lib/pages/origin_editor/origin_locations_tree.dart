@@ -119,11 +119,6 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
     );
   }
 
-  int get _l1LocationCount => _treeForms.length;
-
-  int get _l2LocationCount =>
-      _treeForms.fold<int>(0, (count, l1) => count + l1.children.length);
-
   int get _l3LocationCount => _allL3Forms.length;
 
   String _displayLocationId(String locationId) {
@@ -319,34 +314,6 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
     _onFormChanged();
   }
 
-  void _addLocation() {
-    if (_forms.length >= _OriginLocationsEditorPageState._maxLocations) {
-      _showError(
-        'You can add up to '
-        '${_OriginLocationsEditorPageState._maxLocations} locations.',
-      );
-      return;
-    }
-    _setLocationEditorState(() {
-      _forms.add(_LocationForm.empty(locationId: _generateUniqueLocationId()));
-    });
-    _onFormChanged();
-  }
-
-  void _requestRemoveLocation(int index) {
-    _removeLocation(index);
-  }
-
-  void _removeLocation(int index) {
-    if (_forms.length <= 1) {
-      _forms[index].clear();
-    } else {
-      final form = _forms.removeAt(index);
-      form.dispose();
-    }
-    _onFormChanged();
-  }
-
   void _onFormChanged() {
     _setLocationEditorState(() {});
   }
@@ -362,10 +329,6 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
   }
 
   Iterable<_LocationForm> get _allL3Forms sync* {
-    if (!widget.useLocationTree) {
-      yield* _forms;
-      return;
-    }
     for (final l1 in _treeForms) {
       for (final l2 in l1.children) {
         yield* l2.children;
@@ -373,136 +336,40 @@ extension _OriginLocationsTree on _OriginLocationsEditorPageState {
     }
   }
 
-  void _removeCharacterFromLocation(int locationIndex, String charId) {
-    _removeCharacterFromForm(_forms[locationIndex], charId);
-  }
-
-  Future<void> _removeCharacterFromForm(
-    _LocationForm form,
-    String charId,
-  ) async {
-    if (!await _confirmOpeningCharacterRemoval(form, {charId}) || !mounted)
-      return;
-    _setLocationEditorState(() {
-      form.selectedCharacterIds = form.selectedCharacterIds
-          .where((item) => item != charId)
-          .toList(growable: true);
-    });
-    _onFormChanged();
-  }
-
   List<LocationDraft> _snapshotLocations() {
     final validCharacterIds = _finalCharacters
         .map((item) => item.charId.trim())
         .where((item) => item.isNotEmpty)
         .toSet();
-    if (widget.useLocationTree) {
-      return [
-        for (final l1 in _treeForms) ...[
+    return [
+      for (final l1 in _treeForms) ...[
+        LocationDraft(
+          locationId: l1.locationId,
+          level: 1,
+          name: l1.name.text.trim(),
+        ),
+        for (final l2 in l1.children) ...[
           LocationDraft(
-            locationId: l1.locationId,
-            level: 1,
-            name: l1.name.text.trim(),
+            locationId: l2.locationId,
+            parentLocationId: l1.locationId,
+            level: 2,
+            name: l2.name.text.trim(),
           ),
-          for (final l2 in l1.children) ...[
+          for (final form in l2.children)
             LocationDraft(
-              locationId: l2.locationId,
-              parentLocationId: l1.locationId,
-              level: 2,
-              name: l2.name.text.trim(),
+              locationId: form.locationId,
+              parentLocationId: l2.locationId,
+              level: 3,
+              imageUrl: form.imageUrl.text.trim(),
+              name: form.name.text.trim(),
+              description: form.description.text.trim(),
+              initialCharacterIds: form.selectedCharacterIds
+                  .where(validCharacterIds.contains)
+                  .toList(growable: false),
             ),
-            for (final form in l2.children)
-              LocationDraft(
-                locationId: form.locationId,
-                parentLocationId: l2.locationId,
-                level: 3,
-                imageUrl: form.imageUrl.text.trim(),
-                name: form.name.text.trim(),
-                description: form.description.text.trim(),
-                initialCharacterIds: form.selectedCharacterIds
-                    .where(validCharacterIds.contains)
-                    .toList(growable: false),
-              ),
-          ],
         ],
-      ];
-    }
-    return _forms
-        .map(
-          (form) => LocationDraft(
-            locationId: form.locationId,
-            parentLocationId: form.parentLocationId,
-            level: form.level,
-            imageUrl: form.imageUrl.text.trim(),
-            name: normalizeGenesisUgcTextForDisplay(form.name.text),
-            description: normalizeGenesisUgcTextForDisplay(
-              form.description.text,
-            ),
-            initialCharacterIds: form.selectedCharacterIds
-                .where(validCharacterIds.contains)
-                .toList(growable: false),
-          ),
-        )
-        .toList(growable: false);
-  }
-
-  Future<void> _openCharacterPicker(int locationIndex) async {
-    await _openCharacterPickerForForm(_forms[locationIndex]);
-  }
-
-  Future<void> _openCharacterPickerForForm(
-    _LocationForm form, {
-    bool notifyFormChanged = true,
-  }) async {
-    final characters = await widget.repository.loadSavedCharacters();
-    if (!mounted) return;
-    _setLocationEditorState(() => _finalCharacters = characters);
-    if (characters.isEmpty) {
-      _showError('There are no characters yet.');
-      return;
-    }
-
-    final blockedIds = _boundCharacterIdsExceptForm(form);
-    final currentIds = form.selectedCharacterIds.toSet();
-    final availableCharacters = characters
-        .where((item) {
-          final charId = item.charId.trim();
-          if (charId.isEmpty) return false;
-          return currentIds.contains(charId) || !blockedIds.contains(charId);
-        })
-        .toList(growable: false);
-
-    if (availableCharacters.isEmpty) {
-      _showError('There are no available characters.');
-      return;
-    }
-
-    final selectedIds = await showGenesisModalBottomSheet<List<String>>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return GenesisDarkTheme(
-          child: CreateFormTheme(
-            child: _CharacterPickerSheet(
-              characters: availableCharacters,
-              initialSelectedIds: currentIds,
-            ),
-          ),
-        );
-      },
-    );
-    if (selectedIds == null || !mounted) return;
-    if (!await _confirmOpeningCharacterRemoval(
-          form,
-          currentIds.difference(selectedIds.toSet()),
-        ) ||
-        !mounted)
-      return;
-    _setLocationEditorState(() {
-      form.selectedCharacterIds = selectedIds;
-    });
-    if (notifyFormChanged) _onFormChanged();
+      ],
+    ];
   }
 
   Future<bool> _confirmOpeningCharacterRemoval(

@@ -53,13 +53,16 @@ class ChatMessageBubble extends StatelessWidget {
       context,
       message.localId,
     );
-    final bubble = Container(
-      key: ValueKey<String>('chat-message-bubble-${message.localId}'),
+    final bubble = ChatBubbleSurface(
+      surfaceKey: ValueKey<String>('chat-message-bubble-${message.localId}'),
       padding: style.bubblePadding,
-      decoration: BoxDecoration(color: background, borderRadius: borderRadius),
-      foregroundDecoration: border == null
-          ? null
-          : BoxDecoration(border: border, borderRadius: borderRadius),
+      color: background,
+      borderRadius: borderRadius,
+      border: border,
+      foregroundBorder: true,
+      blurSigma: usesSelfScenePlate || usesAiScenePlate
+          ? style.bubbleBackdropBlurSigma
+          : 0,
       child: editor != null
           ? _ChatMessageTextEditor(
               messageId: message.localId,
@@ -74,15 +77,7 @@ class ChatMessageBubble extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onLongPressStart: onLongPressStart,
-      child:
-          (usesSelfScenePlate || usesAiScenePlate) &&
-              style.bubbleBackdropBlurSigma > 0
-          ? ChatStableBackdropSurface(
-              borderRadius: borderRadius,
-              sigma: style.bubbleBackdropBlurSigma,
-              child: bubble,
-            )
-          : bubble,
+      child: bubble,
     );
   }
 }

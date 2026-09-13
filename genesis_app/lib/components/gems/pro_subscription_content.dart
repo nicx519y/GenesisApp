@@ -41,6 +41,8 @@ class ProSubscriptionContent extends StatefulWidget {
     this.purchaseHandler,
     this.purchaseService,
     this.closeOnPurchaseSuccess = false,
+    this.topSpacing = 10,
+    this.horizontalInset = 20,
   });
 
   final MembershipCatalogLoader? productsLoader;
@@ -48,6 +50,12 @@ class ProSubscriptionContent extends StatefulWidget {
   final Future<void> Function(MembershipProduct)? purchaseHandler;
   final MembershipPurchaseService? purchaseService;
   final bool closeOnPurchaseSuccess;
+
+  /// Embedded flows can let their shared header own the content spacing.
+  final double topSpacing;
+
+  /// Set to zero when GenesisActionSheetBody owns the outer spacing.
+  final double horizontalInset;
 
   @override
   State<ProSubscriptionContent> createState() => _ProSubscriptionContentState();
@@ -251,13 +259,13 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     }
     return Column(
       children: [
-        const SizedBox(height: 10),
+        SizedBox(height: widget.topSpacing),
         Expanded(
           child: Container(
             key: const ValueKey('pro-benefits-card'),
-            margin: const EdgeInsets.symmetric(horizontal: 20),
+            margin: EdgeInsets.symmetric(horizontal: widget.horizontalInset),
             decoration: BoxDecoration(
-              color: GenesisColors.darkCardBackground,
+              color: GenesisColors.darkPurchaseCardBackground,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: GenesisColors.darkCardBorder),
             ),
@@ -310,7 +318,12 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.fromLTRB(20, 36, 20, 0),
+          padding: EdgeInsets.fromLTRB(
+            widget.horizontalInset,
+            36,
+            widget.horizontalInset,
+            0,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -433,10 +446,7 @@ class _ProBenefit extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final locked = status == MembershipBenefitDisplay.locked;
-    final color = locked
-        ? GenesisColors.darkTextTertiary
-        : GenesisColors.darkTextSecondary;
+    const color = GenesisColors.darkTextPrimary;
     final (statusIcon, statusColor, statusLabel) = switch (status) {
       MembershipBenefitDisplay.enhanced => (
         null,
@@ -450,7 +460,7 @@ class _ProBenefit extends StatelessWidget {
       ),
       MembershipBenefitDisplay.locked => (
         Icons.lock_outline_rounded,
-        GenesisColors.darkTextTertiary,
+        GenesisColors.darkTextPrimary,
         'Higher tier required',
       ),
     };
@@ -544,7 +554,7 @@ class _ProPlanCard extends StatelessWidget {
           Material(
             color: selected
                 ? proPurchaseTint
-                : GenesisColors.darkCardBackground,
+                : GenesisColors.darkPurchaseCardBackground,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
               side: BorderSide(
@@ -559,7 +569,7 @@ class _ProPlanCard extends StatelessWidget {
               key: ValueKey('pro-plan-${plan.name}'),
               onTap: onTap,
               child: SizedBox(
-                height: 92,
+                height: 44 + MediaQuery.textScalerOf(context).scale(24) * 2,
                 width: double.infinity,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
@@ -614,7 +624,7 @@ class _ProPlanCard extends StatelessWidget {
               child: IgnorePointer(
                 child: Container(
                   key: const ValueKey('pro-yearly-savings-badge'),
-                  height: 21,
+                  height: 10 + MediaQuery.textScalerOf(context).scale(11),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   decoration: const BoxDecoration(
                     color: GenesisColors.redPrimary,

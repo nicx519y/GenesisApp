@@ -236,7 +236,7 @@ class _GemWalletPageState extends State<GemWalletPage>
                 IconButton(
                   key: const ValueKey('wallet-records-button'),
                   tooltip: 'Records',
-                  padding: EdgeInsets.zero,
+                  padding: const EdgeInsets.only(left: 4),
                   constraints: const BoxConstraints.tightFor(
                     width: 56,
                     height: 50,
@@ -264,6 +264,7 @@ class _GemWalletPageState extends State<GemWalletPage>
                 _WalletTabPage(
                   child: _subscriptionVisited
                       ? ProSubscriptionContent(
+                          horizontalInset: 16,
                           productsLoader: widget.membershipProductsLoader,
                         )
                       : const SizedBox.expand(),

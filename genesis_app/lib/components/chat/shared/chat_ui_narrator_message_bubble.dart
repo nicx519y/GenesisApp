@@ -10,18 +10,13 @@ Color chatNarratorMessageBackgroundColor(ChatUiStyleConfig style) {
       style.useConfiguredScenePlateSystemStyle) {
     return style.systemMessageBackgroundColor;
   }
-  return const Color(0x80151517);
+  return kChatNarratorBubbleColor;
 }
 
 TextStyle chatNarratorMessageTextStyle(ChatUiStyleConfig style) {
   if (style.useScenePlateBubbleGeometry &&
       !style.useConfiguredScenePlateSystemStyle) {
-    return const TextStyle(
-      color: Color.fromRGBO(255, 255, 255, 0.73),
-      fontSize: 14,
-      height: 1.3,
-      fontWeight: FontWeight.w400,
-    );
+    return kChatNarratorTextStyle;
   }
   return style.systemMessageTextStyle.copyWith(fontSize: 14);
 }

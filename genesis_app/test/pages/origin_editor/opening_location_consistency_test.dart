@@ -108,14 +108,24 @@ void main() {
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       final repository = MemoryOriginDraftRepository(
-        initialDraft: draftWith([
-          speaker,
-          narration,
-        ]).copyWith(locations: [room.copyWith(level: 0)]),
+        initialDraft: draftWith([speaker, narration]).copyWith(
+          locations: [
+            const LocationDraft(locationId: 'region', level: 1, name: 'Region'),
+            const LocationDraft(
+              locationId: 'building',
+              parentLocationId: 'region',
+              level: 2,
+              name: 'Building',
+            ),
+            room.copyWith(parentLocationId: 'building'),
+          ],
+        ),
       );
       await tester.pumpWidget(
         MaterialApp(home: OriginLocationsEditorPage(repository: repository)),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('world-location-card-room')));
       await tester.pumpAndSettle();
       final remove = find.byKey(
         const ValueKey('initial-character-chip-remove-ari'),
@@ -140,14 +150,24 @@ void main() {
         narration,
       ]);
       expect(
-        (await repository.loadDraft()).locations.first.initialCharacterIds,
+        (await repository.loadDraft()).locations
+            .firstWhere((location) => location.locationId == 'room')
+            .initialCharacterIds,
         contains('ari'),
       );
+      await tester.tap(find.byKey(const ValueKey('locations-l3-editor-save')));
+      await tester.pumpAndSettle();
+      expect((await repository.loadDraft()).opening.dialogue, [
+        speaker,
+        narration,
+      ]);
       await tester.tap(find.text('Save').last);
       await tester.pumpAndSettle();
       expect((await repository.loadDraft()).opening.dialogue, [narration]);
       expect(
-        (await repository.loadDraft()).locations.first.initialCharacterIds,
+        (await repository.loadDraft()).locations
+            .firstWhere((location) => location.locationId == 'room')
+            .initialCharacterIds,
         isNot(contains('ari')),
       );
     },
@@ -173,12 +193,7 @@ void main() {
         ),
       );
       await tester.pumpWidget(
-        MaterialApp(
-          home: OriginLocationsEditorPage(
-            repository: repository,
-            useLocationTree: true,
-          ),
-        ),
+        MaterialApp(home: OriginLocationsEditorPage(repository: repository)),
       );
       await tester.pumpAndSettle();
       final card = find.byKey(const ValueKey('world-location-card-room'));

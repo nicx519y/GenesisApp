@@ -51,6 +51,8 @@ part 'chat_ui_characters_moved_message_bubble.dart';
 part 'chat_ui_ai_content_disclaimer_message_bubble.dart';
 part 'chat_ui_media.dart';
 part 'chat_ui_bubbles.dart';
+part 'chat_ui_bubble_surface.dart';
+part 'chat_ui_reply_waiting_bubble.dart';
 part 'chat_ui_system_markdown.dart';
 
 const SystemUiOverlayStyle kChatTransparentLightSystemUiOverlayStyle =
@@ -214,7 +216,7 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
     left: kLocationChatOuterPadding,
     right: kLocationChatOuterPadding,
   ),
-  rowBottomPadding: 14,
+  rowBottomPadding: kLocationChatMessageBottomGap,
   avatarSideSpacerWidth: _locationChatAvatarOneThird,
   senderNameBottomGap: 6,
   senderNameTextStyle: const TextStyle(
@@ -224,16 +226,18 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
     height: 1,
   ),
   bubblePadding: kChatScenePlateBubblePadding,
-  bubbleBorderRadius: 14,
-  selfBubbleColor: const Color(0x99C41F2E),
+  bubbleBorderRadius: kChatBubbleRadius,
+  selfBubbleColor: kChatSelfBubbleColor,
   otherBubbleColor: kChatScenePlateAiBubbleColor,
   bubbleTextStyle: kChatScenePlateBubbleTextStyle,
   useScenePlateBubbleGeometry: true,
   bubbleBackdropBlurSigma: kChatScenePlateBubbleBlurSigma,
-  systemMessageMargin: const EdgeInsets.only(bottom: 14),
-  systemMessagePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+  systemMessageMargin: const EdgeInsets.only(
+    bottom: kLocationChatMessageBottomGap,
+  ),
+  systemMessagePadding: kChatSystemBubblePadding,
   systemMessageBackgroundColor: const Color(0x14FFFFFF),
-  systemMessageBorderRadius: 8,
+  systemMessageBorderRadius: kChatSystemBubbleRadius,
   systemMessageTextStyle: const TextStyle(
     color: Color(0x99FFFFFF),
     fontSize: 13,

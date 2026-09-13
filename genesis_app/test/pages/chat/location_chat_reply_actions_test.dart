@@ -144,7 +144,7 @@ void main() {
                 ),
               )
               .dy,
-      12,
+      8.5,
     );
     await tester.tap(find.bySemanticsLabel('Inspiration'));
     await tester.pumpAndSettle();
@@ -165,7 +165,7 @@ void main() {
                 ),
               )
               .dy,
-      12,
+      8.5,
     );
     expect(
       find.byKey(const ValueKey('inspiration-replies-carousel')),
@@ -505,6 +505,24 @@ void main() {
       );
       final next = find.byKey(const ValueKey('location-chat-reply-next-card'));
       expect(find.text('1 / 3'), findsOneWidget);
+      final pagination = find.byKey(
+        const ValueKey('location-chat-reply-pagination'),
+      );
+      final actionRow = find.byKey(
+        const ValueKey('location-chat-reply-actions-four-icons'),
+      );
+      expect(
+        LocationChatReplyActions.contentBottomGap +
+            tester.getTopLeft(find.text('1 / 3')).dy -
+            tester.getTopLeft(pagination).dy,
+        closeTo(16, 0.01),
+      );
+      expect(
+        tester.getTopLeft(actionRow).dy +
+            7.5 -
+            tester.getBottomLeft(find.text('1 / 3')).dy,
+        closeTo(16, 0.01),
+      );
       expect(find.bySemanticsLabel('Reply 1 of 3'), findsOneWidget);
       expect(tester.widget<IconButton>(previous).onPressed, isNull);
       await tester.tap(next);
@@ -955,10 +973,11 @@ void main() {
       expect(find.byType(PurchaseOptionsSheet), findsNothing);
     },
   );
-  testWidgets('purchase tabs preserve the original header and close position', (
+  testWidgets('purchase tabs share the dark action sheet header geometry', (
     tester,
   ) async {
     Widget host(Widget child) => MaterialApp(
+      theme: ThemeData.dark(),
       scrollBehavior: const GenesisScrollBehavior(),
       home: Scaffold(body: SizedBox(width: 390, height: 500, child: child)),
     );

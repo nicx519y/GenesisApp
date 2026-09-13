@@ -158,6 +158,15 @@ HTTP 映射层的图片规则：
 - 已有特殊比例角色肖像可保留图片布局，但缺图/失败时必须复用 `GenesisAvatarFallback`，不另写默认图形或文字样式。加载中的占位行为按原有场景保留。
 - 明确例外：Location Chat 的 `char_npc` 使用现有 `ChatNpcAvatar` 固定“NPC”圆标，保留其尺寸、底色、描边和文字样式；不得因公共默认头像统一而替换成名字缩写或普通角色头像。
 
+## 交互 / 提交 Sheet Header
+
+- 用户端操作 Sheet 统一复用 `GenesisActionSheetHeader`（`components/common/genesis_bottom_sheet_panel.dart`），总高固定 68，包含正文前的全部留白；有无右侧操作均不改变高度。标题字号 18、字重 600、行高 24，左对齐，左右边距 16；标题、左侧图标和右侧操作在 68 高 Header 内垂直居中，不设固定顶部间距。标题单行，窄屏或大字体放不下时省略，不缩小字号或撑高 Header。
+- 允许关闭时使用公共右侧 `GenesisDarkCloseButton`；关闭时调用所属 Sheet 原有的退出逻辑，提交中按业务禁用。新用户填表和登录不允许关闭，登录保留返回；新用户订阅右侧保留 Skip 和标题前的皇冠。三步 Header 与 Sheet 高度保持一致。
+- `GenesisBottomSheetPanel` 的普通深色标题自动使用此 Header；正文统一复用 `GenesisActionSheetBody`，左右外边距固定 16，与 Header 共享同一常量，不再叠加旧 `titleBottomSpacing`。普通深色面板默认自动应用；Tab / 多步骤容器设置 `insetBody: false`，在各正文页内只应用一次。自定义 Header 通过 `header` 插槽传入。开发工具的浅色 / 自定义 Header 保留原样。
+- Subscription / Buy Gems 使用 `GenesisActionSheetHeader.tabs`：总高同为 68，保留居中图标 Tab、16 / 600 字号及下划线，左右关闭按钮位置复用标准。购买 Sheet 内订阅正文 `topSpacing: 0`，Buy Gems 使用 `compactBalance: true` 去掉余额区居中留白；两 Tab 的正文容器均从 Header 底部开始。Wallet 完整页面正文左右边距同样为 16。
+- 正文 16 边距适用于表单、登录按钮、角色选择区、权益卡、套餐卡及底部主按钮的外边缘。卡片内部 padding、卡片间距和居中法律文案独立保留。订阅内容在 Sheet 内设置 `horizontalInset: 0`，由外层 `GenesisActionSheetBody` 提供 16；Wallet 完整页面设置 `horizontalInset: 16`。传入的 `subscriptionBuilder` 内容不得重复添加外边距。
+- Mention 保留现有独立 Header 48、Tab 32、下间距 8，不套用上述高度或字号。World / Worldo 内容面板不属于此规范。
+
 ## 标准页面 Header 标题
 
 - `GenesisBackAppBar` 默认使用 `darkBackground` 背景、`darkTextPrimary` 标题与返回图标及浅色状态栏图标；页面无需重复传入这些默认值，明确的颜色覆盖仍保留。
@@ -340,7 +349,8 @@ HTTP 映射层的图片规则：
 ## 关联背景与浮动操作菜单规范
 
 - Discuss 缩进回复底色与输入入口复用 `GenesisColors.darkFaintFill`（约 12% 白）。
-- Discuss 发帖/回复弹层、附件删除按钮和刷新指示器需要不透明背景时，使用同一填充叠在 `#151517` 上的合成色 `GenesisColors.darkFaintSurface`（`#313133`），避免透出后方内容。
+- Discuss 发帖/回复编辑弹层统一使用 `GenesisColors.darkRaisedBackground`（`#181C1F`），与普通操作 Sheet 一致。
+- 附件删除按钮和刷新指示器需要不透明背景时，使用同一填充叠在 `#151517` 上的合成色 `GenesisColors.darkFaintSurface`（`#313133`），避免透出后方内容。
 - Report 等浮动操作菜单与 Message 长按菜单保持一致：背景固定 `#666666`，文字和图标为白色。深色页面也沿用该灰色菜单，不使用页面/Sheet 的 `#181C1F` 或输入区域底色替代。菜单触发按钮的颜色可按所在页面配置。
 
 ## 刷新与加载指示器规范
@@ -360,6 +370,9 @@ HTTP 映射层的图片规则：
 - 参考实现：`lib/pages/origin/origin_world_map_shell.dart` 的 `_OriginLoadingBone`，以及 `lib/pages/discuss/discuss_page.dart` 的 `_DiscussSkeletonBone`。
 
 ## 共享组件边界
+
+- Location Chat 基础气泡的设计规范以 `docs/location-chat-bubble-design.md` 为准，覆盖 AI、自己发送、旁白和发送后等待回复。修改这些类型时同步文档与 `lib/components/chat/shared/chat_scene_plate_tokens.dart`。
+- 基础底框统一使用 `ChatBubbleSurface`；正文使用 `ChatMessageBubble`，旁白使用 `ChatNarratorMessageBubble`，等待使用 `ChatReplyWaitingBubble`。页面只管理显示时机和布局，不复制气泡颜色、圆角或等待动画实现。
 
 - 通用底部弹层：`GenesisBottomSheetPanel`
 - 通用确认/操作框：`genesis_action_box.dart`

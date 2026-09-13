@@ -676,7 +676,7 @@ void main() {
     );
     expect(
       tester.widget<Text>(find.text('Server locked')).style?.color,
-      GenesisColors.darkTextTertiary,
+      GenesisColors.darkTextPrimary,
     );
     await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
     await tester.pumpAndSettle();

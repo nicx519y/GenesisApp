@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_dark_close_button.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_bottom_sheet.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
-import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/components/common/genesis_modal_routes.dart';
@@ -49,8 +49,6 @@ void main() {
                   return loadTestMembershipOffers();
                 },
                 gemsBuilder: (_) => GemPurchaseBottomSheet(
-                  embedded: true,
-                  alert: const GemBalanceAlert(kind: GemBalanceAlertKind.low),
                   productsLoader: () async {
                     products++;
                     return [];
@@ -84,6 +82,62 @@ void main() {
         await tester.drag(pages, Offset(direction * 330, 0));
         await tester.pumpAndSettle();
         expect([memberships, products, balances, billing.starts], [1, 1, 1, 1]);
+        double? subscriptionTop;
+        for (final tabKey in [
+          'wallet-subscription-tab',
+          'wallet-buy-gems-tab',
+        ]) {
+          await tester.tap(find.byKey(ValueKey(tabKey)));
+          await tester.pumpAndSettle();
+          final headerBottom = tester
+              .getRect(find.byType(GenesisActionSheetHeader))
+              .bottom;
+          final contentTop = tester
+              .getTopLeft(
+                find.byKey(
+                  ValueKey(
+                    tabKey == 'wallet-subscription-tab'
+                        ? 'pro-benefits-card'
+                        : 'gem-balance-panel',
+                  ),
+                ),
+              )
+              .dy;
+          expect(contentTop, closeTo(headerBottom, .01));
+          final pageRect = tester.getRect(
+            find.byKey(const ValueKey('purchase-sheet-pages')),
+          );
+          final contentRect = tester.getRect(
+            find.byKey(
+              ValueKey(
+                tabKey == 'wallet-subscription-tab'
+                    ? 'pro-benefits-card'
+                    : 'gem-balance-panel',
+              ),
+            ),
+          );
+          expect(contentRect.left - pageRect.left, 16);
+          expect(pageRect.right - contentRect.right, 16);
+          if (tabKey == 'wallet-subscription-tab') {
+            final buttonRect = tester.getRect(
+              find.byKey(const ValueKey('pro-subscribe-button')),
+            );
+            expect(buttonRect.left - pageRect.left, 16);
+            expect(pageRect.right - buttonRect.right, 16);
+          }
+
+          if (tabKey == 'wallet-subscription-tab') {
+            subscriptionTop = contentTop;
+          } else {
+            expect(contentTop, closeTo(subscriptionTop!, .01));
+            expect(
+              tester
+                  .getTopLeft(find.byKey(const ValueKey('gem-balance-icon')))
+                  .dy,
+              closeTo(headerBottom, .01),
+            );
+          }
+        }
         for (final key in [
           'wallet-subscription-tab',
           'wallet-buy-gems-tab',
@@ -211,7 +265,7 @@ void main() {
     );
     expect(
       (panel.decoration as BoxDecoration).color,
-      GenesisColors.darkCardBackground,
+      GenesisColors.darkPurchaseCardBackground,
     );
     expect(
       tester.widget<Text>(find.text('Subscription')).style?.color,
@@ -219,6 +273,14 @@ void main() {
     );
 
     expect(find.byType(ProSubscriptionContent), findsOneWidget);
+    final headerRect = tester.getRect(find.byType(GenesisActionSheetHeader));
+    expect(headerRect.height, 68);
+    expect(
+      tester.getTopLeft(find.byKey(const ValueKey('pro-benefits-card'))).dy,
+      headerRect.bottom,
+    );
+    expect(tester.widget<Text>(find.text('Subscription')).style?.fontSize, 16);
+
     expect(gemsBuilds, 0);
     final subscription = tester.getRect(
       find.byKey(const ValueKey('wallet-subscription-tab')),

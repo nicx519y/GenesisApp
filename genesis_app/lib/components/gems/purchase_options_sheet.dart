@@ -3,7 +3,6 @@ import '../../app/membership/membership_catalog.dart';
 
 import '../common/genesis_bottom_sheet_panel.dart';
 import '../common/genesis_modal_routes.dart';
-import '../page_header.dart';
 import 'pro_subscription_content.dart';
 import 'wallet_purchase_tabs.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -18,12 +17,18 @@ class PurchaseOptionsSheet extends StatefulWidget {
     this.initialTab = PurchaseSheetTab.buyGems,
     this.showBuyGems = true,
     this.membershipProductsLoader,
+    this.subscriptionBuilder,
+    this.headerTrailing,
+    this.allowDragDismiss = true,
   });
 
   final WidgetBuilder gemsBuilder;
   final PurchaseSheetTab initialTab;
   final bool showBuyGems;
   final MembershipCatalogLoader? membershipProductsLoader;
+  final WidgetBuilder? subscriptionBuilder;
+  final Widget? headerTrailing;
+  final bool allowDragDismiss;
 
   @override
   State<PurchaseOptionsSheet> createState() => _PurchaseOptionsSheetState();
@@ -74,44 +79,37 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
         builder: (context, constraints) => GenesisBottomSheetPanel(
           title: '',
           height: constraints.maxHeight,
-          // Retain the existing close center (32px) and body start (64px).
-          padding: const EdgeInsets.fromLTRB(0, 7, 0, 10),
-          titleBottomSpacing: 7,
-          titleWidget: SizedBox(
-            height: kGenesisTopBarHeight,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 56),
-                  child: Center(child: WalletPurchaseTabs(controller: _tabs)),
-                ),
-                Positioned(
-                  right: 20,
-                  child: GenesisBottomSheetCloseButton(
-                    buttonKey: const ValueKey('gem-purchase-sheet-close'),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-              ],
-            ),
+          padding: const EdgeInsets.only(bottom: 10),
+          insetBody: false,
+          header: GenesisActionSheetHeader.tabs(
+            tabs: WalletPurchaseTabs(controller: _tabs),
+            trailing: widget.headerTrailing,
+            showClose: true,
+            closeButtonKey: const ValueKey('gem-purchase-sheet-close'),
+            onClose: () => Navigator.of(context).pop(),
           ),
           child: TabBarView(
             key: const ValueKey('purchase-sheet-pages'),
             controller: _tabs,
             children: [
               _PurchaseSheetPage(
-                child: _subscriptionVisited
-                    ? ProSubscriptionContent(
-                        productsLoader: widget.membershipProductsLoader,
-                        closeOnPurchaseSuccess: true,
-                      )
-                    : const SizedBox.expand(),
+                allowDragDismiss: widget.allowDragDismiss,
+                child: GenesisActionSheetBody(
+                  child: _subscriptionVisited
+                      ? widget.subscriptionBuilder?.call(context) ??
+                            ProSubscriptionContent(
+                              productsLoader: widget.membershipProductsLoader,
+                              closeOnPurchaseSuccess: true,
+                              topSpacing: 0,
+                              horizontalInset: 0,
+                            )
+                      : const SizedBox.expand(),
+                ),
               ),
               if (widget.showBuyGems)
                 _PurchaseSheetPage(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                  allowDragDismiss: widget.allowDragDismiss,
+                  child: GenesisActionSheetBody(
                     child: _gemsVisited
                         ? Builder(builder: widget.gemsBuilder)
                         : const SizedBox.expand(),
@@ -126,9 +124,13 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
 }
 
 class _PurchaseSheetPage extends StatefulWidget {
-  const _PurchaseSheetPage({required this.child});
+  const _PurchaseSheetPage({
+    required this.child,
+    required this.allowDragDismiss,
+  });
 
   final Widget child;
+  final bool allowDragDismiss;
 
   @override
   State<_PurchaseSheetPage> createState() => _PurchaseSheetPageState();
@@ -142,6 +144,7 @@ class _PurchaseSheetPageState extends State<_PurchaseSheetPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    if (!widget.allowDragDismiss) return widget.child;
     return GenesisBottomSheetDragDismissArea(
       onDismiss: () {
         // The route can also be dismissed by its native header drag.

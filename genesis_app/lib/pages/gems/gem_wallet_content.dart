@@ -49,7 +49,7 @@ class _GemWalletContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 32),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 32),
       children: [
         ValueListenableBuilder<GemWalletState>(
           valueListenable: walletStateListenable,
@@ -268,7 +268,7 @@ class _TaskRow extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 62),
       padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
       decoration: BoxDecoration(
-        color: GenesisColors.darkCardBackground,
+        color: GenesisColors.darkPurchaseCardBackground,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: GenesisColors.darkCardBorder),
       ),

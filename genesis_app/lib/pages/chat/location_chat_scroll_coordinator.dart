@@ -35,89 +35,6 @@ enum LocationChatBottomReason {
 
 enum LocationChatBottomBehavior { jump, animate }
 
-class _LocationChatAckLoadingDots extends StatefulWidget {
-  const _LocationChatAckLoadingDots({
-    super.key,
-    required this.style,
-    this.inActionSlot = false,
-  });
-
-  final ChatUiStyleConfig style;
-  final bool inActionSlot;
-
-  @override
-  State<_LocationChatAckLoadingDots> createState() =>
-      _LocationChatAckLoadingDotsState();
-}
-
-class _LocationChatAckLoadingDotsState
-    extends State<_LocationChatAckLoadingDots>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _animation = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1050),
-  )..repeat();
-
-  @override
-  void dispose() {
-    _animation.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final color = widget.style.bubbleTextStyle.color ?? Colors.white;
-    return Semantics(
-      label: 'AI reply loading',
-      liveRegion: true,
-      child: Padding(
-        padding: EdgeInsets.only(
-          left: widget.inActionSlot
-              ? 0
-              : widget.style.avatarSize + widget.style.avatarBubbleGap,
-          bottom: widget.inActionSlot ? 0 : widget.style.rowBottomPadding,
-        ),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: AnimatedBuilder(
-            animation: _animation,
-            builder: (context, _) => Row(
-              key: const ValueKey<String>('location-chat-ack-loading-dots'),
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var index = 0; index < 3; index++) ...[
-                  if (index > 0) const SizedBox(width: 3),
-                  SizedBox.square(
-                    dimension: 10,
-                    child: Center(
-                      child: Transform.scale(
-                        scale: _dotScale(index),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const SizedBox.square(dimension: 7),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  double _dotScale(int index) {
-    final phase = (_animation.value - index / 3 + 1) % 1;
-    final triangle = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
-    return 0.65 + 0.55 * Curves.easeInOut.transform(triangle);
-  }
-}
-
 const locationChatOldestEdgeLoadingAnimationDuration = Duration(
   milliseconds: 220,
 );
@@ -670,7 +587,7 @@ class _LocationChatAnchoredMessageListState
   }) => switch (entry) {
     -3 => KeyedSubtree(
       key: _entryKey(entry),
-      child: _LocationChatAckLoadingDots(style: style),
+      child: ChatReplyWaitingBubble(style: style),
     ),
     -2 => KeyedSubtree(key: _entryKey(entry), child: _buildReplyDeck(style)),
     -1 => KeyedSubtree(
@@ -1902,7 +1819,7 @@ class _LocationChatAnchoredMessageListState
                 'reply-actions-${_showLoadingInReplyActionSlot ? _replyActionSlotLoadingIdentity : _replyIdentity}',
               ),
               loadingIndicator: _showLoadingInReplyActionSlot
-                  ? _LocationChatAckLoadingDots(
+                  ? ChatReplyWaitingBubble(
                       key: ValueKey<String>(
                         'location-chat-ack-loading:$_replyActionSlotLoadingIdentity',
                       ),

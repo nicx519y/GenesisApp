@@ -10,7 +10,6 @@ class CreateLocationsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return const OriginLocationsEditorPage(
       repository: CreateOriginDraftRepository(),
-      useLocationTree: true,
     );
   }
 }

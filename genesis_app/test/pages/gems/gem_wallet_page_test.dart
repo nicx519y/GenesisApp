@@ -11,7 +11,6 @@ import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_catalog.dart';
 import 'package:genesis_flutter_android/components/gems/wallet_purchase_tabs.dart';
-import 'package:genesis_flutter_android/components/gems/pro_colors.dart';
 import 'package:genesis_flutter_android/network/models/gem_product.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
 import 'package:genesis_flutter_android/network/models/gem_task.dart';
@@ -260,7 +259,7 @@ void main() {
         (
           'Download without watermark',
           Icons.lock_outline_rounded,
-          GenesisColors.darkTextTertiary,
+          GenesisColors.darkTextPrimary,
         ),
       ]) {
         final finder = find.byKey(ValueKey('pro-benefit-status-$label'));
@@ -270,7 +269,7 @@ void main() {
           final rendered = tester.widget<SvgPicture>(finder);
           expect(
             rendered.colorFilter,
-            const ColorFilter.mode(proCopperAccent, BlendMode.srcIn),
+            const ColorFilter.mode(GenesisColors.redPrimary, BlendMode.srcIn),
           );
           expect(rendered.semanticsLabel, 'Improved with Pro');
         } else {
@@ -649,6 +648,14 @@ void main() {
     expect(
       tester.getSize(find.byKey(const ValueKey('wallet-records-icon'))),
       const Size(20, 20),
+    );
+
+    expect(
+      tester.getRect(find.byType(AppBar)).right -
+          tester
+              .getRect(find.byKey(const ValueKey('wallet-records-icon')))
+              .right,
+      16,
     );
 
     final groupTitleStyle = tester.widget<Text>(find.text('Starter')).style;

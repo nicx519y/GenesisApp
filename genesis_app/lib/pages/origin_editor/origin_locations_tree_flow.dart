@@ -486,12 +486,10 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                             child: SingleChildScrollView(
                               keyboardDismissBehavior:
                                   ScrollViewKeyboardDismissBehavior.onDrag,
-                              child: _LocationCard(
+                              child: _LocationFields(
                                 key: ValueKey<String>(
                                   'locations-l3-sheet-${target.form.locationId}',
                                 ),
-                                index: target.l3Index + 1,
-                                showHeader: false,
                                 nameFieldLabel: 'Name *',
                                 nameFieldHintText: '',
                                 nameFieldNote:
@@ -501,10 +499,6 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                                 nextFocusNode: null,
                                 characters: _finalCharacters,
                                 onChanged: refreshSheet,
-                                onPickCharacters: () {
-                                  // L3 sheets use the inline Available to select
-                                  // list instead of opening a second sheet.
-                                },
                                 availableCharacters: availableCharacters,
                                 onAddCharacter: (characterId) {
                                   if (draftForm.selectedCharacterIds.contains(
@@ -523,15 +517,15 @@ extension _OriginLocationsTreeFlow on _OriginLocationsEditorPageState {
                                         draftForm,
                                         {charId},
                                       ) ||
-                                      !context.mounted)
+                                      !context.mounted) {
                                     return;
+                                  }
                                   draftForm.selectedCharacterIds = draftForm
                                       .selectedCharacterIds
                                       .where((item) => item != charId)
                                       .toList(growable: true);
                                   setSheetState(() {});
                                 },
-                                onDelete: () {},
                               ),
                             ),
                           ),

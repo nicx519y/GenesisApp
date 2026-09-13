@@ -15,6 +15,7 @@ class _DiscussComposerPanel extends StatelessWidget {
     required this.onPickImages,
     required this.onRemoveImage,
     required this.onSend,
+    required this.onClose,
   });
 
   final String title;
@@ -30,12 +31,13 @@ class _DiscussComposerPanel extends StatelessWidget {
   final VoidCallback onPickImages;
   final ValueChanged<_DiscussImageAttachment> onRemoveImage;
   final VoidCallback onSend;
+  final VoidCallback? onClose;
 
   @override
   Widget build(BuildContext context) {
     return Material(
       key: const ValueKey('discuss-composer-sheet'),
-      color: _discussComposerSurface,
+      color: GenesisColors.darkRaisedBackground,
       shape: const RoundedRectangleBorder(
         borderRadius: GenesisBottomSheetPanel.borderRadius,
         side: BorderSide(color: _discussComposerBorder),
@@ -43,105 +45,109 @@ class _DiscussComposerPanel extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: SafeArea(
         top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 22, 16, 14),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GenesisBottomSheetPanel.titleStyle.copyWith(
-                  color: _discussComposerPrimary,
-                ),
-              ),
-              const SizedBox(height: 18),
-              TextField(
-                controller: controller,
-                focusNode: focusNode,
-                cursorColor: _discussComposerPrimary,
-                keyboardType: TextInputType.multiline,
-                textInputAction: TextInputAction.newline,
-                minLines: _discussComposerMinTextLines,
-                maxLines: _discussComposerMaxTextLines,
-                style: const TextStyle(
-                  fontSize: _discussComposerFontSize,
-                  height: _discussComposerLineHeight,
-                  fontWeight: FontWeight.w400,
-                  color: _discussComposerPrimary,
-                ),
-                decoration: InputDecoration(
-                  hintText: placeholderWidget == null ? placeholder : null,
-                  hint: placeholderWidget,
-                  hintStyle: const TextStyle(
-                    fontSize: _discussComposerFontSize,
-                    height: _discussComposerLineHeight,
-                    fontWeight: FontWeight.w400,
-                    letterSpacing: 0,
-                    color: GenesisColors.darkInputPlaceholder,
-                  ),
-                  border: InputBorder.none,
-                  isCollapsed: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              const SizedBox(height: 14),
-              if (hasImages) ...[
-                _DiscussImageStrip(
-                  images: images,
-                  showAddButton: images.length < discussPostMaxImages,
-                  submitting: submitting,
-                  onAdd: onPickImages,
-                  onRemove: onRemoveImage,
-                ),
-                const SizedBox(height: 14),
-              ],
-              Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            GenesisActionSheetHeader(
+              title: title,
+              showClose: true,
+              closeButtonKey: const ValueKey('discuss-composer-close'),
+              onClose: onClose,
+            ),
+            GenesisActionSheetBody(
+              bottom: 14,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (showImagePickerButton)
-                    IconButton(
-                      key: const ValueKey('discuss-image-picker-button'),
-                      onPressed: submitting ? null : onPickImages,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints.tightFor(
-                        width: 36,
-                        height: 36,
-                      ),
-                      icon: const Icon(
-                        Icons.add_photo_alternate_outlined,
-                        size: 30,
-                        color: GenesisColors.brand,
-                      ),
+                  TextField(
+                    controller: controller,
+                    focusNode: focusNode,
+                    cursorColor: _discussComposerPrimary,
+                    keyboardType: TextInputType.multiline,
+                    textInputAction: TextInputAction.newline,
+                    minLines: _discussComposerMinTextLines,
+                    maxLines: _discussComposerMaxTextLines,
+                    style: const TextStyle(
+                      fontSize: _discussComposerFontSize,
+                      height: _discussComposerLineHeight,
+                      fontWeight: FontWeight.w400,
+                      color: _discussComposerPrimary,
                     ),
-                  const Spacer(),
-                  TextButton(
-                    onPressed: canSend ? onSend : null,
-                    style: TextButton.styleFrom(
-                      foregroundColor: GenesisColors.brand,
-                      disabledForegroundColor: _discussComposerMuted,
-                      textStyle: const TextStyle(
-                        fontFamily: GenesisTypography.fontFamily,
-                        fontFamilyFallback:
-                            GenesisTypography.fontFamilyFallback,
-                        fontSize: 16,
-                        height: 1.1,
-                        fontWeight: FontWeight.w600,
+                    decoration: InputDecoration(
+                      hintText: placeholderWidget == null ? placeholder : null,
+                      hint: placeholderWidget,
+                      hintStyle: const TextStyle(
+                        fontSize: _discussComposerFontSize,
+                        height: _discussComposerLineHeight,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0,
+                        color: GenesisColors.darkInputPlaceholder,
                       ),
+                      border: InputBorder.none,
+                      isCollapsed: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
-                    child: submitting
-                        ? const SizedBox.square(
-                            dimension: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: GenesisColors.brand,
-                            ),
-                          )
-                        : const Text('Send'),
+                  ),
+                  const SizedBox(height: 14),
+                  if (hasImages) ...[
+                    _DiscussImageStrip(
+                      images: images,
+                      showAddButton: images.length < discussPostMaxImages,
+                      submitting: submitting,
+                      onAdd: onPickImages,
+                      onRemove: onRemoveImage,
+                    ),
+                    const SizedBox(height: 14),
+                  ],
+                  Row(
+                    children: [
+                      if (showImagePickerButton)
+                        IconButton(
+                          key: const ValueKey('discuss-image-picker-button'),
+                          onPressed: submitting ? null : onPickImages,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 36,
+                            height: 36,
+                          ),
+                          icon: const Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 30,
+                            color: GenesisColors.brand,
+                          ),
+                        ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: canSend ? onSend : null,
+                        style: TextButton.styleFrom(
+                          foregroundColor: GenesisColors.brand,
+                          disabledForegroundColor: _discussComposerMuted,
+                          textStyle: const TextStyle(
+                            fontFamily: GenesisTypography.fontFamily,
+                            fontFamilyFallback:
+                                GenesisTypography.fontFamilyFallback,
+                            fontSize: 16,
+                            height: 1.1,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        child: submitting
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: GenesisColors.brand,
+                                ),
+                              )
+                            : const Text('Send'),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

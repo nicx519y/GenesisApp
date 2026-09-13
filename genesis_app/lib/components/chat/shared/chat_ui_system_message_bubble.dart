@@ -15,7 +15,7 @@ class ChatSystemMessage extends StatelessWidget {
     this.textStyle,
     this.leadingIconColor,
     this.softItalic = false,
-    this.markdownEmphasisColor = const Color(0xFF888888),
+    this.markdownEmphasisColor = kChatBubbleEmphasisColor,
     this.bubbleKey = const ValueKey('chat-system-message-bubble'),
     this.onLongPressStart,
     this.style,
@@ -56,16 +56,14 @@ class ChatSystemMessage extends StatelessWidget {
             ),
             child: GestureDetector(
               onLongPressStart: onLongPressStart,
-              child: Container(
-                key: bubbleKey,
+              child: ChatBubbleSurface(
+                surfaceKey: bubbleKey,
                 margin: style.systemMessageMargin,
                 padding: style.systemMessagePadding,
-                decoration: BoxDecoration(
-                  color: backgroundColor ?? style.systemMessageBackgroundColor,
-                  border: border,
-                  borderRadius: BorderRadius.circular(
-                    style.systemMessageBorderRadius,
-                  ),
+                color: backgroundColor ?? style.systemMessageBackgroundColor,
+                border: border,
+                borderRadius: BorderRadius.circular(
+                  style.systemMessageBorderRadius,
                 ),
                 child: leadingIconAsset == null
                     ? content ??
@@ -108,7 +106,7 @@ class _SystemMessageWithLeadingIcon extends StatelessWidget {
     this.textStyle,
     this.iconColor,
     this.softItalic = false,
-    this.markdownEmphasisColor = const Color(0xFF888888),
+    this.markdownEmphasisColor = kChatBubbleEmphasisColor,
   });
 
   final String iconAsset;

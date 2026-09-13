@@ -67,7 +67,7 @@ void main() {
     final sheet = tester.widget<Material>(
       find.byKey(const ValueKey<String>('location-chat-mention-sheet')),
     );
-    expect(sheet.color, const Color(0xFF1F1D24));
+    expect(sheet.color, GenesisColors.darkRaisedBackground);
     final header = find.byKey(
       const ValueKey<String>('location-chat-mention-header'),
     );

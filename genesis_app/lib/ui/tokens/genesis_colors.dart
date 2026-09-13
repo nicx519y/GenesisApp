@@ -13,6 +13,11 @@ abstract final class GenesisColors {
   );
   static final Color darkCardBorder = Colors.white.withValues(alpha: 0.06);
 
+  /// Large subscription and Gems card surfaces share a restrained white fill.
+  static final Color darkPurchaseCardBackground = Colors.white.withValues(
+    alpha: 0.06,
+  );
+
   /// Translucent panels for action dialogs and generation overlays.
   static final Color darkOverlayBackground = darkRaisedBackground.withValues(
     alpha: 0.4,

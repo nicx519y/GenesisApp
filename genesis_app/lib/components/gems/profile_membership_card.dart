@@ -27,9 +27,8 @@ class ProfileMembershipCard extends StatelessWidget {
   final int? blueBalanceCent;
   final DateTime? blueGemsExpiresAt;
 
-  /// 9k is one line taller than 9k2 — the offer copy wraps to two lines.
-  static const double _offerHeight = 82;
-  static const double _activeHeight = 68;
+  /// Keep the card stable while membership status loads or changes.
+  static const double _cardHeight = 82;
 
   static const TextStyle _bodyStyle = TextStyle(
     color: proCardBody,
@@ -48,8 +47,7 @@ class ProfileMembershipCard extends StatelessWidget {
     final expiry = membershipExpiresAt;
     final isMember = isActive;
     final isLapsed = !isMember && isExpired;
-    // Only 9k's two-line offer copy needs the taller ground.
-    final height = isMember || isLapsed ? _activeHeight : _offerHeight;
+    const height = _cardHeight;
     void openMembership() => Navigator.of(
       context,
     ).pushNamed(RouteNames.gemWallet, arguments: 'subscription');
@@ -110,65 +108,82 @@ class ProfileMembershipCard extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                SvgPicture.asset(
-                                  proCrownGoldIconAsset,
-                                  width: 26,
-                                  height: 17,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 13.5),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(
+                                  minHeight: 20,
                                 ),
-                                const SizedBox(width: 8),
-                                // The wordmark yields before the status tag on
-                                // a narrow screen rather than overflowing.
-                                const Flexible(child: _ProTitle()),
-                                if (isMember) ...[
-                                  const SizedBox(width: 8),
-                                  const _StatusTag.active(),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            if (isMember)
-                              Text(
-                                'Expires ${expiry == null ? '—' : _date(expiry)}',
-                                key: const ValueKey(
-                                  'user-profile-membership-expiry',
-                                ),
-                                maxLines: 1,
-                                style: _bodyStyle,
-                              )
-                            else if (isLapsed)
-                              // The lapsed plan has no artboard; it borrows
-                              // 9k2's status line and 9k's Subscribe button.
-                              Row(
-                                children: [
-                                  const _StatusTag.expired(),
-                                  if (expiry != null) ...[
-                                    const SizedBox(width: 8),
-                                    Flexible(
-                                      child: Text(
-                                        _date(expiry),
-                                        key: const ValueKey(
-                                          'user-profile-membership-expiry',
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: _bodyStyle,
-                                      ),
+                                child: Row(
+                                  children: [
+                                    SvgPicture.asset(
+                                      proCrownGoldIconAsset,
+                                      width: 26,
+                                      height: 17,
                                     ),
+                                    const SizedBox(width: 8),
+                                    // The wordmark yields before the status tag on
+                                    // a narrow screen rather than overflowing.
+                                    const Flexible(child: _ProTitle()),
+                                    if (isMember) ...[
+                                      const SizedBox(width: 8),
+                                      const _StatusTag.active(),
+                                    ],
                                   ],
-                                ],
-                              )
-                            else
-                              const Padding(
-                                padding: EdgeInsets.only(right: 4),
-                                child: _OfferCopy(),
+                                ),
                               ),
-                          ],
+                              const SizedBox(height: 6),
+                              SizedBox(
+                                height:
+                                    MediaQuery.textScalerOf(context).scale(14) *
+                                    1.25 *
+                                    2,
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: isMember
+                                      ? Text(
+                                          'Expires ${expiry == null ? '—' : _date(expiry)}',
+                                          key: const ValueKey(
+                                            'user-profile-membership-expiry',
+                                          ),
+                                          maxLines: 1,
+                                          style: _bodyStyle,
+                                        )
+                                      : isLapsed
+                                      ? // The lapsed plan has no artboard; it borrows
+                                        // 9k2's status line and 9k's Subscribe button.
+                                        Row(
+                                          children: [
+                                            const _StatusTag.expired(),
+                                            if (expiry != null) ...[
+                                              const SizedBox(width: 8),
+                                              Flexible(
+                                                child: Text(
+                                                  _date(expiry),
+                                                  key: const ValueKey(
+                                                    'user-profile-membership-expiry',
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: _bodyStyle,
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        )
+                                      : const Padding(
+                                          padding: EdgeInsets.only(right: 4),
+                                          child: _OfferCopy(),
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       if (!isMember) ...[
