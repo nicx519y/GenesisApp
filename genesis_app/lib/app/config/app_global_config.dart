@@ -18,7 +18,7 @@ class AppGlobalConfig {
   factory AppGlobalConfig.fromJson(Map<String, dynamic> json) {
     return AppGlobalConfig(
       showOpeningSheet: asBool(json['show_opening_sheet']),
-      showPersonalizationForm: asBool(json['show_personalization_form']),
+      showPersonalizationForm: json['show_personalization_form'] == true,
       apiTraceSamplingRate: _samplingRate(
         json['apiTraceSamplingRate'] ?? json['api_trace_sampling_rate'],
       ),
