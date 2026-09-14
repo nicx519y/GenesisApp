@@ -1,7 +1,8 @@
 import 'billing_models.dart';
 
-/// A current, paid subscription returned by the store's read-only query.
-/// The receipt is retained so a discovered UUID can actually be claimed.
+/// A subscription candidate returned by the store's read-only query.
+/// Pending payments and missing identity/receipt fields remain visible so the
+/// recovery service can retry them instead of treating them as no subscription.
 class MembershipStorePurchase {
   const MembershipStorePurchase({required this.purchase, this.expiresAt});
 

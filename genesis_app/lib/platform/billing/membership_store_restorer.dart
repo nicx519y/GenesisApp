@@ -1,12 +1,13 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 
 import '../../network/models/membership_product.dart';
-import '../../network/models/membership_purchase.dart';
 import '../../network/models/membership_claim.dart';
 import 'billing_models.dart';
 import 'membership_store_purchase.dart';
@@ -35,6 +36,10 @@ class MembershipStoreRestorer {
 
     if (provider == MembershipProvider.google) {
       final result = await _googleQuery();
+      debugPrint(
+        '[Membership][guest_store] provider=google; '
+        'response=${result.responseCode.name}; orders=${result.purchasesList.length}',
+      );
       if (result.responseCode != BillingResponse.ok) {
         throw BillingPlatformException(
           'membership_guest_query_failed',
@@ -44,9 +49,8 @@ class MembershipStoreRestorer {
       // querySubscriptionPurchases queries SUBS only. Pending payments do not
       // prove a completed purchase; no current base plan/expiry is invented.
       for (final purchase in result.purchasesList) {
-        if (purchase.purchaseState == PurchaseStateWrapper.purchased &&
-            isMembershipAccountUuid(purchase.obfuscatedAccountId ?? '') &&
-            purchase.purchaseToken.isNotEmpty) {
+        if (purchase.purchaseState == PurchaseStateWrapper.purchased ||
+            purchase.purchaseState == PurchaseStateWrapper.pending) {
           for (final id in purchase.products) {
             purchases.add(
               MembershipStorePurchase(
@@ -58,8 +62,11 @@ class MembershipStoreRestorer {
                   originalTransactionId: '',
                   originalJson: '',
                   purchaseTime: purchase.purchaseTime.toString(),
-                  status: BillingPurchaseStatus.restored,
-                  obfuscatedAccountId: purchase.obfuscatedAccountId!
+                  status: purchase.purchaseState == PurchaseStateWrapper.pending
+                      ? BillingPurchaseStatus.pending
+                      : BillingPurchaseStatus.restored,
+                  obfuscatedAccountId: purchase.obfuscatedAccountId
+                      ?.trim()
                       .toLowerCase(),
                 ),
               ),
@@ -99,9 +106,6 @@ class MembershipStoreRestorer {
             continue;
           }
         }
-        if (!isMembershipAccountUuid(transaction.appAccountToken ?? '')) {
-          continue;
-        }
         purchases.add(
           MembershipStorePurchase(
             expiresAt: DateTime.fromMillisecondsSinceEpoch(
@@ -117,7 +121,7 @@ class MembershipStoreRestorer {
               originalJson: '',
               purchaseTime: transaction.purchaseDate,
               status: BillingPurchaseStatus.restored,
-              obfuscatedAccountId: transaction.appAccountToken!.toLowerCase(),
+              obfuscatedAccountId: transaction.appAccountToken?.toLowerCase(),
               signedTransaction: transaction.receiptData ?? '',
             ),
           ),

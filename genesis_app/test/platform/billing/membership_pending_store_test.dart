@@ -16,6 +16,75 @@ import '../../support/membership_fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'binding cleanup removes terminal report residue but preserves other guests',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final store = SecureMembershipPendingStore();
+      final purchase = MembershipPurchaseRecord(
+        requestId: 'terminal-report',
+        product: membershipProduct(),
+        accountUuid: support.guest.accountUuid,
+        ownerUid: null,
+        guest: support.guest,
+        purchaseToken: 'paid-token',
+        state: 'purchased',
+        reportStatus: 'completed',
+      );
+      const claim = MembershipGuestClaimRecord(
+        guest: support.guest,
+        ownerUid: 'first-login',
+        status: 'completed',
+        purchaseConfirmed: true,
+      );
+      const other = MembershipGuestClaimRecord(
+        guest: MembershipGuestIdentity(accountUuid: support.accountUuid),
+      );
+      await store.save(purchase);
+      await store.saveGuestPurchase(purchase);
+      await store.saveGuestClaim(claim);
+      await store.saveGuestClaim(other);
+      await store.completeGuestClaim(claim);
+      final restarted = SecureMembershipPendingStore();
+      expect(await restarted.loadAll(), isEmpty);
+      expect(await restarted.loadConfirmedReceipts(), isEmpty);
+      expect(
+        (await restarted.loadGuestClaims()).single.guest.accountUuid,
+        support.accountUuid,
+      );
+      await restarted.completeGuestClaim(claim);
+      expect(await restarted.loadGuestClaims(), hasLength(1));
+    },
+  );
+
+  test('binding cleanup cannot delete an unconfirmed report', () async {
+    FlutterSecureStorage.setMockInitialValues({});
+    final store = SecureMembershipPendingStore();
+    final purchase = MembershipPurchaseRecord(
+      requestId: 'accepted-report',
+      product: membershipProduct(),
+      accountUuid: support.guest.accountUuid,
+      ownerUid: null,
+      guest: support.guest,
+      purchaseToken: 'paid-token',
+      state: 'purchased',
+      reportStatus: 'accepted',
+    );
+    const claim = MembershipGuestClaimRecord(
+      guest: support.guest,
+      ownerUid: 'first-login',
+      status: 'completed',
+      purchaseConfirmed: true,
+    );
+    await store.save(purchase);
+    await store.saveGuestPurchase(purchase);
+    await store.saveGuestClaim(claim);
+    await expectLater(store.completeGuestClaim(claim), throwsStateError);
+    expect((await store.loadAll()).single.purchaseToken, 'paid-token');
+    expect(await store.loadConfirmedReceipts(), hasLength(1));
+    expect(await store.loadGuestClaims(), hasLength(1));
+  });
+
   test('legacy ownership rejection does not imply Apple finish', () {
     final record = MembershipPurchaseRecord(
       requestId: 'legacy-mismatch',
@@ -114,12 +183,7 @@ void main() {
         final completed = retry.copyWith(status: 'completed');
         await restarted.saveGuestClaim(completed);
         await restarted.completeGuestClaim(completed);
-        final bound =
-            (await SecureMembershipPendingStore().loadGuestClaims()).single;
-        expect(bound.guest.accountUuid, support.guest.accountUuid);
-        expect(bound.ownerUid, 'first-login');
-        expect(bound.recoveredProof, isNull);
-        expect(bound.needsRetry, isFalse);
+        expect(await SecureMembershipPendingStore().loadGuestClaims(), isEmpty);
       },
     );
   }
@@ -213,7 +277,7 @@ void main() {
   );
 
   test(
-    'binding keeps UUID and removes purchase proof, including repeated cleanup',
+    'binding deletes UUID and purchase proof, including repeated cleanup',
     () async {
       FlutterSecureStorage.setMockInitialValues({});
       final store = SecureMembershipPendingStore();
@@ -239,16 +303,17 @@ void main() {
       await store.saveGuestClaim(claim);
       await store.completeGuestClaim(claim);
       final restarted = SecureMembershipPendingStore();
-      final cached = (await restarted.loadGuestClaims()).single;
-      expect(cached.guest.accountUuid, support.guest.accountUuid);
-      expect(cached.status, 'completed');
-      expect(cached.needsRetry, isFalse);
-      expect(cached.purchaseRequestId, isNull);
-      expect(cached.autoClaimAllowed, isFalse);
+      expect(await restarted.loadGuestClaims(), isEmpty);
+      expect(
+        await const FlutterSecureStorage().read(
+          key: 'membership_guest_claims_v1',
+        ),
+        isNull,
+      );
       expect(await restarted.loadConfirmedReceipts(), isEmpty);
       expect(await restarted.loadAll(), isEmpty);
       await restarted.completeGuestClaim(claim);
-      expect(await restarted.loadGuestClaims(), hasLength(1));
+      expect(await restarted.loadGuestClaims(), isEmpty);
     },
   );
 

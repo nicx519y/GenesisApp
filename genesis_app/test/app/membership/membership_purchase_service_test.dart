@@ -61,7 +61,10 @@ class PendingStore implements MembershipPendingStore {
     confirmed.removeWhere(
       (_, p) => p.guest?.accountUuid == record.guest.accountUuid,
     );
-    claims[record.guest.accountUuid] = record.boundIdentity;
+    records.removeWhere(
+      (_, p) => p.guest?.accountUuid == record.guest.accountUuid,
+    );
+    claims.remove(record.guest.accountUuid);
   }
 
   @override
@@ -172,6 +175,7 @@ class Harness {
     bool guestRecoveryEnabled = false,
     Duration retryDelay = const Duration(days: 1),
     Duration attemptTimeout = const Duration(seconds: 90),
+    Duration guestRecoveryTimeout = const Duration(seconds: 15),
   }) : store = storage ?? PendingStore() {
     service = MembershipPurchaseService(
       platform: platform,
@@ -265,6 +269,7 @@ class Harness {
       otherPurchaseBusy: () => gemsBusy,
       retryDelay: retryDelay,
       attemptTimeout: attemptTimeout,
+      guestRecoveryTimeout: guestRecoveryTimeout,
     );
     addTearDown(service.dispose);
   }
@@ -552,7 +557,12 @@ void main() {
       final h = Harness()..uid = null;
       h.platform.onLaunch = () async {
         expect(h.store.records, isEmpty);
-        expect(h.store.claims, isEmpty);
+        expect(
+          h.store.claims.values.single.guest.accountUuid,
+          guest.accountUuid,
+        );
+        expect(h.store.claims.values.single.requiresLogin, isFalse);
+        expect(h.store.claims.values.single.autoClaimAllowed, isFalse);
       };
       await h.service.purchase(h.product());
       expect(h.guestPrepares, 1);
@@ -567,13 +577,16 @@ void main() {
       );
     },
   );
-  test('purchase launch does not persist a speculative order', () async {
-    final h = Harness()..uid = null;
-    h.store.fail = true;
-    await h.service.purchase(h.product());
-    expect(h.platform.launches, 1);
-    expect(h.store.records, isEmpty);
-  });
+  test(
+    'guest identity persistence failure blocks launch without saving speculative orders',
+    () async {
+      final h = Harness()..uid = null;
+      h.store.fail = true;
+      await h.service.purchase(h.product());
+      expect(h.platform.launches, 0);
+      expect(h.store.records, isEmpty);
+    },
+  );
   test(
     'launch rejection and cancellation allow another attempt without reporting',
     () async {

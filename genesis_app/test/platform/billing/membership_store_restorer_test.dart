@@ -9,7 +9,7 @@ import 'package:genesis_flutter_android/platform/billing/membership_store_restor
 
 void main() {
   test(
-    'guest discovery queries Google SUBS without a catalog and ignores pending or missing identities',
+    'guest discovery preserves pending and missing identities for bounded recovery',
     () async {
       const uuid = '4b74ec68-7abc-4cce-a223-e997e31dc811';
       PurchaseWrapper purchase(String? account, PurchaseStateWrapper state) =>
@@ -49,7 +49,7 @@ void main() {
         (await restorer.discoverGuestPurchases())
             .map((entry) => entry.purchase.obfuscatedAccountId)
             .toSet(),
-        {uuid},
+        {uuid, '8b74ec68-7abc-4cce-a223-e997e31dc811', null, 'not-a-uuid'},
       );
     },
   );

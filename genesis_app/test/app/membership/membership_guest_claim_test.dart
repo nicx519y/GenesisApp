@@ -229,7 +229,7 @@ void main() {
         isEmpty,
       );
       expect(restarted.store.confirmed, isEmpty);
-      expect(restarted.store.claims.values.single.ownerUid, 'first-login');
+      expect(restarted.store.claims, isEmpty);
       expect(restarted.service.guestLoginRequestId.value, isNull);
     },
   );
@@ -337,7 +337,7 @@ void main() {
       h.store.claims.values.where((r) => r.status != 'completed'),
       isEmpty,
     );
-    expect(h.store.claims.values.single.ownerUid, 'first-login');
+    expect(h.store.claims, isEmpty);
     expect(h.store.confirmed, isEmpty);
     expect(h.service.guestLoginRequestId.value, isNull);
     expect(h.refreshes, 1);
@@ -430,7 +430,7 @@ void main() {
     await h.service.recover();
     expect(h.service.guestLoginRequestId.value, isNull);
     expect(
-      h.store.claims.values.where((r) => r.status != 'completed'),
+      h.store.claims.values.where((r) => r.requiresLogin || r.autoClaimAllowed),
       isEmpty,
     );
     expect(h.claimRequests, isEmpty);

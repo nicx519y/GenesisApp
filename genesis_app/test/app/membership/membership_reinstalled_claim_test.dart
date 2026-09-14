@@ -36,11 +36,7 @@ void main() {
       );
       await recovery;
       expect(h.platform.finishedTransactions, ['101']);
-      expect(h.store.claims.values.single.recoveredProof, isNull);
-      expect(
-        h.store.claims.values.single.guest.accountUuid,
-        support.guest.accountUuid,
-      );
+      expect(h.store.claims, isEmpty);
       expect(h.reports, isEmpty);
       await h.service.recover();
       expect(h.platform.finishes, 1);
@@ -101,8 +97,7 @@ void main() {
       expect(restarted.platform.finishedTransactions, ['102']);
       expect(restarted.claimRequests, isEmpty);
       expect(restarted.reports, isEmpty);
-      expect(restarted.store.claims.values.single.recoveredProof, isNull);
-      expect(restarted.store.claims.values.single.ownerUid, 'first-login');
+      expect(restarted.store.claims, isEmpty);
     },
   );
 
@@ -188,12 +183,8 @@ void main() {
             provider == MembershipProvider.apple ? 1 : 0,
           );
           expect(restarted.eligibilityQueries, 0);
-          expect(restarted.store.claims.values.single.status, 'completed');
-          expect(restarted.store.claims.values.single.recoveredProof, isNull);
-          expect(
-            restarted.store.claims.values.single.guest.accountUuid,
-            support.guest.accountUuid,
-          );
+          expect(restarted.store.claims, isEmpty);
+          expect(restarted.store.claims, isEmpty);
           expect(restarted.refreshes, 1);
           await restarted.service.recover();
           expect(restarted.claimRequests, hasLength(1));
@@ -222,7 +213,7 @@ void main() {
         storage: first.store,
       )..uid = null;
       await h.service.checkGuestPurchasesOnHome();
-      expect(h.guestDiscoveries, 0);
+      expect(h.guestDiscoveries, 1);
       expect(h.guestChecks, [support.guest.accountUuid]);
       h.uid = 'first-login';
       h.service.resetForSession();
@@ -252,8 +243,7 @@ void main() {
         'purchase_token': 'test-token',
       });
       expect(h.eligibilityQueries, 0);
-      expect(h.store.claims.values.single.status, 'completed');
-      expect(h.store.claims.values.single.recoveredProof, isNull);
+      expect(h.store.claims, isEmpty);
       expect(before['purchase_token'], 'test-token');
       expect(before.containsKey('plan_code'), isFalse);
       expect(h.reports, isEmpty);
@@ -334,7 +324,7 @@ void main() {
         'signed_transaction': 'reloaded.transaction.signature',
         'account_uuid': support.guest.accountUuid,
       });
-      expect(h.store.claims.values.single.recoveredProof, isNull);
+      expect(h.store.claims, isEmpty);
       expect(h.reports, isEmpty);
     },
   );
