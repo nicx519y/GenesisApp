@@ -8,6 +8,7 @@ import '../../components/origin/origin_role_launch_sheet.dart';
 import '../../network/chatroom/world_chatroom_service.dart';
 import '../../network/models/origin.dart';
 import '../chat/location_chat_page.dart';
+import '../world/world_deletion_events.dart';
 import '../world/world_location_chat_host.dart';
 import '../world/world_page.dart';
 import 'origin_launch_flow.dart';
@@ -90,8 +91,12 @@ class _OriginLaunchWorldPageState extends State<OriginLaunchWorldPage> {
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) _exited = true;
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop || _exited) return;
+        _exited = true;
+        // Pending launches have no world ID in their original route arguments.
+        // Refresh Home with the resolved ID only after a normal World exit.
+        if (result == null) publishWorldListRefresh(_worldId ?? '');
       },
       child: _buildChat(context),
     );

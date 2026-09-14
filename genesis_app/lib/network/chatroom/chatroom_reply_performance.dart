@@ -128,6 +128,7 @@ class _ReplyRoundPerformance {
     final controls = <Object?>[
       state._conversationType,
       state._triggerUid,
+      state.isOpeningRound && state._controller._isWorldCreator,
       formalTailMessageId,
       state._metadataConflict,
       state._invalidated,

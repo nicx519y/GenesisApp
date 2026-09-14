@@ -64,6 +64,52 @@ void main() {
     },
   );
 
+  test('opening actions follow the current world owner snapshot', () async {
+    final socket = _FakeChatroomSocket();
+    final http = _MutationHttpTransport()
+      ..messagesByLocation['loc-1'] = [
+        {
+          ..._mutationRow(1, 1, 10),
+          'conversation_type': 'opening',
+          'trigger_uid': '',
+        },
+      ];
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: http,
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    // relation_status is deliberately owner while owner_uid is another user.
+    service.applyWorldSnapshot(_worldSnapshot());
+    await service.initializeLeafLocationQueues(locationIds: ['loc-1']);
+    final replies = service.replyActions!;
+    final round = replies.stateFor('loc-1')!;
+    void expectActions(bool allowed) {
+      expect(round.supportsRegenerate, isFalse);
+      expect(round.supportsGoOn, allowed);
+      expect(round.supportsEdit, allowed);
+      expect(round.supportsInspiration, allowed);
+    }
+
+    expectActions(false);
+    var notifications = 0;
+    replies.changesForLocation('loc-1').addListener(() => notifications++);
+    service.applyWorldSnapshot(_worldSnapshot().copyWith(ownerUid: 'user-1'));
+    expectActions(true);
+    expect(notifications, greaterThan(0));
+    notifications = 0;
+    service.applyWorldSnapshot(_worldSnapshot().copyWith(ownerUid: ''));
+    expectActions(false);
+    expect(notifications, greaterThan(0));
+    service.applyWorldSnapshot(
+      _worldSnapshot().copyWith(worldId: 'another-world', ownerUid: 'user-1'),
+    );
+    expectActions(false);
+  });
+
   _replyCompletionTests();
   _messageMutationTests();
   test('WorldChatroomMessage defaults missing location message id to zero', () {
@@ -7089,6 +7135,7 @@ void _replyCompletionTests() {
       );
       addTearDown(service.dispose);
       await service.connect(worldId: 'world-1', identity: _identity());
+      service.applyWorldSnapshot(_worldSnapshot().copyWith(ownerUid: 'user-1'));
       await service.initializeLeafLocationQueues(locationIds: ['loc-1']);
       expect(
         http.cardRequests,

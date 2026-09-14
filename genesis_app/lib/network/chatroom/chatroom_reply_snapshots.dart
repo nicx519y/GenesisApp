@@ -1,7 +1,7 @@
 part of 'chatroom_reply_actions_controller.dart';
 
 const _replySnapshotVersion = 1;
-const _replyCapabilityVersion = 2;
+const _replyCapabilityVersion = 3;
 
 extension ChatroomReplySnapshots on ChatroomReplyActionsController {
   /// Value snapshot for a history batch. Never used as an action target.

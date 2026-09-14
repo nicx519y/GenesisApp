@@ -142,11 +142,9 @@ class ChatroomReplyRoundState {
       isOwnRound && const {'user_message', 'go_on'}.contains(_conversationType);
   bool get _supportsReplyActions =>
       _isOwnSupportedRound ||
-      isOpeningRound ||
-      (!_metadataConflict &&
-          const {'user_enter_location', 'tick'}.contains(_conversationType));
-  bool get _supportsEditing =>
-      _supportsReplyActions && _conversationType != 'tick';
+      (isOpeningRound && _controller._isWorldCreator) ||
+      (isOwnRound && _conversationType == 'user_enter_location');
+  bool get _supportsEditing => _supportsReplyActions;
   bool get confirmed => _confirmed;
   bool get hasCardGroup => _cards.isNotEmpty;
   bool get provisional => _cards.any((card) => card.cardId <= 0);
@@ -350,6 +348,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   ChatroomReplyActionsController({
     required this.worldId,
     required this.ownerUid,
+    String Function()? worldCreatorUid,
     required ChatroomHttpApi httpApi,
     required ChatroomSession? Function() session,
     required bool Function(String locationId) isReady,
@@ -370,7 +369,8 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     Duration regenerationStreamEndTimeout = const Duration(seconds: 120),
     Duration goOnStreamStartTimeout = const Duration(seconds: 30),
     Duration goOnStreamEndTimeout = const Duration(seconds: 120),
-  }) : _http = httpApi,
+  }) : _worldCreatorUid = worldCreatorUid,
+       _http = httpApi,
        _session = session,
        _isReady = isReady,
        _isTickLocked = isTickLocked,
@@ -394,6 +394,9 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   final ChatroomMessageStorage? _snapshotStorage;
 
   final String worldId, ownerUid;
+  final String Function()? _worldCreatorUid;
+  bool get _isWorldCreator =>
+      ownerUid.isNotEmpty && _worldCreatorUid?.call() == ownerUid;
   final ChatroomHttpApi _http;
   final ChatroomSession? Function() _session;
   final bool Function(String) _isReady;

@@ -281,6 +281,7 @@ class _Harness {
     ChatroomReplyActionStorage? storage,
     ChatroomMessageStorage? snapshotStorage,
     String owner = 'u',
+    String worldCreatorUid = '',
     String conversationType = 'user_message',
     String? triggerUid,
     DateTime Function()? now,
@@ -292,6 +293,7 @@ class _Harness {
     controller = ChatroomReplyActionsController(
       worldId: 'w',
       ownerUid: owner,
+      worldCreatorUid: () => worldCreatorUid,
       httpApi: api,
       session: () => session,
       isReady: (_) => ready,
@@ -1099,6 +1101,7 @@ void main() {
         );
         final first = _Harness(
           conversationType: type,
+          worldCreatorUid: 'u',
           snapshotStorage: snapshots,
         );
         addTearDown(first.controller.dispose);
@@ -1131,22 +1134,26 @@ void main() {
         expect(cached.total, 0);
         final restored = _Harness(
           conversationType: type,
+          worldCreatorUid: 'u',
           snapshotStorage: snapshots,
         );
         addTearDown(restored.controller.dispose);
         await restored.controller.restore('l');
         expect(restored.controller.historyCardsResolved('l'), true);
-        expect(restored.state.supportsGoOn, true);
+        expect(restored.state.supportsGoOn, type != 'tick');
         expect(restored.state.supportsRegenerate, type == 'user_message');
         expect(restored.state.supportsEdit, type != 'tick');
-        expect(restored.state.supportsInspiration, true);
+        expect(restored.state.supportsInspiration, type != 'tick');
         final rewritten = (await snapshots.loadReplySnapshots(
           ownerUid: 'u',
           worldId: 'w',
           locationId: 'l',
         )).single;
-        expect(rewritten['capability_version'], 2);
-        expect((rewritten['supported_actions'] as Map)['go_on'], true);
+        expect(rewritten['capability_version'], 3);
+        expect(
+          (rewritten['supported_actions'] as Map)['go_on'],
+          type != 'tick',
+        );
         expect((rewritten['supported_actions'] as Map)['edit'], type != 'tick');
         expect(restored.api.calls, isEmpty);
       },
@@ -1591,143 +1598,99 @@ void main() {
   });
 
   test(
-    'latest conversation action matrix follows type and trigger UID',
+    'latest conversation action matrix follows type, trigger UID and world creator',
     () async {
-      for (final entry in [
+      for (final entry in <(String, String, String, bool, bool, bool, bool)>[
+        // type, trigger UID, world creator UID, regenerate, go on, edit, inspiration
+        ('opening', '', 'u', false, true, true, true),
+        ('opening', '', 'another-user', false, false, false, false),
+        ('opening', 'u', '', false, false, false, false),
+        ('user_enter_location', 'u', '', false, true, true, true),
         (
-          type: 'opening',
-          uid: '',
-          regenerate: false,
-          goOn: true,
-          edit: true,
-          inspiration: true,
+          'user_enter_location',
+          'another-user',
+          'u',
+          false,
+          false,
+          false,
+          false,
         ),
-        (
-          type: 'user_enter_location',
-          uid: 'u',
-          regenerate: false,
-          goOn: true,
-          edit: true,
-          inspiration: true,
-        ),
-        (
-          type: 'user_enter_location',
-          uid: 'another-user',
-          regenerate: false,
-          goOn: true,
-          edit: true,
-          inspiration: true,
-        ),
-        (
-          type: 'tick',
-          uid: '',
-          regenerate: false,
-          goOn: true,
-          edit: false,
-          inspiration: true,
-        ),
-        (
-          type: 'user_message',
-          uid: 'u',
-          regenerate: true,
-          goOn: true,
-          edit: true,
-          inspiration: true,
-        ),
-        (
-          type: 'go_on',
-          uid: 'u',
-          regenerate: true,
-          goOn: true,
-          edit: true,
-          inspiration: true,
-        ),
-        (
-          type: 'user_message',
-          uid: 'another-user',
-          regenerate: false,
-          goOn: false,
-          edit: false,
-          inspiration: false,
-        ),
-        (
-          type: 'go_on',
-          uid: 'another-user',
-          regenerate: false,
-          goOn: false,
-          edit: false,
-          inspiration: false,
-        ),
-        (
-          type: '',
-          uid: 'u',
-          regenerate: false,
-          goOn: false,
-          edit: false,
-          inspiration: false,
-        ),
-        (
-          type: 'unknown',
-          uid: 'u',
-          regenerate: false,
-          goOn: false,
-          edit: false,
-          inspiration: false,
-        ),
+        ('user_enter_location', '', 'u', false, false, false, false),
+        ('tick', '', 'u', false, false, false, false),
+        ('tick', 'u', 'u', false, false, false, false),
+        ('user_message', 'u', '', true, true, true, true),
+        ('go_on', 'u', '', true, true, true, true),
+        ('user_message', 'another-user', 'u', false, false, false, false),
+        ('go_on', 'another-user', 'u', false, false, false, false),
+        ('user_message', '', 'u', false, false, false, false),
+        ('go_on', '', 'u', false, false, false, false),
+        ('', 'u', 'u', false, false, false, false),
+        ('unknown', 'u', 'u', false, false, false, false),
       ]) {
-        final h = _Harness(conversationType: entry.type, triggerUid: entry.uid);
-        addTearDown(h.controller.dispose);
-        final reason = '${entry.type}/${entry.uid}';
-        expect(h.state.supportsRegenerate, entry.regenerate, reason: reason);
-        expect(h.state.supportsGoOn, entry.goOn, reason: reason);
-        expect(h.state.supportsEdit, entry.edit, reason: reason);
-        expect(h.state.supportsInspiration, entry.inspiration, reason: reason);
-        expect(h.state.canRegenerate, entry.regenerate, reason: reason);
-        expect(h.state.canGoOn, entry.goOn, reason: reason);
-        expect(h.state.canEdit, entry.edit, reason: reason);
-        expect(
-          h.state.inspirationSource != null,
-          entry.inspiration,
-          reason: reason,
+        final (type, uid, creator, regenerate, goOn, edit, inspiration) = entry;
+        final h = _Harness(
+          conversationType: type,
+          triggerUid: uid,
+          worldCreatorUid: creator,
         );
-        if (entry.inspiration && !entry.regenerate) {
+        addTearDown(h.controller.dispose);
+        final reason = '$type/$uid/creator=$creator';
+        expect(h.state.supportsRegenerate, regenerate, reason: reason);
+        expect(h.state.supportsGoOn, goOn, reason: reason);
+        expect(h.state.supportsEdit, edit, reason: reason);
+        expect(h.state.supportsInspiration, inspiration, reason: reason);
+        expect(h.state.canRegenerate, regenerate, reason: reason);
+        expect(h.state.canGoOn, goOn, reason: reason);
+        expect(h.state.canEdit, edit, reason: reason);
+        expect(h.state.inspirationSource != null, inspiration, reason: reason);
+        if (inspiration && !regenerate) {
           expect(h.state.inspirationSource!.cardId, isNull, reason: reason);
         }
-        if (entry.type == 'tick') {
+        if (!goOn) {
+          await expectLater(h.controller.goOn('l'), throwsStateError);
+        }
+        if (!edit) {
           await expectLater(h.prepareEditor(), throwsStateError);
         }
+        if (!regenerate) {
+          await expectLater(h.controller.regenerate('l'), throwsStateError);
+        }
+        expect(h.session.requests, isEmpty);
       }
     },
   );
 
-  test('Enter and Tick still require a completed AI reply', () {
-    for (final type in ['user_enter_location', 'tick']) {
-      final h = _Harness(conversationType: type);
-      addTearDown(h.controller.dispose);
-      h.controller.observeMessages('l', [
-        _formal(type: type, conversationType: type),
-      ]);
-      h.controller.receiveEvent(
-        ChatroomEndConversationRound(
-          sessionId: '',
-          worldId: 'w',
-          locationId: 'l',
-          userId: '',
-          code: 0,
-          codeMsg: '',
-          ts: null,
-          conversationType: type,
-          triggerUid: 'u',
-          conversationRoundId: '$_round',
-        ),
-      );
-      expect(h.state.complete, isTrue);
-      expect(h.state.supportsGoOn, isFalse, reason: type);
-      expect(h.state.supportsEdit, isFalse, reason: type);
-      expect(h.state.supportsInspiration, isFalse, reason: type);
-      expect(h.state.inspirationSource, isNull, reason: type);
-    }
-  });
+  test(
+    'Enter still requires a completed AI reply and Tick stays unavailable',
+    () {
+      for (final type in ['user_enter_location', 'tick']) {
+        final h = _Harness(conversationType: type);
+        addTearDown(h.controller.dispose);
+        h.controller.observeMessages('l', [
+          _formal(type: type, conversationType: type),
+        ]);
+        h.controller.receiveEvent(
+          ChatroomEndConversationRound(
+            sessionId: '',
+            worldId: 'w',
+            locationId: 'l',
+            userId: '',
+            code: 0,
+            codeMsg: '',
+            ts: null,
+            conversationType: type,
+            triggerUid: 'u',
+            conversationRoundId: '$_round',
+          ),
+        );
+        expect(h.state.complete, isTrue);
+        expect(h.state.supportsGoOn, isFalse, reason: type);
+        expect(h.state.supportsEdit, isFalse, reason: type);
+        expect(h.state.supportsInspiration, isFalse, reason: type);
+        expect(h.state.inspirationSource, isNull, reason: type);
+      }
+    },
+  );
 
   test('conflicting round metadata closes every reply action', () {
     final h = _Harness(conversationType: 'user_enter_location');
@@ -1767,9 +1730,10 @@ void main() {
         currentTime: '',
       ),
     );
-    expect(h.state.canGoOn, isTrue);
+    expect(h.state.invalidatedByTick, isFalse);
+    expect(h.state.canGoOn, isFalse);
     expect(h.state.canEdit, isFalse);
-    expect(h.state.inspirationSource, isNotNull);
+    expect(h.state.inspirationSource, isNull);
   });
 
   for (final entry in <(String, String, String)>[

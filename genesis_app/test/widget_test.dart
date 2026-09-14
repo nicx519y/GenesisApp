@@ -7022,6 +7022,9 @@ void main() {
       final originalOffset = originalScrollableState.position.pixels;
       expect(originalOffset, greaterThan(0));
 
+      final originalFeedRequestCount = transport
+          .requestsFor('/api/v1/origin/feed')
+          .length;
       unawaited(navigatorKey.currentState!.pushNamed('/test_origin_world'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Launch test world'));
@@ -7053,6 +7056,10 @@ void main() {
       );
       expect(retainedScrollableState, same(originalScrollableState));
       expect(retainedScrollableState.position.pixels, originalOffset);
+      expect(
+        transport.requestsFor('/api/v1/origin/feed'),
+        hasLength(originalFeedRequestCount),
+      );
       await tester.pumpWidget(const SizedBox.shrink());
       AppStartupCoordinator.resetForTesting();
     },
