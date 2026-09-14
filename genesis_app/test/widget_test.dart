@@ -19605,7 +19605,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Daily Check-in'), findsOneWidget);
       expect(transport.requestsFor('/api/v1/gem/tasks'), hasLength(1));
-      await tester.tap(find.text('Cancel'));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       for (final nextTab in [0, 1, 3, 4]) {
         tester.widget<BottomTabs>(find.byType(BottomTabs)).onTap(nextTab);
@@ -19734,7 +19734,7 @@ void main() {
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 4);
     expect(find.byType(UserProfileContent), findsOneWidget);
     expect(find.text('Daily Check-in'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Inbox'));
