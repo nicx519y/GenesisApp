@@ -27,7 +27,7 @@ Future<bool> ensureGenesisLogin(
     isDismissible: isDismissible,
     forceLoginRequired: forceLoginRequired,
     onLogin: (provider) {
-      return _loginWithProvider(loginContext, provider);
+      return loginGenesisWithProvider(loginContext, provider);
     },
   );
   if (!loginContext.mounted || !loggedIn) return false;
@@ -42,7 +42,8 @@ Future<bool> hasGenesisLoginSession(BuildContext context) async {
   return await services.sessionStore.readLoginUid() != null;
 }
 
-Future<bool> _loginWithProvider(
+/// Shared authentication commit for LoginSheet and personalization's login step.
+Future<bool> loginGenesisWithProvider(
   BuildContext context,
   IdentityProvider provider,
 ) async {

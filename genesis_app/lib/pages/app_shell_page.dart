@@ -20,6 +20,7 @@ import '../platform/session/user_session_store.dart';
 import '../ui/system/genesis_system_ui.dart';
 import '../ui/navigation/genesis_dark_page_route.dart';
 import '../ui/tokens/genesis_colors.dart';
+import 'app_shell_back_guard.dart';
 import 'app_shell_navigation.dart';
 import 'create/create_origin_page.dart';
 import 'home/home_page.dart';
@@ -72,6 +73,7 @@ class _AppShellPageState extends State<AppShellPage>
   var _worldoFirstActivationPending = false;
   ValueListenable<int>? _sessionRevisionListenable;
   ValueListenable<String?>? _pendingLoginCheckInUid;
+  ValueListenable<bool>? _personalizationBlocker;
   ModalRoute<dynamic>? _mainRoute;
   bool _dailyCheckInScheduled = false;
   bool _dailyCheckInRunning = false;
@@ -141,6 +143,7 @@ class _AppShellPageState extends State<AppShellPage>
     _attDelayTimer?.cancel();
     _sessionRevisionListenable?.removeListener(_handleSessionChanged);
     _pendingLoginCheckInUid?.removeListener(_schedulePendingDailyCheckIn);
+    _personalizationBlocker?.removeListener(_schedulePendingDailyCheckIn);
     AppStartupCoordinator.postLaunchWorkAllowedListenable.removeListener(
       _handlePostLaunchWorkAllowed,
     );
@@ -229,6 +232,15 @@ class _AppShellPageState extends State<AppShellPage>
     super.didChangeDependencies();
     _mainRoute = ModalRoute.of(context);
     final services = AppServicesScope.of(context);
+    final personalization = services.personalization;
+    if (!identical(
+      _personalizationBlocker,
+      personalization.blocksOtherPrompts,
+    )) {
+      _personalizationBlocker?.removeListener(_schedulePendingDailyCheckIn);
+      _personalizationBlocker = personalization.blocksOtherPrompts;
+      _personalizationBlocker?.addListener(_schedulePendingDailyCheckIn);
+    }
     final pendingCheckIn = services.pendingLoginCheckInUid;
     if (!identical(_pendingLoginCheckInUid, pendingCheckIn)) {
       _pendingLoginCheckInUid?.removeListener(_schedulePendingDailyCheckIn);
@@ -245,7 +257,12 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   bool _canShowLoginCheckIn() {
+    if (!mounted) return false;
+    final services = AppServicesScope.read(context);
     return mounted &&
+        !((services.personalization.isStarted ||
+                services.personalization.isPresenting) &&
+            services.personalization.blocksOtherPrompts.value) &&
         _mainRoute?.isCurrent == true &&
         (_lifecycleState == null ||
             _lifecycleState == AppLifecycleState.resumed);
@@ -682,38 +699,41 @@ class _AppShellPageState extends State<AppShellPage>
 
   @override
   Widget build(BuildContext context) {
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value:
-          _selectedIndex == 0 ||
-              _selectedIndex == 1 ||
-              _selectedIndex == 3 ||
-              _selectedIndex == 4
-          ? kGenesisLightSystemUiOverlayStyle
-          : kGenesisDefaultSystemUiOverlayStyle,
-      child: Scaffold(
-        backgroundColor:
+    return AppShellBackGuard(
+      activeTabIndex: _selectedIndex,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value:
             _selectedIndex == 0 ||
                 _selectedIndex == 1 ||
                 _selectedIndex == 3 ||
                 _selectedIndex == 4
-            ? GenesisColors.darkBackground
-            : null,
-        // Home and Origin own the iOS status-bar gesture so they can route it
-        // to their explicitly controlled active list.
-        primary: _selectedIndex != 0 && _selectedIndex != 1,
-        body: PageStorage(
-          bucket: _sessionPageStorageBucket,
-          child: _buildBody(),
-        ),
-        bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(
-          valueListenable: _unreadSummaryNotifier,
-          builder: (context, unreadSummary, _) {
-            return BottomTabs(
-              currentIndex: _selectedIndex,
-              messagesUnreadCount: unreadSummary.totalUnread,
-              onTap: (index) => unawaited(_onTapNav(index)),
-            );
-          },
+            ? kGenesisLightSystemUiOverlayStyle
+            : kGenesisDefaultSystemUiOverlayStyle,
+        child: Scaffold(
+          backgroundColor:
+              _selectedIndex == 0 ||
+                  _selectedIndex == 1 ||
+                  _selectedIndex == 3 ||
+                  _selectedIndex == 4
+              ? GenesisColors.darkBackground
+              : null,
+          // Home and Origin own the iOS status-bar gesture so they can route it
+          // to their explicitly controlled active list.
+          primary: _selectedIndex != 0 && _selectedIndex != 1,
+          body: PageStorage(
+            bucket: _sessionPageStorageBucket,
+            child: _buildBody(),
+          ),
+          bottomNavigationBar: ValueListenableBuilder<UnreadSummary>(
+            valueListenable: _unreadSummaryNotifier,
+            builder: (context, unreadSummary, _) {
+              return BottomTabs(
+                currentIndex: _selectedIndex,
+                messagesUnreadCount: unreadSummary.totalUnread,
+                onTap: (index) => unawaited(_onTapNav(index)),
+              );
+            },
+          ),
         ),
       ),
     );

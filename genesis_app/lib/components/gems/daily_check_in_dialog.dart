@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/membership/membership_access_store.dart';
+import '../../app/membership/membership_purchase_service.dart';
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -24,14 +25,32 @@ Future<bool> showDailyCheckInDialog(
   required DailyCheckInDialogStatus status,
   int rewardGemsCent = dailyCheckInPreviewRewardCent,
   MembershipAccessStore? membershipAccess,
+  MembershipPurchaseService? membershipPurchases,
 }) async {
   final claimed = status == DailyCheckInDialogStatus.claimed;
   final services = AppServicesScope.maybeRead(context);
   final session = services?.sessionRevision.value;
   final route = ModalRoute.of(context);
   final membership = membershipAccess ?? services?.membership;
+  final purchases = membershipPurchases ?? services?.membershipPurchases;
   bool? isVip = false;
-  if (!claimed && membership != null) {
+  if (!claimed && purchases != null) {
+    try {
+      final settled = await purchases.waitForGuestClaim().timeout(
+        membership?.requestTimeout ?? const Duration(seconds: 20),
+      );
+      if (!settled) isVip = null;
+    } catch (_) {
+      isVip = null;
+    }
+    if (!context.mounted ||
+        route?.isCurrent == false ||
+        !identical(services, AppServicesScope.maybeRead(context)) ||
+        services?.sessionRevision.value != session) {
+      return false;
+    }
+  }
+  if (!claimed && membership != null && isVip != null) {
     final result = Completer<bool?>();
     membership.checkVip(result.complete);
     isVip = await result.future;

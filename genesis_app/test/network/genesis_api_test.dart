@@ -12,6 +12,8 @@ import 'package:genesis_flutter_android/network/genesis_api.dart';
 import 'package:genesis_flutter_android/network/gateway_auth.dart';
 import 'package:genesis_flutter_android/network/models/gem_purchase_report.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
+import 'package:genesis_flutter_android/network/models/personalization.dart';
+import '../support/personalization_fixtures.dart';
 import 'package:genesis_flutter_android/network/http_transport.dart';
 import 'package:genesis_flutter_android/network/local_mock_genesis_transport.dart';
 import 'package:genesis_flutter_android/network/models/search_v2.dart';
@@ -318,6 +320,75 @@ void main() {
 
     expect(apiTransport.lastRequest!.uri.queryParameters, isEmpty);
   });
+
+  test(
+    'personalization parses dynamic form and submits option values with device header',
+    () async {
+      final transport = _FakeTransport(
+        handler: (request) => TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': 0,
+            'err_msg': 'succ',
+            'data': request.method == 'GET'
+                ? personalizationJson()
+                : {'gender': 'g4', 'age': 'a6', 'completed': true},
+          }),
+        ),
+      );
+      final api = _apiWith(transport, transport);
+      final result = await api.v1.device.personalization(
+        deviceId: 'test-device',
+      );
+      expect(transport.lastRequest!.uri.path, '/api/v1/device/personalization');
+      expect(transport.lastRequest!.uri.queryParameters, isEmpty);
+      expect(transport.lastRequest!.headers['X-Device-ID'], 'test-device');
+      expect(result.profile.completed, isFalse);
+      expect(result.form[0].options.length, 5);
+      expect(result.form[1].options.length, 7);
+      expect(result.form[0].options.last.label, 'Gender 4');
+      final saved = await api.v1.device.savePersonalization(
+        deviceId: 'test-device',
+        profile: const PersonalizationProfile(gender: 'g4', age: 'a6'),
+      );
+      expect(saved.completed, isTrue);
+      expect(transport.lastRequest!.method, 'POST');
+      expect(jsonDecode(utf8.decode(transport.lastRequest!.bodyBytes!)), {
+        'gender': 'g4',
+        'age': 'a6',
+      });
+    },
+  );
+
+  test(
+    'personalization errors are not interpreted as incomplete or completed profiles',
+    () async {
+      final transport = _FakeTransport(
+        handler: (_) => const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"err_no":5000,"err_msg":"database unavailable","data":{}}',
+        ),
+      );
+      final api = _apiWith(transport, transport);
+      await expectLater(
+        api.v1.device.personalization(deviceId: 'test-device'),
+        throwsA(isA<ApiException>()),
+      );
+      final malformed = personalizationJson()..remove('completed');
+      expect(
+        () => PersonalizationData.fromJson(malformed),
+        throwsFormatException,
+      );
+      final fields = personalizationJson();
+      ((fields['form'] as List).first as Map)['options'] = [
+        {'value': 'g1', 'label': 'one'},
+        {'value': 'g1', 'label': 'duplicate'},
+      ];
+      expect(() => PersonalizationData.fromJson(fields), throwsFormatException);
+    },
+  );
 
   test(
     'local mock returns business errors through err_no on HTTP 200',

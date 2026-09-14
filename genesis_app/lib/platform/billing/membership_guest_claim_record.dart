@@ -12,6 +12,7 @@ class MembershipGuestClaimRecord {
     this.purchaseConfirmed = false,
     this.autoClaimAllowed = true,
     this.recoveredProof,
+    this.purchasedAt,
   });
 
   final MembershipGuestIdentity guest;
@@ -24,6 +25,14 @@ class MembershipGuestClaimRecord {
   // current subscription may be claimed; claiming a lower plan could replace it.
   final bool autoClaimAllowed;
   final MembershipGuestClaimProof? recoveredProof;
+  final int? purchasedAt;
+
+  /// A prepare identity alone must never be checked or offered for claiming.
+  bool get hasPurchase =>
+      purchaseConfirmed ||
+      loginRequired ||
+      purchaseRequestId != null ||
+      recoveredProof != null;
 
   bool get requiresLogin =>
       status != 'completed' && (purchaseConfirmed || loginRequired);
@@ -38,6 +47,7 @@ class MembershipGuestClaimRecord {
     bool? purchaseConfirmed,
     bool? autoClaimAllowed,
     MembershipGuestClaimProof? recoveredProof,
+    int? purchasedAt,
   }) => MembershipGuestClaimRecord(
     guest: guest,
     ownerUid: ownerUid ?? this.ownerUid,
@@ -47,6 +57,7 @@ class MembershipGuestClaimRecord {
     purchaseConfirmed: purchaseConfirmed ?? this.purchaseConfirmed,
     autoClaimAllowed: autoClaimAllowed ?? this.autoClaimAllowed,
     recoveredProof: recoveredProof ?? this.recoveredProof,
+    purchasedAt: purchasedAt ?? this.purchasedAt,
   );
 
   Map<String, Object?> toJson() => {
@@ -58,6 +69,7 @@ class MembershipGuestClaimRecord {
     'purchase_confirmed': purchaseConfirmed,
     'auto_claim_allowed': autoClaimAllowed,
     if (recoveredProof != null) 'recovered_proof': recoveredProof!.toJson(),
+    if (purchasedAt != null) 'purchased_at': purchasedAt,
   };
 
   factory MembershipGuestClaimRecord.fromJson(Map<String, dynamic> json) =>
@@ -71,6 +83,7 @@ class MembershipGuestClaimRecord {
         purchaseRequestId: json['purchase_request_id'] as String?,
         purchaseConfirmed: json['purchase_confirmed'] as bool? ?? false,
         autoClaimAllowed: json['auto_claim_allowed'] as bool? ?? true,
+        purchasedAt: (json['purchased_at'] as num?)?.toInt(),
         recoveredProof: json['recovered_proof'] == null
             ? null
             : MembershipGuestClaimProof.fromJson(

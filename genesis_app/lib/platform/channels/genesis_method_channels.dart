@@ -26,6 +26,7 @@ class GenesisMethodChannels {
   static const requestTrackingAuthorization = 'requestTrackingAuthorization';
   static const trackingAuthorizationStatus = 'trackingAuthorizationStatus';
   static const openExternalUrl = 'openExternalUrl';
+  static const moveAppToBackground = 'moveAppToBackground';
   static const gatewayPublicKey = 'gatewayPublicKey';
   static const signGatewayCanonical = 'signGatewayCanonical';
   static const resetGatewayKey = 'resetGatewayKey';

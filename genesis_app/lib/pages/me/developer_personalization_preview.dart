@@ -140,8 +140,9 @@ class _DeveloperPersonalizationPreviewState
     // its result when the developer starts another preview.
     final scenario = _scenario;
     const completeProfile = PersonalizationProfile(
-      gender: PersonalizationGender.nonBinary,
-      age: PersonalizationAge.age25to34,
+      gender: 'Non_binary',
+      age: '25-34',
+      completed: true,
     );
     return SizedBox.expand(
       child: Column(
@@ -166,6 +167,8 @@ class _DeveloperPersonalizationPreviewState
           ),
           Flexible(
             child: PersonalizationSheet(
+              form: personalizationPreviewForm,
+              onSubmit: (_) async => PersonalizationNextStep.subscription,
               key: ValueKey(_revision),
               initialStep: switch (scenario) {
                 PersonalizationPreviewScenario.signInComplete =>
@@ -203,6 +206,26 @@ class _DeveloperPersonalizationPreviewState
     );
   }
 }
+
+/// Design fixtures only. Production choices come from device/personalization.
+final personalizationPreviewForm = [
+  PersonalizationField(
+    name: 'gender',
+    label: 'Gender',
+    options: [
+      for (final value in ['Male', 'Female', 'Non_binary'])
+        PersonalizationOption(value: value, label: value),
+    ],
+  ),
+  PersonalizationField(
+    name: 'age',
+    label: 'Age',
+    options: [
+      for (final value in ['18-24', '25-34', '35-44', '45+'])
+        PersonalizationOption(value: value, label: value),
+    ],
+  ),
+];
 
 /// Design fixtures only. These prices and benefits are not product configuration.
 Future<MembershipCatalogData> loadPersonalizationPreviewCatalog() async =>

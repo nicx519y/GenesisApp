@@ -53,6 +53,26 @@ class PendingStore implements MembershipPendingStore {
   }
 
   @override
+  Future<bool> removeUnpurchasedGuestIdentity(String accountUuid) async {
+    if (fail || failClaimCleanup) throw StateError('claim cleanup unavailable');
+    final claim = claims[accountUuid];
+    if (claim?.hasPurchase == true ||
+        claim?.ownerUid != null ||
+        claim?.status != null ||
+        [...records.values, ...confirmed.values].any(
+          (purchase) =>
+              purchase.guest?.accountUuid == accountUuid &&
+              (purchase.hasReceipt ||
+                  purchase.paid ||
+                  purchase.state == 'pending'),
+        )) {
+      return false;
+    }
+    claims.remove(accountUuid);
+    return true;
+  }
+
+  @override
   Future<void> completeGuestClaim(MembershipGuestClaimRecord record) async {
     if (fail || failClaimCleanup) throw StateError('claim cleanup unavailable');
     if (record.status != 'completed' || record.ownerUid == null) {
@@ -314,6 +334,7 @@ class Harness {
     String token = 'test-token',
     String transaction = '100',
     String? uuid,
+    String purchaseTime = '',
   }) => BillingPurchase(
     provider: provider == MembershipProvider.google
         ? BillingProvider.googlePlay
@@ -326,7 +347,7 @@ class Harness {
     signedTransaction: provider == MembershipProvider.apple
         ? 'test.header.signature'
         : '',
-    purchaseTime: '',
+    purchaseTime: purchaseTime,
     status: status,
     obfuscatedAccountId:
         uuid ?? (uid == null ? guest.accountUuid : accountUuid),

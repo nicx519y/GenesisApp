@@ -162,6 +162,7 @@ class MainActivity : FlutterActivity() {
                     val url = call.argument<String>("url") ?: ""
                     result.success(openExternalUrl(url))
                 }
+                "moveAppToBackground" -> result.success(moveTaskToBack(true))
                 "gatewayPublicKey" -> {
                     Thread {
                         try {

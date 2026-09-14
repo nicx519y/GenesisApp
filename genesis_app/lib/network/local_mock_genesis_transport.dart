@@ -18,6 +18,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       LocalMockGenesisTransport._();
 
   final _state = _MockState();
+  final _personalizationProfiles = <String, Map<String, Object?>>{};
 
   @visibleForTesting
   void resetFeatureQuotaUsage() {
@@ -668,6 +669,51 @@ class LocalMockGenesisTransport implements HttpTransport {
 
     if (method == 'GET' && path == 'app/config') {
       return _v1Ok({'show_opening_sheet': false, 'apiTraceSamplingRate': 1.0});
+    }
+
+    if (path == 'device/personalization') {
+      final owner = _state.isAuthenticated || requestHasAuthorization
+          ? 'uid:${_state.me['uid']}'
+          : 'device:$deviceId';
+      const choices = {
+        'gender': ['Male', 'Female', 'Non_binary'],
+        'age': ['18-24', '25-34', '35-44', '45+'],
+      };
+      if (method == 'POST') {
+        if (!choices['gender']!.contains(body['gender']) ||
+            !choices['age']!.contains(body['age'])) {
+          return _v1BusinessError(4004, 'ErrorParamInvalid');
+        }
+        final profile = <String, Object?>{
+          'gender': body['gender'],
+          'age': body['age'],
+          'completed': true,
+        };
+        _personalizationProfiles[owner] = profile;
+        return _v1Ok(profile);
+      }
+      if (method == 'GET') {
+        return _v1Ok({
+          ...?_personalizationProfiles[owner],
+          if (!_personalizationProfiles.containsKey(owner)) ...{
+            'gender': '',
+            'age': '',
+            'completed': false,
+          },
+          'form': [
+            for (final entry in choices.entries)
+              {
+                'name': entry.key,
+                'label': entry.key == 'gender' ? 'Gender' : 'Age',
+                'required': true,
+                'options': [
+                  for (final value in entry.value)
+                    {'value': value, 'label': value},
+                ],
+              },
+          ],
+        });
+      }
     }
 
     if (method == 'GET' && path == 'origin/my_launch_preset_characters') {

@@ -1,6 +1,7 @@
 import '../api_client.dart';
 import 'app_api.dart';
 import 'common_api.dart';
+import 'device_api.dart';
 import 'discuss_api.dart';
 import 'dm_api.dart';
 import 'feedback_api.dart';
@@ -21,6 +22,7 @@ class GenesisV1Api {
     ApiClient client, {
     CurrentUserInfoSessionProvider? currentUserInfoSessionProvider,
   }) : app = AppV1Api(client),
+       device = DeviceV1Api(client),
        user = UserV1Api(
          client,
          currentUserInfoSessionProvider: currentUserInfoSessionProvider,
@@ -41,6 +43,7 @@ class GenesisV1Api {
        common = CommonV1Api(client);
 
   final AppV1Api app;
+  final DeviceV1Api device;
   final UserV1Api user;
   final OriginV1Api origin;
   final WorldV1Api world;
