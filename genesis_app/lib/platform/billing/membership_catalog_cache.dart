@@ -12,7 +12,7 @@ class MembershipCatalogCache {
   Future<void> _writes = Future.value();
 
   String _key(MembershipProvider provider, String? ownerUid) =>
-      'membership_catalog_v2.${Uri.encodeComponent(jsonEncode([namespace, provider.name, ownerUid]))}';
+      'membership_catalog_v3.${Uri.encodeComponent(jsonEncode([namespace, provider.name, ownerUid]))}';
 
   Future<MembershipProductList?> load(
     MembershipProvider provider,

@@ -170,7 +170,7 @@ Subscription 右侧 Skip 可关闭，系统返回也可跳过订阅。跳过不�
 | A05 | `GET /api/v1/origin/hot_tags` | 当前无参数，返回 `data.list` 分类字符串 | 扩展草稿 Gender / 设备或 UID 偏好，刷新分类 |
 | A06 | `GET /api/v1/origin/feed` | For You 使用 `start_score/rn`；首屏 0，后续接 `next_score` | 扩展个性化上下文，Gender/UID 改变时重置首屏 |
 | A07 | `GET /api/v1/origin/list` | 其它分类使用 `scene/tag/pn/rn` 等 | 扩展同一偏好上下文，保留分页与标签契约 |
-| A08 | `GET /api/v1/membership/products?provider=google\|apple` | 返回 `vip_status/list`；每个商品自带价格、`benefits`、商店商品标识及可选 `account_uuid`；游客按既有方式传 `X-Device-ID` | F09 正式替换设计预览数据；付款前刷新资格 |
+| A08 | `GET /api/v1/membership/products?provider=google\|apple` | 返回 `list`；登录账号会员状态读取全局 wallet；每个商品自带价格、`benefits`、商店商品标识及可选 `account_uuid`；游客按既有方式传 `X-Device-ID` | F09 正式替换设计预览数据；付款前刷新资格 |
 | A09 | `POST /api/v1/membership/guest/prepare` | body 为 `provider/device_id`，返回 `account_uuid`；商品已带 UUID 时无需重复 prepare | 游客付款前按既有会员服务执行，不作为资料保存接口 |
 | A10 | `POST /api/v1/membership/purchase/report`；游客为 `/api/v1/membership/guest/purchase/report` | 上报 `provider/store_product_id` 与平台凭据；游客还带 `account_uuid` | 复用已有请求模型和确认 / 重试流程，不新造订单协议 |
 | A11 | `POST /api/v1/membership/claim`；恢复检查 `/api/v1/membership/guest/purchase/check` | 登录后认领已有游客购买；check 根据原 `account_uuid` 查询是否需绑定 | 复用游客订阅后强制登录及恢复流程；不是 Gender/Age 的设备绑定接口 |

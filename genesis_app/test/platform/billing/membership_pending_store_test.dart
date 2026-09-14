@@ -359,10 +359,9 @@ void main() {
         store: store,
         provider: MembershipProvider.google,
         readLoginUid: () async => 'user-test',
-        loadProducts: () async => MembershipProductList(
-          vipStatus: MembershipVipStatus.none,
-          products: [membershipProduct(yearly: true)],
-        ),
+        refreshMembership: () async => membershipAccessSnapshot(),
+        readCheckoutProducts: () async =>
+            MembershipProductList(products: [membershipProduct(yearly: true)]),
         loadAccountUuid: () async => support.accountUuid,
         prepareGuest: () async => support.guest,
         reportPurchase: (_) async => support.completed,

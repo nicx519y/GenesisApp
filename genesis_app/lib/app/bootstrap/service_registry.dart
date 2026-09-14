@@ -355,6 +355,7 @@ class ServiceRegistry {
       return asString(userInfo['uuid']);
     }
 
+    late AppServices services;
     BillingService? billing;
     final membershipProvider = MembershipCatalog.currentProvider;
     final membershipRestorer = membershipProvider == null
@@ -368,10 +369,9 @@ class ServiceRegistry {
             store: SecureMembershipPendingStore(),
             provider: membershipProvider,
             readLoginUid: sessionStore.readLoginUid,
-            loadProducts: () async => api.v1.membership.products(
-              provider: membershipProvider,
-              deviceId: await deviceId.getDeviceId(),
-            ),
+            readCheckoutProducts: () =>
+                services.membershipCatalog.readCheckoutProducts(),
+            refreshMembership: () => services.membership.refresh(),
             loadAccountUuid: loadBillingAccountUuid,
             prepareGuest: () async => api.v1.membership.prepareGuest(
               provider: membershipProvider,
@@ -422,7 +422,7 @@ class ServiceRegistry {
       deviceIdService: deviceId,
       sessionStore: sessionStore,
     );
-    return AppServices(
+    return services = AppServices(
       config: config,
       platformConfig: platformConfig,
       deviceId: deviceId,

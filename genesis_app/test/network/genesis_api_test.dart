@@ -388,7 +388,6 @@ void main() {
               'err_no': 0,
               'err_msg': 'succ',
               'data': {
-                'vip_status': 'monthly',
                 'list': [
                   {
                     'title': 'Server yearly title',
@@ -440,7 +439,7 @@ void main() {
         expect(result.products.single.billingMonths, 12);
         expect(result.products.single.priceCurrencyCode, 'EUR');
         expect(result.products.single.priceAmount, 12345);
-        expect(result.vipStatus, MembershipVipStatus.monthly);
+
         expect(result.products.single.title, 'Server yearly title');
         expect(result.products.single.benefits.single.code, 'server_benefit');
         expect(

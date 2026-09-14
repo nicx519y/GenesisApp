@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_benefit.dart';
@@ -87,3 +89,21 @@ Future<MembershipCatalogData> loadTestMembershipOffers() async =>
           MembershipOffer(product: membershipProduct(yearly: yearly)),
       ],
     );
+
+MembershipAccessState membershipAccessSnapshot({
+  String? ownerUid = 'user-test',
+  String planCode = '',
+}) => MembershipAccessState(
+  ownerUid: ownerUid,
+  status: planCode.isEmpty
+      ? MembershipAccessStatus.inactive
+      : MembershipAccessStatus.active,
+  membership: GemWalletMembership(
+    status: planCode.isEmpty ? 0 : 1,
+    planCode: planCode,
+    expiresAt: planCode.isEmpty ? null : DateTime.utc(2041),
+    autoRenew: false,
+    blueGemsCent: 0,
+    hasOverlap: false,
+  ),
+);

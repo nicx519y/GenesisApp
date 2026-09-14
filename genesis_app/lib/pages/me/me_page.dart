@@ -1,5 +1,5 @@
 import '../../components/gems/pro_membership_badge.dart';
-import '../../app/gems/gem_wallet_store.dart';
+import '../../app/membership/membership_access_store.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -297,9 +297,11 @@ class _MePageState extends State<MePage> with RouteAware {
                     ),
                   ),
                   Expanded(
-                    child: ValueListenableBuilder<GemWalletState>(
-                      valueListenable: gemWalletState,
-                      builder: (context, wallet, _) => UserProfileContent(
+                    child: ValueListenableBuilder<MembershipAccessState>(
+                      valueListenable: AppServicesScope.of(
+                        context,
+                      ).membership.state,
+                      builder: (context, membership, _) => UserProfileContent(
                         data: data,
                         originsListenable: _originsState,
                         worldsListenable: _worldsState,
@@ -307,7 +309,7 @@ class _MePageState extends State<MePage> with RouteAware {
                         displayNameListenable: _displayName,
                         // The crown now sits bare beside the name, so the
                         // 50x20 plate box it used to need is gone.
-                        displayNameTrailing: wallet.membership?.isActive == true
+                        displayNameTrailing: membership.isVip == true
                             ? ProMembershipBadge.beside(
                                 key: const ValueKey('me-profile-crown-icon'),
                                 // The display name renders at 20.

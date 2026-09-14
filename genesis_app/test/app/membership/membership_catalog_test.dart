@@ -12,6 +12,134 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'checkout reuses page credentials without persisting or refetching them',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = MembershipCatalogCache(namespace: 'catalog-checkout');
+      const uuid = '2b74ec68-7abc-4cce-a223-e997e31dc811';
+      var calls = 0;
+      final product = membershipProduct(
+        yearly: true,
+        accountUuid: uuid,
+        upgradePurchaseToken: 'original-monthly-token',
+      );
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        cacheStore: store,
+        readOwnerUid: () async => 'user-test',
+        loadProducts: (_) async {
+          calls++;
+          return MembershipProductList(products: [product]);
+        },
+      );
+      await expectLater(catalog.readCheckoutProducts(), throwsStateError);
+      expect(calls, 0);
+      await catalog.load();
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final checkout = await catalog.readCheckoutProducts();
+        expect(checkout.products.single.accountUuid, uuid);
+        expect(
+          checkout.products.single.upgradePurchaseToken,
+          'original-monthly-token',
+        );
+      }
+      expect(calls, 1);
+      expect(catalog.cached!.offers.single.product.accountUuid, isNull);
+      expect(
+        catalog.cached!.offers.single.product.upgradePurchaseToken,
+        isNull,
+      );
+      await pumpEventQueue();
+      final disk = await store.load(MembershipProvider.google, 'user-test');
+      expect(disk!.products.single.accountUuid, isNull);
+      expect(disk.products.single.upgradePurchaseToken, isNull);
+    },
+  );
+
+  test(
+    'checkout waits for the existing page refresh without a second request',
+    () async {
+      var calls = 0;
+      final response = Completer<MembershipProductList>();
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) {
+          calls++;
+          return response.future;
+        },
+      );
+      final loading = catalog.load();
+      var ready = false;
+      final checkout = catalog.readCheckoutProducts().then((data) {
+        ready = true;
+        return data;
+      });
+      await pumpEventQueue();
+      expect(calls, 1);
+      expect(ready, isFalse);
+      response.complete(
+        MembershipProductList(products: [membershipProduct(title: 'New')]),
+      );
+      await loading;
+      expect((await checkout).products.single.title, 'New');
+      expect(calls, 1);
+    },
+  );
+
+  test(
+    'failed page refresh leaves display cache but cannot reuse old checkout data',
+    () async {
+      var calls = 0;
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) async {
+          if (++calls > 1) throw StateError('offline');
+          return MembershipProductList(products: [membershipProduct()]);
+        },
+      );
+      await catalog.load();
+      await catalog.readCheckoutProducts();
+      await expectLater(catalog.load(), throwsStateError);
+      expect(catalog.cached!.offers, hasLength(1));
+      await expectLater(catalog.readCheckoutProducts(), throwsStateError);
+      expect(calls, 2);
+    },
+  );
+
+  test(
+    'checkout cannot reuse another session or a late response after reset',
+    () async {
+      var owner = 'user-a';
+      var calls = 0;
+      final lateResponse = Completer<MembershipProductList>();
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        readOwnerUid: () async => owner,
+        loadProducts: (_) async => ++calls == 1
+            ? MembershipProductList(products: [membershipProduct()])
+            : await lateResponse.future,
+      );
+      await catalog.load();
+      owner = 'user-b';
+      await expectLater(catalog.readCheckoutProducts(), throwsStateError);
+      final loading = catalog.load();
+      final checkout = expectLater(
+        catalog.readCheckoutProducts(),
+        throwsStateError,
+      );
+      await pumpEventQueue();
+      catalog.resetForSession();
+      lateResponse.complete(
+        MembershipProductList(products: [membershipProduct()]),
+      );
+      await loading;
+      await checkout;
+      await expectLater(catalog.readCheckoutProducts(), throwsStateError);
+      expect(calls, 2);
+    },
+  );
+
+  test(
     'failed refresh retains cache, empty success replaces it and survives restart',
     () async {
       SharedPreferences.setMockInitialValues({});
@@ -23,10 +151,7 @@ void main() {
         cacheStore: store,
         loadProducts: (_) async {
           if (failed) throw StateError('offline');
-          return MembershipProductList(
-            vipStatus: MembershipVipStatus.none,
-            products: products,
-          );
+          return MembershipProductList(products: products);
         },
       );
       final catalog = create();
@@ -54,10 +179,7 @@ void main() {
       await store.save(
         MembershipProvider.google,
         'user-b',
-        MembershipProductList(
-          vipStatus: MembershipVipStatus.none,
-          products: [membershipProduct(title: 'B cache')],
-        ),
+        MembershipProductList(products: [membershipProduct(title: 'B cache')]),
       );
       var owner = 'user-a';
       final pending = Completer<MembershipProductList>();
@@ -77,10 +199,7 @@ void main() {
         'B cache',
       );
       pending.complete(
-        MembershipProductList(
-          vipStatus: MembershipVipStatus.none,
-          products: [membershipProduct(title: 'A late')],
-        ),
+        MembershipProductList(products: [membershipProduct(title: 'A late')]),
       );
       await old;
       expect(catalog.cached!.offers.single.product.title, 'B cache');
@@ -110,20 +229,18 @@ void main() {
       final latest = catalog.load();
       await pumpEventQueue();
       responses.last.complete(
-        MembershipProductList(
-          vipStatus: MembershipVipStatus.none,
-          products: [membershipProduct(title: 'New')],
-        ),
+        MembershipProductList(products: [membershipProduct(title: 'New')]),
       );
       await latest;
       responses.first.complete(
-        MembershipProductList(
-          vipStatus: MembershipVipStatus.none,
-          products: [membershipProduct(title: 'Old')],
-        ),
+        MembershipProductList(products: [membershipProduct(title: 'Old')]),
       );
       await old;
       expect(catalog.cached!.offers.single.product.title, 'New');
+      expect(
+        (await catalog.readCheckoutProducts()).products.single.title,
+        'New',
+      );
     },
   );
   test(
@@ -148,10 +265,7 @@ void main() {
           loadProducts: (requested) async {
             requests++;
             expect(requested, provider);
-            return MembershipProductList(
-              vipStatus: MembershipVipStatus.none,
-              products: [monthly, yearly],
-            );
+            return MembershipProductList(products: [monthly, yearly]);
           },
         );
         final result = await catalog.load();
@@ -177,7 +291,6 @@ void main() {
     final result = await MembershipCatalog(
       provider: MembershipProvider.google,
       loadProducts: (_) async => MembershipProductList(
-        vipStatus: MembershipVipStatus.none,
         products: [membershipProduct(title: 'Unpriced', hasPrice: false)],
       ),
     ).load();
@@ -192,10 +305,7 @@ void main() {
   test('empty server catalog remains empty', () async {
     final result = await MembershipCatalog(
       provider: MembershipProvider.google,
-      loadProducts: (_) async => const MembershipProductList(
-        vipStatus: MembershipVipStatus.none,
-        products: [],
-      ),
+      loadProducts: (_) async => const MembershipProductList(products: []),
     ).load();
     expect(result.offers, isEmpty);
   });
@@ -207,10 +317,7 @@ void main() {
     ]) {
       final catalog = MembershipCatalog(
         provider: MembershipProvider.google,
-        loadProducts: (_) async => MembershipProductList(
-          vipStatus: MembershipVipStatus.none,
-          products: products,
-        ),
+        loadProducts: (_) async => MembershipProductList(products: products),
       );
       await expectLater(catalog.load(), throwsFormatException);
     }

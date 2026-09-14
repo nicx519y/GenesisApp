@@ -16,6 +16,7 @@ class UserProfileContent extends StatefulWidget {
     this.displayNameTrailing,
     this.isUpdatingProfileListenable,
     this.gemWalletStateListenable,
+    this.membershipStateListenable,
     this.reselectionListenable,
     this.isActiveListenable,
     this.onEditAvatar,
@@ -50,6 +51,7 @@ class UserProfileContent extends StatefulWidget {
   final Widget? displayNameTrailing;
   final ValueListenable<bool>? isUpdatingProfileListenable;
   final ValueListenable<GemWalletState>? gemWalletStateListenable;
+  final ValueListenable<MembershipAccessState>? membershipStateListenable;
   final ValueListenable<int>? reselectionListenable;
   final ValueListenable<bool>? isActiveListenable;
   final VoidCallback? onEditAvatar;
@@ -454,7 +456,7 @@ class _UserProfileContentState extends State<UserProfileContent>
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: _MembershipEntry(
-                stateListenable: widget.gemWalletStateListenable,
+                stateListenable: widget.membershipStateListenable,
               ),
             ),
             const SizedBox(height: 10),
@@ -640,17 +642,18 @@ class _UserProfileContentState extends State<UserProfileContent>
 
 class _MembershipEntry extends StatelessWidget {
   const _MembershipEntry({this.stateListenable});
-  final ValueListenable<GemWalletState>? stateListenable;
+  final ValueListenable<MembershipAccessState>? stateListenable;
 
   @override
   Widget build(BuildContext context) {
-    final listenable = stateListenable;
+    final listenable =
+        stateListenable ?? AppServicesScope.maybeOf(context)?.membership.state;
     if (listenable == null) return const ProfileMembershipCard();
-    return ValueListenableBuilder<GemWalletState>(
+    return ValueListenableBuilder<MembershipAccessState>(
       valueListenable: listenable,
       builder: (context, state, _) => ProfileMembershipCard(
-        isActive: state.membership?.isActive ?? false,
-        isExpired: state.membership?.status == 2,
+        isActive: state.isVip == true,
+        isExpired: state.isExpired,
         membershipExpiresAt: state.membership?.expiresAt?.toLocal(),
         blueBalanceCent: state.membership?.blueGemsCent,
       ),

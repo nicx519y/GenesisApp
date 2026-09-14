@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../network/models/gem_wallet.dart';
 import '../gems/gem_wallet_store.dart';
@@ -16,6 +17,7 @@ class MembershipAccessState {
     this.membership,
     this.isRefreshing = false,
     this.lastError,
+    this.isExpired = false,
   });
 
   final MembershipAccessStatus status;
@@ -23,6 +25,7 @@ class MembershipAccessState {
   final GemWalletMembership? membership;
   final bool isRefreshing;
   final Object? lastError;
+  final bool isExpired;
 
   /// Unknown must not be presented as a confirmed non-member.
   bool? get isVip => switch (status) {
@@ -60,6 +63,19 @@ class MembershipAccessStore with WidgetsBindingObserver {
   final Duration retryDelay;
   final _state = ValueNotifier(const MembershipAccessState());
 
+  /// Read-only cached state for presentation, still checking actual expiry.
+  /// Access checks use checkVip's cache lifetime; checkout requires refresh.
+  ValueListenable<MembershipAccessState> get state => _state;
+
+  Future<MembershipAccessState> refresh() async {
+    final session = _session;
+    final status = await _ensureFresh(forceRefresh: true);
+    if (_disposed || session != _session) return const MembershipAccessState();
+    return _snapshot(
+      status: status == MembershipAccessStatus.unknown ? status : _status(),
+    );
+  }
+
   @visibleForTesting
   MembershipAccessState get debugState => _state.value;
 
@@ -94,7 +110,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
   Object? _lastError;
   int _failures = 0;
   int _session = 0;
-  Object? _operation;
+  _MembershipLookup? _operation;
   Future<MembershipAccessStatus>? _inFlight;
   Timer? _expiryTimer;
   Timer? _cacheTimer;
@@ -115,17 +131,32 @@ class MembershipAccessStore with WidgetsBindingObserver {
 
   /// At most one wallet request per lookup. Concurrent callers share the result.
   /// Errors remain unknown; a later lookup may retry after a short cooldown.
-  Future<MembershipAccessStatus> _ensureFresh({Duration? maxAge}) {
+  Future<MembershipAccessStatus> _ensureFresh({
+    Duration? maxAge,
+    bool forceRefresh = false,
+  }) {
     if (_disposed) return Future.value(MembershipAccessStatus.unknown);
     final pending = _inFlight;
-    if (pending != null) return pending;
+    if (pending != null) {
+      if (!forceRefresh) return pending;
+      final previous = _operation;
+      final session = _session;
+      return pending.then((result) {
+        if (_disposed || session != _session) {
+          return MembershipAccessStatus.unknown;
+        }
+        // A cache-only check must not swallow a page-open/checkout refresh.
+        if (previous?.requestedWallet == true) return result;
+        return _ensureFresh(forceRefresh: true);
+      });
+    }
     final session = _session;
-    final operation = Object();
+    final operation = _MembershipLookup();
     _operation = operation;
     bool current() =>
         !_disposed && _session == session && identical(_operation, operation);
     late final Future<MembershipAccessStatus> future;
-    future = _resolve(current, maxAge)
+    future = _resolve(current, maxAge, forceRefresh, operation)
         .timeout(
           requestTimeout,
           onTimeout: () {
@@ -155,6 +186,8 @@ class MembershipAccessStore with WidgetsBindingObserver {
   Future<MembershipAccessStatus> _resolve(
     bool Function() current,
     Duration? maxAge,
+    bool forceRefresh,
+    _MembershipLookup operation,
   ) async {
     final rawUid = (await readLoginUid())?.trim() ?? '';
     if (!current()) return MembershipAccessStatus.unknown;
@@ -171,13 +204,14 @@ class MembershipAccessStore with WidgetsBindingObserver {
     _consumeWallet();
     final cached = _status();
     final age = _receivedAt == null ? null : _elapsed() - _receivedAt!;
-    if (cached != MembershipAccessStatus.unknown &&
+    if (!forceRefresh &&
+        cached != MembershipAccessStatus.unknown &&
         (maxAge == null || age != null && age < maxAge)) {
       _scheduleExpiry();
       _publish();
       return cached;
     }
-    if (_retryAfter != null && _elapsed() < _retryAfter!) {
+    if (!forceRefresh && _retryAfter != null && _elapsed() < _retryAfter!) {
       _publish();
       return MembershipAccessStatus.unknown;
     }
@@ -187,6 +221,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
     }
     if (!current()) return MembershipAccessStatus.unknown;
     _publish(refreshing: true);
+    operation.requestedWallet = true;
     await wallet.refresh();
     if (!current()) return MembershipAccessStatus.unknown;
     // Session notifications normally cancel this lookup. Also verify the UID
@@ -197,6 +232,10 @@ class MembershipAccessStore with WidgetsBindingObserver {
     }
     if (!current()) return MembershipAccessStatus.unknown;
     _consumeWallet();
+    if (wallet.state.value.lastError != null) {
+      _publish();
+      return MembershipAccessStatus.unknown;
+    }
     final result = _status();
     if (result == MembershipAccessStatus.unknown && _lastError == null) {
       _failed(StateError('Membership information unavailable'));
@@ -260,23 +299,35 @@ class MembershipAccessStore with WidgetsBindingObserver {
       ? shortCacheAge
       : maxCacheAge;
 
-  MembershipAccessStatus _status() {
+  MembershipAccessStatus _status({bool allowStale = false}) {
     if (_disposed || !_sessionKnown) return MembershipAccessStatus.unknown;
     if (_ownerUid == null) return MembershipAccessStatus.inactive;
     final membership = _membership;
     if (membership == null ||
         _receivedAt == null ||
-        _elapsed() - _receivedAt! >= _cacheAge) {
+        (!allowStale && _elapsed() - _receivedAt! >= _cacheAge)) {
       return MembershipAccessStatus.unknown;
     }
     if (membership.status != 1) return MembershipAccessStatus.inactive;
     final expiry = membership.expiresAt;
     final now = serverNow();
-    if (expiry != null && now != null && !expiry.isAfter(now)) {
+    if (expiry == null || now == null) {
       return MembershipAccessStatus.unknown;
     }
-    // A fresh server status remains authoritative when expiry is unknown.
-    return MembershipAccessStatus.active;
+    return expiry.isAfter(now)
+        ? MembershipAccessStatus.active
+        : MembershipAccessStatus.inactive;
+  }
+
+  bool get _isExpired {
+    final membership = _membership;
+    if (membership?.status == 2) return true;
+    final expiry = membership?.expiresAt;
+    final now = serverNow();
+    return membership?.status == 1 &&
+        expiry != null &&
+        now != null &&
+        !expiry.isAfter(now);
   }
 
   void _scheduleExpiry() {
@@ -295,7 +346,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
         _expiryTimer = Timer(remaining, () {
           if (_disposed) return;
           _publish();
-          if (_started && _foreground) unawaited(_ensureFresh());
+          if (_started && _foreground) unawaited(refresh());
         });
       }
     }
@@ -313,14 +364,23 @@ class MembershipAccessStore with WidgetsBindingObserver {
 
   void _publish({bool refreshing = false}) {
     if (_disposed) return;
-    _state.value = MembershipAccessState(
-      status: _status(),
-      ownerUid: _ownerUid,
-      membership: _membership,
-      isRefreshing: refreshing,
-      lastError: _lastError,
+    _state.value = _snapshot(
+      status: _status(allowStale: true),
+      refreshing: refreshing,
     );
   }
+
+  MembershipAccessState _snapshot({
+    MembershipAccessStatus? status,
+    bool refreshing = false,
+  }) => MembershipAccessState(
+    status: status ?? _status(),
+    ownerUid: _ownerUid,
+    membership: _membership,
+    isRefreshing: refreshing,
+    lastError: _lastError,
+    isExpired: _isExpired,
+  );
 
   void resetForSession() {
     if (_disposed) return;
@@ -348,7 +408,11 @@ class MembershipAccessStore with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     _foreground = state == AppLifecycleState.resumed;
-    if (_started && _foreground) unawaited(_ensureFresh(maxAge: shortCacheAge));
+    if (_started && _foreground) {
+      unawaited(
+        _ensureFresh(maxAge: _isExpired ? Duration.zero : shortCacheAge),
+      );
+    }
   }
 
   void dispose() {
@@ -366,4 +430,8 @@ class MembershipAccessStore with WidgetsBindingObserver {
     final stopwatch = Stopwatch()..start();
     return () => stopwatch.elapsed;
   }
+}
+
+class _MembershipLookup {
+  bool requestedWallet = false;
 }

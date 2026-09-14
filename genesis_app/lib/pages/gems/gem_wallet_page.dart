@@ -6,6 +6,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug_page_tracker.dart';
 import '../../app/gems/gem_task_analytics.dart';
 import '../../app/gems/gem_wallet_store.dart';
@@ -132,6 +133,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   late final TabController _purchaseTabs;
   late bool _subscriptionVisited;
   late bool _gemsVisited;
+  AppServices? _membershipServices;
 
   @override
   void initState() {
@@ -182,6 +184,11 @@ class _GemWalletPageState extends State<GemWalletPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final services = AppServicesScope.maybeOf(context);
+    if (!identical(services, _membershipServices)) {
+      _membershipServices = services;
+      if (services != null) unawaited(services.membership.refresh());
+    }
     final route = ModalRoute.of(context);
     if (route is PageRoute<dynamic> && !identical(route, _subscribedRoute)) {
       genesisPageRouteObserver.unsubscribe(this);
@@ -264,6 +271,7 @@ class _GemWalletPageState extends State<GemWalletPage>
                 _WalletTabPage(
                   child: _subscriptionVisited
                       ? ProSubscriptionContent(
+                          refreshMembershipOnOpen: false,
                           horizontalInset: 16,
                           productsLoader: widget.membershipProductsLoader,
                         )

@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,78 +17,93 @@ void main() {
   testWidgets(
     'Me shows one membership card and keeps wallet and membership balances independent',
     (tester) async {
-      final state = ValueNotifier<GemWalletState>(
-        const GemWalletState(ownerUid: 'user'),
+      var response = const GemWallet(balanceCent: 0);
+      final wallet = GemWalletStore(
+        readUid: () async => 'user',
+        loadWallet: () async => response,
       );
-      addTearDown(state.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: UserProfileContent(
-              data: const UserProfileData(
-                avatarUrl: '',
-                displayName: 'User',
-                uid: 'user',
-                followingCount: 0,
-                followerCount: 0,
-                origins: [],
-                worlds: [],
+      final access = MembershipAccessStore(
+        wallet: wallet,
+        readLoginUid: () async => 'user',
+        serverNow: () => DateTime.utc(2026),
+      );
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: UserProfileContent(
+                data: const UserProfileData(
+                  avatarUrl: '',
+                  displayName: 'User',
+                  uid: 'user',
+                  followingCount: 0,
+                  followerCount: 0,
+                  origins: [],
+                  worlds: [],
+                ),
+                gemWalletStateListenable: wallet.state,
+                membershipStateListenable: access.state,
               ),
-              gemWalletStateListenable: state,
             ),
           ),
-        ),
-      );
-      expect(find.byType(ProfileMembershipCard), findsOneWidget);
-      expect(find.text('Subscribe'), findsOneWidget);
-      expect(find.text('Expired'), findsNothing);
-      for (final status in [1, 2, 0, 1]) {
-        state.value = GemWalletState(
-          ownerUid: 'user',
-          balanceCent: 548240,
+        );
+        expect(find.text('Subscribe'), findsOneWidget);
+        for (final entry in [(1, false), (2, false), (0, false), (1, true)]) {
+          final (status, pastExpiry) = entry;
+          final active = status == 1 && !pastExpiry;
+          response = GemWallet(
+            balanceCent: 548240,
+            membership: GemWalletMembership(
+              status: status,
+              planCode: 'pro_yearly',
+              expiresAt: pastExpiry
+                  ? DateTime.utc(2026)
+                  : DateTime.utc(2027, 9, 8),
+              autoRenew: false,
+              blueGemsCent: 30000,
+              hasOverlap: false,
+            ),
+          );
+          await access.refresh();
+          await tester.pumpAndSettle();
+          expect(find.byType(ProfileMembershipCard), findsOneWidget);
+          expect(
+            find.text('Subscribe'),
+            active ? findsNothing : findsOneWidget,
+          );
+          expect(
+            find.text('Expired'),
+            status == 2 || pastExpiry ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.text('Expires 2027-09-08'),
+            active ? findsOneWidget : findsNothing,
+          );
+          expect(find.text('5,482.4'), findsOneWidget);
+          expect(wallet.state.value.membership!.blueGemsCent, 30000);
+        }
+        response = const GemWallet(
+          balanceCent: 518240,
           membership: GemWalletMembership(
-            status: status,
-            planCode: 'pro_yearly',
-            expiresAt: DateTime(2027, 9, 8),
+            status: 1,
+            planCode: 'pro_monthly',
+            expiresAt: null,
             autoRenew: false,
-            blueGemsCent: status == 1 ? 30000 : 0,
+            blueGemsCent: 0,
             hasOverlap: false,
           ),
         );
+        await access.refresh();
         await tester.pumpAndSettle();
-        expect(find.byType(ProfileMembershipCard), findsOneWidget);
-        expect(
-          find.text('Subscribe'),
-          status == 1 ? findsNothing : findsOneWidget,
-        );
-        expect(
-          find.text('Expired'),
-          status == 2 ? findsOneWidget : findsNothing,
-        );
-        expect(
-          find.text('Expires 2027-09-08'),
-          status == 1 ? findsOneWidget : findsNothing,
-        );
-        expect(find.text(status == 1 ? '300.0' : '0.0'), findsOneWidget);
-        expect(find.text('5,482.4'), findsOneWidget);
+        expect(find.text('Subscribe'), findsOneWidget);
+        expect(find.text('Expires —'), findsNothing);
+        expect(find.text('Expired'), findsNothing);
+        expect(find.text('5,182.4'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        access.dispose();
+        wallet.dispose();
       }
-      state.value = const GemWalletState(
-        ownerUid: 'user',
-        balanceCent: 518240,
-        membership: GemWalletMembership(
-          status: 1,
-          planCode: 'pro_monthly',
-          expiresAt: null,
-          autoRenew: false,
-          blueGemsCent: 0,
-          hasOverlap: false,
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('Subscribe'), findsNothing);
-      expect(find.text('Expires —'), findsOneWidget);
-      expect(find.text('0.0'), findsOneWidget);
-      expect(tester.takeException(), isNull);
     },
   );
   test('empty backend name and avatar render uid and default avatar', () {

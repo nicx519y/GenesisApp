@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_catalog.dart';
 
 import '../common/genesis_bottom_sheet_panel.dart';
@@ -39,6 +42,17 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
   late final TabController _tabs;
   late bool _gemsVisited;
   late bool _subscriptionVisited;
+  MembershipAccessStore? _membership;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final membership = AppServicesScope.maybeOf(context)?.membership;
+    if (!identical(membership, _membership)) {
+      _membership = membership;
+      if (membership != null) unawaited(membership.refresh());
+    }
+  }
 
   @override
   void initState() {
@@ -98,6 +112,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                   child: _subscriptionVisited
                       ? widget.subscriptionBuilder?.call(context) ??
                             ProSubscriptionContent(
+                              refreshMembershipOnOpen: false,
                               productsLoader: widget.membershipProductsLoader,
                               closeOnPurchaseSuccess: true,
                               topSpacing: 0,

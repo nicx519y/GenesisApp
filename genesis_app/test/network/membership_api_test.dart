@@ -228,7 +228,7 @@ void main() {
       final transport = _Transport()
         ..response = {
           'err_no': 0,
-          'data': {'vip_status': 'none', 'list': []},
+          'data': {'list': []},
         };
       final api = MembershipV1Api(
         ApiClient(baseUrl: 'https://test.invalid/api/', transport: transport),
@@ -253,7 +253,6 @@ void main() {
         ..response = {
           'err_no': 0,
           'data': {
-            'vip_status': 'monthly',
             'list': [
               {
                 ...membershipProduct(yearly: true).toJson(),
