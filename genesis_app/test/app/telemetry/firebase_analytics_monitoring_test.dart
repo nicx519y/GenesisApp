@@ -30,6 +30,139 @@ void main() {
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
+  Future<void> purchase({String identity = 'receipt-1'}) =>
+      FirebaseAnalyticsMonitoring.recordPurchase(
+        provider: 'google',
+        productId: 'gems-product',
+        kind: FirebaseAnalyticsPurchaseKind.gems,
+        purchaseIdentity: identity,
+      );
+
+  test(
+    'purchase receipts deduplicate concurrent and later completions',
+    () async {
+      final ready = Completer<void>();
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(ready.future);
+      final first = purchase();
+      final duplicate = purchase();
+      await Future<void>.delayed(Duration.zero);
+      ready.complete();
+      await Future.wait([first, duplicate]);
+      await purchase();
+      await purchase(identity: 'receipt-2');
+      expect(client.events.map((e) => e.name), [
+        'purchase',
+        'purchase_first',
+        'gems_first',
+        'purchase',
+      ]);
+    },
+  );
+
+  test(
+    'purchase receipt markers survive restart without storing raw identity',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+        const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
+      );
+      await purchase(identity: 'private-store-token');
+      final preferences = await SharedPreferences.getInstance();
+      final keys = preferences.getKeys();
+      expect(
+        keys.where((key) => key.contains('purchase_transaction_v1.')),
+        hasLength(1),
+      );
+      expect(keys.any((key) => key.contains('private-store-token')), isFalse);
+      expect(
+        client.events.every(
+          (e) => !e.parameters.values.contains('private-store-token'),
+        ),
+        isTrue,
+      );
+      FirebaseAnalyticsMonitoring.resetForTesting();
+      FirebaseAnalyticsMonitoring.setClientForTesting(client);
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      FirebaseAnalyticsMonitoring.setReadinessForTesting(Future.value());
+      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+        () async => 'device',
+      );
+      await purchase(identity: 'private-store-token');
+      expect(client.events, hasLength(3));
+    },
+  );
+
+  test('failed purchase call can retry the same receipt', () async {
+    client.error = StateError('SDK unavailable');
+    await purchase();
+    client.error = null;
+    await purchase();
+    await purchase();
+    expect(client.events.map((e) => e.name), [
+      'purchase',
+      'purchase_first',
+      'gems_first',
+    ]);
+    expect(client.attempts, 6);
+  });
+
+  test('partial purchase failure retries only the unsent event', () async {
+    client.failedEventNames.add('gems_first');
+    await purchase();
+    expect(client.events.map((e) => e.name), ['purchase', 'purchase_first']);
+    client.failedEventNames.clear();
+    await purchase();
+    expect(client.events.map((e) => e.name), [
+      'purchase',
+      'purchase_first',
+      'gems_first',
+    ]);
+    expect(client.attempts, 4);
+  });
+
+  test('legacy first markers remain valid for transaction deduplication', () async {
+    SharedPreferences.setMockInitialValues({
+      '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}purchase_first':
+          1,
+      '${SharedPreferencesFirebaseAnalyticsOnceEventStore.storageKeyPrefix}gems_first':
+          1,
+    });
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+      const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
+    );
+    await purchase();
+    await purchase();
+    expect(client.events.map((e) => e.name), ['purchase']);
+  });
+
+  test(
+    'purchase device lookup failure uses unknown without dropping events',
+    () async {
+      FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+        () async => throw StateError('device unavailable'),
+      );
+      await purchase();
+      expect(client.events, hasLength(3));
+      expect(
+        client.events.every((e) => e.parameters['device_id'] == 'unknown'),
+        isTrue,
+      );
+    },
+  );
+
+  test(
+    'missing identity and disabled collection do not consume first markers',
+    () async {
+      await purchase(identity: ' ');
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(false);
+      await purchase();
+      expect(client.events, isEmpty);
+      FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+      await purchase();
+      expect(client.events, hasLength(3));
+    },
+  );
+
   test('records base and first events with exact parameters', () async {
     await FirebaseAnalyticsMonitoring.recordLaunch(
       originId: 'origin-1',
@@ -49,6 +182,7 @@ void main() {
       provider: 'google',
       productId: 'worldo_gems_500',
       kind: FirebaseAnalyticsPurchaseKind.gems,
+      purchaseIdentity: 'test-purchase-1',
     );
 
     expect(client.events, <_RecordedEvent>[
@@ -115,21 +249,25 @@ void main() {
       provider: 'google',
       productId: 'gems-1',
       kind: FirebaseAnalyticsPurchaseKind.gems,
+      purchaseIdentity: 'test-purchase-2',
     );
     await FirebaseAnalyticsMonitoring.recordPurchase(
       provider: 'google',
       productId: 'gems-2',
       kind: FirebaseAnalyticsPurchaseKind.gems,
+      purchaseIdentity: 'test-purchase-3',
     );
     await FirebaseAnalyticsMonitoring.recordPurchase(
       provider: 'apple',
       productId: 'subscription-1',
       kind: FirebaseAnalyticsPurchaseKind.subscription,
+      purchaseIdentity: 'test-purchase-4',
     );
     await FirebaseAnalyticsMonitoring.recordPurchase(
       provider: 'apple',
       productId: 'subscription-2',
       kind: FirebaseAnalyticsPurchaseKind.subscription,
+      purchaseIdentity: 'test-purchase-5',
     );
 
     expect(client.events.map((event) => event.name), <String>[
@@ -297,6 +435,7 @@ void main() {
       provider: 'google',
       productId: 'gems-1',
       kind: FirebaseAnalyticsPurchaseKind.gems,
+      purchaseIdentity: 'test-purchase-6',
     );
 
     client.error = null;
@@ -304,6 +443,7 @@ void main() {
       provider: 'google',
       productId: 'gems-2',
       kind: FirebaseAnalyticsPurchaseKind.gems,
+      purchaseIdentity: 'test-purchase-7',
     );
 
     expect(client.attempts, 6);
@@ -348,11 +488,13 @@ void main() {
       provider: 'apple',
       productId: 'com.worldo.gems.500',
       kind: FirebaseAnalyticsPurchaseKind.gems,
+      purchaseIdentity: 'test-purchase-8',
     );
     await FirebaseAnalyticsMonitoring.recordPurchase(
       provider: 'apple',
       productId: 'com.worldo.pro.monthly',
       kind: FirebaseAnalyticsPurchaseKind.subscription,
+      purchaseIdentity: 'test-purchase-9',
     );
 
     final preferences = await SharedPreferences.getInstance();
@@ -597,6 +739,7 @@ void main() {
 class _FakeAnalyticsClient implements AppAnalyticsClient {
   final List<_RecordedEvent> events = <_RecordedEvent>[];
   Object? error;
+  final Set<String> failedEventNames = {};
   int attempts = 0;
 
   @override
@@ -605,6 +748,7 @@ class _FakeAnalyticsClient implements AppAnalyticsClient {
     Map<String, Object>? parameters,
   }) async {
     attempts += 1;
+    if (failedEventNames.contains(name)) throw StateError('SDK unavailable');
     final failure = error;
     if (failure != null) throw failure;
     events.add(_RecordedEvent(name, parameters ?? const <String, Object>{}));

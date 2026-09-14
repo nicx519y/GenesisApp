@@ -258,6 +258,17 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     final serverTransactionId = report.transactionId.trim();
 
     if (report.status == GemPurchaseReportStatus.completed) {
+      if (_sameBillingAccount(accountId, record.billingAccountId)) {
+        unawaited(
+          FirebaseAnalyticsMonitoring.recordPurchase(
+            provider: record.provider.apiValue,
+            productId: record.storeProductId,
+            kind: FirebaseAnalyticsPurchaseKind.gems,
+            purchaseIdentity: record.purchaseToken,
+            requireEligibility: true,
+          ),
+        );
+      }
       if (!await _deletePurchaseRecord(record)) {
         await _handleLocalOrderMutationFailure(record, silent: silent);
         return;

@@ -21,6 +21,8 @@ Edit 轮次编辑页为明确例外：页面使用 `args.style.copyWith(bubbleBa
 
 其他玩家/NPC 的左侧普通消息复用 `ChatMessageBubble`，当前保留左上角 0、其余 14 的既有分支；只有 AI 角色使用左上角 2。不得仅因消息位于左侧就判定为 AI。Opening 等调用方的明确样式覆盖继续生效。
 
+普通消息的 self / other 仅由业务 `type == user` 且 `user_id` 精确等于当前登录用户非空 UID 决定。`sender_id`、角色绑定关系和开场选中的角色不作为 self 的兜底依据。历史与回复卡片使用同一规则；本地待发送的本人消息直接使用 self。
+
 ## 共用控件和 token
 
 - `lib/components/chat/shared/chat_scene_plate_tokens.dart` 是基础气泡专用 token 的唯一入口：正文/斜体颜色、AI/自己/旁白底色、圆角、内边距、文字样式和等待圆点参数。

@@ -14747,13 +14747,13 @@ void main() {
       expect(tester.widget<ChatMessageRow>(narrationRow).message.isMe, isFalse);
       final characterBubble = find.descendant(
         of: openingRow,
-        matching: find.byType(ChatSelfMessageBubble),
+        matching: find.byType(ChatOtherMessageBubble),
       );
       expect(characterBubble, findsOneWidget);
       final initialOpeningMessage = tester
           .widget<ChatMessageRow>(openingRow)
           .message;
-      expect(initialOpeningMessage.isMe, isTrue);
+      expect(initialOpeningMessage.isMe, isFalse);
       expect(initialOpeningMessage.isPlayerControlledRole, isTrue);
       final openingAvatarFinder = find.descendant(
         of: characterBubble,
@@ -14761,7 +14761,7 @@ void main() {
       );
       final openingAvatarElement = tester.element(openingAvatarFinder);
       final openingAvatarX = tester.getTopLeft(openingAvatarFinder).dx;
-      expect(openingAvatarX, tester.getTopLeft(selfAvatarFinder).dx);
+      expect(openingAvatarX, tester.getTopLeft(otherAvatar).dx);
       expect(
         find.descendant(
           of: characterBubble,
@@ -15019,7 +15019,7 @@ void main() {
       expect(find.text('message loaded after entering chat'), findsOneWidget);
       expect(openingRow, findsOneWidget);
       expect(tester.widget<ChatMessageRow>(openingRow).message.messageId, 99);
-      expect(tester.widget<ChatMessageRow>(openingRow).message.isMe, isTrue);
+      expect(tester.widget<ChatMessageRow>(openingRow).message.isMe, isFalse);
       expect(tester.element(openingAvatarFinder), same(openingAvatarElement));
       expect(tester.getTopLeft(openingAvatarFinder).dx, openingAvatarX);
       expect(narrationRow, findsNothing);
@@ -15214,10 +15214,7 @@ void main() {
             .where((message) => message.text.startsWith('Opening line'))
             .toList();
         expect(firstFrameOpening, hasLength(lines.length));
-        expect(
-          firstFrameOpening.every((message) => message.isMe == scenario.preset),
-          isTrue,
-        );
+        expect(firstFrameOpening.every((message) => !message.isMe), isTrue);
         for (var frame = 0; frame < 12; frame++) {
           await tester.pump(const Duration(milliseconds: 20));
         }
@@ -15258,7 +15255,7 @@ void main() {
         final anchorTop = tester.getTopLeft(anchor).dy;
         expect(visibleBubble.message.senderName, 'Guide');
         expect(visibleBubble.message.avatarUrl, avatar);
-        expect(visibleBubble.message.isMe, scenario.preset);
+        expect(visibleBubble.message.isMe, isFalse);
         final openingAvatar = find.descendant(
           of: find.byWidgetPredicate(
             (widget) =>
@@ -15350,10 +15347,7 @@ void main() {
             .where((message) => message.text.startsWith('Opening line'))
             .toList();
         expect(openingMessages, hasLength(lines.length));
-        expect(
-          openingMessages.every((message) => message.isMe == scenario.preset),
-          isTrue,
-        );
+        expect(openingMessages.every((message) => !message.isMe), isTrue);
         expect(
           openingMessages.first.text,
           'Opening line 0. Authoritative server text.',

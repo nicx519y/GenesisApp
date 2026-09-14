@@ -1,13 +1,5 @@
 const int gemCentPerGem = 100;
 
-/// Exact cent precision for model quotations; other amounts keep their format.
-String formatExactGemCent(int value) {
-  final absolute = value.abs();
-  final whole = _formatGroupedInteger(absolute ~/ gemCentPerGem);
-  final fraction = (absolute % gemCentPerGem).toString().padLeft(2, '0');
-  return '${value < 0 ? '-' : ''}$whole.$fraction';
-}
-
 int requireGemCent(Object? value, {required String fieldName}) {
   if (value is int) return value;
   throw FormatException('$fieldName must be an integer Gem cent value');

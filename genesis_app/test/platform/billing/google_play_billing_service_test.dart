@@ -297,6 +297,158 @@ void main() {
     await platform.close();
   });
 
+  _RecordingFirebaseAnalyticsClient enableFirebaseAnalytics() {
+    final client = _RecordingFirebaseAnalyticsClient();
+    FirebaseAnalyticsMonitoring.resetForTesting();
+    FirebaseAnalyticsMonitoring.setClientForTesting(client);
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+      _MemoryFirebaseAnalyticsOnceEventStore(),
+    );
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future.value());
+    FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+      () async => 'test-device-id',
+    );
+    addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+    return client;
+  }
+
+  test(
+    'Firebase purchase waits for completed and deduplicates store recovery',
+    () async {
+      final client = enableFirebaseAnalytics();
+      reportStatus = GemPurchaseReportStatus.accepted;
+      await service.purchaseGem(_product);
+      final purchase = _purchase(BillingPurchaseStatus.purchased);
+      platform.emit(purchase);
+      await _settle();
+      expect(client.events, isEmpty);
+      reportStatus = GemPurchaseReportStatus.completed;
+      await service.recover(BillingRecoverySource.foreground);
+      await _settle();
+      expect(client.events.map((e) => e.name), [
+        'purchase',
+        'purchase_first',
+        'gems_first',
+      ]);
+      platform.emit(purchase);
+      await _settle();
+      platform.recoverablePurchases = [purchase];
+      await service.recoverStorePurchases(productCatalog: [_product]);
+      await _settle();
+      expect(client.events, hasLength(3));
+      expect(
+        uiEvents.where((e) => e.kind == BillingUiEventKind.success),
+        isNotEmpty,
+      );
+    },
+  );
+
+  test(
+    'Firebase purchase records pending confirmed by backend without a purchased callback',
+    () async {
+      final client = enableFirebaseAnalytics();
+      reportStatus = GemPurchaseReportStatus.accepted;
+      await service.purchaseGem(_product);
+      platform.emit(_purchase(BillingPurchaseStatus.pending));
+      await _settle();
+      expect(client.events, isEmpty);
+      reportStatus = GemPurchaseReportStatus.completed;
+      await service.recover(BillingRecoverySource.foreground);
+      await _settle();
+      expect(client.events.map((e) => e.name), [
+        'purchase',
+        'purchase_first',
+        'gems_first',
+      ]);
+    },
+  );
+
+  for (final outcome in [
+    'rejected',
+    'offline',
+    'foreign_account',
+    'restored',
+    'unowned_history',
+  ]) {
+    test(
+      'Firebase purchase excludes $outcome without changing billing result',
+      () async {
+        final client = enableFirebaseAnalytics();
+        if (outcome == 'rejected') {
+          reportStatus = GemPurchaseReportStatus.rejected;
+        }
+        reportError = outcome == 'offline';
+        if (outcome == 'unowned_history') {
+          await service.start();
+        } else {
+          await service.purchaseGem(_product);
+        }
+        platform.emit(
+          _purchase(
+            outcome == 'restored'
+                ? BillingPurchaseStatus.restored
+                : BillingPurchaseStatus.purchased,
+            obfuscatedAccountId: outcome == 'foreign_account'
+                ? 'other-account'
+                : billingAccountId,
+          ),
+        );
+        await _settle();
+        expect(client.events, isEmpty);
+        if (outcome == 'foreign_account') {
+          expect(reports, isEmpty);
+        } else {
+          expect(reports, hasLength(1));
+        }
+      },
+    );
+  }
+
+  for (final restored in [false, true]) {
+    test(
+      'Firebase excludes accepted history after later completion (restored=$restored)',
+      () async {
+        final client = enableFirebaseAnalytics();
+        reportStatus = GemPurchaseReportStatus.accepted;
+        if (restored) {
+          await service.purchaseGem(_product);
+        } else {
+          await service.start();
+        }
+        platform.emit(
+          _purchase(
+            restored
+                ? BillingPurchaseStatus.restored
+                : BillingPurchaseStatus.purchased,
+          ),
+        );
+        await _settle();
+        reportStatus = GemPurchaseReportStatus.completed;
+        await service.recover(BillingRecoverySource.foreground);
+        await _settle();
+        expect(client.events, isEmpty);
+        expect(reports, hasLength(2));
+        expect(uiEvents.last.kind, BillingUiEventKind.success);
+      },
+    );
+  }
+
+  test('Firebase initialization does not block Gems completion', () async {
+    final client = enableFirebaseAnalytics();
+    final ready = Completer<void>();
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(ready.future);
+    await service.purchaseGem(_product);
+    platform.emit(_purchase(BillingPurchaseStatus.purchased));
+    await _settle();
+    expect(uiEvents.last.kind, BillingUiEventKind.success);
+    expect(await pendingStore.loadAll(), isEmpty);
+    expect(client.events, isEmpty);
+    ready.complete();
+    await _settle();
+    expect(client.events, hasLength(3));
+  });
+
   test(
     'VIP callbacks and recovery are intercepted before Gems UI, reporting and analytics',
     () async {
@@ -355,7 +507,7 @@ void main() {
   );
 
   test(
-    'purchased callbacks repeat purchase and record first events once',
+    'completed purchases record purchase per receipt and first events once',
     () async {
       final firebaseAnalytics = _RecordingFirebaseAnalyticsClient();
       FirebaseAnalyticsMonitoring.resetForTesting();
@@ -370,9 +522,10 @@ void main() {
       );
       addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
-      await service.start();
+      await service.purchaseGem(_product);
       platform.emit(_purchase(BillingPurchaseStatus.purchased));
       await _settle();
+      await service.purchaseGem(_product);
       platform.emit(
         _purchase(
           BillingPurchaseStatus.purchased,

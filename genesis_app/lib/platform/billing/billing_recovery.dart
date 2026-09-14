@@ -209,15 +209,6 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         purchase.status != BillingPurchaseStatus.restored) {
       return;
     }
-    if (purchase.status == BillingPurchaseStatus.purchased) {
-      unawaited(
-        FirebaseAnalyticsMonitoring.recordPurchase(
-          provider: purchase.provider.apiValue,
-          productId: purchase.productId,
-          kind: FirebaseAnalyticsPurchaseKind.gems,
-        ),
-      );
-    }
     try {
       _platform.recordVerifiedPurchaseForAnalytics(purchase);
     } catch (error) {
@@ -257,6 +248,17 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
         '[Billing] ignored purchase callback without a matching account',
       );
       return;
+    }
+    if (attempt != null &&
+        (purchase.status == BillingPurchaseStatus.purchased ||
+            purchase.status == BillingPurchaseStatus.pending)) {
+      unawaited(
+        FirebaseAnalyticsMonitoring.markPurchaseEligible(
+          provider: purchase.provider.apiValue,
+          kind: FirebaseAnalyticsPurchaseKind.gems,
+          purchaseIdentity: purchase.purchaseToken,
+        ),
+      );
     }
     final persistedAttemptId = persistedRecord?.attemptId.trim() ?? '';
     final persistedProductId = persistedRecord?.productId.trim() ?? '';
