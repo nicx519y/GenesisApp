@@ -73,6 +73,117 @@ Finder _replyActionLoading(String label) => find.descendant(
 );
 
 void main() {
+  for (final fromHistory in [true, false]) {
+    testWidgets(
+      'Tick alone exposes Go On and Inspiration, history=$fromHistory',
+      (tester) async {
+        final backend = _LocationChatReplyHttpTransport();
+        final tick = {
+          ...backend._messageJson(
+            901,
+            'tick',
+            'tick',
+            '',
+            roundId: 901,
+            conversationType: 'tick',
+            triggerUid: '',
+          ),
+          'payload': {
+            'current_time': 'Day 8, 10:00',
+            'tick_no': 0,
+            'sub_tick_no': 0,
+            'global': 'Tick without an AI reply',
+            'story_events': <Object?>[],
+            'characters_moved': <Object?>[],
+          },
+        };
+        if (fromHistory) backend.messages.add(tick);
+        final harness = await _connectedLocationChatTestService(
+          replyTransport: backend,
+        );
+        addTearDown(() async {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+          unawaited(harness.service.dispose());
+        });
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: harness.services,
+            child: MaterialApp(
+              home: LocationChatPanel(
+                worldId: 'world-current',
+                locationId: 'location-current',
+                service: harness.service,
+                leaveOnInactive: false,
+              ),
+            ),
+          ),
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.service.state.joinedLocationId == 'location-current',
+        );
+        if (!fromHistory) {
+          backend.messages.add(tick);
+          harness.socket.serverV2Tick(
+            messageId: 901,
+            locationMessageId: 901,
+            globalText: 'Tick without an AI reply',
+            conversationType: 'tick',
+          );
+        }
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => tester
+              .widget<LocationChatAnchoredMessageList>(
+                find.byType(LocationChatAnchoredMessageList),
+              )
+              .goOnFeature
+              .enabled,
+        );
+        await tester.pumpAndSettle();
+        final state = harness.service.replyActions!.stateFor(
+          'location-current',
+        )!;
+        expect(state.formalReplyMessages, isEmpty);
+        expect(state.roundId, 901);
+        expect(find.bySemanticsLabel('Go on'), findsOneWidget);
+        expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
+        expect(find.bySemanticsLabel('Edit'), findsNothing);
+        expect(find.bySemanticsLabel('Regenerate'), findsNothing);
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => tester
+              .widget<LocationChatAnchoredMessageList>(
+                find.byType(LocationChatAnchoredMessageList),
+              )
+              .inspirationFeature
+              .messages
+              .isNotEmpty,
+        );
+        expect(backend.inspirationRequests.single, {
+          'conversation_round_id': 901,
+        });
+        await tester.pumpAndSettle();
+        await tester.tap(find.bySemanticsLabel('Go on'));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.replyActionFrames('go_on').isNotEmpty,
+        );
+        expect(harness.socket.replyActionFrames('go_on').single['payload'], {
+          'location_id': 'location-current',
+          'source_conversation_round_id': 901,
+        });
+        harness.socket.serverReplyActionAck('go_on', roundId: 902);
+        await tester.pump();
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+  }
+
   testWidgets(
     'reopened database renders last browsed card in the first frame',
     (tester) async {
@@ -1786,6 +1897,96 @@ void main() {
       unawaited(service.dispose());
     },
   );
+
+  for (final fromWorldPage in [false, true]) {
+    testWidgets(
+      'Tick progress hides all reply controls in its first frame, world=$fromWorldPage',
+      (tester) async {
+        final backend = _LocationChatReplyHttpTransport();
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: backend,
+          usePreparedEntry: true,
+        );
+        Future<void> setProgress(bool progressing) async {
+          if (fromWorldPage) {
+            await tester.pumpWidget(
+              AppServicesScope(
+                services: harness.services,
+                child: MaterialApp(
+                  scrollBehavior: const GenesisScrollBehavior(),
+                  onGenerateRoute: AppRouter.onGenerateRoute,
+                  home: LocationChatPanel(
+                    worldId: 'world-current',
+                    locationId: 'location-current',
+                    service: harness.service,
+                    usePreparedEntry: true,
+                    leaveOnInactive: false,
+                    messageQueueInitializationCovered: true,
+                    worldTickInProgress: progressing,
+                  ),
+                ),
+              ),
+            );
+          } else {
+            harness.service.setInputBlocked(progressing);
+            await tester.pump();
+          }
+        }
+
+        void expectHidden() {
+          final list = tester.widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          );
+          expect([
+            list.regenerateFeature.state,
+            list.goOnFeature.state,
+            list.editFeature.state,
+            list.inspirationFeature.state,
+          ], everyElement(LocationChatReplyActionState.none));
+          for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
+            expect(find.bySemanticsLabel(label), findsNothing);
+          }
+        }
+
+        await setProgress(true);
+        expect(
+          find.byKey(const ValueKey('chat-tick-progress-content')),
+          findsOneWidget,
+        );
+        expectHidden();
+        await tester.pump(const Duration(milliseconds: 100));
+        expectHidden();
+        await setProgress(false);
+        // Unlock can precede the formal Tick. Do not flash the old toolbar.
+        expectHidden();
+        harness.socket.serverV2Tick(
+          messageId: 901,
+          locationMessageId: 304,
+          globalText: 'Completed Tick.',
+          conversationType: 'tick',
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => tester
+              .widget<LocationChatAnchoredMessageList>(
+                find.byType(LocationChatAnchoredMessageList),
+              )
+              .goOnFeature
+              .enabled,
+        );
+        await tester.pumpAndSettle();
+        expect(find.bySemanticsLabel('Go on'), findsOneWidget);
+        expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
+        expect(find.bySemanticsLabel('Regenerate'), findsNothing);
+        expect(find.bySemanticsLabel('Edit'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump();
+      },
+    );
+  }
 
   testWidgets(
     'world progress already running is shown when location chat opens',
@@ -4235,6 +4436,264 @@ void main() {
       await tester.pump();
     },
   );
+
+  for (final scenario in [
+    (fails: false, duringStream: false),
+    (fails: true, duringStream: false),
+    (fails: false, duringStream: true),
+  ]) {
+    testWidgets(
+      'regenerated card send keeps live rows during ${scenario.fails ? 'failed' : 'successful'} range refresh${scenario.duringStream ? ' started mid-stream' : ''}',
+      (tester) async {
+        final backend = _LocationChatReplyHttpTransport();
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: backend,
+          usePreparedEntry: true,
+        );
+        LocationChatAnchoredMessageList list() =>
+            tester.widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            );
+        await tester.tap(find.bySemanticsLabel('Regenerate'));
+        await tester.pump();
+        backend.beginCandidate();
+        harness.socket.serverReplyActionAck(
+          'regenerate_llm_card',
+          roundId: 301,
+          payload: {
+            'regeneration': {
+              'conversation_round_id': 301,
+              'original_card_id': 501,
+              'card_id': 502,
+              'generation_state': 'generating',
+              'billing': {'status': 'reserved'},
+            },
+          },
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => list().replyCurrentCardId == 502,
+        );
+        harness.socket.serverCandidateStream(streamType: 'start');
+        harness.socket.serverCandidateStream(
+          streamType: 'chunk',
+          content: 'Candidate reply.',
+          seq: 1,
+        );
+        backend.cards[1] = backend._cardJson(
+          502,
+          2,
+          'succeeded',
+          'Candidate reply.',
+        );
+        harness.socket.serverCandidateStream(
+          streamType: 'end',
+          content: 'Candidate reply.',
+        );
+        harness.socket.serverCandidateGenerationEnd();
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => list().editFeature.enabled,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Candidate reply.'), findsOneWidget);
+
+        backend.selectionBarrier = Completer<void>();
+        backend.rangeBarrier = Completer<void>();
+        backend.rangeFails = scenario.fails;
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(ChatComposer),
+            matching: find.byType(TextField),
+          ),
+          'Keep my new message.',
+        );
+        unawaited(
+          tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend(),
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => backend.selectionRequests.isNotEmpty,
+        );
+        await tester.pump();
+        final userVm = list().messages.singleWhere(
+          (m) => m.text == 'Keep my new message.',
+        );
+        final candidateVm = list().messages.singleWhere(
+          (m) => m.text == 'Candidate reply.',
+        );
+        final candidateFinder = find.byWidgetPredicate(
+          (w) => w is ChatMessageRow && w.message.text == 'Candidate reply.',
+        );
+        final candidateElement = candidateFinder.evaluate().single;
+        final userFinder = find.byWidgetPredicate(
+          (w) =>
+              w is ChatMessageRow && w.message.text == 'Keep my new message.',
+        );
+        final userElement = userFinder.evaluate().single;
+        backend.commitSelectedCardToHistory();
+        // Keep display fields equal; the server assigns only canonical cursors.
+        backend.messages.last['created_at'] = candidateVm.createdAt
+            .toIso8601String();
+        Future<void> beginRefresh() async {
+          harness.socket.serverConversationRangeUpdated(start: 301, end: 301);
+          await _pumpUntilLocationChatTest(
+            tester,
+            () => backend.rangeRequests.isNotEmpty,
+          );
+        }
+
+        if (!scenario.duringStream) await beginRefresh();
+        backend.selectionBarrier!.complete();
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.sendMessageCount == 1,
+        );
+        final sent = harness.socket._sentFrames.lastWhere(
+          (f) => f['type'] == 'send_message',
+        );
+        harness.socket.serverV2AckForLatestSend(errNo: 0);
+        harness.socket.serverV2UserMessage(
+          messageId: 601,
+          clientMsgId: sent['client_msg_id'] as String,
+          content: 'Keep my new message.',
+          conversationType: 'user_message',
+        );
+        void expectLiveRows({String? content}) {
+          expect(
+            list().messages.where((m) => m.text == 'Keep my new message.'),
+            [same(userVm)],
+          );
+          expect(userFinder.evaluate().single, same(userElement));
+          expect(candidateFinder.evaluate().single, same(candidateElement));
+          expect(
+            find.byKey(const ValueKey('location-chat-reply-pagination')),
+            findsNothing,
+          );
+          if (content != null) {
+            expect(
+              list().messages.where((m) => m.text == content),
+              hasLength(1),
+            );
+            expect(find.text(content), findsOneWidget);
+          }
+        }
+
+        for (var frame = 0; frame < 20; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expectLiveRows();
+        }
+        expect(userVm.globalMessageId, 90601);
+        harness.socket.serverV2StreamFrame(
+          streamType: 'llm_stream_start',
+          roundId: 601,
+          messageId: 602,
+          conversationType: 'user_message',
+        );
+        harness.socket.serverV2StreamFrame(
+          streamType: 'llm_chunk',
+          roundId: 601,
+          messageId: 602,
+          seq: 1,
+          content: 'Live first chunk.',
+          conversationType: 'user_message',
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => list().messages.any((m) => m.text == 'Live first chunk.'),
+        );
+        final streamVm = list().messages.singleWhere(
+          (m) => m.text == 'Live first chunk.',
+        );
+        if (scenario.duringStream) await beginRefresh();
+        for (var frame = 0; frame < 10; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expectLiveRows(content: 'Live first chunk.');
+        }
+        final candidateWidget = tester.widget<ChatMessageRow>(candidateFinder);
+        backend.rangeBarrier!.complete();
+        for (var frame = 0; frame < 30; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expectLiveRows(content: 'Live first chunk.');
+        }
+        if (!scenario.fails) {
+          expect(
+            tester.widget<ChatMessageRow>(candidateFinder),
+            same(candidateWidget),
+          );
+          expect(
+            list().messages.singleWhere((m) => m.text == 'Candidate reply.'),
+            same(candidateVm),
+          );
+          expect(candidateVm.locationMessageId, 502);
+        }
+        harness.socket.serverV2StreamFrame(
+          streamType: 'llm_chunk',
+          roundId: 601,
+          messageId: 602,
+          seq: 2,
+          content: ' Still streaming.',
+          conversationType: 'user_message',
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => streamVm.text == 'Live first chunk. Still streaming.',
+        );
+        await tester.pump();
+        expectLiveRows(content: 'Live first chunk. Still streaming.');
+        harness.socket.serverV2StreamFrame(
+          streamType: 'llm_stream_end',
+          roundId: 601,
+          messageId: 602,
+          content: 'Completed new reply.',
+          conversationType: 'user_message',
+        );
+        harness.socket.serverEndConversationRound(
+          roundId: 601,
+          conversationType: 'user_message',
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => list().messages.any((m) => m.text == 'Completed new reply.'),
+        );
+        await tester.pump();
+        expect(
+          list().messages.where((m) => m.text == 'Keep my new message.'),
+          hasLength(1),
+        );
+        expect(find.text('Completed new reply.'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        if (!scenario.fails) {
+          harness.socket.serverV2UserMessage(
+            messageId: 701,
+            content: 'After an ordinary reply.',
+            conversationType: 'user_message',
+          );
+          await _pumpUntilLocationChatTest(
+            tester,
+            () =>
+                harness.service.replyActions!
+                    .stateFor('location-current')!
+                    .roundId ==
+                701,
+          );
+          expect(
+            harness.service.replyActions!
+                .presentationStateFor('location-current')!
+                .roundId,
+            701,
+            reason:
+                'Sending after an ordinary reply must not remount an older card group.',
+          );
+        }
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump();
+      },
+    );
+  }
 
   testWidgets('inspiration result and loading reuse the message projection', (
     tester,
@@ -9512,6 +9971,8 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
   final cards = <Map<String, Object?>>[];
   Completer<void>? batchBarrier;
   Completer<void>? selectionBarrier;
+  Completer<void>? rangeBarrier;
+  bool rangeFails = false;
   Completer<void>? inspirationBarrier;
   bool selectionFails = false;
   bool inspirationTimeout = false;
@@ -9854,6 +10315,8 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
         'start_conversation_round_id',
       )) {
         rangeRequests.add(request.uri.queryParameters);
+        await rangeBarrier?.future;
+        if (rangeFails) throw StateError('Range refresh unavailable');
       }
       final start = int.tryParse(
         request.uri.queryParameters['start_conversation_round_id'] ?? '',
@@ -10080,8 +10543,11 @@ class _LocationChatTestSocket implements ChatroomSocket {
     required int messageId,
     required int locationMessageId,
     required String globalText,
+    String? conversationType,
   }) {
     _serverFrame('tick', {
+      if (conversationType != null) 'conversation_type': conversationType,
+      'trigger_uid': '',
       'stream_type': '',
       'ts': 1786327200000 + messageId,
       'world_id': 'world-current',

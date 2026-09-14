@@ -112,7 +112,10 @@ class GemModel {
     required this.estimatedNextMessageGemsCent,
     required this.estimatedNextTickGemsCent,
     required this.description,
-    required this.rangeText,
+    required this.minGemsCent,
+    required this.maxGemsCent,
+    required this.minMemoryTokens,
+    required this.maxMemoryTokens,
   });
 
   factory GemModel.fromJson(Map<String, dynamic> json) {
@@ -122,7 +125,7 @@ class GemModel {
               .where((tag) => tag.isNotEmpty)
               .toList(growable: false)
         : const <String>[];
-    return GemModel(
+    final model = GemModel(
       modelCode: asString(json['model_code']),
       title: asString(json['title']),
       tags: tags,
@@ -135,8 +138,19 @@ class GemModel {
         fieldName: 'estimated_next_tick_gems_cent',
       ),
       description: asString(json['description']),
-      rangeText: asString(json['range_text']),
+      minGemsCent: _requireRangeInteger(json, 'min_gems_cent'),
+      maxGemsCent: _requireRangeInteger(json, 'max_gems_cent'),
+      minMemoryTokens: _requireRangeInteger(json, 'min_memory_tokens'),
+      maxMemoryTokens: _requireRangeInteger(json, 'max_memory_tokens'),
     );
+    if (model.minGemsCent < 0 ||
+        model.maxGemsCent < model.minGemsCent ||
+        model.minGemsCent != model.estimatedNextMessageGemsCent ||
+        model.minMemoryTokens <= 0 ||
+        model.maxMemoryTokens < model.minMemoryTokens) {
+      throw const FormatException('Invalid model quotation range');
+    }
+    return model;
   }
 
   final String modelCode;
@@ -145,7 +159,20 @@ class GemModel {
   final int estimatedNextMessageGemsCent;
   final int estimatedNextTickGemsCent;
   final String description;
-  final String rangeText;
+  final int minGemsCent;
+  final int maxGemsCent;
+
+  /// Saved user budget, NOT the current World's used memory.
+  final int minMemoryTokens;
+
+  /// System budget ceiling, NOT the budget used for maxGemsCent.
+  final int maxMemoryTokens;
+}
+
+int _requireRangeInteger(Map<String, dynamic> json, String fieldName) {
+  final value = json[fieldName];
+  if (value is int) return value;
+  throw FormatException('$fieldName must be an integer');
 }
 
 class GemModelSelection {

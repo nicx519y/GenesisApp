@@ -9,9 +9,447 @@ import 'package:genesis_flutter_android/network/models/user_memory_settings.dart
 import 'package:genesis_flutter_android/pages/gems/memory_model_page.dart';
 import 'package:genesis_flutter_android/pages/gems/memory_model_page_cache.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_refresh_indicator.dart';
 
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
+
+  testWidgets(
+    'ranges use actual usage, exact prices and unchanged memory formatting',
+    (tester) async {
+      for (final scenario in [
+        (500, 12400, '500', '12.4K'),
+        (2400, 12400, '2.4K', '12.4K'),
+        (32000, 32000, '32K', '32K'),
+        (31999, 32000, '32K', '32K'),
+        (32000, 1000000, '32K', '1M'),
+      ]) {
+        await tester.pumpWidget(
+          _testApp(
+            MemoryModelPage(
+              key: ValueKey(scenario),
+              worldId: 'W_RANGE',
+              memorySettingsLoader: (_) async => _worldSettings(
+                'W_RANGE',
+                memoryTokens: scenario.$2,
+                usedTokens: scenario.$1,
+              ),
+              catalogLoader: (_) async =>
+                  _quotationCatalog(memoryTokens: scenario.$2),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            scenario.$3 == scenario.$4
+                ? '2.16–4.83 gems (memory ${scenario.$3})'
+                : '2.16–4.83 gems (memory ${scenario.$3} → ${scenario.$4})',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(
+            'Estimated next message 2.16 gems',
+            findRichText: true,
+          ),
+          findsOneWidget,
+        );
+      }
+    },
+  );
+
+  testWidgets('equal prices and equal memory endpoints collapse', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        MemoryModelPage(
+          worldId: 'W_EQUAL',
+          memorySettingsLoader: (_) async =>
+              _worldSettings('W_EQUAL', memoryTokens: 32000, usedTokens: 32000),
+          catalogLoader: (_) async => _quotationCatalog(
+            memoryTokens: 32000,
+            minCent: 483,
+            maxCent: 483,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('4.83 gems (memory 32K)'), findsOneWidget);
+  });
+
+  testWidgets(
+    'save publishes price and memory together after both reads finish',
+    (tester) async {
+      final memoryApi = _FakeMemoryApi();
+      final cache = MemoryModelPageCache();
+      final refreshedCatalog = Completer<GemModelCatalog>();
+      var loads = 0;
+      await tester.pumpWidget(
+        _testApp(
+          MemoryModelPage(
+            worldId: 'W_ATOMIC',
+            pageCache: cache,
+            memorySettingsLoader: memoryApi.load,
+            memorySettingsUpdater: (tokens) async {
+              memoryApi.usedTokens = 9000;
+              return memoryApi.update(tokens);
+            },
+            catalogLoader: (_) async =>
+                ++loads == 1 ? _quotationCatalog() : refreshedCatalog.future,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _setSliderValue(tester, 1);
+      await tester.pump(const Duration(milliseconds: 499));
+      expect(loads, 1);
+      expect(find.text('2.16–4.83 gems (memory 6K → 48K)'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(find.text('2.16–4.83 gems (memory 6K → 48K)'), findsOneWidget);
+      expect(find.text('9K'), findsNothing);
+      expect(cache.modelCatalog, isNull);
+      expect(cache.memorySettings, isNull);
+      refreshedCatalog.complete(
+        _quotationCatalog(memoryTokens: 1000000, minCent: 300, maxCent: 900),
+      );
+      await tester.pump();
+      expect(find.text('3.00–9.00 gems (memory 9K → 1M)'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'Estimated next message 3.00 gems',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+      expect(cache.memorySettings!.memoryTokens, 1000000);
+      expect(
+        cache.modelCatalog!.groups.single.models.single.minMemoryTokens,
+        1000000,
+      );
+    },
+  );
+
+  testWidgets(
+    'failed quotation refresh shows bones with real memory and retry',
+    (tester) async {
+      final memoryApi = _FakeMemoryApi();
+      final cache = MemoryModelPageCache();
+      var loads = 0;
+      await tester.pumpWidget(
+        _testApp(
+          MemoryModelPage(
+            worldId: 'W_PRICE_ERROR',
+            pageCache: cache,
+            memorySettingsLoader: memoryApi.load,
+            memorySettingsUpdater: memoryApi.update,
+            catalogLoader: (_) async {
+              if (++loads == 2) throw TimeoutException('quotation timeout');
+              return _quotationCatalog(memoryTokens: memoryApi.globalValue);
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _setSliderValue(tester, 1);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('gem-model-estimate-loading-miranda')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('gem-model-price-loading-miranda')),
+        findsOneWidget,
+      );
+      expect(find.text('memory 6K → 1M'), findsOneWidget);
+      expect(cache.modelCatalog, isNull);
+      await tester.tap(find.byKey(const ValueKey('gem-model-ranges-retry')));
+      await tester.pumpAndSettle();
+      expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('gem-model-ranges-retry')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('failed usage refresh never invents a memory range', (
+    tester,
+  ) async {
+    final memoryApi = _FakeMemoryApi();
+    final cache = MemoryModelPageCache();
+    var loads = 0;
+    await tester.pumpWidget(
+      _testApp(
+        MemoryModelPage(
+          worldId: 'W_USAGE_ERROR',
+          pageCache: cache,
+          memorySettingsLoader: (world) async {
+            if (++loads == 2) throw TimeoutException('usage timeout');
+            return memoryApi.load(world);
+          },
+          memorySettingsUpdater: memoryApi.update,
+          catalogLoader: (_) async =>
+              _quotationCatalog(memoryTokens: memoryApi.globalValue),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _setSliderValue(tester, 1);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(find.text('2.16–4.83 gems'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('gem-model-memory-loading-miranda')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('memory 6K'), findsNothing);
+    expect(cache.memorySettings, isNull);
+    await tester.tap(find.byKey(const ValueKey('gem-model-ranges-retry')));
+    await tester.pumpAndSettle();
+    expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+  });
+
+  testWidgets('mismatched quotation budget cannot appear as current price', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        MemoryModelPage(
+          worldId: 'W_MISMATCH',
+          memorySettingsLoader: (_) async => _worldSettings('W_MISMATCH'),
+          catalogLoader: (_) async => _quotationCatalog(memoryTokens: 12400),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('gem-model-price-loading-miranda')),
+      findsOneWidget,
+    );
+    expect(find.text('memory 6K → 48K'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('gem-model-ranges-retry')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('old world snapshot cannot overwrite new world or its cache', (
+    tester,
+  ) async {
+    final memoryApi = _FakeMemoryApi();
+    final oldQuotes = Completer<GemModelCatalog>();
+    final cache = MemoryModelPageCache();
+    var oldLoads = 0;
+    Widget page(String world) => _testApp(
+      MemoryModelPage(
+        worldId: world,
+        pageCache: cache,
+        memorySettingsLoader: memoryApi.load,
+        memorySettingsUpdater: memoryApi.update,
+        catalogLoader: (id) async {
+          if (id == 'OLD' && ++oldLoads > 1) return oldQuotes.future;
+          return _quotationCatalog(
+            memoryTokens: memoryApi.globalValue,
+            minCent: id == 'NEW' ? 999 : 216,
+            maxCent: 1200,
+          );
+        },
+      ),
+    );
+    await tester.pumpWidget(page('OLD'));
+    await tester.pumpAndSettle();
+    _setSliderValue(tester, 1);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump();
+    await tester.pumpWidget(page('NEW'));
+    await tester.pumpAndSettle();
+    oldQuotes.complete(_quotationCatalog(memoryTokens: 1000000));
+    await tester.pumpAndSettle();
+    expect(find.text('9.99–12.00 gems (memory 6K → 1M)'), findsOneWidget);
+    expect(cache.memorySettings!.worldId, 'NEW');
+    expect(cache.modelCatalog!.groups.single.models.single.minGemsCent, 999);
+  });
+
+  testWidgets('older refresh cannot overwrite a newer saved snapshot', (
+    tester,
+  ) async {
+    final memoryApi = _FakeMemoryApi();
+    final cache = MemoryModelPageCache();
+    final oldQuotes = Completer<GemModelCatalog>();
+    final oldMemory = Completer<UserMemorySettings>();
+    var catalogLoads = 0;
+    var memoryLoads = 0;
+    await tester.pumpWidget(
+      _testApp(
+        MemoryModelPage(
+          worldId: 'W_ORDER',
+          pageCache: cache,
+          memorySettingsUpdater: memoryApi.update,
+          memorySettingsLoader: (id) async =>
+              ++memoryLoads == 2 ? oldMemory.future : memoryApi.load(id),
+          catalogLoader: (_) async => ++catalogLoads == 2
+              ? oldQuotes.future
+              : _quotationCatalog(memoryTokens: memoryApi.globalValue),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _setSliderValue(tester, 1);
+    final oldRefresh = tester
+        .widget<GenesisRefreshIndicator>(find.byType(GenesisRefreshIndicator))
+        .onRefresh();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+    oldMemory.complete(_worldSettings('W_ORDER'));
+    oldQuotes.complete(_quotationCatalog());
+    await oldRefresh;
+    await tester.pumpAndSettle();
+    expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+    expect(cache.memorySettings!.memoryTokens, 1000000);
+    expect(
+      cache.modelCatalog!.groups.single.models.single.minMemoryTokens,
+      1000000,
+    );
+  });
+
+  testWidgets(
+    'serial saves retain newer drag and finish with matching ranges',
+    (tester) async {
+      final memoryApi = _FakeMemoryApi();
+      final firstQuotes = Completer<GemModelCatalog>();
+      var loads = 0;
+      await tester.pumpWidget(
+        _testApp(
+          MemoryModelPage(
+            worldId: 'W_SERIAL',
+            memorySettingsLoader: memoryApi.load,
+            memorySettingsUpdater: memoryApi.update,
+            catalogLoader: (_) async => ++loads == 2
+                ? firstQuotes.future
+                : _quotationCatalog(memoryTokens: memoryApi.globalValue),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      _setSliderValue(tester, 1);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      _setSliderValue(tester, 0);
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(memoryApi.updates, [1000000]);
+      firstQuotes.complete(_quotationCatalog(memoryTokens: 1000000));
+      await tester.pumpAndSettle();
+      expect(memoryApi.updates, [1000000, 8000]);
+      expect(find.text('2.16–4.83 gems (memory 6K → 8K)'), findsOneWidget);
+    },
+  );
+
+  testWidgets('reentry reuses the saved pair without extra requests', (
+    tester,
+  ) async {
+    final memoryApi = _FakeMemoryApi();
+    final cache = MemoryModelPageCache();
+    var catalogLoads = 0;
+    Widget page() => _testApp(
+      MemoryModelPage(
+        worldId: 'W_CACHE_RANGE',
+        pageCache: cache,
+        memorySettingsLoader: memoryApi.load,
+        memorySettingsUpdater: memoryApi.update,
+        catalogLoader: (_) async {
+          catalogLoads++;
+          return _quotationCatalog(memoryTokens: memoryApi.globalValue);
+        },
+      ),
+    );
+    await tester.pumpWidget(page());
+    await tester.pumpAndSettle();
+    _setSliderValue(tester, 1);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox());
+    await tester.pumpWidget(page());
+    await tester.pumpAndSettle();
+    expect(catalogLoads, 2);
+    expect(memoryApi.loads, ['W_CACHE_RANGE', 'W_CACHE_RANGE']);
+    expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+  });
+
+  testWidgets(
+    'quotation refresh preserves a concurrently saved model selection',
+    (tester) async {
+      final memoryApi = _FakeMemoryApi();
+      final cache = MemoryModelPageCache();
+      final selected = Completer<GemModelSelection>();
+      final quotes = Completer<GemModelCatalog>();
+      var loads = 0;
+      await tester.pumpWidget(
+        _testApp(
+          MemoryModelPage(
+            worldId: 'W_SELECTION_RACE',
+            pageCache: cache,
+            memorySettingsLoader: memoryApi.load,
+            memorySettingsUpdater: memoryApi.update,
+            selectionHandler: (_, _) => selected.future,
+            catalogLoader: (_) async =>
+                ++loads == 1 ? _catalog() : quotes.future,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('gem-model-sake_pro')),
+      );
+      await tester.tap(find.byKey(const ValueKey('gem-model-sake_pro')));
+      _setSliderValue(tester, 1);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump();
+      selected.complete(const GemModelSelection(selectedModelCode: 'sake_pro'));
+      await tester.pump();
+      // The quotation response still reflects selection before POST completed.
+      quotes.complete(_catalog(memoryTokens: 1000000));
+      await tester.pumpAndSettle();
+      expect(_tileBorder(tester, 'sake_pro').color, GenesisColors.redPrimary);
+      expect(cache.modelCatalog!.selectedModelCode, 'sake_pro');
+    },
+  );
+
+  testWidgets(
+    'model selection completing after exit updates only valid cache',
+    (tester) async {
+      final memoryApi = _FakeMemoryApi();
+      final cache = MemoryModelPageCache();
+      final selected = Completer<GemModelSelection>();
+      await tester.pumpWidget(
+        _testApp(
+          MemoryModelPage(
+            worldId: 'W_EXIT_SELECTION',
+            pageCache: cache,
+            memorySettingsLoader: memoryApi.load,
+            catalogLoader: (_) async => _catalog(),
+            selectionHandler: (_, _) => selected.future,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('gem-model-sake_pro')),
+      );
+      await tester.tap(find.byKey(const ValueKey('gem-model-sake_pro')));
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox());
+      selected.complete(const GemModelSelection(selectedModelCode: 'sake_pro'));
+      await tester.pumpAndSettle();
+      expect(cache.modelCatalog!.selectedModelCode, 'sake_pro');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   test('memory slider uses dynamic logarithmic integer token mapping', () {
     expect(
@@ -123,7 +561,8 @@ void main() {
     expect(find.text('Top Pick V3'), findsOneWidget);
     expect(find.text('Sake Pro'), findsOneWidget);
     expect(find.text('Water'), findsOneWidget);
-    expect(find.text('4-320 gems (memory from 2K to 156K)'), findsOneWidget);
+    expect(find.text('4.00–320.00 gems (memory 11K → 48K)'), findsOneWidget);
+    expect(find.textContaining('(memory 11K → 48K)'), findsNWidgets(3));
     expect(_tileBorder(tester, 'top_pick_v3').color, GenesisColors.redPrimary);
     expect(_tileBorder(tester, 'sake_pro').color, GenesisColors.darkCardBorder);
     final hot = _tagDecoration(tester, 'hot');
@@ -379,7 +818,7 @@ void main() {
           },
           catalogLoader: (_) async {
             catalogLoads += 1;
-            return _catalog();
+            return _catalog(memoryTokens: memoryApi.globalValue);
           },
         ),
       ),
@@ -692,7 +1131,7 @@ class _CapturingTelemetrySink implements GenesisTelemetrySink {
   Future<void> setUserId(String? uid) async {}
 }
 
-GemModelCatalog _catalog() => const GemModelCatalog(
+GemModelCatalog _catalog({int memoryTokens = 48000}) => GemModelCatalog(
   selectedModelCode: 'top_pick_v3',
   groups: [
     GemModelGroup(
@@ -706,7 +1145,10 @@ GemModelCatalog _catalog() => const GemModelCatalog(
           estimatedNextMessageGemsCent: 400,
           estimatedNextTickGemsCent: 400,
           description: 'Balanced storytelling.',
-          rangeText: '4-320 gems (memory from 2K to 156K)',
+          minGemsCent: 400,
+          maxGemsCent: 32000,
+          minMemoryTokens: memoryTokens,
+          maxMemoryTokens: 1000000,
         ),
         GemModel(
           modelCode: 'sake_pro',
@@ -715,52 +1157,93 @@ GemModelCatalog _catalog() => const GemModelCatalog(
           estimatedNextMessageGemsCent: 300,
           estimatedNextTickGemsCent: 300,
           description: 'Flexible storytelling.',
-          rangeText: '3-160 gems (memory from 2K to 156K)',
+          minGemsCent: 300,
+          maxGemsCent: 16000,
+          minMemoryTokens: memoryTokens,
+          maxMemoryTokens: 1000000,
         ),
       ],
     ),
   ],
 );
 
-GemModelCatalog _catalogWithTwoGroups() => const GemModelCatalog(
-  selectedModelCode: 'top_pick_v3',
+GemModelCatalog _catalogWithTwoGroups({int memoryTokens = 48000}) =>
+    GemModelCatalog(
+      selectedModelCode: 'top_pick_v3',
+      groups: [
+        GemModelGroup(
+          groupCode: 'recommended',
+          groupTitle: 'Recommended',
+          models: [
+            GemModel(
+              modelCode: 'top_pick_v3',
+              title: 'Top Pick V3',
+              tags: ['hot'],
+              estimatedNextMessageGemsCent: 400,
+              estimatedNextTickGemsCent: 400,
+              description: 'Balanced storytelling.',
+              minGemsCent: 400,
+              maxGemsCent: 32000,
+              minMemoryTokens: memoryTokens,
+              maxMemoryTokens: 1000000,
+            ),
+            GemModel(
+              modelCode: 'sake_pro',
+              title: 'Sake Pro',
+              tags: ['new'],
+              estimatedNextMessageGemsCent: 300,
+              estimatedNextTickGemsCent: 300,
+              description: 'Flexible storytelling.',
+              minGemsCent: 300,
+              maxGemsCent: 16000,
+              minMemoryTokens: memoryTokens,
+              maxMemoryTokens: 1000000,
+            ),
+          ],
+        ),
+        GemModelGroup(
+          groupCode: 'more',
+          groupTitle: 'More',
+          models: [
+            GemModel(
+              modelCode: 'water',
+              title: 'Water',
+              tags: [],
+              estimatedNextMessageGemsCent: 200,
+              estimatedNextTickGemsCent: 200,
+              description: 'Fast roleplay.',
+              minGemsCent: 200,
+              maxGemsCent: 8000,
+              minMemoryTokens: memoryTokens,
+              maxMemoryTokens: 1000000,
+            ),
+          ],
+        ),
+      ],
+    );
+
+GemModelCatalog _quotationCatalog({
+  int memoryTokens = 48000,
+  int minCent = 216,
+  int maxCent = 483,
+}) => GemModelCatalog(
+  selectedModelCode: 'miranda',
   groups: [
     GemModelGroup(
       groupCode: 'recommended',
       groupTitle: 'Recommended',
       models: [
         GemModel(
-          modelCode: 'top_pick_v3',
-          title: 'Top Pick V3',
-          tags: ['hot'],
-          estimatedNextMessageGemsCent: 400,
-          estimatedNextTickGemsCent: 400,
-          description: 'Balanced storytelling.',
-          rangeText: '4-320 gems (memory from 2K to 156K)',
-        ),
-        GemModel(
-          modelCode: 'sake_pro',
-          title: 'Sake Pro',
-          tags: ['new'],
-          estimatedNextMessageGemsCent: 300,
+          modelCode: 'miranda',
+          title: 'Miranda',
+          tags: const [],
+          description: 'Model description.',
+          estimatedNextMessageGemsCent: minCent,
           estimatedNextTickGemsCent: 300,
-          description: 'Flexible storytelling.',
-          rangeText: '3-160 gems (memory from 2K to 156K)',
-        ),
-      ],
-    ),
-    GemModelGroup(
-      groupCode: 'more',
-      groupTitle: 'More',
-      models: [
-        GemModel(
-          modelCode: 'water',
-          title: 'Water',
-          tags: [],
-          estimatedNextMessageGemsCent: 200,
-          estimatedNextTickGemsCent: 200,
-          description: 'Fast roleplay.',
-          rangeText: '2-80 gems (memory from 2K to 156K)',
+          minGemsCent: minCent,
+          maxGemsCent: maxCent,
+          minMemoryTokens: memoryTokens,
+          maxMemoryTokens: 1000000,
         ),
       ],
     ),

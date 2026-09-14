@@ -26,6 +26,26 @@ ChatMessageVm _message({ChatTimelinePayloadVm? payload}) => ChatMessageVm(
 )..error = 'original error';
 
 void main() {
+  test(
+    'card promotion changes canonical cursors without changing presentation',
+    () {
+      final candidate = _message();
+      final formal = freezeLocationChatReplyMessage(candidate)
+        ..messageId = 21
+        ..locationMessageId = 22;
+      expect(
+        locationChatReplyMessagePresentationEqual(candidate, formal),
+        isTrue,
+      );
+      expect(locationChatReplyMessagesEqual(candidate, formal), isFalse);
+      formal.text = 'Updated reply';
+      expect(
+        locationChatReplyMessagePresentationEqual(candidate, formal),
+        isFalse,
+      );
+    },
+  );
+
   test('reply snapshot preserves every field when its source is mutated', () {
     final source = _message();
     final expected = _message();

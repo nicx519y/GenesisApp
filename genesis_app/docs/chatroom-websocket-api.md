@@ -165,7 +165,7 @@ V2 ACK 只表示服务端收到并受理了对应命令。客户端内部 API �
 
 普通 typed message 保留 `businessType/streamType/minAppVersion/rawPayload`。地点级 Tick 另暴露 `v2TickPayload` 与 `isV2LocationTick`；`ChatroomV2TickPayload` 保存 `current_time/tick_no/sub_tick_no/global/story_events/characters_moved`，也支持历史纯文本 `payload.content` 回退。`tick_no=0` 和 `sub_tick_no=0` 都是有效值，不能用正数判断字段是否存在。
 
-Location Chat 对最新 conversation 的四个回复功能集中判断资格：本人触发的 `user_message/go_on` 可用 Regenerate、Go On、Edit、灵感回复；`opening` 仅当前登录 UID 等于 World 详情的 `owner_uid` 时可用 Go On、Edit、灵感回复（创建者信息缺失时不可用）；`user_enter_location` 仅本人触发时可用 Go On、Edit、灵感回复；`tick` 四项均不可用。其余用户触发的正常对话，以及缺失、未知或冲突元数据均不可用。实时轮次只有 `trigger_uid` 而缺少 `conversation_type` 时严格等待正常历史刷新，不主动查历史，也不从 WS 类型或本地动作推断。资格之上仍保留最新轮次、已完成且有正式 AI 回复、连接、Tick 锁、busy/frozen、候选卡和生成上限等操作安全门槛；Enter、Opening 的灵感请求不传候选 `card_id`。
+Location Chat 对最新 conversation 的四个回复功能集中判断资格：本人触发的 `user_message/go_on` 可用 Regenerate、Go On、Edit、灵感回复；`opening` 仅当前登录 UID 等于 World 详情的 `owner_uid` 时可用 Go On、Edit、灵感回复（创建者信息缺失时不可用）；`user_enter_location` 仅本人触发时可用 Go On、Edit、灵感回复；`tick` 对任何用户开放 Go On、灵感回复，不要求本人触发或 World 创建者身份，Regenerate、Edit 不可用。正式 Tick 消息本身即可作为 Go On、灵感回复的来源，不要求同轮 AI 回复或轮次结束事件。其余用户触发的正常对话，以及缺失、未知或冲突元数据均不可用。实时轮次只有 `trigger_uid` 而缺少 `conversation_type` 时严格等待正常历史刷新，不主动查历史，也不从 WS 类型或本地动作推断。资格之上仍保留最新轮次、轮次非生成中（非 Tick 仍要求已完成且有正式 AI 回复）、连接、Tick 锁、busy/frozen、候选卡和生成上限等操作安全门槛；Enter、Tick、Opening 的灵感请求不传候选 `card_id`。
 
 V2 只把地点级 `type=tick` 当作 canonical Tick：
 

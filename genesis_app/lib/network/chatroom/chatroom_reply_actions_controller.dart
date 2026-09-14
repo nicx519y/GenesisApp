@@ -143,8 +143,10 @@ class ChatroomReplyRoundState {
   bool get _supportsReplyActions =>
       _isOwnSupportedRound ||
       (isOpeningRound && _controller._isWorldCreator) ||
-      (isOwnRound && _conversationType == 'user_enter_location');
-  bool get _supportsEditing => _supportsReplyActions;
+      (isOwnRound && _conversationType == 'user_enter_location') ||
+      (!_metadataConflict && _conversationType == 'tick');
+  bool get _supportsEditing =>
+      _supportsReplyActions && _conversationType != 'tick';
   bool get confirmed => _confirmed;
   bool get hasCardGroup => _cards.isNotEmpty;
   bool get provisional => _cards.any((card) => card.cardId <= 0);
@@ -170,7 +172,11 @@ class ChatroomReplyRoundState {
   bool get frozen => _frozen;
   bool get invalidatedByTick => _invalidated;
   Object? get error => _error;
-  bool get complete => !_active && (_ended || _formal.any(_isReply));
+  bool get _hasReplyActionSource =>
+      _formal.any(_isReply) ||
+      (_conversationType == 'tick' &&
+          _formal.any((message) => message.businessType == 'tick'));
+  bool get complete => !_active && (_ended || _hasReplyActionSource);
   bool get isLatest =>
       _snapshotLatest ?? (_controller._latest[locationId] == roundId);
   bool get goOnPending => _goOn != null && !_goOn!.finished;
@@ -222,7 +228,7 @@ class ChatroomReplyRoundState {
       !_invalidated &&
       _supportsReplyActions &&
       complete &&
-      _formal.any(_isReply);
+      _hasReplyActionSource;
   bool get _eligible =>
       _baseEligible &&
       _controller._isReady(locationId) &&
@@ -235,16 +241,7 @@ class ChatroomReplyRoundState {
   }
 
   ChatroomInspirationSource? get inspirationSource {
-    if (!isLatest ||
-        _invalidated ||
-        !_supportsReplyActions ||
-        !complete ||
-        _roundFailed ||
-        !_controller._isReady(locationId) ||
-        _controller._isTickLocked() ||
-        !_formal.any(_isReply) ||
-        busy ||
-        frozen) {
+    if (!_eligible || _roundFailed || busy || frozen) {
       return null;
     }
     final card = _isOwnSupportedRound
@@ -452,6 +449,9 @@ class ChatroomReplyActionsController extends ChangeNotifier {
   ChatroomReplyRoundState? presentationStateFor(String locationId) {
     final latest = stateFor(locationId);
     if (latest == null) return null;
+    final previousRoundId = statesFor(locationId)
+        .where((state) => state.roundId < latest.roundId)
+        .fold<int>(0, (id, state) => state.roundId > id ? state.roundId : id);
     ChatroomReplyRoundState? retained;
     for (final state in statesFor(locationId)) {
       if (!state.showCardPresentation) continue;
@@ -462,7 +462,12 @@ class ChatroomReplyActionsController extends ChangeNotifier {
               targetRoundId == latest.roundId ||
               (targetRoundId == null && latest.roundId > state.roundId));
       final userSendContinuesIntoLatest =
-          state.selectedCardAwaitingFormalHistory &&
+          (state.selectedCardAwaitingFormalHistory ||
+              // History promotion must not unmount the card that preceded
+              // this send. Older confirmed decks must not be resurrected.
+              (state.confirmed &&
+                  state.roundId == previousRoundId &&
+                  latest.conversationType == 'user_message')) &&
           latest.roundId > state.roundId &&
           !latest.complete;
       if (!goOnContinuesIntoLatest && !userSendContinuesIntoLatest) continue;

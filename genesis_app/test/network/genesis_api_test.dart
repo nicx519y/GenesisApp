@@ -625,7 +625,7 @@ void main() {
         statusCode: 200,
         headers: const {'content-type': 'application/json'},
         body: request.method == 'GET'
-            ? '{"err_no":0,"err_msg":"succ","data":{"selected_model_code":"top_pick_v3","list":[{"group_code":"recommended","group_title":"Recommended","models":[{"model_code":"top_pick_v3","title":"Top Pick V3","tag":["hot"],"estimated_next_message_gems_cent":400,"estimated_next_tick_gems_cent":400,"description":"Balanced storytelling.","range_text":"4-320 gems"}]}]}}'
+            ? '{"err_no":0,"err_msg":"succ","data":{"selected_model_code":"top_pick_v3","list":[{"group_code":"recommended","group_title":"Recommended","models":[{"model_code":"top_pick_v3","title":"Top Pick V3","tag":["hot"],"estimated_next_message_gems_cent":400,"estimated_next_tick_gems_cent":400,"description":"Balanced storytelling.","min_gems_cent":400,"max_gems_cent":32000,"min_memory_tokens":48000,"max_memory_tokens":1000000}]}]}}'
             : '{"err_no":0,"err_msg":"succ","data":{"selected_model_code":"sake_pro"}}',
       ),
     );
@@ -653,6 +653,11 @@ void main() {
     expect(catalog.selectedModelCode, 'top_pick_v3');
     expect(catalog.groups.single.groupTitle, 'Recommended');
     expect(catalog.groups.single.models.single.tags, ['hot']);
+    final model = catalog.groups.single.models.single;
+    expect(model.minGemsCent, 400);
+    expect(model.maxGemsCent, 32000);
+    expect(model.minMemoryTokens, 48000);
+    expect(model.maxMemoryTokens, 1000000);
     expect(
       catalog.groups.single.models.single.estimatedNextMessageGemsCent,
       400,

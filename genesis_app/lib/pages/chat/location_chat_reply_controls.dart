@@ -20,8 +20,12 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
     final acceptedGoOn = pending
         .where((state) => state.goOnRoundId != null)
         .firstOrNull;
-    // A Tick retires the old controls while preserving in-flight card content.
+    // Retire old controls as soon as Tick progress is displayed, including the
+    // interval between unlocking input and receiving the formal Tick message.
     final tickSuperseded =
+        widget.worldTickInProgress ||
+        (_service?.state ?? _chatroomState).inputBlocked ||
+        _awaitingTickProgressMessage ||
         _deferredTickLocalId != null ||
         (presentationState?.invalidatedByTick ?? false) ||
         rounds.any(

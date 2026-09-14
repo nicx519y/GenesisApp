@@ -26,6 +26,11 @@ class MemoryModelPageCache {
     _modelCatalog = null;
   }
 
+  void clearMemorySettings() {
+    if (_disposed) return;
+    _memorySettings = null;
+  }
+
   void dispose() {
     _disposed = true;
     _modelCatalog = null;

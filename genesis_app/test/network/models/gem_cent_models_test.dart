@@ -7,6 +7,67 @@ import 'package:genesis_flutter_android/network/models/gem_task.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 
 void main() {
+  Map<String, dynamic> quotation() => {
+    'model_code': 'miranda',
+    'title': 'Miranda',
+    'tag': <String>[],
+    'description': 'Model description',
+    'estimated_next_message_gems_cent': 216,
+    'estimated_next_tick_gems_cent': 300,
+    'min_gems_cent': 216,
+    'max_gems_cent': 483,
+    'min_memory_tokens': 12400,
+    'max_memory_tokens': 1000000,
+  };
+
+  test('model ranges parse without legacy range_text', () {
+    final model = GemModel.fromJson(quotation());
+    expect(model.minGemsCent, model.estimatedNextMessageGemsCent);
+    expect(model.minGemsCent, 216);
+    expect(model.maxGemsCent, 483);
+    expect(model.minMemoryTokens, 12400);
+    expect(model.maxMemoryTokens, 1000000);
+  });
+
+  test('model ranges reject missing, non-integer and inconsistent values', () {
+    for (final field in [
+      'min_gems_cent',
+      'max_gems_cent',
+      'min_memory_tokens',
+      'max_memory_tokens',
+    ]) {
+      for (final value in <Object?>[null, '100', 100.0, true]) {
+        final json = quotation();
+        if (value == null) {
+          json.remove(field);
+        } else {
+          json[field] = value;
+        }
+        expect(
+          () => GemModel.fromJson(json),
+          throwsFormatException,
+          reason: '$field=$value',
+        );
+      }
+    }
+    for (final changes in <Map<String, dynamic>>[
+      {'min_gems_cent': -1},
+      {'max_gems_cent': 215},
+      {'estimated_next_message_gems_cent': 217},
+      {'min_memory_tokens': 0},
+      {'max_memory_tokens': 12399},
+    ]) {
+      expect(
+        () => GemModel.fromJson({...quotation(), ...changes}),
+        throwsFormatException,
+      );
+    }
+    expect(
+      GemModel.fromJson({...quotation(), 'max_gems_cent': 216}).maxGemsCent,
+      216,
+    );
+  });
+
   test('Gem models parse integer cent fields', () {
     expect(
       GemWallet.fromJson(<String, dynamic>{
@@ -32,6 +93,10 @@ void main() {
       2000,
     );
     final model = GemModel.fromJson(<String, dynamic>{
+      'min_gems_cent': 400,
+      'max_gems_cent': 483,
+      'min_memory_tokens': 12400,
+      'max_memory_tokens': 1000000,
       'estimated_next_message_gems_cent': 400,
       'estimated_next_tick_gems_cent': 300,
     });
