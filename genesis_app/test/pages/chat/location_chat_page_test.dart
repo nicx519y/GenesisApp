@@ -15,6 +15,7 @@ import 'package:genesis_flutter_android/app/bootstrap/service_registry.dart';
 import 'package:genesis_flutter_android/app/config/app_config.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
+import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
@@ -2520,7 +2521,7 @@ void main() {
     },
   );
 
-  testWidgets('feature quota local member bypasses queries and free prompts', (
+  testWidgets('unverified local member checks quotas without free prompts', (
     tester,
   ) async {
     final backend = _LocationChatReplyHttpTransport()
@@ -2533,12 +2534,12 @@ void main() {
     await tester.tap(find.bySemanticsLabel('Edit'));
     await tester.pumpAndSettle();
     expect(find.byType(LocationChatEditPage), findsOneWidget);
-    expect(backend.quotaRequests, 0);
+    expect(backend.quotaRequests, 1);
     tester.widget<ChatHeader>(find.byType(ChatHeader)).onBack();
     await tester.pumpAndSettle();
     await tester.tap(find.bySemanticsLabel('Inspiration'));
     await tester.pumpAndSettle();
-    expect(backend.quotaRequests, 0);
+    expect(backend.quotaRequests, 2);
     expect(
       find.byKey(const ValueKey('inspiration-replies-carousel')),
       findsOneWidget,
@@ -2774,7 +2775,7 @@ void main() {
   testWidgets(
     'reply Edit updates the visible reply on batch success before range reconciliation',
     (tester) async {
-      final backend = _LocationChatReplyHttpTransport();
+      final backend = _LocationChatReplyHttpTransport()..quotaMember = true;
       final messageStorage = MemoryChatroomMessageStorage();
       final harness = await _connectedLocationChatTestService(
         replyTransport: backend,
@@ -3071,7 +3072,7 @@ void main() {
   });
 
   for (final entry in [
-    (type: 'user_enter_location', uid: 'another-user', edit: true),
+    (type: 'user_enter_location', uid: 'user-1', edit: true),
     (type: 'tick', uid: '', edit: false),
   ]) {
     testWidgets('${entry.type} maps reply capability to toolbar buttons', (
@@ -9674,6 +9675,17 @@ _mountCompletedReplyActionPanel(
   final harness = await _connectedLocationChatTestService(
     replyTransport: backend,
   );
+  if (conversationType == 'opening') {
+    harness.service.applyWorldSnapshot(
+      WorldDetail.fromJson({
+        'world_id': 'world-current',
+        'owner_uid': 'user-1',
+        'locations': [
+          {'location_id': 'location-current', 'location_pid': ''},
+        ],
+      }),
+    );
+  }
   addTearDown(() async {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
