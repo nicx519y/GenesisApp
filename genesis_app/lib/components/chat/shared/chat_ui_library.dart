@@ -215,6 +215,7 @@ ChatUiStyleConfig get kLocationChatStyle => ChatUiStyleConfig.standard.copyWith(
   messageListPadding: ChatUiStyleConfig.standard.messageListPadding.copyWith(
     left: kLocationChatOuterPadding,
     right: kLocationChatOuterPadding,
+    bottom: 0,
   ),
   rowBottomPadding: kLocationChatMessageBottomGap,
   avatarSideSpacerWidth: _locationChatAvatarOneThird,

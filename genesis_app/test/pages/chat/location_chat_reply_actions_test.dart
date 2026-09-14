@@ -142,7 +142,7 @@ void main() {
                 ),
               )
               .dy,
-      8.5,
+      4.5,
     );
     await tester.tap(find.bySemanticsLabel('Inspiration'));
     await tester.pumpAndSettle();
@@ -163,7 +163,7 @@ void main() {
                 ),
               )
               .dy,
-      8.5,
+      4.5,
     );
     expect(
       find.byKey(const ValueKey('inspiration-replies-carousel')),
@@ -510,13 +510,13 @@ void main() {
         LocationChatReplyActions.contentBottomGap +
             tester.getTopLeft(find.text('1 / 3')).dy -
             tester.getTopLeft(pagination).dy,
-        closeTo(16, 0.01),
+        closeTo(12, 0.01),
       );
       expect(
         tester.getTopLeft(actionRow).dy +
             7.5 -
             tester.getBottomLeft(find.text('1 / 3')).dy,
-        closeTo(16, 0.01),
+        closeTo(12, 0.01),
       );
       expect(find.bySemanticsLabel('Reply 1 of 3'), findsOneWidget);
       expect(tester.widget<IconButton>(previous).onPressed, isNull);
