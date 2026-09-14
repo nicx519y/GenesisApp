@@ -37,7 +37,6 @@ import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_se
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
-import 'package:genesis_flutter_android/app/debug/membership_guest_login_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
@@ -2989,7 +2988,6 @@ void main() {
     locationChatHeaderEffectSettings.resetForTesting();
     originWorldSheetDebugSettings.resetForTesting();
     worldNewContentDebugSettings.resetForTesting();
-    membershipGuestLoginDebugSettings.resetForTesting();
     networkCaptureController.resetForTesting();
     webSocketCaptureController.resetForTesting();
     resetDeveloperPageTabForTesting();
@@ -26606,51 +26604,45 @@ void main() {
     );
   });
 
-  testWidgets(
-    'developer page controls mandatory login after guest VIP purchase',
-    (tester) async {
+  for (final inSheet in [false, true]) {
+    testWidgets('developer page has no Premium debug panel inSheet=$inSheet', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
             services: await _testServices(),
-            child: const DeveloperPage(),
+            child: inSheet ? const DeveloperPageSheet() : const DeveloperPage(),
           ),
         ),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('switch'));
       await tester.pumpAndSettle();
-      final toggle = find.byKey(
-        const ValueKey<String>('developer-membership-guest-force-login-switch'),
-      );
-      await tester.scrollUntilVisible(
-        toggle,
-        200,
-        scrollable: find
-            .descendant(
-              of: find.byKey(
-                const PageStorageKey<String>(
-                  'developer-test-switch-tab-scroll',
-                ),
-              ),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      expect(tester.widget<Switch>(toggle).value, isTrue);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(tester.widget<Switch>(toggle).value, isFalse);
-      expect(membershipGuestLoginDebugSettings.forceLogin, isFalse);
-      final preferences = await SharedPreferences.getInstance();
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-switch-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      for (final panelKey in [
+        'developer-world-force-new-panel',
+        'developer-origin-world-sheet-panel',
+      ]) {
+        final panel = find.byKey(ValueKey<String>(panelKey));
+        await tester.scrollUntilVisible(panel, 200, scrollable: scrollable);
+        expect(panel, findsOneWidget);
+      }
       expect(
-        preferences.getBool(
-          MembershipGuestLoginDebugSettingsController.storageKey,
-        ),
-        isFalse,
+        find.byKey(const ValueKey('developer-membership-guest-login-panel')),
+        findsNothing,
       );
-    },
-  );
+      expect(find.text('Force login after guest purchase'), findsNothing);
+      expect(find.text('Set manual membership'), findsNothing);
+    });
+  }
 
   testWidgets('developer page controls forced world is_new state', (
     WidgetTester tester,

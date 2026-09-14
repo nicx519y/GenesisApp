@@ -2605,17 +2605,6 @@ World：
 - 收到本次购买结果后按原有状态处理：取消/错误结束等待；pending 进入原待确认流程；成功持久化凭据并上报。第二段 report 使用 HTTP 请求自身的超时和原重试策略，不再复用 90 秒准备计时，正常上报期间保留原等待弹窗。超时不删除未确认的付款凭据。
 - iOS 通过本地 `third_party/in_app_purchase_storekit` 补充与请求关联的原生通知；使用当前 StoreKit 2 路径，详见其 `WORLDO_PATCH.md`。更新这部分需要重新构建原生 App，热重载不能更新 Swift 代码。
 
-## Debug 手动会员设置（2026-09-09 核对）
-
-来源：[Apifox 手动会员设置](https://app.apifox.com/link/project/8297783/apis/api-512807631)。
-
-- `POST /api_internal/v1/membership/set`；沿用当前配置的 API host，路径从根目录解析，不能拼在 `/api/v1/` 下。接口依赖部署侧内部网络边界；客户端不添加文档示例中的调试身份、内部密钥或操作人字段。
-- 请求只含 `uid`（非空，最多 32 字符）、`plan_code`（`pro_monthly` 或 `pro_yearly`）、`expires_at`（正整数 Unix 秒），以及可选 `reason`（最多 512 字符，空白时省略）。首次设置必须为未来到期，已有手动会员允许过去到期；十年上限及账户是否已有手动会员由服务端校验。
-- 新入口位于 Debug → switch → 现有 VIP 面板，在原强制登录开关下方。UID 默认填当前真实登录 UID，并可编辑；输入截止时间与备注，选择套餐，点击 Submit 才提交。请求期间禁用编辑及重复点击，失败保留输入并展示错误；仅 Debug 构建显示。
-- 通过 `GenesisApi.v1.membership.setManual` 调用。HTTP 200 仍检查业务 envelope，非零 err_no 为失败；结果展示服务端 uid、plan_code、expires_at、membership_status。响应的发放详情不直接写入钱包。
-- 设置目标为当前登录 UID 时，成功后调用既有 `refreshAfterMembershipChanged()` 重新获取 `/api/v1/gem/wallet`；设置其他 UID 不覆盖当前账号会员。刷新失败单独展示，不将已经成功的设置自动重发。
-- 接口创建或更新独立 manual 会员，不修改商店订阅、不自动续费；按服务端规则发放 Blue Gems。客户端不计算发放额度、不改动原 Gems 购买或余额处理。mock 明确返回不可用，不伪造设置成功。
-
 ## Pro 会员商品列表（2026-09-11 客户端契约）
 
 来源：[Apifox 会员商品列表](https://app.apifox.com/link/project/8297783/apis/api-512137864)。2026-09-14 按用户确认的商品与全局会员状态分离契约更新；本次不编辑在线 Apifox。
@@ -2700,8 +2689,8 @@ World：
 - 所有 VIP 入口（首页皇冠、会员卡、签到订阅操作、聊天订阅提示）直接打开购买页或购买弹层，不预先要求登录。完整购买页和订阅购买弹层先读取本地登录状态：游客仅显示 Subscription，不构建 Buy Gems 内容，也不加载 Gems 商品、余额和任务；已登录保留双 Tab 和原有 Gems 行为。登录、退出或切换账号后重新确定可见 Tab。
 - 游客付款仍走 `POST /api/v1/membership/guest/purchase/report`。`completed` 表示购买验证与暂存完成，先显示现有带皇冠的 VIP 购买成功弹窗；点击 OK 后才弹出登录弹窗。该登录弹窗隐藏关闭按钮，遮罩点击、下滑、系统返回均不能退出；取消平台授权或登录失败后保留弹窗，只有登录成功才能继续。普通登录弹窗保持原来的可关闭行为。
 - 当次购买继续按成功弹窗 → OK → 强制登录处理；重启进入首页按上节执行订单检查及选择，不重放购买成功弹窗，只有选中的有效未绑定订单触发登录。购买取消、失败或仍待付款不会触发购买成功后的登录流程。
-- Debug 包的 Debug Page → switch → VIP 提供 `Force login after guest purchase` 开关，默认开启并本地保存。关闭时跳过购买成功后的强制登录和启动时的缓存拦截；已打开的强制登录弹窗也会关闭，不清游客凭据、不影响订单上报或之后正常登录时的 claim。重新开启后恢复检查。启动的首次弹窗判断会等待调试配置加载；Release/Profile 不展示开关且不读取该覆盖值，始终保持强制登录。
-- 游客购买后的强制登录成功时，根导航栈切换到 Me 并移除购买页面及其上层弹窗，返回键不能再次回到已完成的购买流程；完整购买页、购买弹层及重启恢复的登录拦截共用此处理。跳转不等待 claim 或 wallet 请求完成，绑定及原退避重试继续由全局会员服务处理；只有绑定完成后的原清理流程才删除游客缓存。取消/失败仍停留强制登录，Debug 关闭强制登录时不触发此跳转，普通登录和 Gems 购买不变。
+- Debug Page 的 Premium 面板及手动设置会员功能已移除。Debug、Profile、Release 均按正常未绑定订单规则执行强制登录，不读取或应用旧的调试开关值。
+- 游客购买后的强制登录成功时，根导航栈切换到 Me 并移除购买页面及其上层弹窗，返回键不能再次回到已完成的购买流程；完整购买页、购买弹层及重启恢复的登录拦截共用此处理。跳转不等待 claim 或 wallet 请求完成，绑定及原退避重试继续由全局会员服务处理；只有绑定完成后的原清理流程才删除游客缓存。取消/失败仍停留强制登录，普通登录和 Gems 购买不变。
 - 登录成功后独立调用 `POST /api/v1/membership/claim`，有本地游客 report 时复用其 `account_uuid/provider/store_product_id` 和平台凭据（Google `purchase_token`；Apple `transaction_id/signed_transaction`）。重装无 report 时使用商店原证明；Android / iOS 无论套餐是否已知均不传 plan_code、request_id。归属由真实登录会话决定，不发送 uid、device_id、guest_id 或 claim_token；禁止仅凭 UUID 认领。首次认领前安全保存所选登录账号，超时、失败和重启后保持该账号，切换到其他账号时不重新认领。认领失败不撤销登录成功。
 - 客户端 claim 成功响应模型按产品要求只保留 `status`，不解析响应中的 account_uuid、reason、membership。`completed` 后重新请求 `GET /api/v1/gem/wallet`，会员状态和 Blue Gems 只读取该接口，普通 Gems 仍使用 wallet 字段；不把 claim 状态直接当作会员有效。VIP 刷新会等待正在进行的旧 wallet 请求结束，再发起新请求，避免把绑定前的数据当作绑定后的结果；原 Gems 刷新行为不变。
 - claim 网络失败、业务错误、缺失或非法 status，以及 `accepted` 未完成状态，在本轮首次请求后按 15、30、60、120、240 秒最多退避重试 5 次。前后台切换、订单恢复和重复 recover 不绕过间隔或追加次数。`completed` 和 `rejected` 停止绑定重试；`rejected` 保留原归属，不转给其他账号。重试耗尽保留游客缓存，当前会话不再自动请求；下次启动或新的登录会话重新开启有上限的一轮重试，仍只能由已锁定的账号认领。

@@ -1,7 +1,6 @@
 import '../models/membership_product.dart';
 import '../models/membership_purchase.dart';
 import '../models/membership_claim.dart';
-import '../models/membership_manual_set.dart';
 import '../models/membership_guest_purchase_check.dart';
 import '../api_client.dart';
 import '../json_utils.dart';
@@ -9,32 +8,6 @@ import 'v1_api_resource.dart';
 
 class MembershipV1Api extends V1ApiResource {
   const MembershipV1Api(super.client);
-
-  /// Debug editor for manual membership; this is a root-level internal route.
-  Future<MembershipManualSetResult> setManual(
-    MembershipManualSetRequest request,
-  ) async {
-    final response = await client.post<Object?>(
-      '/api_internal/v1/membership/set',
-      body: request.toJson(),
-      // Here 1404 means the entered UID does not exist, not a missing page.
-      responseProcessor: ApiClient.defaultResponseProcessor,
-    );
-    if (response is! Map || response['err_no'] is! int) {
-      throw const FormatException(
-        'Missing manual membership response envelope',
-      );
-    }
-    final data = handleV1ResponseErrNo(response);
-    if (data is! Map) {
-      throw const FormatException('Missing manual membership response data');
-    }
-    final result = MembershipManualSetResult.fromJson(asJsonMap(data));
-    if (result.uid != request.uid.trim()) {
-      throw const FormatException('Manual membership response uid mismatch');
-    }
-    return result;
-  }
 
   /// GET /api/v1/membership/products; each product has its title and benefits.
   Future<MembershipProductList> products({

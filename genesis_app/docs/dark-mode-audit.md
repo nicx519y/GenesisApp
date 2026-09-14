@@ -19,7 +19,7 @@
 
 | 界面 / 入口 | 实际情况 | 代码 |
 | --- | --- | --- |
-| Developer 全页及底部 Sheet | 仍使用浅色默认主题；信息、开关、按钮、HTTP / WebSocket 列表与详情、自定义会员设置表单含浅底黑字。从不同主题打开时也可能出现深浅混合 | `lib/pages/me/developer_page.dart:109`、`:136`；`developer_components.dart`、`developer_network_tab.dart`、`developer_websocket_tab.dart`、`developer_membership_set_form.dart` |
+| Developer 全页及底部 Sheet | 仍使用浅色默认主题；信息、开关、按钮、HTTP / WebSocket 列表与详情含浅底黑字。从不同主题打开时也可能出现深浅混合 | `lib/pages/me/developer_page.dart:109`、`:136`；`developer_components.dart`、`developer_network_tab.dart`、`developer_websocket_tab.dart` |
 | **正式包的调试解锁密码弹窗** | Settings／未登录 Me 长按入口，非 debug 构建会显示；奶白底 `#FFFCF7`、金色边框、黑字，独立 Dialog，尚未深色化。这是此前漏掉的浮层 | `lib/app/debug_floating_button_unlock.dart:20`、`:70`；入口在 `settings_page.dart:119`、`signed_out_me_view.dart:91` |
 | 地图设置浮动面板、图片流参数编辑器 | 经 Developer 开启地图设置按钮后可见。深色地图下有暗色实现，但仍是独立黄灰底／纯白／68% 白；切到 Light 时仍显示浅色面板。地图默认模式已是 Dark，这不是普通页面初始白底 | `lib/components/tilemap/tilemap_library.dart:2422`、`tilemap_settings_panel.dart:121`、`tilemap_image_flow_editor.dart:308` |
 | World 内容更新推送 Banner | 已用深色文字 token 和 Blur 14，但底板仍为独立的 **20% 白**，不是 darkOverlayBackground；用户确认这是独立样式，保留，不属于遗漏 | `lib/pages/world/world_update_push_banner.dart:418` |
