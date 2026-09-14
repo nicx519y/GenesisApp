@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/membership/membership_catalog.dart';
+import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_purchase_service.dart';
 import '../../app/membership/membership_purchase_eligibility.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
@@ -40,6 +41,8 @@ class ProSubscriptionContent extends StatefulWidget {
     this.catalog,
     this.purchaseHandler,
     this.purchaseService,
+    this.membershipAccess,
+    this.refreshMembershipOnOpen = true,
     this.closeOnPurchaseSuccess = false,
     this.topSpacing = 10,
     this.horizontalInset = 20,
@@ -49,6 +52,8 @@ class ProSubscriptionContent extends StatefulWidget {
   final MembershipCatalog? catalog;
   final Future<void> Function(MembershipProduct)? purchaseHandler;
   final MembershipPurchaseService? purchaseService;
+  final MembershipAccessStore? membershipAccess;
+  final bool refreshMembershipOnOpen;
   final bool closeOnPurchaseSuccess;
 
   /// Embedded flows can let their shared header own the content spacing.
@@ -65,7 +70,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   _ProPlan _plan = _ProPlan.yearly;
   AppServices? _services;
   List<MembershipOffer> _offers = [];
-  MembershipVipStatus _vipStatus = MembershipVipStatus.none;
+  MembershipAccessStore? _membership;
+  bool _submitting = false;
   bool _loading = false;
   bool _started = false;
   int _requestGeneration = 0;
@@ -91,6 +97,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     if (!_started || !identical(services, _services)) {
       _services?.sessionRevision.removeListener(_sessionChanged);
       _services = services;
+      _bindMembership();
       _bindPurchaseUpdates();
       _purchasePresentation?.dispose();
       _purchasePresentation = null;
@@ -104,11 +111,27 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   @override
   void didUpdateWidget(ProSubscriptionContent oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _bindMembership();
     if (oldWidget.productsLoader != widget.productsLoader ||
         oldWidget.catalog != widget.catalog) {
       unawaited(_load());
     }
     _bindPurchaseUpdates();
+  }
+
+  void _bindMembership() {
+    final membership = widget.membershipAccess ?? _services?.membership;
+    if (identical(membership, _membership)) return;
+    _membership?.state.removeListener(_membershipChanged);
+    _membership = membership;
+    membership?.state.addListener(_membershipChanged);
+    if (widget.refreshMembershipOnOpen && membership != null) {
+      unawaited(membership.refresh());
+    }
+  }
+
+  void _membershipChanged() {
+    if (mounted) setState(() {});
   }
 
   void _bindPurchaseUpdates() {
@@ -131,6 +154,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   @override
   void dispose() {
     _purchasePresentation?.dispose();
+    _membership?.state.removeListener(_membershipChanged);
     _requestGeneration++;
     _services?.sessionRevision.removeListener(_sessionChanged);
     _catalogService?.catalogRevision.removeListener(_purchaseChanged);
@@ -188,7 +212,6 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
 
   void _applyCatalog(MembershipCatalogData catalog) {
     _offers = catalog.offers;
-    _vipStatus = catalog.vipStatus;
     if (_offerFor(_plan) == null && _offers.isNotEmpty) {
       _plan = _ProPlan.values.firstWhere(
         (plan) => _offerFor(plan) != null,
@@ -198,16 +221,20 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   }
 
   Future<void> _onSubscribePressed() async {
+    if (_submitting) return;
+    _submitting = true;
+    try {
+      await _subscribe();
+    } finally {
+      _submitting = false;
+    }
+  }
+
+  Future<void> _subscribe() async {
     if (_loading) return;
     final offer = _offerFor(_plan);
     if (offer == null) {
       unawaited(_load());
-      return;
-    }
-    final blocked = membershipPurchaseBlockReason(offer.product, _vipStatus);
-    if (blocked != null) {
-      unawaited(showMembershipPurchaseFailure(context, blocked));
-      unawaited(_load(silent: true));
       return;
     }
     if (offer.price == null) {
@@ -216,6 +243,16 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     }
     final handler = widget.purchaseHandler;
     if (handler != null) {
+      final membership = _membership;
+      if (membership != null) {
+        final access = await membership.refresh();
+        if (!mounted) return;
+        final blocked = membershipPurchaseBlockReason(offer.product, access);
+        if (blocked != null) {
+          await showMembershipPurchaseFailure(context, blocked);
+          return;
+        }
+      }
       await handler(offer.product);
       return;
     }
@@ -365,7 +402,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                       selectedProduct != null &&
                           membershipPurchaseBlockReason(
                                 selectedProduct,
-                                _vipStatus,
+                                _membership?.state.value ??
+                                    const MembershipAccessState(),
                               ) ==
                               'already_subscribed'
                       ? 'Subscribed'

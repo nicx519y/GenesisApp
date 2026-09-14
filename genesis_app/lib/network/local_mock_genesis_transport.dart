@@ -852,7 +852,7 @@ class LocalMockGenesisTransport implements HttpTransport {
           'data': <String, dynamic>{},
         });
       }
-      return _v1Ok(<String, dynamic>{'vip_status': 'none', 'list': <Object>[]});
+      return _v1Ok({'list': <Object?>[]});
     }
 
     if (method == 'POST' &&

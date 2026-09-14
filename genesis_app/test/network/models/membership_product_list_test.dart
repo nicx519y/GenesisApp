@@ -19,47 +19,14 @@ void main() {
     'price_currency_code': 'USD',
     'price_amount': 1234,
   };
-  for (final raw in ['none', '', 'monthly', 'yearly']) {
-    test('root vip_status=$raw is parsed and cached', () {
-      final parsed = MembershipProductList.fromJson({
-        'vip_status': raw,
-        'list': [product],
-      });
-      expect(parsed.vipStatus.name, raw.isEmpty ? 'none' : raw);
-      expect(parsed.toJson()['vip_status'], raw.isEmpty ? 'none' : raw);
-      expect(parsed.products.single.toJson(), isNot(contains('vip_status')));
-    });
-  }
-  test('missing or invalid root status never authorizes a purchase', () {
-    for (final raw in [null, 'active', false, 1]) {
-      expect(
-        () => MembershipProductList.fromJson({
-          'vip_status': raw,
-          'list': [product],
-        }),
-        throwsFormatException,
-      );
-    }
-    expect(
-      () => MembershipProductList.fromJson({
-        'list': [product],
-      }),
-      throwsFormatException,
-    );
-  });
-  test('obsolete eligibility fields cannot override root status', () {
+  test('catalog response contains only the product list', () {
     final parsed = MembershipProductList.fromJson({
-      'vip_status': 'none',
-      'list': [
-        {
-          ...product,
-          'can_purchase': false,
-          'purchase_block_reason': 'already_subscribed',
-        },
-      ],
+      'list': [product],
     });
-    expect(parsed.vipStatus, MembershipVipStatus.none);
     expect(parsed.products.single.toJson(), product);
+    expect(parsed.toJson(), {
+      'list': [product],
+    });
   });
   test(
     'catalog identity and upgrade proof are optional and never serialized',
@@ -146,28 +113,18 @@ void main() {
       }
     },
   );
-  test(
-    'list and account status parse with per-product titles and benefits',
-    () {
-      expect(
-        MembershipProductList.fromJson({
-          'vip_status': 'none',
-          'list': [],
-        }).products,
-        isEmpty,
-      );
-      final result = MembershipProductList.fromJson({
-        'vip_status': 'none',
-        'list': [product],
-      });
-      expect(result.products.single.title, 'Server monthly title');
-      expect(result.products.single.benefits.single.title, 'Server title');
-      expect(
-        MembershipProduct.fromJson({...product, 'benefits': []}).benefits,
-        isEmpty,
-      );
-    },
-  );
+  test('list parses with per-product titles and benefits', () {
+    expect(MembershipProductList.fromJson({'list': []}).products, isEmpty);
+    final result = MembershipProductList.fromJson({
+      'list': [product],
+    });
+    expect(result.products.single.title, 'Server monthly title');
+    expect(result.products.single.benefits.single.title, 'Server title');
+    expect(
+      MembershipProduct.fromJson({...product, 'benefits': []}).benefits,
+      isEmpty,
+    );
+  });
   test('purchase action is ignored and never serialized', () {
     for (final action in [
       'purchase',
@@ -178,7 +135,6 @@ void main() {
       123,
     ]) {
       final parsed = MembershipProductList.fromJson({
-        'vip_status': 'none',
         'list': [
           {...product, 'purchase_action': action},
         ],
@@ -191,7 +147,6 @@ void main() {
       final missing = Map<String, Object?>.from(product)..remove(field);
       expect(
         () => MembershipProductList.fromJson({
-          'vip_status': 'none',
           'list': [missing],
           'title': 'Old title',
           'benefits': [benefit],
@@ -204,7 +159,6 @@ void main() {
     'unknown icons preserve server metadata for the generic icon fallback',
     () {
       final result = MembershipProductList.fromJson({
-        'vip_status': 'none',
         'list': [product],
       });
       expect(result.products.single.benefits.single.title, 'Server title');

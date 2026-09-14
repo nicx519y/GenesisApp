@@ -19,7 +19,7 @@ void main() {
           'wallet': {'balance_cent': 518240},
           'membership': membership(status: status),
         });
-        expect(wallet.membership!.isActive, status == 1);
+        expect(wallet.membership!.status, status);
         expect(wallet.balanceCent, 518240);
         expect(
           wallet.membership!.expiresAt!.millisecondsSinceEpoch,

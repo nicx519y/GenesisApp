@@ -37,7 +37,7 @@ void main() {
                   ? support.guest.accountUuid
                   : support.accountUuid;
 
-              // A displayed snapshot must not override the refreshed catalog.
+              // A displayed snapshot must not override the current checkout catalog.
               await h.service.purchase(
                 membershipProduct(
                   provider: provider,
@@ -80,8 +80,8 @@ void main() {
     test(
       '$provider catalog UUID does not bypass purchase eligibility',
       () async {
-        final h = support.Harness(provider: provider)..uid = null;
-        h.vipStatus = MembershipVipStatus.monthly;
+        final h = support.Harness(provider: provider);
+        h.memberPlan = 'pro_monthly';
         h.productsHandler = () async => [
           membershipProduct(provider: provider, accountUuid: catalogUuid),
         ];

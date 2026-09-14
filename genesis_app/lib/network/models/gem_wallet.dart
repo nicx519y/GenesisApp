@@ -85,6 +85,4 @@ class GemWalletMembership {
   final bool autoRenew;
   final int blueGemsCent;
   final bool hasOverlap;
-
-  bool get isActive => status == 1;
 }

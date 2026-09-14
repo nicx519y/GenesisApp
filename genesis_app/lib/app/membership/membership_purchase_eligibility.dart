@@ -1,3 +1,4 @@
+import 'membership_access_store.dart';
 import '../../network/models/membership_product.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 
@@ -8,13 +9,18 @@ class MembershipPurchaseBlocked implements Exception {
 
 String? membershipPurchaseBlockReason(
   MembershipProduct product,
-  MembershipVipStatus vipStatus,
-) => switch (vipStatus) {
-  MembershipVipStatus.yearly when !product.isYearly => 'downgrade_not_allowed',
-  MembershipVipStatus.yearly => 'already_subscribed',
-  MembershipVipStatus.monthly when !product.isYearly => 'already_subscribed',
-  _ => null,
-};
+  MembershipAccessState access,
+) {
+  if (access.isVip == null) return 'eligibility_unavailable';
+  if (access.isVip == false) return null;
+  return switch (access.membership?.planCode) {
+    'pro_yearly' when !product.isYearly => 'downgrade_not_allowed',
+    'pro_yearly' => 'already_subscribed',
+    'pro_monthly' when !product.isYearly => 'already_subscribed',
+    'pro_monthly' => null,
+    _ => 'eligibility_unavailable',
+  };
+}
 
 String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
   final message = switch (reason) {

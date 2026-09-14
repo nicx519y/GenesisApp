@@ -1,22 +1,21 @@
 # VIP 购买按钮与平台错误文案
 
-更新：2026-09-11。适用 Android Google Play / iOS App Store 的 VIP 订阅购买；以下英文为客户端实际显示文案。Gems 继续使用原有提示。
+更新：2026-09-14。适用 Android Google Play / iOS App Store 的 VIP 订阅购买；以下英文为客户端实际显示文案。Gems 继续使用原有提示。
 
 ## 1. 商品接口和按钮
 
-`GET /api/v1/membership/products` 在 `data` 下返回 `vip_status`，与 `list` 同级。商品内移除 `can_purchase`、`purchase_block_reason`，其余配置、价格及 UUID 优先级保持原逻辑。在线 Apifox 尚未更新，本次根据用户确认的字段位置实现。
+`GET /api/v1/membership/products` 只提供 `data.list` 商品配置；已登录账号使用全局 `MembershipAccessStore` 的 wallet 会员摘要判断按钮与购买资格。
 
-```json
-{"err_no":0,"err_msg":"succ","data":{"vip_status":"none","list":[]}}
-```
-
-| vip_status | 选择月套餐 | 选择年套餐 | 点击处理 |
+| 当前有效会员 | 选择月套餐 | 选择年套餐 | 点击处理 |
 | --- | --- | --- | --- |
-| `none` 或 `""` | 原 Monthly + 金额 | 原 Yearly + 金额 | 重新拉取列表校验后，正常查询商品并发起支付 |
-| `monthly` | `Subscribed` | 原 Yearly + 金额 | 月套餐直接拦截；年套餐可继续 |
-| `yearly` | 原 Monthly + 金额 | `Subscribed` | 月套餐弹出不支持降级提示；年套餐直接拦截 |
+| 无／已失效 | 原 Monthly + 金额 | 原 Yearly + 金额 | 刷新 wallet，复用本次页面商品数据后尝试购买 |
+| 月会员 | `Subscribed` | 原 Yearly + 金额 | 刷新确认后拦截重复月付，年付可继续 |
+| 年会员 | 原 Monthly + 金额 | `Subscribed` | 刷新确认后拦截月付降级和重复年付 |
+| 未知 | 原套餐金额 | 原套餐金额 | 尝试刷新，仍未知时提示无法确认资格 |
 
-点击 `Subscribed` 按钮仍提示 `You already have this VIP plan.`。年会员点击月套餐以 `downgrade_not_allowed` 拦截，复用项目 `GenesisActionBox` 弹窗：标题 `Notification`，正文 `Worldo Premium is active in your subscription and does not support downgrades.`，单个按钮 `Got It`，关闭后留在当前页面。两种拦截均不请求支付平台；点击前的缓存判断和购买前重新请求商品列表的最新状态判断使用相同提示。按钮颜色、尺寸、卡片样式不变。缓存先展示，接口返回后刷新；缓存版本 v2 包含会员状态，按账号、平台、环境隔离，不保存商品 `account_uuid` 和升级 `purchase_token`。缺失、null 或未知 `vip_status` 是无效响应，不当作非会员；旧 v1 缓存失效。缓存不能代替实际购买前的实时校验。
+只有状态 1 且到期时间晚于服务端校准当前时间才为有效会员；状态 2 或已到期均失效。缺少必要数据不能作为未开通放行。游客不使用上述账号会员限制，继续原有未绑定订单登录拦截、平台购买及 report/claim。
+
+重复购买沿用 `You already have an active Premium subscription.`；降级沿用 Notification / `Worldo Premium is active in your subscription and does not support downgrades.` / Got It。全局状态变化只更新按钮文案和行为，不改尺寸、颜色和卡片布局。商品缓存 v3 仅存展示配置，会员缓存属于全局 wallet。商品及升级凭据复用本次页面 API 响应，不因点击购买重复请求；未完成时等待同一请求，本次商品请求失败或支付前 wallet 刷新失败不使用旧缓存付款。
 
 ## 2. Google Play 主错误码
 
@@ -146,7 +145,7 @@ StoreKit 2 返回具名 Error case，不能把它们当作 Google 数字码。�
 | 未识别 Google 错误 | `Google Play could not complete this VIP purchase. Please try again.` |
 | 未识别 Apple 错误 | `The App Store could not complete this VIP purchase. Please try again.` |
 
-Apple 购买结果来源：[Product.PurchaseResult](https://developer.apple.com/documentation/storekit/product/purchaseresult)。服务端 report/claim 业务错误仍走原业务提示，不套平台码表。会员到期、宽限、扣款重试、暂停等是订阅生命周期状态，不能与本表的购买调用错误一一对应；此次购买入口按服务端 `vip_status`，实际购买以平台结果为准。
+Apple 购买结果来源：[Product.PurchaseResult](https://developer.apple.com/documentation/storekit/product/purchaseresult)。服务端 report/claim 业务错误仍走原业务提示，不套平台码表。会员到期、宽限、扣款重试、暂停等是订阅生命周期状态，不能与本表的购买调用错误一一对应；已登录账号购买入口按全局 wallet 会员状态，实际购买以平台结果为准。
 
 ## 7. 错误传递和验证
 

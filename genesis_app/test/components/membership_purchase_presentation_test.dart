@@ -47,7 +47,7 @@ void main() {
       '$provider fresh yearly status blocks monthly with the shared downgrade dialog',
       (tester) async {
         final h = service.Harness(provider: provider)
-          ..vipStatus = MembershipVipStatus.yearly;
+          ..memberPlan = 'pro_yearly';
         addTearDown(h.service.dispose);
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;

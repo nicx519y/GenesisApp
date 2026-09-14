@@ -120,7 +120,6 @@ void main() {
     for (final provider in MembershipProvider.values) {
       final result = await api.v1.membership.products(provider: provider);
       expect(result.products, isEmpty);
-      expect(result.vipStatus, MembershipVipStatus.none);
     }
   });
 
