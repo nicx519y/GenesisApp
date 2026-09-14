@@ -76,7 +76,6 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
   Future<void> cancelDraft(ChatroomReplyEditorTarget target) async {
     final state = _validateTarget(target);
     if (state.frozen || state.busy) return;
-    state._openEditors.remove(target.cardId ?? 0);
     if (state._uncertainBatches.contains(target.cardId ?? 0)) return;
     state._drafts.remove(target.cardId ?? 0);
     state._draftBaselines.remove(target.cardId ?? 0);
@@ -102,7 +101,6 @@ extension ChatroomEditFeatureImplementation on ChatroomReplyActionsController {
     try {
       await _persist(state);
       await _saveDraft(state, target);
-      state._openEditors.remove(target.cardId ?? 0);
       state._completionRevision++;
     } catch (error) {
       if (!_disposed) state._error = error;

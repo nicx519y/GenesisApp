@@ -22,7 +22,6 @@ const _inspirationReplies = [
 
 Widget _replyActions({
   required ChatUiStyleConfig style,
-  bool isMember = true,
   LocationChatInspirationFeature? inspirationFeature,
   List<String> inspirationMessages = const [],
   ValueChanged<String>? onInspirationSend,
@@ -50,7 +49,6 @@ Widget _replyActions({
   double? selfMessageBubbleMaxWidthCap,
 }) => LocationChatReplyActions(
   style: style,
-  isMember: isMember,
   regenerateFeature: LocationChatRegenerateFeature(
     onInvoke: onRegenerate,
     state:
@@ -216,16 +214,13 @@ void main() {
     },
   );
 
-  testWidgets('all four actions are available without membership', (
-    tester,
-  ) async {
+  testWidgets('all four actions invoke their enabled features', (tester) async {
     var calls = 0;
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: _replyActions(
             style: kLocationChatStyle,
-            isMember: false,
             inspirationFeature: const LocationChatInspirationFeature(
               messages: _inspirationReplies,
               state: LocationChatReplyActionState.idle,
@@ -1115,7 +1110,6 @@ void main() {
               messages: messages,
               topTitle: '',
               replyActionsIdentity: 'world/location/round',
-              replyActionsAnchorIndex: messages.length,
               replyStatus: Text(status),
               replyCardIndex: 1,
               replyCardCount: 2,
@@ -1298,7 +1292,6 @@ void main() {
                       ),
                     ],
                     replyActionsIdentity: 'world/location/round',
-                    replyActionsAnchorIndex: messages.length + 1,
                     replyPresentationRevision: revision,
                     replyCardIndex: revision,
                     replyCardCount: 3,
@@ -1375,7 +1368,6 @@ void main() {
                   ),
                 ],
                 replyActionsIdentity: 'world/location/round',
-                replyActionsAnchorIndex: history.length + 1,
                 replyPresentationRevision: 1,
                 replyCardIndex: 1,
                 replyCardCount: 2,

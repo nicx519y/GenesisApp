@@ -5,26 +5,17 @@ import '../shared/reply_feature_button.dart';
 import '../shared/reply_action_state.dart';
 
 /// Public invocation contract for editing the currently presented reply.
-final class LocationChatEditFeature {
+final class LocationChatEditFeature extends LocationChatReplyAction {
   const LocationChatEditFeature({
-    required this.onInvoke,
-    required this.state,
+    required super.onInvoke,
+    required super.state,
     this.freeUsesRemaining,
   });
-
   const LocationChatEditFeature.disabled()
-    : onInvoke = null,
-      state = LocationChatReplyActionState.none,
-      freeUsesRemaining = null;
+    : freeUsesRemaining = null,
+      super.disabled();
 
-  final VoidCallback? onInvoke;
-  final LocationChatReplyActionState state;
-  bool get enabled => state == LocationChatReplyActionState.idle;
-  bool get busy => state == LocationChatReplyActionState.busy;
   final int? freeUsesRemaining;
-
-  VoidCallback? get invocation =>
-      state == LocationChatReplyActionState.idle ? onInvoke : null;
 }
 
 class LocationChatEditButton extends StatelessWidget {
@@ -42,11 +33,7 @@ class LocationChatEditButton extends StatelessWidget {
     label: 'Edit',
     iconAsset: editSquareIconAsset,
     state: feature.state,
-    onTap: feature.invocation == null
-        ? null
-        : () {
-            onBeforeInvoke?.call();
-            feature.invocation!();
-          },
+    onTap: feature.invocation,
+    onBeforeInvoke: onBeforeInvoke,
   );
 }

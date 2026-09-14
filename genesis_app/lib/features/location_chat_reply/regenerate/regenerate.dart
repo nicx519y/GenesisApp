@@ -8,26 +8,17 @@ import '../shared/reply_action_state.dart';
 ///
 /// Consumers intentionally receive no controller, card, transport, or storage
 /// implementation details.
-final class LocationChatRegenerateFeature {
+final class LocationChatRegenerateFeature extends LocationChatReplyAction {
   const LocationChatRegenerateFeature({
-    required this.onInvoke,
-    required this.state,
+    required super.onInvoke,
+    required super.state,
     this.onLimitReached,
   });
-
   const LocationChatRegenerateFeature.disabled()
-    : onInvoke = null,
-      onLimitReached = null,
-      state = LocationChatReplyActionState.none;
+    : onLimitReached = null,
+      super.disabled();
 
-  final VoidCallback? onInvoke;
   final VoidCallback? onLimitReached;
-  final LocationChatReplyActionState state;
-  bool get enabled => state == LocationChatReplyActionState.idle;
-  bool get busy => state == LocationChatReplyActionState.busy;
-
-  VoidCallback? get invocation =>
-      state == LocationChatReplyActionState.idle ? onInvoke : null;
 }
 
 class LocationChatRegenerateButton extends StatelessWidget {
@@ -46,11 +37,7 @@ class LocationChatRegenerateButton extends StatelessWidget {
     iconAsset: regenerateIconAsset,
     state: feature.state,
     onDisabledTap: feature.onLimitReached,
-    onTap: feature.invocation == null
-        ? null
-        : () {
-            onBeforeInvoke?.call();
-            feature.invocation!();
-          },
+    onTap: feature.invocation,
+    onBeforeInvoke: onBeforeInvoke,
   );
 }

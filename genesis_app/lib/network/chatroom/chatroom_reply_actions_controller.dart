@@ -102,7 +102,6 @@ class ChatroomReplyRoundState {
   final _drafts = <int, List<ChatroomLlmMessageOperation>>{};
   final _draftBaselines = <int, Map<int, String>>{};
   final _uncertainBatches = <int>{};
-  final _openEditors = <int>{};
   final _streamMessages = <int, Map<int, _CandidateMessage>>{};
   final _authoritativeCards = <int>{};
   final _cardTerminals = <int, ChatroomLlmCardGenerationEnd>{};
@@ -836,7 +835,6 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         !state._isOwnSupportedRound ||
         !state.complete ||
         state.busy ||
-        state._openEditors.isNotEmpty ||
         state._regenerateDispatching) {
       return;
     }
@@ -1171,8 +1169,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
               (state) =>
                   state.showCandidates ||
                   (state.frozen) ||
-                  state._drafts.isNotEmpty ||
-                  state._openEditors.isNotEmpty,
+                  state._drafts.isNotEmpty,
             )
             .toList()
           ..sort((a, b) => a.roundId.compareTo(b.roundId));
@@ -1248,7 +1245,6 @@ class ChatroomReplyActionsController extends ChangeNotifier {
           // A select ACK may have been lost; GET confirmed proves selection.
           // Formal history is reconciled only by conversation_range_updated.
         }
-        state._openEditors.clear();
         state._fixedCardId = null;
         state._selectionRequestId = null;
         state._frozen = false;
@@ -1324,7 +1320,6 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       state._retainSelectedCardPresentation = true;
       state._selectedCardPromotedToFormal =
           state._formalHistoryContainsSelectedCard;
-      state._openEditors.clear();
       state._fixedCardId = null;
       state._selectionRequestId = null;
       state._frozen = false;
@@ -1845,9 +1840,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         .where(
           (state) =>
               state._supportsReplyActions &&
-              (state.showCandidates ||
-                  state._drafts.isNotEmpty ||
-                  state._openEditors.isNotEmpty) &&
+              (state.showCandidates || state._drafts.isNotEmpty) &&
               (incomingRound == null || incomingRound > state.roundId),
         )
         .toList();

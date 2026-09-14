@@ -392,23 +392,12 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
 
 extension _LocationChatEditActions on _LocationChatPanelState {
   LocationChatEditFeature _editFeature(
-    bool replyBlocked,
-    ChatroomReplyRoundState? replyState,
+    LocationChatReplyActionState state,
     ChatUiStyleConfig style,
     double? selfCap,
-    double? otherCap, {
-    bool? supportedOverride,
-  }) => LocationChatEditFeature(
-    state: resolveLocationChatReplyActionState(
-      showWhenUnavailable: _usesPreparedEntry,
-      busy: _editQuotaLoading,
-      supported: supportedOverride ?? replyState?.supportsEdit ?? false,
-      otherReplyOperationActive:
-          _regenerateReplyOperationActive ||
-          _goOnReplyOperationActive ||
-          _inspirationReplyOperationActive,
-      canInvoke: !replyBlocked && (replyState?.canEdit ?? false),
-    ),
+    double? otherCap,
+  ) => LocationChatEditFeature(
+    state: state,
     freeUsesRemaining: _freeUsesRemaining(
       'conversation_edit',
       queried: _editQuotaQueried,

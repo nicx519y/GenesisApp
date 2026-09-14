@@ -373,7 +373,6 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.messageLayoutId,
     this.replyActionsMessageId,
     this.replyActionsIdentity,
-    this.replyActionsAnchorIndex,
     this.replyActionsVisible = true,
     this.replyPresentationRevision = 0,
     this.replyStatus,
@@ -384,7 +383,6 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.replyRegenerationInProgress = false,
     this.onReplyCardSelected,
     this.onReplyCardTransitionChanged,
-    this.isMember = true,
     this.regenerateFeature = const LocationChatRegenerateFeature.disabled(),
     this.goOnFeature = const LocationChatGoOnFeature.disabled(),
     this.editFeature = const LocationChatEditFeature.disabled(),
@@ -428,9 +426,6 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   /// Stable world/location/round identity, independent of candidate message IDs.
   final String? replyActionsIdentity;
 
-  /// Source-round anchor metadata; the controls themselves stay at the tail.
-  final int? replyActionsAnchorIndex;
-
   /// Shows the controls inside the permanent bottom action slot.
   final bool replyActionsVisible;
 
@@ -444,7 +439,6 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final bool replyRegenerationInProgress;
   final bool Function(int cardId)? onReplyCardSelected;
   final ValueChanged<bool>? onReplyCardTransitionChanged;
-  final bool isMember;
   final LocationChatRegenerateFeature regenerateFeature;
   final LocationChatGoOnFeature goOnFeature;
   final LocationChatEditFeature editFeature;
@@ -775,23 +769,12 @@ class _LocationChatAnchoredMessageListState
               GlobalKey.new,
             )
           : ValueKey('preview-${message.localId}'),
-      child: ChatMessageRow(
+      child: _messageRow(
         key: ValueKey(message.localId),
         message: message,
         imageViewerMessages: currentRole ? _imageViewerMessages : messages,
-        style: compact
-            ? style.copyWith(
-                rowBottomPadding: LocationChatReplyActions.contentBottomGap,
-                systemMessageMargin: style.systemMessageMargin.copyWith(
-                  bottom: LocationChatReplyActions.contentBottomGap,
-                ),
-              )
-            : style,
-        selfMessageBubbleMaxWidthCap: widget.selfMessageBubbleMaxWidthCap,
-        otherMessageBubbleMaxWidthCap: widget.otherMessageBubbleMaxWidthCap,
-        onMessageLongPressStart: widget.onMessageLongPressStart,
-        onFailedMessageTap: widget.onFailedMessageTap,
-        onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap,
+        style: style,
+        compact: compact,
         showDateDivider: divider,
       ),
     );
@@ -1744,29 +1727,13 @@ class _LocationChatAnchoredMessageListState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          ChatMessageRow(
+          _messageRow(
             key: ValueKey(layoutId),
             message: current,
             imageViewerMessages: _imageViewerMessages,
-            style: showReplyActions
-                ? style.copyWith(
-                    rowBottomPadding: LocationChatReplyActions.contentBottomGap,
-                    systemMessageMargin: style.systemMessageMargin.copyWith(
-                      bottom: LocationChatReplyActions.contentBottomGap,
-                    ),
-                  )
-                : style,
-            selfMessageBubbleMaxWidthCap: widget.selfMessageBubbleMaxWidthCap,
-            otherMessageBubbleMaxWidthCap: widget.otherMessageBubbleMaxWidthCap,
-            onMessageLongPressStart: widget.onMessageLongPressStart,
-            onFailedMessageTap: widget.onFailedMessageTap,
-            onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap,
-            showDateDivider:
-                widget.showDateDividers &&
-                shouldShowChatDateDivider(
-                  previous?.createdAt,
-                  current.createdAt,
-                ),
+            style: style,
+            compact: showReplyActions,
+            showDateDivider: divider,
           ),
         ],
       ),
@@ -1784,6 +1751,35 @@ class _LocationChatAnchoredMessageListState
     );
     return child;
   }
+
+  // Both timeline and card rows share presentation; their callers retain
+  // ownership of layout keys, preview identity and cache lifetimes.
+  Widget _messageRow({
+    required Key key,
+    required ChatMessageVm message,
+    required List<ChatMessageVm> imageViewerMessages,
+    required ChatUiStyleConfig style,
+    required bool compact,
+    required bool showDateDivider,
+  }) => ChatMessageRow(
+    key: key,
+    message: message,
+    imageViewerMessages: imageViewerMessages,
+    style: compact
+        ? style.copyWith(
+            rowBottomPadding: LocationChatReplyActions.contentBottomGap,
+            systemMessageMargin: style.systemMessageMargin.copyWith(
+              bottom: LocationChatReplyActions.contentBottomGap,
+            ),
+          )
+        : style,
+    selfMessageBubbleMaxWidthCap: widget.selfMessageBubbleMaxWidthCap,
+    otherMessageBubbleMaxWidthCap: widget.otherMessageBubbleMaxWidthCap,
+    onMessageLongPressStart: widget.onMessageLongPressStart,
+    onFailedMessageTap: widget.onFailedMessageTap,
+    onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap,
+    showDateDivider: showDateDivider,
+  );
 
   void _scheduleRowCacheCleanup() {
     if (_rowCleanupScheduled) return;
@@ -1829,7 +1825,6 @@ class _LocationChatAnchoredMessageListState
                   : null,
               inspirationFeature: widget.inspirationFeature,
               editFeature: widget.editFeature,
-              isMember: widget.isMember,
               regenerateFeature: _regenerateFeatureWithCollapse,
               goOnFeature: widget.goOnFeature,
               cardIndex: widget.replyCardIndex,

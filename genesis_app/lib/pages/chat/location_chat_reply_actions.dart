@@ -31,7 +31,6 @@ class LocationChatReplyActions extends StatefulWidget {
     this.onInspirationExpandedChanged,
     this.inspirationPage,
     this.onInspirationPageChanged,
-    this.isMember = true,
     this.cardIndex = 0,
     this.cardCount = 0,
     this.cardsConfirmed = false,
@@ -43,7 +42,6 @@ class LocationChatReplyActions extends StatefulWidget {
     this.loadingIndicator,
   });
 
-  final bool isMember;
   final LocationChatRegenerateFeature regenerateFeature;
   final LocationChatGoOnFeature goOnFeature;
   final LocationChatEditFeature editFeature;
@@ -120,30 +118,6 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   @override
   Widget build(BuildContext context) {
-    // Keep the page label's inset equal to the action icon's inset (7.5).
-    // Combined with the preceding message's 8.5 gap, this gives 16 above it.
-    final paginationTextPainter = TextPainter(
-      text: TextSpan(
-        text: '${widget.cardIndex + 1} / ${widget.cardCount}',
-        style: DefaultTextStyle.of(context).style.merge(
-          const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            height: 1.4,
-          ),
-        ),
-      ),
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-    )..layout();
-    final paginationHeight = paginationTextPainter.height + 15;
-    paginationTextPainter.dispose();
-    final paginationButtonStyle = IconButton.styleFrom(
-      minimumSize: Size(48, paginationHeight),
-      padding: EdgeInsets.zero,
-      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-      visualDensity: VisualDensity.standard,
-    );
     final actionButtons = <Widget>[
       if (widget.loadingIndicator case final indicator?) indicator,
       if (widget.loadingIndicator == null) ...[
@@ -186,49 +160,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
         if (widget.loadingIndicator == null &&
             widget.cardCount > 1 &&
             !widget.cardsConfirmed) ...[
-          Row(
-            key: const ValueKey('location-chat-reply-pagination'),
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              IconButton(
-                key: const ValueKey('location-chat-reply-previous-card'),
-                style: paginationButtonStyle,
-                tooltip: 'Previous reply',
-                onPressed: widget.cardSwitchEnabled && widget.cardIndex > 0
-                    ? widget.onPreviousCard
-                    : null,
-                icon: const Icon(Icons.chevron_left, size: 20),
-                color: GenesisColors.darkTextPrimary,
-                disabledColor: GenesisColors.darkTextTertiary,
-              ),
-              Text(
-                '${widget.cardIndex + 1} / ${widget.cardCount}',
-                key: const ValueKey('location-chat-reply-page-indicator'),
-                semanticsLabel:
-                    'Reply ${widget.cardIndex + 1} of ${widget.cardCount}',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: GenesisColors.darkTextPrimary,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  height: 1.4,
-                ),
-              ),
-              IconButton(
-                key: const ValueKey('location-chat-reply-next-card'),
-                style: paginationButtonStyle,
-                tooltip: 'Next reply',
-                onPressed:
-                    widget.cardSwitchEnabled &&
-                        widget.cardIndex < widget.cardCount - 1
-                    ? widget.onNextCard
-                    : null,
-                icon: const Icon(Icons.chevron_right, size: 20),
-                color: GenesisColors.darkTextPrimary,
-                disabledColor: GenesisColors.darkTextTertiary,
-              ),
-            ],
-          ),
+          _buildPagination(context),
           // Label bottom inset 7.5 + gap 1 + action icon inset 7.5 = 16.
           const SizedBox(height: 1),
         ],
@@ -292,6 +224,76 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             message: 'Free inspiration uses left: ',
             remaining: _inspiration.freeUsesRemaining!,
           ),
+      ],
+    );
+  }
+
+  Widget _buildPagination(BuildContext context) {
+    // Keep the page label's inset equal to the action icon's inset (7.5).
+    // Combined with the preceding message's 8.5 gap, this gives 16 above it.
+    final paginationTextPainter = TextPainter(
+      text: TextSpan(
+        text: '${widget.cardIndex + 1} / ${widget.cardCount}',
+        style: DefaultTextStyle.of(context).style.merge(
+          const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1.4,
+          ),
+        ),
+      ),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final paginationHeight = paginationTextPainter.height + 15;
+    paginationTextPainter.dispose();
+    final paginationButtonStyle = IconButton.styleFrom(
+      minimumSize: Size(48, paginationHeight),
+      padding: EdgeInsets.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      visualDensity: VisualDensity.standard,
+    );
+    return Row(
+      key: const ValueKey('location-chat-reply-pagination'),
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        IconButton(
+          key: const ValueKey('location-chat-reply-previous-card'),
+          style: paginationButtonStyle,
+          tooltip: 'Previous reply',
+          onPressed: widget.cardSwitchEnabled && widget.cardIndex > 0
+              ? widget.onPreviousCard
+              : null,
+          icon: const Icon(Icons.chevron_left, size: 20),
+          color: GenesisColors.darkTextPrimary,
+          disabledColor: GenesisColors.darkTextTertiary,
+        ),
+        Text(
+          '${widget.cardIndex + 1} / ${widget.cardCount}',
+          key: const ValueKey('location-chat-reply-page-indicator'),
+          semanticsLabel:
+              'Reply ${widget.cardIndex + 1} of ${widget.cardCount}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: GenesisColors.darkTextPrimary,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+            height: 1.4,
+          ),
+        ),
+        IconButton(
+          key: const ValueKey('location-chat-reply-next-card'),
+          style: paginationButtonStyle,
+          tooltip: 'Next reply',
+          onPressed:
+              widget.cardSwitchEnabled &&
+                  widget.cardIndex < widget.cardCount - 1
+              ? widget.onNextCard
+              : null,
+          icon: const Icon(Icons.chevron_right, size: 20),
+          color: GenesisColors.darkTextPrimary,
+          disabledColor: GenesisColors.darkTextTertiary,
+        ),
       ],
     );
   }

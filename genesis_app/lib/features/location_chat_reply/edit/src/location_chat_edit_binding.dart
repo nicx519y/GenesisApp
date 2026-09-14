@@ -18,18 +18,11 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
     }
     final location = widget.locationId;
     final requestedRound = controller.stateFor(location)?.roundId;
-    final bindingGeneration = _replyBindingGeneration;
-    final services = _quotaServices;
-    final session = services?.sessionRevision.value;
+    final operation = _LocationChatReplyOperationScope(this);
     bool currentEditor() =>
-        mounted &&
-        widget.active &&
-        bindingGeneration == _replyBindingGeneration &&
-        identical(controller, _replyController) &&
-        controller.stateFor(location)?.roundId == requestedRound &&
-        identical(services, _quotaServices) &&
-        session == services?.sessionRevision.value &&
-        location == widget.locationId;
+        operation.canApplyToReply &&
+        operation.ownsQuotaSession &&
+        controller.stateFor(location)?.roundId == requestedRound;
     _editQuotaChecking = true;
     try {
       if (!await _checkReplyFeatureQuota(
@@ -56,7 +49,10 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
       if (!currentEditor()) {
         return;
       }
-      final messages = _replyMessageVms(target.messages, cardId: target.cardId);
+      final messages = _replyProjection.messages(
+        target.messages,
+        cardId: target.cardId,
+      );
       List<ChatroomLlmMessageOperation> operations(
         LocationChatEditResult result,
       ) => [
@@ -113,12 +109,9 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
         }
       }
     } finally {
-      if (mounted &&
-          bindingGeneration == _replyBindingGeneration &&
-          identical(services, _quotaServices) &&
-          session == services?.sessionRevision.value &&
-          widget.locationId == location &&
-          identical(controller, _replyController)) {
+      // A changed round invalidates results, but this operation still owns
+      // its loading flags until the binding or account changes.
+      if (operation.ownsReplyTarget && operation.ownsQuotaSession) {
         _setReplyControlsState(() {
           _editQuotaChecking = false;
           _preparingReplyAction = false;

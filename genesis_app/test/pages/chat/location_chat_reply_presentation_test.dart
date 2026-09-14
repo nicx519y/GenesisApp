@@ -51,29 +51,20 @@ void main() {
         replyMessageIds: ids,
         candidates: candidate,
       );
-      expect(next.messages, [
-        older,
-        mine,
-        otherUser,
-        ...candidate,
-        tick,
-        system,
-      ]);
-      expect(next.anchorIndex, 5);
+      expect(next, [older, mine, otherUser, ...candidate, tick, system]);
       final original = buildLocationChatReplyPresentation(
         source: source,
         roundId: round,
         replyMessageIds: ids,
         candidates: [character, narrator, image],
       );
-      expect(original.messages, source);
-      expect(original.anchorIndex, 6);
+      expect(original, source);
       expect(source, containsAll([character, narrator, image]));
     },
   );
 
   test(
-    'loading card hides only the AI group and retains its action anchor',
+    'loading card hides only the AI group and preserves surrounding messages',
     () {
       final result = buildLocationChatReplyPresentation(
         source: source,
@@ -81,21 +72,16 @@ void main() {
         replyMessageIds: ids,
         candidates: [],
       );
-      expect(result.messages, [older, mine, otherUser, tick, system]);
-      expect(result.anchorIndex, 3);
+      expect(result, [older, mine, otherUser, tick, system]);
     },
   );
 
-  test(
-    'without candidates original content and narrator action anchor remain',
-    () {
-      final result = buildLocationChatReplyPresentation(
-        source: source,
-        roundId: round,
-        replyMessageIds: ids,
-      );
-      expect(result.messages, source);
-      expect(result.anchorIndex, 6);
-    },
-  );
+  test('without candidates original content remains', () {
+    final result = buildLocationChatReplyPresentation(
+      source: source,
+      roundId: round,
+      replyMessageIds: ids,
+    );
+    expect(result, source);
+  });
 }

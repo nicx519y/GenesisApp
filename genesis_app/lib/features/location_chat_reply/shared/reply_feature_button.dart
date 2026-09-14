@@ -12,6 +12,7 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
     required this.label,
     required this.iconAsset,
     required this.onTap,
+    this.onBeforeInvoke,
     this.onDisabledTap,
     this.expanded,
     required this.state,
@@ -23,6 +24,7 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
   final String label;
   final String iconAsset;
   final VoidCallback? onTap;
+  final VoidCallback? onBeforeInvoke;
   final VoidCallback? onDisabledTap;
   final bool? expanded;
   final LocationChatReplyActionState state;
@@ -50,7 +52,12 @@ class LocationChatReplyFeatureButton extends StatelessWidget {
         excludeFromSemantics: true,
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: enabled ? onTap : disabledTap,
+          onTap: enabled
+              ? () {
+                  onBeforeInvoke?.call();
+                  onTap!();
+                }
+              : disabledTap,
           child: SizedBox.square(
             dimension: size,
             child: Center(

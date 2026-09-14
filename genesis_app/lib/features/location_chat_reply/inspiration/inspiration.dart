@@ -66,11 +66,7 @@ class LocationChatInspirationButton extends StatelessWidget {
     iconAsset: inspirationIconAsset,
     expanded: expanded,
     state: feature.state,
-    onTap: feature.state != LocationChatReplyActionState.idle
-        ? null
-        : () {
-            onBeforeInvoke?.call();
-            onToggle();
-          },
+    onTap: onToggle,
+    onBeforeInvoke: onBeforeInvoke,
   );
 }

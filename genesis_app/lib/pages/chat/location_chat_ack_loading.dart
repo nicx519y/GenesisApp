@@ -95,7 +95,9 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     final presentationState = _replyController?.presentationStateFor(
       widget.locationId,
     );
-    final displayMessages = _replyPresentation(presentationState).messages;
+    final displayMessages = _replyProjection
+        .presentation(presentationState)
+        .messages;
     if (!_hasVisibleAiReplyForRound(displayMessages, roundId)) return false;
     _clearAckLoading();
     return true;

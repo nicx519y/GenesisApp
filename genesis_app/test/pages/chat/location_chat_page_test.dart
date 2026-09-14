@@ -129,7 +129,6 @@ void main() {
               locationId: 'location-current',
               service: second.service,
               usePreparedEntry: true,
-              isMember: true,
               leaveOnInactive: false,
               messageQueueInitializationCovered: true,
             ),
@@ -511,7 +510,6 @@ void main() {
                     locationId: 'location-current',
                     service: harness.service,
                     usePreparedEntry: true,
-                    isMember: true,
                     leaveOnInactive: false,
                     messageQueueInitializationCovered: true,
                   );
@@ -3986,12 +3984,12 @@ void main() {
       expect(list.messages[lastIndex].status, 'streaming');
       expect(list.replyActionsIdentity, 'world-current/location-current/401');
       expect(
-        list.replyActionsAnchorIndex,
-        lastIndex + 1,
+        list.replyActionsMessageId,
+        list.messages[lastIndex].localId,
         reason:
             'One completed message must not move the toolbar inside an unfinished round.',
       );
-      expect(list.replyActionsAnchorIndex, list.messages.length);
+      expect(lastIndex, list.messages.length - 1);
       expect(list.goOnFeature.enabled, isFalse);
       expect(list.messages.where((message) => message.isMe), hasLength(1));
       await tester.pumpWidget(const SizedBox.shrink());
@@ -4007,7 +4005,6 @@ void main() {
       final harness = await _mountCompletedReplyActionPanel(
         tester,
         backend: backend,
-        isMember: false,
       );
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await _pumpUntilLocationChatTest(
@@ -4485,7 +4482,6 @@ void main() {
       final harness = await _mountCompletedReplyActionPanel(
         tester,
         backend: backend,
-        isMember: false,
       );
       backend.cards.addAll([
         backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
@@ -9211,7 +9207,6 @@ Future<
 _mountCompletedReplyActionPanel(
   WidgetTester tester, {
   required _LocationChatReplyHttpTransport backend,
-  bool isMember = true,
   bool usePreparedEntry = false,
   String conversationType = 'user_message',
   String triggerUid = 'user-1',
@@ -9235,7 +9230,6 @@ _mountCompletedReplyActionPanel(
           worldId: 'world-current',
           locationId: 'location-current',
           service: harness.service,
-          isMember: isMember,
           usePreparedEntry: usePreparedEntry,
           leaveOnInactive: false,
           messageQueueInitializationCovered: true,

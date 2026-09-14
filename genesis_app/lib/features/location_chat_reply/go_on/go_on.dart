@@ -5,20 +5,12 @@ import '../shared/reply_feature_button.dart';
 import '../shared/reply_action_state.dart';
 
 /// Public invocation contract for continuing from the current reply round.
-final class LocationChatGoOnFeature {
-  const LocationChatGoOnFeature({required this.onInvoke, required this.state});
-
-  const LocationChatGoOnFeature.disabled()
-    : onInvoke = null,
-      state = LocationChatReplyActionState.none;
-
-  final VoidCallback? onInvoke;
-  final LocationChatReplyActionState state;
-  bool get enabled => state == LocationChatReplyActionState.idle;
-  bool get busy => state == LocationChatReplyActionState.busy;
-
-  VoidCallback? get invocation =>
-      state == LocationChatReplyActionState.idle ? onInvoke : null;
+final class LocationChatGoOnFeature extends LocationChatReplyAction {
+  const LocationChatGoOnFeature({
+    required super.onInvoke,
+    required super.state,
+  });
+  const LocationChatGoOnFeature.disabled() : super.disabled();
 }
 
 class LocationChatGoOnButton extends StatelessWidget {
@@ -36,11 +28,7 @@ class LocationChatGoOnButton extends StatelessWidget {
     label: 'Go on',
     iconAsset: goOnIconAsset,
     state: feature.state,
-    onTap: feature.invocation == null
-        ? null
-        : () {
-            onBeforeInvoke?.call();
-            feature.invocation!();
-          },
+    onTap: feature.invocation,
+    onBeforeInvoke: onBeforeInvoke,
   );
 }

@@ -32,6 +32,7 @@ import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../features/location_chat_reply/shared/reply_action_state.dart';
+import '../../features/location_chat_reply/shared/reply_controls_snapshot.dart';
 import '../../components/world_new_badge.dart';
 import '../../network/chatroom/chatroom_connection_controller.dart';
 import '../../network/api_exception.dart';
@@ -73,6 +74,9 @@ part 'location_chat_ack_loading.dart';
 part '../../features/location_chat_reply/regenerate/src/location_chat_regenerate_binding.dart';
 part '../../features/location_chat_reply/go_on/src/location_chat_go_on_binding.dart';
 part 'location_chat_reply_binding.dart';
+part 'location_chat_reply_controls.dart';
+part 'location_chat_reply_operation_scope.dart';
+part 'location_chat_reply_projection_cache.dart';
 part '../../features/location_chat_reply/shared/location_chat_feature_quota_binding.dart';
 part '../../features/location_chat_reply/edit/src/location_chat_edit_binding.dart';
 part '../../features/location_chat_reply/inspiration/src/location_chat_inspiration_binding.dart';
@@ -190,7 +194,6 @@ class LocationChatPage extends StatefulWidget {
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
     this.renderBackgroundImage = true,
-    this.isMember = true,
     this.service,
     this.connection,
     this.onCharactersMovedLocationTap,
@@ -207,7 +210,6 @@ class LocationChatPage extends StatefulWidget {
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
   final bool renderBackgroundImage;
-  final bool isMember;
   final WorldChatroomService? service;
   final ChatroomConnectionController? connection;
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
@@ -295,7 +297,6 @@ class _LocationChatPageState extends State<LocationChatPage> {
       backgroundImageUrl: widget.backgroundImageUrl,
       backgroundPreviewImageUrl: widget.backgroundPreviewImageUrl,
       renderBackgroundImage: widget.renderBackgroundImage,
-      isMember: widget.isMember,
       service: widget.service,
       connection: widget.connection,
       active: true,
@@ -342,7 +343,6 @@ class LocationChatPanel extends StatefulWidget {
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
     this.renderBackgroundImage = true,
-    this.isMember = true,
     this.openingPreviewMessages = const <WorldChatroomMessage>[],
     this.openingPreviewEntities = const <WorldChatroomEntity>[],
     this.openingPlayerCharacterId = '',
@@ -391,7 +391,6 @@ class LocationChatPanel extends StatefulWidget {
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
   final bool renderBackgroundImage;
-  final bool isMember;
   final List<WorldChatroomMessage> openingPreviewMessages;
   final List<WorldChatroomEntity> openingPreviewEntities;
   final String openingPlayerCharacterId;
@@ -460,17 +459,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final ValueNotifier<int> _replyControlsRevision = ValueNotifier<int>(0);
   Object? _lastReplyBodyRevision;
   int _replyProjectionEpoch = 0;
-  Object? _replyProjectionKey;
-  ({
-    List<ChatMessageVm> messages,
-    int? anchorIndex,
-    List<ChatMessageVm> replyMessages,
-  })?
-  _replyProjectionCache;
-  Object? _replyIdentityCacheKey;
-  _LocationChatTimelineIdentityIndex? _replyIdentityCache;
-  final Map<String, _LocationChatReplyVmCache> _replyVmCaches = {};
-  late final ChatUiStyleConfig _defaultMessageStyle = kLocationChatStyle;
+  late final _replyProjection = _LocationChatReplyProjectionCache(this);
   Object? _resolvedMessageStyleKey;
   ChatUiStyleConfig? _resolvedMessageStyle;
   late final ChatMessageLongPressStart _messageLongPressHandler =
@@ -641,41 +630,33 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           .any((state) => state.goOnPending) ??
       false;
 
-  bool get _replyActionsBlocked {
+  bool _replyActionsBlockedFor({required bool goOnPending}) {
     final state = _service?.state ?? _chatroomState;
     return _sending ||
         _sendAwaitingResponse ||
         state.inputBlocked ||
         widget.worldTickInProgress ||
         _awaitingTickProgressMessage ||
-        _replyGoOnPending ||
+        goOnPending ||
         _inspirationLoading ||
         _preparingReplyAction ||
         (_usesPreparedEntry &&
             _preparedEntry?.phase != ChatroomEntryPhase.ready);
   }
 
-  bool get _regenerateReplyOperationActive =>
-      (_replyController?.stateFor(widget.locationId)?.generating ?? false) ||
-      (_replyRequestLoading && _replyLoadingForRegeneration);
-  bool get _goOnReplyOperationActive =>
-      _replyGoOnPending ||
-      (_replyRequestLoading && !_replyLoadingForRegeneration);
-  bool get _editReplyOperationActive => _editQuotaChecking || _editQuotaLoading;
-  bool get _inspirationReplyOperationActive =>
-      _inspirationQuotaChecking || _inspirationLoading;
-
-  bool _replyCardSwitchEnabledFor(ChatroomReplyRoundState? state) =>
+  bool _replyCardSwitchEnabledFor(
+    ChatroomReplyRoundState? state, {
+    bool? blocked,
+  }) =>
       widget.active &&
-      !_replyActionsBlocked &&
+      !(blocked ?? _replyActionsBlockedFor(goOnPending: _replyGoOnPending)) &&
       (state?.canSwitchCards ?? false);
 
-  bool _replyGoOnContentIsRendering(List<ChatMessageVm> messages) {
-    final pendingSources = _replyController
-        ?.statesFor(widget.locationId)
-        .where((state) => state.goOnPending)
-        .toList();
-    if (pendingSources == null || pendingSources.isEmpty) return false;
+  bool _replyGoOnContentIsRendering(
+    List<ChatMessageVm> messages,
+    List<ChatroomReplyRoundState> pendingSources,
+  ) {
+    if (pendingSources.isEmpty) return false;
     return messages.any((message) {
       if (message.text.trim().isEmpty) return false;
       final round = int.tryParse(message.roundId);
@@ -745,10 +726,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     super.initState();
     _optimisticSelfOccupancy = widget.active && widget.isLeafLocation;
     locationChatHeaderEffectSettings.addListener(
-      _handleHeaderEffectSettingsChanged,
+      _handleChatStyleSettingsChanged,
     );
     locationChatBubbleLayoutSettings.addListener(
-      _handleBubbleLayoutSettingsChanged,
+      _handleChatStyleSettingsChanged,
     );
     unawaited(locationChatBubbleLayoutSettings.load());
     unawaited(locationChatHeaderEffectSettings.load());
@@ -811,12 +792,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _setLocationChatState(() => _androidSdkInt = sdkInt);
   }
 
-  void _handleHeaderEffectSettingsChanged() {
-    if (!mounted) return;
-    _setLocationChatState(() {});
-  }
-
-  void _handleBubbleLayoutSettingsChanged() {
+  void _handleChatStyleSettingsChanged() {
     if (!mounted) return;
     _setLocationChatState(() {});
   }
@@ -826,10 +802,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _clearAckLoading();
     _unbindFeatureQuotas();
     locationChatHeaderEffectSettings.removeListener(
-      _handleHeaderEffectSettingsChanged,
+      _handleChatStyleSettingsChanged,
     );
     locationChatBubbleLayoutSettings.removeListener(
-      _handleBubbleLayoutSettingsChanged,
+      _handleChatStyleSettingsChanged,
     );
     _detachReplyActions();
     _replyControlsRevision.dispose();
@@ -1012,7 +988,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     if (_resolvedMessageStyleKey != styleKey || _resolvedMessageStyle == null) {
       _resolvedMessageStyleKey = styleKey;
       _resolvedMessageStyle = resolveLocationChatHeaderEffectStyle(
-        baseStyle: widget.style ?? _defaultMessageStyle,
+        baseStyle: widget.style ?? kLocationChatStyle,
         settings: locationChatHeaderEffectSettings.value,
       );
     }
@@ -1149,7 +1125,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     final replyPresentationState = awaitingOpeningEcho
         ? null
         : _displayReplyState;
-    final replyPresentation = _replyPresentation(replyPresentationState);
+    final replyPresentation = _replyProjection.presentation(
+      replyPresentationState,
+    );
     final replyActionsIdentity = replyPresentationState == null
         ? null
         : '${widget.worldId}/${widget.locationId}/${replyPresentationState.roundId}';
@@ -1175,85 +1153,29 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               : (_usesPreparedEntry
                     ? _preparedEntry?.snapshot?.actions
                     : _replyController?.stateFor(widget.locationId));
-          // A Tick can supersede an in-flight action before its ACK clears the
-          // old toolbar. Keep its candidate content, but retire its controls.
-          final tickSupersededReply =
-              _deferredTickLocalId != null ||
-              (replyPresentationState?.invalidatedByTick ?? false) ||
-              (_replyController
-                      ?.statesFor(widget.locationId)
-                      .any(
-                        (source) =>
-                            source.invalidatedByTick &&
-                            (source.generating || source.goOnPending),
-                      ) ??
-                  false);
-          final replyGoOnPending = _replyGoOnPending;
-          final regenerationInProgress =
-              (replyState?.generating ?? false) ||
-              (_replyRequestLoading && _replyLoadingForRegeneration);
-          if (regenerationInProgress &&
-              _replyRegenerationContentIsRendering(
-                replyState,
-                displayMessages,
-              )) {
-            _replyRegenerationHasRenderedContent = true;
-          }
-          final regenerationContentRendering =
-              regenerationInProgress && _replyRegenerationHasRenderedContent;
-          final goOnContentIsRendering = _replyGoOnContentIsRendering(
+          final controls = _replyControlsFor(
+            replyState,
+            replyPresentationState,
             displayMessages,
           );
-          final acceptedGoOnSource = _replyController
-              ?.statesFor(widget.locationId)
-              .where((state) => state.goOnPending && state.goOnRoundId != null)
-              .firstOrNull;
-          final goOnAwaitingRenderedContent =
-              !tickSupersededReply &&
-              acceptedGoOnSource != null &&
-              !goOnContentIsRendering;
-          final goOnPreAckCapabilities =
-              _goOnReplyOperationActive && !goOnAwaitingRenderedContent
-              ? _goOnPreAckCapabilities
-              : null;
-          final replyBlocked = _replyActionsBlocked;
-          final replyCardSwitchEnabled = _replyCardSwitchEnabledFor(
-            replyPresentationState,
-          );
-          final regenerateFeature =
-              tickSupersededReply || goOnAwaitingRenderedContent
+          final actions = controls.actions;
+          final regenerateFeature = actions.hidden
               ? const LocationChatRegenerateFeature.disabled()
-              : _regenerateFeature(
-                  replyBlocked,
-                  replyState,
-                  regenerationContentRendering,
-                  supportedOverride: goOnPreAckCapabilities?.regenerate,
-                );
-          final goOnFeature = tickSupersededReply || goOnAwaitingRenderedContent
+              : _regenerateFeature(actions);
+          final goOnFeature = actions.hidden
               ? const LocationChatGoOnFeature.disabled()
-              : _goOnFeature(
-                  replyBlocked,
-                  replyState,
-                  replyGoOnPending,
-                  goOnContentIsRendering,
-                );
-          final editFeature = tickSupersededReply || goOnAwaitingRenderedContent
+              : _goOnFeature(actions.goOn);
+          final editFeature = actions.hidden
               ? const LocationChatEditFeature.disabled()
               : _editFeature(
-                  replyBlocked,
-                  replyState,
+                  actions.edit,
                   style,
                   ordinaryMessageBubbleMaxWidthCaps.selfMessage,
                   ordinaryMessageBubbleMaxWidthCaps.otherMessage,
-                  supportedOverride: goOnPreAckCapabilities?.edit,
                 );
-          final inspirationFeature =
-              tickSupersededReply || goOnAwaitingRenderedContent
+          final inspirationFeature = actions.hidden
               ? const LocationChatInspirationFeature.disabled()
-              : _inspirationFeature(
-                  replyBlocked,
-                  supportedOverride: goOnPreAckCapabilities?.inspiration,
-                );
+              : _inspirationFeature(actions.inspiration);
           return LocationChatAnchoredMessageList(
             key: const ValueKey<String>('location-chat-message-list'),
             coordinator: _scrollCoordinator,
@@ -1261,32 +1183,27 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             messages: displayMessages,
             loadingAfterMessageLocalId: loadingAfterMessageLocalId,
             loadingIdentity: _ackLoadingClientMsgId,
-            goOnAwaitingContentIdentity: goOnAwaitingRenderedContent
-                ? 'go-on:${acceptedGoOnSource.roundId}:${acceptedGoOnSource.goOnRoundId}'
-                : null,
+            goOnAwaitingContentIdentity: controls.goOnAwaitingContentIdentity,
             messageLayoutId: _locationChatMessageLayoutId,
             replyActionsIdentity: replyActionsIdentity,
             replyActionsMessageId:
                 replyPresentation.replyMessages.lastOrNull?.localId,
-            replyActionsAnchorIndex: replyPresentation.anchorIndex,
             replyActionsVisible:
-                !goOnContentIsRendering &&
+                !controls.goOnContentIsRendering &&
                 _suppressedReplyActionsIdentity != replyActionsIdentity,
             replyPresentationRevision:
                 replyPresentationState?.presentationRevision ?? 0,
-            replyCards: _replyCardPages(
+            replyCards: _replyProjection.cards(
               replyPresentationState,
               replyPresentation.replyMessages,
             ),
             replyCurrentCardId: replyPresentationState?.viewedCardId ?? 0,
             replyCardBindingIdentity:
                 '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyPresentationState?.roundId}',
-            replyCardSwitchEnabled:
-                !tickSupersededReply && replyCardSwitchEnabled,
-            replyRegenerationInProgress: regenerationInProgress,
+            replyCardSwitchEnabled: controls.cardSwitchEnabled,
+            replyRegenerationInProgress: controls.regenerationInProgress,
             onReplyCardSelected: _commitReplyCard,
             onReplyCardTransitionChanged: _replyTransitionChangedHandler,
-            isMember: widget.isMember,
             regenerateFeature: regenerateFeature,
             goOnFeature: goOnFeature,
             editFeature: editFeature,
@@ -1294,15 +1211,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               0,
               (replyPresentationState?.cardPosition ?? 1) - 1,
             ),
-            replyCardCount: tickSupersededReply
+            replyCardCount: controls.tickSupersededReply
                 ? 0
                 : replyPresentationState?.cardCount ?? 0,
             replyCardsConfirmed: replyPresentationState?.confirmed ?? false,
-            showConfirmedCardPagination:
-                !tickSupersededReply &&
-                (replyPresentationState?.confirmed ?? false) &&
-                (replyPresentationState?.goOnPending ?? false) &&
-                !goOnContentIsRendering,
+            showConfirmedCardPagination: controls.showConfirmedCardPagination,
             onPreviousReplyCard: () => _browseReplyCard(-1),
             onNextReplyCard: () => _browseReplyCard(1),
             inspirationFeature: inspirationFeature,

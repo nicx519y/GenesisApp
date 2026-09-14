@@ -13,30 +13,10 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
   }
 
   LocationChatInspirationFeature _inspirationFeature(
-    bool replyBlocked, {
-    bool? supportedOverride,
-  }) => LocationChatInspirationFeature(
+    LocationChatReplyActionState state,
+  ) => LocationChatInspirationFeature(
     messages: _inspirationMessages,
-    state: resolveLocationChatReplyActionState(
-      showWhenUnavailable: _usesPreparedEntry,
-      busy: _inspirationLoading,
-      supported:
-          supportedOverride ??
-          (_usesPreparedEntry
-                  ? _displayReplyState
-                  : _replyController?.stateFor(widget.locationId))
-              ?.supportsInspiration ??
-          false,
-      otherReplyOperationActive:
-          _regenerateReplyOperationActive ||
-          _goOnReplyOperationActive ||
-          _editReplyOperationActive,
-      canInvoke:
-          !replyBlocked &&
-          _currentInspirationSource != null &&
-          !_sending &&
-          !_preparingReplyAction,
-    ),
+    state: state,
     freeUsesRemaining: _freeUsesRemaining(
       'inspiration',
       queried: _inspirationQuotaQueried,
@@ -128,17 +108,13 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     }
     _inspirationQuotaChecking = true;
     final generation = ++_inspirationRequestGeneration;
-    final binding = _replyBindingGeneration;
-    final services = _quotaServices;
-    final session = services?.sessionRevision.value;
+    final operation = _LocationChatReplyOperationScope(this);
     bool current() =>
-        mounted &&
+        operation.ownsBinding &&
         widget.active &&
         generation == _inspirationRequestGeneration &&
-        binding == _replyBindingGeneration &&
         identical(service, _service) &&
-        identical(services, _quotaServices) &&
-        session == services?.sessionRevision.value &&
+        operation.ownsQuotaSession &&
         source.sameOrigin(_currentInspirationSource);
     _setReplyControlsState(() {
       _inspirationRequestSource = source;
@@ -192,6 +168,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         showGenesisToast(context, chatroomOperationErrorMessage(error));
       }
     } finally {
+      // Source changes reject the result; only a newer request owns these flags.
       if (mounted && generation == _inspirationRequestGeneration) {
         _setReplyControlsState(() {
           _inspirationQuotaChecking = false;

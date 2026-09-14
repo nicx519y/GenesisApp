@@ -156,7 +156,6 @@ class _ReplyRoundPerformance {
       state.isLatest,
       for (final card in state._cards)
         (card.cardId, card.generationState, card.billing, card.error),
-      ...state._openEditors,
       ...state._uncertainBatches,
       for (final draft in state._drafts.entries) (draft.key, draft.value),
     ];

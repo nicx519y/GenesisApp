@@ -1,5 +1,21 @@
+import 'package:flutter/foundation.dart';
+
 /// Presentation state of one reply action for the current conversation round.
 enum LocationChatReplyActionState { none, disabled, busy, idle }
+
+/// Common invocation contract; feature-specific data stays on each feature.
+class LocationChatReplyAction {
+  const LocationChatReplyAction({required this.onInvoke, required this.state});
+  const LocationChatReplyAction.disabled()
+    : onInvoke = null,
+      state = LocationChatReplyActionState.none;
+
+  final VoidCallback? onInvoke;
+  final LocationChatReplyActionState state;
+  bool get enabled => state == LocationChatReplyActionState.idle;
+  bool get busy => state == LocationChatReplyActionState.busy;
+  VoidCallback? get invocation => enabled ? onInvoke : null;
+}
 
 LocationChatReplyActionState resolveLocationChatReplyActionState({
   required bool busy,
