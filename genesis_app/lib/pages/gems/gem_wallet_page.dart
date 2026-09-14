@@ -272,6 +272,7 @@ class _GemWalletPageState extends State<GemWalletPage>
                   child: _subscriptionVisited
                       ? ProSubscriptionContent(
                           refreshMembershipOnOpen: false,
+                          closeOnPurchaseSuccess: true,
                           horizontalInset: 16,
                           productsLoader: widget.membershipProductsLoader,
                         )

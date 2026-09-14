@@ -31,7 +31,7 @@ Future<void> openGuestApp(
   Widget subscription() => ProSubscriptionContent(
     productsLoader: loadTestMembershipOffers,
     purchaseService: h.service,
-    closeOnPurchaseSuccess: inPurchaseSheet,
+    closeOnPurchaseSuccess: inPurchaseSheet || inPurchasePage,
   );
   await tester.pumpWidget(
     MaterialApp(
@@ -162,6 +162,13 @@ void main() {
       expect(find.text('Purchase successful!'), findsOneWidget);
       expect(find.text('Me'), findsNothing);
       await tester.tap(find.text('Enjoy it'));
+      await tester.pumpAndSettle();
+      expect(find.byType(LoginSheet), findsOneWidget);
+      expect(
+        find.byType(ProSubscriptionContent, skipOffstage: false),
+        findsNothing,
+      );
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
       await tester.tap(find.text('Continue with Google'));

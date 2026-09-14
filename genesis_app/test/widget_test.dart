@@ -2720,6 +2720,105 @@ void main() {
     }
   }
 
+  for (final inSheet in [false, true]) {
+    testWidgets(
+      'Premium Enjoy it returns to the purchase entry inSheet=$inSheet',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final h = membership_support.Harness();
+        final services = await _testServices(membershipPurchases: h.service);
+        try {
+          await tester.pumpWidget(
+            AppServicesScope(
+              services: services,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () {
+                        if (inSheet) {
+                          unawaited(
+                            showModalBottomSheet<void>(
+                              context: context,
+                              isScrollControlled: true,
+                              builder: (_) => SizedBox(
+                                height: 740,
+                                child: PurchaseOptionsSheet(
+                                  initialTab: PurchaseSheetTab.subscription,
+                                  membershipProductsLoader:
+                                      loadTestMembershipOffers,
+                                  gemsBuilder: (_) => const SizedBox.shrink(),
+                                ),
+                              ),
+                            ),
+                          );
+                        } else {
+                          unawaited(
+                            Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const GemWalletPage(
+                                  showSubscriptionInitially: true,
+                                  membershipProductsLoader:
+                                      loadTestMembershipOffers,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Purchase entry'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Purchase entry'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+          await tester.pump(const Duration(milliseconds: 250));
+          await h.service.interceptPurchase(
+            h.purchase(yearly: true, status: BillingPurchaseStatus.canceled),
+          );
+          await tester.pumpAndSettle();
+          await tester.pump(const Duration(seconds: 3));
+          expect(
+            find.byKey(const ValueKey('pro-subscribe-button')),
+            findsOneWidget,
+          );
+          await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+          await tester.pump(const Duration(milliseconds: 250));
+          await h.service.interceptPurchase(h.purchase(yearly: true));
+          await tester.pumpAndSettle();
+          expect(find.text('Enjoy it'), findsOneWidget);
+          expect(
+            find.byType(inSheet ? PurchaseOptionsSheet : GemWalletPage),
+            findsOneWidget,
+          );
+          await tester.tap(find.text('Enjoy it'));
+          await tester.pumpAndSettle();
+          expect(find.text('Enjoy it'), findsNothing);
+          expect(find.byType(GemWalletPage, skipOffstage: false), findsNothing);
+          expect(
+            find.byType(PurchaseOptionsSheet, skipOffstage: false),
+            findsNothing,
+          );
+          expect(find.text('Purchase entry'), findsOneWidget);
+          expect(
+            Navigator.of(tester.element(find.text('Purchase entry'))).canPop(),
+            isFalse,
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+      },
+    );
+  }
+
   for (final initialIndex in [0, 1]) {
     testWidgets(
       'app entry discovers store UUID without requiring Home: tab=$initialIndex',
