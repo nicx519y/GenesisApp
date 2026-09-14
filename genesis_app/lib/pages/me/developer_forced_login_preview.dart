@@ -16,9 +16,23 @@ Future<bool?> showDeveloperForcedLoginPreview(BuildContext context) =>
       enableDrag: false,
       backgroundColor: Colors.transparent,
       builder: (context) => SizedBox.expand(
-        child: Stack(
-          alignment: Alignment.bottomCenter,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Padding(
+              padding: const EdgeInsets.only(right: 16, bottom: 12),
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: GenesisDarkTheme(
+                  child: FilledButton.tonal(
+                    key: const ValueKey('forced-login-preview-close'),
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: const Text('Close preview'),
+                  ),
+                ),
+              ),
+            ),
             LoginSheet(
               isDismissible: false,
               onLogin: (_) async {
@@ -31,32 +45,6 @@ Future<bool?> showDeveloperForcedLoginPreview(BuildContext context) =>
                 }
                 return true;
               },
-            ),
-            Positioned(
-              top: MediaQuery.paddingOf(context).top + 8,
-              left: 16,
-              right: 16,
-              child: GenesisDarkTheme(
-                child: Material(
-                  color: Colors.transparent,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      FilledButton.tonal(
-                        key: const ValueKey('forced-login-preview-close'),
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text('Close preview'),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Preview only. Tap Google / Apple to simulate sign-in.',
-                        textAlign: TextAlign.right,
-                        style: TextStyle(fontSize: 12, height: 1.4),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
             ),
           ],
         ),

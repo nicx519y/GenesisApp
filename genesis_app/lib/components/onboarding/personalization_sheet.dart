@@ -73,6 +73,8 @@ class PersonalizationSheet extends StatefulWidget {
 
   final Future<PersonalizationProfile?> Function(IdentityProvider) onSignIn;
   final WidgetBuilder subscriptionBuilder;
+  static const double sheetHeight = 600;
+
   final PersonalizationStep initialStep;
   final PersonalizationProfile initialProfile;
   final bool initiallySignedIn;
@@ -135,15 +137,15 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
-    final available = math.max(
-      0.0,
-      media.size.height - media.padding.top - media.padding.bottom - 18,
+    // Modal routes remove top MediaQuery padding. Read the window safe inset
+    // so this offset also includes the status bar / camera area on each device.
+    final view = View.of(context);
+    final safeTop = view.viewPadding.top / view.devicePixelRatio;
+    final totalHeight = math.min(
+      PersonalizationSheet.sheetHeight,
+      math.max(0.0, media.size.height - safeTop - 18),
     );
-    // All three steps share one route and one height, matching the purchase sheet.
-    final height = math.min(
-      available,
-      media.size.height * .8 - media.padding.bottom,
-    );
+    final height = math.max(0.0, totalHeight - media.padding.bottom);
 
     return PopScope(
       canPop: _step == PersonalizationStep.subscription,
@@ -160,7 +162,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
             child: GenesisBottomSheetPanel(
               title: '',
               height: height,
-              padding: const EdgeInsets.only(bottom: 14),
+              padding: EdgeInsets.zero,
               insetBody: false,
               header: _PersonalizationHeader(
                 step: _step,
@@ -170,6 +172,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
               child: SizedBox(
                 key: const ValueKey('personalization-body'),
                 child: GenesisActionSheetBody(
+                  bottom: _step == PersonalizationStep.form ? 14 : 0,
                   child: _step == PersonalizationStep.subscription
                       ? _subscription()
                       : _step == PersonalizationStep.form
@@ -189,6 +192,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
       final minimumHeight =
           520 * MediaQuery.textScalerOf(context).scale(16) / 16;
       return SingleChildScrollView(
+        key: const ValueKey('personalization-subscription-scroll'),
         child: SizedBox(
           height: math.max(constraints.maxHeight, minimumHeight),
           child: widget.subscriptionBuilder(context),
@@ -199,6 +203,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
 
   Widget _form() => LayoutBuilder(
     builder: (context, constraints) => SingleChildScrollView(
+      key: const ValueKey('personalization-form-scroll'),
       child: ConstrainedBox(
         constraints: BoxConstraints(minHeight: constraints.maxHeight),
         child: IntrinsicHeight(
@@ -234,12 +239,20 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
                 columns: 2,
                 maxWidth: constraints.maxWidth,
               ),
-              const SizedBox(height: 28),
-              const Spacer(),
+              const SizedBox(height: 40),
               GenesisPrimaryButton(
                 key: const ValueKey('personalization-continue'),
                 label: 'Continue',
                 height: 48,
+                onDisabledPressed: () => showGenesisToast(
+                  context,
+                  _gender == null && _age == null
+                      ? 'Please select your gender and age.'
+                      : _gender == null
+                      ? 'Please select your gender.'
+                      : 'Please select your age.',
+                  brightness: Brightness.dark,
+                ),
                 onPressed: _profile.isComplete
                     ? () => setState(
                         () => _step = PersonalizationStep.subscription,
@@ -283,20 +296,42 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
     ),
   );
 
-  Widget _login() => SingleChildScrollView(
-    child: Column(
-      children: [
-        LoginProviderButtons(
-          loggingInProvider: _signingIn,
-          onLogin: _signIn,
-          spacing: 12,
+  Widget _login() => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      key: const ValueKey('personalization-login-scroll'),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: constraints.maxHeight),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            const SizedBox(height: 16),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                'assets/images/app_icon.png',
+                key: const ValueKey('personalization-login-app-icon'),
+                width: 96,
+                height: 96,
+                fit: BoxFit.contain,
+                semanticLabel: 'Worldo',
+              ),
+            ),
+            const SizedBox(height: 40),
+            const LoginSignupRewardText(),
+            const SizedBox(height: 12),
+            LoginProviderButtons(
+              loggingInProvider: _signingIn,
+              onLogin: _signIn,
+              spacing: 12,
+            ),
+            const SizedBox(height: 20),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: LoginLegalText(),
+            ),
+          ],
         ),
-        const SizedBox(height: 20),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 16),
-          child: LoginLegalText(),
-        ),
-      ],
+      ),
     ),
   );
 
@@ -359,7 +394,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
                             : GenesisColors.darkTextSecondary,
                         backgroundColor: value == selected
                             ? GenesisColors.redPrimary.withValues(alpha: .12)
-                            : GenesisColors.darkCardBackground,
+                            : GenesisColors.darkPurchaseCardBackground,
                         side: BorderSide(
                           color: value == selected
                               ? GenesisColors.redPrimary
@@ -438,7 +473,7 @@ class _PersonalizationHeader extends StatelessWidget {
             key: const ValueKey('personalization-skip'),
             onPressed: onSkip,
             style: TextButton.styleFrom(
-              foregroundColor: GenesisColors.darkTextPrimary,
+              foregroundColor: GenesisColors.darkTextSecondary,
               minimumSize: const Size(44, 28),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               padding: const EdgeInsets.symmetric(horizontal: 8),

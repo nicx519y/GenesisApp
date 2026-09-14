@@ -17,6 +17,26 @@ const double _googleProviderIconSize = 22;
 const double _appleProviderIconSize = 22;
 const double _loginProviderSpinnerSize = 22;
 
+/// Shared sign-up reward copy for normal and onboarding login sheets.
+class LoginSignupRewardText extends StatelessWidget {
+  const LoginSignupRewardText({super.key});
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(
+    width: double.infinity,
+    child: Text(
+      'Sign up and get 250 Gems!',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        color: GenesisColors.redSecondary,
+        height: 1.35,
+      ),
+    ),
+  );
+}
+
 class LoginProviderButtons extends StatelessWidget {
   const LoginProviderButtons({
     super.key,

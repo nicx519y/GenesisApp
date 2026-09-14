@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
+import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/pages/me/developer_forced_login_preview.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_dark_close_button.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
@@ -41,6 +42,12 @@ void main() {
       isFalse,
     );
     expect(find.byType(GenesisDarkCloseButton), findsNothing);
+    final panel = tester.getRect(find.byType(GenesisBottomSheetPanel));
+    final close = tester.getRect(
+      find.byKey(const ValueKey('forced-login-preview-close')),
+    );
+    expect(panel.top - close.bottom, 12);
+    expect(panel.right - close.right, 16);
     await tester.tapAt(const Offset(10, 260));
     await tester.binding.handlePopRoute();
     await tester.drag(find.text('Sign up to continue'), const Offset(0, 200));

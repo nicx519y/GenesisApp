@@ -1,0 +1,51 @@
+{
+  "manifest_generated_at": "2026-09-14T01:31:38.236162+08:00",
+  "source": "adb exec-out screencap -p，连接 Android 真机；Developer 前端预览，非 widget 渲染图",
+  "resolution": [
+    1080,
+    2340
+  ],
+  "logical_size": [
+    384,
+    832
+  ],
+  "device_pixel_ratio": 2.8125,
+  "capture_notes": "Google 登录为本地预览模拟；未触发真实 OAuth 或支付。Preview options 与 debug 是开发入口。",
+  "files": [
+    {
+      "file": "01-form-empty-phone.png",
+      "sha256": "9e761004cae2db3d837dbef52fa57976551f14dc36fe13889bca368919fad3a7",
+      "captured_at": "2026-09-14T01:28:15.498360+08:00"
+    },
+    {
+      "file": "02-form-validation-phone.png",
+      "sha256": "2b64537bd3a63e37cea8e1fe1e8e9baf7bea9d28712ed830788de617fd76a62d",
+      "captured_at": "2026-09-14T01:28:16.314113+08:00"
+    },
+    {
+      "file": "04-sign-in-phone.png",
+      "sha256": "ed27b0ee38f08dc8da43a1c4599323dd205bf93454842ef9e8d994b4195e0c28",
+      "captured_at": "2026-09-14T01:18:17.622757+08:00"
+    },
+    {
+      "file": "05-signed-in-form-phone.png",
+      "sha256": "731309ba83d6e2d01f61b83fea45b7927ac7b6d22b5003b82345802b4dbcbf5c",
+      "captured_at": "2026-09-14T01:18:32.687642+08:00"
+    },
+    {
+      "file": "06-subscription-phone.png",
+      "sha256": "fd54ebf719d23e8173a0c90650763003fc73f2ac137da7b3c8364fa08f4f077e",
+      "captured_at": "2026-09-14T01:18:45.130178+08:00"
+    },
+    {
+      "file": "07-subscription-benefits-phone.png",
+      "sha256": "02dac40d48d32b9e46d85d7567a6e08847c3aa74edd2156f5376bad569b1d1a5",
+      "captured_at": "2026-09-14T01:18:57.676792+08:00"
+    },
+    {
+      "file": "08-worldo-list-phone.png",
+      "sha256": "5d403babc310232c67a66fb2f66d3fc75d85d0ea6eb642cdb8f338957f47ede7",
+      "captured_at": "2026-09-14T01:18:59.044127+08:00"
+    }
+  ]
+}

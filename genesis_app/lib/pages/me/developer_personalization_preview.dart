@@ -144,51 +144,56 @@ class _DeveloperPersonalizationPreviewState
       age: PersonalizationAge.age25to34,
     );
     return SizedBox.expand(
-      child: Stack(
-        alignment: Alignment.bottomCenter,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          PersonalizationSheet(
-            key: ValueKey(_revision),
-            initialStep: switch (scenario) {
-              PersonalizationPreviewScenario.signInComplete =>
-                PersonalizationStep.signIn,
-              PersonalizationPreviewScenario.subscription =>
-                PersonalizationStep.subscription,
-              _ => PersonalizationStep.form,
-            },
-            initiallySignedIn:
-                scenario == PersonalizationPreviewScenario.signedInEmpty,
-            initialProfile:
-                scenario == PersonalizationPreviewScenario.subscription
-                ? completeProfile
-                : const PersonalizationProfile(),
-            onSignIn: (_) async {
-              await Future<void>.delayed(const Duration(milliseconds: 450));
-              return scenario == PersonalizationPreviewScenario.signInComplete
-                  ? completeProfile
-                  : const PersonalizationProfile();
-            },
-            subscriptionBuilder: (context) => ProSubscriptionContent(
-              topSpacing: 0,
-              horizontalInset: 0,
-              productsLoader: loadPersonalizationPreviewCatalog,
-              purchaseHandler: (_) async => showGenesisToast(
-                context,
-                'Preview only — no purchase was made.',
-                brightness: Brightness.dark,
+          Padding(
+            padding: const EdgeInsets.only(right: 16, bottom: 12),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: GenesisDarkTheme(
+                child: Material(
+                  color: Colors.transparent,
+                  child: FilledButton.tonal(
+                    key: const ValueKey('onboarding-preview-options'),
+                    onPressed: _options,
+                    child: const Text('Preview options'),
+                  ),
+                ),
               ),
             ),
           ),
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 8,
-            right: 16,
-            child: GenesisDarkTheme(
-              child: Material(
-                color: Colors.transparent,
-                child: FilledButton.tonal(
-                  key: const ValueKey('onboarding-preview-options'),
-                  onPressed: _options,
-                  child: const Text('Preview options'),
+          Flexible(
+            child: PersonalizationSheet(
+              key: ValueKey(_revision),
+              initialStep: switch (scenario) {
+                PersonalizationPreviewScenario.signInComplete =>
+                  PersonalizationStep.signIn,
+                PersonalizationPreviewScenario.subscription =>
+                  PersonalizationStep.subscription,
+                _ => PersonalizationStep.form,
+              },
+              initiallySignedIn:
+                  scenario == PersonalizationPreviewScenario.signedInEmpty,
+              initialProfile:
+                  scenario == PersonalizationPreviewScenario.subscription
+                  ? completeProfile
+                  : const PersonalizationProfile(),
+              onSignIn: (_) async {
+                await Future<void>.delayed(const Duration(milliseconds: 450));
+                return scenario == PersonalizationPreviewScenario.signInComplete
+                    ? completeProfile
+                    : const PersonalizationProfile();
+              },
+              subscriptionBuilder: (context) => ProSubscriptionContent(
+                topSpacing: 0,
+                horizontalInset: 0,
+                productsLoader: loadPersonalizationPreviewCatalog,
+                purchaseHandler: (_) async => showGenesisToast(
+                  context,
+                  'Preview only — no purchase was made.',
+                  brightness: Brightness.dark,
                 ),
               ),
             ),
@@ -216,20 +221,50 @@ Future<MembershipCatalogData> loadPersonalizationPreviewCatalog() async =>
               priceAmount: yearly ? 5999 : 999,
               benefits: const [
                 MembershipBenefit(
-                  code: 'preview_worlds',
-                  title: 'Explore more worlds',
-                  iconKey: 'community_world',
-                  displayType: MembershipBenefitDisplay.included,
+                  code: 'preview_monthly_gems',
+                  title: 'Up to 3,500 Gems Monthly',
+                  iconKey: 'blue_gem',
+                  displayType: MembershipBenefitDisplay.enhanced,
                 ),
                 MembershipBenefit(
-                  code: 'preview_stories',
-                  title: 'Create your own stories',
-                  iconKey: 'custom_character',
-                  displayType: MembershipBenefitDisplay.included,
+                  code: 'preview_story_recap',
+                  title: 'Story Recap the AI Remembers beyond Memory',
+                  iconKey: 'memory',
+                  displayType: MembershipBenefitDisplay.enhanced,
                 ),
                 MembershipBenefit(
-                  code: 'preview_gems',
-                  title: 'Monthly Gems',
+                  code: 'preview_pink_gems',
+                  title: 'Free 2,000 Pink Gems per Month',
+                  iconKey: 'blue_gem',
+                  displayType: MembershipBenefitDisplay.enhanced,
+                ),
+                MembershipBenefit(
+                  code: 'preview_daily_red_gems',
+                  title: 'Free 50 Extra Red Gems per Daily Check-in',
+                  iconKey: 'blue_gem',
+                  displayType: MembershipBenefitDisplay.enhanced,
+                ),
+                MembershipBenefit(
+                  code: 'preview_inspirations',
+                  title: 'Unlimited Inspirations',
+                  iconKey: 'inspiration',
+                  displayType: MembershipBenefitDisplay.enhanced,
+                ),
+                MembershipBenefit(
+                  code: 'preview_editing',
+                  title: 'Unlimited Editing',
+                  iconKey: 'edit_reply',
+                  displayType: MembershipBenefitDisplay.enhanced,
+                ),
+                MembershipBenefit(
+                  code: 'preview_badge',
+                  title: 'Exclusive Premium Badge',
+                  iconKey: 'premium_badge',
+                  displayType: MembershipBenefitDisplay.enhanced,
+                ),
+                MembershipBenefit(
+                  code: 'preview_recharge',
+                  title: 'Gem Recharge',
                   iconKey: 'blue_gem',
                   displayType: MembershipBenefitDisplay.included,
                 ),

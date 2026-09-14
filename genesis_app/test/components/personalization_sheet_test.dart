@@ -42,6 +42,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(control('sign-in'), findsOneWidget);
       final panel = tester.getRect(find.byType(GenesisBottomSheetPanel));
+      final options = tester.getRect(
+        find.byKey(const ValueKey('onboarding-preview-options')),
+      );
+      expect(panel.top - options.bottom, 12);
+      expect(panel.right - options.right, 16);
       final header = tester.getRect(control('header'));
       final body = tester.getRect(control('body'));
       final titleStyle = tester.widget<Text>(control('header-title')).style;
@@ -154,9 +159,15 @@ void main() {
     bool fail = false,
     Size size = const Size(390, 844),
     double scale = 1,
+    double safeTop = 47,
+    double safeBottom = 34,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
+    tester.view.viewPadding = FakeViewPadding(top: safeTop, bottom: safeBottom);
+    tester.view.padding = FakeViewPadding(top: safeTop, bottom: safeBottom);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetPadding);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
@@ -197,7 +208,10 @@ void main() {
   }
 
   Future<void> tap(WidgetTester tester, String name) async {
-    await tester.ensureVisible(control(name));
+    await Scrollable.ensureVisible(
+      tester.element(control(name)),
+      alignment: .5,
+    );
     await tester.tap(control(name));
     await tester.pumpAndSettle();
   }
@@ -242,6 +256,9 @@ void main() {
       await icons.load();
       await open(tester);
       final panel = tester.getRect(find.byType(GenesisBottomSheetPanel));
+      expect(panel.height, 600);
+      expect(panel.top, 844 - 600);
+      expect(panel.bottom, 844);
       final header = tester.getRect(control('header'));
       final body = tester.getRect(control('body'));
       final titleStyle = tester.widget<Text>(control('header-title')).style;
@@ -266,8 +283,16 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(formTitle), findsOneWidget);
       await capture(tester, 'empty');
+      await tap(tester, 'continue');
+      expect(find.text('Please select your gender and age.'), findsOneWidget);
+      expect(find.text(formTitle), findsOneWidget);
+      await tester.pump(const Duration(seconds: 3));
       await tap(tester, 'Female');
       expect(enabled(tester), isFalse);
+      await tap(tester, 'continue');
+      expect(find.text('Please select your age.'), findsOneWidget);
+      expect(find.text('Skip'), findsNothing);
+      await tester.pump(const Duration(seconds: 3));
       await tap(tester, '25-34');
       expect(enabled(tester), isTrue);
       final continueRect = tester.getRect(control('continue'));
@@ -331,8 +356,14 @@ void main() {
     await login(tester);
     expect(find.text(formTitle), findsOneWidget);
     expect(enabled(tester), isFalse);
-    await tap(tester, 'Male');
+    await tap(tester, '18-24');
     expect(enabled(tester), isFalse);
+    await tap(tester, 'continue');
+    expect(find.text('Please select your gender.'), findsOneWidget);
+    expect(find.text('Skip'), findsNothing);
+    await tester.pump(const Duration(seconds: 3));
+    await tap(tester, 'Male');
+    expect(enabled(tester), isTrue);
   });
   for (final fail in [false, true]) {
     testWidgets('canceled or failed login keeps sheet open: fail=$fail', (
@@ -350,7 +381,13 @@ void main() {
   testWidgets('small screen with large text keeps form scrollable', (
     tester,
   ) async {
-    await open(tester, size: const Size(320, 568), scale: 1.5);
+    await open(
+      tester,
+      size: const Size(320, 568),
+      scale: 1.5,
+      safeTop: 20,
+      safeBottom: 0,
+    );
     await tap(tester, 'Non_binary');
     await tap(tester, '45+');
     await tester.ensureVisible(control('continue'));
