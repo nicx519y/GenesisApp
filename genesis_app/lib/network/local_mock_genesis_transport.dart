@@ -2553,7 +2553,7 @@ class _MockState {
     return {
       'selected_model_code':
           _v1SelectedGemModelByWorldId[worldId] ?? 'top_pick_v3',
-      'list': const [
+      'list': [
         {
           'group_code': 'recommended',
           'group_title': 'Recommended',
@@ -2566,7 +2566,10 @@ class _MockState {
               'estimated_next_tick_gems_cent': 400,
               'description':
                   'Most recommended. Best storytelling model with a balanced price.',
-              'range_text': '4-320 gems (memory from 2K to 156K)',
+              'min_gems_cent': 400,
+              'max_gems_cent': 32000,
+              'min_memory_tokens': _v1GlobalMemoryTokens,
+              'max_memory_tokens': _v1MaxMemoryTokens,
             },
             {
               'model_code': 'top_pick_v3_5',
@@ -2576,7 +2579,10 @@ class _MockState {
               'estimated_next_tick_gems_cent': 600,
               'description':
                   'Most recommended. Best storytelling model with a balanced price.',
-              'range_text': '6-480 gems (memory from 2K to 156K)',
+              'min_gems_cent': 600,
+              'max_gems_cent': 48000,
+              'min_memory_tokens': _v1GlobalMemoryTokens,
+              'max_memory_tokens': _v1MaxMemoryTokens,
             },
             {
               'model_code': 'luxury_selection_v4',
@@ -2585,7 +2591,10 @@ class _MockState {
               'estimated_next_message_gems_cent': 800,
               'estimated_next_tick_gems_cent': 800,
               'description': 'Luxurious, pricey, but the best model of all.',
-              'range_text': '8-640 gems (memory from 2K to 156K)',
+              'min_gems_cent': 800,
+              'max_gems_cent': 64000,
+              'min_memory_tokens': _v1GlobalMemoryTokens,
+              'max_memory_tokens': _v1MaxMemoryTokens,
             },
             {
               'model_code': 'sake_pro',
@@ -2595,7 +2604,10 @@ class _MockState {
               'estimated_next_tick_gems_cent': 300,
               'description':
                   'An experimental model exploring flexible storytelling.',
-              'range_text': '3-160 gems (memory from 2K to 156K)',
+              'min_gems_cent': 300,
+              'max_gems_cent': 16000,
+              'min_memory_tokens': _v1GlobalMemoryTokens,
+              'max_memory_tokens': _v1MaxMemoryTokens,
             },
           ],
         },

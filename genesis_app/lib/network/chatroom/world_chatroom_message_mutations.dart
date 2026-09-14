@@ -270,7 +270,14 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
         identical(_historyRefreshes[location], request) &&
         !request.token.isCancelled;
 
-    _beginEntryRead(location);
+    // A range replacement already keeps the old round until its atomic commit
+    // below. Once an entry is ready, keep publishing live user echoes and streams
+    // while that request runs; freezing the whole entry would drop canonical
+    // echoes from the page after their optimistic rows acquire server ids.
+    final prepareEntry =
+        request.start == null ||
+        _entryChannel(location).value.phase != ChatroomEntryPhase.ready;
+    if (prepareEntry) _beginEntryRead(location);
     Object? entryError;
     try {
       if (request.start != null) {
@@ -476,7 +483,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
       // Retain the invalid range. A retry unions it with the next notification.
       rethrow;
     } finally {
-      _endEntryRead(location, ticket, error: entryError);
+      if (prepareEntry) _endEntryRead(location, ticket, error: entryError);
     }
   }
 

@@ -1140,20 +1140,17 @@ void main() {
         addTearDown(restored.controller.dispose);
         await restored.controller.restore('l');
         expect(restored.controller.historyCardsResolved('l'), true);
-        expect(restored.state.supportsGoOn, type != 'tick');
+        expect(restored.state.supportsGoOn, true);
         expect(restored.state.supportsRegenerate, type == 'user_message');
         expect(restored.state.supportsEdit, type != 'tick');
-        expect(restored.state.supportsInspiration, type != 'tick');
+        expect(restored.state.supportsInspiration, true);
         final rewritten = (await snapshots.loadReplySnapshots(
           ownerUid: 'u',
           worldId: 'w',
           locationId: 'l',
         )).single;
-        expect(rewritten['capability_version'], 3);
-        expect(
-          (rewritten['supported_actions'] as Map)['go_on'],
-          type != 'tick',
-        );
+        expect(rewritten['capability_version'], 5);
+        expect((rewritten['supported_actions'] as Map)['go_on'], true);
         expect((rewritten['supported_actions'] as Map)['edit'], type != 'tick');
         expect(restored.api.calls, isEmpty);
       },
@@ -1616,8 +1613,10 @@ void main() {
           false,
         ),
         ('user_enter_location', '', 'u', false, false, false, false),
-        ('tick', '', 'u', false, false, false, false),
-        ('tick', 'u', 'u', false, false, false, false),
+        ('tick', '', 'u', false, true, false, true),
+        ('tick', 'u', 'u', false, true, false, true),
+        ('tick', '', '', false, true, false, true),
+        ('tick', 'another-user', 'another-user', false, true, false, true),
         ('user_message', 'u', '', true, true, true, true),
         ('go_on', 'u', '', true, true, true, true),
         ('user_message', 'another-user', 'u', false, false, false, false),
@@ -1660,35 +1659,74 @@ void main() {
     },
   );
 
+  test('only Tick can use a non-AI message as its action source', () {
+    for (final type in ['user_enter_location', 'tick']) {
+      final h = _Harness(conversationType: type);
+      addTearDown(h.controller.dispose);
+      h.controller.observeMessages('l', [
+        _formal(type: type, conversationType: type),
+      ]);
+      h.controller.receiveEvent(
+        ChatroomEndConversationRound(
+          sessionId: '',
+          worldId: 'w',
+          locationId: 'l',
+          userId: '',
+          code: 0,
+          codeMsg: '',
+          ts: null,
+          conversationType: type,
+          triggerUid: 'u',
+          conversationRoundId: '$_round',
+        ),
+      );
+      expect(h.state.complete, isTrue);
+      expect(h.state.supportsGoOn, type == 'tick', reason: type);
+      expect(h.state.supportsEdit, isFalse, reason: type);
+      expect(h.state.supportsInspiration, type == 'tick', reason: type);
+      expect(h.state.inspirationSource != null, type == 'tick', reason: type);
+    }
+  });
+
   test(
-    'Enter still requires a completed AI reply and Tick stays unavailable',
-    () {
-      for (final type in ['user_enter_location', 'tick']) {
-        final h = _Harness(conversationType: type);
-        addTearDown(h.controller.dispose);
-        h.controller.observeMessages('l', [
-          _formal(type: type, conversationType: type),
-        ]);
-        h.controller.receiveEvent(
-          ChatroomEndConversationRound(
-            sessionId: '',
-            worldId: 'w',
-            locationId: 'l',
-            userId: '',
-            code: 0,
-            codeMsg: '',
-            ts: null,
-            conversationType: type,
-            triggerUid: 'u',
-            conversationRoundId: '$_round',
-          ),
-        );
-        expect(h.state.complete, isTrue);
-        expect(h.state.supportsGoOn, isFalse, reason: type);
-        expect(h.state.supportsEdit, isFalse, reason: type);
-        expect(h.state.supportsInspiration, isFalse, reason: type);
-        expect(h.state.inspirationSource, isNull, reason: type);
-      }
+    'Tick without AI or round-end can dispatch Go On and provide inspiration',
+    () async {
+      final h = _Harness(conversationType: 'tick', triggerUid: '');
+      addTearDown(h.controller.dispose);
+      final tick = _formal(
+        type: 'tick',
+        conversationType: 'tick',
+        triggerUid: '',
+      );
+      h.controller.observeMessages('l', [tick]);
+      expect(h.state.formalReplyMessages, isEmpty);
+      expect(h.state.complete, isTrue);
+      expect(h.state.canGoOn, isTrue);
+      expect(h.state.canRegenerate, isFalse);
+      expect(h.state.canEdit, isFalse);
+      final source = h.state.inspirationSource!;
+      expect(source.roundId, _round);
+      expect(source.tailMessageId, tick.locationMessageId);
+      expect(source.cardId, isNull);
+      await h.controller.finalizeBeforeSend('l', expectedSource: source);
+      h.locked = true;
+      expect(h.state.canGoOn, isFalse);
+      expect(h.state.inspirationSource, isNull);
+      h.locked = false;
+      h.controller.observeMessages('l', [tick], activeRoundIds: {_round});
+      expect(h.state.canGoOn, isFalse);
+      expect(h.state.inspirationSource, isNull);
+      h.controller.observeMessages('l', [tick]);
+      h.session.goOnHandler = (request) async => ChatroomGoOnReceipt(
+        worldId: 'w',
+        locationId: 'l',
+        clientMsgId: request,
+        conversationRoundId: _round + 1,
+        sourceConversationRoundId: _round,
+      );
+      await h.controller.goOn('l');
+      expect(h.session.requests.single, startsWith('go-on:'));
+      expect(h.api.calls, isEmpty);
     },
   );
 
@@ -1731,9 +1769,9 @@ void main() {
       ),
     );
     expect(h.state.invalidatedByTick, isFalse);
-    expect(h.state.canGoOn, isFalse);
+    expect(h.state.canGoOn, isTrue);
     expect(h.state.canEdit, isFalse);
-    expect(h.state.inspirationSource, isNull);
+    expect(h.state.inspirationSource, isNotNull);
   });
 
   for (final entry in <(String, String, String)>[

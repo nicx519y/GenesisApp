@@ -710,6 +710,23 @@ void main() {
     expect(refreshedUserInfo['selected_model_code'], 'sake_pro');
   });
 
+  test(
+    'local mock model ranges expose the saved budget and system ceiling',
+    () async {
+      final api = GenesisApi(useMock: true);
+      await api.loginWithGoogle(idToken: 'google-token');
+      await api.v1.user.updateMemorySettings(memoryTokens: 32000);
+      final settings = await api.v1.user.memorySettings(worldId: 'W_RANGES');
+      final catalog = await api.v1.gem.models(worldId: 'W_RANGES');
+      for (final model in catalog.groups.expand((group) => group.models)) {
+        expect(model.minGemsCent, model.estimatedNextMessageGemsCent);
+        expect(model.maxGemsCent, greaterThanOrEqualTo(model.minGemsCent));
+        expect(model.minMemoryTokens, settings.memoryTokens);
+        expect(model.maxMemoryTokens, settings.maxMemoryTokens);
+      }
+    },
+  );
+
   test('local mock app version check defaults to no upgrade', () async {
     final api = GenesisApi(useMock: true);
 

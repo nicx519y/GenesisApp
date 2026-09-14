@@ -36,11 +36,19 @@ List<ChatMessageVm> freezeLocationChatReplyMessages(
 
 /// Compare against a frozen VM so in-place source updates invalidate the cache.
 bool locationChatReplyMessagesEqual(ChatMessageVm a, ChatMessageVm b) =>
+    a.messageId == b.messageId &&
+    a.locationMessageId == b.locationMessageId &&
+    locationChatReplyMessagePresentationEqual(a, b);
+
+/// Canonical world/location cursors do not change a candidate's rendered body.
+/// Keep all display fields and stable row identity in the comparison.
+bool locationChatReplyMessagePresentationEqual(
+  ChatMessageVm a,
+  ChatMessageVm b,
+) =>
     a.localId == b.localId &&
     a.clientMsgId == b.clientMsgId &&
     a.globalMessageId == b.globalMessageId &&
-    a.messageId == b.messageId &&
-    a.locationMessageId == b.locationMessageId &&
     a.roundId == b.roundId &&
     a.tickNo == b.tickNo &&
     a.subTickNo == b.subTickNo &&

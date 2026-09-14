@@ -66,6 +66,8 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
 
   int _memoryLoadGeneration = 0;
   UserMemorySettings? _memorySettings;
+  UserMemorySettings? _rangeMemorySettings;
+  int? _confirmedMemoryTokens;
   Object? _memoryError;
   bool _memoryLoading = false;
   int _pendingMemoryTokens = 0;
@@ -101,15 +103,19 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       _latestModelRequest = null;
       _latestMemoryRequest = null;
       _memoryUncertainRevision = null;
+      _rangeMemorySettings = null;
+      _confirmedMemoryTokens = null;
       _trackSwitchModelPage();
-      unawaited(_refresh(useCache: true));
-      unawaited(_loadMemorySettings(useCache: true));
+      unawaited(_refresh());
+      unawaited(_loadMemorySettings());
     }
   }
 
   @override
   void dispose() {
     _flushPendingOnExit();
+    _loadGeneration += 1;
+    _memoryLoadGeneration += 1;
     _memorySaveTimer?.cancel();
     super.dispose();
   }
@@ -126,7 +132,11 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   }
 
   Future<GemModelCatalog> _loadCatalog({bool useCache = false}) {
-    final cached = useCache ? widget.pageCache?.modelCatalog : null;
+    final cache = widget.pageCache;
+    final cached =
+        useCache && cache?.memorySettings?.worldId == widget.worldId.trim()
+        ? cache?.modelCatalog
+        : null;
     if (cached != null) return Future<GemModelCatalog>.value(cached);
     final loader = widget.catalogLoader;
     if (loader != null) return loader(widget.worldId);
@@ -155,6 +165,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       _memoryError = null;
       if (!preservePending) {
         _memorySettings = null;
+        _rangeMemorySettings = null;
         _pendingMemoryTokens = 0;
         _latestMemoryRequest = null;
         _memoryUncertainRevision = null;
@@ -162,7 +173,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     });
     try {
       final loaded = _validatedMemorySettings(
-        await (useCache && pageCache?.memorySettings != null
+        await (useCache && pageCache?.memorySettings?.worldId == worldId
             ? Future<UserMemorySettings>.value(pageCache!.memorySettings!)
             : _loadMemory(worldId)),
         requireWorldUsage: true,
@@ -173,6 +184,8 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       if (!mounted) return;
       setState(() {
         _memorySettings = loaded;
+        _rangeMemorySettings = loaded;
+        _confirmedMemoryTokens = loaded.memoryTokens;
         if (!preservePending || _latestMemoryRequest == null) {
           _pendingMemoryTokens = loaded.memoryTokens;
         } else {
@@ -183,6 +196,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         }
         _memoryLoading = false;
       });
+      if (_hasBudgetMismatch) pageCache?.clearModelCatalog();
     } catch (error) {
       debugPrint('[GemModel] load memory settings failed: $error');
       if (!mounted || generation != _memoryLoadGeneration) return;
@@ -215,11 +229,122 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     return settings;
   }
 
-  Future<void> _refreshAll() async {
+  Future<void> _refreshAll() => _refreshSnapshot();
+
+  bool get _hasBudgetMismatch {
+    final budget = _confirmedMemoryTokens;
+    return budget != null &&
+        (_catalog?.groups
+                .expand((group) => group.models)
+                .any((model) => model.minMemoryTokens != budget) ??
+            false);
+  }
+
+  /// Fetch both saved ranges before publishing either. Initial loading remains
+  /// independent so unavailable memory data does not hide the model catalog.
+  Future<void> _refreshSnapshot({UserMemorySettings? saved}) async {
+    final worldId = widget.worldId.trim();
+    final pageCache = widget.pageCache;
+    final modelRevision = _modelRevision;
+    final modelSavePending = _latestModelRequest != null;
+    final generation = ++_loadGeneration;
+    final memoryGeneration = ++_memoryLoadGeneration;
+    setState(() {
+      _loading = true;
+      _memoryLoading = saved == null || _memorySettings == null;
+    });
+    GemModelCatalog? catalog;
+    UserMemorySettings? memory;
+    Object? catalogError;
+    Object? memoryError;
     await Future.wait<void>([
-      _refresh(preserveContent: true),
-      _loadMemorySettings(preservePending: _latestMemoryRequest != null),
+      () async {
+        try {
+          catalog = await _loadCatalog();
+        } catch (error) {
+          catalogError = error;
+        }
+      }(),
+      () async {
+        try {
+          memory = _validatedMemorySettings(
+            await _loadMemory(worldId),
+            requireWorldUsage: true,
+            expectedWorldId: worldId,
+          );
+          if (saved != null && memory!.memoryTokens != saved.memoryTokens) {
+            throw const FormatException('Saved memory budget mismatch');
+          }
+        } catch (error) {
+          memory = null;
+          memoryError = error;
+        }
+      }(),
     ]);
+    if (!mounted ||
+        widget.worldId.trim() != worldId ||
+        generation != _loadGeneration ||
+        memoryGeneration != _memoryLoadGeneration) {
+      return;
+    }
+
+    final budget =
+        saved?.memoryTokens ?? memory?.memoryTokens ?? _confirmedMemoryTokens;
+    if (catalog != null &&
+        budget != null &&
+        catalog!.groups
+            .expand((group) => group.models)
+            .any((model) => model.minMemoryTokens != budget)) {
+      catalogError = const FormatException('Model quotation budget mismatch');
+      catalog = null;
+    }
+    if (catalog != null) {
+      // A concurrent model save owns selection; this read owns quotations only.
+      if (modelSavePending ||
+          modelRevision != _modelRevision ||
+          _latestModelRequest != null) {
+        catalog = catalog!.copyWith(selectedModelCode: _confirmedModelCode);
+      } else {
+        _confirmedModelCode = catalog!.selectedModelCode.trim();
+        _pendingModelCode = _confirmedModelCode;
+      }
+      pageCache?.storeModelCatalog(catalog!);
+    } else {
+      pageCache?.clearModelCatalog();
+    }
+    if (memory != null) {
+      pageCache?.storeMemorySettings(memory!);
+    } else {
+      pageCache?.clearMemorySettings();
+    }
+    setState(() {
+      _catalog = catalog ?? _catalog;
+      _error = catalogError;
+      _loading = false;
+      _rangeMemorySettings = memory;
+      _confirmedMemoryTokens = budget;
+      _memoryError = memoryError;
+      _memoryLoading = false;
+      if (memory != null) {
+        _memorySettings = memory;
+      } else if (saved != null) {
+        // Preserve the existing top-summary fallback, but never present it as
+        // an authoritative memory range or cache it for a later page entry.
+        _memorySettings = UserMemorySettings(
+          memoryTokens: saved.memoryTokens,
+          minMemoryTokens: saved.minMemoryTokens,
+          maxMemoryTokens: saved.maxMemoryTokens,
+          worldId: worldId,
+          memoryUsedTokens: _memorySettings?.memoryUsedTokens?.clamp(
+            0,
+            saved.memoryTokens,
+          ),
+        );
+      }
+      if (_latestMemoryRequest == null && budget != null) {
+        _pendingMemoryTokens = budget;
+      }
+    });
   }
 
   Future<void> _refresh({
@@ -246,6 +371,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         }
         _loading = false;
       });
+      if (_hasBudgetMismatch) pageCache?.clearModelCatalog();
     } catch (error) {
       if (!mounted || generation != _loadGeneration) return;
       setState(() {
@@ -345,6 +471,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       revision: revision,
       memoryTokens: memoryTokens,
       worldId: worldId,
+      pageCache: widget.pageCache,
       save: () => injectedUpdater != null
           ? injectedUpdater(memoryTokens)
           : services!.api.v1.user.updateMemorySettings(
@@ -353,9 +480,6 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       loadGlobal: () => injectedLoader != null
           ? injectedLoader(null)
           : services!.api.v1.user.memorySettings(),
-      loadWorld: () => injectedLoader != null
-          ? injectedLoader(worldId)
-          : services!.api.v1.user.memorySettings(worldId: worldId),
     );
   }
 
@@ -403,12 +527,20 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       } catch (error) {
         debugPrint('[GemModel] cache selected model failed: $error');
       }
+      if (request.worldId != widget.worldId.trim()) return;
       _confirmedModelCode = selectedModelCode;
       final updatedCatalog = _catalog?.copyWith(
         selectedModelCode: selectedModelCode,
       );
-      if (updatedCatalog != null) {
-        widget.pageCache?.storeModelCatalog(updatedCatalog);
+      // Patch only an existing valid cache. A memory save may have invalidated
+      // quotations while model selection was in flight, including after exit.
+      final pageCache = widget.pageCache;
+      final cached = pageCache?.modelCatalog;
+      if (cached != null &&
+          pageCache?.memorySettings?.worldId == request.worldId) {
+        pageCache?.storeModelCatalog(
+          cached.copyWith(selectedModelCode: selectedModelCode),
+        );
       }
       if (!mounted) return;
       setState(() {
@@ -459,41 +591,16 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     _memoryInFlightRevision = request.revision;
     try {
       final saved = _validatedMemorySettings(await request.save());
-      UserMemorySettings currentWorld;
-      try {
-        currentWorld = _validatedMemorySettings(
-          await request.loadWorld(),
-          requireWorldUsage: true,
-          expectedWorldId: request.worldId,
-        );
-      } catch (error) {
-        debugPrint('[GemModel] refresh saved memory usage failed: $error');
-        final previous = _memorySettings;
-        currentWorld = UserMemorySettings(
-          memoryTokens: saved.memoryTokens,
-          minMemoryTokens: saved.minMemoryTokens,
-          maxMemoryTokens: saved.maxMemoryTokens,
-          worldId: previous?.worldId,
-          memoryUsedTokens: previous?.memoryUsedTokens?.clamp(
-            0,
-            saved.memoryTokens,
-          ),
-        );
+      request.pageCache?.clearMemorySettings();
+      request.pageCache?.clearModelCatalog();
+      if (!mounted || request.worldId != widget.worldId.trim()) return;
+      if (request.revision == _memoryRevision) {
+        _latestMemoryRequest = null;
+        _memoryUncertainRevision = null;
       }
-      widget.pageCache?.storeMemorySettings(currentWorld);
-      widget.pageCache?.clearModelCatalog();
-      if (!mounted) return;
-      setState(() {
-        _memorySettings = currentWorld;
-        _memoryError = null;
-        if (request.revision == _memoryRevision) {
-          _pendingMemoryTokens = saved.memoryTokens;
-          _latestMemoryRequest = null;
-          _memoryUncertainRevision = null;
-        }
-      });
-      await _refresh(preserveContent: true);
+      await _refreshSnapshot(saved: saved);
     } catch (error, stackTrace) {
+      if (request.worldId != widget.worldId.trim()) return;
       debugPrint('[GemModel] autosave memory failed: $error');
       GenesisTelemetry.captureException(error, stackTrace);
       if (_isUncertainMemorySave(error)) {
@@ -592,8 +699,9 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         ),
       );
     }
-    if (settings == null && _memoryError != null) {
-      return _MemoryLoadError(onRetry: () => unawaited(_loadMemorySettings()));
+    if ((settings == null || settings.memoryUsedTokens == null) &&
+        _memoryError != null) {
+      return _MemoryLoadError(onRetry: () => unawaited(_refreshAll()));
     }
     if (settings == null) return const SizedBox.shrink();
 
@@ -628,7 +736,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       );
     }
     if (catalog == null && _error != null) {
-      return _ModelLoadError(onRetry: () => unawaited(_refresh()));
+      return _ModelLoadError(onRetry: () => unawaited(_refreshAll()));
     }
     final models =
         catalog?.groups
@@ -655,12 +763,22 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         for (var index = 0; index < models.length; index += 1) ...[
           _GemModelTile(
             model: models[index],
+            memorySettings: _rangeMemorySettings,
+            quoteAvailable: _error == null && !_hasBudgetMismatch,
             selected: models[index].modelCode == _pendingModelCode,
             enabled: true,
             onTap: () => _selectModel(models[index]),
           ),
           if (index != models.length - 1) const SizedBox(height: 12),
         ],
+        if ((_error != null || _memoryError != null || _hasBudgetMismatch) &&
+            !_loading &&
+            !_memoryLoading)
+          TextButton(
+            key: const ValueKey('gem-model-ranges-retry'),
+            onPressed: () => unawaited(_refreshAll()),
+            child: const Text('Retry ranges'),
+          ),
       ],
     );
   }
@@ -689,7 +807,7 @@ class _MemorySaveRequest {
     required this.worldId,
     required this.save,
     required this.loadGlobal,
-    required this.loadWorld,
+    required this.pageCache,
   });
 
   final int revision;
@@ -697,7 +815,7 @@ class _MemorySaveRequest {
   final String worldId;
   final Future<UserMemorySettings> Function() save;
   final Future<UserMemorySettings> Function() loadGlobal;
-  final Future<UserMemorySettings> Function() loadWorld;
+  final MemoryModelPageCache? pageCache;
 }
 
 class _MemorySettingsLoadingSkeleton extends StatelessWidget {
@@ -753,6 +871,7 @@ class _ModelCatalogLoadingSkeleton extends StatelessWidget {
 
 class _MemoryModelLoadingBone extends StatelessWidget {
   const _MemoryModelLoadingBone({
+    super.key,
     this.width,
     required this.height,
     this.borderRadius = 4,
@@ -1027,8 +1146,12 @@ class _GemModelTile extends StatelessWidget {
     required this.selected,
     required this.enabled,
     required this.onTap,
+    required this.memorySettings,
+    required this.quoteAvailable,
   });
 
+  final UserMemorySettings? memorySettings;
+  final bool quoteAvailable;
   final GemModel model;
   final bool selected;
   final bool enabled;
@@ -1048,7 +1171,13 @@ class _GemModelTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(child: _GemModelTileContent(model: model)),
+            Expanded(
+              child: _GemModelTileContent(
+                model: model,
+                memorySettings: memorySettings,
+                quoteAvailable: quoteAvailable,
+              ),
+            ),
             const SizedBox(width: 10),
             Padding(
               padding: const EdgeInsets.only(top: 1),
@@ -1062,13 +1191,39 @@ class _GemModelTile extends StatelessWidget {
 }
 
 class _GemModelTileContent extends StatelessWidget {
-  const _GemModelTileContent({required this.model});
+  const _GemModelTileContent({
+    required this.model,
+    required this.memorySettings,
+    required this.quoteAvailable,
+  });
+
+  final UserMemorySettings? memorySettings;
+  final bool quoteAvailable;
 
   final GemModel model;
 
   @override
   Widget build(BuildContext context) {
-    final rangeText = model.rangeText.trim();
+    final min = formatExactGemCent(model.minGemsCent);
+    final max = formatExactGemCent(model.maxGemsCent);
+    final priceRange = model.minGemsCent == model.maxGemsCent
+        ? '$min gems'
+        : '$min–$max gems';
+    final memory = memorySettings;
+    final memoryStart = memory == null
+        ? null
+        : formatMemoryTokens(memory.memoryUsedTokens!);
+    final memoryEnd = memory == null
+        ? null
+        : formatMemoryTokens(memory.memoryTokens);
+    final memoryRange = memory == null
+        ? null
+        : memoryStart == memoryEnd
+        ? 'memory $memoryStart'
+        : 'memory $memoryStart → $memoryEnd';
+    final rangeStyle = GenesisTypography.supporting.copyWith(
+      color: GenesisColors.darkTextTertiary,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1095,22 +1250,29 @@ class _GemModelTileContent extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Text.rich(
-          TextSpan(
-            text: 'Estimated next message ',
-            children: [
-              TextSpan(
-                text:
-                    '${formatGemCent(model.estimatedNextMessageGemsCent)} gems',
-                style: const TextStyle(color: GenesisColors.redSecondary),
-              ),
-            ],
+        if (!quoteAvailable)
+          _MemoryModelLoadingBone(
+            key: ValueKey('gem-model-estimate-loading-${model.modelCode}'),
+            width: 200,
+            height: 16,
+          )
+        else
+          Text.rich(
+            TextSpan(
+              text: 'Estimated next message ',
+              children: [
+                TextSpan(
+                  text:
+                      '${formatExactGemCent(model.estimatedNextMessageGemsCent)} gems',
+                  style: const TextStyle(color: GenesisColors.redSecondary),
+                ),
+              ],
+            ),
+            key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
+            style: GenesisTypography.supporting.copyWith(
+              color: GenesisColors.darkTextTertiary,
+            ),
           ),
-          key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
-          style: GenesisTypography.supporting.copyWith(
-            color: GenesisColors.darkTextTertiary,
-          ),
-        ),
         const SizedBox(height: 7),
         Text(
           model.description,
@@ -1118,15 +1280,35 @@ class _GemModelTileContent extends StatelessWidget {
             color: GenesisColors.darkTextSecondary,
           ),
         ),
-        if (rangeText.isNotEmpty) ...[
-          const SizedBox(height: 8),
+        const SizedBox(height: 8),
+        if (quoteAvailable && memoryRange != null)
           Text(
-            rangeText,
+            '$priceRange ($memoryRange)',
             key: ValueKey<String>('gem-model-range-${model.modelCode}'),
-            style: GenesisTypography.supporting.copyWith(
-              color: GenesisColors.darkTextTertiary,
+            style: rangeStyle,
+          )
+        else ...[
+          if (quoteAvailable)
+            Text(priceRange, style: rangeStyle)
+          else
+            _MemoryModelLoadingBone(
+              key: ValueKey('gem-model-price-loading-${model.modelCode}'),
+              width: 120,
+              height: 14,
             ),
-          ),
+          const SizedBox(height: 4),
+          if (memoryRange != null)
+            Text(
+              memoryRange,
+              key: ValueKey('gem-model-memory-range-${model.modelCode}'),
+              style: rangeStyle,
+            )
+          else
+            _MemoryModelLoadingBone(
+              key: ValueKey('gem-model-memory-loading-${model.modelCode}'),
+              width: 180,
+              height: 14,
+            ),
         ],
       ],
     );

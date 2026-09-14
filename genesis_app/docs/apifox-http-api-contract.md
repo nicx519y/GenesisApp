@@ -2471,8 +2471,8 @@ query：
 | `POST /api/v1/user/unfollow` | `FollowV1Api.unfollow` body 已改为 `target_uid`，响应按空对象处理。 |
 | `GET /api/v1/user/following` | 已新增 `FollowV1Api.following(uid,pn,rn)`。 |
 | `GET /api/v1/user/followers` | 已新增 `FollowV1Api.followers(uid,pn,rn)`。 |
-| `GET /api/v1/user/memory-settings` | 已新增 `UserV1Api.memorySettings(worldId)`；进入 `WorldPage` 时即传当前 Worldo 发起请求并缓存 Future，Memory & Model 首屏只消费预取结果，不重复 GET；主动 Retry、下拉刷新及保存后的实际用量刷新仍请求服务端。 |
-| `POST /api/v1/user/memory-settings` | 已新增全局预算接口 `UserV1Api.updateMemorySettings(memoryTokens)`，body 仅发送 `memory_tokens`；页面滑杆交互 5 秒防抖自动保存，成功后刷新 Worldo 实际用量和模型报价，不确定结果只做全局 GET 核对且不自动重试。 |
+| `GET /api/v1/user/memory-settings` | 已新增 `UserV1Api.memorySettings(worldId)`；首次进入 Memory & Model 时请求，缓存属于 WorldPage 生命周期；主动 Retry、下拉刷新及保存后的实际用量刷新仍请求服务端。卡片 Memory 区间使用实际用量至已保存预算，详见 `gem-cent-app-contract.md`。 |
+| `POST /api/v1/user/memory-settings` | 已新增全局预算接口 `UserV1Api.updateMemorySettings(memoryTokens)`，body 仅发送 `memory_tokens`；页面滑杆交互 500ms 防抖自动保存，成功后同批刷新 Worldo 实际用量和模型报价，不确定结果只做全局 GET 核对且不自动重试。 |
 | `GET /api/v1/user/world-history-settings` | 已新增 `UserV1Api.worldHistorySettings`，解析当前生效值、持久化值、来源和降级状态；Developer Page 仅在测试环境且存在完整登录 session 时显示入口。 |
 | `PUT /api/v1/user/world-history-settings` | 已新增 `UserV1Api.updateWorldHistorySettings`，JSON body 原子提交 `high_watermark/low_watermark`，Developer Page 在提交前校验 Apifox 范围。 |
 | `DELETE /api/v1/user/world-history-settings` | 已新增 `UserV1Api.resetWorldHistorySettings`，无 body，成功后用服务端返回的默认生效值刷新输入框。 |

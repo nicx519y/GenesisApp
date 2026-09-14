@@ -233,7 +233,12 @@ class _LocationChatReplyProjectionCache {
         senderType: parsed.senderType,
         createdAt: parsed.createdAt,
       );
-      if (previous != null && locationChatReplyMessagesEqual(previous.$2, vm)) {
+      if (previous != null &&
+          locationChatReplyMessagePresentationEqual(previous.$2, vm)) {
+        // Promotion assigns canonical cursors without changing the displayed
+        // card. Reuse its VM/list/widget and let actions read the updated ids.
+        previous.$2.messageId = vm.messageId;
+        previous.$2.locationMessageId = vm.locationMessageId;
         vm = previous.$2;
       }
       retained[message.globalMessageId] = (message, vm);
