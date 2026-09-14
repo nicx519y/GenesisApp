@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/membership/membership_access_store.dart';
+import '../../app/membership/membership_purchase_service.dart';
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -17,21 +18,39 @@ const Duration dailyCheckInSuccessDuration = Duration(seconds: 3);
 
 enum DailyCheckInDialogStatus { checkIn, claim, claimed }
 
-enum _DailyCheckInAction { subscribe, checkIn, cancel }
+enum _DailyCheckInAction { subscribe, checkIn }
 
 Future<bool> showDailyCheckInDialog(
   BuildContext context, {
   required DailyCheckInDialogStatus status,
   int rewardGemsCent = dailyCheckInPreviewRewardCent,
   MembershipAccessStore? membershipAccess,
+  MembershipPurchaseService? membershipPurchases,
 }) async {
   final claimed = status == DailyCheckInDialogStatus.claimed;
   final services = AppServicesScope.maybeRead(context);
   final session = services?.sessionRevision.value;
   final route = ModalRoute.of(context);
   final membership = membershipAccess ?? services?.membership;
+  final purchases = membershipPurchases ?? services?.membershipPurchases;
   bool? isVip = false;
-  if (!claimed && membership != null) {
+  if (!claimed && purchases != null) {
+    try {
+      final settled = await purchases.waitForGuestClaim().timeout(
+        membership?.requestTimeout ?? const Duration(seconds: 20),
+      );
+      if (!settled) isVip = null;
+    } catch (_) {
+      isVip = null;
+    }
+    if (!context.mounted ||
+        route?.isCurrent == false ||
+        !identical(services, AppServicesScope.maybeRead(context)) ||
+        services?.sessionRevision.value != session) {
+      return false;
+    }
+  }
+  if (!claimed && membership != null && isVip != null) {
     final result = Completer<bool?>();
     membership.checkVip(result.complete);
     isVip = await result.future;
@@ -56,22 +75,18 @@ Future<bool> showDailyCheckInDialog(
     ),
     titleContentSpacing: 10,
     actions: [
-      if (showCheckInActions)
+      if (showSubscriptionOffer)
         GenesisActionBoxAction<_DailyCheckInAction>(
-          label: showSubscriptionOffer ? 'Get 100' : 'Cancel',
-          value: showSubscriptionOffer
-              ? _DailyCheckInAction.subscribe
-              : _DailyCheckInAction.cancel,
+          label: 'Get 100',
+          value: _DailyCheckInAction.subscribe,
           color: GenesisColors.redSecondary,
-          trailing: showSubscriptionOffer
-              ? SvgPicture.asset(
-                  gemIconAsset,
-                  key: const ValueKey('daily-check-in-subscription-gem'),
-                  width: gemSmallIconSize,
-                  height: gemSmallIconSize,
-                  excludeFromSemantics: true,
-                )
-              : null,
+          trailing: SvgPicture.asset(
+            gemIconAsset,
+            key: const ValueKey('daily-check-in-subscription-gem'),
+            width: gemSmallIconSize,
+            height: gemSmallIconSize,
+            excludeFromSemantics: true,
+          ),
         ),
       GenesisActionBoxAction<_DailyCheckInAction>(
         label: switch (status) {
@@ -91,7 +106,7 @@ Future<bool> showDailyCheckInDialog(
       ),
     ],
     cancelLabel: 'Cancel',
-    showCancel: !showCheckInActions,
+    showCancel: !showSubscriptionOffer,
   );
   if (action == _DailyCheckInAction.subscribe && context.mounted) {
     await showSubscriptionPurchaseBottomSheet(context);

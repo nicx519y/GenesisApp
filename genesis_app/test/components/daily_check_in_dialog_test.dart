@@ -101,11 +101,11 @@ void main() {
           if (active) {
             expect(
               tester.getCenter(find.text('Cancel')).dy,
-              lessThan(tester.getCenter(find.text('Check in')).dy),
+              greaterThan(tester.getCenter(find.text('Check in')).dy),
             );
             expect(
               tester.widget<Text>(find.text('Cancel')).style?.color,
-              GenesisColors.redSecondary,
+              GenesisColors.darkTextPrimary,
             );
             expect(
               tester.widget<Text>(find.text('Check in')).style?.color,

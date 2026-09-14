@@ -30,6 +30,7 @@ import '../../components/gems/daily_check_in_dialog.dart';
 import '../origin_editor/origin_generation_wait_content.dart';
 import '../../components/tilemap/tilemap_settings_button_visibility.dart';
 import '../../app/gems/gem_wallet_store.dart';
+import '../../app/onboarding/personalization_store.dart';
 import '../../app/telemetry/telemetry_runtime_controller.dart';
 import '../../app/telemetry/telemetry_upload_policy.dart';
 import '../../network/genesis_api.dart';
@@ -586,6 +587,8 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         const SizedBox(height: _itemGap),
         _buildGemBalanceInfoRow(),
         const SizedBox(height: _itemGap),
+        _buildPersonalizationInfoRows(),
+        const SizedBox(height: _itemGap),
         FutureBuilder<DeviceIdDiagnostics>(
           future: _deviceIdDiagnosticsFuture,
           builder: (context, snapshot) {
@@ -634,6 +637,36 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
         const SizedBox(height: 18),
         const _DeveloperAppConfigSection(),
       ],
+    );
+  }
+
+  Widget _buildPersonalizationInfoRows() {
+    return ValueListenableBuilder<PersonalizationState>(
+      valueListenable: AppServicesScope.of(context).personalization.state,
+      builder: (context, state, _) {
+        final profile = state.data?.profile;
+        final unavailable = state.loading
+            ? 'Loading...'
+            : state.error != null
+            ? 'Load failed'
+            : 'Not loaded';
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _DeveloperInfoRow(
+              title: 'gender',
+              content: profile == null
+                  ? unavailable
+                  : profile.gender ?? '(empty)',
+            ),
+            const SizedBox(height: _itemGap),
+            _DeveloperInfoRow(
+              title: 'age',
+              content: profile == null ? unavailable : profile.age ?? '(empty)',
+            ),
+          ],
+        );
+      },
     );
   }
 

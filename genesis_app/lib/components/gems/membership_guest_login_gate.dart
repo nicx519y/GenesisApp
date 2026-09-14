@@ -16,12 +16,14 @@ class MembershipGuestLoginGate extends StatefulWidget {
     required this.navigatorKey,
     required this.child,
     this.requestLogin,
+    this.blocked,
   });
 
   final MembershipPurchaseService? service;
   final GlobalKey<NavigatorState> navigatorKey;
   final Widget child;
   final Future<bool> Function(BuildContext)? requestLogin;
+  final ValueListenable<bool>? blocked;
 
   @override
   State<MembershipGuestLoginGate> createState() =>
@@ -40,6 +42,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   void initState() {
     super.initState();
     widget.service?.guestLoginRequestId.addListener(_schedule);
+    widget.blocked?.addListener(_schedule);
     if (kDebugMode) {
       membershipGuestLoginDebugSettings.listenable.addListener(_schedule);
       unawaited(_loadDebugSetting());
@@ -57,6 +60,11 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   @override
   void didUpdateWidget(MembershipGuestLoginGate oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (!identical(widget.blocked, oldWidget.blocked)) {
+      oldWidget.blocked?.removeListener(_schedule);
+      widget.blocked?.addListener(_schedule);
+      _schedule();
+    }
     if (!identical(widget.service, oldWidget.service)) {
       oldWidget.service?.guestLoginRequestId.removeListener(_schedule);
       widget.service?.guestLoginRequestId.addListener(_schedule);
@@ -65,7 +73,9 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   }
 
   void _schedule() {
-    if (!mounted || _showing || !_forceLogin) return;
+    if (!mounted || _showing || !_forceLogin || widget.blocked?.value == true) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_showing) unawaited(_show());
     });
@@ -74,7 +84,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   }
 
   Future<void> _show() async {
-    if (!_forceLogin) return;
+    if (!_forceLogin || widget.blocked?.value == true) return;
     final service = widget.service;
     final requestId = service?.guestLoginRequestId.value;
     final context = widget.navigatorKey.currentState?.overlay?.context;
@@ -116,6 +126,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
 
   @override
   void dispose() {
+    widget.blocked?.removeListener(_schedule);
     widget.service?.guestLoginRequestId.removeListener(_schedule);
     if (kDebugMode) {
       membershipGuestLoginDebugSettings.listenable.removeListener(_schedule);

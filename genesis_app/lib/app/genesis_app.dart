@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../components/gems/membership_guest_login_gate.dart';
+import '../components/onboarding/personalization_gate.dart';
 import 'package:flutter/services.dart';
 
 import '../components/developer_debug_floating_button.dart';
@@ -54,6 +55,7 @@ class GenesisApp extends StatelessWidget {
             return AppRouter.onGenerateRoute(settings);
           },
           builder: (context, child) {
+            final services = AppServicesScope.read(context);
             // Root overlays and builder decorations sit outside page Material
             // widgets, so they also need the application's default font.
             return DefaultTextStyle(
@@ -66,12 +68,23 @@ class GenesisApp extends StatelessWidget {
                       child: ForceUpgradeGate(
                         child: DeveloperDebugFloatingButton(
                           navigatorKey: genesisNavigatorKey,
-                          child: MembershipGuestLoginGate(
-                            service: AppServicesScope.read(
-                              context,
-                            ).membershipPurchases,
+                          child: PersonalizationGate(
+                            appConfig: services.appGlobalConfig,
+                            store: services.personalization,
+                            loginPending: services
+                                .membershipPurchases
+                                ?.guestLoginRequestId,
+                            checkGuestPurchases: services
+                                .membershipPurchases
+                                ?.checkGuestPurchasesOnHome,
                             navigatorKey: genesisNavigatorKey,
-                            child: child ?? const SizedBox.shrink(),
+                            child: MembershipGuestLoginGate(
+                              service: services.membershipPurchases,
+                              blocked:
+                                  services.personalization.blocksOtherPrompts,
+                              navigatorKey: genesisNavigatorKey,
+                              child: child ?? const SizedBox.shrink(),
+                            ),
                           ),
                         ),
                       ),

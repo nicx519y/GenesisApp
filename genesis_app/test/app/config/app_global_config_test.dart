@@ -4,11 +4,30 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 
 void main() {
-  test('AppGlobalConfig defaults opening sheet to false', () {
+  test('AppGlobalConfig defaults optional flags to false', () {
     expect(const AppGlobalConfig().showOpeningSheet, isFalse);
     expect(const AppGlobalConfig().apiTraceSamplingRate, 0);
     expect(AppGlobalConfig.fromJson(const {}).showOpeningSheet, isFalse);
     expect(AppGlobalConfig.fromJson(const {}).apiTraceSamplingRate, 0);
+    expect(const AppGlobalConfig().showPersonalizationForm, isFalse);
+    expect(AppGlobalConfig.fromJson(const {}).showPersonalizationForm, isFalse);
+  });
+
+  test('AppGlobalConfig parses the personalization form flag', () {
+    for (final enabled in [false, true]) {
+      expect(
+        AppGlobalConfig.fromJson({
+          'show_personalization_form': enabled,
+        }).showPersonalizationForm,
+        enabled,
+      );
+    }
+    expect(
+      AppGlobalConfig.fromJson({
+        'show_personalization_form': null,
+      }).showPersonalizationForm,
+      isFalse,
+    );
   });
 
   test('AppGlobalConfig parses and clamps API trace sampling rate', () {
@@ -48,6 +67,7 @@ void main() {
     final store = AppGlobalConfigStore(
       loadConfig: ({String? uid}) async => {
         'show_opening_sheet': true,
+        'show_personalization_form': true,
         'apiTraceSamplingRate': 0.5,
       },
     );
@@ -56,6 +76,7 @@ void main() {
     await store.refresh();
 
     expect(store.value.showOpeningSheet, isTrue);
+    expect(store.value.showPersonalizationForm, isTrue);
     expect(store.value.apiTraceSamplingRate, 0.5);
   });
 

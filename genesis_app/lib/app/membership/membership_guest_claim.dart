@@ -10,6 +10,35 @@ class _MembershipClaimRetry {
 }
 
 extension _MembershipGuestClaim on MembershipPurchaseService {
+  Future<void> _discardUnpurchasedGuestIdentity(String uuid) async {
+    final claim = _guestClaims[uuid];
+    if (claim == null ||
+        claim.hasPurchase ||
+        claim.ownerUid != null ||
+        claim.status != null ||
+        _records.values.any(
+          (record) =>
+              record.guest?.accountUuid == uuid &&
+              (record.hasReceipt || record.paid || record.state != 'canceled'),
+        )) {
+      _unpaidGuestCleanup.remove(uuid);
+      return;
+    }
+    _unpaidGuestCleanup.add(uuid);
+    try {
+      if (await store.removeUnpurchasedGuestIdentity(uuid) &&
+          identical(_guestClaims[uuid], claim)) {
+        _guestClaims.remove(uuid);
+        _pendingGuestClaimWrites.remove(uuid);
+        _guestOrderChecks.remove(uuid);
+      }
+      _unpaidGuestCleanup.remove(uuid);
+    } catch (error) {
+      _scheduleRetry();
+      _log('canceled guest identity cleanup deferred', error);
+    }
+  }
+
   Future<MembershipPurchaseRequest> _guestPurchaseRequest(
     MembershipPurchaseRecord purchase,
   ) async {
@@ -116,7 +145,10 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
     _pendingGuestClaimWrites.remove(record.guest.accountUuid);
   }
 
-  Future<void> _prepareGuestClaim(MembershipPurchaseRecord purchase) async {
+  Future<void> _prepareGuestClaim(
+    MembershipPurchaseRecord purchase, {
+    String? purchaseTime,
+  }) async {
     final guest = purchase.guest;
     if (_disposed || guest == null || !purchase.paid || !purchase.hasReceipt) {
       return;
@@ -147,6 +179,13 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
       claim = claim.copyWith(
         purchaseRequestId: purchase.requestId,
         autoClaimAllowed: true,
+      );
+    }
+    final purchasedAt = _purchaseTimeMillis(purchaseTime ?? '');
+    if (claim.purchasedAt == null ||
+        purchasedAt != null && purchasedAt > claim.purchasedAt!) {
+      claim = claim.copyWith(
+        purchasedAt: purchasedAt ?? DateTime.now().millisecondsSinceEpoch,
       );
     }
     if (purchase.reportStatus == 'completed' && !claim.purchaseConfirmed) {
@@ -274,6 +313,9 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
   }
 
   Future<void> _flushGuestClaims() async {
+    for (final uuid in _unpaidGuestCleanup.toList()) {
+      await _discardUnpurchasedGuestIdentity(uuid);
+    }
     for (final claim in _guestClaims.values.toList()) {
       if (_disposed) return;
       try {

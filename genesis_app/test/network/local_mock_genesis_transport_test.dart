@@ -748,13 +748,14 @@ void main() {
     expect(response.shouldForceUpgrade, false);
   });
 
-  test('local mock app config returns global opening sheet flag', () async {
+  test('local mock app config returns global flags', () async {
     final api = GenesisApi(useMock: true);
 
     final config = await api.v1.app.config();
 
     expect(config, {
       'show_opening_sheet': false,
+      'show_personalization_form': true,
       'api_trace_sampling_rate': 1.0,
     });
   });

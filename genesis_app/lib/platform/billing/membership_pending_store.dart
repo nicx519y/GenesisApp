@@ -184,6 +184,7 @@ abstract interface class MembershipPendingStore {
   Future<List<MembershipGuestClaimRecord>> loadGuestClaims();
   Future<void> saveGuestClaim(MembershipGuestClaimRecord record);
   Future<void> completeGuestClaim(MembershipGuestClaimRecord record);
+  Future<bool> removeUnpurchasedGuestIdentity(String accountUuid);
 }
 
 /// Kept separate from the Gems queue, including guest identity after reporting.
@@ -421,6 +422,44 @@ class SecureMembershipPendingStore implements MembershipPendingStore {
       );
     });
     _writes = operation.catchError((Object _) {});
+    return operation;
+  }
+
+  @override
+  Future<bool> removeUnpurchasedGuestIdentity(String accountUuid) {
+    final operation = _writes.then((_) async {
+      final claims = await _readGuestClaims();
+      if (claims.any(
+        (claim) =>
+            claim.guest.accountUuid == accountUuid &&
+            (claim.hasPurchase ||
+                claim.ownerUid != null ||
+                claim.status != null),
+      )) {
+        return false;
+      }
+      final purchases = [...await _read(), ...await _read(_confirmedKey)];
+      if (purchases.any(
+        (purchase) =>
+            purchase.guest?.accountUuid == accountUuid &&
+            (purchase.hasReceipt ||
+                purchase.paid ||
+                purchase.state == 'pending'),
+      )) {
+        return false;
+      }
+      claims.removeWhere((claim) => claim.guest.accountUuid == accountUuid);
+      if (claims.isEmpty) {
+        await _storage.delete(key: _guestClaimsKey);
+      } else {
+        await _storage.write(
+          key: _guestClaimsKey,
+          value: jsonEncode(claims.map((claim) => claim.toJson()).toList()),
+        );
+      }
+      return true;
+    });
+    _writes = operation.then<void>((_) {}, onError: (Object _) {});
     return operation;
   }
 

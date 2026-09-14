@@ -30,6 +30,7 @@ import '../membership/membership_catalog.dart';
 import '../membership/membership_access_store.dart';
 import '../membership/chatroom_feature_quota_store.dart';
 import '../membership/membership_purchase_service.dart';
+import '../onboarding/personalization_store.dart';
 import '../../platform/billing/membership_checkout_platform.dart';
 import '../../platform/billing/membership_pending_store.dart';
 import '../../platform/billing/membership_store_restorer.dart';
@@ -66,6 +67,7 @@ class AppServices {
     ChatroomFeatureQuotaStore? featureQuotas,
     ValueNotifier<int>? sessionRevision,
     AppGlobalConfigStore? appGlobalConfig,
+    PersonalizationStore? personalization,
   }) : membershipCatalog =
            membershipCatalog ??
            MembershipCatalog(
@@ -97,6 +99,24 @@ class AppServices {
         userMemberships ??
         UserMembershipStatusStore(
           loadUser: (uid) => api.v1.user.info(uid: uid),
+        );
+    this.personalization =
+        personalization ??
+        PersonalizationStore(
+          readLoginUid: sessionStore.readLoginUid,
+          load: () async {
+            await _preparePersonalizationSession();
+            return api.v1.device.personalization(
+              deviceId: await deviceId.getDeviceId(),
+            );
+          },
+          save: (profile) async {
+            await _preparePersonalizationSession();
+            return api.v1.device.savePersonalization(
+              deviceId: await deviceId.getDeviceId(),
+              profile: profile,
+            );
+          },
         );
     membership = MembershipAccessStore(
       wallet: this.gemWallet,
@@ -133,6 +153,7 @@ class AppServices {
   final DeviceInfoTelemetryReporter deviceInfoTelemetry;
   final GatewayAuthCoordinator? gatewayAuth;
   final GemWalletStore gemWallet;
+  late final PersonalizationStore personalization;
   late final MembershipAccessStore membership;
   late final UserMembershipStatusStore userMemberships;
   late final ChatroomFeatureQuotaStore featureQuotas;
@@ -143,6 +164,14 @@ class AppServices {
   final ValueNotifier<int> sessionRevision;
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
   (String?, int, String, DateTime?)? _quotaMembershipSignature;
+
+  Future<void> _preparePersonalizationSession() async {
+    if (await sessionStore.readLoginUid() != null &&
+        (await sessionStore.readAuthToken())?.trim().isNotEmpty != true &&
+        !await backendAuth.hasAuthenticatedBackendSession()) {
+      throw StateError('Personalization backend session unavailable');
+    }
+  }
 
   void _featureQuotaMembershipChanged() {
     final snapshot = gemWallet.state.value;
@@ -176,6 +205,7 @@ class AppServices {
   }
 
   void _membershipSessionChanged() {
+    personalization.resetForSession();
     _quotaMembershipSignature = null;
     featureQuotas.resetForSession();
     userMemberships.reset();
@@ -203,6 +233,7 @@ class AppServices {
     userMemberships.dispose();
     featureQuotas.dispose();
     membership.dispose();
+    personalization.dispose();
     gemWallet.dispose();
     appGlobalConfig.dispose();
   }
