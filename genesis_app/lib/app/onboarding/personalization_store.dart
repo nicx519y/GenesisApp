@@ -32,6 +32,8 @@ class PersonalizationStore {
   bool _presenting = false;
   bool _started = false;
   bool _disposed = false;
+  bool _enabled = true;
+  bool get isEnabled => _enabled;
   bool get isStarted => _started;
   bool get isPresenting => _presenting;
 
@@ -39,17 +41,27 @@ class PersonalizationStore {
     if (_disposed) return;
     state.value = value;
     blocksOtherPrompts.value =
-        _presenting || value.data?.profile.completed != true;
+        _presenting || (_enabled && value.data?.profile.completed != true);
+  }
+
+  void setEnabled(bool enabled) {
+    if (_disposed || _enabled == enabled) return;
+    _enabled = enabled;
+    _generation++;
+    _request = null;
+    _started = false;
+    _publish(const PersonalizationState());
   }
 
   Future<PersonalizationData?> start() {
+    if (_disposed || !_enabled) return Future.value(null);
     if (_started) return _request ?? Future.value(state.value.data);
     _started = true;
     return refresh();
   }
 
   Future<PersonalizationData?> refresh() {
-    if (_disposed) return Future.value(null);
+    if (_disposed || !_enabled) return Future.value(null);
     if (_request != null) return _request!;
     final generation = _generation;
     late final Future<PersonalizationData?> request;

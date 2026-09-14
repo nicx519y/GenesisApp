@@ -1062,6 +1062,7 @@ Query：
 响应 `data`：
 
 - `show_opening_sheet`: boolean；决定进入 Origin Detail 时 Opening Sheet 的首帧状态。`true` 时首次构建即完全展开，`false` 时首次构建即保持收起；不等待 `/api/v1/origin/detail` 返回后再改变 Sheet 高度。
+- `show_personalization_form`: boolean；控制新用户填表入口。`true` 时请求 `/api/v1/device/personalization`，按当前身份的 `completed` 判断是否弹出表单；`false`、缺失或 `null` 时不查询、不弹表单。未绑定支付的强制登录独立保留。该字段不控制 Continue 后的订阅引导，仍沿用当前会员判断逻辑。
 - `apiTraceSamplingRate`: float，范围 `[0,1]`；普通业务接口请求监控的启动级采样率。客户端本地默认值为 `0`，服务端当前返回 `1`。配置接口以及 `/apix/v1/time`、`/apix/v1/app/device/challenge`、`/apix/v1/app/device/register` 固定独立监控；轮询接口和 `/api/v1/collect` 不参与接口请求监控。
 
 ```json
@@ -1070,6 +1071,7 @@ Query：
   "err_msg": "succ",
   "data": {
     "show_opening_sheet": false,
+    "show_personalization_form": true,
     "apiTraceSamplingRate": 1.0
   }
 }

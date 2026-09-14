@@ -11,12 +11,14 @@ typedef AppGlobalConfigLoader =
 class AppGlobalConfig {
   const AppGlobalConfig({
     this.showOpeningSheet = false,
+    this.showPersonalizationForm = false,
     this.apiTraceSamplingRate = 0,
   });
 
   factory AppGlobalConfig.fromJson(Map<String, dynamic> json) {
     return AppGlobalConfig(
       showOpeningSheet: asBool(json['show_opening_sheet']),
+      showPersonalizationForm: asBool(json['show_personalization_form']),
       apiTraceSamplingRate: _samplingRate(
         json['apiTraceSamplingRate'] ?? json['api_trace_sampling_rate'],
       ),
@@ -24,6 +26,7 @@ class AppGlobalConfig {
   }
 
   final bool showOpeningSheet;
+  final bool showPersonalizationForm;
   final double apiTraceSamplingRate;
 }
 

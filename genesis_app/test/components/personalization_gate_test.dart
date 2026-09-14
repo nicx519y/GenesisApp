@@ -2,7 +2,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 import 'package:genesis_flutter_android/app/debug/membership_guest_login_debug_settings.dart';
+import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/onboarding/personalization_store.dart';
 import 'package:genesis_flutter_android/components/onboarding/personalization_gate.dart';
 import 'package:genesis_flutter_android/components/onboarding/personalization_sheet.dart';
@@ -10,6 +13,7 @@ import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/components/gems/membership_guest_login_gate.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
+import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import '../app/membership/membership_purchase_service_test.dart' show Harness;
 import '../support/personalization_fixtures.dart';
 
@@ -21,9 +25,118 @@ Future<void> tap(WidgetTester tester, String value) async {
 }
 
 void main() {
+  late ValueNotifier<AppGlobalConfig> appConfig;
   setUp(() {
+    appConfig = ValueNotifier(
+      const AppGlobalConfig(showPersonalizationForm: true),
+    );
+    addTearDown(appConfig.dispose);
     SharedPreferences.setMockInitialValues({});
     membershipGuestLoginDebugSettings.resetForTesting();
+  });
+
+  testWidgets('config controls form entry without changing Continue', (
+    tester,
+  ) async {
+    appConfig.value = const AppGlobalConfig();
+    var loads = 0;
+    var saves = 0;
+    final store = PersonalizationStore(
+      readLoginUid: () async => 'user',
+      load: () async {
+        loads++;
+        return personalizationData();
+      },
+      save: (profile) async {
+        saves++;
+        return PersonalizationProfile(
+          gender: profile.gender,
+          age: profile.age,
+          completed: true,
+        );
+      },
+    );
+    final navigator = GlobalKey<NavigatorState>();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (_, child) => PersonalizationGate(
+            appConfig: appConfig,
+            store: store,
+            navigatorKey: navigator,
+            subscriptionBuilder: (_) => const Text('Subscription entry'),
+            child: child!,
+          ),
+          home: const Scaffold(body: Text('Home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(loads, 0);
+      expect(find.byType(PersonalizationSheet), findsNothing);
+      expect(store.blocksOtherPrompts.value, isFalse);
+
+      appConfig.value = const AppGlobalConfig(showPersonalizationForm: true);
+      await tester.pumpAndSettle();
+      expect(loads, 1);
+      expect(find.byType(PersonalizationSheet), findsOneWidget);
+      // A later flag change must not interrupt the active form or purchase.
+      appConfig.value = const AppGlobalConfig();
+      await tap(tester, 'g4');
+      await tap(tester, 'a6');
+      await tap(tester, 'continue');
+      expect(saves, 1);
+      expect(find.text('Subscription entry'), findsOneWidget);
+      await tap(tester, 'skip');
+      expect(find.byType(PersonalizationSheet), findsNothing);
+      expect(store.blocksOtherPrompts.value, isFalse);
+      store.resetForSession();
+      await tester.pumpAndSettle();
+      expect(loads, 1);
+      expect(store.isEnabled, isFalse);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      store.dispose();
+    }
+  });
+
+  testWidgets('disabling form stops profile retries', (tester) async {
+    var loads = 0;
+    final store = PersonalizationStore(
+      readLoginUid: () async => 'user',
+      load: () async {
+        loads++;
+        throw StateError('offline');
+      },
+      save: (_) async => throw UnimplementedError(),
+    );
+    final navigator = GlobalKey<NavigatorState>();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (_, child) => PersonalizationGate(
+            appConfig: appConfig,
+            store: store,
+            navigatorKey: navigator,
+            child: child!,
+          ),
+          home: const Scaffold(body: Text('Home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(loads, 1);
+      appConfig.value = const AppGlobalConfig();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 40));
+      await tester.pumpAndSettle();
+      expect(loads, 1);
+      expect(find.byType(PersonalizationSheet), findsNothing);
+      expect(store.blocksOtherPrompts.value, isFalse);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      store.dispose();
+    }
   });
 
   for (final uid in [null, 'signed-in']) {
@@ -49,6 +162,7 @@ void main() {
             theme: GenesisTheme.dark(),
             navigatorKey: navigator,
             builder: (_, child) => PersonalizationGate(
+              appConfig: appConfig,
               store: store,
               navigatorKey: navigator,
               checkGuestPurchases: () async {
@@ -97,10 +211,160 @@ void main() {
     });
   }
 
-  for (final accountCompleted in [false, true]) {
+  for (final scenario in [
+    'monthly',
+    'yearly',
+    'non_member',
+    'expired_status',
+    'expired_time',
+    'unknown',
+    'refreshing_to_active',
+  ]) {
     testWidgets(
-      'paid guest logs in before loading account profile: completed=$accountCompleted',
+      'Continue uses global VIP access before subscription: $scenario',
       (tester) async {
+        final now = DateTime.utc(2040);
+        final response = Completer<GemWallet>();
+        var walletRequests = 0;
+        var saves = 0;
+        var subscriptionBuilds = 0;
+        final wallet = GemWalletStore(
+          readUid: () async => 'profile-user',
+          loadWallet: () async {
+            walletRequests++;
+            if (scenario == 'refreshing_to_active' && walletRequests == 1) {
+              return const GemWallet(
+                balanceCent: 0,
+                membership: GemWalletMembership(
+                  status: 0,
+                  planCode: '',
+                  expiresAt: null,
+                  autoRenew: false,
+                  blueGemsCent: 0,
+                  hasOverlap: false,
+                ),
+              );
+            }
+            return response.future;
+          },
+        );
+        final membership = MembershipAccessStore(
+          wallet: wallet,
+          readLoginUid: () async => 'profile-user',
+          serverNow: () => now,
+        );
+        final store = PersonalizationStore(
+          readLoginUid: () async => 'profile-user',
+          load: () async => personalizationData(),
+          save: (profile) async {
+            saves++;
+            return PersonalizationProfile(
+              gender: profile.gender,
+              age: profile.age,
+              completed: true,
+            );
+          },
+        );
+        final navigator = GlobalKey<NavigatorState>();
+        try {
+          if (scenario == 'refreshing_to_active') {
+            expect((await membership.refresh()).isVip, isFalse);
+          }
+          await tester.pumpWidget(
+            MaterialApp(
+              navigatorKey: navigator,
+              builder: (_, child) => PersonalizationGate(
+                appConfig: appConfig,
+                store: store,
+                navigatorKey: navigator,
+                membershipAccess: membership,
+                checkGuestPurchases: () async =>
+                    fail('Signed-in Continue must not check guest purchases'),
+                subscriptionBuilder: (_) {
+                  subscriptionBuilds++;
+                  return const Text('Subscription offer');
+                },
+                child: child!,
+              ),
+              home: const Scaffold(body: Text('Main page')),
+            ),
+          );
+          await tester.pumpAndSettle();
+          await tap(tester, 'g0');
+          await tap(tester, 'a0');
+          if (scenario == 'refreshing_to_active') {
+            unawaited(wallet.refresh());
+            await tester.pump();
+          }
+          await tap(tester, 'continue');
+          await tap(tester, 'continue');
+          expect(saves, 1);
+          expect(subscriptionBuilds, 0);
+          expect(find.byType(PersonalizationSheet), findsOneWidget);
+          expect(walletRequests, scenario == 'refreshing_to_active' ? 2 : 1);
+          if (scenario == 'unknown') {
+            response.completeError(StateError('wallet unavailable'));
+          } else {
+            response.complete(
+              GemWallet(
+                balanceCent: 0,
+                membership: GemWalletMembership(
+                  status: scenario == 'non_member'
+                      ? 0
+                      : scenario == 'expired_status'
+                      ? 2
+                      : 1,
+                  planCode: scenario == 'yearly' ? 'pro_yearly' : 'pro_monthly',
+                  expiresAt: scenario == 'expired_time'
+                      ? now
+                      : DateTime.utc(2041),
+                  autoRenew: true,
+                  blueGemsCent: 0,
+                  hasOverlap: false,
+                ),
+              ),
+            );
+          }
+          await tester.pumpAndSettle();
+          final showsOffer = [
+            'non_member',
+            'expired_status',
+            'expired_time',
+          ].contains(scenario);
+          expect(
+            find.text('Subscription offer'),
+            showsOffer ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.byType(PersonalizationSheet),
+            showsOffer ? findsOneWidget : findsNothing,
+          );
+          expect(subscriptionBuilds, showsOffer ? greaterThan(0) : 0);
+          expect(store.state.value.data?.profile.completed, isTrue);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          store.dispose();
+          membership.dispose();
+          wallet.dispose();
+        }
+      },
+    );
+  }
+
+  for (final scenario in [
+    'needs_form',
+    'already_completed',
+    'form_disabled',
+    'late_config',
+  ]) {
+    testWidgets(
+      'paid guest logs in before loading account profile: $scenario',
+      (tester) async {
+        final accountCompleted = scenario == 'already_completed';
+        final formEnabled = scenario != 'form_disabled';
+        appConfig.value = AppGlobalConfig(
+          showPersonalizationForm: formEnabled && scenario != 'late_config',
+        );
         final h = Harness()..uid = null;
         h.service.guestLoginRequestId.value = 'pending-test-order';
         final loadedFor = <String?>[];
@@ -135,6 +399,7 @@ void main() {
               theme: GenesisTheme.dark(),
               navigatorKey: navigator,
               builder: (_, child) => PersonalizationGate(
+                appConfig: appConfig,
                 store: store,
                 navigatorKey: navigator,
                 loginPending: h.service.guestLoginRequestId,
@@ -200,12 +465,22 @@ void main() {
             expect(find.byType(PersonalizationSheet), findsNothing);
             expect(loadedFor, isEmpty);
           }
+          if (scenario == 'late_config') {
+            appConfig.value = const AppGlobalConfig(
+              showPersonalizationForm: true,
+            );
+            await tester.pump();
+            expect(find.byType(LoginSheet), findsOneWidget);
+            expect(loginCalls, 1);
+            expect(secondaryLoginCalls, 0);
+            expect(loadedFor, isEmpty);
+          }
           authenticated.complete();
           await tester.pumpAndSettle();
           expect(find.byType(LoginSheet), findsNothing);
-          expect(loadedFor, ['bound-user']);
+          expect(loadedFor, formEnabled ? ['bound-user'] : isEmpty);
           expect(find.text('Me destination'), findsOneWidget);
-          if (!accountCompleted) {
+          if (formEnabled && !accountCompleted) {
             expect(find.byType(PersonalizationSheet), findsOneWidget);
             expect(control('sign-in'), findsNothing);
             await tap(tester, 'g4');
@@ -258,6 +533,7 @@ void main() {
         MaterialApp(
           navigatorKey: navigator,
           builder: (_, child) => PersonalizationGate(
+            appConfig: appConfig,
             store: store,
             navigatorKey: navigator,
             loginPending: pending,
@@ -340,6 +616,7 @@ void main() {
           MaterialApp(
             navigatorKey: navigator,
             builder: (_, child) => PersonalizationGate(
+              appConfig: appConfig,
               store: store,
               navigatorKey: navigator,
               loginPending: pending,
@@ -415,6 +692,7 @@ void main() {
           MaterialApp(
             navigatorKey: navigator,
             builder: (_, child) => PersonalizationGate(
+              appConfig: appConfig,
               store: store,
               navigatorKey: navigator,
               signIn: (_, _) async {
@@ -464,6 +742,7 @@ void main() {
         MaterialApp(
           navigatorKey: navigator,
           builder: (_, child) => PersonalizationGate(
+            appConfig: appConfig,
             store: store,
             navigatorKey: navigator,
             checkGuestPurchases: () async {
@@ -500,6 +779,7 @@ void main() {
         MaterialApp(
           navigatorKey: navigator,
           builder: (_, child) => PersonalizationGate(
+            appConfig: appConfig,
             store: store,
             navigatorKey: navigator,
             child: child!,
@@ -535,6 +815,7 @@ void main() {
           MaterialApp(
             navigatorKey: navigator,
             builder: (_, child) => PersonalizationGate(
+              appConfig: appConfig,
               store: store,
               navigatorKey: navigator,
               signIn: (_, _) async {

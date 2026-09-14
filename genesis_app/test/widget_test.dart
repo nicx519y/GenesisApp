@@ -19541,6 +19541,14 @@ void main() {
               transport: transport,
               useMock: false,
               usePersonalizationApi: true,
+              appGlobalConfig: AppGlobalConfigStore(
+                initialValue: const AppGlobalConfig(
+                  showPersonalizationForm: true,
+                ),
+                loadConfig: ({String? uid}) async => {
+                  'show_personalization_form': true,
+                },
+              ),
             ),
           ),
         );

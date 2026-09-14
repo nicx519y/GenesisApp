@@ -69,6 +69,7 @@ class GenesisApp extends StatelessWidget {
                         child: DeveloperDebugFloatingButton(
                           navigatorKey: genesisNavigatorKey,
                           child: PersonalizationGate(
+                            appConfig: services.appGlobalConfig,
                             store: services.personalization,
                             loginPending: services
                                 .membershipPurchases

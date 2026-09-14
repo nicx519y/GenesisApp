@@ -153,10 +153,10 @@ void main() {
           );
           expect(h.claimRequests, hasLength(1));
           if (outcome == 'completed') {
-            // Reuse the existing member style, with Cancel in the first row.
+            // Member actions keep the shared Cancel row at the bottom.
             expect(
               tester.getCenter(find.text('Cancel')).dy,
-              lessThan(tester.getCenter(find.text('Check in')).dy),
+              greaterThan(tester.getCenter(find.text('Check in')).dy),
             );
             expect(h.store.claims, isEmpty);
             expect(membership.state.value.isVip, isTrue);

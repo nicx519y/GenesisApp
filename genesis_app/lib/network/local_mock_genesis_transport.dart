@@ -668,7 +668,11 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'app/config') {
-      return _v1Ok({'show_opening_sheet': false, 'apiTraceSamplingRate': 1.0});
+      return _v1Ok({
+        'show_opening_sheet': false,
+        'show_personalization_form': true,
+        'apiTraceSamplingRate': 1.0,
+      });
     }
 
     if (path == 'device/personalization') {

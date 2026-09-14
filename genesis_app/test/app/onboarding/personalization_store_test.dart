@@ -6,6 +6,61 @@ import '../../support/personalization_fixtures.dart';
 
 void main() {
   test(
+    'disabled form skips reads across refresh and session changes',
+    () async {
+      var calls = 0;
+      final store = PersonalizationStore(
+        readLoginUid: () async => 'user',
+        load: () async {
+          calls++;
+          return personalizationData();
+        },
+        save: (_) async => throw UnimplementedError(),
+      );
+      addTearDown(store.dispose);
+      store.setEnabled(false);
+      expect(await store.start(), isNull);
+      expect(await store.refresh(), isNull);
+      store.resetForSession();
+      expect(calls, 0);
+      expect(store.isStarted, isFalse);
+      expect(store.blocksOtherPrompts.value, isFalse);
+
+      store.setEnabled(true);
+      await store.start();
+      expect(calls, 1);
+      expect(store.blocksOtherPrompts.value, isTrue);
+      store.setEnabled(false);
+      store.resetForSession();
+      await store.refresh();
+      expect(calls, 1);
+      expect(store.state.value.data, isNull);
+      expect(store.blocksOtherPrompts.value, isFalse);
+    },
+  );
+
+  test('disabling form discards an in-flight profile response', () async {
+    final response = Completer<PersonalizationData>();
+    final entered = Completer<void>();
+    final store = PersonalizationStore(
+      readLoginUid: () async => null,
+      load: () {
+        entered.complete();
+        return response.future;
+      },
+      save: (_) async => throw UnimplementedError(),
+    );
+    addTearDown(store.dispose);
+    final loading = store.start();
+    await entered.future;
+    store.setEnabled(false);
+    response.complete(personalizationData());
+    expect(await loading, isNull);
+    expect(store.state.value.data, isNull);
+    expect(store.blocksOtherPrompts.value, isFalse);
+  });
+
+  test(
     'start coalesces and only server save completes the current identity',
     () async {
       final response = Completer<PersonalizationData>();

@@ -18,7 +18,7 @@ const Duration dailyCheckInSuccessDuration = Duration(seconds: 3);
 
 enum DailyCheckInDialogStatus { checkIn, claim, claimed }
 
-enum _DailyCheckInAction { subscribe, checkIn, cancel }
+enum _DailyCheckInAction { subscribe, checkIn }
 
 Future<bool> showDailyCheckInDialog(
   BuildContext context, {
@@ -75,22 +75,18 @@ Future<bool> showDailyCheckInDialog(
     ),
     titleContentSpacing: 10,
     actions: [
-      if (showCheckInActions)
+      if (showSubscriptionOffer)
         GenesisActionBoxAction<_DailyCheckInAction>(
-          label: showSubscriptionOffer ? 'Get 100' : 'Cancel',
-          value: showSubscriptionOffer
-              ? _DailyCheckInAction.subscribe
-              : _DailyCheckInAction.cancel,
+          label: 'Get 100',
+          value: _DailyCheckInAction.subscribe,
           color: GenesisColors.redSecondary,
-          trailing: showSubscriptionOffer
-              ? SvgPicture.asset(
-                  gemIconAsset,
-                  key: const ValueKey('daily-check-in-subscription-gem'),
-                  width: gemSmallIconSize,
-                  height: gemSmallIconSize,
-                  excludeFromSemantics: true,
-                )
-              : null,
+          trailing: SvgPicture.asset(
+            gemIconAsset,
+            key: const ValueKey('daily-check-in-subscription-gem'),
+            width: gemSmallIconSize,
+            height: gemSmallIconSize,
+            excludeFromSemantics: true,
+          ),
         ),
       GenesisActionBoxAction<_DailyCheckInAction>(
         label: switch (status) {
@@ -110,7 +106,7 @@ Future<bool> showDailyCheckInDialog(
       ),
     ],
     cancelLabel: 'Cancel',
-    showCancel: !showCheckInActions,
+    showCancel: !showSubscriptionOffer,
   );
   if (action == _DailyCheckInAction.subscribe && context.mounted) {
     await showSubscriptionPurchaseBottomSheet(context);

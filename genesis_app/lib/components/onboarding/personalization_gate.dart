@@ -4,8 +4,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/config/app_global_config.dart';
 import '../../app/debug/membership_guest_login_debug_settings.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
+import '../../app/membership/membership_access_store.dart';
 import '../../app/onboarding/personalization_store.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
@@ -19,20 +21,24 @@ class PersonalizationGate extends StatefulWidget {
   const PersonalizationGate({
     super.key,
     required this.store,
+    required this.appConfig,
     required this.navigatorKey,
     required this.child,
     this.loginPending,
     this.checkGuestPurchases,
     this.requestRequiredLogin,
+    this.membershipAccess,
     this.signIn,
     this.subscriptionBuilder,
   });
   final PersonalizationStore store;
+  final ValueListenable<AppGlobalConfig> appConfig;
   final GlobalKey<NavigatorState> navigatorKey;
   final Widget child;
   final ValueListenable<String?>? loginPending;
   final Future<void> Function()? checkGuestPurchases;
   final Future<bool> Function(BuildContext)? requestRequiredLogin;
+  final MembershipAccessStore? membershipAccess;
   final Future<void> Function(BuildContext, IdentityProvider)? signIn;
   final WidgetBuilder? subscriptionBuilder;
 
@@ -59,7 +65,9 @@ class _PersonalizationGateState extends State<PersonalizationGate>
   @override
   void initState() {
     super.initState();
+    widget.store.setEnabled(widget.appConfig.value.showPersonalizationForm);
     WidgetsBinding.instance.addObserver(this);
+    widget.appConfig.addListener(_configChanged);
     widget.store.state.addListener(_schedule);
     widget.loginPending?.addListener(_schedule);
     _schedule();
@@ -69,6 +77,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
   void didUpdateWidget(PersonalizationGate oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.store, widget.store)) {
+      widget.store.setEnabled(widget.appConfig.value.showPersonalizationForm);
       final route = _route;
       if (route != null && route.isActive) route.navigator?.removeRoute(route);
       oldWidget.store.state.removeListener(_schedule);
@@ -84,6 +93,26 @@ class _PersonalizationGateState extends State<PersonalizationGate>
     if (!identical(oldWidget.loginPending, widget.loginPending)) {
       oldWidget.loginPending?.removeListener(_schedule);
       widget.loginPending?.addListener(_schedule);
+    }
+    if (!identical(oldWidget.appConfig, widget.appConfig)) {
+      oldWidget.appConfig.removeListener(_configChanged);
+      widget.appConfig.addListener(_configChanged);
+      _configChanged();
+    }
+    _schedule();
+  }
+
+  void _configChanged() {
+    // The flag controls entry. Let an already-open form/login/purchase finish.
+    if (_showing) return;
+    final enabled = widget.appConfig.value.showPersonalizationForm;
+    if (widget.store.isEnabled != enabled) {
+      widget.store.setEnabled(enabled);
+      _retry?.cancel();
+      _retry = null;
+      _failures = 0;
+      _startupReady = false;
+      if (!_preparing) _completedRequiredLogin = false;
     }
     _schedule();
   }
@@ -127,6 +156,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
       if (_retry == null) await _prepareStartup();
       return;
     }
+    if (!store.isEnabled) return;
     if (!_showing &&
         snapshot.data != null &&
         snapshot.uid == null &&
@@ -208,6 +238,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                     } else {
                       await loginGenesisWithProvider(sheetContext, provider);
                     }
+                    if (!mounted || !sheetContext.mounted) return null;
                     // Cancellation must not reuse the completed guest profile
                     // as proof of a successful account login.
                     if (await store.readLoginUid() == null) return null;
@@ -228,6 +259,11 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                 },
                 onSubmit: (profile) async {
                   await store.submit(profile);
+                  if (!mounted ||
+                      !sheetContext.mounted ||
+                      !identical(store, widget.store)) {
+                    return PersonalizationNextStep.close;
+                  }
                   _saved = true;
                   // Startup already resolved paid guest login. Continue only
                   // saves this identity's profile and chooses its next page.
@@ -235,6 +271,24 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                     return store.state.value.uid == null
                         ? PersonalizationNextStep.requiredSignIn
                         : PersonalizationNextStep.close;
+                  }
+                  final membership =
+                      widget.membershipAccess ??
+                      AppServicesScope.maybeRead(sheetContext)?.membership;
+                  if (membership != null) {
+                    final savedUid = store.state.value.uid;
+                    final result = Completer<bool?>();
+                    membership.checkVip(result.complete);
+                    final isVip = await result.future;
+                    // Saving already succeeded. Only confirmed non-members
+                    // should proceed to the subscription offer.
+                    if (!mounted ||
+                        !sheetContext.mounted ||
+                        !identical(store, widget.store) ||
+                        store.state.value.uid != savedUid ||
+                        isVip != false) {
+                      return PersonalizationNextStep.close;
+                    }
                   }
                   return PersonalizationNextStep.subscription;
                 },
@@ -270,7 +324,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
       _route = null;
       _showing = false;
       store.endPresentation();
-      if (mounted) _schedule();
+      if (mounted) _configChanged();
     }
   }
 
@@ -327,7 +381,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
       }
       _preparedUid = uid;
       _startupReady = true;
-      await store.start();
+      if (store.isEnabled) await store.start();
     } catch (error) {
       if (!current()) return;
       debugPrint('[Personalization] startup check failed: $error');
@@ -349,6 +403,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
     _retry?.cancel();
     widget.store.state.removeListener(_schedule);
     widget.loginPending?.removeListener(_schedule);
+    widget.appConfig.removeListener(_configChanged);
     _requiresSignIn.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
