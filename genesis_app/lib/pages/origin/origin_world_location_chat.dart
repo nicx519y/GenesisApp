@@ -308,7 +308,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     ]);
     _beginOpeningMessageLaunch();
     FocusManager.instance.primaryFocus?.unfocus();
-    openWorldFromMyWorldsRoot(
+    openLaunchedWorldFromRetainedMainTabs(
       Navigator.of(context),
       arguments: {
         'pending_origin_launch': OriginLaunchEntry(

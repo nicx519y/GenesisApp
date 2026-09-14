@@ -192,7 +192,7 @@ class WorldChatroomService {
           int historyGeneration,
         })
       >{};
-  (bool, String, bool)? _replyAvailability;
+  (bool, String, bool, String)? _replyAvailability;
   final ChatroomInspirationStorage? _inspirationStorage;
   ChatroomInspirationController? _inspirations;
   final _inspirationValidatedLocations = <String>{};
@@ -252,6 +252,9 @@ class WorldChatroomService {
     _replyWalletRefresher = refresh;
   }
 
+  String get _replyWorldCreatorUid =>
+      _state.world?.worldId == _worldId ? _state.world!.ownerUid : '';
+
   /// Lazily owns candidate state; ordinary history never stores candidates.
   ChatroomReplyActionsController? get replyActions {
     if (_disposed || _worldId.isEmpty || _storageOwnerUid.isEmpty) return null;
@@ -260,6 +263,7 @@ class WorldChatroomService {
     final controller = ChatroomReplyActionsController(
       worldId: _worldId,
       ownerUid: _storageOwnerUid,
+      worldCreatorUid: () => _replyWorldCreatorUid,
       httpApi: _api.chatroomHttp,
       session: () => _session,
       isReady: (location) =>
@@ -333,6 +337,7 @@ class WorldChatroomService {
         _state.connected,
         _state.joinedLocationId,
         _state.inputBlocked,
+        _replyWorldCreatorUid,
       );
       if (availability != _replyAvailability) {
         _replyAvailability = availability;
