@@ -402,6 +402,54 @@ void main() {
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {
+    testWidgets(
+      '$provider debug store order number appears above purchase after callback',
+      (tester) async {
+        final h = support.Harness(provider: provider);
+        final storeOrderId = provider == MembershipProvider.google
+            ? 'GPA.1111-2222-3333-44444'
+            : '9900123456789';
+        final label = find.byKey(const ValueKey('pro-debug-store-order-id'));
+        try {
+          await tester.pumpWidget(
+            page(
+              () async => MembershipCatalogData(
+                offers: [MembershipOffer(product: h.product(yearly: true))],
+              ),
+              service: h.service,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
+          expect(
+            tester.getBottomLeft(label).dy,
+            lessThan(tester.getTopLeft(find.byKey(buttonKey)).dy),
+          );
+          await tester.tap(find.byKey(buttonKey));
+          await tester.pump(const Duration(milliseconds: 250));
+          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
+          await h.service.interceptPurchase(
+            h.purchase(yearly: true, transaction: storeOrderId),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('debug 订单 id：$storeOrderId'), findsOneWidget);
+          expect(tester.widget<Text>(label).maxLines, 1);
+          await tester.tap(find.text('Enjoy it'));
+          await tester.pumpAndSettle();
+          expect(find.text('debug 订单 id：$storeOrderId'), findsOneWidget);
+          h.uid = 'another-user';
+          h.service.resetForSession();
+          await h.service.recover();
+          await tester.pumpAndSettle();
+          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          h.service.dispose();
+        }
+      },
+    );
+
     for (final signedIn in [false, true]) {
       testWidgets(
         '$provider signedIn=$signedIn repeated taps reuse the entry catalog and upgrade credentials',

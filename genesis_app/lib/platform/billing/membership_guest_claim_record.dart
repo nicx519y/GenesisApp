@@ -30,13 +30,6 @@ class MembershipGuestClaimRecord {
 
   bool get needsRetry => status == null || status == 'accepted';
 
-  MembershipGuestClaimRecord get boundIdentity => MembershipGuestClaimRecord(
-    guest: guest,
-    ownerUid: ownerUid,
-    status: 'completed',
-    autoClaimAllowed: false,
-  );
-
   MembershipGuestClaimRecord copyWith({
     String? ownerUid,
     String? status,

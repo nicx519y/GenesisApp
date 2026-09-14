@@ -10,14 +10,14 @@ import 'membership_purchase_service_test.dart' as support;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   test(
-    'a new guest purchase can reuse a bound cached UUID without reusing its claim owner',
+    'a new guest purchase can reuse the same UUID after its bound cache is deleted',
     () async {
       final h = support.Harness(claimEnabled: true)..uid = null;
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
       h.uid = 'first-login';
       await h.service.recover();
-      expect(h.store.claims.values.single.status, 'completed');
+      expect(h.store.claims, isEmpty);
       h.uid = null;
       h.service.resetForSession();
       await h.service.purchase(h.product());
@@ -32,7 +32,7 @@ void main() {
       h.uid = 'second-login';
       await h.service.recover();
       expect(h.claimRequests.last.purchaseToken, 'new-token');
-      expect(h.store.claims.values.single.ownerUid, 'second-login');
+      expect(h.store.claims, isEmpty);
       expect(h.store.confirmed, isEmpty);
     },
   );
@@ -77,8 +77,11 @@ void main() {
             h.service.checkGuestPurchasesOnHome(),
           ]);
           await h.service.checkGuestPurchasesOnHome();
-          expect(h.guestDiscoveries, 1);
-          expect(h.guestChecks, [support.guest.accountUuid]);
+          expect(h.guestDiscoveries, unbound ? 1 : 2);
+          expect(
+            h.guestChecks,
+            List.filled(unbound ? 1 : 2, support.guest.accountUuid),
+          );
           expect(
             h.service.guestLoginRequestId.value,
             unbound ? support.guest.accountUuid : isNull,
@@ -123,8 +126,7 @@ void main() {
               h.claimRequests.single.guest.accountUuid,
               support.guest.accountUuid,
             );
-            expect(h.store.claims.values.single.recoveredProof, isNull);
-            expect(h.store.claims.values.single.status, 'completed');
+            expect(h.store.claims, isEmpty);
             expect(h.refreshes, 1);
           } else {
             expect(h.claimRequests, isEmpty);
@@ -158,7 +160,7 @@ void main() {
           ]);
           await h.service.checkGuestPurchasesOnHome();
           expect(h.guestChecks, [support.guest.accountUuid]);
-          expect(h.guestDiscoveries, 0);
+          expect(h.guestDiscoveries, 1);
           expect(h.eligibilityQueries, 0);
           expect(
             h.service.guestLoginRequestId.value,
@@ -176,7 +178,7 @@ void main() {
               h.claimRequests.single.toJson(),
               first.reports.single.toJson(),
             );
-            expect(h.store.claims.values.single.status, 'completed');
+            expect(h.store.claims, isEmpty);
             expect(h.store.confirmed, isEmpty);
             final restart = support.Harness(
               provider: provider,
@@ -187,7 +189,7 @@ void main() {
             restart.guestCheckHandler = (_) async =>
                 const MembershipGuestPurchaseCheck(hasUnboundOrder: false);
             await restart.service.checkGuestPurchasesOnHome();
-            expect(restart.guestChecks, [support.guest.accountUuid]);
+            expect(restart.guestChecks, isEmpty);
             expect(restart.service.guestLoginRequestId.value, isNull);
             restart.uid = 'another-login';
             await restart.service.recover();

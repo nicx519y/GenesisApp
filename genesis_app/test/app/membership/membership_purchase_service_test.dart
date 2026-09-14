@@ -61,7 +61,10 @@ class PendingStore implements MembershipPendingStore {
     confirmed.removeWhere(
       (_, p) => p.guest?.accountUuid == record.guest.accountUuid,
     );
-    claims[record.guest.accountUuid] = record.boundIdentity;
+    records.removeWhere(
+      (_, p) => p.guest?.accountUuid == record.guest.accountUuid,
+    );
+    claims.remove(record.guest.accountUuid);
   }
 
   @override
@@ -172,6 +175,7 @@ class Harness {
     bool guestRecoveryEnabled = false,
     Duration retryDelay = const Duration(days: 1),
     Duration attemptTimeout = const Duration(seconds: 90),
+    Duration guestRecoveryTimeout = const Duration(seconds: 15),
   }) : store = storage ?? PendingStore() {
     service = MembershipPurchaseService(
       platform: platform,
@@ -265,6 +269,7 @@ class Harness {
       otherPurchaseBusy: () => gemsBusy,
       retryDelay: retryDelay,
       attemptTimeout: attemptTimeout,
+      guestRecoveryTimeout: guestRecoveryTimeout,
     );
     addTearDown(service.dispose);
   }
@@ -330,6 +335,54 @@ class Harness {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  for (final provider in MembershipProvider.values) {
+    test(
+      '$provider debug order ID follows the latest checkout and clears on session change',
+      () async {
+        final h = Harness(provider: provider);
+        final firstId = provider == MembershipProvider.google
+            ? 'GPA.1111-2222-3333-44444'
+            : '9900123456789';
+        final nextId = provider == MembershipProvider.google
+            ? 'GPA.5555-6666-7777-88888'
+            : '9900987654321';
+        try {
+          expect(h.service.debugStoreOrderId.value, isNull);
+          await h.service.purchase(
+            h.product(),
+            attemptId: 'local-first-attempt',
+          );
+          expect(h.service.debugStoreOrderId.value, isNull);
+          await h.service.interceptPurchase(h.purchase(transaction: firstId));
+          expect(h.service.debugStoreOrderId.value, firstId);
+          expect(h.store.records, isEmpty);
+          await h.service.purchase(
+            h.product(yearly: true),
+            attemptId: 'local-next-attempt',
+          );
+          expect(h.service.debugStoreOrderId.value, isNull);
+          // A late callback from the previous receipt must not replace this order.
+          await h.service.interceptPurchase(h.purchase(transaction: firstId));
+          expect(h.service.debugStoreOrderId.value, isNull);
+          await h.service.interceptPurchase(
+            h.purchase(
+              yearly: true,
+              token: 'next-purchase-token',
+              transaction: nextId,
+            ),
+          );
+          expect(h.service.debugStoreOrderId.value, nextId);
+          h.uid = 'another-user';
+          h.service.resetForSession();
+          await h.service.recover();
+          expect(h.service.debugStoreOrderId.value, isNull);
+        } finally {
+          h.service.dispose();
+        }
+      },
+    );
+  }
+
   test(
     'subscription purchases record independent first analytics events',
     () async {
@@ -504,7 +557,12 @@ void main() {
       final h = Harness()..uid = null;
       h.platform.onLaunch = () async {
         expect(h.store.records, isEmpty);
-        expect(h.store.claims, isEmpty);
+        expect(
+          h.store.claims.values.single.guest.accountUuid,
+          guest.accountUuid,
+        );
+        expect(h.store.claims.values.single.requiresLogin, isFalse);
+        expect(h.store.claims.values.single.autoClaimAllowed, isFalse);
       };
       await h.service.purchase(h.product());
       expect(h.guestPrepares, 1);
@@ -519,13 +577,16 @@ void main() {
       );
     },
   );
-  test('purchase launch does not persist a speculative order', () async {
-    final h = Harness()..uid = null;
-    h.store.fail = true;
-    await h.service.purchase(h.product());
-    expect(h.platform.launches, 1);
-    expect(h.store.records, isEmpty);
-  });
+  test(
+    'guest identity persistence failure blocks launch without saving speculative orders',
+    () async {
+      final h = Harness()..uid = null;
+      h.store.fail = true;
+      await h.service.purchase(h.product());
+      expect(h.platform.launches, 0);
+      expect(h.store.records, isEmpty);
+    },
+  );
   test(
     'launch rejection and cancellation allow another attempt without reporting',
     () async {

@@ -66,7 +66,7 @@ void main() {
                 h.uid = 'first-login';
                 await h.service.recover();
                 expect(h.claimRequests.single.toJson(), report);
-                expect(h.store.claims[expected]!.status, 'completed');
+                expect(h.store.claims, isEmpty);
               } else {
                 expect(report, isNot(contains('account_uuid')));
                 expect(h.claimRequests, isEmpty);

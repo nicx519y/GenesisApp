@@ -2,6 +2,7 @@ part of 'membership_purchase_service.dart';
 
 class _MembershipClaimRetry {
   int attempts = 0;
+  int proofAttempts = 0;
   Timer? timer;
 
   // One initial request and at most five additional attempts in this session.
@@ -142,14 +143,19 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
           guest: guest,
           purchaseRequestId: purchase.requestId,
         );
+    if (claim.purchaseRequestId == null && claim.recoveredProof == null) {
+      claim = claim.copyWith(
+        purchaseRequestId: purchase.requestId,
+        autoClaimAllowed: true,
+      );
+    }
     if (purchase.reportStatus == 'completed' && !claim.purchaseConfirmed) {
       claim = claim.copyWith(
         purchaseRequestId: purchase.requestId,
         purchaseConfirmed: true,
       );
       if (!_currentGuestLoginUuids.contains(guest.accountUuid)) {
-        _guestStartupResolved = false;
-        _guestStartupRefreshNeeded = true;
+        _invalidateGuestStartupCheck();
         _guestOrderChecks.remove(guest.accountUuid);
       }
     }
@@ -166,6 +172,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
     String? requestId;
     if (uid == null) {
       for (final claim in _guestClaims.values) {
+        if (claim.status == 'completed') continue;
         final id = claim.purchaseRequestId ?? claim.guest.accountUuid;
         if (checkGuestPurchase != null &&
             !_currentGuestLoginUuids.contains(claim.guest.accountUuid) &&
@@ -202,13 +209,6 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
 
   Future<void> _completeGuestClaim(MembershipGuestClaimRecord record) async {
     if (record.status != 'completed' || record.ownerUid == null) return;
-    if (record.purchaseRequestId == null &&
-        record.recoveredProof == null &&
-        !record.purchaseConfirmed &&
-        !record.loginRequired &&
-        !record.autoClaimAllowed) {
-      return;
-    }
     final accountUuid = record.guest.accountUuid;
     final session = _session;
     if (_claimWalletRefreshSessions[accountUuid] != session &&
@@ -254,12 +254,14 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
     await store.completeGuestClaim(record);
     for (final purchase in _records.values.toList()) {
       if (purchase.guest?.accountUuid == record.guest.accountUuid) {
+        _pendingRequestIds.remove(purchase.requestId);
         _records[purchase.requestId] = purchase.bindGuestToAccount(
           record.ownerUid!,
         );
       }
     }
-    _guestClaims[record.guest.accountUuid] = record.boundIdentity;
+    _guestClaims.remove(accountUuid);
+    _currentGuestLoginUuids.remove(accountUuid);
     _guestOrderChecks.remove(record.guest.accountUuid);
     _pendingGuestClaimWrites.remove(record.guest.accountUuid);
     _claimRetries.remove(accountUuid)?.timer?.cancel();
@@ -268,6 +270,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
     _signedTransactions.removeWhere(
       (key, _) => key.startsWith('$accountUuid:'),
     );
+    await _refreshGuestLoginRequest();
   }
 
   Future<void> _flushGuestClaims() async {
@@ -317,8 +320,21 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
       try {
         final purchase = _claimPurchase(record);
         if (purchase == null && record.recoveredProof == null) {
-          _scheduleRetry();
-          continue;
+          // Login can finish before a temporarily unavailable store recovers.
+          // Keep recovering the original proof after login, not just on Home.
+          if (retry.proofAttempts >= 3) continue;
+          record = record.copyWith(ownerUid: uid);
+          await _saveGuestClaim(record);
+          if (_disposed || session != _session || await readLoginUid() != uid) {
+            return;
+          }
+          retry.proofAttempts++;
+          final recovered = await _recoverGuestProofAfterLogin(record, uid);
+          if (recovered == null) {
+            _scheduleRetry();
+            continue;
+          }
+          record = recovered;
         }
         final request = purchase != null
             ? MembershipClaimRequest.fromPurchase(
@@ -377,5 +393,55 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         }
       }
     }
+  }
+
+  Future<MembershipGuestClaimRecord?> _recoverGuestProofAfterLogin(
+    MembershipGuestClaimRecord record,
+    String uid,
+  ) async {
+    if (discoverGuestPurchases == null) return null;
+    final session = _session;
+    final candidates = <String, BillingPurchase>{};
+    for (final entry in await discoverGuestPurchases!().timeout(
+      guestRecoveryTimeout,
+    )) {
+      final purchase = entry.purchase;
+      final credential = provider == MembershipProvider.google
+          ? purchase.purchaseToken
+          : purchase.transactionId;
+      final uuid = purchase.obfuscatedAccountId?.trim().toLowerCase();
+      if (purchase.provider.apiValue == provider.name &&
+          (purchase.status == BillingPurchaseStatus.purchased ||
+              purchase.status == BillingPurchaseStatus.restored) &&
+          entry.isCurrent(DateTime.now()) &&
+          purchase.productId.isNotEmpty &&
+          credential.isNotEmpty &&
+          uuid == record.guest.accountUuid) {
+        candidates['${purchase.productId}:$credential'] = purchase;
+      }
+    }
+    if (candidates.length != 1 ||
+        _disposed ||
+        session != _session ||
+        await readLoginUid() != uid) {
+      return null;
+    }
+    final purchase = candidates.values.single;
+    final recovered = record.copyWith(
+      recoveredProof: MembershipGuestClaimProof(
+        provider: provider,
+        storeProductId: purchase.productId,
+        requestId: newBillingAttemptId(),
+        purchaseToken: purchase.purchaseToken,
+        transactionId: purchase.transactionId,
+      ),
+    );
+    if (provider == MembershipProvider.apple &&
+        purchase.signedTransaction.isNotEmpty) {
+      _signedTransactions['${record.guest.accountUuid}:${purchase.transactionId}'] =
+          purchase.signedTransaction;
+    }
+    await _saveGuestClaim(recovered);
+    return recovered;
   }
 }

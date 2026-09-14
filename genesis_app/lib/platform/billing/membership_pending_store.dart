@@ -439,6 +439,26 @@ class SecureMembershipPendingStore implements MembershipPendingStore {
       if (saved.single.status != 'completed' || saved.single.ownerUid != uid) {
         throw StateError('Guest claim completion must be durable');
       }
+      final pending = await _read();
+      bool belongsToClaim(MembershipPurchaseRecord purchase) =>
+          purchase.guest?.accountUuid == record.guest.accountUuid;
+      if (pending.any(
+        (purchase) =>
+            belongsToClaim(purchase) &&
+            purchase.hasReceipt &&
+            purchase.reportStatus != 'completed' &&
+            purchase.reportStatus != 'rejected',
+      )) {
+        throw StateError('Guest report cleanup is not completed');
+      }
+      final before = pending.length;
+      pending.removeWhere(belongsToClaim);
+      if (pending.length != before) {
+        await _storage.write(
+          key: _key,
+          value: jsonEncode(pending.map((r) => r.toJson()).toList()),
+        );
+      }
       final receipts = await _read(_confirmedKey);
       receipts.removeWhere(
         (r) => r.guest?.accountUuid == record.guest.accountUuid,
@@ -451,15 +471,19 @@ class SecureMembershipPendingStore implements MembershipPendingStore {
           value: jsonEncode(receipts.map((r) => r.toJson()).toList()),
         );
       }
-      // Keep only the bound UUID for a later logged-out check, never re-claim it.
+      // Claim is durable and report/StoreKit cleanup has settled. Remove the
+      // identity too; later logged-out recovery queries the store and backend.
       claims.removeWhere(
         (r) => r.guest.accountUuid == record.guest.accountUuid,
       );
-      claims.add(record.boundIdentity);
-      await _storage.write(
-        key: _guestClaimsKey,
-        value: jsonEncode(claims.map((r) => r.toJson()).toList()),
-      );
+      if (claims.isEmpty) {
+        await _storage.delete(key: _guestClaimsKey);
+      } else {
+        await _storage.write(
+          key: _guestClaimsKey,
+          value: jsonEncode(claims.map((r) => r.toJson()).toList()),
+        );
+      }
     });
     _writes = operation.catchError((Object _) {});
     return operation;

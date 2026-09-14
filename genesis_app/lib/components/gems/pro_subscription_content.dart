@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -385,7 +386,17 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                   ],
                 ],
               ),
-              const SizedBox(height: 34),
+              SizedBox(
+                height: 34,
+                child: kDebugMode
+                    ? _DebugMembershipOrderId(
+                        orderId:
+                            (widget.purchaseService ??
+                                    _services?.membershipPurchases)
+                                ?.debugStoreOrderId,
+                      )
+                    : null,
+              ),
               DecoratedBox(
                 key: const ValueKey('pro-subscribe-gold-surface'),
                 decoration: BoxDecoration(
@@ -450,6 +461,38 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       ],
     );
   }
+}
+
+class _DebugMembershipOrderId extends StatelessWidget {
+  const _DebugMembershipOrderId({this.orderId});
+
+  final ValueListenable<String?>? orderId;
+
+  @override
+  Widget build(BuildContext context) {
+    final source = orderId;
+    if (source == null) return _label(null);
+    return ValueListenableBuilder<String?>(
+      valueListenable: source,
+      builder: (_, value, _) => _label(value),
+    );
+  }
+
+  Widget _label(String? value) => Center(
+    child: FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Text(
+        'debug 订单 id：${value ?? '暂无'}',
+        key: const ValueKey('pro-debug-store-order-id'),
+        maxLines: 1,
+        style: const TextStyle(
+          fontSize: 10,
+          height: 1.2,
+          color: GenesisColors.darkTextSecondary,
+        ),
+      ),
+    ),
+  );
 }
 
 // The API supplies icon identifiers, never asset paths or executable content.
