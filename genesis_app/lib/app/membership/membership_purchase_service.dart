@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
 import '../telemetry/firebase_analytics_monitoring.dart';
@@ -89,6 +90,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   final Future<MembershipProductList> Function() readCheckoutProducts;
   final Future<MembershipAccessState> Function() refreshMembership;
   final ValueNotifier<int> catalogRevision = ValueNotifier(0);
+  final _debugStoreOrderId = ValueNotifier<String?>(null);
+  String? _debugAttemptId;
+
+  /// Latest store order number from a checkout in this session, debug only.
+  ValueListenable<String?> get debugStoreOrderId => _debugStoreOrderId;
   final bool Function()? otherPurchaseBusy;
   final Future<void> Function()? refreshWallet;
   final Future<MembershipClaimResult> Function(MembershipClaimRequest)?
@@ -882,6 +888,18 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     MembershipStoreFailure? storeFailure,
   }) {
     if (_disposed) return;
+    if (kDebugMode) {
+      if (value == MembershipCheckoutState.preparing) {
+        _debugAttemptId = attemptId;
+        _debugStoreOrderId.value = null;
+      }
+      if (_debugAttemptId == attemptId) {
+        final transactionId = _records[attemptId]?.transactionId.trim();
+        if (transactionId?.isNotEmpty == true) {
+          _debugStoreOrderId.value = transactionId;
+        }
+      }
+    }
     if (value != MembershipCheckoutState.preparing &&
         value != MembershipCheckoutState.store &&
         value != MembershipCheckoutState.reporting) {
@@ -910,6 +928,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   void resetForSession() {
     _endCheckoutWaits(MembershipCheckoutState.idle);
     _session++;
+    _debugAttemptId = null;
+    _debugStoreOrderId.value = null;
     _guestOrderChecks.clear();
     _guestHomeCheck = null;
     _guestStartupResolved = false;
@@ -959,6 +979,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     state.dispose();
     guestLoginRequestId.dispose();
     catalogRevision.dispose();
+    _debugStoreOrderId.dispose();
   }
 }
 

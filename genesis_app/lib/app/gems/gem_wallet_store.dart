@@ -41,6 +41,10 @@ class GemWalletStore {
   Future<void>? _refreshFuture;
   bool _disposed = false;
 
+  /// Includes the initial session read, before isRefreshing becomes true.
+  /// Consumers can await current work without starting another wallet request.
+  Future<void>? get pendingRefresh => _refreshFuture;
+
   Future<void> refresh() {
     if (_disposed) return Future<void>.value();
     final inFlight = _refreshFuture;

@@ -202,27 +202,37 @@ class MembershipAccessStore with WidgetsBindingObserver {
       return MembershipAccessStatus.inactive;
     }
     _consumeWallet();
+    // Me, Gems, and purchase/claim completion can refresh the wallet directly.
+    // Resolve access from that response instead of the retained display cache.
+    final pendingWallet = wallet.pendingRefresh;
     final cached = _status();
     final age = _receivedAt == null ? null : _elapsed() - _receivedAt!;
     if (!forceRefresh &&
+        pendingWallet == null &&
+        wallet.state.value.lastError == null &&
         cached != MembershipAccessStatus.unknown &&
         (maxAge == null || age != null && age < maxAge)) {
       _scheduleExpiry();
       _publish();
       return cached;
     }
-    if (!forceRefresh && _retryAfter != null && _elapsed() < _retryAfter!) {
+    if (!forceRefresh &&
+        pendingWallet == null &&
+        _retryAfter != null &&
+        _elapsed() < _retryAfter!) {
       _publish();
       return MembershipAccessStatus.unknown;
     }
-    if (hasBackendSession != null && !await hasBackendSession!()) {
+    if (pendingWallet == null &&
+        hasBackendSession != null &&
+        !await hasBackendSession!()) {
       if (!current()) return MembershipAccessStatus.unknown;
       throw StateError('Membership backend session unavailable');
     }
     if (!current()) return MembershipAccessStatus.unknown;
     _publish(refreshing: true);
     operation.requestedWallet = true;
-    await wallet.refresh();
+    await (pendingWallet ?? wallet.refresh());
     if (!current()) return MembershipAccessStatus.unknown;
     // Session notifications normally cancel this lookup. Also verify the UID
     // before returning access if a caller changed credentials without one.

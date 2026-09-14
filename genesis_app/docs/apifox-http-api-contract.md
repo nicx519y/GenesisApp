@@ -2622,7 +2622,7 @@ World：
 - 每项提供 `title`、`benefits`、`plan_code`（`pro_monthly`/`pro_yearly`）、`provider`、`store_product_id`、`billing_months`（1/12）、`monthly_gems_cent`、`price_currency_code`、`price_amount`。Google 还必含 `base_plan_id`，可选 `offer_id`；Apple 不返回 base plan。标题、权益、价格继续按当前契约解析，不填默认商品。
 - `account_uuid` 仍是所选商品优先使用的购买身份；未提供时游客使用 prepare 身份、登录用户使用自身 UUID。Google 年付升级可附带原月订阅 `purchase_token`，不使用缓存中的旧凭据。UUID 和 token 都不表示会员有效性。
 - `GemWalletStore` 保存当前账号钱包及会员数据；`MembershipAccessStore` 统一从 `/api/v1/gem/wallet` 的 `membership` 推导当前账号权益。`membership_status=0` 为未开通，2 为已失效；1 时必须有有效到期时间及服务端校准时间，且 `expires_at > now` 才有效，等于或早于 now 为已过期。会员数据、有效状态所需时间缺失时为未知。`auto_renew` 和宝石余额不参与有效性判断。
-- 全局 `checkVip(callback)` 保持一次异步回调；true 有效、false 非有效、null 未知。有效缓存可直接使用，缺失或过期缓存按原去重/冷却策略刷新；退出及切换账号清空旧状态并忽略迟到结果。
+- 全局 `checkVip(callback)` 保持一次异步回调；true 有效、false 非有效、null 未知。wallet 没有在途刷新且最近请求未失败时，有效缓存可直接使用；如页面或购买/绑定流程已发起 wallet 刷新（含读取登录身份阶段），先等待同一请求完成再判断，不提前返回旧缓存、不重复发请求。请求失败或超时返回未知，不把旧的非会员缓存用于签到订阅入口；缺失或过期缓存按原去重/冷却策略刷新。退出及切换账号清空旧状态并忽略迟到结果。
 - 已登录用户每次打开完整支付页面或购买底部弹层，先展示当前账号缓存并请求 wallet 刷新，商品请求并行；在途 wallet 请求复用。同一次打开不因组件重建或切换 TAB 重复触发会员刷新。商品初始仍只加载当前 TAB，另一个 TAB 首次访问才加载，Gems 原有请求逻辑不变。
 - Subscription 按全局状态和有效会员的 `plan_code` 展示：有效月会员选月付显示 `Subscribed`，有效年会员选年付显示 `Subscribed`；其余沿用套餐金额按钮。点击实际购买时必须等待/发起 wallet 刷新，商品配置及升级凭据复用本次进入 Subscription 的 API 响应，不因每次点击重复请求 products。页面商品请求尚未完成时等待同一请求；仅有展示缓存或本次请求失败时不能付款。当前会员快照不确定或 wallet 请求失败也不能借旧缓存继续付款。有效月会员禁止重复月付；有效年会员禁止重复年付和降级月付；失效记录保留的旧套餐不再阻止购买。
 - Me 当前账号会员卡片和徽章读取同一全局状态；状态 2 或状态 1 且已到期使用已有失效样式。只调整数据绑定，不调整 UI 尺寸、布局、颜色或文案。
@@ -2634,6 +2634,7 @@ World：
 - 普通 Gems 使用 `wallet.balance_cent`，会员 Blue Gems 使用 `membership.blue_gems_cent`，互不替换；原 Gems 购买、签到、补报逻辑不变。
 - 签到确认弹窗通过全局 `checkVip(callback)` 区分会员：有效会员把原 `Get 100` 按钮替换为 `Cancel`（去掉宝石图标），点击只关闭弹窗；`Check in` 保持原来的第二行位置、样式和签到行为，不展示订阅入口；明确非会员（含过期会员）的未签到弹窗保留 `Get 100` / `Check in`。会员信息暂不可用时保留普通签到和取消，不引导重复订阅。会员待领奖按钮也使用 `Check in` 文案，底层仍按任务状态调用原 report/claim；已领取的禁用状态和奖励展示不变。登录后自动签到和 Buy Gems 签到入口共用此处理。
 - 本地 mock 返回 `{data: {list: []}}`，不伪造商品、标题、价格和权益。
+- 仅 Debug 包在 Subscription 购买按钮上方原有间距内显示 `debug 订单 id：…`。读取当前会话最近一次主动购买回调的 `transactionId`（Google 商店订单号／Apple 交易 ID），取得前显示 `暂无`；不使用本地 request_id、report_id、商品 ID 或 purchase_token 代替。新购买及切换账号清空显示，旧订单的后台补报不覆盖新购买。只观察现有购买状态，不增加网络或商店查询，Profile/Release 不显示该行且保留原布局。
 
 
 ## Pro 会员购买与上报（2026-09-10 核对）

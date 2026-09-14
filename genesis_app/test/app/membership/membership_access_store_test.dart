@@ -32,7 +32,7 @@ class _Harness {
     elapsed = () => tester.binding.clock.now().difference(initial);
     load = () async => _response(expiry: epoch.add(const Duration(days: 1)));
     wallet = GemWalletStore(
-      readUid: () async => uid,
+      readUid: () => readWalletUid(),
       loadWallet: () {
         calls++;
         return load();
@@ -56,6 +56,7 @@ class _Harness {
   late Duration Function() elapsed;
   late Future<GemWallet> Function() load;
   late Future<String?> Function() readUid = () async => uid;
+  late Future<String?> Function() readWalletUid = () async => uid;
   late GemWalletStore wallet;
   late MembershipAccessStore access;
 
@@ -244,6 +245,63 @@ void main() {
     expect(await vipRequest, active);
     expect(h.calls, 1);
   });
+
+  for (final waitingForIdentity in [false, true]) {
+    _testMembership(
+      'cached non-member waits for wallet refresh (reading identity: $waitingForIdentity)',
+      (tester, h) async {
+        h.load = () async => _response(status: 0);
+        expect(await _checkVip(h.access), inactive);
+        final response = Completer<GemWallet>();
+        final identity = Completer<String?>();
+        h.load = () => response.future;
+        if (waitingForIdentity) h.readWalletUid = () => identity.future;
+        final walletRequest = h.wallet.refresh();
+        await tester.pump();
+        expect(h.wallet.state.value.isRefreshing, !waitingForIdentity);
+
+        final results = <bool?>[];
+        h.access.checkVip(results.add);
+        h.access.checkVip(results.add);
+        await tester.pump();
+        expect(results, isEmpty);
+        if (waitingForIdentity) identity.complete(h.uid);
+        await tester.pump();
+        response.complete(_response());
+        await walletRequest;
+        await tester.pump();
+        expect(results, [true, true]);
+        expect(h.calls, 2);
+      },
+    );
+  }
+
+  _testMembership(
+    'failed wallet refresh cannot reuse cached non-member for access checks',
+    (tester, h) async {
+      h.load = () async => _response(status: 0);
+      expect(await _checkVip(h.access), inactive);
+      final response = Completer<GemWallet>();
+      h.load = () => response.future;
+      final walletRequest = h.wallet.refresh();
+      await tester.pump();
+      final results = <bool?>[];
+      h.access.checkVip(results.add);
+      await tester.pump();
+      response.completeError(StateError('offline'));
+      await walletRequest;
+      await tester.pump();
+      expect(results, [null]);
+      expect(h.access.debugState.isVip, isFalse);
+      expect(await _checkVip(h.access), unknown);
+      expect(h.calls, 2);
+
+      await tester.pump(const Duration(seconds: 2));
+      h.load = () async => _response();
+      expect(await _checkVip(h.access), active);
+      expect(h.calls, 3);
+    },
+  );
 
   for (final status in [0, 2]) {
     _testMembership(
