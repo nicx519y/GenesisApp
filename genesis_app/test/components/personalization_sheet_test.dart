@@ -184,6 +184,8 @@ void main() {
             body: Center(
               child: TextButton(
                 onPressed: () => showPersonalizationSheet(
+                  form: personalizationPreviewForm,
+                  onSubmit: (_) async => PersonalizationNextStep.subscription,
                   context: context,
                   onSignIn: (_) async {
                     if (fail) throw StateError('Preview failure');
@@ -330,8 +332,9 @@ void main() {
     await open(
       tester,
       account: const PersonalizationProfile(
-        gender: PersonalizationGender.nonBinary,
-        age: PersonalizationAge.age45plus,
+        gender: 'Non_binary',
+        age: '45+',
+        completed: true,
       ),
     );
     await login(tester);

@@ -155,6 +155,7 @@ class _LocationChatReplyProjectionCache {
 
   Object get _identityKey => (
     _owner._replyBindingGeneration,
+    _owner._myUserId,
     _owner._chatroomState.world,
     _owner._chatroomState.entitiesById,
     Object.hashAll(_owner._myUserIdKeys),
@@ -177,7 +178,7 @@ class _LocationChatReplyProjectionCache {
       );
       _parseContext = LocationChatMessageParseContext(
         currentLocationId: _owner.widget.locationId,
-        isMine: (_) => false,
+        isMine: _owner._isMineMessage,
         senderName: _owner._messageSenderDisplayName,
         avatarUrl: _owner._messageAvatarUrl,
         isPlayerControlledRole: _owner._messageSenderIsPlayerControlledRole,
@@ -228,7 +229,7 @@ class _LocationChatReplyProjectionCache {
         imageUrl: parsed.imageUrl,
         text: parsed.text,
         currentTime: parsed.currentTime,
-        isMe: false,
+        isMe: parsed.isMe,
         status: parsed.status,
         senderType: parsed.senderType,
         createdAt: parsed.createdAt,

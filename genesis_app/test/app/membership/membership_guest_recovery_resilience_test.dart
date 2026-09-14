@@ -36,7 +36,8 @@ void main() {
       restarted.guestCheckHandler = (_) async =>
           const MembershipGuestPurchaseCheck(hasUnboundOrder: false);
       await restarted.service.checkGuestPurchasesOnHome();
-      expect(restarted.guestChecks, [support.guest.accountUuid]);
+      expect(restarted.guestChecks, isEmpty);
+      expect(restarted.guestDiscoveries, 1);
       expect(restarted.service.guestLoginRequestId.value, isNull);
     },
   );
@@ -49,44 +50,45 @@ void main() {
     expect(h.reports, isEmpty);
   });
 
-  test('cached identity cannot hide a different store identity', () async {
-    final h = support.Harness(guestRecoveryEnabled: true)..uid = null;
-    h.store.claims[support.accountUuid] = const MembershipGuestClaimRecord(
-      guest: MembershipGuestIdentity(accountUuid: support.accountUuid),
-      autoClaimAllowed: false,
-    );
-    h.guestPurchases = [MembershipStorePurchase(purchase: h.purchase())];
-    h.guestCheckHandler = (uuid) async => MembershipGuestPurchaseCheck(
-      hasUnboundOrder: uuid == support.guest.accountUuid,
-    );
-    await h.service.checkGuestPurchasesOnHome();
-    expect(h.guestChecks.toSet(), {
-      support.accountUuid,
-      support.guest.accountUuid,
-    });
-    expect(h.service.guestLoginRequestId.value, support.guest.accountUuid);
-    expect(
-      h.store.claims[support.guest.accountUuid]!.recoveredProof!.purchaseToken,
-      'test-token',
-    );
-  });
-
   test(
-    'store failure still checks cached UUID and forces confirmed unbound login',
+    'unpaid cached identity is ignored in favor of a paid store order',
     () async {
       final h = support.Harness(guestRecoveryEnabled: true)..uid = null;
-      h.store.claims[support.guest.accountUuid] =
-          const MembershipGuestClaimRecord(
-            guest: support.guest,
-            autoClaimAllowed: false,
-          );
-      h.guestPurchasesHandler = () async =>
-          throw StateError('store unavailable');
+      h.store.claims[support.accountUuid] = const MembershipGuestClaimRecord(
+        guest: MembershipGuestIdentity(accountUuid: support.accountUuid),
+        autoClaimAllowed: false,
+      );
+      h.guestPurchases = [MembershipStorePurchase(purchase: h.purchase())];
+      h.guestCheckHandler = (uuid) async => MembershipGuestPurchaseCheck(
+        hasUnboundOrder: uuid == support.guest.accountUuid,
+      );
       await h.service.checkGuestPurchasesOnHome();
       expect(h.guestChecks, [support.guest.accountUuid]);
       expect(h.service.guestLoginRequestId.value, support.guest.accountUuid);
+      expect(
+        h
+            .store
+            .claims[support.guest.accountUuid]!
+            .recoveredProof!
+            .purchaseToken,
+        'test-token',
+      );
     },
   );
+
+  test('paid cache is checked without querying an unavailable store', () async {
+    final h = support.Harness(guestRecoveryEnabled: true)..uid = null;
+    h.store.claims[support.guest.accountUuid] =
+        const MembershipGuestClaimRecord(
+          guest: support.guest,
+          purchaseConfirmed: true,
+          autoClaimAllowed: false,
+        );
+    h.guestPurchasesHandler = () async => throw StateError('store unavailable');
+    await h.service.checkGuestPurchasesOnHome();
+    expect(h.guestChecks, [support.guest.accountUuid]);
+    expect(h.service.guestLoginRequestId.value, support.guest.accountUuid);
+  });
 
   testWidgets('missing UUID retries then recovers without another Home entry', (
     tester,
@@ -132,7 +134,10 @@ void main() {
       retryDelay: const Duration(seconds: 1),
     )..uid = null;
     h.store.claims[support.guest.accountUuid] =
-        const MembershipGuestClaimRecord(guest: support.guest);
+        const MembershipGuestClaimRecord(
+          guest: support.guest,
+          purchaseConfirmed: true,
+        );
     h.guestCheckHandler = (_) async => throw StateError('offline');
     await h.service.checkGuestPurchasesOnHome();
     expect(h.service.guestLoginRequestId.value, isNull);
@@ -147,15 +152,16 @@ void main() {
     h.service.dispose();
   });
 
-  testWidgets('hung store query times out and still checks durable identity', (
-    tester,
-  ) async {
+  testWidgets('paid cache bypasses a hung store query', (tester) async {
     final h = support.Harness(
       guestRecoveryEnabled: true,
       guestRecoveryTimeout: const Duration(seconds: 1),
     )..uid = null;
     h.store.claims[support.guest.accountUuid] =
-        const MembershipGuestClaimRecord(guest: support.guest);
+        const MembershipGuestClaimRecord(
+          guest: support.guest,
+          purchaseConfirmed: true,
+        );
     final pending = Completer<List<MembershipStorePurchase>>();
     h.guestPurchasesHandler = () => pending.future;
     final check = h.service.checkGuestPurchasesOnHome();
@@ -163,22 +169,23 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
     await check;
     expect(h.guestChecks, [support.guest.accountUuid]);
+    expect(h.guestDiscoveries, 0);
     expect(h.service.guestLoginRequestId.value, isNotNull);
     pending.complete([]);
     h.service.dispose();
   });
 
   test(
-    'returning to foreground invalidates an empty successful discovery',
+    'returning to foreground preserves a recent successful discovery',
     () async {
       final h = support.Harness(guestRecoveryEnabled: true)..uid = null;
       await h.service.checkGuestPurchasesOnHome();
       h.guestPurchases = [MembershipStorePurchase(purchase: h.purchase())];
       h.service.didChangeAppLifecycleState(AppLifecycleState.resumed);
       await h.service.checkGuestPurchasesOnHome();
-      expect(h.guestDiscoveries, 2);
-      expect(h.guestChecks, [support.guest.accountUuid]);
-      expect(h.service.guestLoginRequestId.value, isNotNull);
+      expect(h.guestDiscoveries, 1);
+      expect(h.guestChecks, isEmpty);
+      expect(h.service.guestLoginRequestId.value, isNull);
     },
   );
 
@@ -229,6 +236,7 @@ void main() {
     h.store.claims[support.guest.accountUuid] =
         const MembershipGuestClaimRecord(
           guest: support.guest,
+          purchaseConfirmed: true,
           autoClaimAllowed: false,
         );
     h.guestPurchasesHandler = () async => throw StateError('store offline');

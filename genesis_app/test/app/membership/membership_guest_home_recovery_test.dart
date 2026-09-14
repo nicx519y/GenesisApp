@@ -77,11 +77,8 @@ void main() {
             h.service.checkGuestPurchasesOnHome(),
           ]);
           await h.service.checkGuestPurchasesOnHome();
-          expect(h.guestDiscoveries, unbound ? 1 : 2);
-          expect(
-            h.guestChecks,
-            List.filled(unbound ? 1 : 2, support.guest.accountUuid),
-          );
+          expect(h.guestDiscoveries, 1);
+          expect(h.guestChecks, [support.guest.accountUuid]);
           expect(
             h.service.guestLoginRequestId.value,
             unbound ? support.guest.accountUuid : isNull,
@@ -160,7 +157,7 @@ void main() {
           ]);
           await h.service.checkGuestPurchasesOnHome();
           expect(h.guestChecks, [support.guest.accountUuid]);
-          expect(h.guestDiscoveries, 1);
+          expect(h.guestDiscoveries, 0);
           expect(h.eligibilityQueries, 0);
           expect(
             h.service.guestLoginRequestId.value,
@@ -200,8 +197,13 @@ void main() {
     }
   }
   for (final stage in ['store', 'check']) {
-    test('reinstall $stage failure retries on next entry', () async {
-      final h = support.Harness(guestRecoveryEnabled: true)..uid = null;
+    testWidgets('reinstall $stage failure retries after backoff', (
+      tester,
+    ) async {
+      final h = support.Harness(
+        guestRecoveryEnabled: true,
+        retryDelay: const Duration(seconds: 1),
+      )..uid = null;
       h.guestPurchases = [MembershipStorePurchase(purchase: h.purchase())];
       if (stage == 'store') {
         h.guestPurchasesHandler = () async => throw StateError('store offline');
@@ -214,6 +216,8 @@ void main() {
       h.guestPurchasesHandler = null;
       h.guestCheckHandler = null;
       await h.service.checkGuestPurchasesOnHome();
+      expect(h.guestDiscoveries, 1);
+      await tester.pump(const Duration(seconds: 1));
       expect(h.guestDiscoveries, 2);
       expect(h.guestChecks, hasLength(stage == 'store' ? 1 : 2));
       expect(h.service.guestLoginRequestId.value, support.guest.accountUuid);
@@ -262,10 +266,13 @@ void main() {
       expect(h.store.claims, isEmpty);
     },
   );
-  test(
-    'check failure keeps UUID and retries next entry without forcing login',
-    () async {
-      final h = support.Harness(guestRecoveryEnabled: true)..uid = null;
+  testWidgets(
+    'check failure keeps paid UUID and waits for backoff without forcing login',
+    (tester) async {
+      final h = support.Harness(
+        guestRecoveryEnabled: true,
+        retryDelay: const Duration(seconds: 1),
+      )..uid = null;
       await h.store.saveGuestClaim(
         const MembershipGuestClaimRecord(
           guest: support.guest,
@@ -278,6 +285,8 @@ void main() {
       expect(h.store.claims, hasLength(1));
       h.guestCheckHandler = null;
       await h.service.checkGuestPurchasesOnHome();
+      expect(h.guestChecks, hasLength(1));
+      await tester.pump(const Duration(seconds: 1));
       expect(h.guestChecks, hasLength(2));
       expect(h.service.guestLoginRequestId.value, isNotNull);
     },

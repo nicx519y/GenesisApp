@@ -2,6 +2,9 @@ import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.d
 import 'support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_record.dart';
 import 'dart:async';
+import 'package:genesis_flutter_android/app/onboarding/personalization_store.dart';
+import 'package:genesis_flutter_android/components/onboarding/personalization_sheet.dart';
+import 'support/personalization_fixtures.dart';
 import 'dart:convert';
 import 'dart:ui' as ui;
 
@@ -290,6 +293,7 @@ Future<AppServices> _testServices({
   ExternalUrlOpener? externalUrlOpener,
   DeviceIdService? deviceIdService,
   AppGlobalConfigStore? appGlobalConfig,
+  bool usePersonalizationApi = false,
 }) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
@@ -355,6 +359,16 @@ Future<AppServices> _testServices({
     membershipPurchases: membershipPurchases,
     billing: billingService,
     appGlobalConfig: appGlobalConfig,
+    // Legacy page tests start with onboarding completed. Dedicated startup
+    // tests opt into the actual API-backed personalization service below.
+    personalization: usePersonalizationApi
+        ? null
+        : PersonalizationStore(
+            readLoginUid: sessionStore.readLoginUid,
+            load: () async => personalizationData(completed: true),
+            save: (_) async =>
+                throw StateError('Unexpected personalization save'),
+          ),
   );
 }
 
@@ -14733,13 +14747,13 @@ void main() {
       expect(tester.widget<ChatMessageRow>(narrationRow).message.isMe, isFalse);
       final characterBubble = find.descendant(
         of: openingRow,
-        matching: find.byType(ChatSelfMessageBubble),
+        matching: find.byType(ChatOtherMessageBubble),
       );
       expect(characterBubble, findsOneWidget);
       final initialOpeningMessage = tester
           .widget<ChatMessageRow>(openingRow)
           .message;
-      expect(initialOpeningMessage.isMe, isTrue);
+      expect(initialOpeningMessage.isMe, isFalse);
       expect(initialOpeningMessage.isPlayerControlledRole, isTrue);
       final openingAvatarFinder = find.descendant(
         of: characterBubble,
@@ -14747,7 +14761,7 @@ void main() {
       );
       final openingAvatarElement = tester.element(openingAvatarFinder);
       final openingAvatarX = tester.getTopLeft(openingAvatarFinder).dx;
-      expect(openingAvatarX, tester.getTopLeft(selfAvatarFinder).dx);
+      expect(openingAvatarX, tester.getTopLeft(otherAvatar).dx);
       expect(
         find.descendant(
           of: characterBubble,
@@ -15005,7 +15019,7 @@ void main() {
       expect(find.text('message loaded after entering chat'), findsOneWidget);
       expect(openingRow, findsOneWidget);
       expect(tester.widget<ChatMessageRow>(openingRow).message.messageId, 99);
-      expect(tester.widget<ChatMessageRow>(openingRow).message.isMe, isTrue);
+      expect(tester.widget<ChatMessageRow>(openingRow).message.isMe, isFalse);
       expect(tester.element(openingAvatarFinder), same(openingAvatarElement));
       expect(tester.getTopLeft(openingAvatarFinder).dx, openingAvatarX);
       expect(narrationRow, findsNothing);
@@ -15200,10 +15214,7 @@ void main() {
             .where((message) => message.text.startsWith('Opening line'))
             .toList();
         expect(firstFrameOpening, hasLength(lines.length));
-        expect(
-          firstFrameOpening.every((message) => message.isMe == scenario.preset),
-          isTrue,
-        );
+        expect(firstFrameOpening.every((message) => !message.isMe), isTrue);
         for (var frame = 0; frame < 12; frame++) {
           await tester.pump(const Duration(milliseconds: 20));
         }
@@ -15244,7 +15255,7 @@ void main() {
         final anchorTop = tester.getTopLeft(anchor).dy;
         expect(visibleBubble.message.senderName, 'Guide');
         expect(visibleBubble.message.avatarUrl, avatar);
-        expect(visibleBubble.message.isMe, scenario.preset);
+        expect(visibleBubble.message.isMe, isFalse);
         final openingAvatar = find.descendant(
           of: find.byWidgetPredicate(
             (widget) =>
@@ -15336,10 +15347,7 @@ void main() {
             .where((message) => message.text.startsWith('Opening line'))
             .toList();
         expect(openingMessages, hasLength(lines.length));
-        expect(
-          openingMessages.every((message) => message.isMe == scenario.preset),
-          isTrue,
-        );
+        expect(openingMessages.every((message) => !message.isMe), isTrue);
         expect(
           openingMessages.first.text,
           'Opening line 0. Authoritative server text.',
@@ -19512,6 +19520,55 @@ void main() {
     expect(find.text('Scrollable User'), findsNothing);
   });
 
+  for (final uid in [null, 'personalization-user']) {
+    testWidgets(
+      'app startup requests personalization and blocks incomplete identity: $uid',
+      (tester) async {
+        AppStartupCoordinator.resetForTesting();
+        addTearDown(AppStartupCoordinator.resetForTesting);
+        final transport = _PersonalizationStartupTransport();
+        await tester.pumpWidget(
+          GenesisApp(
+            services: await _testServices(
+              initialUid: uid,
+              initialAuthToken: uid == null ? null : 'test-backend-token',
+              transport: transport,
+              useMock: false,
+              usePersonalizationApi: true,
+              appGlobalConfig: AppGlobalConfigStore(
+                initialValue: const AppGlobalConfig(
+                  showPersonalizationForm: true,
+                ),
+                loadConfig: ({String? uid}) async => {
+                  'show_personalization_form': true,
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(transport.reads, 1);
+        expect(find.byType(PersonalizationSheet), findsNothing);
+        transport.response.complete(personalizationJson());
+        await tester.pumpAndSettle();
+        expect(find.byType(PersonalizationSheet), findsOneWidget);
+        expect(find.byType(OutlinedButton), findsNWidgets(12));
+        expect(
+          find.byKey(const ValueKey('personalization-sign-in')),
+          uid == null ? findsOneWidget : findsNothing,
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(PersonalizationSheet), findsOneWidget);
+        expect(transport.reads, 1);
+        await tester.pump(const Duration(seconds: 1));
+        await tester.pumpAndSettle();
+        await tester.pumpWidget(const SizedBox.shrink());
+        AppStartupCoordinator.resetForTesting();
+      },
+    );
+  }
+
   testWidgets('signed-out Me view enters Me after Google login succeeds', (
     WidgetTester tester,
   ) async {
@@ -19561,6 +19618,44 @@ void main() {
     expect(find.text('Daily Check-in'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    AppStartupCoordinator.resetForTesting();
+  });
+
+  testWidgets('login check-in waits for guest login and profile startup', (
+    tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final transport = _RecordingV1ListTransport(
+      dailyCheckInStatus: 'in_progress',
+    );
+    final services = await _testServices(transport: transport, useMock: false);
+    final personalization = services.personalization;
+    personalization.beginPresentation();
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: AppShellPage(initialIndex: 0)),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(personalization.isStarted, isFalse);
+    await scheduleDailyCheckInAfterLogin(
+      tester.element(find.byType(AppShellPage)),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Daily Check-in'), findsNothing);
+    expect(transport.requestsFor('/api/v1/gem/tasks'), isEmpty);
+    await personalization.start();
+    await tester.pumpAndSettle();
+    expect(personalization.state.value.data?.profile.completed, isTrue);
+    expect(find.text('Daily Check-in'), findsNothing);
+    personalization.endPresentation();
+    await tester.pumpAndSettle();
+    expect(find.text('Daily Check-in'), findsOneWidget);
+    expect(transport.requestsFor('/api/v1/gem/tasks'), hasLength(1));
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpWidget(const SizedBox.shrink());
     AppStartupCoordinator.resetForTesting();
   });
@@ -35914,4 +36009,27 @@ class _WidgetAnalyticsEvent {
 
   final String name;
   final Map<String, Object> parameters;
+}
+
+class _PersonalizationStartupTransport implements HttpTransport {
+  final delegate = _RecordingV1ListTransport();
+  final response = Completer<Map<String, dynamic>>();
+  int reads = 0;
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path == '/api/v1/device/personalization') {
+      reads++;
+      return TransportResponse(
+        statusCode: 200,
+        headers: const {'content-type': 'application/json'},
+        body: jsonEncode({
+          'err_no': 0,
+          'err_msg': 'succ',
+          'data': await response.future,
+        }),
+      );
+    }
+    return delegate.send(request);
+  }
 }

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../icons/custom_icon_assets.dart';
+import '../../network/models/personalization.dart';
+export '../../network/models/personalization.dart';
 
 import '../../platform/auth/auth_session.dart';
 import '../../ui/genesis_ui.dart';
@@ -13,37 +15,13 @@ import '../common/genesis_center_toast.dart';
 import '../common/genesis_modal_routes.dart';
 import '../login_provider_button.dart';
 
-enum PersonalizationGender {
-  male('Male'),
-  female('Female'),
-  nonBinary('Non_binary');
-
-  const PersonalizationGender(this.label);
-  final String label;
-}
-
-enum PersonalizationAge {
-  age18to24('18-24'),
-  age25to34('25-34'),
-  age35to44('35-44'),
-  age45plus('45+');
-
-  const PersonalizationAge(this.label);
-  final String label;
-}
-
-/// Presentation values only; these are not API field encodings.
-class PersonalizationProfile {
-  const PersonalizationProfile({this.gender, this.age});
-  final PersonalizationGender? gender;
-  final PersonalizationAge? age;
-  bool get isComplete => gender != null && age != null;
-}
-
 /// The caller owns authentication, persistence and list refresh. Preview callers
 /// inject local callbacks only. A null login result means cancellation.
 Future<PersonalizationProfile?> showPersonalizationSheet({
   required BuildContext context,
+  required List<PersonalizationField> form,
+  required Future<PersonalizationNextStep> Function(PersonalizationProfile)
+  onSubmit,
   required Future<PersonalizationProfile?> Function(IdentityProvider) onSignIn,
   required WidgetBuilder subscriptionBuilder,
 }) => showGenesisModalBottomSheet<PersonalizationProfile>(
@@ -54,6 +32,8 @@ Future<PersonalizationProfile?> showPersonalizationSheet({
   enableDrag: false,
   backgroundColor: Colors.transparent,
   builder: (_) => PersonalizationSheet(
+    form: form,
+    onSubmit: onSubmit,
     onSignIn: onSignIn,
     subscriptionBuilder: subscriptionBuilder,
   ),
@@ -61,23 +41,34 @@ Future<PersonalizationProfile?> showPersonalizationSheet({
 
 enum PersonalizationStep { form, signIn, subscription }
 
+enum PersonalizationNextStep { subscription, requiredSignIn, close }
+
 class PersonalizationSheet extends StatefulWidget {
   const PersonalizationSheet({
     super.key,
     required this.onSignIn,
+    required this.form,
+    required this.onSubmit,
     required this.subscriptionBuilder,
     this.initialStep = PersonalizationStep.form,
     this.initialProfile = const PersonalizationProfile(),
     this.initiallySignedIn = false,
+    this.requiresSignIn = false,
   });
 
   final Future<PersonalizationProfile?> Function(IdentityProvider) onSignIn;
+  final List<PersonalizationField> form;
+
+  /// The caller saves first, then decides whether this guest must bind a VIP.
+  final Future<PersonalizationNextStep> Function(PersonalizationProfile)
+  onSubmit;
   final WidgetBuilder subscriptionBuilder;
   static const double sheetHeight = 600;
 
   final PersonalizationStep initialStep;
   final PersonalizationProfile initialProfile;
   final bool initiallySignedIn;
+  final bool requiresSignIn;
 
   @override
   State<PersonalizationSheet> createState() => _PersonalizationSheetState();
@@ -85,10 +76,14 @@ class PersonalizationSheet extends StatefulWidget {
 
 class _PersonalizationSheetState extends State<PersonalizationSheet> {
   late PersonalizationStep _step;
-  PersonalizationGender? _gender;
-  PersonalizationAge? _age;
+  String? _gender;
+  String? _age;
   IdentityProvider? _signingIn;
+  bool _saving = false;
   bool _signedIn = false;
+  bool _requiresSignIn = false;
+
+  bool get _loginRequired => _requiresSignIn && !_signedIn;
 
   @override
   void initState() {
@@ -97,6 +92,69 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
     _gender = widget.initialProfile.gender;
     _age = widget.initialProfile.age;
     _signedIn = widget.initiallySignedIn;
+    _requiresSignIn = widget.requiresSignIn;
+    if (_loginRequired) _step = PersonalizationStep.signIn;
+    _validateSelections();
+  }
+
+  @override
+  void didUpdateWidget(PersonalizationSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _signedIn = widget.initiallySignedIn || _signedIn;
+    _requiresSignIn = widget.requiresSignIn || _requiresSignIn;
+    if (_loginRequired) _step = PersonalizationStep.signIn;
+    if (widget.initiallySignedIn &&
+        _step == PersonalizationStep.signIn &&
+        _signingIn == null) {
+      _step = PersonalizationStep.form;
+    }
+    _validateSelections();
+  }
+
+  void _validateSelections() {
+    for (final field in widget.form) {
+      if (field.name == 'gender' &&
+          !field.options.any((o) => o.value == _gender)) {
+        _gender = null;
+      }
+      if (field.name == 'age' && !field.options.any((o) => o.value == _age)) {
+        _age = null;
+      }
+    }
+  }
+
+  Future<void> _submit() async {
+    if (_saving || !_profile.isComplete) return;
+    setState(() => _saving = true);
+    try {
+      final next = await widget.onSubmit(_profile);
+      if (!mounted) return;
+      switch (next) {
+        case PersonalizationNextStep.subscription:
+          setState(() {
+            _step = _loginRequired
+                ? PersonalizationStep.signIn
+                : PersonalizationStep.subscription;
+          });
+        case PersonalizationNextStep.requiredSignIn:
+          setState(() {
+            _requiresSignIn = true;
+            _step = PersonalizationStep.signIn;
+          });
+        case PersonalizationNextStep.close:
+          Navigator.of(context).pop(_profile);
+      }
+    } catch (_) {
+      if (mounted) {
+        showGenesisToast(
+          context,
+          'Could not save your profile. Please try again.',
+          brightness: Brightness.dark,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 
   PersonalizationProfile get _profile =>
@@ -108,7 +166,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
     try {
       final profile = await widget.onSignIn(provider);
       if (!mounted || profile == null) return;
-      if (profile.isComplete) {
+      if (profile.completed) {
         Navigator.of(context).pop(profile);
         return;
       }
@@ -131,7 +189,9 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
   }
 
   void _backToForm() {
-    if (_signingIn == null) setState(() => _step = PersonalizationStep.form);
+    if (!_loginRequired && _signingIn == null) {
+      setState(() => _step = PersonalizationStep.form);
+    }
   }
 
   @override
@@ -148,7 +208,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
     final height = math.max(0.0, totalHeight - media.padding.bottom);
 
     return PopScope(
-      canPop: _step == PersonalizationStep.subscription,
+      canPop: !_loginRequired && _step == PersonalizationStep.subscription,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _step == PersonalizationStep.signIn) _backToForm();
       },
@@ -166,7 +226,9 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
               insetBody: false,
               header: _PersonalizationHeader(
                 step: _step,
-                onBack: _signingIn == null ? _backToForm : null,
+                onBack: !_loginRequired && _signingIn == null
+                    ? _backToForm
+                    : null,
                 onSkip: () => Navigator.of(context).pop(_profile),
               ),
               child: SizedBox(
@@ -220,51 +282,49 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
                 ),
                 const SizedBox(height: 16),
               ],
-              _choices<PersonalizationGender>(
-                'Gender',
-                PersonalizationGender.values,
-                _gender,
-                (v) => v.label,
-                (v) => setState(() => _gender = v),
-                columns: 3,
-                maxWidth: constraints.maxWidth,
-              ),
-              const SizedBox(height: 24),
-              _choices<PersonalizationAge>(
-                'Age',
-                PersonalizationAge.values,
-                _age,
-                (v) => v.label,
-                (v) => setState(() => _age = v),
-                columns: 2,
-                maxWidth: constraints.maxWidth,
-              ),
+              for (var i = 0; i < widget.form.length; i++) ...[
+                if (i > 0) const SizedBox(height: 24),
+                _choices(
+                  widget.form[i],
+                  widget.form[i].name == 'gender' ? _gender : _age,
+                  (v) => setState(() {
+                    if (widget.form[i].name == 'gender') {
+                      _gender = v;
+                    } else {
+                      _age = v;
+                    }
+                  }),
+                  columns: widget.form[i].name == 'gender' ? 3 : 2,
+                  maxWidth: constraints.maxWidth,
+                ),
+              ],
               const SizedBox(height: 40),
               GenesisPrimaryButton(
                 key: const ValueKey('personalization-continue'),
                 label: 'Continue',
                 height: 48,
-                onDisabledPressed: () => showGenesisToast(
-                  context,
-                  _gender == null && _age == null
-                      ? 'Please select your gender and age.'
-                      : _gender == null
-                      ? 'Please select your gender.'
-                      : 'Please select your age.',
-                  brightness: Brightness.dark,
-                ),
-                onPressed: _profile.isComplete
-                    ? () => setState(
-                        () => _step = PersonalizationStep.subscription,
-                      )
-                    : null,
+                onDisabledPressed: _saving
+                    ? null
+                    : () => showGenesisToast(
+                        context,
+                        _gender == null && _age == null
+                            ? 'Please select your gender and age.'
+                            : _gender == null
+                            ? 'Please select your gender.'
+                            : 'Please select your age.',
+                        brightness: Brightness.dark,
+                      ),
+                onPressed: _profile.isComplete && !_saving ? _submit : null,
               ),
               if (!_signedIn)
                 Center(
                   child: TextButton(
                     key: const ValueKey('personalization-sign-in'),
-                    onPressed: () =>
-                        setState(() => _step = PersonalizationStep.signIn),
+                    onPressed: _saving
+                        ? null
+                        : () => setState(
+                            () => _step = PersonalizationStep.signIn,
+                          ),
                     child: const Text.rich(
                       TextSpan(
                         children: [
@@ -335,12 +395,10 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
     ),
   );
 
-  Widget _choices<T>(
-    String title,
-    List<T> values,
-    T? selected,
-    String Function(T) label,
-    ValueChanged<T> onChanged, {
+  Widget _choices(
+    PersonalizationField field,
+    String? selected,
+    ValueChanged<String> onChanged, {
     required int columns,
     required double maxWidth,
   }) => Column(
@@ -349,7 +407,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
       Row(
         children: [
           Text(
-            title,
+            field.label,
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
@@ -379,24 +437,24 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              for (final value in values)
+              for (final value in field.options)
                 SizedBox(
                   width: width,
                   child: Semantics(
-                    selected: value == selected,
+                    selected: value.value == selected,
                     inMutuallyExclusiveGroup: true,
                     child: OutlinedButton(
-                      key: ValueKey('personalization-${label(value)}'),
-                      onPressed: () => onChanged(value),
+                      key: ValueKey('personalization-${value.value}'),
+                      onPressed: _saving ? null : () => onChanged(value.value),
                       style: OutlinedButton.styleFrom(
-                        foregroundColor: value == selected
+                        foregroundColor: value.value == selected
                             ? GenesisColors.darkTextPrimary
                             : GenesisColors.darkTextSecondary,
-                        backgroundColor: value == selected
+                        backgroundColor: value.value == selected
                             ? GenesisColors.redPrimary.withValues(alpha: .12)
                             : GenesisColors.darkPurchaseCardBackground,
                         side: BorderSide(
-                          color: value == selected
+                          color: value.value == selected
                               ? GenesisColors.redPrimary
                               : GenesisColors.darkCardBorder,
                         ),
@@ -410,7 +468,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
                         ),
                       ),
                       child: Text(
-                        label(value),
+                        value.label,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 14, height: 1.3),
                       ),

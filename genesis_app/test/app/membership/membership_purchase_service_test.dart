@@ -53,6 +53,26 @@ class PendingStore implements MembershipPendingStore {
   }
 
   @override
+  Future<bool> removeUnpurchasedGuestIdentity(String accountUuid) async {
+    if (fail || failClaimCleanup) throw StateError('claim cleanup unavailable');
+    final claim = claims[accountUuid];
+    if (claim?.hasPurchase == true ||
+        claim?.ownerUid != null ||
+        claim?.status != null ||
+        [...records.values, ...confirmed.values].any(
+          (purchase) =>
+              purchase.guest?.accountUuid == accountUuid &&
+              (purchase.hasReceipt ||
+                  purchase.paid ||
+                  purchase.state == 'pending'),
+        )) {
+      return false;
+    }
+    claims.remove(accountUuid);
+    return true;
+  }
+
+  @override
   Future<void> completeGuestClaim(MembershipGuestClaimRecord record) async {
     if (fail || failClaimCleanup) throw StateError('claim cleanup unavailable');
     if (record.status != 'completed' || record.ownerUid == null) {
@@ -314,6 +334,7 @@ class Harness {
     String token = 'test-token',
     String transaction = '100',
     String? uuid,
+    String purchaseTime = '',
   }) => BillingPurchase(
     provider: provider == MembershipProvider.google
         ? BillingProvider.googlePlay
@@ -326,7 +347,7 @@ class Harness {
     signedTransaction: provider == MembershipProvider.apple
         ? 'test.header.signature'
         : '',
-    purchaseTime: '',
+    purchaseTime: purchaseTime,
     status: status,
     obfuscatedAccountId:
         uuid ?? (uid == null ? guest.accountUuid : accountUuid),
@@ -335,6 +356,103 @@ class Harness {
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  _RecordingAnalyticsClient enableFirebaseAnalytics() {
+    final client = _RecordingAnalyticsClient();
+    FirebaseAnalyticsMonitoring.resetForTesting();
+    FirebaseAnalyticsMonitoring.setClientForTesting(client);
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+      _MemoryAnalyticsOnceEventStore(),
+    );
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future.value());
+    FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+      () async => 'test-device-id',
+    );
+    addTearDown(FirebaseAnalyticsMonitoring.resetForTesting);
+    return client;
+  }
+
+  for (final provider in MembershipProvider.values) {
+    test(
+      '$provider Firebase purchase waits for completed and deduplicates callbacks',
+      () async {
+        final client = enableFirebaseAnalytics();
+        final h = Harness(provider: provider);
+        h.reportHandler = (_) async => const MembershipPurchaseReport(
+          status: MembershipReportStatus.accepted,
+          reportId: 'accepted-test',
+        );
+        await h.service.purchase(h.product());
+        await h.service.interceptPurchase(h.purchase());
+        await _settleAnalytics();
+        expect(client.events, isEmpty);
+        h.reportHandler = (_) async => completed;
+        await h.service.recover();
+        await h.service.interceptPurchase(h.purchase());
+        await _settleAnalytics();
+        expect(client.events.map((e) => e.name), [
+          'purchase',
+          'purchase_first',
+          'subscription_first',
+        ]);
+        expect(h.reports, hasLength(2));
+        expect(h.service.state.value, MembershipCheckoutState.completed);
+      },
+    );
+
+    test(
+      '$provider Firebase pending completion records once without purchased callback',
+      () async {
+        final client = enableFirebaseAnalytics();
+        final h = Harness(provider: provider);
+        h.reportHandler = (_) async => const MembershipPurchaseReport(
+          status: MembershipReportStatus.accepted,
+          reportId: 'accepted-test',
+        );
+        await h.service.purchase(h.product());
+        await h.service.interceptPurchase(
+          h.purchase(status: BillingPurchaseStatus.pending),
+        );
+        await _settleAnalytics();
+        expect(client.events, isEmpty);
+        final restarted = Harness(provider: provider, storage: h.store);
+        await restarted.service.recover();
+        await _settleAnalytics();
+        expect(client.events.map((e) => e.name), [
+          'purchase',
+          'purchase_first',
+          'subscription_first',
+        ]);
+        await restarted.service.interceptPurchase(h.purchase());
+        await _settleAnalytics();
+        expect(client.events, hasLength(3));
+      },
+    );
+  }
+
+  for (final outcome in ['rejected', 'offline', 'foreign_account']) {
+    test('subscription Firebase purchase excludes $outcome', () async {
+      final client = enableFirebaseAnalytics();
+      final h = Harness();
+      if (outcome == 'rejected') {
+        h.reportHandler = (_) async => const MembershipPurchaseReport(
+          status: MembershipReportStatus.rejected,
+          reportId: 'rejected-test',
+          reason: 'invalid_purchase',
+        );
+      }
+      if (outcome == 'offline') {
+        h.reportHandler = (_) async => throw StateError('offline');
+      }
+      await h.service.purchase(h.product());
+      await h.service.interceptPurchase(
+        h.purchase(uuid: outcome == 'foreign_account' ? 'other-account' : null),
+      );
+      await _settleAnalytics();
+      expect(client.events, isEmpty);
+    });
+  }
   for (final provider in MembershipProvider.values) {
     test(
       '$provider debug order ID follows the latest checkout and clears on session change',

@@ -6268,125 +6268,73 @@ void main() {
     unawaited(service.dispose());
   });
 
-  test(
-    'selected role aliases historical character messages to current user',
-    () {
-      const characters = <Map<String, dynamic>>[
-        {'char_id': 'mateo', 'player_uid': 'u_me', 'name': 'Mateo Cruz'},
-        {'char_id': 'marcus', 'player_uid': 'u_other', 'name': 'Marcus'},
-      ];
-
-      expect(
-        locationChatMessageBelongsToCurrentRoleForTesting(
-          messageUserId: '',
-          messageSenderId: 'mateo',
-          currentUserIds: const {'u_me'},
-          currentSenderIds: const {'u_me'},
-          characters: characters,
-          characterPositions: const [],
-        ),
-        isTrue,
-      );
-      expect(
-        locationChatMessageBelongsToCurrentRoleForTesting(
-          messageUserId: 'u_me',
-          messageSenderId: 'u_me',
-          currentUserIds: const {'u_me'},
-          currentSenderIds: const {'u_me'},
-          characters: characters,
-          characterPositions: const [],
-        ),
-        isTrue,
-      );
-      expect(
-        locationChatMessageBelongsToCurrentRoleForTesting(
-          messageUserId: '',
-          messageSenderId: 'marcus',
-          currentUserIds: const {'u_me'},
-          currentSenderIds: const {'u_me'},
-          characters: characters,
-          characterPositions: const [],
-        ),
-        isFalse,
-      );
-    },
-  );
-
-  test(
-    'edited AI history keeps other identity despite the initiating user ID',
-    () {
-      for (final type in ['character', 'narrator']) {
-        for (final status in [0, 20]) {
-          final message = WorldChatroomMessage.fromHttpMessage(
-            ChatroomHttpMessage.fromV2Message(
-              ChatroomV2Message.fromJson({
-                'type': type,
-                'global_message_id': 9007199254740993,
-                'world_id': 'world',
-                'location_id': 'location',
-                'conversation_round_id': 42,
-                'user_id': 'u_me',
-                'sender_type': type,
-                'sender_id': 'mateo',
-                'payload': {
-                  'content': status == 20 ? 'Edited reply' : 'Original reply',
-                  'status': status,
-                },
-              }),
-            ),
-          );
-          expect(
-            locationChatMessageBelongsToCurrentRoleForTesting(
-              messageBusinessType: locationChatBusinessType(message),
-              messageUserId: message.userId,
-              messageSenderId: message.senderId,
-              currentUserIds: const {'u_me'},
-              currentSenderIds: const {'u_me'},
-              characters: const [
-                {'char_id': 'mateo', 'player_uid': 'u_me'},
-              ],
-              characterPositions: const [],
-            ),
-            isFalse,
-            reason:
-                '$type with status=$status is a reply, not the initiating user',
-          );
-        }
-      }
-      for (final user in ['u_me', 'u_other']) {
+  test('self bubbles require user type and the exact signed-in UID', () {
+    for (final type in [
+      'user',
+      'character',
+      'narrator',
+      'system',
+      'tick',
+      'ai',
+      'llm',
+      '',
+    ]) {
+      for (final userId in ['u_me', 'u_other', 'mateo', '', 'U_ME']) {
         expect(
           locationChatMessageBelongsToCurrentRoleForTesting(
-            messageBusinessType: 'user',
-            messageUserId: user,
-            messageSenderId: user,
-            currentUserIds: const {'u_me'},
-            currentSenderIds: const {'u_me'},
-            characters: const [],
-            characterPositions: const [],
+            messageBusinessType: type,
+            messageUserId: userId,
+            currentUserId: 'u_me',
           ),
-          user == 'u_me',
+          type == 'user' && userId == 'u_me',
+          reason: 'type=$type, user_id=$userId',
         );
       }
-    },
-  );
-
-  test('selected role alias resolves nested character position data', () {
+    }
     expect(
       locationChatMessageBelongsToCurrentRoleForTesting(
+        messageBusinessType: 'user',
         messageUserId: '',
-        messageSenderId: 'mateo',
-        currentUserIds: const {'u_me'},
-        currentSenderIds: const {'u_me'},
-        characters: const [],
-        characterPositions: const [
-          {
-            'location_id': 'loc-1',
-            'character': {'id': 'mateo', 'player_uid': 'u_me'},
-          },
-        ],
+        currentUserId: '',
       ),
-      isTrue,
+      isFalse,
     );
+  });
+
+  test('V2 self identity ignores sender ID and reply payload status', () {
+    for (final type in ['user', 'character', 'narrator']) {
+      for (final userId in ['u_me', 'u_other', '']) {
+        for (final senderId in ['mateo', 'u_me', 'other_character']) {
+          for (final status in [0, 20]) {
+            final message = WorldChatroomMessage.fromHttpMessage(
+              ChatroomHttpMessage.fromV2Message(
+                ChatroomV2Message.fromJson({
+                  'type': type,
+                  'global_message_id': 9007199254740993,
+                  'world_id': 'world',
+                  'location_id': 'location',
+                  'conversation_round_id': 42,
+                  'user_id': userId,
+                  'sender_type': 'character',
+                  'sender_id': senderId,
+                  'payload': {'content': 'A message', 'status': status},
+                }),
+              ),
+            );
+            expect(
+              locationChatMessageBelongsToCurrentRoleForTesting(
+                messageBusinessType: message.businessType,
+                messageUserId: message.userId,
+                currentUserId: 'u_me',
+              ),
+              type == 'user' && userId == 'u_me',
+              reason:
+                  'type=$type, user_id=$userId, sender_id=$senderId, status=$status',
+            );
+          }
+        }
+      }
+    }
   });
 
   test('story visibility uses every local character name', () {

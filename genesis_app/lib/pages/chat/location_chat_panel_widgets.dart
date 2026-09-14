@@ -413,79 +413,25 @@ String _chatroomIdentityKey(String? value) {
 
 @visibleForTesting
 bool locationChatMessageBelongsToCurrentRoleForTesting({
-  String messageBusinessType = '',
+  required String messageBusinessType,
   required String messageUserId,
-  required String messageSenderId,
-  required Iterable<String> currentUserIds,
-  required Iterable<String> currentSenderIds,
-  required Iterable<Map<String, dynamic>> characters,
-  required Iterable<Map<String, dynamic>> characterPositions,
+  required String currentUserId,
 }) {
   return _locationChatMessageBelongsToCurrentRole(
     messageBusinessType: messageBusinessType,
     messageUserId: messageUserId,
-    messageSenderId: messageSenderId,
-    currentUserIds: currentUserIds,
-    currentSenderIds: currentSenderIds,
-    characters: characters,
-    characterPositions: characterPositions,
+    currentUserId: currentUserId,
   );
 }
 
 bool _locationChatMessageBelongsToCurrentRole({
-  String messageBusinessType = '',
+  required String messageBusinessType,
   required String messageUserId,
-  required String messageSenderId,
-  required Iterable<String> currentUserIds,
-  required Iterable<String> currentSenderIds,
-  required Iterable<Map<String, dynamic>> characters,
-  required Iterable<Map<String, dynamic>> characterPositions,
+  required String currentUserId,
 }) {
-  // V2 AI replies carry the initiating user's ID, not the speaker's account.
-  if (const {
-    'character',
-    'narrator',
-    'ai',
-    'llm',
-  }.contains(messageBusinessType.trim().toLowerCase())) {
-    return false;
-  }
-  final identityKeys = <String>{
-    ...currentUserIds.map(_chatroomIdentityKey),
-    ...currentSenderIds.map(_chatroomIdentityKey),
-  }..remove('');
-  if (identityKeys.isEmpty) return false;
-
-  for (final candidate in <Map<String, dynamic>>[
-    ...characters,
-    ...characterPositions,
-  ]) {
-    final rawCharacter = candidate['character'];
-    final character = rawCharacter is Map
-        ? _stringKeyMap(rawCharacter)
-        : candidate;
-    final ownerKeys = <String>{
-      for (final key in const ['player_uid', 'user_id', 'uid'])
-        _chatroomIdentityKey(_mapString(character, key)),
-    }..remove('');
-    final characterKeys = <String>{
-      for (final key in const ['character_id', 'char_id', 'id'])
-        _chatroomIdentityKey(_mapString(character, key)),
-    }..remove('');
-    if (!ownerKeys.any(identityKeys.contains) &&
-        !characterKeys.any(identityKeys.contains)) {
-      continue;
-    }
-    identityKeys
-      ..addAll(ownerKeys)
-      ..addAll(characterKeys);
-  }
-
-  final messageUserIdKey = _chatroomIdentityKey(messageUserId);
-  if (messageUserIdKey.isNotEmpty && identityKeys.contains(messageUserIdKey)) {
-    return true;
-  }
-  final messageSenderIdKey = _chatroomIdentityKey(messageSenderId);
-  return messageSenderIdKey.isNotEmpty &&
-      identityKeys.contains(messageSenderIdKey);
+  // A reply's user_id can identify its initiator rather than its speaker.
+  // Only user messages owned by the signed-in UID use the self bubble.
+  return messageBusinessType == 'user' &&
+      currentUserId.isNotEmpty &&
+      messageUserId == currentUserId;
 }

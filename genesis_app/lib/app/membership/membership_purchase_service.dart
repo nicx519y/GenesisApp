@@ -106,6 +106,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   final Future<List<MembershipStorePurchase>> Function()?
   discoverGuestPurchases;
   final Set<String> _currentGuestLoginUuids = {};
+  final Set<String> _guestStoreEvents = {};
+  final Set<String> _unpaidGuestCleanup = {};
   bool _guestStartupResolved = false;
   bool _guestStartupRefreshNeeded = false;
   int _guestStartupRevision = 0;
@@ -120,7 +122,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   Map<String, MembershipGuestPurchaseCheck> get guestOrderChecks =>
       Map.unmodifiable(_guestOrderChecks);
 
-  /// Merges cached identities with original store identities before checking.
+  /// Checks a paid cached identity, or the latest owned store subscription.
   Future<void> checkGuestPurchasesOnHome() => _checkGuestPurchasesOnHome();
   final Map<String, String> _signedTransactions = {};
   final ValueNotifier<String?> guestLoginRequestId = ValueNotifier(null);
@@ -158,6 +160,53 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   int _retryCount = 0;
 
   bool get isBusy => _busy;
+
+  /// Wait for this login's guest claim attempt and its post-claim wallet refresh.
+  /// False means binding is unresolved, not that the user is a non-member.
+  Future<bool> waitForGuestClaim() async {
+    final session = _session;
+    final uid = await readLoginUid();
+    if (_disposed || session != _session) return false;
+    if (uid == null) return true;
+    await _load();
+    if (_disposed || session != _session) return false;
+
+    bool needsSync() {
+      for (final claim in _guestClaims.values) {
+        if (claim.hasPurchase &&
+            (claim.ownerUid == uid ||
+                claim.ownerUid == null && claim.autoClaimAllowed) &&
+            (claim.status != 'completed' ||
+                _claimWalletRefreshSessions[claim.guest.accountUuid] !=
+                    session)) {
+          return true;
+        }
+      }
+      // A paid receipt may have survived a failed claim-cache write.
+      return _records.values.any(
+        (record) =>
+            record.guest != null &&
+            record.paid &&
+            record.hasReceipt &&
+            record.reportStatus != 'rejected' &&
+            !_guestClaims.containsKey(record.guest!.accountUuid),
+      );
+    }
+
+    if (!needsSync()) return true;
+    var pending = recover();
+    while (true) {
+      await pending;
+      if (_disposed || session != _session || await readLoginUid() != uid) {
+        return false;
+      }
+      // A recovery begun before login queues a new pass for the new session.
+      final next = _recovery;
+      if (next == null || identical(next, pending)) break;
+      pending = next;
+    }
+    return !needsSync();
+  }
 
   void attachCheckoutPresentation(String requestId) {
     _presentedAttempts.add(requestId);
@@ -444,6 +493,20 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         if (!canContinue()) return;
         _release(attemptId);
         final storeFailure = membershipStoreFailure(provider, error);
+        if (record?.guest != null &&
+            !record!.paid &&
+            !record.hasReceipt &&
+            (storeFailure?.canceled == true ||
+                !wait.launchRequested ||
+                error is BillingPlatformException &&
+                    error.code == 'membership_launch_rejected')) {
+          await _serialize(() async {
+            final current = _records[attemptId];
+            if (current == null || current.paid || current.hasReceipt) return;
+            await _save(current.copyWith(state: 'canceled'));
+            await _discardUnpurchasedGuestIdentity(current.accountUuid);
+          });
+        }
         _setState(
           storeFailure?.canceled == true
               ? MembershipCheckoutState.canceled
@@ -583,21 +646,14 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       // Unsolicited store history is not a failed report from this client.
       if (purchase.status == BillingPurchaseStatus.purchased ||
           purchase.status == BillingPurchaseStatus.restored) {
-        _invalidateGuestStartupCheck();
-        if (_guestHomeSeen) unawaited(checkGuestPurchasesOnHome());
+        if (_guestStoreEvents.add(_guestStoreEventKey(purchase))) {
+          _invalidateGuestStartupCheck();
+          if (_guestHomeSeen) unawaited(checkGuestPurchasesOnHome());
+        }
       }
       return;
     }
     if (!sameAccount(record)) return;
-    if (purchase.status == BillingPurchaseStatus.purchased) {
-      unawaited(
-        FirebaseAnalyticsMonitoring.recordPurchase(
-          provider: provider.name,
-          productId: purchase.productId,
-          kind: FirebaseAnalyticsPurchaseKind.subscription,
-        ),
-      );
-    }
     // Only this order's callback ends its store deadline. Reporting has its own
     // HTTP timeout; keep the wait registered so session/stream resets close UI.
     final wait = _checkoutWaits[record.requestId];
@@ -635,10 +691,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
     if (purchase.status == BillingPurchaseStatus.canceled ||
         purchase.status == BillingPurchaseStatus.error) {
-      if (!record.paid) {
-        await _save(record.copyWith(state: purchase.status.name));
-      }
-      _release(record.requestId);
       final failure = purchase.status == BillingPurchaseStatus.error
           ? membershipStoreError(
               provider,
@@ -647,6 +699,16 @@ class MembershipPurchaseService with WidgetsBindingObserver {
               details: purchase.errorDetails,
             )
           : null;
+      final canceled =
+          purchase.status == BillingPurchaseStatus.canceled ||
+          failure?.canceled == true;
+      if (!record.paid) {
+        await _save(record.copyWith(state: canceled ? 'canceled' : 'error'));
+        if (canceled && record.guest != null) {
+          await _discardUnpurchasedGuestIdentity(record.accountUuid);
+        }
+      }
+      _release(record.requestId);
       _setState(
         purchase.status == BillingPurchaseStatus.canceled ||
                 failure?.canceled == true
@@ -701,7 +763,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       _scheduleRetry();
       return;
     }
-    await _prepareGuestClaim(record);
+    await _prepareGuestClaim(record, purchaseTime: purchase.purchaseTime);
     if (purchase.status == BillingPurchaseStatus.pending) {
       _setState(
         MembershipCheckoutState.pending,
@@ -752,6 +814,21 @@ class MembershipPurchaseService with WidgetsBindingObserver {
               : null,
         );
         await _save(record);
+      }
+      if (record.reportStatus == 'completed' &&
+          record.state != 'restored' &&
+          !_disposed &&
+          session == _session) {
+        unawaited(
+          FirebaseAnalyticsMonitoring.recordPurchase(
+            provider: provider.name,
+            productId: record.product.storeProductId,
+            kind: FirebaseAnalyticsPurchaseKind.subscription,
+            purchaseIdentity: provider == MembershipProvider.google
+                ? record.purchaseToken
+                : record.transactionId,
+          ),
+        );
       }
       // Pending payments can become verified through report retry alone.
       // Preserve guest claim/login state before clearing that pending receipt.
@@ -964,6 +1041,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     _guestHomeCheck = null;
     _invalidateGuestStartupCheck();
     _currentGuestLoginUuids.clear();
+    _guestStoreEvents.clear();
     _resetGuestClaimRetries();
     _activeRequestId = null;
     _busy = false;
@@ -989,7 +1067,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(recover());
-      _invalidateGuestStartupCheck();
       if (_guestHomeSeen) unawaited(checkGuestPurchasesOnHome());
     }
   }

@@ -17,6 +17,81 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'unpaid identity cleanup is durable and preserves other UUIDs',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final store = SecureMembershipPendingStore();
+      await store.saveGuestClaim(
+        const MembershipGuestClaimRecord(guest: support.guest),
+      );
+      await store.saveGuestClaim(
+        const MembershipGuestClaimRecord(
+          guest: MembershipGuestIdentity(accountUuid: support.accountUuid),
+          purchaseConfirmed: true,
+          purchasedAt: 123456,
+        ),
+      );
+      expect(
+        await store.removeUnpurchasedGuestIdentity(support.guest.accountUuid),
+        isTrue,
+      );
+      final saved =
+          (await SecureMembershipPendingStore().loadGuestClaims()).single;
+      expect(saved.guest.accountUuid, support.accountUuid);
+      expect(saved.purchasedAt, 123456);
+      expect(saved.hasPurchase, isTrue);
+    },
+  );
+
+  for (final state in [
+    'paid_claim',
+    'pending_receipt',
+    'paid_receipt',
+    'confirmed_receipt',
+    'owned_claim',
+  ]) {
+    test('unpaid cleanup cannot delete $state', () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final store = SecureMembershipPendingStore();
+      await store.saveGuestClaim(
+        MembershipGuestClaimRecord(
+          guest: support.guest,
+          purchaseConfirmed: state == 'paid_claim',
+          ownerUid: state == 'owned_claim' ? 'first-login' : null,
+        ),
+      );
+      final purchase = MembershipPurchaseRecord(
+        requestId: 'preserved-order',
+        product: membershipProduct(),
+        accountUuid: support.guest.accountUuid,
+        ownerUid: null,
+        guest: support.guest,
+        state: state == 'pending_receipt' ? 'pending' : 'purchased',
+        purchaseToken: state == 'pending_receipt' ? '' : 'paid-token',
+      );
+      if (state == 'confirmed_receipt') {
+        await store.saveGuestPurchase(purchase);
+      } else if (state.endsWith('_receipt')) {
+        await store.save(purchase);
+      }
+      expect(
+        await store.removeUnpurchasedGuestIdentity(support.guest.accountUuid),
+        isFalse,
+      );
+      final restarted = SecureMembershipPendingStore();
+      expect(await restarted.loadGuestClaims(), hasLength(1));
+      if (state == 'confirmed_receipt') {
+        expect(
+          (await restarted.loadConfirmedReceipts()).single.purchaseToken,
+          'paid-token',
+        );
+      } else if (state.endsWith('_receipt')) {
+        expect((await restarted.loadAll()).single.requestId, 'preserved-order');
+      }
+    });
+  }
+
+  test(
     'binding cleanup removes terminal report residue but preserves other guests',
     () async {
       FlutterSecureStorage.setMockInitialValues({});

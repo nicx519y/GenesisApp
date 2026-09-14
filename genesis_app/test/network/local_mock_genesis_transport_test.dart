@@ -38,8 +38,14 @@ void main() {
     expect(worldOneAfter.memoryUsedTokens, 6000);
     expect(worldTwoAfter.memoryUsedTokens, 8000);
 
+    await api.v1.user.updateMemorySettings(memoryTokens: 4000);
+    final minimum = await api.v1.user.memorySettings(worldId: worldOne);
+    expect(minimum.minMemoryTokens, 4000);
+    expect(minimum.memoryTokens, 4000);
+    expect(minimum.memoryUsedTokens, 4000);
+
     await expectLater(
-      api.v1.user.updateMemorySettings(memoryTokens: 7999),
+      api.v1.user.updateMemorySettings(memoryTokens: 3999),
       throwsA(isA<ApiException>().having((error) => error.code, 'code', 4004)),
     );
     await expectLater(
@@ -742,13 +748,14 @@ void main() {
     expect(response.shouldForceUpgrade, false);
   });
 
-  test('local mock app config returns global opening sheet flag', () async {
+  test('local mock app config returns global flags', () async {
     final api = GenesisApi(useMock: true);
 
     final config = await api.v1.app.config();
 
     expect(config, {
       'show_opening_sheet': false,
+      'show_personalization_form': true,
       'api_trace_sampling_rate': 1.0,
     });
   });

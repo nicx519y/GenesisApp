@@ -213,7 +213,7 @@ void main() {
         storage: first.store,
       )..uid = null;
       await h.service.checkGuestPurchasesOnHome();
-      expect(h.guestDiscoveries, 1);
+      expect(h.guestDiscoveries, 0);
       expect(h.guestChecks, [support.guest.accountUuid]);
       h.uid = 'first-login';
       h.service.resetForSession();
@@ -344,7 +344,8 @@ void main() {
         ),
       ];
       await h.service.checkGuestPurchasesOnHome();
-      expect(h.guestChecks, [support.guest.accountUuid]);
+      expect(h.guestChecks, isEmpty);
+      expect(h.service.guestLoginRequestId.value, isNull);
       expect(h.store.claims, isEmpty);
       h.uid = 'first-login';
       await h.service.recover();

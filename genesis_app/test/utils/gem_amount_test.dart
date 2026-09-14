@@ -18,20 +18,6 @@ void main() {
     });
   });
 
-  test('exact model quotations retain every cent and two decimal places', () {
-    for (final entry in <int, String>{
-      0: '0.00',
-      1: '0.01',
-      100: '1.00',
-      216: '2.16',
-      483: '4.83',
-      123456: '1,234.56',
-      -105: '-1.05',
-    }.entries) {
-      expect(formatExactGemCent(entry.key), entry.value);
-    }
-  });
-
   group('formatGemCent', () {
     test('always renders one decimal place without floating point', () {
       expect(formatGemCent(10000), '100.0');

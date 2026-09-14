@@ -30,8 +30,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     );
     final baseParseContext = LocationChatMessageParseContext(
       currentLocationId: widget.locationId,
-      isMine: (message) =>
-          _isMineMessage(message, identityState: resolvedIdentityState),
+      isMine: _isMineMessage,
       senderName: (message) => _messageSenderDisplayName(
         message,
         identityState: resolvedIdentityState,
@@ -556,25 +555,11 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     return _mySenderIdKeys.add(key);
   }
 
-  bool _isMineMessage(
-    WorldChatroomMessage message, {
-    WorldChatroomState? identityState,
-  }) {
-    if (_isSelectedOpeningPlayerMessage(message)) return true;
-    if (widget.openingPreviewMessages.contains(message)) return false;
-    final world = (identityState ?? _chatroomState).world;
+  bool _isMineMessage(WorldChatroomMessage message) {
     return _locationChatMessageBelongsToCurrentRole(
-      messageBusinessType:
-          message.hasExplicitBusinessType || message.isLlmStreamMessage
-          ? locationChatBusinessType(message)
-          : '',
+      messageBusinessType: message.businessType,
       messageUserId: message.userId,
-      messageSenderId: message.senderId,
-      currentUserIds: _myUserIdKeys,
-      currentSenderIds: _mySenderIdKeys,
-      characters: world?.characters ?? const <Map<String, dynamic>>[],
-      characterPositions:
-          world?.characterPositions ?? const <Map<String, dynamic>>[],
+      currentUserId: _myUserId,
     );
   }
 

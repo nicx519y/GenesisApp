@@ -1,0 +1,24 @@
+import '../models/personalization.dart';
+import 'v1_api_resource.dart';
+
+class DeviceV1Api extends V1ApiResource {
+  const DeviceV1Api(super.client);
+
+  Future<PersonalizationData> personalization({
+    required String deviceId,
+  }) async => PersonalizationData.fromJson(
+    await getMapWithHeaders(
+      'device/personalization',
+      headers: {'X-Device-ID': deviceId, 'Cache-Control': 'no-store'},
+    ),
+  );
+
+  Future<PersonalizationProfile> savePersonalization({
+    required String deviceId,
+    required PersonalizationProfile profile,
+  }) async => PersonalizationProfile.fromJson(
+    await postMap('device/personalization', profile.toJson(), {
+      'X-Device-ID': deviceId,
+    }),
+  );
+}
