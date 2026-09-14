@@ -7,16 +7,12 @@ abstract final class GenesisColors {
   static const Color darkTextTertiary = Color(0x73FFFFFF);
   static const Color darkRaisedBackground = Color(0xFF181C1F);
 
-  /// Subtle dark cards; opacity applies to the surface, never to card content.
-  static final Color darkCardBackground = darkRaisedBackground.withValues(
-    alpha: 0.8,
-  );
+  /// Information cards use 6% white; content keeps its own opacity.
+  static final Color darkCardBackground = Colors.white.withValues(alpha: 0.06);
   static final Color darkCardBorder = Colors.white.withValues(alpha: 0.06);
 
   /// Large subscription and Gems card surfaces share a restrained white fill.
-  static final Color darkPurchaseCardBackground = Colors.white.withValues(
-    alpha: 0.06,
-  );
+  static final Color darkPurchaseCardBackground = darkCardBackground;
 
   /// Translucent panels for action dialogs and generation overlays.
   static final Color darkOverlayBackground = darkRaisedBackground.withValues(

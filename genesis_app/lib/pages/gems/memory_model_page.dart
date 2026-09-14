@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -11,10 +10,12 @@ import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../../network/models/gem_model.dart';
 import '../../network/models/user_memory_settings.dart';
+import '../../ui/components/genesis_info_card.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../../utils/gem_amount.dart';
 import 'memory_model_page_cache.dart';
 
@@ -553,7 +554,10 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         child: Builder(
           builder: (context) => Scaffold(
             backgroundColor: GenesisColors.darkBackground,
-            appBar: _MemoryModelAppBar(onBack: _closePage),
+            appBar: GenesisBackAppBar(
+              pageName: 'Memory & Model',
+              onBack: _closePage,
+            ),
             body: SafeArea(top: false, child: _buildBody()),
           ),
         ),
@@ -565,7 +569,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     return GenesisRefreshIndicator(
       onRefresh: _refreshAll,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 32),
+        padding: const EdgeInsets.fromLTRB(16, 28, 16, 32),
         physics: const AlwaysScrollableScrollPhysics(),
         children: [
           _buildMemoryArea(),
@@ -652,8 +656,6 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
           _GemModelTile(
             model: models[index],
             selected: models[index].modelCode == _pendingModelCode,
-            isCurrentModel:
-                models[index].modelCode == catalog!.selectedModelCode.trim(),
             enabled: true,
             onTap: () => _selectModel(models[index]),
           ),
@@ -698,73 +700,6 @@ class _MemorySaveRequest {
   final Future<UserMemorySettings> Function() loadWorld;
 }
 
-class _MemoryModelAppBar extends StatelessWidget
-    implements PreferredSizeWidget {
-  const _MemoryModelAppBar({required this.onBack});
-
-  final VoidCallback onBack;
-
-  @override
-  Size get preferredSize => const Size.fromHeight(58);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      toolbarHeight: preferredSize.height,
-      automaticallyImplyLeading: false,
-      backgroundColor: GenesisColors.darkBackground,
-      foregroundColor: GenesisColors.darkTextPrimary,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      systemOverlayStyle: SystemUiOverlayStyle.light,
-      titleSpacing: 12,
-      leadingWidth: 66,
-      leading: Padding(
-        padding: const EdgeInsets.only(left: 20),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: _MemoryModelBackButton(onPressed: onBack),
-        ),
-      ),
-      title: const PageTitleText(
-        pageName: 'Memory & Model',
-        style: TextStyle(color: GenesisColors.darkTextPrimary),
-      ),
-    );
-  }
-}
-
-class _MemoryModelBackButton extends StatelessWidget {
-  const _MemoryModelBackButton({required this.onPressed});
-
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Tooltip(
-      message: 'Back',
-      child: Material(
-        key: const ValueKey('memory-model-back'),
-        color: GenesisColors.darkFaintFill,
-        borderRadius: BorderRadius.circular(10),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: onPressed,
-          splashFactory: NoSplash.splashFactory,
-          child: const SizedBox.square(
-            dimension: 34,
-            child: Icon(
-              Icons.arrow_back_ios_new,
-              size: 17,
-              color: GenesisColors.darkTextPrimary,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _MemorySettingsLoadingSkeleton extends StatelessWidget {
   const _MemorySettingsLoadingSkeleton({super.key});
 
@@ -781,7 +716,10 @@ class _MemorySettingsLoadingSkeleton extends StatelessWidget {
           child: _MemoryModelLoadingBone(width: 144, height: 22),
         ),
         SizedBox(height: 10),
-        _MemoryModelLoadingBone(height: 93, borderRadius: 14),
+        _MemoryModelLoadingBone(
+          height: 93,
+          borderRadius: GenesisInfoCard.radius,
+        ),
       ],
     );
   }
@@ -794,11 +732,20 @@ class _ModelCatalogLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Column(
       children: [
-        _MemoryModelLoadingBone(height: 126, borderRadius: 14),
+        _MemoryModelLoadingBone(
+          height: 126,
+          borderRadius: GenesisInfoCard.radius,
+        ),
         SizedBox(height: 12),
-        _MemoryModelLoadingBone(height: 126, borderRadius: 14),
+        _MemoryModelLoadingBone(
+          height: 126,
+          borderRadius: GenesisInfoCard.radius,
+        ),
         SizedBox(height: 12),
-        _MemoryModelLoadingBone(height: 126, borderRadius: 14),
+        _MemoryModelLoadingBone(
+          height: 126,
+          borderRadius: GenesisInfoCard.radius,
+        ),
       ],
     );
   }
@@ -847,12 +794,9 @@ class _CurrentMemorySummary extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 6),
-        const Text(
+        Text(
           'Your current memory usage',
-          style: TextStyle(
-            fontSize: 13,
-            height: 18 / 13,
-            fontWeight: FontWeight.w400,
+          style: GenesisTypography.supporting.copyWith(
             color: GenesisColors.darkTextTertiary,
           ),
         ),
@@ -902,14 +846,10 @@ class _MaxMemoryLimitCard extends StatelessWidget {
       minMemoryTokens: minMemoryTokens,
       maxMemoryTokens: maxMemoryTokens,
     );
-    return Container(
+    return GenesisInfoCard(
       key: const ValueKey('memory-model-max-memory-card'),
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 11),
-      decoration: BoxDecoration(
-        color: GenesisColors.darkCardBackground,
-        border: Border.all(color: GenesisColors.darkCardBorder),
-        borderRadius: BorderRadius.circular(14),
-      ),
+      // Preserve the previous Container's padding plus its 1px border inset.
+      padding: const EdgeInsets.fromLTRB(15, 11, 15, 12),
       child: Column(
         children: [
           SizedBox(
@@ -994,19 +934,15 @@ class _MaxMemoryLimitCard extends StatelessWidget {
               Text(
                 formatMemoryTokens(minMemoryTokens),
                 key: const ValueKey('memory-model-min-memory'),
-                style: const TextStyle(
-                  fontSize: 11,
-                  height: 14 / 11,
-                  color: GenesisColors.darkTextTertiary,
+                style: GenesisTypography.supporting.copyWith(
+                  color: GenesisColors.darkTextSecondary,
                 ),
               ),
               Text(
                 formatMemoryTokens(maxMemoryTokens),
                 key: const ValueKey('memory-model-max-memory'),
-                style: const TextStyle(
-                  fontSize: 11,
-                  height: 14 / 11,
-                  color: GenesisColors.darkTextTertiary,
+                style: GenesisTypography.supporting.copyWith(
+                  color: GenesisColors.darkTextSecondary,
                 ),
               ),
             ],
@@ -1089,14 +1025,12 @@ class _GemModelTile extends StatelessWidget {
   const _GemModelTile({
     required this.model,
     required this.selected,
-    required this.isCurrentModel,
     required this.enabled,
     required this.onTap,
   });
 
   final GemModel model;
   final bool selected;
-  final bool isCurrentModel;
   final bool enabled;
   final VoidCallback onTap;
 
@@ -1106,44 +1040,21 @@ class _GemModelTile extends StatelessWidget {
       button: true,
       selected: selected,
       enabled: enabled,
-      child: Material(
+      child: GenesisInfoCard(
         key: ValueKey<String>('gem-model-${model.modelCode}'),
-        color: selected
-            ? GenesisColors.redPrimary.withValues(alpha: 0.12)
-            : GenesisColors.darkCardBackground,
-        shape: RoundedRectangleBorder(
-          side: BorderSide(
-            color: selected
-                ? GenesisColors.redPrimary
-                : GenesisColors.darkCardBorder,
-            width: selected ? 1.5 : 1,
-          ),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        clipBehavior: Clip.antiAlias,
-        child: InkWell(
-          onTap: enabled ? onTap : null,
-          splashFactory: NoSplash.splashFactory,
-          overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: _GemModelTileContent(
-                    model: model,
-                    isCurrentModel: isCurrentModel,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Padding(
-                  padding: const EdgeInsets.only(top: 1),
-                  child: _GemModelSelectionIndicator(selected: selected),
-                ),
-              ],
+        selected: selected,
+        onTap: enabled ? onTap : null,
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 13),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _GemModelTileContent(model: model)),
+            const SizedBox(width: 10),
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: _GemModelSelectionIndicator(selected: selected),
             ),
-          ),
+          ],
         ),
       ),
     );
@@ -1151,13 +1062,9 @@ class _GemModelTile extends StatelessWidget {
 }
 
 class _GemModelTileContent extends StatelessWidget {
-  const _GemModelTileContent({
-    required this.model,
-    required this.isCurrentModel,
-  });
+  const _GemModelTileContent({required this.model});
 
   final GemModel model;
-  final bool isCurrentModel;
 
   @override
   Widget build(BuildContext context) {
@@ -1168,18 +1075,6 @@ class _GemModelTileContent extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (isCurrentModel) ...[
-              Container(
-                key: ValueKey<String>('gem-model-current-${model.modelCode}'),
-                width: 6,
-                height: 6,
-                decoration: const BoxDecoration(
-                  color: GenesisColors.redSecondary,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 7),
-            ],
             Flexible(
               child: Text(
                 model.title,
@@ -1212,20 +1107,14 @@ class _GemModelTileContent extends StatelessWidget {
             ],
           ),
           key: ValueKey<String>('gem-model-estimate-${model.modelCode}'),
-          style: const TextStyle(
-            fontSize: 13,
-            height: 18 / 13,
-            fontWeight: FontWeight.w400,
+          style: GenesisTypography.supporting.copyWith(
             color: GenesisColors.darkTextTertiary,
           ),
         ),
         const SizedBox(height: 7),
         Text(
           model.description,
-          style: const TextStyle(
-            fontSize: 13,
-            height: 18 / 13,
-            fontWeight: FontWeight.w400,
+          style: GenesisTypography.body.copyWith(
             color: GenesisColors.darkTextSecondary,
           ),
         ),
@@ -1234,10 +1123,7 @@ class _GemModelTileContent extends StatelessWidget {
           Text(
             rangeText,
             key: ValueKey<String>('gem-model-range-${model.modelCode}'),
-            style: const TextStyle(
-              fontSize: 11,
-              height: 14 / 11,
-              fontWeight: FontWeight.w400,
+            style: GenesisTypography.supporting.copyWith(
               color: GenesisColors.darkTextTertiary,
             ),
           ),
