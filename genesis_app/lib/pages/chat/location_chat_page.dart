@@ -437,9 +437,19 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   ChatroomLocationEntry? get _preparedEntry => _usesPreparedEntry
       ? _service?.entryForLocation(widget.locationId).value
       : null;
-  ChatroomReplyRoundState? get _displayReplyState => _usesPreparedEntry
-      ? _preparedEntry?.snapshot?.reply
-      : _replyController?.presentationStateFor(widget.locationId);
+  ChatroomReplyRoundState? get _displayReplyState {
+    final retainedRoundId = _deferredTickPresentationRoundId;
+    if (retainedRoundId != null) {
+      final retained = _replyController?.stateForRound(
+        widget.locationId,
+        retainedRoundId,
+      );
+      if (retained != null) return retained;
+    }
+    return _usesPreparedEntry
+        ? _preparedEntry?.snapshot?.reply
+        : _replyController?.presentationStateFor(widget.locationId);
+  }
 
   late final LocationChatScrollCoordinator _scrollCoordinator;
   ScrollController get _scrollController => _scrollCoordinator.controller;
@@ -528,6 +538,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
   StreamSubscription<GemBalanceAlert>? _balanceAlertSubscription;
   WorldChatroomState _chatroomState = const WorldChatroomState();
+  String? _deferredTickLocalId;
+  int? _deferredTickPresentationRoundId;
+  final Set<String> _deferredTickStreamKeys = <String>{};
+  final Set<int> _deferredTickActionRoundIds = <int>{};
+  final Map<String, Set<String>> _tickPrecedingStreamKeys =
+      <String, Set<String>>{};
+  final Map<String, Set<int>> _tickPrecedingActionRoundIds =
+      <String, Set<int>>{};
+  bool _deferredTickReleaseScheduled = false;
+  int _deferredTickGeneration = 0;
   final Set<String> _myUserIdKeys = <String>{};
   final Set<String> _mySenderIdKeys = <String>{};
   String _myUserId = '';
@@ -1158,6 +1178,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           // A Tick can supersede an in-flight action before its ACK clears the
           // old toolbar. Keep its candidate content, but retire its controls.
           final tickSupersededReply =
+              _deferredTickLocalId != null ||
               (replyPresentationState?.invalidatedByTick ?? false) ||
               (_replyController
                       ?.statesFor(widget.locationId)

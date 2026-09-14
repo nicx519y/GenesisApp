@@ -2,6 +2,7 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatReplyBinding on _LocationChatPanelState {
   void _detachReplyActions() {
+    _clearDeferredTick(resetOrdering: true);
     _entryChanges?.removeListener(_onPreparedEntryChanged);
     _entryChanges = null;
     _editQuotaChecking = false;
@@ -100,6 +101,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         } else {
           _setReplyControlsState(() {});
         }
+        _scheduleDeferredTickReleaseIfReady();
       }
     });
   }

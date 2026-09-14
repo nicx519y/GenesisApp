@@ -3,6 +3,155 @@ part of 'location_chat_page.dart';
 const String _locationChatTickProgressTitle = 'Progressing the World';
 
 extension _LocationChatTickProgress on _LocationChatPanelState {
+  String _tickStreamKey(WorldChatroomMessage message) =>
+      '${message.conversationRoundId}:${message.senderId}';
+
+  void _deferNewTickUntilCurrentMessageFinishes(
+    List<WorldChatroomMessage> previousSource,
+    List<WorldChatroomMessage> nextSource,
+  ) {
+    if (_deferredTickLocalId != null) return;
+    final previousIds = previousSource.map(locationChatMessageLocalId).toSet();
+    WorldChatroomMessage? newTick;
+    for (final message in nextSource) {
+      if (locationChatBusinessType(message) == 'tick' &&
+          !previousIds.contains(locationChatMessageLocalId(message))) {
+        newTick = message;
+        break;
+      }
+    }
+    if (newTick == null) return;
+
+    final activeStreams = previousSource.where((message) => message.streaming);
+    final tickRoundId = int.tryParse(newTick.conversationRoundId);
+    final activeActions =
+        _replyController
+            ?.statesFor(widget.locationId)
+            .where(
+              (round) =>
+                  round.invalidatedByTick &&
+                  (tickRoundId == null || round.roundId != tickRoundId) &&
+                  (round.generating || round.goOnPending),
+            )
+            .toList(growable: false) ??
+        const <ChatroomReplyRoundState>[];
+    if (activeStreams.isEmpty && activeActions.isEmpty) return;
+
+    _deferredTickLocalId = locationChatMessageLocalId(newTick);
+    _deferredTickStreamKeys.addAll(activeStreams.map(_tickStreamKey));
+    _deferredTickActionRoundIds.addAll(
+      activeActions.map((round) => round.roundId),
+    );
+    _tickPrecedingStreamKeys[_deferredTickLocalId!] = _deferredTickStreamKeys
+        .toSet();
+    _tickPrecedingActionRoundIds[_deferredTickLocalId!] =
+        _deferredTickActionRoundIds.toSet();
+    for (final round in activeActions.reversed) {
+      if (round.showCardPresentation) {
+        _deferredTickPresentationRoundId = round.roundId;
+        break;
+      }
+    }
+  }
+
+  bool _deferredTickReadyToDisplay() {
+    if (_deferredTickLocalId == null) return false;
+    final source =
+        _chatroomState.messagesByLocation[widget.locationId] ??
+        const <WorldChatroomMessage>[];
+    if (source.any(
+      (message) =>
+          message.streaming &&
+          _deferredTickStreamKeys.contains(_tickStreamKey(message)),
+    )) {
+      return false;
+    }
+    final controller = _replyController;
+    if (controller != null &&
+        _deferredTickActionRoundIds.any((roundId) {
+          final round = controller.stateForRound(widget.locationId, roundId);
+          return round != null && (round.generating || round.goOnPending);
+        })) {
+      return false;
+    }
+    return true;
+  }
+
+  void _scheduleDeferredTickReleaseIfReady() {
+    if (_deferredTickReleaseScheduled || !_deferredTickReadyToDisplay()) {
+      return;
+    }
+    _deferredTickReleaseScheduled = true;
+    final generation = _deferredTickGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (generation != _deferredTickGeneration) return;
+      _deferredTickReleaseScheduled = false;
+      if (!mounted || !_deferredTickReadyToDisplay()) return;
+      _setLocationChatState(() {
+        _clearDeferredTick();
+        _resolveTickProgressMessageIfAvailable();
+      });
+    });
+  }
+
+  void _clearDeferredTick({bool resetOrdering = false}) {
+    _deferredTickGeneration++;
+    _deferredTickReleaseScheduled = false;
+    _deferredTickLocalId = null;
+    _deferredTickPresentationRoundId = null;
+    _deferredTickStreamKeys.clear();
+    _deferredTickActionRoundIds.clear();
+    if (resetOrdering) {
+      _tickPrecedingStreamKeys.clear();
+      _tickPrecedingActionRoundIds.clear();
+    }
+  }
+
+  bool _messageBelongsBeforeTick(ChatMessageVm message, String tickLocalId) {
+    if (message.isTick) return false;
+    if (_tickPrecedingStreamKeys[tickLocalId]?.contains(
+          '${message.roundId}:${message.senderId}',
+        ) ??
+        false) {
+      return true;
+    }
+    final sourceRoundIds = _tickPrecedingActionRoundIds[tickLocalId];
+    if (sourceRoundIds == null) return false;
+    final controller = _replyController;
+    if (controller == null) return false;
+    return sourceRoundIds.any((sourceRoundId) {
+      final continuedRoundId = controller
+          .stateForRound(widget.locationId, sourceRoundId)
+          ?.goOnRoundId;
+      return continuedRoundId != null && message.roundId == '$continuedRoundId';
+    });
+  }
+
+  List<ChatMessageVm> _sequenceMessagesBeforeDeferredTicks() {
+    if (_tickPrecedingStreamKeys.isEmpty &&
+        _tickPrecedingActionRoundIds.isEmpty) {
+      return _messages;
+    }
+    final sequenced = _messages.toList();
+    // A stream can receive its final server message ID after the Tick ID.
+    // Preserve the visible completion order without changing canonical history.
+    for (final tickLocalId in _tickPrecedingStreamKeys.keys) {
+      final tickIndex = sequenced.indexWhere(
+        (message) => message.localId == tickLocalId,
+      );
+      if (tickIndex < 0) continue;
+      final preceding = <ChatMessageVm>[];
+      for (var index = sequenced.length - 1; index > tickIndex; index -= 1) {
+        final message = sequenced[index];
+        if (_messageBelongsBeforeTick(message, tickLocalId)) {
+          preceding.insert(0, sequenced.removeAt(index));
+        }
+      }
+      sequenced.insertAll(tickIndex, preceding);
+    }
+    return sequenced;
+  }
+
   bool _syncTickProgressState({
     required bool progressing,
     required List<WorldChatroomMessage> nextSource,
@@ -78,7 +227,9 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     _tickProgressLayoutIdByMessageLocalId.removeWhere(
       (localId, _) => !retainedMessageLocalIds.contains(localId),
     );
-    if (!_awaitingTickProgressMessage || _activeTickProgressSlotId.isEmpty) {
+    if (_deferredTickLocalId != null ||
+        !_awaitingTickProgressMessage ||
+        _activeTickProgressSlotId.isEmpty) {
       return false;
     }
     for (final message in _messages.reversed) {
@@ -142,7 +293,17 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
   }
 
   List<ChatMessageVm> _locationChatProjectedMessages() {
-    return _collapseConsecutiveLocationChatTicksForDisplay(_messages);
+    final sequenced = _sequenceMessagesBeforeDeferredTicks();
+    final deferredLocalId = _deferredTickLocalId;
+    if (deferredLocalId == null) {
+      return _collapseConsecutiveLocationChatTicksForDisplay(sequenced);
+    }
+    final deferredIndex = sequenced.indexWhere(
+      (message) => message.localId == deferredLocalId,
+    );
+    return _collapseConsecutiveLocationChatTicksForDisplay(
+      deferredIndex < 0 ? sequenced : sequenced.sublist(0, deferredIndex),
+    );
   }
 
   String _locationChatMessageLayoutId(ChatMessageVm message) {

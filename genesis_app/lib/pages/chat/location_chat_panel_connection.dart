@@ -721,6 +721,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final nextSource =
         state.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
+    _deferNewTickUntilCurrentMessageFinishes(previousSource, nextSource);
     final tickProgressStarted = _syncTickProgressState(
       progressing: widget.worldTickInProgress || state.inputBlocked,
       nextSource: nextSource,
@@ -757,6 +758,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     } else {
       _chatroomState = state;
     }
+    _scheduleDeferredTickReleaseIfReady();
     _logPanelMetric(
       'state received source ${previousSource.length}->${nextSource.length} '
       'vm $beforeVmCount->${_messages.length} changed=$changedMessages '

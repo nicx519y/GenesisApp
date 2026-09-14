@@ -270,7 +270,7 @@ void main() {
     (label: 'Go on', requestType: 'go_on'),
   ]) {
     testWidgets(
-      'a Tick retires in-flight ${action.label} controls and card pagination',
+      'a Tick waits for in-flight ${action.label} while retiring its controls',
       (tester) async {
         final backend = _LocationChatReplyHttpTransport();
         final harness = await _mountCompletedReplyActionPanel(
@@ -321,10 +321,8 @@ void main() {
           globalText: 'The world advanced.',
         );
         await _pumpUntilLocationChatTest(tester, () {
-          final list = tester.widget<LocationChatAnchoredMessageList>(
-            find.byType(LocationChatAnchoredMessageList),
-          );
-          return list.messages.any((message) => message.isTick) &&
+          return harness.service.state.messagesByLocation['location-current']!
+                  .any((message) => message.businessType == 'tick') &&
               harness.service.replyActions!
                       .stateFor('location-current')
                       ?.roundId ==
@@ -334,14 +332,14 @@ void main() {
         final list = tester.widget<LocationChatAnchoredMessageList>(
           find.byType(LocationChatAnchoredMessageList),
         );
-        expect(list.messages.any((message) => message.isTick), isTrue);
+        expect(list.messages.any((message) => message.isTick), isFalse);
         expect(oldRound.invalidatedByTick, isTrue);
         expect(
           action.requestType == 'go_on'
               ? oldRound.goOnPending
               : oldRound.generating,
           isTrue,
-          reason: 'The Tick must be displayed before the old request finishes.',
+          reason: 'The Tick must wait for the old request to finish.',
         );
         expect(list.regenerateFeature.state, LocationChatReplyActionState.none);
         expect(list.goOnFeature.state, LocationChatReplyActionState.none);
@@ -369,12 +367,15 @@ void main() {
           errNo: 2015,
           errMsg: 'Source expired',
         );
-        await _pumpUntilLocationChatTest(
-          tester,
-          () => action.requestType == 'go_on'
-              ? !oldRound.goOnPending
-              : !oldRound.generating,
-        );
+        await _pumpUntilLocationChatTest(tester, () {
+          final settled = tester.widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          );
+          return settled.messages.any((message) => message.isTick) &&
+              (action.requestType == 'go_on'
+                  ? !oldRound.goOnPending
+                  : !oldRound.generating);
+        });
         final settledList = tester.widget<LocationChatAnchoredMessageList>(
           find.byType(LocationChatAnchoredMessageList),
         );
@@ -392,6 +393,75 @@ void main() {
       },
     );
   }
+
+  testWidgets('a Tick waits for the current AI stream to finish rendering', (
+    tester,
+  ) async {
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+    );
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      roundId: 401,
+      messageId: 402,
+      seq: 1,
+      content: 'Streaming answer',
+      conversationType: 'user_message',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text('Streaming answer').evaluate().isNotEmpty,
+    );
+
+    harness.socket.serverV2Tick(
+      messageId: 501,
+      locationMessageId: 501,
+      globalText: 'The world advanced.',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.service.state.messagesByLocation['location-current']!.any(
+        (message) => message.businessType == 'tick',
+      ),
+    );
+    await tester.pump();
+    var list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(list.messages.any((message) => message.isTick), isFalse);
+    expect(
+      list.messages.any((message) => message.text == 'Streaming answer'),
+      isTrue,
+    );
+    expect(list.regenerateFeature.state, LocationChatReplyActionState.none);
+    expect(list.goOnFeature.state, LocationChatReplyActionState.none);
+    expect(list.editFeature.state, LocationChatReplyActionState.none);
+    expect(list.inspirationFeature.state, LocationChatReplyActionState.none);
+
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      roundId: 401,
+      messageId: 602,
+      content: 'Final answer',
+      conversationType: 'user_message',
+    );
+    await _pumpUntilLocationChatTest(tester, () {
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      return list.messages.any((message) => message.isTick);
+    });
+    final finalAnswerIndex = list.messages.indexWhere(
+      (message) => message.text == 'Final answer',
+    );
+    final tickIndex = list.messages.indexWhere((message) => message.isTick);
+    expect(finalAnswerIndex, greaterThanOrEqualTo(0));
+    expect(tickIndex, greaterThan(finalAnswerIndex));
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump(const Duration(seconds: 3));
+  });
 
   for (final mode in ['ordinary', 'candidates', 'confirmed']) {
     testWidgets(
