@@ -54,6 +54,7 @@ class MemoryModelPage extends StatefulWidget {
 }
 
 class _MemoryModelPageState extends State<MemoryModelPage> {
+  static const int _minMemoryLimitTokens = 4000;
   static const Duration _memoryAutosaveDelay = Duration(milliseconds: 500);
 
   GemModelCatalog? _catalog;
@@ -68,6 +69,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   UserMemorySettings? _memorySettings;
   UserMemorySettings? _rangeMemorySettings;
   int? _confirmedMemoryTokens;
+  int? _lastSavedMemoryTokens;
   Object? _memoryError;
   bool _memoryLoading = false;
   int _pendingMemoryTokens = 0;
@@ -105,6 +107,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       _memoryUncertainRevision = null;
       _rangeMemorySettings = null;
       _confirmedMemoryTokens = null;
+      _lastSavedMemoryTokens = null;
       _trackSwitchModelPage();
       unawaited(_refresh());
       unawaited(_loadMemorySettings());
@@ -186,11 +189,12 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         _memorySettings = loaded;
         _rangeMemorySettings = loaded;
         _confirmedMemoryTokens = loaded.memoryTokens;
+        _lastSavedMemoryTokens = loaded.memoryTokens;
         if (!preservePending || _latestMemoryRequest == null) {
           _pendingMemoryTokens = loaded.memoryTokens;
         } else {
           _pendingMemoryTokens = _pendingMemoryTokens.clamp(
-            loaded.minMemoryTokens,
+            _minMemoryLimitTokens,
             loaded.maxMemoryTokens,
           );
         }
@@ -216,7 +220,8 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     final responseWorldId = settings.worldId?.trim() ?? '';
     if (settings.minMemoryTokens <= 0 ||
         settings.maxMemoryTokens < settings.minMemoryTokens ||
-        settings.memoryTokens < settings.minMemoryTokens ||
+        settings.maxMemoryTokens < _minMemoryLimitTokens ||
+        settings.memoryTokens < _minMemoryLimitTokens ||
         settings.memoryTokens > settings.maxMemoryTokens ||
         (requireWorldUsage && responseWorldId.isEmpty) ||
         (expectedWorldId != null && responseWorldId != expectedWorldId) ||
@@ -327,6 +332,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       _memoryLoading = false;
       if (memory != null) {
         _memorySettings = memory;
+        _lastSavedMemoryTokens = memory!.memoryTokens;
       } else if (saved != null) {
         // Preserve the existing top-summary fallback, but never present it as
         // an authoritative memory range or cache it for a later page entry.
@@ -551,9 +557,18 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         }
       });
     } catch (error, stackTrace) {
+      if (request.worldId != widget.worldId.trim()) return;
       debugPrint('[GemModel] autosave model failed: $error');
       GenesisTelemetry.captureException(error, stackTrace);
-      if (mounted && showFailure) {
+      if (request.revision == _modelRevision) {
+        _latestModelRequest = null;
+        if (mounted) {
+          setState(() => _pendingModelCode = _confirmedModelCode);
+        } else {
+          _pendingModelCode = _confirmedModelCode;
+        }
+      }
+      if (mounted && showFailure && request.revision == _modelRevision) {
         showGenesisToast(context, 'Save failed', brightness: Brightness.dark);
       }
     } finally {
@@ -594,6 +609,8 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       request.pageCache?.clearMemorySettings();
       request.pageCache?.clearModelCatalog();
       if (!mounted || request.worldId != widget.worldId.trim()) return;
+      // The POST confirms persistence before quotation/usage refresh finishes.
+      _lastSavedMemoryTokens = saved.memoryTokens;
       if (request.revision == _memoryRevision) {
         _latestMemoryRequest = null;
         _memoryUncertainRevision = null;
@@ -603,8 +620,20 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       if (request.worldId != widget.worldId.trim()) return;
       debugPrint('[GemModel] autosave memory failed: $error');
       GenesisTelemetry.captureException(error, stackTrace);
-      if (_isUncertainMemorySave(error)) {
-        _memoryUncertainRevision = request.revision;
+      final uncertain = _isUncertainMemorySave(error);
+      if (request.revision == _memoryRevision) {
+        _memorySaveTimer?.cancel();
+        _latestMemoryRequest = null;
+        _memoryUncertainRevision = uncertain ? request.revision : null;
+        final previous =
+            _lastSavedMemoryTokens ?? _memorySettings!.memoryTokens;
+        if (mounted) {
+          setState(() => _pendingMemoryTokens = previous);
+        } else {
+          _pendingMemoryTokens = previous;
+        }
+      }
+      if (uncertain) {
         try {
           await request.loadGlobal();
         } catch (reconcileError) {
@@ -613,14 +642,16 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
             '$reconcileError',
           );
         }
-        if (mounted && showFailure) {
+        if (mounted && showFailure && request.revision == _memoryRevision) {
           showGenesisToast(
             context,
             'Save result not confirmed',
             brightness: Brightness.dark,
           );
         }
-      } else if (mounted && showFailure) {
+      } else if (mounted &&
+          showFailure &&
+          request.revision == _memoryRevision) {
         showGenesisToast(context, 'Save failed', brightness: Brightness.dark);
       }
     } finally {
@@ -711,12 +742,12 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         const SizedBox(height: 30),
         const Align(
           alignment: Alignment.centerLeft,
-          child: _SectionTitle(title: 'Max memory limit'),
+          child: _SectionTitle(title: 'Max memory token limit'),
         ),
         const SizedBox(height: 10),
         _MaxMemoryLimitCard(
           memoryTokens: _pendingMemoryTokens,
-          minMemoryTokens: settings.minMemoryTokens,
+          minMemoryTokens: _minMemoryLimitTokens,
           maxMemoryTokens: settings.maxMemoryTokens,
           enabled: !_memoryLoading,
           onChanged: _changeMemory,
@@ -976,17 +1007,20 @@ class _MaxMemoryLimitCard extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) {
                 const bubbleWidth = 44.0;
-                const sliderOverflow = 11.0;
-                const thumbRadius = 10.0;
+                // Slider's explicit padding and the bubble share one track
+                // inset. The 24px press overlay must not change this geometry.
+                const trackInset = 24.0;
+                const sliderOverflow = 20.0;
                 final sliderWidth = constraints.maxWidth + sliderOverflow * 2;
+                final visualValue =
+                    Directionality.of(context) == TextDirection.rtl
+                    ? 1 - sliderValue
+                    : sliderValue;
                 final thumbCenter =
                     -sliderOverflow +
-                    thumbRadius +
-                    sliderValue * (sliderWidth - thumbRadius * 2);
-                final bubbleLeft = (thumbCenter - bubbleWidth / 2).clamp(
-                  -15.0,
-                  constraints.maxWidth + 15 - bubbleWidth,
-                );
+                    trackInset +
+                    visualValue * (sliderWidth - trackInset * 2);
+                final bubbleLeft = thumbCenter - bubbleWidth / 2;
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -1006,6 +1040,7 @@ class _MaxMemoryLimitCard extends StatelessWidget {
                       child: SliderTheme(
                         data: SliderTheme.of(context).copyWith(
                           trackHeight: 4,
+                          trackShape: const RoundedRectSliderTrackShape(),
                           activeTrackColor: GenesisColors.redPrimary,
                           inactiveTrackColor: GenesisColors.darkFaintFill,
                           disabledActiveTrackColor: GenesisColors.redPrimary,
@@ -1017,7 +1052,7 @@ class _MaxMemoryLimitCard extends StatelessWidget {
                             alpha: 0.16,
                           ),
                           overlayShape: const RoundSliderOverlayShape(
-                            overlayRadius: 24,
+                            overlayRadius: trackInset,
                           ),
                           thumbShape: const RoundSliderThumbShape(
                             enabledThumbRadius: 10,
@@ -1028,6 +1063,9 @@ class _MaxMemoryLimitCard extends StatelessWidget {
                         ),
                         child: Slider(
                           key: const ValueKey('memory-model-max-memory-slider'),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: trackInset,
+                          ),
                           value: sliderValue,
                           onChanged:
                               enabled && minMemoryTokens < maxMemoryTokens
@@ -1204,11 +1242,9 @@ class _GemModelTileContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final min = formatExactGemCent(model.minGemsCent);
-    final max = formatExactGemCent(model.maxGemsCent);
-    final priceRange = model.minGemsCent == model.maxGemsCent
-        ? '$min gems'
-        : '$min–$max gems';
+    final min = formatGemCent(model.minGemsCent);
+    final max = formatGemCent(model.maxGemsCent);
+    final priceRange = min == max ? '$min gems' : '$min–$max gems';
     final memory = memorySettings;
     final memoryStart = memory == null
         ? null
@@ -1263,7 +1299,7 @@ class _GemModelTileContent extends StatelessWidget {
               children: [
                 TextSpan(
                   text:
-                      '${formatExactGemCent(model.estimatedNextMessageGemsCent)} gems',
+                      '${formatGemCent(model.estimatedNextMessageGemsCent)} gems',
                   style: const TextStyle(color: GenesisColors.redSecondary),
                 ),
               ],
@@ -1455,20 +1491,10 @@ int memoryTokensForSliderValue(
 
 @visibleForTesting
 String formatMemoryTokens(int memoryTokens) {
-  if (memoryTokens.abs() >= 1000000) {
-    return '${_compactMemoryNumber(memoryTokens / 1000000)}M';
-  }
-  if (memoryTokens.abs() >= 1000) {
-    return '${_compactMemoryNumber(memoryTokens / 1000)}K';
-  }
-  return memoryTokens.toString();
-}
-
-String _compactMemoryNumber(double value) {
-  final rounded = (value * 10).round() / 10;
-  return rounded == rounded.truncateToDouble()
-      ? rounded.toInt().toString()
-      : rounded.toStringAsFixed(1);
+  if (memoryTokens == 0) return '0';
+  // Round usage up to a whole K, including nonzero usage below 1K.
+  final wholeK = (memoryTokens / 1000).ceil();
+  return wholeK == 1000 ? '1M' : '${wholeK}K';
 }
 
 bool _isUncertainMemorySave(Object error) {

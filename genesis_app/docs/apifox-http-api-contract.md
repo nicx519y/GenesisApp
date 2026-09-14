@@ -585,7 +585,7 @@ Query：
 - `world_id`: string，仅 Worldo 查询返回
 - `memory_used_tokens`: integer，仅 Worldo 查询返回；当前 Worldo 的实际用量，允许为 `0`，且不超过当前全局预算
 
-客户端必须使用响应范围和预算值展示滑杆，并使用 `memory_used_tokens` 展示实际用量；不得写死下限或上限。当前滑杆交互按 1K 步长取整，服务端返回的动态边界值保持可达。
+Memory & Model 页面按最新产品要求将滑杆下限固定为 4000 tokens（4K），上限和已保存预算仍读取响应；服务端需支持保存 4000。当前滑杆按对数映射、1K 步长取整，动态上限保持可达。`memory_used_tokens` 展示实际用量，本页数字向上取整至整数 K，1000K 显示为 1M。
 
 ### POST `/api/v1/user/memory-settings`
 
@@ -593,7 +593,7 @@ Query：
 
 - `memory_tokens*`: integer；必须位于接口返回范围内
 
-客户端不得发送 `world_id`，成功响应为全局设置且允许缺少 `world_id/memory_used_tokens`。仅 `err_no=0` 表示成功；旧 PUT 路由不再使用。系统错误、超时或连接中断属于不确定结果，客户端应对全局 GET 核对，不自动重试或将核对结果改判为保存成功。
+客户端不得发送 `world_id`，成功响应为全局设置且允许缺少 `world_id/memory_used_tokens`。仅 `err_no=0` 表示成功；旧 PUT 路由不再使用。系统错误、超时或连接中断属于不确定结果，客户端应对全局 GET 核对，不自动重试或将核对结果改判为保存成功。Memory 保存失败（含不确定结果）时，滑杆恢复最近一次成功预算，清除待提交操作，退出页面不重发失败请求。
 
 ### GET `/api/v1/user/world-history-settings`
 

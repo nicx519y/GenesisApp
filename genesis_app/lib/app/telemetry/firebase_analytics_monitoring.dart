@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -85,6 +88,7 @@ class FirebaseAnalyticsMonitoring {
   static Future<String> Function() _deviceIdReader = _readNativeDeviceId;
   static final Map<String, Future<void>> _onceEventRecordings =
       <String, Future<void>>{};
+  static final Map<String, Future<void>> _purchaseEligibilityWrites = {};
   static Future<void> _messageSentCountQueue = Future<void>.value();
   static bool? _enabledOverride;
   static FirebaseAnalyticsCollectionConfigurator _collectionConfigurator =
@@ -159,20 +163,104 @@ class FirebaseAnalyticsMonitoring {
     return _recordEventWithFirst('login', <String, Object>{'method': method});
   }
 
+  // An Analytics-only marker: an existing checkout matched this receipt. It
+  // never creates a payment/recovery record or changes purchase processing.
+  static Future<void> markPurchaseEligible({
+    required String provider,
+    required FirebaseAnalyticsPurchaseKind kind,
+    required String purchaseIdentity,
+  }) {
+    if (!_isEnabled || purchaseIdentity.trim().isEmpty) return Future.value();
+    final key = _purchaseEligibilityKey(provider, kind, purchaseIdentity);
+    final existing = _purchaseEligibilityWrites[key];
+    if (existing != null) return existing;
+    late final Future<void> task;
+    task =
+        (() async {
+          try {
+            await _onceEventStore.markSent(key);
+          } catch (_) {
+            debugPrint(
+              '[Telemetry][FirebaseAnalytics] purchase eligibility save failed',
+            );
+          }
+        })().whenComplete(() {
+          if (identical(_purchaseEligibilityWrites[key], task)) {
+            _purchaseEligibilityWrites.remove(key);
+          }
+        });
+    _purchaseEligibilityWrites[key] = task;
+    return task;
+  }
+
+  static String _purchaseIdentityDigest(
+    String provider,
+    FirebaseAnalyticsPurchaseKind kind,
+    String purchaseIdentity,
+  ) => sha256
+      .convert(
+        utf8.encode(jsonEncode([provider, kind.name, purchaseIdentity.trim()])),
+      )
+      .toString();
+
+  static String _purchaseEligibilityKey(
+    String provider,
+    FirebaseAnalyticsPurchaseKind kind,
+    String purchaseIdentity,
+  ) =>
+      'purchase_eligible_v1.${_purchaseIdentityDigest(provider, kind, purchaseIdentity)}';
+
+  /// Called only after backend completion. The optional eligibility marker
+  /// distinguishes Gems checkout receipts from arbitrary recovered history.
   static Future<void> recordPurchase({
     required String provider,
     required String productId,
     required FirebaseAnalyticsPurchaseKind kind,
-  }) {
+    required String purchaseIdentity,
+    bool requireEligibility = false,
+  }) async {
+    if (!_isEnabled || purchaseIdentity.trim().isEmpty) return;
+    if (requireEligibility) {
+      final key = _purchaseEligibilityKey(provider, kind, purchaseIdentity);
+      try {
+        await _purchaseEligibilityWrites[key];
+        if (!await _onceEventStore.wasSent(key)) return;
+      } catch (_) {
+        debugPrint(
+          '[Telemetry][FirebaseAnalytics] purchase eligibility read failed',
+        );
+        return;
+      }
+    }
     final kindFirstEvent = switch (kind) {
       FirebaseAnalyticsPurchaseKind.gems => 'gems_first',
       FirebaseAnalyticsPurchaseKind.subscription => 'subscription_first',
     };
-    return _recordEventWithFirst(
-      'purchase',
-      <String, Object>{'provider': provider, 'product_id': productId},
-      additionalOnceEventNames: <String>[kindFirstEvent],
-    );
+    // Google new purchases/upgrades use their token; Apple uses the current
+    // transaction ID, never the original subscription chain. Persist only a
+    // digest, and keep this identity out of the Analytics parameters/logs.
+    final identity = _purchaseIdentityDigest(provider, kind, purchaseIdentity);
+    var deviceId = 'unknown';
+    try {
+      final value = (await _deviceIdReader()).trim();
+      if (value.isNotEmpty) deviceId = value;
+    } catch (_) {
+      // Optional device metadata must not discard a completed purchase.
+    }
+    final parameters = <String, Object>{
+      'provider': provider,
+      'product_id': productId,
+      'device_id': deviceId,
+    };
+    await Future.wait<void>([
+      _recordEventOnce(
+        'purchase',
+        parameters,
+        storageKey: 'purchase_transaction_v1.$identity',
+      ),
+      _recordEventOnce('purchase_first', parameters),
+      _recordEventOnce(kindFirstEvent, parameters),
+    ]);
   }
 
   static Future<void> recordPerformanceOperation({
@@ -236,33 +324,38 @@ class FirebaseAnalyticsMonitoring {
 
   static Future<void> _recordEventOnce(
     String name,
-    Map<String, Object> parameters,
-  ) {
+    Map<String, Object> parameters, {
+    String? storageKey,
+  }) {
     if (!_isEnabled) return Future<void>.value();
-    final existing = _onceEventRecordings[name];
+    final key = storageKey ?? name;
+    final existing = _onceEventRecordings[key];
     if (existing != null) return existing;
 
     late final Future<void> recording;
-    recording = _recordEventOnceUnlocked(name, parameters).whenComplete(() {
-      if (identical(_onceEventRecordings[name], recording)) {
-        _onceEventRecordings.remove(name);
-      }
-    });
-    _onceEventRecordings[name] = recording;
+    recording = _recordEventOnceUnlocked(name, parameters, key).whenComplete(
+      () {
+        if (identical(_onceEventRecordings[key], recording)) {
+          _onceEventRecordings.remove(key);
+        }
+      },
+    );
+    _onceEventRecordings[key] = recording;
     return recording;
   }
 
   static Future<void> _recordEventOnceUnlocked(
     String name,
     Map<String, Object> parameters,
+    String storageKey,
   ) async {
     try {
-      if (await _onceEventStore.wasSent(name)) return;
+      if (await _onceEventStore.wasSent(storageKey)) return;
       await _readiness();
       // Firebase exposes SDK acceptance, not a server-delivery acknowledgement.
       // Persist only after the platform SDK accepts the event call.
       await _client.logEvent(name: name, parameters: parameters);
-      await _onceEventStore.markSent(name);
+      await _onceEventStore.markSent(storageKey);
     } catch (e, st) {
       debugPrint('[Telemetry][FirebaseAnalytics] $name failed: $e');
       debugPrint('[Telemetry][FirebaseAnalytics] stacktrace:\n$st');
@@ -335,6 +428,7 @@ class FirebaseAnalyticsMonitoring {
         const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment;
     _deviceIdReader = _readNativeDeviceId;
     _onceEventRecordings.clear();
+    _purchaseEligibilityWrites.clear();
     _messageSentCountQueue = Future<void>.value();
     _enabledOverride = null;
     _collectionConfigurator = _configureFirebaseAnalyticsCollection;

@@ -88,7 +88,7 @@ GenesisInfoCard(
 
 组件集中管理表面和点击反馈；业务层保留内容、选择逻辑及保存操作。Memory & Model 的内存上限卡、模型选择卡已接入。静态卡允许滑块浮标超出内容边界；可点击卡按圆角裁切。
 
-Memory & Model 使用公共返回 Header，正文左右 16；正文使用 `GenesisTypography.body`（14px），辅助文案使用 `supporting`（12px）。“Max memory limit / Choose model”为主标题，保留一级白。
+Memory & Model 使用公共返回 Header，正文左右 16；正文使用 `GenesisTypography.body`（14px），辅助文案使用 `supporting`（12px）。“Max memory token limit / Choose model”为主标题，保留一级白。
 
 
 ### GenesisSearchField

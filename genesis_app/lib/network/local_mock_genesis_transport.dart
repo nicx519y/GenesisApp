@@ -1310,7 +1310,7 @@ class _MockState {
 
   Map<String, dynamic> get _v1World => _v1Worlds.first;
 
-  static const int _v1MinMemoryTokens = 8000;
+  static const int _v1MinMemoryTokens = 4000;
   static const int _v1MaxMemoryTokens = 1000000;
 
   bool isValidV1MemoryTokens(int memoryTokens) {

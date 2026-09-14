@@ -14,50 +14,49 @@ import 'package:genesis_flutter_android/ui/components/genesis_refresh_indicator.
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
 
-  testWidgets(
-    'ranges use actual usage, exact prices and unchanged memory formatting',
-    (tester) async {
-      for (final scenario in [
-        (500, 12400, '500', '12.4K'),
-        (2400, 12400, '2.4K', '12.4K'),
-        (32000, 32000, '32K', '32K'),
-        (31999, 32000, '32K', '32K'),
-        (32000, 1000000, '32K', '1M'),
-      ]) {
-        await tester.pumpWidget(
-          _testApp(
-            MemoryModelPage(
-              key: ValueKey(scenario),
-              worldId: 'W_RANGE',
-              memorySettingsLoader: (_) async => _worldSettings(
-                'W_RANGE',
-                memoryTokens: scenario.$2,
-                usedTokens: scenario.$1,
-              ),
-              catalogLoader: (_) async =>
-                  _quotationCatalog(memoryTokens: scenario.$2),
+  testWidgets('ranges show one decimal gems and whole K memory', (
+    tester,
+  ) async {
+    for (final scenario in [
+      (500, 12400, '1K', '13K'),
+      (2400, 12400, '3K', '13K'),
+      (32000, 32000, '32K', '32K'),
+      (31999, 32000, '32K', '32K'),
+      (32000, 1000000, '32K', '1M'),
+    ]) {
+      await tester.pumpWidget(
+        _testApp(
+          MemoryModelPage(
+            key: ValueKey(scenario),
+            worldId: 'W_RANGE',
+            memorySettingsLoader: (_) async => _worldSettings(
+              'W_RANGE',
+              memoryTokens: scenario.$2,
+              usedTokens: scenario.$1,
             ),
+            catalogLoader: (_) async =>
+                _quotationCatalog(memoryTokens: scenario.$2),
           ),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.text(
-            scenario.$3 == scenario.$4
-                ? '2.16–4.83 gems (memory ${scenario.$3})'
-                : '2.16–4.83 gems (memory ${scenario.$3} → ${scenario.$4})',
-          ),
-          findsOneWidget,
-        );
-        expect(
-          find.textContaining(
-            'Estimated next message 2.16 gems',
-            findRichText: true,
-          ),
-          findsOneWidget,
-        );
-      }
-    },
-  );
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          scenario.$3 == scenario.$4
+              ? '2.2–4.8 gems (memory ${scenario.$3})'
+              : '2.2–4.8 gems (memory ${scenario.$3} → ${scenario.$4})',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          'Estimated next message 2.2 gems',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+    }
+  });
 
   testWidgets('equal prices and equal memory endpoints collapse', (
     tester,
@@ -77,7 +76,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('4.83 gems (memory 32K)'), findsOneWidget);
+    expect(find.text('4.8 gems (memory 32K)'), findsOneWidget);
   });
 
   testWidgets(
@@ -106,10 +105,10 @@ void main() {
       _setSliderValue(tester, 1);
       await tester.pump(const Duration(milliseconds: 499));
       expect(loads, 1);
-      expect(find.text('2.16–4.83 gems (memory 6K → 48K)'), findsOneWidget);
+      expect(find.text('2.2–4.8 gems (memory 6K → 48K)'), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 1));
       await tester.pump();
-      expect(find.text('2.16–4.83 gems (memory 6K → 48K)'), findsOneWidget);
+      expect(find.text('2.2–4.8 gems (memory 6K → 48K)'), findsOneWidget);
       expect(find.text('9K'), findsNothing);
       expect(cache.modelCatalog, isNull);
       expect(cache.memorySettings, isNull);
@@ -117,10 +116,10 @@ void main() {
         _quotationCatalog(memoryTokens: 1000000, minCent: 300, maxCent: 900),
       );
       await tester.pump();
-      expect(find.text('3.00–9.00 gems (memory 9K → 1M)'), findsOneWidget);
+      expect(find.text('3.0–9.0 gems (memory 9K → 1M)'), findsOneWidget);
       expect(
         find.textContaining(
-          'Estimated next message 3.00 gems',
+          'Estimated next message 3.0 gems',
           findRichText: true,
         ),
         findsOneWidget,
@@ -169,7 +168,7 @@ void main() {
       expect(cache.modelCatalog, isNull);
       await tester.tap(find.byKey(const ValueKey('gem-model-ranges-retry')));
       await tester.pumpAndSettle();
-      expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+      expect(find.text('2.2–4.8 gems (memory 6K → 1M)'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('gem-model-ranges-retry')),
         findsNothing,
@@ -202,7 +201,7 @@ void main() {
     _setSliderValue(tester, 1);
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
-    expect(find.text('2.16–4.83 gems'), findsOneWidget);
+    expect(find.text('2.2–4.8 gems'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('gem-model-memory-loading-miranda')),
       findsOneWidget,
@@ -211,7 +210,7 @@ void main() {
     expect(cache.memorySettings, isNull);
     await tester.tap(find.byKey(const ValueKey('gem-model-ranges-retry')));
     await tester.pumpAndSettle();
-    expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+    expect(find.text('2.2–4.8 gems (memory 6K → 1M)'), findsOneWidget);
   });
 
   testWidgets('mismatched quotation budget cannot appear as current price', (
@@ -270,7 +269,7 @@ void main() {
     await tester.pumpAndSettle();
     oldQuotes.complete(_quotationCatalog(memoryTokens: 1000000));
     await tester.pumpAndSettle();
-    expect(find.text('9.99–12.00 gems (memory 6K → 1M)'), findsOneWidget);
+    expect(find.text('10.0–12.0 gems (memory 6K → 1M)'), findsOneWidget);
     expect(cache.memorySettings!.worldId, 'NEW');
     expect(cache.modelCatalog!.groups.single.models.single.minGemsCent, 999);
   });
@@ -305,12 +304,12 @@ void main() {
         .onRefresh();
     await tester.pump(const Duration(milliseconds: 500));
     await tester.pumpAndSettle();
-    expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+    expect(find.text('2.2–4.8 gems (memory 6K → 1M)'), findsOneWidget);
     oldMemory.complete(_worldSettings('W_ORDER'));
     oldQuotes.complete(_quotationCatalog());
     await oldRefresh;
     await tester.pumpAndSettle();
-    expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+    expect(find.text('2.2–4.8 gems (memory 6K → 1M)'), findsOneWidget);
     expect(cache.memorySettings!.memoryTokens, 1000000);
     expect(
       cache.modelCatalog!.groups.single.models.single.minMemoryTokens,
@@ -345,8 +344,8 @@ void main() {
       expect(memoryApi.updates, [1000000]);
       firstQuotes.complete(_quotationCatalog(memoryTokens: 1000000));
       await tester.pumpAndSettle();
-      expect(memoryApi.updates, [1000000, 8000]);
-      expect(find.text('2.16–4.83 gems (memory 6K → 8K)'), findsOneWidget);
+      expect(memoryApi.updates, [1000000, 4000]);
+      expect(find.text('2.2–4.8 gems (memory 4K)'), findsOneWidget);
     },
   );
 
@@ -378,7 +377,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(catalogLoads, 2);
     expect(memoryApi.loads, ['W_CACHE_RANGE', 'W_CACHE_RANGE']);
-    expect(find.text('2.16–4.83 gems (memory 6K → 1M)'), findsOneWidget);
+    expect(find.text('2.2–4.8 gems (memory 6K → 1M)'), findsOneWidget);
   });
 
   testWidgets(
@@ -450,6 +449,242 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('memory save failure returns to the latest successful budget', (
+    tester,
+  ) async {
+    final memoryApi = _FakeMemoryApi();
+    var attempts = 0;
+    await tester.pumpWidget(
+      _testApp(
+        MemoryModelPage(
+          worldId: 'W_ROLLBACK',
+          memorySettingsLoader: memoryApi.load,
+          memorySettingsUpdater: (tokens) async {
+            if (++attempts > 1) throw StateError('save failed');
+            return memoryApi.update(tokens);
+          },
+          catalogLoader: (_) async =>
+              _quotationCatalog(memoryTokens: memoryApi.globalValue),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _setSliderValue(tester, 1);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    _setSliderValue(tester, 0);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(_sliderTokens(tester), 1000000);
+    expect(find.text('2.2–4.8 gems (memory 6K → 1M)'), findsOneWidget);
+    // The rejected draft is cleared, but a new intentional attempt is allowed.
+    _setSliderValue(tester, 0);
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(attempts, 3);
+    expect(_sliderTokens(tester), 1000000);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets(
+    'model save failure returns to latest success without exit retry',
+    (tester) async {
+      final calls = <String>[];
+      await tester.pumpWidget(
+        _routeTestApp(
+          MemoryModelPage(
+            worldId: 'W_MODEL_ROLLBACK',
+            memorySettingsLoader: _FakeMemoryApi().load,
+            catalogLoader: (_) async => _catalog(),
+            selectionHandler: (_, code) async {
+              calls.add(code);
+              if (code == 'top_pick_v3') throw StateError('selection failed');
+              return GemModelSelection(selectedModelCode: code);
+            },
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('gem-model-sake_pro')),
+      );
+      await tester.tap(find.byKey(const ValueKey('gem-model-sake_pro')));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('gem-model-top_pick_v3')),
+      );
+      await tester.tap(find.byKey(const ValueKey('gem-model-top_pick_v3')));
+      await tester.pumpAndSettle();
+      expect(_tileBorder(tester, 'sake_pro').color, GenesisColors.redPrimary);
+      expect(
+        _tileBorder(tester, 'top_pick_v3').color,
+        GenesisColors.darkCardBorder,
+      );
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(calls, ['sake_pro', 'top_pick_v3']);
+      await tester.pump(const Duration(seconds: 2));
+    },
+  );
+
+  testWidgets('older memory failure does not undo a newer drag', (
+    tester,
+  ) async {
+    final memoryApi = _FakeMemoryApi();
+    final first = Completer<UserMemorySettings>();
+    final second = Completer<UserMemorySettings>();
+    var attempts = 0;
+    await tester.pumpWidget(
+      _testApp(
+        MemoryModelPage(
+          worldId: 'W_MEMORY_LATE_ERROR',
+          memorySettingsLoader: memoryApi.load,
+          memorySettingsUpdater: (_) =>
+              ++attempts == 1 ? first.future : second.future,
+          catalogLoader: (_) async =>
+              _quotationCatalog(memoryTokens: memoryApi.globalValue),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    _setSliderValue(tester, 1);
+    await tester.pump(const Duration(milliseconds: 500));
+    _setSliderValue(tester, 0);
+    await tester.pump(const Duration(milliseconds: 500));
+    first.completeError(StateError('old request failed'));
+    await tester.pump();
+    expect(_sliderTokens(tester), 4000);
+    expect(attempts, 2);
+    second.completeError(StateError('current request failed'));
+    await tester.pumpAndSettle();
+    expect(_sliderTokens(tester), 48000);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('older model failure does not undo a newer selection', (
+    tester,
+  ) async {
+    final first = Completer<GemModelSelection>();
+    final second = Completer<GemModelSelection>();
+    var attempts = 0;
+    await tester.pumpWidget(
+      _testApp(
+        MemoryModelPage(
+          worldId: 'W_MODEL_LATE_ERROR',
+          memorySettingsLoader: _FakeMemoryApi().load,
+          catalogLoader: (_) async => _catalogWithTwoGroups(),
+          selectionHandler: (_, _) =>
+              ++attempts == 1 ? first.future : second.future,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('gem-model-sake_pro')),
+    );
+    await tester.tap(find.byKey(const ValueKey('gem-model-sake_pro')));
+    await tester.pump();
+    await tester.ensureVisible(find.byKey(const ValueKey('gem-model-water')));
+    await tester.tap(find.byKey(const ValueKey('gem-model-water')));
+    await tester.pump();
+    first.completeError(StateError('old selection failed'));
+    await tester.pump();
+    expect(_tileBorder(tester, 'water').color, GenesisColors.redPrimary);
+    second.completeError(StateError('current selection failed'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('gem-model-top_pick_v3')),
+    );
+    expect(_tileBorder(tester, 'top_pick_v3').color, GenesisColors.redPrimary);
+    await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('bubble follows the real slider thumb on every drag frame', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    for (final width in [390.0, 320.0]) {
+      for (final direction in TextDirection.values) {
+        await tester.binding.setSurfaceSize(Size(width, 844));
+        final memoryApi = _FakeMemoryApi();
+        await tester.pumpWidget(
+          _testApp(
+            Directionality(
+              textDirection: direction,
+              child: MemoryModelPage(
+                key: ValueKey('$width-$direction'),
+                worldId: 'W_GEOMETRY',
+                memorySettingsLoader: memoryApi.load,
+                memorySettingsUpdater: memoryApi.update,
+                catalogLoader: (_) async =>
+                    _quotationCatalog(memoryTokens: memoryApi.globalValue),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final sliderFinder = find.byKey(
+          const ValueKey('memory-model-max-memory-slider'),
+        );
+        Offset paintedThumbCenter() {
+          final target = find.descendant(
+            of: sliderFinder,
+            matching: find.byType(CompositedTransformTarget),
+          );
+          final box = tester.renderObject<RenderBox>(target);
+          Offset? center;
+          expect(
+            box,
+            paints..something((method, arguments) {
+              if (method == #drawCircle && arguments[1] == 10.0) {
+                center = box.localToGlobal(arguments[0] as Offset);
+                return true;
+              }
+              return false;
+            }),
+          );
+          return center!;
+        }
+
+        final sliderRect = tester.getRect(sliderFinder);
+        final gesture = await tester.startGesture(paintedThumbCenter());
+        for (final fraction in [0.0, .1, .25, .5, .75, .9, 1.0]) {
+          await gesture.moveTo(
+            Offset(
+              sliderRect.left + 24 + fraction * (sliderRect.width - 48),
+              sliderRect.center.dy,
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
+          final thumb = paintedThumbCenter();
+          final pointer = tester.getRect(
+            find.byKey(const ValueKey('memory-model-max-memory-pointer')),
+          );
+          final bubble = tester.getRect(
+            find.byKey(const ValueKey('memory-model-max-memory-value')),
+          );
+          expect(
+            pointer.center.dx,
+            closeTo(thumb.dx, .01),
+            reason: '$width $direction $fraction pointer',
+          );
+          expect(
+            bubble.center.dx,
+            closeTo(thumb.dx, .01),
+            reason: '$width $direction $fraction bubble',
+          );
+          expect(thumb.dy - 10 - pointer.bottom, closeTo(2, .01));
+          expect(bubble.left, greaterThanOrEqualTo(0));
+          expect(bubble.right, lessThanOrEqualTo(width));
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      }
+    }
+  });
 
   test('memory slider uses dynamic logarithmic integer token mapping', () {
     expect(
@@ -523,7 +758,10 @@ void main() {
       1000500,
     );
     expect(formatMemoryTokens(0), '0');
-    expect(formatMemoryTokens(12400), '12.4K');
+    expect(formatMemoryTokens(12400), '13K');
+    expect(formatMemoryTokens(10200), '11K');
+    expect(formatMemoryTokens(1), '1K');
+    expect(formatMemoryTokens(999001), '1M');
     expect(formatMemoryTokens(1000000), '1M');
   });
 
@@ -551,7 +789,9 @@ void main() {
     expect(find.text('11K'), findsOneWidget);
     expect(find.text('Your current memory usage'), findsOneWidget);
     expect(find.text('48K'), findsOneWidget);
-    expect(find.text('8K'), findsOneWidget);
+    expect(find.text('4K'), findsOneWidget);
+    expect(find.text('Max memory token limit'), findsOneWidget);
+    expect(find.text('Max memory limit'), findsNothing);
     expect(find.text('1M'), findsOneWidget);
     expect(find.text('Apply to all Worldos'), findsNothing);
     expect(find.byKey(const ValueKey('gem-model-save')), findsNothing);
@@ -561,7 +801,7 @@ void main() {
     expect(find.text('Top Pick V3'), findsOneWidget);
     expect(find.text('Sake Pro'), findsOneWidget);
     expect(find.text('Water'), findsOneWidget);
-    expect(find.text('4.00–320.00 gems (memory 11K → 48K)'), findsOneWidget);
+    expect(find.text('4.0–320.0 gems (memory 11K → 48K)'), findsOneWidget);
     expect(find.textContaining('(memory 11K → 48K)'), findsNWidgets(3));
     expect(_tileBorder(tester, 'top_pick_v3').color, GenesisColors.redPrimary);
     expect(_tileBorder(tester, 'sake_pro').color, GenesisColors.darkCardBorder);
@@ -580,10 +820,11 @@ void main() {
       find.byKey(const ValueKey('memory-model-max-memory-pointer')),
     );
     const thumbRadius = 10.0;
-    expect(sliderRect.left + thumbRadius - cardRect.left, moreOrLessEquals(14));
+    const trackInset = 24.0;
+    expect(sliderRect.left + trackInset - cardRect.left, moreOrLessEquals(19));
     expect(
-      cardRect.right - (sliderRect.right - thumbRadius),
-      moreOrLessEquals(14),
+      cardRect.right - (sliderRect.right - trackInset),
+      moreOrLessEquals(19),
     );
     expect(sliderRect.height, 48);
     final sliderTheme = tester.widget<SliderTheme>(
@@ -597,13 +838,13 @@ void main() {
     expect((overlayShape! as RoundSliderOverlayShape).overlayRadius, 24);
     final sliderValue = memorySliderValueForTokens(
       48000,
-      minMemoryTokens: 8000,
+      minMemoryTokens: 4000,
       maxMemoryTokens: 1000000,
     );
     final thumbCenterX =
         sliderRect.left +
-        thumbRadius +
-        sliderValue * (sliderRect.width - thumbRadius * 2);
+        trackInset +
+        sliderValue * (sliderRect.width - trackInset * 2);
     expect(pointerRect.center.dx, moreOrLessEquals(thumbCenterX));
     final thumbTop = sliderRect.center.dy - thumbRadius;
     expect(thumbTop - pointerRect.bottom, moreOrLessEquals(2));
@@ -799,7 +1040,7 @@ void main() {
     first.complete(_globalSettings(1000000));
     await tester.pump();
     await tester.pump();
-    expect(calls, [1000000, 8000]);
+    expect(calls, [1000000, 4000]);
   });
 
   testWidgets('memory save refreshes actual usage and model quotations', (
@@ -862,6 +1103,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       await tester.pump();
       expect(attempts, [1000000]);
+      expect(_sliderTokens(tester), 48000);
       expect(memoryApi.loads, ['W_UNCERTAIN', null]);
       expect(find.text('Save result not confirmed'), findsOneWidget);
 
@@ -873,7 +1115,7 @@ void main() {
     },
   );
 
-  testWidgets('definite memory failure stays dirty and retries on exit', (
+  testWidgets('definite memory failure rolls back and is not retried on exit', (
     tester,
   ) async {
     var attempts = 0;
@@ -897,11 +1139,12 @@ void main() {
     await tester.pump();
     expect(attempts, 1);
     expect(find.text('Save failed'), findsOneWidget);
+    expect(_sliderTokens(tester), 48000);
 
     await tester.tap(find.byTooltip('Back'));
     await tester.pump();
     expect(find.text('Open'), findsOneWidget);
-    expect(attempts, 2);
+    expect(attempts, 1);
     await tester.pump(const Duration(seconds: 2));
   });
 
@@ -1249,3 +1492,14 @@ GemModelCatalog _quotationCatalog({
     ),
   ],
 );
+
+int _sliderTokens(WidgetTester tester) {
+  final slider = tester.widget<Slider>(
+    find.byKey(const ValueKey('memory-model-max-memory-slider')),
+  );
+  return memoryTokensForSliderValue(
+    slider.value,
+    minMemoryTokens: 4000,
+    maxMemoryTokens: 1000000,
+  );
+}
