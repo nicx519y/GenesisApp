@@ -17,6 +17,7 @@ import '../../platform/billing/membership_guest_claim_record.dart';
 import '../../platform/billing/membership_guest_claim_proof.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 import 'membership_purchase_eligibility.dart';
+import 'membership_access_store.dart';
 import 'membership_store_failure.dart';
 
 part 'membership_purchase_restore.dart';
@@ -63,7 +64,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     required this.reportPurchase,
     required this.queryPurchases,
     required this.provider,
-    required this.loadProducts,
+    required this.readCheckoutProducts,
+    required this.refreshMembership,
     this.otherPurchaseBusy,
     this.refreshWallet,
     this.claimGuest,
@@ -84,7 +86,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   reportPurchase;
   final Future<List<BillingPurchase>> Function() queryPurchases;
   final MembershipProvider provider;
-  final Future<MembershipProductList> Function() loadProducts;
+  final Future<MembershipProductList> Function() readCheckoutProducts;
+  final Future<MembershipAccessState> Function() refreshMembership;
   final ValueNotifier<int> catalogRevision = ValueNotifier(0);
   final bool Function()? otherPurchaseBusy;
   final Future<void> Function()? refreshWallet;
@@ -315,9 +318,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         final uid = await readLoginUid();
         if (!canContinue()) return;
         final MembershipProductList products;
-        stage = 'load_catalog';
+        stage = 'read_catalog';
         try {
-          products = await loadProducts();
+          products = await readCheckoutProducts();
         } catch (error) {
           preparationError = error;
           throw const MembershipPurchaseBlocked('eligibility_unavailable');
@@ -335,11 +338,22 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             current.offerId != product.offerId) {
           throw const MembershipPurchaseBlocked('eligibility_unavailable');
         }
-        final reason = membershipPurchaseBlockReason(
-          current,
-          products.vipStatus,
-        );
-        if (reason != null) throw MembershipPurchaseBlocked(reason);
+        if (uid != null) {
+          stage = 'refresh_membership';
+          final MembershipAccessState access;
+          try {
+            access = await refreshMembership();
+          } catch (error) {
+            preparationError = error;
+            throw const MembershipPurchaseBlocked('eligibility_unavailable');
+          }
+          if (!await canContinueForOwner(uid)) return;
+          if (access.ownerUid != uid) {
+            throw const MembershipPurchaseBlocked('eligibility_unavailable');
+          }
+          final reason = membershipPurchaseBlockReason(current, access);
+          if (reason != null) throw MembershipPurchaseBlocked(reason);
+        }
         product = current;
         stage = 'query_store_product';
         final nativeProduct = await platform.prepare(product);

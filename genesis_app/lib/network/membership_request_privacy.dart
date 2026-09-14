@@ -134,7 +134,6 @@ Object? _membershipProductProfileJson(Object? value) {
             'monthly_gems_cent',
             'price_currency_code',
             'price_amount',
-            'vip_status',
           }.contains(entry.key)
           ? entry.value is Map || entry.value is List
                 ? _membershipProductProfileJson(entry.value)

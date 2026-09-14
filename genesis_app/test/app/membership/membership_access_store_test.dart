@@ -10,12 +10,16 @@ const active = MembershipAccessStatus.active;
 const inactive = MembershipAccessStatus.inactive;
 const unknown = MembershipAccessStatus.unknown;
 
-GemWallet _response({int status = 1, DateTime? expiry}) => GemWallet(
+GemWallet _response({
+  int status = 1,
+  DateTime? expiry,
+  bool missingExpiry = false,
+}) => GemWallet(
   balanceCent: 98765,
   membership: GemWalletMembership(
     status: status,
     planCode: status == 0 ? '' : 'pro_yearly',
-    expiresAt: expiry,
+    expiresAt: missingExpiry ? null : expiry ?? DateTime.utc(2041),
     autoRenew: false,
     blueGemsCent: 12300,
     hasOverlap: false,
@@ -63,6 +67,67 @@ class _Harness {
 }
 
 void main() {
+  _testMembership(
+    'explicit refresh uses cache for display but requires a new response',
+    (tester, h) async {
+      expect(await _checkVip(h.access), active);
+      final response = Completer<GemWallet>();
+      h.load = () => response.future;
+      final first = h.access.refresh();
+      final second = h.access.refresh();
+      await tester.pump();
+      expect(h.calls, 2);
+      expect(h.access.state.value.isVip, isTrue);
+      expect(h.access.state.value.isRefreshing, isTrue);
+      response.complete(_response(status: 2));
+      expect((await first).isVip, isFalse);
+      expect((await second).isExpired, isTrue);
+      expect(h.access.state.value.isVip, isFalse);
+    },
+  );
+
+  _testMembership('cache-only lookup cannot swallow an explicit refresh', (
+    tester,
+    h,
+  ) async {
+    expect(await _checkVip(h.access), active);
+    h.load = () async => _response(status: 0);
+    final cached = _checkVip(h.access);
+    final refreshed = h.access.refresh();
+    await cached;
+    expect((await refreshed).isVip, isFalse);
+    expect(h.calls, 2);
+  });
+
+  _testMembership(
+    'checkout refresh failure preserves display but cannot authorize purchase',
+    (tester, h) async {
+      expect(await _checkVip(h.access), active);
+      h.load = () async => throw StateError('offline');
+      expect((await h.access.refresh()).isVip, isNull);
+      expect(h.access.state.value.isVip, isTrue);
+      expect(h.access.state.value.membership?.planCode, 'pro_yearly');
+      expect(h.wallet.state.value.balanceCent, 98765);
+    },
+  );
+
+  _testMembership(
+    'explicit refresh cannot return a different account snapshot',
+    (tester, h) async {
+      final oldResponse = Completer<GemWallet>();
+      h.load = () => oldResponse.future;
+      final old = h.access.refresh();
+      await tester.pump();
+      h.changeAccount('second');
+      h.load = () async => _response(status: 0);
+      expect((await h.access.refresh()).ownerUid, 'second');
+      oldResponse.complete(_response());
+      expect((await old).isVip, isNull);
+      expect(h.access.state.value.ownerUid, 'second');
+      expect(h.access.state.value.isVip, isFalse);
+    },
+  );
+
   _testMembership(
     'cache and network each invoke callback once after checkVip returns',
     (tester, h) async {
@@ -230,55 +295,48 @@ void main() {
     },
   );
 
-  _testMembership(
-    'past expiry requires confirmation and renewal refresh grants access',
-    (tester, h) async {
+  for (final seconds in [-1, 0]) {
+    _testMembership('expiry boundary $seconds is inactive', (tester, h) async {
       h.load = () async =>
-          _response(expiry: h.epoch.subtract(const Duration(seconds: 1)));
-      expect(await _checkVip(h.access), unknown);
-      expect(h.access.debugState.isVip, isNull);
-      await tester.pump(const Duration(seconds: 2));
-      h.load = () async =>
-          _response(expiry: h.epoch.add(const Duration(days: 1)));
-      expect(await _checkVip(h.access), active);
-      expect(h.calls, 2);
-    },
-  );
-
-  _testMembership(
-    'unknown expiry honors fresh server status using a short cache',
-    (tester, h) async {
+          _response(expiry: h.epoch.add(Duration(seconds: seconds)));
+      expect(await _checkVip(h.access), inactive);
+      expect(h.access.debugState.isExpired, isTrue);
       h.load = () async => _response();
-      expect(await _checkVip(h.access), active);
-      await tester.pump(const Duration(seconds: 29));
-      expect(await _checkVip(h.access), active);
-      expect(h.calls, 1);
-      await tester.pump(const Duration(seconds: 1));
-      expect(h.access.debugState.status, unknown);
-      expect(await _checkVip(h.access), active);
+      expect((await h.access.refresh()).isVip, isTrue);
+      expect(h.access.debugState.isExpired, isFalse);
       expect(h.calls, 2);
-    },
-  );
+    });
+  }
+
+  _testMembership('missing expiry stays unknown until corrected', (
+    tester,
+    h,
+  ) async {
+    h.load = () async => _response(missingExpiry: true);
+    expect(await _checkVip(h.access), unknown);
+    expect(await _checkVip(h.access), unknown);
+    expect(h.calls, 1);
+    h.load = () async => _response();
+    expect((await h.access.refresh()).isVip, isTrue);
+    expect(h.calls, 2);
+  });
+
+  _testMembership('missing server clock never grants membership', (
+    tester,
+    h,
+  ) async {
+    h.clockAvailable = false;
+    expect(await _checkVip(h.access), unknown);
+    h.clockAvailable = true;
+    expect((await h.access.refresh()).isVip, isTrue);
+  });
 
   _testMembership(
-    'unsynchronized clock uses fresh server status without device-clock expiry',
-    (tester, h) async {
-      h.clockAvailable = false;
-      h.load = () async => _response(expiry: DateTime.utc(2000));
-      expect(await _checkVip(h.access), active);
-      await tester.pump(const Duration(seconds: 30));
-      expect(h.access.debugState.isVip, isNull);
-      expect(await _checkVip(h.access), active);
-      expect(h.calls, 2);
-    },
-  );
-
-  _testMembership(
-    'expired cache invalidates reactive state without periodic polling',
+    'expired cache requires refresh while retaining the display snapshot',
     (tester, h) async {
       expect(await _checkVip(h.access), active);
       await tester.pump(const Duration(minutes: 5));
-      expect(h.access.debugState.isVip, isNull);
+      expect(h.access.debugState.isVip, isTrue);
       expect(h.calls, 1);
       expect(await _checkVip(h.access), active);
       expect(h.calls, 2);
@@ -309,7 +367,7 @@ void main() {
       await h.access.start();
       h.access.didChangeAppLifecycleState(AppLifecycleState.paused);
       await tester.pump(const Duration(minutes: 1));
-      expect(h.access.debugState.status, unknown);
+      expect(h.access.debugState.status, inactive);
       expect(h.calls, 1);
       final response = Completer<GemWallet>();
       h.load = () => response.future;

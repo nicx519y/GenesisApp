@@ -1,11 +1,154 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/components/gems/daily_check_in_dialog.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 void main() {
+  for (final scenario in [
+    'monthly',
+    'yearly',
+    'claimable_member',
+    'non_member',
+    'expired_status',
+    'expired_time',
+    'unknown',
+  ]) {
+    testWidgets('daily check-in uses global membership buttons: $scenario', (
+      tester,
+    ) async {
+      final now = DateTime.utc(2040);
+      final active = [
+        'monthly',
+        'yearly',
+        'claimable_member',
+      ].contains(scenario);
+      var requests = 0;
+      final response = Completer<GemWallet>();
+      final wallet = GemWalletStore(
+        readUid: () async => 'user-test',
+        loadWallet: () {
+          requests++;
+          return response.future;
+        },
+      );
+      final membership = MembershipAccessStore(
+        wallet: wallet,
+        readLoginUid: () async => 'user-test',
+        serverNow: () => now,
+      );
+      bool? checkedIn;
+      try {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () async {
+                  checkedIn = await showDailyCheckInDialog(
+                    context,
+                    status: scenario == 'claimable_member'
+                        ? DailyCheckInDialogStatus.claim
+                        : DailyCheckInDialogStatus.checkIn,
+                    membershipAccess: membership,
+                  );
+                },
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pump();
+        expect(requests, 1);
+        expect(find.text('Daily Check-in'), findsNothing);
+        if (scenario == 'unknown') {
+          response.completeError(StateError('offline'));
+        } else {
+          response.complete(
+            GemWallet(
+              balanceCent: 5000,
+              membership: GemWalletMembership(
+                status: scenario == 'non_member'
+                    ? 0
+                    : scenario == 'expired_status'
+                    ? 2
+                    : 1,
+                planCode: scenario == 'yearly' ? 'pro_yearly' : 'pro_monthly',
+                expiresAt: scenario == 'expired_time'
+                    ? now
+                    : DateTime.utc(2041),
+                autoRenew: true,
+                blueGemsCent: 30000,
+                hasOverlap: false,
+              ),
+            ),
+          );
+        }
+        await tester.pumpAndSettle();
+        expect(find.text('Daily Check-in'), findsOneWidget);
+        expect(find.text('+50'), findsOneWidget);
+        expect(find.text('Check in'), findsOneWidget);
+        expect(find.text('Claim'), findsNothing);
+        if (active || scenario == 'unknown') {
+          expect(find.text('Get 100'), findsNothing);
+          expect(find.text('Cancel'), findsOneWidget);
+          if (active) {
+            expect(
+              tester.getCenter(find.text('Cancel')).dy,
+              lessThan(tester.getCenter(find.text('Check in')).dy),
+            );
+            expect(
+              tester.widget<Text>(find.text('Cancel')).style?.color,
+              GenesisColors.redSecondary,
+            );
+            expect(
+              tester.widget<Text>(find.text('Check in')).style?.color,
+              GenesisColors.darkTextPrimary,
+            );
+            expect(
+              tester.widget<Text>(find.text('Check in')).style?.fontWeight,
+              FontWeight.w400,
+            );
+            expect(
+              find.byKey(const ValueKey('daily-check-in-subscription-gem')),
+              findsNothing,
+            );
+          }
+          await tester.tap(find.text('Cancel'));
+          await tester.pumpAndSettle();
+          expect(checkedIn, isFalse);
+          expect(find.byType(ProSubscriptionContent), findsNothing);
+          // Reopening with a valid snapshot must reuse the global cache.
+          if (active) {
+            await tester.tap(find.text('Open'));
+            await tester.pumpAndSettle();
+            expect(requests, 1);
+            await tester.tap(find.text('Check in'));
+            await tester.pumpAndSettle();
+            expect(checkedIn, isTrue);
+          }
+        } else {
+          expect(find.text('Get 100'), findsOneWidget);
+          expect(find.text('Cancel'), findsNothing);
+          await tester.tap(find.text('Check in'));
+          await tester.pumpAndSettle();
+          expect(checkedIn, isTrue);
+        }
+        expect(find.text('Daily Check-in'), findsNothing);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        membership.dispose();
+        wallet.dispose();
+      }
+    });
+  }
+
   testWidgets(
     'daily check-in shows success and dismisses after three seconds',
     (tester) async {

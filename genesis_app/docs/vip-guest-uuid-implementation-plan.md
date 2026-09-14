@@ -34,7 +34,7 @@ claim 使用独立请求模型。Android / iOS 登录 report、游客 report、c
 
 ### 1.3 点击购买时的 UUID 优先级
 
-Android / iOS、月付 / 年付、登录 / 游客均优先采用购买前重新拉取的所选商品 `account_uuid`。列表未返回该字段时，游客使用 guest prepare 的临时身份 UUID，登录用户使用 `/user/info` 的 `uuid`；不使用页面展示缓存中的旧 UUID。游客取得商品 UUID 后跳过 prepare，平台支付、report 及登录后 claim 始终复用这个 UUID。UUID 不代表购买资格，仍检查商品列表顶层最新的 `vip_status`（monthly 拦截月付，yearly 拦截两种套餐，none/空字符串允许购买）；Google 升级另外校验原购买 token。
+Android / iOS、月付 / 年付、登录 / 游客均优先采用本次进入 Subscription 时加载的所选商品 `account_uuid`，点击购买不再重新请求商品接口。页面请求仍在进行时复用并等待同一请求；本次请求失败时不能使用磁盘展示缓存付款。列表未返回该字段时，游客使用 guest prepare 的临时身份 UUID，登录用户使用 `/user/info` 的 `uuid`；不使用页面展示缓存中的旧 UUID。游客取得商品 UUID 后跳过 prepare，平台支付、report 及登录后 claim 始终复用这个 UUID。UUID 不代表购买资格。登录用户购买前刷新全局 wallet，按有效会员状态及套餐拦截重复购买和年降月；游客仍走订单检查及登录绑定，不推断游客会员类型。Google 升级另外校验原购买 token。
 
 ## 2. 购买前为什么保存，以及失败后怎么处理
 

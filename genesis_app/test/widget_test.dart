@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
+import 'support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_record.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -1131,6 +1133,14 @@ class _RecordingV1ListTransport implements HttpTransport {
         'err_msg': 'succ',
         'data': {
           'wallet': {'balance_cent': 43000},
+          'membership': {
+            'membership_status': 0,
+            'plan_code': '',
+            'expires_at': null,
+            'auto_renew': false,
+            'blue_gems_cent': 0,
+            'has_overlap': false,
+          },
         },
       });
     }
@@ -2644,6 +2654,171 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  for (final mode in ['subscription_page', 'subscription_sheet', 'gems_page']) {
+    final sheet = mode == 'subscription_sheet';
+    final initialGems = mode == 'gems_page';
+    for (final signedIn in [false, true]) {
+      testWidgets(
+        'payment entry refreshes global wallet once mode=$mode signedIn=$signedIn',
+        (tester) async {
+          final session = MemoryUserSessionStore();
+          var calls = 0;
+          final wallet = GemWalletStore(
+            readUid: session.readUid,
+            loadWallet: () async {
+              calls++;
+              return GemWallet(
+                balanceCent: 0,
+                membership: membershipAccessSnapshot().membership,
+              );
+            },
+          );
+          final services = await _testServices(
+            sessionStoreOverride: session,
+            initialUid: signedIn ? 'user-test' : null,
+            initialAuthToken: signedIn ? 'test-token' : null,
+            gemWallet: wallet,
+          );
+          Widget entry({bool visible = true}) => AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              home: !visible
+                  ? const SizedBox.shrink()
+                  : sheet
+                  ? Scaffold(
+                      body: PurchaseOptionsSheet(
+                        initialTab: PurchaseSheetTab.subscription,
+                        membershipProductsLoader: loadTestMembershipOffers,
+                        gemsBuilder: (_) => const SizedBox.shrink(),
+                      ),
+                    )
+                  : GemWalletPage(
+                      showSubscriptionInitially: !initialGems,
+                      productsLoader: (_) async => [],
+                      tasksLoader: (_) async => [],
+                      membershipProductsLoader: loadTestMembershipOffers,
+                    ),
+            ),
+          );
+          try {
+            await tester.pumpWidget(entry());
+            await tester.pumpAndSettle();
+            expect(calls, signedIn ? 1 : 0);
+            await tester.pumpWidget(entry());
+            await tester.pumpAndSettle();
+            expect(calls, signedIn ? 1 : 0);
+            await tester.pumpWidget(entry(visible: false));
+            await tester.pumpWidget(entry());
+            await tester.pumpAndSettle();
+            expect(calls, signedIn ? 2 : 0);
+            expect(tester.takeException(), isNull);
+          } finally {
+            await tester.pumpWidget(const SizedBox.shrink());
+          }
+        },
+      );
+    }
+  }
+
+  for (final inSheet in [false, true]) {
+    testWidgets(
+      'Premium Enjoy it returns to the purchase entry inSheet=$inSheet',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        final h = membership_support.Harness();
+        final services = await _testServices(membershipPurchases: h.service);
+        try {
+          await tester.pumpWidget(
+            AppServicesScope(
+              services: services,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: Builder(
+                    builder: (context) => TextButton(
+                      onPressed: () {
+                        if (inSheet) {
+                          unawaited(
+                            showModalBottomSheet<void>(
+                              context: context,
+                              isScrollControlled: true,
+                              builder: (_) => SizedBox(
+                                height: 740,
+                                child: PurchaseOptionsSheet(
+                                  initialTab: PurchaseSheetTab.subscription,
+                                  membershipProductsLoader:
+                                      loadTestMembershipOffers,
+                                  gemsBuilder: (_) => const SizedBox.shrink(),
+                                ),
+                              ),
+                            ),
+                          );
+                        } else {
+                          unawaited(
+                            Navigator.of(context).push<void>(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const GemWalletPage(
+                                  showSubscriptionInitially: true,
+                                  membershipProductsLoader:
+                                      loadTestMembershipOffers,
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Purchase entry'),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.tap(find.text('Purchase entry'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+          await tester.pump(const Duration(milliseconds: 250));
+          await h.service.interceptPurchase(
+            h.purchase(yearly: true, status: BillingPurchaseStatus.canceled),
+          );
+          await tester.pumpAndSettle();
+          await tester.pump(const Duration(seconds: 3));
+          expect(
+            find.byKey(const ValueKey('pro-subscribe-button')),
+            findsOneWidget,
+          );
+          await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+          await tester.pump(const Duration(milliseconds: 250));
+          await h.service.interceptPurchase(h.purchase(yearly: true));
+          await tester.pumpAndSettle();
+          expect(find.text('Enjoy it'), findsOneWidget);
+          expect(
+            find.byType(inSheet ? PurchaseOptionsSheet : GemWalletPage),
+            findsOneWidget,
+          );
+          await tester.tap(find.text('Enjoy it'));
+          await tester.pumpAndSettle();
+          expect(find.text('Enjoy it'), findsNothing);
+          expect(find.byType(GemWalletPage, skipOffstage: false), findsNothing);
+          expect(
+            find.byType(PurchaseOptionsSheet, skipOffstage: false),
+            findsNothing,
+          );
+          expect(find.text('Purchase entry'), findsOneWidget);
+          expect(
+            Navigator.of(tester.element(find.text('Purchase entry'))).canPop(),
+            isFalse,
+          );
+          expect(tester.takeException(), isNull);
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+        }
+      },
+    );
+  }
+
   for (final initialIndex in [0, 1]) {
     testWidgets(
       'app entry discovers store UUID without requiring Home: tab=$initialIndex',
@@ -3527,7 +3702,8 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(services.membership.debugState.isVip, isTrue);
+      // Missing expiry and server clock cannot grant membership.
+      expect(services.membership.debugState.isVip, isNull);
       expect(wallet.state.value.balanceCent, 12345);
     } finally {
       services.dispose();
@@ -3570,7 +3746,8 @@ void main() {
       services.notifySessionChanged();
       expect(services.membership.debugState.isVip, isNull);
       await tester.pump();
-      expect(services.membership.debugState.isVip, isTrue);
+      // Missing expiry and server clock cannot grant membership.
+      expect(services.membership.debugState.isVip, isNull);
       expect(calls, 1);
       await session.clearUid();
       services.notifySessionChanged();
@@ -18554,13 +18731,17 @@ void main() {
       ),
     );
 
+    await tester.pumpAndSettle();
+    final startupRefreshCount = transport
+        .requestsFor('/api/v1/gem/wallet')
+        .length;
     await tester.tap(find.text('Me'));
     await tester.pumpAndSettle();
 
     final firstRefreshCount = transport
         .requestsFor('/api/v1/gem/wallet')
         .length;
-    expect(firstRefreshCount, 1);
+    expect(firstRefreshCount, startupRefreshCount + 1);
     expect(find.text('430.0'), findsOneWidget);
 
     await tester.tap(find.text('Home'));
@@ -19431,7 +19612,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Daily Check-in'), findsOneWidget);
       expect(transport.requestsFor('/api/v1/gem/tasks'), hasLength(1));
-      await tester.tap(find.text('Cancel'));
+      await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
       for (final nextTab in [0, 1, 3, 4]) {
         tester.widget<BottomTabs>(find.byType(BottomTabs)).onTap(nextTab);
@@ -19560,7 +19741,7 @@ void main() {
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 4);
     expect(find.byType(UserProfileContent), findsOneWidget);
     expect(find.text('Daily Check-in'), findsOneWidget);
-    await tester.tap(find.text('Cancel'));
+    await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Inbox'));

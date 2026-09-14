@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
@@ -12,28 +13,77 @@ import 'membership_purchase_service_test.dart' as support;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final failure in ['unknown', 'offline', 'wrong_owner']) {
+    test('membership $failure cannot start payment', () async {
+      final h = support.Harness();
+      h.membershipHandler = () async {
+        if (failure == 'offline') throw StateError('offline');
+        return failure == 'wrong_owner'
+            ? membershipAccessSnapshot(ownerUid: 'another')
+            : const MembershipAccessState(ownerUid: 'user-test');
+      };
+      await h.service.purchase(h.product());
+      expect(h.platform.launches, 0);
+      expect(h.platform.product, isNull);
+      expect(h.store.records, isEmpty);
+    });
+  }
+
+  test(
+    'waiting for wallet blocks double taps and rejects a newly active subscription',
+    () async {
+      final h = support.Harness();
+      final response = Completer<MembershipAccessState>();
+      h.membershipHandler = () => response.future;
+      final first = h.service.purchase(h.product());
+      await pumpEventQueue();
+      await h.service.purchase(h.product());
+      expect(h.membershipQueries, 1);
+      expect(h.platform.launches, 0);
+      response.complete(membershipAccessSnapshot(planCode: 'pro_monthly'));
+      await first;
+      expect(h.platform.launches, 0);
+    },
+  );
+
+  test('account switch while awaiting membership cancels checkout', () async {
+    final h = support.Harness();
+    final response = Completer<MembershipAccessState>();
+    h.membershipHandler = () => response.future;
+    final task = h.service.purchase(h.product());
+    await pumpEventQueue();
+    h.uid = 'second';
+    response.complete(membershipAccessSnapshot());
+    await task;
+    expect(h.platform.launches, 0);
+    expect(h.store.records, isEmpty);
+  });
+
   for (final provider in MembershipProvider.values) {
     for (final guest in [false, true]) {
-      for (final status in MembershipVipStatus.values) {
+      for (final status in ['', 'pro_monthly', 'pro_yearly']) {
         for (final yearly in [false, true]) {
           test(
-            '$provider $status guest=$guest yearly=$yearly checks fresh catalog before store',
+            '$provider $status guest=$guest yearly=$yearly checks fresh membership before store',
             () async {
-              final h = support.Harness(provider: provider)..vipStatus = status;
+              final h = support.Harness(provider: provider)
+                ..memberPlan = status;
               if (guest) h.uid = null;
               final blocked =
-                  status == MembershipVipStatus.yearly ||
-                  status == MembershipVipStatus.monthly && !yearly;
+                  !guest &&
+                  (status == 'pro_yearly' ||
+                      status == 'pro_monthly' && !yearly);
               final events = <MembershipCheckoutEvent>[];
               final subscription = h.service.checkoutEvents.listen(events.add);
               await h.service.purchase(h.product(yearly: yearly));
               await pumpEventQueue();
               expect(h.eligibilityQueries, 1);
+              expect(h.membershipQueries, guest ? 0 : 1);
               expect(h.platform.launches, blocked ? 0 : 1);
               if (blocked) {
                 expect(
                   events.last.reason,
-                  status == MembershipVipStatus.yearly && !yearly
+                  status == 'pro_yearly' && !yearly
                       ? 'downgrade_not_allowed'
                       : 'already_subscribed',
                 );

@@ -105,7 +105,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Memory & Model'), findsOneWidget);
-    expect(find.byKey(const ValueKey('memory-model-back')), findsOneWidget);
+    expect(find.byTooltip('Back'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('memory-model-current-usage')),
       findsOneWidget,
@@ -124,10 +124,6 @@ void main() {
     expect(find.text('Sake Pro'), findsOneWidget);
     expect(find.text('Water'), findsOneWidget);
     expect(find.text('4-320 gems (memory from 2K to 156K)'), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('gem-model-current-top_pick_v3')),
-      findsOneWidget,
-    );
     expect(_tileBorder(tester, 'top_pick_v3').color, GenesisColors.redPrimary);
     expect(_tileBorder(tester, 'sake_pro').color, GenesisColors.darkCardBorder);
     final hot = _tagDecoration(tester, 'hot');
@@ -430,7 +426,7 @@ void main() {
       expect(memoryApi.loads, ['W_UNCERTAIN', null]);
       expect(find.text('Save result not confirmed'), findsOneWidget);
 
-      await tester.tap(find.byKey(const ValueKey('memory-model-back')));
+      await tester.tap(find.byTooltip('Back'));
       await tester.pump();
       expect(find.text('Open'), findsOneWidget);
       expect(attempts, [1000000]);
@@ -463,7 +459,7 @@ void main() {
     expect(attempts, 1);
     expect(find.text('Save failed'), findsOneWidget);
 
-    await tester.tap(find.byKey(const ValueKey('memory-model-back')));
+    await tester.tap(find.byTooltip('Back'));
     await tester.pump();
     expect(find.text('Open'), findsOneWidget);
     expect(attempts, 2);
@@ -492,7 +488,7 @@ void main() {
       await tester.pumpAndSettle();
       _setSliderValue(tester, 1);
 
-      await tester.tap(find.byKey(const ValueKey('memory-model-back')));
+      await tester.tap(find.byTooltip('Back'));
       await tester.pump();
       expect(find.text('Open'), findsOneWidget);
       expect(updateStarted.isCompleted, isTrue);
@@ -616,7 +612,12 @@ void _setSliderValue(WidgetTester tester, double value) {
 
 BorderSide _tileBorder(WidgetTester tester, String modelCode) {
   final material = tester.widget<Material>(
-    find.byKey(ValueKey<String>('gem-model-$modelCode')),
+    find
+        .descendant(
+          of: find.byKey(ValueKey<String>('gem-model-$modelCode')),
+          matching: find.byType(Material),
+        )
+        .first,
   );
   return (material.shape! as RoundedRectangleBorder).side;
 }

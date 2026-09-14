@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/membership/membership_access_store.dart';
 import '../common/genesis_action_box.dart';
 import 'gem_assets.dart';
 import '../../ui/tokens/genesis_colors.dart';
@@ -15,15 +17,36 @@ const Duration dailyCheckInSuccessDuration = Duration(seconds: 3);
 
 enum DailyCheckInDialogStatus { checkIn, claim, claimed }
 
-enum _DailyCheckInAction { subscribe, checkIn }
+enum _DailyCheckInAction { subscribe, checkIn, cancel }
 
 Future<bool> showDailyCheckInDialog(
   BuildContext context, {
   required DailyCheckInDialogStatus status,
   int rewardGemsCent = dailyCheckInPreviewRewardCent,
+  MembershipAccessStore? membershipAccess,
 }) async {
   final claimed = status == DailyCheckInDialogStatus.claimed;
-  final showSubscriptionOffer = status == DailyCheckInDialogStatus.checkIn;
+  final services = AppServicesScope.maybeRead(context);
+  final session = services?.sessionRevision.value;
+  final route = ModalRoute.of(context);
+  final membership = membershipAccess ?? services?.membership;
+  bool? isVip = false;
+  if (!claimed && membership != null) {
+    final result = Completer<bool?>();
+    membership.checkVip(result.complete);
+    isVip = await result.future;
+    if (!context.mounted ||
+        route?.isCurrent == false ||
+        !identical(services, AppServicesScope.maybeRead(context)) ||
+        services?.sessionRevision.value != session) {
+      return false;
+    }
+  }
+  // Only confirmed non-members see the subscription offer. An unavailable
+  // membership lookup must not promote another subscription to an existing VIP.
+  final showSubscriptionOffer =
+      status == DailyCheckInDialogStatus.checkIn && isVip == false;
+  final showCheckInActions = showSubscriptionOffer || isVip == true && !claimed;
   final action = await showGenesisActionBox<_DailyCheckInAction>(
     context: context,
     title: 'Daily Check-in',
@@ -33,37 +56,42 @@ Future<bool> showDailyCheckInDialog(
     ),
     titleContentSpacing: 10,
     actions: [
-      if (showSubscriptionOffer)
+      if (showCheckInActions)
         GenesisActionBoxAction<_DailyCheckInAction>(
-          label: 'Get 100',
-          value: _DailyCheckInAction.subscribe,
+          label: showSubscriptionOffer ? 'Get 100' : 'Cancel',
+          value: showSubscriptionOffer
+              ? _DailyCheckInAction.subscribe
+              : _DailyCheckInAction.cancel,
           color: GenesisColors.redSecondary,
-          trailing: SvgPicture.asset(
-            gemIconAsset,
-            key: const ValueKey('daily-check-in-subscription-gem'),
-            width: gemSmallIconSize,
-            height: gemSmallIconSize,
-            excludeFromSemantics: true,
-          ),
+          trailing: showSubscriptionOffer
+              ? SvgPicture.asset(
+                  gemIconAsset,
+                  key: const ValueKey('daily-check-in-subscription-gem'),
+                  width: gemSmallIconSize,
+                  height: gemSmallIconSize,
+                  excludeFromSemantics: true,
+                )
+              : null,
         ),
       GenesisActionBoxAction<_DailyCheckInAction>(
         label: switch (status) {
           DailyCheckInDialogStatus.checkIn => 'Check in',
-          DailyCheckInDialogStatus.claim => 'Claim',
+          DailyCheckInDialogStatus.claim =>
+            isVip == true ? 'Check in' : 'Claim',
           DailyCheckInDialogStatus.claimed => 'Claimed',
         },
         value: _DailyCheckInAction.checkIn,
-        fontWeight: showSubscriptionOffer ? FontWeight.w400 : FontWeight.w600,
+        fontWeight: showCheckInActions ? FontWeight.w400 : FontWeight.w600,
         color: claimed
             ? GenesisColors.darkTextTertiary
-            : showSubscriptionOffer
+            : showCheckInActions
             ? GenesisColors.darkTextPrimary
             : GenesisColors.redSecondary,
         enabled: !claimed,
       ),
     ],
     cancelLabel: 'Cancel',
-    showCancel: !showSubscriptionOffer,
+    showCancel: !showCheckInActions,
   );
   if (action == _DailyCheckInAction.subscribe && context.mounted) {
     await showSubscriptionPurchaseBottomSheet(context);

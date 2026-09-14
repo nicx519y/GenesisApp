@@ -185,7 +185,9 @@ HTTP 映射层的图片规则：
 
 ## 深色卡片表面
 
-- 普通深色信息卡片使用 `GenesisColors.darkCardBackground`（`darkRaisedBackground` 的 80% 不透明度），1px 描边使用 `GenesisColors.darkCardBorder`（6% 白），默认圆角 8px；不添加 Blur。不得在调用处重复写透明度或色值。
+- 普通深色信息卡片统一复用 `GenesisInfoCard`（`lib/ui/components/genesis_info_card.dart`）：`darkCardBackground` 为 6% 白底，`darkCardBorder` 为 6% 白、1px 描边，圆角 8px，无 Blur。调用方仅提供内容、内边距、选中状态与点击行为，不重复配置底色、描边和圆角。`darkPurchaseCardBackground` 是同一底色的语义别名，订阅 / Gems 专用结构保持原组件。
+- `GenesisInfoCard.selected` 使用 12% 品牌红底和 1.5px 品牌红描边。Memory & Model 的内存卡和模型卡均复用此组件；对应骨架圆角引用该组件常量。模型点击即切换并自动保存，仅用卡片选中态和右侧单选标记表示选择，不再在模型名前显示红点。
+- Memory & Model 复用标准 `GenesisBackAppBar`，正文左右 16；“Max memory limit”和“Choose model”属于主标题，保留一级白。普通正文引用 `GenesisTypography.body`（14px），辅助说明、费用估算、范围和刻度引用 `GenesisTypography.supporting`（12px）；内存滑块两端刻度（如 8K、1M）使用二级白 `darkTextSecondary`；轨道已选段使用 `redPrimary`，未选段使用 `darkFaintFill`（约 12% 白）；紧凑标签和滑块气泡保持独立尺寸。
 - 透明度仅作用于卡片填充，文字继续使用公共文字 token，不对整个卡片加 Opacity。同类卡片在页面与 Sheet 中使用同一套 token，最终底色随容器背景合成。
 - 选中、促销等有明确语义的卡片保留对应强调色；输入框、图标圆底和加载骨架继续使用各自的规范，不因卡片表面调整而替换 `darkFaintFill`。
 

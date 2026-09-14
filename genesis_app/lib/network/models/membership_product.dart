@@ -6,24 +6,8 @@ import 'membership_purchase.dart';
 
 export 'membership_order_product.dart';
 
-enum MembershipVipStatus {
-  none,
-  monthly,
-  yearly;
-
-  static MembershipVipStatus fromJson(Object? value) => switch (value) {
-    'none' || '' => none,
-    'monthly' => monthly,
-    'yearly' => yearly,
-    _ => throw const FormatException('Invalid membership vip_status'),
-  };
-}
-
 class MembershipProductList {
-  const MembershipProductList({
-    required this.products,
-    required this.vipStatus,
-  });
+  const MembershipProductList({required this.products});
 
   factory MembershipProductList.fromJson(Map<String, dynamic> json) {
     final list = json['list'];
@@ -31,7 +15,6 @@ class MembershipProductList {
       throw const FormatException('Invalid membership product list');
     }
     return MembershipProductList(
-      vipStatus: MembershipVipStatus.fromJson(json['vip_status']),
       products: List.unmodifiable(
         list.map((item) => MembershipProduct.fromJson(asJsonMap(item))),
       ),
@@ -39,10 +22,8 @@ class MembershipProductList {
   }
 
   final List<MembershipProduct> products;
-  final MembershipVipStatus vipStatus;
 
   Map<String, Object?> toJson() => {
-    'vip_status': vipStatus.name,
     'list': [for (final product in products) product.toJson()],
   };
 }
@@ -159,7 +140,7 @@ class MembershipProduct extends MembershipOrderProduct {
   /// Full billing cycle price, in hundredths of the currency's main unit.
   final int? priceAmount;
 
-  /// Display metadata only; upgrade credentials must be fetched again at checkout.
+  /// Display metadata only; checkout uses credentials from the page's API load.
   Map<String, Object?> toJson() => {
     'title': title,
     'benefits': [for (final benefit in benefits) benefit.toJson()],

@@ -1,3 +1,6 @@
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'dart:async';
 import 'dart:ui' as ui;
 
@@ -39,6 +42,7 @@ Widget page(
   MembershipCatalog? catalog,
   Future<void> Function(MembershipProduct)? purchase,
   MembershipPurchaseService? service,
+  MembershipAccessStore? membership,
 }) => MaterialApp(
   theme: GenesisTheme.light(),
   home: Scaffold(
@@ -49,10 +53,36 @@ Widget page(
         catalog: catalog,
         purchaseHandler: purchase,
         purchaseService: service,
+        membershipAccess: membership,
       ),
     ),
   ),
 );
+
+MembershipAccessStore accessFor(
+  String plan, {
+  Future<GemWallet> Function()? load,
+}) {
+  final wallet = GemWalletStore(
+    readUid: () async => 'user-test',
+    loadWallet:
+        load ??
+        () async => GemWallet(
+          balanceCent: 123,
+          membership: membershipAccessSnapshot(planCode: plan).membership,
+        ),
+  );
+  final access = MembershipAccessStore(
+    wallet: wallet,
+    readLoginUid: () async => 'user-test',
+    serverNow: () => DateTime.utc(2040),
+  );
+  _accessDisposals.add(() {
+    access.dispose();
+    wallet.dispose();
+  });
+  return access;
+}
 
 void expectOriginalContent(WidgetTester tester) {
   expect(find.byKey(const ValueKey('pro-plan-yearly')), findsOneWidget);
@@ -79,15 +109,87 @@ Future<List<int>> pixels(WidgetTester tester) async {
   }))!;
 }
 
+final _accessDisposals = <void Function()>[];
+void _testWidgets(String name, Future<void> Function(WidgetTester) body) {
+  testWidgets(name, (tester) async {
+    try {
+      await body(tester);
+    } finally {
+      for (final dispose in _accessDisposals) {
+        dispose();
+      }
+      _accessDisposals.clear();
+    }
+  });
+}
+
 void main() {
+  _testWidgets(
+    'page opening shows global cache and joins refresh before payment',
+    (tester) async {
+      var calls = 0;
+      var purchases = 0;
+      final response = Completer<GemWallet>();
+      final access = accessFor(
+        '',
+        load: () async {
+          if (++calls == 1) {
+            return GemWallet(
+              balanceCent: 0,
+              membership: membershipAccessSnapshot().membership,
+            );
+          }
+          return response.future;
+        },
+      );
+      final checkout = support.Harness();
+      await access.refresh();
+      await tester.pumpWidget(
+        page(
+          loadTestMembershipOffers,
+          membership: access,
+          service: checkout.service,
+          purchase: (_) async {
+            purchases++;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+      expect(calls, 2);
+      await tester.tap(find.byKey(buttonKey));
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pump();
+      expect(calls, 2);
+      expect(purchases, 0);
+      response.complete(
+        GemWallet(
+          balanceCent: 0,
+          membership: membershipAccessSnapshot(
+            planCode: 'pro_yearly',
+          ).membership,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Subscribed'), findsOneWidget);
+      expect(purchases, 0);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        page(loadTestMembershipOffers, membership: access),
+      );
+      await tester.pumpAndSettle();
+      expect(calls, 3);
+    },
+  );
+
   for (final provider in MembershipProvider.values) {
-    for (final raw in ['none', '', 'monthly', 'yearly']) {
-      testWidgets(
-        '$provider vip_status=$raw controls both buttons and click interception',
+    for (final raw in ['', 'pro_monthly', 'pro_yearly']) {
+      _testWidgets(
+        '$provider membership plan=$raw controls both buttons and click interception',
         (tester) async {
           var purchases = 0;
           final catalog = MembershipCatalogData(
-            vipStatus: MembershipVipStatus.fromJson(raw),
             offers: [
               for (final yearly in [true, false])
                 MembershipOffer(
@@ -101,6 +203,7 @@ void main() {
           await tester.pumpWidget(
             page(
               () async => catalog,
+              membership: accessFor(raw),
               purchase: (_) async {
                 purchases++;
               },
@@ -108,8 +211,9 @@ void main() {
           );
           await tester.pumpAndSettle();
           for (final yearly in [true, false]) {
-            final blocked = raw == 'yearly' || raw == 'monthly' && !yearly;
-            final downgrade = raw == 'yearly' && !yearly;
+            final blocked =
+                raw == 'pro_yearly' || raw == 'pro_monthly' && !yearly;
+            final downgrade = raw == 'pro_yearly' && !yearly;
             await tester.tap(
               find.byKey(
                 ValueKey(yearly ? 'pro-plan-yearly' : 'pro-plan-monthly'),
@@ -167,7 +271,6 @@ void main() {
         loadProducts: (_) async {
           if (++calls == 1) {
             return MembershipProductList(
-              vipStatus: MembershipVipStatus.none,
               products: [membershipProduct(yearly: true, title: 'Cached VIP')],
             );
           }
@@ -189,7 +292,6 @@ void main() {
       } else {
         response.complete(
           MembershipProductList(
-            vipStatus: MembershipVipStatus.none,
             products: outcome == 'empty'
                 ? []
                 : [
@@ -224,7 +326,6 @@ void main() {
       MembershipProvider.google,
       null,
       MembershipProductList(
-        vipStatus: MembershipVipStatus.yearly,
         products: [membershipProduct(yearly: true, title: 'Disk VIP')],
       ),
     );
@@ -237,11 +338,10 @@ void main() {
     await tester.pumpWidget(page(null, catalog: catalog));
     await tester.pumpAndSettle();
     expect(find.text('Premium'), findsOneWidget);
-    expect(find.text('Subscribed'), findsOneWidget);
+    expect(find.text(r'Yearly: $99.99'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     response.complete(
       MembershipProductList(
-        vipStatus: MembershipVipStatus.none,
         products: [membershipProduct(yearly: true, title: 'Fresh VIP')],
       ),
     );
@@ -278,10 +378,7 @@ void main() {
     expect(tester.takeException(), isNull);
     expect(find.byKey(buttonKey), findsOneWidget);
     fresh.complete(
-      MembershipProductList(
-        vipStatus: MembershipVipStatus.none,
-        products: [membershipProduct(yearly: true)],
-      ),
+      MembershipProductList(products: [membershipProduct(yearly: true)]),
     );
     await tester.pumpAndSettle();
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
@@ -299,15 +396,79 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
     fresh.complete(
-      MembershipProductList(
-        vipStatus: MembershipVipStatus.none,
-        products: [membershipProduct(yearly: true)],
-      ),
+      MembershipProductList(products: [membershipProduct(yearly: true)]),
     );
     await tester.pumpAndSettle();
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {
+    for (final signedIn in [false, true]) {
+      testWidgets(
+        '$provider signedIn=$signedIn repeated taps reuse the entry catalog and upgrade credentials',
+        (tester) async {
+          var calls = 0;
+          const uuid = '2b74ec68-7abc-4cce-a223-e997e31dc811';
+          final product = membershipProduct(
+            provider: provider,
+            yearly: true,
+            accountUuid: uuid,
+            upgradePurchaseToken: provider == MembershipProvider.google
+                ? 'original-monthly-token'
+                : null,
+          );
+          final catalog = MembershipCatalog(
+            provider: provider,
+            readOwnerUid: () async => signedIn ? 'user-test' : null,
+            loadProducts: (_) async {
+              calls++;
+              return MembershipProductList(products: [product]);
+            },
+          );
+          final h =
+              support.Harness(
+                  provider: provider,
+                  checkoutProducts: catalog.readCheckoutProducts,
+                )
+                ..uid = signedIn ? 'user-test' : null
+                ..memberPlan = 'pro_monthly';
+          try {
+            await tester.pumpWidget(
+              page(null, catalog: catalog, service: h.service),
+            );
+            await tester.pumpAndSettle();
+            expect(calls, 1);
+            for (var attempt = 1; attempt <= 2; attempt++) {
+              await tester.tap(find.byKey(buttonKey));
+              await tester.pump();
+              await tester.pump(const Duration(milliseconds: 100));
+              expect(calls, 1);
+              expect(h.platform.launches, attempt);
+              expect(h.platform.uuid, uuid);
+              expect(
+                h.platform.product!.upgradePurchaseToken,
+                product.upgradePurchaseToken,
+              );
+              expect(h.membershipQueries, signedIn ? attempt : 0);
+              expect(h.guestPrepares, 0);
+              await h.service.interceptPurchase(
+                h.purchase(
+                  yearly: true,
+                  uuid: uuid,
+                  status: BillingPurchaseStatus.canceled,
+                ),
+              );
+              await tester.pumpAndSettle();
+              await tester.pump(const Duration(seconds: 3));
+              expect(calls, 1);
+            }
+          } finally {
+            await tester.pumpWidget(const SizedBox.shrink());
+            h.service.dispose();
+          }
+        },
+      );
+    }
+
     testWidgets('$provider upgrade action does not block the purchase button', (
       tester,
     ) async {
@@ -411,7 +572,6 @@ void main() {
     'Premium heading stays fixed while selected API benefits change',
     (tester) async {
       final products = MembershipProductList.fromJson({
-        'vip_status': 'none',
         'list': [
           for (final yearly in [true, false])
             membershipProduct(
@@ -471,7 +631,7 @@ void main() {
     expect(find.text('Monthly: '), findsOneWidget);
   });
 
-  testWidgets(
+  _testWidgets(
     'subscribed label changes while blocked styling and interactions stay unchanged',
     (tester) async {
       var purchases = 0;
@@ -493,12 +653,12 @@ void main() {
       await tester.pumpWidget(
         page(
           () async => MembershipCatalogData(
-            vipStatus: MembershipVipStatus.yearly,
             offers: [
               for (final yearly in [true, false])
                 MembershipOffer(product: membershipProduct(yearly: yearly)),
             ],
           ),
+          membership: accessFor('pro_yearly'),
           purchase: (_) async {
             purchases++;
           },

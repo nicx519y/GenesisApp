@@ -39,7 +39,7 @@ void main() {
       beforeBinding.complete(const GemWallet(balanceCent: 100));
       await Future.wait([initial, afterBinding]);
       expect(calls, 2);
-      expect(store.state.value.membership!.isActive, isTrue);
+      expect(store.state.value.membership!.status, 1);
       expect(store.state.value.balanceCent, 100);
       expect(store.state.value.membership!.blueGemsCent, 30000);
     },
@@ -85,7 +85,7 @@ void main() {
       );
       addTearDown(store.dispose);
       await store.refresh();
-      expect(store.state.value.membership!.isActive, isTrue);
+      expect(store.state.value.membership!.status, 1);
       expect(store.state.value.balanceCent, 548240);
       offline = true;
       await store.refresh();

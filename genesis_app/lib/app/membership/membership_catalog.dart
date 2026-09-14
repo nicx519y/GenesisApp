@@ -35,12 +35,8 @@ class MembershipDisplayPrice {
 }
 
 class MembershipCatalogData {
-  const MembershipCatalogData({
-    this.offers = const [],
-    this.vipStatus = MembershipVipStatus.none,
-  });
+  const MembershipCatalogData({this.offers = const []});
   final List<MembershipOffer> offers;
-  final MembershipVipStatus vipStatus;
 }
 
 typedef MembershipCatalogLoader = Future<MembershipCatalogData> Function();
@@ -59,6 +55,9 @@ class MembershipCatalog {
   final MembershipCatalogCache? cacheStore;
   final Future<String?> Function()? readOwnerUid;
   MembershipCatalogData? _cached;
+  MembershipProductList? _checkoutProducts;
+  String? _checkoutOwner;
+  Future<MembershipCatalogData>? _loading;
   int _session = 0;
   int _loadGeneration = 0;
 
@@ -68,6 +67,9 @@ class MembershipCatalog {
     _session++;
     _loadGeneration++;
     _cached = null;
+    _checkoutProducts = null;
+    _checkoutOwner = null;
+    _loading = null;
   }
 
   Future<MembershipCatalogData?> loadCached() async {
@@ -99,19 +101,54 @@ class MembershipCatalog {
           _ => null,
         };
 
-  Future<MembershipCatalogData> load() async {
+  Future<MembershipCatalogData> load() {
+    final generation = ++_loadGeneration;
+    _checkoutProducts = null;
+    _checkoutOwner = null;
+    return _loading = _load(_session, generation);
+  }
+
+  /// Reuses the page's API response, including its in-memory upgrade credentials.
+  /// Disk/display cache alone cannot prepare a purchase. Never starts a request.
+  Future<MembershipProductList> readCheckoutProducts() async {
+    final session = _session;
+    final generation = _loadGeneration;
+    await _loading;
+    final owner = await readOwnerUid?.call();
+    final products = _checkoutProducts;
+    if (session != _session ||
+        generation != _loadGeneration ||
+        owner != _checkoutOwner ||
+        products == null) {
+      throw StateError('membership_catalog_unavailable');
+    }
+    return products;
+  }
+
+  Future<MembershipCatalogData> _load(int session, int generation) async {
+    try {
+      return await _fetch(session, generation);
+    } finally {
+      if (session == _session && generation == _loadGeneration) {
+        _loading = null;
+      }
+    }
+  }
+
+  Future<MembershipCatalogData> _fetch(int session, int generation) async {
     final platform = provider;
     if (platform == null) throw MembershipPlatformUnavailable();
-    final session = _session;
-    final generation = ++_loadGeneration;
     final owner = await readOwnerUid?.call();
     final response = await loadProducts(platform);
     final result = _catalog(response, platform);
     if (session == _session && generation == _loadGeneration) {
+      _checkoutProducts = MembershipProductList(
+        products: List.unmodifiable(response.products),
+      );
+      _checkoutOwner = owner;
       // Cache display fields without account UUIDs or upgrade purchase tokens.
       _cached = _catalog(
         MembershipProductList(
-          vipStatus: response.vipStatus,
           products: [
             for (final product in response.products)
               MembershipProduct.fromJson(
@@ -152,7 +189,6 @@ class MembershipCatalog {
     }
     products.sort((a, b) => b.billingMonths.compareTo(a.billingMonths));
     return MembershipCatalogData(
-      vipStatus: response.vipStatus,
       offers: List.unmodifiable([
         for (final product in products) MembershipOffer(product: product),
       ]),

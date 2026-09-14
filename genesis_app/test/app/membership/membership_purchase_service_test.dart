@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -164,6 +165,7 @@ class Checkout implements MembershipCheckoutPlatform {
 class Harness {
   Harness({
     this.provider = MembershipProvider.google,
+    Future<MembershipProductList> Function()? checkoutProducts,
     PendingStore? storage,
     bool restoreEnabled = false,
     bool claimEnabled = false,
@@ -177,15 +179,22 @@ class Harness {
       provider: provider,
       readLoginUid: () async =>
           loginUidHandler == null ? uid : await loginUidHandler!(),
-      loadProducts: () async {
-        eligibilityQueries++;
-        return MembershipProductList(
-          vipStatus: vipStatus,
-          products: productsHandler == null
-              ? [product(), product(yearly: true)]
-              : await productsHandler!(),
-        );
+      refreshMembership: () async {
+        membershipQueries++;
+        return membershipHandler == null
+            ? membershipAccessSnapshot(ownerUid: uid, planCode: memberPlan)
+            : await membershipHandler!();
       },
+      readCheckoutProducts:
+          checkoutProducts ??
+          () async {
+            eligibilityQueries++;
+            return MembershipProductList(
+              products: productsHandler == null
+                  ? [product(), product(yearly: true)]
+                  : await productsHandler!(),
+            );
+          },
       loadAccountUuid: () async => accountUuidHandler == null
           ? accountUuid
           : await accountUuidHandler!(),
@@ -274,7 +283,9 @@ class Harness {
   int guestDiscoveries = 0;
   final guestChecks = <String>[];
   Future<MembershipGuestPurchaseCheck> Function(String)? guestCheckHandler;
-  MembershipVipStatus vipStatus = MembershipVipStatus.none;
+  String memberPlan = '';
+  int membershipQueries = 0;
+  Future<MembershipAccessState> Function()? membershipHandler;
   int eligibilityQueries = 0;
   Future<List<MembershipProduct>> Function()? productsHandler;
   int refreshes = 0;
