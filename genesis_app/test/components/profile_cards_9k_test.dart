@@ -181,7 +181,7 @@ void main() {
       find.byKey(const ValueKey('user-profile-membership-active-tag')),
     );
     expect(tag.height, 20);
-    expect(find.text('Expires 2027-09-07'), findsOneWidget);
+    expect(find.text('Expires 2027-09-07 00:00:00'), findsOneWidget);
   });
 
   testWidgets('a lapsed plan stays 82 high and still offers renewal', (
@@ -208,7 +208,7 @@ void main() {
     );
     final title = tester.getRect(find.text('Worldo Premium'));
     expect(tag.top, greaterThan(title.bottom));
-    expect(find.text('2026-08-01'), findsOneWidget);
+    expect(find.text('2026-08-01 00:00:00'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('user-profile-membership-subscribe')),
       findsOneWidget,

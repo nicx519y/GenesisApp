@@ -39,7 +39,6 @@ class GemWalletMembership {
     required this.expiresAt,
     required this.autoRenew,
     required this.blueGemsCent,
-    required this.hasOverlap,
   });
 
   factory GemWalletMembership.fromJson(Object? value) {
@@ -50,7 +49,6 @@ class GemWalletMembership {
     final plan = value['plan_code'];
     final expiry = value['expires_at'];
     final autoRenew = value['auto_renew'];
-    final overlap = value['has_overlap'];
     final blue = requireGemCent(
       value['blue_gems_cent'],
       fieldName: 'membership.blue_gems_cent',
@@ -60,7 +58,6 @@ class GemWalletMembership {
         !const ['', 'pro_monthly', 'pro_yearly'].contains(plan) ||
         (expiry != null && (expiry is! int || expiry < 0)) ||
         autoRenew is! bool ||
-        overlap is! bool ||
         blue < 0) {
       throw const FormatException('Invalid membership summary');
     }
@@ -75,7 +72,6 @@ class GemWalletMembership {
             ),
       autoRenew: autoRenew,
       blueGemsCent: blue,
-      hasOverlap: overlap,
     );
   }
 
@@ -84,5 +80,4 @@ class GemWalletMembership {
   final DateTime? expiresAt;
   final bool autoRenew;
   final int blueGemsCent;
-  final bool hasOverlap;
 }

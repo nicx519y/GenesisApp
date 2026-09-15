@@ -19,7 +19,6 @@ GemWallet _wallet({required bool member}) => GemWallet(
     expiresAt: member ? DateTime.utc(2041) : null,
     autoRenew: member,
     blueGemsCent: member ? 30000 : 0,
-    hasOverlap: false,
   ),
 );
 

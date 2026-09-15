@@ -48,6 +48,8 @@ import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
+import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
+import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/app/recent_chat/recent_world_chat_store.dart';
 import 'package:genesis_flutter_android/app/startup/app_startup_coordinator.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
@@ -290,6 +292,7 @@ Future<AppServices> _testServices({
   BillingService? billingService,
   GemWalletStore? gemWallet,
   MembershipPurchaseService? membershipPurchases,
+  MembershipCatalog? membershipCatalog,
   AppVersionCheckService? appVersionCheck,
   ExternalUrlOpener? externalUrlOpener,
   DeviceIdService? deviceIdService,
@@ -359,6 +362,7 @@ Future<AppServices> _testServices({
     externalUrlOpener: externalUrlOpener ?? _FakeExternalUrlOpener(),
     gemWallet: gemWallet,
     membershipPurchases: membershipPurchases,
+    membershipCatalog: membershipCatalog,
     billing: billingService,
     appGlobalConfig: appGlobalConfig,
     // Legacy page tests start with onboarding completed. Dedicated startup
@@ -1160,7 +1164,6 @@ class _RecordingV1ListTransport implements HttpTransport {
             'expires_at': null,
             'auto_renew': false,
             'blue_gems_cent': 0,
-            'has_overlap': false,
           },
         },
       });
@@ -2703,18 +2706,24 @@ void main() {
     final initialGems = mode == 'gems_page';
     for (final signedIn in [false, true]) {
       testWidgets(
-        'payment entry refreshes global wallet once mode=$mode signedIn=$signedIn',
+        'payment entry refreshes global wallet on entry and resume mode=$mode signedIn=$signedIn',
         (tester) async {
           final session = MemoryUserSessionStore();
           var calls = 0;
+          var autoRenew = true;
+          Future<GemWallet>? pendingWallet;
           final wallet = GemWalletStore(
             readUid: session.readUid,
             loadWallet: () async {
               calls++;
-              return GemWallet(
-                balanceCent: 0,
-                membership: membershipAccessSnapshot().membership,
-              );
+              return pendingWallet ??
+                  GemWallet(
+                    balanceCent: 0,
+                    membership: membershipAccessSnapshot(
+                      planCode: 'pro_yearly',
+                      autoRenew: autoRenew,
+                    ).membership,
+                  );
             },
           );
           final services = await _testServices(
@@ -2755,6 +2764,64 @@ void main() {
             await tester.pumpWidget(entry());
             await tester.pumpAndSettle();
             expect(calls, signedIn ? 2 : 0);
+            for (final renewed in [false, true]) {
+              autoRenew = renewed;
+              final response = Completer<GemWallet>();
+              pendingWallet = response.future;
+              final previousCalls = calls;
+              for (var repeat = 0; repeat < 2; repeat++) {
+                tester.binding.handleAppLifecycleStateChanged(
+                  AppLifecycleState.paused,
+                );
+                tester.binding.handleAppLifecycleStateChanged(
+                  AppLifecycleState.resumed,
+                );
+                await tester.pump();
+                expect(calls, previousCalls + (signedIn ? 1 : 0));
+              }
+              response.complete(
+                GemWallet(
+                  balanceCent: 0,
+                  membership: membershipAccessSnapshot(
+                    planCode: 'pro_yearly',
+                    autoRenew: autoRenew,
+                  ).membership,
+                ),
+              );
+              await tester.pumpAndSettle();
+              pendingWallet = null;
+              if (signedIn) {
+                expect(
+                  services.membership.state.value.membership?.autoRenew,
+                  autoRenew,
+                );
+              }
+            }
+            if (sheet) {
+              await tester.tap(
+                find.byKey(const ValueKey('wallet-buy-gems-tab')),
+              );
+              await tester.pumpAndSettle();
+              final previousCalls = calls;
+              tester.binding.handleAppLifecycleStateChanged(
+                AppLifecycleState.paused,
+              );
+              tester.binding.handleAppLifecycleStateChanged(
+                AppLifecycleState.resumed,
+              );
+              await tester.pumpAndSettle();
+              expect(calls, previousCalls);
+            }
+            await tester.pumpWidget(entry(visible: false));
+            final previousCalls = calls;
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.paused,
+            );
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.resumed,
+            );
+            await tester.pumpAndSettle();
+            expect(calls, previousCalls);
             expect(tester.takeException(), isNull);
           } finally {
             await tester.pumpWidget(const SizedBox.shrink());
@@ -3752,7 +3819,6 @@ void main() {
             expiresAt: null,
             autoRenew: false,
             blueGemsCent: 600,
-            hasOverlap: false,
           ),
         ),
       );
@@ -3782,7 +3848,6 @@ void main() {
             expiresAt: null,
             autoRenew: false,
             blueGemsCent: 600,
-            hasOverlap: false,
           ),
         );
       },
@@ -4385,6 +4450,66 @@ void main() {
 
     expect(find.text('Buy Gems'), findsOneWidget);
   });
+
+  for (final preloadReady in [true, false]) {
+    testWidgets(
+      'Home crown reuses startup subscription preload ready=$preloadReady',
+      (tester) async {
+        AppStartupCoordinator.resetForTesting();
+        AppStartupCoordinator.configure(
+          appVersion: const AppVersionInfo(
+            versionName: 'test',
+            versionCode: '1',
+          ),
+        );
+        var calls = 0;
+        final response = Completer<MembershipProductList>();
+        final catalog = MembershipCatalog(
+          provider: MembershipProvider.google,
+          loadProducts: (_) {
+            calls++;
+            return response.future;
+          },
+        );
+        final services = await _testServices(
+          initialUid: null,
+          membershipCatalog: catalog,
+        );
+        void completeProducts() => response.complete(
+          MembershipProductList(products: [membershipProduct(yearly: true)]),
+        );
+        try {
+          await tester.pumpWidget(GenesisApp(services: services));
+          await tester.pumpAndSettle();
+          // The production startup gate warms products even with the form off.
+          expect(
+            services.appGlobalConfig.value.showPersonalizationForm,
+            isFalse,
+          );
+          expect(calls, 1);
+          if (preloadReady) {
+            completeProducts();
+            await tester.pumpAndSettle();
+          }
+          await tester.tap(
+            find.byKey(const ValueKey<String>('home-gem-wallet-entry')),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(find.byType(GemWalletPage), findsOneWidget);
+          expect(calls, 1);
+          if (!preloadReady) completeProducts();
+          await tester.pumpAndSettle();
+          expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+          expect(calls, 1);
+        } finally {
+          if (!response.isCompleted) completeProducts();
+          await tester.pumpWidget(const SizedBox.shrink());
+          AppStartupCoordinator.resetForTesting();
+        }
+      },
+    );
+  }
 
   testWidgets('Home crown opens Subscription while signed out', (
     WidgetTester tester,

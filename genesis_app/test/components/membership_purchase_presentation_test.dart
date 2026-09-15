@@ -2,28 +2,35 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 
 import '../app/membership/membership_purchase_service_test.dart' as service;
+import '../support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 
-Widget subscription(service.Harness h, {bool closeOnSuccess = false}) =>
-    ProSubscriptionContent(
-      productsLoader: () async => MembershipCatalogData(
-        offers: [
-          for (final yearly in [true, false])
-            MembershipOffer(product: h.product(yearly: yearly)),
-        ],
-      ),
-      purchaseService: h.service,
-      closeOnPurchaseSuccess: closeOnSuccess,
-    );
+Widget subscription(
+  service.Harness h, {
+  bool closeOnSuccess = false,
+  MembershipAccessStore? membership,
+}) => ProSubscriptionContent(
+  productsLoader: () async => MembershipCatalogData(
+    offers: [
+      for (final yearly in [true, false])
+        MembershipOffer(product: h.product(yearly: yearly)),
+    ],
+  ),
+  purchaseService: h.service,
+  membershipAccess: membership,
+  closeOnPurchaseSuccess: closeOnSuccess,
+);
 
 Future<void> open(WidgetTester tester, service.Harness h) async {
   tester.view.physicalSize = const Size(390, 844);
@@ -44,46 +51,96 @@ Future<void> open(WidgetTester tester, service.Harness h) async {
 void main() {
   for (final provider in MembershipProvider.values) {
     testWidgets(
-      '$provider fresh yearly status blocks monthly with the shared downgrade dialog',
+      '$provider active yearly member buying monthly reaches the store and uses its callback',
       (tester) async {
-        final h = service.Harness(provider: provider)
-          ..memberPlan = 'pro_yearly';
+        final h = service.Harness(provider: provider);
         addTearDown(h.service.dispose);
-        tester.view.physicalSize = const Size(390, 844);
-        tester.view.devicePixelRatio = 1;
-        addTearDown(tester.view.resetPhysicalSize);
-        addTearDown(tester.view.resetDevicePixelRatio);
-        // The displayed catalog still says none; checkout must use fresh status.
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: GenesisTheme.light(),
-            home: Scaffold(body: subscription(h)),
-          ),
+        var walletRequests = 0;
+        final wallet = GemWalletStore(
+          readUid: () async => h.uid,
+          loadWallet: () async {
+            walletRequests++;
+            return GemWallet(
+              balanceCent: 0,
+              membership: membershipAccessSnapshot(
+                planCode: 'pro_yearly',
+                autoRenew: true,
+              ).membership,
+            );
+          },
         );
-        await tester.pumpAndSettle();
-        await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
-        await tester.pumpAndSettle();
-        expect(find.text(r'Monthly: $9.99'), findsOneWidget);
-        await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
-        await tester.pumpAndSettle();
-        expect(h.eligibilityQueries, 1);
-        expect(h.platform.launches, 0);
-        expect(h.platform.product, isNull);
-        expect(h.reports, isEmpty);
-        expect(find.text('Purchasing VIP'), findsNothing);
-        expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
-        expect(find.text('Notification'), findsOneWidget);
-        expect(
-          find.text(
-            'Worldo Premium is active in your subscription and does not support downgrades.',
-          ),
-          findsOneWidget,
+        final membership = MembershipAccessStore(
+          wallet: wallet,
+          readLoginUid: () async => h.uid,
+          serverNow: () => DateTime.utc(2026),
         );
-        await tester.tap(find.text('Got It'));
-        await tester.pumpAndSettle();
-        expect(find.byType(Dialog), findsNothing);
-        expect(find.byType(ProSubscriptionContent), findsOneWidget);
-        expect(h.service.isBusy, isFalse);
+        try {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: GenesisTheme.light(),
+              home: Scaffold(body: subscription(h, membership: membership)),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(membership.state.value.isVip, isTrue);
+          expect(find.text('Subscribed'), findsOneWidget);
+          final requestsBeforePurchase = walletRequests;
+          await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+          await tester.pumpAndSettle();
+          expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+          await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(h.eligibilityQueries, 1);
+          expect(walletRequests, requestsBeforePurchase);
+          expect(h.platform.launches, 1);
+          expect(h.platform.product?.isYearly, isFalse);
+          expect(h.reports, isEmpty);
+          expect(find.text('Purchasing Premium'), findsOneWidget);
+          expect(find.text('Notification'), findsNothing);
+          final google = provider == MembershipProvider.google;
+          await h.service.interceptPurchase(
+            BillingPurchase(
+              provider: google
+                  ? BillingProvider.googlePlay
+                  : BillingProvider.appStore,
+              productId: h.product().storeProductId,
+              purchaseToken: '',
+              transactionId: '',
+              originalTransactionId: '',
+              originalJson: '',
+              purchaseTime: '',
+              status: BillingPurchaseStatus.error,
+              errorCode: google
+                  ? 'itemAlreadyOwned'
+                  : 'raw StoreKit purchase error',
+              errorMessage: 'original store message',
+              errorDetails: google
+                  ? null
+                  : {'storeKitCode': 'ineligible_for_offer'},
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Purchasing Premium'), findsNothing);
+          expect(find.text('Notification'), findsNothing);
+          expect(
+            find.textContaining(
+              google
+                  ? 'You already own this subscription on Google Play.'
+                  : 'Your Apple Account is not eligible for this subscription offer.',
+            ),
+            findsOneWidget,
+          );
+          expect(h.reports, isEmpty);
+          expect(h.service.isBusy, isFalse);
+          await tester.pump(const Duration(seconds: 3));
+        } finally {
+          membership.dispose();
+          wallet.dispose();
+        }
       },
     );
 

@@ -18,7 +18,10 @@ void main() {
       ),
     );
     // 9k offers the plan; the balance itself lives in the gems entry below.
-    expect(find.byKey(const ValueKey('user-profile-membership-offer')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('user-profile-membership-offer')),
+      findsOneWidget,
+    );
     expect(
       find.byKey(const ValueKey('user-profile-membership-active-tag')),
       findsNothing,
@@ -41,7 +44,7 @@ void main() {
             width: 320,
             child: ProfileMembershipCard(
               isActive: true,
-              membershipExpiresAt: DateTime(year, 10, 7),
+              membershipExpiresAt: DateTime(year, 10, 7, 14, 5, 9),
               blueBalanceCent: 30000,
               blueGemsExpiresAt: DateTime(year, 9, 30),
             ),
@@ -51,7 +54,7 @@ void main() {
     );
     expect(find.text('Subscribe'), findsNothing);
     expect(find.text('ACTIVE'), findsOneWidget);
-    expect(find.text('Expires $year-10-07'), findsOneWidget);
+    expect(find.text('Expires $year-10-07 14:05:09'), findsOneWidget);
     expect(find.text('Expires $year-09-30'), findsNothing);
     expect(
       find.byKey(const ValueKey('user-profile-membership-offer')),

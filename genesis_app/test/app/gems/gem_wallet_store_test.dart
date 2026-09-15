@@ -26,7 +26,6 @@ void main() {
               expiresAt: null,
               autoRenew: true,
               blueGemsCent: 30000,
-              hasOverlap: false,
             ),
           );
         },
@@ -78,7 +77,6 @@ void main() {
               expiresAt: null,
               autoRenew: false,
               blueGemsCent: 30000,
-              hasOverlap: false,
             ),
           );
         },

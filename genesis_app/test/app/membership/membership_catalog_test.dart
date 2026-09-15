@@ -11,6 +11,133 @@ import '../../support/membership_fixtures.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final provider in MembershipProvider.values) {
+    test(
+      '$provider preload shares in-flight and completed entry requests',
+      () async {
+        var calls = 0;
+        final response = Completer<MembershipProductList>();
+        final catalog = MembershipCatalog(
+          provider: provider,
+          loadProducts: (_) {
+            calls++;
+            return response.future;
+          },
+        );
+        final preloading = catalog.preload();
+        final page = catalog.loadForEntry();
+        final sheet = catalog.loadForEntry();
+        await pumpEventQueue();
+        expect(calls, 1);
+        response.complete(
+          MembershipProductList(
+            products: [
+              membershipProduct(
+                provider: provider,
+                accountUuid: '2b74ec68-7abc-4cce-a223-e997e31dc811',
+              ),
+            ],
+          ),
+        );
+        await Future.wait([preloading, page, sheet]);
+        await catalog.loadForEntry();
+        final checkout = await catalog.readCheckoutProducts();
+        expect(
+          checkout.products.single.accountUuid,
+          '2b74ec68-7abc-4cce-a223-e997e31dc811',
+        );
+        expect(catalog.cached!.offers.single.product.accountUuid, isNull);
+        expect(calls, 1);
+      },
+    );
+  }
+
+  test(
+    'entry refreshes expired preload and retries a failed preload',
+    () async {
+      var now = DateTime.utc(2040);
+      var calls = 0;
+      var offline = false;
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        now: () => now,
+        loadProducts: (_) async {
+          calls++;
+          if (offline) throw StateError('offline');
+          return MembershipProductList(products: [membershipProduct()]);
+        },
+      );
+      await catalog.preload();
+      now = now.add(MembershipCatalog.entryCacheAge);
+      offline = true;
+      await catalog.preload();
+      expect(calls, 2);
+      expect(catalog.cached, isNotNull);
+      await expectLater(catalog.readCheckoutProducts(), throwsStateError);
+      offline = false;
+      await catalog.loadForEntry();
+      expect(calls, 3);
+    },
+  );
+
+  test(
+    'purchase change invalidates an in-flight preload and its credentials',
+    () async {
+      var calls = 0;
+      final oldResponse = Completer<MembershipProductList>();
+      final catalog = MembershipCatalog(
+        provider: MembershipProvider.google,
+        loadProducts: (_) async => ++calls == 1
+            ? await oldResponse.future
+            : MembershipProductList(
+                products: [membershipProduct(title: 'After claim')],
+              ),
+      );
+      final preloading = catalog.preload();
+      await pumpEventQueue();
+      catalog.invalidate();
+      await catalog.loadForEntry();
+      oldResponse.complete(
+        MembershipProductList(
+          products: [membershipProduct(title: 'Before claim')],
+        ),
+      );
+      await preloading;
+      expect(catalog.cached!.offers.single.product.title, 'After claim');
+      expect(
+        (await catalog.readCheckoutProducts()).products.single.title,
+        'After claim',
+      );
+      expect(calls, 2);
+    },
+  );
+
+  test('entry never reuses a fresh preload from another account', () async {
+    String? owner;
+    var calls = 0;
+    final catalog = MembershipCatalog(
+      provider: MembershipProvider.google,
+      readOwnerUid: () async => owner,
+      loadProducts: (_) async {
+        calls++;
+        return MembershipProductList(
+          products: [membershipProduct(title: owner ?? 'Guest')],
+        );
+      },
+    );
+    await catalog.preload();
+    owner = 'user-a';
+    await catalog.loadForEntry();
+    expect(calls, 2);
+    expect(
+      (await catalog.readCheckoutProducts()).products.single.title,
+      'user-a',
+    );
+    catalog.resetForSession();
+    await catalog.loadForEntry();
+    expect(calls, 3);
+  });
+
   test(
     'checkout reuses page credentials without persisting or refetching them',
     () async {

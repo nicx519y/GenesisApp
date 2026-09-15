@@ -7,26 +7,15 @@ class MembershipPurchaseBlocked implements Exception {
   final String reason;
 }
 
-String? membershipPurchaseBlockReason(
+/// Display-only; having the selected plan no longer blocks a store purchase.
+bool membershipHasSelectedPlan(
   MembershipProduct product,
   MembershipAccessState access,
-) {
-  if (access.isVip == null) return 'eligibility_unavailable';
-  if (access.isVip == false) return null;
-  return switch (access.membership?.planCode) {
-    'pro_yearly' when !product.isYearly => 'downgrade_not_allowed',
-    'pro_yearly' => 'already_subscribed',
-    'pro_monthly' when !product.isYearly => 'already_subscribed',
-    'pro_monthly' => null,
-    _ => 'eligibility_unavailable',
-  };
-}
+) => access.isVip == true && access.membership?.planCode == product.planCode;
 
 String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
   final message = switch (reason) {
     'already_subscribed' => 'You already have an active Premium subscription.',
-    'downgrade_not_allowed' =>
-      'An active yearly Premium subscription cannot be changed to a monthly plan.',
     'purchase_processing' =>
       'Your previous Premium purchase is still being confirmed.',
     'cross_platform_upgrade_not_allowed' =>

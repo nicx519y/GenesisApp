@@ -2561,7 +2561,6 @@ class _MockState {
         'expires_at': null,
         'auto_renew': false,
         'blue_gems_cent': 0,
-        'has_overlap': false,
       },
     };
   }

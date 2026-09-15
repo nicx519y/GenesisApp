@@ -1,21 +1,27 @@
 # VIP 购买按钮与平台错误文案
 
-更新：2026-09-14。适用 Android Google Play / iOS App Store 的 VIP 订阅购买；以下英文为客户端实际显示文案。Gems 继续使用原有提示。
+购买流程更新：2026-09-15。适用 Android Google Play / iOS App Store 的 VIP 订阅购买。Gems 继续使用原有提示；用户可见称谓与取消拼写以 `premium-purchase-copy.md` 为准。
 
 ## 1. 商品接口和按钮
 
-`GET /api/v1/membership/products` 只提供 `data.list` 商品配置；已登录账号使用全局 `MembershipAccessStore` 的 wallet 会员摘要判断按钮与购买资格。
+`GET /api/v1/membership/products` 提供 `data.list` 商品配置。页面打开时仍可刷新全局会员状态用于展示；点击购买不读取本地会员状态，也不发起或等待 wallet 请求；年转月、月转年、同套餐和无会员等情况统一交给平台购买，由平台决定是否允许。
+
+已有同套餐有效会员且 wallet `membership.auto_renew=true` 时，按钮显示 `Subscribed`；`auto_renew=false` 时恢复 `Monthly: 价格`／`Yearly: 价格`，仍可点击继续平台购买。非同套餐和没有有效会员时沿用套餐金额文案。关闭自动续费只改变按钮文案，不改变尚未到期的会员权益。
+
+全屏页面和购买 sheet 在 Subscription 标签下，每次 App 回到 `resumed` 都刷新 wallet，及时同步商店取消或恢复自动续费后的按钮文案。此刷新不受全局回前台 30 秒缓存限制，复用正在进行的请求；不会重新请求订阅商品列表，也不作为购买前置条件。
 
 | 当前有效会员 | 选择月套餐 | 选择年套餐 | 点击处理 |
 | --- | --- | --- | --- |
-| 无／已失效 | 原 Monthly + 金额 | 原 Yearly + 金额 | 刷新 wallet，复用本次页面商品数据后尝试购买 |
-| 月会员 | `Subscribed` | 原 Yearly + 金额 | 刷新确认后拦截重复月付，年付可继续 |
-| 年会员 | 原 Monthly + 金额 | `Subscribed` | 刷新确认后拦截月付降级和重复年付 |
-| 未知 | 原套餐金额 | 原套餐金额 | 尝试刷新，仍未知时提示无法确认资格 |
+| 无／已失效 | 原 Monthly + 金额 | 原 Yearly + 金额 | 月付、年付均交给平台 |
+| 月会员 | 自动续费开启：`Subscribed`；关闭：原 Monthly + 金额 | 原 Yearly + 金额 | 月付、年付均交给平台，不拦截同套餐购买 |
+| 年会员 | 原 Monthly + 金额 | 自动续费开启：`Subscribed`；关闭：原 Yearly + 金额 | 月付、年付均交给平台，不在客户端拦截降级 |
+| 未知／wallet 刷新失败 | 原套餐金额或仍有效的原展示状态 | 原套餐金额或仍有效的原展示状态 | 不等待 wallet，月付、年付均交给平台 |
 
-只有状态 1 且到期时间晚于服务端校准当前时间才为有效会员；状态 2 或已到期均失效。缺少必要数据不能作为未开通放行。游客不使用上述账号会员限制，继续原有未绑定订单登录拦截、平台购买及 report/claim。
+`MembershipAccessStore` 会员快照仅用于页面展示，不参与购买资格判断。允许发起平台购买不代表确认具有会员权益。游客继续原有身份准备、未绑定订单登录提示及 report/claim。
 
-重复购买沿用 `You already have an active Premium subscription.`；降级沿用 Notification / `Worldo Premium is active in your subscription and does not support downgrades.` / Got It。全局状态变化只更新按钮文案和行为，不改尺寸、颜色和卡片布局。商品缓存 v3 仅存展示配置，会员缓存属于全局 wallet。商品及升级凭据复用本次页面 API 响应，不因点击购买重复请求；未完成时等待同一请求，本次商品请求失败或支付前 wallet 刷新失败不使用旧缓存付款。
+同套餐的 `Subscribed` 只用于展示，点击不再产生客户端 `already_subscribed` 拦截。年转月也不再弹客户端不能降级提示。商品缓存 v3 仅存展示配置；商品及升级凭据仍复用本次页面 API 响应，不因点击购买重复请求，未完成时等待同一商品请求。缺少商品或身份凭据、账号切换、购买进行中等原有流程保护继续生效。
+
+平台返回成功后继续 report 验单，返回取消或失败则走平台错误提示。补报与 Gems 的结果处理规则一致：网络异常、超时或 `accepted` 保存原凭据并重试；`completed` 完成订单并刷新钱包；明确 `rejected` 为终态，不自动反复上报。VIP 保留 15 秒起步、最长 5 分钟的退避重试，以及启动／回前台恢复。Apple `account_mismatch` 仍不 finish 其他账号的交易，沿用原有归属恢复流程。补报只重试 report，不重新发起平台扣款。
 
 ## 2. Google Play 主错误码
 
@@ -145,7 +151,7 @@ StoreKit 2 返回具名 Error case，不能把它们当作 Google 数字码。�
 | 未识别 Google 错误 | `Google Play could not complete this VIP purchase. Please try again.` |
 | 未识别 Apple 错误 | `The App Store could not complete this VIP purchase. Please try again.` |
 
-Apple 购买结果来源：[Product.PurchaseResult](https://developer.apple.com/documentation/storekit/product/purchaseresult)。服务端 report/claim 业务错误仍走原业务提示，不套平台码表。会员到期、宽限、扣款重试、暂停等是订阅生命周期状态，不能与本表的购买调用错误一一对应；已登录账号购买入口按全局 wallet 会员状态，实际购买以平台结果为准。
+Apple 购买结果来源：[Product.PurchaseResult](https://developer.apple.com/documentation/storekit/product/purchaseresult)。服务端 report/claim 业务错误仍走原业务提示，不套平台码表。会员到期、宽限、扣款重试、暂停等是订阅生命周期状态，不能与本表的购买调用错误一一对应；客户端不根据会员状态拦截购买，年转月也以平台结果为准。
 
 ## 7. 错误传递和验证
 
@@ -162,9 +168,20 @@ xcrun swiftc -module-cache-path /private/tmp/vip-swift-module-cache third_party/
 /private/tmp/vip-storekit-errors
 ```
 
-## 8. 本次本地验证
+## 8. 取消本地会员资格拦截验证（2026-09-15）
 
-以下命令在项目根目录运行。当前相关回归测试 **643 项通过**；静态检查无问题；原生 StoreKit 错误桥接检查通过。未进行真实扣款测试。
+会员服务、平台适配与按钮回归 425 项通过；修正弹窗测试的注入参数及计时器清理后，单独重跑弹窗测试 23 项通过，合计 448 项。静态检查 12 个相关文件无问题。未进行真机商店支付联调。
+
+```sh
+flutter test --no-pub test/app/membership test/platform/billing/membership_pending_store_test.dart test/platform/billing/membership_checkout_platform_test.dart test/components/pro_subscription_content_test.dart test/components/membership_purchase_presentation_test.dart
+flutter test --no-pub test/components/membership_purchase_presentation_test.dart
+flutter analyze --no-pub lib/app/bootstrap/service_registry.dart lib/app/membership/membership_access_store.dart lib/app/membership/membership_purchase_eligibility.dart lib/app/membership/membership_purchase_service.dart lib/components/gems/pro_subscription_content.dart lib/components/gems/membership_purchase_presentation.dart test/app/membership/membership_purchase_service_test.dart test/app/membership/membership_purchase_eligibility_test.dart test/app/membership/membership_purchase_identity_test.dart test/platform/billing/membership_pending_store_test.dart test/components/pro_subscription_content_test.dart test/components/membership_purchase_presentation_test.dart
+git diff --check
+```
+
+## 9. 历史验证记录
+
+此前错误文案与原生桥接改动执行了以下命令（项目根目录），当时相关回归测试 **643 项通过**；静态检查无问题；原生 StoreKit 错误桥接检查通过。未进行真实扣款测试。
 
 ```sh
 flutter test --no-pub test/app/membership test/platform/billing test/components/pro_subscription_content_test.dart test/components/membership_purchase_presentation_test.dart test/network/models/membership_product_list_test.dart test/network/membership_api_test.dart test/network/genesis_api_test.dart test/network/local_mock_genesis_transport_test.dart test/network/membership_request_privacy_test.dart --reporter expanded

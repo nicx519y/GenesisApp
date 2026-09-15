@@ -25,6 +25,7 @@ class PersonalizationGate extends StatefulWidget {
     required this.child,
     this.loginPending,
     this.checkGuestPurchases,
+    this.preloadMembership,
     this.requestRequiredLogin,
     this.membershipAccess,
     this.signIn,
@@ -36,6 +37,7 @@ class PersonalizationGate extends StatefulWidget {
   final Widget child;
   final ValueListenable<String?>? loginPending;
   final Future<void> Function()? checkGuestPurchases;
+  final Future<void> Function()? preloadMembership;
   final Future<bool> Function(BuildContext)? requestRequiredLogin;
   final MembershipAccessStore? membershipAccess;
   final Future<void> Function(BuildContext, IdentityProvider)? signIn;
@@ -373,6 +375,9 @@ class _PersonalizationGateState extends State<PersonalizationGate>
       }
       _preparedUid = uid;
       _startupReady = true;
+      // Share the result with Home even when the personalization form is disabled.
+      // Neither the first screen nor profile loading waits for product loading.
+      unawaited(_preloadMembership());
       if (store.isEnabled) await store.start();
     } catch (error) {
       if (!current()) return;
@@ -387,6 +392,16 @@ class _PersonalizationGateState extends State<PersonalizationGate>
         _preparing = false;
         _schedule();
       }
+    }
+  }
+
+  Future<void> _preloadMembership() async {
+    try {
+      await widget.preloadMembership?.call();
+    } catch (error) {
+      debugPrint(
+        '[Personalization] membership preload failed: ${error.runtimeType}',
+      );
     }
   }
 
