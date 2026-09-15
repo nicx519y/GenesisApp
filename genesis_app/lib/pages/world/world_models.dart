@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'world_constants.dart';
+import '../../network/models/origin.dart';
+import '../../network/json_utils.dart';
 import 'world_value_helpers.dart';
 
 enum WorldBottomSheetKind { detail, locations, events, status, cast }
@@ -47,6 +49,7 @@ class WorldNewUserJoinNotice {
     required this.characterType,
     required this.characterName,
     required this.playerUid,
+    this.playerUser = const OriginUserInfo(),
     required this.playerUsername,
     required this.ts,
   });
@@ -55,11 +58,15 @@ class WorldNewUserJoinNotice {
   final String characterType;
   final String characterName;
   final String playerUid;
+  final OriginUserInfo playerUser;
   final String playerUsername;
   final DateTime? ts;
 
   factory WorldNewUserJoinNotice.fromCharacter(Map<String, dynamic> character) {
     return WorldNewUserJoinNotice(
+      playerUser: OriginUserInfo.fromJson(
+        asOptionalJsonMap(character['player_user']),
+      ),
       characterId: worldMapString(character, const ['char_id', 'id']),
       characterType: worldMapString(character, const ['type']),
       characterName: worldMapString(character, const ['name']),

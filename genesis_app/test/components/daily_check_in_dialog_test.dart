@@ -14,7 +14,6 @@ void main() {
   for (final scenario in [
     'monthly',
     'yearly',
-    'claimable_member',
     'non_member',
     'expired_status',
     'expired_time',
@@ -24,11 +23,7 @@ void main() {
       tester,
     ) async {
       final now = DateTime.utc(2040);
-      final active = [
-        'monthly',
-        'yearly',
-        'claimable_member',
-      ].contains(scenario);
+      final active = ['monthly', 'yearly'].contains(scenario);
       var requests = 0;
       final response = Completer<GemWallet>();
       final wallet = GemWalletStore(
@@ -52,9 +47,7 @@ void main() {
                 onPressed: () async {
                   checkedIn = await showDailyCheckInDialog(
                     context,
-                    status: scenario == 'claimable_member'
-                        ? DailyCheckInDialogStatus.claim
-                        : DailyCheckInDialogStatus.checkIn,
+                    status: DailyCheckInDialogStatus.checkIn,
                     membershipAccess: membership,
                   );
                 },
@@ -109,11 +102,11 @@ void main() {
             );
             expect(
               tester.widget<Text>(find.text('Check in')).style?.color,
-              GenesisColors.darkTextPrimary,
+              GenesisColors.redSecondary,
             );
             expect(
               tester.widget<Text>(find.text('Check in')).style?.fontWeight,
-              FontWeight.w400,
+              FontWeight.w600,
             );
             expect(
               find.byKey(const ValueKey('daily-check-in-subscription-gem')),
@@ -282,7 +275,7 @@ void main() {
       expect(find.text('Get 100'), findsOneWidget);
       expect(
         tester.widget<Text>(find.text('Check in')).style?.fontWeight,
-        FontWeight.w400,
+        FontWeight.w600,
       );
       expect(
         tester.widget<Text>(find.text('Get 100')).style?.color,
@@ -387,35 +380,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Daily Check-in'), findsNothing);
     expect(checkedIn, isFalse);
-  });
-
-  testWidgets('claimable daily check-in shows Claim action', (tester) async {
-    var shouldClaim = false;
-    await tester.pumpWidget(
-      MaterialApp(
-        scrollBehavior: const GenesisScrollBehavior(),
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () async {
-              shouldClaim = await showDailyCheckInDialog(
-                context,
-                status: DailyCheckInDialogStatus.claim,
-              );
-            },
-            child: const Text('Open'),
-          ),
-        ),
-      ),
-    );
-
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    expect(find.text('Claim'), findsOneWidget);
-    expect(find.text('Check in'), findsNothing);
-
-    await tester.tap(find.text('Claim'));
-    await tester.pumpAndSettle();
-    expect(shouldClaim, isTrue);
   });
 
   testWidgets('generic task success uses supplied title and reward', (

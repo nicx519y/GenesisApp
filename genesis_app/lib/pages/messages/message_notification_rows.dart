@@ -29,6 +29,7 @@ class _NotificationListItem extends StatelessWidget {
             height: GenesisFollowUserListTile.itemExtent,
             child: GenesisFollowUserListTile(
               uid: item.followUserUid,
+              membershipStatus: item.senderMembershipStatus,
               displayName: item.followUserName,
               avatarUrl: item.senderAvatar,
               deleted: item.senderDeleted,
@@ -208,7 +209,7 @@ class _JoinRequestSummaryText extends StatelessWidget {
         children: [
           TextSpan(text: item.requesterName, style: _notificationNameStyle),
           ProUserBadge.span(
-            uid: item.senderUid,
+            membershipStatus: item.senderMembershipStatus,
             fontSize: 12,
             deleted: item.senderDeleted,
           ),
@@ -289,7 +290,7 @@ class _CommentNotificationListItem extends StatelessWidget {
             children: [
               TextSpan(text: item.senderDisplayName),
               ProUserBadge.span(
-                uid: item.senderUid,
+                membershipStatus: item.senderMembershipStatus,
                 fontSize: titleStyle.fontSize!,
                 deleted: item.senderDeleted,
               ),

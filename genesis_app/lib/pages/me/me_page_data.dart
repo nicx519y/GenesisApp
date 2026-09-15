@@ -72,6 +72,11 @@ extension _MePageData on _MePageState {
 
     final data = UserProfileData(
       avatarUrl: resolvedAvatarUrl,
+      gender: asString(cachedUser?['gender']),
+      age: asString(cachedUser?['age']),
+      membershipStatus: asUserMembershipStatus(
+        cachedUser?['membership_status'],
+      ),
       displayName: resolvedDisplayName,
       uid: uid.isEmpty ? 'Unknown' : uid,
       followingCount: resolvedFollowingCount,

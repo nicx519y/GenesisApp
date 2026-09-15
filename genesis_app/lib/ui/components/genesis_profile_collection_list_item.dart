@@ -18,6 +18,7 @@ class GenesisProfileCollectionItemData {
     required this.title,
     required this.subtitle,
     this.ownerUid = '',
+    this.ownerMembershipStatus = 0,
     this.statsText = '',
     this.stats = const <GenesisProfileCollectionStat>[],
     this.useOriginCardLayout = false,
@@ -36,6 +37,7 @@ class GenesisProfileCollectionItemData {
   final String title;
   final String subtitle;
   final String ownerUid;
+  final int ownerMembershipStatus;
   final String statsText;
   final List<GenesisProfileCollectionStat> stats;
   final bool useOriginCardLayout;
@@ -132,11 +134,11 @@ class GenesisProfileCollectionListItem extends StatelessWidget {
           ) ...[
             if (index > 0) const SizedBox(height: 4),
             ProUserName(
-              uid:
+              membershipStatus:
                   item.useWorldCardLayout &&
                       index == worldSubtitleLines.length - 1
-                  ? item.ownerUid
-                  : '',
+                  ? item.ownerMembershipStatus
+                  : 0,
               fontSize: 12,
               child: Text(
                 worldSubtitleLines[index],

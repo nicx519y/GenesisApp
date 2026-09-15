@@ -9,6 +9,9 @@ class _NotificationItem {
     required this.senderUid,
     required this.senderAvatar,
     this.senderDeleted = false,
+    this.senderGender = '',
+    this.senderAge = '',
+    this.senderMembershipStatus = 0,
     required this.bizId,
     this.worldDeleted = false,
     this.originDeleted = false,
@@ -27,6 +30,7 @@ class _NotificationItem {
   factory _NotificationItem.fromJson(Map<String, dynamic> json) {
     final sender = _optionalJsonMap(json['sender']);
     final user = _optionalJsonMap(json['user']);
+    final actor = sender?.isNotEmpty == true ? sender : user;
     final relation = _optionalJsonMap(json['relation']);
     final comment = _optionalJsonMap(json['comment']);
     final reply = _optionalJsonMap(json['reply']);
@@ -92,6 +96,11 @@ class _NotificationItem {
           json['avatar'],
           json['avatar_url'],
         ]),
+      ),
+      senderGender: asString(actor?['gender']),
+      senderAge: asString(actor?['age']),
+      senderMembershipStatus: asUserMembershipStatus(
+        actor?['membership_status'],
       ),
       senderDeleted: entityDeleted(
         sender?['deleted'],
@@ -162,6 +171,9 @@ class _NotificationItem {
   final String senderUid;
   final String senderAvatar;
   final bool senderDeleted;
+  final String senderGender;
+  final String senderAge;
+  final int senderMembershipStatus;
   final String bizId;
   final bool worldDeleted;
   final bool originDeleted;
@@ -189,6 +201,9 @@ class _NotificationItem {
       senderUid: senderUid,
       senderAvatar: senderAvatar,
       senderDeleted: senderDeleted,
+      senderGender: senderGender,
+      senderAge: senderAge,
+      senderMembershipStatus: senderMembershipStatus,
       bizId: bizId,
       worldDeleted: worldDeleted ?? this.worldDeleted,
       originDeleted: originDeleted,
@@ -422,6 +437,9 @@ class _NotificationItem {
       bizId: bizId,
       authorUid: senderUid,
       authorDeleted: senderDeleted,
+      authorGender: senderGender,
+      authorAge: senderAge,
+      authorMembershipStatus: senderMembershipStatus,
       authorName: senderDisplayName,
       avatar: senderAvatar,
       content: commentText,

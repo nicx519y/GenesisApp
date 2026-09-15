@@ -50,6 +50,9 @@ UserProfileData _mergeRemoteUserInfoForRender(
       : currentData.avatarUrl;
   return currentData.copyWith(
     avatarUrl: resolvedAvatarUrl,
+    gender: asString(remoteUser['gender']),
+    age: asString(remoteUser['age']),
+    membershipStatus: asUserMembershipStatus(remoteUser['membership_status']),
     displayName: resolvedDisplayName,
     uid: resolvedUid,
     followingCount:
@@ -111,7 +114,10 @@ bool _sameRenderedUserInfoExceptAvatarAndDisplayName(
   return currentData.uid == nextData.uid &&
       currentData.followingCount == nextData.followingCount &&
       currentData.followerCount == nextData.followerCount &&
-      currentData.deleted == nextData.deleted;
+      currentData.deleted == nextData.deleted &&
+      currentData.gender == nextData.gender &&
+      currentData.age == nextData.age &&
+      currentData.membershipStatus == nextData.membershipStatus;
 }
 
 UserProfileOriginItem _profileOriginItemFromSummary(OriginSummary item) {
@@ -146,6 +152,7 @@ UserProfileWorldItem _profileWorldItemFromSummary(MyWorldSummary item) {
     playerCount: item.playerCount,
     ownerName: item.ownerName,
     ownerUid: item.ownerUid,
+    ownerUser: item.ownerUser,
   );
 }
 

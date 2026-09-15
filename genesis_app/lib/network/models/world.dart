@@ -54,6 +54,7 @@ class World {
 @immutable
 class WorldDetail {
   WorldDetail({
+    this.ownerUser = const OriginUserInfo(),
     required this.id,
     required this.worldId,
     required this.originId,
@@ -93,6 +94,7 @@ class WorldDetail {
            processedLocationTree ??
            ProcessedLocationTree<Map<String, dynamic>>(locationTree);
 
+  final OriginUserInfo ownerUser;
   final int id;
   final String worldId;
   final int originId;
@@ -141,6 +143,7 @@ class WorldDetail {
     String? cover,
     bool? deleted,
     bool? ownerDeleted,
+    OriginUserInfo? ownerUser,
     int? tickCount,
     int? subTickNo,
     int? connectCount,
@@ -193,6 +196,7 @@ class WorldDetail {
       cover: cover ?? this.cover,
       deleted: deleted ?? this.deleted,
       ownerDeleted: ownerDeleted ?? this.ownerDeleted,
+      ownerUser: ownerUser ?? this.ownerUser,
       tickCount: tickCount ?? this.tickCount,
       subTickNo: subTickNo ?? this.subTickNo,
       connectCount: connectCount ?? this.connectCount,
@@ -222,7 +226,7 @@ class WorldDetail {
 
   factory WorldDetail.fromJson(Map<String, dynamic> json) {
     final ownerUser = json['owner_user'] is Map
-        ? asJsonMap(json['owner_user'])
+        ? asOptionalJsonMap(json['owner_user'])
         : const <String, dynamic>{};
     final rawWorldLocations = (json['locations'] is List)
         ? asJsonList(
@@ -247,6 +251,7 @@ class WorldDetail {
       id: asInt(json['id']),
       worldId: asString(json['world_id']),
       originId: asInt(json['origin_id']),
+      ownerUser: OriginUserInfo.fromJson(ownerUser),
       ownerUid: asString(json['owner_uid']),
       ownerName: asString(
         json['owner_name'],
@@ -365,6 +370,9 @@ class WorldMember {
     required this.id,
     required this.worldId,
     required this.uid,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
     required this.roleAvatar,
     required this.roleNickname,
     required this.joinedAt,
@@ -373,12 +381,18 @@ class WorldMember {
   final int id;
   final int worldId;
   final String uid;
+  final String gender;
+  final String age;
+  final int membershipStatus;
   final String roleAvatar;
   final String roleNickname;
   final DateTime? joinedAt;
 
   factory WorldMember.fromJson(Map<String, dynamic> json) {
     return WorldMember(
+      gender: asString(json['gender']),
+      age: asString(json['age']),
+      membershipStatus: asUserMembershipStatus(json['membership_status']),
       id: asInt(json['id']),
       worldId: asInt(json['world_id']),
       uid: asString(json['uid']),

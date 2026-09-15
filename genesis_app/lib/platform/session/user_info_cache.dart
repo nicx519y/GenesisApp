@@ -1,4 +1,5 @@
 import 'user_session_store.dart';
+import '../../network/json_utils.dart';
 
 const List<String> _currentUserInfoSiblingKeys = <String>[
   'uuid',
@@ -17,6 +18,9 @@ Future<Map<String, dynamic>?> cacheCurrentUserInfoResponse({
   final merged = <String, dynamic>{
     if (current != null) ...current,
     ...Map<String, dynamic>.from(rawUser),
+    'gender': asString(rawUser['gender']),
+    'age': asString(rawUser['age']),
+    'membership_status': asUserMembershipStatus(rawUser['membership_status']),
   };
   if (_stringValue(merged['uid']).isEmpty && fallbackUid.trim().isNotEmpty) {
     merged['uid'] = fallbackUid.trim();

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_library.dart';
+import 'package:genesis_flutter_android/components/gems/pro_membership_badge.dart';
+import 'package:genesis_flutter_android/network/models/origin.dart';
 
 void main() {
   for (final isSelf in [true, false]) {
@@ -41,6 +43,7 @@ void main() {
         expect(owned, findsOneWidget);
         expect(other, findsOneWidget);
         expect(find.text('Owner: Same Name'), findsOneWidget);
+        expect(find.byType(ProMembershipBadge), findsOneWidget);
         expect(find.text('Owner: Unknown Owner'), findsOneWidget);
         final worldPage = find.byKey(
           const ValueKey<String>('profile-world-collection-page'),
@@ -75,5 +78,9 @@ UserProfileWorldItem _world(String wid, String ownerUid, String ownerName) {
     playerCount: 1,
     ownerName: ownerName,
     ownerUid: ownerUid,
+    ownerUser: OriginUserInfo(
+      uid: ownerUid,
+      membershipStatus: ownerUid.isEmpty ? 0 : 1,
+    ),
   );
 }

@@ -135,6 +135,9 @@ Origin detail 增量核对时间：2026-08-05
 - `name*`: string
 - `avatar*`: string 或 `ImageResource`
 - `deleted`: boolean，用户是否已软删除
+- `gender`: string，未填写为 `""`；枚举 `Male` / `Female` / `Non_binary`
+- `age`: string，未填写为 `""`；枚举 `18-24` / `25-34` / `35-44` / `45+`
+- `membership_status`: integer，0 未开通或待付款未获得权益，1 当前有效，2 曾开通过但当前失效。所有返回 UserInfo 的接口使用同一语义；余额、是否自动续费不参与标识判断。
 - `bio`: string
 - `last_login_at`: integer，Unix 秒时间戳
 - `create_at`: integer，Unix 秒时间戳
@@ -2708,11 +2711,11 @@ World：
 - 有效卡片的日期读取 `membership.expires_at`（Unix 秒，转换为本地日期）；蓝宝石余额读取 `blue_gems_cent`，沿用现有金额格式。用户名旁 Pro 标识仅在会员有效时显示。
 - 会员数据跟随当前账号的钱包请求刷新，切换账号清空旧会员状态；无会员字段的旧响应仍兼容，会员字段解析异常不会阻断原钱包余额读取。当前卡片既有颜色、字号、间距保留。
 
-## 用户名旁会员徽章（2026-09-11 核对）
+## 用户名旁会员徽章（2026-09-15）
 
-- 已在 Apifox 当前 `account → 查询用户信息` 文档核对：`GET /api/v1/user/info?uid=<目标 UID>` 支持匿名查询指定 UID，以及登录用户查询他人。返回 `data.user.membership_status` 为整数：0 从未开通、1 当前有效、2 历史开通过但当前失效。服务端按目标用户当前订阅校正，取消自动续费但仍在已付有效期内仍为 1。
-- 客户端公共 `UserMembershipStatusStore` 使用已有 `UserV1Api.info(uid: ...)` 查询公开字段。响应 UID 必须等于目标 UID，仅整数 1 展示徽章；缺失、非法状态、已删除用户、请求失败均隐藏，不能使用当前登录用户的钱包推断他人。
-- 同一 UID 合并并发请求，最多同时 4 个请求；状态缓存 30 秒，仍挂载的徽章定期及返回前台时按缓存期限重新确认。退出／换号清空缓存，忽略旧会话迟到响应。非订阅的缓存项超过 256 时清理；页面没有徽章订阅时停止刷新定时器。
-- Me 保留本人 wallet 的现有真实状态链路；`gem/wallet` 文档明确是登录用户读取本人余额及会员摘要，不用该接口查询他人。
-- `MyWorldSummary` 透传已存在的 `owner_uid`（兼容 `created_uid`），供 Me / Profile World 卡片的 Owner 徽章查询使用。缺少 UID 时不按用户名匹配其他账号。
-- 本次仅查询公开用户资料，不接入内部用户接口，不改变购买、余额或权限校验。
+- 按产品要求，各接口的用户对象（user、owner_user、owner、author、sender、peer、player_user 等）透传 `gender`、`age`、`membership_status`，搜索用户项也包含这三个字段。
+- 客户端从当前名称对应的用户模型直接读取整数 `membership_status`，仅 1 显示皇冠；0、2、缺失、非法值或 deleted=true 都不显示。gender、age 保留服务端值，本次不新增页面展示。
+- 已移除按 UID 单独查询会员标识的服务及 30 秒缓存/轮询；搜索、分页、滚动、前后台切换不会因为徽章请求 `user/info`。资料页本身所需的 user/info 请求继续保留。
+- 覆盖 Me / Profile、关注/粉丝、黑名单、搜索、私信列表、通知、Worldo Creator、评论作者/回复者和 Profile Playing Owner。World 和 Chat（含 Location Chat）不显示用户名会员徽章。
+- 回复目标只有 `reply_to_uid` / `reply_to_username` 时没有足够状态，不补查、不借用作者状态；有目标用户对象或点击回复时已有该作者数据才显示对应徽章。
+- 名字徽章仅用于展示。购买、钱包、会员卡及权限校验继续使用各自现有状态服务，不改授权或计费逻辑。

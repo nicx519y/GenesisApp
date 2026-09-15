@@ -434,6 +434,9 @@ class _AppShellPageState extends State<AppShellPage>
     final loginUserInfo = <String, dynamic>{
       if (cachedUserInfo != null) ...cachedUserInfo,
       'uid': user.uid,
+      'gender': user.gender,
+      'age': user.age,
+      'membership_status': user.membershipStatus,
       'login_provider': provider.name,
     };
     if (user.nickname.trim().isNotEmpty) {

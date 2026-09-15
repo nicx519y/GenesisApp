@@ -263,7 +263,6 @@ class WorldDetailSection extends StatelessWidget {
                   ),
                   GenesisInlineMetaLabel(
                     text: 'Owner: $owner',
-                    membershipUid: world.ownerDeleted ? null : ownerUid,
                     onTap: ownerUid.isEmpty || world.ownerDeleted
                         ? null
                         : () => Navigator.of(context).pushNamed(
@@ -522,7 +521,6 @@ class _WorldNewUserJoinNoticeText extends StatelessWidget {
                       text: notice.displayPlayerUsername,
                       style: emphasisStyle,
                     ),
-                    ProUserBadge.span(uid: notice.playerUid, fontSize: 12),
                     const TextSpan(text: ' playing as '),
                     TextSpan(
                       text: notice.displayCharacterName,

@@ -200,9 +200,11 @@ HTTP 映射层的图片规则：
 - `GenesisActionBox` 统一使用深色样式，包括从浅色页面打开的情况；主题仅作用于弹窗，不能改变调用页面的主题。
 - 主面板与独立 Cancel 面板均使用 `GenesisColors.darkOverlayBackground`（由 `darkRaisedBackground` 派生的 40% 不透明度），叠加局限于面板圆角内的背景模糊（`sigmaX / sigmaY = GenesisBlur.strong`（14））；外边框为 1px `darkFaintFill`（约 12% 白），分隔线同样使用 `darkFaintFill`。这些参数在公共组件中集中管理，不在页面重复配置；透明度只作用于面板填充，不给整个弹窗或文字增加 Opacity。
 - 标题与普通操作使用 `darkTextPrimary`，说明正文使用 `darkTextSecondary`，UID / WID / 时间等辅助信息和禁用操作使用 `darkTextTertiary`。
-- 公共弹窗的红色操作文字使用 `GenesisColors.redSecondary`；主要操作默认继承公共组件颜色，调用处不重复覆盖。Cancel、Reject 等普通操作使用一级白字；红色强调正文同样使用 `redSecondary`。
+- 标准弹窗的第一个确认 / 主操作按钮使用 `GenesisColors.redSecondary`，字重 `FontWeight.w600`；Cancel 使用一级白 `GenesisColors.darkTextPrimary`，字重 `FontWeight.w400`。均复用 `GenesisActionBox` 默认样式，调用处不重复覆盖；Cancel 与主面板连接或分离时遵循同一规则。
+- Reject 等其他普通操作使用一级白字；禁用操作使用三级白，保留不可点击行为。红色强调正文使用 `redSecondary`。
 - 自定义标题、正文和输入框也须引用公共 token；输入文字和光标使用 `darkTextPrimary`，Placeholder 使用 `darkInputPlaceholder`，输入填充使用 `darkFaintFill`，不额外描边。保留各交互所需的输入行数和布局。
 - 保留公共弹窗的尺寸、圆角和交互；Report / 消息长按浮动菜单仍按浮动菜单专项规范执行。
+- 签到弹窗只保留 `Check in` / `Claimed` 展示状态，不显示独立 `Claim` 按钮。一次 Check in 内自动上报并领取；后端 `claimable` 仅用于恢复领取，恢复时仍显示 Check in，不能删掉领取接口或重复上报。会员 Check in 复用主操作默认样式，Cancel 复用公共取消样式。
 
 ## 全局字体规则
 
@@ -422,7 +424,7 @@ HTTP 映射层的图片规则：
 
 ## 用户名会员徽章
 
-- 名字与徽章复用 `ProUserName`；已有元数据行使用 `GenesisInlineMetaLabel.membershipUid`；评论等富文本使用 `ProUserBadge.span`。保留原文字样式、点击行为和省略规则，徽章垂直居中。
+- 名字与徽章复用 `ProUserName`；已有元数据行使用 `GenesisInlineMetaLabel.membershipStatus`；评论等富文本使用 `ProUserBadge.span`。保留原文字样式、点击行为和省略规则，徽章垂直居中。
 - 图形唯一实现为 `ProMembershipBadge`：高度为相邻文字字号的 0.85，宽高比 96/68；20px 名字对应 24×17px，随系统文字缩放。Me 保留 6px 名字间距，其他公共名字布局默认 4px。
-- 仅对应 UID 的真实会员状态为 1 时显示；其他用户的状态通过公共 `UserMembershipStatusStore` 查询 `/api/v1/user/info` 的 `user.membership_status`，不根据名字、会员套餐、余额、头像或当前账号的会员状态猜测。未知／失败／删除状态隐藏，不留徽章空位。
-- 不在各页面重复发请求、建立缓存或实现皇冠；定时刷新、并发去重、账号切换和销毁由公共状态服务处理。
+- 用户模型透传接口 `UserInfo` 的 `gender`、`age`、`membership_status`；名字后的徽章只使用同一用户模型的整数状态 1。0、2、缺失／未知和已删除用户不显示，不留空位，不使用当前账号的钱包推断他人。
+- 徽章组件为纯展示，不按 UID 查询 `user/info`，不维护独立缓存、定时刷新或生命周期监听。状态随所属列表／资料接口刷新；World 与 Chat（含 Location Chat）页面不显示用户名会员徽章。

@@ -18,8 +18,17 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
       final entity = _entityFromUserPosition(position);
       if (entity == null) continue;
       final existing = entities[entity.id];
+      final rawUser = position['user'];
+      final user = rawUser is Map ? asJsonMap(rawUser) : position;
       entities[entity.id] = WorldChatroomEntity(
         id: entity.id,
+        gender: user.containsKey('gender')
+            ? entity.gender
+            : (existing?.gender ?? ''),
+        age: user.containsKey('age') ? entity.age : (existing?.age ?? ''),
+        membershipStatus: user.containsKey('membership_status')
+            ? entity.membershipStatus
+            : (existing?.membershipStatus ?? 0),
         name: _firstNonEmpty([existing?.name, entity.name]),
         avatarUrl: _firstNonEmpty([entity.avatarUrl, existing?.avatarUrl]),
         type: WorldChatroomEntityType.player,
@@ -74,7 +83,13 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
             'character_name',
             'sender_name',
           ]);
+    final user = asOptionalJsonMap(character['player_user']);
     return WorldChatroomEntity(
+      gender: isPlayer ? asString(user['gender']) : '',
+      age: isPlayer ? asString(user['age']) : '',
+      membershipStatus: isPlayer
+          ? asUserMembershipStatus(user['membership_status'])
+          : 0,
       id: id,
       name: name,
       avatarUrl: _firstImageUrl(character, const ['avatar', 'avatar_url']),
@@ -92,6 +107,9 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     final id = _firstString(user, const ['user_id', 'uid', 'id']);
     if (id.isEmpty) return null;
     return WorldChatroomEntity(
+      gender: asString(user['gender']),
+      age: asString(user['age']),
+      membershipStatus: asUserMembershipStatus(user['membership_status']),
       id: id,
       name: _firstString(user, const [
         'role_nickname',

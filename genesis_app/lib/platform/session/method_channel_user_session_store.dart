@@ -44,6 +44,31 @@ class NativeUserSessionStore implements UserSessionStore {
     return value.isEmpty ? null : value;
   }
 
+  /// Dedicated cold-start read; regular session reads keep their existing API.
+  Future<String?> readStartupLoginUid(Map<String, Object> timing) async {
+    final cached = await _fallback.readUid();
+    if (cached != null || !_supportsNativeSessionStore) {
+      final uid = cached?.trim() ?? '';
+      return uid.isEmpty || uid.startsWith('guest_') ? null : uid;
+    }
+    final snapshot = await GenesisMethodChannels.device
+        .invokeMapMethod<String, dynamic>('getStartupUid');
+    for (final key in [
+      'native_read_ms',
+      'native_queue_ms',
+      'native_total_ms',
+    ]) {
+      final value = snapshot?[key];
+      if (value is num && value >= 0) timing[key] = value.toInt();
+    }
+    if (snapshot == null || snapshot['uid'] is! String) {
+      throw const FormatException('Invalid startup UID response');
+    }
+    final uid = (snapshot['uid'] as String).trim();
+    if (uid.isNotEmpty) await _fallback.saveUid(uid);
+    return uid.isEmpty || uid.startsWith('guest_') ? null : uid;
+  }
+
   @override
   Future<String?> readAuthToken() async {
     final cached = await _fallback.readAuthToken();

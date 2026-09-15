@@ -73,6 +73,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   var _isSignedOut = false;
   Object? _error;
   FirebasePerformanceOperation? _activeFirstScreenRequestOperation;
+  StartupRequestDiagnostics? _startupRequestDiagnostics;
   FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
   var _firstScreenRequestAttempt = 0;
   var _firstScreenRenderCompleted = false;
@@ -141,6 +142,12 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   @override
   void dispose() {
+    _startupRequestDiagnostics?.cancel('page_disposed');
+    AppStartupCoordinator.recordLaunchPageState(
+      page: 'home',
+      state: 'page_disposed',
+      request: _startupRequestDiagnostics,
+    );
     _startupInitialRetryTimer?.cancel();
     if (_activeFirstScreenRequestOperation != null) {
       AppStartupCoordinator.recordLaunchRequestEnd(
@@ -245,6 +252,13 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
   }
 
   void _resetListState() {
+    _startupRequestDiagnostics?.cancel('feed_reset');
+    AppStartupCoordinator.recordLaunchPageState(
+      page: 'home',
+      state: 'feed_reset',
+      request: _startupRequestDiagnostics,
+    );
+    _startupRequestDiagnostics = null;
     _startupInitialRetryTimer?.cancel();
     unawaited(_activeFirstScreenRequestOperation?.cancel());
     unawaited(_activeFirstScreenRenderOperation?.cancel());
@@ -437,12 +451,38 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     _tryRecordFirstPageView();
   }
 
-  void _scheduleLaunchRender(String result) {
+  void _scheduleLaunchRender(
+    String result, {
+    StartupRequestDiagnostics? request,
+  }) {
     final revision = ++_launchRenderRevision;
+    AppStartupCoordinator.recordLaunchPageState(
+      page: 'home',
+      state: 'render_scheduled',
+      request: request,
+      renderResult: result,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_isPageActive || revision != _launchRenderRevision) {
+        AppStartupCoordinator.recordLaunchPageState(
+          page: 'home',
+          state: 'render_skipped',
+          reason: !mounted
+              ? 'page_disposed'
+              : !_isPageActive
+              ? 'page_not_active'
+              : 'superseded',
+          request: request,
+          renderResult: result,
+        );
         return;
       }
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'home',
+        state: 'render_observed',
+        request: request,
+        renderResult: result,
+      );
       AppStartupCoordinator.recordLaunchRender(page: 'home', result: result);
     });
   }
@@ -643,7 +683,15 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     if (!hasConfirmedSession) {
       final hasSession = await _readLocalLoginSessionBestEffort();
       if (hasSession == false) {
-        if (!mounted) return;
+        if (!mounted) {
+          AppStartupCoordinator.recordLaunchPageState(
+            page: 'home',
+            state: 'render_skipped',
+            reason: 'page_disposed',
+            request: _startupRequestDiagnostics,
+          );
+          return;
+        }
         setState(() {
           _items.clear();
           _clearDeleteState();
@@ -669,6 +717,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _isRefreshing = true;
     });
 
+    StartupRequestDiagnostics? startupRequest;
     FirebasePerformanceOperation? requestOperation;
     final shouldTrackFirstScreen = !_firstScreenRenderCompleted;
     if (shouldTrackFirstScreen) {
@@ -683,11 +732,16 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         return;
       }
       _activeFirstScreenRequestOperation = requestOperation;
+      startupRequest = AppStartupCoordinator.beginLaunchRequestDiagnostics(
+        page: 'home',
+      );
+      _startupRequestDiagnostics = startupRequest;
       AppStartupCoordinator.recordLaunchRequestStart(page: 'home');
     }
 
     try {
       final page = await _fetchPage(1);
+      startupRequest?.succeed();
       _hasCompletedInitialNetworkRefresh = true;
       if (!mounted) {
         unawaited(requestOperation?.cancel());
@@ -706,6 +760,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _startupInitialRetryTimer?.cancel();
       _startupInitialRetryTimer = null;
       if (onlyIfFirstPageChanged && !_firstPageWorldOrderChanged(page)) {
+        AppStartupCoordinator.recordLaunchPageState(
+          page: 'home',
+          state: 'content_unchanged',
+          request: startupRequest,
+        );
         setState(() {
           _isInitialLoading = false;
           _isRefreshing = false;
@@ -730,7 +789,15 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
           _activeFirstScreenRenderOperation = renderOperation;
         }
       }
-      if (!mounted) return;
+      if (!mounted) {
+        AppStartupCoordinator.recordLaunchPageState(
+          page: 'home',
+          state: 'render_skipped',
+          reason: 'page_disposed',
+          request: startupRequest,
+        );
+        return;
+      }
       setState(() {
         if (shouldReplaceItems) {
           _items
@@ -746,7 +813,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       });
       _markInitialContentReady();
       if (shouldTrackFirstScreen) {
-        _scheduleLaunchRender(page.items.isEmpty ? 'network_empty' : 'network');
+        _scheduleLaunchRender(
+          page.items.isEmpty ? 'network_empty' : 'network',
+          request: startupRequest,
+        );
       }
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
@@ -756,6 +826,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         if (mounted) await _scrollToTop();
       }
     } catch (error) {
+      startupRequest?.fail(error);
       if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
         _activeFirstScreenRequestOperation = null;
       }
@@ -768,8 +839,22 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
           result: 'failure',
         );
       }
-      if (!mounted) return;
+      if (!mounted) {
+        AppStartupCoordinator.recordLaunchPageState(
+          page: 'home',
+          state: 'render_skipped',
+          reason: 'page_disposed',
+          request: startupRequest,
+        );
+        return;
+      }
       if (_shouldKeepInitialNetworkFailureLoading(error)) {
+        AppStartupCoordinator.recordLaunchPageState(
+          page: 'home',
+          state: 'loading_retained',
+          reason: 'retry_pending',
+          request: startupRequest,
+        );
         setState(() {
           _error = null;
           _isInitialLoading = true;
@@ -784,7 +869,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         _isRefreshing = false;
       });
       if (shouldTrackFirstScreen && _items.isEmpty) {
-        _scheduleLaunchRender('network_error');
+        _scheduleLaunchRender('network_error', request: startupRequest);
       }
     }
   }
@@ -856,11 +941,40 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
 
   void _scheduleStartupInitialRetry() {
     if (_startupInitialRetryTimer?.isActive ?? false) return;
+    AppStartupCoordinator.recordLaunchPageState(
+      page: 'home',
+      state: 'retry_scheduled',
+      reason: 'initial_request_failure',
+      request: _startupRequestDiagnostics,
+      retryDelayMs: _homeInitialNetworkRetryDelay.inMilliseconds,
+    );
     _startupInitialRetryTimer = Timer(_homeInitialNetworkRetryDelay, () {
       _startupInitialRetryTimer = null;
-      if (!mounted || !widget.networkRequestsAllowed.value) return;
+      if (!mounted || !widget.networkRequestsAllowed.value) {
+        AppStartupCoordinator.recordLaunchPageState(
+          page: 'home',
+          state: 'retry_skipped',
+          reason: !mounted ? 'page_disposed' : 'network_requests_not_allowed',
+          request: _startupRequestDiagnostics,
+        );
+        return;
+      }
       final controller = _tabController;
-      if (controller == null || controller.index != widget.index) return;
+      if (controller == null || controller.index != widget.index) {
+        AppStartupCoordinator.recordLaunchPageState(
+          page: 'home',
+          state: 'retry_skipped',
+          reason: 'page_not_active',
+          request: _startupRequestDiagnostics,
+        );
+        return;
+      }
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'home',
+        state: 'retry_started',
+        reason: 'timer',
+        request: _startupRequestDiagnostics,
+      );
       unawaited(_refreshItems(force: true));
     });
   }

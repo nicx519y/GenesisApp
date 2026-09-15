@@ -12,6 +12,9 @@ OriginSummary _originSummaryFromV1ListItem(Map<String, dynamic> raw) {
   final mapUrl = mapUrlRaw.isNotEmpty ? resolveAssetUrl(mapUrlRaw) : cover;
 
   return OriginSummary(
+    ownerUser: _originUserInfoFromV1(
+      asOptionalJsonMap(origin['owner_user'] ?? raw['owner_user']),
+    ),
     id: asInt(origin['id'], fallback: _stableInt(oid)),
     oid: oid,
     name: asString(
@@ -78,6 +81,9 @@ MyWorldSummary _myWorldSummaryFromV1ListItem(Map<String, dynamic> raw) {
   );
 
   return MyWorldSummary(
+    ownerUser: _originUserInfoFromV1(
+      asOptionalJsonMap(world['owner_user'] ?? raw['owner_user']),
+    ),
     wid: wid,
     name: name,
     definitionVersion: asInt(world['definition_version']),
@@ -304,7 +310,7 @@ OriginDetail _originDetailFromV1(Map<String, dynamic> raw) {
       ? asJsonMap(raw['origin'])
       : asJsonMap(raw['info']);
   final ownerUser = origin['owner_user'] is Map
-      ? asJsonMap(origin['owner_user'])
+      ? asOptionalJsonMap(origin['owner_user'])
       : const <String, dynamic>{};
   final stats = raw['stats'] is Map ? asJsonMap(raw['stats']) : origin;
   final oid = asString(origin['oid'], fallback: asString(origin['origin_id']));

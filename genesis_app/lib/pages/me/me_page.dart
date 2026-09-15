@@ -309,7 +309,8 @@ class _MePageState extends State<MePage> with RouteAware {
                         displayNameListenable: _displayName,
                         // The crown now sits bare beside the name, so the
                         // 50x20 plate box it used to need is gone.
-                        displayNameTrailing: membership.isVip == true
+                        displayNameTrailing:
+                            !data.deleted && data.membershipStatus == 1
                             ? ProMembershipBadge.beside(
                                 key: const ValueKey('me-profile-crown-icon'),
                                 // The display name renders at 20.

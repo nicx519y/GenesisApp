@@ -20,13 +20,16 @@ class InitialLandingPageDecision {
 
 Future<InitialLandingPageDecision> resolveInitialLandingPage({
   required StartupUidLoader loadUid,
+  bool uidReadAlreadyBounded = false,
   StartupCacheLoader loadHomeCache = _loadHomeCache,
   StartupCacheLoader loadWorldoCache = _loadWorldoCache,
   Duration timeout = const Duration(seconds: 2),
 }) async {
   String? uid;
   try {
-    uid = await loadUid().timeout(timeout);
+    uid = uidReadAlreadyBounded
+        ? await loadUid()
+        : await loadUid().timeout(timeout);
   } catch (_) {
     return const InitialLandingPageDecision(
       index: 1,

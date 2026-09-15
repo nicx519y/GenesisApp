@@ -5,6 +5,7 @@ import '../../network/json_utils.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../common/genesis_image_viewer_overlay.dart';
 
 class OriginDiscussRepliesList extends StatelessWidget {
@@ -209,7 +210,9 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
       children: [
         TextSpan(text: authorName),
         ProUserBadge.span(
-          uid: uid,
+          membershipStatus: asUserMembershipStatus(
+            author?['membership_status'],
+          ),
           fontSize: 12,
           deleted: asBool(author?['deleted'] ?? json['author_deleted']),
         ),
@@ -225,7 +228,7 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
     children: [
       TextSpan(text: authorName),
       ProUserBadge.span(
-        uid: uid,
+        membershipStatus: asUserMembershipStatus(author?['membership_status']),
         fontSize: 12,
         deleted: asBool(author?['deleted'] ?? json['author_deleted']),
       ),
@@ -238,7 +241,15 @@ TextSpan _replyLineSpan(Map<String, dynamic> json) {
         text: replyToName,
         style: const TextStyle(color: Color(0xFF60636A)),
       ),
-      ProUserBadge.span(uid: replyToUid, fontSize: 12),
+      ProUserBadge.span(
+        membershipStatus: asUserMembershipStatus(
+          asOptionalJsonMap(json['reply_to_user'])['membership_status'],
+        ),
+        deleted: entityDeleted(
+          asOptionalJsonMap(json['reply_to_user'])['deleted'],
+        ),
+        fontSize: 12,
+      ),
       TextSpan(
         text: ': $content',
         style: const TextStyle(color: Color(0xFF111111)),

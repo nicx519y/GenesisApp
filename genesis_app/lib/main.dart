@@ -6,8 +6,7 @@ import 'package:flutter/widgets.dart';
 
 import 'app/bootstrap/app_bootstrap.dart';
 import 'app/bootstrap/service_registry.dart';
-import 'app/config/app_config.dart';
-import 'app/config/app_endpoint_overrides.dart';
+import 'app/startup/startup_endpoint_config.dart';
 import 'app/debug/origin_world_sheet_debug_settings.dart';
 import 'app/debug/world_new_content_debug_settings.dart';
 import 'app/genesis_app.dart';
@@ -15,6 +14,8 @@ import 'app/startup/app_startup_coordinator.dart';
 import 'app/startup/initial_landing_page_resolver.dart';
 import 'app/startup/ios_startup_network.dart';
 import 'app/startup/startup_dependency_guard.dart';
+import 'app/startup/startup_uid_resolution.dart';
+import 'platform/session/method_channel_user_session_store.dart';
 import 'app/telemetry/genesis_telemetry.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
@@ -32,13 +33,7 @@ const _startupSystemUiTimeout = Duration(seconds: 2);
 Future<void> main() async {
   AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
-  final appConfigLoad = AppEndpointOverrideStore.loadConfig().timeout(
-    const Duration(seconds: 2),
-    onTimeout: () {
-      debugPrint('[Startup] endpoint override load timed out; using defaults');
-      return const AppConfig();
-    },
-  );
+  final appConfigLoad = loadStartupEndpointConfig();
   final systemUiInitialization = waitForStartupDependency(
     GenesisSystemUi.initialize(),
     timeout: _startupSystemUiTimeout,
@@ -113,6 +108,7 @@ Future<void> main() async {
   final services = AppBootstrap.createInitialServices(config: appConfig);
   final startupUidResolution = _resolveStartupUid(services.sessionStore);
   final initialLandingPageFuture = resolveInitialLandingPage(
+    uidReadAlreadyBounded: true,
     loadUid: () async {
       final resolution = await startupUidResolution;
       if (resolution.readFailed) {
@@ -160,28 +156,22 @@ Future<void> main() async {
   );
 }
 
-typedef _StartupUidResolution = ({String? uid, bool readFailed});
-
-Future<_StartupUidResolution> _resolveStartupUid(
-  UserSessionStore sessionStore,
-) async {
-  try {
-    final uid = await sessionStore.readLoginUid().timeout(
-      const Duration(seconds: 2),
-    );
-    if (uid == null) {
-      GenesisTelemetry.clearUser();
-    } else {
-      GenesisTelemetry.setUserId(uid);
-    }
-    return (uid: uid, readFailed: false);
-  } catch (error, stackTrace) {
-    // A storage failure is not evidence that the user logged out. Keep any
-    // existing telemetry identity and let startup use the anonymous fallback.
-    debugPrint('[Startup] UID read failed: $error');
-    debugPrint('[Startup] stacktrace:\n$stackTrace');
-    return (uid: null, readFailed: true);
-  }
+Future<StartupUidResolution> _resolveStartupUid(UserSessionStore sessionStore) {
+  final nativeTiming = <String, Object>{};
+  return resolveStartupUid(
+    readUid: () => sessionStore is NativeUserSessionStore
+        ? sessionStore.readStartupLoginUid(nativeTiming)
+        : sessionStore.readLoginUid(),
+    nativeTiming: nativeTiming,
+    setTelemetryUser: (uid) {
+      if (uid == null) {
+        GenesisTelemetry.clearUser();
+      } else {
+        GenesisTelemetry.setUserId(uid);
+      }
+    },
+    recordDiagnostics: AppStartupCoordinator.recordLaunchUidResolution,
+  );
 }
 
 Future<void> _loadAppGlobalConfig(

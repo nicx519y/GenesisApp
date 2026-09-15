@@ -9,6 +9,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/startup/app_startup_coordinator.dart';
+import '../../app/startup/startup_request_diagnostics.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
@@ -446,7 +447,9 @@ class _OriginFeedState extends State<_OriginFeed>
   var _permissionPromptMayBeOpen = false;
   var _retryInitialLoadWhenFinished = false;
   var _hasRetriedInitialStartup = false;
+  Timer? _initialStartupRetryTimer;
   FirebasePerformanceOperation? _activeFirstScreenRequestOperation;
+  StartupRequestDiagnostics? _startupRequestDiagnostics;
   FirebasePerformanceOperation? _activeFirstScreenRenderOperation;
   var _firstScreenRequestAttempt = 0;
   var _firstScreenRenderCompleted = false;
@@ -512,6 +515,14 @@ class _OriginFeedState extends State<_OriginFeed>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_isPrimaryFeed) {
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'worldo',
+        state: 'lifecycle_changed',
+        reason: state.name,
+        request: _startupRequestDiagnostics,
+      );
+    }
     if (state != AppLifecycleState.resumed) {
       _clearExposureCandidates();
     } else if (_isCurrentTab && _items.isNotEmpty) {
@@ -537,9 +548,21 @@ class _OriginFeedState extends State<_OriginFeed>
     // permission transition. Retry once when the app is actually foregrounded.
     _permissionPromptMayBeOpen = false;
     if (_initialLoadInFlight) {
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'worldo',
+        state: 'retry_waiting',
+        reason: 'in_flight_on_resume',
+        request: _startupRequestDiagnostics,
+      );
       _retryInitialLoadWhenFinished = true;
       return;
     }
+    AppStartupCoordinator.recordLaunchPageState(
+      page: 'worldo',
+      state: 'retry_started',
+      reason: 'resumed',
+      request: _startupRequestDiagnostics,
+    );
     _hasRetriedInitialStartup = true;
     unawaited(_refreshItems());
   }
@@ -571,6 +594,15 @@ class _OriginFeedState extends State<_OriginFeed>
 
   @override
   void dispose() {
+    _startupRequestDiagnostics?.cancel('page_disposed');
+    if (_isPrimaryFeed) {
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'worldo',
+        state: 'page_disposed',
+        request: _startupRequestDiagnostics,
+      );
+    }
+    _initialStartupRetryTimer?.cancel();
     if (_activeFirstScreenRequestOperation != null) {
       AppStartupCoordinator.recordLaunchRequestEnd(
         page: 'worldo',
@@ -590,6 +622,17 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _resetListState() {
+    _startupRequestDiagnostics?.cancel('feed_reset');
+    if (_isPrimaryFeed) {
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'worldo',
+        state: 'feed_reset',
+        request: _startupRequestDiagnostics,
+      );
+    }
+    _startupRequestDiagnostics = null;
+    _initialStartupRetryTimer?.cancel();
+    _initialStartupRetryTimer = null;
     _clearExposureCandidates();
     _exposureQueueFlushTimer?.cancel();
     _exposureQueueFlushTimer = null;
@@ -647,13 +690,43 @@ class _OriginFeedState extends State<_OriginFeed>
   void _scheduleLaunchRender(
     String result, {
     bool supersedePendingRender = true,
+    StartupRequestDiagnostics? request,
   }) {
     if (!_isPrimaryFeed) return;
     if (supersedePendingRender) _launchRenderRevision += 1;
     final revision = _launchRenderRevision;
+    if (_isPrimaryFeed) {
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'worldo',
+        state: 'render_scheduled',
+        request: request,
+        renderResult: result,
+      );
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_isCurrentTab || revision != _launchRenderRevision) {
+        if (_isPrimaryFeed) {
+          AppStartupCoordinator.recordLaunchPageState(
+            page: 'worldo',
+            state: 'render_skipped',
+            reason: !mounted
+                ? 'page_disposed'
+                : !_isCurrentTab
+                ? 'page_not_active'
+                : 'superseded',
+            request: request,
+            renderResult: result,
+          );
+        }
         return;
+      }
+      if (_isPrimaryFeed) {
+        AppStartupCoordinator.recordLaunchPageState(
+          page: 'worldo',
+          state: 'render_observed',
+          request: request,
+          renderResult: result,
+        );
       }
       AppStartupCoordinator.recordLaunchRender(page: 'worldo', result: result);
     });
@@ -800,6 +873,8 @@ class _OriginFeedState extends State<_OriginFeed>
 
   Future<void> _refreshItems() async {
     if (_initialLoadInFlight) return;
+    _initialStartupRetryTimer?.cancel();
+    _initialStartupRetryTimer = null;
     _clearExposureCandidates();
     _initialLoadInFlight = _isPrimaryFeed && !_initialLoadCompleted;
     setState(() {
@@ -808,6 +883,7 @@ class _OriginFeedState extends State<_OriginFeed>
       _isRefreshing = true;
     });
 
+    StartupRequestDiagnostics? startupRequest;
     FirebasePerformanceOperation? requestOperation;
     final shouldTrackFirstScreen =
         _isPrimaryFeed && !_firstScreenRenderCompleted;
@@ -826,10 +902,15 @@ class _OriginFeedState extends State<_OriginFeed>
     }
 
     if (shouldTrackFirstScreen) {
+      startupRequest = AppStartupCoordinator.beginLaunchRequestDiagnostics(
+        page: 'worldo',
+      );
+      _startupRequestDiagnostics = startupRequest;
       AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
     }
     try {
       final page = await _fetchPage(1, startScore: 0);
+      startupRequest?.succeed();
       if (!mounted) {
         unawaited(requestOperation?.cancel());
         return;
@@ -863,7 +944,17 @@ class _OriginFeedState extends State<_OriginFeed>
           _activeFirstScreenRenderOperation = renderOperation;
         }
       }
-      if (!mounted) return;
+      if (!mounted) {
+        if (_isPrimaryFeed) {
+          AppStartupCoordinator.recordLaunchPageState(
+            page: 'worldo',
+            state: 'render_skipped',
+            reason: 'page_disposed',
+            request: startupRequest,
+          );
+        }
+        return;
+      }
       setState(() {
         _items
           ..clear()
@@ -882,16 +973,21 @@ class _OriginFeedState extends State<_OriginFeed>
       _scheduleFeedPaginationContinuation();
       _scheduleVisibilityFlush();
       widget.onFirstPageReady?.call();
-      _scheduleLaunchRender(page.items.isEmpty ? 'network_empty' : 'network');
+      _scheduleLaunchRender(
+        page.items.isEmpty ? 'network_empty' : 'network',
+        request: startupRequest,
+      );
       if (renderOperation != null) {
         _scheduleFirstScreenRenderCompletion(renderOperation);
       }
       _initialLoadInFlight = false;
+      _retryInitialLoadWhenFinished = false;
       if (_isPrimaryFeed) {
         _initialLoadCompleted = true;
         widget.onInitialLoadCompleted?.call();
       }
     } catch (error) {
+      startupRequest?.fail(error);
       if (identical(_activeFirstScreenRequestOperation, requestOperation)) {
         _activeFirstScreenRequestOperation = null;
       }
@@ -902,21 +998,94 @@ class _OriginFeedState extends State<_OriginFeed>
         page: 'worldo',
         result: 'failure',
       );
-      if (!mounted) return;
+      if (!mounted) {
+        if (_isPrimaryFeed) {
+          AppStartupCoordinator.recordLaunchPageState(
+            page: 'worldo',
+            state: 'render_skipped',
+            reason: 'page_disposed',
+            request: startupRequest,
+          );
+        }
+        return;
+      }
       final shouldRetryAfterResume = _retryInitialLoadWhenFinished;
       _retryInitialLoadWhenFinished = false;
       _initialLoadInFlight = false;
+      if (shouldRetryAfterResume) {
+        if (_isPrimaryFeed) {
+          AppStartupCoordinator.recordLaunchPageState(
+            page: 'worldo',
+            state: 'retry_started',
+            reason: 'resumed',
+            request: startupRequest,
+          );
+        }
+        _hasRetriedInitialStartup = true;
+        unawaited(_refreshItems());
+        return;
+      }
       final keepInitialStartupSkeleton =
           _isPrimaryFeed &&
           widget.isInitialPage &&
+          _items.isEmpty &&
           !_hasRetriedInitialStartup &&
           !_hasCompletedFirstPageNetworkRequest;
       if (_permissionPromptMayBeOpen || keepInitialStartupSkeleton) {
+        if (_isPrimaryFeed) {
+          AppStartupCoordinator.recordLaunchPageState(
+            page: 'worldo',
+            state: _items.isEmpty ? 'loading_retained' : 'content_retained',
+            reason: _permissionPromptMayBeOpen
+                ? 'lifecycle_inactive_suspected_prompt'
+                : 'retry_pending',
+            request: startupRequest,
+          );
+        }
         setState(() {
           _error = null;
-          _isInitialLoading = true;
+          _isInitialLoading = _items.isEmpty;
           _isRefreshing = false;
         });
+        if (!_permissionPromptMayBeOpen) {
+          if (_isPrimaryFeed) {
+            AppStartupCoordinator.recordLaunchPageState(
+              page: 'worldo',
+              state: 'retry_scheduled',
+              reason: 'initial_request_failure',
+              request: startupRequest,
+              retryDelayMs: 2000,
+            );
+          }
+          _initialStartupRetryTimer = Timer(const Duration(seconds: 2), () {
+            _initialStartupRetryTimer = null;
+            if (!mounted ||
+                _permissionPromptMayBeOpen ||
+                _initialLoadCompleted) {
+              AppStartupCoordinator.recordLaunchPageState(
+                page: 'worldo',
+                state: 'retry_skipped',
+                reason: !mounted
+                    ? 'page_disposed'
+                    : _permissionPromptMayBeOpen
+                    ? 'lifecycle_inactive_suspected_prompt'
+                    : 'content_ready',
+                request: startupRequest,
+              );
+              return;
+            }
+            if (_isPrimaryFeed) {
+              AppStartupCoordinator.recordLaunchPageState(
+                page: 'worldo',
+                state: 'retry_started',
+                reason: 'timer',
+                request: startupRequest,
+              );
+            }
+            _hasRetriedInitialStartup = true;
+            unawaited(_refreshItems());
+          });
+        }
         return;
       }
       setState(() {
@@ -924,12 +1093,12 @@ class _OriginFeedState extends State<_OriginFeed>
         _isInitialLoading = false;
         _isRefreshing = false;
       });
-      _scheduleLaunchRender('network_error', supersedePendingRender: false);
+      _scheduleLaunchRender(
+        'network_error',
+        supersedePendingRender: false,
+        request: startupRequest,
+      );
       if (_items.isNotEmpty) _scheduleVisibilityFlush();
-      if (shouldRetryAfterResume && mounted) {
-        _hasRetriedInitialStartup = true;
-        unawaited(_refreshItems());
-      }
     }
   }
 
@@ -1214,7 +1383,9 @@ class _OriginFeedState extends State<_OriginFeed>
 
     if (!_hasRequested ||
         _isInitialLoading ||
-        (_permissionPromptMayBeOpen && !_initialLoadCompleted)) {
+        (_permissionPromptMayBeOpen &&
+            !_initialLoadCompleted &&
+            _items.isEmpty)) {
       return const GenesisListLoadingSkeleton.originGrid();
     }
 

@@ -9,57 +9,60 @@ import 'package:genesis_flutter_android/network/models/gem_task_action.dart';
 void main() {
   tearDown(GenesisTelemetry.resetForTesting);
 
-  testWidgets('daily check-in reports and claims with one user action', (
-    tester,
-  ) async {
-    final telemetry = _CapturingTelemetrySink();
-    GenesisTelemetry.setSinkForTesting(telemetry);
-    var reportCalls = 0;
-    var claimCalls = 0;
-    var refreshCalls = 0;
+  for (final initialStatus in ['in_progress', 'claimable']) {
+    testWidgets(
+      'daily check-in completes $initialStatus with one Check in action',
+      (tester) async {
+        final telemetry = _CapturingTelemetrySink();
+        GenesisTelemetry.setSinkForTesting(telemetry);
+        var reportCalls = 0;
+        var claimCalls = 0;
+        var refreshCalls = 0;
 
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Builder(
-          builder: (context) => TextButton(
-            onPressed: () => runDailyCheckInFlow(
-              context,
-              task: _dailyTask(status: 'in_progress'),
-              reportTask: () async {
-                reportCalls += 1;
-                return const GemTaskActionResult(status: 'claimable');
-              },
-              claimTask: () async {
-                claimCalls += 1;
-                return const GemTaskActionResult(status: 'claimed');
-              },
-              refreshWallet: () async {
-                refreshCalls += 1;
-              },
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => runDailyCheckInFlow(
+                  context,
+                  task: _dailyTask(status: initialStatus),
+                  reportTask: () async {
+                    reportCalls += 1;
+                    return const GemTaskActionResult(status: 'claimable');
+                  },
+                  claimTask: () async {
+                    claimCalls += 1;
+                    return const GemTaskActionResult(status: 'claimed');
+                  },
+                  refreshWallet: () async {
+                    refreshCalls += 1;
+                  },
+                ),
+                child: const Text('Login complete'),
+              ),
             ),
-            child: const Text('Login complete'),
           ),
-        ),
-      ),
+        );
+
+        await tester.tap(find.text('Login complete'));
+        await tester.pumpAndSettle();
+        expect(find.text('Check in'), findsOneWidget);
+
+        await tester.tap(find.text('Check in'));
+        await tester.pumpAndSettle();
+        expect(reportCalls, initialStatus == 'in_progress' ? 1 : 0);
+        expect(claimCalls, 1);
+        expect(refreshCalls, 1);
+        expect(find.text('Claim'), findsNothing);
+        expect(find.text('Check in successful!'), findsOneWidget);
+        _expectTaskClaimedEvent(telemetry, dailyCheckInTaskCode);
+
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+        expect(find.text('Check in successful!'), findsNothing);
+      },
     );
-
-    await tester.tap(find.text('Login complete'));
-    await tester.pumpAndSettle();
-    expect(find.text('Check in'), findsOneWidget);
-
-    await tester.tap(find.text('Check in'));
-    await tester.pumpAndSettle();
-    expect(reportCalls, 1);
-    expect(claimCalls, 1);
-    expect(refreshCalls, 1);
-    expect(find.text('Claim'), findsNothing);
-    expect(find.text('Check in successful!'), findsOneWidget);
-    _expectTaskClaimedEvent(telemetry, dailyCheckInTaskCode);
-
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pumpAndSettle();
-    expect(find.text('Check in successful!'), findsNothing);
-  });
+  }
 
   testWidgets('claimed daily check-in does not show after login', (
     tester,

@@ -1790,7 +1790,7 @@ void main() {
         await tester.tap(
           find.descendant(
             of: find.byWidgetPredicate((widget) => widget is GenesisActionBox),
-            matching: find.text(status == 'claimable' ? 'Claim' : 'Check in'),
+            matching: find.text('Check in'),
           ),
         );
         await tester.pumpAndSettle();
@@ -2070,7 +2070,7 @@ void main() {
     await tester.tap(
       find.descendant(
         of: find.byWidgetPredicate((widget) => widget is GenesisActionBox),
-        matching: find.text('Claim'),
+        matching: find.text('Check in'),
       ),
     );
     await tester.pump();

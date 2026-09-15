@@ -99,6 +99,9 @@ class OriginDiscussListItem {
     this.worldId = '',
     this.authorUid = '',
     this.authorDeleted = false,
+    this.authorGender = '',
+    this.authorAge = '',
+    this.authorMembershipStatus = 0,
     required this.authorName,
     required this.avatar,
     required this.content,
@@ -144,6 +147,11 @@ class OriginDiscussListItem {
       fallback: formatUidForDisplay(uid, fallback: 'User'),
     );
     return OriginDiscussListItem(
+      authorGender: asString(author?['gender']),
+      authorAge: asString(author?['age']),
+      authorMembershipStatus: asUserMembershipStatus(
+        author?['membership_status'],
+      ),
       discussId: asString(json['discuss_id']),
       rootDiscussId: asString(json['root_discuss_id']),
       bizId: asString(json['biz_id']),
@@ -180,6 +188,9 @@ class OriginDiscussListItem {
   final String worldId;
   final String authorUid;
   final bool authorDeleted;
+  final String authorGender;
+  final String authorAge;
+  final int authorMembershipStatus;
   final String authorName;
   final String avatar;
   final String content;
@@ -214,6 +225,9 @@ class OriginDiscussListItem {
       worldId: worldId ?? this.worldId,
       authorUid: authorUid,
       authorDeleted: authorDeleted,
+      authorGender: authorGender,
+      authorAge: authorAge,
+      authorMembershipStatus: authorMembershipStatus,
       authorName: authorName,
       avatar: avatar,
       content: content,

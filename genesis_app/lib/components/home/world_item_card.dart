@@ -3,6 +3,7 @@ import '../../ui/tokens/genesis_colors.dart';
 
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../network/models/origin.dart';
 import '../../components/common/genesis_timestamp_text.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_world_list_card_layout.dart';
@@ -24,6 +25,7 @@ bool _isUsableWorldCardTimestamp(String value) {
 @immutable
 class WorldListItem {
   const WorldListItem({
+    this.ownerUser = const OriginUserInfo(),
     required this.oid,
     required this.originVersionNum,
     required this.originVersionCreateAt,
@@ -74,6 +76,9 @@ class WorldListItem {
       fallback: asString(info['world_name'], fallback: wid),
     );
     return WorldListItem(
+      ownerUser: OriginUserInfo.fromJson(
+        asOptionalJsonMap(info['owner_user'] ?? json['owner_user']),
+      ),
       oid: asString(info['oid'], fallback: asString(info['origin_id'])),
       originVersionNum: asInt(info['origin_version_num']),
       originVersionCreateAt: asString(
@@ -142,6 +147,7 @@ class WorldListItem {
     );
   }
 
+  final OriginUserInfo ownerUser;
   final String oid;
   final int originVersionNum;
   final String originVersionCreateAt;

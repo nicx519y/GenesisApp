@@ -22,7 +22,8 @@ class _SearchResultTile extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           ProUserName(
-            uid: isUser ? item.userV2!.uid : '',
+            membershipStatus: isUser ? item.userV2!.membershipStatus : 0,
+            deleted: isUser && item.userV2!.deleted,
             fontSize: 14,
             child: Text.rich(
               _searchResultTitleSpan(item),
@@ -166,7 +167,8 @@ class _OriginSearchMetadata extends StatelessWidget {
           style: _searchMetadataStyle,
         ),
       ProUserName(
-        uid: origin.owner.uid,
+        membershipStatus: origin.owner.membershipStatus,
+        deleted: origin.owner.deleted,
         fontSize: 12,
         child: Text(
           'Creator: ${formatUidForDisplay(origin.owner.name, fallback: '-')}',
@@ -221,7 +223,8 @@ class _WorldSearchMetadata extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         ProUserName(
-          uid: world.owner.uid,
+          membershipStatus: world.owner.membershipStatus,
+          deleted: world.owner.deleted,
           fontSize: 12,
           child: Text(
             'Owner: $owner',

@@ -1,0 +1,50 @@
+[
+  {
+    "code": "monthly_gems_total",
+    "title": "Up to 3,500 Gems Monthly",
+    "icon_key": "gem",
+    "display_type": "enhanced"
+  },
+  {
+    "code": "story_recap",
+    "title": "Story Recap the AI Remembers beyond Memory",
+    "icon_key": "memory",
+    "display_type": "enhanced"
+  },
+  {
+    "code": "monthly_bonus_gems",
+    "title": "Free 2,000 Pink Gems per Month",
+    "icon_key": "pink_gem",
+    "display_type": "enhanced"
+  },
+  {
+    "code": "daily_check_in_bonus_gems",
+    "title": "Free 50 Extra Red Gems per Daily Check-in",
+    "icon_key": "red_gem",
+    "display_type": "enhanced"
+  },
+  {
+    "code": "unlimited_inspirations",
+    "title": "Unlimited Inspirations",
+    "icon_key": "inspiration",
+    "display_type": "enhanced"
+  },
+  {
+    "code": "edit_ai_replies",
+    "title": "Unlimited Editing",
+    "icon_key": "edit",
+    "display_type": "enhanced"
+  },
+  {
+    "code": "premium_badge",
+    "title": "Exclusive Premium Badge",
+    "icon_key": "badge",
+    "display_type": "included"
+  },
+  {
+    "code": "gem_recharge",
+    "title": "Gem Recharge",
+    "icon_key": "gem",
+    "display_type": "included"
+  }
+]
