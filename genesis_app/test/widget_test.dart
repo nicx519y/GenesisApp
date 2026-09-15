@@ -8579,7 +8579,7 @@ void main() {
   }
 
   testWidgets(
-    'Origin uses arriving guest personalization then switches to userInfo on login',
+    'Origin waits for guest personalization then switches to userInfo on login',
     (tester) async {
       final transport = _RecordingV1ListTransport();
       final session = MemoryUserSessionStore();
@@ -8599,25 +8599,28 @@ void main() {
         initialUid: null,
         sessionStoreOverride: session,
         personalization: personalization,
+        appGlobalConfig: AppGlobalConfigStore(
+          loadConfig: ({uid}) async => {'show_personalization_form': true},
+          initialValue: const AppGlobalConfig(showPersonalizationForm: true),
+        ),
       );
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(services: services, child: const OriginPage()),
         ),
       );
-      await tester.pumpAndSettle();
+      await tester.pump();
       expect(loads, 0);
-      expect(
-        transport
-            .requestsFor('/api/v1/origin/feed')
-            .last
-            .uri
-            .queryParameters
-            .containsKey('gender'),
-        isFalse,
-      );
+      expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
 
       final loading = personalization.start();
+      await tester.pump(const Duration(seconds: 3));
+      expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+      await tester.tap(find.text('Destroyed'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
+      await tester.tap(find.text('For you'));
+      await tester.pump(const Duration(milliseconds: 500));
       response.complete(
         const PersonalizationData(
           profile: PersonalizationProfile(
@@ -8630,6 +8633,7 @@ void main() {
       );
       await loading;
       await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
       expect(
         transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
         {'start_score': '0', 'rn': '10', 'gender': 'Female'},
@@ -9074,6 +9078,391 @@ void main() {
     expect(find.text('#Origin 1'), findsOneWidget);
     expect(forYouFirstPageReadyCount, 2);
   });
+
+  for (final emptyCache in [false, true]) {
+    testWidgets(
+      'Origin keeps cache visible while config and gender resolve: empty=$emptyCache',
+      (tester) async {
+        final cachedContent = find.text(emptyCache ? 'No data' : '#Origin 51');
+        final feedResponse = Completer<TransportResponse>();
+        final transport = _RecordingV1ListTransport(
+          originListCompleter: feedResponse,
+        );
+        const cache = OriginFeedCacheStore(
+          ownerUid: OriginFeedCacheStore.anonymousOwnerUid,
+        );
+        await cache.saveForYouFirstPage({
+          'list': [if (!emptyCache) transport._originItem(50)],
+          'rn': 10,
+          'next_score': 99,
+          'has_more': true,
+        });
+        final session = MemoryUserSessionStore();
+        final profileResponse = Completer<PersonalizationData>();
+        final personalization = PersonalizationStore(
+          readLoginUid: session.readLoginUid,
+          load: () => profileResponse.future,
+          save: (profile) async => profile,
+        );
+        final configResponse = Completer<Map<String, dynamic>>();
+        final config = AppGlobalConfigStore(
+          loadConfig: ({uid}) => configResponse.future,
+        );
+        final configLoading = config.refresh();
+        final services = await _testServices(
+          initialUid: null,
+          sessionStoreOverride: session,
+          transport: transport,
+          useMock: false,
+          appGlobalConfig: config,
+          personalization: personalization,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppServicesScope(
+              services: services,
+              child: const OriginPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(cachedContent, findsOneWidget);
+        expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+        configResponse.complete({'show_personalization_form': true});
+        await configLoading;
+        final profileLoading = personalization.start();
+        await tester.pump(const Duration(seconds: 3));
+        expect(cachedContent, findsOneWidget);
+        expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+        profileResponse.complete(
+          const PersonalizationData(
+            profile: PersonalizationProfile(
+              gender: 'Male',
+              age: '18-24',
+              completed: true,
+            ),
+            form: [],
+          ),
+        );
+        await profileLoading;
+        await tester.pumpAndSettle();
+        final requests = transport.requestsFor('/api/v1/origin/feed');
+        expect(requests, hasLength(1));
+        expect(requests.single.uri.queryParameters, {
+          'start_score': '0',
+          'rn': '10',
+          'gender': 'Female',
+        });
+        expect(cachedContent, findsOneWidget);
+        feedResponse.complete(
+          transport._jsonResponse({
+            'err_no': 0,
+            'data': {
+              'list': [transport._originItem(0)],
+              'next_score': 1,
+              'has_more': false,
+            },
+          }),
+        );
+        await tester.pumpAndSettle();
+        expect(cachedContent, findsNothing);
+        expect(find.text('#Origin 1'), findsOneWidget);
+        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+        final saved = await const OriginFeedCacheStore(
+          ownerUid: OriginFeedCacheStore.anonymousOwnerUid,
+          gender: 'Female',
+        ).loadForYouFirstPage();
+        expect(saved!['next_score'], 1);
+        expect((await cache.loadForYouFirstPage())!['next_score'], 99);
+      },
+    );
+  }
+
+  for (final profileGender in ['Female', 'Male']) {
+    testWidgets(
+      'Origin restores cached gender without requesting the cached audience: $profileGender',
+      (tester) async {
+        final semantics = tester.ensureSemantics();
+        final transport = _RecordingV1ListTransport();
+        const cache = OriginFeedCacheStore(
+          ownerUid: OriginFeedCacheStore.anonymousOwnerUid,
+          gender: 'Male',
+        );
+        await cache.saveLastConfirmedGender('Male');
+        await cache.saveForYouFirstPage({
+          'list': [transport._originItem(50)],
+          'next_score': 99,
+          'has_more': true,
+        });
+        final session = MemoryUserSessionStore();
+        final response = Completer<PersonalizationData>();
+        final personalization = PersonalizationStore(
+          readLoginUid: session.readLoginUid,
+          load: () => response.future,
+          save: (profile) async => profile,
+        );
+        final loading = personalization.start();
+        final services = await _testServices(
+          initialUid: null,
+          sessionStoreOverride: session,
+          transport: transport,
+          useMock: false,
+          personalization: personalization,
+          appGlobalConfig: AppGlobalConfigStore(
+            loadConfig: ({uid}) async => {'show_personalization_form': true},
+            initialValue: const AppGlobalConfig(showPersonalizationForm: true),
+          ),
+        );
+        final filter = find.byKey(const ValueKey('origin-gender-filter'));
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppServicesScope(
+              services: services,
+              child: const OriginPage(),
+            ),
+          ),
+        );
+        expect(
+          tester.getSemantics(filter).getSemanticsData().label,
+          isNot(contains('All')),
+        );
+        semantics.dispose();
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(of: filter, matching: find.text('Male')),
+          findsOneWidget,
+        );
+        expect(find.text('#Origin 51'), findsOneWidget);
+        expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+        response.complete(
+          PersonalizationData(
+            profile: PersonalizationProfile(
+              gender: profileGender,
+              age: '18-24',
+              completed: true,
+            ),
+            form: const [],
+          ),
+        );
+        await loading;
+        await tester.pumpAndSettle();
+        final expectedGender = profileGender == 'Female' ? 'Male' : 'Female';
+        expect(
+          find.descendant(of: filter, matching: find.text(expectedGender)),
+          findsOneWidget,
+        );
+        expect(find.text('#Origin 51'), findsNothing);
+        final requests = transport.requestsFor('/api/v1/origin/feed');
+        expect(requests, hasLength(1));
+        expect(requests.single.uri.queryParameters, {
+          'start_score': '0',
+          'rn': '10',
+          'gender': expectedGender,
+        });
+        expect(await cache.loadLastConfirmedGender(), expectedGender);
+      },
+    );
+  }
+
+  for (final selected in ['', 'Male', 'Female', 'Non_binary']) {
+    testWidgets(
+      'Origin keeps manual gender across page and service recreation: $selected',
+      (tester) async {
+        final session = MemoryUserSessionStore();
+        final initialServices = await _testServices(
+          initialUid: null,
+          sessionStoreOverride: session,
+          transport: _RecordingV1ListTransport(),
+          useMock: false,
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppServicesScope(
+              services: initialServices,
+              child: const OriginPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(ValueKey('origin-gender-option-$selected')),
+        );
+        await tester.pumpAndSettle();
+        expect(await const OriginFeedCacheStore().loadManualGender(), selected);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+
+        final profileResponse = Completer<PersonalizationData>();
+        final personalization = PersonalizationStore(
+          readLoginUid: session.readLoginUid,
+          load: () => profileResponse.future,
+          save: (profile) async => profile,
+        );
+        final loading = personalization.start();
+        final transport = _RecordingV1ListTransport();
+        final services = await _testServices(
+          initialUid: null,
+          sessionStoreOverride: session,
+          transport: transport,
+          useMock: false,
+          personalization: personalization,
+          appGlobalConfig: AppGlobalConfigStore(
+            loadConfig: ({uid}) async => {'show_personalization_form': true},
+            initialValue: const AppGlobalConfig(showPersonalizationForm: true),
+          ),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppServicesScope(
+              services: services,
+              child: const OriginPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final requests = transport.requestsFor('/api/v1/origin/feed');
+        expect(requests, hasLength(1));
+        expect(requests.single.uri.queryParameters, {
+          'start_score': '0',
+          'rn': '10',
+          if (selected.isNotEmpty) 'gender': selected,
+        });
+        final label = selected.isEmpty
+            ? 'All'
+            : selected == 'Non_binary'
+            ? 'Non binary'
+            : selected;
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('origin-gender-filter')),
+            matching: find.text(label),
+          ),
+          findsOneWidget,
+        );
+        profileResponse.complete(
+          PersonalizationData(
+            profile: PersonalizationProfile(
+              gender: selected == 'Male' ? 'Male' : 'Female',
+              age: '18-24',
+              completed: true,
+            ),
+            form: const [],
+          ),
+        );
+        await loading;
+        await tester.pumpAndSettle();
+        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+        expect(await const OriginFeedCacheStore().loadManualGender(), selected);
+        await tester.tap(find.text('Destroyed'));
+        await tester.pumpAndSettle();
+        final tag = transport.requestsFor('/api/v1/origin/list').last;
+        expect(
+          tag.uri.queryParameters['gender'],
+          selected.isEmpty ? null : selected,
+        );
+      },
+    );
+  }
+
+  testWidgets('Origin restores manual gender only for its owner', (
+    tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    final services = await _testServices(
+      initialUid: 'u_one',
+      initialUserInfo: {'uid': 'u_one', 'gender': 'Male'},
+      transport: transport,
+      useMock: false,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(services: services, child: const OriginPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('origin-gender-option-Male')));
+    await tester.pumpAndSettle();
+    for (final owner in ['u_two', 'u_one']) {
+      await services.sessionStore.saveUid(owner);
+      await services.sessionStore.saveUserInfo({
+        'uid': owner,
+        'gender': 'Male',
+      });
+      await tester.pumpAndSettle();
+      expect(
+        transport
+            .requestsFor('/api/v1/origin/feed')
+            .last
+            .uri
+            .queryParameters['gender'],
+        owner == 'u_one' ? 'Male' : 'Female',
+      );
+    }
+  });
+
+  testWidgets(
+    'Origin manual All bypasses pending profile without a later refresh',
+    (tester) async {
+      final session = MemoryUserSessionStore();
+      final profileResponse = Completer<PersonalizationData>();
+      final personalization = PersonalizationStore(
+        readLoginUid: session.readLoginUid,
+        load: () => profileResponse.future,
+        save: (profile) async => profile,
+      );
+      final loading = personalization.start();
+      final transport = _RecordingV1ListTransport();
+      final services = await _testServices(
+        initialUid: null,
+        sessionStoreOverride: session,
+        transport: transport,
+        useMock: false,
+        personalization: personalization,
+        appGlobalConfig: AppGlobalConfigStore(
+          loadConfig: ({uid}) async => {'show_personalization_form': true},
+          initialValue: const AppGlobalConfig(showPersonalizationForm: true),
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(services: services, child: const OriginPage()),
+        ),
+      );
+      await tester.pump();
+      expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+      await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.tap(find.byKey(const ValueKey('origin-gender-option-')));
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+      expect(
+        transport
+            .requestsFor('/api/v1/origin/feed')
+            .single
+            .uri
+            .queryParameters
+            .containsKey('gender'),
+        isFalse,
+      );
+      profileResponse.complete(
+        const PersonalizationData(
+          profile: PersonalizationProfile(
+            gender: 'Male',
+            age: '18-24',
+            completed: true,
+          ),
+          form: [],
+        ),
+      );
+      await loading;
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+    },
+  );
 
   testWidgets(
     'Home My Worlds requests v1 world list with mine scene on enter',

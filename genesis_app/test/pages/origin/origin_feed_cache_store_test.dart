@@ -9,6 +9,71 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
+  test('remembers the displayed gender separately for each owner', () async {
+    const guest = OriginFeedCacheStore();
+    const alice = OriginFeedCacheStore(ownerUid: 'u_alice');
+    const bob = OriginFeedCacheStore(ownerUid: 'u_bob');
+    expect(await guest.loadLastConfirmedGender(), isNull);
+    await guest.saveLastConfirmedGender('Male');
+    await alice.saveLastConfirmedGender('Female');
+    expect(
+      await const OriginFeedCacheStore().loadLastConfirmedGender(),
+      'Male',
+    );
+    expect(await alice.loadLastConfirmedGender(), 'Female');
+    expect(await bob.loadLastConfirmedGender(), isNull);
+    await alice.saveLastConfirmedGender(null);
+    expect(await alice.loadLastConfirmedGender(), '');
+    expect(await guest.loadLastConfirmedGender(), 'Male');
+    await alice.saveLastConfirmedGender('Non_binary');
+    expect(await alice.loadLastConfirmedGender(), 'Non_binary');
+  });
+
+  test('ignores an invalid cached gender', () async {
+    const store = OriginFeedCacheStore(ownerUid: 'u_alice');
+    for (final value in <Object>['Unknown', 3]) {
+      SharedPreferences.setMockInitialValues({
+        'origin_feed_gender_v1.u_alice': value,
+      });
+      expect(await store.loadLastConfirmedGender(), isNull);
+    }
+  });
+
+  test(
+    'manual choice is persistent and separate from the automatic hint',
+    () async {
+      const alice = OriginFeedCacheStore(ownerUid: 'u_alice');
+      const bob = OriginFeedCacheStore(ownerUid: 'u_bob');
+      const guest = OriginFeedCacheStore();
+      await alice.saveLastConfirmedGender('Male');
+      expect(await alice.loadManualGender(), isNull);
+      for (final gender in ['', 'Male', 'Female', 'Non_binary']) {
+        await alice.saveManualGender(gender);
+        await alice.saveLastConfirmedGender('Female');
+        expect(
+          await const OriginFeedCacheStore(
+            ownerUid: 'u_alice',
+          ).loadManualGender(),
+          gender,
+        );
+        expect(await bob.loadManualGender(), isNull);
+        expect(await guest.loadManualGender(), isNull);
+      }
+      await guest.saveManualGender('');
+      expect(await const OriginFeedCacheStore().loadManualGender(), '');
+    },
+  );
+
+  test('invalid manual choice does not override automatic targeting', () async {
+    SharedPreferences.setMockInitialValues({
+      'origin_feed_manual_gender_v1.u_alice': 'invalid',
+    });
+    expect(
+      await const OriginFeedCacheStore(ownerUid: 'u_alice').loadManualGender(),
+      isNull,
+    );
+  });
+
   test('stores For you first page per owner', () async {
     const aliceStore = OriginFeedCacheStore(ownerUid: 'u_alice');
     const bobStore = OriginFeedCacheStore(ownerUid: 'u_bob');
