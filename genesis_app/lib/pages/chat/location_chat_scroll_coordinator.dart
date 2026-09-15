@@ -202,6 +202,17 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     });
   }
 
+  /// Stop a generated-reply hold without pulling a manually detached reader.
+  void releaseWaitingReplyPosition() {
+    if (_disposed || !_holdingReplyPosition) return;
+    _holdingReplyPosition = false;
+    _userScrollIncludesTemporaryTail = false;
+    requestBottom(
+      reason: LocationChatBottomReason.replyGeneration,
+      behavior: LocationChatBottomBehavior.jump,
+    );
+  }
+
   /// Reveal the entire edited row when it fits, otherwise keep its end visible.
   void revealEditedMessage({
     required BuildContext messageContext,
@@ -427,6 +438,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.loadingAfterMessageLocalId,
     this.loadingIdentity,
     this.goOnAwaitingContentIdentity,
+    this.replyWaitingPositioningEnabled = true,
     this.replyViewportReserveFraction =
         LocationChatBubbleLayoutSettings.defaultReplyViewportReserveFraction,
     this.active = true,
@@ -477,6 +489,9 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
 
   /// Accepted Go On waiting for its first non-empty rendered reply.
   final String? goOnAwaitingContentIdentity;
+
+  /// Whether Send, Go On and Regenerate hold a waiting anchor above the tail.
+  final bool replyWaitingPositioningEnabled;
 
   /// Portion below the reply anchor, shared by Send, Go On and Regenerate.
   final double replyViewportReserveFraction;
@@ -642,7 +657,8 @@ class _LocationChatAnchoredMessageListState
 
   void _retainExtentOnStreamCompletion() {
     final coordinator = widget.coordinator;
-    if (!widget.active ||
+    if (!widget.replyWaitingPositioningEnabled ||
+        !widget.active ||
         widget.replyRegenerationInProgress ||
         !coordinator.controller.hasClients ||
         !coordinator.shouldFollowLatest ||
@@ -679,7 +695,9 @@ class _LocationChatAnchoredMessageListState
   }
 
   static String? _waitingIdentity(LocationChatAnchoredMessageList list) =>
-      list.replyRegenerationInProgress
+      !list.replyWaitingPositioningEnabled
+      ? null
+      : list.replyRegenerationInProgress
       ? 'regenerate:${list.replyCardBindingIdentity ?? list.replyActionsIdentity}'
       : list.goOnAwaitingContentIdentity ??
             (list.loadingAfterMessageLocalId == null
@@ -903,12 +921,24 @@ class _LocationChatAnchoredMessageListState
       // frame. Releasing it earlier lets bottom anchoring move the toolbar.
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || generation != _replyLayoutFinishGeneration) return;
-        _replyLayoutBridge.cancel();
-        _replyLayoutFinishing = false;
-        _replyLayoutCommandGeneration = null;
-        _cardRowChildren.removeWhere(
-          (id, _) => id != widget.replyCurrentCardId,
-        );
+        final retainedWaitingDelta = _waitingMinContentExtent > 0
+            ? _replyLayoutBridge.layoutExtentDelta
+            : 0.0;
+        setState(() {
+          if (retainedWaitingDelta.abs() > precisionErrorTolerance) {
+            _waitingMinContentExtent =
+                (_waitingMinContentExtent + retainedWaitingDelta).clamp(
+                  0.0,
+                  double.infinity,
+                );
+          }
+          _replyLayoutBridge.cancel();
+          _replyLayoutFinishing = false;
+          _replyLayoutCommandGeneration = null;
+          _cardRowChildren.removeWhere(
+            (id, _) => id != widget.replyCurrentCardId,
+          );
+        });
         _scheduleDetachedAnchorSnapshot();
       });
     }
@@ -1049,6 +1079,12 @@ class _LocationChatAnchoredMessageListState
           : ValueKey('preview-${message.localId}'),
       child: _messageRow(
         key: ValueKey(message.localId),
+        streamIdentity: (
+          widget.replyCardBindingIdentity,
+          card.id,
+          _messageLayoutId(message),
+        ),
+        streamContinuationNamespace: (widget.replyCardBindingIdentity, card.id),
         message: message,
         imageViewerMessages: currentRole ? _imageViewerMessages : messages,
         style: style,
@@ -1117,10 +1153,17 @@ class _LocationChatAnchoredMessageListState
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!widget.active ||
+    final disabledWaitingPositioning =
+        oldWidget.replyWaitingPositioningEnabled &&
+        !widget.replyWaitingPositioningEnabled;
+    if (!widget.replyWaitingPositioningEnabled ||
+        !widget.active ||
         oldWidget.coordinator != widget.coordinator ||
         widget.coordinator.mode == LocationChatViewportMode.initializing) {
       _waitingMinContentExtent = 0;
+    }
+    if (disabledWaitingPositioning) {
+      oldWidget.coordinator.releaseWaitingReplyPosition();
     }
     _retainExtentOnStreamCompletion();
     if (_waitingIdentity(oldWidget) != _waitingIdentity(widget) ||
@@ -1543,50 +1586,58 @@ class _LocationChatAnchoredMessageListState
       enabled: requiresSecondScroll,
       topPadding: style.messageListPadding.top,
     );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final environment = (
-          constraints.maxWidth,
-          constraints.maxHeight,
-          style,
-          MediaQuery.textScalerOf(context),
-          Directionality.of(context),
-        );
-        if (_layoutEnvironment != null && _layoutEnvironment != environment) {
-          _replyLayoutBridge.cancel(clearMeasurements: true);
-        }
-        _layoutEnvironment = environment;
-        final minHeight = constraints.hasBoundedHeight
-            ? constraints.maxHeight
-            : 0.0;
-        final messageViewportHeight =
-            minHeight > style.messageListPadding.vertical
-            ? minHeight - style.messageListPadding.vertical
-            : 0.0;
-        return ScrollConfiguration(
-          key: const ValueKey<String>(
-            'location-chat-message-scroll-configuration',
-          ),
-          behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
-          child: NotificationListener<ScrollNotification>(
-            onNotification: _handleTemporaryTailScroll,
-            child: BackdropGroup(
-              backdropKey: _messageBackdropKey,
-              child: requiresSecondScroll
-                  ? _buildSecondScrollMessageView(
-                      style: style,
-                      minHeight: minHeight,
-                      messageViewportHeight: messageViewportHeight,
-                      hasOldestEdgeContent: hasOldestEdgeContent,
-                    )
-                  : _buildLazyMessageView(
-                      style: style,
-                      hasOldestEdgeContent: hasOldestEdgeContent,
-                    ),
-            ),
-          ),
-        );
+    return NotificationListener<ChatStreamingLayoutNotification>(
+      onNotification: (_) {
+        _scheduleContentVisibility();
+        return true;
       },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final environment = (
+            constraints.maxWidth,
+            constraints.maxHeight,
+            style,
+            MediaQuery.textScalerOf(context),
+            Directionality.of(context),
+          );
+          if (_layoutEnvironment != null && _layoutEnvironment != environment) {
+            _replyLayoutBridge.cancel(clearMeasurements: true);
+          }
+          _layoutEnvironment = environment;
+          final minHeight = constraints.hasBoundedHeight
+              ? constraints.maxHeight
+              : 0.0;
+          final messageViewportHeight =
+              minHeight > style.messageListPadding.vertical
+              ? minHeight - style.messageListPadding.vertical
+              : 0.0;
+          return ScrollConfiguration(
+            key: const ValueKey<String>(
+              'location-chat-message-scroll-configuration',
+            ),
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(overscroll: false),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleTemporaryTailScroll,
+              child: BackdropGroup(
+                backdropKey: _messageBackdropKey,
+                child: requiresSecondScroll
+                    ? _buildSecondScrollMessageView(
+                        style: style,
+                        minHeight: minHeight,
+                        messageViewportHeight: messageViewportHeight,
+                        hasOldestEdgeContent: hasOldestEdgeContent,
+                      )
+                    : _buildLazyMessageView(
+                        style: style,
+                        hasOldestEdgeContent: hasOldestEdgeContent,
+                      ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -1681,20 +1732,26 @@ class _LocationChatAnchoredMessageListState
           ),
         ),
         SliverLayoutBuilder(
-          builder: (context, constraints) => SliverToBoxAdapter(
-            child: SizedBox(
-              height:
-                  (_waitingMinContentExtent.clamp(
-                            _waitingMinContentExtent > 0
-                                ? constraints.viewportMainAxisExtent
-                                : 0,
-                            double.infinity,
-                          ) +
-                          _layoutCorrectionExtentSignal -
-                          constraints.precedingScrollExtent)
-                      .clamp(0.0, double.infinity),
-            ),
-          ),
+          builder: (context, constraints) {
+            final waitingMinContentExtent = _waitingMinContentExtent > 0
+                ? _waitingMinContentExtent +
+                      _replyLayoutBridge.layoutExtentDelta
+                : 0.0;
+            return SliverToBoxAdapter(
+              child: SizedBox(
+                height:
+                    (waitingMinContentExtent.clamp(
+                              waitingMinContentExtent > 0
+                                  ? constraints.viewportMainAxisExtent
+                                  : 0,
+                              double.infinity,
+                            ) +
+                            _layoutCorrectionExtentSignal -
+                            constraints.precedingScrollExtent)
+                        .clamp(0.0, double.infinity),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -1713,13 +1770,13 @@ class _LocationChatAnchoredMessageListState
       keyboardDismissBehavior:
           widget.keyboardDismissBehavior ??
           ScrollViewKeyboardDismissBehavior.manual,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(
-          minHeight: _waitingMinContentExtent > 0
-              ? _waitingMinContentExtent.clamp(minHeight, double.infinity) +
-                    _layoutCorrectionExtentSignal
-              : minHeight,
-        ),
+      child: _ReplyLayoutConstrainedBox(
+        minHeight: _waitingMinContentExtent > 0
+            ? _waitingMinContentExtent.clamp(minHeight, double.infinity) +
+                  _layoutCorrectionExtentSignal
+            : minHeight,
+        preserveWaitingTail: _waitingMinContentExtent > 0,
+        bridge: _replyLayoutBridge,
         child: Padding(
           padding: style.messageListPadding,
           child: Column(
@@ -2063,6 +2120,7 @@ class _LocationChatAnchoredMessageListState
         children: [
           _messageRow(
             key: ValueKey(layoutId),
+            streamIdentity: ('timeline', layoutId),
             message: current,
             imageViewerMessages: _imageViewerMessages,
             style: style,
@@ -2090,29 +2148,44 @@ class _LocationChatAnchoredMessageListState
   // ownership of layout keys, preview identity and cache lifetimes.
   Widget _messageRow({
     required Key key,
+    required Object streamIdentity,
+    Object streamContinuationNamespace = 'timeline',
     required ChatMessageVm message,
     required List<ChatMessageVm> imageViewerMessages,
     required ChatUiStyleConfig style,
     required bool compact,
     required bool showDateDivider,
-  }) => ChatMessageRow(
-    key: key,
-    message: message,
-    imageViewerMessages: imageViewerMessages,
-    style: compact
-        ? style.copyWith(
-            rowBottomPadding: LocationChatReplyActions.contentBottomGap,
-            systemMessageMargin: style.systemMessageMargin.copyWith(
-              bottom: LocationChatReplyActions.contentBottomGap,
-            ),
-          )
-        : style,
-    selfMessageBubbleMaxWidthCap: widget.selfMessageBubbleMaxWidthCap,
-    otherMessageBubbleMaxWidthCap: widget.otherMessageBubbleMaxWidthCap,
-    onMessageLongPressStart: widget.onMessageLongPressStart,
-    onFailedMessageTap: widget.onFailedMessageTap,
-    onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap,
-    showDateDivider: showDateDivider,
+  }) => ChatStreamingMessage(
+    key: ValueKey(('stream-effects', key)),
+    identity: streamIdentity,
+    continuationIdentity: message.roundId.isEmpty
+        ? null
+        : (
+            streamContinuationNamespace,
+            message.roundId,
+            message.senderId,
+            message.senderType,
+          ),
+    streaming: message.status == 'streaming',
+    child: ChatMessageRow(
+      key: key,
+      message: message,
+      imageViewerMessages: imageViewerMessages,
+      style: compact
+          ? style.copyWith(
+              rowBottomPadding: LocationChatReplyActions.contentBottomGap,
+              systemMessageMargin: style.systemMessageMargin.copyWith(
+                bottom: LocationChatReplyActions.contentBottomGap,
+              ),
+            )
+          : style,
+      selfMessageBubbleMaxWidthCap: widget.selfMessageBubbleMaxWidthCap,
+      otherMessageBubbleMaxWidthCap: widget.otherMessageBubbleMaxWidthCap,
+      onMessageLongPressStart: widget.onMessageLongPressStart,
+      onFailedMessageTap: widget.onFailedMessageTap,
+      onCharactersMovedLocationTap: widget.onCharactersMovedLocationTap,
+      showDateDivider: showDateDivider,
+    ),
   );
 
   void _scheduleRowCacheCleanup() {
@@ -2363,6 +2436,99 @@ class _ReplyControlsLayoutReporter extends SingleChildRenderObjectWidget {
   ) => renderObject.bridge = bridge;
 }
 
+/// Keeps the retained waiting tail at a constant physical height while a
+/// variable-height reply card is switching in the second-scroll layout.
+///
+/// The card reports its new height while laying out the child. Relaying out
+/// once with the updated transaction delta lets the viewport receive the final
+/// extent in this same frame, rather than painting one jumping frame first.
+class _ReplyLayoutConstrainedBox extends SingleChildRenderObjectWidget {
+  const _ReplyLayoutConstrainedBox({
+    required this.minHeight,
+    required this.preserveWaitingTail,
+    required this.bridge,
+    required super.child,
+  });
+
+  final double minHeight;
+  final bool preserveWaitingTail;
+  final LocationChatReplyLayoutBridge bridge;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderReplyLayoutConstrainedBox(
+        minHeight: minHeight,
+        preserveWaitingTail: preserveWaitingTail,
+        bridge: bridge,
+      );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderReplyLayoutConstrainedBox renderObject,
+  ) {
+    renderObject
+      ..minHeight = minHeight
+      ..preserveWaitingTail = preserveWaitingTail
+      ..bridge = bridge;
+  }
+}
+
+class _RenderReplyLayoutConstrainedBox extends RenderProxyBox {
+  _RenderReplyLayoutConstrainedBox({
+    required double minHeight,
+    required bool preserveWaitingTail,
+    required LocationChatReplyLayoutBridge bridge,
+  }) : _minHeight = minHeight,
+       _preserveWaitingTail = preserveWaitingTail,
+       _bridge = bridge;
+
+  double _minHeight;
+  bool _preserveWaitingTail;
+  LocationChatReplyLayoutBridge _bridge;
+
+  set minHeight(double value) {
+    if (_minHeight == value) return;
+    _minHeight = value;
+    markNeedsLayout();
+  }
+
+  set preserveWaitingTail(bool value) {
+    if (_preserveWaitingTail == value) return;
+    _preserveWaitingTail = value;
+    markNeedsLayout();
+  }
+
+  set bridge(LocationChatReplyLayoutBridge value) {
+    if (identical(_bridge, value)) return;
+    _bridge = value;
+    markNeedsLayout();
+  }
+
+  double get _layoutDelta =>
+      _preserveWaitingTail ? _bridge.layoutExtentDelta : 0;
+
+  BoxConstraints _childConstraints(double delta) => BoxConstraints(
+    minHeight: (_minHeight + delta).clamp(0.0, double.infinity),
+  ).enforce(constraints);
+
+  @override
+  void performLayout() {
+    final child = this.child;
+    if (child == null) {
+      size = constraints.constrain(Size.zero);
+      return;
+    }
+    final initialDelta = _layoutDelta;
+    child.layout(_childConstraints(initialDelta), parentUsesSize: true);
+    final reportedDelta = _layoutDelta;
+    if ((reportedDelta - initialDelta).abs() > precisionErrorTolerance) {
+      child.layout(_childConstraints(reportedDelta), parentUsesSize: true);
+    }
+    size = child.size;
+  }
+}
+
 class _RenderReplyControlsLayoutReporter extends RenderProxyBox {
   _RenderReplyControlsLayoutReporter(this.bridge);
   LocationChatReplyLayoutBridge bridge;
@@ -2421,6 +2587,7 @@ class _RenderReplyAnchoredSliverList extends RenderSliverList {
     if (tail != null && indexOf(tail) == childManager.childCount - 1) {
       bridge.reportSliverExtent(childScrollOffset(tail)! + paintExtentOf(tail));
     }
+    if (bridge.beganWithoutScrollExtent) return;
     final correction = bridge.correction;
     if (correction != null && correction.abs() > precisionErrorTolerance) {
       geometry = SliverGeometry(scrollOffsetCorrection: correction);

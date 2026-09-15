@@ -170,6 +170,7 @@ void main() {
       await _pumpUntilLocationChatTest(
         tester,
         () => coordinator.hasMessageContentBelowViewport,
+        step: const Duration(milliseconds: 16),
       );
       await tester.pump();
       expect(position.pixels, closeTo(held, 0.1));
@@ -10501,11 +10502,12 @@ WorldChatroomMessage _wssStoryTimelineMessage({
 
 Future<void> _pumpUntilLocationChatTest(
   WidgetTester tester,
-  bool Function() condition,
-) async {
+  bool Function() condition, {
+  Duration step = Duration.zero,
+}) async {
   for (var attempt = 0; attempt < 100; attempt += 1) {
     if (condition()) return;
-    await tester.pump();
+    await tester.pump(step);
   }
   fail('Timed out pumping location chat test state.');
 }

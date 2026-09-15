@@ -36,24 +36,26 @@ class ChatCharactersMovedMessageBubble extends StatelessWidget {
               style.systemMessageBorderRadius,
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (
-                var index = 0;
-                index < payload.movements.length;
-                index += 1
-              ) ...[
-                if (index > 0) const SizedBox(height: 10),
-                _ChatCharacterMovementRow(
-                  messageLocalId: message.localId,
-                  index: index,
-                  movement: payload.movements[index],
-                  style: style,
-                  onLocationTap: onLocationTap,
-                ),
+          child: ChatStreamingBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (
+                  var index = 0;
+                  index < payload.movements.length;
+                  index += 1
+                ) ...[
+                  if (index > 0) const SizedBox(height: 10),
+                  _ChatCharacterMovementRow(
+                    messageLocalId: message.localId,
+                    index: index,
+                    movement: payload.movements[index],
+                    style: style,
+                    onLocationTap: onLocationTap,
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),
@@ -119,13 +121,15 @@ class _ChatCharacterMovementRow extends StatelessWidget {
           height: 15,
           colorFilter: ColorFilter.mode(textColor, BlendMode.srcIn),
         ),
-        Text(
-          genesisDisplaySafeText(movement.characterName),
-          style: style.systemMessageTextStyle.copyWith(
-            fontWeight: FontWeight.w400,
+        ChatStreamingText(
+          child: Text(
+            genesisDisplaySafeText(movement.characterName),
+            style: style.systemMessageTextStyle.copyWith(
+              fontWeight: FontWeight.w400,
+            ),
           ),
         ),
-        Text(directionText, style: metadataStyle),
+        ChatStreamingText(child: Text(directionText, style: metadataStyle)),
         Semantics(
           button: canOpenLocation,
           label: canOpenLocation ? 'Open $locationName' : locationName,
@@ -135,14 +139,16 @@ class _ChatCharacterMovementRow extends StatelessWidget {
             ),
             behavior: HitTestBehavior.opaque,
             onTap: canOpenLocation ? () => onLocationTap!(movement) : null,
-            child: Text(
-              locationName,
-              style: style.systemMessageTextStyle.copyWith(
-                fontWeight: FontWeight.w400,
-                decoration: canOpenLocation
-                    ? TextDecoration.underline
-                    : TextDecoration.none,
-                decorationColor: textColor,
+            child: ChatStreamingText(
+              child: Text(
+                locationName,
+                style: style.systemMessageTextStyle.copyWith(
+                  fontWeight: FontWeight.w400,
+                  decoration: canOpenLocation
+                      ? TextDecoration.underline
+                      : TextDecoration.none,
+                  decorationColor: textColor,
+                ),
               ),
             ),
           ),
@@ -191,22 +197,26 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
             spacing: 5,
             runSpacing: 3,
             children: [
-              Text(
-                genesisDisplaySafeText(movement.characterName),
-                style: const TextStyle(
-                  color: _tickMessageHeaderColor,
-                  fontSize: 14,
-                  height: 1.3,
-                  fontWeight: FontWeight.w600,
+              ChatStreamingText(
+                child: Text(
+                  genesisDisplaySafeText(movement.characterName),
+                  style: const TextStyle(
+                    color: _tickMessageHeaderColor,
+                    fontSize: 14,
+                    height: 1.3,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-              Text(
-                directionText,
-                style: TextStyle(
-                  color: mutedColor,
-                  fontSize: 14,
-                  height: 1.3,
-                  fontWeight: FontWeight.w400,
+              ChatStreamingText(
+                child: Text(
+                  directionText,
+                  style: TextStyle(
+                    color: mutedColor,
+                    fontSize: 14,
+                    height: 1.3,
+                    fontWeight: FontWeight.w400,
+                  ),
                 ),
               ),
               Semantics(
@@ -223,20 +233,22 @@ class _ChatTickSceneCharacterMovementRow extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        locationName,
-                        style: TextStyle(
-                          color: canOpenLocation
-                              ? GenesisColors.redSecondary
-                              : _tickMessageHeaderColor,
-                          fontSize: 14,
-                          height: 1.3,
-                          fontWeight: FontWeight.w600,
-                          decoration: canOpenLocation
-                              ? TextDecoration.underline
-                              : TextDecoration.none,
-                          decorationColor: GenesisColors.redSecondary
-                              .withValues(alpha: 0.45),
+                      ChatStreamingText(
+                        child: Text(
+                          locationName,
+                          style: TextStyle(
+                            color: canOpenLocation
+                                ? GenesisColors.redSecondary
+                                : _tickMessageHeaderColor,
+                            fontSize: 14,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                            decoration: canOpenLocation
+                                ? TextDecoration.underline
+                                : TextDecoration.none,
+                            decorationColor: GenesisColors.redSecondary
+                                .withValues(alpha: 0.45),
+                          ),
                         ),
                       ),
                       if (canOpenLocation) ...[

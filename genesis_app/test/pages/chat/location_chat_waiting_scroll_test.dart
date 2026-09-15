@@ -90,6 +90,7 @@ void main() {
     bool goOn = false,
     bool secondScroll = false,
     bool active = true,
+    bool positioningEnabled = true,
     String suffix = '',
     double reserveFraction = 0.75,
   }) => MaterialApp(
@@ -101,6 +102,7 @@ void main() {
           child: LocationChatAnchoredMessageList(
             active: active,
             coordinator: coordinator,
+            replyWaitingPositioningEnabled: positioningEnabled,
             replyViewportReserveFraction: reserveFraction,
             messages: messages(count, suffix: suffix),
             topTitle: secondScroll ? 'Start' : '',
@@ -170,6 +172,111 @@ void main() {
           await tester.pump();
           expect(position.pixels, closeTo(held, 1));
           expect(position.maxScrollExtent, greaterThan(held + 200));
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
+  testWidgets('turning positioning off releases an active waiting hold', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    await tester.pumpWidget(tree(coordinator));
+    await tester.pump();
+    await tester.pumpWidget(tree(coordinator, waiting: 'round-1'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(coordinator.isDetached, isTrue);
+
+    await tester.pumpWidget(
+      tree(coordinator, waiting: 'round-1', positioningEnabled: false),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    final position = coordinator.controller.position;
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+    expect(coordinator.isDetached, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('positioning off does not move a manually detached reader', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    await tester.pumpWidget(tree(coordinator, positioningEnabled: false));
+    await tester.pump();
+    await tester.drag(find.byType(Scrollable).first, const Offset(0, 200));
+    await tester.pumpAndSettle();
+    final held = coordinator.controller.position.pixels;
+    expect(coordinator.isReadingHistory, isTrue);
+    await tester.pumpWidget(
+      tree(coordinator, waiting: 'round-1', positioningEnabled: false),
+    );
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(coordinator.controller.position.pixels, closeTo(held, 0.1));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final goOn in [false, true]) {
+    for (final secondScroll in [false, true]) {
+      testWidgets(
+        '${goOn ? 'Go On' : 'Send'} follows the real bottom when waiting positioning is off (second scroll: $secondScroll)',
+        (tester) async {
+          final coordinator = LocationChatScrollCoordinator();
+          addTearDown(coordinator.dispose);
+          await tester.pumpWidget(
+            tree(
+              coordinator,
+              positioningEnabled: false,
+              secondScroll: secondScroll,
+            ),
+          );
+          await tester.pump();
+          await tester.pumpWidget(
+            tree(
+              coordinator,
+              waiting: 'round-1',
+              goOn: goOn,
+              positioningEnabled: false,
+              secondScroll: secondScroll,
+            ),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          final position = coordinator.controller.position;
+          expect(
+            tester.getBottomLeft(find.byType(ChatReplyWaitingBubble)).dy,
+            greaterThan(300),
+          );
+          expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+          expect(coordinator.isDetached, isFalse);
+
+          await tester.pumpWidget(
+            tree(
+              coordinator,
+              count: 21,
+              positioningEnabled: false,
+              secondScroll: secondScroll,
+            ),
+          );
+          await tester.pump();
+          expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+          await tester.pumpWidget(
+            tree(
+              coordinator,
+              count: 21,
+              suffix: '\nStreaming reply' * 15,
+              positioningEnabled: false,
+              secondScroll: secondScroll,
+            ),
+          );
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+          expect(coordinator.isDetached, isFalse);
           expect(tester.takeException(), isNull);
           await tester.pumpWidget(const SizedBox.shrink());
         },
@@ -281,14 +388,17 @@ void main() {
   }
 
   for (final scenario in [
-    (secondScroll: false, reserve: 0.75),
-    (secondScroll: true, reserve: 0.75),
-    (secondScroll: false, reserve: 0.5),
-    (secondScroll: true, reserve: 0.5),
+    (secondScroll: false, reserve: 0.75, positioningEnabled: true),
+    (secondScroll: true, reserve: 0.75, positioningEnabled: true),
+    (secondScroll: false, reserve: 0.5, positioningEnabled: true),
+    (secondScroll: true, reserve: 0.5, positioningEnabled: true),
+    (secondScroll: false, reserve: 0.75, positioningEnabled: false),
+    (secondScroll: true, reserve: 0.75, positioningEnabled: false),
   ]) {
     final secondScroll = scenario.secondScroll;
+    final positioningEnabled = scenario.positioningEnabled;
     testWidgets(
-      'regenerate shares reply positioning (second scroll: $secondScroll, reserve: ${scenario.reserve})',
+      'regenerate ${positioningEnabled ? 'shares reply positioning' : 'follows the real bottom'} (second scroll: $secondScroll, reserve: ${scenario.reserve})',
       (tester) async {
         final coordinator = LocationChatScrollCoordinator();
         addTearDown(coordinator.dispose);
@@ -309,6 +419,7 @@ void main() {
                     update = setState;
                     return LocationChatAnchoredMessageList(
                       coordinator: coordinator,
+                      replyWaitingPositioningEnabled: positioningEnabled,
                       replyViewportReserveFraction: scenario.reserve,
                       messages: renderedRows,
                       topTitle: secondScroll ? 'Start' : '',
@@ -354,7 +465,11 @@ void main() {
         update(() => waiting = false);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(position.maxScrollExtent, greaterThan(naturalExtent + 100));
+        if (positioningEnabled) {
+          expect(position.maxScrollExtent, greaterThan(naturalExtent + 100));
+        } else {
+          expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+        }
 
         await tester.tap(find.bySemanticsLabel('Regenerate'));
         await tester.pump();
@@ -366,12 +481,17 @@ void main() {
           tester.getSize(find.byType(LocationChatReplyCardSwitcher)).height,
           0,
         );
-        expect(
-          tester.getTopLeft(find.byType(LocationChatReplyCardSwitcher)).dy,
-          closeTo(360 * (1 - scenario.reserve), 0.1),
-        );
-        expect(coordinator.isDetached, isTrue);
-        expect(coordinator.isReadingHistory, isFalse);
+        if (positioningEnabled) {
+          expect(
+            tester.getTopLeft(find.byType(LocationChatReplyCardSwitcher)).dy,
+            closeTo(360 * (1 - scenario.reserve), 0.1),
+          );
+          expect(coordinator.isDetached, isTrue);
+          expect(coordinator.isReadingHistory, isFalse);
+        } else {
+          expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+          expect(coordinator.isDetached, isFalse);
+        }
         final held = position.pixels;
         update(() {
           currentCardId = 2;
@@ -389,17 +509,26 @@ void main() {
         });
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(
-          position.pixels,
-          closeTo(held, 0.1),
-          reason:
-              'Changing candidate IDs and growing the reply must not reposition.',
-        );
-        expect(position.maxScrollExtent, greaterThan(held + 100));
+        if (positioningEnabled) {
+          expect(
+            position.pixels,
+            closeTo(held, 0.1),
+            reason:
+                'Changing candidate IDs and growing the reply must not reposition.',
+          );
+          expect(position.maxScrollExtent, greaterThan(held + 100));
+        } else {
+          expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+          expect(position.pixels, greaterThan(held));
+        }
         update(() => regenerating = false);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(position.pixels, closeTo(held, 0.1));
+        if (positioningEnabled) {
+          expect(position.pixels, closeTo(held, 0.1));
+        } else {
+          expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+        }
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },

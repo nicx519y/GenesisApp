@@ -40,7 +40,7 @@ class ChatBubbleSurface extends StatelessWidget {
       foregroundDecoration: foregroundBorder && border != null
           ? BoxDecoration(border: border, borderRadius: borderRadius)
           : null,
-      child: child,
+      child: ChatStreamingBody(child: child),
     );
     return blurSigma > 0
         ? ChatStableBackdropSurface(

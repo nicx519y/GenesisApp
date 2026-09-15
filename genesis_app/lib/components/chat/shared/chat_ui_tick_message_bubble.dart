@@ -103,7 +103,9 @@ class ChatTickMessageBubble extends StatelessWidget {
       bubbleKey: const ValueKey('chat-tick-message-bubble'),
       onLongPressStart: isProgress ? null : onLongPressStart,
       child: AnimatedSize(
-        duration: const Duration(milliseconds: 220),
+        duration: ChatStreamingBody.ownsSizeAnimation(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
@@ -159,7 +161,7 @@ class _ChatTickSurface extends StatelessWidget {
       child: usesScenePlate
           ? Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              child: child,
+              child: ChatStreamingBody(child: child),
             )
           : Stack(
               children: [
@@ -173,7 +175,10 @@ class _ChatTickSurface extends StatelessWidget {
                     color: _tickMessageAccentColor,
                   ),
                 ),
-                Padding(padding: style.systemMessagePadding, child: child),
+                Padding(
+                  padding: style.systemMessagePadding,
+                  child: ChatStreamingBody(child: child),
+                ),
               ],
             ),
     );

@@ -27,15 +27,34 @@ Regenerate 新生成的当前候选卡同样参与提示，数量按内容底边
 
 Regenerate 开始收起旧卡片时，使用同一套回复定位：以旧卡片顶部（收起后的落点）为锚点，定位到视口约 1/4 高度，下方预留同样的 3/4 区域。只在开始时定位一次，切到新候选卡和后续流式增长不会重新定位；临时留白同样可由手动下拉消耗。
 
-三条路径统一读取 `LocationChatBubbleLayoutSettings.replyViewportReserveFraction`，默认 `0.75`。Developer Page 的 `switch → Reply positioning → Space below reply anchor` 可按 5% 步长调整为 25%–90%，配置保存到本地，供下一次回复定位使用；不移动已经停留的视口。
+三条路径统一读取 `LocationChatBubbleLayoutSettings.replyWaitingPositioningEnabled` 和 `replyViewportReserveFraction`。等待定位默认开启，预留比例默认 `0.75`。Developer Page 的 `switch → Reply positioning` 提供 `Hold reply position while waiting` 开关；关闭时不创建临时尾部、不进入等待锚定，Send / Go On / Regenerate 沿用贴底跟随。`Space below reply anchor` 可按 5% 步长调整为 25%–90%；开关关闭时滑杆禁用但保留数值，重新开启后继续使用。两项配置均保存到本地。
 
 普通消息行下方留白 14。最新回复到操作区使用独立的回复操作布局；不要用气泡内边距补偿操作区间距。所有几何描述以组件边缘/文字行框为准，实际字形和动态图案内部可能有空白。
 
-贴底跟随期间，流式消息完成后如果最终正文或操作区前的行间距缩短，缩短的高度暂留在列表尾部，保持可见消息位置，避免跟随更小的滚动边界而下沉。后续新内容增长消耗尾部留白并继续正常跟随；不改变手动阅读历史或等待预留区域时的滚动状态。
+等待定位开启且处于贴底跟随时，流式消息完成后如果最终正文或操作区前的行间距缩短，缩短的高度暂留在列表尾部，保持可见消息位置，避免跟随更小的滚动边界而下沉。后续新内容增长消耗尾部留白并继续正常跟随；不改变手动阅读历史或等待预留区域时的滚动状态。关闭等待定位后不保留这段临时高度，由原贴底机制直接跟随真实内容高度。
 
 其他玩家/NPC 的左侧普通消息复用 `ChatMessageBubble`，当前保留左上角 0、其余 14 的既有分支；只有 AI 角色使用左上角 2。不得仅因消息位于左侧就判定为 AI。Opening 等调用方的明确样式覆盖继续生效。
 
 普通消息的 self / other 仅由业务 `type == user` 且 `user_id` 精确等于当前登录用户非空 UID 决定。`sender_id`、角色绑定关系和开场选中的角色不作为 self 的兜底依据。历史与回复卡片使用同一规则；本地待发送的本人消息直接使用 self。
+
+## 流式正文动画
+
+Location Chat 的普通正文、旁白、系统、Tick、事件、角色移动和入场消息共用流式动画。普通底框通过 `ChatBubbleSurface` 接入，独立底框在自身装饰内部使用 `ChatStreamingBody`；动态正文由 `ChatStreamingText` 标记。头像、时间和固定图标不参与文字遮罩；编辑输入、图片加载、等待圆点及历史首次展示保持原有行为。其他页面未提供 `ChatStreamingEffects` 时不启用。
+
+文字以 12 逻辑像素宽的柔和边缘沿阅读方向扫出。连续片段从当前进度追踪最新末尾，不从头播放，不积累逐字播放队列。复合气泡按正文顺序揭示；后续行在揭示前不占展示高度。气泡从当前高度以 `easeOutCubic` 追踪已揭示内容的高度，新增行和减少行均平滑变化，文字不缩放。富文本行框和内嵌文字沿用实际 `RenderParagraph` 排版，保留 Markdown、提及、斜体、组合字符和双向文字。
+
+Developer Page 的 `switch → Location Chat → Streaming animations` 提供四项本地持久化配置：
+
+| 配置 | 默认 | 范围 |
+| --- | --- | --- |
+| Bubble height animation | 开启 | 开／关 |
+| Height animation duration | 180ms | 40–1000ms，步长 20ms |
+| Text reveal mask | 开启 | 开／关 |
+| Text reveal duration | 120ms | 40–1000ms，步长 20ms |
+
+关闭某项立即结束对应动画；关闭遮罩显示全部已收到正文。对应滑块置灰但保留时长，重新开启只作用于后续变化。修改时长立即用于后续目标，不重启动画，松手保存；无配置或无效配置使用默认值或归一化边界。
+
+动画只影响显示，不延后流结束、回复操作或 Tick 的业务状态。逐帧高度变化通知列表重新计算真实内容可见性；保留等待留白、手动阅读和流结束收缩补偿。短历史切换回复卡片时，由视口在全部布局完成后限制滚动修正，避免未满视口的高度增长与零滚动边界反复争抢。消息与候选卡片的动画记录隔离，地点销毁时释放，历史恢复不重播。
 
 ## 共用控件和 token
 

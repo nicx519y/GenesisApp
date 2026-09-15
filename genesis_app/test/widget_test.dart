@@ -27448,6 +27448,11 @@ void main() {
     final replyReserveFinder = find.byKey(
       const ValueKey<String>('developer-location-chat-reply-reserve-slider'),
     );
+    final replyPositioningFinder = find.byKey(
+      const ValueKey<String>(
+        'developer-location-chat-reply-positioning-switch',
+      ),
+    );
     await tester.scrollUntilVisible(
       transparencyFinder,
       180,
@@ -27463,6 +27468,7 @@ void main() {
     expect(transparencyFinder, findsOneWidget);
     expect(blurFinder, findsOneWidget);
     expect(crowdedWidthFinder, findsOneWidget);
+    expect(tester.widget<Switch>(replyPositioningFinder).value, isTrue);
     expect(
       tester.widget<Slider>(transparencyFinder).value,
       LocationChatHeaderEffectSettings.defaultTransparencyStrength,
@@ -27497,6 +27503,16 @@ void main() {
     await tester.pump();
     tester.widget<Slider>(replyReserveFinder).onChangeEnd!(0.5);
     await tester.pumpAndSettle();
+    tester.widget<Switch>(replyPositioningFinder).onChanged!(false);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(replyReserveFinder).onChanged, isNull);
+    expect(tester.widget<Slider>(replyReserveFinder).value, 0.5);
+    tester.widget<Switch>(replyPositioningFinder).onChanged!(true);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Slider>(replyReserveFinder).onChanged, isNotNull);
+    expect(tester.widget<Slider>(replyReserveFinder).value, 0.5);
+    tester.widget<Switch>(replyPositioningFinder).onChanged!(false);
+    await tester.pumpAndSettle();
 
     expect(
       locationChatHeaderEffectSettings.value,
@@ -27505,7 +27521,41 @@ void main() {
         blurSigma: 0,
       ),
     );
+    for (final kind in ['height', 'text']) {
+      final toggle = find.byKey(ValueKey('developer-stream-$kind-switch'));
+      final duration = find.byKey(ValueKey('developer-stream-$kind-duration'));
+      expect(tester.widget<Switch>(toggle).value, isTrue);
+      expect(
+        tester.widget<Slider>(duration).value,
+        kind == 'height' ? 180 : 120,
+      );
+      tester.widget<Slider>(duration).onChanged!(420);
+      await tester.pump();
+      tester.widget<Slider>(duration).onChangeEnd!(420);
+      await tester.pumpAndSettle();
+      tester.widget<Switch>(toggle).onChanged!(false);
+      await tester.pumpAndSettle();
+      expect(tester.widget<Slider>(duration).onChanged, isNull);
+      expect(tester.widget<Slider>(duration).value, 420);
+    }
+    expect(
+      locationChatBubbleLayoutSettings.value.animateStreamingHeight,
+      isFalse,
+    );
+    expect(locationChatBubbleLayoutSettings.value.streamingTextReveal, isFalse);
+    expect(
+      locationChatBubbleLayoutSettings.value.streamingHeightDurationMs,
+      420,
+    );
+    expect(locationChatBubbleLayoutSettings.value.streamingTextDurationMs, 420);
     final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getBool(
+        LocationChatBubbleLayoutSettingsController
+            .replyWaitingPositioningEnabledStorageKey,
+      ),
+      isFalse,
+    );
     expect(
       prefs.getDouble(
         LocationChatBubbleLayoutSettingsController
