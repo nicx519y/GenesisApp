@@ -44,7 +44,7 @@ class _DiscussPreviewMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authorMeta = ProUserName(
-      uid: item.authorUid,
+      membershipStatus: item.authorMembershipStatus,
       fontSize: 12,
       deleted: item.authorDeleted,
       child: Text(

@@ -408,6 +408,16 @@ class _UserProfileContentState extends State<UserProfileContent>
                                   widget.displayNameListenable,
                             ),
                           ),
+                          if (widget.displayNameTrailing == null &&
+                              !data.deleted &&
+                              data.membershipStatus == 1) ...[
+                            const SizedBox(width: 6),
+                            ProMembershipBadge.beside(
+                              fontSize: MediaQuery.textScalerOf(
+                                context,
+                              ).scale(20),
+                            ),
+                          ],
                           if (widget.displayNameTrailing != null) ...[
                             const SizedBox(width: 6),
                             widget.displayNameTrailing!,

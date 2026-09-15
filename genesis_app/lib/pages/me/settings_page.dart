@@ -12,6 +12,8 @@ import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_content_submission_dialog.dart';
 import '../../components/login_provider_button.dart';
 import '../../components/page_header.dart';
+import '../../components/gems/pro_user_name.dart';
+import '../../utils/entity_deleted.dart';
 import '../../network/api_exception.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
@@ -553,6 +555,10 @@ class _BlockedUserItem {
     required this.uid,
     required this.displayName,
     required this.avatarUrl,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
+    this.deleted = false,
     required this.isBlocked,
   });
 
@@ -565,6 +571,10 @@ class _BlockedUserItem {
     final uid = asString(user['uid']).trim();
     final name = asString(user['name'], fallback: uid).trim();
     return _BlockedUserItem(
+      gender: asString(user['gender']),
+      age: asString(user['age']),
+      membershipStatus: asUserMembershipStatus(user['membership_status']),
+      deleted: entityDeleted(user['deleted']),
       uid: uid,
       displayName: name.isEmpty
           ? formatUidForDisplay(uid, fallback: 'User')
@@ -577,6 +587,10 @@ class _BlockedUserItem {
   final String uid;
   final String displayName;
   final String avatarUrl;
+  final String gender;
+  final String age;
+  final int membershipStatus;
+  final bool deleted;
   bool isBlocked;
 }
 
@@ -618,15 +632,20 @@ class _BlockedUserTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    item.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: GenesisColors.darkTextPrimary,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      height: 1.2,
+                  ProUserName(
+                    membershipStatus: item.membershipStatus,
+                    deleted: item.deleted,
+                    fontSize: 16,
+                    child: Text(
+                      item.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: GenesisColors.darkTextPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        height: 1.2,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 6),

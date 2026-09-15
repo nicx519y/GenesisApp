@@ -11,6 +11,10 @@ Map<String, dynamic> asJsonMap(Object? v) {
   throw ArgumentError('Expected JSON map, got ${v.runtimeType}');
 }
 
+/// Optional embedded objects must not break an otherwise valid list response.
+Map<String, dynamic> asOptionalJsonMap(Object? value) =>
+    value is Map ? asJsonMap(value) : const <String, dynamic>{};
+
 List asJsonList(Object? v) {
   if (v is List) return v;
   throw ArgumentError('Expected JSON list, got ${v.runtimeType}');
@@ -71,3 +75,7 @@ DateTime _dateTimeFromEpoch(num value) {
   final millis = intValue.abs() >= 1000000000000 ? intValue : intValue * 1000;
   return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
 }
+
+/// Public UserInfo badge status. Missing/invalid values never grant a badge.
+int asUserMembershipStatus(Object? value) =>
+    value is int && (value == 0 || value == 1 || value == 2) ? value : 0;

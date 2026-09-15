@@ -7,6 +7,7 @@ Future<bool> showOriginDiscussReplyComposer({
   String? parentDiscussId,
   String? replyToUid,
   String? replyToUsername,
+  Map<String, dynamic>? replyToUser,
   String? placeholder,
 }) async {
   final discussId = item.discussId.trim();
@@ -19,7 +20,14 @@ Future<bool> showOriginDiscussReplyComposer({
     placeholder: placeholder ?? 'Write a reply',
     placeholderWidget:
         placeholder != null && replyToUid?.trim().isNotEmpty == true
-        ? ProUserName(uid: replyToUid!, fontSize: 14, child: Text(placeholder))
+        ? ProUserName(
+            membershipStatus: asUserMembershipStatus(
+              replyToUser?['membership_status'],
+            ),
+            deleted: entityDeleted(replyToUser?['deleted']),
+            fontSize: 14,
+            child: Text(placeholder),
+          )
         : null,
     submitter: (content, images) => submitOriginDiscussReply(
       context: context,
@@ -30,6 +38,7 @@ Future<bool> showOriginDiscussReplyComposer({
       parentDiscussId: parentDiscussId,
       replyToUid: replyToUid,
       replyToUsername: replyToUsername,
+      replyToUser: replyToUser,
     ),
   );
 }
@@ -43,6 +52,7 @@ Future<void> submitOriginDiscussReply({
   String? parentDiscussId,
   String? replyToUid,
   String? replyToUsername,
+  Map<String, dynamic>? replyToUser,
 }) async {
   final discussId = item.discussId.trim();
   final rootDiscussId = item.replyRootDiscussId.trim();
@@ -78,6 +88,18 @@ Future<void> submitOriginDiscussReply({
       parentDiscussId: resolvedParentDiscussId,
       replyToUid: resolvedReplyToUid,
       replyToUsername: resolvedReplyToUsername,
+      replyToUser:
+          replyToUser ??
+          (resolvedReplyToUid == item.authorUid
+              ? {
+                  'uid': item.authorUid,
+                  'name': item.authorName,
+                  'gender': item.authorGender,
+                  'age': item.authorAge,
+                  'membership_status': item.authorMembershipStatus,
+                  'deleted': item.authorDeleted,
+                }
+              : null),
       userInfo: userInfo,
     ),
   );
@@ -92,6 +114,7 @@ Map<String, dynamic> _localReplyJson({
   required String parentDiscussId,
   required String replyToUid,
   required String replyToUsername,
+  Map<String, dynamic>? replyToUser,
   required Map<String, dynamic>? userInfo,
 }) {
   final user = userInfo == null
@@ -113,6 +136,10 @@ Map<String, dynamic> _localReplyJson({
     'author': {
       'uid': uid,
       'name': name,
+      'gender': asString(userMap['gender']),
+      'age': asString(userMap['age']),
+      'membership_status': asUserMembershipStatus(userMap['membership_status']),
+      'deleted': entityDeleted(userMap['deleted']),
       'avatar': asImageUrl(userMap['avatar'] ?? userMap['avatar_url']),
     },
     'content': decodeGenesisUgcTextForDisplay(content),
@@ -121,6 +148,7 @@ Map<String, dynamic> _localReplyJson({
     'parent_discuss_id': parentDiscussId,
     'reply_to_uid': replyToUid,
     'reply_to_username': replyToUsername,
+    if (replyToUser != null) 'reply_to_user': replyToUser,
     'level': asInt(created['level'], fallback: 2),
     'reply_cnt': 0,
     'like_cnt': 0,

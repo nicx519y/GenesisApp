@@ -217,6 +217,9 @@ enum WorldChatroomEntityType { character, player }
 class WorldChatroomEntity {
   const WorldChatroomEntity({
     required this.id,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
     required this.name,
     required this.avatarUrl,
     required this.type,
@@ -225,6 +228,9 @@ class WorldChatroomEntity {
   });
 
   final String id;
+  final String gender;
+  final String age;
+  final int membershipStatus;
   final String name;
   final String avatarUrl;
   final WorldChatroomEntityType type;

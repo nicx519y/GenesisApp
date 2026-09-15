@@ -636,6 +636,9 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         final locationId = group.locationId.trim();
         entities[id] = WorldChatroomEntity(
           id: id,
+          gender: user.gender,
+          age: user.age,
+          membershipStatus: user.membershipStatus,
           name: _firstNonEmpty([existing?.name, user.userName, id]),
           avatarUrl: _firstNonEmpty([existing?.avatarUrl, user.avatar]),
           type: WorldChatroomEntityType.player,
@@ -733,6 +736,9 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
     if (entity.locationId.trim().isEmpty) return entity;
     return WorldChatroomEntity(
       id: entity.id,
+      gender: entity.gender,
+      age: entity.age,
+      membershipStatus: entity.membershipStatus,
       name: entity.name,
       avatarUrl: entity.avatarUrl,
       type: entity.type,
@@ -776,6 +782,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           'username',
         ]),
         'player_deleted': character['player_deleted'],
+        'player_user': character['player_user'],
         'identity': _firstString(character, const ['identity']),
         'tagline': _firstString(character, const ['brief', 'tagline']),
         'description': _firstString(character, const ['description']),
@@ -791,7 +798,14 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
     final playerUid = _firstString(character, const ['player_uid', 'user_id']);
     final locationId = _locationIdFromMap(character);
     if (playerUid.isEmpty || locationId.isEmpty) return null;
-    return {'uid': playerUid, 'location_id': locationId};
+    final user = asOptionalJsonMap(character['player_user']);
+    return {
+      'uid': playerUid,
+      'location_id': locationId,
+      'gender': asString(user['gender']),
+      'age': asString(user['age']),
+      'membership_status': asUserMembershipStatus(user['membership_status']),
+    };
   }
 
   Future<void> _hydrateLocalMessagesForLocation(

@@ -511,38 +511,80 @@ void main() {
     }
   });
 
-  testWidgets('missing badge owner 1404 does not interrupt search pagination', (
+  for (final status in <Object?>[1, 0, 2, null, '1', 99]) {
+    testWidgets(
+      'all search tabs use response membership status $status without user lookups',
+      (tester) async {
+        final transport = _SearchPageTransport(
+          membershipStatus: status,
+          missingOwners: true,
+        );
+        await _pumpSearchPage(tester, transport);
+        await tester.enterText(find.byType(TextField), 'abc');
+        await tester.pump(const Duration(milliseconds: 700));
+        await tester.pumpAndSettle();
+        for (final tab in ['Worldo', 'World', 'User']) {
+          await tester.tap(find.text(tab));
+          await tester.pumpAndSettle();
+          expect(
+            find.byType(ProMembershipBadge),
+            status == 1 ? findsWidgets : findsNothing,
+          );
+        }
+        expect(
+          transport.requests.where((r) => r.uri.path.endsWith('/v1/user/info')),
+          isEmpty,
+        );
+      },
+    );
+  }
+  testWidgets('deleted search users hide even active memberships', (
     tester,
   ) async {
     final transport = _SearchPageTransport(
-      paginated: true,
-      missingOwners: true,
+      membershipStatus: 1,
+      deletedUsers: true,
     );
     await _pumpSearchPage(tester, transport);
     await tester.enterText(find.byType(TextField), 'abc');
     await tester.pump(const Duration(milliseconds: 700));
     await tester.pumpAndSettle();
-    expect(find.text('#Origin 1'), findsOneWidget);
-    await tester.drag(
-      find.byType(ListView).hitTestable().first,
-      const Offset(0, -5000),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      transport.requests.any(
-        (r) =>
-            r.uri.path.endsWith('/v1/user/info') &&
-            r.uri.queryParameters['uid'] == 'owner_21',
-      ),
-      isTrue,
-    );
-    expect(transport.searchRequests.last.uri.queryParameters['pn'], '2');
-    expect(find.text('#Origin 21'), findsOneWidget);
-    expect(find.byType(ProMembershipBadge), findsNothing);
-    expect(find.byType(SearchPage), findsOneWidget);
-    expect(tester.takeException(), isNull);
+    for (final tab in ['Worldo', 'World', 'User']) {
+      await tester.tap(find.text(tab));
+      await tester.pumpAndSettle();
+      expect(find.byType(ProMembershipBadge), findsNothing);
+    }
   });
+
+  testWidgets(
+    'search pagination never looks up user info for a missing badge',
+    (tester) async {
+      final transport = _SearchPageTransport(
+        paginated: true,
+        missingOwners: true,
+      );
+      await _pumpSearchPage(tester, transport);
+      await tester.enterText(find.byType(TextField), 'abc');
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pumpAndSettle();
+      expect(find.text('#Origin 1'), findsOneWidget);
+      await tester.drag(
+        find.byType(ListView).hitTestable().first,
+        const Offset(0, -5000),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        transport.requests.any((r) => r.uri.path.endsWith('/v1/user/info')),
+        isFalse,
+      );
+      expect(transport.searchRequests.last.uri.queryParameters['pn'], '2');
+      expect(find.text('#Origin 21'), findsOneWidget);
+      expect(find.byType(ProMembershipBadge), findsNothing);
+      expect(find.byType(SearchPage), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final errorPage in [1, 2]) {
     testWidgets('search page $errorPage 1404 stays on the search page', (
@@ -1410,6 +1452,8 @@ class _SearchPageTransport implements HttpTransport {
     this.loadMoreDelay = Duration.zero,
     this.searchErrorPage,
     this.missingOwners = false,
+    this.membershipStatus,
+    this.deletedUsers = false,
   });
 
   final bool singleWorldResult;
@@ -1426,6 +1470,8 @@ class _SearchPageTransport implements HttpTransport {
   final Duration loadMoreDelay;
   final int? searchErrorPage;
   final bool missingOwners;
+  final Object? membershipStatus;
+  final bool deletedUsers;
   final List<TransportRequest> requests = <TransportRequest>[];
 
   List<TransportRequest> get searchRequests => requests
@@ -1463,7 +1509,7 @@ class _SearchPageTransport implements HttpTransport {
           'users': _emptySection(),
         });
       }
-      return _jsonResponse({
+      final response = <String, dynamic>{
         'keyword': request.uri.queryParameters['keyword'] ?? '',
         'type': request.uri.queryParameters['type'] ?? '',
         'origins': _section(
@@ -1497,7 +1543,24 @@ class _SearchPageTransport implements HttpTransport {
           paginated: paginated,
           pageNumber: pageNumber,
         ),
-      });
+      };
+      for (final sectionName in ['origins', 'worlds', 'users']) {
+        for (final raw in (response[sectionName] as Map)['list'] as List) {
+          final user = sectionName == 'users'
+              ? raw as Map
+              : Map<String, dynamic>.from((raw as Map)['owner'] as Map);
+          if (sectionName != 'users') {
+            raw['owner'] = user;
+          }
+          if (membershipStatus != null) {
+            user['membership_status'] = membershipStatus;
+          }
+          user['gender'] = 'Female';
+          user['age'] = '25-34';
+          user['deleted'] = deletedUsers;
+        }
+      }
+      return _jsonResponse(response);
     }
     if (missingOwners && request.uri.path.endsWith('/v1/user/info')) {
       return const TransportResponse(

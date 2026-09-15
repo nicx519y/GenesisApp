@@ -110,6 +110,9 @@ class _UserInfoPageState extends State<UserInfoPage> {
     final isBlocked = !isSelf && _mapBool(relation, 'is_blocked');
     final data = UserProfileData(
       avatarUrl: avatarUrl,
+      gender: asString(user['gender']),
+      age: asString(user['age']),
+      membershipStatus: asUserMembershipStatus(user['membership_status']),
       displayName: displayName,
       uid: profileUid.trim().isEmpty ? 'Unknown' : profileUid,
       followingCount: _mapInt(user, 'following_cnt'),
@@ -485,6 +488,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
             playerCount: item.playerCount,
             ownerName: item.ownerName,
             ownerUid: item.ownerUid,
+            ownerUser: item.ownerUser,
           ),
         )
         .toList(growable: false);

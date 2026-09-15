@@ -1887,7 +1887,9 @@ class _OriginSheetHeaderContent extends StatelessWidget {
                   ),
                   GenesisInlineMetaLabel(
                     text: 'Creator: ${formatUidForDisplay(originator)}',
-                    membershipUid: origin.ownerDeleted ? null : ownerUid,
+                    membershipStatus: origin.ownerDeleted
+                        ? 0
+                        : origin.ownerUser.membershipStatus,
                     onTap: ownerUid.isEmpty || origin.ownerDeleted
                         ? null
                         : () => Navigator.of(context).pushNamed(

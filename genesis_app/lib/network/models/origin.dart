@@ -43,6 +43,7 @@ class OriginListResponse {
 @immutable
 class OriginSummary {
   const OriginSummary({
+    this.ownerUser = const OriginUserInfo(),
     required this.id,
     required this.oid,
     required this.name,
@@ -65,6 +66,7 @@ class OriginSummary {
     required this.locations,
   });
 
+  final OriginUserInfo ownerUser;
   final int id;
   final String oid;
   final String name;
@@ -89,6 +91,7 @@ class OriginSummary {
   factory OriginSummary.fromJson(Map<String, dynamic> json) {
     final mapImage = asImageUrl(json['map_image']);
     return OriginSummary(
+      ownerUser: OriginUserInfo.fromJson(asOptionalJsonMap(json['owner_user'])),
       id: asInt(json['id']),
       oid: asString(json['oid']),
       name: decodeGenesisUgcTextForDisplay(asString(json['name'])),
@@ -229,7 +232,7 @@ class OriginDetail {
     );
     final mapImage = coverResource.displayUrl;
     final ownerUserRaw = info['owner_user'] is Map
-        ? asJsonMap(info['owner_user'])
+        ? asOptionalJsonMap(info['owner_user'])
         : const <String, dynamic>{};
     final flatLocations = (json['locations'] is List)
         ? asJsonList(json['locations'])
@@ -338,6 +341,9 @@ class OriginUserInfo {
     this.avatar = '',
     this.avatarResource = const GenesisImageResource(),
     this.deleted = false,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
     this.followerCount = 0,
     this.followingCount = 0,
     this.friendCount = 0,
@@ -351,6 +357,9 @@ class OriginUserInfo {
   final String avatar;
   final GenesisImageResource avatarResource;
   final bool deleted;
+  final String gender;
+  final String age;
+  final int membershipStatus;
   final int followerCount;
   final int followingCount;
   final int friendCount;
@@ -363,6 +372,9 @@ class OriginUserInfo {
       GenesisImageResource.fromJson(json['avatar']),
     );
     return OriginUserInfo(
+      gender: asString(json['gender']),
+      age: asString(json['age']),
+      membershipStatus: asUserMembershipStatus(json['membership_status']),
       uid: asString(json['uid']),
       name: asString(json['name']),
       avatar: avatarResource.displayUrl,
@@ -565,7 +577,7 @@ class OriginCharacter {
       );
     }
     final playerUser = json['player_user'] is Map
-        ? asJsonMap(json['player_user'])
+        ? asOptionalJsonMap(json['player_user'])
         : const <String, dynamic>{};
     final avatarResource = GenesisImageResourceRegistry.register(
       GenesisImageResource.fromJson(json['avatar']),
