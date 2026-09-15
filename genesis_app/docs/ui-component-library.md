@@ -16,9 +16,9 @@ lib/ui/
 
 ## Subscription 权益图标
 
-统一使用 `lib/components/gems/subscription_benefit_icon.dart` 的 `SubscriptionBenefitIcon`。图标占位为 20×20、颜色为 `GenesisColors.darkTextPrimary`，权益行保留 28×28、圆角 8 的淡色底框。
+统一使用 `lib/components/gems/subscription_benefit_icon.dart` 的 `SubscriptionBenefitIcon`。图标占位为 18×18、颜色为 `GenesisColors.darkTextSecondary`（约 72% 白），弱于 14 号权益正文的主文字色；权益行保留 28×28、圆角 8 的淡色底框。
 
-所有图形在 20×20 占位中居中：gem、badge 绘制为 20×20；edit、inspiration 按 85% 绘制为 17×17；memory、recharge 和默认圆圈五角星按 90% 绘制为 18×18。传入其他 size 时保持相同比例。该调整只用于 Subscription 权益列表，不修改 Message 操作栏或共享 SVG。
+所有图形在 18×18 占位中居中：gem、badge 绘制为 18×18；edit、inspiration 按 85% 绘制为 15.3×15.3；memory、recharge 和默认圆圈五角星按 90% 绘制为 16.2×16.2。传入其他 size 时保持相同比例。该调整只用于 Subscription 权益列表，不修改 Message 操作栏、右侧状态标签或共享 SVG。
 
 | 后端 icon_key | 简洁图形 | 本地资源 |
 | --- | --- | --- |

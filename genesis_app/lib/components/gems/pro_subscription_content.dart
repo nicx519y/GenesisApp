@@ -539,7 +539,7 @@ class _ProBenefit extends StatelessWidget {
               color: GenesisColors.darkFaintFill,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: SubscriptionBenefitIcon(iconKey: iconKey, color: color),
+            child: SubscriptionBenefitIcon(iconKey: iconKey),
           ),
           const SizedBox(width: 10),
           Expanded(

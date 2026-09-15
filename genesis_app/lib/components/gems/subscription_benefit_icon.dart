@@ -11,8 +11,8 @@ class SubscriptionBenefitIcon extends StatelessWidget {
   const SubscriptionBenefitIcon({
     super.key,
     required this.iconKey,
-    this.size = 20,
-    this.color = GenesisColors.darkTextPrimary,
+    this.size = 18,
+    this.color = GenesisColors.darkTextSecondary,
   });
 
   final String iconKey;
