@@ -2,6 +2,7 @@ part of 'home_page.dart';
 
 class _HomeScaffold extends StatelessWidget {
   const _HomeScaffold({
+    required this.signedOutView,
     required this.activationListenable,
     required this.reselectionListenable,
     required this.isActiveListenable,
@@ -18,6 +19,7 @@ class _HomeScaffold extends StatelessWidget {
     this.myWorldsCacheLoader,
   });
 
+  final Widget signedOutView;
   final ValueListenable<int>? activationListenable;
   final ValueListenable<int>? reselectionListenable;
   final ValueListenable<bool>? isActiveListenable;
@@ -43,6 +45,7 @@ class _HomeScaffold extends StatelessWidget {
           Expanded(
             child: _MyWorldFeed(
               index: 0,
+              signedOutView: signedOutView,
               activationListenable: activationListenable,
               reselectionListenable: reselectionListenable,
               isActiveListenable: isActiveListenable,

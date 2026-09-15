@@ -4186,7 +4186,7 @@ void main() {
     AppStartupCoordinator.resetForTesting();
   });
 
-  testWidgets('signed-out cold start opens Worldo and Home opens My Worlds', (
+  testWidgets('signed-out cold start opens Worldo and Home shows sign-in', (
     WidgetTester tester,
   ) async {
     final services = await _testServices(initialUid: null);
@@ -4254,23 +4254,13 @@ void main() {
     );
     expect(find.text('Popular'), findsNothing);
 
-    final emptyAction = find.byKey(
-      const ValueKey<String>('home-my-worlds-empty-action'),
-    );
-    for (var i = 0; i < 20 && emptyAction.evaluate().isEmpty; i += 1) {
-      await tester.pump(const Duration(milliseconds: 50));
-    }
-    expect(emptyAction, findsOneWidget);
-
-    await tester.tap(emptyAction);
-    await tester.pump();
-
-    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 1);
+    await tester.pumpAndSettle();
+    expect(find.text('Your worlds, all in one place'), findsOneWidget);
+    expect(find.text('Continue with Google'), findsOneWidget);
     expect(
-      Theme.of(tester.element(find.byType(BottomTabs))).brightness,
-      Brightness.dark,
+      find.byKey(const ValueKey<String>('home-my-worlds-empty-action')),
+      findsNothing,
     );
-    expect(find.text('For you'), findsOneWidget);
     await tester.pump(const Duration(seconds: 1));
     AppStartupCoordinator.resetForTesting();
   });
@@ -6942,6 +6932,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('World tick narrator 1'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpWidget(const SizedBox.shrink());
+    AppStartupCoordinator.resetForTesting();
   });
 
   testWidgets('main tabs keep page state after switching away and back', (
@@ -8528,9 +8521,39 @@ void main() {
     worldDeletionEvents.value = null;
   });
 
-  testWidgets('Home shows the signed-out My Worlds state', (
+  testWidgets('signed-in Home without worlds keeps the launch action', (
+    tester,
+  ) async {
+    final transport = _RecordingV1ListTransport(worldListTotal: 0);
+    var openedWorldo = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: HomePage(onOpenWorldo: () => openedWorldo = true),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(SignedOutMeView), findsNothing);
+    expect(find.text('Continue with Google'), findsNothing);
+    final action = find.byKey(
+      const ValueKey<String>('home-my-worlds-empty-action'),
+    );
+    expect(action, findsOneWidget);
+    await tester.tap(action);
+    expect(openedWorldo, isTrue);
+  });
+
+  testWidgets('Home shows sign-in guidance instead of the no-world state', (
     WidgetTester tester,
   ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
     final transport = _RecordingV1ListTransport();
     await tester.pumpWidget(
       MaterialApp(
@@ -8545,6 +8568,20 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.byType(SignedOutMeView), findsOneWidget);
+    expect(find.byKey(const Key('signed_out_worldo_logo')), findsNothing);
+    expect(find.byIcon(Icons.public_outlined), findsNothing);
+    expect(find.text('Your worlds, all in one place'), findsOneWidget);
+    expect(
+      find.text('Sign in to create worlds and continue your stories.'),
+      findsOneWidget,
+    );
+    expect(find.text('Continue with Google'), findsOneWidget);
+    expect(find.text('Sign up and get 250 Gems!'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('home-my-worlds-empty-action')),
+      findsNothing,
+    );
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
     expect(transport.requestsFor('/api/v1/origin/list'), isEmpty);
   });
@@ -8613,64 +8650,58 @@ void main() {
     expect(trackingRequested, isFalse);
   });
 
-  testWidgets('Home My Worlds signed-out initial frame shows empty state', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: null,
+  testWidgets(
+    'Home My Worlds signed-out initial frame shows sign-in guidance',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: null,
+            ),
+            child: const HomePage(),
           ),
-          child: const HomePage(),
         ),
-      ),
-    );
+      );
 
-    expect(
-      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-      findsNothing,
-    );
-    expect(
-      find.text(
-        'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
-      ),
-      findsNothing,
-    );
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+      expect(
+        find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+        findsNothing,
+      );
+      expect(
+        find.text('Sign in to create worlds and continue your stories.'),
+        findsNothing,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
 
-    await tester.pumpAndSettle();
+      await tester.pumpAndSettle();
 
-    expect(
-      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-      findsNothing,
-    );
-    expect(
-      find.text(
-        'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      _richTextFinder('Launch a #Worldo to generate\nyour own World'),
-      findsOneWidget,
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'home-my-worlds-empty-image:'
-          'assets/images/my_worlds_empty_worldo_launch.jpg',
+      expect(
+        find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+        findsNothing,
+      );
+      expect(
+        find.text('Sign in to create worlds and continue your stories.'),
+        findsOneWidget,
+      );
+      expect(find.text('Your worlds, all in one place'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'home-my-worlds-empty-image:'
+            'assets/images/my_worlds_empty_worldo_launch.jpg',
+          ),
         ),
-      ),
-      findsNothing,
-    );
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-  });
+        findsNothing,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    },
+  );
 
-  testWidgets('Home My World signed-out tab keeps empty state', (
+  testWidgets('Home My World signed-out tab keeps sign-in guidance', (
     WidgetTester tester,
   ) async {
     final transport = _RecordingV1ListTransport();
@@ -8693,7 +8724,7 @@ void main() {
     ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    await tester.tap(find.text('My Worlds'));
+    await tester.pump();
     await tester.pump();
     expect(
       find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
@@ -8701,19 +8732,14 @@ void main() {
     );
     for (
       var i = 0;
-      i < 10 &&
-          _richTextFinder(
-            'Launch a #Worldo to generate\nyour own World',
-          ).evaluate().isEmpty;
+      i < 10 && find.text('Your worlds, all in one place').evaluate().isEmpty;
       i += 1
     ) {
       await tester.pump(const Duration(milliseconds: 100));
     }
 
     expect(
-      find.text(
-        'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
-      ),
+      find.text('Sign in to create worlds and continue your stories.'),
       findsOneWidget,
     );
     expect(
@@ -8726,9 +8752,7 @@ void main() {
 
     expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
     expect(
-      find.text(
-        'Worldo is the blueprint. Launch to create a live World you can enter and grow.',
-      ),
+      find.text('Sign in to create worlds and continue your stories.'),
       findsOneWidget,
     );
     expect(
@@ -8764,7 +8788,7 @@ void main() {
         findsNothing,
       );
 
-      await tester.tap(find.text('My Worlds'));
+      await tester.pump();
       await tester.pump();
 
       expect(
@@ -8778,69 +8802,64 @@ void main() {
     },
   );
 
-  testWidgets('Home My World signed-out state uses text without launch image', (
-    WidgetTester tester,
-  ) async {
-    final transport = _RecordingV1ListTransport();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: AppServicesScope(
-          services: await _testServices(
-            transport: transport,
-            useMock: false,
-            initialUid: null,
+  testWidgets(
+    'Home My World signed-out state uses sign-in guidance without launch image',
+    (WidgetTester tester) async {
+      final transport = _RecordingV1ListTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(
+              transport: transport,
+              useMock: false,
+              initialUid: null,
+            ),
+            child: const HomePage(),
           ),
-          child: const HomePage(),
         ),
-      ),
-    );
-    for (
-      var i = 0;
-      i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
-    await tester.tap(find.text('My Worlds'));
-    await tester.pump();
-    for (
-      var i = 0;
-      i < 10 &&
-          _richTextFinder(
-            'Launch a #Worldo to generate\nyour own World',
-          ).evaluate().isEmpty;
-      i += 1
-    ) {
-      await tester.pump(const Duration(milliseconds: 100));
-    }
+      );
+      for (
+        var i = 0;
+        i < 10 && transport.requestsFor('/api/v1/origin/list').isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      await tester.pump();
+      await tester.pump();
+      for (
+        var i = 0;
+        i < 10 && find.text('Your worlds, all in one place').evaluate().isEmpty;
+        i += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
 
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'home-my-worlds-empty-image:assets/images/default_list_image.png',
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'home-my-worlds-empty-image:assets/images/default_list_image.png',
+          ),
         ),
-      ),
-      findsNothing,
-    );
-    expect(
-      find.byKey(
-        const ValueKey<String>(
-          'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey<String>(
+            'home-my-worlds-empty-image:assets/images/my_worlds_empty_worldo_launch.jpg',
+          ),
         ),
-      ),
-      findsNothing,
-    );
-    expect(
-      _richTextFinder('Launch a #Worldo to generate\nyour own World'),
-      findsOneWidget,
-    );
-    expect(find.text('World tick narrator 1'), findsNothing);
-    expect(
-      find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
-      findsNothing,
-    );
-    expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
-  });
+        findsNothing,
+      );
+      expect(find.text('Your worlds, all in one place'), findsOneWidget);
+      expect(find.text('World tick narrator 1'), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('genesis-world-list-skeleton')),
+        findsNothing,
+      );
+      expect(transport.requestsFor('/api/v1/world/list'), isEmpty);
+    },
+  );
 
   testWidgets('Origin list item opens origin detail with current oid', (
     WidgetTester tester,
@@ -19703,6 +19722,61 @@ void main() {
       },
     );
   }
+
+  testWidgets('signed-out Home opens worlds after Google login succeeds', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final sessionStore = MemoryUserSessionStore();
+    final backendAuth = _FakeBackendAuthCoordinator(
+      authenticated: false,
+      sessionStore: sessionStore,
+      loginUser: const User(
+        id: 42,
+        uid: 'backend_uid',
+        did: '',
+        nickname: 'Backend User',
+        avatar: '',
+        createdAt: null,
+      ),
+    );
+
+    await tester.pumpWidget(
+      GenesisApp(
+        services: await _testServices(
+          initialUid: null,
+          sessionStoreOverride: sessionStore,
+          identityAuth: const _FakeIdentityAuthService(
+            signInSession: AuthSession(
+              provider: IdentityProvider.google,
+              providerIdToken: 'google-token',
+              displayName: 'Identity User',
+              photoUrl: '',
+            ),
+          ),
+          backendAuth: backendAuth,
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Home'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Continue with Google'));
+    await tester.tap(find.text('Continue with Google').last);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your worlds, all in one place'), findsNothing);
+    expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 0);
+    expect(backendAuth.loginCount, 1);
+    expect(backendAuth.lastLoginProvider, IdentityProvider.google);
+    expect(find.text('Continue with Google'), findsNothing);
+    expect(find.text('Daily Check-in'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 1));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    AppStartupCoordinator.resetForTesting();
+  });
 
   testWidgets('signed-out Me view enters Me after Google login succeeds', (
     WidgetTester tester,

@@ -639,6 +639,8 @@ class _AppShellPageState extends State<AppShellPage>
           isFirstPageViewReported: _isFirstContentPageViewReported,
           onFirstPageViewReady: _recordFirstContentPageView,
           onOpenWorldo: () => unawaited(_onTapNav(1)),
+          onLogin: _loginWithProvider,
+          onLoginCompleted: () => scheduleDailyCheckInAfterLogin(context),
         ),
         1 => OriginPage(
           key: ValueKey<String>('worldo-session-$_sessionTabGeneration'),
