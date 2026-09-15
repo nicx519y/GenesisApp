@@ -136,6 +136,15 @@ abstract final class GenesisTheme {
           ),
         ),
       ),
+      switchTheme: base.switchTheme.copyWith(
+        // Material's default off thumb uses outline, which blends into our
+        // faint track. Keep the thumb visible in both positions.
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? GenesisColors.darkTextTertiary
+              : GenesisColors.darkTextPrimary,
+        ),
+      ),
       progressIndicatorTheme: base.progressIndicatorTheme.copyWith(
         color: GenesisColors.darkTextSecondary,
       ),

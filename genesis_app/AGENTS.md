@@ -162,7 +162,7 @@ HTTP 映射层的图片规则：
 
 - 用户端操作 Sheet 统一复用 `GenesisActionSheetHeader`（`components/common/genesis_bottom_sheet_panel.dart`），总高固定 68，包含正文前的全部留白；有无右侧操作均不改变高度。标题字号 18、字重 600、行高 24，左对齐，左右边距 16；标题、左侧图标和右侧操作在 68 高 Header 内垂直居中，不设固定顶部间距。标题单行，窄屏或大字体放不下时省略，不缩小字号或撑高 Header。
 - 允许关闭时使用公共右侧 `GenesisDarkCloseButton`；关闭时调用所属 Sheet 原有的退出逻辑，提交中按业务禁用。新用户填表和登录不允许关闭，登录保留返回；新用户订阅右侧保留 Skip（二号白色 `darkTextSecondary`）和标题前的皇冠。三步 Header 与 Sheet 高度保持一致；新用户流程 Sheet 总高固定 600 个逻辑像素（含底部安全区），短屏限制在顶部安全区下方可用高度内，正文溢出内部滚动。
-- `GenesisBottomSheetPanel` 的普通深色标题自动使用此 Header；正文统一复用 `GenesisActionSheetBody`，左右外边距固定 16，与 Header 共享同一常量，不再叠加旧 `titleBottomSpacing`。普通深色面板默认自动应用；Tab / 多步骤容器设置 `insetBody: false`，在各正文页内只应用一次。自定义 Header 通过 `header` 插槽传入。开发工具的浅色 / 自定义 Header 保留原样。
+- `GenesisBottomSheetPanel` 的普通深色标题自动使用此 Header；正文统一复用 `GenesisActionSheetBody`，左右外边距固定 16，与 Header 共享同一常量，不再叠加旧 `titleBottomSpacing`。普通深色面板默认自动应用；Tab / 多步骤容器设置 `insetBody: false`，在各正文页内只应用一次。自定义 Header 通过 `header` 插槽传入。Developer Sheet 同样使用公共 Header；地图工具等独立自定义 Header 保留原样。
 - Subscription / Buy Gems 使用 `GenesisActionSheetHeader.tabs`：总高同为 68，保留居中图标 Tab、16 / 600 字号及下划线，左右关闭按钮位置复用标准。购买 Sheet 内订阅正文 `topSpacing: 0`，Buy Gems 使用 `compactBalance: true` 去掉余额区居中留白；两 Tab 的正文容器均从 Header 底部开始。Wallet 完整页面正文左右边距同样为 16。
 - 订阅协议底部统一只保留系统安全区：Wallet 完整页面、普通订阅 Sheet、新用户订阅 Sheet 不额外添加协议下方 padding；外层 SafeArea 处理一次，不叠加。
 - 正文 16 边距适用于表单、登录按钮、角色选择区、权益卡、套餐卡及底部主按钮的外边缘。卡片内部 padding、卡片间距和居中法律文案独立保留。订阅内容在 Sheet 内设置 `horizontalInset: 0`，由外层 `GenesisActionSheetBody` 提供 16；Wallet 完整页面设置 `horizontalInset: 16`。传入的 `subscriptionBuilder` 内容不得重复添加外边距。
@@ -171,7 +171,7 @@ HTTP 映射层的图片规则：
 ## 标准页面 Header 标题
 
 - `GenesisBackAppBar` 默认使用 `darkBackground` 背景、`darkTextPrimary` 标题与返回图标及浅色状态栏图标；页面无需重复传入这些默认值，明确的颜色覆盖仍保留。
-- 标准返回 Header 统一复用 `GenesisBackAppBar`，`horizontalInset` 默认 16，无需在页面重复传入；返回图标左侧和无操作按钮时标题区域右侧均留 16。自定义右侧操作需将图标或文字的实际右侧留白对齐到 16，计入按钮内部 padding。未登录 Me、Developer 等非标准 Header 不套用此规则。
+- 标准返回 Header 统一复用 `GenesisBackAppBar`，`horizontalInset` 默认 16，无需在页面重复传入；返回图标左侧和无操作按钮时标题区域右侧均留 16。自定义右侧操作需将图标或文字的实际右侧留白对齐到 16，计入按钮内部 padding。未登录 Me 等非标准 Header 不套用此规则；Developer 全屏页复用标准返回 Header。
 - Settings、Account、Blocked users、About 的正文左右边距统一为 16，包括列表、空态和底部操作区；法律页使用共享 Header，WebView 内部正文间距由网页样式管理。
 
 - 标准页面 Header 标题统一引用 `GenesisTypography.pageTitle`，通过 `GenesisUiTheme.pageTitleStyle` 使用：字号 20、字重 600、行高 1.4；不得在页面重复硬编码同一字号。
@@ -229,8 +229,9 @@ HTTP 映射层的图片规则：
 ## 深色界面颜色规范
 
 - App 固定使用 `GenesisTheme.dark()` 作为全局默认，不随系统切换浅色。Material 默认背景、文字、Tab、输入提示／光标、按钮禁用态、加载圆环以及 `GenesisUiTheme` 均由公共深色主题管理；局部 `GenesisDarkTheme` 复用同一 `GenesisTheme.asDark()` 实现，不维护第二套颜色。
+- 深色 Switch 的圆点由公共主题显式设置：可操作时使用 `darkTextPrimary`，禁用时使用 `darkTextTertiary`，开启与关闭均保持可见；不使用 `outline` 作为关闭态圆点色，避免与淡色轨道混在一起。
 - 根 builder 的文字与状态栏图标也使用深色默认，覆盖页面 Material 之外的浮层。输入框填充 token 由主题提供，同类组件仍负责布局与填充，不给已有外层填充重复叠底。
-- 用户明确保留的开发页面／Sheet、调试解锁使用 `GenesisLightTheme` 局部隔离，保持原有浅色设计；地图调试设置和独立推送 Banner 保持自身样式。公共操作弹窗等已有独立深色规则继续生效。
+- Developer 全屏页、Sheet、HTTP / WebSocket 详情与筛选沿用 App 深色主题，使用公共标题栏、信息卡片、输入填充及三级文字 token。调试解锁密码弹窗仍使用 `GenesisLightTheme` 局部隔离；地图调试设置和独立推送 Banner 保持自身样式。公共操作弹窗等已有独立深色规则继续生效。
 
 颜色统一定义在 `lib/ui/tokens/genesis_colors.dart` 的 `GenesisColors` 中。以下五个 token 是对应标准颜色的唯一色值来源：
 

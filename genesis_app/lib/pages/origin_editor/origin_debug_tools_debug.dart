@@ -239,15 +239,20 @@ class _DeveloperRandomContentButtonState
           onPressed: !_generating && (widget.action?.isEnabled ?? false)
               ? () => unawaited(_generate())
               : null,
-          backgroundColor: const Color(0xFFE1E1E3),
-          foregroundColor: Colors.black,
+          backgroundColor: GenesisColors.darkFaintFill,
+          disabledBackgroundColor: GenesisColors.darkFaintFill,
+          disabledForegroundColor: GenesisColors.darkTextTertiary,
+          foregroundColor: GenesisColors.darkTextPrimary,
         ),
         const SizedBox(height: 6),
         Text(
           widget.action == null
               ? 'Open Create or Edit home before opening Developer to use Random.'
               : 'Generate random content for ${widget.action!.label}.',
-          style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
+          style: const TextStyle(
+            fontSize: 12,
+            color: GenesisColors.darkTextSecondary,
+          ),
         ),
       ],
     );

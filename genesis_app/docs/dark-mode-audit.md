@@ -2,7 +2,7 @@
 
 检查日期：2026-09-10。基线：`main_ui_black` 合并提交 `37af674d`，包含本轮 Private Chat 修正。此文件替换之前基于旧合并提交的检查结论。
 
-当前状态：全局入口已改为 `GenesisTheme.dark()`；开发全页／Sheet和解锁密码用局部 `GenesisLightTheme` 保持浅色。已删除未使用的 createFormDanger 与角色头像 showStar 链路，World 操作按钮／未读红点已引用 redPrimary。此前“尚未切换”条目为历史记录，最新实施见第10节。
+当前状态：全局入口已改为 `GenesisTheme.dark()`；Developer 全页／Sheet 已按 2026-09-14 的要求统一为 App 深色主题；解锁密码仍用局部 `GenesisLightTheme` 保持浅色。已删除未使用的 createFormDanger 与角色头像 showStar 链路，World 操作按钮／未读红点已引用 redPrimary。此前“尚未切换”条目为历史记录，最新实施见第10节。
 
 范围：`lib/routers` 的命名路由，页面直接 push，Sheet / Dialog / OverlayEntry 入口，公共组件和页面的初始、分页、错误、等待状态。逐项追踪正式调用与条件；以下是代码检查，未做逐页真机截图验收，也没有真实扣款。
 
@@ -19,12 +19,11 @@
 
 | 界面 / 入口 | 实际情况 | 代码 |
 | --- | --- | --- |
-| Developer 全页及底部 Sheet | 仍使用浅色默认主题；信息、开关、按钮、HTTP / WebSocket 列表与详情含浅底黑字。从不同主题打开时也可能出现深浅混合 | `lib/pages/me/developer_page.dart:109`、`:136`；`developer_components.dart`、`developer_network_tab.dart`、`developer_websocket_tab.dart` |
 | **正式包的调试解锁密码弹窗** | Settings／未登录 Me 长按入口，非 debug 构建会显示；奶白底 `#FFFCF7`、金色边框、黑字，独立 Dialog，尚未深色化。这是此前漏掉的浮层 | `lib/app/debug_floating_button_unlock.dart:20`、`:70`；入口在 `settings_page.dart:119`、`signed_out_me_view.dart:91` |
 | 地图设置浮动面板、图片流参数编辑器 | 经 Developer 开启地图设置按钮后可见。深色地图下有暗色实现，但仍是独立黄灰底／纯白／68% 白；切到 Light 时仍显示浅色面板。地图默认模式已是 Dark，这不是普通页面初始白底 | `lib/components/tilemap/tilemap_library.dart:2422`、`tilemap_settings_panel.dart:121`、`tilemap_image_flow_editor.dart:308` |
 | World 内容更新推送 Banner | 已用深色文字 token 和 Blur 14，但底板仍为独立的 **20% 白**，不是 darkOverlayBackground；用户确认这是独立样式，保留，不属于遗漏 | `lib/pages/world/world_update_push_banner.dart:418` |
 
-用户最新确认：World 更新 Banner 为独立设计，地图设置为开发用途，密码解锁与 Developer 界面均不需要修改。上述四项全部从待改范围移除，表格仅记录现状。常规业务页面没有再查到整页硬编码白底；“未发现”只表示当前调用链的静态检查结果，不能代替设备验收。
+2026-09-14 更新：Developer 界面已按新要求统一为 App 深色主题。World 更新 Banner、地图设置和密码解锁继续保留独立样式，表格记录这三项现状。常规业务页面没有再查到整页硬编码白底；“未发现”只表示当前调用链的静态检查结果，不能代替设备验收。
 
 ## 3. 浮层逐类核对
 
@@ -47,7 +46,8 @@
 | 图片查看器／裁剪页、上传进度 | 黑色媒体背景或遮罩，属于专用样式；原生图片选择器由系统管理 |
 | Toast | 统一 showGenesisToast，深色 #424244 是独立 token；不改成操作弹窗的半透明底 |
 | World 更新 Banner；Private Chat 新消息浮标 | 前者是用户确认保留的独立 20% 白表面；后者本轮改为暗色浮动入口 |
-| Developer 主 Sheet、网络详情／WebSocket 筛选、密码解锁 | 仍有浅色，用户确认保留，不列为待改 |
+| Developer 全页／Sheet、网络详情／WebSocket 筛选 | 已统一为公共深色主题：全页标准返回 Header、Sheet 标准操作 Header、GenesisInfoCard、深色输入与按钮；复制、筛选和开关逻辑保持 |
+| 调试解锁密码弹窗 | 继续保留独立浅色样式 |
 | 地图设置／渲染加载浮层 | 跟随地图自身 visualMode；默认 dark，加载动画默认 disabled。Light 地图模式和开发可选加载效果单列，不误算成正式列表骨架闪烁 |
 
 ## 4. 同色 Token 扫描快照（替换前）

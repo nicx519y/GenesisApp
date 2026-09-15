@@ -27,12 +27,15 @@ class _DeveloperAppConfigSection extends StatelessWidget {
             childrenPadding: const EdgeInsets.only(top: 8),
             shape: const Border(),
             collapsedShape: const Border(),
-            iconColor: Colors.black,
-            collapsedIconColor: Colors.black,
+            iconColor: GenesisColors.darkTextPrimary,
+            collapsedIconColor: GenesisColors.darkTextPrimary,
             title: const _DeveloperSectionTitle('App Config'),
             subtitle: const Text(
               'GET /api/v1/app/config',
-              style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
+              style: TextStyle(
+                fontSize: 12,
+                color: GenesisColors.darkTextSecondary,
+              ),
             ),
             expandedCrossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -43,14 +46,20 @@ class _DeveloperAppConfigSection extends StatelessWidget {
                 key: const PageStorageKey<String>(
                   'developer-app-config-status',
                 ),
-                style: const TextStyle(fontSize: 12, color: Color(0xFF666666)),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: GenesisColors.darkTextSecondary,
+                ),
               ),
               if (data != null && data.isNotEmpty) ...[
                 if (state.isLoading || state.error != null) ...[
                   const SizedBox(height: 8),
                   const Text(
                     'Last successful response',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF666666)),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: GenesisColors.darkTextSecondary,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 12),
@@ -61,7 +70,9 @@ class _DeveloperAppConfigSection extends StatelessWidget {
                   },
                   defaultVerticalAlignment: TableCellVerticalAlignment.top,
                   border: const TableBorder(
-                    horizontalInside: BorderSide(color: Color(0xFFE1E1E3)),
+                    horizontalInside: BorderSide(
+                      color: GenesisColors.darkFaintFill,
+                    ),
                   ),
                   children: [
                     const TableRow(
@@ -128,7 +139,9 @@ class _DeveloperAppConfigCell extends StatelessWidget {
         style: TextStyle(
           fontSize: 12,
           height: 1.4,
-          color: isKey ? Colors.black : const Color(0xFF666666),
+          color: isKey
+              ? GenesisColors.darkTextPrimary
+              : GenesisColors.darkTextSecondary,
           fontWeight: isKey ? FontWeight.w600 : FontWeight.w400,
         ),
       ),

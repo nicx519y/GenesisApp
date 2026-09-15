@@ -1,8 +1,8 @@
 part of 'developer_page.dart';
 
-const Color _worldHistoryGetColor = Color(0xFF1565C0);
-const Color _worldHistoryUpdateColor = Color(0xFF2E7D32);
-const Color _worldHistoryDeleteColor = Color(0xFFB3261E);
+const Color _worldHistoryGetColor = Color(0xFF3478F6);
+const Color _worldHistoryUpdateColor = Color(0xFF00A67A);
+const Color _worldHistoryDeleteColor = GenesisColors.redSecondary;
 
 class _DeveloperTestSectionPanel extends StatelessWidget {
   const _DeveloperTestSectionPanel({super.key, required this.child});
@@ -11,15 +11,7 @@ class _DeveloperTestSectionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFAFAFA),
-        border: Border.all(color: const Color(0xFFE1E1E3)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: child,
-    );
+    return GenesisInfoCard(padding: const EdgeInsets.all(14), child: child);
   }
 }
 
@@ -180,7 +172,7 @@ ButtonStyle _worldHistoryActionButtonStyle(Color foregroundColor) {
     foregroundColor: foregroundColor,
     backgroundColor: Colors.transparent,
     padding: const EdgeInsets.symmetric(horizontal: 12),
-    side: const BorderSide(color: Color(0xFFD0D0D4)),
+    side: const BorderSide(color: GenesisColors.darkFaintFill),
   );
 }
 
@@ -203,29 +195,17 @@ class _DeveloperWorldHistoryWatermarkInput extends StatelessWidget {
       key: fieldKey,
       controller: controller,
       enabled: enabled,
-      cursorColor:
-          Theme.of(context).textTheme.bodyLarge?.color ??
-          const Color(0xFF111111),
+      cursorColor: GenesisColors.darkTextPrimary,
       keyboardType: TextInputType.number,
       inputFormatters: <TextInputFormatter>[
         FilteringTextInputFormatter.digitsOnly,
       ],
       textInputAction: TextInputAction.done,
-      decoration: InputDecoration(
-        labelText: label,
-        floatingLabelBehavior: FloatingLabelBehavior.always,
-        floatingLabelStyle: const TextStyle(
-          fontSize: 12,
-          color: Color(0xFF555555),
-          fontWeight: FontWeight.w600,
-        ),
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 10,
-          vertical: 12,
-        ),
-        border: const OutlineInputBorder(),
+      style: const TextStyle(
+        fontSize: 14,
+        color: GenesisColors.darkTextPrimary,
       ),
+      decoration: _developerInputDecoration(label),
     );
   }
 }
@@ -246,7 +226,10 @@ class _DeveloperWorldHistoryReadOnlyValue extends StatelessWidget {
         Expanded(
           child: Text(
             field,
-            style: const TextStyle(fontSize: 12, color: Color(0xFF555555)),
+            style: const TextStyle(
+              fontSize: 12,
+              color: GenesisColors.darkTextSecondary,
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -256,7 +239,7 @@ class _DeveloperWorldHistoryReadOnlyValue extends StatelessWidget {
           textAlign: TextAlign.right,
           style: const TextStyle(
             fontSize: 12,
-            color: Colors.black,
+            color: GenesisColors.darkTextPrimary,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -287,7 +270,7 @@ class _DeveloperTelemetryUploadPanel extends StatelessWidget {
             'Telemetry Upload',
             style: TextStyle(
               fontSize: 15,
-              color: Colors.black,
+              color: GenesisColors.darkTextPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -296,7 +279,7 @@ class _DeveloperTelemetryUploadPanel extends StatelessWidget {
             'Automatic channels stay on. Others are for debugging.',
             style: TextStyle(
               fontSize: 12,
-              color: Color(0xFF777777),
+              color: GenesisColors.darkTextTertiary,
               height: 1.35,
             ),
           ),
@@ -306,12 +289,12 @@ class _DeveloperTelemetryUploadPanel extends StatelessWidget {
             key: const ValueKey<String>('developer-telemetry-status'),
             style: const TextStyle(
               fontSize: 12,
-              color: Color(0xFF777777),
+              color: GenesisColors.darkTextTertiary,
               height: 1.35,
             ),
           ),
           const SizedBox(height: 10),
-          const Divider(height: 1, color: Color(0xFFE5E5E5)),
+          const Divider(height: 1, color: GenesisColors.darkFaintFill),
           _DeveloperTelemetryChannelSwitch(
             label: 'Collect',
             value: state.collectEnabled,
@@ -397,7 +380,7 @@ class _DeveloperTelemetryChannelSwitch extends StatelessWidget {
                       label,
                       style: const TextStyle(
                         fontSize: 14,
-                        color: Colors.black,
+                        color: GenesisColors.darkTextPrimary,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -406,7 +389,7 @@ class _DeveloperTelemetryChannelSwitch extends StatelessWidget {
                         'On automatically',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Color(0xFF777777),
+                          color: GenesisColors.darkTextTertiary,
                         ),
                       ),
                   ],
@@ -427,7 +410,8 @@ class _DeveloperTelemetryChannelSwitch extends StatelessWidget {
             ],
           ),
         ),
-        if (showDivider) const Divider(height: 1, color: Color(0xFFEDEDED)),
+        if (showDivider)
+          const Divider(height: 1, color: GenesisColors.darkFaintFill),
       ],
     );
   }
@@ -461,7 +445,7 @@ class _DeveloperToggleRow extends StatelessWidget {
             label,
             style: const TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: GenesisColors.darkTextPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -519,7 +503,7 @@ class _DeveloperSliderControl extends StatelessWidget {
                 label,
                 style: const TextStyle(
                   fontSize: 14,
-                  color: Colors.black,
+                  color: GenesisColors.darkTextPrimary,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -527,7 +511,10 @@ class _DeveloperSliderControl extends StatelessWidget {
             const SizedBox(width: 12),
             Text(
               valueLabel,
-              style: const TextStyle(fontSize: 13, color: Color(0xFF666666)),
+              style: const TextStyle(
+                fontSize: 13,
+                color: GenesisColors.darkTextSecondary,
+              ),
             ),
           ],
         ),
@@ -732,7 +719,7 @@ class _DeveloperSectionTitle extends StatelessWidget {
       text,
       style: const TextStyle(
         fontSize: 15,
-        color: Colors.black,
+        color: GenesisColors.darkTextPrimary,
         fontWeight: FontWeight.w600,
         height: 1.2,
       ),
@@ -759,24 +746,48 @@ class _DeveloperVersionField extends StatelessWidget {
     return TextField(
       controller: controller,
       enabled: enabled,
-      cursorColor: Colors.black,
+      cursorColor: GenesisColors.darkTextPrimary,
       keyboardType: digitsOnly ? TextInputType.number : TextInputType.text,
       inputFormatters: digitsOnly
           ? <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly]
           : null,
       textInputAction: TextInputAction.done,
-      style: const TextStyle(fontSize: 14, color: Colors.black),
-      decoration: InputDecoration(
-        labelText: label,
-        isDense: true,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 12,
-        ),
-        border: const OutlineInputBorder(),
+      style: const TextStyle(
+        fontSize: 14,
+        color: GenesisColors.darkTextPrimary,
       ),
+      decoration: _developerInputDecoration(label),
     );
   }
+}
+
+InputDecoration _developerInputDecoration(String label) {
+  return InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: GenesisColors.darkTextSecondary),
+    floatingLabelBehavior: FloatingLabelBehavior.always,
+    floatingLabelStyle: const TextStyle(
+      fontSize: 12,
+      color: GenesisColors.darkTextSecondary,
+      fontWeight: FontWeight.w600,
+    ),
+    filled: true,
+    fillColor: GenesisColors.darkFaintFill,
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+    border: const OutlineInputBorder(
+      borderRadius: GenesisRadii.button,
+      borderSide: BorderSide.none,
+    ),
+    enabledBorder: const OutlineInputBorder(
+      borderRadius: GenesisRadii.button,
+      borderSide: BorderSide.none,
+    ),
+    focusedBorder: const OutlineInputBorder(
+      borderRadius: GenesisRadii.button,
+      borderSide: BorderSide.none,
+    ),
+  );
 }
 
 class _DeveloperEndpointHeader extends StatelessWidget {
@@ -813,7 +824,9 @@ class _DeveloperEndpointHeader extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 12,
-                  color: enabled ? Colors.black : const Color(0xFFA8A8AD),
+                  color: enabled
+                      ? GenesisColors.darkTextPrimary
+                      : GenesisColors.darkTextTertiary,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
                   letterSpacing: 0,
@@ -875,7 +888,7 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: GenesisColors.darkTextPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -894,7 +907,7 @@ class _DeveloperInfoSingleLineRow extends StatelessWidget {
                 softWrap: false,
                 style: const TextStyle(
                   fontSize: 14,
-                  color: Color(0xFF666666),
+                  color: GenesisColors.darkTextSecondary,
                   fontWeight: FontWeight.w400,
                 ),
               ),
@@ -932,7 +945,7 @@ class _DeveloperInfoRow extends StatelessWidget {
             textAlign: TextAlign.left,
             style: const TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: GenesisColors.darkTextPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -946,7 +959,7 @@ class _DeveloperInfoRow extends StatelessWidget {
               content,
               style: const TextStyle(
                 fontSize: 14,
-                color: Color(0xFF666666),
+                color: GenesisColors.darkTextSecondary,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -981,7 +994,7 @@ class _DeveloperInfoBlock extends StatelessWidget {
             '$title:',
             style: const TextStyle(
               fontSize: 14,
-              color: Colors.black,
+              color: GenesisColors.darkTextPrimary,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -990,7 +1003,7 @@ class _DeveloperInfoBlock extends StatelessWidget {
             content,
             style: const TextStyle(
               fontSize: 14,
-              color: Color(0xFF666666),
+              color: GenesisColors.darkTextSecondary,
               fontWeight: FontWeight.w400,
             ),
           ),

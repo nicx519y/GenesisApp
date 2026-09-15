@@ -81,7 +81,7 @@ void main() {
     final developerSheet = find.byType(DeveloperPageSheet);
     expect(
       Theme.of(tester.element(find.byType(DeveloperPageContent))).brightness,
-      Brightness.light,
+      Brightness.dark,
     );
     final sheetSize = tester.getSize(developerSheet);
     expect(sheetSize.height, closeTo(600, 0.01));

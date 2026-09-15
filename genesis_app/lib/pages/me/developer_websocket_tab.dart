@@ -292,11 +292,9 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
                     onTap: () => _refreshDisplayed(jumpToTop: true),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF222222),
+                        color: GenesisColors.darkRaisedBackground,
                         borderRadius: BorderRadius.circular(16),
-                        boxShadow: const [
-                          BoxShadow(color: Color(0x22000000), blurRadius: 8),
-                        ],
+                        border: Border.all(color: GenesisColors.darkFaintFill),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
@@ -306,7 +304,7 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
                         child: Text(
                           '$_newFrameCount new frames',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: GenesisColors.darkTextPrimary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -343,7 +341,7 @@ class _DeveloperWebSocketTabState extends State<_DeveloperWebSocketTab> {
           style: const TextStyle(
             fontSize: 14,
             height: 1.4,
-            color: Color(0xFF888888),
+            color: GenesisColors.darkTextTertiary,
           ),
         ),
       ),
@@ -373,12 +371,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
         ? 'RECV'
         : 'SEND';
     final typeLabel = record.typeKey;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: const Color(0xFFF7F7F8),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFE2E2E5)),
-      ),
+    return GenesisInfoCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -431,7 +424,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEDEDF0),
+                            color: GenesisColors.darkFaintFill,
                             borderRadius: BorderRadius.circular(5),
                           ),
                           child: Text(
@@ -440,7 +433,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               fontSize: 10,
-                              color: Color(0xFF666666),
+                              color: GenesisColors.darkTextSecondary,
                             ),
                           ),
                         ),
@@ -448,7 +441,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                       Icon(
                         expanded ? Icons.expand_less : Icons.expand_more,
                         size: 20,
-                        color: const Color(0xFF666666),
+                        color: GenesisColors.darkTextSecondary,
                       ),
                     ],
                   ),
@@ -462,7 +455,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontSize: 11,
-                            color: Color(0xFF777777),
+                            color: GenesisColors.darkTextTertiary,
                           ),
                         ),
                       ),
@@ -471,7 +464,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
                         _networkTimeText(record.recordedAt),
                         style: const TextStyle(
                           fontSize: 11,
-                          color: Color(0xFF777777),
+                          color: GenesisColors.darkTextTertiary,
                         ),
                       ),
                     ],
@@ -481,7 +474,7 @@ class _DeveloperWebSocketRecordCard extends StatelessWidget {
             ),
           ),
           if (expanded) ...[
-            const Divider(height: 1, color: Color(0xFFE2E2E5)),
+            const Divider(height: 1, color: GenesisColors.darkFaintFill),
             Padding(
               padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
               child: Column(
@@ -606,7 +599,7 @@ class _DeveloperWebSocketTypeFilterSheetState
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFFFF2442),
+              color: GenesisColors.redSecondary,
             ),
           ),
         ),
@@ -660,7 +653,10 @@ class _DeveloperWebSocketTypeFilterSheetState
                 ? const Center(
                     child: Text(
                       'No message types yet.',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF888888)),
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: GenesisColors.darkTextTertiary,
+                      ),
                     ),
                   )
                 : ListView.builder(
@@ -692,7 +688,7 @@ class _DeveloperWebSocketTypeFilterSheetState
                           '${widget.counts[type] ?? 0}',
                           style: const TextStyle(
                             fontSize: 12,
-                            color: Color(0xFF777777),
+                            color: GenesisColors.darkTextTertiary,
                           ),
                         ),
                       );
@@ -703,17 +699,19 @@ class _DeveloperWebSocketTypeFilterSheetState
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
+                child: GenesisSecondaryButton(
                   key: const ValueKey<String>(
                     'developer-websocket-type-cancel',
                   ),
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Cancel'),
+                  label: 'Cancel',
+                  foregroundColor: GenesisColors.darkTextPrimary,
+                  side: const BorderSide(color: GenesisColors.darkFaintFill),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: FilledButton(
+                child: GenesisPrimaryButton(
                   key: const ValueKey<String>('developer-websocket-type-apply'),
                   onPressed: () => Navigator.of(context).pop(
                     _WebSocketTypeFilterValue(
@@ -721,7 +719,7 @@ class _DeveloperWebSocketTypeFilterSheetState
                       selectedTypes: Set<String>.of(_selectedTypes),
                     ),
                   ),
-                  child: const Text('Apply'),
+                  label: 'Apply',
                 ),
               ),
             ],

@@ -38,14 +38,17 @@ class _DeveloperCaptureHeader extends StatelessWidget {
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.black,
+              color: GenesisColors.darkTextPrimary,
             ),
           ),
         ),
         Text(
           count,
           key: countKey,
-          style: const TextStyle(fontSize: 12, color: Color(0xFF777777)),
+          style: const TextStyle(
+            fontSize: 12,
+            color: GenesisColors.darkTextTertiary,
+          ),
         ),
         const SizedBox(width: 10),
         GestureDetector(
@@ -60,8 +63,8 @@ class _DeveloperCaptureHeader extends StatelessWidget {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: onClear == null
-                    ? const Color(0xFFBBBBBB)
-                    : const Color(0xFFFF2442),
+                    ? GenesisColors.darkTextTertiary
+                    : GenesisColors.redSecondary,
               ),
             ),
           ),
@@ -103,10 +106,12 @@ class _DeveloperCaptureFilterChip extends StatelessWidget {
       onTap: onTap,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFFFFEDF0) : const Color(0xFFF2F2F4),
+          color: selected
+              ? GenesisColors.redPrimary.withValues(alpha: 0.12)
+              : GenesisColors.darkFaintFill,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? const Color(0xFFFF2442) : Colors.transparent,
+            color: selected ? GenesisColors.redPrimary : Colors.transparent,
           ),
         ),
         child: Padding(
@@ -116,7 +121,9 @@ class _DeveloperCaptureFilterChip extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: selected ? const Color(0xFFFF2442) : Colors.black,
+              color: selected
+                  ? GenesisColors.redSecondary
+                  : GenesisColors.darkTextPrimary,
             ),
           ),
         ),
@@ -196,7 +203,7 @@ class _DeveloperCaptureDetailSection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 5),
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: GenesisColors.darkFaintFill,
               borderRadius: BorderRadius.circular(6),
             ),
             child: selectable
@@ -216,7 +223,7 @@ class _DeveloperCaptureDetailSection extends StatelessWidget {
         fontFamilyFallback: GenesisTypography.fontFamilyFallback,
         fontSize: 11,
         height: 1.35,
-        color: Color(0xFF333333),
+        color: GenesisColors.darkTextSecondary,
       ),
     );
   }
