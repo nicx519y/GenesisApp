@@ -21,6 +21,7 @@ class SignedOutMeView extends StatefulWidget {
         'Play world, create worldo, invite friends,\n'
         'and continue them anywhere.',
     this.titleFontSize = 14,
+    this.descriptionFontSize = 12,
     this.titleLetterSpacing = 9,
     this.topSafeArea = true,
   });
@@ -29,6 +30,7 @@ class SignedOutMeView extends StatefulWidget {
   final String title;
   final String description;
   final double titleFontSize;
+  final double descriptionFontSize;
   final double titleLetterSpacing;
   final bool topSafeArea;
   final IdentityProvider? loggingInProvider;
@@ -163,7 +165,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                             widget.description,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: widget.descriptionFontSize,
                               height: 1.35,
                               color: dark
                                   ? GenesisColors.darkTextSecondary

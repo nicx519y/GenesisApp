@@ -219,6 +219,7 @@ class _HomePageState extends State<HomePage> {
             title: 'Your worlds, all in one place',
             description: 'Sign in to create worlds and continue your stories.',
             titleFontSize: 20,
+            descriptionFontSize: 14,
             titleLetterSpacing: 0,
           ),
           activationListenable: widget.activationListenable,
