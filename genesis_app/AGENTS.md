@@ -200,9 +200,11 @@ HTTP 映射层的图片规则：
 - `GenesisActionBox` 统一使用深色样式，包括从浅色页面打开的情况；主题仅作用于弹窗，不能改变调用页面的主题。
 - 主面板与独立 Cancel 面板均使用 `GenesisColors.darkOverlayBackground`（由 `darkRaisedBackground` 派生的 40% 不透明度），叠加局限于面板圆角内的背景模糊（`sigmaX / sigmaY = GenesisBlur.strong`（14））；外边框为 1px `darkFaintFill`（约 12% 白），分隔线同样使用 `darkFaintFill`。这些参数在公共组件中集中管理，不在页面重复配置；透明度只作用于面板填充，不给整个弹窗或文字增加 Opacity。
 - 标题与普通操作使用 `darkTextPrimary`，说明正文使用 `darkTextSecondary`，UID / WID / 时间等辅助信息和禁用操作使用 `darkTextTertiary`。
-- 公共弹窗的红色操作文字使用 `GenesisColors.redSecondary`；主要操作默认继承公共组件颜色，调用处不重复覆盖。Cancel、Reject 等普通操作使用一级白字；红色强调正文同样使用 `redSecondary`。
+- 标准弹窗的第一个确认 / 主操作按钮使用 `GenesisColors.redSecondary`，字重 `FontWeight.w600`；Cancel 使用一级白 `GenesisColors.darkTextPrimary`，字重 `FontWeight.w400`。均复用 `GenesisActionBox` 默认样式，调用处不重复覆盖；Cancel 与主面板连接或分离时遵循同一规则。
+- Reject 等其他普通操作使用一级白字；禁用操作使用三级白，保留不可点击行为。红色强调正文使用 `redSecondary`。
 - 自定义标题、正文和输入框也须引用公共 token；输入文字和光标使用 `darkTextPrimary`，Placeholder 使用 `darkInputPlaceholder`，输入填充使用 `darkFaintFill`，不额外描边。保留各交互所需的输入行数和布局。
 - 保留公共弹窗的尺寸、圆角和交互；Report / 消息长按浮动菜单仍按浮动菜单专项规范执行。
+- 签到弹窗只保留 `Check in` / `Claimed` 展示状态，不显示独立 `Claim` 按钮。一次 Check in 内自动上报并领取；后端 `claimable` 仅用于恢复领取，恢复时仍显示 Check in，不能删掉领取接口或重复上报。会员 Check in 复用主操作默认样式，Cancel 复用公共取消样式。
 
 ## 全局字体规则
 

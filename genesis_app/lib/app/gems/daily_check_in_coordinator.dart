@@ -10,6 +10,9 @@ import '../../platform/session/user_session_store.dart';
 import '../bootstrap/app_services_scope.dart';
 import 'gem_task_analytics.dart';
 
+// Backend reward progress is independent of the two-state dialog.
+enum _DailyTaskStatus { inProgress, claimable, claimed }
+
 typedef DailyCheckInTaskAction = Future<GemTaskActionResult> Function();
 typedef DailyCheckInWalletRefresh = Future<void> Function();
 
@@ -86,12 +89,12 @@ Future<void> runDailyCheckInFlow(
   required DailyCheckInTaskAction claimTask,
   required DailyCheckInWalletRefresh refreshWallet,
 }) async {
-  var status = _dialogStatusForValue(task.status);
-  if (status == DailyCheckInDialogStatus.claimed) return;
+  var status = _taskStatusForValue(task.status);
+  if (status == _DailyTaskStatus.claimed) return;
   while (context.mounted) {
     final shouldAct = await showDailyCheckInDialog(
       context,
-      status: status,
+      status: DailyCheckInDialogStatus.checkIn,
       rewardGemsCent: task.rewardGemsCent,
     );
     if (!shouldAct || !context.mounted) return;
@@ -99,30 +102,30 @@ Future<void> runDailyCheckInFlow(
     try {
       final actionStatus = status;
       final action = switch (status) {
-        DailyCheckInDialogStatus.checkIn => reportTask(),
-        DailyCheckInDialogStatus.claim => claimTask(),
-        DailyCheckInDialogStatus.claimed => null,
+        _DailyTaskStatus.inProgress => reportTask(),
+        _DailyTaskStatus.claimable => claimTask(),
+        _DailyTaskStatus.claimed => null,
       };
       if (action == null) return;
       final result = await action;
-      status = _dialogStatusForValue(result.status);
-      if (actionStatus == DailyCheckInDialogStatus.claim) {
+      status = _taskStatusForValue(result.status);
+      if (actionStatus == _DailyTaskStatus.claimable) {
         trackGemTaskClaimedIfNeeded(
           taskCode: dailyCheckInTaskCode,
           status: result.status,
         );
       }
-      if (actionStatus == DailyCheckInDialogStatus.checkIn &&
-          status == DailyCheckInDialogStatus.claim) {
+      if (actionStatus == _DailyTaskStatus.inProgress &&
+          status == _DailyTaskStatus.claimable) {
         final claimResult = await claimTask();
-        status = _dialogStatusForValue(claimResult.status);
+        status = _taskStatusForValue(claimResult.status);
         trackGemTaskClaimedIfNeeded(
           taskCode: dailyCheckInTaskCode,
           status: claimResult.status,
         );
       }
       if (!context.mounted) return;
-      if (status == DailyCheckInDialogStatus.claimed) {
+      if (status == _DailyTaskStatus.claimed) {
         final successDialog = showDailyCheckInSuccessDialog(
           context,
           rewardGemsCent: task.rewardGemsCent,
@@ -135,7 +138,7 @@ Future<void> runDailyCheckInFlow(
       if (!context.mounted) return;
       showGenesisToast(
         context,
-        status == DailyCheckInDialogStatus.claim
+        status == _DailyTaskStatus.claimable
             ? 'Claim failed.'
             : 'Check in failed.',
       );
@@ -153,10 +156,10 @@ GemTask? _findDailyCheckInTask(List<GemTaskGroup> groups) {
   return null;
 }
 
-DailyCheckInDialogStatus _dialogStatusForValue(String value) {
+_DailyTaskStatus _taskStatusForValue(String value) {
   return switch (value.trim().toLowerCase()) {
-    'claimed' => DailyCheckInDialogStatus.claimed,
-    'claimable' => DailyCheckInDialogStatus.claim,
-    _ => DailyCheckInDialogStatus.checkIn,
+    'claimed' => _DailyTaskStatus.claimed,
+    'claimable' => _DailyTaskStatus.claimable,
+    _ => _DailyTaskStatus.inProgress,
   };
 }

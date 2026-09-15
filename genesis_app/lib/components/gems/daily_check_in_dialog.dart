@@ -16,7 +16,7 @@ const int dailyCheckInPreviewRewardCent = 5000;
 const String dailyCheckInTaskCode = 'daily_checkin';
 const Duration dailyCheckInSuccessDuration = Duration(seconds: 3);
 
-enum DailyCheckInDialogStatus { checkIn, claim, claimed }
+enum DailyCheckInDialogStatus { checkIn, claimed }
 
 enum _DailyCheckInAction { subscribe, checkIn }
 
@@ -87,21 +87,21 @@ Future<bool> showDailyCheckInDialog(
             excludeFromSemantics: true,
           ),
         ),
-      GenesisActionBoxAction<_DailyCheckInAction>(
-        label: switch (status) {
-          DailyCheckInDialogStatus.checkIn => 'Check in',
-          DailyCheckInDialogStatus.claim =>
-            isVip == true ? 'Check in' : 'Claim',
-          DailyCheckInDialogStatus.claimed => 'Claimed',
-        },
-        value: _DailyCheckInAction.checkIn,
-        color: claimed
-            ? GenesisColors.darkTextTertiary
-            : showSubscriptionOffer
-            ? GenesisColors.darkTextPrimary
-            : GenesisColors.redSecondary,
-        enabled: !claimed,
-      ),
+      if (showSubscriptionOffer)
+        const GenesisActionBoxAction<_DailyCheckInAction>(
+          label: 'Check in',
+          value: _DailyCheckInAction.checkIn,
+          color: GenesisColors.darkTextPrimary,
+        )
+      else
+        GenesisActionBoxAction<_DailyCheckInAction>(
+          label: switch (status) {
+            DailyCheckInDialogStatus.checkIn => 'Check in',
+            DailyCheckInDialogStatus.claimed => 'Claimed',
+          },
+          value: _DailyCheckInAction.checkIn,
+          enabled: !claimed,
+        ),
     ],
     cancelLabel: 'Cancel',
     showCancel: !showSubscriptionOffer,

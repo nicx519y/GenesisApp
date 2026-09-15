@@ -821,7 +821,7 @@ void main() {
     final benefits = [
       for (final (code, title, icon, display) in [
         ('included', 'Server included', 'unknown_icon', 'included'),
-        ('enhanced', 'Server enhanced', 'blue_gem', 'enhanced'),
+        ('enhanced', 'Server enhanced', 'gem', 'enhanced'),
         ('locked', 'Server locked', 'memory', 'locked'),
       ])
         MembershipBenefit.fromJson({

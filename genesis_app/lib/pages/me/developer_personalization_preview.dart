@@ -246,7 +246,7 @@ Future<MembershipCatalogData> loadPersonalizationPreviewCatalog() async =>
                 MembershipBenefit(
                   code: 'preview_monthly_gems',
                   title: 'Up to 3,500 Gems Monthly',
-                  iconKey: 'blue_gem',
+                  iconKey: 'gem',
                   displayType: MembershipBenefitDisplay.enhanced,
                 ),
                 MembershipBenefit(
@@ -258,13 +258,13 @@ Future<MembershipCatalogData> loadPersonalizationPreviewCatalog() async =>
                 MembershipBenefit(
                   code: 'preview_pink_gems',
                   title: 'Free 2,000 Pink Gems per Month',
-                  iconKey: 'blue_gem',
+                  iconKey: 'gem',
                   displayType: MembershipBenefitDisplay.enhanced,
                 ),
                 MembershipBenefit(
                   code: 'preview_daily_red_gems',
                   title: 'Free 50 Extra Red Gems per Daily Check-in',
-                  iconKey: 'blue_gem',
+                  iconKey: 'gem',
                   displayType: MembershipBenefitDisplay.enhanced,
                 ),
                 MembershipBenefit(
@@ -276,19 +276,19 @@ Future<MembershipCatalogData> loadPersonalizationPreviewCatalog() async =>
                 MembershipBenefit(
                   code: 'preview_editing',
                   title: 'Unlimited Editing',
-                  iconKey: 'edit_reply',
+                  iconKey: 'edit',
                   displayType: MembershipBenefitDisplay.enhanced,
                 ),
                 MembershipBenefit(
                   code: 'preview_badge',
                   title: 'Exclusive Premium Badge',
-                  iconKey: 'premium_badge',
+                  iconKey: 'badge',
                   displayType: MembershipBenefitDisplay.enhanced,
                 ),
                 MembershipBenefit(
                   code: 'preview_recharge',
                   title: 'Gem Recharge',
-                  iconKey: 'blue_gem',
+                  iconKey: 'recharge',
                   displayType: MembershipBenefitDisplay.included,
                 ),
               ],

@@ -173,9 +173,7 @@ extension _GemWalletDataActions on _GemWalletPageState {
     try {
       confirmed = await showDailyCheckInDialog(
         context,
-        status: _taskStatus(task) == 'claimable'
-            ? DailyCheckInDialogStatus.claim
-            : DailyCheckInDialogStatus.checkIn,
+        status: DailyCheckInDialogStatus.checkIn,
         rewardGemsCent: task.rewardGemsCent,
       );
     } finally {
