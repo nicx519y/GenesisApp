@@ -9,6 +9,7 @@ import '../bootstrap/app_bootstrap.dart';
 import '../bootstrap/service_registry.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../telemetry/native_app_lifecycle.dart';
+import 'startup_request_diagnostics.dart';
 
 class AppStartupCoordinator {
   AppStartupCoordinator._();
@@ -31,6 +32,8 @@ class AppStartupCoordinator {
   static bool _launchRequestStarted = false;
   static bool _launchRequestEnded = false;
   static bool _launchRenderRecorded = false;
+  static bool _launchErrorRenderRecorded = false;
+  static int _diagnosticRequestAttempt = 0;
   static final Map<String, int> _launchMilestones = <String, int>{};
   static bool _attRequestClaimed = false;
   // Kept as a shared startup readiness signal for upgrade/polling work. It is
@@ -68,6 +71,68 @@ class AppStartupCoordinator {
     if (_launchStopwatch != null) return;
     _launchStartupId = startupId ?? const Uuid().v4().replaceAll('-', '');
     _launchStopwatch = Stopwatch()..start();
+  }
+
+  static void recordLaunchUidResolution(Map<String, Object> data) {
+    _collectLaunchEvent(
+      action: 'launch_uid_resolution',
+      page: 'launch',
+      result: data['status'] as String? ?? 'unknown',
+      extData: jsonEncode({'schema_version': 1, 'uid_resolution': data}),
+    );
+  }
+
+  static bool _canDiagnosePage(String page) =>
+      isLaunchTrackingActive && !_launchRenderRecorded && page == _launchPage;
+
+  static StartupRequestDiagnostics? beginLaunchRequestDiagnostics({
+    required String page,
+  }) {
+    if (!_canDiagnosePage(page)) return null;
+    final startupId = _launchStartupId;
+    final attempt = ++_diagnosticRequestAttempt;
+    return StartupRequestDiagnostics(
+      requestId: '$startupId:$page:$attempt',
+      attempt: attempt,
+      emit: (data) {
+        // Finish already-started requests even when cache rendered first.
+        if (_launchStartupId != startupId) return;
+        _emitLaunchDiagnostic(page, data);
+      },
+    );
+  }
+
+  static void recordLaunchPageState({
+    required String page,
+    required String state,
+    String? reason,
+    StartupRequestDiagnostics? request,
+    int? retryDelayMs,
+    String? renderResult,
+  }) {
+    if (!_canDiagnosePage(page)) return;
+    _emitLaunchDiagnostic(page, {
+      'stage': 'page_state',
+      'state': state,
+      if (reason != null) 'reason': reason,
+      if (request != null) 'request_id': request.requestId,
+      if (request != null) 'attempt': request.attempt,
+      if (retryDelayMs != null) 'retry_delay_ms': retryDelayMs,
+      if (renderResult != null) 'render_result': renderResult,
+    });
+  }
+
+  static void _emitLaunchDiagnostic(String page, Map<String, Object> data) {
+    try {
+      _collectLaunchEvent(
+        action: 'launch_diagnostic',
+        page: page,
+        result: data['stage']! as String,
+        extData: jsonEncode({'schema_version': 1, ...data}),
+      );
+    } catch (_) {
+      // Best-effort diagnostics must not interrupt startup.
+    }
   }
 
   static void recordLaunchSystemUiReady() {
@@ -191,7 +256,12 @@ class AppStartupCoordinator {
             normalizedResult != 'network_error')) {
       return;
     }
-    _launchRenderRecorded = true;
+    if (normalizedResult == 'network_error') {
+      if (_launchErrorRenderRecorded) return;
+      _launchErrorRenderRecorded = true;
+    } else {
+      _launchRenderRecorded = true;
+    }
     _collectLaunchEvent(
       action: 'launch_render',
       page: normalizedPage,
@@ -442,6 +512,8 @@ class AppStartupCoordinator {
     _launchRequestStarted = false;
     _launchRequestEnded = false;
     _launchRenderRecorded = false;
+    _launchErrorRenderRecorded = false;
+    _diagnosticRequestAttempt = 0;
     _launchMilestones.clear();
     _attRequestClaimed = false;
     _postLaunchWorkAllowed.value = true;

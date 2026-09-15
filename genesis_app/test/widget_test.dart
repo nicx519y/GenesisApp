@@ -1865,6 +1865,8 @@ class _ReplacingOriginFeedTransport extends _RecordingV1ListTransport {
 }
 
 class _OriginPermissionPromptTransport extends _RecordingV1ListTransport {
+  _OriginPermissionPromptTransport({this.failLaterRequests = false});
+  final bool failLaterRequests;
   final Completer<TransportResponse> firstOriginResponse =
       Completer<TransportResponse>();
   var originListRequestCount = 0;
@@ -1876,6 +1878,13 @@ class _OriginPermissionPromptTransport extends _RecordingV1ListTransport {
       if (originListRequestCount == 1) {
         requests.add(request);
         return firstOriginResponse.future;
+      }
+      if (failLaterRequests) {
+        return _jsonResponse({
+          'err_no': 10001,
+          'err_msg': 'unavailable',
+          'data': <String, Object?>{},
+        });
       }
     }
     return super.send(request);
@@ -3307,7 +3316,11 @@ void main() {
       isTrue,
     );
     final launchEvents = telemetry.events
-        .where((event) => event.name.startsWith('launch_'))
+        .where(
+          (event) =>
+              event.name.startsWith('launch_') &&
+              event.name != 'launch_diagnostic',
+        )
         .toList(growable: false);
     expect(launchEvents.map((event) => event.name), <String>[
       'launch_startup',
@@ -3469,7 +3482,11 @@ void main() {
 
     expect(find.text('Load failed'), findsOneWidget);
     final launchEvents = telemetry.events
-        .where((event) => event.name.startsWith('launch_'))
+        .where(
+          (event) =>
+              event.name.startsWith('launch_') &&
+              event.name != 'launch_diagnostic',
+        )
         .toList(growable: false);
     expect(launchEvents.map((event) => event.name), <String>[
       'launch_startup',
@@ -3613,7 +3630,11 @@ void main() {
       expect(find.text('World tick narrator 2'), findsOneWidget);
       expect(find.text('World tick narrator 1'), findsNothing);
       final launchEvents = telemetry.events
-          .where((event) => event.name.startsWith('launch_'))
+          .where(
+            (event) =>
+                event.name.startsWith('launch_') &&
+                event.name != 'launch_diagnostic',
+          )
           .toList(growable: false);
       expect(launchEvents.map((event) => event.name), <String>[
         'launch_startup',
@@ -8112,6 +8133,120 @@ void main() {
       expect(transport.originListRequestCount, 2);
       expect(find.text('#Origin 1'), findsOneWidget);
       expect(find.text('Load failed'), findsNothing);
+    },
+  );
+
+  testWidgets('Initial Worldo retries once without a foreground transition', (
+    WidgetTester tester,
+  ) async {
+    AppStartupCoordinator.resetForTesting();
+    addTearDown(AppStartupCoordinator.resetForTesting);
+    final telemetry = _CapturingTelemetrySink();
+    GenesisTelemetry.setSinkForTesting(telemetry);
+    addTearDown(GenesisTelemetry.resetForTesting);
+    AppStartupCoordinator.beginLaunchTracking(
+      startupId: 'worldo-diagnostic-retry',
+    );
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'worldo',
+      reason: 'no_session_worldo_cache_miss',
+    );
+    final transport = _OriginPermissionPromptTransport();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(isInitialPage: true),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    transport.failFirstOriginRequest();
+    await tester.pump();
+
+    expect(transport.originListRequestCount, 1);
+    expect(find.byType(GenesisListLoadingSkeleton), findsOneWidget);
+    expect(find.text('Load failed'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(transport.originListRequestCount, 2);
+    expect(find.text('#Origin 1'), findsOneWidget);
+    expect(find.text('Load failed'), findsNothing);
+    final diagnostics = telemetry.events
+        .where((e) => e.name == 'launch_diagnostic')
+        .map(
+          (e) =>
+              jsonDecode(e.data['ext_data'] as String) as Map<String, dynamic>,
+        )
+        .toList();
+    expect(
+      diagnostics
+          .where((e) => e['stage'] == 'request_started')
+          .map((e) => e['attempt']),
+      [1, 2],
+    );
+    expect(
+      diagnostics
+          .where((e) => e['stage'] == 'request_ended')
+          .map((e) => e['result']),
+      ['failure', 'success'],
+    );
+    expect(diagnostics.any((e) => e['state'] == 'loading_retained'), true);
+    expect(diagnostics.any((e) => e['state'] == 'retry_scheduled'), true);
+    final rendered = diagnostics.singleWhere(
+      (e) => e['state'] == 'render_observed',
+    );
+    expect(rendered['attempt'], 2);
+    expect(rendered['render_result'], 'network');
+  });
+
+  testWidgets('Initial Worldo stops loading after automatic retry fails', (
+    tester,
+  ) async {
+    final transport = _OriginPermissionPromptTransport(failLaterRequests: true);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const OriginPage(isInitialPage: true),
+        ),
+      ),
+    );
+    await tester.pump();
+    transport.failFirstOriginRequest();
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(transport.originListRequestCount, 2);
+    expect(find.byType(GenesisListLoadingSkeleton), findsNothing);
+    expect(find.text('Load failed'), findsOneWidget);
+    expect(find.text('Retry'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 10));
+    expect(transport.originListRequestCount, 2);
+  });
+
+  testWidgets(
+    'Initial Worldo retries when in-flight request fails after resume',
+    (tester) async {
+      final transport = _OriginPermissionPromptTransport();
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const OriginPage(isInitialPage: true),
+          ),
+        ),
+      );
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      transport.failFirstOriginRequest();
+      await tester.pumpAndSettle();
+      expect(transport.originListRequestCount, 2);
+      expect(find.text('#Origin 1'), findsOneWidget);
     },
   );
 

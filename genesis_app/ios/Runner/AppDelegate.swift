@@ -338,6 +338,11 @@ final class GenesisAppLifecycleStreamHandler: NSObject, FlutterStreamHandler {
         let uid = (args?["uid"] as? String ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         self.prefs.set(uid, forKey: self.uidKey)
         result(nil)
+      case "getStartupUid":
+        let started = ProcessInfo.processInfo.systemUptime
+        let uid = self.prefs.string(forKey: self.uidKey) ?? ""
+        let elapsed = Int((ProcessInfo.processInfo.systemUptime - started) * 1000)
+        result(["uid": uid, "native_read_ms": elapsed, "native_queue_ms": 0, "native_total_ms": elapsed])
       case "getUid":
         result(self.prefs.string(forKey: self.uidKey) ?? "")
       case "setAuthToken":

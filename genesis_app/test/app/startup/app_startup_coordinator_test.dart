@@ -398,6 +398,155 @@ void main() {
   });
 
   test(
+    'records an error and later first success without duplicate renders',
+    () async {
+      AppStartupCoordinator.beginLaunchTracking(startupId: 'recover-render');
+      final client = await initializeWith(MemoryUserSessionStore());
+      AppStartupCoordinator.setLaunchPageDecision(
+        page: 'worldo',
+        reason: 'no_session_worldo_cache_miss',
+      );
+      for (final result in [
+        'network_error',
+        'network_error',
+        'network',
+        'network',
+        'network_error',
+      ]) {
+        AppStartupCoordinator.recordLaunchRender(
+          page: 'worldo',
+          result: result,
+        );
+      }
+      await GenesisTelemetry.waitForCollectWritesForTesting();
+      await uploader.checkNow(force: true);
+      final renders = client.batches
+          .expand((batch) => batch)
+          .where((event) => event.action == 'launch_render')
+          .toList();
+      expect(renders.map((event) => event.object4), [
+        'network_error',
+        'network',
+      ]);
+      expect(renders.every((event) => event.object1 == 'recover-render'), true);
+    },
+  );
+
+  test(
+    'diagnostic retries preserve legacy request counts and stop after render',
+    () async {
+      AppStartupCoordinator.beginLaunchTracking(startupId: 'diagnostic-retry');
+      final client = await initializeWith(MemoryUserSessionStore());
+      AppStartupCoordinator.setLaunchPageDecision(
+        page: 'worldo',
+        reason: 'no_session_worldo_cache_miss',
+      );
+      expect(
+        AppStartupCoordinator.beginLaunchRequestDiagnostics(page: 'home'),
+        isNull,
+      );
+      final first = AppStartupCoordinator.beginLaunchRequestDiagnostics(
+        page: 'worldo',
+      )!;
+      AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
+      first.fail(TimeoutException('timeout'));
+      AppStartupCoordinator.recordLaunchRequestEnd(
+        page: 'worldo',
+        result: 'failure',
+      );
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'worldo',
+        state: 'retry_scheduled',
+        request: first,
+        retryDelayMs: 2000,
+      );
+      final second = AppStartupCoordinator.beginLaunchRequestDiagnostics(
+        page: 'worldo',
+      )!;
+      AppStartupCoordinator.recordLaunchRequestStart(page: 'worldo');
+      second.succeed();
+      AppStartupCoordinator.recordLaunchRequestEnd(
+        page: 'worldo',
+        result: 'success',
+      );
+      AppStartupCoordinator.recordLaunchRender(
+        page: 'worldo',
+        result: 'network',
+      );
+      expect(
+        AppStartupCoordinator.beginLaunchRequestDiagnostics(page: 'worldo'),
+        isNull,
+      );
+      AppStartupCoordinator.recordLaunchPageState(
+        page: 'worldo',
+        state: 'page_disposed',
+      );
+      await GenesisTelemetry.waitForCollectWritesForTesting();
+      await uploader.checkNow(force: true);
+      final events = client.batches.expand((batch) => batch).toList();
+      final diagnostic = events
+          .where((e) => e.action == 'launch_diagnostic')
+          .toList();
+      final data = diagnostic
+          .map((e) => jsonDecode(e.extData) as Map<String, dynamic>)
+          .toList();
+      expect(diagnostic.every((e) => e.object1 == 'diagnostic-retry'), true);
+      expect(
+        data
+            .where((e) => e['stage'] == 'request_started')
+            .map((e) => e['attempt']),
+        [1, 2],
+      );
+      expect(
+        data
+            .where((e) => e['stage'] == 'request_ended')
+            .map((e) => e['result']),
+        ['failure', 'success'],
+      );
+      expect(
+        data.where((e) => e['state'] == 'retry_scheduled').single['request_id'],
+        first.requestId,
+      );
+      expect(data.any((e) => e['state'] == 'page_disposed'), false);
+      expect(events.where((e) => e.action == 'launch_req_start'), hasLength(1));
+      expect(events.where((e) => e.action == 'launch_req_end'), hasLength(1));
+    },
+  );
+
+  test('UID diagnosis keeps startup identity for late results', () async {
+    AppStartupCoordinator.beginLaunchTracking(
+      startupId: 'uid-diagnostic-start',
+    );
+    final client = await initializeWith(MemoryUserSessionStore());
+    AppStartupCoordinator.recordLaunchUidResolution({
+      'status': 'timeout',
+      'elapsed_ms': 2000,
+      'timeout_ms': 2000,
+    });
+    AppStartupCoordinator.recordLaunchUidResolution({
+      'status': 'timeout',
+      'elapsed_ms': 2000,
+      'timeout_ms': 2000,
+      'late_status': 'signed_in',
+      'late_elapsed_ms': 2500,
+    });
+    await GenesisTelemetry.waitForCollectWritesForTesting();
+    await uploader.checkNow(force: true);
+    final events = client.batches
+        .expand((batch) => batch)
+        .where((event) => event.action == 'launch_uid_resolution')
+        .toList();
+    expect(events.length, 2);
+    expect(
+      events.every((event) => event.object1 == 'uid-diagnostic-start'),
+      true,
+    );
+    final payload = jsonDecode(events.last.extData);
+    expect(payload['uid_resolution']['late_status'], 'signed_in');
+    expect(payload['uid_resolution'].containsKey('uid'), false);
+  });
+
+  test(
     'classifies startup page reasons from session and cache state',
     () async {
       await initializeWith(MemoryUserSessionStore());

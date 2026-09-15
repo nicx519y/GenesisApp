@@ -118,6 +118,27 @@ class MainActivity : FlutterActivity() {
                     prefs.edit().putString(uidKey, uid).apply()
                     result.success(null)
                 }
+                "getStartupUid" -> {
+                    val received = android.os.SystemClock.elapsedRealtime()
+                    Thread {
+                        val readStarted = android.os.SystemClock.elapsedRealtime()
+                        try {
+                            val uid = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
+                                .getString(uidKey, "") ?: ""
+                            val readFinished = android.os.SystemClock.elapsedRealtime()
+                            runOnUiThread {
+                                result.success(mapOf(
+                                    "uid" to uid,
+                                    "native_queue_ms" to (readStarted - received),
+                                    "native_read_ms" to (readFinished - readStarted),
+                                    "native_total_ms" to (android.os.SystemClock.elapsedRealtime() - received)
+                                ))
+                            }
+                        } catch (error: Exception) {
+                            runOnUiThread { result.error("startup_uid_read_error", null, mapOf("native_error_type" to error.javaClass.simpleName)) }
+                        }
+                    }.start()
+                }
                 "getUid" -> {
                     val prefs = getSharedPreferences(prefsName, Context.MODE_PRIVATE)
                     result.success(prefs.getString(uidKey, "") ?: "")
