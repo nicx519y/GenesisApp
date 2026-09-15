@@ -73,9 +73,10 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   final _iosPrimaryScrollController = ScrollController();
   final Map<_OriginCategory, GlobalKey<_OriginFeedState>> _feedKeys = {};
   AppServices? _services;
-  late Future<OriginFeedAudience> _audience;
+  late Future<OriginFeedAudienceState> _audience;
   var _audienceRevision = 0;
   String? _manualGender;
+  String? _manualGenderOwnerUid;
   var _genderFilterOpen = false;
   final _searchBarKey = GlobalKey();
   final _feedViewportKey = GlobalKey();
@@ -113,32 +114,83 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     services.sessionStore.userInfoRevision.addListener(_reloadAudience);
     services.sessionRevision.addListener(_reloadAudience);
     services.personalization.state.addListener(_reloadAudience);
+    services.appGlobalConfig.addListener(_reloadAudience);
+    services.appGlobalConfig.requestState.addListener(_reloadAudience);
   }
 
   void _removeAudienceListeners() {
     _services?.sessionStore.userInfoRevision.removeListener(_reloadAudience);
     _services?.sessionRevision.removeListener(_reloadAudience);
     _services?.personalization.state.removeListener(_reloadAudience);
+    _services?.appGlobalConfig.removeListener(_reloadAudience);
+    _services?.appGlobalConfig.requestState.removeListener(_reloadAudience);
   }
 
-  Future<OriginFeedAudience> _loadAudience(AppServices services) async {
-    final automatic = await loadOriginFeedAudience(
+  Future<OriginFeedAudienceState> _loadAudience(AppServices services) async {
+    final revision = _audienceRevision;
+    final automatic = await loadOriginFeedAudienceState(
       services.sessionStore,
       personalization: services.personalization,
+      waitForGuestProfile:
+          services.appGlobalConfig.requestState.value.isLoading ||
+          services.appGlobalConfig.value.showPersonalizationForm,
+      loadManualGender: (ownerUid) async {
+        if (_manualGenderOwnerUid == ownerUid && _manualGender != null) {
+          return _manualGender;
+        }
+        try {
+          final saved = await OriginFeedCacheStore(
+            ownerUid: ownerUid,
+          ).loadManualGender().timeout(const Duration(seconds: 1));
+          if (saved != null && mounted && revision == _audienceRevision) {
+            _manualGender = saved;
+            _manualGenderOwnerUid = ownerUid;
+          }
+          return saved;
+        } catch (_) {
+          return null;
+        }
+      },
     );
-    return (
-      ownerUid: automatic.ownerUid,
-      gender: _manualGender ?? automatic.gender,
+    final ownerUid = automatic.audience.ownerUid;
+    final cache = ownerUid == null
+        ? null
+        : OriginFeedCacheStore(ownerUid: ownerUid);
+    var gender = automatic.audience.gender;
+    if (!automatic.isReady) {
+      try {
+        gender =
+            await cache?.loadLastConfirmedGender().timeout(
+              const Duration(seconds: 2),
+            ) ??
+            gender;
+      } catch (_) {
+        // A missing/unreadable display hint must not resolve the live audience.
+      }
+    }
+    final next = (
+      audience: (ownerUid: ownerUid, gender: gender),
+      isReady: automatic.isReady,
     );
+    if (next.isReady && mounted && revision == _audienceRevision) {
+      unawaited(
+        cache
+            ?.saveLastConfirmedGender(next.audience.gender)
+            .catchError((Object _) {}),
+      );
+    }
+    return next;
   }
 
   Future<void> _showGenderFilter() async {
     if (_genderFilterOpen) return;
     setState(() => _genderFilterOpen = true);
     String? selected;
+    String? ownerUid;
     try {
       final audience = await _audience;
       if (!mounted) return;
+      ownerUid = audience.audience.ownerUid;
       final anchorContext = _feedViewportKey.currentContext;
       if (anchorContext == null || !anchorContext.mounted) return;
       final overlay = Navigator.of(
@@ -159,7 +211,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
       var searchBarBottom = searchBar
           .localToGlobal(Offset(0, searchBar.size.height), ancestor: overlay)
           .dy;
-      final selectedGender = audience.gender ?? '';
+      final selectedGender = audience.audience.gender ?? '';
       selected = await showGenesisGeneralDialog<String>(
         context: anchorContext,
         useRootNavigator: false,
@@ -234,7 +286,14 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     if (!mounted || selected == null) return;
     // null follows the user profile; empty explicitly selects All.
     _manualGender = selected;
+    _manualGenderOwnerUid = ownerUid;
+    final saving = ownerUid == null
+        ? null
+        : OriginFeedCacheStore(
+            ownerUid: ownerUid,
+          ).saveManualGender(selected).catchError((Object _) {});
     await _reloadAudience();
+    await saving;
   }
 
   Future<void> _reloadAudience() async {
@@ -244,11 +303,18 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     final next = await _loadAudience(services);
     final old = await previous;
     if (!mounted || revision != _audienceRevision || next == old) return;
+    final sameOwner = next.audience.ownerUid == old.audience.ownerUid;
+    // A background profile refresh must not temporarily switch an existing
+    // list to All. The next settled profile will update its audience.
+    if (sameOwner && old.isReady && !next.isReady) return;
     setState(() {
       _audience = Future.value(next);
-      // A new audience starts at page 1; old requests cannot populate new tabs.
-      _feedKeys.clear();
-      _feedStorage = PageStorageBucket();
+      // No request was sent for a pending audience. Keep its visible cache
+      // and let each tab start its first request with the resolved gender.
+      if (!sameOwner || old.isReady) {
+        _feedKeys.clear();
+        _feedStorage = PageStorageBucket();
+      }
     });
   }
 
@@ -401,10 +467,10 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   }
 
   Widget _buildGenderFilter() {
-    return FutureBuilder<OriginFeedAudience>(
+    return FutureBuilder<OriginFeedAudienceState>(
       future: _audience,
       builder: (context, snapshot) {
-        final gender = snapshot.data?.gender ?? '';
+        final gender = snapshot.data?.audience.gender ?? '';
         return Tooltip(
           message: 'Filter by gender',
           child: TextButton(
@@ -422,7 +488,13 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(_genderFilters[gender] ?? 'All'),
+                Visibility(
+                  visible: snapshot.hasData,
+                  maintainSize: true,
+                  maintainAnimation: true,
+                  maintainState: true,
+                  child: Text(_genderFilters[gender] ?? 'All'),
+                ),
                 const SizedBox(width: GenesisSpacing.md),
                 CustomPaint(
                   key: const ValueKey('origin-gender-filter-arrow'),
@@ -737,7 +809,7 @@ class _OriginFeed extends StatefulWidget {
 
   final int index;
   final _OriginCategory category;
-  final Future<OriginFeedAudience> audience;
+  final Future<OriginFeedAudienceState> audience;
   final bool isInitialPage;
   final VoidCallback? onFirstPageReady;
   final VoidCallback? onInitialLoadCompleted;
@@ -779,6 +851,8 @@ class _OriginFeedState extends State<_OriginFeed>
   var _layoutRevision = 0;
   var _hasMore = true;
   var _hasRequested = false;
+  var _hasReadCache = false;
+  var _hasHydratedCache = false;
   var _scrollListenerAttached = false;
   var _isInitialLoading = false;
   var _isLoadingMore = false;
@@ -932,6 +1006,8 @@ class _OriginFeedState extends State<_OriginFeed>
         oldWidget.index != widget.index) {
       _resetListState();
       _requestIfCurrentTab();
+    } else if (oldWidget.audience != widget.audience) {
+      _requestIfCurrentTab();
     }
   }
 
@@ -995,6 +1071,8 @@ class _OriginFeedState extends State<_OriginFeed>
     _total = 0;
     _hasMore = true;
     _hasRequested = false;
+    _hasReadCache = false;
+    _hasHydratedCache = false;
     _isInitialLoading = false;
     _isLoadingMore = false;
     _isRefreshing = false;
@@ -1084,21 +1162,35 @@ class _OriginFeedState extends State<_OriginFeed>
     }
   }
 
-  void _requestIfCurrentTab() {
+  Future<void> _requestIfCurrentTab() async {
     final controller = _tabController;
     if (controller == null ||
         controller.index != widget.index ||
         _hasRequested) {
       return;
     }
+    if (!_hasReadCache) {
+      _hasReadCache = true;
+      _isInitialLoading = _items.isEmpty;
+      if (_usesFirstPageCache) unawaited(_hydrateCachedFirstPage());
+    }
+    final audienceFuture = widget.audience;
+    final snapshot = await audienceFuture;
+    if (!mounted ||
+        widget.audience != audienceFuture ||
+        !_isCurrentTab ||
+        _hasRequested ||
+        !snapshot.isReady) {
+      return;
+    }
     _hasRequested = true;
-    if (_usesFirstPageCache) unawaited(_hydrateCachedFirstPage());
     unawaited(_refreshItems());
   }
 
   void _handleScroll() {
     _scheduleExposureViewportValidation();
-    if (!_scrollController.hasClients ||
+    if (!_hasCompletedFirstPageNetworkRequest ||
+        !_scrollController.hasClients ||
         _scrollController.position.extentAfter > _loadMoreThreshold) {
       return;
     }
@@ -1110,7 +1202,9 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _scheduleFeedPaginationContinuation() {
-    if (!_isForYouFeed || !_hasMore) return;
+    if (!_isForYouFeed || !_hasMore || !_hasCompletedFirstPageNetworkRequest) {
+      return;
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted ||
           !_isCurrentTab ||
@@ -1142,7 +1236,7 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<_OriginListPage> _fetchPage(int page, {int? startScore}) async {
-    final audience = await widget.audience;
+    final audience = (await widget.audience).audience;
     if (!mounted) throw StateError('Origin feed disposed');
     if (_isForYouFeed) {
       final data = await AppServicesScope.of(context).api.v1.origin.feed(
@@ -1164,7 +1258,7 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<OriginFeedCacheStore?> _cacheStoreForCurrentOwner() async {
-    final audience = await widget.audience;
+    final audience = (await widget.audience).audience;
     if (audience.ownerUid == null) return null;
     return OriginFeedCacheStore(
       ownerUid: audience.ownerUid,
@@ -1195,6 +1289,7 @@ class _OriginFeedState extends State<_OriginFeed>
     }
     if (!mounted || _hasCompletedFirstPageNetworkRequest) return;
     setState(() {
+      _hasHydratedCache = true;
       _items
         ..clear()
         ..addAll(page.items);
@@ -1222,6 +1317,11 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<void> _refreshItems() async {
+    final audienceFuture = widget.audience;
+    final snapshot = await audienceFuture;
+    if (!mounted || widget.audience != audienceFuture || !snapshot.isReady) {
+      return;
+    }
     if (_initialLoadInFlight) return;
     _initialStartupRetryTimer?.cancel();
     _initialStartupRetryTimer = null;
@@ -1229,7 +1329,7 @@ class _OriginFeedState extends State<_OriginFeed>
     _initialLoadInFlight = _isPrimaryFeed && !_initialLoadCompleted;
     setState(() {
       _error = null;
-      _isInitialLoading = _items.isEmpty;
+      _isInitialLoading = _items.isEmpty && !_hasHydratedCache;
       _isRefreshing = true;
     });
 
@@ -1453,7 +1553,11 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<void> _loadNextPage({bool advanceLogicalPage = true}) async {
-    if (!_hasMore || _isInitialLoading || _isLoadingMore || _isRefreshing) {
+    if (!_hasCompletedFirstPageNetworkRequest ||
+        !_hasMore ||
+        _isInitialLoading ||
+        _isLoadingMore ||
+        _isRefreshing) {
       return;
     }
     setState(() {
@@ -1731,7 +1835,7 @@ class _OriginFeedState extends State<_OriginFeed>
       parent: AlwaysScrollableScrollPhysics(),
     );
 
-    if (!_hasRequested ||
+    if (!_hasReadCache ||
         _isInitialLoading ||
         (_permissionPromptMayBeOpen &&
             !_initialLoadCompleted &&
