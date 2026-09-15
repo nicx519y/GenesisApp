@@ -499,7 +499,6 @@ void main() {
         store: store,
         provider: MembershipProvider.google,
         readLoginUid: () async => 'user-test',
-        refreshMembership: () async => membershipAccessSnapshot(),
         readCheckoutProducts: () async =>
             MembershipProductList(products: [membershipProduct(yearly: true)]),
         loadAccountUuid: () async => support.accountUuid,

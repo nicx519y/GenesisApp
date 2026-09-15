@@ -16,7 +16,6 @@
 ## 购买资格与订单校验
 
 - You already have an active Premium subscription.
-- An active yearly Premium subscription cannot be changed to a monthly plan.
 - Your previous Premium purchase is still being confirmed.
 - Please use the original store to upgrade your Premium subscription.
 - Premium purchase is currently unavailable.

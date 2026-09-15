@@ -64,7 +64,8 @@ class MembershipAccessStore with WidgetsBindingObserver {
   final _state = ValueNotifier(const MembershipAccessState());
 
   /// Read-only cached state for presentation, still checking actual expiry.
-  /// Access checks use checkVip's cache lifetime; checkout requires refresh.
+  /// Access checks use checkVip's cache lifetime. Purchase eligibility is
+  /// decided by the store and never uses this display snapshot.
   ValueListenable<MembershipAccessState> get state => _state;
 
   Future<MembershipAccessState> refresh() async {

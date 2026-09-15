@@ -145,7 +145,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   }
 
   void _purchaseChanged() {
-    unawaited(_load(silent: true));
+    unawaited(_load(silent: true, forceRefresh: true));
   }
 
   void _sessionChanged() {
@@ -163,7 +163,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     super.dispose();
   }
 
-  Future<void> _load({bool silent = false}) async {
+  Future<void> _load({bool silent = false, bool forceRefresh = false}) async {
     final request = ++_requestGeneration;
     final source = _catalog;
     final cached = source?.cached;
@@ -196,7 +196,9 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       }());
     }
     try {
-      final loader = widget.productsLoader ?? source?.load;
+      final loader =
+          widget.productsLoader ??
+          (forceRefresh ? source?.load : source?.loadForEntry);
       if (loader == null) throw MembershipPlatformUnavailable();
       final catalog = await loader();
       if (!mounted || request != _requestGeneration) return;
@@ -245,16 +247,6 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     }
     final handler = widget.purchaseHandler;
     if (handler != null) {
-      final membership = _membership;
-      if (membership != null) {
-        final access = await membership.refresh();
-        if (!mounted) return;
-        final blocked = membershipPurchaseBlockReason(offer.product, access);
-        if (blocked != null) {
-          await showMembershipPurchaseFailure(context, blocked);
-          return;
-        }
-      }
       await handler(offer.product);
       return;
     }
@@ -292,6 +284,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   @override
   Widget build(BuildContext context) {
     final selectedProduct = _offerFor(_plan)?.product;
+    final access = _membership?.state.value ?? const MembershipAccessState();
     if (_loading) {
       // Match Buy Gems' initial loading indicator in the same tab content area.
       return const GemPurchaseLoading();
@@ -411,12 +404,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                   foregroundColor: proSubscribeInk,
                   label:
                       selectedProduct != null &&
-                          membershipPurchaseBlockReason(
-                                selectedProduct,
-                                _membership?.state.value ??
-                                    const MembershipAccessState(),
-                              ) ==
-                              'already_subscribed'
+                          membershipHasSelectedPlan(selectedProduct, access) &&
+                          access.membership?.autoRenew == true
                       ? 'Subscribed'
                       : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
                   height: 44,

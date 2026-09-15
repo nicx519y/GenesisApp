@@ -27,7 +27,6 @@ void main() {
           expiresAt: DateTime.utc(2027, 9, 7),
           autoRenew: false,
           blueGemsCent: 30000,
-          hasOverlap: false,
         ),
       ),
     );

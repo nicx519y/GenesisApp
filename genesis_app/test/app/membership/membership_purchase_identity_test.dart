@@ -76,20 +76,5 @@ void main() {
         }
       }
     }
-
-    test(
-      '$provider catalog UUID does not bypass purchase eligibility',
-      () async {
-        final h = support.Harness(provider: provider);
-        h.memberPlan = 'pro_monthly';
-        h.productsHandler = () async => [
-          membershipProduct(provider: provider, accountUuid: catalogUuid),
-        ];
-        await h.service.purchase(h.product());
-        expect(h.service.state.value, MembershipCheckoutState.failed);
-        expect(h.platform.launches, 0);
-        expect(h.guestPrepares, 0);
-      },
-    );
   }
 }

@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
@@ -13,89 +12,47 @@ import 'membership_purchase_service_test.dart' as support;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  for (final failure in ['unknown', 'offline', 'wrong_owner']) {
-    test('membership $failure cannot start payment', () async {
-      final h = support.Harness();
-      h.membershipHandler = () async {
-        if (failure == 'offline') throw StateError('offline');
-        return failure == 'wrong_owner'
-            ? membershipAccessSnapshot(ownerUid: 'another')
-            : const MembershipAccessState(ownerUid: 'user-test');
-      };
-      await h.service.purchase(h.product());
-      expect(h.platform.launches, 0);
-      expect(h.platform.product, isNull);
-      expect(h.store.records, isEmpty);
-    });
-  }
-
   test(
-    'waiting for wallet blocks double taps and rejects a newly active subscription',
+    'waiting for the platform blocks double taps without a wallet request',
     () async {
       final h = support.Harness();
-      final response = Completer<MembershipAccessState>();
-      h.membershipHandler = () => response.future;
+      final handoff = Completer<void>();
+      h.platform.onLaunch = () => handoff.future;
       final first = h.service.purchase(h.product());
       await pumpEventQueue();
       await h.service.purchase(h.product());
-      expect(h.membershipQueries, 1);
-      expect(h.platform.launches, 0);
-      response.complete(membershipAccessSnapshot(planCode: 'pro_monthly'));
+      expect(h.refreshes, 0);
+      expect(h.platform.launches, 1);
+      handoff.complete();
       await first;
-      expect(h.platform.launches, 0);
+      expect(h.platform.launches, 1);
     },
   );
 
-  test('account switch while awaiting membership cancels checkout', () async {
-    final h = support.Harness();
-    final response = Completer<MembershipAccessState>();
-    h.membershipHandler = () => response.future;
-    final task = h.service.purchase(h.product());
-    await pumpEventQueue();
-    h.uid = 'second';
-    response.complete(membershipAccessSnapshot());
-    await task;
-    expect(h.platform.launches, 0);
-    expect(h.store.records, isEmpty);
-  });
-
   for (final provider in MembershipProvider.values) {
     for (final guest in [false, true]) {
-      for (final status in ['', 'pro_monthly', 'pro_yearly']) {
-        for (final yearly in [false, true]) {
-          test(
-            '$provider $status guest=$guest yearly=$yearly checks fresh membership before store',
-            () async {
-              final h = support.Harness(provider: provider)
-                ..memberPlan = status;
-              if (guest) h.uid = null;
-              final blocked =
-                  !guest &&
-                  (status == 'pro_yearly' ||
-                      status == 'pro_monthly' && !yearly);
-              final events = <MembershipCheckoutEvent>[];
-              final subscription = h.service.checkoutEvents.listen(events.add);
-              await h.service.purchase(h.product(yearly: yearly));
-              await pumpEventQueue();
-              expect(h.eligibilityQueries, 1);
-              expect(h.membershipQueries, guest ? 0 : 1);
-              expect(h.platform.launches, blocked ? 0 : 1);
-              if (blocked) {
-                expect(
-                  events.last.reason,
-                  status == 'pro_yearly' && !yearly
-                      ? 'downgrade_not_allowed'
-                      : 'already_subscribed',
-                );
-                expect(h.platform.product, isNull);
-                expect(h.guestPrepares, 0);
-                expect(h.store.records, isEmpty);
-              }
-              await subscription.cancel();
-              h.service.dispose();
-            },
-          );
-        }
+      for (final yearly in [false, true]) {
+        test(
+          '$provider guest=$guest yearly=$yearly delegates payment without a wallet request',
+          () async {
+            final h = support.Harness(provider: provider);
+            if (guest) h.uid = null;
+            final events = <MembershipCheckoutEvent>[];
+            final subscription = h.service.checkoutEvents.listen(events.add);
+            await h.service.purchase(h.product(yearly: yearly));
+            await pumpEventQueue();
+            expect(h.eligibilityQueries, 1);
+            expect(h.refreshes, 0);
+            expect(h.platform.launches, 1);
+            expect(h.platform.product?.isYearly, yearly);
+            expect(h.guestPrepares, guest ? 1 : 0);
+            expect(events.last.state, MembershipCheckoutState.store);
+            expect(events.last.reason, isNull);
+            expect(h.reports, isEmpty);
+            await subscription.cancel();
+            h.service.dispose();
+          },
+        );
       }
     }
   }
@@ -172,6 +129,45 @@ void main() {
       expect(h.platform.launches, 0);
     },
   );
+
+  for (final provider in MembershipProvider.values) {
+    for (final outcome in ['offline', 'timeout', 'accepted']) {
+      testWidgets('$provider retries $outcome report without repurchasing', (
+        tester,
+      ) async {
+        final h = support.Harness(
+          provider: provider,
+          retryDelay: const Duration(seconds: 15),
+        );
+        h.reportHandler = (_) async {
+          if (h.reports.length > 1) return support.completed;
+          if (outcome == 'offline') throw StateError('offline');
+          if (outcome == 'timeout') throw TimeoutException('report timeout');
+          return const MembershipPurchaseReport(
+            status: MembershipReportStatus.accepted,
+            reportId: 'accepted',
+          );
+        };
+        await h.service.purchase(h.product());
+        expect(h.platform.launches, 1);
+        expect(h.reports, isEmpty);
+        await h.service.interceptPurchase(h.purchase());
+        expect(h.reports, hasLength(1));
+        expect(h.store.records, hasLength(1));
+        expect(h.service.isBusy, isFalse);
+
+        await tester.pump(const Duration(seconds: 15));
+        expect(h.reports, hasLength(2));
+        expect(h.reports.last.toJson(), h.reports.first.toJson());
+        expect(h.platform.launches, 1);
+        expect(h.store.records, isEmpty);
+        expect(h.refreshes, 1);
+        expect(h.service.state.value, MembershipCheckoutState.completed);
+        await h.service.recover();
+        expect(h.reports, hasLength(2));
+      });
+    }
+  }
 
   for (final status in ['accepted', 'offline', 'pending']) {
     test(

@@ -345,20 +345,19 @@ class _OriginGridSkeleton extends StatelessWidget {
       ),
       slivers: [
         SliverPadding(
-          padding: const EdgeInsets.fromLTRB(2, 5, 2, 0),
+          padding: genesisOriginGridPadding,
           sliver: SliverLayoutBuilder(
             builder: (context, constraints) {
-              const crossAxisSpacing = 2.0;
               final itemWidth =
-                  (constraints.crossAxisExtent - crossAxisSpacing) / 2;
+                  (constraints.crossAxisExtent - genesisOriginGridSpacing) / 2;
               final itemHeight =
                   itemWidth / genesisOriginCoverAspectRatio +
                   genesisOriginCardBottomExtension;
               return SliverGrid.builder(
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  mainAxisSpacing: 2,
-                  crossAxisSpacing: crossAxisSpacing,
+                  mainAxisSpacing: genesisOriginGridSpacing,
+                  crossAxisSpacing: genesisOriginGridSpacing,
                   mainAxisExtent: itemHeight,
                 ),
                 itemCount: itemCount,

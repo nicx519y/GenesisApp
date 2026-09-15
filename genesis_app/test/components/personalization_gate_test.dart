@@ -5,6 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/config/app_global_config.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
+import 'package:genesis_flutter_android/network/models/membership_product.dart';
+import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/app/onboarding/personalization_store.dart';
 import 'package:genesis_flutter_android/components/onboarding/personalization_gate.dart';
 import 'package:genesis_flutter_android/components/onboarding/personalization_sheet.dart';
@@ -15,6 +18,7 @@ import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import '../app/membership/membership_purchase_service_test.dart' show Harness;
 import '../support/personalization_fixtures.dart';
+import '../support/membership_fixtures.dart';
 
 Finder control(String value) => find.byKey(ValueKey('personalization-$value'));
 Future<void> tap(WidgetTester tester, String value) async {
@@ -31,6 +35,144 @@ void main() {
     );
     addTearDown(appConfig.dispose);
     SharedPreferences.setMockInitialValues({});
+  });
+
+  for (final entry in ['form', 'home_completed', 'home_disabled']) {
+    for (final preloadReady in [true, false]) {
+      testWidgets('parallel preload reused by $entry ready=$preloadReady', (
+        tester,
+      ) async {
+        final enabled = entry != 'home_disabled';
+        appConfig.value = AppGlobalConfig(showPersonalizationForm: enabled);
+        var profileCalls = 0;
+        var productCalls = 0;
+        final profile = Completer<PersonalizationData>();
+        final products = Completer<MembershipProductList>();
+        final catalog = MembershipCatalog(
+          provider: MembershipProvider.google,
+          loadProducts: (_) {
+            productCalls++;
+            return products.future;
+          },
+        );
+        final store = PersonalizationStore(
+          readLoginUid: () async => null,
+          load: () {
+            profileCalls++;
+            return profile.future;
+          },
+          save: (value) async => PersonalizationProfile(
+            gender: value.gender,
+            age: value.age,
+            completed: true,
+          ),
+        );
+        final navigator = GlobalKey<NavigatorState>();
+        Widget subscription(BuildContext _) => ProSubscriptionContent(
+          catalog: catalog,
+          refreshMembershipOnOpen: false,
+        );
+        void completeProducts() => products.complete(
+          MembershipProductList(products: [membershipProduct(yearly: true)]),
+        );
+        try {
+          await tester.pumpWidget(
+            MaterialApp(
+              navigatorKey: navigator,
+              builder: (_, child) => PersonalizationGate(
+                appConfig: appConfig,
+                store: store,
+                navigatorKey: navigator,
+                preloadMembership: catalog.preload,
+                subscriptionBuilder: subscription,
+                child: child!,
+              ),
+              home: Scaffold(
+                body: TextButton(
+                  onPressed: () => navigator.currentState!.push(
+                    MaterialPageRoute<void>(
+                      builder: (context) =>
+                          Scaffold(body: subscription(context)),
+                    ),
+                  ),
+                  child: const Text('Open subscription'),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          // Both requests start before personalization returns; disabled forms
+          // still warm the shared catalog for the Home entry.
+          expect(profileCalls, enabled ? 1 : 0);
+          expect(productCalls, 1);
+          expect(find.byType(PersonalizationSheet), findsNothing);
+          profile.complete(personalizationData(completed: entry != 'form'));
+          await tester.pumpAndSettle();
+          if (preloadReady) {
+            completeProducts();
+            await tester.pumpAndSettle();
+          }
+          if (entry == 'form') {
+            await tap(tester, 'g4');
+            await tap(tester, 'a6');
+            await tester.tap(control('continue'));
+          } else {
+            await tester.tap(find.text('Open subscription'));
+          }
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(productCalls, 1);
+          if (!preloadReady) completeProducts();
+          await tester.pumpAndSettle();
+          expect(find.text(r'Yearly: $99.99'), findsOneWidget);
+          expect(productCalls, 1);
+        } finally {
+          if (!products.isCompleted) completeProducts();
+          await tester.pumpWidget(const SizedBox.shrink());
+          store.dispose();
+        }
+      });
+    }
+  }
+
+  testWidgets('preload failure does not block personalization or Continue', (
+    tester,
+  ) async {
+    final store = PersonalizationStore(
+      readLoginUid: () async => null,
+      load: () async => personalizationData(),
+      save: (value) async => PersonalizationProfile(
+        gender: value.gender,
+        age: value.age,
+        completed: true,
+      ),
+    );
+    final navigator = GlobalKey<NavigatorState>();
+    try {
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: navigator,
+          builder: (_, child) => PersonalizationGate(
+            appConfig: appConfig,
+            store: store,
+            navigatorKey: navigator,
+            preloadMembership: () async => throw StateError('offline'),
+            subscriptionBuilder: (_) => const Text('Subscription entry'),
+            child: child!,
+          ),
+          home: const Scaffold(body: Text('Home')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(PersonalizationSheet), findsOneWidget);
+      await tap(tester, 'g4');
+      await tap(tester, 'a6');
+      await tap(tester, 'continue');
+      expect(find.text('Subscription entry'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      store.dispose();
+    }
   });
 
   testWidgets('config controls form entry without changing Continue', (
@@ -239,7 +381,6 @@ void main() {
                   expiresAt: null,
                   autoRenew: false,
                   blueGemsCent: 0,
-                  hasOverlap: false,
                 ),
               );
             }
@@ -318,7 +459,6 @@ void main() {
                       : DateTime.utc(2041),
                   autoRenew: true,
                   blueGemsCent: 0,
-                  hasOverlap: false,
                 ),
               ),
             );
@@ -516,6 +656,7 @@ void main() {
     final checked = Completer<void>();
     var checks = 0;
     var loginCalls = 0;
+    final preloadedFor = <String?>[];
     final loadedFor = <String?>[];
     final store = PersonalizationStore(
       readLoginUid: () async => uid,
@@ -544,6 +685,9 @@ void main() {
               await checked.future;
               pending.value = 'recovered-order';
             },
+            preloadMembership: () async {
+              preloadedFor.add(uid);
+            },
             requestRequiredLogin: (context) {
               loginCalls++;
               return showLoginSheet(
@@ -569,14 +713,17 @@ void main() {
       await tester.pumpAndSettle();
       expect(checks, 1);
       expect(loadedFor, isEmpty);
+      expect(preloadedFor, isEmpty);
       expect(find.byType(PersonalizationSheet), findsNothing);
       checked.complete();
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
       expect(loadedFor, isEmpty);
+      expect(preloadedFor, isEmpty);
       await tester.tap(find.text('Continue with Google'));
       await tester.pumpAndSettle();
       expect(loadedFor, ['recovered-user']);
+      expect(preloadedFor, ['recovered-user']);
       await tap(tester, 'g0');
       await tap(tester, 'a0');
       await tap(tester, 'continue');

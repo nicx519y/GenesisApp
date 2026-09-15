@@ -22,7 +22,6 @@ GemWallet _response({
     expiresAt: missingExpiry ? null : expiry ?? DateTime.utc(2041),
     autoRenew: false,
     blueGemsCent: 12300,
-    hasOverlap: false,
   ),
 );
 

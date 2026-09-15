@@ -10691,7 +10691,6 @@ _connectedLocationChatTestService({
                     expiresAt: null,
                     autoRenew: false,
                     blueGemsCent: 0,
-                    hasOverlap: false,
                   ),
           );
         },

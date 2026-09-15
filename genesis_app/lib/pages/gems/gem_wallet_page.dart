@@ -204,7 +204,11 @@ class _GemWalletPageState extends State<GemWalletPage>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed && _purchaseTabs.index == 1) {
+    if (state != AppLifecycleState.resumed) return;
+    if (_purchaseTabs.index == 0) {
+      final membership = _membershipServices?.membership;
+      if (membership != null) unawaited(membership.refresh());
+    } else {
       unawaited(_refreshAll(silent: _hasPageData));
     }
   }

@@ -47,14 +47,19 @@ class MembershipCatalog {
     required this.provider,
     this.cacheStore,
     this.readOwnerUid,
-  });
+    DateTime Function()? now,
+  }) : _now = now ?? DateTime.now;
+
+  static const entryCacheAge = Duration(minutes: 1);
 
   final Future<MembershipProductList> Function(MembershipProvider provider)
   loadProducts;
   final MembershipProvider? provider;
   final MembershipCatalogCache? cacheStore;
   final Future<String?> Function()? readOwnerUid;
+  final DateTime Function() _now;
   MembershipCatalogData? _cached;
+  DateTime? _loadedAt;
   MembershipProductList? _checkoutProducts;
   String? _checkoutOwner;
   Future<MembershipCatalogData>? _loading;
@@ -65,8 +70,14 @@ class MembershipCatalog {
 
   void resetForSession() {
     _session++;
-    _loadGeneration++;
     _cached = null;
+    invalidate();
+  }
+
+  /// Keep display snapshots, but discard credentials after purchase/claim changes.
+  void invalidate() {
+    _loadGeneration++;
+    _loadedAt = null;
     _checkoutProducts = null;
     _checkoutOwner = null;
     _loading = null;
@@ -103,9 +114,43 @@ class MembershipCatalog {
 
   Future<MembershipCatalogData> load() {
     final generation = ++_loadGeneration;
+    _loadedAt = null;
     _checkoutProducts = null;
     _checkoutOwner = null;
     return _loading = _load(_session, generation);
+  }
+
+  /// Share startup preloads and recent API results across all subscription entries.
+  /// Disk snapshots never satisfy this freshness check or authorize checkout.
+  Future<MembershipCatalogData> loadForEntry() async {
+    final session = _session;
+    final owner = await readOwnerUid?.call();
+    if (session != _session) {
+      throw StateError('membership_catalog_session_changed');
+    }
+    final loading = _loading;
+    if (loading != null) return loading;
+    final loadedAt = _loadedAt;
+    final age = loadedAt == null ? null : _now().difference(loadedAt);
+    if (_cached != null &&
+        _checkoutProducts != null &&
+        owner == _checkoutOwner &&
+        age != null &&
+        !age.isNegative &&
+        age < entryCacheAge) {
+      return _cached!;
+    }
+    return load();
+  }
+
+  /// Opportunistic work: a failed preload must not interrupt Home or the form.
+  Future<void> preload() async {
+    if (provider == null) return;
+    try {
+      await loadForEntry();
+    } catch (error) {
+      debugPrint('[Membership] catalog preload failed: ${error.runtimeType}');
+    }
   }
 
   /// Reuses the page's API response, including its in-memory upgrade credentials.
@@ -146,6 +191,7 @@ class MembershipCatalog {
         products: List.unmodifiable(response.products),
       );
       _checkoutOwner = owner;
+      _loadedAt = _now();
       // Cache display fields without account UUIDs or upgrade purchase tokens.
       _cached = _catalog(
         MembershipProductList(

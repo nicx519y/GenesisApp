@@ -300,11 +300,7 @@ void main() {
             'account_uuid': identity.accountUuid,
             'status': status,
             'membership': status == 'completed'
-                ? {
-                    'is_active': false,
-                    'has_overlap': false,
-                    'subscriptions': [],
-                  }
+                ? {'is_active': false, 'subscriptions': []}
                 : null,
             if (status == 'accepted') 'reason': 'processing',
             if (status == 'rejected') 'reason': 'invalid_purchase',

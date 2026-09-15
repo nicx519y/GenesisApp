@@ -98,7 +98,6 @@ void main() {
           expiresAt: DateTime.utc(2026, 8, 1),
           autoRenew: false,
           blueGemsCent: 0,
-          hasOverlap: false,
         ),
       ),
     );
@@ -113,7 +112,6 @@ void main() {
           expiresAt: DateTime.utc(2027, 9, 7),
           autoRenew: false,
           blueGemsCent: 30000,
-          hasOverlap: false,
         ),
       ),
     );

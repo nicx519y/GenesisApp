@@ -42,14 +42,23 @@ class OriginV1Api extends V1ApiResource {
   /// subsequent requests must pass the previous response's `next_score`.
   /// Every `list[].info` includes `definition_version` and
   /// `default_map_location_id` for default Tilemap prefetching.
-  Future<Map<String, dynamic>> feed({required int startScore, int rn = 10}) {
+  /// `gender` is optional; null/empty (All) is omitted from the query.
+  Future<Map<String, dynamic>> feed({
+    required int startScore,
+    int rn = 10,
+    String? gender,
+  }) {
     if (startScore < 0) {
       throw ArgumentError.value(startScore, 'startScore', 'must be >= 0');
     }
     if (rn < 1 || rn > 100) {
       throw ArgumentError.value(rn, 'rn', 'must be between 1 and 100');
     }
-    return getMap('origin/feed', {'start_score': startScore, 'rn': rn});
+    return getMap('origin/feed', {
+      'start_score': startScore,
+      'rn': rn,
+      if (gender != null && gender.trim().isNotEmpty) 'gender': gender,
+    });
   }
 
   /// POST /api/v1/origin/feed/exposure
@@ -100,6 +109,8 @@ class OriginV1Api extends V1ApiResource {
 
   /// GET /api/v1/origin/list
   ///
+  /// `gender` is optional (`Male`, `Female`, `Non_binary`); null/empty is omitted.
+  ///
   /// Request parameters:
   /// ```json
   /// {"pn":1,"rn":10,"scene":"uid","uid":"string","tag":"string","keyword":"string"}
@@ -117,12 +128,12 @@ class OriginV1Api extends V1ApiResource {
     String? ownerUid,
     String? uid,
     String? tagName,
+    String? gender,
     int? pn,
     int? rn,
   }) {
-    return getMap(
-      'origin/list',
-      v1Query({
+    return getMap('origin/list', {
+      ...v1Query({
         'scene': scene,
         'tag': tag,
         'tag_id': tagId,
@@ -133,7 +144,8 @@ class OriginV1Api extends V1ApiResource {
         'pn': pn,
         'rn': rn,
       }),
-    );
+      if (gender != null && gender.trim().isNotEmpty) 'gender': gender,
+    });
   }
 
   /// GET /api/v1/origin/detail
