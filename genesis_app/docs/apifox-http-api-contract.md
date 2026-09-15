@@ -634,6 +634,7 @@ Query：
 - `rn`: integer，默认 10
 - `scene`: string，场景；自有数据传 `mine`，指定用户传 `uid`，标签筛选传 `tag`
 - `tag`: string，`scene=tag` 时传入标签名
+- `gender`: string，可选，枚举 `Male` / `Female` / `Non_binary`；默认不传，未传或空表示未指定
 - `origin_id`: string，仅查询基于该 origin 复制出的 world
 - `uid`: string，`scene=uid` 时传入目标用户 uid；`scene=mine` 时不传
 - `keyword`: string，模糊搜索 `world_name` / `brief`
@@ -969,6 +970,11 @@ Query：
 
 - `start_score`: int64，默认 `0`，最小值 `0`
 - `rn`: integer，默认 `10`，范围 `1..100`
+- `gender`: string，可选，枚举 `Male` / `Female` / `Non_binary`；默认不传，未传或空表示未指定
+
+Worldo 页 For you 与分类列表按登录状态读取 `gender`：未登录使用现有 `PersonalizationStore` 中当前匿名设备的 `personalization.gender`；登录后仅使用当前账号本地 `userInfo.gender`，不回退到匿名 personalization 或其他账号资料。忽略大小写及首尾空格：`Male` 用户传 `Female`，`Female` 用户传 `Male`，其他、缺失或读取失败均省略该参数；不为此追加用户资料或 personalization 接口请求。匿名 personalization 尚未返回时先不传，返回或填表保存后监听状态更新。首屏、下拉刷新和分页保持相同条件；账号或性别变化后从首屏重新加载，不沿用旧游标。For you 首屏缓存按账号及请求的 `gender` 区分。其他 `origin/list` 调用默认不传，不影响 Me 自有列表等场景。
+
+Worldo 分类 Tab 栏右侧的性别筛选可手动覆盖上述自动值：`All` 不传 `gender` 参数（URL 中不追加 `&gender` 或 `&gender=`），`Male` / `Female` / `Non binary` 分别传 `Male` / `Female` / `Non_binary`。筛选图标下方向下展开靠右对齐的小浮窗，四个选项左对齐并标记当前项；点击选项即收起并应用，点击窗外或返回键只收起，不改变筛选。手动值在当前页面生命周期内对所有分类、首屏、刷新和分页统一生效，不因 personalization 或 userInfo 更新被覆盖；选择变化时从第一页重新加载并隔离旧请求。未手动选择时继续使用上述自动规则，未确定性别时省略参数。All 与未指定在服务端均表示不筛选，共用该账号的无性别条件缓存。
 
 响应 `data`：
 

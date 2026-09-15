@@ -38,7 +38,7 @@ class PurchaseOptionsSheet extends StatefulWidget {
 }
 
 class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final TabController _tabs;
   late bool _gemsVisited;
   late bool _subscriptionVisited;
@@ -57,6 +57,7 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     final initialTab = widget.showBuyGems
         ? widget.initialTab
         : PurchaseSheetTab.subscription;
@@ -81,9 +82,20 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabs.removeListener(_visitCurrentTab);
     _tabs.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed ||
+        _tabs.index != PurchaseSheetTab.subscription.index) {
+      return;
+    }
+    final membership = _membership;
+    if (membership != null) unawaited(membership.refresh());
   }
 
   @override

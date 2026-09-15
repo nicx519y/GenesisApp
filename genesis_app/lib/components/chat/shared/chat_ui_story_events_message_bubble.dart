@@ -32,18 +32,24 @@ class ChatStoryEventsMessageBubble extends StatelessWidget {
               style.systemMessageBorderRadius,
             ),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var index = 0; index < payload.paragraphs.length; index += 1)
-                _ChatStoryEventParagraph(
-                  messageLocalId: message.localId,
-                  index: index,
-                  paragraph: payload.paragraphs[index],
-                  style: style,
-                  addTopSpacing: index > 0,
-                ),
-            ],
+          child: ChatStreamingBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (
+                  var index = 0;
+                  index < payload.paragraphs.length;
+                  index += 1
+                )
+                  _ChatStoryEventParagraph(
+                    messageLocalId: message.localId,
+                    index: index,
+                    paragraph: payload.paragraphs[index],
+                    style: style,
+                    addTopSpacing: index > 0,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -37,10 +38,17 @@ class ProfileMembershipCard extends StatelessWidget {
     fontWeight: FontWeight.w400,
   );
 
-  String _date(DateTime date) =>
-      '${date.year.toString().padLeft(4, '0')}-'
-      '${date.month.toString().padLeft(2, '0')}-'
-      '${date.day.toString().padLeft(2, '0')}';
+  String _date(DateTime date) {
+    final day =
+        '${date.year.toString().padLeft(4, '0')}-'
+        '${date.month.toString().padLeft(2, '0')}-'
+        '${date.day.toString().padLeft(2, '0')}';
+    if (!kDebugMode) return day;
+    return '$day '
+        '${date.hour.toString().padLeft(2, '0')}:'
+        '${date.minute.toString().padLeft(2, '0')}:'
+        '${date.second.toString().padLeft(2, '0')}';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +158,7 @@ class ProfileMembershipCard extends StatelessWidget {
                                           key: const ValueKey(
                                             'user-profile-membership-expiry',
                                           ),
-                                          maxLines: 1,
+                                          maxLines: kDebugMode ? 2 : 1,
                                           style: _bodyStyle,
                                         )
                                       : isLapsed
@@ -167,7 +175,7 @@ class ProfileMembershipCard extends StatelessWidget {
                                                   key: const ValueKey(
                                                     'user-profile-membership-expiry',
                                                   ),
-                                                  maxLines: 1,
+                                                  maxLines: kDebugMode ? 2 : 1,
                                                   overflow:
                                                       TextOverflow.ellipsis,
                                                   style: _bodyStyle,

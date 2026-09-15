@@ -7,7 +7,6 @@ Map<String, Object?> membership({int status = 1}) => {
   'expires_at': 1820354400,
   'auto_renew': false,
   'blue_gems_cent': 0,
-  'has_overlap': false,
 };
 
 void main() {
@@ -20,6 +19,9 @@ void main() {
           'membership': membership(status: status),
         });
         expect(wallet.membership!.status, status);
+        expect(wallet.membership!.planCode, 'pro_yearly');
+        expect(wallet.membership!.autoRenew, isFalse);
+        expect(wallet.membership!.blueGemsCent, 0);
         expect(wallet.balanceCent, 518240);
         expect(
           wallet.membership!.expiresAt!.millisecondsSinceEpoch,

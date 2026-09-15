@@ -13,6 +13,7 @@ import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.d
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_spacing.dart';
 
 const _inspirationReplies = [
   'Good job!',
@@ -540,7 +541,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('none actions collapse while an empty toolbar keeps height', (
+  testWidgets('action toolbar animates its height open and closed', (
     tester,
   ) async {
     Widget host({
@@ -571,9 +572,10 @@ void main() {
     );
 
     const toolbarKey = ValueKey('location-chat-reply-actions-four-icons');
+    const transitionKey = ValueKey('location-chat-reply-actions-transition');
     await tester.pumpWidget(host());
-    expect(find.byKey(toolbarKey), findsOneWidget);
-    expect(tester.getSize(find.byKey(toolbarKey)).height, 32);
+    expect(find.byKey(toolbarKey), findsNothing);
+    expect(find.byKey(transitionKey), findsNothing);
     for (final action in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
       expect(find.bySemanticsLabel(action), findsNothing);
     }
@@ -582,6 +584,13 @@ void main() {
     await tester.pumpWidget(
       host(regenerateBusy: true, editEnabled: true, inspirationEnabled: true),
     );
+    expect(find.byKey(transitionKey), findsOneWidget);
+    expect(tester.getSize(find.byKey(transitionKey)).height, 0);
+    await tester.pump(const Duration(milliseconds: 110));
+    final expandingHeight = tester.getSize(find.byKey(transitionKey)).height;
+    expect(expandingHeight, inExclusiveRange(0, 32));
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(tester.getSize(find.byKey(transitionKey)).height, 32);
     expect(find.bySemanticsLabel('Regenerate'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.bySemanticsLabel('Go on'), findsNothing);
@@ -591,6 +600,11 @@ void main() {
 
     final regenerateLeft = tester.getTopLeft(
       find.byKey(const ValueKey('location-chat-regenerate')),
+    );
+    expect(
+      regenerateLeft.dx,
+      kLocationChatStyle.avatarSize + kLocationChatStyle.avatarBubbleGap,
+      reason: 'The first action must align with the other-message bubble.',
     );
     final editLeft = tester.getTopLeft(find.bySemanticsLabel('Edit'));
     final inspirationLeft = tester.getTopLeft(
@@ -604,6 +618,49 @@ void main() {
       inspirationLeft.dx - editLeft.dx,
       LocationChatReplyActions.centerSpacing,
     );
+
+    await tester.pumpWidget(host());
+    expect(find.byKey(toolbarKey), findsOneWidget);
+    expect(
+      tester
+          .widget<IgnorePointer>(
+            find
+                .ancestor(
+                  of: find.byKey(toolbarKey),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring,
+      isTrue,
+    );
+    expect(
+      tester
+          .widget<ExcludeSemantics>(
+            find
+                .ancestor(
+                  of: find.byKey(toolbarKey),
+                  matching: find.byType(ExcludeSemantics),
+                )
+                .first,
+          )
+          .excluding,
+      isTrue,
+    );
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(
+      tester.getSize(find.byKey(transitionKey)).height,
+      inExclusiveRange(0, 32),
+    );
+    expect(
+      tester.getBottomLeft(find.byKey(toolbarKey)).dy,
+      closeTo(tester.getBottomLeft(find.byKey(transitionKey)).dy, 0.1),
+      reason: 'The buttons must stay on their previous bottom baseline.',
+    );
+    await tester.pump(const Duration(milliseconds: 220));
+    await tester.pump();
+    expect(find.byKey(toolbarKey), findsNothing);
+    expect(find.byKey(transitionKey), findsNothing);
   });
 
   testWidgets('disabled stays gray and slotful; busy spins; idle can invoke', (
@@ -738,9 +795,13 @@ void main() {
       final pagination = find.byKey(
         const ValueKey('location-chat-reply-pagination'),
       );
+      final paginationTransition = find.byKey(
+        const ValueKey('location-chat-reply-pagination-transition'),
+      );
       final actionRow = find.byKey(
         const ValueKey('location-chat-reply-actions-four-icons'),
       );
+      final paginationHeight = tester.getSize(paginationTransition).height;
       expect(
         LocationChatReplyActions.contentBottomGap +
             tester.getTopLeft(find.text('1 / 3')).dy -
@@ -767,7 +828,16 @@ void main() {
       expect(find.text('2 / 3'), findsOneWidget);
       setHostState(() => confirmed = true);
       await tester.pump();
+      expect(previous, findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 110));
+      expect(
+        tester.getSize(paginationTransition).height,
+        inExclusiveRange(0, paginationHeight),
+      );
+      await tester.pump(const Duration(milliseconds: 220));
+      await tester.pump();
       expect(previous, findsNothing);
+      expect(paginationTransition, findsNothing);
       setHostState(() {
         confirmed = false;
         count = 1;
@@ -775,8 +845,20 @@ void main() {
       });
       await tester.pump();
       expect(previous, findsNothing);
-      setHostState(() => count = 0);
+      setHostState(() => count = 3);
       await tester.pump();
+      expect(paginationTransition, findsOneWidget);
+      expect(tester.getSize(paginationTransition).height, 0);
+      await tester.pump(const Duration(milliseconds: 110));
+      expect(
+        tester.getSize(paginationTransition).height,
+        inExclusiveRange(0, paginationHeight),
+      );
+      await tester.pump(const Duration(milliseconds: 220));
+      expect(tester.getSize(paginationTransition).height, paginationHeight);
+      expect(previous, findsOneWidget);
+      setHostState(() => count = 0);
+      await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('location-chat-reply-page-indicator')),
         findsNothing,
@@ -1449,6 +1531,22 @@ void main() {
             topTitle: '',
             replyActionsIdentity: round,
             replyActionsVisible: actionsVisible,
+            regenerateFeature: LocationChatRegenerateFeature(
+              state: LocationChatReplyActionState.idle,
+              onInvoke: () {},
+            ),
+            goOnFeature: LocationChatGoOnFeature(
+              state: LocationChatReplyActionState.idle,
+              onInvoke: () {},
+            ),
+            editFeature: LocationChatEditFeature(
+              state: LocationChatReplyActionState.idle,
+              onInvoke: () {},
+            ),
+            inspirationFeature: const LocationChatInspirationFeature(
+              state: LocationChatReplyActionState.idle,
+              messages: _inspirationReplies,
+            ),
           ),
         ),
       ),
@@ -1473,8 +1571,19 @@ void main() {
     expect(tester.getSize(slot).height, slotHeight);
     expect(
       find.byKey(const ValueKey('location-chat-reply-control:round-1')),
-      findsNothing,
+      findsOneWidget,
     );
+    const transitionKey = ValueKey('location-chat-reply-actions-transition');
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(
+      tester.getSize(slot).height,
+      inExclusiveRange(GenesisSpacing.xl, slotHeight),
+    );
+    expect(find.byKey(transitionKey), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 220));
+    await tester.pump();
+    expect(tester.getSize(slot).height, GenesisSpacing.xl);
+    expect(find.byKey(transitionKey), findsNothing);
     expect(
       tester.getTopLeft(slot).dy,
       greaterThan(tester.getBottomLeft(find.text('New user message')).dy),
@@ -1488,11 +1597,19 @@ void main() {
       ),
     );
     expect(slot.evaluate().single, same(slotElement));
-    expect(tester.getSize(slot).height, slotHeight);
+    expect(tester.getSize(slot).height, GenesisSpacing.xl);
     expect(
       find.byKey(const ValueKey('location-chat-reply-control:round-2')),
       findsOneWidget,
     );
+    expect(find.byKey(transitionKey), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(
+      tester.getSize(slot).height,
+      inExclusiveRange(GenesisSpacing.xl, slotHeight),
+    );
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(tester.getSize(slot).height, slotHeight);
     expect(
       tester.getTopLeft(slot).dy,
       greaterThan(tester.getBottomLeft(find.text('New reply')).dy),

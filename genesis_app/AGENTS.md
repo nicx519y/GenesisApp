@@ -193,7 +193,7 @@ HTTP 映射层的图片规则：
 
 ## 公共浮层底色
 
-- 公共操作弹窗和 Creating / Publishing / Progressing 等生成等待浮层统一使用 `GenesisColors.darkOverlayBackground`：`darkRaisedBackground` 的 40% 不透明度，背景模糊使用 `GenesisBlur.strong`（14），仅作用于面板圆角内。不得在组件中重复写透明度。文字保持各自 token 的不透明度；外围遮罩单独管理。普通 Sheet、浮动菜单与 Toast 不使用此半透明底色。
+- 公共操作弹窗和 Creating / Publishing / Progressing 等生成等待浮层统一使用 `GenesisColors.darkOverlayBackground`：`darkRaisedBackground` 的 40% 不透明度，背景模糊使用 `GenesisBlur.strong`（14），仅作用于面板圆角内。不得在组件中重复写透明度。文字保持各自 token 的不透明度；外围遮罩单独管理。普通 Sheet、Toast 与未另行约定的浮动菜单不使用此半透明底色。
 
 ## 公共操作弹窗
 
@@ -204,6 +204,7 @@ HTTP 映射层的图片规则：
 - Reject 等其他普通操作使用一级白字；禁用操作使用三级白，保留不可点击行为。红色强调正文使用 `redSecondary`。
 - 自定义标题、正文和输入框也须引用公共 token；输入文字和光标使用 `darkTextPrimary`，Placeholder 使用 `darkInputPlaceholder`，输入填充使用 `darkFaintFill`，不额外描边。保留各交互所需的输入行数和布局。
 - 保留公共弹窗的尺寸、圆角和交互；Report / 消息长按浮动菜单仍按浮动菜单专项规范执行。
+- Worldo Tab 栏的性别筛选小窗按公共弹窗 UI 执行：复用 `GenesisActionBoxSurface` 的毛玻璃表面、默认圆角和边框，复用公共操作文字、行高和分隔线，不额外叠加菜单投影。点击图标后在列表右列上方展开，顶部对齐列表首行卡片顶部，宽度及右边缘与右列卡片一致，复用网格边距与列间距计算，不写死宽度或相对图标的偏移；选项为同级操作，使用一级白和勾选标记；点击选项直接关闭，不增加标题、确认或 Cancel 按钮。
 - 签到弹窗只保留 `Check in` / `Claimed` 展示状态，不显示独立 `Claim` 按钮。一次 Check in 内自动上报并领取；后端 `claimable` 仅用于恢复领取，恢复时仍显示 Check in，不能删掉领取接口或重复上报。会员 Check in 复用主操作默认样式，Cancel 复用公共取消样式。
 
 ## 全局字体规则

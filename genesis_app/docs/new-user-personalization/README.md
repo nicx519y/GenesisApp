@@ -32,6 +32,7 @@ P-->|Skip或购买完成|L
 ```
 
 ## 规则与接口
+- 启动身份与未绑定支付登录检查完成后，商品预加载与 `GET personalization` 并行，不等待商品返回才展示表单。填表开关关闭时仍预加载商品，Home 与填表后的 Subscription 共用进行中的请求或 1 分钟内有效结果；具体缓存及失效规则见 [会员状态说明](../membership-access.md#商品预加载)。
 - `GET /api/v1/app/config` 的 `data.show_personalization_form` 为 boolean，客户端默认 `false`。启动时仅成功获取 boolean `true` 才按当前身份查询资料及 `completed`；获取失败、字段缺失、`null` 或类型错误均保持关闭。关闭时不请求资料、不弹表单，也不因资料未填写阻塞其他弹窗。切换账号、前台恢复和资料请求失败重试都遵守该开关，不额外请求 config。
 - 开关只控制填表入口，不控制 Continue 后的订阅引导。已展开的表单、登录及购买流程继续完成；下一次进入时应用最新配置。没有单独的订阅引导配置项。
 - Gender、Age 的选项数量、顺序、value、label 从 `form` 数组读取；显示 label、提交 value，不使用本地枚举作为正式选项。保留原 item 样式、Gender 三列 / Age 两列及大字号适配，任意数量自动换行并滚动。

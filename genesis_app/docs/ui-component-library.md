@@ -22,13 +22,15 @@ lib/ui/
 
 | 后端 icon_key | 简洁图形 | 本地资源 |
 | --- | --- | --- |
-| gem | Buy Gems Tab 同款线条宝石 | 复用 gem_outline.svg |
+| gem | Buy Gems Tab 同款线条宝石 | icon_benefit_gem.svg |
 | memory | 存储卡图标 | Material sd_storage_outlined |
-| inspiration | Message 操作栏同款灵感图标 | 复用 inspiration.svg |
-| edit | Message 操作栏同款编辑图标 | 复用 edit_square.svg |
-| badge | 皇冠轮廓 | 复用 pro_crown.svg |
+| inspiration | Message 操作栏同款灵感图标 | icon_benefit_inspiration.svg |
+| edit | Message 操作栏同款编辑图标 | icon_benefit_edit.svg |
+| badge | 皇冠轮廓 | icon_benefit_badge.svg |
 | recharge | 保留卡片加号 | Material add_card_outlined |
 | 未知值（含已废弃 key） | 原圆圈内五角星 | Material stars_outlined |
+
+原有四个 SVG 直接重命名为 `assets/custom-icons/svg/icon_benefit_<icon_key>.svg`，共享资源常量同步更新，其他页面继续引用同一份文件，不保留旧文件或额外副本。memory、recharge 和未知值继续使用原 Material 内置图标，不生成 SVG 或 PNG。
 
 只按 `icon_key` 映射，不根据 title/code 猜测，不保留旧 key 别名。文案和排序继续由后端提供；`display_type` 决定右侧 enhanced 红色 UP、included 白色勾、locked 白色锁，客户端不为某项权益覆盖状态。共享 SVG 在其他页面仍有引用时不得删除。
 

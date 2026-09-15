@@ -5,6 +5,7 @@ mixin _GenesisApiOriginOperations on _GenesisApiContext {
     String category = 'For you',
     int limit = 20,
     int offset = 0,
+    String? gender,
   }) async {
     final page = _pageFromOffset(limit: limit, offset: offset);
     final tagName = category.trim().isNotEmpty && category != 'For you'
@@ -13,6 +14,7 @@ mixin _GenesisApiOriginOperations on _GenesisApiContext {
     final map = await v1.origin.list(
       scene: tagName == null ? 'foryou' : 'tag',
       tag: tagName,
+      gender: gender,
       pn: page,
       rn: limit,
     );

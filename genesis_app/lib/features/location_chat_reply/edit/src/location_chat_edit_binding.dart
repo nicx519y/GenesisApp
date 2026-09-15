@@ -25,7 +25,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
         controller.stateFor(location)?.roundId == requestedRound;
     _editQuotaChecking = true;
     try {
-      if (!await _checkReplyFeatureQuota(
+      if (!await _refreshReplyFeatureQuota(
             'conversation_edit',
             current: currentEditor,
             onQuotaLookupStarted: () {

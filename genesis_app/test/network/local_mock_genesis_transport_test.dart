@@ -17,6 +17,24 @@ import 'package:genesis_flutter_android/network/models/world.dart';
 
 void main() {
   setUp(LocalMockGenesisTransport.instance.resetFeatureQuotaUsage);
+  test('origin mock accepts optional gender enums', () async {
+    final api = GenesisApi(useMock: true);
+    for (final gender in <String?>[null, '', 'Male', 'Female', 'Non_binary']) {
+      await api.v1.origin.feed(startScore: 0, gender: gender);
+      await api.v1.origin.list(scene: 'tag', tag: 'Romance', gender: gender);
+    }
+    for (final request in [
+      () => api.v1.origin.feed(startScore: 0, gender: 'invalid'),
+      () => api.v1.origin.list(gender: 'invalid'),
+    ]) {
+      await expectLater(
+        request(),
+        throwsA(
+          isA<ApiException>().having((error) => error.code, 'code', 4004),
+        ),
+      );
+    }
+  });
   test('local mock shares budget and keeps per-world usage capped', () async {
     final api = GenesisApi(useMock: true);
     const worldOne = 'w_memory_mock_one';

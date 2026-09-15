@@ -93,6 +93,7 @@ Future<MembershipCatalogData> loadTestMembershipOffers() async =>
 MembershipAccessState membershipAccessSnapshot({
   String? ownerUid = 'user-test',
   String planCode = '',
+  bool autoRenew = false,
 }) => MembershipAccessState(
   ownerUid: ownerUid,
   status: planCode.isEmpty
@@ -102,8 +103,7 @@ MembershipAccessState membershipAccessSnapshot({
     status: planCode.isEmpty ? 0 : 1,
     planCode: planCode,
     expiresAt: planCode.isEmpty ? null : DateTime.utc(2041),
-    autoRenew: false,
+    autoRenew: autoRenew,
     blueGemsCent: 0,
-    hasOverlap: false,
   ),
 );

@@ -3,6 +3,10 @@
 入口：`AppServices.membership`（`MembershipAccessStore`）。复用现有
 `GemWalletStore` 请求 `/api/v1/gem/wallet`，只读取其中的 `membership`。
 
+钱包会员模型只解析 `membership_status`、`plan_code`、`expires_at`、
+`auto_renew`、`blue_gems_cent` 五个字段。服务端返回这些字段即可解析会员信息，
+不依赖额外的重叠订阅标记。Me 页卡片继续使用全局会员状态判断是否有效。
+
 ## 业务调用
 
 ```dart
@@ -27,7 +31,33 @@ services.membership.checkVip((isVip) {
   会回调 `null`。迟到的网络响应只更新缓存，不再次通知同一次调用。
 - 结果送达前发生退出、切换账号或服务释放时，回调 `null`，不交付旧账号权益。
 - 原 `isVip` getter 和 `ensureFresh()` 不再作为公开业务入口；
-  缓存状态只通过标注 `visibleForTesting` 的 `debugState` 提供测试诊断。
+  UI 通过只读 `state` 订阅展示状态，`debugState` 仅用于测试诊断。
+
+### 订阅购买入口
+
+- 购买点击不调用 `checkVip` 或 `refresh()`，不请求或等待 wallet。
+- 购买服务不读取本地或 wallet 会员状态；年转月、月转年、同套餐、无会员及状态未知等情况统一交给平台购买回调处理，不在客户端判断是否允许订阅。
+- 页面打开时的展示刷新及 report/claim 成功后的钱包刷新保持原有流程。同套餐有效会员仅在 `auto_renew=true` 时显示 `Subscribed`；`auto_renew=false` 时恢复 `Monthly: 价格`／`Yearly: 价格`。该字段只影响按钮文案，不作为购买拦截条件，也不改变尚未到期的会员权益。
+- 全屏购买页和购买 sheet 在选中 Subscription 时，每次 App `resumed` 都调用 `membership.refresh()` 请求最新 wallet，不受全局 30 秒回前台缓存限制；复用正在进行的钱包请求。刷新后更新按钮，失败保留仍有效的旧展示，下次回前台继续刷新。未登录继续跳过需要登录态的钱包接口，购买点击不等待此刷新。
+- report 网络失败／超时保存原凭据重试，`accepted` 继续补报，`completed`／`rejected` 为终态；补报不重新调起平台购买。
+
+### 商品预加载
+
+- 启动身份及必要的未绑定支付登录检查结束后，后台请求 `/api/v1/membership/products`，与 personalization 请求并行，不阻塞首页或填表。填表开关关闭时也预加载，供 Home 等订阅入口复用。
+- 所有订阅入口共用 `MembershipCatalog`：复用进行中的请求，以及同一账号下 1 分钟内成功取得的接口结果。过期或失败后进入订阅页重新请求，磁盘缓存仍仅用于先展示。
+- 登录、退出、换号以及 report／claim 状态变化使下单缓存失效；旧请求不能覆盖新结果。账号 UUID 和升级凭证只保留在内存中，不写入商品展示缓存。
+- 商品预加载失败只记录诊断，不弹 Toast，不改变 Continue 的会员判断，也不提前调用平台购买或 report。
+
+预加载改动的本地验证命令（2026-09-15）：
+
+```sh
+flutter test --no-pub test/app/membership/membership_catalog_test.dart test/components/personalization_gate_test.dart test/components/pro_subscription_content_test.dart
+flutter test --no-pub test/widget_test.dart --plain-name 'Home crown'
+flutter test --no-pub test/components/personalization_gate_test.dart --plain-name 'startup waits for guest check; Continue never checks again'
+flutter analyze --no-pub lib/app/membership/membership_catalog.dart lib/components/gems/pro_subscription_content.dart lib/components/onboarding/personalization_gate.dart lib/app/genesis_app.dart lib/app/bootstrap/service_registry.dart test/app/membership/membership_catalog_test.dart test/components/pro_subscription_content_test.dart test/components/personalization_gate_test.dart test/widget_test.dart
+```
+
+前两组共 95 项通过；补充的身份顺序断言单独复测通过。覆盖 Apple／Google 商品缓存、并发请求合并、失效和失败重试、填表及 Home 实际路由复用；不代表真机支付联调。
 
 ## 判断与刷新
 

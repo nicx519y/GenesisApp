@@ -70,7 +70,9 @@ class ChatMessageBubble extends StatelessWidget {
               style: style.bubbleTextStyle,
             )
           : _InlineMarkdownText(
-              text: text.isEmpty ? '...' : text,
+              text: text.isEmpty && message.status != 'streaming'
+                  ? '...'
+                  : text,
               style: style.bubbleTextStyle,
             ),
     );

@@ -622,10 +622,26 @@ class LocalMockGenesisTransport implements HttpTransport {
     }
 
     if (method == 'GET' && path == 'origin/list') {
+      if (!const [
+        '',
+        'Male',
+        'Female',
+        'Non_binary',
+      ].contains(query['gender'] ?? '')) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
       return _v1Ok(_state.v1OriginContractList(query));
     }
 
     if (method == 'GET' && path == 'origin/feed') {
+      if (!const [
+        '',
+        'Male',
+        'Female',
+        'Non_binary',
+      ].contains(query['gender'] ?? '')) {
+        return _v1BusinessError(4004, 'ErrorParamInvalid');
+      }
       final startScore = int.tryParse(query['start_score'] ?? '') ?? 0;
       final rn = int.tryParse(query['rn'] ?? '') ?? 10;
       if (startScore < 0 || rn < 1 || rn > 100) {
@@ -2545,7 +2561,6 @@ class _MockState {
         'expires_at': null,
         'auto_renew': false,
         'blue_gems_cent': 0,
-        'has_overlap': false,
       },
     };
   }

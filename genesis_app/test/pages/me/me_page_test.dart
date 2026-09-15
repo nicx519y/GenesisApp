@@ -48,22 +48,23 @@ void main() {
           ),
         );
         expect(find.text('Subscribe'), findsOneWidget);
+        final expiry = DateTime(2027, 9, 8, 14, 5, 9);
         for (final entry in [(1, false), (2, false), (0, false), (1, true)]) {
           final (status, pastExpiry) = entry;
           final active = status == 1 && !pastExpiry;
-          response = GemWallet(
-            balanceCent: 548240,
-            membership: GemWalletMembership(
-              status: status,
-              planCode: 'pro_yearly',
-              expiresAt: pastExpiry
-                  ? DateTime.utc(2026)
-                  : DateTime.utc(2027, 9, 8),
-              autoRenew: false,
-              blueGemsCent: 30000,
-              hasOverlap: false,
-            ),
-          );
+          response = GemWallet.fromJson({
+            'wallet': {'balance_cent': 548240},
+            'membership': {
+              'membership_status': status,
+              'plan_code': 'pro_yearly',
+              'expires_at':
+                  (pastExpiry ? DateTime.utc(2026) : expiry)
+                      .millisecondsSinceEpoch ~/
+                  1000,
+              'auto_renew': false,
+              'blue_gems_cent': 30000,
+            },
+          });
           await access.refresh();
           await tester.pumpAndSettle();
           expect(find.byType(ProfileMembershipCard), findsOneWidget);
@@ -76,7 +77,7 @@ void main() {
             status == 2 || pastExpiry ? findsOneWidget : findsNothing,
           );
           expect(
-            find.text('Expires 2027-09-08'),
+            find.text('Expires 2027-09-08 14:05:09'),
             active ? findsOneWidget : findsNothing,
           );
           expect(find.text('5,482.4'), findsOneWidget);
@@ -90,7 +91,6 @@ void main() {
             expiresAt: null,
             autoRenew: false,
             blueGemsCent: 0,
-            hasOverlap: false,
           ),
         );
         await access.refresh();

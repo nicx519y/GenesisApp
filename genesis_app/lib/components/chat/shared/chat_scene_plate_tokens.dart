@@ -4,6 +4,7 @@ import '../../../ui/tokens/genesis_blur.dart';
 
 import 'package:flutter/material.dart';
 
+const double kChatStreamingTextFeatherWidth = 12;
 const double kLocationChatOuterPadding = 10;
 const double kChatScenePlateBubbleHorizontalPadding = 13;
 const double kChatScenePlateBubbleVerticalPadding = 11;

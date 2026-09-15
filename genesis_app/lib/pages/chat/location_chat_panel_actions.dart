@@ -3,7 +3,10 @@ part of 'location_chat_page.dart';
 extension _LocationChatPanelActions on _LocationChatPanelState {
   void _clearUnseenIncomingCount() {
     if (_unseenIncomingCount == 0 || !mounted) return;
-    _setLocationChatState(_unseenIncomingMessageLocalIds.clear);
+    _setLocationChatState(() {
+      _unseenIncomingMessageLocalIds.clear();
+      _unseenReplyMessageLocalIds.clear();
+    });
   }
 
   void _openUnseenIncomingMessages() {

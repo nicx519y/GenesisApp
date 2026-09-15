@@ -1,4 +1,3 @@
-import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -203,12 +202,6 @@ class Harness {
       provider: provider,
       readLoginUid: () async =>
           loginUidHandler == null ? uid : await loginUidHandler!(),
-      refreshMembership: () async {
-        membershipQueries++;
-        return membershipHandler == null
-            ? membershipAccessSnapshot(ownerUid: uid, planCode: memberPlan)
-            : await membershipHandler!();
-      },
       readCheckoutProducts:
           checkoutProducts ??
           () async {
@@ -308,9 +301,6 @@ class Harness {
   int guestDiscoveries = 0;
   final guestChecks = <String>[];
   Future<MembershipGuestPurchaseCheck> Function(String)? guestCheckHandler;
-  String memberPlan = '';
-  int membershipQueries = 0;
-  Future<MembershipAccessState> Function()? membershipHandler;
   int eligibilityQueries = 0;
   Future<List<MembershipProduct>> Function()? productsHandler;
   int refreshes = 0;

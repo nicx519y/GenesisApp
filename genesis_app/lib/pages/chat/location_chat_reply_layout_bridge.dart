@@ -56,13 +56,26 @@ class LocationChatReplyLayoutBridge {
 
   double? get estimatedSliverExtent {
     if (!isActive || _startSliverExtent == null) return null;
-    return (_startSliverExtent! +
-            _height! -
-            _startHeight! +
-            _controlsHeight -
-            _startControlsHeight)
-        .clamp(0, double.infinity);
+    return (_startSliverExtent! + layoutExtentDelta).clamp(0, double.infinity);
   }
+
+  /// Height change owned by the active card-layout transaction.
+  ///
+  /// A retained waiting tail uses this to keep its blank extent unchanged
+  /// while cards of different heights slide through the same bottom anchor.
+  double get layoutExtentDelta {
+    if (!isActive) return 0;
+    return _height! - _startHeight! + _controlsHeight - _startControlsHeight;
+  }
+
+  // When the original content fits the viewport, its unused space is absent
+  // from maxScrollExtent. Let viewport physics clamp the target after all
+  // slivers are laid out; an early sliver correction can otherwise fight the
+  // viewport's zero scroll boundary indefinitely as a stream grows.
+  bool get beganWithoutScrollExtent =>
+      isActive &&
+      _position != null &&
+      _startMaxScrollExtent! <= _position!.minScrollExtent;
 
   double? get correction {
     if (!isActive || _position == null) return null;

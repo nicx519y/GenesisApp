@@ -128,6 +128,9 @@ class AppServices {
     this.gemWallet.state.addListener(_featureQuotaMembershipChanged);
     _featureQuotaMembershipChanged();
     this.sessionRevision.addListener(_membershipSessionChanged);
+    membershipPurchases?.catalogRevision.addListener(
+      this.membershipCatalog.invalidate,
+    );
   }
 
   final AppConfig config;
@@ -214,6 +217,10 @@ class AppServices {
   }
 
   void dispose() {
+    membershipPurchases?.catalogRevision.removeListener(
+      membershipCatalog.invalidate,
+    );
+    membershipCatalog.resetForSession();
     sessionRevision.removeListener(_membershipSessionChanged);
     gemWallet.state.removeListener(_featureQuotaMembershipChanged);
     api.chatroomHttp.onFeatureQuotaRequest = null;
@@ -392,7 +399,6 @@ class ServiceRegistry {
             readLoginUid: sessionStore.readLoginUid,
             readCheckoutProducts: () =>
                 services.membershipCatalog.readCheckoutProducts(),
-            refreshMembership: () => services.membership.refresh(),
             loadAccountUuid: loadBillingAccountUuid,
             prepareGuest: () async => api.v1.membership.prepareGuest(
               provider: membershipProvider,
