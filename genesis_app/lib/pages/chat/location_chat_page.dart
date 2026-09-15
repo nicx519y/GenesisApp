@@ -114,6 +114,12 @@ int debugLocationChatReplyProjectionCount = 0;
 int debugLocationChatReplyMessageParseCount = 0;
 
 @visibleForTesting
+int locationChatNewMessageNoticeCountForTesting({
+  required bool hasUnseenMessages,
+  required Set<String> messageLocalIdsBelowViewport,
+}) => hasUnseenMessages ? messageLocalIdsBelowViewport.length : 0;
+
+@visibleForTesting
 Future<void> runLocationChatMetadataUpdateBestEffort(
   Future<void> Function() update,
 ) async {
@@ -593,13 +599,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   int get _unseenIncomingCount =>
       _unseenIncomingMessageLocalIds.length +
       _unseenReplyMessageLocalIds.length;
-  int get _newMessageNoticeCount =>
-      (_scrollCoordinator.hasMessageContentBelowViewport
-          ? _unseenIncomingMessageLocalIds.length
-          : 0) +
-      _unseenReplyMessageLocalIds
-          .intersection(_scrollCoordinator.messageLocalIdsBelowViewport)
-          .length;
+  int get _newMessageNoticeCount => locationChatNewMessageNoticeCountForTesting(
+    hasUnseenMessages: _unseenIncomingCount > 0,
+    messageLocalIdsBelowViewport:
+        _scrollCoordinator.messageLocalIdsBelowViewport,
+  );
   int _clientMsgCounter = 0;
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};
@@ -1213,7 +1217,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               coordinator: _scrollCoordinator,
               active: widget.active,
               messages: displayMessages,
-              unseenMessageLocalIds: Set.of(_unseenReplyMessageLocalIds),
               loadingAfterMessageLocalId: loadingAfterMessageLocalId,
               loadingIdentity: _ackLoadingClientMsgId,
               goOnAwaitingContentIdentity: controls.goOnAwaitingContentIdentity,

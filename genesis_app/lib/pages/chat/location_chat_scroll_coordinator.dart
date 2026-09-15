@@ -433,7 +433,6 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     super.key,
     required this.coordinator,
     required this.messages,
-    this.unseenMessageLocalIds = const {},
     required this.topTitle,
     this.loadingAfterMessageLocalId,
     this.loadingIdentity,
@@ -482,7 +481,6 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
 
   final LocationChatScrollCoordinator coordinator;
   final List<ChatMessageVm> messages;
-  final Set<String> unseenMessageLocalIds;
   final String topTitle;
   final String? loadingAfterMessageLocalId;
   final String? loadingIdentity;
@@ -634,16 +632,27 @@ class _LocationChatAnchoredMessageListState
           bottom == null || bottom - bottomGap > viewport.bottom + 0.5;
       final below = <String>{};
       if (hasContentBelow) {
-        for (final message in _renderedMessages) {
-          if (!widget.unseenMessageLocalIds.contains(message.localId)) continue;
-          final row = _messageBounds(_messageLayoutId(message));
+        final rows = <Rect?>[];
+        var lastLaidOutIndex = -1;
+        for (var index = 0; index < _renderedMessages.length; index++) {
+          final row = _messageBounds(
+            _messageLayoutId(_renderedMessages[index]),
+          );
+          rows.add(row);
+          if (row != null) lastLaidOutIndex = index;
+        }
+        for (var index = 0; index < _renderedMessages.length; index++) {
+          final message = _renderedMessages[index];
+          final row = rows[index];
           final gap = message.localId == last.localId
               ? bottomGap
               : message.isSystem && !message.isImage
               ? style.systemMessageMargin.bottom
               : style.rowBottomPadding;
-          // Unlaid-out incoming tail rows are below the lazy viewport cache.
-          if (row == null || row.bottom - gap > viewport.bottom + 0.5) {
+          // Only unlaid-out rows after the lazy list's laid-out range are
+          // below the viewport. Rows before it are older bubbles above us.
+          if ((row == null && index > lastLaidOutIndex) ||
+              (row != null && row.bottom - gap > viewport.bottom + 0.5)) {
             below.add(message.localId);
           }
         }

@@ -75,6 +75,27 @@ Finder _replyActionLoading(String label) => find.descendant(
 );
 
 void main() {
+  test('new-message notice counts every bubble below the viewport', () {
+    expect(
+      locationChatNewMessageNoticeCountForTesting(
+        hasUnseenMessages: true,
+        messageLocalIdsBelowViewport: const {
+          'incoming-below',
+          'reply-below',
+          'already-seen-below',
+        },
+      ),
+      3,
+    );
+    expect(
+      locationChatNewMessageNoticeCountForTesting(
+        hasUnseenMessages: false,
+        messageLocalIdsBelowViewport: const {'already-seen-below'},
+      ),
+      0,
+    );
+  });
+
   testWidgets('composer Send dismisses keyboard before waiting for ACK', (
     tester,
   ) async {
@@ -175,6 +196,16 @@ void main() {
       await tester.pump();
       expect(position.pixels, closeTo(held, 0.1));
       expect(find.text('1 new message'), findsOneWidget);
+      final currentList = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      final overflowingMessage = currentList.messages.singleWhere(
+        (message) => message.globalMessageId == 90402,
+      );
+      expect(
+        coordinator.messageLocalIdsBelowViewport,
+        contains(overflowingMessage.localId),
+      );
       await tester.tap(find.byKey(notice));
       await tester.pump();
       await tester.pump();
