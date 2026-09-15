@@ -5,35 +5,54 @@ import 'package:shared_preferences/shared_preferences.dart';
 class LocationChatBubbleLayoutSettings {
   const LocationChatBubbleLayoutSettings({
     required this.crowdedEffectiveWidthThreshold,
+    this.replyViewportReserveFraction = defaultReplyViewportReserveFraction,
   });
 
   static const double minCrowdedEffectiveWidthThreshold = 280;
   static const double maxCrowdedEffectiveWidthThreshold = 480;
   static const double defaultCrowdedEffectiveWidthThreshold = 410;
+  static const double minReplyViewportReserveFraction = 0.25;
+  static const double maxReplyViewportReserveFraction = 0.9;
+  static const double defaultReplyViewportReserveFraction = 0.75;
+
+  static double normalizeReplyViewportReserveFraction(double value) =>
+      value.isFinite
+      ? value.clamp(
+          minReplyViewportReserveFraction,
+          maxReplyViewportReserveFraction,
+        )
+      : defaultReplyViewportReserveFraction;
 
   static const defaults = LocationChatBubbleLayoutSettings(
     crowdedEffectiveWidthThreshold: defaultCrowdedEffectiveWidthThreshold,
   );
 
   final double crowdedEffectiveWidthThreshold;
+  final double replyViewportReserveFraction;
 
   LocationChatBubbleLayoutSettings copyWith({
     double? crowdedEffectiveWidthThreshold,
+    double? replyViewportReserveFraction,
   }) {
     return LocationChatBubbleLayoutSettings(
       crowdedEffectiveWidthThreshold:
           crowdedEffectiveWidthThreshold ?? this.crowdedEffectiveWidthThreshold,
+      replyViewportReserveFraction:
+          replyViewportReserveFraction ?? this.replyViewportReserveFraction,
     );
   }
 
   @override
   bool operator ==(Object other) {
     return other is LocationChatBubbleLayoutSettings &&
-        other.crowdedEffectiveWidthThreshold == crowdedEffectiveWidthThreshold;
+        other.crowdedEffectiveWidthThreshold ==
+            crowdedEffectiveWidthThreshold &&
+        other.replyViewportReserveFraction == replyViewportReserveFraction;
   }
 
   @override
-  int get hashCode => crowdedEffectiveWidthThreshold.hashCode;
+  int get hashCode =>
+      Object.hash(crowdedEffectiveWidthThreshold, replyViewportReserveFraction);
 }
 
 final locationChatBubbleLayoutSettings =
@@ -46,6 +65,8 @@ class LocationChatBubbleLayoutSettingsController
 
   static const String crowdedEffectiveWidthThresholdStorageKey =
       'developer_location_chat_crowded_effective_width_threshold_v1';
+  static const String replyViewportReserveFractionStorageKey =
+      'developer_location_chat_reply_viewport_reserve_fraction_v1';
 
   bool _loaded = false;
   int _revision = 0;
@@ -69,11 +90,19 @@ class LocationChatBubbleLayoutSettingsController
     try {
       final prefs = await SharedPreferences.getInstance();
       final stored = prefs.get(crowdedEffectiveWidthThresholdStorageKey);
+      final storedReserve = prefs.get(replyViewportReserveFractionStorageKey);
       final threshold = stored is num
           ? stored.toDouble()
           : LocationChatBubbleLayoutSettings
                 .defaultCrowdedEffectiveWidthThreshold;
       final loaded = LocationChatBubbleLayoutSettings(
+        replyViewportReserveFraction:
+            LocationChatBubbleLayoutSettings.normalizeReplyViewportReserveFraction(
+              storedReserve is num
+                  ? storedReserve.toDouble()
+                  : LocationChatBubbleLayoutSettings
+                        .defaultReplyViewportReserveFraction,
+            ),
         crowdedEffectiveWidthThreshold: threshold
             .clamp(
               LocationChatBubbleLayoutSettings
@@ -112,9 +141,24 @@ class LocationChatBubbleLayoutSettingsController
       crowdedEffectiveWidthThresholdStorageKey,
       value.crowdedEffectiveWidthThreshold,
     );
-    if (!saved) {
+    final reserveSaved = await prefs.setDouble(
+      replyViewportReserveFractionStorageKey,
+      value.replyViewportReserveFraction,
+    );
+    if (!saved || !reserveSaved) {
       throw StateError('Failed to save LocationChat bubble layout settings.');
     }
+  }
+
+  void previewReplyViewportReserveFraction(double fraction) {
+    _revision += 1;
+    _loaded = true;
+    value = value.copyWith(
+      replyViewportReserveFraction:
+          LocationChatBubbleLayoutSettings.normalizeReplyViewportReserveFraction(
+            fraction,
+          ),
+    );
   }
 
   @visibleForTesting

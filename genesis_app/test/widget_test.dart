@@ -27445,6 +27445,9 @@ void main() {
     final crowdedWidthFinder = find.byKey(
       const ValueKey<String>('developer-location-chat-crowded-width-slider'),
     );
+    final replyReserveFinder = find.byKey(
+      const ValueKey<String>('developer-location-chat-reply-reserve-slider'),
+    );
     await tester.scrollUntilVisible(
       transparencyFinder,
       180,
@@ -27471,6 +27474,7 @@ void main() {
       ),
     );
     expect(tester.widget<Slider>(crowdedWidthFinder).value, 410);
+    expect(tester.widget<Slider>(replyReserveFinder).value, 0.75);
     expect(find.text('Self & character message bubbles'), findsOneWidget);
     expect(find.text('Crowded width threshold'), findsOneWidget);
 
@@ -27489,6 +27493,11 @@ void main() {
     tester.widget<Slider>(crowdedWidthFinder).onChangeEnd!(375);
     await tester.pumpAndSettle();
 
+    tester.widget<Slider>(replyReserveFinder).onChanged!(0.5);
+    await tester.pump();
+    tester.widget<Slider>(replyReserveFinder).onChangeEnd!(0.5);
+    await tester.pumpAndSettle();
+
     expect(
       locationChatHeaderEffectSettings.value,
       const LocationChatHeaderEffectSettings(
@@ -27497,6 +27506,13 @@ void main() {
       ),
     );
     final prefs = await SharedPreferences.getInstance();
+    expect(
+      prefs.getDouble(
+        LocationChatBubbleLayoutSettingsController
+            .replyViewportReserveFractionStorageKey,
+      ),
+      0.5,
+    );
     expect(
       prefs.getDouble(
         LocationChatHeaderEffectSettingsController.transparencyStorageKey,

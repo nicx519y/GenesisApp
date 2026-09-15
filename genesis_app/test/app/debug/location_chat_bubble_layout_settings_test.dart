@@ -10,6 +10,61 @@ void main() {
 
   tearDown(locationChatBubbleLayoutSettings.resetForTesting);
 
+  test(
+    'reply reserve defaults to three quarters for old saved settings',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        LocationChatBubbleLayoutSettingsController
+                .crowdedEffectiveWidthThresholdStorageKey:
+            375.0,
+      });
+      final settings = await locationChatBubbleLayoutSettings.load();
+      expect(settings.replyViewportReserveFraction, 0.75);
+      expect(settings.crowdedEffectiveWidthThreshold, 375);
+    },
+  );
+
+  test('reply reserve previews, persists and reloads independently', () async {
+    locationChatBubbleLayoutSettings.previewReplyViewportReserveFraction(0.5);
+    expect(
+      locationChatBubbleLayoutSettings.value.replyViewportReserveFraction,
+      0.5,
+    );
+    await locationChatBubbleLayoutSettings.save();
+    locationChatBubbleLayoutSettings.resetForTesting();
+    final settings = await locationChatBubbleLayoutSettings.load();
+    expect(settings.replyViewportReserveFraction, 0.5);
+    expect(settings.crowdedEffectiveWidthThreshold, 410);
+  });
+
+  test(
+    'reply reserve clamps persisted values and rejects non-finite previews',
+    () async {
+      SharedPreferences.setMockInitialValues({
+        LocationChatBubbleLayoutSettingsController
+                .replyViewportReserveFractionStorageKey:
+            2.0,
+      });
+      expect(
+        (await locationChatBubbleLayoutSettings.load())
+            .replyViewportReserveFraction,
+        0.9,
+      );
+      locationChatBubbleLayoutSettings.previewReplyViewportReserveFraction(-1);
+      expect(
+        locationChatBubbleLayoutSettings.value.replyViewportReserveFraction,
+        0.25,
+      );
+      locationChatBubbleLayoutSettings.previewReplyViewportReserveFraction(
+        double.nan,
+      );
+      expect(
+        locationChatBubbleLayoutSettings.value.replyViewportReserveFraction,
+        0.75,
+      );
+    },
+  );
+
   test('defaults to a 410 logical-pixel crowded width threshold', () {
     expect(
       LocationChatBubbleLayoutSettings.defaultCrowdedEffectiveWidthThreshold,

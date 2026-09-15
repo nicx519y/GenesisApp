@@ -587,8 +587,19 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _initialContentReadyNotified = false;
   Future<void>? _initialLatestMessagesRefresh;
   final Set<String> _unseenIncomingMessageLocalIds = <String>{};
+  final Set<String> _unseenReplyMessageLocalIds = <String>{};
+  final Set<String> _observedReplyMessageLocalIds = <String>{};
 
-  int get _unseenIncomingCount => _unseenIncomingMessageLocalIds.length;
+  int get _unseenIncomingCount =>
+      _unseenIncomingMessageLocalIds.length +
+      _unseenReplyMessageLocalIds.length;
+  int get _newMessageNoticeCount =>
+      (_scrollCoordinator.hasMessageContentBelowViewport
+          ? _unseenIncomingMessageLocalIds.length
+          : 0) +
+      _unseenReplyMessageLocalIds
+          .intersection(_scrollCoordinator.messageLocalIdsBelowViewport)
+          .length;
   int _clientMsgCounter = 0;
   final Set<String> _messageGapFillKeys = <String>{};
   final Set<int> _messageGapFillBeforeLocationMessageIds = <int>{};
@@ -1037,7 +1048,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   !_sendAwaitingResponse &&
                   !inputBlocked,
               sending: false,
-              onSend: _send,
+              onSend: () {
+                _composerFocusNode.unfocus();
+                return _send();
+              },
               style: style,
               keepShortcutsVisible:
                   widget.active && _mentionComposerPositionFrozen,
@@ -1196,9 +1210,13 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             coordinator: _scrollCoordinator,
             active: widget.active,
             messages: displayMessages,
+            unseenMessageLocalIds: Set.of(_unseenReplyMessageLocalIds),
             loadingAfterMessageLocalId: loadingAfterMessageLocalId,
             loadingIdentity: _ackLoadingClientMsgId,
             goOnAwaitingContentIdentity: controls.goOnAwaitingContentIdentity,
+            replyViewportReserveFraction: locationChatBubbleLayoutSettings
+                .value
+                .replyViewportReserveFraction,
             messageLayoutId: _locationChatMessageLayoutId,
             replyActionsIdentity: replyActionsIdentity,
             replyActionsMessageId:
@@ -1317,14 +1335,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                         Positioned.fill(
                           child: IgnorePointer(child: widget.emptyState),
                         ),
-                      if (_unseenIncomingCount > 0)
+                      if (_newMessageNoticeCount > 0)
                         Positioned(
                           left: 0,
                           right: 0,
                           bottom: 12,
                           child: Center(
                             child: _LocationChatNewMessageNotice(
-                              count: _unseenIncomingCount,
+                              count: _newMessageNoticeCount,
                               onTap: _openUnseenIncomingMessages,
                             ),
                           ),

@@ -54,14 +54,15 @@ extension _LocationChatFeatureQuotaBinding on _LocationChatPanelState {
     return quota == null || quota.unlimited ? null : quota.remaining;
   }
 
-  /// Called only from a deliberate Edit or Inspiration invocation.
-  Future<bool> _checkReplyFeatureQuota(
+  /// Refreshes display-only quotas after an explicit invocation.
+  /// False means the page/account changed, never that access was denied.
+  Future<bool> _refreshReplyFeatureQuota(
     String feature, {
     required bool Function() current,
     required VoidCallback onQuotaLookupStarted,
   }) async {
     final services = _quotaServices;
-    if (services == null) return false;
+    if (services == null) return current();
     final session = services.sessionRevision.value;
     bool stillCurrent() =>
         current() &&
@@ -75,15 +76,6 @@ extension _LocationChatFeatureQuotaBinding on _LocationChatPanelState {
       services.featureQuotas.confirmMembership(true);
       return true;
     }
-    if (isMember == false && feature != 'inspiration') {
-      final cachedQuota = services.featureQuotas.quotaFor(feature);
-      if (cachedQuota != null &&
-          !cachedQuota.unlimited &&
-          cachedQuota.remaining == 0) {
-        _revealReplyFeatureQuota(feature);
-        return false;
-      }
-    }
     try {
       onQuotaLookupStarted();
       await services.featureQuotas.fetch();
@@ -96,14 +88,15 @@ extension _LocationChatFeatureQuotaBinding on _LocationChatPanelState {
         );
       }
       _revealReplyFeatureQuota(feature);
-      return quota.unlimited || (quota.remaining ?? 0) > 0;
+      // Quotas are presentation data. The operation endpoint decides access.
+      return true;
     } catch (error) {
       if (mounted &&
           stillCurrent() &&
           !(error is ApiException && error.code == 10001)) {
         showGenesisToast(context, chatroomOperationErrorMessage(error));
       }
-      return false;
+      return stillCurrent();
     }
   }
 

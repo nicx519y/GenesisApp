@@ -931,6 +931,29 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                           unawaited(_saveLocationChatBubbleLayoutSettings());
                         },
                       ),
+                      const SizedBox(height: 14),
+                      const _DeveloperSectionTitle('Reply positioning'),
+                      const SizedBox(height: 8),
+                      _DeveloperSliderControl(
+                        label: 'Space below reply anchor',
+                        valueLabel:
+                            '${(bubbleLayoutSettings.replyViewportReserveFraction * 100).round()}% of viewport',
+                        value:
+                            bubbleLayoutSettings.replyViewportReserveFraction,
+                        min: LocationChatBubbleLayoutSettings
+                            .minReplyViewportReserveFraction,
+                        max: LocationChatBubbleLayoutSettings
+                            .maxReplyViewportReserveFraction,
+                        divisions: 13,
+                        sliderKey: const ValueKey<String>(
+                          'developer-location-chat-reply-reserve-slider',
+                        ),
+                        onChanged: locationChatBubbleLayoutSettings
+                            .previewReplyViewportReserveFraction,
+                        onChangeEnd: (_) {
+                          unawaited(_saveLocationChatBubbleLayoutSettings());
+                        },
+                      ),
                     ],
                   ),
                 );
