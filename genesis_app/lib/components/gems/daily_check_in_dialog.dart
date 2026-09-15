@@ -61,10 +61,9 @@ Future<bool> showDailyCheckInDialog(
       return false;
     }
   }
-  // Only confirmed non-members see the subscription offer. An unavailable
-  // membership lookup must not promote another subscription to an existing VIP.
+  // Unknown membership uses the non-member dialog as a presentation fallback.
   final showSubscriptionOffer =
-      status == DailyCheckInDialogStatus.checkIn && isVip == false;
+      status == DailyCheckInDialogStatus.checkIn && isVip != true;
   final action = await showGenesisActionBox<_DailyCheckInAction>(
     context: context,
     title: 'Daily Check-in',

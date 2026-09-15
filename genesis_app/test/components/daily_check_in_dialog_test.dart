@@ -18,6 +18,7 @@ void main() {
     'expired_status',
     'expired_time',
     'unknown',
+    'missing_membership',
   ]) {
     testWidgets('daily check-in uses global membership buttons: $scenario', (
       tester,
@@ -62,6 +63,8 @@ void main() {
         expect(find.text('Daily Check-in'), findsNothing);
         if (scenario == 'unknown') {
           response.completeError(StateError('offline'));
+        } else if (scenario == 'missing_membership') {
+          response.complete(const GemWallet(balanceCent: 5000));
         } else {
           response.complete(
             GemWallet(
@@ -88,7 +91,7 @@ void main() {
         expect(find.text('+50'), findsOneWidget);
         expect(find.text('Check in'), findsOneWidget);
         expect(find.text('Claim'), findsNothing);
-        if (active || scenario == 'unknown') {
+        if (active) {
           expect(find.text('Get 100'), findsNothing);
           expect(find.text('Cancel'), findsOneWidget);
           if (active) {
@@ -129,6 +132,9 @@ void main() {
         } else {
           expect(find.text('Get 100'), findsOneWidget);
           expect(find.text('Cancel'), findsNothing);
+          if (scenario == 'unknown' || scenario == 'missing_membership') {
+            expect(membership.state.value.isVip, isNull);
+          }
           await tester.tap(find.text('Check in'));
           await tester.pumpAndSettle();
           expect(checkedIn, isTrue);
@@ -217,13 +223,19 @@ void main() {
           await walletRequest;
           await tester.pumpAndSettle();
           expect(find.text('Daily Check-in'), findsOneWidget);
-          expect(find.text('Get 100'), findsNothing);
-          expect(find.text('Cancel'), findsOneWidget);
+          expect(
+            find.text('Get 100'),
+            refreshFails ? findsOneWidget : findsNothing,
+          );
+          expect(
+            find.text('Cancel'),
+            refreshFails ? findsNothing : findsOneWidget,
+          );
           expect(find.text('Check in'), findsOneWidget);
           expect(requests, 2);
-          await tester.tap(find.text('Cancel'));
+          await tester.tap(find.text(refreshFails ? 'Check in' : 'Cancel'));
           await tester.pumpAndSettle();
-          expect(checkedIn, isFalse);
+          expect(checkedIn, refreshFails);
           expect(find.byType(ProSubscriptionContent), findsNothing);
         } finally {
           await tester.pumpWidget(const SizedBox.shrink());
