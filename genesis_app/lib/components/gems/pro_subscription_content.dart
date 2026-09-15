@@ -1,4 +1,3 @@
-import 'subscription_benefit_icon.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -16,15 +15,16 @@ import '../../platform/billing/purchase_toast_diagnostics.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_primary_button.dart';
-import '../../ui/components/genesis_soft_italic_text.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../network/models/membership_product.dart';
 import '../../network/models/membership_benefit.dart';
+import 'gem_assets.dart';
 import 'gem_purchase_state.dart';
 import 'membership_purchase_presentation.dart';
 import '../common/genesis_center_toast.dart';
 import 'pro_colors.dart';
+import 'subscription_benefit_icon.dart';
 
 enum _ProPlan {
   yearly('pro_yearly', 'Yearly', 'year'),
@@ -46,6 +46,8 @@ class ProSubscriptionContent extends StatefulWidget {
     this.membershipAccess,
     this.refreshMembershipOnOpen = true,
     this.closeOnPurchaseSuccess = false,
+    this.showHeading = true,
+    this.headingTopSpacing = 22,
     this.topSpacing = 10,
     this.horizontalInset = 20,
   });
@@ -57,6 +59,14 @@ class ProSubscriptionContent extends StatefulWidget {
   final MembershipAccessStore? membershipAccess;
   final bool refreshMembershipOnOpen;
   final bool closeOnPurchaseSuccess;
+
+  /// False where the host's own header already titles the page, so the body
+  /// drops the whole heading block rather than repeating it.
+  final bool showHeading;
+
+  /// Space above the heading. A host whose other tab starts its content at the
+  /// header boundary passes 0, so switching tabs does not shift the page.
+  final double headingTopSpacing;
 
   /// Embedded flows can let their shared header own the content spacing.
   final double topSpacing;
@@ -296,58 +306,107 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       // Match Buy Gems' initial loading indicator in the same tab content area.
       return const GemPurchaseLoading();
     }
+    final benefits = selectedProduct?.benefits ?? const <MembershipBenefit>[];
+    // The gem grants read as one module: the first line heads it and the rest
+    // become the cards under it, instead of repeating it as their own rows.
+    final gemGrants = [
+      for (final benefit in benefits)
+        if (benefit.iconKey == _gemIconKey) benefit,
+    ];
+    final gemHeadCode = gemGrants.isEmpty ? null : gemGrants.first.code;
+    final rows = [
+      for (final benefit in benefits)
+        if (benefit.iconKey != _gemIconKey || benefit.code == gemHeadCode)
+          benefit,
+    ];
     return Column(
       children: [
         SizedBox(height: widget.topSpacing),
         Expanded(
-          child: Container(
+          child: KeyedSubtree(
             key: const ValueKey('pro-benefits-card'),
-            margin: EdgeInsets.symmetric(horizontal: widget.horizontalInset),
-            decoration: BoxDecoration(
-              color: GenesisColors.darkPurchaseCardBackground,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: GenesisColors.darkCardBorder),
-            ),
-            clipBehavior: Clip.antiAlias,
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      GenesisSoftItalicText(
-                        'Premium',
-                        key: const ValueKey('pro-tier-title'),
-                        style: const TextStyle(
-                          fontSize: 28,
-                          height: 34 / 28,
-                          fontWeight: FontWeight.w700,
-                          color: GenesisColors.darkTextPrimary,
+                // The heading is fixed and only the benefits scroll, as the
+                // design lays it out.
+                if (widget.showHeading)
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(
+                      widget.horizontalInset,
+                      widget.headingTopSpacing,
+                      widget.horizontalInset,
+                      // Reads as wide as the hairline the design once ruled
+                      // here, now that the tagline sits above the list.
+                      22,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          key: const ValueKey('pro-tier-title'),
+                          children: [
+                            SvgPicture.asset(
+                              proCrownGoldIconAsset,
+                              width: 26,
+                              height: 18,
+                            ),
+                            // 26 + 5 matches the benefit rows' 20 + 11, so the
+                            // wordmark starts on the copy's own column.
+                            const SizedBox(width: 5),
+                            const Flexible(child: PremiumWordmark()),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Divider(
-                        height: 1,
-                        color: GenesisColors.darkFaintFill,
-                      ),
-                    ],
+                        const SizedBox(height: 6),
+                        const Text(
+                          _tagline,
+                          key: ValueKey('pro-tagline'),
+                          style: TextStyle(
+                            fontSize: 14,
+                            height: 1.35,
+                            fontWeight: FontWeight.w400,
+                            color: premiumText50,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
                 Expanded(
                   child: ListView(
                     key: const PageStorageKey('pro-benefits-scroll'),
-                    padding: const EdgeInsets.fromLTRB(20, 4, 20, 12),
+                    padding: EdgeInsets.fromLTRB(
+                      widget.horizontalInset,
+                      // A host that titles itself already sits below a header's
+                      // own bottom half, so the list needs little of its own.
+                      widget.showHeading ? 0 : 8,
+                      widget.horizontalInset,
+                      26,
+                    ),
                     children: [
-                      for (final benefit
-                          in selectedProduct?.benefits ??
-                              const <MembershipBenefit>[])
+                      for (final (index, benefit) in rows.indexed) ...[
+                        if (index > 0) const SizedBox(height: 20),
+                        // Everything the gem module did not cover sits under a label.
+                        if (gemHeadCode != null && index == 1) ...[
+                          const Text(
+                            _restLabel,
+                            key: ValueKey('pro-benefits-rest-label'),
+                            style: TextStyle(
+                              fontSize: 12,
+                              height: 1,
+                              fontWeight: FontWeight.w400,
+                              color: premiumText45,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
                         _ProBenefit(
                           key: ValueKey('pro-benefit-${benefit.code}'),
-                          label: benefit.title,
-                          status: benefit.displayType,
-                          iconKey: benefit.iconKey,
+                          benefit: benefit,
+                          grants: benefit.code == gemHeadCode
+                              ? gemGrants.skip(1).toList()
+                              : const <MembershipBenefit>[],
                         ),
+                      ],
                     ],
                   ),
                 ),
@@ -358,107 +417,169 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
         Padding(
           padding: EdgeInsets.fromLTRB(
             widget.horizontalInset,
-            36,
+            26,
             widget.horizontalInset,
             0,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  for (final plan in _ProPlan.values) ...[
-                    if (plan == _ProPlan.monthly) const SizedBox(width: 20),
-                    Expanded(
-                      child: _ProPlanCard(
-                        plan: plan,
-                        offer: _offerFor(plan),
-                        savings: _offerFor(plan) == null
-                            ? null
-                            : membershipYearlySavings(
-                                _offerFor(plan)!,
-                                _offers,
-                              ),
-                        selected: _plan == plan,
-                        onTap: () => setState(() => _plan = plan),
+              // Equal height: the yearly card carries a billing line the
+              // monthly one does not, and the pair must still sit level.
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final plan in _ProPlan.values) ...[
+                      if (plan != _ProPlan.values.first)
+                        const SizedBox(width: 12),
+                      Expanded(
+                        child: _ProPlanCard(
+                          plan: plan,
+                          offer: _offerFor(plan),
+                          savings: _offerFor(plan) == null
+                              ? null
+                              : membershipYearlySavings(
+                                  _offerFor(plan)!,
+                                  _offers,
+                                ),
+                          selected: _plan == plan,
+                          onTap: () => setState(() => _plan = plan),
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
-              ),
-              SizedBox(
-                height: 34,
-                child: kDebugMode
-                    ? _DebugMembershipOrderId(
-                        orderId:
-                            (widget.purchaseService ??
-                                    _services?.membershipPurchases)
-                                ?.debugStoreOrderId,
-                      )
-                    : null,
-              ),
-              DecoratedBox(
-                key: const ValueKey('pro-subscribe-gold-surface'),
-                decoration: BoxDecoration(
-                  // The Me page's VIP gold, swept the way its wordmark is, so
-                  // the two membership calls to action read as one family.
-                  gradient: proButtonGradient,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: GenesisPrimaryButton(
-                  key: const ValueKey('pro-subscribe-button'),
-                  backgroundColor: Colors.transparent,
-                  foregroundColor: proSubscribeInk,
-                  label:
-                      selectedProduct != null &&
-                          membershipPurchaseBlockReason(
-                                selectedProduct,
-                                _membership?.state.value ??
-                                    const MembershipAccessState(),
-                              ) ==
-                              'already_subscribed'
-                      ? 'Subscribed'
-                      : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
-                  height: 44,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  borderRadius: BorderRadius.circular(8),
-                  onPressed: _onSubscribePressed,
                 ),
               ),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  for (final document in const {
-                    'privacy': 'Privacy Policy',
-                    'terms': 'Terms of Service',
-                  }.entries)
-                    Flexible(
-                      child: TextButton(
-                        onPressed: () => Navigator.of(context).pushNamed(
-                          RouteNames.legal,
-                          arguments: {'document': document.key},
-                        ),
-                        style: TextButton.styleFrom(
-                          foregroundColor: GenesisColors.darkTextSecondary,
-                          textStyle: GenesisTypography.resolve(
-                            context,
-                            const TextStyle(fontSize: 11),
-                          ),
-                          minimumSize: const Size(0, 20),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(document.value),
-                      ),
-                    ),
-                ],
-              ),
+              if (kDebugMode)
+                SizedBox(
+                  height: 34,
+                  child: _DebugMembershipOrderId(
+                    orderId:
+                        (widget.purchaseService ??
+                                _services?.membershipPurchases)
+                            ?.debugStoreOrderId,
+                  ),
+                ),
+              const SizedBox(height: 20),
+              _buildSubscribeButton(selectedProduct),
+              const SizedBox(height: 24),
+              _buildLegalRow(context),
+              const SizedBox(height: 26),
             ],
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSubscribeButton(MembershipProduct? product) {
+    final blocked =
+        product != null &&
+        membershipPurchaseBlockReason(
+              product,
+              _membership?.state.value ?? const MembershipAccessState(),
+            ) ==
+            'already_subscribed';
+    final radius = BorderRadius.circular(13);
+    return DecoratedBox(
+      key: const ValueKey('pro-subscribe-gold-surface'),
+      decoration: BoxDecoration(
+        gradient: premiumCtaGradient,
+        borderRadius: radius,
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x3DF5B62E),
+            blurRadius: 18,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: GenesisPrimaryButton(
+        key: const ValueKey('pro-subscribe-button'),
+        backgroundColor: Colors.transparent,
+        foregroundColor: premiumInkOnGold,
+        label: blocked
+            ? 'Subscribed'
+            : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
+        height: 44,
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        borderRadius: radius,
+        onPressed: _onSubscribePressed,
+      ),
+    );
+  }
+
+  Widget _buildLegalRow(BuildContext context) {
+    Widget link(String document, String label) => GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.of(
+        context,
+      ).pushNamed(RouteNames.legal, arguments: {'document': document}),
+      child: Container(
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Color(0x33FFFFFF))),
+        ),
+        child: Text(
+          label,
+          style: GenesisTypography.resolve(context, _legalStyle),
+        ),
+      ),
+    );
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      spacing: 8,
+      runSpacing: 4,
+      children: [
+        link('privacy', 'Privacy Policy'),
+        Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
+        link('terms', 'Terms of Service'),
+      ],
+    );
+  }
+
+  /// The server marks every gem grant with this icon.
+  static const String _gemIconKey = 'gem';
+
+  /// App-side copy: the plan's positioning line and the label that introduces
+  /// whatever the gem module did not already cover.
+  static const String _tagline = 'Go deeper into every Worldo you play.';
+  static const String _restLabel = 'Also included';
+
+  static const TextStyle _legalStyle = TextStyle(
+    fontSize: 12,
+    height: 1,
+    fontWeight: FontWeight.w500,
+    color: premiumText45,
+  );
+}
+
+/// "Worldo Premium" under a gold sweep, as on the profile card. Public so a
+/// sheet that titles itself with the plan can show the same lockup.
+class PremiumWordmark extends StatelessWidget {
+  const PremiumWordmark({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return ShaderMask(
+      blendMode: BlendMode.srcIn,
+      shaderCallback: (bounds) => proTitleGradient.createShader(bounds),
+      // No compressed line height: at height 1 the glyphs sit above the centre
+      // of their own box, which tips the wordmark off whatever is centred
+      // beside it. The font's natural leading keeps the two level.
+      child: const Text(
+        'Worldo Premium',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          letterSpacing: -0.1,
+        ),
+      ),
     );
   }
 }
@@ -495,79 +616,232 @@ class _DebugMembershipOrderId extends StatelessWidget {
   );
 }
 
+/// One line of the plan's copy: a gold check and the server's wording. The
+/// design carries no per-benefit artwork or status, so neither does this.
+///
+/// The gem line carries more: the grants folded into it show as cards below.
 class _ProBenefit extends StatelessWidget {
   const _ProBenefit({
     super.key,
-    required this.label,
-    required this.status,
-    required this.iconKey,
+    required this.benefit,
+    this.grants = const <MembershipBenefit>[],
   });
 
-  final String label;
-  final MembershipBenefitDisplay status;
-  final String iconKey;
+  final MembershipBenefit benefit;
+
+  /// Gem grants folded into this line, drawn as cards under the copy.
+  final List<MembershipBenefit> grants;
+
+  /// The design sets the figure in the copy apart; the rest stays plain.
+  static final RegExp _figure = RegExp(r'\d[\d,]*');
 
   @override
   Widget build(BuildContext context) {
-    const color = GenesisColors.darkTextPrimary;
-    final (statusIcon, statusColor, statusLabel) = switch (status) {
-      MembershipBenefitDisplay.enhanced => (
-        null,
-        GenesisColors.redPrimary,
-        'Improved with Pro',
-      ),
-      MembershipBenefitDisplay.included => (
-        Icons.check_rounded,
-        GenesisColors.darkTextPrimary,
-        'Same as free',
-      ),
-      MembershipBenefitDisplay.locked => (
-        Icons.lock_outline_rounded,
-        GenesisColors.darkTextPrimary,
-        'Higher tier required',
-      ),
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            width: 28,
-            height: 28,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: GenesisColors.darkFaintFill,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: SubscriptionBenefitIcon(iconKey: iconKey, color: color),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(fontSize: 14, height: 20 / 14, color: color),
-            ),
-          ),
-          const SizedBox(width: 10),
-          if (status == MembershipBenefitDisplay.enhanced)
-            SvgPicture.asset(
-              upgradeIconAsset,
-              key: ValueKey('pro-benefit-status-$label'),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
               width: 20,
-              height: 20,
-              colorFilter: ColorFilter.mode(statusColor, BlendMode.srcIn),
-              semanticsLabel: statusLabel,
-            )
-          else
-            Icon(
-              statusIcon,
-              key: ValueKey('pro-benefit-status-$label'),
-              size: 20,
-              color: statusColor,
-              semanticLabel: statusLabel,
+              // Centred on the copy's first line box (14 x 1.35) so the icon
+              // sits on the words, not on the block of text below them.
+              height: 14 * 1.35,
+              child: Center(
+                child: SubscriptionBenefitIcon(
+                  key: ValueKey('pro-benefit-icon-${benefit.code}'),
+                  iconKey: benefit.iconKey,
+                  size: 18,
+                  color: premiumGold,
+                ),
+              ),
             ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text.rich(
+                _titleSpan(),
+                style: const TextStyle(
+                  fontSize: 14,
+                  height: 1.35,
+                  fontWeight: FontWeight.w400,
+                  color: premiumText,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (grants.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 13),
+            // Equal height: a note that wraps on a narrow screen must not
+            // leave the other card short.
+            child: IntrinsicHeight(
+              child: Row(
+                key: const ValueKey('pro-gem-breakdown'),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (index, grant) in grants.indexed) ...[
+                    if (index > 0) const SizedBox(width: 10),
+                    Expanded(
+                      child: _GemGrantCard(
+                        key: ValueKey('pro-gem-card-${grant.code}'),
+                        grant: grant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  TextSpan _titleSpan() {
+    final title = benefit.title;
+    final match = _figure.firstMatch(title);
+    if (match == null) return TextSpan(text: title);
+    return TextSpan(
+      children: [
+        TextSpan(text: title.substring(0, match.start)),
+        TextSpan(
+          text: match.group(0),
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            color: premiumGoldLight,
+            fontFeatures: [FontFeature.tabularFigures()],
+          ),
+        ),
+        TextSpan(text: title.substring(match.end)),
+      ],
+    );
+  }
+}
+
+/// One folded-in gem grant: how many, of which gem, and how often — all read
+/// out of the server's copy so the numbers stay the server's.
+class _GemGrantCard extends StatelessWidget {
+  const _GemGrantCard({super.key, required this.grant});
+
+  final MembershipBenefit grant;
+
+  static final RegExp _figure = RegExp(r'\d[\d,]*');
+
+  @override
+  Widget build(BuildContext context) {
+    final title = grant.title;
+    final lower = title.toLowerCase();
+    final pink = lower.contains('pink');
+    final extra = lower.contains('extra');
+    final name = pink
+        ? 'Pink Gems'
+        : lower.contains('red')
+        ? 'Red Gems'
+        : '';
+    // Copy this line can't be read apart falls back to carrying the card whole.
+    if (name.isEmpty) return _GemGrantCardShell(child: _note(title));
+    final match = _figure.firstMatch(title);
+    final amount = match == null ? '' : '${extra ? '+' : ''}${match.group(0)}';
+    // A grant that repeats says so beside its figure, the way a plan's price
+    // carries "/mo", rather than leaving the rate to the note alone.
+    final perUnit = lower.contains('check-in') ? ' /day' : '';
+    // The design words the cadence itself and leaves only the figure to the
+    // server, so read which cadence this is and use the design's line. Its
+    // wording is shortened to hold one line at 12px down to a 360 screen.
+    final nameAt = lower.indexOf(name.toLowerCase());
+    final note = lower.contains('check-in')
+        ? '${extra ? 'extra, ' : ''}daily check-in'
+        : lower.contains('month')
+        ? 'claimed monthly'
+        : title.substring(nameAt + name.length).trim();
+    return _GemGrantCardShell(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (amount.isNotEmpty) ...[
+            Row(
+              children: [
+                SvgPicture.asset(
+                  pink ? roseGemIconAsset : gemIconAsset,
+                  width: 12,
+                  height: 18,
+                ),
+                const SizedBox(width: 7),
+                Flexible(
+                  child: Text.rich(
+                    TextSpan(
+                      text: amount,
+                      children: [
+                        if (perUnit.isNotEmpty)
+                          TextSpan(
+                            text: perUnit,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: premiumText45,
+                            ),
+                          ),
+                      ],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1,
+                      fontWeight: FontWeight.w800,
+                      color: premiumText,
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 9),
+          ],
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontSize: 12,
+              height: 1,
+              fontWeight: FontWeight.w700,
+              color: premiumText,
+            ),
+          ),
+          if (note.isNotEmpty) ...[const SizedBox(height: 5), _note(note)],
         ],
       ),
+    );
+  }
+
+  Widget _note(String text) => Text(
+    text,
+    style: const TextStyle(
+      fontSize: 12,
+      height: 1.3,
+      fontWeight: FontWeight.w400,
+      color: premiumText50,
+    ),
+  );
+}
+
+class _GemGrantCardShell extends StatelessWidget {
+  const _GemGrantCardShell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 13),
+      decoration: BoxDecoration(
+        color: premiumFill55,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: child,
     );
   }
 }
@@ -599,120 +873,138 @@ class _ProPlanCard extends StatelessWidget {
             decimalDigits: 2,
           ).format(price.amountCent / 100 / offer!.product.billingMonths)
         : price.formattedPrice;
+    final note = plan == _ProPlan.yearly
+        ? (price == null ? '' : '${price.formattedPrice}, billed annually')
+        : 'Billed monthly';
+    final showSavings =
+        plan == _ProPlan.yearly && savings != null && savings! > 0;
     return Semantics(
       button: true,
       selected: selected,
       label:
-          '${plan.label} Pro, ${price?.formattedPrice ?? ''} per ${plan.period}',
+          '${plan.label} Premium, ${price?.formattedPrice ?? ''} per ${plan.period}',
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          Material(
-            color: selected
-                ? proPurchaseTint
-                : GenesisColors.darkPurchaseCardBackground,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-              side: BorderSide(
-                color: selected
-                    ? proPurchaseAccent
-                    : GenesisColors.darkCardBorder,
-                width: 1,
-              ),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: InkWell(
-              key: ValueKey('pro-plan-${plan.name}'),
-              onTap: onTap,
-              child: SizedBox(
-                height: 44 + MediaQuery.textScalerOf(context).scale(24) * 2,
-                width: double.infinity,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 20, 14, 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        plan.label,
-                        style: TextStyle(
-                          fontSize: 14,
-                          height: 20 / 14,
-                          fontWeight: FontWeight.w400,
-                          color: GenesisColors.darkTextPrimary,
-                        ),
-                      ),
-                      FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: monthlyPrice,
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  height: 28 / 24,
-                                  fontWeight: FontWeight.w400,
-                                  color: GenesisColors.darkTextPrimary,
-                                ),
-                              ),
-                              TextSpan(
-                                text: '/mo',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: GenesisColors.darkTextTertiary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+          GestureDetector(
+            key: ValueKey('pro-plan-${plan.name}'),
+            behavior: HitTestBehavior.opaque,
+            onTap: onTap,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+              decoration: BoxDecoration(
+                color: selected ? premiumGoldTint : premiumFill5,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: selected ? premiumGold : premiumRing,
+                  width: selected ? 1.5 : 1,
                 ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    plan.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 1,
+                      fontWeight: FontWeight.w700,
+                      color: premiumText,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  // A long currency shrinks rather than breaking the card.
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Text.rich(
+                      TextSpan(
+                        text: monthlyPrice,
+                        children: const [
+                          TextSpan(
+                            text: '/mo',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                              color: premiumText45,
+                            ),
+                          ),
+                        ],
+                      ),
+                      maxLines: 1,
+                      style: TextStyle(
+                        fontSize: 20,
+                        height: 1,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.2,
+                        color: selected ? premiumGoldLight : premiumText,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    note,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 1.25,
+                      fontWeight: FontWeight.w400,
+                      color: premiumText45,
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
-          if (plan == _ProPlan.yearly)
+          if (showSavings)
             Positioned(
               left: 0,
               top: -9,
               child: IgnorePointer(
-                child: Container(
+                child: _SavingsTag(
                   key: const ValueKey('pro-yearly-savings-badge'),
-                  height: 10 + MediaQuery.textScalerOf(context).scale(11),
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  decoration: const BoxDecoration(
-                    color: GenesisColors.redPrimary,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      topRight: Radius.circular(3),
-                      bottomRight: Radius.circular(12),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.local_fire_department,
-                        size: 12,
-                        color: Colors.white,
-                      ),
-                      SizedBox(width: 3),
-                      Text(
-                        savings == null ? '' : 'Save $savings%',
-                        style: TextStyle(
-                          fontSize: 11,
-                          height: 1,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ],
-                  ),
+                  savings: savings!,
                 ),
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _SavingsTag extends StatelessWidget {
+  const _SavingsTag({super.key, required this.savings});
+
+  final int savings;
+
+  @override
+  Widget build(BuildContext context) {
+    // Padding rather than a height and an alignment: an aligned box with no
+    // width fills whatever it is given, which in a Wrap is the whole line.
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+      decoration: BoxDecoration(
+        // Opaque: the tag rides the card's top edge, and a translucent fill
+        // would let the gold border read as a line struck through the words.
+        color: premiumGoldTagSolid,
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: premiumGoldTagRing),
+      ),
+      child: Text(
+        'Save $savings%',
+        style: const TextStyle(
+          fontSize: 12,
+          height: 1,
+          fontWeight: FontWeight.w700,
+          color: premiumGold,
+        ),
       ),
     );
   }

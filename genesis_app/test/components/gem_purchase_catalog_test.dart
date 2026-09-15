@@ -177,13 +177,13 @@ void main() {
     final panelRect = tester.getRect(
       find.byKey(const ValueKey('gem-balance-panel')),
     );
-    final topGap =
-        tester.getRect(find.byKey(const ValueKey('gem-balance-icon'))).top -
-        panelRect.top;
+    // The label heads the panel and the gem now leads the figure a line below
+    // it, so the block is measured from the label and stays centred.
+    final topGap = tester.getRect(find.text('My Balance')).top - panelRect.top;
     final bottomGap =
         panelRect.bottom - tester.getRect(find.text('430.0')).bottom;
-    expect(topGap, closeTo(8, 0.1));
-    expect(bottomGap, closeTo(8, 0.1));
+    expect(topGap, closeTo(bottomGap, 0.1));
+    expect(topGap, greaterThan(0));
   });
 
   testWidgets('other products use backend activity label', (tester) async {

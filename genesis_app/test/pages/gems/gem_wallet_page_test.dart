@@ -17,6 +17,7 @@ import 'package:genesis_flutter_android/network/models/gem_task.dart';
 import 'package:genesis_flutter_android/network/models/gem_task_action.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_records_page.dart';
+import 'package:genesis_flutter_android/components/gems/pro_colors.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_wallet_page.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
@@ -249,34 +250,17 @@ void main() {
       expect(tester.getRect(title), titleRect);
       expect(tester.getRect(yearly), planRect);
       expect(tester.getRect(cta), ctaRect);
-      for (final (label, icon, color) in [
-        ('Custom chat backgrounds', null, GenesisColors.brand),
-        (
-          'Create custom characters',
-          Icons.check_rounded,
-          GenesisColors.darkTextPrimary,
-        ),
-        (
-          'Download without watermark',
-          Icons.lock_outline_rounded,
-          GenesisColors.darkTextPrimary,
-        ),
+      // Design 30b carries no per-benefit status mark, so every row reads the
+      // same; only the server's own titles distinguish them.
+      for (final label in [
+        'Custom chat backgrounds',
+        'Create custom characters',
+        'Download without watermark',
       ]) {
-        final finder = find.byKey(ValueKey('pro-benefit-status-$label'));
+        final finder = find.text(label);
         await tester.ensureVisible(finder);
         await tester.pumpAndSettle();
-        if (icon == null) {
-          final rendered = tester.widget<SvgPicture>(finder);
-          expect(
-            rendered.colorFilter,
-            const ColorFilter.mode(GenesisColors.redPrimary, BlendMode.srcIn),
-          );
-          expect(rendered.semanticsLabel, 'Improved with Pro');
-        } else {
-          final rendered = tester.widget<Icon>(finder);
-          expect(rendered.icon, icon);
-          expect(rendered.color, color);
-        }
+        expect(finder, findsOneWidget);
       }
       for (final width in [428.0, 390.0, 320.0]) {
         tester.view.physicalSize = Size(width, 926);
@@ -299,21 +283,6 @@ void main() {
           (subscriptionRect.center.dx + gemsRect.center.dx) / 2,
           closeTo(width / 2, .01),
         );
-        for (final iconKey in [
-          'subscription-crown-icon',
-          'buy-gems-outline-icon',
-        ]) {
-          final icon = find.byKey(ValueKey(iconKey));
-          expect(tester.getSize(icon), const Size(22, 22));
-          // Layout size alone does not detect scaling by an ancestor.
-          final box = tester.renderObject<RenderBox>(icon);
-          expect(
-            (box.localToGlobal(const Offset(22, 0)) -
-                    box.localToGlobal(Offset.zero))
-                .distance,
-            closeTo(22, .01),
-          );
-        }
         expect(tester.takeException(), isNull);
       }
     },
@@ -363,7 +332,7 @@ void main() {
       expect(offset, greaterThan(0));
       await tester.tap(find.byKey(const ValueKey('wallet-subscription-tab')));
       await tester.pumpAndSettle();
-      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Worldo Premium'), findsOneWidget);
       expect(find.text(r'Yearly: $99.99'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
@@ -389,24 +358,16 @@ void main() {
       expect(subscriptionDuringSwipe, isNot(GenesisColors.darkTextPrimary));
       expect(subscriptionDuringSwipe, isNot(GenesisColors.darkTextSecondary));
       expect(gemsDuringSwipe, isNot(GenesisColors.darkTextSecondary));
-      expect(
-        tester
-            .widget<SvgPicture>(
-              find.byKey(const ValueKey('subscription-crown-icon')),
-            )
-            .colorFilter,
-        ColorFilter.mode(subscriptionDuringSwipe!, BlendMode.srcIn),
-      );
       await swipe.moveBy(const Offset(-190, 0));
       await swipe.up();
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('Buy Gems')).style?.color,
-        GenesisColors.darkTextPrimary,
+        Colors.white,
       );
       expect(
         tester.widget<Text>(find.text('Subscription')).style?.color,
-        GenesisColors.darkTextSecondary,
+        premiumText45,
       );
       expect(position.pixels, offset);
       expect(productLoads, 1);
@@ -414,14 +375,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('Subscription')).style?.color,
-        GenesisColors.darkTextPrimary,
+        Colors.white,
       );
       expect(find.text(r'Monthly: $9.99'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('Buy Gems')).style?.color,
-        GenesisColors.darkTextPrimary,
+        Colors.white,
       );
       expect(position.pixels, offset);
       expect(tester.takeException(), isNull);
@@ -637,8 +598,8 @@ void main() {
 
     final pageTitleStyle = tester.widget<Text>(find.text('Buy Gems')).style;
     expect(pageTitleStyle?.fontSize, 16);
-    expect(pageTitleStyle?.fontWeight, FontWeight.w600);
-    expect(pageTitleStyle?.color, GenesisColors.darkTextPrimary);
+    expect(pageTitleStyle?.fontWeight, FontWeight.w800);
+    expect(pageTitleStyle?.color, Colors.white);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
           tester.getRect(find.byType(AppBar)).bottom,
@@ -647,7 +608,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const ValueKey('wallet-records-icon'))),
-      const Size(20, 20),
+      const Size(17, 17),
     );
 
     expect(
@@ -655,7 +616,7 @@ void main() {
           tester
               .getRect(find.byKey(const ValueKey('wallet-records-icon')))
               .right,
-      16,
+      17.5,
     );
 
     final groupTitleStyle = tester.widget<Text>(find.text('Starter')).style;

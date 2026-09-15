@@ -253,10 +253,10 @@ class _GemWalletPageState extends State<GemWalletPage>
                   icon: SvgPicture.asset(
                     recordsIconAsset,
                     key: const ValueKey('wallet-records-icon'),
-                    width: 20,
-                    height: 20,
+                    width: 17,
+                    height: 17,
                     colorFilter: const ColorFilter.mode(
-                      GenesisColors.darkTextPrimary,
+                      Color(0x99FFFFFF),
                       BlendMode.srcIn,
                     ),
                   ),

@@ -192,6 +192,7 @@ class _DeveloperPersonalizationPreviewState
               subscriptionBuilder: (context) => ProSubscriptionContent(
                 topSpacing: 0,
                 horizontalInset: 0,
+                showHeading: false,
                 productsLoader: loadPersonalizationPreviewCatalog,
                 purchaseHandler: (_) async => showGenesisToast(
                   context,

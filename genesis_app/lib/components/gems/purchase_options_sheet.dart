@@ -117,6 +117,9 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
                               closeOnPurchaseSuccess: true,
                               topSpacing: 0,
                               horizontalInset: 0,
+                              // Buy Gems starts its balance at the header
+                              // boundary; this tab starts there too.
+                              headingTopSpacing: 0,
                             )
                       : const SizedBox.expand(),
                 ),

@@ -22,10 +22,11 @@ class SubscriptionBenefitIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final asset = switch (iconKey) {
-      'gem' => gemOutlineIconAsset,
+      'gem' => gemDiamondIconAsset,
       'inspiration' => inspirationIconAsset,
       'edit' => editSquareIconAsset,
       'badge' => proCrownIconAsset,
+      'recharge' => upgradeIconAsset,
       _ => null,
     };
     if (asset != null) {
@@ -37,8 +38,7 @@ class SubscriptionBenefitIcon extends StatelessWidget {
       );
     }
     final icon = switch (iconKey) {
-      'memory' => Icons.sd_storage_outlined,
-      'recharge' => Icons.add_card_outlined,
+      'memory' => Icons.auto_stories_outlined,
       _ => Icons.stars_outlined,
     };
     return ExcludeSemantics(

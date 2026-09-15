@@ -67,11 +67,24 @@ class GemBalancePanel extends StatelessWidget {
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
       height: compact ? null : 95,
-      child: Center(
+      // Left aligned against the content edge, with the gem reading as part of
+      // the figure rather than as part of the label above it.
+      child: Align(
+        alignment: Alignment.centerLeft,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text(
+              'My Balance',
+              style: TextStyle(
+                fontSize: 14,
+                height: 18 / 14,
+                fontWeight: FontWeight.w600,
+                color: GenesisColors.darkTextSecondary,
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 SvgPicture.asset(
@@ -81,28 +94,22 @@ class GemBalancePanel extends StatelessWidget {
                   height: gemLargeIconSize,
                 ),
                 const SizedBox(width: 8),
-                const Text(
-                  'My Balance',
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 18 / 14,
-                    fontWeight: FontWeight.w600,
-                    color: GenesisColors.darkTextSecondary,
+                Flexible(
+                  child: Text.rich(
+                    gemBalanceTextSpan(balanceCent, fontSize: 30),
+                    key: balanceKey,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 30,
+                      height: 40 / 30,
+                      fontWeight: FontWeight.w600,
+                      color: GenesisColors.darkTextPrimary,
+                      letterSpacing: 0,
+                    ),
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 8),
-            Text.rich(
-              gemBalanceTextSpan(balanceCent, fontSize: 30),
-              key: balanceKey,
-              style: const TextStyle(
-                fontSize: 30,
-                height: 40 / 30,
-                fontWeight: FontWeight.w600,
-                color: GenesisColors.darkTextPrimary,
-                letterSpacing: 0,
-              ),
             ),
           ],
         ),

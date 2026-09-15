@@ -5,15 +5,14 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/network/models/membership_benefit.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_catalog_cache.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
+import 'package:genesis_flutter_android/components/gems/pro_colors.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
@@ -310,7 +309,7 @@ void main() {
         outcome == 'failure' ? findsOneWidget : findsNothing,
       );
       if (outcome == 'success') {
-        expect(find.text('Premium'), findsOneWidget);
+        expect(find.text('Worldo Premium'), findsOneWidget);
         expect(find.text(r'Yearly: $119.99'), findsOneWidget);
       }
       expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -337,7 +336,7 @@ void main() {
     );
     await tester.pumpWidget(page(null, catalog: catalog));
     await tester.pumpAndSettle();
-    expect(find.text('Premium'), findsOneWidget);
+    expect(find.text('Worldo Premium'), findsOneWidget);
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     response.complete(
@@ -642,14 +641,14 @@ void main() {
       );
       await tester.pumpWidget(page(catalog.load));
       await tester.pumpAndSettle();
-      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Worldo Premium'), findsOneWidget);
       expect(find.text('Annual VIP'), findsNothing);
       expect(find.text('Annual benefit'), findsOneWidget);
       expect(find.text('Pro'), findsNothing);
       expect(find.text('Monthly VIP'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Worldo Premium'), findsOneWidget);
       expect(find.text('Monthly VIP'), findsNothing);
       expect(find.text('Monthly benefit'), findsOneWidget);
       expect(find.text('Annual VIP'), findsNothing);
@@ -672,7 +671,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Premium'), findsOneWidget);
+    expect(find.text('Worldo Premium'), findsOneWidget);
     expect(find.text('Monthly VIP'), findsNothing);
     expect(find.text('Monthly bonus Gems'), findsOneWidget);
     expect(find.text('Pro'), findsNothing);
@@ -853,38 +852,13 @@ void main() {
       tester.getTopLeft(find.text('Server enhanced')).dy,
       lessThan(tester.getTopLeft(find.text('Server locked')).dy),
     );
+    // An unrecognised icon_key still falls back to the circled star.
     expect(find.byIcon(Icons.stars_outlined), findsOneWidget);
-    expect(
-      tester
-          .widget<Icon>(
-            find.byKey(const ValueKey('pro-benefit-status-Server included')),
-          )
-          .icon,
-      Icons.check_rounded,
-    );
-    expect(
-      find.byKey(const ValueKey('pro-benefit-status-Server enhanced')),
-      findsOneWidget,
-    );
-    expect(
-      tester
-          .widget<SvgPicture>(
-            find.byKey(const ValueKey('pro-benefit-status-Server enhanced')),
-          )
-          .semanticsLabel,
-      'Improved with Pro',
-    );
-    expect(
-      tester
-          .widget<Icon>(
-            find.byKey(const ValueKey('pro-benefit-status-Server locked')),
-          )
-          .icon,
-      Icons.lock_outline_rounded,
-    );
+    // Design 30b carries no per-benefit status mark, so display_type no longer
+    // changes how a row is drawn; every row reads the same.
     expect(
       tester.widget<Text>(find.text('Server locked')).style?.color,
-      GenesisColors.darkTextPrimary,
+      premiumText,
     );
     await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
     await tester.pumpAndSettle();
