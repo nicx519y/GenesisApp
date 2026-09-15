@@ -101,6 +101,16 @@ android {
     }
 }
 
+// Compress directly built APKs while preserving Google Play bundle packaging.
+// This APK-only property does not change useLegacyPackagingFromBundle.
+androidComponents {
+    onVariants(selector().all()) { variant ->
+        if (variant.buildType == "release" || variant.buildType == "debug") {
+            variant.packaging.jniLibs.useLegacyPackaging.set(true)
+        }
+    }
+}
+
 googleServices {
     missingGoogleServicesStrategy =
         com.google.gms.googleservices.GoogleServicesPlugin.MissingGoogleServicesStrategy.IGNORE
