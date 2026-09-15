@@ -585,7 +585,7 @@ Query：
 - `world_id`: string，仅 Worldo 查询返回
 - `memory_used_tokens`: integer，仅 Worldo 查询返回；当前 Worldo 的实际用量，允许为 `0`，且不超过当前全局预算
 
-Memory & Model 页面按最新产品要求将滑杆下限固定为 4000 tokens（4K），上限和已保存预算仍读取响应；服务端需支持保存 4000。当前滑杆按对数映射、1K 步长取整，动态上限保持可达。`memory_used_tokens` 展示实际用量，本页数字向上取整至整数 K，1000K 显示为 1M。
+Memory & Model 页面从响应的 `min_memory_tokens` / `max_memory_tokens` 读取滑杆上下限，已保存预算读取 `memory_tokens`；显示、映射和保存结果校验均使用接口范围。当前滑杆按对数映射、1K 步长取整，接口上下边界即使不足整 K 也保持原值且可达。`memory_used_tokens` 展示实际用量，本页数字向上取整至整数 K，1000K 显示为 1M。
 
 ### POST `/api/v1/user/memory-settings`
 
@@ -1430,7 +1430,7 @@ Query：
 
 Flutter 入口 `ChatroomHttpApi.getFeatureQuotas` 返回 `ChatroomFeatureQuotas`，解析 `membership_status`、`is_member` 及两项完整 summary；缺必填字段、类型错误、未知 scope 或负数额度属于响应格式异常。`ChatroomFeatureQuotaStore` 在账号范围内保留服务端快照并合并并发请求，切换账号清理状态并忽略旧响应，不推导或本地扣减次数。
 
-Location Chat 按产品约定在点击 Edit 或展开 Inspiration 时先检查本地会员状态：确认有效会员直接使用，否则请求本接口；进入页面、按钮出现、收起 Inspiration 均不发起次数查询。查询失败保留之前已知次数与草稿。购买/恢复会员后刷新状态，失败操作不自动重发。
+Location Chat 按产品约定在点击 Edit 或 idle 状态的 Inspiration 时先检查本地会员状态：确认有效会员直接使用，否则请求本接口；进入页面、按钮出现、收起 Inspiration 均不发起次数查询。免费次数提示显示后，再次点击 idle 状态的 Inspiration 保持展开，并重新执行次数检查；次数允许时请求灵感接口，不因本地已有结果而跳过请求。请求期间 busy 状态不接受重复点击。Inspiration 即使缓存次数为 0，也会在再次点击时刷新次数，最新次数仍为 0 时不请求生成接口。查询失败保留之前已知次数与草稿。购买/恢复会员后刷新状态，失败操作不自动重发。
 
 | 错误号 | 含义 |
 | --- | --- |

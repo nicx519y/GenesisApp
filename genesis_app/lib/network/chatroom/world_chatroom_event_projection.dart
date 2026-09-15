@@ -89,7 +89,21 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
   }
 
   void _handleEndConversationRound(ChatroomEndConversationRound event) {
-    if (!event.ok) return;
+    if (!event.ok || event.worldId != _worldId) return;
+    if (event.isWorldScoped) {
+      final locations = [
+        for (final entry in _state.conversationRoundStatesByLocation.entries)
+          if (entry.value.conversationRoundId == event.conversationRoundId)
+            entry.key,
+      ];
+      for (final location in locations) {
+        _completeConversationRound(
+          locationId: location,
+          conversationRoundId: event.conversationRoundId,
+        );
+      }
+      return;
+    }
     _completeConversationRound(
       locationId: event.locationId,
       conversationRoundId: event.conversationRoundId,
@@ -204,6 +218,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
           'world=$_worldId',
         );
       case 'tick_start':
+        if (event.worldId != _worldId) return;
         _setState(
           _stateWithSocketWorldProgress(
             _state.copyWith(inputBlocked: true),
@@ -212,15 +227,20 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
         );
         break;
       case 'tick_done':
+        if (event.worldId != _worldId) return;
         _setState(
           _stateWithSocketWorldProgress(
             _state.copyWith(inputBlocked: false),
             socketCurrentTime: event.currentTime,
           ),
         );
-        await _consumeQueuedWorldRefresh(
-          event,
-          socketCurrentTime: event.currentTime,
+        // The following round-end must be handled even if world detail is slow.
+        // Refresh failures are handled by the shared world refresh drain.
+        unawaited(
+          _consumeQueuedWorldRefresh(
+            event,
+            socketCurrentTime: event.currentTime,
+          ),
         );
         break;
       default:

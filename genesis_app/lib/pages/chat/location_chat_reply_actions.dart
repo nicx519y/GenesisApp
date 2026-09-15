@@ -28,6 +28,10 @@ class LocationChatReplyActions extends StatefulWidget {
     this.inspirationFeature = const LocationChatInspirationFeature.disabled(),
     this.selfMessageBubbleMaxWidthCap,
     this.inspirationExpanded,
+    this.inspirationListKey,
+    this.inspirationIdentity,
+    this.inspirationPromptExpanded,
+    this.onInspirationPromptExpandedChanged,
     this.onInspirationExpandedChanged,
     this.inspirationPage,
     this.onInspirationPageChanged,
@@ -64,7 +68,14 @@ class LocationChatReplyActions extends StatefulWidget {
   final int? inspirationPage;
   final ValueChanged<int>? onInspirationPageChanged;
   final bool? inspirationExpanded;
+  final Key? inspirationListKey;
+  final Object? inspirationIdentity;
+  final bool? inspirationPromptExpanded;
+  final ValueChanged<bool>? onInspirationPromptExpandedChanged;
   final ValueChanged<bool>? onInspirationExpandedChanged;
+
+  static const inspirationAnimationDuration = Duration(milliseconds: 220);
+  static const inspirationAnimationCurve = Curves.easeOut;
 
   static const double buttonSize = 32;
   static const double iconSize = 17;
@@ -80,6 +91,7 @@ class LocationChatReplyActions extends StatefulWidget {
 class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
   bool _localEditPromptExpanded = false;
   bool _localInspirationExpanded = false;
+  bool _localInspirationPromptExpanded = false;
   int _localInspirationPage = 0;
   bool get _inspirationExpanded =>
       widget.inspirationExpanded ?? _localInspirationExpanded;
@@ -92,21 +104,30 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
     }
   }
 
-  void _toggleInspiration() {
-    if (_inspirationExpanded && _inspiration.freeUsesRemaining == 0) return;
+  void _invokeInspiration() {
     _setEditPromptExpanded(false);
-    _setInspirationExpanded(!_inspirationExpanded);
+    _setInspirationPromptExpanded(true);
+    _setInspirationExpanded(
+      !(_inspirationExpanded && _inspiration.messages.isNotEmpty),
+    );
+  }
+
+  void _setInspirationPromptExpanded(bool expanded) {
+    if (widget.onInspirationPromptExpandedChanged case final onChanged?) {
+      onChanged(expanded);
+    } else {
+      setState(() => _localInspirationPromptExpanded = expanded);
+    }
   }
 
   void _setInspirationExpanded(bool next) {
+    if (widget.inspirationExpanded == null) {
+      setState(() => _localInspirationExpanded = next);
+    }
     final onChanged =
         widget.onInspirationExpandedChanged ??
         widget.inspirationFeature.onExpandedChanged;
-    if (onChanged != null) {
-      onChanged(next);
-    } else {
-      setState(() => _localInspirationExpanded = next);
-    }
+    onChanged?.call(next);
   }
 
   ChatUiStyleConfig get style => widget.style;
@@ -125,13 +146,19 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           LocationChatRegenerateButton(
             key: const ValueKey('location-chat-regenerate'),
             feature: _regenerate,
-            onBeforeInvoke: () => _setEditPromptExpanded(false),
+            onBeforeInvoke: () {
+              _setEditPromptExpanded(false);
+              _setInspirationExpanded(false);
+            },
           ),
         if (_goOn.state != LocationChatReplyActionState.none)
           LocationChatGoOnButton(
             key: const ValueKey('location-chat-go-on'),
             feature: _goOn,
-            onBeforeInvoke: () => _setEditPromptExpanded(false),
+            onBeforeInvoke: () {
+              _setEditPromptExpanded(false);
+              _setInspirationExpanded(false);
+            },
           ),
         if (_edit.state != LocationChatReplyActionState.none)
           LocationChatEditButton(
@@ -139,6 +166,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             feature: _edit,
             onBeforeInvoke: () {
               _setEditPromptExpanded(true);
+              _setInspirationPromptExpanded(false);
               _setInspirationExpanded(false);
             },
           ),
@@ -148,7 +176,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             feature: _inspiration,
             expanded: _inspirationExpanded,
             onBeforeInvoke: () => _setEditPromptExpanded(false),
-            onToggle: _toggleInspiration,
+            onToggle: _invokeInspiration,
           ),
       ],
     ];
@@ -196,28 +224,34 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             message: 'Free Edition uses left: ',
             remaining: _edit.freeUsesRemaining!,
           ),
+        LocationChatInspirationReplies(
+          key: widget.inspirationListKey,
+          identity: widget.inspirationIdentity,
+          expanded:
+              widget.loadingIndicator == null &&
+              _inspiration.state != LocationChatReplyActionState.none &&
+              _inspirationExpanded,
+          replies: _inspiration.messages,
+          onSend: (text) {
+            _setInspirationExpanded(false);
+            _inspiration.onSend?.call(text);
+          },
+          onEdit: (text) {
+            _setInspirationPromptExpanded(false);
+            _setInspirationExpanded(false);
+            _inspiration.onEdit?.call(text);
+          },
+          style: style,
+          maxWidthCap: widget.selfMessageBubbleMaxWidthCap,
+          initialPage: widget.inspirationPage ?? _localInspirationPage,
+          onPageChanged: (page) {
+            _localInspirationPage = page;
+            widget.onInspirationPageChanged?.call(page);
+          },
+        ),
         if (widget.loadingIndicator == null &&
-            _inspirationExpanded &&
-            _inspiration.messages.isNotEmpty) ...[
-          const SizedBox(height: LocationChatReplyActions.contentBottomGap),
-          _InspirationReplies(
-            replies: _inspiration.messages,
-            onSend: (text) => _inspiration.onSend?.call(text),
-            onEdit: (text) {
-              _setInspirationExpanded(false);
-              _inspiration.onEdit?.call(text);
-            },
-            style: style,
-            maxWidthCap: widget.selfMessageBubbleMaxWidthCap,
-            initialPage: widget.inspirationPage ?? _localInspirationPage,
-            onPageChanged: (page) {
-              _localInspirationPage = page;
-              widget.onInspirationPageChanged?.call(page);
-            },
-          ),
-        ],
-        if (widget.loadingIndicator == null &&
-            _inspirationExpanded &&
+            (widget.inspirationPromptExpanded ??
+                _localInspirationPromptExpanded) &&
             _inspiration.freeUsesRemaining != null)
           _quotaPrompt(
             feature: 'inspiration',

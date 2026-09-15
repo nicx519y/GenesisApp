@@ -162,6 +162,10 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     }
     if (_tickProgressSessionActive) return false;
     _tickProgressSessionActive = true;
+    _inspirationTickPreviousRound = nextSource.fold<int>(
+      0,
+      (round, message) => math.max(round, message.conversationRoundNumber),
+    );
     _tickProgressGeneration += 1;
     _activeTickProgressSlotId =
         'location-chat-tick-progress-${widget.locationId}-$_tickProgressGeneration';

@@ -54,7 +54,7 @@ extension _LocationChatFeatureQuotaBinding on _LocationChatPanelState {
     return quota == null || quota.unlimited ? null : quota.remaining;
   }
 
-  /// Called only from a deliberate Edit invocation or inspiration expansion.
+  /// Called only from a deliberate Edit or Inspiration invocation.
   Future<bool> _checkReplyFeatureQuota(
     String feature, {
     required bool Function() current,
@@ -75,7 +75,7 @@ extension _LocationChatFeatureQuotaBinding on _LocationChatPanelState {
       services.featureQuotas.confirmMembership(true);
       return true;
     }
-    if (isMember == false) {
+    if (isMember == false && feature != 'inspiration') {
       final cachedQuota = services.featureQuotas.quotaFor(feature);
       if (cachedQuota != null &&
           !cachedQuota.unlimited &&

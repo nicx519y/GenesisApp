@@ -165,7 +165,7 @@ V2 ACK 只表示服务端收到并受理了对应命令。客户端内部 API �
 
 普通 typed message 保留 `businessType/streamType/minAppVersion/rawPayload`。地点级 Tick 另暴露 `v2TickPayload` 与 `isV2LocationTick`；`ChatroomV2TickPayload` 保存 `current_time/tick_no/sub_tick_no/global/story_events/characters_moved`，也支持历史纯文本 `payload.content` 回退。`tick_no=0` 和 `sub_tick_no=0` 都是有效值，不能用正数判断字段是否存在。
 
-Location Chat 对最新 conversation 的四个回复功能集中判断资格：本人触发的 `user_message/go_on` 可用 Regenerate、Go On、Edit、灵感回复；`opening` 仅当前登录 UID 等于 World 详情的 `owner_uid` 时可用 Go On、Edit、灵感回复（创建者信息缺失时不可用）；`user_enter_location` 仅本人触发时可用 Go On、Edit、灵感回复；`tick` 对任何用户开放 Go On、灵感回复，不要求本人触发或 World 创建者身份，Regenerate、Edit 不可用。正式 Tick 消息本身即可作为 Go On、灵感回复的来源，不要求同轮 AI 回复或轮次结束事件。其余用户触发的正常对话，以及缺失、未知或冲突元数据均不可用。实时轮次只有 `trigger_uid` 而缺少 `conversation_type` 时严格等待正常历史刷新，不主动查历史，也不从 WS 类型或本地动作推断。资格之上仍保留最新轮次、轮次非生成中（非 Tick 仍要求已完成且有正式 AI 回复）、连接、Tick 锁、busy/frozen、候选卡和生成上限等操作安全门槛；Enter、Tick、Opening 的灵感请求不传候选 `card_id`。
+Location Chat 对最新 conversation 的四个回复功能集中判断资格：本人触发的 `user_message/go_on` 可用 Regenerate、Go On、Edit、灵感回复；`opening` 仅当前登录 UID 等于 World 详情的 `owner_uid` 时可用 Go On、Edit、灵感回复（创建者信息缺失时不可用）；`user_enter_location` 仅本人触发时可用 Go On、Edit、灵感回复；`tick` 对任何用户开放 Go On、灵感回复，不要求本人触发或 World 创建者身份，Regenerate、Edit 不可用。正式 `type=tick` 消息只要携带有效的正数 `conversation_round_id`，即可识别为 Tick 回复来源；不要求 `conversation_type`、同轮 AI 回复或轮次结束事件。其余用户触发的正常对话，以及缺失、未知或冲突元数据均不可用。普通实时轮次只有 `trigger_uid` 而缺少 `conversation_type` 时等待正常历史刷新，不主动查历史，也不从本地动作推断。Tick 直接以正式消息的类型和轮次识别。资格之上仍保留最新轮次、轮次非生成中（非 Tick 仍要求已完成且有正式 AI 回复）、连接、Tick 锁、busy/frozen、候选卡和生成上限等操作安全门槛；Enter、Tick、Opening 的灵感请求不传候选 `card_id`。
 
 V2 只把地点级 `type=tick` 当作 canonical Tick：
 
@@ -326,6 +326,16 @@ billing.status：not_required / not_started / reserved / committed / cancelled�
 ```
 
 只有 `err_no=0`、同地点且同 `conversation_round_id` 的 end 可以正常解锁并取消兜底。Character、Narrator、Tick 和 `llm_stream_end` 都不再结束 V2 conversation round。其他地点、旧 round、重复或错误 end 均幂等忽略。30 秒仍未收到匹配 end 时客户端异常兜底解锁；旧 Timer 必须通过 generation 校验，不能清除后续新 round。自动重连保留原绝对截止时间，显式断开或销毁 Service 时清除。
+
+Tick 解锁后，V2 还会收到世界级结束通知，顺序为 `tick_done → end_conversation_round → world_change`。同一世界各地点接收同一条通知，复用 Tick 的真实 int64 `conversation_round_id`，不逐地点重复发送：
+
+```json
+{"type":"end_conversation_round","stream_type":"","ts":1785890005000,"world_id":"world_001","conversation_round_id":302,"trigger_uid":"","payload":{},"err_no":0,"err_msg":""}
+```
+
+此分支不下发 `location_id`、`user_id`，也没有配套 waiting。客户端允许缺失地点，按 `world_id + conversation_round_id` 结束已有对应轮次的等待状态；不创建聊天气泡、空地点轮次或清除其他 P3 轮次。重复通知幂等，本地无对应等待轮次时不修改等待状态。`err_no=0` 仅表示结束通知无错误，不代表 AI 内容生成成功。通知可能缺失且不会自动补发，世界推进仍由 `tick_done` 解锁，不等待此事件。带地点的 P3 结束处理保持原规则。
+
+Tick reply 资格仅从正式 `type=tick` 消息及其正数 `conversation_round_id` 确定，WSS 与历史消息共用该规则，缺失 `conversation_type` 时也识别为 Tick。`tick_start`、`tick_done`、`end_conversation_round` 不参与 Tick 来源识别，不凭控制事件创建没有正式消息的回复来源。`tick_start/tick_done` 仍负责世界推进输入锁；`tick_done` 触发的详情刷新在后台继续。当前地点最新的正式 Tick 在连接就绪、世界推进解锁且无其他操作锁时，Go On、Inspiration 为 `idle`，Edit、Regenerate 为 `none`；不需要 waiting、AI 回复或 end。
 
 # Legacy WebSocket 适配附录
 

@@ -4181,6 +4181,90 @@ void main() {
     await service.dispose();
   });
 
+  test('Tick control events alone do not create a reply source', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      httpTransport: _MutationHttpTransport(),
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    service.applyWorldSnapshot(_worldSnapshot());
+    final replies = service.replyActions!;
+    for (final type in ['tick_start', 'tick_done', 'end_conversation_round']) {
+      socket.serverFrame(type, {
+        'world_id': 'world-1',
+        'stream_type': '',
+        'conversation_round_id': 302,
+        'trigger_uid': '',
+        'payload': <String, Object?>{},
+        'err_no': 0,
+        'err_msg': '',
+      });
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(service.state.inputBlocked, isFalse);
+    expect(replies.stateFor('loc-1'), isNull);
+    expect(replies.stateFor('loc-2'), isNull);
+    expect(service.state.conversationRoundStatesByLocation, isEmpty);
+  });
+
+  test('world-level Tick end only clears matching round waits', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      useV2Protocol: true,
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final replies = service.replyActions!;
+    for (final location in ['loc-1', 'loc-2']) {
+      socket.serverWaitingConversationRound(locationId: location, roundId: 302);
+    }
+    socket.serverWaitingConversationRound(locationId: 'loc-p3', roundId: 401);
+    await _waitFor(
+      () => service.state.waitingConversationRoundIdsByLocation.length == 3,
+    );
+    final messages = service.state.messagesByLocation;
+    void end({String world = 'world-1', int round = 302}) {
+      socket.serverFrame('end_conversation_round', {
+        'stream_type': '',
+        'ts': 1785890005000,
+        'world_id': world,
+        'conversation_round_id': round,
+        'trigger_uid': '',
+        'payload': <String, Object?>{},
+        'err_no': 0,
+        'err_msg': '',
+      });
+    }
+
+    end(world: 'another-world');
+    end(round: 999);
+    await Future<void>.delayed(Duration.zero);
+    expect(service.state.waitingConversationRoundIdsByLocation.length, 3);
+    end();
+    await _waitFor(
+      () => service.state.waitingConversationRoundIdsByLocation.length == 1,
+    );
+    expect(service.state.waitingConversationRoundIdsByLocation, {
+      'loc-p3': '401',
+    });
+    expect(replies.stateForRound('loc-1', 302)!.complete, isTrue);
+    expect(replies.stateForRound('loc-2', 302)!.complete, isTrue);
+    expect(replies.stateForRound('loc-p3', 401)!.complete, isFalse);
+    expect(replies.locationIds, isNot(contains('')));
+    expect(service.state.messagesByLocation, messages);
+    expect(service.state.lastFailure, isNull);
+    end();
+    await Future<void>.delayed(Duration.zero);
+    expect(service.state.waitingConversationRoundIdsByLocation, {
+      'loc-p3': '401',
+    });
+  });
+
   test(
     'V2 waiting conversation round locks until matching end event',
     () async {

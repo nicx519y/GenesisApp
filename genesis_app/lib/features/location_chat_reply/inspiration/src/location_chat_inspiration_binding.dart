@@ -1,6 +1,46 @@
 part of '../../../../pages/chat/location_chat_page.dart';
 
 extension _LocationChatInspirationBinding on _LocationChatPanelState {
+  void _scheduleInspirationConversationRendered(
+    List<ChatMessageVm> messages, {
+    int? ackRoundId,
+    int? goOnRoundId,
+  }) {
+    final controller = _inspirationController;
+    final generation = ++_inspirationRenderGeneration;
+    if (!widget.active || controller == null) return;
+    var round = math.max(ackRoundId ?? 0, goOnRoundId ?? 0);
+    for (final message in messages) {
+      round = math.max(round, int.tryParse(message.roundId) ?? 0);
+      if (message.timelinePayload is ChatTickProgressPayloadVm) {
+        // Tick progress can render before its round ID arrives. Retire through
+        // its captured predecessor without treating later progress builds as
+        // additional conversations.
+        round = math.max(round, _inspirationTickPreviousRound + 1);
+      }
+    }
+    if (round <= 0) return;
+    final binding = _replyBindingGeneration;
+    final location = widget.locationId;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !widget.active ||
+          generation != _inspirationRenderGeneration ||
+          binding != _replyBindingGeneration ||
+          location != widget.locationId ||
+          !identical(controller, _inspirationController)) {
+        return;
+      }
+      unawaited(
+        controller.conversationRendered(location, round).catchError((
+          Object error,
+        ) {
+          debugPrint('[Inspiration] cache cleanup failed: $error');
+        }),
+      );
+    });
+  }
+
   void _editInspiration(String text) {
     if (_replyCardTransitionBusy) return;
     _textController.setSerializedText(text);
@@ -47,6 +87,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     _inspirationController?.removeListener(_onInspirationInvalidated);
     _resetInspiration();
     _inspirationController = null;
+    _inspirationRenderGeneration++;
   }
 
   void _resetInspiration() {
@@ -125,34 +166,39 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
       }
     });
     try {
-      if (!await _checkReplyFeatureQuota(
-            'inspiration',
-            current: current,
-            onQuotaLookupStarted: () {
-              if (current()) {
-                _setReplyControlsState(() => _inspirationLoading = true);
-              }
-            },
-          ) ||
-          !current()) {
-        return;
-      }
-      if (!_inspirationLoading) {
-        _setReplyControlsState(() => _inspirationLoading = true);
-      }
       await service.ensureInspirationHistory(source.locationId);
       if (!current()) return;
       final verified = _currentInspirationSource!;
       _inspirationEpoch = controller.revision(source.locationId);
-      final result = await controller.load(verified);
+      var result = await controller.readCached(verified);
+      if (!current()) return;
+      if (result == null) {
+        if (!await _checkReplyFeatureQuota(
+              'inspiration',
+              current: current,
+              onQuotaLookupStarted: () {
+                if (current()) {
+                  _setReplyControlsState(() => _inspirationLoading = true);
+                }
+              },
+            ) ||
+            !current()) {
+          return;
+        }
+        if (!_inspirationLoading) {
+          _setReplyControlsState(() => _inspirationLoading = true);
+        }
+        result = await controller.load(verified);
+      }
       if (!current() || result == null) return;
       final latest = _currentInspirationSource!;
       if (latest.cardId != null && latest.sourceCardId != result.sourceCardId) {
         return;
       }
+      final messages = result.messages;
       _setReplyControlsState(() {
         _inspirationDisplayedSource = verified;
-        _inspirationMessages = result.messages;
+        _inspirationMessages = messages;
       });
     } catch (error) {
       if (error is ChatroomFeatureQuotaException) {

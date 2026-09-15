@@ -1757,9 +1757,56 @@ void main() {
       final end = event as ChatroomEndConversationRound;
       expect(end.worldId, 'world-1');
       expect(end.locationId, 'loc-1');
+      expect(end.isWorldScoped, isFalse);
       expect(end.conversationRoundId, '301');
       expect(end.ok, isTrue);
       expect(chatroomEventType(end), 'end_conversation_round');
+    });
+
+    test('Tick notifications retain the top-level int64 round ID', () {
+      for (final type in ['tick_start', 'tick_done']) {
+        final event =
+            chatroomEventFromV2Message(
+                  ChatroomV2Message.fromJson({
+                    'type': type,
+                    'world_id': 'world-1',
+                    'stream_type': '',
+                    'conversation_round_id': 9007199254740993,
+                    'payload': <String, Object?>{},
+                    'err_no': 0,
+                    'err_msg': '',
+                  }),
+                )
+                as ChatroomWorldNotification;
+        expect(event.conversationRoundId, '9007199254740993');
+      }
+    });
+
+    test('parses world-level Tick end with omitted location and user IDs', () {
+      const round = 9007199254740993;
+      final event =
+          chatroomEventFromV2Message(
+                ChatroomV2Message.fromJson({
+                  'type': 'end_conversation_round',
+                  'stream_type': '',
+                  'ts': 1785890005000,
+                  'world_id': 'world-1',
+                  'conversation_round_id': round,
+                  'trigger_uid': '',
+                  'payload': <String, dynamic>{},
+                  'err_no': 0,
+                  'err_msg': '',
+                }),
+              )
+              as ChatroomEndConversationRound;
+      expect(event.isWorldScoped, isTrue);
+      expect(event.worldId, 'world-1');
+      expect(event.conversationRoundId, '$round');
+      expect(event.locationId, isEmpty);
+      expect(event.userId, isEmpty);
+      expect(event.triggerUid, isEmpty);
+      expect(event.ok, isTrue);
+      expect(chatroomEventType(event), 'end_conversation_round');
     });
 
     test('rejects malformed or legacy waiting conversation round events', () {

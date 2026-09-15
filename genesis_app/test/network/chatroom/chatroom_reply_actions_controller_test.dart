@@ -1149,7 +1149,7 @@ void main() {
           worldId: 'w',
           locationId: 'l',
         )).single;
-        expect(rewritten['capability_version'], 5);
+        expect(rewritten['capability_version'], 6);
         expect((rewritten['supported_actions'] as Map)['go_on'], true);
         expect((rewritten['supported_actions'] as Map)['edit'], type != 'tick');
         expect(restored.api.calls, isEmpty);
@@ -1659,6 +1659,21 @@ void main() {
     },
   );
 
+  test('Tick with a nonpositive round cannot replace the current source', () {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    for (final round in [0, -1]) {
+      h.controller.observeMessages('l', [
+        _formal(),
+        _formal(type: 'tick', round: round, conversationType: ''),
+      ]);
+      expect(h.state.roundId, _round);
+      expect(h.state.conversationType, 'user_message');
+      expect(h.state.canGoOn, isTrue);
+      expect(h.controller.stateForRound('l', round), isNull);
+    }
+  });
+
   test('only Tick can use a non-AI message as its action source', () {
     for (final type in ['user_enter_location', 'tick']) {
       final h = _Harness(conversationType: type);
@@ -1691,13 +1706,9 @@ void main() {
   test(
     'Tick without AI or round-end can dispatch Go On and provide inspiration',
     () async {
-      final h = _Harness(conversationType: 'tick', triggerUid: '');
+      final h = _Harness(conversationType: '', triggerUid: '');
       addTearDown(h.controller.dispose);
-      final tick = _formal(
-        type: 'tick',
-        conversationType: 'tick',
-        triggerUid: '',
-      );
+      final tick = _formal(type: 'tick', conversationType: '', triggerUid: '');
       h.controller.observeMessages('l', [tick]);
       expect(h.state.formalReplyMessages, isEmpty);
       expect(h.state.complete, isTrue);
@@ -1727,6 +1738,53 @@ void main() {
       await h.controller.goOn('l');
       expect(h.session.requests.single, startsWith('go-on:'));
       expect(h.api.calls, isEmpty);
+    },
+  );
+
+  test(
+    'world Tick end works without waiting and preserves generation failure',
+    () {
+      final h = _Harness(conversationType: 'tick', triggerUid: '');
+      addTearDown(h.controller.dispose);
+      ChatroomEndConversationRound end(
+        String location, {
+        int code = 0,
+        int round = _round,
+      }) => ChatroomEndConversationRound(
+        sessionId: '',
+        worldId: 'w',
+        locationId: location,
+        userId: '',
+        code: code,
+        codeMsg: '',
+        ts: null,
+        conversationRoundId: '$round',
+      );
+      h.controller.receiveEvent(end('', round: _round + 1));
+      expect(h.controller.stateForRound('l', _round + 1), isNull);
+      h.controller.receiveEvent(end(''));
+      h.controller.receiveEvent(
+        ChatroomWaitingConversationRound(
+          sessionId: '',
+          worldId: 'w',
+          locationId: 'l',
+          userId: '',
+          code: 0,
+          codeMsg: '',
+          ts: null,
+          conversationRoundId: '$_round',
+        ),
+      );
+      expect(
+        h.state.complete,
+        isTrue,
+        reason: 'A later waiting cannot reopen the ended Tick',
+      );
+      h.controller.receiveEvent(end('l', code: 5000));
+      expect(h.state.supportsInspiration, isFalse);
+      h.controller.receiveEvent(end(''));
+      expect(h.state.supportsInspiration, isFalse);
+      expect(h.controller.locationIds, ['l']);
     },
   );
 
@@ -3075,7 +3133,12 @@ void main() {
       addTearDown(h.controller.dispose);
       h.controller.observeMessages('l', [
         _formal(),
-        _formal(type: 'tick').copyWith(tickNo: 10, subTickNo: 1),
+        _formal(
+          type: 'tick',
+          round: _round - 1,
+          id: _messageId - 1,
+          conversationType: '',
+        ).copyWith(tickNo: 10, subTickNo: 1),
       ]);
       h.api.cards = _cards([_card(101)]);
       final target = await h.prepareEditor();

@@ -54,7 +54,6 @@ class MemoryModelPage extends StatefulWidget {
 }
 
 class _MemoryModelPageState extends State<MemoryModelPage> {
-  static const int _minMemoryLimitTokens = 4000;
   static const Duration _memoryAutosaveDelay = Duration(milliseconds: 500);
 
   GemModelCatalog? _catalog;
@@ -194,7 +193,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
           _pendingMemoryTokens = loaded.memoryTokens;
         } else {
           _pendingMemoryTokens = _pendingMemoryTokens.clamp(
-            _minMemoryLimitTokens,
+            loaded.minMemoryTokens,
             loaded.maxMemoryTokens,
           );
         }
@@ -220,8 +219,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     final responseWorldId = settings.worldId?.trim() ?? '';
     if (settings.minMemoryTokens <= 0 ||
         settings.maxMemoryTokens < settings.minMemoryTokens ||
-        settings.maxMemoryTokens < _minMemoryLimitTokens ||
-        settings.memoryTokens < _minMemoryLimitTokens ||
+        settings.memoryTokens < settings.minMemoryTokens ||
         settings.memoryTokens > settings.maxMemoryTokens ||
         (requireWorldUsage && responseWorldId.isEmpty) ||
         (expectedWorldId != null && responseWorldId != expectedWorldId) ||
@@ -747,7 +745,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
         const SizedBox(height: 10),
         _MaxMemoryLimitCard(
           memoryTokens: _pendingMemoryTokens,
-          minMemoryTokens: _minMemoryLimitTokens,
+          minMemoryTokens: settings.minMemoryTokens,
           maxMemoryTokens: settings.maxMemoryTokens,
           enabled: !_memoryLoading,
           onChanged: _changeMemory,

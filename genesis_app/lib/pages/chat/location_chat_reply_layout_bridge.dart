@@ -5,6 +5,9 @@ import 'package:flutter/widgets.dart';
 /// viewport layouts cannot apply a delta twice.
 class LocationChatReplyLayoutBridge {
   double? _height;
+  double _controlsHeight = 0;
+  double _startControlsHeight = 0;
+  bool _followControlsHeight = false;
   double? _sliverExtent;
   double? _startHeight;
   double? _startPixels;
@@ -25,17 +28,24 @@ class LocationChatReplyLayoutBridge {
     if (height.isFinite) _height = height;
   }
 
+  void reportControlsHeight(double height) {
+    if (height.isFinite) _controlsHeight = height;
+  }
+
   void reportSliverExtent(double extent) {
     if (extent.isFinite) _sliverExtent = extent;
   }
 
   void begin({
     required ScrollPosition position,
+    bool followControlsHeight = false,
     required int commandGeneration,
     required ValueGetter<int> currentGeneration,
   }) {
     if (isActive || _height == null) return;
     _position = position;
+    _startControlsHeight = _controlsHeight;
+    _followControlsHeight = followControlsHeight;
     _startHeight = _height;
     _startPixels = position.pixels;
     _startMaxScrollExtent = position.maxScrollExtent;
@@ -46,18 +56,22 @@ class LocationChatReplyLayoutBridge {
 
   double? get estimatedSliverExtent {
     if (!isActive || _startSliverExtent == null) return null;
-    return (_startSliverExtent! + _height! - _startHeight!).clamp(
-      0,
-      double.infinity,
-    );
+    return (_startSliverExtent! +
+            _height! -
+            _startHeight! +
+            _controlsHeight -
+            _startControlsHeight)
+        .clamp(0, double.infinity);
   }
 
   double? get correction {
     if (!isActive || _position == null) return null;
-    final delta = _height! - _startHeight!;
+    final controlsDelta = _controlsHeight - _startControlsHeight;
+    final deckDelta = _height! - _startHeight!;
+    final delta = deckDelta + (_followControlsHeight ? controlsDelta : 0);
     final target = (_startPixels! + delta).clamp(
       _position!.minScrollExtent,
-      (_startMaxScrollExtent! + delta).clamp(
+      (_startMaxScrollExtent! + deckDelta + controlsDelta).clamp(
         _position!.minScrollExtent,
         double.infinity,
       ),
@@ -75,6 +89,7 @@ class LocationChatReplyLayoutBridge {
     _position = null;
     if (clearMeasurements) {
       _height = null;
+      _controlsHeight = 0;
       _sliverExtent = null;
     }
   }
