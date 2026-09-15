@@ -1,3 +1,4 @@
+import 'subscription_benefit_icon.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -345,8 +346,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                           key: ValueKey('pro-benefit-${benefit.code}'),
                           label: benefit.title,
                           status: benefit.displayType,
-                          asset: _benefitIcon(benefit.iconKey).$1,
-                          icon: _benefitIcon(benefit.iconKey).$2,
+                          iconKey: benefit.iconKey,
                         ),
                     ],
                   ),
@@ -495,35 +495,17 @@ class _DebugMembershipOrderId extends StatelessWidget {
   );
 }
 
-// The API supplies icon identifiers, never asset paths or executable content.
-// Keep the existing local artwork; unknown identifiers use a generic benefit icon.
-(String?, IconData?) _benefitIcon(String key) => switch (key) {
-  'blue_gem' => (null, Icons.diamond_outlined),
-  'character_slots' => (characterStatIconAsset, null),
-  'inspiration' => (inspirationIconAsset, null),
-  'edit_reply' => (editSquareIconAsset, null),
-  'memory' => (null, Icons.memory_outlined),
-  'save_conversation' => (null, Icons.download_outlined),
-  'chat_background' => (null, Icons.wallpaper_outlined),
-  'no_watermark' => (null, Icons.hide_image_outlined),
-  'custom_character' => (createOriginCharactersIconAsset, null),
-  'community_world' => (null, Icons.public_outlined),
-  _ => (null, Icons.stars_outlined),
-};
-
 class _ProBenefit extends StatelessWidget {
   const _ProBenefit({
     super.key,
     required this.label,
     required this.status,
-    this.asset,
-    this.icon,
+    required this.iconKey,
   });
 
   final String label;
   final MembershipBenefitDisplay status;
-  final String? asset;
-  final IconData? icon;
+  final String iconKey;
 
   @override
   Widget build(BuildContext context) {
@@ -557,14 +539,7 @@ class _ProBenefit extends StatelessWidget {
               color: GenesisColors.darkFaintFill,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: asset != null
-                ? SvgPicture.asset(
-                    asset!,
-                    width: 20,
-                    height: 20,
-                    colorFilter: ColorFilter.mode(color, BlendMode.srcIn),
-                  )
-                : Icon(icon, size: 20, color: color),
+            child: SubscriptionBenefitIcon(iconKey: iconKey, color: color),
           ),
           const SizedBox(width: 10),
           Expanded(
