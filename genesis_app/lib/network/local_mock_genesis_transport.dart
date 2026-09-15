@@ -52,14 +52,6 @@ class LocalMockGenesisTransport implements HttpTransport {
     final method = request.method.toUpperCase();
     final body = _decodeBody(request.bodyBytes);
 
-    if (method == 'POST' && path == '/api_internal/v1/membership/set') {
-      return _ok({
-        'err_no': 5000,
-        'err_msg': 'manual membership setting unavailable in mock',
-        'data': null,
-      });
-    }
-
     if (path == '/health') {
       return _ok({'status': 'ok'});
     }

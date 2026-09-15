@@ -37,11 +37,12 @@ import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_se
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
-import 'package:genesis_flutter_android/app/debug/membership_guest_login_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
 import 'package:genesis_flutter_android/ui/components/secend_tabs.dart';
+import 'package:genesis_flutter_android/ui/components/genesis_tab_bar.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_blur.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/app/debug_page_tracker.dart';
 import 'package:genesis_flutter_android/app/genesis_navigator.dart';
@@ -2989,7 +2990,6 @@ void main() {
     locationChatHeaderEffectSettings.resetForTesting();
     originWorldSheetDebugSettings.resetForTesting();
     worldNewContentDebugSettings.resetForTesting();
-    membershipGuestLoginDebugSettings.resetForTesting();
     networkCaptureController.resetForTesting();
     webSocketCaptureController.resetForTesting();
     resetDeveloperPageTabForTesting();
@@ -26532,6 +26532,19 @@ void main() {
     final visibilitySwitch = find.byKey(
       const ValueKey<String>('developer-tilemap-settings-button-switch'),
     );
+    await tester.scrollUntilVisible(
+      visibilitySwitch,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-switch-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
     expect(visibilitySwitch, findsOneWidget);
     expect(tester.widget<Switch>(visibilitySwitch).value, isFalse);
     expect(tilemapSettingsButtonVisibility.value, isFalse);
@@ -26590,6 +26603,19 @@ void main() {
     final expandSwitch = find.byKey(
       const ValueKey<String>('developer-origin-world-sheet-expand-switch'),
     );
+    await tester.scrollUntilVisible(
+      expandSwitch,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-switch-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
     expect(expandSwitch, findsOneWidget);
     expect(tester.widget<Switch>(expandSwitch).value, isFalse);
     expect(originWorldSheetDebugSettings.expandOnEntry, isFalse);
@@ -26606,51 +26632,45 @@ void main() {
     );
   });
 
-  testWidgets(
-    'developer page controls mandatory login after guest VIP purchase',
-    (tester) async {
+  for (final inSheet in [false, true]) {
+    testWidgets('developer page has no Premium debug panel inSheet=$inSheet', (
+      tester,
+    ) async {
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
             services: await _testServices(),
-            child: const DeveloperPage(),
+            child: inSheet ? const DeveloperPageSheet() : const DeveloperPage(),
           ),
         ),
       );
       await tester.pumpAndSettle();
       await tester.tap(find.text('switch'));
       await tester.pumpAndSettle();
-      final toggle = find.byKey(
-        const ValueKey<String>('developer-membership-guest-force-login-switch'),
-      );
-      await tester.scrollUntilVisible(
-        toggle,
-        200,
-        scrollable: find
-            .descendant(
-              of: find.byKey(
-                const PageStorageKey<String>(
-                  'developer-test-switch-tab-scroll',
-                ),
-              ),
-              matching: find.byType(Scrollable),
-            )
-            .first,
-      );
-      expect(tester.widget<Switch>(toggle).value, isTrue);
-      await tester.tap(toggle);
-      await tester.pumpAndSettle();
-      expect(tester.widget<Switch>(toggle).value, isFalse);
-      expect(membershipGuestLoginDebugSettings.forceLogin, isFalse);
-      final preferences = await SharedPreferences.getInstance();
+      final scrollable = find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-switch-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      for (final panelKey in [
+        'developer-world-force-new-panel',
+        'developer-origin-world-sheet-panel',
+      ]) {
+        final panel = find.byKey(ValueKey<String>(panelKey));
+        await tester.scrollUntilVisible(panel, 200, scrollable: scrollable);
+        expect(panel, findsOneWidget);
+      }
       expect(
-        preferences.getBool(
-          MembershipGuestLoginDebugSettingsController.storageKey,
-        ),
-        isFalse,
+        find.byKey(const ValueKey('developer-membership-guest-login-panel')),
+        findsNothing,
       );
-    },
-  );
+      expect(find.text('Force login after guest purchase'), findsNothing);
+      expect(find.text('Set manual membership'), findsNothing);
+    });
+  }
 
   testWidgets('developer page controls forced world is_new state', (
     WidgetTester tester,
@@ -26670,6 +26690,19 @@ void main() {
     final forceNewSwitch = find.byKey(
       const ValueKey<String>('developer-world-force-new-switch'),
     );
+    await tester.scrollUntilVisible(
+      forceNewSwitch,
+      200,
+      scrollable: find
+          .descendant(
+            of: find.byKey(
+              const PageStorageKey<String>('developer-test-switch-tab-scroll'),
+            ),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
     expect(forceNewSwitch, findsOneWidget);
     expect(tester.widget<Switch>(forceNewSwitch).value, isFalse);
     expect(worldNewContentDebugSettings.forceNewBadges, isFalse);
@@ -26953,7 +26986,10 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(
-            services: await _testServices(initialAuthToken: null),
+            services: await _testServices(
+              initialUid: null,
+              initialAuthToken: null,
+            ),
             child: const DeveloperPage(),
           ),
         ),
@@ -27428,7 +27464,12 @@ void main() {
       tester.widget<Slider>(transparencyFinder).value,
       LocationChatHeaderEffectSettings.defaultTransparencyStrength,
     );
-    expect(tester.widget<Slider>(blurFinder).value, 4);
+    expect(
+      tester.widget<Slider>(blurFinder).value,
+      GenesisBlur.presets.indexOf(
+        LocationChatHeaderEffectSettings.defaultBlurSigma,
+      ),
+    );
     expect(tester.widget<Slider>(crowdedWidthFinder).value, 410);
     expect(find.text('Self & character message bubbles'), findsOneWidget);
     expect(find.text('Crowded width threshold'), findsOneWidget);
@@ -27706,6 +27747,12 @@ void main() {
         final section = find.byKey(
           const PageStorageKey<String>('developer-app-config-expanded'),
         );
+        expect(
+          Theme.of(
+            tester.element(find.byType(DeveloperPageContent)),
+          ).brightness,
+          Brightness.dark,
+        );
         final scrollable = find
             .descendant(
               of: find.byKey(
@@ -27791,7 +27838,10 @@ void main() {
     final tabsCenter = tester.getCenter(find.text('basic')).dy;
     expect(titleCenter, closeTo(closeCenter, 1));
     expect(tabsCenter, greaterThan(titleCenter));
-    expect(tabsCenter - titleCenter, lessThan(48));
+    expect(
+      tabsCenter - titleCenter,
+      closeTo(GenesisActionSheetHeader.height / 2 + genesisTabHeight / 2, 1),
+    );
     expect(
       tester
               .getTopLeft(
@@ -27805,7 +27855,7 @@ void main() {
                 find.byKey(const ValueKey<String>('developer-page-sheet')),
               )
               .dy,
-      closeTo(10, 1),
+      closeTo((GenesisActionSheetHeader.height - 28) / 2, 1),
     );
     expect(
       find.byKey(
@@ -28007,7 +28057,7 @@ void main() {
     expect(queryText.maxLines, isNull);
     expect(queryText.overflow, isNull);
     expect(queryText.style?.fontSize, 11);
-    expect(queryText.style?.color, const Color(0xFF777777));
+    expect(queryText.style?.color, GenesisColors.darkTextTertiary);
 
     await tester.enterText(
       find.byKey(const ValueKey<String>('developer-network-search')),

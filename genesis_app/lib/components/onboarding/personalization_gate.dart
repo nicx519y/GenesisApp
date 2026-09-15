@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/config/app_global_config.dart';
-import '../../app/debug/membership_guest_login_debug_settings.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../app/membership/membership_access_store.dart';
 import '../../app/onboarding/personalization_store.dart';
@@ -160,8 +159,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
     if (!_showing &&
         snapshot.data != null &&
         snapshot.uid == null &&
-        widget.loginPending?.value != null &&
-        membershipGuestLoginDebugSettings.forceLogin) {
+        widget.loginPending?.value != null) {
       _startupReady = false;
       await _prepareStartup();
       return;
@@ -191,7 +189,6 @@ class _PersonalizationGateState extends State<PersonalizationGate>
       // route open so the separate guest login gate cannot stack another sheet.
       if (snapshot.uid == null &&
           widget.loginPending?.value != null &&
-          membershipGuestLoginDebugSettings.forceLogin &&
           _route?.isCurrent == true) {
         _requiresSignIn.value = true;
       }
@@ -346,11 +343,9 @@ class _PersonalizationGateState extends State<PersonalizationGate>
           await widget.checkGuestPurchases?.call();
         }
         if (!current()) return;
-        final forceLogin = await membershipGuestLoginDebugSettings.load();
-        if (!current()) return;
         uid = await store.readLoginUid();
         if (!current()) return;
-        if (uid == null && widget.loginPending?.value != null && forceLogin) {
+        if (uid == null && widget.loginPending?.value != null) {
           if (!_foreground) return;
           final context = widget.navigatorKey.currentState?.overlay?.context;
           if (context == null || !context.mounted) return;
@@ -361,9 +356,6 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                   context,
                   continueAfterLogin: true,
                   isDismissible: false,
-                  forceLoginRequired: kDebugMode
-                      ? membershipGuestLoginDebugSettings.listenable
-                      : null,
                 );
           if (!current()) return;
           uid = await store.readLoginUid();

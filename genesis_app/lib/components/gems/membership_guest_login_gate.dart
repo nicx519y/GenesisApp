@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import '../../app/debug/membership_guest_login_debug_settings.dart';
 import '../../app/membership/membership_purchase_service.dart';
 import '../../routers/app_router.dart';
 import '../auth/login_guard.dart';
@@ -32,28 +31,12 @@ class MembershipGuestLoginGate extends StatefulWidget {
 
 class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   bool _showing = false;
-  bool _settingsReady = !kDebugMode;
-
-  bool get _forceLogin =>
-      !kDebugMode ||
-      (_settingsReady && membershipGuestLoginDebugSettings.forceLogin);
 
   @override
   void initState() {
     super.initState();
     widget.service?.guestLoginRequestId.addListener(_schedule);
     widget.blocked?.addListener(_schedule);
-    if (kDebugMode) {
-      membershipGuestLoginDebugSettings.listenable.addListener(_schedule);
-      unawaited(_loadDebugSetting());
-    }
-    _schedule();
-  }
-
-  Future<void> _loadDebugSetting() async {
-    await membershipGuestLoginDebugSettings.load();
-    if (!mounted) return;
-    _settingsReady = true;
     _schedule();
   }
 
@@ -73,7 +56,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   }
 
   void _schedule() {
-    if (!mounted || _showing || !_forceLogin || widget.blocked?.value == true) {
+    if (!mounted || _showing || widget.blocked?.value == true) {
       return;
     }
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -84,7 +67,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   }
 
   Future<void> _show() async {
-    if (!_forceLogin || widget.blocked?.value == true) return;
+    if (widget.blocked?.value == true) return;
     final service = widget.service;
     final requestId = service?.guestLoginRequestId.value;
     final context = widget.navigatorKey.currentState?.overlay?.context;
@@ -101,9 +84,6 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
               context,
               continueAfterLogin: true,
               isDismissible: false,
-              forceLoginRequired: kDebugMode
-                  ? membershipGuestLoginDebugSettings.listenable
-                  : null,
             );
       if (loggedIn) {
         if (mounted && identical(service, widget.service)) {
@@ -128,9 +108,6 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
   void dispose() {
     widget.blocked?.removeListener(_schedule);
     widget.service?.guestLoginRequestId.removeListener(_schedule);
-    if (kDebugMode) {
-      membershipGuestLoginDebugSettings.listenable.removeListener(_schedule);
-    }
     super.dispose();
   }
 

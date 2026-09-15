@@ -22,12 +22,14 @@ void main() {
         enabled,
       );
     }
-    expect(
-      AppGlobalConfig.fromJson({
-        'show_personalization_form': null,
-      }).showPersonalizationForm,
-      isFalse,
-    );
+    for (final invalid in [null, 0, 1, 'true', 'false', '1', {}, []]) {
+      expect(
+        AppGlobalConfig.fromJson({
+          'show_personalization_form': invalid,
+        }).showPersonalizationForm,
+        isFalse,
+      );
+    }
   });
 
   test('AppGlobalConfig parses and clamps API trace sampling rate', () {
@@ -166,6 +168,7 @@ void main() {
       expect(store.requestState.value.data, isNull);
       expect(store.requestState.value.error, same(error));
       expect(store.requestState.value.isLoading, isFalse);
+      expect(store.value.showPersonalizationForm, isFalse);
 
       shouldFail = false;
       await store.refresh();

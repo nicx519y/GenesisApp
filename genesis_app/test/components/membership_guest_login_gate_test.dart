@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:genesis_flutter_android/app/debug/membership_guest_login_debug_settings.dart';
 import 'package:genesis_flutter_android/components/gems/membership_guest_login_gate.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/components/login_sheet.dart';
@@ -43,7 +42,6 @@ Future<void> openGuestApp(
         requestLogin: (context) => showLoginSheet(
           context: context,
           isDismissible: false,
-          forceLoginRequired: membershipGuestLoginDebugSettings.listenable,
           onLogin: (_) async {
             if (signIn != null && !await signIn()) return false;
             h.uid = 'first-login';
@@ -86,7 +84,6 @@ Future<void> openGuestApp(
 void main() {
   setUp(() {
     SharedPreferences.setMockInitialValues({});
-    membershipGuestLoginDebugSettings.resetForTesting();
   });
 
   testWidgets(
@@ -203,90 +200,54 @@ void main() {
     },
   );
 
-  testWidgets(
-    'debug bypass keeps purchase success and later manual login can claim',
-    (tester) async {
-      await membershipGuestLoginDebugSettings.setForceLogin(false);
-      final h = Harness(claimEnabled: true)..uid = null;
-      await openGuestApp(tester, h);
-      await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
-      await tester.pump(const Duration(milliseconds: 250));
-      await h.service.interceptPurchase(h.purchase(yearly: true));
-      await tester.pumpAndSettle();
-      expect(find.text('Purchase successful!'), findsOneWidget);
-      await tester.tap(find.text('Enjoy it'));
-      await tester.pumpAndSettle();
-      expect(find.byType(LoginSheet), findsNothing);
-      expect(h.store.claims.values.single.purchaseConfirmed, isTrue);
-      expect(find.text('Me'), findsNothing);
-      expect(find.byType(ProSubscriptionContent), findsOneWidget);
-      expect(h.claimRequests, isEmpty);
-      h.uid = 'first-login';
-      h.service.resetForSession();
-      await h.service.recover();
-      expect(h.claimRequests, hasLength(1));
-      expect(
-        h.store.claims.values.where((r) => r.status != 'completed'),
-        isEmpty,
-      );
-    },
-  );
+  testWidgets('old debug bypass cannot skip login after a guest purchase', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({
+      'developer_membership_guest_force_login_v1': false,
+    });
+    final h = Harness(claimEnabled: true)..uid = null;
+    await openGuestApp(tester, h);
+    await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+    await tester.pump(const Duration(milliseconds: 250));
+    await h.service.interceptPurchase(h.purchase(yearly: true));
+    await tester.pumpAndSettle();
+    expect(find.text('Purchase successful!'), findsOneWidget);
+    await tester.tap(find.text('Enjoy it'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginSheet), findsOneWidget);
+    expect(h.store.claims.values.single.purchaseConfirmed, isTrue);
+    expect(find.text('Me'), findsNothing);
+    expect(h.claimRequests, isEmpty);
+    await tester.tap(find.text('Continue with Google'));
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginSheet), findsNothing);
+    expect(find.text('Me'), findsOneWidget);
+    expect(h.claimRequests, hasLength(1));
+    expect(
+      h.store.claims.values.where((r) => r.status != 'completed'),
+      isEmpty,
+    );
+  });
 
-  testWidgets(
-    'saved debug bypass is loaded before startup login and can be re-enabled',
-    (tester) async {
-      SharedPreferences.setMockInitialValues({
-        MembershipGuestLoginDebugSettingsController.storageKey: false,
-      });
-      final h = Harness(claimEnabled: true)..uid = null;
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      final restarted = Harness(storage: h.store, claimEnabled: true)
-        ..uid = null;
-      await restarted.service.start();
-      await openGuestApp(tester, restarted, homeOnly: true);
-      expect(find.byType(LoginSheet), findsNothing);
-      expect(h.store.claims, isNotEmpty);
-      expect(restarted.claimRequests, isEmpty);
-      await membershipGuestLoginDebugSettings.setForceLogin(true);
-      await tester.pumpAndSettle();
-      expect(find.byType(LoginSheet), findsOneWidget);
-      expect(find.byTooltip('Close'), findsNothing);
-      await tester.binding.handlePopRoute();
-      await tester.pumpAndSettle();
-      expect(find.byType(LoginSheet), findsOneWidget);
-    },
-  );
-
-  testWidgets(
-    'turning off the switch dismisses only forced login beneath Debug Page',
-    (tester) async {
-      final h = Harness(claimEnabled: true)..uid = null;
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      await openGuestApp(tester, h, homeOnly: true);
-      expect(find.byType(LoginSheet), findsOneWidget);
-      final navigator = tester.state<NavigatorState>(
-        find.byType(Navigator).first,
-      );
-      navigator.push(
-        MaterialPageRoute<void>(
-          builder: (_) => const Scaffold(body: Text('Debug Page')),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await membershipGuestLoginDebugSettings.setForceLogin(false);
-      await tester.pumpAndSettle();
-      expect(find.text('Debug Page'), findsOneWidget);
-      expect(find.byType(LoginSheet, skipOffstage: false), findsNothing);
-      navigator.pop();
-      await tester.pumpAndSettle();
-      expect(find.text('Home'), findsOneWidget);
-      expect(find.byType(LoginSheet), findsNothing);
-      expect(h.store.claims, isNotEmpty);
-      expect(h.claimRequests, isEmpty);
-    },
-  );
+  testWidgets('old debug bypass cannot skip startup login', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'developer_membership_guest_force_login_v1': false,
+    });
+    final h = Harness(claimEnabled: true)..uid = null;
+    await h.service.purchase(h.product());
+    await h.service.interceptPurchase(h.purchase());
+    final restarted = Harness(storage: h.store, claimEnabled: true)..uid = null;
+    await restarted.service.start();
+    await openGuestApp(tester, restarted, homeOnly: true);
+    expect(h.store.claims, isNotEmpty);
+    expect(restarted.claimRequests, isEmpty);
+    expect(find.byType(LoginSheet), findsOneWidget);
+    expect(find.byTooltip('Close'), findsNothing);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(LoginSheet), findsOneWidget);
+  });
 
   testWidgets('a cache loaded after Home is idle schedules mandatory login', (
     tester,

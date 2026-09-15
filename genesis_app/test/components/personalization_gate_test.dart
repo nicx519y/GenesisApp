@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/app/config/app_global_config.dart';
-import 'package:genesis_flutter_android/app/debug/membership_guest_login_debug_settings.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/onboarding/personalization_store.dart';
@@ -32,7 +31,6 @@ void main() {
     );
     addTearDown(appConfig.dispose);
     SharedPreferences.setMockInitialValues({});
-    membershipGuestLoginDebugSettings.resetForTesting();
   });
 
   testWidgets('config controls form entry without changing Continue', (
@@ -360,6 +358,10 @@ void main() {
     testWidgets(
       'paid guest logs in before loading account profile: $scenario',
       (tester) async {
+        // Removing the debug panel also removes any saved login bypass.
+        SharedPreferences.setMockInitialValues({
+          'developer_membership_guest_force_login_v1': false,
+        });
         final accountCompleted = scenario == 'already_completed';
         final formEnabled = scenario != 'form_disabled';
         appConfig.value = AppGlobalConfig(

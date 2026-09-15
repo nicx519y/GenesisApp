@@ -19,6 +19,7 @@ import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
 import '../../features/location_chat_reply/shared/reply_action_state.dart';
+import '../../ui/tokens/genesis_spacing.dart';
 import 'location_chat_reply_actions.dart';
 import 'location_chat_reply_card_switcher.dart';
 import 'location_chat_reply_layout_bridge.dart';
@@ -1840,7 +1841,7 @@ class _LocationChatAnchoredMessageListState
           if (widget.replyStatus case final status?) status,
         Padding(
           key: _replyControlLayoutKey,
-          padding: EdgeInsets.only(bottom: style.rowBottomPadding),
+          padding: const EdgeInsets.only(bottom: GenesisSpacing.xl),
           child: IgnorePointer(
             key: ValueKey(
               'reply-actions-input-blocker-${_showLoadingInReplyActionSlot ? _replyActionSlotLoadingIdentity : _replyIdentity}',
