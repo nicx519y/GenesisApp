@@ -7732,7 +7732,7 @@ void main() {
     expect(originRequests.single.uri.queryParameters['tag'], 'Destroyed');
   });
 
-  testWidgets('Origin header search fills the row without a logo', (
+  testWidgets('Origin header places gender filter to the right of search', (
     WidgetTester tester,
   ) async {
     await tester.pumpWidget(
@@ -7771,10 +7771,17 @@ void main() {
     );
     expect(logoFinder, findsNothing);
     expect(searchRect.left, 16);
-    expect(
-      searchRect.right,
-      tester.getSize(find.byType(OriginPage)).width - 16,
+    final filter = find.byKey(const ValueKey('origin-gender-filter'));
+    final filterRect = tester.getRect(filter);
+    final labelRect = tester.getRect(
+      find.descendant(of: filter, matching: find.byType(Text)),
     );
+    final arrowRect = tester.getRect(
+      find.byKey(const ValueKey('origin-gender-filter-arrow')),
+    );
+    expect(labelRect.left - searchRect.right, 12);
+    expect(filterRect.center.dy, searchRect.center.dy);
+    expect(arrowRect.right, tester.getSize(find.byType(OriginPage)).width - 16);
   });
 
   testWidgets(
@@ -8573,7 +8580,7 @@ void main() {
       final filter = find.byKey(const ValueKey('origin-gender-filter'));
       expect(
         tester.getCenter(filter).dx,
-        greaterThan(tester.getRect(find.byType(TabBar)).right),
+        greaterThan(tester.getRect(find.byType(SearchBarPlaceholder)).right),
       );
 
       Future<void> loadNext(String category, String scene) async {
@@ -8589,7 +8596,7 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      void expectFilterAlignedWithCard() {
+      void expectFilterAlignedBelowSearch() {
         final cardRect = tester.getRect(
           find
               .descendant(
@@ -8603,7 +8610,8 @@ void main() {
         final panelRect = tester.getRect(
           find.byKey(const ValueKey('origin-gender-filter-surface')),
         );
-        expect(panelRect.top, closeTo(cardRect.top, 0.1));
+        final searchRect = tester.getRect(find.byType(SearchBarPlaceholder));
+        expect(panelRect.top, closeTo(searchRect.bottom + 4, 0.1));
         expect(panelRect.left, closeTo(cardRect.left, 0.1));
         expect(panelRect.right, closeTo(cardRect.right, 0.1));
         expect(panelRect.width, closeTo(cardRect.width, 0.1));
@@ -8647,12 +8655,12 @@ void main() {
           ),
           findsOneWidget,
         );
-        expectFilterAlignedWithCard();
+        expectFilterAlignedBelowSearch();
         if (entry.key.isEmpty) {
           for (final width in [320.0, 430.0]) {
             await tester.binding.setSurfaceSize(Size(width, 844));
             await tester.pumpAndSettle();
-            expectFilterAlignedWithCard();
+            expectFilterAlignedBelowSearch();
           }
         }
         expect(

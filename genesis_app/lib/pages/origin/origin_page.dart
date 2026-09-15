@@ -27,6 +27,8 @@ import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
 import '../../ui/tokens/genesis_origin_card_geometry.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/tokens/genesis_spacing.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import 'origin_feed_cache_store.dart';
 import 'origin_feed_audience.dart';
@@ -75,6 +77,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   var _audienceRevision = 0;
   String? _manualGender;
   var _genderFilterOpen = false;
+  final _searchBarKey = GlobalKey();
   final _feedViewportKey = GlobalKey();
   var _feedStorage = PageStorageBucket();
   List<_OriginCategory> _categories = const [_forYouCategory];
@@ -131,7 +134,8 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
 
   Future<void> _showGenderFilter() async {
     if (_genderFilterOpen) return;
-    _genderFilterOpen = true;
+    setState(() => _genderFilterOpen = true);
+    String? selected;
     try {
       final audience = await _audience;
       if (!mounted) return;
@@ -141,16 +145,22 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
         anchorContext,
       ).overlay?.context.findRenderObject();
       final viewport = anchorContext.findRenderObject();
+      final searchBar = _searchBarKey.currentContext?.findRenderObject();
       if (overlay is! RenderBox ||
           viewport is! RenderBox ||
-          !viewport.hasSize) {
+          !viewport.hasSize ||
+          searchBar is! RenderBox ||
+          !searchBar.hasSize) {
         return;
       }
       var viewportRect =
           viewport.localToGlobal(Offset.zero, ancestor: overlay) &
           viewport.size;
+      var searchBarBottom = searchBar
+          .localToGlobal(Offset(0, searchBar.size.height), ancestor: overlay)
+          .dy;
       final selectedGender = audience.gender ?? '';
-      final selected = await showGenesisGeneralDialog<String>(
+      selected = await showGenesisGeneralDialog<String>(
         context: anchorContext,
         useRootNavigator: false,
         barrierColor: Colors.transparent,
@@ -165,9 +175,21 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
               viewportRect =
                   box.localToGlobal(Offset.zero, ancestor: overlay) & box.size;
             }
+            final searchBox = _searchBarKey.currentContext?.findRenderObject();
+            if (searchBox is RenderBox &&
+                searchBox.attached &&
+                searchBox.hasSize) {
+              searchBarBottom = searchBox
+                  .localToGlobal(
+                    Offset(0, searchBox.size.height),
+                    ancestor: overlay,
+                  )
+                  .dy;
+            }
             return CustomSingleChildLayout(
               delegate: _OriginGenderFilterLayout(
                 viewportRect: viewportRect,
+                searchBarBottom: searchBarBottom,
                 bottomInset: MediaQuery.paddingOf(dialogContext).bottom,
               ),
               child: _OriginGenderFilterMenu(
@@ -206,13 +228,13 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
           },
         ),
       );
-      if (!mounted || selected == null) return;
-      // null follows the user profile; empty explicitly selects All.
-      _manualGender = selected;
-      await _reloadAudience();
     } finally {
-      _genderFilterOpen = false;
+      if (mounted) setState(() => _genderFilterOpen = false);
     }
+    if (!mounted || selected == null) return;
+    // null follows the user profile; empty explicitly selects All.
+    _manualGender = selected;
+    await _reloadAudience();
   }
 
   Future<void> _reloadAudience() async {
@@ -378,6 +400,46 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     return result;
   }
 
+  Widget _buildGenderFilter() {
+    return FutureBuilder<OriginFeedAudience>(
+      future: _audience,
+      builder: (context, snapshot) {
+        final gender = snapshot.data?.gender ?? '';
+        return Tooltip(
+          message: 'Filter by gender',
+          child: TextButton(
+            key: const ValueKey('origin-gender-filter'),
+            style: TextButton.styleFrom(
+              foregroundColor: GenesisColors.darkTextPrimary,
+              textStyle: GenesisTypography.body.copyWith(
+                fontWeight: FontWeight.w400,
+              ),
+              padding: EdgeInsets.zero,
+              minimumSize: const Size(0, _tabsHeight),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            onPressed: _showGenderFilter,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_genderFilters[gender] ?? 'All'),
+                const SizedBox(width: GenesisSpacing.md),
+                CustomPaint(
+                  key: const ValueKey('origin-gender-filter-arrow'),
+                  size: const Size(10, 6),
+                  painter: _OriginGenderFilterArrowPainter(
+                    isOpen: _genderFilterOpen,
+                    color: GenesisColors.darkTextPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final categories = _categories;
@@ -394,7 +456,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                   GenesisTopSafeArea(
                     backgroundColor: GenesisColors.darkBackground,
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: GenesisSpacing.pagePadding,
                       child: SizedBox(
                         height: kGenesisTopBarHeight + 4,
                         child: Align(
@@ -407,6 +469,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                                 children: [
                                   Expanded(
                                     child: SearchBarPlaceholder(
+                                      key: _searchBarKey,
                                       backgroundColor:
                                           GenesisColors.darkFaintFill,
                                       borderColor: null,
@@ -417,6 +480,8 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                                       },
                                     ),
                                   ),
+                                  const SizedBox(width: GenesisSpacing.xl),
+                                  _buildGenderFilter(),
                                 ],
                               ),
                             ),
@@ -448,43 +513,14 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                 height: _tabsHeight,
                 child: ColoredBox(
                   color: GenesisColors.darkBackground,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: SecendTabs(
-                          labels: labels,
-                          labelColor: GenesisColors.darkTextPrimary,
-                          unselectedLabelColor: GenesisColors.darkTextSecondary,
-                          indicatorColor: GenesisColors.redPrimary,
-                          verticalPadding: 0,
-                          physics: const BouncingScrollPhysics(),
-                          onTap: (index) =>
-                              _handleCategoryTap(tabContext, index),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: SizedBox(
-                          width: 40,
-                          height: _tabsHeight,
-                          child: IconButton(
-                            key: const ValueKey('origin-gender-filter'),
-                            tooltip: 'Filter by gender',
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints.tightFor(
-                              width: 40,
-                              height: _tabsHeight,
-                            ),
-                            icon: const Icon(
-                              Icons.tune,
-                              size: 22,
-                              color: GenesisColors.darkTextPrimary,
-                            ),
-                            onPressed: _showGenderFilter,
-                          ),
-                        ),
-                      ),
-                    ],
+                  child: SecendTabs(
+                    labels: labels,
+                    labelColor: GenesisColors.darkTextPrimary,
+                    unselectedLabelColor: GenesisColors.darkTextSecondary,
+                    indicatorColor: GenesisColors.redPrimary,
+                    verticalPadding: 0,
+                    physics: const BouncingScrollPhysics(),
+                    onTap: (index) => _handleCategoryTap(tabContext, index),
                   ),
                 ),
               ),
@@ -537,21 +573,64 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   }
 }
 
-/// Align to the grid instead of Material's menu position, which adds an 8px
-/// screen margin and would shift the panel away from the right-hand card.
+/// Local chevron whose painted stroke reaches both horizontal bounds.
+class _OriginGenderFilterArrowPainter extends CustomPainter {
+  const _OriginGenderFilterArrowPainter({
+    required this.isOpen,
+    required this.color,
+  });
+
+  final bool isOpen;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 1.5;
+    const inset = strokeWidth / 2;
+    final endY = isOpen ? size.height - inset : inset;
+    final tipY = isOpen ? inset : size.height - inset;
+    final path = Path()
+      ..moveTo(inset, endY)
+      ..lineTo(size.width / 2, tipY)
+      ..lineTo(size.width - inset, endY);
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = strokeWidth
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_OriginGenderFilterArrowPainter oldDelegate) =>
+      isOpen != oldDelegate.isOpen || color != oldDelegate.color;
+}
+
+/// Align below the search field, with the width and right edge of the grid's
+/// right-hand card instead of Material's additional menu margin.
 class _OriginGenderFilterLayout extends SingleChildLayoutDelegate {
   _OriginGenderFilterLayout({
     required this.viewportRect,
+    required this.searchBarBottom,
     required this.bottomInset,
   });
 
   final Rect viewportRect;
+  final double searchBarBottom;
   final double bottomInset;
 
   Rect get _anchorRect {
     final content = genesisOriginGridPadding.deflateRect(viewportRect);
     final width = (content.width - genesisOriginGridSpacing) / 2;
-    return Rect.fromLTWH(content.right - width, content.top, width, 0);
+    return Rect.fromLTWH(
+      content.right - width,
+      searchBarBottom + GenesisSpacing.xs,
+      width,
+      0,
+    );
   }
 
   @override
@@ -573,6 +652,7 @@ class _OriginGenderFilterLayout extends SingleChildLayoutDelegate {
   @override
   bool shouldRelayout(covariant _OriginGenderFilterLayout oldDelegate) =>
       viewportRect != oldDelegate.viewportRect ||
+      searchBarBottom != oldDelegate.searchBarBottom ||
       bottomInset != oldDelegate.bottomInset;
 }
 
