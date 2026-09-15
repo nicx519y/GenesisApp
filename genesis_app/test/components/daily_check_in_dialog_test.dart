@@ -113,7 +113,7 @@ void main() {
             );
             expect(
               tester.widget<Text>(find.text('Check in')).style?.fontWeight,
-              FontWeight.w400,
+              FontWeight.w600,
             );
             expect(
               find.byKey(const ValueKey('daily-check-in-subscription-gem')),
@@ -282,7 +282,7 @@ void main() {
       expect(find.text('Get 100'), findsOneWidget);
       expect(
         tester.widget<Text>(find.text('Check in')).style?.fontWeight,
-        FontWeight.w400,
+        FontWeight.w600,
       );
       expect(
         tester.widget<Text>(find.text('Get 100')).style?.color,

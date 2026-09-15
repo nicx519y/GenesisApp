@@ -65,7 +65,6 @@ Future<bool> showDailyCheckInDialog(
   // membership lookup must not promote another subscription to an existing VIP.
   final showSubscriptionOffer =
       status == DailyCheckInDialogStatus.checkIn && isVip == false;
-  final showCheckInActions = showSubscriptionOffer || isVip == true && !claimed;
   final action = await showGenesisActionBox<_DailyCheckInAction>(
     context: context,
     title: 'Daily Check-in',
@@ -96,7 +95,6 @@ Future<bool> showDailyCheckInDialog(
           DailyCheckInDialogStatus.claimed => 'Claimed',
         },
         value: _DailyCheckInAction.checkIn,
-        fontWeight: showCheckInActions ? FontWeight.w400 : FontWeight.w600,
         color: claimed
             ? GenesisColors.darkTextTertiary
             : showSubscriptionOffer
