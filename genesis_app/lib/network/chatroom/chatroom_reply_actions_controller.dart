@@ -199,6 +199,14 @@ class ChatroomReplyRoundState {
       !generating &&
       !confirmed &&
       _cards.length < 10;
+  bool get canStartRegenerate =>
+      _eligibleWithoutConnection &&
+      _isOwnSupportedRound &&
+      !busy &&
+      !frozen &&
+      !generating &&
+      !confirmed &&
+      _cards.length < 10;
 
   /// Round-level capability, excluding transient operation locks.
   bool get supportsRegenerate =>
@@ -217,12 +225,36 @@ class ChatroomReplyRoundState {
       !frozen &&
       !_controller._hasPendingGoOn(locationId) &&
       (!showCandidates || _completeCard(viewedCard));
+  bool get canStartGoOn =>
+      _eligibleWithoutConnection &&
+      !busy &&
+      !frozen &&
+      !_controller._hasPendingGoOn(locationId) &&
+      (!showCandidates || _completeCard(viewedCard));
   bool get canEdit =>
       _eligible &&
       _supportsEditing &&
       !busy &&
       !frozen &&
       (!showCandidates || _completeCard(viewedCard));
+  bool get canStartEdit =>
+      _eligibleWithoutConnection &&
+      _supportsEditing &&
+      !busy &&
+      !frozen &&
+      (!showCandidates || _completeCard(viewedCard));
+  bool get canStartInspiration {
+    if (!_eligibleWithoutConnection || _roundFailed || busy || frozen) {
+      return false;
+    }
+    final card = _isOwnSupportedRound
+        ? (confirmed ? _card(selectedCardId) : viewedCard)
+        : null;
+    return !_isOwnSupportedRound ||
+        !hasCardGroup ||
+        (card != null && _completeCard(card) && card.cardId > 0);
+  }
+
   bool get _baseEligible =>
       isLatest &&
       !_invalidated &&
@@ -233,6 +265,8 @@ class ChatroomReplyRoundState {
       _baseEligible &&
       _controller._isReady(locationId) &&
       !_controller._isTickLocked();
+  bool get _eligibleWithoutConnection =>
+      _baseEligible && !_controller._isTickLocked();
   ChatroomLlmCard? get viewedCard => _card(_viewedCardId);
 
   int get inspirationTailMessageId {

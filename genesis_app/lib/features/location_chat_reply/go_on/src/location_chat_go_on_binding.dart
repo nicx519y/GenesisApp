@@ -5,9 +5,14 @@ extension _LocationChatGoOnBinding on _LocationChatPanelState {
       LocationChatGoOnFeature(
         state: state,
         onInvoke: () => unawaited(
-          _runReplyGeneration(
-            (controller) => controller.goOn(widget.locationId),
-            regenerating: false,
+          _submitReplyAction(
+            _LocationChatReplyActionTransaction(
+              action: _LocationChatReplyConnectionAction.goOn,
+              commit: () => _runReplyGeneration(
+                (controller) => controller.goOn(widget.locationId),
+                regenerating: false,
+              ),
+            ),
           ),
         ),
       );

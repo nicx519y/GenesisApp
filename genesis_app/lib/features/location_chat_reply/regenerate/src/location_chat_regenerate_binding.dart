@@ -11,9 +11,14 @@ extension _LocationChatRegenerateBinding on _LocationChatPanelState {
                 showGenesisToast(context, 'You can generate up to 10 replies.')
           : null,
       onInvoke: () => unawaited(
-        _runReplyGeneration(
-          (controller) => controller.regenerate(widget.locationId),
-          regenerating: true,
+        _submitReplyAction(
+          _LocationChatReplyActionTransaction(
+            action: _LocationChatReplyConnectionAction.regenerate,
+            commit: () => _runReplyGeneration(
+              (controller) => controller.regenerate(widget.locationId),
+              regenerating: true,
+            ),
+          ),
         ),
       ),
     );

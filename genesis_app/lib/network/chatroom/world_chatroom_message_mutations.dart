@@ -5,7 +5,14 @@ class _LocationHistoryRefresh {
   final int? start;
   final int? end;
   final token = NetworkCancellationToken();
+  final done = Completer<void>();
   final liveMessages = <int, WorldChatroomMessage>{};
+
+  void cancel() => token.cancel();
+
+  void complete() {
+    if (!done.isCompleted) done.complete();
+  }
 }
 
 typedef _HistoryTicket = ({
@@ -166,7 +173,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
   }
 
   void _invalidateHistory(String locationId, {bool resetPagination = true}) {
-    _historyRefreshes[locationId]?.token.cancel();
+    _historyRefreshes[locationId]?.cancel();
     _localMessageCacheGeneration += 1;
     _latestMessageFetchFutures.clear();
     if (!resetPagination) return;
@@ -184,7 +191,8 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
     _historySessionGeneration += 1;
     _entryNetworkVerified.clear();
     for (final request in _historyRefreshes.values) {
-      request.token.cancel();
+      request.cancel();
+      request.complete();
     }
     _historyRefreshes.clear();
   }
@@ -483,6 +491,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
       // Retain the invalid range. A retry unions it with the next notification.
       rethrow;
     } finally {
+      request.complete();
       if (prepareEntry) _endEntryRead(location, ticket, error: entryError);
     }
   }

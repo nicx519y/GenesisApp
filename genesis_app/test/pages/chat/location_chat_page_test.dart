@@ -1016,6 +1016,25 @@ void main() {
         for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
           expect(find.bySemanticsLabel(label), findsNothing);
         }
+        if (action.requestType == 'regenerate_llm_card') {
+          await tester.pump(const Duration(milliseconds: 600));
+          final stillDeferred = tester.widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          );
+          expect(
+            stillDeferred.messages.any((message) => message.isTick),
+            isFalse,
+          );
+          expect(
+            find.byKey(const ValueKey('reply-card-regenerate-gradient')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('reply-card-page-501')),
+            findsNothing,
+            reason: 'Tick must not reopen the old card after collapse.',
+          );
+        }
         expect(
           harness.socket.replyActionFrames(action.requestType),
           hasLength(1),
@@ -1128,9 +1147,57 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets('a Tick waits for the current conversation round to end', (
+    tester,
+  ) async {
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+    );
+    harness.socket.serverWaitingConversationRound(roundId: 401);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          harness
+              .service
+              .state
+              .conversationRoundStatesByLocation['location-current']
+              ?.conversationRoundId ==
+          '401',
+    );
+
+    harness.socket.serverV2Tick(
+      messageId: 501,
+      locationMessageId: 501,
+      globalText: 'The world advanced.',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.service.state.messagesByLocation['location-current']!.any(
+        (message) => message.businessType == 'tick',
+      ),
+    );
+    await tester.pump();
+    var list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(list.messages.any((message) => message.isTick), isFalse);
+
+    harness.socket.serverEndConversationRound(roundId: 401);
+    await _pumpUntilLocationChatTest(tester, () {
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      return list.messages.any((message) => message.isTick);
+    });
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump(const Duration(seconds: 3));
+  });
+
   for (final mode in ['ordinary', 'candidates', 'confirmed']) {
     testWidgets(
-      'prepared entry first frame includes $mode and supported disabled toolbar before join',
+      'prepared entry first frame includes $mode and supported idle toolbar before join',
       (tester) async {
         final backend = _LocationChatReplyHttpTransport()..seedReplyRound();
         if (mode != 'ordinary') {
@@ -1194,17 +1261,17 @@ void main() {
           ),
           findsWidgets,
         );
-        expect(list.editFeature.state, LocationChatReplyActionState.disabled);
-        expect(list.goOnFeature.state, LocationChatReplyActionState.disabled);
+        expect(list.editFeature.state, LocationChatReplyActionState.idle);
+        expect(list.goOnFeature.state, LocationChatReplyActionState.idle);
         expect(
           list.inspirationFeature.state,
-          LocationChatReplyActionState.disabled,
+          LocationChatReplyActionState.idle,
         );
         expect(
           list.regenerateFeature.state,
           mode == 'confirmed'
               ? LocationChatReplyActionState.none
-              : LocationChatReplyActionState.disabled,
+              : LocationChatReplyActionState.idle,
         );
         expect(harness.service.state.joinedLocationId, isEmpty);
         if (mode == 'candidates') expect(find.text('2 / 2'), findsOneWidget);
@@ -1239,6 +1306,323 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'reply tap before join stays busy and dispatches only after the shared join',
+    (tester) async {
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: _LocationChatReplyHttpTransport(),
+      );
+      final joinedBeforeRecovery = harness.socket
+          .replyActionFrames('join')
+          .length;
+      harness.socket.autoJoinAck = false;
+      await tester.runAsync(harness.service.leave);
+      await tester.pump();
+      expect(harness.service.state.joinedLocationId, isEmpty);
+      expect(
+        tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .goOnFeature
+            .state,
+        LocationChatReplyActionState.idle,
+      );
+
+      await tester.tap(find.bySemanticsLabel('Go on'));
+      await tester.pump();
+      var list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(list.goOnFeature.state, LocationChatReplyActionState.busy);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness.socket.replyActionFrames('join').length ==
+            joinedBeforeRecovery + 1,
+        step: const Duration(milliseconds: 5),
+      );
+      expect(
+        harness.socket.replyActionFrames('join'),
+        hasLength(joinedBeforeRecovery + 1),
+      );
+      expect(harness.socket.replyActionFrames('go_on'), isEmpty);
+
+      await tester.tap(find.bySemanticsLabel('Go on'));
+      await tester.pump();
+      expect(
+        harness.socket.replyActionFrames('join'),
+        hasLength(joinedBeforeRecovery + 1),
+      );
+      harness.socket.serverReplyActionAck('join', roundId: 301);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.replyActionFrames('go_on').isNotEmpty,
+        step: const Duration(milliseconds: 5),
+      );
+      expect(
+        harness.socket.replyActionFrames('join'),
+        hasLength(joinedBeforeRecovery + 1),
+      );
+      expect(harness.socket.replyActionFrames('go_on'), hasLength(1));
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(list.goOnFeature.state, LocationChatReplyActionState.busy);
+      harness.socket.serverReplyActionAck('go_on', roundId: 401);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness.service.replyActions!
+                .stateForRound('location-current', 301)
+                ?.goOnRoundId ==
+            401,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  testWidgets(
+    'Regenerate collapse starts with dispatch instead of the pre-join tap',
+    (tester) async {
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: _LocationChatReplyHttpTransport(),
+      );
+      final joinedBeforeRecovery = harness.socket
+          .replyActionFrames('join')
+          .length;
+      harness.socket.autoJoinAck = false;
+      await tester.runAsync(harness.service.leave);
+      await tester.pump();
+
+      await tester.tap(find.bySemanticsLabel('Regenerate'));
+      await tester.pump();
+      expect(_replyActionLoading('Regenerate'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('reply-card-regenerate-gradient')),
+        findsNothing,
+        reason: 'Connection recovery must not start the card animation.',
+      );
+      await tester.pump(const Duration(milliseconds: 120));
+      expect(
+        harness.socket.replyActionFrames('join'),
+        hasLength(joinedBeforeRecovery + 1),
+      );
+      expect(harness.socket.replyActionFrames('regenerate_llm_card'), isEmpty);
+      expect(
+        find.byKey(const ValueKey('reply-card-regenerate-gradient')),
+        findsNothing,
+      );
+
+      harness.socket.serverReplyActionAck('join', roundId: 301);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness.socket.replyActionFrames('regenerate_llm_card').length == 1,
+        step: const Duration(milliseconds: 5),
+      );
+      expect(
+        harness.socket.replyActionFrames('join'),
+        hasLength(joinedBeforeRecovery + 1),
+      );
+      expect(
+        find.byKey(const ValueKey('reply-card-regenerate-gradient')),
+        findsOneWidget,
+        reason: 'The normal collapse starts in the request dispatch frame.',
+      );
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(
+        find.byKey(const ValueKey('reply-card-regenerate-gradient')),
+        findsOneWidget,
+      );
+      harness.socket.serverReplyActionAck(
+        'regenerate_llm_card',
+        roundId: 301,
+        errNo: 5001,
+        errMsg: 'Regenerate rejected',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => _replyActionLoading('Regenerate').evaluate().isEmpty,
+        step: const Duration(milliseconds: 5),
+      );
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  for (final action in ['Edit', 'Inspiration']) {
+    testWidgets('$action commits feature work only after the shared join', (
+      tester,
+    ) async {
+      final backend = _LocationChatReplyHttpTransport();
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+        usePreparedEntry: action == 'Inspiration',
+      );
+      if (action == 'Inspiration') {
+        // Keep the authoritative refresh identical to the rendered source so
+        // this test isolates connection gating from source invalidation.
+        backend.messages.removeWhere(
+          (message) => message['global_message_id'] == 90303,
+        );
+      }
+      final joinedBeforeRecovery = harness.socket
+          .replyActionFrames('join')
+          .length;
+      harness.socket.autoJoinAck = false;
+      await tester.runAsync(harness.service.leave);
+      await tester.pump();
+
+      await tester.tap(find.bySemanticsLabel(action));
+      await tester.pump();
+      expect(_replyActionLoading(action), findsOneWidget);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness.socket.replyActionFrames('join').length ==
+            joinedBeforeRecovery + 1,
+        step: const Duration(milliseconds: 5),
+      );
+      if (action == 'Edit') {
+        expect(find.byType(LocationChatEditPage), findsNothing);
+      } else {
+        expect(backend.inspirationRequests, isEmpty);
+        expect(
+          find.byKey(const ValueKey('inspiration-replies-transition')),
+          findsNothing,
+        );
+      }
+
+      await tester.tap(find.bySemanticsLabel(action));
+      await tester.pump();
+      expect(
+        harness.socket.replyActionFrames('join'),
+        hasLength(joinedBeforeRecovery + 1),
+      );
+      harness.socket.serverReplyActionAck('join', roundId: 301);
+      if (action == 'Edit') {
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => find.byType(LocationChatEditPage).evaluate().isNotEmpty,
+          step: const Duration(milliseconds: 5),
+        );
+        Navigator.of(tester.element(find.byType(LocationChatEditPage))).pop();
+        await tester.pumpAndSettle();
+      } else {
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => backend.inspirationRequests.length == 1,
+          step: const Duration(milliseconds: 50),
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => tester
+              .widget<LocationChatAnchoredMessageList>(
+                find.byType(LocationChatAnchoredMessageList),
+              )
+              .inspirationFeature
+              .messages
+              .isNotEmpty,
+          step: const Duration(milliseconds: 5),
+        );
+        expect(
+          find.byKey(const ValueKey('inspiration-replies-transition')),
+          findsOneWidget,
+        );
+      }
+      expect(
+        harness.socket.replyActionFrames('join'),
+        hasLength(joinedBeforeRecovery + 1),
+      );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    });
+  }
+
+  testWidgets('join failure releases reply recovery busy state', (
+    tester,
+  ) async {
+    final backend = _LocationChatReplyHttpTransport()..seedReplyRound();
+    final harness = await _connectedLocationChatTestService(
+      replyTransport: backend,
+    );
+    harness.socket.autoJoinAck = false;
+    await tester.runAsync(
+      () => harness.service.initializeLeafLocationQueues(
+        locationIds: ['location-current'],
+      ),
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(harness.service.dispose());
+    });
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: harness.service,
+            usePreparedEntry: true,
+            leaveOnInactive: false,
+            messageQueueInitializationCovered: true,
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Go on'));
+    await tester.pump();
+    expect(
+      tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .goOnFeature
+          .state,
+      LocationChatReplyActionState.busy,
+    );
+    // The page's independent background join policy retries after this
+    // rejected attempt. Let that later retry complete so the test leaves no
+    // unrelated ACK timeout behind.
+    harness.socket.autoJoinAck = true;
+    harness.socket.serverReplyActionAck(
+      'join',
+      roundId: 301,
+      errNo: 5001,
+      errMsg: 'Join rejected',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          tester
+              .widget<LocationChatAnchoredMessageList>(
+                find.byType(LocationChatAnchoredMessageList),
+              )
+              .goOnFeature
+              .state ==
+          LocationChatReplyActionState.idle,
+      step: const Duration(milliseconds: 5),
+    );
+    expect(harness.socket.replyActionFrames('join'), isNotEmpty);
+    expect(harness.socket.replyActionFrames('go_on'), isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump(const Duration(seconds: 3));
+  });
 
   testWidgets('prepared entry preserves live candidate chunk rendering', (
     tester,
@@ -3962,6 +4346,7 @@ void main() {
         tester,
         () =>
             harness.socket.replyActionFrames('regenerate_llm_card').length == 1,
+        step: const Duration(milliseconds: 5),
       );
       await tester.pump();
       expect(
