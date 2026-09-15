@@ -295,6 +295,7 @@ Future<AppServices> _testServices({
   DeviceIdService? deviceIdService,
   AppGlobalConfigStore? appGlobalConfig,
   bool usePersonalizationApi = false,
+  PersonalizationStore? personalization,
 }) async {
   const config = AppConfig(useMock: true);
   final platformConfig = DefaultPlatformConfig(appConfig: config);
@@ -362,14 +363,16 @@ Future<AppServices> _testServices({
     appGlobalConfig: appGlobalConfig,
     // Legacy page tests start with onboarding completed. Dedicated startup
     // tests opt into the actual API-backed personalization service below.
-    personalization: usePersonalizationApi
-        ? null
-        : PersonalizationStore(
-            readLoginUid: sessionStore.readLoginUid,
-            load: () async => personalizationData(completed: true),
-            save: (_) async =>
-                throw StateError('Unexpected personalization save'),
-          ),
+    personalization:
+        personalization ??
+        (usePersonalizationApi
+            ? null
+            : PersonalizationStore(
+                readLoginUid: sessionStore.readLoginUid,
+                load: () async => personalizationData(completed: true),
+                save: (_) async =>
+                    throw StateError('Unexpected personalization save'),
+              )),
   );
 }
 
@@ -1741,6 +1744,20 @@ class _QueuedOriginRefreshTransport implements HttpTransport {
         'has_more': false,
       },
     });
+  }
+}
+
+class _OldAudienceOriginTransport extends _RecordingV1ListTransport {
+  final oldResponse = Completer<TransportResponse>();
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path == '/api/v1/origin/feed' &&
+        request.uri.queryParameters['gender'] == 'Female') {
+      requests.add(request);
+      return oldResponse.future;
+    }
+    return super.send(request);
   }
 }
 
@@ -8369,6 +8386,498 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getStringList('origin_hot_tags_v1'), <String>['Remote']);
   });
+
+  for (final entry in <String, String?>{
+    'Male': 'Female',
+    'Female': 'Male',
+    'Non_binary': null,
+    '': null,
+  }.entries) {
+    testWidgets(
+      'Origin targets ${entry.value} for ${entry.key} across tabs and pages',
+      (tester) async {
+        final transport = _RecordingV1ListTransport();
+        final services = await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUserInfo: {'uid': 'u_mock', 'gender': entry.key},
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppServicesScope(
+              services: services,
+              child: const OriginPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        Future<void> loadNext(String category, String scene) async {
+          final scroll = tester.state<ScrollableState>(
+            find.descendant(
+              of: find.byKey(
+                PageStorageKey<String>('origin-feed-$category-$scene'),
+              ),
+              matching: find.byType(Scrollable),
+            ),
+          );
+          scroll.position.jumpTo(scroll.position.maxScrollExtent);
+          await tester.pumpAndSettle();
+        }
+
+        await loadNext('For you', 'foryou');
+        await tester.tap(find.text('Destroyed'));
+        await tester.pumpAndSettle();
+        await loadNext('Destroyed', 'tag');
+
+        for (final path in ['/api/v1/origin/feed', '/api/v1/origin/list']) {
+          final requests = transport.requestsFor(path);
+          expect(requests.length, greaterThan(1));
+          for (final request in requests) {
+            expect(request.uri.queryParameters['gender'], entry.value);
+            expect(
+              request.uri.queryParameters.containsKey('gender'),
+              entry.value != null,
+            );
+          }
+        }
+        expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+      },
+    );
+  }
+
+  testWidgets(
+    'Origin uses arriving guest personalization then switches to userInfo on login',
+    (tester) async {
+      final transport = _RecordingV1ListTransport();
+      final session = MemoryUserSessionStore();
+      final response = Completer<PersonalizationData>();
+      var loads = 0;
+      final personalization = PersonalizationStore(
+        readLoginUid: session.readLoginUid,
+        load: () {
+          loads++;
+          return response.future;
+        },
+        save: (profile) async => profile,
+      );
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: null,
+        sessionStoreOverride: session,
+        personalization: personalization,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(services: services, child: const OriginPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(loads, 0);
+      expect(
+        transport
+            .requestsFor('/api/v1/origin/feed')
+            .last
+            .uri
+            .queryParameters
+            .containsKey('gender'),
+        isFalse,
+      );
+
+      final loading = personalization.start();
+      response.complete(
+        const PersonalizationData(
+          profile: PersonalizationProfile(
+            gender: 'Male',
+            age: '18-24',
+            completed: true,
+          ),
+          form: [],
+        ),
+      );
+      await loading;
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
+        {'start_score': '0', 'rn': '10', 'gender': 'Female'},
+      );
+      await tester.tap(find.text('Destroyed'));
+      await tester.pumpAndSettle();
+      expect(
+        transport
+            .requestsFor('/api/v1/origin/list')
+            .last
+            .uri
+            .queryParameters['gender'],
+        'Female',
+      );
+
+      await personalization.submit(
+        const PersonalizationProfile(
+          gender: 'Female',
+          age: '18-24',
+          completed: true,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/origin/list').last.uri.queryParameters,
+        {
+          'scene': 'tag',
+          'tag': 'Destroyed',
+          'pn': '1',
+          'rn': '20',
+          'gender': 'Male',
+        },
+      );
+
+      await session.saveUid('u_logged_in');
+      await session.saveUserInfo({'uid': 'u_logged_in', 'gender': 'Male'});
+      await tester.pumpAndSettle();
+      expect(
+        transport
+            .requestsFor('/api/v1/origin/list')
+            .last
+            .uri
+            .queryParameters['gender'],
+        'Female',
+      );
+      final count = transport.requestsFor('/api/v1/origin/list').length;
+      personalization.state.value = const PersonalizationState();
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(count));
+      expect(loads, 1);
+      expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Origin gender filter applies all four choices to tabs and pagination',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final transport = _RecordingV1ListTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUserInfo: {'uid': 'u_mock', 'gender': 'Male'},
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(services: services, child: const OriginPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final filter = find.byKey(const ValueKey('origin-gender-filter'));
+      expect(
+        tester.getCenter(filter).dx,
+        greaterThan(tester.getRect(find.byType(TabBar)).right),
+      );
+
+      Future<void> loadNext(String category, String scene) async {
+        final scroll = tester.state<ScrollableState>(
+          find.descendant(
+            of: find.byKey(
+              PageStorageKey<String>('origin-feed-$category-$scene'),
+            ),
+            matching: find.byType(Scrollable),
+          ),
+        );
+        scroll.position.jumpTo(scroll.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+      }
+
+      void expectFilterAlignedWithCard() {
+        final cardRect = tester.getRect(
+          find
+              .descendant(
+                of: find.byKey(
+                  const PageStorageKey<String>('origin-feed-For you-foryou'),
+                ),
+                matching: find.byType(OriginItemCard),
+              )
+              .at(1),
+        );
+        final panelRect = tester.getRect(
+          find.byKey(const ValueKey('origin-gender-filter-surface')),
+        );
+        expect(panelRect.top, closeTo(cardRect.top, 0.1));
+        expect(panelRect.left, closeTo(cardRect.left, 0.1));
+        expect(panelRect.right, closeTo(cardRect.right, 0.1));
+        expect(panelRect.width, closeTo(cardRect.width, 0.1));
+      }
+
+      for (final entry in {
+        '': 'All',
+        'Male': 'Male',
+        'Female': 'Female',
+        'Non_binary': 'Non binary',
+      }.entries) {
+        await tester.tap(find.text('For you'));
+        await tester.pumpAndSettle();
+        tester
+            .state<ScrollableState>(
+              find.descendant(
+                of: find.byKey(
+                  const PageStorageKey<String>('origin-feed-For you-foryou'),
+                ),
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .position
+            .jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.tap(filter);
+        await tester.pumpAndSettle();
+        final options = tester.widgetList<PopupMenuItem<String>>(
+          find.byType(PopupMenuItem<String>),
+        );
+        expect(options.map((option) => option.value), [
+          '',
+          'Male',
+          'Female',
+          'Non_binary',
+        ]);
+        expect(
+          find.descendant(
+            of: find.byType(PopupMenuItem<String>),
+            matching: find.byIcon(Icons.check),
+          ),
+          findsOneWidget,
+        );
+        expectFilterAlignedWithCard();
+        if (entry.key.isEmpty) {
+          for (final width in [320.0, 430.0]) {
+            await tester.binding.setSurfaceSize(Size(width, 844));
+            await tester.pumpAndSettle();
+            expectFilterAlignedWithCard();
+          }
+        }
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('origin-gender-filter-surface')),
+            matching: find.byType(BackdropFilter),
+          ),
+          findsOneWidget,
+        );
+        expect(find.byType(GenesisActionBox<String>), findsNothing);
+        expect(find.text('Cancel'), findsNothing);
+        await tester.tap(find.text(entry.value));
+        await tester.pumpAndSettle();
+        expect(find.byType(PopupMenuItem<String>), findsNothing);
+        expect(
+          transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
+          {
+            'start_score': '0',
+            'rn': '10',
+            if (entry.key.isNotEmpty) 'gender': entry.key,
+          },
+        );
+        await loadNext('For you', 'foryou');
+        expect(
+          transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
+          {
+            'start_score': '10',
+            'rn': '10',
+            if (entry.key.isNotEmpty) 'gender': entry.key,
+          },
+        );
+        await tester.tap(find.text('Destroyed'));
+        await tester.pumpAndSettle();
+        expect(
+          transport.requestsFor('/api/v1/origin/list').last.uri.queryParameters,
+          {
+            'scene': 'tag',
+            'tag': 'Destroyed',
+            'pn': '1',
+            'rn': '20',
+            if (entry.key.isNotEmpty) 'gender': entry.key,
+          },
+        );
+        await loadNext('Destroyed', 'tag');
+        expect(
+          transport.requestsFor('/api/v1/origin/list').last.uri.queryParameters,
+          {
+            'scene': 'tag',
+            'tag': 'Destroyed',
+            'pn': '2',
+            'rn': '20',
+            if (entry.key.isNotEmpty) 'gender': entry.key,
+          },
+        );
+      }
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('origin-gender-option-Non_binary')),
+          matching: find.byIcon(Icons.check),
+        ),
+        findsOneWidget,
+      );
+      final count = transport.requestsFor('/api/v1/origin/list').length;
+      await tester.tapAt(const Offset(4, 4));
+      await tester.pumpAndSettle();
+      expect(find.byType(PopupMenuItem<String>), findsNothing);
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(count));
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(PopupMenuItem<String>), findsNothing);
+      expect(transport.requestsFor('/api/v1/origin/list'), hasLength(count));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Origin manual All is not overwritten by profile updates or refresh',
+    (tester) async {
+      final transport = _RecordingV1ListTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUserInfo: {'uid': 'u_mock', 'gender': 'Male'},
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(services: services, child: const OriginPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All'));
+      await tester.pumpAndSettle();
+      final count = transport.requestsFor('/api/v1/origin/feed').length;
+
+      await services.sessionStore.saveUserInfo({
+        'uid': 'u_mock',
+        'gender': 'Female',
+      });
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(count));
+      tester.state<RefreshIndicatorState>(find.byType(RefreshIndicator)).show();
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
+        {'start_score': '0', 'rn': '10'},
+      );
+    },
+  );
+
+  testWidgets('Origin restarts the cursor when current user gender changes', (
+    tester,
+  ) async {
+    final transport = _RecordingV1ListTransport();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialUserInfo: {'uid': 'u_mock', 'gender': 'Male'},
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(services: services, child: const OriginPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final scroll = tester.state<ScrollableState>(
+      find.descendant(
+        of: find.byKey(
+          const PageStorageKey<String>('origin-feed-For you-foryou'),
+        ),
+        matching: find.byType(Scrollable),
+      ),
+    );
+    scroll.position.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(
+      transport
+          .requestsFor('/api/v1/origin/feed')
+          .last
+          .uri
+          .queryParameters['start_score'],
+      '10',
+    );
+
+    await services.sessionStore.saveUserInfo({
+      'uid': 'u_mock',
+      'gender': 'Female',
+    });
+    await tester.pumpAndSettle();
+    expect(
+      transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
+      {'start_score': '0', 'rn': '10', 'gender': 'Male'},
+    );
+    final count = transport.requestsFor('/api/v1/origin/feed').length;
+    await services.sessionStore.saveUserInfo({
+      'uid': 'u_mock',
+      'gender': 'Female',
+      'name': 'Changed',
+    });
+    await tester.pumpAndSettle();
+    expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(count));
+
+    await services.sessionStore.clearUid();
+    await tester.pumpAndSettle();
+    expect(
+      transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
+      {'start_score': '0', 'rn': '10'},
+    );
+  });
+
+  testWidgets(
+    'Origin ignores the previous audience response after changing gender',
+    (tester) async {
+      final transport = _OldAudienceOriginTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUserInfo: {'uid': 'u_mock', 'gender': 'Male'},
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(services: services, child: const OriginPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
+      await services.sessionStore.saveUserInfo({
+        'uid': 'u_mock',
+        'gender': 'Female',
+      });
+      await tester.pumpAndSettle();
+      expect(find.text('#Origin 1'), findsOneWidget);
+
+      transport.oldResponse.complete(
+        transport._jsonResponse({
+          'err_no': 0,
+          'data': {
+            'list': [transport._originItem(50)],
+            'next_score': 51,
+            'has_more': false,
+          },
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('#Origin 1'), findsOneWidget);
+      expect(find.text('#Origin 51'), findsNothing);
+      expect(
+        await const OriginFeedCacheStore(
+          ownerUid: 'u_mock',
+          gender: 'Female',
+        ).loadForYouFirstPage(),
+        isNull,
+      );
+      final cached = await const OriginFeedCacheStore(
+        ownerUid: 'u_mock',
+        gender: 'Male',
+      ).loadForYouFirstPage();
+      expect(cached!['next_score'], 10);
+    },
+  );
 
   testWidgets('Origin renders cached For you page while refreshing it', (
     WidgetTester tester,

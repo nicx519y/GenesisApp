@@ -3,12 +3,15 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class OriginFeedCacheStore {
-  const OriginFeedCacheStore({String? ownerUid}) : _ownerUid = ownerUid;
+  const OriginFeedCacheStore({String? ownerUid, String? gender})
+    : _ownerUid = ownerUid,
+      _gender = gender;
 
   static const String storageKey = 'origin_feed_cache_v2';
   static const String anonymousOwnerUid = '__anonymous__';
 
   final String? _ownerUid;
+  final String? _gender;
 
   Future<Map<String, dynamic>?> loadForYouFirstPage() async {
     final prefs = await SharedPreferences.getInstance();
@@ -32,6 +35,8 @@ class OriginFeedCacheStore {
   String get _storageKey {
     final owner = (_ownerUid ?? '').trim();
     final resolvedOwner = owner.isEmpty ? anonymousOwnerUid : owner;
-    return '$storageKey.$resolvedOwner.foryou.page_1';
+    final gender = (_gender ?? '').trim();
+    final suffix = gender.isEmpty ? '' : '.gender_$gender';
+    return '$storageKey.$resolvedOwner.foryou.page_1$suffix';
   }
 }

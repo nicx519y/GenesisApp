@@ -62,6 +62,27 @@ void main() {
     );
   });
 
+  test(
+    'separates gender-filtered pages from each other and old caches',
+    () async {
+      const unfiltered = OriginFeedCacheStore(ownerUid: 'u_alice');
+      const male = OriginFeedCacheStore(ownerUid: 'u_alice', gender: 'Male');
+      const female = OriginFeedCacheStore(
+        ownerUid: 'u_alice',
+        gender: 'Female',
+      );
+      await unfiltered.saveForYouFirstPage({'next_score': 10});
+      expect(await male.loadForYouFirstPage(), isNull);
+      expect(await female.loadForYouFirstPage(), isNull);
+
+      await male.saveForYouFirstPage({'next_score': 20});
+      await female.saveForYouFirstPage({'next_score': 30});
+      expect((await unfiltered.loadForYouFirstPage())!['next_score'], 10);
+      expect((await male.loadForYouFirstPage())!['next_score'], 20);
+      expect((await female.loadForYouFirstPage())!['next_score'], 30);
+    },
+  );
+
   test('returns null for invalid cached json', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       '${OriginFeedCacheStore.storageKey}.u_alice.foryou.page_1': 'not json',

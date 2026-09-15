@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show SemanticsRole;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -8,17 +9,19 @@ import 'package:visibility_detector/visibility_detector.dart';
 
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../app/bootstrap/app_services_scope.dart';
+import '../../app/bootstrap/service_registry.dart';
 import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/startup/startup_request_diagnostics.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
+import '../../components/common/genesis_action_box.dart';
+import '../../components/common/genesis_modal_routes.dart';
 import '../../components/origin/origin_item_card.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
-import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -26,6 +29,7 @@ import '../../ui/tokens/genesis_origin_card_geometry.dart';
 import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import 'origin_feed_cache_store.dart';
+import 'origin_feed_audience.dart';
 
 @visibleForTesting
 Duration? debugOriginExposureVisibilityUpdateInterval;
@@ -52,6 +56,12 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   static const _tabsHeight = 32.0;
   static const _searchTopSpacing = 12.0;
   static const _scrollToTopDuration = Duration(milliseconds: 240);
+  static const _genderFilters = {
+    '': 'All',
+    'Male': 'Male',
+    'Female': 'Female',
+    'Non_binary': 'Non binary',
+  };
   static const _forYouCategory = _OriginCategory(
     name: 'For you',
     scene: 'foryou',
@@ -60,6 +70,13 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   final _hotTagsCache = const _OriginHotTagsCache();
   final _iosPrimaryScrollController = ScrollController();
   final Map<_OriginCategory, GlobalKey<_OriginFeedState>> _feedKeys = {};
+  AppServices? _services;
+  late Future<OriginFeedAudience> _audience;
+  var _audienceRevision = 0;
+  String? _manualGender;
+  var _genderFilterOpen = false;
+  final _feedViewportKey = GlobalKey();
+  var _feedStorage = PageStorageBucket();
   List<_OriginCategory> _categories = const [_forYouCategory];
   TabController? _categoryTabController;
   var _scrollToTopInProgress = false;
@@ -80,6 +97,140 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final services = AppServicesScope.of(context);
+    if (identical(services, _services)) return;
+    _removeAudienceListeners();
+    _services = services;
+    _audienceRevision += 1;
+    _audience = _loadAudience(services);
+    _feedKeys.clear();
+    _feedStorage = PageStorageBucket();
+    services.sessionStore.userInfoRevision.addListener(_reloadAudience);
+    services.sessionRevision.addListener(_reloadAudience);
+    services.personalization.state.addListener(_reloadAudience);
+  }
+
+  void _removeAudienceListeners() {
+    _services?.sessionStore.userInfoRevision.removeListener(_reloadAudience);
+    _services?.sessionRevision.removeListener(_reloadAudience);
+    _services?.personalization.state.removeListener(_reloadAudience);
+  }
+
+  Future<OriginFeedAudience> _loadAudience(AppServices services) async {
+    final automatic = await loadOriginFeedAudience(
+      services.sessionStore,
+      personalization: services.personalization,
+    );
+    return (
+      ownerUid: automatic.ownerUid,
+      gender: _manualGender ?? automatic.gender,
+    );
+  }
+
+  Future<void> _showGenderFilter() async {
+    if (_genderFilterOpen) return;
+    _genderFilterOpen = true;
+    try {
+      final audience = await _audience;
+      if (!mounted) return;
+      final anchorContext = _feedViewportKey.currentContext;
+      if (anchorContext == null || !anchorContext.mounted) return;
+      final overlay = Navigator.of(
+        anchorContext,
+      ).overlay?.context.findRenderObject();
+      final viewport = anchorContext.findRenderObject();
+      if (overlay is! RenderBox ||
+          viewport is! RenderBox ||
+          !viewport.hasSize) {
+        return;
+      }
+      var viewportRect =
+          viewport.localToGlobal(Offset.zero, ancestor: overlay) &
+          viewport.size;
+      final selectedGender = audience.gender ?? '';
+      final selected = await showGenesisGeneralDialog<String>(
+        context: anchorContext,
+        useRootNavigator: false,
+        barrierColor: Colors.transparent,
+        barrierDismissible: true,
+        barrierLabel: MaterialLocalizations.of(
+          context,
+        ).modalBarrierDismissLabel,
+        pageBuilder: (dialogContext, _, _) => LayoutBuilder(
+          builder: (_, _) {
+            final box = _feedViewportKey.currentContext?.findRenderObject();
+            if (box is RenderBox && box.attached && box.hasSize) {
+              viewportRect =
+                  box.localToGlobal(Offset.zero, ancestor: overlay) & box.size;
+            }
+            return CustomSingleChildLayout(
+              delegate: _OriginGenderFilterLayout(
+                viewportRect: viewportRect,
+                bottomInset: MediaQuery.paddingOf(dialogContext).bottom,
+              ),
+              child: _OriginGenderFilterMenu(
+                items: [
+                  for (final entry in _genderFilters.entries)
+                    PopupMenuItem<String>(
+                      key: ValueKey('origin-gender-option-${entry.key}'),
+                      value: entry.key,
+                      height: GenesisActionBox.defaultRowHeight,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Semantics(
+                        selected: entry.key == selectedGender,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                entry.value,
+                                style: GenesisActionBox.actionTextStyle,
+                              ),
+                            ),
+                            if (entry.key == selectedGender) ...[
+                              const SizedBox(width: 8),
+                              const Icon(
+                                Icons.check,
+                                color: GenesisColors.darkTextPrimary,
+                                size: 18,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        ),
+      );
+      if (!mounted || selected == null) return;
+      // null follows the user profile; empty explicitly selects All.
+      _manualGender = selected;
+      await _reloadAudience();
+    } finally {
+      _genderFilterOpen = false;
+    }
+  }
+
+  Future<void> _reloadAudience() async {
+    final revision = ++_audienceRevision;
+    final previous = _audience;
+    final services = _services!;
+    final next = await _loadAudience(services);
+    final old = await previous;
+    if (!mounted || revision != _audienceRevision || next == old) return;
+    setState(() {
+      _audience = Future.value(next);
+      // A new audience starts at page 1; old requests cannot populate new tabs.
+      _feedKeys.clear();
+      _feedStorage = PageStorageBucket();
+    });
+  }
+
+  @override
   void didUpdateWidget(covariant OriginPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.activationListenable != widget.activationListenable) {
@@ -90,6 +241,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _removeAudienceListeners();
     widget.activationListenable?.removeListener(_handleMainNavReselected);
     WidgetsBinding.instance.removeObserver(this);
     _iosPrimaryScrollController.dispose();
@@ -296,14 +448,43 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                 height: _tabsHeight,
                 child: ColoredBox(
                   color: GenesisColors.darkBackground,
-                  child: SecendTabs(
-                    labels: labels,
-                    labelColor: GenesisColors.darkTextPrimary,
-                    unselectedLabelColor: GenesisColors.darkTextSecondary,
-                    indicatorColor: GenesisColors.redPrimary,
-                    verticalPadding: 0,
-                    physics: const BouncingScrollPhysics(),
-                    onTap: (index) => _handleCategoryTap(tabContext, index),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: SecendTabs(
+                          labels: labels,
+                          labelColor: GenesisColors.darkTextPrimary,
+                          unselectedLabelColor: GenesisColors.darkTextSecondary,
+                          indicatorColor: GenesisColors.redPrimary,
+                          verticalPadding: 0,
+                          physics: const BouncingScrollPhysics(),
+                          onTap: (index) =>
+                              _handleCategoryTap(tabContext, index),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: SizedBox(
+                          width: 40,
+                          height: _tabsHeight,
+                          child: IconButton(
+                            key: const ValueKey('origin-gender-filter'),
+                            tooltip: 'Filter by gender',
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints.tightFor(
+                              width: 40,
+                              height: _tabsHeight,
+                            ),
+                            icon: const Icon(
+                              Icons.tune,
+                              size: 22,
+                              color: GenesisColors.darkTextPrimary,
+                            ),
+                            onPressed: _showGenderFilter,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -315,22 +496,28 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                   behavior: ScrollConfiguration.of(
                     context,
                   ).copyWith(overscroll: false),
-                  child: TabBarView(
-                    children: [
-                      for (final entry in categories.indexed)
-                        _OriginFeed(
-                          key: _feedKeyFor(entry.$2),
-                          index: entry.$1,
-                          category: entry.$2,
-                          isInitialPage: widget.isInitialPage && entry.$1 == 0,
-                          onFirstPageReady: entry.$1 == 0
-                              ? widget.onForYouFirstPageReady
-                              : null,
-                          onInitialLoadCompleted: entry.$1 == 0
-                              ? _retryHotTagsIfNeeded
-                              : null,
-                        ),
-                    ],
+                  child: PageStorage(
+                    bucket: _feedStorage,
+                    child: TabBarView(
+                      key: _feedViewportKey,
+                      children: [
+                        for (final entry in categories.indexed)
+                          _OriginFeed(
+                            key: _feedKeyFor(entry.$2),
+                            index: entry.$1,
+                            category: entry.$2,
+                            audience: _audience,
+                            isInitialPage:
+                                widget.isInitialPage && entry.$1 == 0,
+                            onFirstPageReady: entry.$1 == 0
+                                ? widget.onForYouFirstPageReady
+                                : null,
+                            onInitialLoadCompleted: entry.$1 == 0
+                                ? _retryHotTagsIfNeeded
+                                : null,
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -346,6 +533,80 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     return PrimaryScrollController(
       controller: _iosPrimaryScrollController,
       child: themedPage,
+    );
+  }
+}
+
+/// Align to the grid instead of Material's menu position, which adds an 8px
+/// screen margin and would shift the panel away from the right-hand card.
+class _OriginGenderFilterLayout extends SingleChildLayoutDelegate {
+  _OriginGenderFilterLayout({
+    required this.viewportRect,
+    required this.bottomInset,
+  });
+
+  final Rect viewportRect;
+  final double bottomInset;
+
+  Rect get _anchorRect {
+    final content = genesisOriginGridPadding.deflateRect(viewportRect);
+    final width = (content.width - genesisOriginGridSpacing) / 2;
+    return Rect.fromLTWH(content.right - width, content.top, width, 0);
+  }
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final anchor = _anchorRect;
+    return BoxConstraints(
+      minWidth: anchor.width,
+      maxWidth: anchor.width,
+      maxHeight: (constraints.maxHeight - anchor.top - bottomInset).clamp(
+        0.0,
+        constraints.maxHeight,
+      ),
+    );
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) => _anchorRect.topLeft;
+
+  @override
+  bool shouldRelayout(covariant _OriginGenderFilterLayout oldDelegate) =>
+      viewportRect != oldDelegate.viewportRect ||
+      bottomInset != oldDelegate.bottomInset;
+}
+
+/// One surface blurs the whole menu, without blurring its text or checkmarks.
+class _OriginGenderFilterMenu extends StatelessWidget {
+  const _OriginGenderFilterMenu({required this.items});
+
+  final List<PopupMenuItem<String>> items;
+
+  @override
+  Widget build(BuildContext context) {
+    return GenesisDarkTheme(
+      child: GenesisActionBoxSurface(
+        key: const ValueKey('origin-gender-filter-surface'),
+        child: Semantics(
+          role: SemanticsRole.menu,
+          scopesRoute: true,
+          namesRoute: true,
+          explicitChildNodes: true,
+          label: 'Filter by gender',
+          child: SingleChildScrollView(
+            primary: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final (index, item) in items.indexed) ...[
+                  if (index > 0) const GenesisActionBoxDivider(),
+                  item,
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -388,6 +649,7 @@ class _OriginFeed extends StatefulWidget {
     super.key,
     required this.index,
     required this.category,
+    required this.audience,
     this.isInitialPage = false,
     this.onFirstPageReady,
     this.onInitialLoadCompleted,
@@ -395,6 +657,7 @@ class _OriginFeed extends StatefulWidget {
 
   final int index;
   final _OriginCategory category;
+  final Future<OriginFeedAudience> audience;
   final bool isInitialPage;
   final VoidCallback? onFirstPageReady;
   final VoidCallback? onInitialLoadCompleted;
@@ -799,10 +1062,14 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   Future<_OriginListPage> _fetchPage(int page, {int? startScore}) async {
+    final audience = await widget.audience;
+    if (!mounted) throw StateError('Origin feed disposed');
     if (_isForYouFeed) {
-      final data = await AppServicesScope.of(
-        context,
-      ).api.v1.origin.feed(startScore: startScore ?? 0, rn: _forYouPageSize);
+      final data = await AppServicesScope.of(context).api.v1.origin.feed(
+        startScore: startScore ?? 0,
+        rn: _forYouPageSize,
+        gender: audience.gender,
+      );
       return _parseOriginFeedPage(data);
     }
     final scene = widget.category.scene;
@@ -811,22 +1078,25 @@ class _OriginFeedState extends State<_OriginFeed>
       tag: scene == 'tag' ? widget.category.name : null,
       pn: page,
       rn: _pageSize,
+      gender: audience.gender,
     );
     return _parseOriginListPage(data);
   }
 
-  Future<OriginFeedCacheStore> _cacheStoreForCurrentOwner() async {
-    final services = AppServicesScope.of(context);
-    final uid = await services.sessionStore.readLoginUid();
-    final ownerUid = uid ?? OriginFeedCacheStore.anonymousOwnerUid;
-    return OriginFeedCacheStore(ownerUid: ownerUid);
+  Future<OriginFeedCacheStore?> _cacheStoreForCurrentOwner() async {
+    final audience = await widget.audience;
+    if (audience.ownerUid == null) return null;
+    return OriginFeedCacheStore(
+      ownerUid: audience.ownerUid,
+      gender: audience.gender,
+    );
   }
 
   Future<void> _hydrateCachedFirstPage() async {
     Map<String, dynamic>? data;
     try {
       final cacheStore = await _cacheStoreForCurrentOwner();
-      data = await cacheStore.loadForYouFirstPage();
+      data = await cacheStore?.loadForYouFirstPage();
     } catch (_) {
       return;
     }
@@ -865,7 +1135,7 @@ class _OriginFeedState extends State<_OriginFeed>
   Future<void> _saveFirstPageCache(Map<String, dynamic> data) async {
     try {
       final cacheStore = await _cacheStoreForCurrentOwner();
-      await cacheStore.saveForYouFirstPage(data);
+      await cacheStore?.saveForYouFirstPage(data);
     } catch (_) {
       // Cache writes must not affect the visible network result.
     }
@@ -1452,12 +1722,12 @@ class _OriginFeedState extends State<_OriginFeed>
                   physics: physics,
                   slivers: [
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(2, 5, 2, 0),
+                      padding: genesisOriginGridPadding,
                       sliver: SliverLayoutBuilder(
                         builder: (context, constraints) {
-                          const crossAxisSpacing = 2.0;
                           final itemWidth =
-                              (constraints.crossAxisExtent - crossAxisSpacing) /
+                              (constraints.crossAxisExtent -
+                                  genesisOriginGridSpacing) /
                               2;
                           final itemHeight =
                               itemWidth / genesisOriginCoverAspectRatio +
@@ -1469,8 +1739,8 @@ class _OriginFeedState extends State<_OriginFeed>
                             gridDelegate:
                                 SliverGridDelegateWithFixedCrossAxisCount(
                                   crossAxisCount: 2,
-                                  mainAxisSpacing: 2,
-                                  crossAxisSpacing: crossAxisSpacing,
+                                  mainAxisSpacing: genesisOriginGridSpacing,
+                                  crossAxisSpacing: genesisOriginGridSpacing,
                                   mainAxisExtent: itemHeight,
                                 ),
                             delegate: SliverChildBuilderDelegate(

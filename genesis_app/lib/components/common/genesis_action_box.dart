@@ -94,6 +94,12 @@ class GenesisActionBox<T> extends StatelessWidget {
 
   static const double defaultRowHeight = 51;
   static const double defaultTitleHeight = 82;
+  static const actionTextStyle = TextStyle(
+    color: _genesisActionBoxText,
+    fontSize: 15,
+    height: 1.2,
+    fontWeight: FontWeight.w600,
+  );
   static const double _maxWidth = 800;
 
   final String title;
@@ -136,7 +142,7 @@ class GenesisActionBox<T> extends StatelessWidget {
   }
 
   Widget _buildAttachedCancelStyle() {
-    return _ActionBoxSurface(
+    return GenesisActionBoxSurface(
       key: const ValueKey('genesis-action-box-attached-cancel'),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -155,7 +161,7 @@ class GenesisActionBox<T> extends StatelessWidget {
               child: content,
             ),
           if (actions.isNotEmpty) ...[
-            const _Divider(),
+            const GenesisActionBoxDivider(),
             for (var index = 0; index < actions.length; index++) ...[
               _ActionRow<T>(
                 action: actions[index],
@@ -163,7 +169,8 @@ class GenesisActionBox<T> extends StatelessWidget {
                 isPreferred: true,
                 onSelected: onActionSelected,
               ),
-              if (showCancel || index != actions.length - 1) const _Divider(),
+              if (showCancel || index != actions.length - 1)
+                const GenesisActionBoxDivider(),
             ],
           ],
           if (showCancel)
@@ -182,7 +189,7 @@ class GenesisActionBox<T> extends StatelessWidget {
       key: const ValueKey('genesis-action-box-detached-cancel'),
       mainAxisSize: MainAxisSize.min,
       children: [
-        _ActionBoxSurface(
+        GenesisActionBoxSurface(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -202,7 +209,7 @@ class GenesisActionBox<T> extends StatelessWidget {
                   child: content,
                 ),
               if (actions.isNotEmpty) ...[
-                const _Divider(),
+                const GenesisActionBoxDivider(),
                 for (var index = 0; index < actions.length; index++) ...[
                   _ActionRow<T>(
                     action: actions[index],
@@ -210,14 +217,15 @@ class GenesisActionBox<T> extends StatelessWidget {
                     isPreferred: index == 0,
                     onSelected: onActionSelected,
                   ),
-                  if (index != actions.length - 1) const _Divider(),
+                  if (index != actions.length - 1)
+                    const GenesisActionBoxDivider(),
                 ],
               ],
             ],
           ),
         ),
         const SizedBox(height: 14),
-        _ActionBoxSurface(
+        GenesisActionBoxSurface(
           child: _CancelRow(
             label: cancelLabel,
             height: cancelRowHeight,
@@ -230,10 +238,15 @@ class GenesisActionBox<T> extends StatelessWidget {
 }
 
 /// Clip the backdrop blur to each panel and keep text and actions opaque.
-class _ActionBoxSurface extends StatelessWidget {
-  const _ActionBoxSurface({super.key, required this.child});
+class GenesisActionBoxSurface extends StatelessWidget {
+  const GenesisActionBoxSurface({
+    super.key,
+    required this.child,
+    this.borderRadius = defaultBorderRadius,
+  });
 
-  static const _borderRadius = BorderRadius.all(Radius.circular(18));
+  static const defaultBorderRadius = BorderRadius.all(Radius.circular(18));
+  final BorderRadius borderRadius;
   static final _blur = ImageFilter.blur(
     sigmaX: GenesisBlur.strong,
     sigmaY: GenesisBlur.strong,
@@ -244,15 +257,18 @@ class _ActionBoxSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ClipRRect(
-      borderRadius: _borderRadius,
+      borderRadius: borderRadius,
       child: BackdropFilter(
         filter: _blur,
         child: Material(
           color: GenesisColors.darkOverlayBackground,
           surfaceTintColor: Colors.transparent,
-          shape: const RoundedRectangleBorder(
-            borderRadius: _borderRadius,
-            side: BorderSide(color: GenesisColors.darkFaintFill, width: 1),
+          shape: RoundedRectangleBorder(
+            borderRadius: borderRadius,
+            side: const BorderSide(
+              color: GenesisColors.darkFaintFill,
+              width: 1,
+            ),
           ),
           child: child,
         ),
@@ -357,10 +373,8 @@ class _ActionRow<T> extends StatelessWidget {
       action.label,
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
-      style: TextStyle(
+      style: GenesisActionBox.actionTextStyle.copyWith(
         color: color,
-        fontSize: 15,
-        height: 1.2,
         fontWeight: action.fontWeight,
       ),
     );
@@ -436,10 +450,7 @@ class _CancelRow extends StatelessWidget {
               label,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: _genesisActionBoxText,
-                fontSize: 15,
-                height: 1.2,
+              style: GenesisActionBox.actionTextStyle.copyWith(
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -459,13 +470,15 @@ String _actionSlug(String label) {
   return normalized.isEmpty ? 'unknown' : normalized;
 }
 
-class _Divider extends StatelessWidget {
-  const _Divider();
+class GenesisActionBoxDivider extends StatelessWidget {
+  const GenesisActionBoxDivider({super.key});
+
+  static const height = 1.0;
 
   @override
   Widget build(BuildContext context) {
     return const Divider(
-      height: 1,
+      height: height,
       thickness: 1,
       color: _genesisActionBoxDivider,
     );

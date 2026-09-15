@@ -1838,6 +1838,33 @@ void main() {
     expect(recorded, 2);
   });
 
+  test('origin list and feed omit unspecified gender and All', () async {
+    final transport = _FakeTransport(
+      handler: (_) => const TransportResponse(
+        statusCode: 200,
+        headers: {'content-type': 'application/json'},
+        body: '{"err_no":0,"data":{"list":[],"total":0}}',
+      ),
+    );
+    final api = _apiWith(transport, transport);
+    for (final gender in <String?>[null, '', 'Male', 'Female', 'Non_binary']) {
+      await api.v1.origin.feed(startScore: 12, gender: gender);
+      expect(transport.lastRequest!.uri.queryParameters, {
+        'start_score': '12',
+        'rn': '10',
+        if (gender != null && gender.isNotEmpty) 'gender': gender,
+      });
+      await api.getOrigins(category: 'Romance', gender: gender, offset: 20);
+      expect(transport.lastRequest!.uri.queryParameters, {
+        'scene': 'tag',
+        'tag': 'Romance',
+        'pn': '2',
+        'rn': '20',
+        if (gender != null && gender.isNotEmpty) 'gender': gender,
+      });
+    }
+  });
+
   test('Origin feed validates cursor, page size, and exposure batch', () async {
     final api = _apiWith(
       _FakeTransport(
