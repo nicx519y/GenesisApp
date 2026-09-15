@@ -79,7 +79,7 @@ void main() {
           ),
           findsOneWidget,
         );
-        await tester.tap(find.text('Got It'));
+        await tester.tap(find.text('Got it'));
         await tester.pumpAndSettle();
         expect(find.byType(Dialog), findsNothing);
         expect(find.byType(ProSubscriptionContent), findsOneWidget);

@@ -30,8 +30,6 @@ class LocationChatReplyActions extends StatefulWidget {
     this.inspirationExpanded,
     this.inspirationListKey,
     this.inspirationIdentity,
-    this.inspirationPromptExpanded,
-    this.onInspirationPromptExpandedChanged,
     this.onInspirationExpandedChanged,
     this.inspirationPage,
     this.onInspirationPageChanged,
@@ -70,8 +68,6 @@ class LocationChatReplyActions extends StatefulWidget {
   final bool? inspirationExpanded;
   final Key? inspirationListKey;
   final Object? inspirationIdentity;
-  final bool? inspirationPromptExpanded;
-  final ValueChanged<bool>? onInspirationPromptExpandedChanged;
   final ValueChanged<bool>? onInspirationExpandedChanged;
 
   static const inspirationAnimationDuration = Duration(milliseconds: 220);
@@ -91,7 +87,6 @@ class LocationChatReplyActions extends StatefulWidget {
 class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
   bool _localEditPromptExpanded = false;
   bool _localInspirationExpanded = false;
-  bool _localInspirationPromptExpanded = false;
   int _localInspirationPage = 0;
   bool get _inspirationExpanded =>
       widget.inspirationExpanded ?? _localInspirationExpanded;
@@ -106,18 +101,9 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   void _invokeInspiration() {
     _setEditPromptExpanded(false);
-    _setInspirationPromptExpanded(true);
     _setInspirationExpanded(
       !(_inspirationExpanded && _inspiration.messages.isNotEmpty),
     );
-  }
-
-  void _setInspirationPromptExpanded(bool expanded) {
-    if (widget.onInspirationPromptExpandedChanged case final onChanged?) {
-      onChanged(expanded);
-    } else {
-      setState(() => _localInspirationPromptExpanded = expanded);
-    }
   }
 
   void _setInspirationExpanded(bool next) {
@@ -166,7 +152,6 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             feature: _edit,
             onBeforeInvoke: () {
               _setEditPromptExpanded(true);
-              _setInspirationPromptExpanded(false);
               _setInspirationExpanded(false);
             },
           ),
@@ -230,12 +215,18 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               _inspiration.state != LocationChatReplyActionState.none &&
               _inspirationExpanded,
           replies: _inspiration.messages,
+          footer: _inspiration.freeUsesRemaining != null
+              ? _quotaPrompt(
+                  feature: 'inspiration',
+                  message: 'Free inspiration uses left: ',
+                  remaining: _inspiration.freeUsesRemaining!,
+                )
+              : null,
           onSend: (text) {
             _setInspirationExpanded(false);
             _inspiration.onSend?.call(text);
           },
           onEdit: (text) {
-            _setInspirationPromptExpanded(false);
             _setInspirationExpanded(false);
             _inspiration.onEdit?.call(text);
           },
@@ -247,15 +238,6 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             widget.onInspirationPageChanged?.call(page);
           },
         ),
-        if (widget.loadingIndicator == null &&
-            (widget.inspirationPromptExpanded ??
-                _localInspirationPromptExpanded) &&
-            _inspiration.freeUsesRemaining != null)
-          _quotaPrompt(
-            feature: 'inspiration',
-            message: 'Free inspiration uses left: ',
-            remaining: _inspiration.freeUsesRemaining!,
-          ),
       ],
     );
   }

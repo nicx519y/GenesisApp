@@ -15,7 +15,7 @@
 
 只有状态 1 且到期时间晚于服务端校准当前时间才为有效会员；状态 2 或已到期均失效。缺少必要数据不能作为未开通放行。游客不使用上述账号会员限制，继续原有未绑定订单登录拦截、平台购买及 report/claim。
 
-重复购买沿用 `You already have an active Premium subscription.`；降级沿用 Notification / `Worldo Premium is active in your subscription and does not support downgrades.` / Got It。全局状态变化只更新按钮文案和行为，不改尺寸、颜色和卡片布局。商品缓存 v3 仅存展示配置，会员缓存属于全局 wallet。商品及升级凭据复用本次页面 API 响应，不因点击购买重复请求；未完成时等待同一请求，本次商品请求失败或支付前 wallet 刷新失败不使用旧缓存付款。
+重复购买沿用 `You already have an active Premium subscription.`；降级沿用 Notification / `Worldo Premium is active in your subscription and does not support downgrades.` / Got it。全局状态变化只更新按钮文案和行为，不改尺寸、颜色和卡片布局。商品缓存 v3 仅存展示配置，会员缓存属于全局 wallet。商品及升级凭据复用本次页面 API 响应，不因点击购买重复请求；未完成时等待同一请求，本次商品请求失败或支付前 wallet 刷新失败不使用旧缓存付款。
 
 ## 2. Google Play 主错误码
 

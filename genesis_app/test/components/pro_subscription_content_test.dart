@@ -241,7 +241,7 @@ void main() {
                 findsOneWidget,
               );
               expect(find.text('Cancel'), findsNothing);
-              await tester.tap(find.text('Got It'));
+              await tester.tap(find.text('Got it'));
               await tester.pumpAndSettle();
               expect(find.byType(Dialog), findsNothing);
               expect(find.text(r'Monthly: $9.99'), findsOneWidget);
@@ -747,7 +747,7 @@ void main() {
         findsOneWidget,
       );
       expect(purchases, 0);
-      await tester.tap(find.text('Got It'));
+      await tester.tap(find.text('Got it'));
       await tester.pumpAndSettle();
       expect(find.byType(Dialog), findsNothing);
     },

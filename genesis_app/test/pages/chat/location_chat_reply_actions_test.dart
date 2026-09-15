@@ -182,7 +182,7 @@ void main() {
 
   for (final remaining in [0, 2]) {
     testWidgets(
-      'inspiration list animates both ways while retaining its $remaining-use prompt',
+      'inspiration list toggles together with its $remaining-use prompt',
       (tester) async {
         await tester.pumpWidget(
           MaterialApp(
@@ -209,7 +209,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 110));
         final expandingHeight = tester.getSize(transition).height;
-        final promptElement = tester.element(prompt);
+        expect(prompt, findsOneWidget);
         await tester.pumpAndSettle();
         final fullHeight = tester.getSize(transition).height;
         expect(expandingHeight, greaterThan(0));
@@ -224,10 +224,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 110));
         expect(tester.getSize(transition).height, greaterThan(0));
         expect(tester.getSize(transition).height, lessThan(fullHeight));
-        expect(tester.element(prompt), same(promptElement));
+        expect(prompt, findsOneWidget);
         await tester.pumpAndSettle();
         expect(carousel, findsNothing);
-        expect(tester.element(prompt), same(promptElement));
+        expect(prompt, findsNothing);
         await tester.tap(button);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 110));
@@ -237,7 +237,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(carousel, findsOneWidget);
-        expect(tester.element(prompt), same(promptElement));
+        expect(prompt, findsOneWidget);
       },
     );
   }
@@ -1236,7 +1236,7 @@ void main() {
     expect(tester.getRect(find.byKey(closeKey)), closeRect);
     expect(tester.getTopLeft(find.byKey(contentKey)).dy, contentTop);
   });
-  testWidgets('collapsing inspiration keeps the bottom after horizontal swipes', (
+  testWidgets('inspiration and its prompt fully expand after repeated toggles', (
     tester,
   ) async {
     final coordinator = LocationChatScrollCoordinator();
@@ -1271,6 +1271,7 @@ void main() {
                   inspirationFeature: const LocationChatInspirationFeature(
                     messages: _inspirationReplies,
                     state: LocationChatReplyActionState.idle,
+                    freeUsesRemaining: 2,
                   ),
                   coordinator: coordinator,
                   messages: messages,
@@ -1287,13 +1288,27 @@ void main() {
     await tester.pumpAndSettle();
     for (var cycle = 0; cycle < 3; cycle++) {
       await tester.tap(find.bySemanticsLabel('Inspiration'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      for (var frame = 0; frame < 18; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        final position = coordinator.controller.position;
+        expect(
+          position.pixels,
+          closeTo(position.maxScrollExtent, 0.5),
+          reason: 'Cycle $cycle, frame $frame follows the shared expansion.',
+        );
+      }
       expect(coordinator.isAtBottom, isTrue);
       final viewport = tester.getRect(find.byKey(viewportKey));
       final footer = tester.getRect(
         find.byKey(const ValueKey('inspiration-replies-carousel')),
       );
       expect(footer.bottom, lessThanOrEqualTo(viewport.bottom));
+      final prompt = tester.getRect(
+        find.byKey(const ValueKey('inspiration-subscription-prompt')),
+      );
+      expect(prompt.top, greaterThanOrEqualTo(footer.bottom));
+      expect(prompt.bottom, lessThanOrEqualTo(viewport.bottom));
       await tester.drag(
         find.byKey(const ValueKey('inspiration-replies-carousel')),
         Offset(cycle.isEven ? -230 : 230, 0),
@@ -1308,6 +1323,10 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('inspiration-get-more')), findsNothing);
+      expect(
+        find.byKey(const ValueKey('inspiration-subscription-prompt')),
+        findsNothing,
+      );
       expect(
         find.byKey(const ValueKey('inspiration-replies-carousel')),
         findsNothing,

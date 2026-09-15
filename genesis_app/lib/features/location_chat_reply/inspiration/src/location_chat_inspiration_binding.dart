@@ -199,7 +199,14 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
       _setReplyControlsState(() {
         _inspirationDisplayedSource = verified;
         _inspirationMessages = messages;
+        _inspirationQuotaQueried = true;
       });
+      if (_featureQuotas?.quotaFor('inspiration') == null &&
+          _featureQuotas?.isMember != true) {
+        // Cached replies need only a display snapshot. The account-scoped
+        // store notifies the UI; a failed lookup leaves the count unknown.
+        _featureQuotas?.fetch().ignore();
+      }
     } catch (error) {
       if (error is ChatroomFeatureQuotaException) {
         if (mounted && current()) {

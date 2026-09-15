@@ -810,7 +810,6 @@ class _LocationChatAnchoredMessageListState
   late List<ChatMessageVm> _renderedMessages;
   final _inspirationListKey = GlobalKey(debugLabel: 'inspiration-list');
   bool _inspirationExpanded = false;
-  bool _inspirationPromptExpanded = false;
   bool _editPromptExpanded = false;
   int _inspirationPage = 0;
   List<ChatMessageVm>? _pendingMessages;
@@ -917,7 +916,6 @@ class _LocationChatAnchoredMessageListState
         oldReplyIdentity != _replyIdentity ||
         oldWidget.inspirationIdentity != widget.inspirationIdentity) {
       _inspirationExpanded = false;
-      _inspirationPromptExpanded = false;
       _editPromptExpanded = false;
       _inspirationPage = 0;
     }
@@ -1888,10 +1886,6 @@ class _LocationChatAnchoredMessageListState
               inspirationListKey: _inspirationListKey,
               inspirationIdentity: widget.inspirationIdentity ?? _replyIdentity,
               inspirationExpanded: _inspirationExpanded,
-              inspirationPromptExpanded: _inspirationPromptExpanded,
-              onInspirationPromptExpandedChanged: (expanded) {
-                setState(() => _inspirationPromptExpanded = expanded);
-              },
               inspirationPage: _inspirationPage,
               onInspirationPageChanged: (page) => _inspirationPage = page,
               onInspirationExpandedChanged: (expanded) {

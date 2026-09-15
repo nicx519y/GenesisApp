@@ -27,7 +27,7 @@ Future<void> showMembershipPurchaseFailure(
         textAlign: TextAlign.center,
         style: TextStyle(fontSize: 14, height: 1.4),
       ),
-      actions: const [GenesisActionBoxAction(label: 'Got It', value: true)],
+      actions: const [GenesisActionBoxAction(label: 'Got it', value: true)],
       showCancel: false,
     );
     return;
