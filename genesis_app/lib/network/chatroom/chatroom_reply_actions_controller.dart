@@ -592,7 +592,11 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       for (final message in entry.value) {
         _mergeRoundMetadata(
           state,
-          conversationType: message.conversationType,
+          // A canonical Tick carries its own type and round identity. The
+          // server need not repeat conversation_type on that message.
+          conversationType: message.businessType == 'tick'
+              ? 'tick'
+              : message.conversationType,
           triggerUid: message.triggerUid,
         );
       }
@@ -1479,6 +1483,22 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       if (event.worldId != worldId) return;
       final round = int.tryParse(event.conversationRoundId);
       if (round == null || round <= 0) return;
+      if (event.isWorldScoped) {
+        // The Tick end has no location or matching waiting event. Do not create
+        // an empty-location round or treat notification success as AI success.
+        batchChanges(() {
+          for (final location in locationIds) {
+            final state = stateForRound(location, round);
+            if (state == null || (!state._active && state._ended)) {
+              continue;
+            }
+            state._active = false;
+            state._ended = true;
+            _notify(location);
+          }
+        });
+        return;
+      }
       final state = _state(event.locationId, round);
       state._active = false;
       state._ended = true;

@@ -496,6 +496,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _inspirationLoading = false;
   int _inspirationRequestGeneration = 0;
   int _inspirationResetRevision = 0;
+  int _inspirationRenderGeneration = 0;
+  int _inspirationTickPreviousRound = 0;
+  int _inspirationAckPreviousRound = 0;
   int? _inspirationEpoch;
   final _restoredReplyLocations = <String>{};
   bool _replyRebuildScheduled = false;
@@ -1157,6 +1160,18 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             replyState,
             replyPresentationState,
             displayMessages,
+          );
+          _scheduleInspirationConversationRendered(
+            displayMessages,
+            ackRoundId:
+                loadingAfterMessageLocalId != null &&
+                    displayMessages.any(
+                      (m) => m.localId == loadingAfterMessageLocalId,
+                    )
+                ? int.tryParse(loadingRoundId) ??
+                      (_inspirationAckPreviousRound + 1)
+                : null,
+            goOnRoundId: controls.goOnAwaitingRoundId,
           );
           final actions = controls.actions;
           final regenerateFeature = actions.hidden

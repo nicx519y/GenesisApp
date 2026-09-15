@@ -4,8 +4,11 @@ part of '../../../../pages/chat/location_chat_reply_actions.dart';
 @visibleForTesting
 int debugLocationChatInspirationTextLayoutCount = 0;
 
-class _InspirationReplies extends StatefulWidget {
-  const _InspirationReplies({
+class LocationChatInspirationReplies extends StatefulWidget {
+  const LocationChatInspirationReplies({
+    super.key,
+    this.identity,
+    required this.expanded,
     required this.style,
     required this.maxWidthCap,
     required this.replies,
@@ -15,6 +18,8 @@ class _InspirationReplies extends StatefulWidget {
     required this.onEdit,
   });
 
+  final Object? identity;
+  final bool expanded;
   final ChatUiStyleConfig style;
   final double? maxWidthCap;
   final List<String> replies;
@@ -24,23 +29,28 @@ class _InspirationReplies extends StatefulWidget {
   final ValueChanged<String> onEdit;
 
   @override
-  State<_InspirationReplies> createState() => _InspirationRepliesState();
+  State<LocationChatInspirationReplies> createState() =>
+      _InspirationRepliesState();
 }
 
-class _InspirationRepliesState extends State<_InspirationReplies> {
+class _InspirationRepliesState extends State<LocationChatInspirationReplies>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _expansionController;
+  late final CurvedAnimation _expansion;
   PageController? _pageController;
   final _heightCache = _InspirationHeightCache();
   double _viewportFraction = 1;
-  late int _currentPage = widget.initialPage.clamp(
-    0,
-    widget.replies.length - 1,
-  );
+  int _currentPage = 0;
+  List<String> _displayedReplies = const [];
+  Object? _displayedIdentity;
+  bool get _wantsOpen => widget.expanded && widget.replies.isNotEmpty;
+  bool get _acceptsInput => _wantsOpen && widget.identity == _displayedIdentity;
 
   static const double _editStripWidth = 27;
 
   void _handleCardTap(int index, {bool edit = false}) {
     final controller = _pageController;
-    if (controller == null || !controller.hasClients) return;
+    if (!_acceptsInput || controller == null || !controller.hasClients) return;
     final page = controller.page ?? _currentPage.toDouble();
     if (index != _currentPage || (page - index).abs() > 0.001) {
       controller.animateToPage(
@@ -77,15 +87,102 @@ class _InspirationRepliesState extends State<_InspirationReplies> {
   double? get maxWidthCap => widget.maxWidthCap;
 
   @override
+  void initState() {
+    super.initState();
+    _expansionController = AnimationController(
+      vsync: this,
+      duration: LocationChatReplyActions.inspirationAnimationDuration,
+    );
+    _expansion = CurvedAnimation(
+      parent: _expansionController,
+      curve: LocationChatReplyActions.inspirationAnimationCurve,
+    );
+    _expansionController.addStatusListener(_onExpansionStatus);
+    _syncExpansion();
+  }
+
+  @override
+  void didUpdateWidget(covariant LocationChatInspirationReplies oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncExpansion();
+  }
+
+  // Every close (manual, source reset, hidden toolbar or loading replacement)
+  // keeps its visual snapshot until this same reverse animation completes.
+  void _collapse() {
+    if (!_expansionController.isDismissed) _expansionController.reverse();
+  }
+
+  void _syncExpansion() {
+    if (!_wantsOpen) {
+      _collapse();
+      return;
+    }
+    if (_displayedIdentity != widget.identity &&
+        !_expansionController.isDismissed) {
+      _collapse();
+      return;
+    }
+    if (_expansionController.isDismissed) {
+      _pageController?.dispose();
+      _pageController = null;
+      _currentPage = widget.initialPage.clamp(0, widget.replies.length - 1);
+    }
+    _displayedIdentity = widget.identity;
+    _displayedReplies = List<String>.unmodifiable(widget.replies);
+    _expansionController.forward();
+  }
+
+  void _onExpansionStatus(AnimationStatus status) {
+    if (status != AnimationStatus.dismissed || !mounted) return;
+    // A new source may have been opened while the previous one was closing.
+    // Adopt it only after the old source has completely disappeared.
+    if (_wantsOpen) {
+      setState(_syncExpansion);
+    } else if (widget.replies.isEmpty ||
+        widget.identity != _displayedIdentity) {
+      setState(() => _displayedReplies = const []);
+    }
+  }
+
+  @override
   void dispose() {
     _pageController?.dispose();
+    _expansion.dispose();
+    _expansionController.dispose();
     super.dispose();
   }
 
-  List<String> get replies => widget.replies;
+  List<String> get replies => _displayedReplies;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => replies.isEmpty
+      ? const SizedBox.shrink()
+      : AnimatedBuilder(
+          animation: _expansionController,
+          child: IgnorePointer(
+            ignoring: !_acceptsInput,
+            child: ExcludeSemantics(
+              excluding: !_acceptsInput,
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  top: LocationChatReplyActions.contentBottomGap,
+                ),
+                child: _buildReplies(context),
+              ),
+            ),
+          ),
+          builder: (context, child) => _expansionController.isDismissed
+              ? const SizedBox.shrink()
+              : SizeTransition(
+                  key: const ValueKey('inspiration-replies-transition'),
+                  sizeFactor: _expansion,
+                  alignment: Alignment.topCenter,
+                  child: child,
+                ),
+        );
+
+  Widget _buildReplies(BuildContext context) {
     final backgroundColor = chatNarratorMessageBackgroundColor(
       style,
     ).withValues(alpha: style.selfBubbleColor.a);
@@ -151,7 +248,7 @@ class _InspirationRepliesState extends State<_InspirationReplies> {
                         padEnds: true,
                         onPageChanged: (page) {
                           _currentPage = page;
-                          widget.onPageChanged(page);
+                          if (_acceptsInput) widget.onPageChanged(page);
                         },
                         itemBuilder: (context, index) => Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -222,7 +319,7 @@ class _InspirationRepliesState extends State<_InspirationReplies> {
   }
 }
 
-/// A single result lives only as long as the mounted suggestions carousel.
+/// One layout result belongs to the mounted source, including collapsed lists.
 class _InspirationHeightCache {
   List<String>? _replies;
   double? _textWidth;

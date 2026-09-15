@@ -1266,85 +1266,96 @@ void main() {
   });
 
   for (final secondScroll in [false, true]) {
-    testWidgets(
-      'variable height keeps the toolbar anchored through every frame (secondScroll=$secondScroll)',
-      (tester) async {
-        final coordinator = LocationChatScrollCoordinator();
-        addTearDown(coordinator.dispose);
-        final history = List.generate(12, (i) => _message('history-$i', 3));
-        final cards = [
-          LocationChatReplyCard(id: 1, messages: [_message('short', 3)]),
-          LocationChatReplyCard(
-            id: 2,
-            messages: [_message('long', 18), _message('second', 2)],
-          ),
-        ];
-        var current = 1;
-        var revision = 0;
-        final commits = <int>[];
-        await tester.pumpWidget(
-          MaterialApp(
-            home: Scaffold(
-              body: SizedBox(
-                width: 390,
-                height: 500,
-                child: StatefulBuilder(
-                  builder: (context, update) {
-                    final selected = cards.firstWhere(
-                      (card) => card.id == current,
-                    );
-                    return NotificationListener<ScrollNotification>(
-                      onNotification: coordinator.handleScrollNotification,
-                      child: LocationChatAnchoredMessageList(
-                        coordinator: coordinator,
-                        topTitle: secondScroll ? 'History' : '',
-                        oldestEdgeNoticeRequiresSecondScroll: secondScroll,
-                        messages: [...history, ...selected.messages],
-                        replyCards: cards,
-                        replyCurrentCardId: current,
-                        replyActionsIdentity: 'round',
-                        replyPresentationRevision: revision,
-                        replyCardCount: 2,
-                        replyCardIndex: current - 1,
-                        onReplyCardSelected: (id) {
-                          commits.add(id);
-                          update(() {
-                            current = id;
-                            revision++;
-                          });
-                          return true;
-                        },
-                      ),
-                    );
-                  },
+    for (final inspiration in [false, true]) {
+      testWidgets(
+        'variable height keeps the toolbar anchored through every frame (secondScroll=$secondScroll, inspiration=$inspiration)',
+        (tester) async {
+          final coordinator = LocationChatScrollCoordinator();
+          addTearDown(coordinator.dispose);
+          final history = List.generate(12, (i) => _message('history-$i', 3));
+          final cards = [
+            LocationChatReplyCard(id: 1, messages: [_message('short', 3)]),
+            LocationChatReplyCard(
+              id: 2,
+              messages: [_message('long', 18), _message('second', 2)],
+            ),
+          ];
+          var current = 1;
+          var revision = 0;
+          final commits = <int>[];
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  width: 390,
+                  height: 500,
+                  child: StatefulBuilder(
+                    builder: (context, update) {
+                      final selected = cards.firstWhere(
+                        (card) => card.id == current,
+                      );
+                      return NotificationListener<ScrollNotification>(
+                        onNotification: coordinator.handleScrollNotification,
+                        child: LocationChatAnchoredMessageList(
+                          inspirationFeature: LocationChatInspirationFeature(
+                            state: LocationChatReplyActionState.idle,
+                            messages: inspiration
+                                ? [List.filled(8, 'Suggestion line').join('\n')]
+                                : const [],
+                          ),
+                          coordinator: coordinator,
+                          topTitle: secondScroll ? 'History' : '',
+                          oldestEdgeNoticeRequiresSecondScroll: secondScroll,
+                          messages: [...history, ...selected.messages],
+                          replyCards: cards,
+                          replyCurrentCardId: current,
+                          replyActionsIdentity: 'round',
+                          replyPresentationRevision: revision,
+                          replyCardCount: 2,
+                          replyCardIndex: current - 1,
+                          onReplyCardSelected: (id) {
+                            commits.add(id);
+                            update(() {
+                              current = id;
+                              revision++;
+                            });
+                            return true;
+                          },
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final controls = find.byKey(const ValueKey('reply-actions-round'));
-        final y = tester.getTopLeft(controls).dy;
-        for (final direction in ['next', 'previous']) {
-          await tester.tap(
-            find.byKey(ValueKey('location-chat-reply-$direction-card')),
           );
-          await tester.pump();
-          for (var frame = 0; frame < 36; frame++) {
-            await tester.pump(const Duration(milliseconds: 16));
-            expect(
-              tester.getTopLeft(controls).dy,
-              closeTo(y, 1),
-              reason: 'frame $frame',
-            );
-            expect(tester.takeException(), isNull);
-          }
           await tester.pumpAndSettle();
-        }
-        expect(commits, [2, 1]);
-        expect(find.byKey(const ValueKey('reply-card-page-2')), findsNothing);
-      },
-    );
+          final controls = find.byKey(const ValueKey('reply-actions-round'));
+          for (final direction in ['next', 'previous']) {
+            if (inspiration) {
+              await tester.tap(find.bySemanticsLabel('Inspiration'));
+              await tester.pumpAndSettle();
+            }
+            double controlAnchor() => inspiration
+                ? tester.getBottomLeft(controls).dy
+                : tester.getTopLeft(controls).dy;
+            final y = controlAnchor();
+            await tester.tap(
+              find.byKey(ValueKey('location-chat-reply-$direction-card')),
+            );
+            await tester.pump();
+            for (var frame = 0; frame < 36; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expect(controlAnchor(), closeTo(y, 1), reason: 'frame $frame');
+              expect(tester.takeException(), isNull);
+            }
+            await tester.pumpAndSettle();
+          }
+          expect(commits, [2, 1]);
+          expect(find.byKey(const ValueKey('reply-card-page-2')), findsNothing);
+        },
+      );
+    }
   }
 }
 

@@ -230,7 +230,8 @@ class WorldChatroomService {
     if (controller == null || replies == null) return;
     for (final location in replies.locationIds) {
       if (!_inspirationValidatedLocations.contains(location)) continue;
-      final round = replies.stateFor(location)!;
+      final round = replies.stateFor(location);
+      if (round == null) continue;
       controller.observe(
         location,
         roundId: round.roundId,

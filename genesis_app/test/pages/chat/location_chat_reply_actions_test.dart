@@ -97,84 +97,319 @@ Widget _replyActions({
 );
 
 void main() {
-  testWidgets('free quota prompts appear on invocation and use secondary red', (
+  for (final remaining in [0, 1, 2, 3]) {
+    testWidgets(
+      'free quota prompts stay visible with $remaining uses and use secondary red',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: _replyActions(
+                style: kLocationChatStyle,
+                onEditReply: () {},
+                editFreeUsesRemaining: 1,
+                inspirationFreeUsesRemaining: remaining,
+              ),
+            ),
+          ),
+        );
+        expect(find.byType(LocationChatSubscriptionPrompt), findsNothing);
+        await tester.tap(find.bySemanticsLabel('Edit'));
+        await tester.pumpAndSettle();
+        final prompt = find.byKey(const ValueKey('edit-subscription-prompt'));
+        expect(prompt, findsOneWidget);
+        final richText = tester.widget<Text>(
+          find.descendant(of: prompt, matching: find.byType(Text)),
+        );
+        expect(richText.style?.fontSize, 13);
+        final root = richText.textSpan! as TextSpan;
+        final message = root.children!.first as TextSpan;
+        expect((message.children!.last as TextSpan).text, '"1"');
+        expect(
+          (message.children!.last as TextSpan).style?.color,
+          GenesisColors.redSecondary,
+        );
+        expect(
+          (root.children!.last as TextSpan).style?.color,
+          GenesisColors.redSecondary,
+        );
+        expect((root.children!.last as TextSpan).text, '\nGet more >');
+        expect(
+          tester.getTopLeft(prompt).dy -
+              tester
+                  .getBottomLeft(
+                    find.byKey(
+                      const ValueKey('location-chat-reply-actions-four-icons'),
+                    ),
+                  )
+                  .dy,
+          4.5,
+        );
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await tester.pumpAndSettle();
+        expect(prompt, findsNothing);
+        expect(
+          find.text('Free inspiration uses left: "$remaining"\nGet more >'),
+          findsOneWidget,
+        );
+        final inspirationPrompt = find.byKey(
+          const ValueKey('inspiration-subscription-prompt'),
+        );
+        expect(
+          tester.getTopLeft(inspirationPrompt).dy -
+              tester
+                  .getBottomLeft(
+                    find.byKey(
+                      const ValueKey('location-chat-reply-actions-four-icons'),
+                    ),
+                  )
+                  .dy,
+          4.5,
+        );
+        expect(
+          find.byKey(const ValueKey('inspiration-replies-carousel')),
+          findsNothing,
+        );
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Free inspiration uses left: "$remaining"\nGet more >'),
+          findsOneWidget,
+        );
+      },
+    );
+  }
+
+  for (final remaining in [0, 2]) {
+    testWidgets(
+      'inspiration list animates both ways while retaining its $remaining-use prompt',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: _replyActions(
+                style: kLocationChatStyle,
+                inspirationMessages: _inspirationReplies,
+                inspirationFreeUsesRemaining: remaining,
+              ),
+            ),
+          ),
+        );
+        final button = find.bySemanticsLabel('Inspiration');
+        final carousel = find.byKey(
+          const ValueKey('inspiration-replies-carousel'),
+        );
+        final transition = find.byKey(
+          const ValueKey('inspiration-replies-transition'),
+        );
+        final prompt = find.byKey(
+          const ValueKey('inspiration-subscription-prompt'),
+        );
+        await tester.tap(button);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 110));
+        final expandingHeight = tester.getSize(transition).height;
+        final promptElement = tester.element(prompt);
+        await tester.pumpAndSettle();
+        final fullHeight = tester.getSize(transition).height;
+        expect(expandingHeight, greaterThan(0));
+        expect(expandingHeight, lessThan(fullHeight));
+        await tester.tap(button);
+        await tester.pump();
+        expect(
+          carousel,
+          findsOneWidget,
+          reason: 'Keep the content until the closing animation finishes.',
+        );
+        await tester.pump(const Duration(milliseconds: 110));
+        expect(tester.getSize(transition).height, greaterThan(0));
+        expect(tester.getSize(transition).height, lessThan(fullHeight));
+        expect(tester.element(prompt), same(promptElement));
+        await tester.pumpAndSettle();
+        expect(carousel, findsNothing);
+        expect(tester.element(prompt), same(promptElement));
+        await tester.tap(button);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 110));
+        expect(
+          tester.getSize(transition).height,
+          closeTo(expandingHeight, 0.1),
+        );
+        await tester.pumpAndSettle();
+        expect(carousel, findsOneWidget);
+        expect(tester.element(prompt), same(promptElement));
+      },
+    );
+  }
+
+  for (final reason in [
+    'source reset',
+    'new round',
+    'ACK loading',
+    'hidden controls',
+    'unavailable action',
+    'inactive page',
+  ]) {
+    testWidgets('inspiration uses the same closing animation after $reason', (
+      tester,
+    ) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final sent = <String>[];
+      final message = ChatMessageVm(
+        localId: 'reply',
+        senderId: 'role',
+        senderName: 'Role',
+        text: 'Reply content',
+        isMe: false,
+        status: 'sent',
+      );
+      Widget host({bool invalidated = false}) => MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            height: 600,
+            child: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              messages: [message],
+              topTitle: '',
+              replyActionsIdentity: invalidated && reason == 'new round'
+                  ? 'round-b'
+                  : 'round-a',
+              replyActionsMessageId: 'reply',
+              replyActionsVisible:
+                  !(invalidated && reason == 'hidden controls'),
+              goOnAwaitingContentIdentity:
+                  invalidated && reason == 'ACK loading'
+                  ? 'go-on:301:401'
+                  : null,
+              active: !(invalidated && reason == 'inactive page'),
+              inspirationIdentity: invalidated && reason == 'new round'
+                  ? 'source-b'
+                  : 'source-a',
+              inspirationFeature: LocationChatInspirationFeature(
+                state: invalidated && reason == 'unavailable action'
+                    ? LocationChatReplyActionState.none
+                    : LocationChatReplyActionState.idle,
+                messages: invalidated && reason == 'source reset'
+                    ? const []
+                    : _inspirationReplies,
+                onSend: sent.add,
+              ),
+              style: kLocationChatStyle,
+            ),
+          ),
+        ),
+      );
+      final carousel = find.byKey(
+        const ValueKey('inspiration-replies-carousel'),
+      );
+      final transition = find.byKey(
+        const ValueKey('inspiration-replies-transition'),
+      );
+      await tester.pumpWidget(host());
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      final state = tester.state(find.byType(LocationChatInspirationReplies));
+      final fullHeight = tester.getSize(transition).height;
+      await tester.pumpWidget(host(invalidated: true));
+      expect(
+        tester.state(find.byType(LocationChatInspirationReplies)),
+        same(state),
+      );
+      expect(carousel, findsOneWidget);
+      final bubble = tester.widget<ChatMessageBubble>(
+        find.descendant(
+          of: find.byKey(const ValueKey('inspiration-reply-card-0')),
+          matching: find.byType(ChatMessageBubble),
+        ),
+      );
+      bubble.onTap!();
+      expect(
+        sent,
+        isEmpty,
+        reason: 'A retained closing snapshot is no longer actionable.',
+      );
+      await tester.pump(const Duration(milliseconds: 110));
+      expect(tester.getSize(transition).height, greaterThan(0));
+      expect(tester.getSize(transition).height, lessThan(fullHeight));
+      await tester.pump(const Duration(milliseconds: 220));
+      expect(carousel, findsNothing);
+      if (reason == 'unavailable action') {
+        await tester.pumpWidget(host());
+        await tester.pumpAndSettle();
+        expect(
+          carousel,
+          findsNothing,
+          reason: 'Restoring eligibility must wait for another user click.',
+        );
+      }
+    });
+  }
+
+  for (final action in ['Regenerate', 'Go on', 'Edit']) {
+    testWidgets('$action closes inspiration through the shared animation', (
+      tester,
+    ) async {
+      var invocations = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: _replyActions(
+              style: kLocationChatStyle,
+              inspirationMessages: _inspirationReplies,
+              onRegenerate: () => invocations++,
+              onGoOn: () => invocations++,
+              onEditReply: () => invocations++,
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      final transition = find.byKey(
+        const ValueKey('inspiration-replies-transition'),
+      );
+      final height = tester.getSize(transition).height;
+      await tester.tap(find.bySemanticsLabel(action));
+      await tester.pump();
+      expect(invocations, 1);
+      await tester.pump(const Duration(milliseconds: 110));
+      expect(tester.getSize(transition).height, inExclusiveRange(0, height));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsNothing,
+      );
+    });
+  }
+
+  testWidgets('a new inspiration source waits for the old snapshot to close', (
     tester,
   ) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: _replyActions(
-            style: kLocationChatStyle,
-            onEditReply: () {},
-            editFreeUsesRemaining: 1,
-            inspirationFreeUsesRemaining: 0,
+    Widget host(String identity, List<String> messages) => MaterialApp(
+      home: Scaffold(
+        body: LocationChatReplyActions(
+          style: kLocationChatStyle,
+          inspirationExpanded: true,
+          inspirationIdentity: identity,
+          inspirationFeature: LocationChatInspirationFeature(
+            state: LocationChatReplyActionState.idle,
+            messages: messages,
           ),
         ),
       ),
     );
-    expect(find.byType(LocationChatSubscriptionPrompt), findsNothing);
-    await tester.tap(find.bySemanticsLabel('Edit'));
+    await tester.pumpWidget(host('a', const ['Old inspiration']));
     await tester.pumpAndSettle();
-    final prompt = find.byKey(const ValueKey('edit-subscription-prompt'));
-    expect(prompt, findsOneWidget);
-    final richText = tester.widget<Text>(
-      find.descendant(of: prompt, matching: find.byType(Text)),
-    );
-    expect(richText.style?.fontSize, 13);
-    final root = richText.textSpan! as TextSpan;
-    final message = root.children!.first as TextSpan;
-    expect((message.children!.last as TextSpan).text, '"1"');
-    expect(
-      (message.children!.last as TextSpan).style?.color,
-      GenesisColors.redSecondary,
-    );
-    expect(
-      (root.children!.last as TextSpan).style?.color,
-      GenesisColors.redSecondary,
-    );
-    expect((root.children!.last as TextSpan).text, '\nGet more >');
-    expect(
-      tester.getTopLeft(prompt).dy -
-          tester
-              .getBottomLeft(
-                find.byKey(
-                  const ValueKey('location-chat-reply-actions-four-icons'),
-                ),
-              )
-              .dy,
-      4.5,
-    );
-    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await tester.pumpWidget(host('b', const ['New inspiration']));
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(find.text('Old inspiration'), findsOneWidget);
+    expect(find.text('New inspiration'), findsNothing);
     await tester.pumpAndSettle();
-    expect(prompt, findsNothing);
-    expect(
-      find.text('Free inspiration uses left: "0"\nGet more >'),
-      findsOneWidget,
-    );
-    final inspirationPrompt = find.byKey(
-      const ValueKey('inspiration-subscription-prompt'),
-    );
-    expect(
-      tester.getTopLeft(inspirationPrompt).dy -
-          tester
-              .getBottomLeft(
-                find.byKey(
-                  const ValueKey('location-chat-reply-actions-four-icons'),
-                ),
-              )
-              .dy,
-      4.5,
-    );
-    expect(
-      find.byKey(const ValueKey('inspiration-replies-carousel')),
-      findsNothing,
-    );
-    await tester.tap(find.bySemanticsLabel('Inspiration'));
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Free inspiration uses left: "0"\nGet more >'),
-      findsOneWidget,
-    );
+    expect(find.text('Old inspiration'), findsNothing);
+    expect(find.text('New inspiration'), findsOneWidget);
   });
 
   testWidgets(
@@ -768,9 +1003,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(sent, ['Good job!']);
     expect(edited, isEmpty);
-    expect(carousel, findsOneWidget);
-    await tester.tap(toggle);
-    await tester.pumpAndSettle();
     expect(carousel, findsNothing);
 
     // Both ends of the strip respond, even far away from the centered icon.
@@ -796,7 +1028,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('inspiration-reply-card-1')));
     await tester.pumpAndSettle();
     expect(sent.last, startsWith("You're right to ask for a plan."));
-    expect(carousel, findsOneWidget);
+    expect(carousel, findsNothing);
   });
   testWidgets('inspiration collapses when a retained chat page is reentered', (
     tester,
@@ -1004,7 +1236,7 @@ void main() {
     expect(tester.getRect(find.byKey(closeKey)), closeRect);
     expect(tester.getTopLeft(find.byKey(contentKey)).dy, contentTop);
   });
-  testWidgets('reopening inspiration follows the bottom after horizontal swipes', (
+  testWidgets('collapsing inspiration keeps the bottom after horizontal swipes', (
     tester,
   ) async {
     final coordinator = LocationChatScrollCoordinator();
@@ -1053,7 +1285,6 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    final collapsedOffset = coordinator.controller.offset;
     for (var cycle = 0; cycle < 3; cycle++) {
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await tester.pumpAndSettle();
@@ -1077,7 +1308,11 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('inspiration-get-more')), findsNothing);
-      expect(coordinator.controller.offset, closeTo(collapsedOffset, 1));
+      expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsNothing,
+      );
+      expect(coordinator.isAtBottom, isTrue);
     }
   });
   testWidgets(

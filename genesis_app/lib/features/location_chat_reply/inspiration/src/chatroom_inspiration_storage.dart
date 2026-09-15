@@ -14,8 +14,7 @@ abstract class ChatroomInspirationStorage {
     String ownerUid,
     String worldId,
     String locationId, {
-    int? keepRound,
-    int minTailMessageId = 0,
+    int? beforeRound,
   });
   Future<void> close();
 }
@@ -70,8 +69,7 @@ CREATE TABLE inspirations (
       whereArgs: formal ? _key(source).take(4).toList() : _key(source),
       limit: 1,
     );
-    if (rows.isEmpty ||
-        (rows.single['tail_message_id'] as int) < source.tailMessageId) {
+    if (rows.isEmpty) {
       return null;
     }
     return ChatroomInspirationResponse.fromJson(
@@ -113,18 +111,17 @@ CREATE TABLE inspirations (
     String ownerUid,
     String worldId,
     String locationId, {
-    int? keepRound,
-    int minTailMessageId = 0,
+    int? beforeRound,
   }) async {
     await (await _database).delete(
       'inspirations',
       where:
-          'owner_uid = ? AND world_id = ? AND location_id = ?${keepRound == null ? '' : ' AND (round_id <> ? OR tail_message_id < ?)'}',
+          'owner_uid = ? AND world_id = ? AND location_id = ?${beforeRound == null ? '' : ' AND round_id < ?'}',
       whereArgs: [
         ownerUid,
         worldId,
         locationId,
-        if (keepRound != null) ...[keepRound, minTailMessageId],
+        if (beforeRound != null) beforeRound,
       ],
     );
   }
@@ -154,9 +151,7 @@ class MemoryChatroomInspirationStorage implements ChatroomInspirationStorage {
           entry.$1.roundId == source.roundId,
     );
     final entry = formal ? matches.lastOrNull : _values[source.key];
-    return entry != null && entry.$1.tailMessageId >= source.tailMessageId
-        ? entry.$2
-        : null;
+    return entry?.$2;
   }
 
   @override
@@ -172,16 +167,14 @@ class MemoryChatroomInspirationStorage implements ChatroomInspirationStorage {
     String ownerUid,
     String worldId,
     String locationId, {
-    int? keepRound,
-    int minTailMessageId = 0,
+    int? beforeRound,
   }) async {
     _values.removeWhere(
       (_, entry) =>
           entry.$1.ownerUid == ownerUid &&
           entry.$1.worldId == worldId &&
           entry.$1.locationId == locationId &&
-          (entry.$1.roundId != keepRound ||
-              entry.$1.tailMessageId < minTailMessageId),
+          (beforeRound == null || entry.$1.roundId < beforeRound),
     );
   }
 

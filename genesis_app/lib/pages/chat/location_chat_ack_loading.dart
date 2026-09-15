@@ -24,6 +24,13 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     if (sentMessage.status == 'failed') return;
 
     _clearAckLoading();
+    _inspirationAckPreviousRound = _messages
+        .where((message) => message.localId != sentMessage.localId)
+        .fold<int>(
+          0,
+          (round, message) =>
+              math.max(round, int.tryParse(message.roundId) ?? 0),
+        );
     _ackLoadingClientMsgId = clientMsgId;
     _ackLoadingMessageLocalId = sentMessage.localId;
     if (_dismissAckLoadingIfVisible()) return;

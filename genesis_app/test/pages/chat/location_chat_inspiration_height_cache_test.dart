@@ -138,15 +138,18 @@ void main() {
     },
   );
 
-  testWidgets('collapsing releases the cache with the carousel', (
+  testWidgets('collapsing retains the source height cache for reopening', (
     tester,
   ) async {
     await tester.pumpWidget(_host());
     expect(debugLocationChatInspirationTextLayoutCount, _replies.length);
+    await tester.pumpAndSettle();
     await tester.pumpWidget(_host(expanded: false));
+    await tester.pumpAndSettle();
     expect(find.byType(PageView), findsNothing);
     await tester.pumpWidget(_host());
-    expect(debugLocationChatInspirationTextLayoutCount, _replies.length * 2);
+    await tester.pumpAndSettle();
+    expect(debugLocationChatInspirationTextLayoutCount, _replies.length);
     expect(tester.takeException(), isNull);
   });
 }

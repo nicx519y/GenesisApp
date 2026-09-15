@@ -1102,8 +1102,8 @@ class ChatroomWaitingConversationRound extends ChatroomPayloadEvent {
 }
 
 /// V2-only control event announcing that a conversation round reached a
-/// terminal state. Its routing fields intentionally mirror
-/// [ChatroomWaitingConversationRound].
+/// terminal state. An empty location identifies a world-level Tick ending;
+/// location-scoped P3 endings retain the waiting event's routing fields.
 class ChatroomEndConversationRound extends ChatroomPayloadEvent {
   const ChatroomEndConversationRound({
     required super.sessionId,
@@ -1120,14 +1120,16 @@ class ChatroomEndConversationRound extends ChatroomPayloadEvent {
 
   final String conversationRoundId;
 
+  bool get isWorldScoped => locationId.isEmpty;
+
   factory ChatroomEndConversationRound.fromV2Message(
     ChatroomV2Message message,
   ) {
     final locationId = message.locationId.trim();
     final conversationRoundId = _stringId(message.conversationRoundId);
-    if (locationId.isEmpty) {
+    if (locationId.isEmpty && message.worldId.trim().isEmpty) {
       throw const ChatroomProtocolException(
-        'end_conversation_round location_id is required',
+        'world-level end_conversation_round world_id is required',
       );
     }
     if (conversationRoundId.isEmpty) {
@@ -1944,6 +1946,7 @@ class ChatroomWorldNotification extends ChatroomEvent {
     required this.ts,
     required this.broadcast,
     this.currentTime = '',
+    this.conversationRoundId = '',
     this.timelinePayload,
   });
 
@@ -1958,6 +1961,7 @@ class ChatroomWorldNotification extends ChatroomEvent {
   final DateTime? ts;
   final bool broadcast;
   final String currentTime;
+  final String conversationRoundId;
   final ChatroomTimelinePayload? timelinePayload;
 
   factory ChatroomWorldNotification.fromEnvelope(ChatroomEnvelope envelope) {
@@ -1980,6 +1984,7 @@ class ChatroomWorldNotification extends ChatroomEvent {
       worldId: asString(payload['world_id'], fallback: envelope.worldId),
       locationId: asString(payload['location_id']),
       eventType: asString(payload['event_type'], fallback: envelope.type),
+      conversationRoundId: _stringId(envelope.conversationRoundId),
       schemaVersion: envelope.schemaVersion,
       eventId: envelope.eventId,
       title: asString(payload['title']),

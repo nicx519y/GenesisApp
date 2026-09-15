@@ -6,6 +6,7 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
     bool regenerationInProgress,
     bool goOnContentIsRendering,
     String? goOnAwaitingContentIdentity,
+    int? goOnAwaitingRoundId,
     bool tickSupersededReply,
     bool cardSwitchEnabled,
     bool showConfirmedCardPagination,
@@ -102,6 +103,7 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
       ),
       regenerationInProgress: regenerationInProgress,
       goOnContentIsRendering: goOnContentIsRendering,
+      goOnAwaitingRoundId: awaitingGoOn ? acceptedGoOn.goOnRoundId : null,
       goOnAwaitingContentIdentity: awaitingGoOn
           ? 'go-on:${acceptedGoOn.roundId}:${acceptedGoOn.goOnRoundId}'
           : null,

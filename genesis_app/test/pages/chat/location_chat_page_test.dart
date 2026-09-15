@@ -74,9 +74,142 @@ Finder _replyActionLoading(String label) => find.descendant(
 );
 
 void main() {
-  for (final fromHistory in [true, false]) {
+  for (final prepared in [false, true]) {
     testWidgets(
-      'Tick alone exposes Go On and Inspiration, history=$fromHistory',
+      'Tick without conversation type reveals idle controls without round end, prepared=$prepared',
+      (tester) async {
+        final backend = _LocationChatReplyHttpTransport();
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: backend,
+          usePreparedEntry: prepared,
+        );
+        void event(String type, {int? round}) {
+          harness.socket._serverFrame(type, {
+            'world_id': 'world-current',
+            'stream_type': '',
+            if (round != null) 'conversation_round_id': round,
+            'trigger_uid': '',
+            'payload': <String, Object?>{},
+            'err_no': 0,
+            'err_msg': '',
+          });
+        }
+
+        final worldDetailBarrier = Completer<void>();
+        backend.worldDetailBarrier = worldDetailBarrier;
+        addTearDown(() {
+          if (!worldDetailBarrier.isCompleted) worldDetailBarrier.complete();
+        });
+        event('tick_start');
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.service.state.inputBlocked,
+        );
+        await tester.pump();
+        expect(find.bySemanticsLabel('Go on'), findsNothing);
+        harness.socket.serverV2Tick(
+          messageId: 1001,
+          locationMessageId: 1001,
+          globalText: 'Canonical Tick without conversation_type',
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () =>
+              harness.service.replyActions!
+                  .stateFor('location-current')
+                  ?.roundId ==
+              1001,
+        );
+        expect(
+          harness.service.replyActions!
+              .stateFor('location-current')!
+              .supportsGoOn,
+          isTrue,
+        );
+        // The world input lock still applies, but no round-end is required.
+        expect(find.bySemanticsLabel('Go on'), findsNothing);
+        event('tick_done');
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => tester
+              .widget<LocationChatAnchoredMessageList>(
+                find.byType(LocationChatAnchoredMessageList),
+              )
+              .goOnFeature
+              .enabled,
+        );
+        await tester.pumpAndSettle();
+        final controls = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        expect(worldDetailBarrier.isCompleted, isFalse);
+        expect(
+          backend.requests.any(
+            (request) => request.uri.path.endsWith('/world/detail'),
+          ),
+          isTrue,
+        );
+        expect(controls.goOnFeature.state, LocationChatReplyActionState.idle);
+        expect(
+          controls.inspirationFeature.state,
+          LocationChatReplyActionState.idle,
+        );
+        expect(controls.editFeature.state, LocationChatReplyActionState.none);
+        expect(
+          controls.regenerateFeature.state,
+          LocationChatReplyActionState.none,
+        );
+        expect(find.bySemanticsLabel('Go on'), findsOneWidget);
+        expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
+        expect(find.bySemanticsLabel('Edit'), findsNothing);
+        expect(find.bySemanticsLabel('Regenerate'), findsNothing);
+        final round = harness.service.replyActions!.stateFor(
+          'location-current',
+        )!;
+        expect(round.roundId, 1001);
+        expect(round.conversationType, 'tick');
+        expect(round.formalReplyMessages, isEmpty);
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => tester
+              .widget<LocationChatAnchoredMessageList>(
+                find.byType(LocationChatAnchoredMessageList),
+              )
+              .inspirationFeature
+              .messages
+              .isNotEmpty,
+        );
+        expect(backend.inspirationRequests.single, {
+          'conversation_round_id': 1001,
+        });
+        await tester.pumpAndSettle();
+        await tester.tap(find.bySemanticsLabel('Go on'));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.replyActionFrames('go_on').isNotEmpty,
+        );
+        expect(harness.socket.replyActionFrames('go_on').single['payload'], {
+          'location_id': 'location-current',
+          'source_conversation_round_id': 1001,
+        });
+        worldDetailBarrier.complete();
+        harness.socket.serverReplyActionAck('go_on', roundId: 1002);
+        await tester.pump();
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+  }
+
+  for (final (fromHistory, prepared) in [
+    for (final fromHistory in [true, false])
+      for (final prepared in [false, true]) (fromHistory, prepared),
+  ]) {
+    testWidgets(
+      'Tick alone exposes Go On and Inspiration, history=$fromHistory prepared=$prepared',
       (tester) async {
         final backend = _LocationChatReplyHttpTransport();
         final tick = {
@@ -86,7 +219,7 @@ void main() {
             'tick',
             '',
             roundId: 901,
-            conversationType: 'tick',
+            conversationType: '',
             triggerUid: '',
           ),
           'payload': {
@@ -115,6 +248,7 @@ void main() {
                 worldId: 'world-current',
                 locationId: 'location-current',
                 service: harness.service,
+                usePreparedEntry: prepared,
                 leaveOnInactive: false,
               ),
             ),
@@ -130,7 +264,7 @@ void main() {
             messageId: 901,
             locationMessageId: 901,
             globalText: 'Tick without an AI reply',
-            conversationType: 'tick',
+            conversationType: '',
           );
         }
         await _pumpUntilLocationChatTest(
@@ -148,6 +282,15 @@ void main() {
         )!;
         expect(state.formalReplyMessages, isEmpty);
         expect(state.roundId, 901);
+        expect(state.conversationType, 'tick');
+        final controls = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        expect(controls.goOnFeature.state, LocationChatReplyActionState.idle);
+        expect(
+          controls.inspirationFeature.state,
+          LocationChatReplyActionState.idle,
+        );
         expect(find.bySemanticsLabel('Go on'), findsOneWidget);
         expect(find.bySemanticsLabel('Inspiration'), findsOneWidget);
         expect(find.bySemanticsLabel('Edit'), findsNothing);
@@ -384,9 +527,11 @@ void main() {
       'a Tick waits for in-flight ${action.label} while retiring its controls',
       (tester) async {
         final backend = _LocationChatReplyHttpTransport();
+        final storage = MemoryChatroomInspirationStorage();
         final harness = await _mountCompletedReplyActionPanel(
           tester,
           backend: backend,
+          inspirationStorage: storage,
         );
         backend.cards.addAll([
           backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
@@ -409,6 +554,12 @@ void main() {
           findsOneWidget,
         );
 
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await tester.pumpAndSettle();
+        final inspirationSource = harness.service.replyActions!
+            .stateFor('location-current')!
+            .inspirationSource!;
+        expect(await storage.load(inspirationSource), isNotNull);
         await tester.tap(find.bySemanticsLabel(action.label));
         await _pumpUntilLocationChatTest(
           tester,
@@ -444,6 +595,12 @@ void main() {
           find.byType(LocationChatAnchoredMessageList),
         );
         expect(list.messages.any((message) => message.isTick), isFalse);
+        expect(
+          await storage.load(inspirationSource),
+          isNotNull,
+          reason:
+              'Neither regeneration nor a deferred Tick renders a new conversation.',
+        );
         expect(oldRound.invalidatedByTick, isTrue);
         expect(
           action.requestType == 'go_on'
@@ -487,12 +644,18 @@ void main() {
                   ? !oldRound.goOnPending
                   : !oldRound.generating);
         });
+        await tester.pump();
+        expect(await storage.load(inspirationSource), isNull);
         final settledList = tester.widget<LocationChatAnchoredMessageList>(
           find.byType(LocationChatAnchoredMessageList),
         );
         expect(
           settledList.goOnFeature.state,
-          LocationChatReplyActionState.none,
+          LocationChatReplyActionState.idle,
+        );
+        expect(
+          settledList.inspirationFeature.state,
+          LocationChatReplyActionState.idle,
         );
         expect(
           find.byKey(const ValueKey('location-chat-reply-pagination')),
@@ -2515,6 +2678,15 @@ void main() {
         find.text('Free inspiration uses left: "2"\nGet more >'),
         findsOneWidget,
       );
+      final inspirationRequests = backend.inspirationRequests.length;
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Free inspiration uses left: "2"\nGet more >'),
+        findsOneWidget,
+      );
+      expect(backend.quotaRequests, 2);
+      expect(backend.inspirationRequests.length, inspirationRequests);
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
       await tester.pump(const Duration(seconds: 3));
@@ -2638,8 +2810,169 @@ void main() {
     },
   );
 
+  testWidgets('cached inspiration bypasses exhausted quotas', (tester) async {
+    final backend = _LocationChatReplyHttpTransport()
+      ..localMember = false
+      ..includeQuotas = true
+      ..inspirationRemaining = 1;
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+    );
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await tester.pumpAndSettle();
+    expect(backend.inspirationRemaining, 0);
+    final lookups = backend.quotaRequests;
+    backend.quotaFails = true;
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('inspiration-replies-carousel')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('inspiration-subscription-prompt')),
+      findsOneWidget,
+    );
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await tester.pumpAndSettle();
+    expect(find.text('Good job!'), findsOneWidget);
+    expect(backend.inspirationRequests, hasLength(1));
+    expect(backend.quotaRequests, lookups);
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump(const Duration(seconds: 3));
+  });
+
+  for (final transition in ['send', 'go-on', 'tick']) {
+    testWidgets('inspiration cache retires when $transition waiting renders', (
+      tester,
+    ) async {
+      final storage = MemoryChatroomInspirationStorage();
+      final backend = _LocationChatReplyHttpTransport();
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+        inspirationStorage: storage,
+      );
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      final source = harness.service.replyActions!
+          .stateFor('location-current')!
+          .inspirationSource!;
+      expect(await storage.load(source), isNotNull);
+      if (transition == 'tick') {
+        harness.service.setInputBlocked(true);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => find
+              .byKey(const ValueKey('chat-tick-progress-content'))
+              .evaluate()
+              .isNotEmpty,
+        );
+      } else if (transition == 'go-on') {
+        await tester.tap(find.bySemanticsLabel('Go on'));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.replyActionFrames('go_on').isNotEmpty,
+        );
+        expect(await storage.load(source), isNotNull);
+        harness.socket.serverReplyActionAck('go_on', roundId: 401);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => find
+              .byKey(const ValueKey('location-chat-ack-loading-dots'))
+              .evaluate()
+              .isNotEmpty,
+        );
+      } else {
+        final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+        composer.controller.text = 'Continue';
+        unawaited(composer.onSend());
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.sendMessageCount == 1,
+        );
+        expect(await storage.load(source), isNotNull);
+        harness.socket.serverV2AckForLatestSend(errNo: 0);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => find
+              .byKey(const ValueKey('location-chat-ack-loading-dots'))
+              .evaluate()
+              .isNotEmpty,
+        );
+      }
+      await tester.pump();
+      expect(await storage.load(source), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    });
+  }
+
   testWidgets(
-    'feature quota zero inspiration skips the feature request and later lookup',
+    'background conversation observation preserves inspiration until content renders',
+    (tester) async {
+      final storage = MemoryChatroomInspirationStorage();
+      final backend = _LocationChatReplyHttpTransport();
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+        inspirationStorage: storage,
+      );
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      final source = harness.service.replyActions!
+          .stateFor('location-current')!
+          .inspirationSource!;
+      final transition = find.byKey(
+        const ValueKey('inspiration-replies-transition'),
+      );
+      final height = tester.getSize(transition).height;
+      harness.socket.serverWaitingConversationRound(roundId: 401);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness.service.replyActions!
+                .stateFor('location-current')
+                ?.roundId ==
+            401,
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 110));
+      expect(tester.getSize(transition).height, inExclusiveRange(0, height));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsNothing,
+      );
+      expect(await storage.load(source), isNotNull);
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        roundId: 401,
+        messageId: 402,
+        content: 'The next conversation.',
+        conversationType: 'user_message',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('The next conversation.').evaluate().isNotEmpty,
+      );
+      await tester.pump();
+      expect(await storage.load(source), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  testWidgets(
+    'feature quota zero inspiration rechecks quota without generating',
     (tester) async {
       final backend = _LocationChatReplyHttpTransport()
         ..localMember = false
@@ -2661,13 +2994,12 @@ void main() {
         findsOneWidget,
       );
       await tester.tap(find.bySemanticsLabel('Inspiration'));
-      await tester.pump();
-      expect(_replyActionLoading('Inspiration'), findsNothing);
       await tester.pumpAndSettle();
       expect(
         backend.quotaRequests,
-        1,
-        reason: 'The exhausted prompt stays open without another lookup.',
+        2,
+        reason:
+            'An idle invocation refreshes the quota while keeping the prompt.',
       );
       expect(backend.inspirationRequests, isEmpty);
       expect(
@@ -4755,6 +5087,8 @@ void main() {
         tester,
         backend: backend,
       );
+      backend.inspirationMessagesByCard[501] = ['Original inspiration'];
+      backend.inspirationMessagesByCard[502] = ['Candidate inspiration'];
       backend.cards.addAll([
         backend._cardJson(501, 1, 'succeeded', 'Original reply.'),
         backend._cardJson(502, 2, 'succeeded', 'Candidate reply.'),
@@ -4807,13 +5141,90 @@ void main() {
       );
       expect(tester.widget<IconButton>(next).onPressed, isNotNull);
 
+      final inspirationTransition = find.byKey(
+        const ValueKey('inspiration-replies-transition'),
+      );
+      final expandedHeight = tester.getSize(inspirationTransition).height;
       await tester.tap(next);
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsOneWidget,
+      );
+      await tester.pump(const Duration(milliseconds: 110));
+      expect(
+        tester.getSize(inspirationTransition).height,
+        inExclusiveRange(0, expandedHeight),
+      );
       await tester.pumpAndSettle();
       list = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
       );
       expect(find.text('2 / 2'), findsOneWidget);
       expect(list.inspirationFeature.messages, isEmpty);
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      expect(backend.inspirationRequests, hasLength(2));
+      expect(find.text('Candidate inspiration'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey('location-chat-reply-previous-card')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      expect(find.text('Original inspiration'), findsOneWidget);
+      await tester.tap(next);
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      expect(find.text('Candidate inspiration'), findsOneWidget);
+      expect(backend.inspirationRequests, hasLength(2));
+      final selected = harness.service.replyActions!
+          .stateFor('location-current')!
+          .inspirationSource!;
+      unawaited(
+        harness.service.replyActions!.finalizeBeforeSend(
+          'location-current',
+          expectedSource: selected,
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.replyActions!
+            .stateFor('location-current')!
+            .confirmed,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      expect(find.text('Candidate inspiration'), findsOneWidget);
+      expect(backend.inspirationRequests, hasLength(2));
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: const MaterialApp(home: SizedBox.shrink()),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      expect(find.text('Candidate inspiration'), findsOneWidget);
+      expect(backend.inspirationRequests, hasLength(2));
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
       await tester.pump();
@@ -4825,6 +5236,8 @@ void main() {
   ) async {
     final inspirationBarrier = Completer<void>();
     final backend = _LocationChatReplyHttpTransport()
+      ..localMember = false
+      ..includeQuotas = true
       ..inspirationTimeout = true
       ..inspirationBarrier = inspirationBarrier;
     final harness = await _mountCompletedReplyActionPanel(
@@ -4874,6 +5287,9 @@ void main() {
       findsNothing,
     );
     expect(_replyActionLoading('Inspiration'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await tester.pump();
+    expect(backend.inspirationRequests, hasLength(1));
     await tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend();
     expect(harness.socket.sendMessageCount, 0);
     expect(composer.controller.text, 'Keep this draft');
@@ -4903,7 +5319,11 @@ void main() {
 
     backend.inspirationTimeout = false;
     backend.inspirationBarrier = null;
-    list.inspirationFeature.onExpandedChanged!(true);
+    expect(
+      find.byKey(const ValueKey('inspiration-subscription-prompt')),
+      findsOneWidget,
+    );
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
     await _pumpUntilLocationChatTest(
       tester,
       () => backend.inspirationRequests.length == 2,
@@ -5020,19 +5440,36 @@ void main() {
         kLocationChatStyle.rowBottomPadding,
         reason: 'The optimistic bubble needs the final inter-message gap.',
       );
-      final optimisticBubbleTop = tester.getTopLeft(find.text('Good job!')).dy;
+      final optimisticText = find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) =>
+              widget is ChatMessageRow &&
+              widget.message.isMe &&
+              widget.message.text == 'Good job!',
+        ),
+        matching: find.text('Good job!'),
+      );
+      final inspirationTransition = find.byKey(
+        const ValueKey('inspiration-replies-transition'),
+      );
+      final inspirationHeight = tester.getSize(inspirationTransition).height;
       await tester.pump(const Duration(milliseconds: 50));
       expect(
-        tester.getTopLeft(find.text('Good job!')).dy,
-        closeTo(optimisticBubbleTop, 0.1),
-        reason:
-            'The list must not move after the optimistic bubble is painted.',
+        tester.getSize(inspirationTransition).height,
+        allOf(greaterThan(0), lessThan(inspirationHeight)),
       );
       await tester.pump(const Duration(milliseconds: 220));
       expect(
-        tester.getTopLeft(find.text('Good job!')).dy,
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsNothing,
+      );
+      final optimisticBubbleTop = tester.getTopLeft(optimisticText).dy;
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        tester.getTopLeft(optimisticText).dy,
         closeTo(optimisticBubbleTop, 0.1),
-        reason: 'The list must stay anchored while card selection is pending.',
+        reason:
+            'After inspiration collapses, selection must not move the bubble.',
       );
       expect(
         list.messages.where(
@@ -5094,7 +5531,7 @@ void main() {
         }
         expect(userMessageRendered, isTrue);
         expect(
-          tester.getTopLeft(find.text('Good job!')).dy,
+          tester.getTopLeft(optimisticText).dy,
           closeTo(optimisticBubbleTop, 0.1),
           reason: 'Card confirmation must not shift the optimistic bubble.',
         );
@@ -5133,7 +5570,7 @@ void main() {
           kLocationChatStyle.rowBottomPadding,
         );
         expect(
-          tester.getTopLeft(find.text('Good job!')).dy,
+          tester.getTopLeft(optimisticText).dy,
           closeTo(optimisticBubbleTop, 0.1),
           reason: 'Acknowledgement must not shift the inspiration bubble.',
         );
@@ -9619,9 +10056,11 @@ _mountCompletedReplyActionPanel(
   String conversationType = 'user_message',
   String triggerUid = 'user-1',
   bool waitForEdit = true,
+  ChatroomInspirationStorage? inspirationStorage,
 }) async {
   final harness = await _connectedLocationChatTestService(
     replyTransport: backend,
+    inspirationStorage: inspirationStorage,
   );
   if (conversationType == 'opening') {
     harness.service.applyWorldSnapshot(
@@ -9703,6 +10142,7 @@ _connectedLocationChatTestService({
   Duration ackTimeout = const Duration(seconds: 12),
   HttpTransport? replyTransport,
   ChatroomMessageStorage? messageStorage,
+  ChatroomInspirationStorage? inspirationStorage,
 }) async {
   final sessionStore = MemoryUserSessionStore();
   await sessionStore.saveUid('user-1');
@@ -9774,7 +10214,8 @@ _connectedLocationChatTestService({
     api: services.api,
     client: client,
     replyActionStorage: MemoryChatroomReplyActionStorage(),
-    inspirationStorage: MemoryChatroomInspirationStorage(),
+    inspirationStorage:
+        inspirationStorage ?? MemoryChatroomInspirationStorage(),
     messageStorage: messageStorage ?? MemoryChatroomMessageStorage(),
     refreshInitialSnapshotOnConnect: false,
   );
@@ -9923,7 +10364,9 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
   int editRemaining = 3;
   int inspirationRemaining = 3;
   bool inspirationSaved = false;
+  final inspirationMessagesByCard = <int, List<String>>{};
   Completer<void>? quotaBarrier;
+  Completer<void>? worldDetailBarrier;
   final messages = <Map<String, Object?>>[];
   final batches = <Map<String, dynamic>>[];
   final rangeRequests = <Map<String, String>>[];
@@ -10118,6 +10561,9 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
+    if (request.uri.path.endsWith('/world/detail')) {
+      await worldDetailBarrier?.future;
+    }
     if (request.uri.path.endsWith('/feature-quotas')) {
       quotaRequests++;
       await quotaBarrier?.future;
@@ -10162,12 +10608,14 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
           'conversation_round_id': body['conversation_round_id'],
           'card_id': card,
           'source_card_id': card == 501 ? 0 : card,
-          'messages': [
-            'Good job!',
-            'A different suggestion.',
-            'Try another path.',
-            'One more idea.',
-          ],
+          'messages':
+              inspirationMessagesByCard[card] ??
+              [
+                'Good job!',
+                'A different suggestion.',
+                'Try another path.',
+                'One more idea.',
+              ],
           'gateway_request_id': '',
         },
         quotaFeature: 'inspiration',

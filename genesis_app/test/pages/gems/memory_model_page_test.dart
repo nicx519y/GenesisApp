@@ -344,8 +344,8 @@ void main() {
       expect(memoryApi.updates, [1000000]);
       firstQuotes.complete(_quotationCatalog(memoryTokens: 1000000));
       await tester.pumpAndSettle();
-      expect(memoryApi.updates, [1000000, 4000]);
-      expect(find.text('2.2–4.8 gems (memory 4K)'), findsOneWidget);
+      expect(memoryApi.updates, [1000000, 8000]);
+      expect(find.text('2.2–4.8 gems (memory 6K → 8K)'), findsOneWidget);
     },
   );
 
@@ -555,7 +555,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     first.completeError(StateError('old request failed'));
     await tester.pump();
-    expect(_sliderTokens(tester), 4000);
+    expect(_sliderTokens(tester), 8000);
     expect(attempts, 2);
     second.completeError(StateError('current request failed'));
     await tester.pumpAndSettle();
@@ -599,6 +599,62 @@ void main() {
     );
     expect(_tileBorder(tester, 'top_pick_v3').color, GenesisColors.redPrimary);
     await tester.pump(const Duration(seconds: 2));
+  });
+
+  testWidgets('slider reads both API bounds and saves exact boundary values', (
+    tester,
+  ) async {
+    for (final bounds in [
+      (2000, 64000, '2K', '64K'),
+      (2500, 65500, '3K', '66K'),
+    ]) {
+      var budget = 16000;
+      final updates = <int>[];
+      UserMemorySettings settings({bool withWorld = false}) =>
+          UserMemorySettings(
+            memoryTokens: budget,
+            minMemoryTokens: bounds.$1,
+            maxMemoryTokens: bounds.$2,
+            worldId: withWorld ? 'W_DYNAMIC' : null,
+            memoryUsedTokens: withWorld ? 6000.clamp(0, budget) : null,
+          );
+      await tester.pumpWidget(
+        _testApp(
+          MemoryModelPage(
+            key: ValueKey(bounds),
+            worldId: 'W_DYNAMIC',
+            memorySettingsLoader: (_) async => settings(withWorld: true),
+            memorySettingsUpdater: (tokens) async {
+              updates.add(tokens);
+              budget = tokens;
+              return settings();
+            },
+            catalogLoader: (_) async => _quotationCatalog(memoryTokens: budget),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('memory-model-min-memory')))
+            .data,
+        bounds.$3,
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('memory-model-max-memory')))
+            .data,
+        bounds.$4,
+      );
+      _setSliderValue(tester, 1);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      _setSliderValue(tester, 0);
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpAndSettle();
+      expect(updates, [bounds.$2, bounds.$1]);
+      expect(find.text('Save failed'), findsNothing);
+    }
   });
 
   testWidgets('bubble follows the real slider thumb on every drag frame', (
@@ -789,7 +845,7 @@ void main() {
     expect(find.text('11K'), findsOneWidget);
     expect(find.text('Your current memory usage'), findsOneWidget);
     expect(find.text('48K'), findsOneWidget);
-    expect(find.text('4K'), findsOneWidget);
+    expect(find.text('8K'), findsOneWidget);
     expect(find.text('Max memory token limit'), findsOneWidget);
     expect(find.text('Max memory limit'), findsNothing);
     expect(find.text('1M'), findsOneWidget);
@@ -838,7 +894,7 @@ void main() {
     expect((overlayShape! as RoundSliderOverlayShape).overlayRadius, 24);
     final sliderValue = memorySliderValueForTokens(
       48000,
-      minMemoryTokens: 4000,
+      minMemoryTokens: 8000,
       maxMemoryTokens: 1000000,
     );
     final thumbCenterX =
@@ -1040,7 +1096,7 @@ void main() {
     first.complete(_globalSettings(1000000));
     await tester.pump();
     await tester.pump();
-    expect(calls, [1000000, 4000]);
+    expect(calls, [1000000, 8000]);
   });
 
   testWidgets('memory save refreshes actual usage and model quotations', (
@@ -1499,7 +1555,7 @@ int _sliderTokens(WidgetTester tester) {
   );
   return memoryTokensForSliderValue(
     slider.value,
-    minMemoryTokens: 4000,
+    minMemoryTokens: 8000,
     maxMemoryTokens: 1000000,
   );
 }

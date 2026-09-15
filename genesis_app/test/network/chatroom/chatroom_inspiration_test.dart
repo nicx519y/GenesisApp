@@ -89,6 +89,28 @@ ChatroomHttpApi _api(_Http http) => ChatroomHttpApi(
 
 void main() {
   test(
+    'cache lookup never generates and repeated opens reuse the result',
+    () async {
+      final http = _Http();
+      final controller = ChatroomInspirationController(
+        ownerUid: 'u',
+        worldId: 'w',
+        httpApi: _api(http),
+        storage: MemoryChatroomInspirationStorage(),
+      );
+      addTearDown(controller.dispose);
+      controller.observe('l', roundId: _round, tailMessageId: 10);
+      expect(await controller.readCached(_source()), isNull);
+      expect(http.requests, isEmpty);
+      final generated = await controller.load(_source());
+      http.offline = true;
+      expect(await controller.readCached(_source()), same(generated));
+      expect(await controller.load(_source()), same(generated));
+      expect(http.requests, hasLength(1));
+    },
+  );
+
+  test(
     'invalidation queued during a SQLite write cannot resurrect the old round',
     () async {
       final storage = _DelayedStorage();
@@ -103,7 +125,9 @@ void main() {
       final pending = controller.load(_source());
       await storage.saving.future;
       controller.observe('l', roundId: _round + 1, tailMessageId: 11);
+      final cleanup = controller.conversationRendered('l', _round + 1);
       storage.release.complete();
+      await cleanup;
       expect(await pending, isNull);
       await controller.load(_source(round: _round + 1, tail: 11));
       expect(await storage.load(_source()), isNull);
@@ -270,6 +294,38 @@ void main() {
   );
 
   test(
+    'resolved formal alias cannot overwrite or read the original card memory',
+    () async {
+      final storage = MemoryChatroomInspirationStorage();
+      final http = _Http();
+      final controller = ChatroomInspirationController(
+        ownerUid: 'u',
+        worldId: 'w',
+        httpApi: _api(http),
+        storage: storage,
+      );
+      addTearDown(controller.dispose);
+      controller.observe('l', roundId: _round, tailMessageId: 10);
+      await controller.load(_source(card: 22));
+      http.responseOverride = {
+        'err_no': 0,
+        'err_msg': '',
+        'data': {
+          'conversation_round_id': _round,
+          'card_id': 23,
+          'source_card_id': 23,
+          'messages': ['Selected formal reply'],
+          'gateway_request_id': '',
+        },
+      };
+      expect((await controller.load(_source()))!.sourceCardId, 23);
+      expect((await controller.load(_source(card: 22)))!.sourceCardId, 0);
+      expect((await controller.load(_source()))!.sourceCardId, 23);
+      expect(http.requests, hasLength(2));
+    },
+  );
+
+  test(
     'switching cards or advancing history discards late results and never saves them',
     () async {
       final storage = MemoryChatroomInspirationStorage();
@@ -299,7 +355,7 @@ void main() {
   );
 
   test(
-    'new formal messages invalidate all cards; older pages and replacements do not',
+    'same conversation tail changes and edits preserve every card cache',
     () async {
       final http = _Http();
       final controller = ChatroomInspirationController(
@@ -327,7 +383,7 @@ void main() {
       controller.observe('l', roundId: _round, tailMessageId: 12);
       await controller.load(_source(tail: 12));
       await controller.load(_source(card: 23, sourceCard: 23, tail: 12));
-      expect(http.requests, hasLength(4));
+      expect(http.requests, hasLength(2));
     },
   );
 
@@ -364,12 +420,110 @@ void main() {
         _source(location: 'other'),
         _source(round: _round + 1),
         _source(sourceCard: 23),
-        _source(tail: 11),
       ]) {
         expect(await second.load(source), isNull);
       }
+      expect(
+        (await second.load(_source(tail: 99)))!.messages,
+        response.messages,
+      );
       await second.clearLocation('u', 'w', 'l');
       expect(await second.load(_source()), isNull);
+    },
+  );
+
+  test(
+    'only rendered advancement clears older rounds and isolates locations',
+    () async {
+      final storage = MemoryChatroomInspirationStorage();
+      final controller = ChatroomInspirationController(
+        ownerUid: 'u',
+        worldId: 'w',
+        httpApi: _api(_Http()),
+        storage: storage,
+      );
+      addTearDown(controller.dispose);
+      controller.observe('l', roundId: _round, tailMessageId: 10);
+      await controller.load(_source());
+      await controller.load(_source(card: 23, sourceCard: 23));
+      controller.observe('other', roundId: _round, tailMessageId: 10);
+      await controller.load(_source(location: 'other'));
+      controller.observe('l', roundId: _round + 1, tailMessageId: 11);
+      expect(await storage.load(_source()), isNotNull);
+      expect(await storage.load(_source(card: 23, sourceCard: 23)), isNotNull);
+      expect(await controller.readCached(_source()), isNull);
+      await controller.load(_source(round: _round + 1));
+      await controller.conversationRendered('l', _round + 1);
+      expect(await storage.load(_source()), isNull);
+      expect(await storage.load(_source(card: 23, sourceCard: 23)), isNull);
+      expect(await storage.load(_source(round: _round + 1)), isNotNull);
+      expect(await storage.load(_source(location: 'other')), isNotNull);
+      await controller.conversationRendered('l', _round);
+      await controller.conversationRendered('l', _round + 1);
+      expect(
+        await controller.readCached(_source(round: _round + 1)),
+        isNotNull,
+      );
+    },
+  );
+
+  test(
+    'SQLite restores every card after controller restart despite a newer tail',
+    () async {
+      sqfliteFfiInit();
+      final directory = await Directory.systemTemp.createTemp(
+        'inspiration-cards-',
+      );
+      addTearDown(() => directory.delete(recursive: true));
+      final path = '${directory.path}/inspiration.db';
+      final http = _Http();
+      SqfliteChatroomInspirationStorage storage() =>
+          SqfliteChatroomInspirationStorage(
+            databasePath: path,
+            factory: databaseFactoryFfi,
+          );
+      final firstStorage = storage();
+      final first = ChatroomInspirationController(
+        ownerUid: 'u',
+        worldId: 'w',
+        httpApi: _api(http),
+        storage: firstStorage,
+      );
+      first.observe('l', roundId: _round, tailMessageId: 10);
+      final sources = [
+        _source(),
+        _source(card: 23, sourceCard: 23),
+        _source(card: 24, sourceCard: 24),
+      ];
+      for (final source in sources) {
+        await first.load(source);
+      }
+      first.dispose();
+      await firstStorage.close();
+      final secondStorage = storage();
+      final second = ChatroomInspirationController(
+        ownerUid: 'u',
+        worldId: 'w',
+        httpApi: _api(http),
+        storage: secondStorage,
+      );
+      second.observe('l', roundId: _round, tailMessageId: 99);
+      http.offline = true;
+      for (final source in sources) {
+        expect((await second.load(source))!.sourceCardId, source.sourceCardId);
+      }
+      expect((await second.load(_source(card: 22, tail: 99)))!.sourceCardId, 0);
+      expect(
+        (await second.load(_source(sourceCard: 23, tail: 99)))!.sourceCardId,
+        23,
+      );
+      expect(http.requests, hasLength(3));
+      await second.conversationRendered('l', _round + 1);
+      for (final source in sources) {
+        expect(await secondStorage.load(source), isNull);
+      }
+      second.dispose();
+      await secondStorage.close();
     },
   );
 

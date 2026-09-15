@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'
     show
         BoxParentData,
+        RenderProxyBox,
         ScrollCacheExtent,
         ScrollDirection,
         SliverMultiBoxAdaptorParentData,
@@ -17,6 +18,7 @@ import '../../features/location_chat_reply/edit/edit.dart';
 import '../../features/location_chat_reply/go_on/go_on.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 import '../../features/location_chat_reply/regenerate/regenerate.dart';
+import '../../features/location_chat_reply/shared/reply_action_state.dart';
 import '../../ui/tokens/genesis_spacing.dart';
 import 'location_chat_reply_actions.dart';
 import 'location_chat_reply_card_switcher.dart';
@@ -575,29 +577,34 @@ class _LocationChatAnchoredMessageListState
       'location-chat-message-row:${_messageLayoutId(_renderedMessages[entry])}',
   });
 
-  Widget _buildEntry(
-    int entry,
-    ChatUiStyleConfig style, {
-    bool lazy = true,
-  }) => switch (entry) {
-    -3 => KeyedSubtree(
-      key: _entryKey(entry),
-      child: ChatReplyWaitingBubble(style: style),
-    ),
-    -2 => KeyedSubtree(key: _entryKey(entry), child: _buildReplyDeck(style)),
-    -1 => KeyedSubtree(
-      key: _entryKey(entry),
-      child:
-          _showLoadingInReplyActionSlot ||
-              (widget.replyActionsVisible && _replyIdentity != null)
-          ? _buildReplyControls(style)
-          : SizedBox(
-              height:
-                  LocationChatReplyActions.buttonSize + style.rowBottomPadding,
-            ),
-    ),
-    _ => _buildMessageRow(entry, style, lazy: lazy),
-  };
+  Widget _buildEntry(int entry, ChatUiStyleConfig style, {bool lazy = true}) =>
+      switch (entry) {
+        -3 => KeyedSubtree(
+          key: _entryKey(entry),
+          child: ChatReplyWaitingBubble(style: style),
+        ),
+        -2 => KeyedSubtree(
+          key: _entryKey(entry),
+          child: _buildReplyDeck(style),
+        ),
+        -1 => _ReplyControlsLayoutReporter(
+          key: _entryKey(entry),
+          bridge: _replyLayoutBridge,
+          child:
+              _showLoadingInReplyActionSlot ||
+                  (widget.replyActionsVisible && _replyIdentity != null)
+              ? _buildReplyControls(style)
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SizedBox(height: LocationChatReplyActions.buttonSize),
+                    _buildClosingInspirations(style),
+                    SizedBox(height: style.rowBottomPadding),
+                  ],
+                ),
+        ),
+        _ => _buildMessageRow(entry, style, lazy: lazy),
+      };
 
   void _captureCardLayoutAnchor() {
     // A missing/offscreen toolbar must never expand the history cache just to
@@ -610,6 +617,7 @@ class _LocationChatAnchoredMessageListState
     _replyLayoutCommandGeneration = widget.coordinator.commandGeneration;
     _replyLayoutBridge.begin(
       position: widget.coordinator.controller.position,
+      followControlsHeight: widget.coordinator.shouldFollowLatest,
       commandGeneration: widget.coordinator.commandGeneration,
       currentGeneration: () => widget.coordinator.commandGeneration,
     );
@@ -617,7 +625,11 @@ class _LocationChatAnchoredMessageListState
 
   void _setCardTransitionBusy(bool busy) {
     if (!mounted || _cardTransitionBusy == busy) return;
-    setState(() => _cardTransitionBusy = busy);
+    setState(() {
+      _cardTransitionBusy = busy;
+      if (busy) _inspirationExpanded = false;
+    });
+    if (busy) widget.inspirationFeature.onExpandedChanged?.call(false);
     widget.onReplyCardTransitionChanged?.call(busy);
     if (!busy) {
       _replyLayoutFinishing = true;
@@ -796,7 +808,9 @@ class _LocationChatAnchoredMessageListState
   late final AnimationController _oldestEdgeLoadingController;
   late final Animation<double> _oldestEdgeLoadingAnimation;
   late List<ChatMessageVm> _renderedMessages;
+  final _inspirationListKey = GlobalKey(debugLabel: 'inspiration-list');
   bool _inspirationExpanded = false;
+  bool _inspirationPromptExpanded = false;
   bool _editPromptExpanded = false;
   int _inspirationPage = 0;
   List<ChatMessageVm>? _pendingMessages;
@@ -903,8 +917,16 @@ class _LocationChatAnchoredMessageListState
         oldReplyIdentity != _replyIdentity ||
         oldWidget.inspirationIdentity != widget.inspirationIdentity) {
       _inspirationExpanded = false;
+      _inspirationPromptExpanded = false;
       _editPromptExpanded = false;
       _inspirationPage = 0;
+    }
+    if (_showLoadingInReplyActionSlot ||
+        !widget.replyActionsVisible ||
+        widget.inspirationFeature.state == LocationChatReplyActionState.none ||
+        (oldWidget.inspirationFeature.messages.isNotEmpty &&
+            widget.inspirationFeature.messages.isEmpty)) {
+      _inspirationExpanded = false;
     }
     if (oldWidget.coordinator != widget.coordinator) {
       _replyLayoutBridge.cancel(clearMeasurements: true);
@@ -1794,6 +1816,20 @@ class _LocationChatAnchoredMessageListState
     });
   }
 
+  Widget _buildClosingInspirations(ChatUiStyleConfig style) =>
+      LocationChatInspirationReplies(
+        key: _inspirationListKey,
+        identity: widget.inspirationIdentity,
+        expanded: false,
+        replies: const [],
+        style: style,
+        maxWidthCap: widget.selfMessageBubbleMaxWidthCap,
+        initialPage: 0,
+        onPageChanged: (_) {},
+        onSend: (_) {},
+        onEdit: (_) {},
+      );
+
   Widget _buildReplyControls(ChatUiStyleConfig style) => KeyedSubtree(
     key: ValueKey<String>(
       'location-chat-reply-control:${_showLoadingInReplyActionSlot ? _replyActionSlotLoadingIdentity : _replyIdentity}',
@@ -1849,7 +1885,13 @@ class _LocationChatAnchoredMessageListState
                   );
                 }
               },
+              inspirationListKey: _inspirationListKey,
+              inspirationIdentity: widget.inspirationIdentity ?? _replyIdentity,
               inspirationExpanded: _inspirationExpanded,
+              inspirationPromptExpanded: _inspirationPromptExpanded,
+              onInspirationPromptExpandedChanged: (expanded) {
+                setState(() => _inspirationPromptExpanded = expanded);
+              },
               inspirationPage: _inspirationPage,
               onInspirationPageChanged: (page) => _inspirationPage = page,
               onInspirationExpandedChanged: (expanded) {
@@ -1992,6 +2034,39 @@ class _LiveMessageList extends ListBase<ChatMessageVm> {
   @override
   void operator []=(int index, ChatMessageVm value) =>
       throw UnsupportedError('Read-only message view');
+}
+
+/// Measures the footer in the same layout pass as the deck. In particular,
+/// collapsing inspiration must shrink both the scroll extent and bottom anchor.
+class _ReplyControlsLayoutReporter extends SingleChildRenderObjectWidget {
+  const _ReplyControlsLayoutReporter({
+    super.key,
+    required this.bridge,
+    required super.child,
+  });
+
+  final LocationChatReplyLayoutBridge bridge;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderReplyControlsLayoutReporter(bridge);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _RenderReplyControlsLayoutReporter renderObject,
+  ) => renderObject.bridge = bridge;
+}
+
+class _RenderReplyControlsLayoutReporter extends RenderProxyBox {
+  _RenderReplyControlsLayoutReporter(this.bridge);
+  LocationChatReplyLayoutBridge bridge;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    bridge.reportControlsHeight(size.height);
+  }
 }
 
 class _ReplyAnchoredSliverList extends SliverList {
