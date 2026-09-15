@@ -109,7 +109,7 @@ void main() {
             );
             expect(
               tester.widget<Text>(find.text('Check in')).style?.color,
-              GenesisColors.darkTextPrimary,
+              GenesisColors.redSecondary,
             );
             expect(
               tester.widget<Text>(find.text('Check in')).style?.fontWeight,

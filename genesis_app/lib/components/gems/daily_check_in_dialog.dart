@@ -99,7 +99,7 @@ Future<bool> showDailyCheckInDialog(
         fontWeight: showCheckInActions ? FontWeight.w400 : FontWeight.w600,
         color: claimed
             ? GenesisColors.darkTextTertiary
-            : showCheckInActions
+            : showSubscriptionOffer
             ? GenesisColors.darkTextPrimary
             : GenesisColors.redSecondary,
         enabled: !claimed,
