@@ -16,6 +16,7 @@ class WorldProgressResult {
 
 class MyWorldSummary {
   const MyWorldSummary({
+    this.ownerUser = const OriginUserInfo(),
     required this.wid,
     required this.name,
     this.definitionVersion = 0,
@@ -32,6 +33,7 @@ class MyWorldSummary {
     required this.playerCount,
   });
 
+  final OriginUserInfo ownerUser;
   final String wid;
   final String name;
   final int definitionVersion;
@@ -89,6 +91,9 @@ class SearchUserSummary {
     required this.avatarUrl,
     required this.userCode,
     this.deleted = false,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
   });
 
   final String uid;
@@ -96,4 +101,7 @@ class SearchUserSummary {
   final String avatarUrl;
   final String userCode;
   final bool deleted;
+  final String gender;
+  final String age;
+  final int membershipStatus;
 }

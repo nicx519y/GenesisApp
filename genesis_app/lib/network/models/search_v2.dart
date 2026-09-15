@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../utils/genesis_image_resource.dart';
 import '../json_utils.dart';
+import '../../utils/entity_deleted.dart';
 
 /// The `data` object in a successful `/api/v2/search` envelope.
 @immutable
@@ -206,6 +207,10 @@ class SearchV2WorldItem {
 class SearchV2UserItem {
   const SearchV2UserItem({
     required this.uid,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
+    this.deleted = false,
     required this.name,
     required this.avatar,
     required this.matches,
@@ -213,6 +218,10 @@ class SearchV2UserItem {
 
   factory SearchV2UserItem.fromJson(Map<String, dynamic> json) {
     return SearchV2UserItem(
+      gender: asString(json['gender']),
+      age: asString(json['age']),
+      membershipStatus: asUserMembershipStatus(json['membership_status']),
+      deleted: entityDeleted(json['deleted']),
       uid: _rawString(json['uid']),
       name: _rawString(json['name']),
       avatar: GenesisImageResource.fromJson(json['avatar']),
@@ -221,6 +230,10 @@ class SearchV2UserItem {
   }
 
   final String uid;
+  final String gender;
+  final String age;
+  final int membershipStatus;
+  final bool deleted;
   final String name;
   final GenesisImageResource avatar;
   final List<SearchV2UserNameMatch> matches;
@@ -230,12 +243,20 @@ class SearchV2UserItem {
 class SearchV2Owner {
   const SearchV2Owner({
     required this.uid,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
+    this.deleted = false,
     required this.name,
     required this.avatar,
   });
 
   factory SearchV2Owner.fromJson(Map<String, dynamic> json) {
     return SearchV2Owner(
+      gender: asString(json['gender']),
+      age: asString(json['age']),
+      membershipStatus: asUserMembershipStatus(json['membership_status']),
+      deleted: entityDeleted(json['deleted']),
       uid: _rawString(json['uid']),
       name: _rawString(json['name']),
       avatar: GenesisImageResource.fromJson(json['avatar']),
@@ -243,6 +264,10 @@ class SearchV2Owner {
   }
 
   final String uid;
+  final String gender;
+  final String age;
+  final int membershipStatus;
+  final bool deleted;
   final String name;
   final GenesisImageResource avatar;
 }

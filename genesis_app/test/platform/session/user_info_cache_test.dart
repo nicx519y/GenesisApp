@@ -4,6 +4,36 @@ import 'package:genesis_flutter_android/platform/session/method_channel_user_ses
 import 'package:genesis_flutter_android/platform/session/user_info_cache.dart';
 
 void main() {
+  test(
+    'fresh UserInfo replaces cached public attributes without retaining a stale badge',
+    () async {
+      final sessionStore = MemoryUserSessionStore();
+      for (final status in [1, 2, null, '1']) {
+        await sessionStore.saveUserInfo({
+          'uid': 'u_1',
+          'gender': 'Male',
+          'age': '45+',
+          'membership_status': 1,
+        });
+        final cached = await cacheCurrentUserInfoResponse(
+          sessionStore: sessionStore,
+          response: {
+            'user': {
+              'uid': 'u_1',
+              'gender': 'Female',
+              'age': '25-34',
+              if (status != null) 'membership_status': status,
+            },
+          },
+        );
+        expect(cached?['gender'], 'Female');
+        expect(cached?['age'], '25-34');
+        expect(cached?['membership_status'], status is int ? status : 0);
+        expect(await sessionStore.readUserInfo(), cached);
+      }
+    },
+  );
+
   test('current user cache keeps fields alongside user', () async {
     final sessionStore = MemoryUserSessionStore();
     await sessionStore.saveUserInfo({'uid': 'old_uid', 'name': 'Old name'});

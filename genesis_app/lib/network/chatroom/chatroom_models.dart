@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import '../../utils/gem_amount.dart';
 import '../json_utils.dart';
+import '../models/origin.dart';
 import 'chatroom_message_type.dart';
 import 'chatroom_llm_cards.dart';
 import 'chatroom_timeline_payload.dart';
@@ -809,17 +810,26 @@ class ChatroomOnlineUser {
     required this.userId,
     required this.senderId,
     required this.senderName,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
   });
 
   final String userId;
   final String senderId;
   final String senderName;
+  final String gender;
+  final String age;
+  final int membershipStatus;
 
   factory ChatroomOnlineUser.fromPayload(Map<String, dynamic> payload) {
     return ChatroomOnlineUser(
       userId: asString(payload['user_id']),
       senderId: asString(payload['sender_id']),
       senderName: asString(payload['sender_name']),
+      gender: asString(payload['gender']),
+      age: asString(payload['age']),
+      membershipStatus: asUserMembershipStatus(payload['membership_status']),
     );
   }
 }
@@ -2194,6 +2204,7 @@ class ChatroomNewUserJoinEvent extends ChatroomEvent {
     required this.characterType,
     required this.characterName,
     required this.playerUid,
+    this.playerUser = const OriginUserInfo(),
     required this.playerUsername,
     required this.ts,
     this.currentTime = '',
@@ -2204,6 +2215,7 @@ class ChatroomNewUserJoinEvent extends ChatroomEvent {
   final String characterType;
   final String characterName;
   final String playerUid;
+  final OriginUserInfo playerUser;
   final String playerUsername;
   final DateTime? ts;
   final String currentTime;
@@ -2211,6 +2223,9 @@ class ChatroomNewUserJoinEvent extends ChatroomEvent {
   factory ChatroomNewUserJoinEvent.fromEnvelope(ChatroomEnvelope envelope) {
     final payload = envelope.mergedPayload;
     return ChatroomNewUserJoinEvent(
+      playerUser: OriginUserInfo.fromJson(
+        asOptionalJsonMap(payload['player_user']),
+      ),
       worldId: asString(payload['world_id'], fallback: envelope.worldId),
       characterId: asString(payload['char_id']),
       characterType: asString(payload['type']),

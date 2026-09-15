@@ -5,6 +5,7 @@ import 'package:sqflite/sqflite.dart';
 
 import '../platform/platform_services.dart';
 import '../utils/genesis_timestamp_formatter.dart';
+import '../utils/entity_deleted.dart';
 import '../utils/genesis_ugc_text.dart';
 import 'direct_message_database.dart';
 import 'api_client.dart';
@@ -18,6 +19,10 @@ class DirectMessageConversationRecord {
     required this.lastMessageId,
     required this.avatarUrl,
     required this.peerName,
+    this.peerGender = '',
+    this.peerAge = '',
+    this.peerMembershipStatus = 0,
+    this.peerDeleted = false,
     required this.lastMessage,
     required this.lastMessageAt,
     required this.lastMessageAtTime,
@@ -31,11 +36,15 @@ class DirectMessageConversationRecord {
     final peer = asJsonMap(json['peer'] ?? const <String, dynamic>{});
     final time = parseFlexibleTimestamp(json['last_message_at']);
     return DirectMessageConversationRecord(
+      peerGender: asString(peer['gender']),
+      peerAge: asString(peer['age']),
+      peerMembershipStatus: asUserMembershipStatus(peer['membership_status']),
       conversationId: asString(json['conv_id']),
       peerUid: asString(peer['uid']),
       lastMessageId: asString(json['last_message_id']),
       avatarUrl: asImageUrl(peer['avatar']),
       peerName: asString(peer['name'], fallback: 'Unknown user'),
+      peerDeleted: entityDeleted(peer['deleted']),
       lastMessage: decodeGenesisUgcTextForDisplay(
         asString(json['last_message']),
       ),
@@ -53,6 +62,10 @@ class DirectMessageConversationRecord {
   final String lastMessageId;
   final String avatarUrl;
   final String peerName;
+  final String peerGender;
+  final String peerAge;
+  final int peerMembershipStatus;
+  final bool peerDeleted;
   final String lastMessage;
   final String lastMessageAt;
   final DateTime? lastMessageAtTime;

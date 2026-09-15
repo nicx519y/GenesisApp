@@ -540,6 +540,66 @@ void main() {
     );
   }
 
+  test(
+    'world positions retain player metadata and apply explicit status changes',
+    () async {
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: _WorldChatroomHttpTransport(),
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final world = _worldSnapshot().copyWith(
+        characters: const [
+          {
+            'char_id': 'char-user-1',
+            'type': 'player',
+            'player_uid': 'user-1',
+            'name': 'Role One',
+            'player_user': {
+              'uid': 'user-1',
+              'gender': 'Non_binary',
+              'age': '35-44',
+              'membership_status': 1,
+            },
+          },
+        ],
+        characterPositions: const [],
+        userPositions: const [
+          {'uid': 'user-1', 'location_id': 'loc-1'},
+        ],
+      );
+      service.applyWorldSnapshot(world);
+      final player = service.state.entitiesById['user-1']!;
+      expect(
+        (player.gender, player.age, player.membershipStatus),
+        ('Non_binary', '35-44', 1),
+      );
+      expect(player.locationId, 'loc-1');
+
+      service.applyWorldSnapshot(
+        world.copyWith(
+          userPositions: const [
+            {
+              'uid': 'user-1',
+              'location_id': 'loc-2',
+              'gender': '',
+              'age': '',
+              'membership_status': 0,
+            },
+          ],
+        ),
+      );
+      final updated = service.state.entitiesById['user-1']!;
+      expect(
+        (updated.gender, updated.age, updated.membershipStatus),
+        ('', '', 0),
+      );
+      expect(updated.locationId, 'loc-2');
+    },
+  );
+
   test('connect hydrates world detail and user locations', () async {
     final socket = _FakeChatroomSocket();
     final http = _WorldChatroomHttpTransport();

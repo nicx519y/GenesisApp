@@ -12,6 +12,9 @@ class User {
     required this.nickname,
     required this.avatar,
     this.deleted = false,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
     required this.createdAt,
   });
 
@@ -21,10 +24,16 @@ class User {
   final String nickname;
   final String avatar;
   final bool deleted;
+  final String gender;
+  final String age;
+  final int membershipStatus;
   final DateTime? createdAt;
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
+      gender: asString(json['gender']),
+      age: asString(json['age']),
+      membershipStatus: asUserMembershipStatus(json['membership_status']),
       id: asInt(json['id']),
       uid: asString(json['uid']),
       did: asString(json['did']),

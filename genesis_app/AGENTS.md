@@ -422,7 +422,7 @@ HTTP 映射层的图片规则：
 
 ## 用户名会员徽章
 
-- 名字与徽章复用 `ProUserName`；已有元数据行使用 `GenesisInlineMetaLabel.membershipUid`；评论等富文本使用 `ProUserBadge.span`。保留原文字样式、点击行为和省略规则，徽章垂直居中。
+- 名字与徽章复用 `ProUserName`；已有元数据行使用 `GenesisInlineMetaLabel.membershipStatus`；评论等富文本使用 `ProUserBadge.span`。保留原文字样式、点击行为和省略规则，徽章垂直居中。
 - 图形唯一实现为 `ProMembershipBadge`：高度为相邻文字字号的 0.85，宽高比 96/68；20px 名字对应 24×17px，随系统文字缩放。Me 保留 6px 名字间距，其他公共名字布局默认 4px。
-- 仅对应 UID 的真实会员状态为 1 时显示；其他用户的状态通过公共 `UserMembershipStatusStore` 查询 `/api/v1/user/info` 的 `user.membership_status`，不根据名字、会员套餐、余额、头像或当前账号的会员状态猜测。未知／失败／删除状态隐藏，不留徽章空位。
-- 不在各页面重复发请求、建立缓存或实现皇冠；定时刷新、并发去重、账号切换和销毁由公共状态服务处理。
+- 用户模型透传接口 `UserInfo` 的 `gender`、`age`、`membership_status`；名字后的徽章只使用同一用户模型的整数状态 1。0、2、缺失／未知和已删除用户不显示，不留空位，不使用当前账号的钱包推断他人。
+- 徽章组件为纯展示，不按 UID 查询 `user/info`，不维护独立缓存、定时刷新或生命周期监听。状态随所属列表／资料接口刷新；World 与 Chat（含 Location Chat）页面不显示用户名会员徽章。

@@ -1422,6 +1422,11 @@ class _MockState {
   Map<String, dynamic> _v1UserPayload(Map<String, dynamic> user) {
     final copy = _deepCopyMap(user);
     copy['avatar'] = _mockImageObject(copy['avatar'] ?? copy['avatar_url']);
+    copy['gender'] = asString(user['gender']);
+    copy['age'] = asString(user['age']);
+    copy['membership_status'] = asUserMembershipStatus(
+      user['membership_status'],
+    );
     return copy;
   }
 
@@ -4631,6 +4636,12 @@ class _MockState {
             'uid': item['uid'] ?? '',
             'name': item['name'] ?? '',
             'avatar': _mockImageObject(item['avatar']),
+            'gender': asString(item['gender']),
+            'age': asString(item['age']),
+            'membership_status': asUserMembershipStatus(
+              item['membership_status'],
+            ),
+            'deleted': item['deleted'] ?? false,
             'matches': const <Map<String, dynamic>>[],
           },
         )
@@ -4673,6 +4684,10 @@ class _MockState {
       'uid': owner['uid'] ?? '',
       'name': owner['name'] ?? '',
       'avatar': owner['avatar'] ?? _mockImageObject(''),
+      'gender': asString(owner['gender']),
+      'age': asString(owner['age']),
+      'membership_status': asUserMembershipStatus(owner['membership_status']),
+      'deleted': owner['deleted'] ?? false,
     };
   }
 
@@ -5210,6 +5225,9 @@ class _MockState {
   }) {
     if (uid.trim().isEmpty) {
       return {
+        'gender': '',
+        'age': '',
+        'membership_status': 0,
         'uid': '',
         'name': '',
         'avatar': _mockImageObject(''),
@@ -5228,6 +5246,9 @@ class _MockState {
       'name': '${user['name'] ?? fallbackName}',
       'avatar': user['avatar'] ?? _mockImageObject(''),
       'deleted': user['deleted'] ?? false,
+      'gender': asString(user['gender']),
+      'age': asString(user['age']),
+      'membership_status': asUserMembershipStatus(user['membership_status']),
       'follower_cnt': user['follower_cnt'] ?? 0,
       'following_cnt': user['following_cnt'] ?? 0,
       'friend_cnt': user['friend_cnt'] ?? 0,

@@ -1900,7 +1900,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","definition_version":2,"default_map_location_id":"loc_origin","owner_name":"Origin Owner","brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":73}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"origin_id":"o_1","origin_name":"Origin One","definition_version":2,"default_map_location_id":"loc_origin","owner_name":"Origin Owner","owner_user":{"uid":"u_2","gender":"Female","age":"25-34","membership_status":1},"brief":"origin brief","cover":"","tags":["tag"],"created_at":1716000000},"stats":{"copy_cnt":2,"connect_cnt":3}}],"total":73}}',
           );
         }
         if (request.uri.path.endsWith('/v1/world/list')) {
@@ -1908,7 +1908,7 @@ void main() {
             statusCode: 200,
             headers: {'content-type': 'application/json'},
             body:
-                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":73}}',
+                '{"err_no":0,"err_msg":"succ","data":{"list":[{"info":{"world_id":"w_1","world_name":"World One","owner_user":{"uid":"u_2","gender":"Male","age":"45+","membership_status":2},"definition_version":2,"default_map_location_id":"loc_world","cover":"","created_at":1716000000,"last_active_at":1717000000},"stats":{"tick_cnt":4,"sub_tick_no":0,"player_cnt":5},"last_tick":{"tick_no":4,"sub_tick_no":2}}],"total":73}}',
           );
         }
         return const TransportResponse(
@@ -1953,6 +1953,12 @@ void main() {
       offset: 60,
     );
     expect(origins.total, 73);
+    expect(origins.data.single.ownerUser.gender, 'Female');
+    expect(origins.data.single.ownerUser.age, '25-34');
+    expect(origins.data.single.ownerUser.membershipStatus, 1);
+    expect(worlds.single.ownerUser.gender, 'Male');
+    expect(worlds.single.ownerUser.age, '45+');
+    expect(worlds.single.ownerUser.membershipStatus, 2);
     expect(worldPage.total, 73);
     expect(worldPage.data.single.wid, 'w_1');
     expect(worldPage.offset, 60);
@@ -2033,6 +2039,9 @@ void main() {
               'owner_name': 'Tester',
               'owner_user': {
                 'uid': 'u_1',
+                'gender': 'Non_binary',
+                'age': '35-44',
+                'membership_status': 1,
                 'name': 'Tester',
                 'avatar': {
                   'sm_url': 'https://cdn.example.com/owner-sm.webp',
@@ -2201,6 +2210,9 @@ void main() {
     expect(origin.currentTime, 'Day 7, 19:10');
     expect(origin.status, 10);
     expect(origin.ownerUser.uid, 'u_1');
+    expect(origin.ownerUser.gender, 'Non_binary');
+    expect(origin.ownerUser.age, '35-44');
+    expect(origin.ownerUser.membershipStatus, 1);
     expect(origin.ownerUser.followerCount, 11);
     expect(origin.ownerUser.avatarResource.objectKey, 'owner-xl.webp');
     expect(origin.coverResource.objectKey, 'cover-xl.webp');

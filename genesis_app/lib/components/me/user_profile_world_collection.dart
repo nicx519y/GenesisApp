@@ -102,6 +102,10 @@ class _WorldProfileCollectionListState
                   ? item.subtitle.split('\n').first
                   : item.subtitle,
               ownerUid: item.deleted || hideOwner ? '' : item.ownerUid,
+              ownerMembershipStatus:
+                  item.deleted || hideOwner || item.ownerUser.deleted
+                  ? 0
+                  : item.ownerUser.membershipStatus,
               statsText: formatWorldStatsLabel(
                 tickNo: item.progressCount,
                 subTickNo: item.subTickNo,
@@ -207,6 +211,7 @@ class UserProfileOriginItem {
 
 class UserProfileWorldItem {
   const UserProfileWorldItem({
+    this.ownerUser = const OriginUserInfo(),
     required this.wid,
     required this.title,
     this.definitionVersion = 0,
@@ -223,6 +228,7 @@ class UserProfileWorldItem {
     this.ownerUid = '',
   });
 
+  final OriginUserInfo ownerUser;
   final String wid;
   final String title;
   final int definitionVersion;

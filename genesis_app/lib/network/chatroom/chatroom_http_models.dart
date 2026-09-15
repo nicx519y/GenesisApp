@@ -209,16 +209,25 @@ class ChatroomHttpMessage {
 class ChatroomLocationUser {
   const ChatroomLocationUser({
     required this.userId,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
     required this.userName,
     required this.avatar,
   });
 
   final String userId;
+  final String gender;
+  final String age;
+  final int membershipStatus;
   final String userName;
   final String avatar;
 
   factory ChatroomLocationUser.fromJson(Map<String, dynamic> json) {
     return ChatroomLocationUser(
+      gender: asString(json['gender']),
+      age: asString(json['age']),
+      membershipStatus: asUserMembershipStatus(json['membership_status']),
       userId: asString(json['user_id']),
       userName: asString(json['user_name']),
       avatar: asString(json['avatar']),

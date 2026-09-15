@@ -10,6 +10,7 @@ import '../../routers/app_router.dart';
 import '../../ui/components/genesis_avatar.dart';
 import '../../ui/tokens/genesis_avatar_radii.dart';
 import '../../utils/display_name_formatter.dart';
+import '../../utils/entity_deleted.dart';
 import '../auth/login_guard.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_report_actions.dart';
@@ -249,7 +250,7 @@ class _DiscussPageMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tappableMeta = ProUserName(
-      uid: item.authorUid,
+      membershipStatus: item.authorMembershipStatus,
       fontSize: 14,
       deleted: item.authorDeleted,
       child: Text(
@@ -608,7 +609,9 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
             ),
           ),
           ProUserBadge.span(
-            uid: uid,
+            membershipStatus: asUserMembershipStatus(
+              author?['membership_status'],
+            ),
             fontSize: 12,
             deleted: asBool(author?['deleted'] ?? reply['author_deleted']),
           ),
@@ -621,7 +624,16 @@ class _DiscussPageReplyPreviewLine extends StatelessWidget {
                 color: DiscussDarkColors.secondary,
               ),
             ),
-          if (showReplyTo) ProUserBadge.span(uid: replyToUid, fontSize: 12),
+          if (showReplyTo)
+            ProUserBadge.span(
+              membershipStatus: asUserMembershipStatus(
+                asOptionalJsonMap(reply['reply_to_user'])['membership_status'],
+              ),
+              deleted: entityDeleted(
+                asOptionalJsonMap(reply['reply_to_user'])['deleted'],
+              ),
+              fontSize: 12,
+            ),
           TextSpan(text: content),
         ],
       ),

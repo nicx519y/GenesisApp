@@ -297,6 +297,7 @@ class _DiscussPageState extends State<DiscussPage> {
         item: item,
         parentDiscussId: asString(reply['discuss_id']),
         replyToUid: _replyAuthorUid(reply),
+        replyToUser: asOptionalJsonMap(reply['author']),
         replyToUsername: _replyAuthorName(reply),
       ),
     );
@@ -503,7 +504,9 @@ class _DiscussOriginSummary extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               ProUserName(
-                uid: originator.isEmpty ? '' : origin.ownerUid,
+                membershipStatus: originator.isEmpty
+                    ? 0
+                    : origin.ownerUser.membershipStatus,
                 fontSize: 12,
                 deleted: origin.ownerDeleted,
                 child: Text(

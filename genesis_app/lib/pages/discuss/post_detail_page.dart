@@ -195,6 +195,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
       item: item,
       parentDiscussId: reply == null ? null : asString(reply['discuss_id']),
       replyToUid: reply == null ? null : _replyAuthorUid(reply),
+      replyToUser: reply == null ? null : asOptionalJsonMap(reply['author']),
       replyToUsername: reply == null ? null : replyToName,
       placeholder: replyToName.trim().isEmpty
           ? 'Write a reply'
@@ -436,7 +437,7 @@ class _PostReplyRow extends StatelessWidget {
                   children: [
                     Expanded(
                       child: ProUserName(
-                        uid: data.authorUid,
+                        membershipStatus: data.authorMembershipStatus,
                         fontSize: _postDetailNameStyle.fontSize!,
                         deleted: data.authorDeleted,
                         child: Text(
@@ -703,6 +704,9 @@ class _ReplyViewData {
     required this.discussId,
     required this.authorUid,
     required this.authorDeleted,
+    this.authorGender = '',
+    this.authorAge = '',
+    this.authorMembershipStatus = 0,
     required this.authorName,
     required this.avatar,
     required this.content,
@@ -726,6 +730,11 @@ class _ReplyViewData {
       fallback: formatUidForDisplay(uid, fallback: 'User'),
     );
     return _ReplyViewData(
+      authorGender: asString(author?['gender']),
+      authorAge: asString(author?['age']),
+      authorMembershipStatus: asUserMembershipStatus(
+        author?['membership_status'],
+      ),
       discussId: asString(json['discuss_id']),
       authorUid: uid,
       authorDeleted: entityDeleted(author?['deleted']),
@@ -749,6 +758,9 @@ class _ReplyViewData {
   final String discussId;
   final String authorUid;
   final bool authorDeleted;
+  final String authorGender;
+  final String authorAge;
+  final int authorMembershipStatus;
   final String authorName;
   final String avatar;
   final String content;
@@ -781,7 +793,15 @@ TextSpan _replyDisplayContentSpan(Map<String, dynamic> json) {
           color: DiscussDarkColors.secondary,
         ),
       ),
-      ProUserBadge.span(uid: replyToUid, fontSize: 14),
+      ProUserBadge.span(
+        membershipStatus: asUserMembershipStatus(
+          asOptionalJsonMap(json['reply_to_user'])['membership_status'],
+        ),
+        deleted: entityDeleted(
+          asOptionalJsonMap(json['reply_to_user'])['deleted'],
+        ),
+        fontSize: 14,
+      ),
       TextSpan(text: content),
     ],
   );

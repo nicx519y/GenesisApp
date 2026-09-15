@@ -21,6 +21,7 @@ OriginSummary _originSummaryFromSearchItem(Map<String, dynamic> raw) {
   final id = asInt(raw['id'], fallback: _stableInt(oid));
 
   return OriginSummary(
+    ownerUser: _originUserInfoFromV1(asOptionalJsonMap(raw['owner_user'])),
     id: id,
     oid: oid,
     name: asString(raw['name']),
@@ -58,6 +59,7 @@ MyWorldSummary _worldSummaryFromSearchItem(Map<String, dynamic> raw) {
       : const <String, dynamic>{};
   final statsSubTickNo = asInt(stats['sub_tick_no']);
   return MyWorldSummary(
+    ownerUser: _originUserInfoFromV1(asOptionalJsonMap(raw['owner_user'])),
     wid: asString(
       raw['world_instance_id'],
       fallback: asString(raw['wid'], fallback: asString(raw['id'])),
@@ -96,6 +98,9 @@ MyWorldSummary _worldSummaryFromSearchItem(Map<String, dynamic> raw) {
 SearchUserSummary _userSummaryFromSearchItem(Map<String, dynamic> raw) {
   final uid = asString(raw['id'], fallback: asString(raw['uid']));
   return SearchUserSummary(
+    gender: asString(raw['gender']),
+    age: asString(raw['age']),
+    membershipStatus: asUserMembershipStatus(raw['membership_status']),
     uid: uid,
     displayName: asString(
       raw['display_name'],

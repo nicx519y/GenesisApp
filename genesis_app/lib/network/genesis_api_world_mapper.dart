@@ -3,7 +3,7 @@ part of 'genesis_api.dart';
 WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
   final world = asJsonMap(raw['info']);
   final ownerUser = world['owner_user'] is Map
-      ? asJsonMap(world['owner_user'])
+      ? asOptionalJsonMap(world['owner_user'])
       : const <String, dynamic>{};
   final stats = asJsonMap(raw['stats']);
   final wid = asString(world['world_id']);
@@ -49,6 +49,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
       : const <String, dynamic>{};
 
   return WorldDetail(
+    ownerUser: _originUserInfoFromV1(ownerUser),
     id: worldId,
     worldId: wid,
     originId: originId,
@@ -129,7 +130,7 @@ WorldDetail _worldDetailFromV1(Map<String, dynamic> raw) {
 
 OriginCharacter _originCharacterFromV1(Map<String, dynamic> raw, int originId) {
   final playerUser = raw['player_user'] is Map
-      ? asJsonMap(raw['player_user'])
+      ? asOptionalJsonMap(raw['player_user'])
       : const <String, dynamic>{};
   final characterId = asString(
     raw['character_id'],
@@ -253,6 +254,9 @@ OriginLocation _originLocationFromV1(Map<String, dynamic> raw, int originId) {
 OriginUserInfo _originUserInfoFromV1(Map<String, dynamic> raw) {
   final avatarResource = _resolveImageAssetResource(raw['avatar']);
   return OriginUserInfo(
+    gender: asString(raw['gender']),
+    age: asString(raw['age']),
+    membershipStatus: asUserMembershipStatus(raw['membership_status']),
     uid: asString(raw['uid']),
     name: asString(raw['name']),
     avatar: avatarResource.displayUrl,
@@ -279,6 +283,7 @@ Map<String, dynamic>? _worldCharacterPositionFromV1(Map<String, dynamic> raw) {
       'player_uid': asString(raw['player_uid']),
       'player_username': asString(raw['player_username']),
       'player_deleted': raw['player_deleted'],
+      'player_user': raw['player_user'],
       'identity': asString(raw['identity']),
       'tagline': asString(raw['brief']),
       'description': asString(raw['description']),
@@ -290,7 +295,7 @@ Map<String, dynamic>? _worldCharacterPositionFromV1(Map<String, dynamic> raw) {
 
 Map<String, dynamic> _worldCharacterFromV1(Map<String, dynamic> raw) {
   final playerUser = raw['player_user'] is Map
-      ? asJsonMap(raw['player_user'])
+      ? asOptionalJsonMap(raw['player_user'])
       : const <String, dynamic>{};
   return {
     'char_id': asString(raw['char_id']),
@@ -357,10 +362,15 @@ Map<String, dynamic>? _worldUserPositionFromV1(Map<String, dynamic> raw) {
   final locationId = asString(raw['location_id']);
   if (locationId.isEmpty) return null;
   final playerUser = raw['player_user'] is Map
-      ? asJsonMap(raw['player_user'])
+      ? asOptionalJsonMap(raw['player_user'])
       : const <String, dynamic>{};
   return {
     'uid': playerUid,
+    'gender': asString(playerUser['gender']),
+    'age': asString(playerUser['age']),
+    'membership_status': asUserMembershipStatus(
+      playerUser['membership_status'],
+    ),
     'location_id': locationId,
     'deleted': entityDeleted(
       playerUser['deleted'],

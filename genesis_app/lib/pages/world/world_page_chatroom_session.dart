@@ -362,6 +362,7 @@ extension _WorldPageChatroomSession on _WorldPageState {
       characterType: event.characterType,
       characterName: event.characterName,
       playerUid: event.playerUid,
+      playerUser: event.playerUser,
       playerUsername: event.playerUsername,
       ts: event.ts,
     );

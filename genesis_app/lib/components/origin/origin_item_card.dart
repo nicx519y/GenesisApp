@@ -7,6 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
+import '../../network/models/origin.dart';
 import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
@@ -32,6 +33,7 @@ debugOriginItemCoverImageProvider;
 @immutable
 class OriginListItem {
   const OriginListItem({
+    this.ownerUser = const OriginUserInfo(),
     required this.oid,
     this.wid = '',
     this.definitionVersion = 0,
@@ -68,6 +70,9 @@ class OriginListItem {
       ),
     );
     return OriginListItem(
+      ownerUser: OriginUserInfo.fromJson(
+        asOptionalJsonMap(info['owner_user'] ?? json['owner_user']),
+      ),
       oid: oid,
       wid: asString(info['wid'], fallback: asString(info['world_id'])),
       definitionVersion: asInt(info['definition_version']),
@@ -109,6 +114,7 @@ class OriginListItem {
     );
   }
 
+  final OriginUserInfo ownerUser;
   final String oid;
   final String wid;
   final int definitionVersion;

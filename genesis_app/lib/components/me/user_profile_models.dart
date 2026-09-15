@@ -30,6 +30,9 @@ class UserProfileData {
     this.isSelf = true,
     this.isFollowed = false,
     this.deleted = false,
+    this.gender = '',
+    this.age = '',
+    this.membershipStatus = 0,
     required this.origins,
     required this.worlds,
   });
@@ -42,6 +45,9 @@ class UserProfileData {
   final bool isSelf;
   final bool isFollowed;
   final bool deleted;
+  final String gender;
+  final String age;
+  final int membershipStatus;
   final List<UserProfileOriginItem> origins;
   final List<UserProfileWorldItem> worlds;
 
@@ -54,6 +60,9 @@ class UserProfileData {
     bool? isSelf,
     bool? isFollowed,
     bool? deleted,
+    String? gender,
+    String? age,
+    int? membershipStatus,
     List<UserProfileOriginItem>? origins,
     List<UserProfileWorldItem>? worlds,
   }) {
@@ -66,6 +75,9 @@ class UserProfileData {
       isSelf: isSelf ?? this.isSelf,
       isFollowed: isFollowed ?? this.isFollowed,
       deleted: deleted ?? this.deleted,
+      gender: gender ?? this.gender,
+      age: age ?? this.age,
+      membershipStatus: membershipStatus ?? this.membershipStatus,
       origins: origins ?? this.origins,
       worlds: worlds ?? this.worlds,
     );
