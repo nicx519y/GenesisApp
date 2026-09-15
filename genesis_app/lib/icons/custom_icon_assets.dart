@@ -45,9 +45,12 @@ const String bottomNavMePressIconAsset =
 // Reply actions; reusable across chat and other action surfaces.
 const String regenerateIconAsset = 'assets/custom-icons/svg/regenerate.svg';
 const String goOnIconAsset = 'assets/custom-icons/svg/go_on.svg';
-const String editSquareIconAsset = 'assets/custom-icons/svg/edit_square.svg';
-const String inspirationIconAsset = 'assets/custom-icons/svg/inspiration.svg';
-const String proCrownIconAsset = 'assets/custom-icons/svg/pro_crown.svg';
+const String editSquareIconAsset =
+    'assets/custom-icons/svg/icon_benefit_edit.svg';
+const String inspirationIconAsset =
+    'assets/custom-icons/svg/icon_benefit_inspiration.svg';
+const String proCrownIconAsset =
+    'assets/custom-icons/svg/icon_benefit_badge.svg';
 const String proCrownFilledIconAsset =
     'assets/custom-icons/svg/pro_crown_filled.svg';
 const String proCrownGoldIconAsset =
