@@ -15,6 +15,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _replyLocationChanges?.removeListener(_onReplyActionsChanged);
     _replyLocationChanges = null;
     _lastReplyBodyRevision = null;
+    _unseenReplyMessageLocalIds.clear();
+    _observedReplyMessageLocalIds.clear();
     _replyProjection.clear();
     _replyController = null;
     _preparingReplyAction = false;
@@ -93,13 +95,38 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         );
         if (loadingChanged || bodyRevision != _lastReplyBodyRevision) {
           _lastReplyBodyRevision = bodyRevision;
-          _setLocationChatState(() {});
+          _setLocationChatState(_syncUnseenReplyMessages);
         } else {
           _setReplyControlsState(() {});
         }
         _scheduleDeferredTickReleaseIfReady();
       }
     });
+  }
+
+  void _syncUnseenReplyMessages() {
+    final state = _replyController?.stateFor(widget.locationId);
+    final card = state?.viewedCard;
+    final ids = state != null && state.showCandidates && card != null
+        ? _replyProjection
+              .messages(state.messagesForCard(card.cardId), cardId: card.cardId)
+              .where(
+                (message) => message.text.trim().isNotEmpty || message.isImage,
+              )
+              .map((message) => message.localId)
+              .toSet()
+        : <String>{};
+    _unseenReplyMessageLocalIds.retainAll(ids);
+    // Restoring or browsing existing cards must not create new-message notices.
+    if (_replyLoadingForRegeneration &&
+        card != null &&
+        !card.isOriginal &&
+        !_replyRegenerationBaselineCardIds.contains(card.cardId)) {
+      _unseenReplyMessageLocalIds.addAll(
+        ids.difference(_observedReplyMessageLocalIds),
+      );
+    }
+    _observedReplyMessageLocalIds.addAll(ids);
   }
 
   Future<void> _runReplyGeneration(
@@ -135,6 +162,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
       }
       _replyLoadingForRegeneration = regenerating;
       if (regenerating) {
+        _unseenReplyMessageLocalIds.clear();
+        _observedReplyMessageLocalIds.clear();
         _replyRegenerationHasRenderedContent = false;
         _replyRegenerationBaselineCardIds = {
           for (final card in replyState?.cards ?? const []) card.cardId,

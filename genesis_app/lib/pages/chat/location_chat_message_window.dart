@@ -6,7 +6,11 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       _cancelOlderMessagesLoadSchedule();
       return;
     }
-    if (_unseenIncomingCount > 0 && _scrollCoordinator.isAtBottom) {
+    // Waiting space may put us at the scroll extent while a visible stream
+    // is still growing. Keep tracking it until it actually leaves the viewport.
+    if (_unseenIncomingCount > 0 &&
+        _scrollCoordinator.shouldFollowLatest &&
+        _scrollCoordinator.isAtBottom) {
       _clearUnseenIncomingCount();
     }
     if (!widget.active ||
@@ -16,7 +20,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       _cancelOlderMessagesLoadSchedule();
       return;
     }
-    if (!_scrollCoordinator.isDetached) {
+    if (!_scrollCoordinator.isReadingHistory) {
       _cancelOlderMessagesLoadSchedule();
       return;
     }
@@ -49,7 +53,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       isLeafLocation: widget.isLeafLocation,
       loading: _loadingOlderMessages,
       hasMore: _hasMoreOlderMessages,
-      detached: _scrollCoordinator.isDetached,
+      detached: _scrollCoordinator.isReadingHistory,
       extentBefore: position.extentBefore,
       isScrolling: false,
     )) {

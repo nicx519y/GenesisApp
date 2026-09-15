@@ -37,6 +37,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transpo
 import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/message_parsers/location_chat_message_parsers.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 import 'package:genesis_flutter_android/pages/gems/memory_model_page_cache.dart';
@@ -74,6 +75,350 @@ Finder _replyActionLoading(String label) => find.descendant(
 );
 
 void main() {
+  testWidgets('composer Send dismisses keyboard before waiting for ACK', (
+    tester,
+  ) async {
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+    );
+    await tester.tap(find.byType(TextField));
+    await tester.enterText(find.byType(TextField), 'Send and close keyboard');
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.focusNode!.hasFocus, isTrue);
+    expect(tester.testTextInput.isVisible, isTrue);
+    final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+    unawaited(composer.onSend());
+    await tester.pump();
+    expect(field.focusNode!.hasFocus, isFalse);
+    expect(tester.testTextInput.isVisible, isFalse);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.sendMessageCount == 1,
+    );
+    harness.socket.serverV2AckForLatestSend(errNo: 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump();
+  });
+
+  testWidgets(
+    'waiting space does not show notice until the same stream exceeds viewport',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: _LocationChatReplyHttpTransport(),
+      );
+      await tester.tap(find.bySemanticsLabel('Go on'));
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.replyActionFrames('go_on').isNotEmpty,
+      );
+      harness.socket.serverReplyActionAck('go_on', roundId: 401);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.byType(ChatReplyWaitingBubble).evaluate().isNotEmpty,
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      final coordinator = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          )
+          .coordinator;
+      final position = coordinator.controller.position;
+      var held = position.pixels;
+      const notice = ValueKey('location-chat-new-message-notice');
+      expect(coordinator.hasMessageContentBelowViewport, isFalse);
+      expect(find.byKey(notice), findsNothing);
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        roundId: 401,
+        messageId: 402,
+        seq: 1,
+        content: 'A short reply.',
+        conversationType: 'go_on',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('A short reply.').evaluate().isNotEmpty,
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(position.pixels, closeTo(held, 0.1));
+      expect(coordinator.hasMessageContentBelowViewport, isFalse);
+      expect(find.byKey(notice), findsNothing);
+      // Move slightly into the reserved tail: the scroll extent overflows, but
+      // the complete reply is still on screen and must not produce a notice.
+      position.jumpTo((held - 30).clamp(position.minScrollExtent, held));
+      await tester.pump();
+      await tester.pump();
+      held = position.pixels;
+      expect(position.maxScrollExtent - held, greaterThan(24));
+      expect(coordinator.hasMessageContentBelowViewport, isFalse);
+      expect(find.byKey(notice), findsNothing);
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        roundId: 401,
+        messageId: 402,
+        seq: 2,
+        content: '\nMore content.' * 40,
+        conversationType: 'go_on',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => coordinator.hasMessageContentBelowViewport,
+        step: const Duration(milliseconds: 16),
+      );
+      await tester.pump();
+      expect(position.pixels, closeTo(held, 0.1));
+      expect(find.text('1 new message'), findsOneWidget);
+      await tester.tap(find.byKey(notice));
+      await tester.pump();
+      await tester.pump();
+      expect(find.byKey(notice), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump();
+    },
+  );
+
+  for (final prepared in [false, true]) {
+    testWidgets(
+      'regenerate counts only overflowing card bubbles prepared=$prepared',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 720));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: _LocationChatReplyHttpTransport(),
+          usePreparedEntry: prepared,
+        );
+        await tester.tap(find.bySemanticsLabel('Regenerate'));
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket
+              .replyActionFrames('regenerate_llm_card')
+              .isNotEmpty,
+        );
+        harness.socket.serverReplyActionAck(
+          'regenerate_llm_card',
+          roundId: 301,
+          payload: {
+            'regeneration': {
+              'conversation_round_id': 301,
+              'original_card_id': 501,
+              'card_id': 502,
+              'generation_state': 'generating',
+              'billing': {'status': 'reserved'},
+            },
+          },
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 900));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400));
+        harness.socket.serverCandidateStream(
+          streamType: 'chunk',
+          content: 'First visible bubble.',
+          seq: 1,
+        );
+        await tester.pumpAndSettle();
+        final list = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        final coordinator = list.coordinator;
+        final held = coordinator.controller.position.pixels;
+        const notice = ValueKey('location-chat-new-message-notice');
+        expect(find.byKey(notice), findsNothing);
+        harness.socket.serverCandidateStream(
+          streamType: 'chunk',
+          messageIndex: 2,
+          content: 'Second bubble.\n' * 40,
+          seq: 1,
+        );
+        await tester.pumpAndSettle();
+        expect(coordinator.controller.position.pixels, closeTo(held, 0.1));
+        expect(find.text('1 new message'), findsOneWidget);
+        harness.socket.serverCandidateStream(
+          streamType: 'chunk',
+          messageIndex: 3,
+          content: 'Third bubble.',
+          seq: 1,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('2 new message'), findsOneWidget);
+        harness.socket.serverCandidateStream(
+          streamType: 'chunk',
+          messageIndex: 3,
+          content: ' More of the same bubble.',
+          seq: 2,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('2 new message'), findsOneWidget);
+        for (var index = 1; index <= 3; index++) {
+          harness.socket.serverCandidateStream(
+            streamType: 'end',
+            messageIndex: index,
+            content: index == 1
+                ? 'First visible bubble.'
+                : index == 2
+                ? 'Second bubble.\n' * 40
+                : 'Third bubble. More of the same bubble.',
+          );
+        }
+        harness.socket.serverCandidateGenerationEnd();
+        await tester.pumpAndSettle();
+        expect(find.text('2 new message'), findsOneWidget);
+        final currentList = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        final second = currentList.messages.singleWhere(
+          (message) => message.globalMessageId == 90503,
+        );
+        final secondBottom = tester
+            .getBottomLeft(
+              find.byKey(ValueKey('chat-message-bubble-${second.localId}')),
+            )
+            .dy;
+        final viewportBottom = tester
+            .getBottomLeft(find.byType(LocationChatAnchoredMessageList))
+            .dy;
+        final position = coordinator.controller.position;
+        position.jumpTo(position.pixels + secondBottom - viewportBottom + 1);
+        await tester.pumpAndSettle();
+        expect(find.text('1 new message'), findsOneWidget);
+        position.jumpTo(held);
+        await tester.pumpAndSettle();
+        expect(find.text('2 new message'), findsOneWidget);
+        await tester.tap(find.byKey(notice));
+        await tester.pumpAndSettle();
+        expect(find.byKey(notice), findsNothing);
+        expect(coordinator.isAtBottom, isTrue);
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump();
+      },
+    );
+  }
+
+  for (final shrinks in [false, true]) {
+    for (final awaiting in [false, true]) {
+      testWidgets(
+        'stream completion keeps bubble position stable awaiting=$awaiting shrinks=$shrinks',
+        (tester) async {
+          await tester.binding.setSurfaceSize(const Size(390, 360));
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          final harness = await _mountCompletedReplyActionPanel(
+            tester,
+            backend: _LocationChatReplyHttpTransport(),
+          );
+          if (awaiting) {
+            await tester.tap(find.bySemanticsLabel('Go on'));
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness.socket.replyActionFrames('go_on').isNotEmpty,
+            );
+            harness.socket.serverReplyActionAck('go_on', roundId: 401);
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => find.byType(ChatReplyWaitingBubble).evaluate().isNotEmpty,
+            );
+            await tester.pump();
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 400));
+          }
+          for (var index = 0; index < 3; index++) {
+            final text = 'Streamed bubble $index.';
+            final streamText = shrinks ? '$text\n' : text;
+            final id = 402 + index;
+            harness.socket.serverV2StreamFrame(
+              streamType: 'llm_stream_start',
+              roundId: 401,
+              messageId: id,
+              locationMessageId: id,
+              conversationType: 'go_on',
+            );
+            await tester.pump();
+            harness.socket.serverV2StreamFrame(
+              streamType: 'llm_chunk',
+              roundId: 401,
+              messageId: id,
+              locationMessageId: id,
+              seq: 1,
+              content: streamText,
+              conversationType: 'go_on',
+            );
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => find.text(streamText).evaluate().isNotEmpty,
+            );
+            await tester.pump(const Duration(milliseconds: 400));
+            final before = tester.getRect(
+              find.ancestor(
+                of: find.text(streamText),
+                matching: find.byType(ChatMessageBubble),
+              ),
+            );
+            final list = tester.widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            );
+            final pixels = list.coordinator.controller.position.pixels;
+            harness.socket.serverV2StreamFrame(
+              streamType: 'llm_stream_end',
+              roundId: 401,
+              messageId: id,
+              locationMessageId: id,
+              content: text,
+              conversationType: 'go_on',
+            );
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness
+                  .service
+                  .state
+                  .messagesByLocation['location-current']!
+                  .any((m) => m.messageId == id && !m.streaming),
+            );
+            await tester.pump();
+            final after = tester.getRect(
+              find.ancestor(
+                of: find.text(text),
+                matching: find.byType(ChatMessageBubble),
+              ),
+            );
+            expect(
+              after.top,
+              closeTo(before.top, 0.01),
+              reason:
+                  'Bubble $index; scroll $pixels -> ${list.coordinator.controller.position.pixels}; heights ${before.height} -> ${after.height}',
+            );
+            await tester.pump(const Duration(milliseconds: 400));
+            expect(
+              tester
+                  .getTopLeft(
+                    find.ancestor(
+                      of: find.text(text),
+                      matching: find.byType(ChatMessageBubble),
+                    ),
+                  )
+                  .dy,
+              awaiting
+                  ? closeTo(before.top, 0.01)
+                  : lessThanOrEqualTo(before.top + 0.01),
+              reason:
+                  'A growing action toolbar may follow upward, but completion must not pull the bubble downward.',
+            );
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+          unawaited(harness.service.dispose());
+          await tester.pump();
+        },
+      );
+    }
+  }
   for (final prepared in [false, true]) {
     testWidgets(
       'Tick without conversation type reveals idle controls without round end, prepared=$prepared',
@@ -553,6 +898,10 @@ void main() {
           find.byKey(const ValueKey('location-chat-reply-pagination')),
           findsOneWidget,
         );
+        final paginationTransition = find.byKey(
+          const ValueKey('location-chat-reply-pagination-transition'),
+        );
+        final paginationHeight = tester.getSize(paginationTransition).height;
 
         await tester.tap(find.bySemanticsLabel('Inspiration'));
         await tester.pumpAndSettle();
@@ -618,6 +967,17 @@ void main() {
         );
         expect(list.replyCardCount, 0);
         expect(list.replyCardSwitchEnabled, isFalse);
+        expect(
+          find.byKey(const ValueKey('location-chat-reply-pagination')),
+          findsOneWidget,
+        );
+        await tester.pump(const Duration(milliseconds: 110));
+        expect(
+          tester.getSize(paginationTransition).height,
+          inExclusiveRange(0, paginationHeight),
+        );
+        await tester.pump(const Duration(milliseconds: 220));
+        await tester.pump();
         expect(
           find.byKey(const ValueKey('location-chat-reply-pagination')),
           findsNothing,
@@ -2635,7 +2995,7 @@ void main() {
   });
 
   testWidgets(
-    'feature quota lookup waits for clicks and prompts are exclusive',
+    'feature quota zero edit still opens and submits after repeated clicks',
     (tester) async {
       final backend = _LocationChatReplyHttpTransport()
         ..localMember = false
@@ -2653,23 +3013,34 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Edit'));
       await tester.pumpAndSettle();
       expect(backend.quotaRequests, 1);
-      expect(find.byType(LocationChatEditPage), findsNothing);
+      expect(find.byType(LocationChatEditPage), findsOneWidget);
+      tester.widget<ChatHeader>(find.byType(ChatHeader)).onBack();
+      await tester.pumpAndSettle();
       expect(
         find.text('Free Edition uses left: "0"\nGet more >'),
         findsOneWidget,
       );
       await tester.tap(find.bySemanticsLabel('Edit'));
-      await tester.pump();
-      expect(_replyActionLoading('Edit'), findsNothing);
       await tester.pumpAndSettle();
       expect(
         backend.quotaRequests,
-        1,
-        reason: 'A cached zero edit quota avoids another lookup.',
+        2,
+        reason: 'A cached zero edit quota does not reject the invocation.',
       );
+      expect(find.byType(LocationChatEditPage), findsOneWidget);
+      await tester.enterText(
+        find.byType(TextField).first,
+        'Submit despite zero quota.',
+      );
+      await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+      await tester.pumpAndSettle();
+      expect(backend.batches, hasLength(1));
+      expect(find.byType(LocationChatEditPage), findsOneWidget);
+      tester.widget<ChatHeader>(find.byType(ChatHeader)).onBack();
+      await tester.pumpAndSettle();
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await tester.pumpAndSettle();
-      expect(backend.quotaRequests, 2);
+      expect(backend.quotaRequests, 3);
       expect(
         find.byKey(const ValueKey('edit-subscription-prompt')),
         findsNothing,
@@ -2685,7 +3056,7 @@ void main() {
         find.text('Free inspiration uses left: "2"\nGet more >'),
         findsOneWidget,
       );
-      expect(backend.quotaRequests, 2);
+      expect(backend.quotaRequests, 3);
       expect(backend.inspirationRequests.length, inspirationRequests);
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
@@ -2725,39 +3096,41 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
-  testWidgets(
-    'feature quota unknown member query failure blocks operations and retries',
-    (tester) async {
-      final backend = _LocationChatReplyHttpTransport()
-        ..localMember = null
-        ..includeQuotas = true
-        ..quotaFails = true;
-      final harness = await _mountCompletedReplyActionPanel(
-        tester,
-        backend: backend,
-      );
-      await tester.tap(find.bySemanticsLabel('Edit'));
-      await tester.pumpAndSettle();
-      expect(find.byType(LocationChatEditPage), findsNothing);
-      expect(
-        find.text('Could not check free uses. Please try again.'),
-        findsOneWidget,
-      );
-      expect(
-        find.byKey(const ValueKey('edit-subscription-prompt')),
-        findsNothing,
-      );
-      backend.quotaFails = false;
-      await tester.tap(find.bySemanticsLabel('Edit'));
-      await tester.pumpAndSettle();
-      expect(backend.quotaRequests, 2);
-      expect(find.byType(LocationChatEditPage), findsOneWidget);
-      expect(backend.batches, isEmpty);
-      await tester.pumpWidget(const SizedBox.shrink());
-      unawaited(harness.service.dispose());
-      await tester.pump(const Duration(seconds: 3));
-    },
-  );
+  for (final incomplete in [false, true]) {
+    testWidgets(
+      'feature quota ${incomplete ? "incomplete response" : "query failure"} does not block Edit or Inspiration',
+      (tester) async {
+        final backend = _LocationChatReplyHttpTransport()
+          ..localMember = null
+          ..includeQuotas = true
+          ..quotaFails = !incomplete
+          ..quotaIncomplete = incomplete;
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: backend,
+        );
+        await tester.tap(find.bySemanticsLabel('Edit'));
+        await tester.pumpAndSettle();
+        expect(find.byType(LocationChatEditPage), findsOneWidget);
+        await tester.enterText(
+          find.byType(TextField).first,
+          'Save without quota lookup.',
+        );
+        await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+        await tester.pumpAndSettle();
+        expect(backend.batches, hasLength(1));
+        expect(find.byType(LocationChatEditPage), findsNothing);
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await tester.pumpAndSettle();
+        expect(backend.quotaRequests, 2);
+        expect(backend.inspirationRequests, hasLength(1));
+        expect(find.text('Good job!'), findsOneWidget);
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+  }
 
   testWidgets(
     'feature quota pending edit query deduplicates and ignores switched account',
@@ -2972,7 +3345,7 @@ void main() {
   );
 
   testWidgets(
-    'feature quota zero inspiration rechecks quota without generating',
+    'feature quota zero inspiration still requests server saved replies',
     (tester) async {
       final backend = _LocationChatReplyHttpTransport()
         ..localMember = false
@@ -2987,7 +3360,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         find.byKey(const ValueKey('inspiration-replies-carousel')),
-        findsNothing,
+        findsOneWidget,
       );
       expect(
         find.text('Free inspiration uses left: "0"\nGet more >'),
@@ -2997,11 +3370,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         backend.quotaRequests,
-        2,
-        reason:
-            'An idle invocation refreshes the quota while keeping the prompt.',
+        1,
+        reason: 'Closing saved replies does not query quotas again.',
       );
-      expect(backend.inspirationRequests, isEmpty);
+      expect(backend.inspirationRequests, hasLength(1));
       expect(
         find.text('Free inspiration uses left: "0"\nGet more >'),
         findsOneWidget,
@@ -3025,7 +3397,7 @@ void main() {
       );
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await tester.pumpAndSettle();
-      expect(backend.inspirationRequests, isEmpty);
+      expect(backend.inspirationRequests, hasLength(1));
       expect(
         find.byKey(const ValueKey('inspiration-replies-carousel')),
         findsNothing,
@@ -3648,6 +4020,25 @@ void main() {
                 .viewedCardId ==
             502,
       );
+      await tester.pump();
+      final paginationTransition = find.byKey(
+        const ValueKey('location-chat-reply-pagination-transition'),
+      );
+      expect(paginationTransition, findsOneWidget);
+      final initialPaginationHeight = tester
+          .getSize(paginationTransition)
+          .height;
+      expect(initialPaginationHeight, greaterThan(0));
+      await tester.pump(const Duration(milliseconds: 110));
+      final expandingPaginationHeight = tester
+          .getSize(paginationTransition)
+          .height;
+      expect(expandingPaginationHeight, greaterThan(initialPaginationHeight));
+      await tester.pump(const Duration(milliseconds: 220));
+      expect(
+        tester.getSize(paginationTransition).height,
+        greaterThanOrEqualTo(expandingPaginationHeight),
+      );
       harness.socket.serverCandidateStream(streamType: 'start');
       await tester.pump();
       await tester.pump();
@@ -4197,6 +4588,11 @@ void main() {
         .byKey(selectedMessageKey)
         .evaluate()
         .single;
+    const paginationTransitionKey = ValueKey(
+      'location-chat-reply-pagination-transition',
+    );
+    final paginationTransition = find.byKey(paginationTransitionKey);
+    final paginationHeight = tester.getSize(paginationTransition).height;
 
     harness.socket.serverReplyActionAck('go_on', roundId: 401);
     await _pumpUntilLocationChatTest(
@@ -4226,8 +4622,10 @@ void main() {
     );
     expect(
       find.byKey(const ValueKey('location-chat-reply-pagination')),
-      findsNothing,
+      findsOneWidget,
+      reason: 'The selected-card pager remains while its height collapses.',
     );
+    expect(tester.getSize(paginationTransition).height, paginationHeight);
     expect(
       find.byKey(const ValueKey('location-chat-reply-control:go-on:301:401')),
       findsOneWidget,
@@ -4245,6 +4643,35 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Continuation chunk.'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(
+      tester.getSize(paginationTransition).height,
+      inExclusiveRange(0, paginationHeight),
+    );
+    await tester.pump(const Duration(milliseconds: 220));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('location-chat-reply-pagination')),
+      findsNothing,
+    );
+    final selectedBubble = find.descendant(
+      of: find.byKey(selectedMessageKey),
+      matching: find.byType(ChatBubbleSurface),
+    );
+    final loadingBubble = find.descendant(
+      of: find.byKey(
+        const ValueKey('location-chat-reply-control:go-on:301:401'),
+      ),
+      matching: find.byType(ChatBubbleSurface),
+    );
+    expect(selectedBubble, findsOneWidget);
+    expect(loadingBubble, findsOneWidget);
+    expect(
+      tester.getTopLeft(loadingBubble).dy -
+          tester.getBottomLeft(selectedBubble).dy,
+      closeTo(kLocationChatStyle.rowBottomPadding, 0.1),
+      reason: 'Loading below a selected card must use the normal bubble gap.',
+    );
 
     final rangeRequestsBeforeUpdate = backend.rangeRequests.length;
     backend.commitSelectedCardToHistory();
@@ -5727,10 +6154,38 @@ void main() {
         );
         final request = harness.socket.replyActionFrames('send_message').single;
         harness.socket.serverV2AckForLatestSend(errNo: 0);
+        await tester.pump(const Duration(milliseconds: 300));
+        final sentText = sendWithInspiration
+            ? 'Good job!'
+            : 'A new user message.';
+        final userBubble = find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is ChatMessageRow && widget.message.text == sentText,
+          ),
+          matching: find.byType(ChatBubbleSurface),
+        );
+        final loadingBubble = find.descendant(
+          of: find.bySemanticsLabel('AI reply loading'),
+          matching: find.byType(ChatBubbleSurface),
+        );
+        expect(userBubble, findsOneWidget);
+        expect(loadingBubble, findsOneWidget);
+        expect(
+          tester.getTopLeft(loadingBubble).dy -
+              tester.getBottomLeft(userBubble).dy,
+          closeTo(kLocationChatStyle.rowBottomPadding, 0.1),
+          reason:
+              'Loading after a selected-card send must use the normal bubble gap.',
+        );
+        expect(
+          find.byKey(const ValueKey('location-chat-reply-pagination')),
+          findsNothing,
+        );
         harness.socket.serverV2UserMessage(
           messageId: 401,
           clientMsgId: request['client_msg_id'] as String,
-          content: sendWithInspiration ? 'Good job!' : 'A new user message.',
+          content: sentText,
           conversationType: 'user_message',
         );
         await tester.pump();
@@ -5935,7 +6390,7 @@ void main() {
   });
 
   testWidgets(
-    'composer send paints its optimistic bubble without the previous action height',
+    'composer send collapses the previous action height across frames without a jump',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 300));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -5989,20 +6444,34 @@ void main() {
           .getTopLeft(find.text('New message from the composer.'))
           .dy;
       await tester.pump(const Duration(milliseconds: 50));
+      final collapsingBubbleTop = tester
+          .getTopLeft(find.text('New message from the composer.'))
+          .dy;
       expect(
-        tester.getTopLeft(find.text('New message from the composer.')).dy,
-        closeTo(optimisticBubbleTop, 0.1),
+        collapsingBubbleTop,
+        inExclusiveRange(
+          optimisticBubbleTop,
+          optimisticBubbleTop + LocationChatReplyActions.buttonSize,
+        ),
         reason:
-            'The list must not move after the optimistic bubble is painted.',
+            'The optimistic bubble must follow the action row as it closes.',
       );
       await tester.pump(const Duration(milliseconds: 220));
       expect(
         tester.getTopLeft(find.text('New message from the composer.')).dy,
-        closeTo(optimisticBubbleTop, 0.1),
+        greaterThan(collapsingBubbleTop),
         reason:
-            'The list must stay anchored while send acknowledgement is pending.',
+            'The action row must finish closing without an instant height jump.',
       );
-      expect(find.byKey(previousActionKey), findsNothing);
+      expect(find.byKey(previousActionKey), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('location-chat-reply-actions-transition')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
+        findsNothing,
+      );
       expect(
         find.byKey(
           const ValueKey(
@@ -10033,11 +10502,12 @@ WorldChatroomMessage _wssStoryTimelineMessage({
 
 Future<void> _pumpUntilLocationChatTest(
   WidgetTester tester,
-  bool Function() condition,
-) async {
+  bool Function() condition, {
+  Duration step = Duration.zero,
+}) async {
   for (var attempt = 0; attempt < 100; attempt += 1) {
     if (condition()) return;
-    await tester.pump();
+    await tester.pump(step);
   }
   fail('Timed out pumping location chat test state.');
 }
@@ -10360,6 +10830,7 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
   bool includeQuotas = false;
   bool quotaMember = false;
   bool quotaFails = false;
+  bool quotaIncomplete = false;
   int quotaRequests = 0;
   int editRemaining = 3;
   int inspirationRemaining = 3;
@@ -10581,8 +11052,9 @@ class _LocationChatReplyHttpTransport implements HttpTransport {
       return _ok({
         'membership_status': quotaMember ? 1 : 0,
         'is_member': quotaMember,
-        'inspiration': _quotaSummary(inspirationRemaining),
-        'conversation_edit': _quotaSummary(editRemaining),
+        if (!quotaIncomplete)
+          'inspiration': _quotaSummary(inspirationRemaining),
+        if (!quotaIncomplete) 'conversation_edit': _quotaSummary(editRemaining),
       });
     }
     if (request.uri.path.endsWith('/inspiration')) {
@@ -10798,6 +11270,7 @@ class _LocationChatTestSocket implements ChatroomSocket {
     required String streamType,
     String content = '',
     int? seq,
+    int messageIndex = 1,
   }) {
     _serverFrame('llm_card_stream', {
       'stream_type': streamType,
@@ -10806,13 +11279,13 @@ class _LocationChatTestSocket implements ChatroomSocket {
       'user_id': 'user-1',
       'trigger_uid': 'user-1',
       'conversation_round_id': 301,
-      'global_message_id': 90502,
+      'global_message_id': 90501 + messageIndex,
       'sender_type': 'character',
       'sender_id': 'char-1',
       'sender_name': 'Alice',
       'payload': {
         'card_id': 502,
-        'card_message_index': 1,
+        'card_message_index': messageIndex,
         if (seq != null) 'seq': seq,
         'content': content,
       },

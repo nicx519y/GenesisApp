@@ -53,8 +53,12 @@ class _InlineMarkdownText extends StatelessWidget {
           ? displayText
           : null,
     );
-    if (!softItalic) return textWidget;
-    return genesisSoftItalicForPlatform(child: textWidget, platform: platform);
+    final streamingText = ChatStreamingText(child: textWidget);
+    if (!softItalic) return streamingText;
+    return genesisSoftItalicForPlatform(
+      child: streamingText,
+      platform: platform,
+    );
   }
 }
 

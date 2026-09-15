@@ -53,43 +53,47 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
             color: const Color(0x21FFFFFF),
             borderRadius: BorderRadius.circular(20),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CustomPaint(
-                key: const ValueKey<String>('chat-user-enter-location-icon'),
-                size: const Size.square(12),
-                painter: _ChatEnterLocationIconPainter(
-                  color: Colors.white.withValues(alpha: 0.8),
+          child: ChatStreamingBody(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CustomPaint(
+                  key: const ValueKey<String>('chat-user-enter-location-icon'),
+                  size: const Size.square(12),
+                  painter: _ChatEnterLocationIconPainter(
+                    color: Colors.white.withValues(alpha: 0.8),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 7),
-              Flexible(
-                child: displayParts == null
-                    ? _InlineMarkdownText(
-                        text: payload.text,
-                        textAlign: TextAlign.left,
-                        style: mainTextStyle,
-                      )
-                    : Text.rich(
-                        TextSpan(
+                const SizedBox(width: 7),
+                Flexible(
+                  child: displayParts == null
+                      ? _InlineMarkdownText(
+                          text: payload.text,
+                          textAlign: TextAlign.left,
                           style: mainTextStyle,
-                          children: [
-                            TextSpan(text: displayParts.characterName),
+                        )
+                      : ChatStreamingText(
+                          child: Text.rich(
                             TextSpan(
-                              text: ' came to ',
-                              style: mainTextStyle.copyWith(
-                                color: Colors.white.withValues(alpha: 0.73),
-                                fontWeight: FontWeight.w400,
-                              ),
+                              style: mainTextStyle,
+                              children: [
+                                TextSpan(text: displayParts.characterName),
+                                TextSpan(
+                                  text: ' came to ',
+                                  style: mainTextStyle.copyWith(
+                                    color: Colors.white.withValues(alpha: 0.73),
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                                TextSpan(text: displayParts.locationName),
+                              ],
                             ),
-                            TextSpan(text: displayParts.locationName),
-                          ],
+                            textAlign: TextAlign.left,
+                          ),
                         ),
-                        textAlign: TextAlign.left,
-                      ),
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

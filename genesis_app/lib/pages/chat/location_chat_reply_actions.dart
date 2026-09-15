@@ -44,6 +44,9 @@ class LocationChatReplyActions extends StatefulWidget {
     this.editPromptExpanded,
     this.onEditPromptExpandedChanged,
     this.loadingIndicator,
+    this.actionsExpanded = true,
+    this.actionToolbarKey,
+    this.paginationKey,
   });
 
   final LocationChatRegenerateFeature regenerateFeature;
@@ -63,6 +66,9 @@ class LocationChatReplyActions extends StatefulWidget {
 
   /// Replaces the action buttons while a sent message awaits reply content.
   final Widget? loadingIndicator;
+  final bool actionsExpanded;
+  final Key? actionToolbarKey;
+  final Key? paginationKey;
   final ChatUiStyleConfig style;
   final double? selfMessageBubbleMaxWidthCap;
   final int? inspirationPage;
@@ -139,6 +145,10 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   @override
   Widget build(BuildContext context) {
+    final paginationVisible =
+        widget.loadingIndicator == null &&
+        widget.cardCount > 1 &&
+        !widget.cardsConfirmed;
     final actionButtons = <Widget>[
       if (widget.loadingIndicator case final indicator?) indicator,
       if (widget.loadingIndicator == null) ...[
@@ -185,36 +195,20 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.loadingIndicator == null &&
-            widget.cardCount > 1 &&
-            !widget.cardsConfirmed) ...[
-          _buildPagination(context),
-        ],
-        Padding(
-          padding: EdgeInsets.only(
-            left: style.avatarSize + style.avatarBubbleGap,
-          ),
-          child: SizedBox(
-            height: LocationChatReplyActions.buttonSize,
-            child: Row(
-              key: const ValueKey('location-chat-reply-actions-four-icons'),
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                for (var index = 0; index < actionButtons.length; index++) ...[
-                  if (index > 0)
-                    const SizedBox(
-                      width:
-                          LocationChatReplyActions.centerSpacing -
-                          LocationChatReplyActions.buttonSize,
-                    ),
-                  actionButtons[index],
-                ],
-              ],
-            ),
-          ),
+        _LocationChatReplyPagination(
+          key: widget.paginationKey,
+          expanded: widget.actionsExpanded && paginationVisible,
+          pagination: paginationVisible ? _buildPagination(context) : null,
         ),
-        if (widget.loadingIndicator == null &&
+        _LocationChatReplyActionToolbar(
+          key: widget.actionToolbarKey,
+          expanded: widget.actionsExpanded && actionButtons.isNotEmpty,
+          animateChanges: widget.loadingIndicator == null,
+          style: style,
+          actions: actionButtons,
+        ),
+        if (widget.actionsExpanded &&
+            widget.loadingIndicator == null &&
             (widget.editPromptExpanded ?? _localEditPromptExpanded) &&
             _edit.freeUsesRemaining != null)
           _quotaPrompt(
@@ -226,6 +220,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           key: widget.inspirationListKey,
           identity: widget.inspirationIdentity,
           expanded:
+              widget.actionsExpanded &&
               widget.loadingIndicator == null &&
               _inspiration.state != LocationChatReplyActionState.none &&
               _inspirationExpanded,
@@ -247,7 +242,8 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             widget.onInspirationPageChanged?.call(page);
           },
         ),
-        if (widget.loadingIndicator == null &&
+        if (widget.actionsExpanded &&
+            widget.loadingIndicator == null &&
             (widget.inspirationPromptExpanded ??
                 _localInspirationPromptExpanded) &&
             _inspiration.freeUsesRemaining != null)
@@ -384,6 +380,224 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
       },
     ),
   );
+}
+
+class _LocationChatReplyPagination extends StatefulWidget {
+  const _LocationChatReplyPagination({
+    super.key,
+    required this.expanded,
+    required this.pagination,
+  });
+
+  final bool expanded;
+  final Widget? pagination;
+
+  @override
+  State<_LocationChatReplyPagination> createState() =>
+      _LocationChatReplyPaginationState();
+}
+
+class _LocationChatReplyPaginationState
+    extends State<_LocationChatReplyPagination>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _expansionController;
+  late final CurvedAnimation _expansion;
+  Widget? _displayedPagination;
+
+  bool get _wantsOpen => widget.expanded && widget.pagination != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _expansionController = AnimationController(
+      vsync: this,
+      duration: LocationChatReplyActions.inspirationAnimationDuration,
+    );
+    _expansion = CurvedAnimation(
+      parent: _expansionController,
+      curve: LocationChatReplyActions.inspirationAnimationCurve,
+    );
+    _expansionController.addStatusListener(_onExpansionStatus);
+    if (_wantsOpen) {
+      _displayedPagination = widget.pagination;
+      _expansionController.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _LocationChatReplyPagination oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_wantsOpen) {
+      _displayedPagination = widget.pagination;
+      _expansionController.forward();
+    } else if (!_expansionController.isDismissed) {
+      _expansionController.reverse();
+    }
+  }
+
+  void _onExpansionStatus(AnimationStatus status) {
+    if (status != AnimationStatus.dismissed || !mounted || _wantsOpen) return;
+    setState(() => _displayedPagination = null);
+  }
+
+  @override
+  void dispose() {
+    _expansion.dispose();
+    _expansionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pagination = _displayedPagination;
+    if (pagination == null) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: _expansionController,
+      child: IgnorePointer(
+        ignoring: !_wantsOpen,
+        child: ExcludeSemantics(excluding: !_wantsOpen, child: pagination),
+      ),
+      builder: (context, child) => SizeTransition(
+        key: const ValueKey('location-chat-reply-pagination-transition'),
+        sizeFactor: _expansion,
+        alignment: Alignment.topCenter,
+        child: child,
+      ),
+    );
+  }
+}
+
+class _LocationChatReplyActionToolbar extends StatefulWidget {
+  const _LocationChatReplyActionToolbar({
+    super.key,
+    required this.expanded,
+    required this.animateChanges,
+    required this.style,
+    required this.actions,
+  });
+
+  final bool expanded;
+  final bool animateChanges;
+  final ChatUiStyleConfig style;
+  final List<Widget> actions;
+
+  @override
+  State<_LocationChatReplyActionToolbar> createState() =>
+      _LocationChatReplyActionToolbarState();
+}
+
+class _LocationChatReplyActionToolbarState
+    extends State<_LocationChatReplyActionToolbar>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _expansionController;
+  late final CurvedAnimation _expansion;
+  List<Widget> _displayedActions = const [];
+
+  bool get _wantsOpen => widget.expanded && widget.actions.isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _expansionController = AnimationController(
+      vsync: this,
+      duration: LocationChatReplyActions.inspirationAnimationDuration,
+    );
+    _expansion = CurvedAnimation(
+      parent: _expansionController,
+      curve: LocationChatReplyActions.inspirationAnimationCurve,
+    );
+    _expansionController.addStatusListener(_onExpansionStatus);
+    if (_wantsOpen) {
+      _displayedActions = List<Widget>.unmodifiable(widget.actions);
+      _expansionController.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _LocationChatReplyActionToolbar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.animateChanges || (!oldWidget.animateChanges && !_wantsOpen)) {
+      _expansionController.stop();
+      _displayedActions = _wantsOpen
+          ? List<Widget>.unmodifiable(widget.actions)
+          : const [];
+      _expansionController.value = _wantsOpen ? 1 : 0;
+      return;
+    }
+    _syncExpansion();
+  }
+
+  void _syncExpansion() {
+    if (!_wantsOpen) {
+      if (!_expansionController.isDismissed) _expansionController.reverse();
+      return;
+    }
+    _displayedActions = List<Widget>.unmodifiable(widget.actions);
+    _expansionController.forward();
+  }
+
+  void _onExpansionStatus(AnimationStatus status) {
+    if (status != AnimationStatus.dismissed || !mounted || _wantsOpen) return;
+    setState(() => _displayedActions = const []);
+  }
+
+  @override
+  void dispose() {
+    _expansion.dispose();
+    _expansionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => _displayedActions.isEmpty
+      ? const SizedBox.shrink()
+      : AnimatedBuilder(
+          animation: _expansionController,
+          child: IgnorePointer(
+            ignoring: !_wantsOpen,
+            child: ExcludeSemantics(
+              excluding: !_wantsOpen,
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: widget.style.avatarSize + widget.style.avatarBubbleGap,
+                ),
+                child: SizedBox(
+                  height: LocationChatReplyActions.buttonSize,
+                  child: Row(
+                    key: const ValueKey(
+                      'location-chat-reply-actions-four-icons',
+                    ),
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.start,
+                    children: [
+                      for (
+                        var index = 0;
+                        index < _displayedActions.length;
+                        index++
+                      ) ...[
+                        if (index > 0)
+                          const SizedBox(
+                            width:
+                                LocationChatReplyActions.centerSpacing -
+                                LocationChatReplyActions.buttonSize,
+                          ),
+                        _displayedActions[index],
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          builder: (context, child) => _expansionController.isDismissed
+              ? const SizedBox.shrink()
+              : SizeTransition(
+                  key: const ValueKey('location-chat-reply-actions-transition'),
+                  sizeFactor: _expansion,
+                  alignment: Alignment.bottomLeft,
+                  child: child,
+                ),
+        );
 }
 
 /// Shared appearance for inline subscription prompts below reply actions.

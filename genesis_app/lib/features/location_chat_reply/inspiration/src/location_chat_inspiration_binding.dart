@@ -173,7 +173,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
       var result = await controller.readCached(verified);
       if (!current()) return;
       if (result == null) {
-        if (!await _checkReplyFeatureQuota(
+        if (!await _refreshReplyFeatureQuota(
               'inspiration',
               current: current,
               onQuotaLookupStarted: () {

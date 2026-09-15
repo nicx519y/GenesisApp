@@ -931,6 +931,104 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                           unawaited(_saveLocationChatBubbleLayoutSettings());
                         },
                       ),
+                      const SizedBox(height: 14),
+                      const _DeveloperSectionTitle('Streaming animations'),
+                      const SizedBox(height: 8),
+                      for (final height in [true, false]) ...[
+                        _DeveloperToggleRow(
+                          sectionTitle: '',
+                          label: height
+                              ? 'Bubble height animation'
+                              : 'Text reveal mask',
+                          value: height
+                              ? bubbleLayoutSettings.animateStreamingHeight
+                              : bubbleLayoutSettings.streamingTextReveal,
+                          enabled: true,
+                          switchKey: ValueKey(
+                            'developer-stream-${height ? 'height' : 'text'}-switch',
+                          ),
+                          onChanged: (enabled) {
+                            locationChatBubbleLayoutSettings
+                                .previewStreamingAnimations(
+                                  heightEnabled: height ? enabled : null,
+                                  textEnabled: height ? null : enabled,
+                                );
+                            unawaited(_saveLocationChatBubbleLayoutSettings());
+                          },
+                        ),
+                        _DeveloperSliderControl(
+                          label: height
+                              ? 'Height animation duration'
+                              : 'Text reveal duration',
+                          valueLabel:
+                              '${height ? bubbleLayoutSettings.streamingHeightDurationMs : bubbleLayoutSettings.streamingTextDurationMs}ms',
+                          value:
+                              (height
+                                      ? bubbleLayoutSettings
+                                            .streamingHeightDurationMs
+                                      : bubbleLayoutSettings
+                                            .streamingTextDurationMs)
+                                  .toDouble(),
+                          min: 40,
+                          max: 1000,
+                          divisions: 48,
+                          enabled: height
+                              ? bubbleLayoutSettings.animateStreamingHeight
+                              : bubbleLayoutSettings.streamingTextReveal,
+                          sliderKey: ValueKey(
+                            'developer-stream-${height ? 'height' : 'text'}-duration',
+                          ),
+                          onChanged: (duration) =>
+                              locationChatBubbleLayoutSettings
+                                  .previewStreamingAnimations(
+                                    heightDurationMs: height ? duration : null,
+                                    textDurationMs: height ? null : duration,
+                                  ),
+                          onChangeEnd: (_) {
+                            unawaited(_saveLocationChatBubbleLayoutSettings());
+                          },
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      const _DeveloperSectionTitle('Reply positioning'),
+                      const SizedBox(height: 8),
+                      _DeveloperToggleRow(
+                        sectionTitle: '',
+                        label: 'Hold reply position while waiting',
+                        value:
+                            bubbleLayoutSettings.replyWaitingPositioningEnabled,
+                        enabled: true,
+                        switchKey: const ValueKey<String>(
+                          'developer-location-chat-reply-positioning-switch',
+                        ),
+                        onChanged: (enabled) {
+                          locationChatBubbleLayoutSettings
+                              .previewReplyWaitingPositioningEnabled(enabled);
+                          unawaited(_saveLocationChatBubbleLayoutSettings());
+                        },
+                      ),
+                      _DeveloperSliderControl(
+                        label: 'Space below reply anchor',
+                        valueLabel:
+                            '${(bubbleLayoutSettings.replyViewportReserveFraction * 100).round()}% of viewport',
+                        value:
+                            bubbleLayoutSettings.replyViewportReserveFraction,
+                        min: LocationChatBubbleLayoutSettings
+                            .minReplyViewportReserveFraction,
+                        max: LocationChatBubbleLayoutSettings
+                            .maxReplyViewportReserveFraction,
+                        divisions: 13,
+                        enabled:
+                            bubbleLayoutSettings.replyWaitingPositioningEnabled,
+                        sliderKey: const ValueKey<String>(
+                          'developer-location-chat-reply-reserve-slider',
+                        ),
+                        onChanged: locationChatBubbleLayoutSettings
+                            .previewReplyViewportReserveFraction,
+                        onChangeEnd: (_) {
+                          unawaited(_saveLocationChatBubbleLayoutSettings());
+                        },
+                      ),
                     ],
                   ),
                 );

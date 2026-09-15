@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
 void main() {
@@ -163,9 +164,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  testWidgets('ACK dots replace the empty action row without changing height', (
-    tester,
-  ) async {
+  testWidgets('ACK dots use exactly the action row height', (tester) async {
     final coordinator = LocationChatScrollCoordinator();
     addTearDown(coordinator.dispose);
     final sent = ChatMessageVm(
@@ -204,7 +203,11 @@ void main() {
     final messageTop = tester.getTopLeft(find.text('Waiting for reply')).dy;
 
     await tester.pumpWidget(tree(loading: true));
-    expect(tester.getSize(slot).height, height);
+    expect(
+      tester.getSize(slot).height,
+      height + LocationChatReplyActions.buttonSize,
+      reason: 'Loading may add only the shared action-toolbar height.',
+    );
     expect(
       tester.getTopLeft(find.text('Waiting for reply')).dy,
       closeTo(messageTop, 0.1),

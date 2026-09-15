@@ -438,8 +438,10 @@ class _DeveloperToggleRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        _DeveloperSectionTitle(sectionTitle),
-        const SizedBox(width: 12),
+        if (sectionTitle.isNotEmpty) ...[
+          _DeveloperSectionTitle(sectionTitle),
+          const SizedBox(width: 12),
+        ],
         Expanded(
           child: Text(
             label,
@@ -479,8 +481,10 @@ class _DeveloperSliderControl extends StatelessWidget {
     required this.sliderKey,
     required this.onChanged,
     required this.onChangeEnd,
+    this.enabled = true,
   });
 
+  final bool enabled;
   final String label;
   final String valueLabel;
   final double value;
@@ -525,8 +529,8 @@ class _DeveloperSliderControl extends StatelessWidget {
           max: max,
           divisions: divisions,
           label: valueLabel,
-          onChanged: onChanged,
-          onChangeEnd: onChangeEnd,
+          onChanged: enabled ? onChanged : null,
+          onChangeEnd: enabled ? onChangeEnd : null,
         ),
       ],
     );

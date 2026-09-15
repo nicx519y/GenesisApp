@@ -1357,6 +1357,113 @@ void main() {
       );
     }
   }
+
+  for (final secondScroll in [false, true]) {
+    testWidgets(
+      'post-regenerate card switching keeps the card bottom fixed while waiting space is retained (secondScroll=$secondScroll)',
+      (tester) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        final history = List.generate(12, (i) => _message('history-$i', 3));
+        final cards = [
+          LocationChatReplyCard(id: 1, messages: [_message('short', 3)]),
+          LocationChatReplyCard(
+            id: 2,
+            messages: [_message('long', 18), _message('second', 2)],
+          ),
+        ];
+        var current = 1;
+        var revision = 0;
+        var regenerating = true;
+        late StateSetter update;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                width: 390,
+                height: 500,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    update = setState;
+                    final selected = cards.firstWhere(
+                      (card) => card.id == current,
+                    );
+                    return NotificationListener<ScrollNotification>(
+                      onNotification: coordinator.handleScrollNotification,
+                      child: LocationChatAnchoredMessageList(
+                        coordinator: coordinator,
+                        topTitle: secondScroll ? 'History' : '',
+                        oldestEdgeNoticeRequiresSecondScroll: secondScroll,
+                        messages: [...history, ...selected.messages],
+                        replyCards: cards,
+                        replyCurrentCardId: current,
+                        replyActionsIdentity: 'round',
+                        replyPresentationRevision: revision,
+                        replyCardCount: 2,
+                        replyCardIndex: current - 1,
+                        replyRegenerationInProgress: regenerating,
+                        onReplyCardSelected: (id) {
+                          update(() {
+                            current = id;
+                            revision++;
+                          });
+                          return true;
+                        },
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        update(() => regenerating = false);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        final card = find.byKey(const ValueKey('reply-card-gesture'));
+        final actions = find.byKey(const ValueKey('reply-actions-round'));
+        expect(coordinator.isDetached, isTrue);
+
+        for (final direction in ['next', 'previous']) {
+          final cardBottom = tester.getBottomLeft(card).dy;
+          final actionsTop = tester.getTopLeft(actions).dy;
+          if (direction == 'previous') {
+            final gesture = await tester.startGesture(
+              Offset(195, cardBottom - 20),
+            );
+            await gesture.moveBy(const Offset(30, 0));
+            await gesture.moveBy(const Offset(140, 0));
+            await gesture.up();
+          } else {
+            await tester.tap(
+              find.byKey(ValueKey('location-chat-reply-$direction-card')),
+            );
+          }
+          await tester.pump();
+          for (var frame = 0; frame < 36; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(
+              tester.getBottomLeft(card).dy,
+              closeTo(cardBottom, 1),
+              reason: '$direction card bottom at frame $frame',
+            );
+            expect(
+              tester.getTopLeft(actions).dy,
+              closeTo(actionsTop, 1),
+              reason: '$direction actions boundary at frame $frame',
+            );
+          }
+          await tester.pumpAndSettle();
+        }
+        expect(current, 1);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 ChatMessageVm _message(String id, int lines) => ChatMessageVm(
