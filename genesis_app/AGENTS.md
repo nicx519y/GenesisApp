@@ -164,6 +164,7 @@ HTTP 映射层的图片规则：
 - 允许关闭时使用公共右侧 `GenesisDarkCloseButton`；关闭时调用所属 Sheet 原有的退出逻辑，提交中按业务禁用。新用户填表和登录不允许关闭，登录保留返回；新用户订阅右侧保留 Skip（二号白色 `darkTextSecondary`）和标题前的皇冠。三步 Header 与 Sheet 高度保持一致；新用户流程 Sheet 总高固定 600 个逻辑像素（含底部安全区），短屏限制在顶部安全区下方可用高度内，正文溢出内部滚动。
 - `GenesisBottomSheetPanel` 的普通深色标题自动使用此 Header；正文统一复用 `GenesisActionSheetBody`，左右外边距固定 16，与 Header 共享同一常量，不再叠加旧 `titleBottomSpacing`。普通深色面板默认自动应用；Tab / 多步骤容器设置 `insetBody: false`，在各正文页内只应用一次。自定义 Header 通过 `header` 插槽传入。Developer Sheet 同样使用公共 Header；地图工具等独立自定义 Header 保留原样。
 - Subscription / Buy Gems 使用 `GenesisActionSheetHeader.tabs`：总高同为 68，使用居中纯文字 Tab（无图标）、16 / 600 字号及下划线；Subscription 下划线使用会员金色，Buy Gems 使用品牌红，文字仍使用公共一级 / 二级白，左右关闭按钮位置复用标准。购买 Sheet 内订阅正文 `topSpacing: 0`，Buy Gems 使用 `compactBalance: true` 去掉余额区居中留白；两 Tab 的正文容器均从 Header 底部开始。Wallet 完整页面正文左右边距同样为 16；Premium 标题行与 Buy Gems 的 My Balance 标题行顶部均距 Header 底边 20。
+- 独立 Subscription / Buy Gems Sheet 禁止点击外部和下滑关闭，保留系统返回与右上角公共关闭按钮；购买成功的既有自动退出流程保留。此规则不改变新用户流程。
 - 订阅协议底部统一保留 10px 间距，再由外层处理一次系统安全区；Wallet 完整页面、普通订阅 Sheet、新用户订阅 Sheet 保持一致，不重复叠加安全区。
 - 正文 16 边距适用于表单、登录按钮、角色选择区、权益卡、套餐卡及底部主按钮的外边缘。卡片内部 padding、卡片间距和居中法律文案独立保留。订阅内容在 Sheet 内设置 `horizontalInset: 0`，由外层 `GenesisActionSheetBody` 提供 16；Wallet 完整页面设置 `horizontalInset: 16`。传入的 `subscriptionBuilder` 内容不得重复添加外边距。
 - Mention 保留现有独立 Header 48、Tab 32、下间距 8，不套用上述高度或字号。World / Worldo 内容面板不属于此规范。

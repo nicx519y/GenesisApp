@@ -352,8 +352,17 @@ void main() {
     expect(find.text('Buy Gems'), findsNothing);
     expect(find.text('Daily Check-in'), findsNothing);
     expect(checkedIn, isNull);
-    await tester.tap(find.byKey(const ValueKey('gem-purchase-sheet-close')));
+    final close = find.byKey(const ValueKey('gem-purchase-sheet-close'));
+    final route =
+        ModalRoute.of(tester.element(close))! as ModalBottomSheetRoute<void>;
+    expect(route.isDismissible, isFalse);
+    expect(route.enableDrag, isFalse);
+    await tester.tapAt(const Offset(10, 10));
     await tester.pumpAndSettle();
+    expect(close, findsOneWidget);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(close, findsNothing);
     expect(checkedIn, isFalse);
   });
 

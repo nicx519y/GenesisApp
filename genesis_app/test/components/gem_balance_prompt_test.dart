@@ -224,6 +224,15 @@ void main() {
       fixture,
     );
 
+    final route =
+        ModalRoute.of(tester.element(find.byType(GenesisBottomSheetPanel)))!
+            as ModalBottomSheetRoute<void>;
+    expect(route.isDismissible, isFalse);
+    expect(route.enableDrag, isFalse);
+    await tester.tapAt(const Offset(10, 10));
+    await tester.pumpAndSettle();
+    expect(find.byType(GenesisBottomSheetPanel), findsOneWidget);
+
     await tester.tap(
       find.byKey(const ValueKey<String>('gem-purchase-sheet-close')),
     );

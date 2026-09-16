@@ -5,7 +5,6 @@ import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_catalog.dart';
 
 import '../common/genesis_bottom_sheet_panel.dart';
-import '../common/genesis_modal_routes.dart';
 import 'pro_subscription_content.dart';
 import 'wallet_purchase_tabs.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -22,7 +21,6 @@ class PurchaseOptionsSheet extends StatefulWidget {
     this.membershipProductsLoader,
     this.subscriptionBuilder,
     this.headerTrailing,
-    this.allowDragDismiss = true,
   });
 
   final WidgetBuilder gemsBuilder;
@@ -31,7 +29,6 @@ class PurchaseOptionsSheet extends StatefulWidget {
   final MembershipCatalogLoader? membershipProductsLoader;
   final WidgetBuilder? subscriptionBuilder;
   final Widget? headerTrailing;
-  final bool allowDragDismiss;
 
   @override
   State<PurchaseOptionsSheet> createState() => _PurchaseOptionsSheetState();
@@ -119,7 +116,6 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
             controller: _tabs,
             children: [
               _PurchaseSheetPage(
-                allowDragDismiss: widget.allowDragDismiss,
                 child: GenesisActionSheetBody(
                   child: _subscriptionVisited
                       ? widget.subscriptionBuilder?.call(context) ??
@@ -138,7 +134,6 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
               ),
               if (widget.showBuyGems)
                 _PurchaseSheetPage(
-                  allowDragDismiss: widget.allowDragDismiss,
                   child: GenesisActionSheetBody(
                     bottom: 10,
                     child: _gemsVisited
@@ -155,13 +150,9 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
 }
 
 class _PurchaseSheetPage extends StatefulWidget {
-  const _PurchaseSheetPage({
-    required this.child,
-    required this.allowDragDismiss,
-  });
+  const _PurchaseSheetPage({required this.child});
 
   final Widget child;
-  final bool allowDragDismiss;
 
   @override
   State<_PurchaseSheetPage> createState() => _PurchaseSheetPageState();
@@ -175,15 +166,6 @@ class _PurchaseSheetPageState extends State<_PurchaseSheetPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    if (!widget.allowDragDismiss) return widget.child;
-    return GenesisBottomSheetDragDismissArea(
-      onDismiss: () {
-        // The route can also be dismissed by its native header drag.
-        if (ModalRoute.of(context)?.isCurrent == true) {
-          Navigator.of(context).pop();
-        }
-      },
-      child: widget.child,
-    );
+    return widget.child;
   }
 }

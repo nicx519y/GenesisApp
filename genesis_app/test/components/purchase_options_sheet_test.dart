@@ -156,76 +156,104 @@ void main() {
     );
   }
 
-  testWidgets('both purchase tabs dismiss downward only at the list top', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(390, 844);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: GenesisTheme.light(),
-        scrollBehavior: const GenesisScrollBehavior(),
-        home: Scaffold(
-          body: Builder(
-            builder: (context) => TextButton(
-              onPressed: () => showGenesisModalBottomSheet<void>(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => FractionallySizedBox(
-                  heightFactor: .8,
-                  child: PurchaseOptionsSheet(
-                    membershipProductsLoader: loadTestMembershipOffers,
-                    initialTab: PurchaseSheetTab.subscription,
-                    gemsBuilder: (_) => ListView.builder(
-                      key: const ValueKey('scrollable-gems'),
-                      itemExtent: 60,
-                      itemCount: 30,
-                      itemBuilder: (_, index) => Text('Gem pack $index'),
+  testWidgets(
+    'both purchase tabs reject outside taps and drags but allow close and back',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.light(),
+          scrollBehavior: const GenesisScrollBehavior(),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => showGenesisModalBottomSheet<void>(
+                  context: context,
+                  isScrollControlled: true,
+                  isDismissible: false,
+                  enableDrag: false,
+                  builder: (_) => FractionallySizedBox(
+                    heightFactor: .8,
+                    child: PurchaseOptionsSheet(
+                      membershipProductsLoader: loadTestMembershipOffers,
+                      initialTab: PurchaseSheetTab.subscription,
+                      gemsBuilder: (_) => ListView.builder(
+                        key: const ValueKey('scrollable-gems'),
+                        itemExtent: 60,
+                        itemCount: 30,
+                        itemBuilder: (_, index) => Text('Gem pack $index'),
+                      ),
                     ),
                   ),
                 ),
+                child: const Text('Open purchase'),
               ),
-              child: const Text('Open purchase'),
             ),
           ),
         ),
-      ),
-    );
-    for (final tab in PurchaseSheetTab.values) {
-      await tester.tap(find.text('Open purchase'));
-      await tester.pumpAndSettle();
-      if (tab == PurchaseSheetTab.buyGems) {
+      );
+      for (final tab in PurchaseSheetTab.values) {
+        await tester.tap(find.text('Open purchase'));
+        await tester.pumpAndSettle();
+        if (tab == PurchaseSheetTab.buyGems) {
+          await tester.drag(
+            find.byKey(const ValueKey('purchase-sheet-pages')),
+            const Offset(-320, 0),
+          );
+          await tester.pumpAndSettle();
+          expect(find.byType(PurchaseOptionsSheet), findsOneWidget);
+        }
+        final list = tab == PurchaseSheetTab.subscription
+            ? find.byKey(const PageStorageKey('pro-benefits-scroll'))
+            : find.byKey(const ValueKey('scrollable-gems'));
+        await tester.drag(list, const Offset(0, -180));
+        await tester.pumpAndSettle();
+        final position = tester
+            .state<ScrollableState>(
+              find
+                  .descendant(of: list, matching: find.byType(Scrollable))
+                  .first,
+            )
+            .position;
+        expect(position.pixels, greaterThan(50));
+        await tester.drag(list, const Offset(0, 40));
+        await tester.pumpAndSettle();
+        expect(find.byType(PurchaseOptionsSheet), findsOneWidget);
+        position.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.drag(list, const Offset(0, 120));
+        await tester.pumpAndSettle();
+        expect(find.byType(PurchaseOptionsSheet), findsOneWidget);
+        await tester.tapAt(const Offset(10, 10));
+        await tester.pumpAndSettle();
+        expect(find.byType(PurchaseOptionsSheet), findsOneWidget);
         await tester.drag(
-          find.byKey(const ValueKey('purchase-sheet-pages')),
-          const Offset(-320, 0),
+          find.byType(GenesisActionSheetHeader),
+          const Offset(0, 160),
         );
         await tester.pumpAndSettle();
         expect(find.byType(PurchaseOptionsSheet), findsOneWidget);
+        await tester.tap(
+          find.byKey(const ValueKey('gem-purchase-sheet-close')),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(PurchaseOptionsSheet), findsNothing);
+        expect(find.text('Open purchase'), findsOneWidget);
+        await tester.tap(find.text('Open purchase'));
+        await tester.pumpAndSettle();
+        if (tab == PurchaseSheetTab.buyGems) {
+          await tester.tap(find.text('Buy Gems'));
+          await tester.pumpAndSettle();
+        }
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(PurchaseOptionsSheet), findsNothing);
       }
-      final list = tab == PurchaseSheetTab.subscription
-          ? find.byKey(const PageStorageKey('pro-benefits-scroll'))
-          : find.byKey(const ValueKey('scrollable-gems'));
-      await tester.drag(list, const Offset(0, -180));
-      await tester.pumpAndSettle();
-      final position = tester
-          .state<ScrollableState>(
-            find.descendant(of: list, matching: find.byType(Scrollable)).first,
-          )
-          .position;
-      expect(position.pixels, greaterThan(50));
-      await tester.drag(list, const Offset(0, 40));
-      await tester.pumpAndSettle();
-      expect(find.byType(PurchaseOptionsSheet), findsOneWidget);
-      position.jumpTo(0);
-      await tester.pumpAndSettle();
-      await tester.drag(list, const Offset(0, 120));
-      await tester.pumpAndSettle();
-      expect(find.byType(PurchaseOptionsSheet), findsNothing);
-      expect(find.text('Open purchase'), findsOneWidget);
-    }
-  });
+    },
+  );
 
   testWidgets('sheet shares Wallet UI and preserves both tabs while swiping', (
     tester,
