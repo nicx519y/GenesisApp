@@ -822,7 +822,10 @@ class _AccountPageState extends State<AccountPage> {
                           'All unused Gems, including purchased and earned Gems, will '
                           'be permanently lost. By continuing, you voluntarily waive '
                           'them, and account deletion does not automatically entitle '
-                          'you to a refund.',
+                          'you to a refund.\n\n'
+                          'All remaining membership benefits will also be permanently '
+                          'lost and cannot be restored. Deleting your account does '
+                          'not cancel your subscription.',
                           style: TextStyle(
                             color: GenesisColors.redSecondary,
                             fontSize: 14,

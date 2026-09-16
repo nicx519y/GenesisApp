@@ -527,6 +527,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
         link('privacy', 'Privacy Policy'),
         Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
         link('terms', 'Terms of Service'),
+        Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
+        link('eula', 'EULA'),
       ],
     );
   }
@@ -542,7 +544,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   static const TextStyle _legalStyle = TextStyle(
     fontSize: 12,
     height: 1,
-    fontWeight: FontWeight.w500,
+    fontWeight: FontWeight.w400,
     color: GenesisColors.darkTextTertiary,
   );
 }
@@ -742,7 +744,7 @@ class _GemGrantCard extends StatelessWidget {
                             text: perUnit,
                             style: const TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                               color: GenesisColors.darkTextTertiary,
                             ),
                           ),
@@ -770,7 +772,7 @@ class _GemGrantCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 12,
               height: 1,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: GenesisColors.darkTextPrimary,
             ),
           ),
@@ -855,16 +857,19 @@ class _ProPlanCard extends StatelessWidget {
             onTap: onTap,
             child: Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
+              // Keep the border independent of content geometry.
+              padding: const EdgeInsets.fromLTRB(15.5, 19.5, 15.5, 15.5),
               decoration: BoxDecoration(
                 color: selected
                     ? premiumGoldTint
                     : GenesisColors.darkPurchaseCardBackground,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: selected ? premiumGold : premiumRing,
-                  width: selected ? 1.5 : 1,
-                ),
+              ),
+              foregroundDecoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: selected
+                    ? Border.all(color: premiumGold, width: 1.5)
+                    : null,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -877,7 +882,7 @@ class _ProPlanCard extends StatelessWidget {
                     style: const TextStyle(
                       fontSize: 14,
                       height: 1,
-                      fontWeight: FontWeight.w700,
+                      fontWeight: FontWeight.w600,
                       color: GenesisColors.darkTextPrimary,
                     ),
                   ),
@@ -894,7 +899,7 @@ class _ProPlanCard extends StatelessWidget {
                             text: '/mo',
                             style: TextStyle(
                               fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontWeight: FontWeight.w600,
                               color: GenesisColors.darkTextTertiary,
                             ),
                           ),
@@ -969,7 +974,7 @@ class _SavingsTag extends StatelessWidget {
         style: const TextStyle(
           fontSize: 12,
           height: 1,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
           color: premiumGold,
         ),
       ),

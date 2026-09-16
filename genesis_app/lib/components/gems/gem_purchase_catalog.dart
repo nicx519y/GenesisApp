@@ -57,8 +57,8 @@ class GemBalancePanel extends StatelessWidget {
   final int balanceCent;
   final Key balanceKey;
 
-  /// Purchase sheets start the balance content at the header boundary.
-  /// Wallet keeps its existing fixed-height presentation.
+  /// Purchase sheets omit Wallet's 10px top inset; both retain the same
+  /// bottom spacing before the product cards.
   final bool compact;
 
   @override
@@ -66,8 +66,7 @@ class GemBalancePanel extends StatelessWidget {
     return SizedBox(
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
-      // Move the catalog up with the balance, preserving its original gap.
-      height: compact ? null : 90.5,
+      height: compact ? 80.5 : 90.5,
       // Left aligned against the content edge, with the gem reading as part of
       // the figure rather than as part of the label above it.
       child: Align(

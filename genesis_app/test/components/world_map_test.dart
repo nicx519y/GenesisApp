@@ -434,21 +434,13 @@ void main() {
 
     final surface = find.byType(WorldMapMessageBubbleSurface);
     expect(surface, findsOneWidget);
-    final decoration =
-        tester
-                .widget<DecoratedBox>(
-                  find.descendant(
-                    of: surface,
-                    matching: find.byType(DecoratedBox),
-                  ),
-                )
-                .decoration
-            as BoxDecoration;
-    expect(decoration.color, const Color(0xCC3A3942));
-    expect(decoration.borderRadius, BorderRadius.circular(8));
+    final fill = tester.widget<ColoredBox>(
+      find.descendant(of: surface, matching: find.byType(ColoredBox)),
+    );
+    expect(fill.color, const Color(0xCC3A3942));
     expect(
       find.descendant(of: surface, matching: find.byType(BackdropFilter)),
-      findsNothing,
+      findsOneWidget,
     );
     final text = tester.widget<Text>(find.text('Ava checks the storefront.'));
     expect(text.style?.fontSize, 12);

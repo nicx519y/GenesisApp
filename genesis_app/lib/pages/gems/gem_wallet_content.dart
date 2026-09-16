@@ -263,92 +263,98 @@ class _TaskRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      key: ValueKey<String>('gem-task-row-${task.taskCode}'),
-      constraints: const BoxConstraints(minHeight: 62),
-      padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
-      decoration: BoxDecoration(
-        color: GenesisColors.darkPurchaseCardBackground,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: GenesisColors.darkCardBorder),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  _gemTaskTitle(task),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 16 / 14,
-                    fontWeight: FontWeight.w600,
-                    color: GenesisColors.darkTextPrimary,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  _gemTaskDescription(task),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    height: 14 / 12,
-                    fontWeight: FontWeight.w400,
-                    color: GenesisColors.darkTextTertiary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          SizedBox(
-            key: ValueKey<String>('gem-task-reward-${task.taskCode}'),
-            width: 96,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Text(
-                      '+${formatWholeGemCent(task.rewardGemsCent)}',
-                      style: const TextStyle(
-                        fontSize: 14,
-                        height: 16 / 14,
-                        fontWeight: FontWeight.w600,
-                        color: GenesisColors.darkTextPrimary,
-                      ),
+    final enabled =
+        !isLoading && (status == 'in_progress' || status == 'claimable');
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: enabled ? onTap : null,
+      child: Container(
+        key: ValueKey<String>('gem-task-row-${task.taskCode}'),
+        constraints: const BoxConstraints(minHeight: 62),
+        padding: const EdgeInsets.fromLTRB(12, 11, 10, 11),
+        decoration: BoxDecoration(
+          color: GenesisColors.darkPurchaseCardBackground,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: GenesisColors.darkCardBorder),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    _gemTaskTitle(task),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      height: 16 / 14,
+                      fontWeight: FontWeight.w600,
+                      color: GenesisColors.darkTextPrimary,
                     ),
-                    const SizedBox(width: 2),
-                    SvgPicture.asset(
-                      gemIconAsset,
-                      key: ValueKey<String>(
-                        'gem-task-reward-icon-${task.taskCode}',
-                      ),
-                      width: gemSmallIconSize,
-                      height: gemSmallIconSize,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    _gemTaskDescription(task),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      height: 14 / 12,
+                      fontWeight: FontWeight.w400,
+                      color: GenesisColors.darkTextTertiary,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 2),
-                _TaskActionButton(
-                  task: task,
-                  status: status,
-                  isLoading: isLoading,
-                  onTap: onTap,
-                  width: 64,
-                  height: 24,
-                  borderRadius: 10,
-                  textHeight: 14 / 12,
-                  alignment: Alignment.centerRight,
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            SizedBox(
+              key: ValueKey<String>('gem-task-reward-${task.taskCode}'),
+              width: 96,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(
+                        '+${formatWholeGemCent(task.rewardGemsCent)}',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          height: 16 / 14,
+                          fontWeight: FontWeight.w600,
+                          color: GenesisColors.darkTextPrimary,
+                        ),
+                      ),
+                      const SizedBox(width: 2),
+                      SvgPicture.asset(
+                        gemIconAsset,
+                        key: ValueKey<String>(
+                          'gem-task-reward-icon-${task.taskCode}',
+                        ),
+                        width: gemSmallIconSize,
+                        height: gemSmallIconSize,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  _TaskActionButton(
+                    task: task,
+                    status: status,
+                    isLoading: isLoading,
+                    onTap: onTap,
+                    width: 64,
+                    height: 24,
+                    borderRadius: 10,
+                    textHeight: 14 / 12,
+                    alignment: Alignment.centerRight,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
