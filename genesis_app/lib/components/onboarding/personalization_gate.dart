@@ -361,6 +361,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                   context,
                   continueAfterLogin: true,
                   isDismissible: false,
+                  linkPurchasedMembership: true,
                 );
           if (!current()) return;
           uid = await store.readLoginUid();

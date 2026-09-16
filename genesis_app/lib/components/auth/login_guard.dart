@@ -14,6 +14,7 @@ Future<bool> ensureGenesisLogin(
   BuildContext context, {
   bool continueAfterLogin = false,
   bool isDismissible = true,
+  bool linkPurchasedMembership = false,
 }) async {
   if (await hasGenesisLoginSession(context)) return true;
   if (!context.mounted) return false;
@@ -22,6 +23,7 @@ Future<bool> ensureGenesisLogin(
   final loggedIn = await showLoginSheet(
     context: loginContext,
     isDismissible: isDismissible,
+    linkPurchasedMembership: linkPurchasedMembership,
     onLogin: (provider) {
       return loginGenesisWithProvider(loginContext, provider);
     },

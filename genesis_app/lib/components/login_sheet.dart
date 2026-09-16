@@ -5,6 +5,7 @@ import 'common/genesis_bottom_sheet_panel.dart';
 import 'common/genesis_center_toast.dart';
 import 'common/genesis_modal_routes.dart';
 import 'login_provider_button.dart';
+import 'gems/pro_membership_badge.dart';
 import '../app/telemetry/genesis_telemetry.dart';
 import '../platform/auth/auth_cancelled_exception.dart';
 import '../platform/auth/auth_session.dart';
@@ -18,10 +19,12 @@ class LoginSheet extends StatefulWidget {
     super.key,
     required this.onLogin,
     this.isDismissible = true,
+    this.linkPurchasedMembership = false,
   });
 
   final Future<bool> Function(IdentityProvider provider) onLogin;
   final bool isDismissible;
+  final bool linkPurchasedMembership;
 
   @override
   State<LoginSheet> createState() => _LoginSheetState();
@@ -91,8 +94,16 @@ class _LoginSheetState extends State<LoginSheet> {
               systemNavigationBarIconBrightness: Brightness.light,
             ),
             child: GenesisBottomSheetPanel(
-              title: 'Sign up to continue',
+              title: widget.linkPurchasedMembership
+                  ? 'Sign up to claim Premium'
+                  : 'Sign up to continue',
               height: targetHeight,
+              header: widget.linkPurchasedMembership
+                  ? const GenesisActionSheetHeader(
+                      title: 'Sign up to claim Premium',
+                      leading: ProMembershipBadge.beside(fontSize: 18),
+                    )
+                  : null,
               trailing: widget.isDismissible
                   ? GenesisDarkCloseButton(
                       onPressed: _submittingProvider != null
@@ -112,8 +123,10 @@ class _LoginSheetState extends State<LoginSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const LoginSignupRewardText(),
-                  const SizedBox(height: 12),
+                  if (!widget.linkPurchasedMembership) ...[
+                    const LoginSignupRewardText(),
+                    const SizedBox(height: 12),
+                  ],
                   LoginProviderButtons(
                     loggingInProvider: _submittingProvider,
                     onLogin: _submit,
@@ -140,6 +153,7 @@ Future<bool> showLoginSheet({
   required BuildContext context,
   required Future<bool> Function(IdentityProvider provider) onLogin,
   bool isDismissible = true,
+  bool linkPurchasedMembership = false,
 }) async {
   // Forget the field's focus before pushing the route so closing login cannot
   // restore it and briefly reopen the keyboard.
@@ -151,7 +165,11 @@ Future<bool> showLoginSheet({
     isDismissible: isDismissible,
     enableDrag: isDismissible,
     useRootNavigator: !isDismissible,
-    builder: (_) => LoginSheet(onLogin: onLogin, isDismissible: isDismissible),
+    builder: (_) => LoginSheet(
+      onLogin: onLogin,
+      isDismissible: isDismissible,
+      linkPurchasedMembership: linkPurchasedMembership,
+    ),
   );
   return loggedIn == true;
 }

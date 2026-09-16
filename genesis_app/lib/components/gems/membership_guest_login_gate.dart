@@ -84,6 +84,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
               context,
               continueAfterLogin: true,
               isDismissible: false,
+              linkPurchasedMembership: true,
             );
       if (loggedIn) {
         if (mounted && identical(service, widget.service)) {

@@ -35,6 +35,7 @@ Future<bool?> showDeveloperForcedLoginPreview(BuildContext context) =>
             ),
             LoginSheet(
               isDismissible: false,
+              linkPurchasedMembership: true,
               onLogin: (_) async {
                 await Future<void>.delayed(const Duration(milliseconds: 450));
                 // The sheet may still be mounted during its exit animation.
