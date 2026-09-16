@@ -76,6 +76,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   AppServices? _services;
   late Future<OriginFeedAudienceState> _audience;
   var _audienceRevision = 0;
+  var _appliedSubmissionRevision = 0;
   String? _manualGender;
   String? _manualGenderOwnerUid;
   var _genderFilterOpen = false;
@@ -112,6 +113,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     _dismissGenderFilter?.call();
     _removeAudienceListeners();
     _services = services;
+    _appliedSubmissionRevision = services.personalization.submissionRevision;
     _audienceRevision += 1;
     _audience = _loadAudience(services);
     _feedKeys.clear();
@@ -131,7 +133,10 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     _services?.appGlobalConfig.requestState.removeListener(_reloadAudience);
   }
 
-  Future<OriginFeedAudienceState> _loadAudience(AppServices services) async {
+  Future<OriginFeedAudienceState> _loadAudience(
+    AppServices services, {
+    bool useSubmittedPreference = false,
+  }) async {
     final revision = _audienceRevision;
     final automatic = await loadOriginFeedAudienceState(
       services.sessionStore,
@@ -140,6 +145,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
           services.appGlobalConfig.requestState.value.isLoading ||
           services.appGlobalConfig.value.showPersonalizationForm,
       loadCachedGender: (ownerUid) async {
+        if (useSubmittedPreference) return null;
         if (_manualGenderOwnerUid == ownerUid && _manualGender != null) {
           return _manualGender;
         }
@@ -161,7 +167,17 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     final cache = ownerUid == null
         ? null
         : OriginFeedCacheStore(ownerUid: ownerUid);
-    final next = automatic;
+    // An empty submitted preference and cached All must compare equally, so
+    // later profile notifications do not trigger another identical refresh.
+    final next = useSubmittedPreference && automatic.isReady
+        ? (
+            audience: (
+              ownerUid: ownerUid,
+              gender: automatic.audience.gender ?? '',
+            ),
+            isReady: true,
+          )
+        : automatic;
     // An unset value or failed GET may display All, but must not become a
     // persistent preference that overrides a later successful response.
     if (next.isReady &&
@@ -349,19 +365,30 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     final revision = ++_audienceRevision;
     final previous = _audience;
     final services = _services!;
-    final next = await _loadAudience(services);
+    final submissionRevision = services.personalization.submissionRevision;
+    final submitted = submissionRevision != _appliedSubmissionRevision;
+    final next = await _loadAudience(
+      services,
+      useSubmittedPreference: submitted,
+    );
     final old = await previous;
-    if (!mounted || revision != _audienceRevision || next == old) return;
+    if (!mounted || revision != _audienceRevision) return;
+    if (next == old && !submitted) return;
     final sameOwner = next.audience.ownerUid == old.audience.ownerUid;
     if (!sameOwner) _dismissGenderFilter?.call();
     // A background profile refresh must not temporarily switch an existing
     // list to All. The next settled profile will update its audience.
     if (sameOwner && old.isReady && !next.isReady) return;
     setState(() {
+      _appliedSubmissionRevision = submissionRevision;
+      if (submitted) {
+        _manualGender = next.audience.gender;
+        _manualGenderOwnerUid = next.audience.ownerUid;
+      }
       _audience = Future.value(next);
       // No request was sent for a pending audience. Keep its visible cache
       // and let each tab start its first request with the resolved gender.
-      if (!sameOwner || old.isReady) {
+      if (submitted || !sameOwner || old.isReady) {
         _feedKeys.clear();
         _feedStorage = PageStorageBucket();
       }

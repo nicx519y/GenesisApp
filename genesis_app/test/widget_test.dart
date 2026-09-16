@@ -8718,7 +8718,7 @@ void main() {
           'tag': 'Destroyed',
           'pn': '1',
           'rn': '20',
-          'gender': 'Female',
+          'gender': 'Male',
         },
       );
 
@@ -9232,6 +9232,84 @@ void main() {
       );
     },
   );
+
+  for (final uid in <String?>[null, 'u_mock']) {
+    testWidgets(
+      'Origin refreshes status and list on every successful form submission: $uid',
+      (tester) async {
+        final transport = _RecordingV1ListTransport();
+        final session = MemoryUserSessionStore();
+        var failSave = false;
+        String? preference = 'Female';
+        final personalization = PersonalizationStore(
+          readLoginUid: session.readLoginUid,
+          load: () async => personalizationData(),
+          save: (_) async {
+            if (failSave) throw StateError('offline');
+            return PersonalizationProfile(
+              gender: 'g1',
+              age: 'a2',
+              completed: true,
+              originFeedGender: preference,
+            );
+          },
+        );
+        final cache = OriginFeedCacheStore(ownerUid: uid);
+        await cache.saveManualGender('');
+        final services = await _testServices(
+          transport: transport,
+          useMock: false,
+          initialUid: uid,
+          sessionStoreOverride: session,
+          personalization: personalization,
+        );
+        await personalization.start();
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppServicesScope(
+              services: services,
+              child: const OriginPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final filter = find.byKey(const ValueKey('origin-gender-filter'));
+        expect(
+          find.descendant(of: filter, matching: find.text('All')),
+          findsOneWidget,
+        );
+        var count = transport.requestsFor('/api/v1/origin/feed').length;
+        const form = PersonalizationProfile(gender: 'g1', age: 'a2');
+        for (final gender in ['Female', 'Female', 'All', null]) {
+          preference = gender;
+          final isAll = gender == null || gender == 'All';
+          await personalization.submit(form);
+          await tester.pumpAndSettle();
+          count++;
+          final requests = transport.requestsFor('/api/v1/origin/feed');
+          expect(requests, hasLength(count));
+          expect(requests.last.uri.queryParameters, {
+            'start_score': '0',
+            'rn': '10',
+            if (!isAll) 'gender': gender,
+          });
+          expect(
+            find.descendant(of: filter, matching: find.text(gender ?? 'All')),
+            findsOneWidget,
+          );
+          expect(await cache.loadPreferredGender(), isAll ? '' : gender);
+        }
+        _setOriginFeedPreference(services, uid, null);
+        await tester.pumpAndSettle();
+        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(count));
+        failSave = true;
+        await expectLater(personalization.submit(form), throwsStateError);
+        await tester.pumpAndSettle();
+        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(count));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('Origin restarts the cursor when the manual preference changes', (
     tester,
