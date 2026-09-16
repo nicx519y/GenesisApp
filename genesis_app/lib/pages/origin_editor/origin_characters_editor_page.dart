@@ -287,6 +287,8 @@ class _OriginCharactersEditorPageState
               _KeyboardHiddenBottomAction(
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
+                  isLoading: _isSaving,
+                  showLoadingIndicator: false,
                   backgroundColor: GenesisColors.redPrimary,
                   foregroundColor: GenesisColors.darkTextPrimary,
                   width: _primaryActionButtonWidth(context),

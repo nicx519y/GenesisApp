@@ -194,6 +194,8 @@ class _OriginStoryEventsEditorPageState
                 minimum: const EdgeInsets.fromLTRB(28, 8, 28, 14),
                 child: GenesisPrimaryButton(
                   label: _isSaving ? 'Saving...' : 'Save',
+                  isLoading: _isSaving,
+                  showLoadingIndicator: false,
                   backgroundColor: GenesisColors.redPrimary,
                   foregroundColor: GenesisColors.darkTextPrimary,
                   width: _primaryActionButtonWidth(context),

@@ -277,12 +277,14 @@ HTTP 映射层的图片规则：
 - Worldo Detail Personality、World Detail Cast 的 Personality、Location Chat 的同色强调和 Tick Event 线索统一引用 `redSecondary`。页面级颜色别名可以保留，但必须映射公共 token。
 - 新增及修改红色样式时必须调用对应 token，不复制色值；其他红色、不同透明度和特殊状态不因颜色接近而强行替换。
 
-## 深色主按钮禁用态规范
+## 提交按钮 Loading 与普通禁用态规范
 
-- Save / Create / Launch / Publish / Select 等标准主操作按钮统一使用 `GenesisPrimaryButton` 的深色默认禁用样式：底色 `GenesisColors.darkButtonDisabledBackground`（由 `redPrimary` 派生的 40% 不透明度品牌红），文字和加载指示器使用 `GenesisColors.darkButtonDisabledForeground`（将 `darkTextSecondary` 预先合成到 `darkBackground` 上的不透明浅灰，保留接近二级白的亮度，避免红色底透入文字）。色值在 `GenesisColors` 集中定义，页面不要重复配置同一套禁用色或透明度。
-- 这组 token 适用于深色填充主操作按钮；文字按钮、关闭/删除等图标按钮及中性操作按钮按各自组件规范处理，不因禁用而统一改成红底。
-- 禁用及保存进行中不再使用 `redSecondary` / `redTertiary` 等粉色填充；可用态保留品牌红 `redPrimary` 和一级白字。保留现有按钮尺寸、圆角和布局，不新增描边。
-- 颜色不改变校验和点击行为：禁用时不得执行主操作，已有 `onDisabledPressed` 说明提示保持；保存进行中沿用现有进度文字或加载指示器。
+- 用户端所有提交按钮在 loading / saving / submitting / sending / updating / busy 时保留提交前的原底色，不因禁止重复操作切换成禁用色，也不降低背景透明度。品牌红、灰底、金色渐变和透明底均保持各自原样；此规则覆盖公共按钮、Follow、登录、Gems / 会员购买、聊天发送、发帖回复和其他自定义提交按钮。
+- 已有圆环的保留现有圆环，没有圆环的不新增；原有 `Saving...` / `Creating...` / `Publishing...` 等进度文字以及独立进度弹窗继续使用。此次规则统一底色，不统一圆环尺寸、颜色、线宽或文字规格，不改变按钮尺寸、圆角、布局及描边。
+- `GenesisPrimaryButton` 的提交状态统一传 `isLoading`，由公共控件自动保留正常 `backgroundColor`，加载时不采用 `disabledBackgroundColor`。既有圆环默认保留；原先只显示文字的调用同时传 `showLoadingIndicator: false`。不要用 `onPressed: null` 单独表示异步提交中，也不要在每个页面复制 loading 配色。
+- 仅因校验不通过、缺少必填项或业务上不可操作的普通禁用态仍使用原禁用样式：深色填充主按钮底色 `GenesisColors.darkButtonDisabledBackground`（40% 不透明度品牌红），前景 `GenesisColors.darkButtonDisabledForeground`（不透明浅灰）。文字按钮、图标按钮及中性操作按钮沿用各自禁用样式，不统一改成红底。
+- Loading 保持原底色不代表可再次提交；保留原有防重复提交、失败恢复、完成回调和已有禁用提示。此规范不改变接口处理、购买流程，也不要求给无异步状态的 Select / 本地保存 / 弹窗确认新增 loading。
+- 用户端提交按钮清单与现有加载反馈见 `docs/button-loading-states.md`。
 
 ## 深色面板关闭按钮规范
 
