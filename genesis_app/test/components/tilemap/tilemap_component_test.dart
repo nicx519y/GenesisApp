@@ -944,7 +944,7 @@ void main() {
         locationContentBounds: bounds,
         centerContentInitially: true,
       ),
-      6.5,
+      7.5,
     );
     expect(
       tilemapInitialScaleForViewport(
@@ -1005,7 +1005,7 @@ void main() {
           centerContentInitially: true,
           viewportPadding: double.nan,
         ),
-        6.5,
+        7.5,
       );
     },
   );
@@ -1018,6 +1018,7 @@ void main() {
       viewportSize: viewportSize,
       locationContentBounds: contentBounds,
       centerContentInitially: true,
+      viewportPadding: 24,
     );
     final transform = tilemapInitialTransform(
       viewportSize: viewportSize,
