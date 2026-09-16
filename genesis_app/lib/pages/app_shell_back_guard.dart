@@ -91,8 +91,10 @@ class _AppShellBackGuardState extends State<AppShellBackGuard>
 
   @override
   Widget build(BuildContext context) {
+    final hasLocalHistory =
+        ModalRoute.of(context)?.willHandlePopInternally ?? false;
     return PopScope<void>(
-      canPop: !_isRootAndroidRoute,
+      canPop: !_isRootAndroidRoute || hasLocalHistory,
       onPopInvokedWithResult: _onPopInvoked,
       child: widget.child,
     );

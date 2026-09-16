@@ -14,6 +14,12 @@
 
 原有 launch_startup、launch_page、launch_req_start、launch_req_end、launch_render 保持原调用及去重口径；launch_req_* 仍只记录首次请求。不要把新的诊断事件作为启动次数或阶段总耗时样本。当前看板通过事件白名单筛选，会忽略 launch_diagnostic；需查看原始日志才能读取本次新增字段。
 
+## 首屏与后台配置
+
+网关校时及 App Config 在后台按签名依赖先后执行，与页面/缓存绘制并行，`runApp` 不再等待它们。配置在等待 Collect 和 UID 时即标记为 loading；成功后发布开关，首次失败保持默认 false。依赖配置的填表仍等 `show_personalization_form=true`，Worldo 在没有已保存筛选值时仍等待性别确定后刷新。
+
+`launch_page.ext_data.milestones` 保留已完成的启动阶段；`app_config_ready_ms` 和 `telemetry_ready_ms` 若在首帧后才完成，则不出现在首帧快照中。缺失表示当时尚未完成，不表示 0 毫秒或失败。若首帧早于 Collect 准备完成，启动事件暂存在内存，保留发生时的耗时与字段；Collect 就绪后先记录启动哨兵，再依序入持久队列。
+
 ## 请求尝试
 
 request_id = startup_id:page:attempt；attempt 从 1 开始，retry_count = attempt - 1。同一次启动的每次目标页首屏加载分别记录开始、结束，结束只记录一次。

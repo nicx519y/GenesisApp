@@ -209,7 +209,9 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
     final height = math.max(0.0, totalHeight - media.padding.bottom);
 
     return PopScope(
-      canPop: !_loginRequired && _step == PersonalizationStep.subscription,
+      // System back must not bypass the form or dismiss its subscription step.
+      // Skip and completed flows close the route explicitly.
+      canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop && _step == PersonalizationStep.signIn) _backToForm();
       },

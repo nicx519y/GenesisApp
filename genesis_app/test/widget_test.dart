@@ -40,6 +40,7 @@ import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_setti
 import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug/purchase_toast_debug_settings.dart';
 import 'package:genesis_flutter_android/platform/billing/purchase_toast_diagnostics.dart';
+import 'package:genesis_flutter_android/components/gems/pro_membership_badge.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
@@ -2889,7 +2890,7 @@ void main() {
 
   for (final inSheet in [false, true]) {
     testWidgets(
-      'Premium Enjoy it returns to the purchase entry inSheet=$inSheet',
+      'Premium Continue returns to the purchase entry inSheet=$inSheet',
       (tester) async {
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
@@ -2960,14 +2961,14 @@ void main() {
           await tester.pump(const Duration(milliseconds: 250));
           await h.service.interceptPurchase(h.purchase(yearly: true));
           await tester.pumpAndSettle();
-          expect(find.text('Enjoy it'), findsOneWidget);
+          expect(find.text('Continue'), findsOneWidget);
           expect(
             find.byType(inSheet ? PurchaseOptionsSheet : GemWalletPage),
             findsOneWidget,
           );
-          await tester.tap(find.text('Enjoy it'));
+          await tester.tap(find.text('Continue'));
           await tester.pumpAndSettle();
-          expect(find.text('Enjoy it'), findsNothing);
+          expect(find.text('Continue'), findsNothing);
           expect(find.byType(GemWalletPage, skipOffstage: false), findsNothing);
           expect(
             find.byType(PurchaseOptionsSheet, skipOffstage: false),
@@ -8886,6 +8887,116 @@ void main() {
   );
 
   testWidgets(
+    'Origin gender filter lets outside gestures scroll and activate the list',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final transport = _RecordingV1ListTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          onGenerateRoute: (settings) {
+            expect(settings.name, RouteNames.originWorld);
+            return MaterialPageRoute<void>(
+              builder: (_) => const Scaffold(body: Text('Selected Worldo')),
+            );
+          },
+          home: AppServicesScope(services: services, child: const OriginPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final filter = find.byKey(const ValueKey('origin-gender-filter'));
+      final panel = find.byKey(const ValueKey('origin-gender-filter-surface'));
+      final feed = find.byKey(
+        const PageStorageKey<String>('origin-feed-For you-foryou'),
+      );
+      final scroll = tester.state<ScrollableState>(
+        find.descendant(of: feed, matching: find.byType(Scrollable)),
+      );
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      expect(panel, findsOneWidget);
+      expect(ModalRoute.of(tester.element(feed))!.isCurrent, isTrue);
+      final start = tester.getRect(feed).topLeft + const Offset(60, 320);
+      await tester.dragFrom(start, const Offset(0, -220));
+      await tester.pumpAndSettle();
+      expect(scroll.position.pixels, greaterThan(100));
+      expect(panel, findsNothing);
+
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Destroyed'));
+      await tester.pumpAndSettle();
+      expect(panel, findsNothing);
+      expect(
+        DefaultTabController.of(tester.element(find.byType(TabBar))).index,
+        1,
+      );
+
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      expect(panel, findsNothing);
+
+      await tester.tap(find.text('For you'));
+      await tester.pumpAndSettle();
+      scroll.position.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('origin-feed-item-o_test_1')));
+      await tester.pumpAndSettle();
+      expect(find.text('Selected Worldo'), findsOneWidget);
+      expect(panel, findsNothing);
+      expect(tester.takeException(), isNull);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(filter, findsOneWidget);
+      expect(panel, findsNothing);
+    },
+  );
+
+  testWidgets(
+    'Origin gender filter closes on tab deactivation and page disposal',
+    (tester) async {
+      final active = ValueNotifier(true);
+      addTearDown(active.dispose);
+      final services = await _testServices(
+        transport: _RecordingV1ListTransport(),
+        useMock: false,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(
+            services: services,
+            child: OriginPage(isActiveListenable: active),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final filter = find.byKey(const ValueKey('origin-gender-filter'));
+      final panel = find.byKey(const ValueKey('origin-gender-filter-surface'));
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      expect(panel, findsOneWidget);
+      active.value = false;
+      await tester.pumpAndSettle();
+      expect(panel, findsNothing);
+      active.value = true;
+      await tester.tap(filter);
+      await tester.pumpAndSettle();
+      expect(panel, findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'Origin gender filter applies all four choices to tabs and pagination',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -8904,6 +9015,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       final filter = find.byKey(const ValueKey('origin-gender-filter'));
+      final options = find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'origin-gender-option-',
+            ),
+      );
       expect(
         tester.getCenter(filter).dx,
         greaterThan(tester.getRect(find.byType(SearchBarPlaceholder)).right),
@@ -8965,20 +9083,14 @@ void main() {
         await tester.pumpAndSettle();
         await tester.tap(filter);
         await tester.pumpAndSettle();
-        final options = tester.widgetList<PopupMenuItem<String>>(
-          find.byType(PopupMenuItem<String>),
-        );
-        expect(options.map((option) => option.value), [
-          '',
-          'Male',
-          'Female',
-          'Non_binary',
+        expect(tester.widgetList(options).map((option) => option.key), [
+          const ValueKey('origin-gender-option-'),
+          const ValueKey('origin-gender-option-Male'),
+          const ValueKey('origin-gender-option-Female'),
+          const ValueKey('origin-gender-option-Non_binary'),
         ]);
         expect(
-          find.descendant(
-            of: find.byType(PopupMenuItem<String>),
-            matching: find.byIcon(Icons.check),
-          ),
+          find.descendant(of: options, matching: find.byIcon(Icons.check)),
           findsOneWidget,
         );
         expectFilterAlignedBelowSearch();
@@ -9002,7 +9114,7 @@ void main() {
           find.byKey(ValueKey('origin-gender-option-${entry.key}')),
         );
         await tester.pumpAndSettle();
-        expect(find.byType(PopupMenuItem<String>), findsNothing);
+        expect(options, findsNothing);
         final reports = transport.requestsFor(
           '/api/v1/device/personalization/update_origin_feed_gender',
         );
@@ -9066,13 +9178,13 @@ void main() {
       final count = transport.requestsFor('/api/v1/origin/list').length;
       await tester.tapAt(const Offset(4, 4));
       await tester.pumpAndSettle();
-      expect(find.byType(PopupMenuItem<String>), findsNothing);
+      expect(options, findsNothing);
       expect(transport.requestsFor('/api/v1/origin/list'), hasLength(count));
       await tester.tap(filter);
       await tester.pumpAndSettle();
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
-      expect(find.byType(PopupMenuItem<String>), findsNothing);
+      expect(options, findsNothing);
       expect(transport.requestsFor('/api/v1/origin/list'), hasLength(count));
       expect(
         transport.requestsFor(
@@ -9323,10 +9435,17 @@ void main() {
           save: (profile) async => profile,
         );
         final configResponse = Completer<Map<String, dynamic>>();
+        final configUid = Completer<String?>();
+        var configCalls = 0;
         final config = AppGlobalConfigStore(
-          loadConfig: ({uid}) => configResponse.future,
+          loadConfig: ({uid}) {
+            configCalls++;
+            return configResponse.future;
+          },
         );
-        final configLoading = config.refresh();
+        final configLoading = config.refresh(
+          resolveUid: () => configUid.future,
+        );
         final services = await _testServices(
           initialUid: null,
           sessionStoreOverride: session,
@@ -9346,6 +9465,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(cachedContent, findsOneWidget);
         expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+        expect(configCalls, 0);
+        configUid.complete(null);
+        await tester.pump();
+        expect(configCalls, 1);
         configResponse.complete({'show_personalization_form': true});
         await configLoading;
         final profileLoading = personalization.start();
@@ -9850,6 +9973,9 @@ void main() {
     'AppShell iOS starts the independent ATT prompt after the first frame',
     (WidgetTester tester) async {
       AppStartupCoordinator.resetForTesting();
+      AppStartupCoordinator.configure(
+        appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+      );
       var trackingRequested = false;
 
       await tester.pumpWidget(
@@ -9877,6 +10003,8 @@ void main() {
 
       await tester.pump(const Duration(seconds: 2));
       expect(trackingRequested, isTrue);
+      await tester.pumpWidget(const SizedBox.shrink());
+      AppStartupCoordinator.resetForTesting();
     },
   );
 
@@ -9884,6 +10012,9 @@ void main() {
     WidgetTester tester,
   ) async {
     AppStartupCoordinator.resetForTesting();
+    AppStartupCoordinator.configure(
+      appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+    );
     var trackingRequested = false;
 
     await tester.pumpWidget(
@@ -9908,7 +10039,244 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
 
     expect(trackingRequested, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    AppStartupCoordinator.resetForTesting();
   });
+
+  for (final pauseDuringStatusRead in [false, true]) {
+    testWidgets(
+      'AppShell iOS defers ATT while inactive with background config: statusRead=$pauseDuringStatusRead',
+      (tester) async {
+        AppStartupCoordinator.resetForTesting();
+        addTearDown(AppStartupCoordinator.resetForTesting);
+        AppStartupCoordinator.configure(
+          appVersion: const AppVersionInfo(
+            versionName: 'test',
+            versionCode: '1',
+          ),
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        final response = Completer<Map<String, dynamic>>();
+        final config = AppGlobalConfigStore(
+          loadConfig: ({uid}) => response.future,
+        );
+        final loading = config.refresh();
+        final status = Completer<AppTrackingAuthorizationStatus>();
+        var statusReads = 0;
+        var trackingRequests = 0;
+        final services = await _testServices(appGlobalConfig: config);
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: services,
+            child: MaterialApp(
+              home: AppShellPage(
+                initialIndex: 1,
+                startupPlatform: TargetPlatform.iOS,
+                trackingAuthorizationStatus: () {
+                  statusReads++;
+                  return status.future;
+                },
+                requestTrackingAuthorization: () async {
+                  trackingRequests++;
+                  return AppTrackingAuthorizationStatus.denied;
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(find.byType(AppShellPage), findsOneWidget);
+        expect(config.requestState.value.isLoading, isTrue);
+        if (pauseDuringStatusRead) {
+          await tester.pump(const Duration(seconds: 2));
+          expect(statusReads, 1);
+        }
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        status.complete(AppTrackingAuthorizationStatus.notDetermined);
+        await tester.pump(const Duration(seconds: 3));
+        expect(trackingRequests, 0);
+        response.complete({'show_personalization_form': false});
+        await loading;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(trackingRequests, 1);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump(const Duration(seconds: 3));
+        expect(trackingRequests, 1);
+        await tester.pumpWidget(const SizedBox.shrink());
+        AppStartupCoordinator.resetForTesting();
+      },
+    );
+  }
+
+  for (final result in [
+    AppTrackingAuthorizationStatus.notDetermined,
+    AppTrackingAuthorizationStatus.unknown,
+    AppTrackingAuthorizationStatus.authorized,
+    AppTrackingAuthorizationStatus.denied,
+    AppTrackingAuthorizationStatus.restricted,
+  ]) {
+    for (final resumeBeforeResult in [false, true]) {
+      testWidgets(
+        'AppShell iOS recovers interrupted ATT: result=$result resumeBeforeResult=$resumeBeforeResult',
+        (tester) async {
+          AppStartupCoordinator.resetForTesting();
+          addTearDown(AppStartupCoordinator.resetForTesting);
+          AppStartupCoordinator.configure(
+            appVersion: const AppVersionInfo(
+              versionName: 'test',
+              versionCode: '1',
+            ),
+          );
+          tester.binding.handleAppLifecycleStateChanged(
+            AppLifecycleState.resumed,
+          );
+          final response = Completer<AppTrackingAuthorizationStatus>();
+          var requests = 0;
+          final services = await _testServices();
+          await tester.pumpWidget(
+            AppServicesScope(
+              services: services,
+              child: MaterialApp(
+                home: AppShellPage(
+                  initialIndex: 1,
+                  startupPlatform: TargetPlatform.iOS,
+                  trackingAuthorizationStatus: () async =>
+                      AppTrackingAuthorizationStatus.notDetermined,
+                  requestTrackingAuthorization: () {
+                    requests++;
+                    return requests == 1
+                        ? response.future
+                        : Future.value(AppTrackingAuthorizationStatus.denied);
+                  },
+                ),
+              ),
+            ),
+          );
+          try {
+            await tester.pump();
+            await tester.pump(const Duration(seconds: 2));
+            expect(requests, 1);
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.inactive,
+            );
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.paused,
+            );
+            if (resumeBeforeResult) {
+              tester.binding.handleAppLifecycleStateChanged(
+                AppLifecycleState.resumed,
+              );
+              await tester.pump();
+              // Returning to the foreground must not overlap a native request.
+              expect(requests, 1);
+            }
+            response.complete(result);
+            await tester.pump();
+            if (!resumeBeforeResult) {
+              expect(requests, 1);
+              tester.binding.handleAppLifecycleStateChanged(
+                AppLifecycleState.resumed,
+              );
+              await tester.pump();
+            }
+            final expectedRequests =
+                result == AppTrackingAuthorizationStatus.notDetermined ||
+                    result == AppTrackingAuthorizationStatus.unknown
+                ? 2
+                : 1;
+            expect(requests, expectedRequests);
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.inactive,
+            );
+            tester.binding.handleAppLifecycleStateChanged(
+              AppLifecycleState.resumed,
+            );
+            await tester.pump(const Duration(seconds: 3));
+            expect(requests, expectedRequests);
+          } finally {
+            await tester.pumpWidget(const SizedBox.shrink());
+          }
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'AppShell iOS unresolved ATT waits for resume without repeated requests',
+    (tester) async {
+      AppStartupCoordinator.resetForTesting();
+      addTearDown(AppStartupCoordinator.resetForTesting);
+      AppStartupCoordinator.configure(
+        appVersion: const AppVersionInfo(versionName: 'test', versionCode: '1'),
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      var requests = 0;
+      var statusReads = 0;
+      var status = AppTrackingAuthorizationStatus.notDetermined;
+      final services = await _testServices();
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: AppShellPage(
+              initialIndex: 1,
+              startupPlatform: TargetPlatform.iOS,
+              trackingAuthorizationStatus: () async {
+                statusReads++;
+                return status;
+              },
+              requestTrackingAuthorization: () async {
+                requests++;
+                return AppTrackingAuthorizationStatus.notDetermined;
+              },
+            ),
+          ),
+        ),
+      );
+      try {
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 2));
+        expect(requests, 1);
+        await tester.pump(const Duration(seconds: 10));
+        expect(statusReads, 1);
+        expect(requests, 1);
+        // The OS may have recorded the choice by the time the app resumes.
+        status = AppTrackingAuthorizationStatus.denied;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(statusReads, 2);
+        expect(requests, 1);
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(statusReads, 2);
+        expect(requests, 1);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
 
   testWidgets(
     'Home My Worlds signed-out initial frame shows sign-in guidance',
@@ -10600,6 +10968,65 @@ void main() {
       await tester.pump();
     }
   });
+
+  for (final status in <Object?>[1, 0, 2, null, '1']) {
+    testWidgets(
+      'Worldo Creator badge follows API membership status $status (${status.runtimeType})',
+      (WidgetTester tester) async {
+        final response = Completer<TransportResponse>();
+        final transport = _RecordingV1ListTransport(
+          originDefinitionVersion: 2,
+          originDetailCompleter: response,
+        );
+        final detail = transport._originDetail('o_test_1');
+        (detail['info']! as Map<String, Object?>)['owner_user'] = {
+          'uid': 'u_test',
+          'name': 'Tester',
+          'membership_status': status,
+        };
+        response.complete(
+          transport._jsonResponse({
+            'err_no': 0,
+            'err_str': 'success',
+            'data': detail,
+          }),
+        );
+        await tester.pumpWidget(
+          AppServicesScope(
+            services: await _testServices(transport: transport, useMock: false),
+            child: const MaterialApp(
+              home: OriginWorldPage(oid: 'o_test_1', originId: 0),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final pagesRect = tester.getRect(
+          find.byKey(const ValueKey<String>('origin-detail-sheet-pages')),
+        );
+        await tester.dragFrom(
+          Offset(pagesRect.right - 24, pagesRect.top + 16),
+          Offset(-pagesRect.width * 0.8, 0),
+        );
+        await tester.pumpAndSettle();
+        final creator = find.ancestor(
+          of: find.text('Creator: Tester'),
+          matching: find.byType(GenesisInlineMetaLabel),
+        );
+        expect(creator, findsOneWidget);
+        expect(
+          find.descendant(
+            of: creator,
+            matching: find.byType(ProMembershipBadge),
+          ),
+          status == 1 ? findsOneWidget : findsNothing,
+        );
+        expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+      },
+    );
+  }
 
   testWidgets('origin detail version 2 uses root Tilemap endpoint', (
     WidgetTester tester,

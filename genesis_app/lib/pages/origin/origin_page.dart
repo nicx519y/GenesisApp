@@ -17,7 +17,6 @@ import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/common/genesis_action_box.dart';
 import '../../components/common/genesis_center_toast.dart';
-import '../../components/common/genesis_modal_routes.dart';
 import '../../components/origin/origin_item_card.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
@@ -80,6 +79,8 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   String? _manualGender;
   String? _manualGenderOwnerUid;
   var _genderFilterOpen = false;
+  final _genderFilterTapGroup = Object();
+  VoidCallback? _dismissGenderFilter;
   final _searchBarKey = GlobalKey();
   final _feedViewportKey = GlobalKey();
   var _feedStorage = PageStorageBucket();
@@ -98,6 +99,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     _lifecycleState = WidgetsBinding.instance.lifecycleState;
     WidgetsBinding.instance.addObserver(this);
     widget.activationListenable?.addListener(_handleMainNavReselected);
+    widget.isActiveListenable?.addListener(_handlePageActivation);
     unawaited(_syncHotTags());
     unawaited(_hydrateCachedCategories());
   }
@@ -107,6 +109,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     super.didChangeDependencies();
     final services = AppServicesScope.of(context);
     if (identical(services, _services)) return;
+    _dismissGenderFilter?.call();
     _removeAudienceListeners();
     _services = services;
     _audienceRevision += 1;
@@ -175,7 +178,10 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   }
 
   Future<void> _showGenderFilter() async {
-    if (_genderFilterOpen) return;
+    if (_genderFilterOpen) {
+      _dismissGenderFilter?.call();
+      return;
+    }
     setState(() => _genderFilterOpen = true);
     String? selected;
     String? ownerUid;
@@ -183,16 +189,22 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     final sessionRevision = services.sessionRevision.value;
     try {
       final audience = await _audience;
-      if (!mounted) return;
+      if (!mounted ||
+          !_isPageActive ||
+          ModalRoute.of(context)?.isCurrent == false ||
+          !identical(services, _services) ||
+          sessionRevision != services.sessionRevision.value) {
+        return;
+      }
       ownerUid = audience.audience.ownerUid;
       final anchorContext = _feedViewportKey.currentContext;
       if (anchorContext == null || !anchorContext.mounted) return;
-      final overlay = Navigator.of(
-        anchorContext,
-      ).overlay?.context.findRenderObject();
+      final overlayState = Navigator.of(anchorContext).overlay;
+      final overlay = overlayState?.context.findRenderObject();
       final viewport = anchorContext.findRenderObject();
       final searchBar = _searchBarKey.currentContext?.findRenderObject();
-      if (overlay is! RenderBox ||
+      if (overlayState == null ||
+          overlay is! RenderBox ||
           viewport is! RenderBox ||
           !viewport.hasSize ||
           searchBar is! RenderBox ||
@@ -206,15 +218,24 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
           .localToGlobal(Offset(0, searchBar.size.height), ancestor: overlay)
           .dy;
       final selectedGender = audience.audience.gender ?? '';
-      selected = await showGenesisGeneralDialog<String>(
-        context: anchorContext,
-        useRootNavigator: false,
-        barrierColor: Colors.transparent,
-        barrierDismissible: true,
-        barrierLabel: MaterialLocalizations.of(
-          context,
-        ).modalBarrierDismissLabel,
-        pageBuilder: (dialogContext, _, _) => LayoutBuilder(
+      final selection = Completer<String?>();
+      OverlayEntry? menuEntry;
+      LocalHistoryEntry? historyEntry;
+      void dismiss([String? value]) {
+        if (selection.isCompleted) return;
+        selection.complete(value);
+        menuEntry?.remove();
+        menuEntry?.dispose();
+        menuEntry = null;
+        historyEntry?.remove();
+        historyEntry = null;
+      }
+
+      _dismissGenderFilter = dismiss;
+      historyEntry = LocalHistoryEntry(onRemove: dismiss);
+      ModalRoute.of(context)?.addLocalHistoryEntry(historyEntry!);
+      menuEntry = OverlayEntry(
+        builder: (menuContext) => LayoutBuilder(
           builder: (_, _) {
             final box = _feedViewportKey.currentContext?.findRenderObject();
             if (box is RenderBox && box.attached && box.hasSize) {
@@ -236,45 +257,57 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
               delegate: _OriginGenderFilterLayout(
                 viewportRect: viewportRect,
                 searchBarBottom: searchBarBottom,
-                bottomInset: MediaQuery.paddingOf(dialogContext).bottom,
+                bottomInset: MediaQuery.paddingOf(menuContext).bottom,
               ),
-              child: _OriginGenderFilterMenu(
-                items: [
-                  for (final entry in _genderFilters.entries)
-                    PopupMenuItem<String>(
-                      key: ValueKey('origin-gender-option-${entry.key}'),
-                      value: entry.key,
-                      height: GenesisActionBox.defaultRowHeight,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Semantics(
-                        selected: entry.key == selectedGender,
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                entry.value,
-                                style: GenesisActionBox.actionTextStyle,
+              child: TapRegion(
+                groupId: _genderFilterTapGroup,
+                consumeOutsideTaps: false,
+                onTapOutside: (_) => dismiss(),
+                child: _OriginGenderFilterMenu(
+                  items: [
+                    for (final entry in _genderFilters.entries)
+                      InkWell(
+                        key: ValueKey('origin-gender-option-${entry.key}'),
+                        onTap: () => dismiss(entry.key),
+                        child: SizedBox(
+                          height: GenesisActionBox.defaultRowHeight,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            child: Semantics(
+                              selected: entry.key == selectedGender,
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      entry.value,
+                                      style: GenesisActionBox.actionTextStyle,
+                                    ),
+                                  ),
+                                  if (entry.key == selectedGender) ...[
+                                    const SizedBox(width: 8),
+                                    const Icon(
+                                      Icons.check,
+                                      color: GenesisColors.darkTextPrimary,
+                                      size: 18,
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            if (entry.key == selectedGender) ...[
-                              const SizedBox(width: 8),
-                              const Icon(
-                                Icons.check,
-                                color: GenesisColors.darkTextPrimary,
-                                size: 18,
-                              ),
-                            ],
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             );
           },
         ),
       );
+      overlayState.insert(menuEntry!);
+      selected = await selection.future;
     } finally {
+      _dismissGenderFilter = null;
       if (mounted) setState(() => _genderFilterOpen = false);
     }
     if (!mounted || selected == null || ownerUid == null) return;
@@ -320,6 +353,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     final old = await previous;
     if (!mounted || revision != _audienceRevision || next == old) return;
     final sameOwner = next.audience.ownerUid == old.audience.ownerUid;
+    if (!sameOwner) _dismissGenderFilter?.call();
     // A background profile refresh must not temporarily switch an existing
     // list to All. The next settled profile will update its audience.
     if (sameOwner && old.isReady && !next.isReady) return;
@@ -337,14 +371,25 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   @override
   void didUpdateWidget(covariant OriginPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActiveListenable != widget.isActiveListenable) {
+      oldWidget.isActiveListenable?.removeListener(_handlePageActivation);
+      widget.isActiveListenable?.addListener(_handlePageActivation);
+      _handlePageActivation();
+    }
     if (oldWidget.activationListenable != widget.activationListenable) {
       oldWidget.activationListenable?.removeListener(_handleMainNavReselected);
       widget.activationListenable?.addListener(_handleMainNavReselected);
     }
   }
 
+  void _handlePageActivation() {
+    if (!_isPageActive) _dismissGenderFilter?.call();
+  }
+
   @override
   void dispose() {
+    _dismissGenderFilter?.call();
+    widget.isActiveListenable?.removeListener(_handlePageActivation);
     _removeAudienceListeners();
     widget.activationListenable?.removeListener(_handleMainNavReselected);
     WidgetsBinding.instance.removeObserver(this);
@@ -487,40 +532,43 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
       future: _audience,
       builder: (context, snapshot) {
         final gender = snapshot.data?.audience.gender ?? '';
-        return Tooltip(
-          message: 'Filter by gender',
-          child: TextButton(
-            key: const ValueKey('origin-gender-filter'),
-            style: TextButton.styleFrom(
-              foregroundColor: GenesisColors.darkTextPrimary,
-              textStyle: GenesisTypography.body.copyWith(
-                fontWeight: FontWeight.w400,
+        return TapRegion(
+          groupId: _genderFilterTapGroup,
+          child: Tooltip(
+            message: 'Filter by gender',
+            child: TextButton(
+              key: const ValueKey('origin-gender-filter'),
+              style: TextButton.styleFrom(
+                foregroundColor: GenesisColors.darkTextPrimary,
+                textStyle: GenesisTypography.body.copyWith(
+                  fontWeight: FontWeight.w400,
+                ),
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, _tabsHeight),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
-              padding: EdgeInsets.zero,
-              minimumSize: const Size(0, _tabsHeight),
-              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            ),
-            onPressed: _showGenderFilter,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Visibility(
-                  visible: snapshot.hasData,
-                  maintainSize: true,
-                  maintainAnimation: true,
-                  maintainState: true,
-                  child: Text(_genderFilters[gender] ?? 'All'),
-                ),
-                const SizedBox(width: GenesisSpacing.md),
-                CustomPaint(
-                  key: const ValueKey('origin-gender-filter-arrow'),
-                  size: const Size(10, 6),
-                  painter: _OriginGenderFilterArrowPainter(
-                    isOpen: _genderFilterOpen,
-                    color: GenesisColors.darkTextPrimary,
+              onPressed: _showGenderFilter,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Visibility(
+                    visible: snapshot.hasData,
+                    maintainSize: true,
+                    maintainAnimation: true,
+                    maintainState: true,
+                    child: Text(_genderFilters[gender] ?? 'All'),
                   ),
-                ),
-              ],
+                  const SizedBox(width: GenesisSpacing.md),
+                  CustomPaint(
+                    key: const ValueKey('origin-gender-filter-arrow'),
+                    size: const Size(10, 6),
+                    painter: _OriginGenderFilterArrowPainter(
+                      isOpen: _genderFilterOpen,
+                      color: GenesisColors.darkTextPrimary,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -748,7 +796,7 @@ class _OriginGenderFilterLayout extends SingleChildLayoutDelegate {
 class _OriginGenderFilterMenu extends StatelessWidget {
   const _OriginGenderFilterMenu({required this.items});
 
-  final List<PopupMenuItem<String>> items;
+  final List<Widget> items;
 
   @override
   Widget build(BuildContext context) {
@@ -757,8 +805,6 @@ class _OriginGenderFilterMenu extends StatelessWidget {
         key: const ValueKey('origin-gender-filter-surface'),
         child: Semantics(
           role: SemanticsRole.menu,
-          scopesRoute: true,
-          namesRoute: true,
           explicitChildNodes: true,
           label: 'Filter by gender',
           child: SingleChildScrollView(

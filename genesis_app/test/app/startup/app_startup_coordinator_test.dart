@@ -397,6 +397,59 @@ void main() {
     );
   });
 
+  test('first-frame timings survive pending config and telemetry', () async {
+    final observed = Stopwatch()..start();
+    AppStartupCoordinator.beginLaunchTracking(startupId: 'background-config');
+    AppStartupCoordinator.setLaunchPageDecision(
+      page: 'home',
+      reason: 'session_home_cache_hit',
+    );
+    AppStartupCoordinator.recordLaunchSystemUiReady();
+    AppStartupCoordinator.recordLaunchEndpointConfigReady();
+    AppStartupCoordinator.recordLaunchLocalSettingsReady();
+    AppStartupCoordinator.recordLaunchBootstrapReady();
+    AppStartupCoordinator.recordLaunchFirstFrame();
+    AppStartupCoordinator.recordLaunchRouteReady();
+    AppStartupCoordinator.recordLaunchPage();
+    final firstFrameUpperBound = observed.elapsedMilliseconds;
+    AppStartupCoordinator.recordLaunchRequestStart(page: 'home');
+    AppStartupCoordinator.recordLaunchRequestEnd(
+      page: 'home',
+      result: 'success',
+    );
+    AppStartupCoordinator.recordLaunchRender(page: 'home', result: 'cache');
+    // Repeated notifications must remain deduplicated even before queue setup.
+    AppStartupCoordinator.recordLaunchPage();
+    AppStartupCoordinator.recordLaunchRender(page: 'home', result: 'cache');
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    final client = await initializeWith(MemoryUserSessionStore());
+    AppStartupCoordinator.recordLaunchAppConfigReady();
+    AppStartupCoordinator.recordLaunchTelemetryReady();
+    await GenesisTelemetry.waitForCollectWritesForTesting();
+    await uploader.checkNow(force: true);
+
+    final events = client.batches.expand((batch) => batch).toList();
+    expect(
+      events
+          .where((event) => event.action.startsWith('launch_'))
+          .map((event) => event.action),
+      [
+        'launch_startup',
+        'launch_page',
+        'launch_req_start',
+        'launch_req_end',
+        'launch_render',
+      ],
+    );
+    final event = events.singleWhere((event) => event.action == 'launch_page');
+    expect(int.parse(event.object3), lessThanOrEqualTo(firstFrameUpperBound));
+    final timing = jsonDecode(event.extData)['milestones'] as Map;
+    expect(timing['first_frame_ms'], isA<int>());
+    expect(timing['bootstrap_ready_ms'], isA<int>());
+    expect(timing.containsKey('app_config_ready_ms'), isFalse);
+    expect(timing.containsKey('telemetry_ready_ms'), isFalse);
+  });
+
   test(
     'records an error and later first success without duplicate renders',
     () async {

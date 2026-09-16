@@ -42,7 +42,7 @@ P-->|Skip或购买完成|L
 - Continue 保存当前身份资料，不再发起未绑定支付检查。来自强制登录的用户补填成功后关闭资料弹窗，停留在 Me；其他用户复用全局 `membership.checkVip` 判断，有效 VIP 直接关闭，仅确认非会员才进入 Subscription。状态未知或查询失败时也关闭已保存的资料弹窗，避免向已有会员重复推荐订阅；正在刷新的 wallet 会等待当前请求。强制登录成功仍沿用原 VIP claim 与退避重试，不等待 claim 完成才允许补填。
 - 后台重试后才发现未绑定订单时，未展示资料表单则先登录；已展示时在同一弹窗切到不可取消的 Sign in，保留草稿，不叠加第二个登录弹窗。登录后点击 Continue 不会再次进入强制登录步骤。
 - GET 失败保留未知状态，不伪造完成或本地默认选项；前台按 2/4/8/16/32 秒间隔重试，切换账号丢弃旧结果。每次新启动重新 GET，完成状态保存在服务端。
-- 权益使用正式会员商品接口。无 Buy Gems；Skip 保留已保存资料。复用原支付、游客登录及 claim，正式流程没有 Preview options。
+- 权益使用正式会员商品接口。无 Buy Gems；填表后的 Subscription 禁止侧滑返回、系统返回、下滑和点击遮罩关闭，手动退出仅通过 Skip，保留已保存资料。购买成功确认后仍正常关闭。复用原支付、游客登录及 claim，正式流程没有 Preview options。
 - 会员商品接口 `GET /api/v1/membership/products?provider=google|apple` 返回 `list`，不再返回 `vip_status`；登录账号会员状态统一读取全局 wallet。
 - 接口文档：[当前身份资料与表单](https://app.apifox.com/link/project/8297783/apis/api-514752401)。
 

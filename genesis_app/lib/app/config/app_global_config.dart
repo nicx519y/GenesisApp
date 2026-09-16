@@ -72,30 +72,39 @@ class AppGlobalConfigStore extends ValueNotifier<AppGlobalConfig> {
   ValueListenable<AppGlobalConfigRequestState> get requestState =>
       _requestState;
 
-  Future<void> refresh({String? uid}) {
+  /// Marks the request pending immediately, including any startup UID wait.
+  /// Consumers must not mistake that wait for a confirmed disabled config.
+  Future<void> refresh({String? uid, Future<String?> Function()? resolveUid}) {
     final inFlight = _refreshInFlight;
     if (inFlight != null) return inFlight;
-    final refresh = _refresh(uid: uid);
+    final refresh = _refresh(uid: uid, resolveUid: resolveUid);
     _refreshInFlight = refresh;
     return refresh.whenComplete(() {
       if (identical(_refreshInFlight, refresh)) _refreshInFlight = null;
     });
   }
 
-  Future<void> _refresh({String? uid}) async {
+  Future<void> _refresh({
+    String? uid,
+    Future<String?> Function()? resolveUid,
+  }) async {
     final previousData = _requestState.value.data;
     _requestState.value = AppGlobalConfigRequestState(
       isLoading: true,
       data: previousData,
     );
     try {
-      final data = await _loadConfig(uid: uid);
+      final resolvedUid = resolveUid == null ? uid : await resolveUid();
+      if (_disposed) return;
+      final data = await _loadConfig(uid: resolvedUid);
       final config = AppGlobalConfig.fromJson(data);
       if (_disposed) return;
+      // Publish flags before clearing loading, so dependent feeds cannot
+      // briefly observe "finished" together with the initial false defaults.
+      value = config;
       _requestState.value = AppGlobalConfigRequestState(
         data: Map<String, dynamic>.unmodifiable(data),
       );
-      value = config;
     } catch (error) {
       if (!_disposed) {
         _requestState.value = AppGlobalConfigRequestState(

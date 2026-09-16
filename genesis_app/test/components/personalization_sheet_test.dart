@@ -164,6 +164,7 @@ void main() {
     double scale = 1,
     double safeTop = 47,
     double safeBottom = 34,
+    TargetPlatform platform = TargetPlatform.android,
   }) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = size;
@@ -175,7 +176,7 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(
       MaterialApp(
-        theme: GenesisTheme.dark(),
+        theme: GenesisTheme.dark().copyWith(platform: platform),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -334,6 +335,41 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets('onboarding only allows explicit dismissal on $platform', (
+      tester,
+    ) async {
+      await open(tester, platform: platform);
+
+      Future<void> expectDismissalBlocked() async {
+        final panel = tester.getRect(find.byType(GenesisBottomSheetPanel));
+        await tester.dragFrom(Offset(1, panel.top + 100), const Offset(300, 0));
+        await tester.pumpAndSettle();
+        expect(find.byType(PersonalizationSheet), findsOneWidget);
+        await tester.drag(control('header'), const Offset(0, 300));
+        await tester.pumpAndSettle();
+        expect(find.byType(PersonalizationSheet), findsOneWidget);
+        await tester.tapAt(const Offset(10, 100));
+        await tester.pumpAndSettle();
+        expect(find.byType(PersonalizationSheet), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(PersonalizationSheet), findsOneWidget);
+        expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
+      }
+
+      await expectDismissalBlocked();
+      await tap(tester, 'Female');
+      await tap(tester, '25-34');
+      await tap(tester, 'continue');
+      expect(control('skip'), findsOneWidget);
+      await expectDismissalBlocked();
+      await tap(tester, 'skip');
+      expect(find.byType(PersonalizationSheet), findsNothing);
+      expect(find.text('Open preview'), findsOneWidget);
+    });
+  }
+
   testWidgets('complete account closes without subscription', (tester) async {
     await open(
       tester,

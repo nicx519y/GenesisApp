@@ -134,7 +134,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Purchase successful!'), findsOneWidget);
       expect(find.byType(LoginSheet), findsNothing);
-      await tester.tap(find.text('Enjoy it'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
     },
@@ -158,7 +158,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Purchase successful!'), findsOneWidget);
       expect(find.text('Me'), findsNothing);
-      await tester.tap(find.text('Enjoy it'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(find.byType(LoginSheet), findsOneWidget);
       expect(
@@ -213,7 +213,7 @@ void main() {
     await h.service.interceptPurchase(h.purchase(yearly: true));
     await tester.pumpAndSettle();
     expect(find.text('Purchase successful!'), findsOneWidget);
-    await tester.tap(find.text('Enjoy it'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(find.byType(LoginSheet), findsOneWidget);
     expect(h.store.claims.values.single.purchaseConfirmed, isTrue);
@@ -281,7 +281,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Purchase successful!'), findsOneWidget);
     expect(find.byType(LoginSheet), findsNothing);
-    await tester.tap(find.text('Enjoy it'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
     expect(find.byType(ProSubscriptionContent), findsNothing);
     expect(find.byType(LoginSheet), findsOneWidget);
@@ -318,7 +318,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Purchase successful!'), findsOneWidget);
       expect(find.byType(LoginSheet), findsNothing);
-      await tester.tap(find.text('Enjoy it'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(find.text('Purchase successful!'), findsNothing);
       expect(find.byType(LoginSheet), findsOneWidget);

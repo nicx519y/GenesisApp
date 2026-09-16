@@ -5,7 +5,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'app/bootstrap/app_bootstrap.dart';
-import 'app/bootstrap/service_registry.dart';
 import 'app/startup/startup_endpoint_config.dart';
 import 'app/debug/origin_world_sheet_debug_settings.dart';
 import 'app/debug/world_new_content_debug_settings.dart';
@@ -14,6 +13,7 @@ import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/startup/initial_landing_page_resolver.dart';
 import 'app/startup/ios_startup_network.dart';
+import 'app/startup/startup_app_config.dart';
 import 'app/startup/startup_dependency_guard.dart';
 import 'app/startup/startup_uid_resolution.dart';
 import 'platform/session/method_channel_user_session_store.dart';
@@ -21,14 +21,12 @@ import 'app/telemetry/genesis_telemetry.dart';
 import 'app/telemetry/telemetry_runtime_controller.dart';
 import 'components/tilemap/tilemap_settings_store.dart';
 import 'network/network_capture.dart';
-import 'network/api_request_trace_sampling.dart';
 import 'network/websocket_capture.dart';
 import 'platform/session/user_session_store.dart';
 import 'ui/system/genesis_system_ui.dart';
 
 export 'app/genesis_app.dart';
 
-const _startupCollectReadyTimeout = Duration(seconds: 2);
 const _startupSystemUiTimeout = Duration(seconds: 2);
 
 Future<void> main() async {
@@ -83,8 +81,8 @@ Future<void> main() async {
   final appConfig = await appConfigLoad;
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
   if (appConfig.useMock != true) {
-    // Keep permission waiting outside config's 3-second startup budget and
-    // ahead of service creation (image warm-up, billing and Gateway requests).
+    // Keep the iOS permission flow ahead of service creation (image warm-up,
+    // billing and Gateway requests).
     await waitForIosStartupNetwork(
       probeUri: Uri.parse(appConfig.gatewayApiBaseUrl).resolve('v1/time'),
     );
@@ -120,23 +118,15 @@ Future<void> main() async {
       return resolution.uid;
     },
   );
-  final appGlobalConfigLoad = () async {
-    await waitForStartupDependency(
-      collectReady.future,
-      timeout: _startupCollectReadyTimeout,
-      onTimeout: () {
-        debugPrint('[Startup] Collect readiness timed out; continuing startup');
-      },
-      onError: (error, stackTrace) {
-        debugPrint(
-          '[Startup] Collect readiness failed; continuing startup: $error',
-        );
-        debugPrint('[Startup] stacktrace:\n$stackTrace');
-      },
-    );
-    final resolution = await startupUidResolution;
-    await _loadAppGlobalConfig(services, uid: resolution.uid);
-  }().whenComplete(AppStartupCoordinator.recordLaunchAppConfigReady);
+  // Publish pending config now; render the page/cache independently of Gateway
+  // preparation and config. Config listeners apply confirmed flags when ready.
+  unawaited(
+    loadStartupAppConfig(
+      store: services.appGlobalConfig,
+      uidResolution: startupUidResolution,
+      collectReady: collectReady.future,
+    ),
+  );
   await Future.wait<Object?>(<Future<Object?>>[
     systemUiInitialization,
     tilemapSettingsLoad,
@@ -152,7 +142,6 @@ Future<void> main() async {
     page: initialLandingPage.page,
     reason: initialLandingPage.reason,
   );
-  await appGlobalConfigLoad;
   AppStartupCoordinator.recordLaunchBootstrapReady();
   runApp(
     GenesisApp(services: services, initialIndex: initialLandingPage.index),
@@ -175,22 +164,4 @@ Future<StartupUidResolution> _resolveStartupUid(UserSessionStore sessionStore) {
     },
     recordDiagnostics: AppStartupCoordinator.recordLaunchUidResolution,
   );
-}
-
-Future<void> _loadAppGlobalConfig(
-  AppServices services, {
-  required String? uid,
-}) async {
-  try {
-    await services.appGlobalConfig
-        .refresh(uid: uid)
-        .timeout(const Duration(seconds: 3));
-    ApiRequestTraceSampling.configureForLaunch(
-      services.appGlobalConfig.value.apiTraceSamplingRate,
-    );
-  } catch (error) {
-    debugPrint(
-      '[Startup] app global config load failed; using defaults: $error',
-    );
-  }
 }
