@@ -13,6 +13,51 @@ void main() {
     );
   });
 
+  testWidgets('small debits retain their minus sign and expense color', (
+    tester,
+  ) async {
+    const amounts = [-1, -4, 0, 1];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GemRecordsPage(
+          recordsLoader: ({required scene, required pn, required rn}) async =>
+              GemRecordList(
+                items: [
+                  for (final amount in amounts)
+                    GemRecordItem(
+                      ledgerId: 'amount-$amount',
+                      amountCent: amount,
+                      scene: 'world_tick',
+                      reasonCode: 'auto_tick',
+                      title: 'Auto Tick',
+                      subtitle: '',
+                      createdAt: 1,
+                      expiresAt: 0,
+                    ),
+                ],
+                total: amounts.length,
+                page: 1,
+                pageSize: rn,
+              ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    for (final amount in amounts) {
+      final text = tester.widget<Text>(
+        find.descendant(
+          of: find.byKey(ValueKey('gem-record-item-amount-$amount')),
+          matching: find.text(amount < 0 ? '-0.0' : '+0.0'),
+        ),
+      );
+      expect(
+        text.style?.color,
+        amount < 0 ? GenesisColors.darkTextPrimary : GenesisColors.redSecondary,
+      );
+    }
+  });
+
   testWidgets('ends the list directly after the last record', (tester) async {
     var clipboardText = '';
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

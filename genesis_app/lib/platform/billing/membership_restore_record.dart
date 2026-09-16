@@ -11,8 +11,6 @@ class MembershipRestoreRecord {
     required this.purchase,
     this.product,
     this.reportStatus,
-    this.reportId,
-    this.reportReason,
     this.finished = false,
   });
 
@@ -21,8 +19,6 @@ class MembershipRestoreRecord {
   final BillingPurchase purchase;
   final MembershipOrderProduct? product;
   final String? reportStatus;
-  final String? reportId;
-  final String? reportReason;
   final bool finished;
 
   bool get paid =>
@@ -47,8 +43,6 @@ class MembershipRestoreRecord {
     MembershipOrderProduct? product,
     BillingPurchase? purchase,
     String? reportStatus,
-    String? reportId,
-    String? reportReason,
     bool? finished,
   }) => MembershipRestoreRecord(
     requestId: requestId,
@@ -56,8 +50,6 @@ class MembershipRestoreRecord {
     purchase: purchase ?? this.purchase,
     product: product ?? this.product,
     reportStatus: reportStatus ?? this.reportStatus,
-    reportId: reportId ?? this.reportId,
-    reportReason: reportStatus != null ? reportReason : this.reportReason,
     finished: finished ?? this.finished,
   );
 
@@ -74,8 +66,6 @@ class MembershipRestoreRecord {
     'state': purchase.status.name,
     'product': product?.toOrderJson(),
     'report_status': reportStatus,
-    'report_id': reportId,
-    'report_reason': reportReason,
     'finished': finished,
   };
 
@@ -104,8 +94,6 @@ class MembershipRestoreRecord {
                 Map<String, dynamic>.from(json['product'] as Map),
               ),
         reportStatus: json['report_status'] as String?,
-        reportId: json['report_id'] as String?,
-        reportReason: json['report_reason'] as String?,
         finished: json['finished'] as bool,
       );
 }

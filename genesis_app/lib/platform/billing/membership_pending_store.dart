@@ -24,8 +24,6 @@ class MembershipPurchaseRecord {
     this.replacedPurchaseTokenFingerprint = '',
     this.state = 'prepared',
     this.reportStatus,
-    this.reportId,
-    this.reportReason,
     this.finished = false,
   });
 
@@ -37,13 +35,11 @@ class MembershipPurchaseRecord {
   final String transactionId;
   final String originalTransactionId;
   final String purchaseToken;
-  // The catalog's old token is not a receipt for this new checkout. Retain
-  // only its digest to exclude old callbacks, including after process death.
+  // Legacy attempts may carry an old-token digest. Keep reading it so their
+  // delayed callbacks remain excluded after an app update.
   final String replacedPurchaseTokenFingerprint;
   final String state;
   final String? reportStatus;
-  final String? reportId;
-  final String? reportReason;
   final bool finished;
 
   bool replacesPurchaseToken(String token) =>
@@ -76,8 +72,6 @@ class MembershipPurchaseRecord {
     String? purchaseToken,
     String? state,
     String? reportStatus,
-    String? reportId,
-    String? reportReason,
     bool? finished,
     bool newReport = false,
     bool retryReport = false,
@@ -95,12 +89,6 @@ class MembershipPurchaseRecord {
     reportStatus: newReport || retryReport
         ? null
         : reportStatus ?? this.reportStatus,
-    reportId: newReport || retryReport ? null : reportId ?? this.reportId,
-    reportReason: newReport || retryReport
-        ? null
-        : reportStatus != null
-        ? reportReason
-        : this.reportReason,
     finished: newReport ? false : finished ?? this.finished,
   );
 
@@ -117,8 +105,6 @@ class MembershipPurchaseRecord {
         replacedPurchaseTokenFingerprint: replacedPurchaseTokenFingerprint,
         state: state,
         reportStatus: reportStatus,
-        reportId: reportId,
-        reportReason: reportReason,
         finished: finished,
       );
 
@@ -135,8 +121,6 @@ class MembershipPurchaseRecord {
       'replaced_purchase_token_fingerprint': replacedPurchaseTokenFingerprint,
     'state': state,
     'report_status': reportStatus,
-    'report_id': reportId,
-    'report_reason': reportReason,
     'finished': finished,
   };
 
@@ -160,13 +144,9 @@ class MembershipPurchaseRecord {
             json['replaced_purchase_token_fingerprint'] as String? ?? '',
         state: json['state'] as String,
         reportStatus: json['report_status'] as String?,
-        reportId: json['report_id'] as String?,
-        reportReason: json['report_reason'] as String?,
         // Older clients marked an ownership rejection as finished without
         // calling StoreKit. Never treat that legacy flag as store completion.
-        finished:
-            json['report_status'] == 'rejected' &&
-                json['report_reason'] == 'account_mismatch'
+        finished: json['report_status'] == 'rejected'
             ? false
             : json['finished'] as bool,
       );

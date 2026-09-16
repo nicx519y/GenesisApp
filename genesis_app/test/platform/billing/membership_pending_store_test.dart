@@ -169,7 +169,6 @@ void main() {
       transactionId: '100',
       state: 'purchased',
       reportStatus: 'rejected',
-      reportReason: 'account_mismatch',
       finished: true,
     );
     expect(
@@ -275,7 +274,6 @@ void main() {
         purchaseToken: 'saved-paid-receipt',
         state: 'purchased',
         reportStatus: 'completed',
-        reportId: 'saved-report',
         finished: true,
       );
       final claim = MembershipGuestClaimRecord(
@@ -569,7 +567,6 @@ void main() {
         transactionId: '100',
         state: 'purchased',
         reportStatus: 'completed',
-        reportId: 'report-test',
       );
       await store.save(record);
       await Future.wait([
@@ -641,11 +638,7 @@ void main() {
         store.save(record('first')),
         store.save(record('second')),
       ]);
-      await store.save(
-        record(
-          'first',
-        ).copyWith(reportStatus: 'accepted', reportId: 'report-test'),
-      );
+      await store.save(record('first').copyWith(reportStatus: 'accepted'));
       final restored = await SecureMembershipPendingStore().loadAll();
       expect(restored, hasLength(2));
       expect(restored.first.request.purchaseToken, 'token-first');

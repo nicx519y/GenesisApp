@@ -2,6 +2,7 @@ import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.d
 import 'support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_record.dart';
 import 'dart:async';
+import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/app/onboarding/personalization_store.dart';
 import 'package:genesis_flutter_android/components/onboarding/personalization_sheet.dart';
 import 'support/personalization_fixtures.dart';
@@ -37,6 +38,8 @@ import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_se
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
+import 'package:genesis_flutter_android/app/debug/purchase_toast_debug_settings.dart';
+import 'package:genesis_flutter_android/platform/billing/purchase_toast_diagnostics.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_unlock.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_safe_area.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_static_network_image.dart';
@@ -273,6 +276,25 @@ void _mockGenesisKeyboardAnimationEvents() {
           },
         ),
       );
+}
+
+void _setOriginFeedPreference(
+  AppServices services,
+  String? uid,
+  String? preference,
+) {
+  services.personalization.state.value = PersonalizationState(
+    uid: uid,
+    data: PersonalizationData(
+      profile: PersonalizationProfile(
+        gender: 'Male',
+        age: '18-24',
+        completed: true,
+        originFeedGender: preference,
+      ),
+      form: const [],
+    ),
+  );
 }
 
 Future<AppServices> _testServices({
@@ -795,6 +817,23 @@ class _RecordingV1ListTransport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
+    if (request.uri.path.endsWith(
+      '/device/personalization/update_origin_feed_gender',
+    )) {
+      return _jsonResponse({
+        'err_no': 0,
+        'err_msg': 'succ',
+        'data': {
+          'gender': '',
+          'age': '',
+          'completed': false,
+          'origin_feed_gender':
+              (jsonDecode(utf8.decode(request.bodyBytes!))
+                  as Map)['origin_feed_gender'],
+        },
+      });
+    }
+
     if (request.uri.path.endsWith('/gem/tasks') &&
         (dailyCheckInStatus != null || gemTasksCompleter != null)) {
       return gemTasksCompleter?.future ?? dailyCheckInResponse();
@@ -1747,6 +1786,23 @@ class _QueuedOriginRefreshTransport implements HttpTransport {
         'has_more': false,
       },
     });
+  }
+}
+
+class _QueuedOriginPreferenceTransport extends _RecordingV1ListTransport {
+  final firstEntered = Completer<void>();
+  final firstResponse = Completer<TransportResponse>();
+  @override
+  Future<TransportResponse> send(TransportRequest request) {
+    if (request.uri.path.endsWith(
+          '/device/personalization/update_origin_feed_gender',
+        ) &&
+        !firstEntered.isCompleted) {
+      requests.add(request);
+      firstEntered.complete();
+      return firstResponse.future;
+    }
+    return super.send(request);
   }
 }
 
@@ -3083,6 +3139,7 @@ void main() {
     locationChatHeaderEffectSettings.resetForTesting();
     originWorldSheetDebugSettings.resetForTesting();
     worldNewContentDebugSettings.resetForTesting();
+    purchaseToastDebugSettings.resetForTesting();
     networkCaptureController.resetForTesting();
     webSocketCaptureController.resetForTesting();
     resetDeveloperPageTabForTesting();
@@ -4453,7 +4510,7 @@ void main() {
 
   for (final preloadReady in [true, false]) {
     testWidgets(
-      'Home crown reuses startup subscription preload ready=$preloadReady',
+      'Home crown refreshes subscription despite preload ready=$preloadReady',
       (tester) async {
         AppStartupCoordinator.resetForTesting();
         AppStartupCoordinator.configure(
@@ -4497,11 +4554,11 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
           expect(find.byType(GemWalletPage), findsOneWidget);
-          expect(calls, 1);
+          expect(calls, 2);
           if (!preloadReady) completeProducts();
           await tester.pumpAndSettle();
           expect(find.text(r'Yearly: $99.99'), findsOneWidget);
-          expect(calls, 1);
+          expect(calls, 2);
         } finally {
           if (!response.isCompleted) completeProducts();
           await tester.pumpWidget(const SizedBox.shrink());
@@ -8520,10 +8577,10 @@ void main() {
   });
 
   for (final entry in <String, String?>{
-    'Male': 'Female',
-    'Female': 'Male',
-    'Non_binary': null,
-    '': null,
+    'Male': 'Male',
+    'Female': 'Female',
+    'Non_binary': 'Non_binary',
+    'All': null,
   }.entries) {
     testWidgets(
       'Origin targets ${entry.value} for ${entry.key} across tabs and pages',
@@ -8534,6 +8591,7 @@ void main() {
           useMock: false,
           initialUserInfo: {'uid': 'u_mock', 'gender': entry.key},
         );
+        _setOriginFeedPreference(services, 'u_mock', entry.key);
         await tester.pumpWidget(
           MaterialApp(
             home: AppServicesScope(
@@ -8579,7 +8637,7 @@ void main() {
   }
 
   testWidgets(
-    'Origin waits for guest personalization then switches to userInfo on login',
+    'Origin waits for guest personalization then uses the logged-in identity preference',
     (tester) async {
       final transport = _RecordingV1ListTransport();
       final session = MemoryUserSessionStore();
@@ -8625,6 +8683,7 @@ void main() {
         const PersonalizationData(
           profile: PersonalizationProfile(
             gender: 'Male',
+            originFeedGender: 'Female',
             age: '18-24',
             completed: true,
           ),
@@ -8652,6 +8711,7 @@ void main() {
       await personalization.submit(
         const PersonalizationProfile(
           gender: 'Female',
+          originFeedGender: 'Male',
           age: '18-24',
           completed: true,
         ),
@@ -8664,11 +8724,12 @@ void main() {
           'tag': 'Destroyed',
           'pn': '1',
           'rn': '20',
-          'gender': 'Male',
+          'gender': 'Female',
         },
       );
 
       await session.saveUid('u_logged_in');
+      _setOriginFeedPreference(services, 'u_logged_in', 'Non_binary');
       await session.saveUserInfo({'uid': 'u_logged_in', 'gender': 'Male'});
       await tester.pumpAndSettle();
       expect(
@@ -8677,7 +8738,7 @@ void main() {
             .last
             .uri
             .queryParameters['gender'],
-        'Female',
+        'Non_binary',
       );
       final count = transport.requestsFor('/api/v1/origin/list').length;
       personalization.state.value = const PersonalizationState();
@@ -8685,6 +8746,148 @@ void main() {
       expect(transport.requestsFor('/api/v1/origin/list'), hasLength(count));
       expect(loads, 1);
       expect(transport.requestsFor('/api/v1/user/info'), isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Origin preference reports stay ordered and recover after a failed report',
+    (tester) async {
+      final transport = _QueuedOriginPreferenceTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: null,
+      );
+      addTearDown(services.dispose);
+      final first = services.updateOriginFeedGender(uid: null, gender: 'Male');
+      final failed = expectLater(first, throwsA(isA<ApiException>()));
+      await transport.firstEntered.future;
+      final second = services.updateOriginFeedGender(
+        uid: null,
+        gender: 'Female',
+      );
+      final third = services.updateOriginFeedGender(uid: null, gender: 'All');
+      await tester.pump();
+      expect(
+        transport.requestsFor(
+          '/api/v1/device/personalization/update_origin_feed_gender',
+        ),
+        hasLength(1),
+      );
+      transport.firstResponse.complete(
+        transport._jsonResponse({
+          'err_no': 5000,
+          'err_msg': 'offline',
+          'data': {},
+        }),
+      );
+      await failed;
+      await second;
+      await third;
+      final reports = transport.requestsFor(
+        '/api/v1/device/personalization/update_origin_feed_gender',
+      );
+      expect(
+        reports.map(
+          (r) =>
+              (jsonDecode(utf8.decode(r.bodyBytes!))
+                  as Map)['origin_feed_gender'],
+        ),
+        ['Male', 'Female', 'All'],
+      );
+    },
+  );
+
+  testWidgets('Origin queued preference is discarded after changing identity', (
+    tester,
+  ) async {
+    final transport = _QueuedOriginPreferenceTransport();
+    final services = await _testServices(
+      transport: transport,
+      useMock: false,
+      initialUid: null,
+    );
+    addTearDown(services.dispose);
+    final first = services.updateOriginFeedGender(uid: null, gender: 'Male');
+    await transport.firstEntered.future;
+    final second = services.updateOriginFeedGender(uid: null, gender: 'Female');
+    await services.sessionStore.saveUid('other-user');
+    transport.firstResponse.complete(
+      transport._jsonResponse({
+        'err_no': 0,
+        'data': {
+          'gender': '',
+          'age': '',
+          'completed': false,
+          'origin_feed_gender': 'Male',
+        },
+      }),
+    );
+    await first;
+    await second;
+    expect(
+      transport.requestsFor(
+        '/api/v1/device/personalization/update_origin_feed_gender',
+      ),
+      hasLength(1),
+    );
+  });
+
+  testWidgets(
+    'Origin failed report keeps the chosen local filter and permits retry',
+    (tester) async {
+      final transport = _QueuedOriginPreferenceTransport();
+      final services = await _testServices(
+        transport: transport,
+        useMock: false,
+        initialUid: null,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: AppServicesScope(services: services, child: const OriginPage()),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('origin-gender-option-Female')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        await const OriginFeedCacheStore().loadPreferredGender(),
+        'Female',
+      );
+      transport.firstResponse.complete(
+        transport._jsonResponse({
+          'err_no': 5000,
+          'err_msg': 'offline',
+          'data': {},
+        }),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Unable to save your preference. Please try again.'),
+        findsOneWidget,
+      );
+      expect(
+        await const OriginFeedCacheStore().loadPreferredGender(),
+        'Female',
+      );
+      await tester.pump(const Duration(seconds: 3));
+      await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey('origin-gender-option-Female')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        transport.requestsFor(
+          '/api/v1/device/personalization/update_origin_feed_gender',
+        ),
+        hasLength(2),
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -8698,6 +8901,7 @@ void main() {
       final services = await _testServices(
         transport: transport,
         useMock: false,
+        initialAuthToken: 'test-backend-token',
         initialUserInfo: {'uid': 'u_mock', 'gender': 'Male'},
       );
       await tester.pumpWidget(
@@ -8801,9 +9005,21 @@ void main() {
         );
         expect(find.byType(GenesisActionBox<String>), findsNothing);
         expect(find.text('Cancel'), findsNothing);
-        await tester.tap(find.text(entry.value));
+        await tester.tap(
+          find.byKey(ValueKey('origin-gender-option-${entry.key}')),
+        );
         await tester.pumpAndSettle();
         expect(find.byType(PopupMenuItem<String>), findsNothing);
+        final reports = transport.requestsFor(
+          '/api/v1/device/personalization/update_origin_feed_gender',
+        );
+        expect(
+          reports.length,
+          ['', 'Male', 'Female', 'Non_binary'].indexOf(entry.key) + 1,
+        );
+        expect(jsonDecode(utf8.decode(reports.last.bodyBytes!)), {
+          'origin_feed_gender': entry.key.isEmpty ? 'All' : entry.key,
+        });
         expect(
           transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
           {
@@ -8865,6 +9081,12 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(PopupMenuItem<String>), findsNothing);
       expect(transport.requestsFor('/api/v1/origin/list'), hasLength(count));
+      expect(
+        transport.requestsFor(
+          '/api/v1/device/personalization/update_origin_feed_gender',
+        ),
+        hasLength(4),
+      );
       expect(tester.takeException(), isNull);
     },
   );
@@ -8876,6 +9098,7 @@ void main() {
       final services = await _testServices(
         transport: transport,
         useMock: false,
+        initialAuthToken: 'test-backend-token',
         initialUserInfo: {'uid': 'u_mock', 'gender': 'Male'},
       );
       await tester.pumpWidget(
@@ -8886,7 +9109,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('All'));
+      await tester.tap(find.byKey(const ValueKey('origin-gender-option-')));
       await tester.pumpAndSettle();
       final count = transport.requestsFor('/api/v1/origin/feed').length;
 
@@ -8905,13 +9128,14 @@ void main() {
     },
   );
 
-  testWidgets('Origin restarts the cursor when current user gender changes', (
+  testWidgets('Origin restarts the cursor when the manual preference changes', (
     tester,
   ) async {
     final transport = _RecordingV1ListTransport();
     final services = await _testServices(
       transport: transport,
       useMock: false,
+      initialAuthToken: 'test-backend-token',
       initialUserInfo: {'uid': 'u_mock', 'gender': 'Male'},
     );
     await tester.pumpWidget(
@@ -8939,10 +9163,9 @@ void main() {
       '10',
     );
 
-    await services.sessionStore.saveUserInfo({
-      'uid': 'u_mock',
-      'gender': 'Female',
-    });
+    await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('origin-gender-option-Male')));
     await tester.pumpAndSettle();
     expect(
       transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
@@ -8958,6 +9181,7 @@ void main() {
     expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(count));
 
     await services.sessionStore.clearUid();
+    _setOriginFeedPreference(services, null, null);
     await tester.pumpAndSettle();
     expect(
       transport.requestsFor('/api/v1/origin/feed').last.uri.queryParameters,
@@ -8972,8 +9196,10 @@ void main() {
       final services = await _testServices(
         transport: transport,
         useMock: false,
+        initialAuthToken: 'test-backend-token',
         initialUserInfo: {'uid': 'u_mock', 'gender': 'Male'},
       );
+      _setOriginFeedPreference(services, 'u_mock', 'Female');
       await tester.pumpWidget(
         MaterialApp(
           home: AppServicesScope(services: services, child: const OriginPage()),
@@ -8981,10 +9207,9 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
-      await services.sessionStore.saveUserInfo({
-        'uid': 'u_mock',
-        'gender': 'Female',
-      });
+      await tester.tap(find.byKey(const ValueKey('origin-gender-filter')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('origin-gender-option-Male')));
       await tester.pumpAndSettle();
       expect(find.text('#Origin 1'), findsOneWidget);
 
@@ -9138,6 +9363,7 @@ void main() {
           const PersonalizationData(
             profile: PersonalizationProfile(
               gender: 'Male',
+              originFeedGender: 'Female',
               age: '18-24',
               completed: true,
             ),
@@ -9180,7 +9406,7 @@ void main() {
 
   for (final profileGender in ['Female', 'Male']) {
     testWidgets(
-      'Origin restores cached gender without requesting the cached audience: $profileGender',
+      'Origin restores cached gender and requests it before personalization finishes: $profileGender',
       (tester) async {
         final semantics = tester.ensureSemantics();
         final transport = _RecordingV1ListTransport();
@@ -9232,12 +9458,13 @@ void main() {
           find.descendant(of: filter, matching: find.text('Male')),
           findsOneWidget,
         );
-        expect(find.text('#Origin 51'), findsOneWidget);
-        expect(transport.requestsFor('/api/v1/origin/feed'), isEmpty);
+        expect(find.text('#Origin 1'), findsOneWidget);
+        expect(transport.requestsFor('/api/v1/origin/feed'), hasLength(1));
         response.complete(
           PersonalizationData(
             profile: PersonalizationProfile(
-              gender: profileGender,
+              gender: 'Male',
+              originFeedGender: profileGender,
               age: '18-24',
               completed: true,
             ),
@@ -9246,7 +9473,7 @@ void main() {
         );
         await loading;
         await tester.pumpAndSettle();
-        final expectedGender = profileGender == 'Female' ? 'Male' : 'Female';
+        const expectedGender = 'Male';
         expect(
           find.descendant(of: filter, matching: find.text(expectedGender)),
           findsOneWidget,
@@ -9375,6 +9602,7 @@ void main() {
       initialUserInfo: {'uid': 'u_one', 'gender': 'Male'},
       transport: transport,
       useMock: false,
+      initialAuthToken: 'test-backend-token',
     );
     await tester.pumpWidget(
       MaterialApp(
@@ -9388,6 +9616,7 @@ void main() {
     await tester.pumpAndSettle();
     for (final owner in ['u_two', 'u_one']) {
       await services.sessionStore.saveUid(owner);
+      _setOriginFeedPreference(services, owner, 'Female');
       await services.sessionStore.saveUserInfo({
         'uid': owner,
         'gender': 'Male',
@@ -27797,6 +28026,81 @@ void main() {
       isTrue,
     );
   });
+
+  for (final inSheet in [false, true]) {
+    testWidgets(
+      'developer purchase toast debug switch defaults off inSheet=$inSheet',
+      (tester) async {
+        addTearDown(purchaseToastDebugSettings.resetForTesting);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: AppServicesScope(
+              services: await _testServices(),
+              child: inSheet
+                  ? const DeveloperPageSheet()
+                  : const DeveloperPage(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('switch'));
+        await tester.pumpAndSettle();
+        final toggle = find.byKey(
+          const ValueKey<String>('developer-purchase-toast-debug-switch'),
+        );
+        await tester.scrollUntilVisible(
+          toggle,
+          200,
+          scrollable: find
+              .descendant(
+                of: find.byKey(
+                  const PageStorageKey<String>(
+                    'developer-test-switch-tab-scroll',
+                  ),
+                ),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        await Scrollable.ensureVisible(tester.element(toggle), alignment: 0.5);
+        await tester.pumpAndSettle();
+        expect(tester.widget<Switch>(toggle).value, isFalse);
+        expect(
+          purchaseToastMessage('Purchase failed.', debugInfo: 'gems.checkout'),
+          'Purchase failed.',
+        );
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(tester.widget<Switch>(toggle).value, isTrue);
+        expect(
+          purchaseToastMessage(
+            'Premium purchase failed.',
+            debugInfo: 'vip.checkout',
+          ),
+          'debug：vip.checkout\nPremium purchase failed.',
+        );
+        final preferences = await SharedPreferences.getInstance();
+        expect(
+          preferences.getBool(PurchaseToastDebugSettingsController.storageKey),
+          isTrue,
+        );
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(tester.widget<Switch>(toggle).value, isFalse);
+        expect(
+          preferences.getBool(PurchaseToastDebugSettingsController.storageKey),
+          isFalse,
+        );
+        expect(
+          purchaseToastMessage(
+            'Premium purchase failed.',
+            debugInfo: 'vip.checkout',
+          ),
+          'Premium purchase failed.',
+        );
+      },
+    );
+  }
 
   for (final inSheet in [false, true]) {
     testWidgets('developer page has no Premium debug panel inSheet=$inSheet', (

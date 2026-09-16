@@ -39,7 +39,7 @@ void main() {
 
   for (final entry in ['form', 'home_completed', 'home_disabled']) {
     for (final preloadReady in [true, false]) {
-      testWidgets('parallel preload reused by $entry ready=$preloadReady', (
+      testWidgets('entry refreshes preload $entry ready=$preloadReady', (
         tester,
       ) async {
         final enabled = entry != 'home_disabled';
@@ -121,11 +121,11 @@ void main() {
           }
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 400));
-          expect(productCalls, 1);
+          expect(productCalls, 2);
           if (!preloadReady) completeProducts();
           await tester.pumpAndSettle();
           expect(find.text(r'Yearly: $99.99'), findsOneWidget);
-          expect(productCalls, 1);
+          expect(productCalls, 2);
         } finally {
           if (!products.isCompleted) completeProducts();
           await tester.pumpWidget(const SizedBox.shrink());

@@ -159,6 +159,31 @@ class AppServices {
   final ValueNotifier<int> sessionRevision;
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
   (String?, int, String, DateTime?)? _quotaMembershipSignature;
+  Future<void> _originFeedGenderUpdate = Future.value();
+
+  /// Keep rapid selections in order, and never send a queued choice for a
+  /// different login session. The endpoint chooses its owner from auth headers.
+  Future<void> updateOriginFeedGender({
+    required String? uid,
+    required String gender,
+  }) {
+    final revision = sessionRevision.value;
+    final request = _originFeedGenderUpdate.then((_) async {
+      if (revision != sessionRevision.value ||
+          await sessionStore.readLoginUid() != uid) {
+        return;
+      }
+      await _preparePersonalizationSession();
+      final id = await deviceId.getDeviceId();
+      if (revision != sessionRevision.value ||
+          await sessionStore.readLoginUid() != uid) {
+        return;
+      }
+      await api.v1.device.updateOriginFeedGender(deviceId: id, gender: gender);
+    });
+    _originFeedGenderUpdate = request.catchError((Object _) {});
+    return request;
+  }
 
   Future<void> _preparePersonalizationSession() async {
     if (await sessionStore.readLoginUid() != null &&
@@ -413,6 +438,24 @@ class ServiceRegistry {
             queryPurchases: billingPlatform.queryRecoverablePurchases,
             otherPurchaseBusy: () =>
                 billing?.state.value.hasBusyPurchase ?? false,
+            readMembershipAccess: () {
+              final result = Completer<MembershipAccessState>();
+              services.membership.checkVip((isVip) {
+                final state = services.membership.state.value;
+                result.complete(
+                  MembershipAccessState(
+                    status: switch (isVip) {
+                      true => MembershipAccessStatus.active,
+                      false => MembershipAccessStatus.inactive,
+                      null => MembershipAccessStatus.unknown,
+                    },
+                    ownerUid: state.ownerUid,
+                    membership: state.membership,
+                  ),
+                );
+              });
+              return result.future;
+            },
             refreshWallet: gemWallet.refreshAfterMembershipChanged,
           );
     billing = billingPlatform == null

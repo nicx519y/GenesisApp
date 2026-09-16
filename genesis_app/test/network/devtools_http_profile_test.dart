@@ -148,7 +148,7 @@ void main() {
   );
 
   test(
-    'non-Debug catalog profiles retain display data but redact nested upgrade credentials',
+    'non-Debug catalog profiles retain display data but redact last_account_uuid',
     () async {
       late HttpClientRequestProfile profile;
       final request = TransportRequest(
@@ -181,11 +181,7 @@ void main() {
         'provider': 'google',
         'plan_code': 'pro_yearly',
         'title': 'Server title',
-        'account_uuid': 'private-uuid',
-        'purchase_token': 'private-token',
         'price_amount': 9999,
-        'can_purchase': true,
-        'purchase_block_reason': '',
         'benefits': [
           {
             'title': 'Server benefit',
@@ -201,6 +197,7 @@ void main() {
         'err_msg': 'succ',
         'data': {
           'list': [product],
+          'last_account_uuid': 'private-uuid',
         },
       });
       await recorder.completeRequest(request);
@@ -219,10 +216,11 @@ void main() {
       final recorded = jsonDecode(recordedBody)['data']['list'][0];
       expect(recorded['title'], 'Server title');
       expect(recorded['price_amount'], 9999);
-      expect(recorded['can_purchase'], isTrue);
       expect(recorded['benefits'][0]['title'], 'Server benefit');
-      expect(recorded['account_uuid'], '[REDACTED]');
-      expect(recorded['purchase_token'], '[REDACTED]');
+      expect(
+        jsonDecode(recordedBody)['data']['last_account_uuid'],
+        '[REDACTED]',
+      );
       expect(recordedBody, isNot(contains('private-')));
       expect(
         profile.requestData.headers.toString(),
@@ -232,7 +230,7 @@ void main() {
         profile.responseData.headers.toString(),
         isNot(contains('private-')),
       );
-      expect(product['purchase_token'], 'private-token');
+      expect(jsonDecode(body)['data']['last_account_uuid'], 'private-uuid');
     },
   );
 
@@ -488,7 +486,8 @@ void main() {
           utf8.decode(profile.responseData.bodyBytes),
         );
         expect(recordedResponse['data']['status'], 'completed');
-        expect(recordedResponse['data']['report_id'], 'report-1');
+        expect(recordedResponse['data']['report_id'], '[REDACTED]');
+        expect(recordedResponse['data']['membership_id'], '[REDACTED]');
         expect(recordedResponse['data']['purchase_token'], '[REDACTED]');
         expect(profile.requestData.endTime, isNotNull);
         expect(profile.responseData.endTime, isNotNull);

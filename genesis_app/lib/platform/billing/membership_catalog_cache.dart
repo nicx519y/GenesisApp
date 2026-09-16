@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../network/models/membership_product.dart';
 
-/// Display snapshots only. Purchase identities are excluded by product.toJson.
+/// Display snapshots only. Purchase identities are excluded by MembershipProductList.toJson.
 class MembershipCatalogCache {
   MembershipCatalogCache({required this.namespace});
 

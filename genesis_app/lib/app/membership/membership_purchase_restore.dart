@@ -56,8 +56,6 @@ extension _MembershipReportMigration on MembershipPurchaseService {
       purchaseToken: record.purchase.purchaseToken,
       state: record.paid ? 'restored' : record.purchase.status.name,
       reportStatus: record.reportStatus,
-      reportId: record.reportId,
-      reportReason: record.reportReason,
       finished: record.finished,
     );
     await store.save(purchase);

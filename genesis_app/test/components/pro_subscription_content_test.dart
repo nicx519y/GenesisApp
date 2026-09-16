@@ -257,14 +257,12 @@ void main() {
 
   for (final outcome in ['success', 'failure', 'empty']) {
     testWidgets(
-      'reenter after freshness window shows cache until refresh $outcome',
+      'immediate reentry shows cache and always refreshes with $outcome',
       (tester) async {
         final response = Completer<MembershipProductList>();
         var calls = 0;
-        var now = DateTime.utc(2040);
         final catalog = MembershipCatalog(
           provider: MembershipProvider.google,
-          now: () => now,
           loadProducts: (_) async {
             if (++calls == 1) {
               return MembershipProductList(
@@ -280,7 +278,6 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text(r'Yearly: $99.99'), findsOneWidget);
         await tester.pumpWidget(const SizedBox.shrink());
-        now = now.add(MembershipCatalog.entryCacheAge);
         await tester.pumpWidget(page(null, catalog: catalog));
         expect(find.text(r'Yearly: $99.99'), findsOneWidget);
         expect(find.text(r'Yearly: $99.99'), findsOneWidget);
@@ -403,6 +400,48 @@ void main() {
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {
+    testWidgets('$provider purchase completion refreshes recent catalog', (
+      tester,
+    ) async {
+      var calls = 0;
+      final catalog = MembershipCatalog(
+        provider: provider,
+        loadProducts: (_) async => MembershipProductList(
+          products: [
+            membershipProduct(
+              provider: provider,
+              yearly: true,
+              priceAmount: ++calls == 1 ? 9999 : 11999,
+            ),
+          ],
+        ),
+      );
+      final h = support.Harness(provider: provider);
+      try {
+        await tester.pumpWidget(
+          page(null, catalog: catalog, service: h.service),
+        );
+        await tester.pumpAndSettle();
+        expect(calls, 1);
+        await tester.tap(find.byKey(buttonKey));
+        await tester.pump(const Duration(milliseconds: 250));
+        await h.service.interceptPurchase(h.purchase(yearly: true));
+        await tester.pumpAndSettle();
+        expect(calls, 2);
+        expect(
+          (await catalog.readCheckoutProducts()).products.single.priceAmount,
+          11999,
+        );
+        await tester.tap(find.text('Enjoy it'));
+        await tester.pumpAndSettle();
+        expect(find.text(r'Yearly: $119.99'), findsOneWidget);
+        expect(calls, 2);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        h.service.dispose();
+      }
+    });
+
     testWidgets(
       '$provider debug store order number appears above purchase after callback',
       (tester) async {
@@ -457,20 +496,16 @@ void main() {
         (tester) async {
           var calls = 0;
           const uuid = '2b74ec68-7abc-4cce-a223-e997e31dc811';
-          final product = membershipProduct(
-            provider: provider,
-            yearly: true,
-            accountUuid: uuid,
-            upgradePurchaseToken: provider == MembershipProvider.google
-                ? 'original-monthly-token'
-                : null,
-          );
+          final product = membershipProduct(provider: provider, yearly: true);
           final catalog = MembershipCatalog(
             provider: provider,
             readOwnerUid: () async => signedIn ? 'user-test' : null,
             loadProducts: (_) async {
               calls++;
-              return MembershipProductList(products: [product]);
+              return MembershipProductList(
+                products: [product],
+                lastAccountUuid: uuid,
+              );
             },
           );
           final h = support.Harness(
@@ -490,10 +525,6 @@ void main() {
               expect(calls, 1);
               expect(h.platform.launches, attempt);
               expect(h.platform.uuid, uuid);
-              expect(
-                h.platform.product!.upgradePurchaseToken,
-                product.upgradePurchaseToken,
-              );
               expect(h.refreshes, 0);
               expect(h.guestPrepares, 0);
               await h.service.interceptPurchase(
@@ -583,7 +614,6 @@ void main() {
       ];
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.accepted,
-        reportId: 'accepted',
       );
       await h.service.purchase(h.product(yearly: true));
       await h.service.interceptPurchase(h.purchase(yearly: true));
@@ -732,9 +762,7 @@ void main() {
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(
-        find.text(
-          'debug：vip.eligibility; reason=already_subscribed\nYou already have an active Premium subscription.',
-        ),
+        find.text('You already have an active Premium subscription.'),
         findsNothing,
       );
       expect(purchases, 1);
@@ -777,16 +805,7 @@ void main() {
           provider: MembershipProvider.apple,
           restoreEnabled: true,
         );
-        h.reportHandler = (_) async => MembershipPurchaseReport(
-          status: status,
-          reportId: 'report',
-          membershipId: status == MembershipReportStatus.completed
-              ? 'membership'
-              : null,
-          reason: status == MembershipReportStatus.rejected
-              ? 'invalid_purchase'
-              : null,
-        );
+        h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
         var loads = 0;
         final refresh = Completer<MembershipCatalogData>();
         final initial = MembershipCatalogData(

@@ -1403,10 +1403,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
 
     expect(find.textContaining('Purchasing Gems'), findsNothing);
-    expect(
-      find.text('debug：gems.checkout; status=failure\nPurchase failed.'),
-      findsOneWidget,
-    );
+    expect(find.text('Purchase failed.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 2));
   });
 
@@ -1600,7 +1597,6 @@ void main() {
 
     expect(
       find.text(
-        'debug：gems.checkout; status=accepted\n'
         'Payment received.\nYour Gems will be added shortly. Please check your balance again in a moment.',
       ),
       findsOneWidget,

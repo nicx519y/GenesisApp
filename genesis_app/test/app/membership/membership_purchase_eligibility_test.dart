@@ -6,11 +6,121 @@ import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 
+import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/app/membership/membership_purchase_eligibility.dart';
+import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
+
 import '../../support/membership_fixtures.dart';
 import 'membership_purchase_service_test.dart' as support;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final provider in MembershipProvider.values) {
+    for (final scenario in [
+      'active yearly',
+      'expired status',
+      'expired time',
+      'active monthly',
+      'unknown',
+    ]) {
+      test('$provider monthly checkout checks wallet: $scenario', () async {
+        final h = support.Harness(provider: provider);
+        final now = DateTime.utc(2040);
+        final wallet = GemWalletStore(
+          readUid: () async => h.uid,
+          loadWallet: () async {
+            if (scenario == 'unknown') throw StateError('offline');
+            return GemWallet(
+              balanceCent: 98765,
+              membership: GemWalletMembership(
+                status: scenario == 'expired status' ? 2 : 1,
+                planCode: scenario == 'active monthly'
+                    ? 'pro_monthly'
+                    : 'pro_yearly',
+                expiresAt: scenario == 'expired time'
+                    ? now
+                    : now.add(const Duration(days: 1)),
+                autoRenew: false,
+                blueGemsCent: 12300,
+              ),
+            );
+          },
+        );
+        final access = MembershipAccessStore(
+          wallet: wallet,
+          readLoginUid: () async => h.uid,
+          serverNow: () => now,
+        );
+        h.access = await access.refresh();
+        final events = <MembershipCheckoutEvent>[];
+        final sub = h.service.checkoutEvents.listen(events.add);
+        await h.service.purchase(h.product());
+        await pumpEventQueue();
+        final blocked = scenario == 'active yearly';
+        expect(h.platform.launches, blocked ? 0 : 1);
+        expect(h.platform.product == null, blocked);
+        expect(h.guestPrepares, 0);
+        expect(h.refreshes, 0);
+        if (blocked) {
+          expect(events.last.reason, 'downgrade_not_allowed');
+          expect(
+            membershipPurchaseFailureMessage(events.last.reason!),
+            contains(
+              'An active yearly Premium subscription cannot be changed to a monthly plan.',
+            ),
+          );
+        }
+        await sub.cancel();
+        h.service.dispose();
+        access.dispose();
+        wallet.dispose();
+      });
+    }
+    test(
+      '$provider yearly purchase skips wallet eligibility entirely',
+      () async {
+        final h = support.Harness(provider: provider);
+        addTearDown(h.service.dispose);
+        h.membershipAccessHandler = () async =>
+            throw StateError('must not query wallet');
+        await h.service.purchase(h.product(yearly: true));
+        expect(h.platform.launches, 1);
+      },
+    );
+  }
+
+  test(
+    'another account annual wallet cannot block the current account',
+    () async {
+      final h = support.Harness();
+      addTearDown(h.service.dispose);
+      h.access = membershipAccessSnapshot(
+        ownerUid: 'previous-user',
+        planCode: 'pro_yearly',
+      );
+      await h.service.purchase(h.product());
+      expect(h.platform.launches, 1);
+    },
+  );
+
+  test(
+    'a session switch while waiting for wallet cannot launch payment',
+    () async {
+      final h = support.Harness();
+      addTearDown(h.service.dispose);
+      final gate = Completer<MembershipAccessState>();
+      h.membershipAccessHandler = () => gate.future;
+      final purchase = h.service.purchase(h.product());
+      await pumpEventQueue();
+      h.uid = 'another-user';
+      gate.complete(const MembershipAccessState());
+      await purchase;
+      expect(h.platform.launches, 0);
+      expect(h.platform.product, isNull);
+    },
+  );
 
   test(
     'waiting for the platform blocks double taps without a wallet request',
@@ -145,7 +255,6 @@ void main() {
           if (outcome == 'timeout') throw TimeoutException('report timeout');
           return const MembershipPurchaseReport(
             status: MembershipReportStatus.accepted,
-            reportId: 'accepted',
           );
         };
         await h.service.purchase(h.product());
@@ -178,7 +287,6 @@ void main() {
           if (status == 'offline') throw StateError('offline');
           return const MembershipPurchaseReport(
             status: MembershipReportStatus.accepted,
-            reportId: 'accepted',
           );
         };
         await h.service.purchase(h.product(yearly: true));
@@ -220,7 +328,6 @@ void main() {
       final h = support.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.accepted,
-        reportId: 'accepted',
       );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(
@@ -241,13 +348,11 @@ void main() {
   );
 
   test(
-    'rejected pending payment is terminal and preserves reason without finishing unpaid transaction',
+    'status-only rejected pending payment is terminal without finishing unpaid transaction',
     () async {
       final h = support.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.rejected,
-        reportId: 'rejected',
-        reason: 'purchase_canceled',
       );
       final rejected = h.service.checkoutEvents.firstWhere(
         (e) => e.state == MembershipCheckoutState.rejected,
@@ -256,7 +361,7 @@ void main() {
       await h.service.interceptPurchase(
         h.purchase(status: BillingPurchaseStatus.pending),
       );
-      expect((await rejected).reason, 'purchase_canceled');
+      expect((await rejected).reason, isNull);
       await h.service.recover();
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
@@ -268,13 +373,11 @@ void main() {
   );
 
   test(
-    'rejected account mismatch never finishes another account Apple transaction',
+    'status-only rejection never finishes an unverified Apple transaction',
     () async {
       final h = support.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.rejected,
-        reportId: 'rejected',
-        reason: 'account_mismatch',
       );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
@@ -282,7 +385,7 @@ void main() {
       expect(h.platform.finishes, 0);
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
-      expect(h.store.completedRecords.last.reportReason, 'account_mismatch');
+      expect(h.store.completedRecords.last.reportStatus, 'rejected');
       expect(h.store.completedRecords.last.finished, isFalse);
       expect(h.service.state.value, MembershipCheckoutState.rejected);
       expect(h.service.isBusy, isFalse);

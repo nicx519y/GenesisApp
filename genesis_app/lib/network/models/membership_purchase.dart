@@ -72,12 +72,7 @@ class MembershipPurchaseRequest {
 enum MembershipReportStatus { completed, accepted, rejected }
 
 class MembershipPurchaseReport {
-  const MembershipPurchaseReport({
-    required this.status,
-    required this.reportId,
-    this.reason,
-    this.membershipId,
-  });
+  const MembershipPurchaseReport({required this.status});
 
   factory MembershipPurchaseReport.fromJson(Map<String, dynamic> json) {
     final status = switch (json['status']) {
@@ -86,27 +81,10 @@ class MembershipPurchaseReport {
       'rejected' => MembershipReportStatus.rejected,
       _ => throw const FormatException('Missing membership report status'),
     };
-    final reportId = _requiredString(json, 'report_id');
-    final membershipId = json['membership_id'] as String?;
-    final reason = json['reason'] as String?;
-    if (status == MembershipReportStatus.completed &&
-            (membershipId?.isNotEmpty != true) ||
-        status == MembershipReportStatus.rejected &&
-            (reason?.isNotEmpty != true)) {
-      throw const FormatException('Incomplete membership report result');
-    }
-    return MembershipPurchaseReport(
-      status: status,
-      reportId: reportId,
-      reason: reason,
-      membershipId: membershipId,
-    );
+    return MembershipPurchaseReport(status: status);
   }
 
   final MembershipReportStatus status;
-  final String reportId;
-  final String? reason;
-  final String? membershipId;
 }
 
 String _requiredString(Map<String, dynamic> json, String key) {

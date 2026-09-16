@@ -23,13 +23,8 @@ abstract interface class MembershipCheckoutPlatform {
 }
 
 class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
-  StoreMembershipCheckoutPlatform({
-    InAppPurchase? store,
-    Future<PurchasesResultWrapper> Function()? googleQuery,
-  }) : _override = store,
-       _googleQuery = googleQuery;
+  StoreMembershipCheckoutPlatform({InAppPurchase? store}) : _override = store;
   final InAppPurchase? _override;
-  final Future<PurchasesResultWrapper> Function()? _googleQuery;
   InAppPurchase get _store => _override ?? InAppPurchase.instance;
   final Map<String, bool> _types = {};
 
@@ -41,8 +36,6 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
         'planCode': product.planCode,
         'basePlanId': product.basePlanId,
         'offerId': product.offerId,
-        'accountUuid': product.accountUuid,
-        'purchaseToken': product.upgradePurchaseToken,
       });
       debugPrint('[Membership][google_catalog] $diagnostics');
     }
@@ -64,14 +57,6 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
       if (detail is GooglePlayProductDetails &&
           detail.offerToken?.isNotEmpty != true) {
         continue;
-      }
-      if (detail is GooglePlayProductDetails &&
-          product.upgradePurchaseToken != null) {
-        return _GoogleMembershipUpgrade(
-          product: detail,
-          accountUuid: product.accountUuid!,
-          previousPurchase: await _previousGooglePurchase(product),
-        );
       }
       return detail;
     }
@@ -105,63 +90,12 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
     );
   }
 
-  Future<GooglePlayPurchaseDetails> _previousGooglePurchase(
-    MembershipProduct product,
-  ) async {
-    final result =
-        await (_googleQuery?.call() ??
-            _store
-                .getPlatformAddition<InAppPurchaseAndroidPlatformAddition>()
-                .querySubscriptionPurchases());
-    if (result.responseCode != BillingResponse.ok) {
-      throw BillingPlatformException(
-        result.responseCode.name,
-        result.billingResult.debugMessage ?? '',
-        {'subResponseCode': result.billingResult.subResponseCode},
-      );
-    }
-    final matches = result.purchasesList
-        .where(
-          (purchase) => purchase.purchaseToken == product.upgradePurchaseToken,
-        )
-        .toList();
-    if (matches.length != 1 ||
-        !matches.single.products.contains(product.storeProductId)) {
-      throw const BillingPlatformException(
-        'membership_upgrade_purchase_missing',
-      );
-    }
-    final purchase = matches.single;
-    if (purchase.obfuscatedAccountId?.toLowerCase() != product.accountUuid) {
-      throw const BillingPlatformException(
-        'membership_upgrade_account_mismatch',
-      );
-    }
-    if (purchase.purchaseState != PurchaseStateWrapper.purchased ||
-        !purchase.isAcknowledged ||
-        purchase.pendingPurchaseUpdate != null) {
-      throw const BillingPlatformException('membership_upgrade_not_ready');
-    }
-    return GooglePlayPurchaseDetails.fromPurchase(
-      purchase,
-    ).singleWhere((detail) => detail.productID == product.storeProductId);
-  }
-
   @override
   Future<bool> launch(
     Object product,
     String accountUuid, {
     bool Function()? onStoreHandoff,
   }) async {
-    final upgrade = product is _GoogleMembershipUpgrade ? product : null;
-    if (upgrade != null) {
-      if (accountUuid != upgrade.accountUuid) {
-        throw const BillingPlatformException(
-          'membership_upgrade_account_mismatch',
-        );
-      }
-      product = upgrade.product;
-    }
     if (product is! ProductDetails || !_subscription(product)) {
       throw const BillingPlatformException('invalid_membership_product');
     }
@@ -171,12 +105,8 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
             productDetails: product,
             offerToken: product.offerToken,
             applicationUserName: accountUuid,
-            changeSubscriptionParam: upgrade == null
-                ? null
-                : ChangeSubscriptionParam(
-                    oldPurchaseDetails: upgrade.previousPurchase,
-                    replacementMode: ReplacementMode.chargeFullPrice,
-                  ),
+            // Monthly/yearly are base plans of the same Play subscription.
+            // With no replacement params, Play uses its configured switch mode.
           )
         : Sk2PurchaseParam(
             productDetails: product,
@@ -188,12 +118,6 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
         'productId': param.productDetails.id,
         'accountUuid': param.applicationUserName,
         'offerToken': param.offerToken,
-        'oldProductId': upgrade?.previousPurchase.productID,
-        'oldPurchaseToken':
-            upgrade?.previousPurchase.verificationData.serverVerificationData,
-        'oldAccountUuid':
-            upgrade?.previousPurchase.billingClientPurchase.obfuscatedAccountId,
-        'replacementMode': param.changeSubscriptionParam?.replacementMode?.name,
       });
       debugPrint('[Membership][google_launch] $diagnostics');
     }
@@ -230,16 +154,4 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
   @override
   Future<void> finishAppleTransaction(String transactionId) =>
       SK2Transaction.finish(int.parse(transactionId));
-}
-
-class _GoogleMembershipUpgrade {
-  const _GoogleMembershipUpgrade({
-    required this.product,
-    required this.accountUuid,
-    required this.previousPurchase,
-  });
-
-  final GooglePlayProductDetails product;
-  final String accountUuid;
-  final GooglePlayPurchaseDetails previousPurchase;
 }

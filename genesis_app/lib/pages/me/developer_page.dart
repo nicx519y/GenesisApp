@@ -19,6 +19,7 @@ import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/debug/origin_world_sheet_debug_settings.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
+import '../../app/debug/purchase_toast_debug_settings.dart';
 import '../../components/common/genesis_center_toast.dart';
 import '../../components/page_header.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
@@ -231,6 +232,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _savingTilemapSettingsButtonVisibility = false;
   bool _loadingOriginWorldSheetDebugSettings = kDebugMode;
   bool _savingOriginWorldSheetDebugSettings = false;
+  bool _loadingPurchaseToastDebugSettings = kDebugMode;
+  bool _savingPurchaseToastDebugSettings = false;
+  bool _showPurchaseToastDebug = purchaseToastDebugSettings.enabled;
   bool _loadingWorldNewContentDebugSettings = kDebugMode;
   bool _savingWorldNewContentDebugSettings = false;
   final Set<TelemetryChannel> _savingTelemetryChannels = <TelemetryChannel>{};
@@ -284,6 +288,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     if (kDebugMode) {
       unawaited(_loadOriginWorldSheetDebugSettings());
       unawaited(_loadWorldNewContentDebugSettings());
+      unawaited(_loadPurchaseToastDebugSettings());
     }
     unawaited(locationChatBubbleLayoutSettings.load());
     unawaited(locationChatHeaderEffectSettings.load());
@@ -409,6 +414,38 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } finally {
       if (mounted) {
         _updateState(() => _savingWorldNewContentDebugSettings = false);
+      }
+    }
+  }
+
+  Future<void> _loadPurchaseToastDebugSettings() async {
+    final enabled = await purchaseToastDebugSettings.load();
+    if (!mounted) return;
+    _updateState(() {
+      _showPurchaseToastDebug = enabled;
+      _loadingPurchaseToastDebugSettings = false;
+    });
+  }
+
+  Future<void> _setPurchaseToastDebugEnabled(bool enabled) async {
+    if (_loadingPurchaseToastDebugSettings ||
+        _savingPurchaseToastDebugSettings) {
+      return;
+    }
+    final previousValue = _showPurchaseToastDebug;
+    _updateState(() {
+      _showPurchaseToastDebug = enabled;
+      _savingPurchaseToastDebugSettings = true;
+    });
+    try {
+      await purchaseToastDebugSettings.setEnabled(enabled);
+    } catch (error) {
+      if (!mounted) return;
+      _updateState(() => _showPurchaseToastDebug = previousValue);
+      showGenesisToast(context, 'Save failed: $error');
+    } finally {
+      if (mounted) {
+        _updateState(() => _savingPurchaseToastDebugSettings = false);
       }
     }
   }
@@ -801,6 +838,24 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           ),
         ),
         if (kDebugMode) ...[
+          const SizedBox(height: 18),
+          _DeveloperTestSectionPanel(
+            key: const ValueKey<String>('developer-purchase-toast-debug-panel'),
+            child: _DeveloperToggleRow(
+              sectionTitle: 'Purchase',
+              label: 'Show debug toast details',
+              value: _showPurchaseToastDebug,
+              enabled:
+                  !_loadingPurchaseToastDebugSettings &&
+                  !_savingPurchaseToastDebugSettings,
+              switchKey: const ValueKey<String>(
+                'developer-purchase-toast-debug-switch',
+              ),
+              onChanged: (value) {
+                unawaited(_setPurchaseToastDebugEnabled(value));
+              },
+            ),
+          ),
           const SizedBox(height: 18),
           _DeveloperTestSectionPanel(
             key: const ValueKey<String>('developer-world-force-new-panel'),

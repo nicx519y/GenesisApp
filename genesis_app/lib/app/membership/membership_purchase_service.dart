@@ -18,6 +18,7 @@ import '../../platform/billing/membership_guest_claim_record.dart';
 import '../../platform/billing/membership_guest_claim_proof.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 import 'membership_purchase_eligibility.dart';
+import 'membership_access_store.dart';
 import 'membership_store_failure.dart';
 
 part 'membership_purchase_restore.dart';
@@ -66,6 +67,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     required this.provider,
     required this.readCheckoutProducts,
     this.otherPurchaseBusy,
+    this.readMembershipAccess,
     this.refreshWallet,
     this.claimGuest,
     this.loadSignedTransaction,
@@ -95,6 +97,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   /// Latest store order number from a checkout in this session, debug only.
   ValueListenable<String?> get debugStoreOrderId => _debugStoreOrderId;
   final bool Function()? otherPurchaseBusy;
+  final Future<MembershipAccessState> Function()? readMembershipAccess;
   final Future<void> Function()? refreshWallet;
   final Future<MembershipClaimResult> Function(MembershipClaimRequest)?
   claimGuest;
@@ -376,6 +379,16 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         stage = 'read_session';
         final uid = await readLoginUid();
         if (!canContinue()) return;
+        stage = 'check_membership';
+        final access = product.isYearly
+            ? null
+            : await readMembershipAccess?.call();
+        if (!await canContinueForOwner(uid)) return;
+        if (access != null &&
+            access.ownerUid == uid &&
+            membershipIsDowngrade(product, access)) {
+          throw const MembershipPurchaseBlocked('downgrade_not_allowed');
+        }
         final MembershipProductList products;
         stage = 'read_catalog';
         try {
@@ -403,14 +416,16 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         if (!await canContinueForOwner(uid)) return;
         stage = 'prepare_guest';
         final guest = uid == null
-            ? product.accountUuid == null
+            ? products.lastAccountUuid == null
                   ? await prepareGuest()
-                  : MembershipGuestIdentity(accountUuid: product.accountUuid!)
+                  : MembershipGuestIdentity(
+                      accountUuid: products.lastAccountUuid!,
+                    )
             : null;
         if (!canContinue()) return;
         stage = 'load_account_uuid';
         final uuid =
-            product.accountUuid ??
+            products.lastAccountUuid ??
             guest?.accountUuid ??
             await loadAccountUuid();
         if (!canContinue()) return;
@@ -423,11 +438,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           accountUuid: uuid,
           ownerUid: uid,
           guest: guest,
-          replacedPurchaseTokenFingerprint: product.upgradePurchaseToken == null
-              ? ''
-              : membershipPurchaseTokenFingerprint(
-                  product.upgradePurchaseToken!,
-                ),
         );
         // Retain the selected plan in memory until the store callback arrives.
         stage = 'prepare_order';
@@ -603,10 +613,15 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     bool sameAccount(MembershipPurchaseRecord r) =>
         accountUuid.isEmpty ||
         accountUuid.toLowerCase() == r.accountUuid.toLowerCase();
+    bool canAttachToAttempt(MembershipPurchaseRecord r) =>
+        purchase.status != BillingPurchaseStatus.restored ||
+        r.hasReceipt ||
+        r.needsReceiptRecovery;
     if (record == null) {
       final active = _records[_activeRequestId];
       if (active != null &&
           active.product.storeProductId == productId &&
+          canAttachToAttempt(active) &&
           !active.replacesPurchaseToken(purchase.purchaseToken) &&
           sameAccount(active)) {
         record = active;
@@ -619,7 +634,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
                 (r.state == 'prepared' ||
                     r.state == 'pending' ||
                     r.needsReceiptRecovery) &&
-                sameAccount(r),
+                sameAccount(r) &&
+                canAttachToAttempt(r),
           )
           .toList();
       if (pending.length == 1) record = pending.single;
@@ -766,7 +782,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
     if (record.guest == null && await readLoginUid() != record.ownerUid) return;
     final session = _session;
-    final previousResult = (record.reportStatus, record.reportReason);
+    final previousResult = record.reportStatus;
     try {
       await _save(record);
       if (record.reportStatus == null || record.reportStatus == 'accepted') {
@@ -788,8 +804,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         final report = await reportPurchase(request);
         record = record.copyWith(
           reportStatus: report.status.name,
-          reportId: report.reportId,
-          reportReason: report.reason,
           state:
               report.status == MembershipReportStatus.completed && !record.paid
               ? 'purchased'
@@ -826,7 +840,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       // Never finish another account's transaction or a pending payment.
       if (provider == MembershipProvider.apple &&
           record.paid &&
-          record.reportReason != 'account_mismatch' &&
+          record.reportStatus != 'rejected' &&
           !record.finished) {
         await platform.finishAppleTransaction(record.transactionId);
         record = record.copyWith(finished: true);
@@ -849,12 +863,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           _ => MembershipCheckoutState.deferred,
         },
         attemptId: record.requestId,
-        reason: record.reportReason,
-        debugInfo: purchaseDebugInfo(
-          'vip.report',
-          status: record.reportStatus,
-          reason: record.reportReason,
-        ),
+        debugInfo: purchaseDebugInfo('vip.report', status: record.reportStatus),
       );
       _release(record.requestId);
       if (record.reportStatus != 'accepted') _retryCount = 0;
@@ -876,7 +885,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     } finally {
       if (session == _session &&
           record.reportStatus != null &&
-          previousResult != (record.reportStatus, record.reportReason)) {
+          previousResult != record.reportStatus) {
         _catalogChanged();
       }
     }

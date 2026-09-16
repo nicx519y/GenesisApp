@@ -13,8 +13,19 @@ bool membershipHasSelectedPlan(
   MembershipAccessState access,
 ) => access.isVip == true && access.membership?.planCode == product.planCode;
 
+/// Wallet membership is authoritative; only an active yearly plan blocks monthly.
+bool membershipIsDowngrade(
+  MembershipProduct product,
+  MembershipAccessState access,
+) =>
+    !product.isYearly &&
+    access.isVip == true &&
+    access.membership?.planCode == 'pro_yearly';
+
 String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
   final message = switch (reason) {
+    'downgrade_not_allowed' =>
+      'An active yearly Premium subscription cannot be changed to a monthly plan.',
     'already_subscribed' => 'You already have an active Premium subscription.',
     'purchase_processing' =>
       'Your previous Premium purchase is still being confirmed.',

@@ -27,10 +27,14 @@ void main() {
       expect(formatGemCent(0), '0.0');
       expect(formatGemCent(123456), '1,234.6');
       expect(formatGemCent(-10), '-0.1');
-      expect(formatGemCent(-1), '0.0');
+      expect(formatGemCent(-1), '-0.0');
     });
 
     test('rounds cent values to the nearest tenth of a Gem', () {
+      for (final value in [-1, -2, -3, -4]) {
+        expect(formatGemCent(value), '-0.0');
+      }
+      expect(formatGemCent(-5), '-0.1');
       expect(formatGemCent(104), '1.0');
       expect(formatGemCent(105), '1.1');
       expect(formatGemCent(-104), '-1.0');

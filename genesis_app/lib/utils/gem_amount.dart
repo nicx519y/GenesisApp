@@ -12,7 +12,7 @@ String formatGemCent(int value) {
   final whole = roundedTenths ~/ 10;
   final fraction = roundedTenths % 10;
   final groupedWhole = _formatGroupedInteger(whole);
-  final sign = negative && roundedTenths != 0 ? '-' : '';
+  final sign = negative ? '-' : '';
   return '$sign$groupedWhole.$fraction';
 }
 

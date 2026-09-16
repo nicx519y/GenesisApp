@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
@@ -22,8 +23,6 @@ const guest = MembershipGuestIdentity(
 );
 const completed = MembershipPurchaseReport(
   status: MembershipReportStatus.completed,
-  reportId: 'report-test',
-  membershipId: 'membership-test',
 );
 
 class PendingStore implements MembershipPendingStore {
@@ -185,6 +184,9 @@ class Checkout implements MembershipCheckoutPlatform {
 }
 
 class Harness {
+  String? lastAccountUuid;
+  MembershipAccessState access = const MembershipAccessState();
+  Future<MembershipAccessState> Function()? membershipAccessHandler;
   Harness({
     this.provider = MembershipProvider.google,
     Future<MembershipProductList> Function()? checkoutProducts,
@@ -207,11 +209,15 @@ class Harness {
           () async {
             eligibilityQueries++;
             return MembershipProductList(
+              lastAccountUuid: lastAccountUuid,
               products: productsHandler == null
                   ? [product(), product(yearly: true)]
                   : await productsHandler!(),
             );
           },
+      readMembershipAccess: () async => membershipAccessHandler == null
+          ? access
+          : await membershipAccessHandler!(),
       loadAccountUuid: () async => accountUuidHandler == null
           ? accountUuid
           : await accountUuidHandler!(),
@@ -371,7 +377,6 @@ void main() {
         final h = Harness(provider: provider);
         h.reportHandler = (_) async => const MembershipPurchaseReport(
           status: MembershipReportStatus.accepted,
-          reportId: 'accepted-test',
         );
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(h.purchase());
@@ -398,7 +403,6 @@ void main() {
         final h = Harness(provider: provider);
         h.reportHandler = (_) async => const MembershipPurchaseReport(
           status: MembershipReportStatus.accepted,
-          reportId: 'accepted-test',
         );
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(
@@ -428,8 +432,6 @@ void main() {
       if (outcome == 'rejected') {
         h.reportHandler = (_) async => const MembershipPurchaseReport(
           status: MembershipReportStatus.rejected,
-          reportId: 'rejected-test',
-          reason: 'invalid_purchase',
         );
       }
       if (outcome == 'offline') {
@@ -591,7 +593,6 @@ void main() {
       final h = Harness();
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.accepted,
-        reportId: 'accepted',
       );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
@@ -784,13 +785,7 @@ void main() {
       MembershipReportStatus.rejected,
     ]) {
       final h = Harness();
-      h.reportHandler = (_) async => MembershipPurchaseReport(
-        status: status,
-        reportId: 'test-report',
-        reason: status == MembershipReportStatus.rejected
-            ? 'product_mismatch'
-            : null,
-      );
+      h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
       await h.service.recover();

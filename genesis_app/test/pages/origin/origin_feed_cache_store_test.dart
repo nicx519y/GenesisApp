@@ -74,6 +74,24 @@ void main() {
     );
   });
 
+  test(
+    'cached server preference is reused unless there is a manual choice',
+    () async {
+      const store = OriginFeedCacheStore(ownerUid: 'u_one');
+      expect(await store.loadPreferredGender(), isNull);
+      await store.saveLastConfirmedGender('Non_binary');
+      expect(await store.loadPreferredGender(), 'Non_binary');
+      await store.saveManualGender('');
+      expect(await store.loadPreferredGender(), '');
+      expect(
+        await const OriginFeedCacheStore(
+          ownerUid: 'u_two',
+        ).loadPreferredGender(),
+        isNull,
+      );
+    },
+  );
+
   test('stores For you first page per owner', () async {
     const aliceStore = OriginFeedCacheStore(ownerUid: 'u_alice');
     const bobStore = OriginFeedCacheStore(ownerUid: 'u_bob');

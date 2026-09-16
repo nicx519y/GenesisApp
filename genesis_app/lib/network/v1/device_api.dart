@@ -21,4 +21,20 @@ class DeviceV1Api extends V1ApiResource {
       'X-Device-ID': deviceId,
     }),
   );
+
+  Future<PersonalizationProfile> updateOriginFeedGender({
+    required String deviceId,
+    required String gender,
+  }) async {
+    if (!const {'Male', 'Female', 'Non_binary', 'All'}.contains(gender)) {
+      throw ArgumentError.value(gender, 'gender');
+    }
+    return PersonalizationProfile.fromJson(
+      await postMap(
+        'device/personalization/update_origin_feed_gender',
+        {'origin_feed_gender': gender},
+        {'X-Device-ID': deviceId},
+      ),
+    );
+  }
 }

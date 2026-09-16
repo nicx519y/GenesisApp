@@ -13,6 +13,10 @@ class OriginFeedCacheStore {
   final String? _ownerUid;
   final String? _gender;
 
+  /// Manual selections (including All) take precedence over a saved GET value.
+  Future<String?> loadPreferredGender() async =>
+      await loadManualGender() ?? await loadLastConfirmedGender();
+
   /// An explicit choice survives page/app restarts. Empty means manual All;
   /// null means the user has not chosen a filter and still follows their profile.
   Future<String?> loadManualGender() async {
@@ -30,7 +34,7 @@ class OriginFeedCacheStore {
     );
   }
 
-  /// Reuses the last label and matching page cache while the profile loads.
+  /// The last confirmed preference can be used immediately on the next launch.
   Future<String?> loadLastConfirmedGender() async {
     final prefs = await SharedPreferences.getInstance();
     final value = prefs.get('origin_feed_gender_v1.$_resolvedOwner');

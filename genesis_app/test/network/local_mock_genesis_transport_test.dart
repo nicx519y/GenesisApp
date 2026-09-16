@@ -12,11 +12,42 @@ import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
 import 'package:genesis_flutter_android/network/models/origin.dart';
+import 'package:genesis_flutter_android/network/models/personalization.dart';
 import 'package:genesis_flutter_android/network/models/search_v2.dart';
 import 'package:genesis_flutter_android/network/models/world.dart';
 
 void main() {
   setUp(LocalMockGenesisTransport.instance.resetFeatureQuotaUsage);
+  test(
+    'origin preference mock updates only preference and form save preserves it',
+    () async {
+      final api = GenesisApi(useMock: true);
+      const deviceId = 'origin-preference-test-device';
+      final selected = await api.v1.device.updateOriginFeedGender(
+        deviceId: deviceId,
+        gender: 'All',
+      );
+      expect(selected.originFeedGender, 'All');
+      final saved = await api.v1.device.savePersonalization(
+        deviceId: deviceId,
+        profile: const PersonalizationProfile(gender: 'Male', age: '18-24'),
+      );
+      expect(saved.originFeedGender, 'All');
+      final changed = await api.v1.device.updateOriginFeedGender(
+        deviceId: deviceId,
+        gender: 'Non_binary',
+      );
+      expect(changed.gender, 'Male');
+      expect(changed.age, '18-24');
+      expect(changed.completed, isTrue);
+      expect(
+        (await api.v1.device.personalization(
+          deviceId: deviceId,
+        )).profile.originFeedGender,
+        'Non_binary',
+      );
+    },
+  );
   test('origin mock accepts optional gender enums', () async {
     final api = GenesisApi(useMock: true);
     for (final gender in <String?>[null, '', 'Male', 'Female', 'Non_binary']) {

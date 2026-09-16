@@ -37,13 +37,15 @@
 | 2 | `SERVICE_UNAVAILABLE` | Google Play is temporarily unavailable. Please try again later. |
 | 3 | `BILLING_UNAVAILABLE` | Google Play billing is unavailable. Please check your Play account and payment settings. |
 | 4 | `ITEM_UNAVAILABLE` | This VIP plan is currently unavailable on Google Play. |
-| 5 | `DEVELOPER_ERROR` | Google Play could not start this subscription purchase. Please contact support if this continues. |
+| 5 | `DEVELOPER_ERROR` | Premium purchase canceled. |
 | 6 | `ERROR` | Google Play could not complete this VIP purchase. Please try again. |
 | 7 | `ITEM_ALREADY_OWNED` | You already own this subscription on Google Play. Please check Manage subscriptions. |
 | 8 | `ITEM_NOT_OWNED` | Google Play could not find the subscription to change. Please check Manage subscriptions. |
 | 12 | `NETWORK_ERROR` | Could not connect to Google Play. Please check your internet connection and try again. |
 
 `DEVELOPER_ERROR=5` 不能单独证明是 UUID 冲突，也不能证明订阅未过期。具体参数问题看原始 `debugMessage`，例如之前的账号标识不匹配信息。客户端不根据可变的英文 debugMessage 推断订阅状态，也不自动更换 UUID 或重复发起扣款。
+
+当 Google 返回 `DEVELOPER_ERROR`，且原始 `debugMessage`（或发起购买／查询商品异常的原始 message）去除首尾空白后完全等于 `Account identifiers don't match the previous subscription.` 时，直接显示该句原文。其他 `DEVELOPER_ERROR` 使用取消文案 `Premium purchase canceled.`；已知子错误码仍优先。仅替换展示文案，错误分类仍为失败，不视为用户主动取消，也不参与会员状态、购买身份或重试决策。
 
 ### Google 子错误码
 
@@ -196,3 +198,8 @@ xcrun swiftc -module-cache-path /private/tmp/vip-ios-swift-cache -sdk /Applicati
 ```
 
 整包验证执行了两次 `flutter build ios --debug --no-codesign --no-pub --flavor production`，均停在 Xcode 启动的 `clang -v -E -dM ... /dev/null` 编译器探测阶段；同一探测命令单独运行正常。已停止无响应构建，**没有取得整包编译通过的结果**。没有安装或执行真实商店付款。
+
+## 购买 Toast 调试信息开关
+
+- Debug Page → switch → Purchase → Show debug toast details，仅 Debug 包显示，默认关闭。设置持久化，重启后沿用用户选择。
+- 关闭时 Gems / Premium 购买 Toast 只显示正常文案；开启时第一行显示原有 `debug：阶段/状态/错误`。Profile/Release 始终不显示调试首行。该开关不改变购买、上报、重试和成功弹窗行为。

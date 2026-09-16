@@ -1,13 +1,26 @@
 class PersonalizationProfile {
-  const PersonalizationProfile({this.gender, this.age, this.completed = false});
+  const PersonalizationProfile({
+    this.gender,
+    this.age,
+    this.originFeedGender,
+    this.completed = false,
+  });
 
   factory PersonalizationProfile.fromJson(Map<String, dynamic> json) {
     final gender = json['gender'];
     final age = json['age'];
     final completed = json['completed'];
+    final originFeedGender = json['origin_feed_gender'];
     if (gender is! String ||
         age is! String ||
         completed is! bool ||
+        !const {
+          '',
+          'Male',
+          'Female',
+          'Non_binary',
+          'All',
+        }.contains(originFeedGender) ||
         completed && (gender.isEmpty || age.isEmpty)) {
       throw const FormatException('Invalid personalization profile');
     }
@@ -15,11 +28,17 @@ class PersonalizationProfile {
       gender: gender.isEmpty ? null : gender,
       age: age.isEmpty ? null : age,
       completed: completed,
+      originFeedGender: originFeedGender == ''
+          ? null
+          : originFeedGender as String,
     );
   }
 
   final String? gender;
   final String? age;
+
+  /// Server-owned feed preference. Null is unset; All is an explicit choice.
+  final String? originFeedGender;
   final bool completed;
   bool get isComplete => gender != null && age != null;
   Map<String, Object?> toJson() => {'gender': gender, 'age': age};
