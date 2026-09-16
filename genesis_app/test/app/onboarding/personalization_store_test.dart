@@ -2,9 +2,43 @@ import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/onboarding/personalization_store.dart';
 import 'package:genesis_flutter_android/network/models/personalization.dart';
+import 'package:genesis_flutter_android/pages/origin/origin_feed_cache_store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../support/personalization_fixtures.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test(
+    'successful submissions replace cached choices without a Worldo page',
+    () async {
+      const cache = OriginFeedCacheStore(ownerUid: 'user');
+      await cache.saveManualGender('');
+      final store = PersonalizationStore(
+        readLoginUid: () async => 'user',
+        load: () async => personalizationData(),
+        save: (_) async => const PersonalizationProfile(
+          gender: 'g1',
+          age: 'a2',
+          completed: true,
+          originFeedGender: 'Female',
+        ),
+      );
+      addTearDown(store.dispose);
+      await store.start();
+      for (var revision = 1; revision <= 2; revision++) {
+        await store.submit(
+          const PersonalizationProfile(gender: 'g1', age: 'a2'),
+        );
+        expect(store.submissionRevision, revision);
+        expect(await cache.loadPreferredGender(), 'Female');
+        expect(await cache.loadManualGender(), isNull);
+      }
+      expect(await const OriginFeedCacheStore().loadPreferredGender(), isNull);
+    },
+  );
+
   test(
     'disabled form skips reads across refresh and session changes',
     () async {
@@ -90,10 +124,12 @@ void main() {
       expect(store.blocksOtherPrompts.value, isTrue);
       const profile = PersonalizationProfile(gender: 'g4', age: 'a6');
       await expectLater(store.submit(profile), throwsStateError);
+      expect(store.submissionRevision, 0);
       expect(store.state.value.data!.profile.completed, isFalse);
       store.beginPresentation();
       failSave = false;
       await store.submit(profile);
+      expect(store.submissionRevision, 1);
       expect(store.state.value.data!.profile.completed, isTrue);
       expect(store.blocksOtherPrompts.value, isTrue);
       store.endPresentation();
@@ -180,6 +216,7 @@ void main() {
       const PersonalizationProfile(gender: 'g1', age: 'a2', completed: true),
     );
     await rejected;
+    expect(store.submissionRevision, 0);
     expect(store.state.value.uid, 'new');
     expect(store.state.value.data!.profile.completed, isFalse);
   });

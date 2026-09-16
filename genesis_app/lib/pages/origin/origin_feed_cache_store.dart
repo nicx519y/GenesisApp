@@ -48,6 +48,15 @@ class OriginFeedCacheStore {
     await prefs.setString('origin_feed_gender_v1.$_resolvedOwner', value);
   }
 
+  /// A submitted form replaces the previous choice, even a manual All.
+  Future<void> saveSubmittedGender(String? gender) async {
+    final value = gender == 'All' ? '' : gender?.trim() ?? '';
+    if (!_isValidGender(value)) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('origin_feed_gender_v1.$_resolvedOwner', value);
+    await prefs.remove('origin_feed_manual_gender_v1.$_resolvedOwner');
+  }
+
   static bool _isValidGender(String value) =>
       const {'', 'Male', 'Female', 'Non_binary'}.contains(value);
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import '../../network/models/personalization.dart';
+import '../../pages/origin/origin_feed_cache_store.dart';
 
 class PersonalizationState {
   const PersonalizationState({
@@ -29,6 +30,8 @@ class PersonalizationStore {
   final blocksOtherPrompts = ValueNotifier(true);
   Future<PersonalizationData?>? _request;
   int _generation = 0;
+  int _submissionRevision = 0;
+  int get submissionRevision => _submissionRevision;
   bool _presenting = false;
   bool _started = false;
   bool _disposed = false;
@@ -128,6 +131,21 @@ class PersonalizationStore {
       throw StateError('Personalization session changed');
     }
     if (!saved.completed) throw StateError('Personalization was not completed');
+    // Persist even when Worldo has not been mounted yet. Cache failures must
+    // not turn a successful server submission into a failed form submission.
+    try {
+      await OriginFeedCacheStore(
+        ownerUid: uid,
+      ).saveSubmittedGender(saved.originFeedGender);
+    } catch (_) {}
+    final latestUid = await readLoginUid();
+    if (!current() || uid != latestUid) {
+      throw StateError('Personalization session changed');
+    }
+    // A GET started before submission must not restore the old preference.
+    _generation++;
+    _request = null;
+    _submissionRevision++;
     _publish(
       PersonalizationState(
         uid: uid,

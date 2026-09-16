@@ -10,11 +10,11 @@ void main() {
     (-3, 'serviceTimeout', 'took too long'),
     (-2, 'featureNotSupported', 'not supported'),
     (-1, 'serviceDisconnected', 'connection to Google Play was lost'),
-    (1, 'userCanceled', 'Premium purchase canceled.'),
+    (1, 'userCanceled', 'Purchase canceled.'),
     (2, 'serviceUnavailable', 'temporarily unavailable'),
     (3, 'billingUnavailable', 'payment settings'),
     (4, 'itemUnavailable', 'Premium subscription is currently unavailable'),
-    (5, 'developerError', 'Premium purchase canceled.'),
+    (5, 'developerError', 'Purchase canceled.'),
     (6, 'error', 'could not complete this Premium purchase'),
     (7, 'itemAlreadyOwned', 'already own this subscription'),
     (8, 'itemNotOwned', 'could not find the subscription to change'),
@@ -67,7 +67,7 @@ void main() {
         code: 'userCanceled',
         details: {'subResponseCode': 2},
       ).message,
-      'Premium purchase canceled.',
+      'Purchase canceled.',
     );
     expect(
       membershipStoreError(
@@ -83,7 +83,7 @@ void main() {
         code: 'developerError',
         details: {'subResponseCode': 999},
       ).message,
-      'Premium purchase canceled.',
+      'Purchase canceled.',
     );
   });
 
@@ -271,7 +271,7 @@ void main() {
           'underlyingCode': '-1001',
         },
       ).message,
-      'Premium purchase canceled.',
+      'Purchase canceled.',
     );
   });
   test(

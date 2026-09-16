@@ -55,9 +55,9 @@ class GemBillingPurchaseDialog extends StatelessWidget {
          onConfirm: onConfirm,
          processingLabel: 'Purchasing Premium',
          successTitle: 'Purchase successful!',
-         successMessage: 'Premium have been granted.',
+         successMessage: 'Your Worldo Premium subscription is now active.',
          successIconAsset: proCrownGoldIconAsset,
-         confirmLabel: 'Enjoy it',
+         confirmLabel: 'Continue',
        );
 
   const GemBillingPurchaseDialog({
@@ -93,7 +93,11 @@ class GemBillingPurchaseDialog extends StatelessWidget {
           canPop: false,
           child: GenesisActionBox<bool>(
             title: '',
-            titleHeight: isSuccess ? _successContentHeight : _processingHeight,
+            titleHeight: isSuccess
+                ? successMessage == null
+                      ? _successContentHeight
+                      : null
+                : _processingHeight,
             titleHorizontalPadding: _titleHorizontalPadding,
             titleWidget: Column(
               mainAxisSize: MainAxisSize.min,
@@ -179,48 +183,54 @@ class _GemBillingPurchaseGrantedMessage extends StatelessWidget {
           key: ValueKey<String>('billing-purchase-success-line-gap'),
           height: 12,
         ),
-        SizedBox(
-          width: double.infinity,
-          child: FittedBox(
-            key: const ValueKey<String>('billing-purchase-granted-fit'),
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.center,
-            child: Text.rich(
-              key: const ValueKey<String>('billing-purchase-granted-line'),
-              TextSpan(
-                children: message != null
-                    ? [TextSpan(text: message)]
-                    : [
-                        WidgetSpan(
-                          alignment: PlaceholderAlignment.middle,
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 2),
-                            child: SvgPicture.asset(
-                              gemIconAsset,
-                              key: const ValueKey<String>(
-                                'billing-purchase-granted-icon',
-                              ),
-                              width: 12,
-                              height: 12,
-                            ),
+        if (message != null)
+          Text(
+            message!,
+            key: const ValueKey<String>('billing-purchase-granted-line'),
+            textAlign: TextAlign.center,
+            style: _grantedTextStyle.copyWith(
+              color: GenesisColors.darkTextSecondary,
+            ),
+          )
+        else
+          SizedBox(
+            width: double.infinity,
+            child: FittedBox(
+              key: const ValueKey<String>('billing-purchase-granted-fit'),
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.center,
+              child: Text.rich(
+                key: const ValueKey<String>('billing-purchase-granted-line'),
+                TextSpan(
+                  children: [
+                    WidgetSpan(
+                      alignment: PlaceholderAlignment.middle,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 2),
+                        child: SvgPicture.asset(
+                          gemIconAsset,
+                          key: const ValueKey<String>(
+                            'billing-purchase-granted-icon',
                           ),
+                          width: 12,
+                          height: 12,
                         ),
-                        TextSpan(
-                          text: grantedText,
-                          style: const TextStyle(
-                            color: GenesisColors.redSecondary,
-                          ),
-                        ),
-                        const TextSpan(text: ' Gems have been granted.'),
-                      ],
+                      ),
+                    ),
+                    TextSpan(
+                      text: grantedText,
+                      style: const TextStyle(color: GenesisColors.redSecondary),
+                    ),
+                    const TextSpan(text: ' Gems have been granted.'),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                softWrap: false,
+                style: _grantedTextStyle,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              softWrap: false,
-              style: _grantedTextStyle,
             ),
           ),
-        ),
       ],
     );
   }

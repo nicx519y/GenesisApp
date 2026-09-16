@@ -421,6 +421,10 @@ final class GenesisAppLifecycleStreamHandler: NSObject, FlutterStreamHandler {
     }
 
     DispatchQueue.main.async {
+      guard UIApplication.shared.applicationState == .active else {
+        result(self.currentTrackingAuthorizationStatus())
+        return
+      }
       ATTrackingManager.requestTrackingAuthorization { status in
         DispatchQueue.main.async {
           result(self.trackingAuthorizationStatusValue(status))

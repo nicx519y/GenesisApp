@@ -340,6 +340,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Real subscription entry'), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.text('Real subscription entry'), findsOneWidget);
+        expect(store.blocksOtherPrompts.value, isTrue);
         await tap(tester, 'skip');
         expect(store.blocksOtherPrompts.value, isFalse);
         expect(find.byType(PersonalizationSheet), findsNothing);

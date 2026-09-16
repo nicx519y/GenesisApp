@@ -35,6 +35,7 @@ class AppStartupCoordinator {
   static bool _launchErrorRenderRecorded = false;
   static int _diagnosticRequestAttempt = 0;
   static final Map<String, int> _launchMilestones = <String, int>{};
+  static final List<VoidCallback> _pendingLaunchEvents = <VoidCallback>[];
   static bool _attRequestClaimed = false;
   // Kept as a shared startup readiness signal for upgrade/polling work. It is
   // open from the beginning and is unrelated to ATT or network permission.
@@ -290,15 +291,24 @@ class AppStartupCoordinator {
     final startupId = _launchStartupId;
     final stopwatch = _launchStopwatch;
     if (startupId == null || stopwatch == null) return;
-    GenesisTelemetry.collectLog(
+    final elapsed = elapsedMilliseconds ?? stopwatch.elapsedMilliseconds;
+    void record() => GenesisTelemetry.collectLog(
       actionType: 'monitor',
       action: action,
       object1: startupId,
       object2: page,
-      object3: elapsedMilliseconds ?? stopwatch.elapsedMilliseconds,
+      object3: elapsed,
       object4: result,
       extData: extData,
     );
+
+    if (_startupFirstReportRecorded) {
+      record();
+    } else {
+      // First frame no longer waits for Collect readiness via config. Preserve
+      // the original event time until its durable recorder is configured.
+      _pendingLaunchEvents.add(record);
+    }
   }
 
   static void _recordLaunchMilestone(String key) {
@@ -308,6 +318,16 @@ class AppStartupCoordinator {
   }
 
   static String _launchTimingExtData() {
+    // Remote config and telemetry can finish after the first frame. Their
+    // absence must not discard the timings of the rendered startup path.
+    const requiredKeys = <String>[
+      'system_ui_ready_ms',
+      'endpoint_config_ready_ms',
+      'local_settings_ready_ms',
+      'bootstrap_ready_ms',
+      'first_frame_ms',
+      'route_ready_ms',
+    ];
     const keys = <String>[
       'system_ui_ready_ms',
       'endpoint_config_ready_ms',
@@ -318,11 +338,12 @@ class AppStartupCoordinator {
       'first_frame_ms',
       'route_ready_ms',
     ];
-    if (!keys.every(_launchMilestones.containsKey)) return '';
+    if (!requiredKeys.every(_launchMilestones.containsKey)) return '';
     return jsonEncode(<String, Object>{
       'schema_version': 1,
       'milestones': <String, int>{
-        for (final key in keys) key: _launchMilestones[key]!,
+        for (final key in keys)
+          if (_launchMilestones.containsKey(key)) key: _launchMilestones[key]!,
       },
     });
   }
@@ -341,6 +362,11 @@ class AppStartupCoordinator {
     if (_attRequestClaimed) return false;
     _attRequestClaimed = true;
     return true;
+  }
+
+  /// An unresolved native result must not consume the launch's ATT request.
+  static void releaseAttRequest() {
+    _attRequestClaimed = false;
   }
 
   static void startWarmUp(AppServices services) {
@@ -485,6 +511,11 @@ class AppStartupCoordinator {
       action: 'startup_first_report',
     );
     _recordLaunchStartup();
+    final pending = List<VoidCallback>.of(_pendingLaunchEvents);
+    _pendingLaunchEvents.clear();
+    for (final record in pending) {
+      record();
+    }
   }
 
   @visibleForTesting
@@ -515,6 +546,7 @@ class AppStartupCoordinator {
     _launchErrorRenderRecorded = false;
     _diagnosticRequestAttempt = 0;
     _launchMilestones.clear();
+    _pendingLaunchEvents.clear();
     _attRequestClaimed = false;
     _postLaunchWorkAllowed.value = true;
   }

@@ -96,6 +96,24 @@ void main() {
     await tester.pump();
   }
 
+  testBack('back closes a local menu before prompting to leave the app', (
+    tester,
+  ) async {
+    await pumpMainPage(tester);
+    var closed = false;
+    ModalRoute.of(
+      tester.element(find.text('Main page')),
+    )!.addLocalHistoryEntry(LocalHistoryEntry(onRemove: () => closed = true));
+    await tester.pump();
+    await back(tester);
+    expect(closed, isTrue);
+    expect(find.text(_prompt), findsNothing);
+    expect(backgroundCalls, 0);
+    await back(tester);
+    expect(find.text(_prompt), findsOneWidget);
+    expect(backgroundCalls, 0);
+  });
+
   testBack('first back prompts and second within two seconds backgrounds', (
     tester,
   ) async {

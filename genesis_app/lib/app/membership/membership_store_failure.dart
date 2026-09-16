@@ -150,19 +150,18 @@ const membershipGoogleErrorMessages = <String, String>{
       'Subscriptions are not supported by Google Play on this device.',
   'service_disconnected':
       'The connection to Google Play was lost. Please try again.',
-  'user_canceled': 'Premium purchase canceled.',
+  'user_canceled': 'Purchase canceled.',
   'service_unavailable':
       'Google Play is temporarily unavailable. Please try again later.',
   'billing_unavailable':
       'Google Play billing is unavailable. Please check your Play account and payment settings.',
   'item_unavailable':
       'This Premium subscription is currently unavailable on Google Play.',
-  'developer_error': 'Premium purchase canceled.',
+  'developer_error': 'Purchase canceled.',
   'account_identifiers_mismatch': _googleAccountIdentifiersMismatch,
   'error':
       'Google Play could not complete this Premium purchase. Please try again.',
-  'item_already_owned':
-      'You already own this subscription on Google Play. Please check Manage subscriptions.',
+  'item_already_owned': 'You already own this subscription on Google Play.',
   'item_not_owned':
       'Google Play could not find the subscription to change. Please check Manage subscriptions.',
   'network_error':
@@ -201,7 +200,7 @@ const membershipAppleNativeCodes = <int, String>{
 const membershipAppleErrorMessages = <String, String>{
   'unknown':
       'The App Store could not complete this Premium purchase. Please try again.',
-  'user_cancelled': 'Premium purchase canceled.',
+  'user_cancelled': 'Purchase canceled.',
   'network_error':
       'Could not connect to the App Store. Please check your internet connection and try again.',
   'network_timeout':
@@ -236,7 +235,7 @@ const membershipAppleErrorMessages = <String, String>{
       'Please add a payment method to your Apple Account, then try again.',
   'client_invalid':
       'This app cannot make purchases on the App Store. Please contact support.',
-  'payment_cancelled': 'Premium purchase canceled.',
+  'payment_cancelled': 'Purchase canceled.',
   'payment_invalid':
       'The App Store could not accept this purchase request. Please try again or contact support.',
   'payment_not_allowed':
@@ -257,7 +256,7 @@ const membershipAppleErrorMessages = <String, String>{
       'The App Store could not verify this subscription offer. Please contact support.',
   'missing_offer_params':
       'This subscription offer could not be prepared. Please refresh the page and try again.',
-  'overlay_cancelled': 'Premium purchase canceled.',
+  'overlay_cancelled': 'Purchase canceled.',
   'overlay_invalid_configuration':
       'The App Store window could not be configured. Please contact support.',
   'overlay_timeout':

@@ -40,6 +40,22 @@ void main() {
   });
 
   test(
+    'submitted preference replaces manual choice only for its owner',
+    () async {
+      const alice = OriginFeedCacheStore(ownerUid: 'u_alice');
+      const bob = OriginFeedCacheStore(ownerUid: 'u_bob');
+      await alice.saveManualGender('Male');
+      await bob.saveManualGender('Female');
+      await alice.saveSubmittedGender('All');
+      expect(await alice.loadPreferredGender(), '');
+      expect(await alice.loadManualGender(), isNull);
+      expect(await bob.loadPreferredGender(), 'Female');
+      await alice.saveManualGender('Non_binary');
+      expect(await alice.loadPreferredGender(), 'Non_binary');
+    },
+  );
+
+  test(
     'manual choice is persistent and separate from the automatic hint',
     () async {
       const alice = OriginFeedCacheStore(ownerUid: 'u_alice');

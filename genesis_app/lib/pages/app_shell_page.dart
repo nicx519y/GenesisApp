@@ -87,6 +87,8 @@ class _AppShellPageState extends State<AppShellPage>
   Timer? _attDelayTimer;
   var _attWaitingForResume = false;
   var _attScheduleStarted = false;
+  var _attRequestInFlight = false;
+  var _attResumeGeneration = 0;
   var _initialBillingRecoveryStarted = false;
   late bool _hasSeenResumed;
   String? _lastBillingRecoveryUid;
@@ -170,6 +172,7 @@ class _AppShellPageState extends State<AppShellPage>
     final isFirstObservedResume = !_hasSeenResumed;
     _lifecycleState = state;
     if (state == AppLifecycleState.resumed) {
+      if (previousState != AppLifecycleState.resumed) _attResumeGeneration++;
       _schedulePendingDailyCheckIn();
       _hasSeenResumed = true;
       _startInitialBillingRecoveryIfReady();
@@ -178,7 +181,6 @@ class _AppShellPageState extends State<AppShellPage>
         unawaited(_recoverBilling(BillingRecoverySource.foreground));
       }
       if (_attWaitingForResume) {
-        _attWaitingForResume = false;
         _requestAttIfNeeded();
       }
       if (AppStartupCoordinator.isPostLaunchWorkAllowed) {
@@ -205,25 +207,59 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _requestAttIfNeeded() {
-    if (!mounted) return;
+    if (!mounted || _attRequestInFlight) return;
     if (_lifecycleState != null &&
         _lifecycleState != AppLifecycleState.resumed) {
       _attWaitingForResume = true;
       return;
     }
-    if (!AppStartupCoordinator.claimAttRequest()) return;
+    _attWaitingForResume = false;
     unawaited(_requestAtt());
   }
 
   Future<void> _requestAtt() async {
+    _attRequestInFlight = true;
+    final resumeGeneration = _attResumeGeneration;
+    var claimed = false;
+    var shouldRetry = false;
     try {
       final status = await widget.trackingAuthorizationStatus();
+      if (!mounted) return;
+      if (status == AppTrackingAuthorizationStatus.unknown) {
+        shouldRetry = true;
+        return;
+      }
       if (status != AppTrackingAuthorizationStatus.notDetermined) return;
+      // Reading native status is asynchronous. A permission prompt or a
+      // background transition can arrive before its result comes back.
+      if (_lifecycleState != null &&
+          _lifecycleState != AppLifecycleState.resumed) {
+        shouldRetry = true;
+        return;
+      }
+      if (!AppStartupCoordinator.claimAttRequest()) return;
+      claimed = true;
       final result = await widget.requestTrackingAuthorization();
+      shouldRetry =
+          result == AppTrackingAuthorizationStatus.notDetermined ||
+          result == AppTrackingAuthorizationStatus.unknown;
       debugPrint('[ATT] authorization result: $result');
     } catch (error, stackTrace) {
+      shouldRetry = true;
       debugPrint('[ATT] authorization request failed: $error');
       debugPrint('[ATT] stacktrace:\n$stackTrace');
+    } finally {
+      if (claimed && shouldRetry) AppStartupCoordinator.releaseAttRequest();
+      _attRequestInFlight = false;
+      if (mounted && shouldRetry) {
+        _attWaitingForResume = true;
+        // The app may resume before the native callback arrives. Only retry
+        // after that request completes, and never spin on an unresolved result.
+        if (_lifecycleState == AppLifecycleState.resumed &&
+            _attResumeGeneration != resumeGeneration) {
+          _requestAttIfNeeded();
+        }
+      }
     }
   }
 

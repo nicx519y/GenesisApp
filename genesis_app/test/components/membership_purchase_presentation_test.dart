@@ -9,6 +9,7 @@ import 'package:genesis_flutter_android/app/membership/membership_access_store.d
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
@@ -21,6 +22,7 @@ import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 Widget subscription(
   service.Harness h, {
   bool closeOnSuccess = false,
+  VoidCallback? onCloseAfterSuccess,
   MembershipAccessStore? membership,
 }) => ProSubscriptionContent(
   productsLoader: () async => MembershipCatalogData(
@@ -32,6 +34,7 @@ Widget subscription(
   purchaseService: h.service,
   membershipAccess: membership,
   closeOnPurchaseSuccess: closeOnSuccess,
+  onCloseAfterPurchaseSuccess: onCloseAfterSuccess,
 );
 
 Future<void> open(WidgetTester tester, service.Harness h) async {
@@ -59,7 +62,7 @@ void main() {
 
   for (final provider in MembershipProvider.values) {
     testWidgets(
-      '$provider active yearly member buying monthly reaches the store and uses its callback',
+      '$provider active yearly member buying monthly shows the downgrade action dialog',
       (tester) async {
         final h = service.Harness(provider: provider);
         addTearDown(h.service.dispose);
@@ -82,6 +85,7 @@ void main() {
           readLoginUid: () async => h.uid,
           serverNow: () => DateTime.utc(2026),
         );
+        h.membershipAccessHandler = () async => membership.state.value;
         try {
           tester.view.physicalSize = const Size(390, 844);
           tester.view.devicePixelRatio = 1;
@@ -101,50 +105,35 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text(r'Monthly: $9.99'), findsOneWidget);
           await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
-          await tester.pump(const Duration(milliseconds: 300));
-          expect(h.eligibilityQueries, 1);
-          expect(walletRequests, requestsBeforePurchase);
-          expect(h.platform.launches, 1);
-          expect(h.platform.product?.isYearly, isFalse);
-          expect(h.reports, isEmpty);
-          expect(find.text('Purchasing Premium'), findsOneWidget);
-          expect(find.text('Notification'), findsNothing);
-          final google = provider == MembershipProvider.google;
-          await h.service.interceptPurchase(
-            BillingPurchase(
-              provider: google
-                  ? BillingProvider.googlePlay
-                  : BillingProvider.appStore,
-              productId: h.product().storeProductId,
-              purchaseToken: '',
-              transactionId: '',
-              originalTransactionId: '',
-              originalJson: '',
-              purchaseTime: '',
-              status: BillingPurchaseStatus.error,
-              errorCode: google
-                  ? 'itemAlreadyOwned'
-                  : 'raw StoreKit purchase error',
-              errorMessage: 'original store message',
-              errorDetails: google
-                  ? null
-                  : {'storeKitCode': 'ineligible_for_offer'},
-            ),
-          );
           await tester.pumpAndSettle();
+          expect(h.eligibilityQueries, 0);
+          expect(walletRequests, requestsBeforePurchase);
+          expect(h.platform.launches, 0);
+          expect(h.reports, isEmpty);
           expect(find.text('Purchasing Premium'), findsNothing);
-          expect(find.text('Notification'), findsNothing);
+          expect(find.text('Notification'), findsOneWidget);
+          expect(find.byType(GenesisActionBox<bool>), findsOneWidget);
           expect(
-            find.textContaining(
-              google
-                  ? 'You already own this subscription on Google Play.'
-                  : 'Your Apple Account is not eligible for this subscription offer.',
+            find.text(
+              'Worldo Premium is active in your subscription and does not support downgrades.',
             ),
             findsOneWidget,
           );
-          expect(h.reports, isEmpty);
+          expect(
+            find.textContaining(
+              'An active yearly Premium subscription cannot be changed to a monthly plan.',
+            ),
+            findsNothing,
+          );
+          expect(find.text('Cancel'), findsNothing);
           expect(h.service.isBusy, isFalse);
           await tester.pump(const Duration(seconds: 3));
+          expect(find.text('Notification'), findsOneWidget);
+          await tester.tap(find.text('Got It'));
+          await tester.pumpAndSettle();
+          expect(find.byType(Dialog), findsNothing);
+          expect(find.byType(ProSubscriptionContent), findsOneWidget);
+          expect(find.text(r'Monthly: $9.99'), findsOneWidget);
         } finally {
           membership.dispose();
           wallet.dispose();
@@ -251,7 +240,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Purchase successful!'), findsOneWidget);
       expect(
-        find.text('Premium have been granted.', findRichText: true),
+        find.text(
+          'Your Worldo Premium subscription is now active.',
+          findRichText: true,
+        ),
         findsOneWidget,
       );
       expect(
@@ -261,8 +253,8 @@ void main() {
       expect(find.byType(CircularProgressIndicator), findsNothing);
       await navigator.maybePop();
       await tester.pump();
-      expect(find.text('Enjoy it'), findsOneWidget);
-      await tester.tap(find.text('Enjoy it'));
+      expect(find.text('Continue'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
       expect(dialog, findsNothing);
       expect(find.byType(ProSubscriptionContent), findsOneWidget);
@@ -324,16 +316,16 @@ void main() {
         expect(find.text('Purchase successful!'), findsNothing);
         expect(find.byType(ProSubscriptionContent), findsOneWidget);
         final message = switch (outcome) {
-          'cancelled' => 'Premium purchase canceled.',
-          'pending' => 'Premium payment is pending.',
-          'accepted' => 'Your Premium purchase is being confirmed.',
+          'cancelled' => 'Purchase canceled.',
+          'pending' => 'Your purchase is pending.',
+          'accepted' => 'Your purchase is being confirmed.',
           'deferred' || 'storage failure' || 'stream failure' =>
-            'Premium purchase confirmation is delayed. Please check again later.',
+            'Purchase confirmation is delayed. Please check again later.',
           'failed' =>
             'The store could not open this Premium purchase. Please try again.',
           'query failure' =>
             'This Premium subscription is currently unavailable in the store. Please refresh the page and try again.',
-          _ => 'Premium purchase failed.',
+          _ => 'Purchase failed.',
         };
         final toast = find.textContaining('\n$message');
         expect(toast, findsOneWidget);
@@ -376,7 +368,7 @@ void main() {
       await h.service.interceptPurchase(h.purchase(yearly: true));
       await tester.pumpAndSettle();
       expect(find.text('Purchase successful!'), findsOneWidget);
-      await tester.tap(find.text('Enjoy it'));
+      await tester.tap(find.text('Continue'));
       await tester.pumpAndSettle();
     },
   );
@@ -450,55 +442,75 @@ void main() {
     expect(find.text('Destination'), findsOneWidget);
   });
 
-  testWidgets(
-    'success OK closes the purchase sheet, while cancellation keeps it open',
-    (tester) async {
-      final h = service.Harness();
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: GenesisTheme.light(),
-          home: Scaffold(
-            body: Builder(
-              builder: (context) => TextButton(
-                onPressed: () => showModalBottomSheet<void>(
-                  context: context,
-                  isScrollControlled: true,
-                  builder: (_) => SizedBox(
-                    height: 740,
-                    child: subscription(h, closeOnSuccess: true),
+  for (final scenario in [
+    (blockBack: false, explicitClose: false),
+    (blockBack: true, explicitClose: false),
+    (blockBack: true, explicitClose: true),
+  ]) {
+    testWidgets(
+      'success Continue respects host close policy and cancel keeps sheet open: $scenario',
+      (tester) async {
+        final h = service.Harness();
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GenesisTheme.light(),
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => TextButton(
+                  onPressed: () => showModalBottomSheet<void>(
+                    context: context,
+                    isScrollControlled: true,
+                    builder: (sheetContext) => PopScope(
+                      canPop: !scenario.blockBack,
+                      child: SizedBox(
+                        height: 740,
+                        child: subscription(
+                          h,
+                          closeOnSuccess: true,
+                          onCloseAfterSuccess: scenario.explicitClose
+                              ? () => Navigator.of(sheetContext).pop()
+                              : null,
+                        ),
+                      ),
+                    ),
                   ),
+                  child: const Text('Open'),
                 ),
-                child: const Text('Open'),
               ),
             ),
           ),
-        ),
-      );
-      await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
-      await tester.pump(const Duration(milliseconds: 250));
-      await h.service.interceptPurchase(
-        h.purchase(yearly: true, status: BillingPurchaseStatus.canceled),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(ProSubscriptionContent), findsOneWidget);
-      expect(h.service.isBusy, isFalse);
-      await tester.pump(const Duration(seconds: 3));
-      await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('Purchasing Premium'), findsOneWidget);
-      expect(h.platform.launches, 2);
-      await h.service.interceptPurchase(h.purchase(yearly: true));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Enjoy it'));
-      await tester.pumpAndSettle();
-      expect(find.byType(ProSubscriptionContent), findsNothing);
-      expect(find.text('Open'), findsOneWidget);
-    },
-  );
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+        await tester.pump(const Duration(milliseconds: 250));
+        await h.service.interceptPurchase(
+          h.purchase(yearly: true, status: BillingPurchaseStatus.canceled),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(ProSubscriptionContent), findsOneWidget);
+        expect(h.service.isBusy, isFalse);
+        await tester.pump(const Duration(seconds: 3));
+        await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(find.text('Purchasing Premium'), findsOneWidget);
+        expect(h.platform.launches, 2);
+        await h.service.interceptPurchase(h.purchase(yearly: true));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Continue'));
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(ProSubscriptionContent),
+          scenario.blockBack && !scenario.explicitClose
+              ? findsOneWidget
+              : findsNothing,
+        );
+        expect(find.text('Open'), findsOneWidget);
+      },
+    );
+  }
 }

@@ -7,6 +7,7 @@ import '../../app/membership/membership_purchase_eligibility.dart';
 import '../../network/models/membership_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
+import '../common/genesis_action_box.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_modal_routes.dart';
 import 'gem_billing_purchase_dialog.dart';
@@ -16,6 +17,21 @@ Future<void> showMembershipPurchaseFailure(
   String reason, {
   String? debugInfo,
 }) async {
+  if (reason == 'downgrade_not_allowed') {
+    await showGenesisActionBox<bool>(
+      context: context,
+      title: 'Notification',
+      titleHeight: null,
+      titleContent: const Text(
+        'Worldo Premium is active in your subscription and does not support downgrades.',
+        textAlign: TextAlign.center,
+        style: TextStyle(fontSize: 14, height: 1.4),
+      ),
+      actions: const [GenesisActionBoxAction(label: 'Got It', value: true)],
+      showCancel: false,
+    );
+    return;
+  }
   showGenesisToast(
     context,
     membershipPurchaseFailureMessage(reason, debugInfo: debugInfo),
@@ -127,7 +143,7 @@ class MembershipPurchasePresentation {
           showGenesisToast(
             context,
             purchaseToastMessage(
-              'Premium purchase failed.',
+              'Purchase failed.',
               debugInfo: purchaseDebugInfo(
                 'vip.checkout_exception',
                 error: error,
@@ -154,13 +170,12 @@ class MembershipPurchasePresentation {
   }
 
   String _message(MembershipCheckoutState state) => switch (state) {
-    MembershipCheckoutState.canceled => 'Premium purchase canceled.',
-    MembershipCheckoutState.pending => 'Premium payment is pending.',
-    MembershipCheckoutState.accepted =>
-      'Your Premium purchase is being confirmed.',
+    MembershipCheckoutState.canceled => 'Purchase canceled.',
+    MembershipCheckoutState.pending => 'Your purchase is pending.',
+    MembershipCheckoutState.accepted => 'Your purchase is being confirmed.',
     MembershipCheckoutState.deferred =>
-      'Premium purchase confirmation is delayed. Please check again later.',
-    _ => 'Premium purchase failed.',
+      'Purchase confirmation is delayed. Please check again later.',
+    _ => 'Purchase failed.',
   };
 
   void _close(bool confirmed) {

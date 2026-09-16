@@ -432,7 +432,7 @@ void main() {
           (await catalog.readCheckoutProducts()).products.single.priceAmount,
           11999,
         );
-        await tester.tap(find.text('Enjoy it'));
+        await tester.tap(find.text('Continue'));
         await tester.pumpAndSettle();
         expect(find.text(r'Yearly: $119.99'), findsOneWidget);
         expect(calls, 2);

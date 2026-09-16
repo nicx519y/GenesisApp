@@ -45,6 +45,7 @@ class ProSubscriptionContent extends StatefulWidget {
     this.membershipAccess,
     this.refreshMembershipOnOpen = true,
     this.closeOnPurchaseSuccess = false,
+    this.onCloseAfterPurchaseSuccess,
     this.showHeading = true,
     this.headingTopSpacing = 22,
     this.topSpacing = 10,
@@ -58,6 +59,10 @@ class ProSubscriptionContent extends StatefulWidget {
   final MembershipAccessStore? membershipAccess;
   final bool refreshMembershipOnOpen;
   final bool closeOnPurchaseSuccess;
+
+  /// Optional host-owned close when [closeOnPurchaseSuccess] is enabled.
+  /// Onboarding uses this to acknowledge success past its system-back guard.
+  final VoidCallback? onCloseAfterPurchaseSuccess;
 
   /// False where the host's own header already titles the page, so the body
   /// drops the whole heading block rather than repeating it.
@@ -264,7 +269,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       showGenesisToast(
         context,
         purchaseToastMessage(
-          'Premium purchase is unavailable.',
+          'Purchases are currently unavailable.',
           debugInfo: purchaseDebugInfo(
             'vip.precheck',
             reason: 'service_unavailable',
@@ -286,7 +291,12 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
         mounted &&
         widget.closeOnPurchaseSuccess &&
         ModalRoute.of(context)?.isCurrent == true) {
-      await Navigator.of(context).maybePop();
+      final close = widget.onCloseAfterPurchaseSuccess;
+      if (close != null) {
+        close();
+      } else {
+        await Navigator.of(context).maybePop();
+      }
     }
   }
 
