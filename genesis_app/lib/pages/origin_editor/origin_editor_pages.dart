@@ -543,6 +543,9 @@ class _OriginDraftFlowPageState extends State<OriginDraftFlowPage> {
     final submitLabel = _submitButtonLabel();
     final submitButton = GenesisPrimaryButton(
       label: submitLabel,
+      isLoading:
+          _isSubmitting || widget.submitStatus != OriginDraftSubmitStatus.idle,
+      showLoadingIndicator: false,
       width: _primaryActionButtonWidth(context),
       onPressed: canUseSubmitButton ? () => unawaited(_submit()) : null,
       onDisabledPressed: _showSubmitDisabledReason,
