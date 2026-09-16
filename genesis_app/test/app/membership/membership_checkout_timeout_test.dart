@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
@@ -10,7 +11,27 @@ import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'membership_purchase_service_test.dart';
 
 void main() {
+  testWidgets('listener startup failure ends checkout before store launch', (
+    tester,
+  ) async {
+    final h = Harness(
+      ensureStoreListening: () async =>
+          throw PlatformException(code: 'test_listener_unavailable'),
+    );
+    final events = <MembershipCheckoutEvent>[];
+    h.service.checkoutEvents.listen(events.add);
+    await h.service.purchase(h.product(), attemptId: 'listener-failure');
+    await tester.pump();
+    expect(h.service.state.value, MembershipCheckoutState.failed);
+    expect(h.service.isBusy, isFalse);
+    expect(h.platform.launches, 0);
+    expect(h.reports, isEmpty);
+    expect(events.last.attemptId, 'listener-failure');
+    expect(events.last.debugInfo, contains('vip.start_store_listener'));
+  });
+
   for (final stage in [
+    'listener',
     'cache',
     'identity',
     'eligibility',
@@ -22,7 +43,6 @@ void main() {
       testWidgets(
         '$stage timeout ignores late ${failsLate ? 'failure' : 'result'}',
         (tester) async {
-          final h = Harness();
           final gate = Completer<void>();
           var entered = false;
           Future<void> block() {
@@ -30,7 +50,12 @@ void main() {
             return gate.future;
           }
 
+          final h = Harness(
+            ensureStoreListening: stage == 'listener' ? block : null,
+          );
           switch (stage) {
+            case 'listener':
+              break;
             case 'cache':
               h.store.onLoad = block;
             case 'identity':

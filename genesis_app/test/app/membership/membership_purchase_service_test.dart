@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -189,6 +190,8 @@ class Harness {
   Future<MembershipAccessState> Function()? membershipAccessHandler;
   Harness({
     this.provider = MembershipProvider.google,
+    SubscriptionAnalytics? analytics,
+    Future<void> Function()? ensureStoreListening,
     Future<MembershipProductList> Function()? checkoutProducts,
     PendingStore? storage,
     bool restoreEnabled = false,
@@ -199,6 +202,8 @@ class Harness {
     Duration guestRecoveryTimeout = const Duration(seconds: 15),
   }) : store = storage ?? PendingStore() {
     service = MembershipPurchaseService(
+      analytics: analytics,
+      ensureStoreListening: ensureStoreListening,
       platform: platform,
       store: store,
       provider: provider,

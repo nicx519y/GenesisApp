@@ -411,6 +411,8 @@ BillingPurchase _toBillingPurchase(PurchaseDetails purchase) {
     purchaseTime: purchase.transactionDate ?? '',
     status: status,
     obfuscatedAccountId: googlePurchase?.obfuscatedAccountId,
+    errorSource: purchase.error?.source,
+    rawErrorCode: purchase.error?.code,
     errorCode: googlePlayPurchaseErrorCode(
       code: purchase.error?.code,
       message: purchase.error?.message,

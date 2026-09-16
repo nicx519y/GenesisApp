@@ -2,6 +2,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../components/gems/subscription_tracking_scope.dart';
+import '../app/membership/subscription_analytics.dart';
 import '../app/bootstrap/app_services_scope.dart';
 import '../app/debug/origin_world_sheet_debug_settings.dart';
 import '../pages/app_shell_page.dart';
@@ -32,6 +34,20 @@ import '../components/discuss/origin_discuss_list.dart';
 import '../ui/navigation/genesis_dark_page_route.dart';
 import '../components/chat/shared/chat_ui.dart';
 import '../components/gems/purchase_session_builder.dart';
+
+export '../app/membership/subscription_analytics.dart' show SubscriptionSource;
+
+class GemWalletRouteArgs {
+  const GemWalletRouteArgs.subscription(this.subscriptionSource)
+    : showSubscription = true,
+      gemsSource = null;
+  const GemWalletRouteArgs.gems(this.gemsSource)
+    : showSubscription = false,
+      subscriptionSource = SubscriptionSource.unknown;
+  final bool showSubscription;
+  final SubscriptionSource subscriptionSource;
+  final String? gemsSource;
+}
 
 sealed class RouteNames {
   static const shell = '/';
@@ -708,13 +724,29 @@ sealed class AppRouter {
           builder: (_) => LegalDocumentPage(document: args.document),
         );
       case RouteNames.gemWallet:
+        final args = settings.arguments;
+        final purchaseArgs = args is GemWalletRouteArgs ? args : null;
+        final showSubscription =
+            purchaseArgs?.showSubscription ?? args == 'subscription';
+        SubscriptionPageTracking? tracking;
         return GenesisDarkPageRoute<void>(
           settings: settings,
           builder: (_) => PurchaseSessionBuilder(
-            builder: (_, showBuyGems) => GemWalletPage(
-              showBuyGems: showBuyGems,
-              showSubscriptionInitially: settings.arguments == 'subscription',
-            ),
+            builder: (_, showBuyGems) {
+              tracking ??= SubscriptionPageTracking(
+                surface: SubscriptionSurface.page,
+                source: showSubscription || !showBuyGems
+                    ? purchaseArgs?.subscriptionSource ??
+                          SubscriptionSource.unknown
+                    : SubscriptionSource.buyGemsTab,
+              );
+              return GemWalletPage(
+                showBuyGems: showBuyGems,
+                showSubscriptionInitially: showSubscription,
+                subscriptionTracking: tracking,
+                gemsSource: purchaseArgs?.gemsSource,
+              );
+            },
           ),
         );
       case RouteNames.gemRecords:

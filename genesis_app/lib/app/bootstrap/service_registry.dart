@@ -241,6 +241,12 @@ class AppServices {
     sessionRevision.value += 1;
   }
 
+  /// Both initial bootstrap and config replacement must subscribe before checkout.
+  void startPurchaseServices() {
+    unawaited(billing?.start());
+    unawaited(membershipPurchases?.start());
+  }
+
   void dispose() {
     membershipPurchases?.catalogRevision.removeListener(
       membershipCatalog.invalidate,
@@ -421,6 +427,7 @@ class ServiceRegistry {
             platform: StoreMembershipCheckoutPlatform(),
             store: SecureMembershipPendingStore(),
             provider: membershipProvider,
+            ensureStoreListening: () => billing!.start(),
             readLoginUid: sessionStore.readLoginUid,
             readCheckoutProducts: () =>
                 services.membershipCatalog.readCheckoutProducts(),
@@ -518,7 +525,9 @@ class ServiceRegistry {
   static AppServices rebuildFrom(
     AppServices current, {
     required AppConfig config,
+    String reason = 'config_change',
   }) {
+    if (kDebugMode) debugPrint('[AppServices] rebuild; reason=$reason');
     final updated = build(
       config: config,
       deviceIdOverride: current.deviceId,
@@ -527,6 +536,7 @@ class ServiceRegistry {
       sessionRevisionOverride: current.sessionRevision,
       chatroomMessagesOverride: current.chatroomMessages,
     );
+    updated.startPurchaseServices();
     unawaited(updated.membership.start());
     return updated;
   }

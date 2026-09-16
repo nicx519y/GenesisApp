@@ -412,6 +412,7 @@ class GenesisTelemetry {
     Object? object3,
     Object? object4,
     String extData = '',
+    String? eventId,
   }) async {
     final normalizedActionType = actionType.trim();
     final normalizedAction = action.trim();
@@ -427,7 +428,10 @@ class GenesisTelemetry {
       'object4': object4,
       'ext_data': extData,
     };
-    final enqueued = await _collectUploader.enqueuePayloadWithResult(payload);
+    final enqueued = await _collectUploader.enqueuePayloadWithResult(
+      payload,
+      eventId: eventId,
+    );
     unawaited(
       _sink.record(
         GenesisTelemetryEvent(

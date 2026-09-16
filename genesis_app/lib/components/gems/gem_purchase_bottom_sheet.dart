@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'subscription_tracking_scope.dart';
+import '../../app/membership/subscription_analytics.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/gem_wallet_store.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
@@ -69,6 +71,7 @@ Future<void> showGemPurchaseBottomSheet(
       heightFactor: 0.8,
       alignment: Alignment.bottomCenter,
       child: PurchaseOptionsSheet(
+        analyticsPageId: payTrackPageId,
         gemsBuilder: (_) => GemPurchaseBottomSheet(
           productsLoader: resolvedProductsLoader,
           walletStore: resolvedWalletStore,
@@ -80,10 +83,17 @@ Future<void> showGemPurchaseBottomSheet(
   );
 }
 
-Future<void> showSubscriptionPurchaseBottomSheet(BuildContext context) async {
+Future<void> showSubscriptionPurchaseBottomSheet(
+  BuildContext context, {
+  SubscriptionSource source = SubscriptionSource.unknown,
+}) async {
   final services = AppServicesScope.maybeRead(context);
   final billingService = services?.billing;
   final payTrackPageId = newBillingTrackPageId();
+  final subscriptionTracking = SubscriptionPageTracking(
+    pageId: payTrackPageId,
+    source: source,
+  );
   await showGenesisModalBottomSheet<void>(
     context: context,
     useRootNavigator: true,
@@ -99,6 +109,11 @@ Future<void> showSubscriptionPurchaseBottomSheet(BuildContext context) async {
         builder: (_, showBuyGems) => PurchaseOptionsSheet(
           showBuyGems: showBuyGems,
           initialTab: PurchaseSheetTab.subscription,
+          analyticsPageId: payTrackPageId,
+          subscriptionSource: source,
+          subscriptionTracking: subscriptionTracking,
+          onFirstBuyGems: () =>
+              _trackGemPurchaseSheetShow('subscription_tab', payTrackPageId),
           gemsBuilder: (_) => services == null || billingService == null
               ? const SizedBox.expand()
               : GemPurchaseBottomSheet(

@@ -66,7 +66,11 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       await clearGatewayAuthLocalState();
       if (!mounted) return;
       final config = AppServicesScope.read(context).config;
-      AppServicesScope.replaceWithConfig(context, config);
+      AppServicesScope.replaceWithConfig(
+        context,
+        config,
+        reason: 'developer_gateway_reset',
+      );
       showGenesisToast(context, 'Gateway auth cleared');
     } catch (error) {
       if (!mounted) return;
@@ -140,6 +144,9 @@ extension _DeveloperEndpointActions on _DeveloperPageContentState {
       final updatedServices = AppServicesScope.replaceWithConfig(
         context,
         config,
+        reason: signOutCurrentSession
+            ? 'developer_environment_switch'
+            : 'developer_endpoint_save',
       );
       if (signOutCurrentSession) {
         updatedServices.notifySessionChanged();

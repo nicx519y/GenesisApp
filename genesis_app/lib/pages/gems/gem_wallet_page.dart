@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/membership/subscription_analytics.dart';
+import '../../components/gems/subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/debug_page_tracker.dart';
@@ -54,6 +56,9 @@ class GemWalletPage extends StatefulWidget {
     super.key,
     this.showSubscriptionInitially = false,
     this.showBuyGems = true,
+    this.subscriptionSource = SubscriptionSource.unknown,
+    this.subscriptionTracking,
+    this.gemsSource,
     this.productsLoader,
     this.membershipProductsLoader,
     this.tasksLoader,
@@ -68,6 +73,9 @@ class GemWalletPage extends StatefulWidget {
   final MembershipCatalogLoader? membershipProductsLoader;
   final bool showSubscriptionInitially;
   final bool showBuyGems;
+  final SubscriptionSource subscriptionSource;
+  final SubscriptionPageTracking? subscriptionTracking;
+  final String? gemsSource;
   final GemTasksLoader? tasksLoader;
   final GemWalletStore? walletStore;
   final BillingService? billingService;
@@ -125,7 +133,8 @@ class _GemWalletPageState extends State<GemWalletPage>
   final Map<String, String> _taskStatusOverrides = <String, String>{};
   final ValueNotifier<BillingState> _idleBillingState =
       ValueNotifier<BillingState>(BillingState());
-  late final String _payTrackPageId = newBillingTrackPageId();
+  late final String _payTrackPageId =
+      widget.subscriptionTracking?.pageId ?? newBillingTrackPageId();
   ValueNotifier<GemBillingPurchaseDialogState>? _billingPurchaseDialogState;
   bool _billingPurchaseDialogShowing = false;
   bool _billingPurchaseDialogDismissing = false;
@@ -134,12 +143,22 @@ class _GemWalletPageState extends State<GemWalletPage>
   late bool _subscriptionVisited;
   late bool _gemsVisited;
   AppServices? _membershipServices;
+  late final SubscriptionPageTracking _subscriptionTracking;
 
   @override
   void initState() {
     super.initState();
     _subscriptionVisited =
         !widget.showBuyGems || widget.showSubscriptionInitially;
+    _subscriptionTracking =
+        widget.subscriptionTracking ??
+        SubscriptionPageTracking(
+          pageId: _payTrackPageId,
+          surface: SubscriptionSurface.page,
+          source: _subscriptionVisited
+              ? widget.subscriptionSource
+              : SubscriptionSource.buyGemsTab,
+        );
     _gemsVisited = !_subscriptionVisited;
     _purchaseTabs = TabController(
       length: widget.showBuyGems ? 2 : 1,
@@ -226,6 +245,9 @@ class _GemWalletPageState extends State<GemWalletPage>
       action: 'buy_page_show',
       object1: BillingPurchaseSource.buyGemsPage.value,
       object2: billingPageTrackId(_payTrackPageId),
+      object3: widget.showSubscriptionInitially || !widget.showBuyGems
+          ? 'subscription_tab'
+          : widget.gemsSource,
     );
   }
 
@@ -274,12 +296,15 @@ class _GemWalletPageState extends State<GemWalletPage>
               children: [
                 _WalletTabPage(
                   child: _subscriptionVisited
-                      ? ProSubscriptionContent(
-                          refreshMembershipOnOpen: false,
-                          closeOnPurchaseSuccess: true,
-                          horizontalInset: 16,
-                          headingTopSpacing: 10,
-                          productsLoader: widget.membershipProductsLoader,
+                      ? SubscriptionTrackingScope(
+                          page: _subscriptionTracking,
+                          child: ProSubscriptionContent(
+                            refreshMembershipOnOpen: false,
+                            closeOnPurchaseSuccess: true,
+                            horizontalInset: 16,
+                            headingTopSpacing: 10,
+                            productsLoader: widget.membershipProductsLoader,
+                          ),
                         )
                       : const SizedBox.expand(),
                 ),

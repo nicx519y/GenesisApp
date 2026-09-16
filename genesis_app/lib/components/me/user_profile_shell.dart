@@ -717,7 +717,11 @@ class _GemsBalanceEntry extends StatelessWidget {
             x < (pink.right + topUp.left) / 2;
         Navigator.of(context).pushNamed(
           RouteNames.gemWallet,
-          arguments: subscription ? 'subscription' : null,
+          arguments: subscription
+              ? const GemWalletRouteArgs.subscription(
+                  SubscriptionSource.mePinkGems,
+                )
+              : const GemWalletRouteArgs.gems('me_gems'),
         );
       },
       child: Container(
@@ -788,7 +792,10 @@ class _GemsBalanceEntry extends StatelessWidget {
                               behavior: HitTestBehavior.opaque,
                               onTap: () => Navigator.of(context).pushNamed(
                                 RouteNames.gemWallet,
-                                arguments: 'subscription',
+                                arguments:
+                                    const GemWalletRouteArgs.subscription(
+                                      SubscriptionSource.mePinkGems,
+                                    ),
                               ),
                               child: SizedBox(
                                 height: double.infinity,
