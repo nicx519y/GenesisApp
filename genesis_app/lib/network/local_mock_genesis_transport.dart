@@ -2719,7 +2719,8 @@ class _MockState {
       {
         'ledger_id': 'gl_mock_purchase_1',
         'order_id': 'ord_mock_purchase_1',
-        'amount_cent': 55000,
+        'membership_amount_cent': 0,
+        'regular_amount_cent': 55000,
         'scene': 'purchase',
         'reason_code': 'google_purchase',
         'title': 'Gem purchase',
@@ -2730,7 +2731,8 @@ class _MockState {
       {
         'ledger_id': 'gl_mock_task_1',
         'order_id': 'ord_mock_task_1',
-        'amount_cent': 2000,
+        'membership_amount_cent': 0,
+        'regular_amount_cent': 2000,
         'scene': 'task',
         'reason_code': 'daily_checkin',
         'title': 'Daily check-in',
@@ -2741,7 +2743,8 @@ class _MockState {
       {
         'ledger_id': 'gl_mock_spent_1',
         'order_id': 'ord_mock_spent_1',
-        'amount_cent': -2000,
+        'membership_amount_cent': 0,
+        'regular_amount_cent': -2000,
         'scene': 'world_tick',
         'reason_code': 'world_tick',
         'title': 'World progress',
@@ -2752,7 +2755,8 @@ class _MockState {
       {
         'ledger_id': 'gl_mock_task_2',
         'order_id': 'ord_mock_task_2',
-        'amount_cent': 5000,
+        'membership_amount_cent': 0,
+        'regular_amount_cent': 5000,
         'scene': 'task',
         'reason_code': 'send_message',
         'title': 'Send a message',
@@ -2765,11 +2769,11 @@ class _MockState {
         .where((record) {
           if (normalizedScene.isEmpty || normalizedScene == 'all') return true;
           if (normalizedScene == 'earned') {
-            return asInt(record['amount_cent']) > 0 &&
+            return asInt(record['regular_amount_cent']) > 0 &&
                 record['scene'] != 'purchase';
           }
           if (normalizedScene == 'spent') {
-            return asInt(record['amount_cent']) < 0;
+            return asInt(record['regular_amount_cent']) < 0;
           }
           return record['scene'] == normalizedScene;
         })

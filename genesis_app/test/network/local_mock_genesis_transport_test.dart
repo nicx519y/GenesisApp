@@ -1190,7 +1190,14 @@ void main() {
       rn: 10,
     );
     expect(spentRecords.items, isNotEmpty);
-    expect(spentRecords.items.every((record) => record.amountCent < 0), isTrue);
+    expect(
+      spentRecords.items.every(
+        (record) =>
+            (record.regularAmountCent ?? 0) < 0 ||
+            (record.membershipAmountCent ?? 0) < 0,
+      ),
+      isTrue,
+    );
 
     final origins = await api.v1.origin.list(scene: 'foryou', pn: 1, rn: 10);
     expect(origins['total'], greaterThanOrEqualTo(100));

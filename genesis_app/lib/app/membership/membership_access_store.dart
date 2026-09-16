@@ -113,7 +113,6 @@ class MembershipAccessStore with WidgetsBindingObserver {
   int _session = 0;
   _MembershipLookup? _operation;
   Future<MembershipAccessStatus>? _inFlight;
-  Timer? _expiryTimer;
   Timer? _cacheTimer;
   bool _started = false;
   bool _foreground = true;
@@ -213,7 +212,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
         wallet.state.value.lastError == null &&
         cached != MembershipAccessStatus.unknown &&
         (maxAge == null || age != null && age < maxAge)) {
-      _scheduleExpiry();
+      _scheduleCacheExpiry();
       _publish();
       return cached;
     }
@@ -301,7 +300,7 @@ class MembershipAccessStore with WidgetsBindingObserver {
     if (_membership == null || _status() == MembershipAccessStatus.unknown) {
       _failed(StateError('Membership information unavailable'));
     }
-    _scheduleExpiry();
+    _scheduleCacheExpiry();
   }
 
   Duration get _cacheAge =>
@@ -341,25 +340,12 @@ class MembershipAccessStore with WidgetsBindingObserver {
         !expiry.isAfter(now);
   }
 
-  void _scheduleExpiry() {
-    _expiryTimer?.cancel();
+  void _scheduleCacheExpiry() {
     _cacheTimer?.cancel();
     if (_receivedAt == null || _membership == null) return;
     final cacheRemaining = _cacheAge - (_elapsed() - _receivedAt!);
     if (cacheRemaining > Duration.zero) {
       _cacheTimer = Timer(cacheRemaining, _publish);
-    }
-    final expiry = _membership!.expiresAt;
-    final now = serverNow();
-    if (_membership!.status == 1 && expiry != null && now != null) {
-      final remaining = expiry.difference(now);
-      if (remaining > Duration.zero) {
-        _expiryTimer = Timer(remaining, () {
-          if (_disposed) return;
-          _publish();
-          if (_started && _foreground) unawaited(refresh());
-        });
-      }
     }
   }
 
@@ -405,7 +391,6 @@ class MembershipAccessStore with WidgetsBindingObserver {
   }
 
   void _clearSnapshot() {
-    _expiryTimer?.cancel();
     _cacheTimer?.cancel();
     _membership = null;
     _receivedAt = null;
@@ -430,7 +415,6 @@ class MembershipAccessStore with WidgetsBindingObserver {
     if (_disposed) return;
     _disposed = true;
     _session++;
-    _expiryTimer?.cancel();
     _cacheTimer?.cancel();
     wallet.state.removeListener(_walletChanged);
     if (_started) WidgetsBinding.instance.removeObserver(this);

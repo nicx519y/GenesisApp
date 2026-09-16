@@ -1,11 +1,83 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/components/gems/gem_assets.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/network/models/gem_records.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_records_page.dart';
 
 void main() {
+  for (final scenario
+      in <({int? regular, int? membership, List<(String, String)> expected})>[
+        (regular: 0, membership: 0, expected: [('-0.0', gemIconAsset)]),
+        (regular: -360, membership: 0, expected: [('-3.6', gemIconAsset)]),
+        (regular: 0, membership: -260, expected: [('-2.6', roseGemIconAsset)]),
+        (
+          regular: -100,
+          membership: -260,
+          expected: [('-1.0', gemIconAsset), ('-2.6', roseGemIconAsset)],
+        ),
+        (regular: null, membership: null, expected: []),
+        (regular: 0, membership: null, expected: []),
+        (regular: null, membership: 0, expected: []),
+        (regular: null, membership: -1, expected: [('-0.0', roseGemIconAsset)]),
+        (regular: -1, membership: null, expected: [('-0.0', gemIconAsset)]),
+        (regular: 0, membership: 5000, expected: [('+50.0', roseGemIconAsset)]),
+      ]) {
+    testWidgets('split amounts ${scenario.regular}/${scenario.membership}', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: GemRecordsPage(
+            recordsLoader: ({required scene, required pn, required rn}) async =>
+                GemRecordList(
+                  items: [
+                    GemRecordItem(
+                      ledgerId: 'split',
+                      regularAmountCent: scenario.regular,
+                      membershipAmountCent: scenario.membership,
+                      scene: 'world_tick',
+                      reasonCode: 'world_tick',
+                      title: 'Tick',
+                      subtitle: '',
+                      createdAt: 1,
+                      expiresAt: 0,
+                    ),
+                  ],
+                  total: 1,
+                  page: pn,
+                  pageSize: rn,
+                ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tile = find.byKey(const ValueKey('gem-record-item-split'));
+      final icons = find.descendant(
+        of: tile,
+        matching: find.byType(SvgPicture),
+      );
+      expect(icons, findsNWidgets(scenario.expected.length));
+      expect(
+        find.text('--'),
+        scenario.expected.isEmpty ? findsOneWidget : findsNothing,
+      );
+      for (var i = 0; i < scenario.expected.length; i++) {
+        final (text, asset) = scenario.expected[i];
+        expect(find.text(text), findsOneWidget);
+        final picture = tester.widget<SvgPicture>(icons.at(i));
+        expect((picture.bytesLoader as SvgAssetLoader).assetName, asset);
+        expect(
+          tester.getTopLeft(icons.at(i)).dx,
+          greaterThan(tester.getTopRight(find.text(text)).dx),
+        );
+      }
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   test('formats record time with the full date and time', () {
     expect(
       formatGemRecordTimestamp(_epochSeconds(DateTime(2026, 6, 3, 9, 2))),
@@ -26,7 +98,8 @@ void main() {
                   for (final amount in amounts)
                     GemRecordItem(
                       ledgerId: 'amount-$amount',
-                      amountCent: amount,
+                      membershipAmountCent: 0,
+                      regularAmountCent: amount,
                       scene: 'world_tick',
                       reasonCode: 'auto_tick',
                       title: 'Auto Tick',
@@ -48,12 +121,14 @@ void main() {
       final text = tester.widget<Text>(
         find.descendant(
           of: find.byKey(ValueKey('gem-record-item-amount-$amount')),
-          matching: find.text(amount < 0 ? '-0.0' : '+0.0'),
+          matching: find.text(amount <= 0 ? '-0.0' : '+0.0'),
         ),
       );
       expect(
         text.style?.color,
-        amount < 0 ? GenesisColors.darkTextPrimary : GenesisColors.redSecondary,
+        amount <= 0
+            ? GenesisColors.darkTextPrimary
+            : GenesisColors.redSecondary,
       );
     }
   });
@@ -86,7 +161,8 @@ void main() {
                   GemRecordItem(
                     ledgerId: 'ledger-1',
                     orderId: 'order-1',
-                    amountCent: 5000,
+                    membershipAmountCent: 0,
+                    regularAmountCent: 5000,
                     scene: 'task',
                     reasonCode: 'daily_checkin',
                     title: 'Daily check-in',
@@ -97,7 +173,8 @@ void main() {
                   ),
                   GemRecordItem(
                     ledgerId: 'ledger-2',
-                    amountCent: -400,
+                    membershipAmountCent: 0,
+                    regularAmountCent: -400,
                     scene: 'world_tick',
                     reasonCode: 'location_message',
                     title: 'Message',
@@ -204,7 +281,8 @@ void main() {
                 items: [
                   GemRecordItem(
                     ledgerId: 'ledger-1',
-                    amountCent: -400,
+                    membershipAmountCent: 0,
+                    regularAmountCent: -400,
                     scene: 'world_tick',
                     reasonCode: 'message',
                     title: 'Message',

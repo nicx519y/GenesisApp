@@ -798,7 +798,8 @@ void main() {
                 items: [
                   GemRecordItem(
                     ledgerId: 'gl_$scene',
-                    amountCent: 5000,
+                    membershipAmountCent: 0,
+                    regularAmountCent: 5000,
                     scene: 'task',
                     reasonCode: 'daily_checkin',
                     title: scene == 'earned'
