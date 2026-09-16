@@ -1,3 +1,4 @@
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -265,7 +266,7 @@ void main() {
     expect(find.byType(GenesisDarkCloseButton), findsOneWidget);
     expect(
       tester.widget<Text>(find.text('Subscription')).style?.color,
-      Colors.white,
+      GenesisColors.darkTextPrimary,
     );
 
     expect(find.byType(ProSubscriptionContent), findsOneWidget);

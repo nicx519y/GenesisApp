@@ -17,8 +17,8 @@ void main() {
   const screens = <double>[320, 360, 390, 430];
   const notes = <String>[
     // Shipped, then the design's own longer wording they were cut from.
-    'extra, daily check-in',
-    'claimed monthly',
+    'Extra, daily check-in',
+    'Claimed monthly',
     'extra, every daily check-in',
     'claimed once a month',
   ];

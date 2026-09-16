@@ -66,52 +66,57 @@ class GemBalancePanel extends StatelessWidget {
     return SizedBox(
       key: const ValueKey('gem-balance-panel'),
       width: double.infinity,
-      height: compact ? null : 95,
+      // Move the catalog up with the balance, preserving its original gap.
+      height: compact ? null : 90.5,
       // Left aligned against the content edge, with the gem reading as part of
       // the figure rather than as part of the label above it.
       child: Align(
-        alignment: Alignment.centerLeft,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'My Balance',
-              style: TextStyle(
-                fontSize: 14,
-                height: 18 / 14,
-                fontWeight: FontWeight.w600,
-                color: GenesisColors.darkTextSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                SvgPicture.asset(
-                  gemIconAsset,
-                  key: const ValueKey('gem-balance-icon'),
-                  width: gemLargeIconSize,
-                  height: gemLargeIconSize,
+        alignment: Alignment.topLeft,
+        child: Padding(
+          // Wallet adds 10 above the panel; title starts 20 below its header.
+          padding: EdgeInsets.only(top: compact ? 0 : 10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'My Balance',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 18 / 14,
+                  fontWeight: FontWeight.w600,
+                  color: GenesisColors.darkTextSecondary,
                 ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text.rich(
-                    gemBalanceTextSpan(balanceCent, fontSize: 30),
-                    key: balanceKey,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 30,
-                      height: 40 / 30,
-                      fontWeight: FontWeight.w600,
-                      color: GenesisColors.darkTextPrimary,
-                      letterSpacing: 0,
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  SvgPicture.asset(
+                    gemIconAsset,
+                    key: const ValueKey('gem-balance-icon'),
+                    width: gemLargeIconSize,
+                    height: gemLargeIconSize,
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text.rich(
+                      gemBalanceTextSpan(balanceCent, fontSize: 30),
+                      key: balanceKey,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 30,
+                        height: 40 / 30,
+                        fontWeight: FontWeight.w600,
+                        color: GenesisColors.darkTextPrimary,
+                        letterSpacing: 0,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

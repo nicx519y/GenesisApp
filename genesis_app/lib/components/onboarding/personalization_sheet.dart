@@ -515,7 +515,11 @@ class _PersonalizationHeader extends StatelessWidget {
             children: [
               SizedBox(width: 26, child: _SubscriptionCrown()),
               SizedBox(width: 5),
-              Flexible(child: PremiumWordmark()),
+              Flexible(
+                child: PremiumWordmark(
+                  textStyle: GenesisActionSheetHeader.titleStyle,
+                ),
+              ),
             ],
           )
         : null,

@@ -156,7 +156,7 @@ void main() {
 
     expect(
       tester.getSize(find.byKey(const ValueKey('gem-balance-panel'))).height,
-      95,
+      90.5,
     );
     final labelStyle = tester.widget<Text>(find.text('My Balance')).style;
     expect(labelStyle?.fontSize, 14);
@@ -177,13 +177,9 @@ void main() {
     final panelRect = tester.getRect(
       find.byKey(const ValueKey('gem-balance-panel')),
     );
-    // The label heads the panel and the gem now leads the figure a line below
-    // it, so the block is measured from the label and stays centred.
+    // Wallet's outer 10 plus this 10 places the label 20 below the header.
     final topGap = tester.getRect(find.text('My Balance')).top - panelRect.top;
-    final bottomGap =
-        panelRect.bottom - tester.getRect(find.text('430.0')).bottom;
-    expect(topGap, closeTo(bottomGap, 0.1));
-    expect(topGap, greaterThan(0));
+    expect(topGap, 10);
   });
 
   testWidgets('other products use backend activity label', (tester) async {

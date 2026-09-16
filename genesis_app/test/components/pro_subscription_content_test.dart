@@ -1,3 +1,6 @@
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
@@ -12,7 +15,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_catalog_cache.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
-import 'package:genesis_flutter_android/components/gems/pro_colors.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
@@ -401,54 +403,6 @@ void main() {
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {
-    testWidgets(
-      '$provider debug store order number appears above purchase after callback',
-      (tester) async {
-        final h = support.Harness(provider: provider);
-        final storeOrderId = provider == MembershipProvider.google
-            ? 'GPA.1111-2222-3333-44444'
-            : '9900123456789';
-        final label = find.byKey(const ValueKey('pro-debug-store-order-id'));
-        try {
-          await tester.pumpWidget(
-            page(
-              () async => MembershipCatalogData(
-                offers: [MembershipOffer(product: h.product(yearly: true))],
-              ),
-              service: h.service,
-            ),
-          );
-          await tester.pumpAndSettle();
-          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
-          expect(
-            tester.getBottomLeft(label).dy,
-            lessThan(tester.getTopLeft(find.byKey(buttonKey)).dy),
-          );
-          await tester.tap(find.byKey(buttonKey));
-          await tester.pump(const Duration(milliseconds: 250));
-          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
-          await h.service.interceptPurchase(
-            h.purchase(yearly: true, transaction: storeOrderId),
-          );
-          await tester.pumpAndSettle();
-          expect(find.text('debug 订单 id：$storeOrderId'), findsOneWidget);
-          expect(tester.widget<Text>(label).maxLines, 1);
-          await tester.tap(find.text('Enjoy it'));
-          await tester.pumpAndSettle();
-          expect(find.text('debug 订单 id：$storeOrderId'), findsOneWidget);
-          h.uid = 'another-user';
-          h.service.resetForSession();
-          await h.service.recover();
-          await tester.pumpAndSettle();
-          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
-          expect(tester.takeException(), isNull);
-        } finally {
-          await tester.pumpWidget(const SizedBox.shrink());
-          h.service.dispose();
-        }
-      },
-    );
-
     for (final signedIn in [false, true]) {
       testWidgets(
         '$provider signedIn=$signedIn repeated taps reuse the entry catalog and upgrade credentials',
@@ -852,13 +806,22 @@ void main() {
       tester.getTopLeft(find.text('Server enhanced')).dy,
       lessThan(tester.getTopLeft(find.text('Server locked')).dy),
     );
-    // An unrecognised icon_key still falls back to the circled star.
-    expect(find.byIcon(Icons.stars_outlined), findsOneWidget);
+    // Unknown keys use the same upgrade arrow as recharge.
+    final fallback = tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byKey(const ValueKey('pro-benefit-icon-included')),
+        matching: find.byType(SvgPicture),
+      ),
+    );
+    expect(
+      (fallback.bytesLoader as SvgAssetLoader).assetName,
+      upgradeIconAsset,
+    );
     // Design 30b carries no per-benefit status mark, so display_type no longer
     // changes how a row is drawn; every row reads the same.
     expect(
       tester.widget<Text>(find.text('Server locked')).style?.color,
-      premiumText,
+      GenesisColors.darkTextPrimary,
     );
     await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
     await tester.pumpAndSettle();

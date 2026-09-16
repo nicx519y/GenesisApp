@@ -82,12 +82,6 @@ const premiumGoldTagRing = Color(0x80F5C24B);
 const premiumGoldTagSolid = Color(0xFF3C3726);
 const premiumHairline = Color(0x24FFFFFF);
 const premiumRing = Color(0x1FFFFFFF);
-const premiumFill5 = Color(0x0DFFFFFF);
-const premiumFill55 = Color(0x0EFFFFFF);
-const premiumText = Color(0xFFF4F3F6);
-const premiumText50 = Color(0x80FFFFFF);
-const premiumText45 = Color(0x73FFFFFF);
-const premiumText28 = Color(0x47FFFFFF);
 const premiumInkOnGold = Color(0xFF2A1C05);
 
 /// The paywall button's sweep, `linear-gradient(100deg, …)`.

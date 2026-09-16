@@ -16,10 +16,6 @@ class WalletPurchaseTabs extends StatelessWidget {
     fontWeight: FontWeight.w600,
   );
 
-  /// The selected tab reads heavier, as design 30b sets it.
-  FontWeight _weightForTab(int index) =>
-      controller.index == index ? FontWeight.w800 : FontWeight.w600;
-
   /// The underline takes the colour of the tab it sits under, and crosses
   /// between them with the swipe rather than snapping at the end of it.
   Color _indicatorColor() {
@@ -40,15 +36,21 @@ class WalletPurchaseTabs extends StatelessWidget {
   }
 
   Color _colorForTab(int index) {
-    const selectedColor = Colors.white;
+    const selectedColor = GenesisColors.darkTextPrimary;
     // Taps select immediately; swipes use page progress before the controller
     // commits its new index at scroll end.
     if (controller.indexIsChanging) {
-      return controller.index == index ? selectedColor : premiumText45;
+      return controller.index == index
+          ? selectedColor
+          : GenesisColors.darkTextSecondary;
     }
     final page = controller.animation?.value ?? controller.index.toDouble();
     final selectedness = (1 - (page - index).abs()).clamp(0.0, 1.0);
-    return Color.lerp(premiumText45, selectedColor, selectedness)!;
+    return Color.lerp(
+      GenesisColors.darkTextSecondary,
+      selectedColor,
+      selectedness,
+    )!;
   }
 
   @override
@@ -76,8 +78,8 @@ class WalletPurchaseTabs extends StatelessWidget {
               tabAlignment: TabAlignment.fill,
               labelStyle: _labelStyle,
               unselectedLabelStyle: _labelStyle,
-              labelColor: Colors.white,
-              unselectedLabelColor: premiumText45,
+              labelColor: GenesisColors.darkTextPrimary,
+              unselectedLabelColor: GenesisColors.darkTextSecondary,
               labelWidgets: [
                 for (var index = 0; index < controller.length; index++)
                   SizedBox(
@@ -98,7 +100,7 @@ class WalletPurchaseTabs extends StatelessWidget {
                           softWrap: false,
                           style: measureStyle.copyWith(
                             color: _colorForTab(index),
-                            fontWeight: _weightForTab(index),
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),

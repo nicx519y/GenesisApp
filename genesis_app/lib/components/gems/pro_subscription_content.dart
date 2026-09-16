@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -365,7 +364,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                             fontSize: 14,
                             height: 1.35,
                             fontWeight: FontWeight.w400,
-                            color: premiumText50,
+                            color: GenesisColors.darkTextTertiary,
                           ),
                         ),
                       ],
@@ -394,7 +393,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                               fontSize: 12,
                               height: 1,
                               fontWeight: FontWeight.w400,
-                              color: premiumText45,
+                              color: GenesisColors.darkTextTertiary,
                             ),
                           ),
                           const SizedBox(height: 14),
@@ -451,21 +450,23 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                   ],
                 ),
               ),
-              if (kDebugMode)
-                SizedBox(
-                  height: 34,
-                  child: _DebugMembershipOrderId(
-                    orderId:
-                        (widget.purchaseService ??
-                                _services?.membershipPurchases)
-                            ?.debugStoreOrderId,
+              const SizedBox(
+                height: 35,
+                child: Center(
+                  child: Text(
+                    'Auto-renews. Cancel anytime.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: GenesisColors.darkTextTertiary,
+                    ),
                   ),
                 ),
-              const SizedBox(height: 20),
+              ),
               _buildSubscribeButton(selectedProduct),
               const SizedBox(height: 24),
               _buildLegalRow(context),
-              const SizedBox(height: 26),
+              const SizedBox(height: 10),
             ],
           ),
         ),
@@ -503,8 +504,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
             ? 'Subscribed'
             : '${_plan.label}: ${_offerFor(_plan)?.price?.formattedPrice ?? ''}',
         height: 44,
-        fontSize: 16,
-        fontWeight: FontWeight.w700,
+        fontSize: 18,
+        fontWeight: FontWeight.w600,
         borderRadius: radius,
         onPressed: _onSubscribePressed,
       ),
@@ -552,14 +553,16 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     fontSize: 12,
     height: 1,
     fontWeight: FontWeight.w500,
-    color: premiumText45,
+    color: GenesisColors.darkTextTertiary,
   );
 }
 
 /// "Worldo Premium" under a gold sweep, as on the profile card. Public so a
 /// sheet that titles itself with the plan can show the same lockup.
 class PremiumWordmark extends StatelessWidget {
-  const PremiumWordmark({super.key});
+  const PremiumWordmark({super.key, this.textStyle});
+
+  final TextStyle? textStyle;
 
   @override
   Widget build(BuildContext context) {
@@ -569,51 +572,21 @@ class PremiumWordmark extends StatelessWidget {
       // No compressed line height: at height 1 the glyphs sit above the centre
       // of their own box, which tips the wordmark off whatever is centred
       // beside it. The font's natural leading keeps the two level.
-      child: const Text(
+      child: Text(
         'Worldo Premium',
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.w900,
-          letterSpacing: -0.1,
-        ),
+        style:
+            textStyle ??
+            const TextStyle(
+              color: GenesisColors.darkTextPrimary,
+              fontSize: 20,
+              fontWeight: FontWeight.w900,
+              letterSpacing: -0.1,
+            ),
       ),
     );
   }
-}
-
-class _DebugMembershipOrderId extends StatelessWidget {
-  const _DebugMembershipOrderId({this.orderId});
-
-  final ValueListenable<String?>? orderId;
-
-  @override
-  Widget build(BuildContext context) {
-    final source = orderId;
-    if (source == null) return _label(null);
-    return ValueListenableBuilder<String?>(
-      valueListenable: source,
-      builder: (_, value, _) => _label(value),
-    );
-  }
-
-  Widget _label(String? value) => Center(
-    child: FittedBox(
-      fit: BoxFit.scaleDown,
-      child: Text(
-        'debug 订单 id：${value ?? '暂无'}',
-        key: const ValueKey('pro-debug-store-order-id'),
-        maxLines: 1,
-        style: const TextStyle(
-          fontSize: 10,
-          height: 1.2,
-          color: GenesisColors.darkTextSecondary,
-        ),
-      ),
-    ),
-  );
 }
 
 /// One line of the plan's copy: a gold check and the server's wording. The
@@ -665,7 +638,7 @@ class _ProBenefit extends StatelessWidget {
                   fontSize: 14,
                   height: 1.35,
                   fontWeight: FontWeight.w400,
-                  color: premiumText,
+                  color: GenesisColors.darkTextPrimary,
                 ),
               ),
             ),
@@ -751,9 +724,9 @@ class _GemGrantCard extends StatelessWidget {
     // wording is shortened to hold one line at 12px down to a 360 screen.
     final nameAt = lower.indexOf(name.toLowerCase());
     final note = lower.contains('check-in')
-        ? '${extra ? 'extra, ' : ''}daily check-in'
+        ? (extra ? 'Extra, daily check-in' : 'Daily check-in')
         : lower.contains('month')
-        ? 'claimed monthly'
+        ? 'Claimed monthly'
         : title.substring(nameAt + name.length).trim();
     return _GemGrantCardShell(
       child: Column(
@@ -780,7 +753,7 @@ class _GemGrantCard extends StatelessWidget {
                             style: const TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: premiumText45,
+                              color: GenesisColors.darkTextTertiary,
                             ),
                           ),
                       ],
@@ -791,7 +764,7 @@ class _GemGrantCard extends StatelessWidget {
                       fontSize: 14,
                       height: 1,
                       fontWeight: FontWeight.w800,
-                      color: premiumText,
+                      color: GenesisColors.darkTextPrimary,
                       fontFeatures: [FontFeature.tabularFigures()],
                     ),
                   ),
@@ -808,7 +781,7 @@ class _GemGrantCard extends StatelessWidget {
               fontSize: 12,
               height: 1,
               fontWeight: FontWeight.w700,
-              color: premiumText,
+              color: GenesisColors.darkTextPrimary,
             ),
           ),
           if (note.isNotEmpty) ...[const SizedBox(height: 5), _note(note)],
@@ -823,7 +796,7 @@ class _GemGrantCard extends StatelessWidget {
       fontSize: 12,
       height: 1.3,
       fontWeight: FontWeight.w400,
-      color: premiumText50,
+      color: GenesisColors.darkTextTertiary,
     ),
   );
 }
@@ -838,7 +811,7 @@ class _GemGrantCardShell extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 13),
       decoration: BoxDecoration(
-        color: premiumFill55,
+        color: GenesisColors.darkCardBackground,
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
@@ -874,7 +847,7 @@ class _ProPlanCard extends StatelessWidget {
           ).format(price.amountCent / 100 / offer!.product.billingMonths)
         : price.formattedPrice;
     final note = plan == _ProPlan.yearly
-        ? (price == null ? '' : '${price.formattedPrice}, billed annually')
+        ? (price == null ? '' : '${price.formattedPrice}, Billed annually')
         : 'Billed monthly';
     final showSavings =
         plan == _ProPlan.yearly && savings != null && savings! > 0;
@@ -894,7 +867,9 @@ class _ProPlanCard extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(14, 18, 14, 14),
               decoration: BoxDecoration(
-                color: selected ? premiumGoldTint : premiumFill5,
+                color: selected
+                    ? premiumGoldTint
+                    : GenesisColors.darkPurchaseCardBackground,
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
                   color: selected ? premiumGold : premiumRing,
@@ -913,7 +888,7 @@ class _ProPlanCard extends StatelessWidget {
                       fontSize: 14,
                       height: 1,
                       fontWeight: FontWeight.w700,
-                      color: premiumText,
+                      color: GenesisColors.darkTextPrimary,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -930,7 +905,7 @@ class _ProPlanCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w500,
-                              color: premiumText45,
+                              color: GenesisColors.darkTextTertiary,
                             ),
                           ),
                         ],
@@ -941,7 +916,9 @@ class _ProPlanCard extends StatelessWidget {
                         height: 1,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.2,
-                        color: selected ? premiumGoldLight : premiumText,
+                        color: selected
+                            ? premiumGoldLight
+                            : GenesisColors.darkTextPrimary,
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
@@ -955,7 +932,7 @@ class _ProPlanCard extends StatelessWidget {
                       fontSize: 12,
                       height: 1.25,
                       fontWeight: FontWeight.w400,
-                      color: premiumText45,
+                      color: GenesisColors.darkTextTertiary,
                     ),
                   ),
                 ],

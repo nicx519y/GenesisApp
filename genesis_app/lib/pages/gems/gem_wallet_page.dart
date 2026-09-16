@@ -274,6 +274,7 @@ class _GemWalletPageState extends State<GemWalletPage>
                           refreshMembershipOnOpen: false,
                           closeOnPurchaseSuccess: true,
                           horizontalInset: 16,
+                          headingTopSpacing: 10,
                           productsLoader: widget.membershipProductsLoader,
                         )
                       : const SizedBox.expand(),

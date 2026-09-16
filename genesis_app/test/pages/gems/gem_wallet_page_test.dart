@@ -17,7 +17,6 @@ import 'package:genesis_flutter_android/network/models/gem_task.dart';
 import 'package:genesis_flutter_android/network/models/gem_task_action.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_records_page.dart';
-import 'package:genesis_flutter_android/components/gems/pro_colors.dart';
 import 'package:genesis_flutter_android/pages/gems/gem_wallet_page.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_service.dart';
@@ -363,11 +362,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('Buy Gems')).style?.color,
-        Colors.white,
+        GenesisColors.darkTextPrimary,
       );
       expect(
         tester.widget<Text>(find.text('Subscription')).style?.color,
-        premiumText45,
+        GenesisColors.darkTextSecondary,
       );
       expect(position.pixels, offset);
       expect(productLoads, 1);
@@ -375,14 +374,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('Subscription')).style?.color,
-        Colors.white,
+        GenesisColors.darkTextPrimary,
       );
       expect(find.text(r'Monthly: $9.99'), findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
       await tester.pumpAndSettle();
       expect(
         tester.widget<Text>(find.text('Buy Gems')).style?.color,
-        Colors.white,
+        GenesisColors.darkTextPrimary,
       );
       expect(position.pixels, offset);
       expect(tester.takeException(), isNull);
@@ -598,8 +597,8 @@ void main() {
 
     final pageTitleStyle = tester.widget<Text>(find.text('Buy Gems')).style;
     expect(pageTitleStyle?.fontSize, 16);
-    expect(pageTitleStyle?.fontWeight, FontWeight.w800);
-    expect(pageTitleStyle?.color, Colors.white);
+    expect(pageTitleStyle?.fontWeight, FontWeight.w600);
+    expect(pageTitleStyle?.color, GenesisColors.darkTextPrimary);
     expect(
       tester.getTopLeft(find.byKey(const ValueKey('gem-balance-panel'))).dy -
           tester.getRect(find.byType(AppBar)).bottom,
