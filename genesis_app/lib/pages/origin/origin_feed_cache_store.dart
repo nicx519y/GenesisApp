@@ -13,6 +13,40 @@ class OriginFeedCacheStore {
   final String? _ownerUid;
   final String? _gender;
 
+  /// An explicit choice survives page/app restarts. Empty means manual All;
+  /// null means the user has not chosen a filter and still follows their profile.
+  Future<String?> loadManualGender() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.get('origin_feed_manual_gender_v1.$_resolvedOwner');
+    return value is String && _isValidGender(value) ? value : null;
+  }
+
+  Future<void> saveManualGender(String gender) async {
+    if (!_isValidGender(gender)) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'origin_feed_manual_gender_v1.$_resolvedOwner',
+      gender,
+    );
+  }
+
+  /// Reuses the last label and matching page cache while the profile loads.
+  Future<String?> loadLastConfirmedGender() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.get('origin_feed_gender_v1.$_resolvedOwner');
+    return value is String && _isValidGender(value) ? value : null;
+  }
+
+  Future<void> saveLastConfirmedGender(String? gender) async {
+    final value = gender?.trim() ?? '';
+    if (!_isValidGender(value)) return;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('origin_feed_gender_v1.$_resolvedOwner', value);
+  }
+
+  static bool _isValidGender(String value) =>
+      const {'', 'Male', 'Female', 'Non_binary'}.contains(value);
+
   Future<Map<String, dynamic>?> loadForYouFirstPage() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_storageKey);
@@ -32,11 +66,14 @@ class OriginFeedCacheStore {
     await prefs.setString(_storageKey, jsonEncode(data));
   }
 
-  String get _storageKey {
+  String get _resolvedOwner {
     final owner = (_ownerUid ?? '').trim();
-    final resolvedOwner = owner.isEmpty ? anonymousOwnerUid : owner;
+    return owner.isEmpty ? anonymousOwnerUid : owner;
+  }
+
+  String get _storageKey {
     final gender = (_gender ?? '').trim();
     final suffix = gender.isEmpty ? '' : '.gender_$gender';
-    return '$storageKey.$resolvedOwner.foryou.page_1$suffix';
+    return '$storageKey.$_resolvedOwner.foryou.page_1$suffix';
   }
 }

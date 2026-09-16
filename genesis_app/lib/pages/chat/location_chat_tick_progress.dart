@@ -23,6 +23,9 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     if (newTick == null) return;
 
     final activeStreams = previousSource.where((message) => message.streaming);
+    final activeConversation =
+        _chatroomState.conversationRoundStatesByLocation[widget.locationId];
+    final waitsForConversationCompletion = _currentReplyConversationInProgress;
     final tickRoundId = int.tryParse(newTick.conversationRoundId);
     final activeActions =
         _replyController
@@ -35,9 +38,19 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
             )
             .toList(growable: false) ??
         const <ChatroomReplyRoundState>[];
-    if (activeStreams.isEmpty && activeActions.isEmpty) return;
+    if (activeStreams.isEmpty &&
+        activeActions.isEmpty &&
+        activeConversation == null &&
+        !waitsForConversationCompletion) {
+      return;
+    }
 
     _deferredTickLocalId = locationChatMessageLocalId(newTick);
+    // Capture the predecessor instead of consulting the latest round later:
+    // the Tick has already advanced canonical state by the time this runs.
+    _deferredTickConversationGeneration = activeConversation?.generation;
+    _deferredTickWaitsForConversationCompletion =
+        waitsForConversationCompletion;
     _deferredTickStreamKeys.addAll(activeStreams.map(_tickStreamKey));
     _deferredTickActionRoundIds.addAll(
       activeActions.map((round) => round.roundId),
@@ -52,10 +65,33 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
         break;
       }
     }
+    final transactionRoundId = _replyConnectionActionRoundId;
+    if (_deferredTickPresentationRoundId == null &&
+        transactionRoundId != null) {
+      final round = _replyController?.stateForRound(
+        widget.locationId,
+        transactionRoundId,
+      );
+      if (round?.showCardPresentation ?? false) {
+        _deferredTickPresentationRoundId = transactionRoundId;
+      }
+    }
   }
 
   bool _deferredTickReadyToDisplay() {
     if (_deferredTickLocalId == null) return false;
+    final deferredConversationGeneration = _deferredTickConversationGeneration;
+    if (deferredConversationGeneration != null &&
+        _chatroomState
+                .conversationRoundStatesByLocation[widget.locationId]
+                ?.generation ==
+            deferredConversationGeneration) {
+      return false;
+    }
+    if (_deferredTickWaitsForConversationCompletion &&
+        _currentReplyConversationInProgress) {
+      return false;
+    }
     final source =
         _chatroomState.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
@@ -89,6 +125,7 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
       if (!mounted || !_deferredTickReadyToDisplay()) return;
       _setLocationChatState(() {
         _clearDeferredTick();
+        _syncInspirationView();
         _resolveTickProgressMessageIfAvailable();
       });
     });
@@ -101,6 +138,8 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     _deferredTickPresentationRoundId = null;
     _deferredTickStreamKeys.clear();
     _deferredTickActionRoundIds.clear();
+    _deferredTickConversationGeneration = null;
+    _deferredTickWaitsForConversationCompletion = false;
     if (resetOrdering) {
       _tickPrecedingStreamKeys.clear();
       _tickPrecedingActionRoundIds.clear();

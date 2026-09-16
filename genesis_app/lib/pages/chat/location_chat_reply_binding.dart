@@ -23,6 +23,9 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _replyCardTransitionBusy = false;
     _replyRequestLoading = false;
     _replyLoadingForRegeneration = false;
+    _replyConnectionActionGeneration++;
+    _replyConnectionAction = null;
+    _replyConnectionActionRoundId = null;
     _goOnPreAckCapabilities = null;
     _replyRegenerationBaselineCardIds = const <int>{};
     _replyRegenerationHasRenderedContent = false;
@@ -138,7 +141,11 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         _preparingReplyAction ||
         _inspirationLoading ||
         _sending ||
-        _replyCardTransitionBusy) {
+        (_replyCardTransitionBusy &&
+            _replyConnectionAction !=
+                (regenerating
+                    ? _LocationChatReplyConnectionAction.regenerate
+                    : _LocationChatReplyConnectionAction.goOn))) {
       return;
     }
     final location = widget.locationId;
@@ -162,6 +169,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
       }
       _replyLoadingForRegeneration = regenerating;
       if (regenerating) {
+        _replyRegenerationDispatchRevision++;
         _unseenReplyMessageLocalIds.clear();
         _observedReplyMessageLocalIds.clear();
         _replyRegenerationHasRenderedContent = false;

@@ -212,11 +212,28 @@ class WorldChatroomService {
   Future<void> ensureInspirationHistory(String locationId) async {
     if (_inspirationValidatedLocations.contains(locationId)) return;
     final generation = _inspirationConnectionGeneration;
-    await _fetchLatestLocationMessages(
-      locationId: locationId,
-      limit: 20,
-      emitLatestFetched: false,
-    );
+    var historyRestored = false;
+    while (true) {
+      final refresh = _historyRefreshes[locationId];
+      if (refresh == null) break;
+      await refresh.done.future;
+      if (_disposed || generation != _inspirationConnectionGeneration) {
+        throw StateError('The active chat changed');
+      }
+      if (identical(_historyRefreshes[locationId], refresh)) {
+        throw const ChatroomProtocolException(
+          'Location history requires refresh',
+        );
+      }
+      historyRestored = true;
+    }
+    if (!historyRestored) {
+      await _fetchLatestLocationMessages(
+        locationId: locationId,
+        limit: 20,
+        emitLatestFetched: false,
+      );
+    }
     if (_disposed || generation != _inspirationConnectionGeneration) {
       throw StateError('The active chat changed');
     }

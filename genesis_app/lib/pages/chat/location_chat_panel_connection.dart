@@ -10,6 +10,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _service = null;
     _sending = false;
     _joinedLocation = false;
+    _joiningLocation = false;
+    _joiningLocationFuture = null;
 
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
@@ -274,6 +276,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final wasJoinedLocation = _joinedLocation;
     _joinedLocation = false;
     _joiningLocation = false;
+    _joiningLocationFuture = null;
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
     await _balanceAlertSubscription?.cancel();
@@ -346,8 +349,25 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     }
   }
 
-  Future<void> _joinLocation(WorldChatroomService service) async {
-    if (_joiningLocation || _joinedLocation) return;
+  Future<bool> _joinLocation(WorldChatroomService service) {
+    if (_joinedLocation &&
+        service.state.joinedLocationId == widget.locationId) {
+      return Future<bool>.value(true);
+    }
+    final activeJoin = _joiningLocationFuture;
+    if (activeJoin != null) return activeJoin;
+
+    late final Future<bool> join;
+    join = _performJoinLocation(service).whenComplete(() {
+      if (identical(_joiningLocationFuture, join)) {
+        _joiningLocationFuture = null;
+      }
+    });
+    _joiningLocationFuture = join;
+    return join;
+  }
+
+  Future<bool> _performJoinLocation(WorldChatroomService service) async {
     _joiningLocation = true;
     try {
       if (_mySenderId.isEmpty || _mySenderName.isEmpty) {
@@ -364,14 +384,16 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinDone');
       _maybeSendInitialMessage();
+      return true;
     } catch (e) {
       _joinedLocation = false;
       _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinFailed', details: {'error': '$e'});
-      if (!mounted) return;
+      if (!mounted) return false;
       _setLocationChatState(() {
         _messages.add(ChatMessageVm.system('Join failed: $e'));
       });
+      return false;
     } finally {
       _joiningLocation = false;
     }

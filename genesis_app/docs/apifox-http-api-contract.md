@@ -964,6 +964,8 @@ Query：
 
 ### GET `/api/v1/origin/feed`
 
+客户端按账号持久保存手动筛选选择，匿名设备单独保存。再次进入或重启 App 后直接恢复该选项与对应的首屏列表缓存，并按该值请求，不等待 personalization，也不读取 userInfo 来推断筛选值。没有手动选择时，才按下面的自动规则加载；上次自动值只用于资料等待期间恢复显示。读取本地缓存期间不提前展示默认 All。
+
 按设备返回去重后的 Origin For you 推荐流。请求统一通过 Gateway 链路携带必填 `X-Device-ID`。`start_score` 是不包含自身的 Redis ZSET 位置游标；刷新传 `0`，分页传上一次响应的 `next_score`。
 
 Query：
@@ -972,9 +974,9 @@ Query：
 - `rn`: integer，默认 `10`，范围 `1..100`
 - `gender`: string，可选，枚举 `Male` / `Female` / `Non_binary`；默认不传，未传或空表示未指定
 
-Worldo 页 For you 与分类列表按登录状态读取 `gender`：未登录使用现有 `PersonalizationStore` 中当前匿名设备的 `personalization.gender`；登录后仅使用当前账号本地 `userInfo.gender`，不回退到匿名 personalization 或其他账号资料。忽略大小写及首尾空格：`Male` 用户传 `Female`，`Female` 用户传 `Male`，其他、缺失或读取失败均省略该参数；不为此追加用户资料或 personalization 接口请求。匿名 personalization 尚未返回时先不传，返回或填表保存后监听状态更新。首屏、下拉刷新和分页保持相同条件；账号或性别变化后从首屏重新加载，不沿用旧游标。For you 首屏缓存按账号及请求的 `gender` 区分。其他 `origin/list` 调用默认不传，不影响 Me 自有列表等场景。
+没有保存手动筛选时，Worldo 页 For you 与分类列表按登录状态读取 `gender`：未登录使用现有 `PersonalizationStore` 中当前匿名设备的 `personalization.gender`；登录后仅使用当前账号本地 `userInfo.gender`，不回退到匿名 personalization 或其他账号资料。忽略大小写及首尾空格：`Male` 用户传 `Female`，`Female` 用户传 `Male`，其他、缺失或读取失败均省略该参数；不为此追加用户资料或 personalization 接口请求。匿名用户的 config 尚未完成，或 config 开启填表但 personalization 尚未返回时，只展示可用的本地首屏缓存，暂不请求 feed/list，也不使用缓存游标分页；资料确认后才按对应 gender 请求第一页，避免先 All 再定向刷新两次。确认关闭填表、资料成功返回但性别为空／Non_binary，或资料请求失败时，按 All 请求。后续填表保存、资料或账号变化仍监听更新。首屏、下拉刷新和分页保持相同条件；账号或已确认性别变化后从首屏重新加载，不沿用旧游标。For you 首屏缓存按账号及请求的 `gender` 区分，网络刷新结果写入已确认条件对应的缓存。其他 `origin/list` 调用默认不传，不影响 Me 自有列表等场景。
 
-Worldo 分类 Tab 栏右侧的性别筛选可手动覆盖上述自动值：`All` 不传 `gender` 参数（URL 中不追加 `&gender` 或 `&gender=`），`Male` / `Female` / `Non binary` 分别传 `Male` / `Female` / `Non_binary`。筛选图标下方向下展开靠右对齐的小浮窗，四个选项左对齐并标记当前项；点击选项即收起并应用，点击窗外或返回键只收起，不改变筛选。手动值在当前页面生命周期内对所有分类、首屏、刷新和分页统一生效，不因 personalization 或 userInfo 更新被覆盖；选择变化时从第一页重新加载并隔离旧请求。未手动选择时继续使用上述自动规则，未确定性别时省略参数。All 与未指定在服务端均表示不筛选，共用该账号的无性别条件缓存。
+Worldo 分类 Tab 栏右侧的性别筛选可手动覆盖上述自动值：`All` 不传 `gender` 参数（URL 中不追加 `&gender` 或 `&gender=`），`Male` / `Female` / `Non binary` 分别传 `Male` / `Female` / `Non_binary`。筛选图标下方向下展开靠右对齐的小浮窗，四个选项左对齐并标记当前项；点击选项即收起并应用，点击窗外或返回键只收起，不改变筛选。手动值持久保存，对再次进入、App 重启以及所有分类、首屏、刷新和分页统一生效，不因 personalization 或 userInfo 更新被覆盖，直到用户再次选择其他值；选择变化时从第一页重新加载并隔离旧请求。手动 All 保存为空字符串，缺失手动缓存用 null 表示，两者在客户端明确区分。等待资料期间也可手动选择，选择后无需继续等待自动 gender；未手动选择时按上述资料就绪规则加载。All 与未指定在服务端均表示不筛选，共用该账号的无性别条件缓存。
 
 响应 `data`：
 

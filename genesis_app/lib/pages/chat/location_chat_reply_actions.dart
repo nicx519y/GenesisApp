@@ -30,6 +30,8 @@ class LocationChatReplyActions extends StatefulWidget {
     this.inspirationExpanded,
     this.inspirationListKey,
     this.inspirationIdentity,
+    this.inspirationPromptExpanded,
+    this.onInspirationPromptExpandedChanged,
     this.onInspirationExpandedChanged,
     this.inspirationPage,
     this.onInspirationPageChanged,
@@ -74,6 +76,8 @@ class LocationChatReplyActions extends StatefulWidget {
   final bool? inspirationExpanded;
   final Key? inspirationListKey;
   final Object? inspirationIdentity;
+  final bool? inspirationPromptExpanded;
+  final ValueChanged<bool>? onInspirationPromptExpandedChanged;
   final ValueChanged<bool>? onInspirationExpandedChanged;
 
   static const inspirationAnimationDuration = Duration(milliseconds: 220);
@@ -93,6 +97,7 @@ class LocationChatReplyActions extends StatefulWidget {
 class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
   bool _localEditPromptExpanded = false;
   bool _localInspirationExpanded = false;
+  bool _localInspirationPromptExpanded = false;
   int _localInspirationPage = 0;
   bool get _inspirationExpanded =>
       widget.inspirationExpanded ?? _localInspirationExpanded;
@@ -107,9 +112,18 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   void _invokeInspiration() {
     _setEditPromptExpanded(false);
+    _setInspirationPromptExpanded(true);
     _setInspirationExpanded(
       !(_inspirationExpanded && _inspiration.messages.isNotEmpty),
     );
+  }
+
+  void _setInspirationPromptExpanded(bool expanded) {
+    if (widget.onInspirationPromptExpandedChanged case final onChanged?) {
+      onChanged(expanded);
+    } else {
+      setState(() => _localInspirationPromptExpanded = expanded);
+    }
   }
 
   void _setInspirationExpanded(bool next) {
@@ -135,6 +149,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
         widget.loadingIndicator == null &&
         widget.cardCount > 1 &&
         !widget.cardsConfirmed;
+    final prompt = _visibleQuotaPrompt();
     final actionButtons = <Widget>[
       if (widget.loadingIndicator case final indicator?) indicator,
       if (widget.loadingIndicator == null) ...[
@@ -162,6 +177,7 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             feature: _edit,
             onBeforeInvoke: () {
               _setEditPromptExpanded(true);
+              _setInspirationPromptExpanded(false);
               _setInspirationExpanded(false);
             },
           ),
@@ -192,15 +208,6 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           style: style,
           actions: actionButtons,
         ),
-        if (widget.actionsExpanded &&
-            widget.loadingIndicator == null &&
-            (widget.editPromptExpanded ?? _localEditPromptExpanded) &&
-            _edit.freeUsesRemaining != null)
-          _quotaPrompt(
-            feature: 'edit',
-            message: 'Free Edition uses left: ',
-            remaining: _edit.freeUsesRemaining!,
-          ),
         LocationChatInspirationReplies(
           key: widget.inspirationListKey,
           identity: widget.inspirationIdentity,
@@ -210,18 +217,12 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
               _inspiration.state != LocationChatReplyActionState.none &&
               _inspirationExpanded,
           replies: _inspiration.messages,
-          footer: _inspiration.freeUsesRemaining != null
-              ? _quotaPrompt(
-                  feature: 'inspiration',
-                  message: 'Free inspiration uses left: ',
-                  remaining: _inspiration.freeUsesRemaining!,
-                )
-              : null,
           onSend: (text) {
             _setInspirationExpanded(false);
             _inspiration.onSend?.call(text);
           },
           onEdit: (text) {
+            _setInspirationPromptExpanded(false);
             _setInspirationExpanded(false);
             _inspiration.onEdit?.call(text);
           },
@@ -233,8 +234,35 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
             widget.onInspirationPageChanged?.call(page);
           },
         ),
+        _LocationChatReplyQuotaPromptTransition(
+          prompt: prompt,
+          expanded: prompt != null,
+        ),
       ],
     );
+  }
+
+  Widget? _visibleQuotaPrompt() {
+    if (!widget.actionsExpanded || widget.loadingIndicator != null) return null;
+    final inspirationRemaining = _inspiration.freeUsesRemaining;
+    if ((widget.inspirationPromptExpanded ?? _localInspirationPromptExpanded) &&
+        inspirationRemaining != null) {
+      return _quotaPrompt(
+        feature: 'inspiration',
+        message: 'Free inspiration uses left: ',
+        remaining: inspirationRemaining,
+      );
+    }
+    final editRemaining = _edit.freeUsesRemaining;
+    if ((widget.editPromptExpanded ?? _localEditPromptExpanded) &&
+        editRemaining != null) {
+      return _quotaPrompt(
+        feature: 'edit',
+        message: 'Free Edition uses left: ',
+        remaining: editRemaining,
+      );
+    }
+    return null;
   }
 
   Widget _buildPagination(BuildContext context) {
@@ -361,6 +389,94 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
       },
     ),
   );
+}
+
+class _LocationChatReplyQuotaPromptTransition extends StatefulWidget {
+  const _LocationChatReplyQuotaPromptTransition({
+    required this.expanded,
+    required this.prompt,
+  });
+
+  final bool expanded;
+  final Widget? prompt;
+
+  @override
+  State<_LocationChatReplyQuotaPromptTransition> createState() =>
+      _LocationChatReplyQuotaPromptTransitionState();
+}
+
+class _LocationChatReplyQuotaPromptTransitionState
+    extends State<_LocationChatReplyQuotaPromptTransition>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _expansionController;
+  late final CurvedAnimation _expansion;
+  Widget? _displayedPrompt;
+
+  bool get _wantsOpen => widget.expanded && widget.prompt != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _expansionController = AnimationController(
+      vsync: this,
+      duration: LocationChatReplyActions.inspirationAnimationDuration,
+    );
+    _expansion = CurvedAnimation(
+      parent: _expansionController,
+      curve: LocationChatReplyActions.inspirationAnimationCurve,
+    );
+    _expansionController.addStatusListener(_onExpansionStatus);
+    if (_wantsOpen) {
+      _displayedPrompt = widget.prompt;
+      _expansionController.value = 1;
+    }
+  }
+
+  @override
+  void didUpdateWidget(
+    covariant _LocationChatReplyQuotaPromptTransition oldWidget,
+  ) {
+    super.didUpdateWidget(oldWidget);
+    if (_wantsOpen) {
+      // Edit -> Inspiration is a content replacement inside the same open
+      // surface. Do not close and reopen the prompt around that replacement.
+      _displayedPrompt = widget.prompt;
+      _expansionController.forward();
+    } else if (!_expansionController.isDismissed) {
+      _expansionController.reverse();
+    }
+  }
+
+  void _onExpansionStatus(AnimationStatus status) {
+    if (status != AnimationStatus.dismissed || !mounted || _wantsOpen) return;
+    setState(() => _displayedPrompt = null);
+  }
+
+  @override
+  void dispose() {
+    _expansion.dispose();
+    _expansionController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final prompt = _displayedPrompt;
+    if (prompt == null) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: _expansionController,
+      child: IgnorePointer(
+        ignoring: !_wantsOpen,
+        child: ExcludeSemantics(excluding: !_wantsOpen, child: prompt),
+      ),
+      builder: (context, child) => SizeTransition(
+        key: const ValueKey('location-chat-subscription-prompt-transition'),
+        sizeFactor: _expansion,
+        alignment: Alignment.topCenter,
+        child: FadeTransition(opacity: _expansion, child: child),
+      ),
+    );
+  }
 }
 
 class _LocationChatReplyPagination extends StatefulWidget {

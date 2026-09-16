@@ -74,6 +74,7 @@ part 'location_chat_ack_loading.dart';
 part '../../features/location_chat_reply/regenerate/src/location_chat_regenerate_binding.dart';
 part '../../features/location_chat_reply/go_on/src/location_chat_go_on_binding.dart';
 part 'location_chat_reply_binding.dart';
+part 'location_chat_reply_connection.dart';
 part 'location_chat_reply_controls.dart';
 part 'location_chat_reply_operation_scope.dart';
 part 'location_chat_reply_projection_cache.dart';
@@ -502,6 +503,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _inspirationLoading = false;
   int _inspirationRequestGeneration = 0;
   int _inspirationResetRevision = 0;
+  int _inspirationPresentationRevision = 0;
   int _inspirationRenderGeneration = 0;
   int _inspirationTickPreviousRound = 0;
   int _inspirationAckPreviousRound = 0;
@@ -513,6 +515,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _replyCardTransitionBusy = false;
   bool _replyRequestLoading = false;
   bool _replyLoadingForRegeneration = false;
+  int _replyRegenerationDispatchRevision = 0;
+  _LocationChatReplyConnectionAction? _replyConnectionAction;
+  int? _replyConnectionActionRoundId;
+  int _replyConnectionActionGeneration = 0;
   ({bool regenerate, bool edit, bool inspiration})? _goOnPreAckCapabilities;
   Set<int> _replyRegenerationBaselineCardIds = const <int>{};
   bool _replyRegenerationHasRenderedContent = false;
@@ -540,6 +546,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   int? _deferredTickPresentationRoundId;
   final Set<String> _deferredTickStreamKeys = <String>{};
   final Set<int> _deferredTickActionRoundIds = <int>{};
+  int? _deferredTickConversationGeneration;
+  bool _deferredTickWaitsForConversationCompletion = false;
   final Map<String, Set<String>> _tickPrecedingStreamKeys =
       <String, Set<String>>{};
   final Map<String, Set<int>> _tickPrecedingActionRoundIds =
@@ -559,6 +567,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _ownsService = false;
   bool _joinedLocation = false;
   bool _joiningLocation = false;
+  Future<bool>? _joiningLocationFuture;
   bool _optimisticSelfOccupancy = false;
   List<WorldChatroomEntity>? _lastActiveOccupants;
   List<WorldChatroomEntity>? _exitRetainedOccupants;
@@ -658,6 +667,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         goOnPending ||
         _inspirationLoading ||
         _preparingReplyAction ||
+        _replyConnectionAction != null ||
         (_usesPreparedEntry &&
             _preparedEntry?.phase != ChatroomEntryPhase.ready);
   }
@@ -714,6 +724,21 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         _inspirationLoading;
   }
 
+  bool get _currentReplyConversationInProgress {
+    // Tick remains canonical immediately, but its page projection waits for
+    // every operation that still belongs to the conversation it supersedes.
+    final rounds = _replyController?.statesFor(widget.locationId) ?? const [];
+    return _replyConnectionAction != null ||
+        _preparingReplyAction ||
+        _replyRequestLoading ||
+        _replyEditorOpen ||
+        _editQuotaChecking ||
+        _editQuotaLoading ||
+        _inspirationQuotaChecking ||
+        _inspirationLoading ||
+        rounds.any((round) => round.generating || round.goOnPending);
+  }
+
   bool get _shouldShowAiContentDisclaimer =>
       locationChatShouldShowAiContentDisclaimerForTesting(
         initialContentReady: _initialContentReadyNotified,
@@ -731,6 +756,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   void _setReplyControlsState(VoidCallback callback) {
     callback();
     _replyControlsRevision.value++;
+    _scheduleDeferredTickReleaseIfReady();
   }
 
   void _handleViewportCoordinatorChanged() {
@@ -1244,6 +1270,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyPresentationState?.roundId}',
               replyCardSwitchEnabled: controls.cardSwitchEnabled,
               replyRegenerationInProgress: controls.regenerationInProgress,
+              replyRegenerationDispatchRevision:
+                  _replyRegenerationDispatchRevision,
               onReplyCardSelected: _commitReplyCard,
               onReplyCardTransitionChanged: _replyTransitionChangedHandler,
               regenerateFeature: regenerateFeature,
@@ -1263,6 +1291,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               inspirationFeature: inspirationFeature,
               inspirationIdentity:
                   '${_currentInspirationSource?.key}:$_inspirationResetRevision',
+              inspirationPresentationRevision: _inspirationPresentationRevision,
               topTitle: '',
               oldestEdgeLoading: _showOlderMessagesLoading,
               onOldestEdgeLoadingCollapsed:

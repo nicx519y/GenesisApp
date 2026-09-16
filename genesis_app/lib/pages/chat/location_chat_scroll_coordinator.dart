@@ -173,7 +173,10 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
             target,
             duration,
             generation,
-            settleAtLatest: reason == LocationChatBottomReason.replyGeneration,
+            settleAtLatest:
+                reason == LocationChatBottomReason.replyGeneration ||
+                reason == LocationChatBottomReason.inspirationExpanded ||
+                reason == LocationChatBottomReason.editPromptExpanded,
           );
       }
     });
@@ -461,6 +464,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.replyCardBindingIdentity,
     this.replyCardSwitchEnabled = true,
     this.replyRegenerationInProgress = false,
+    this.replyRegenerationDispatchRevision = 0,
     this.onReplyCardSelected,
     this.onReplyCardTransitionChanged,
     this.regenerateFeature = const LocationChatRegenerateFeature.disabled(),
@@ -474,6 +478,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.onPreviousReplyCard,
     this.onNextReplyCard,
     this.inspirationIdentity,
+    this.inspirationPresentationRevision = 0,
     this.selfMessageBubbleMaxWidthCap,
     this.otherMessageBubbleMaxWidthCap,
     this.style,
@@ -523,6 +528,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final String? replyCardBindingIdentity;
   final bool replyCardSwitchEnabled;
   final bool replyRegenerationInProgress;
+  final int replyRegenerationDispatchRevision;
   final bool Function(int cardId)? onReplyCardSelected;
   final ValueChanged<bool>? onReplyCardTransitionChanged;
   final LocationChatRegenerateFeature regenerateFeature;
@@ -538,6 +544,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final VoidCallback? onPreviousReplyCard;
   final VoidCallback? onNextReplyCard;
   final String? inspirationIdentity;
+  final int inspirationPresentationRevision;
   final double? selfMessageBubbleMaxWidthCap;
   final double? otherMessageBubbleMaxWidthCap;
   final ChatUiStyleConfig? style;
@@ -966,22 +973,6 @@ class _LocationChatAnchoredMessageListState
     }
   }
 
-  void _invokeRegenerateWithCollapse() {
-    final invocation = widget.regenerateFeature.invocation;
-    if (invocation == null) return;
-    invocation();
-    _cardSwitcherKey.currentState?.beginRegenerateCollapse();
-  }
-
-  LocationChatRegenerateFeature get _regenerateFeatureWithCollapse {
-    final feature = widget.regenerateFeature;
-    return LocationChatRegenerateFeature(
-      onInvoke: feature.onInvoke == null ? null : _invokeRegenerateWithCollapse,
-      onLimitReached: feature.onLimitReached,
-      state: feature.state,
-    );
-  }
-
   Widget _buildReplyDeck(ChatUiStyleConfig style) =>
       LocationChatReplyCardSwitcher(
         key: _cardSwitcherKey,
@@ -1120,6 +1111,7 @@ class _LocationChatAnchoredMessageListState
   late List<ChatMessageVm> _renderedMessages;
   final _inspirationListKey = GlobalKey(debugLabel: 'inspiration-list');
   bool _inspirationExpanded = false;
+  bool _inspirationPromptExpanded = false;
   bool _editPromptExpanded = false;
   int _inspirationPage = 0;
   List<ChatMessageVm>? _pendingMessages;
@@ -1161,6 +1153,15 @@ class _LocationChatAnchoredMessageListState
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.replyRegenerationDispatchRevision !=
+        widget.replyRegenerationDispatchRevision) {
+      // Collapse belongs to the committed Regenerate request, not its raw tap.
+      // A reconnect/join wait therefore shows only button busy state and cannot
+      // start a transition that the card switcher would immediately recover.
+      _cardSwitcherKey.currentState?.beginRegenerateCollapse(
+        deferBusyNotification: true,
+      );
+    }
     final disabledWaitingPositioning =
         oldWidget.replyWaitingPositioningEnabled &&
         !widget.replyWaitingPositioningEnabled;
@@ -1245,6 +1246,7 @@ class _LocationChatAnchoredMessageListState
         oldReplyIdentity != _replyIdentity ||
         oldWidget.inspirationIdentity != widget.inspirationIdentity) {
       _inspirationExpanded = false;
+      _inspirationPromptExpanded = false;
       _editPromptExpanded = false;
       _inspirationPage = 0;
     }
@@ -1254,6 +1256,14 @@ class _LocationChatAnchoredMessageListState
         (oldWidget.inspirationFeature.messages.isNotEmpty &&
             widget.inspirationFeature.messages.isEmpty)) {
       _inspirationExpanded = false;
+    }
+    if (oldWidget.inspirationPresentationRevision !=
+            widget.inspirationPresentationRevision &&
+        widget.inspirationFeature.messages.isNotEmpty) {
+      // Reconnect/history refresh may replace the source identity while the
+      // user's click is waiting. The committed result owns the expansion.
+      _inspirationExpanded = true;
+      _inspirationPromptExpanded = true;
     }
     if (oldWidget.coordinator != widget.coordinator) {
       _replyLayoutBridge.cancel(clearMeasurements: true);
@@ -2247,7 +2257,7 @@ class _LocationChatAnchoredMessageListState
               paginationKey: _replyPaginationKey,
               inspirationFeature: widget.inspirationFeature,
               editFeature: widget.editFeature,
-              regenerateFeature: _regenerateFeatureWithCollapse,
+              regenerateFeature: widget.regenerateFeature,
               goOnFeature: widget.goOnFeature,
               cardIndex: widget.replyCardIndex,
               cardCount: widget.replyCardCount,
@@ -2264,24 +2274,43 @@ class _LocationChatAnchoredMessageListState
               onEditPromptExpandedChanged: (expanded) {
                 setState(() => _editPromptExpanded = expanded);
                 if (expanded) {
+                  final wasFollowingLatest =
+                      widget.coordinator.shouldFollowLatest ||
+                      widget.coordinator.isAtBottom;
                   widget.coordinator.requestBottom(
                     reason: LocationChatBottomReason.editPromptExpanded,
-                    behavior: LocationChatBottomBehavior.animate,
+                    // With no ScrollActivity in flight, scroll physics follows
+                    // every frame of the prompt's height animation.
+                    behavior: wasFollowingLatest
+                        ? LocationChatBottomBehavior.jump
+                        : LocationChatBottomBehavior.animate,
                   );
                 }
               },
               inspirationListKey: _inspirationListKey,
               inspirationIdentity: widget.inspirationIdentity ?? _replyIdentity,
               inspirationExpanded: _inspirationExpanded,
+              inspirationPromptExpanded: _inspirationPromptExpanded,
+              onInspirationPromptExpandedChanged: (expanded) {
+                setState(() => _inspirationPromptExpanded = expanded);
+              },
               inspirationPage: _inspirationPage,
               onInspirationPageChanged: (page) => _inspirationPage = page,
               onInspirationExpandedChanged: (expanded) {
                 setState(() => _inspirationExpanded = expanded);
                 widget.inspirationFeature.onExpandedChanged?.call(expanded);
                 if (expanded) {
+                  final wasFollowingLatest =
+                      widget.coordinator.shouldFollowLatest ||
+                      widget.coordinator.isAtBottom;
                   widget.coordinator.requestBottom(
                     reason: LocationChatBottomReason.inspirationExpanded,
-                    behavior: LocationChatBottomBehavior.animate,
+                    // The replies and quota prompt can both grow after this
+                    // tap. Keep a bottom-following viewport tied to their
+                    // measured extent instead of a stale early target.
+                    behavior: wasFollowingLatest
+                        ? LocationChatBottomBehavior.jump
+                        : LocationChatBottomBehavior.animate,
                   );
                 }
               },

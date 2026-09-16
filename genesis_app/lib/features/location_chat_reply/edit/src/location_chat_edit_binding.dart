@@ -1,6 +1,17 @@
 part of '../../../../pages/chat/location_chat_page.dart';
 
 extension _LocationChatEditBinding on _LocationChatPanelState {
+  Future<void> _startEditCurrentReply(
+    ChatUiStyleConfig style,
+    double? selfCap,
+    double? otherCap,
+  ) => _submitReplyAction(
+    _LocationChatReplyActionTransaction(
+      action: _LocationChatReplyConnectionAction.edit,
+      commit: () => _editCurrentReply(style, selfCap, otherCap),
+    ),
+  );
+
   Future<void> _editCurrentReply(
     ChatUiStyleConfig style,
     double? selfCap,
@@ -9,7 +20,9 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
     final controller = _replyController;
     if (controller == null ||
         _sending ||
-        _replyCardTransitionBusy ||
+        (_replyCardTransitionBusy &&
+            _replyConnectionAction !=
+                _LocationChatReplyConnectionAction.edit) ||
         _editQuotaChecking ||
         _preparingReplyAction ||
         _inspirationLoading ||

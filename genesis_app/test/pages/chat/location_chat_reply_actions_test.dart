@@ -116,9 +116,20 @@ void main() {
         );
         expect(find.byType(LocationChatSubscriptionPrompt), findsNothing);
         await tester.tap(find.bySemanticsLabel('Edit'));
+        await tester.pump();
+        final promptTransition = find.byKey(
+          const ValueKey('location-chat-subscription-prompt-transition'),
+        );
+        expect(promptTransition, findsOneWidget);
+        expect(tester.getSize(promptTransition).height, 0);
+        await tester.pump(const Duration(milliseconds: 110));
+        final openingPromptHeight = tester.getSize(promptTransition).height;
+        expect(openingPromptHeight, greaterThan(0));
         await tester.pumpAndSettle();
         final prompt = find.byKey(const ValueKey('edit-subscription-prompt'));
         expect(prompt, findsOneWidget);
+        final fullPromptHeight = tester.getSize(promptTransition).height;
+        expect(openingPromptHeight, lessThan(fullPromptHeight));
         final richText = tester.widget<Text>(
           find.descendant(of: prompt, matching: find.byType(Text)),
         );
@@ -147,12 +158,18 @@ void main() {
           4.5,
         );
         await tester.tap(find.bySemanticsLabel('Inspiration'));
-        await tester.pumpAndSettle();
+        await tester.pump();
         expect(prompt, findsNothing);
+        expect(
+          tester.getSize(promptTransition).height,
+          closeTo(fullPromptHeight, 0.1),
+          reason: 'Switching prompt copy must not close the shared surface.',
+        );
         expect(
           find.text('Free inspiration uses left: "$remaining"\nGet more >'),
           findsOneWidget,
         );
+        await tester.pumpAndSettle();
         final inspirationPrompt = find.byKey(
           const ValueKey('inspiration-subscription-prompt'),
         );
@@ -181,9 +198,42 @@ void main() {
     );
   }
 
+  testWidgets('free quota prompt animates closed while retaining its content', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: _replyActions(
+            style: kLocationChatStyle,
+            onRegenerate: () {},
+            onEditReply: () {},
+            editFreeUsesRemaining: 2,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.bySemanticsLabel('Edit'));
+    await tester.pumpAndSettle();
+    final transition = find.byKey(
+      const ValueKey('location-chat-subscription-prompt-transition'),
+    );
+    final prompt = find.byKey(const ValueKey('edit-subscription-prompt'));
+    final fullHeight = tester.getSize(transition).height;
+    await tester.tap(find.bySemanticsLabel('Regenerate'));
+    await tester.pump();
+    expect(prompt, findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 110));
+    expect(tester.getSize(transition).height, inExclusiveRange(0, fullHeight));
+    expect(prompt, findsOneWidget);
+    await tester.pumpAndSettle();
+    expect(prompt, findsNothing);
+    expect(transition, findsNothing);
+  });
+
   for (final remaining in [0, 2]) {
     testWidgets(
-      'inspiration list toggles together with its $remaining-use prompt',
+      'inspiration list animates both ways while retaining its $remaining-use prompt',
       (tester) async {
         await tester.pumpWidget(
           MaterialApp(
@@ -210,7 +260,7 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 110));
         final expandingHeight = tester.getSize(transition).height;
-        expect(prompt, findsOneWidget);
+        final promptElement = tester.element(prompt);
         await tester.pumpAndSettle();
         final fullHeight = tester.getSize(transition).height;
         expect(expandingHeight, greaterThan(0));
@@ -225,10 +275,10 @@ void main() {
         await tester.pump(const Duration(milliseconds: 110));
         expect(tester.getSize(transition).height, greaterThan(0));
         expect(tester.getSize(transition).height, lessThan(fullHeight));
-        expect(prompt, findsOneWidget);
+        expect(tester.element(prompt), same(promptElement));
         await tester.pumpAndSettle();
         expect(carousel, findsNothing);
-        expect(prompt, findsNothing);
+        expect(tester.element(prompt), same(promptElement));
         await tester.tap(button);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 110));
@@ -238,7 +288,7 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(carousel, findsOneWidget);
-        expect(prompt, findsOneWidget);
+        expect(tester.element(prompt), same(promptElement));
       },
     );
   }
@@ -1318,7 +1368,7 @@ void main() {
     expect(tester.getRect(find.byKey(closeKey)), closeRect);
     expect(tester.getTopLeft(find.byKey(contentKey)).dy, contentTop);
   });
-  testWidgets('inspiration and its prompt fully expand after repeated toggles', (
+  testWidgets('collapsing inspiration keeps the bottom after horizontal swipes', (
     tester,
   ) async {
     final coordinator = LocationChatScrollCoordinator();
@@ -1371,15 +1421,20 @@ void main() {
     for (var cycle = 0; cycle < 3; cycle++) {
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await tester.pump();
-      for (var frame = 0; frame < 18; frame++) {
-        await tester.pump(const Duration(milliseconds: 16));
-        final position = coordinator.controller.position;
-        expect(
-          position.pixels,
-          closeTo(position.maxScrollExtent, 0.5),
-          reason: 'Cycle $cycle, frame $frame follows the shared expansion.',
-        );
-      }
+      await tester.pump(const Duration(milliseconds: 110));
+      final viewportDuringExpansion = tester.getRect(find.byKey(viewportKey));
+      final promptTransition = tester.getRect(
+        find.byKey(
+          const ValueKey('location-chat-subscription-prompt-transition'),
+        ),
+      );
+      expect(coordinator.isAtBottom, isTrue);
+      expect(
+        promptTransition.bottom,
+        lessThanOrEqualTo(viewportDuringExpansion.bottom),
+        reason: 'The viewport must follow the prompt while its height grows.',
+      );
+      await tester.pumpAndSettle();
       expect(coordinator.isAtBottom, isTrue);
       final viewport = tester.getRect(find.byKey(viewportKey));
       final footer = tester.getRect(
@@ -1389,8 +1444,11 @@ void main() {
       final prompt = tester.getRect(
         find.byKey(const ValueKey('inspiration-subscription-prompt')),
       );
-      expect(prompt.top, greaterThanOrEqualTo(footer.bottom));
-      expect(prompt.bottom, lessThanOrEqualTo(viewport.bottom));
+      expect(
+        prompt.bottom,
+        lessThanOrEqualTo(viewport.bottom),
+        reason: 'The bottom anchor must include the prompt below the carousel.',
+      );
       await tester.drag(
         find.byKey(const ValueKey('inspiration-replies-carousel')),
         Offset(cycle.isEven ? -230 : 230, 0),
@@ -1405,10 +1463,6 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await tester.pumpAndSettle();
       expect(find.byKey(const ValueKey('inspiration-get-more')), findsNothing);
-      expect(
-        find.byKey(const ValueKey('inspiration-subscription-prompt')),
-        findsNothing,
-      );
       expect(
         find.byKey(const ValueKey('inspiration-replies-carousel')),
         findsNothing,

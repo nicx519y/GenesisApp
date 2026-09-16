@@ -5066,6 +5066,63 @@ void main() {
     await service.dispose();
   });
 
+  test('V2 stream error removes its provisional message', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      useV2Protocol: true,
+    );
+    await service.connect(worldId: 'world-1', identity: _identity());
+    const streamKey = 'world-1|loc-1|8|char-1';
+    socket.serverV2StreamFrame(
+      streamType: 'llm_stream_start',
+      senderId: 'char-1',
+      messageId: 10,
+      locationMessageId: 10,
+      roundId: 8,
+    );
+    socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      senderId: 'char-1',
+      messageId: 10,
+      locationMessageId: 10,
+      roundId: 8,
+      seq: 1,
+      content: 'Temporary output',
+    );
+    await _waitFor(
+      () =>
+          service.state.streamMessagesByKey[streamKey]?.content ==
+          'Temporary output',
+    );
+
+    socket.serverFrame('error', {
+      'stream_type': '',
+      'world_id': 'world-1',
+      'session_id': 'sess-1',
+      'location_id': 'loc-1',
+      'conversation_round_id': 8,
+      'sender_type': 'character',
+      'sender_id': 'char-1',
+      'sender_name': 'Alice',
+      'payload': <String, Object?>{},
+      'err_no': 2025,
+      'err_msg': 'Generation failed',
+    });
+    await _waitFor(
+      () =>
+          !service.state.streamMessagesByKey.containsKey(streamKey) &&
+          !(service.state.messagesByLocation['loc-1']?.any(
+                (message) =>
+                    message.conversationRoundId == '8' &&
+                    message.senderId == 'char-1',
+              ) ??
+              false),
+    );
+
+    await service.dispose();
+  });
+
   test(
     'V2 direct chunk without ids enters queue and merges through final',
     () async {

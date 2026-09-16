@@ -402,7 +402,7 @@ extension _LocationChatEditActions on _LocationChatPanelState {
       'conversation_edit',
       queried: _editQuotaQueried,
     ),
-    onInvoke: () => unawaited(_editCurrentReply(style, selfCap, otherCap)),
+    onInvoke: () => unawaited(_startEditCurrentReply(style, selfCap, otherCap)),
   );
 
   Future<void> _openReplyEditor(LocationChatEditPageArgs args) async {

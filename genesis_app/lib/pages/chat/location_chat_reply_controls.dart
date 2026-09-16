@@ -18,6 +18,7 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
   ) {
     final rounds = _replyController?.statesFor(widget.locationId) ?? const [];
     final pending = rounds.where((state) => state.goOnPending).toList();
+    final regenerationState = presentationState ?? replyState;
     final acceptedGoOn = pending
         .where((state) => state.goOnRoundId != null)
         .firstOrNull;
@@ -35,10 +36,13 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
               (state.generating || state.goOnPending),
         );
     final regenerationInProgress =
-        (replyState?.generating ?? false) ||
+        (regenerationState?.generating ?? false) ||
         (_replyRequestLoading && _replyLoadingForRegeneration);
     if (regenerationInProgress &&
-        _replyRegenerationContentIsRendering(replyState, displayMessages)) {
+        _replyRegenerationContentIsRendering(
+          regenerationState,
+          displayMessages,
+        )) {
       _replyRegenerationHasRenderedContent = true;
     }
     final goOnContentIsRendering = _replyGoOnContentIsRendering(
@@ -49,14 +53,23 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
         !tickSuperseded && acceptedGoOn != null && !goOnContentIsRendering;
     final operations = (
       regenerate:
-          (_replyController?.stateFor(widget.locationId)?.generating ??
-              false) ||
+          _replyConnectionAction ==
+              _LocationChatReplyConnectionAction.regenerate ||
+          rounds.any((state) => state.generating) ||
           (_replyRequestLoading && _replyLoadingForRegeneration),
       goOn:
+          _replyConnectionAction == _LocationChatReplyConnectionAction.goOn ||
           pending.isNotEmpty ||
           (_replyRequestLoading && !_replyLoadingForRegeneration),
-      edit: _editQuotaChecking || _editQuotaLoading,
-      inspiration: _inspirationQuotaChecking || _inspirationLoading,
+      edit:
+          _replyConnectionAction == _LocationChatReplyConnectionAction.edit ||
+          _editQuotaChecking ||
+          _editQuotaLoading,
+      inspiration:
+          _replyConnectionAction ==
+              _LocationChatReplyConnectionAction.inspiration ||
+          _inspirationQuotaChecking ||
+          _inspirationLoading,
     );
     final preAck = operations.goOn && !awaitingGoOn
         ? _goOnPreAckCapabilities
@@ -81,20 +94,17 @@ extension _LocationChatReplyControls on _LocationChatPanelState {
               false,
         ),
         canInvoke: (
-          regenerate: replyState?.canRegenerate ?? false,
-          goOn: replyState?.canGoOn ?? false,
-          edit: replyState?.canEdit ?? false,
-          inspiration:
-              _currentInspirationSource != null &&
-              !_sending &&
-              !_preparingReplyAction,
+          regenerate: replyState?.canStartRegenerate ?? false,
+          goOn: replyState?.canStartGoOn ?? false,
+          edit: replyState?.canStartEdit ?? false,
+          inspiration: replyState?.canStartInspiration ?? false,
         ),
         busy: (
           regenerate:
-              (replyState?.generating ?? false) || operations.regenerate,
+              (regenerationState?.generating ?? false) || operations.regenerate,
           goOn: operations.goOn && !goOnContentIsRendering,
-          edit: _editQuotaLoading,
-          inspiration: _inspirationLoading,
+          edit: operations.edit,
+          inspiration: operations.inspiration,
         ),
         active: operations,
         regenerationContentRendering:

@@ -67,12 +67,18 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
   );
 
   ChatroomInspirationSource? get _currentInspirationSource {
-    if (!widget.active ||
-        _chatroomState.inputBlocked ||
-        widget.worldTickInProgress) {
+    if (!widget.active) {
       return null;
     }
-    return _replyController?.stateFor(widget.locationId)?.inspirationSource;
+    final deferredTick = _deferredTickLocalId != null;
+    if (!deferredTick &&
+        (_chatroomState.inputBlocked || widget.worldTickInProgress)) {
+      return null;
+    }
+    return (deferredTick
+            ? _displayReplyState
+            : _replyController?.stateFor(widget.locationId))
+        ?.inspirationSource;
   }
 
   void _bindInspirations() {
@@ -130,7 +136,14 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
 
   void _onInspirationExpanded(bool expanded) {
     if (expanded) {
-      unawaited(_loadInspirations());
+      unawaited(
+        _submitReplyAction(
+          _LocationChatReplyActionTransaction(
+            action: _LocationChatReplyConnectionAction.inspiration,
+            commit: _loadInspirations,
+          ),
+        ),
+      );
     } else if (_inspirationQuotaChecking || _inspirationLoading) {
       _setReplyControlsState(_resetInspiration);
     }
@@ -148,27 +161,43 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
       return;
     }
     _inspirationQuotaChecking = true;
-    final generation = ++_inspirationRequestGeneration;
+    var generation = ++_inspirationRequestGeneration;
     final operation = _LocationChatReplyOperationScope(this);
-    bool current() =>
+    bool ownsRequest() =>
         operation.ownsBinding &&
         widget.active &&
-        generation == _inspirationRequestGeneration &&
         identical(service, _service) &&
-        operation.ownsQuotaSession &&
-        source.sameOrigin(_currentInspirationSource);
-    _setReplyControlsState(() {
-      _inspirationRequestSource = source;
-      if (!source.sameOrigin(_inspirationDisplayedSource)) {
-        _inspirationDisplayedSource = null;
-        _inspirationMessages = const [];
-        _inspirationEpoch = null;
-      }
-    });
+        operation.ownsQuotaSession;
+    bool sameConversation(ChatroomInspirationSource? candidate) =>
+        candidate != null &&
+        candidate.ownerUid == source.ownerUid &&
+        candidate.worldId == source.worldId &&
+        candidate.locationId == source.locationId &&
+        candidate.roundId == source.roundId;
+    ChatroomInspirationSource? verified;
+    bool current() =>
+        ownsRequest() &&
+        generation == _inspirationRequestGeneration &&
+        verified?.sameOrigin(_currentInspirationSource) == true;
     try {
       await service.ensureInspirationHistory(source.locationId);
-      if (!current()) return;
-      final verified = _currentInspirationSource!;
+      if (!ownsRequest() || !sameConversation(_currentInspirationSource)) {
+        return;
+      }
+      // Rebase the click onto the authoritative source established by the
+      // post-join history refresh. A formal reply can legitimately change
+      // from sourceCardId=0 to its persisted card id without changing rounds.
+      verified = _currentInspirationSource!;
+      generation = ++_inspirationRequestGeneration;
+      _inspirationQuotaChecking = true;
+      _setReplyControlsState(() {
+        _inspirationRequestSource = verified;
+        if (!verified!.sameOrigin(_inspirationDisplayedSource)) {
+          _inspirationDisplayedSource = null;
+          _inspirationMessages = const [];
+          _inspirationEpoch = null;
+        }
+      });
       _inspirationEpoch = controller.revision(source.locationId);
       var result = await controller.readCached(verified);
       if (!current()) return;
@@ -200,6 +229,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         _inspirationDisplayedSource = verified;
         _inspirationMessages = messages;
         _inspirationQuotaQueried = true;
+        _inspirationPresentationRevision++;
       });
       if (_featureQuotas?.quotaFor('inspiration') == null &&
           _featureQuotas?.isMember != true) {
@@ -217,7 +247,9 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         }
         return;
       }
-      if (mounted && current() && !isChatroomErrorPresentedGlobally(error)) {
+      if (mounted &&
+          ownsRequest() &&
+          !isChatroomErrorPresentedGlobally(error)) {
         showGenesisToast(context, chatroomOperationErrorMessage(error));
       }
     } finally {

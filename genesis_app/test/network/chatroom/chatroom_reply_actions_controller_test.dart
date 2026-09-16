@@ -522,8 +522,27 @@ void main() {
     },
   );
 
+  test('empty candidate chunks never create card messages', () async {
+    final h = _Harness();
+    addTearDown(h.controller.dispose);
+    h.api.cards = _cards([
+      _card(101),
+      _card(102, index: 2, generation: 'generating'),
+    ]);
+    await h.controller.restoreLocationCards('l');
+    h.controller.receiveEvent(_stream('start'));
+    final messages = h.state.messagesForCard(102);
+    final revision = h.state.cardContentRevision(102);
+    expect(h.state.hasCandidateChunk(102), isFalse);
+    h.controller.receiveEvent(_stream('chunk', content: ''));
+    expect(h.state.hasCandidateChunk(102), isFalse);
+    expect(h.state.cardContentRevision(102), revision);
+    expect(h.state.messagesForCard(102), same(messages));
+    expect(messages, isEmpty);
+  });
+
   test(
-    'empty candidate chunks retain content versions and receipt bookkeeping',
+    'empty completed candidate is removed from cards and pagination',
     () async {
       final h = _Harness();
       addTearDown(h.controller.dispose);
@@ -533,14 +552,39 @@ void main() {
       ]);
       await h.controller.restoreLocationCards('l');
       h.controller.receiveEvent(_stream('start'));
-      final messages = h.state.messagesForCard(102);
-      final revision = h.state.cardContentRevision(102);
-      expect(h.state.hasCandidateChunk(102), isFalse);
-      h.controller.receiveEvent(_stream('chunk', content: ''));
-      expect(h.state.hasCandidateChunk(102), isTrue);
-      expect(h.state.cardContentRevision(102), revision);
-      expect(h.state.messagesForCard(102), same(messages));
-      expect(messages.single.content, isEmpty);
+      h.controller.receiveEvent(_stream('chunk', content: 'Temporary reply'));
+      expect(h.state.cardCount, 2);
+      expect(h.state.messagesForCard(102).single.content, 'Temporary reply');
+
+      h.controller.receiveEvent(_stream('end', content: ' \n '));
+      h.controller.receiveEvent(_terminal('succeeded'));
+
+      expect(h.state.cardCount, 1);
+      expect(h.state.cards.map((card) => card.cardId), [101]);
+      expect(h.state.viewedCardId, 101);
+      expect(h.state.cardPosition, 1);
+      expect(h.state.displayedMessages.first.content, 'Original');
+    },
+  );
+
+  test(
+    'HTTP restore excludes blank and failed cards from pagination',
+    () async {
+      final h = _Harness();
+      addTearDown(h.controller.dispose);
+      h.api.cards = _cards([
+        _card(101),
+        _card(102, index: 2, content: ' \n ', messages: 1),
+        _card(103, index: 3, generation: 'failed'),
+      ], selected: 102);
+
+      await h.controller.restoreLocationCards('l');
+
+      expect(h.state.cardCount, 1);
+      expect(h.state.cards.map((card) => card.cardId), [101]);
+      expect(h.state.viewedCardId, 101);
+      expect(h.state.cardPosition, 1);
+      expect(h.state.displayedMessages.first.content, 'Original');
     },
   );
 
@@ -664,7 +708,7 @@ void main() {
         h.controller.receiveEvent(ack);
         await _settle();
         expect(h.state.generating, isFalse);
-        expect(h.state.cardCount, 2);
+        expect(h.state.cardCount, failed ? 1 : 2);
         expect(h.state.viewedCardId, failed ? 101 : 102);
         expect(
           h.state.displayedMessages.first.content,
@@ -744,11 +788,8 @@ void main() {
       expect(h.state.generating, isFalse);
       expect(h.state.viewedCardId, 101);
       expect(h.state.displayedMessages.first.content, 'Original');
-      expect(h.state.cardCount, 2);
-      expect(
-        h.state.cards.last.generationState,
-        ChatroomCardGenerationState.succeeded,
-      );
+      expect(h.state.cardCount, 1);
+      expect(h.state.cards.single.cardId, 101);
       expect(h.state.error, isA<StateError>());
       expect(h.walletRefreshes, 1);
       expect(h.session.requests, hasLength(1));
@@ -840,13 +881,8 @@ void main() {
       expect(h.state.generating, isFalse);
       expect(h.state.viewedCardId, 101);
       expect(h.state.displayedMessages.first.content, 'Original');
-      expect(h.state.cardCount, 2);
-      expect(h.state.cards.last.cardId, 102);
-      expect(
-        h.state.cards.last.generationState,
-        ChatroomCardGenerationState.succeeded,
-      );
-      expect(h.state.cards.last.messages, isEmpty);
+      expect(h.state.cardCount, 1);
+      expect(h.state.cards.single.cardId, 101);
       expect(h.walletRefreshes, 1);
       h.api.cardsError = null;
       h.api.cards = _cards([
@@ -967,14 +1003,10 @@ void main() {
         h.controller.receiveEvent(terminal);
         await _settle();
         expect(h.state.generating, isFalse);
-        expect(h.state.cardCount, 2);
+        expect(h.state.cardCount, 1);
         expect(h.state.viewedCardId, 101);
         expect(h.state.displayedMessages.first.content, 'Original');
-        expect(
-          h.state.cards.last.generationState,
-          ChatroomCardGenerationState.failed,
-        );
-        expect(h.state.cards.last.canEdit, isFalse);
+        expect(h.state.cards.single.cardId, 101);
         expect(h.state.canRegenerate, isTrue);
         expect(h.api.calls, ['cards:$_round']);
         expect(h.walletRefreshes, 1);
@@ -1070,7 +1102,7 @@ void main() {
       await second;
       expect(h.state.viewedCardId, 103);
       expect(h.state.generating, isTrue);
-      expect(h.state.cardCount, 3);
+      expect(h.state.cardCount, 2);
       expect(h.session.requests, hasLength(2));
     },
   );
@@ -2073,10 +2105,9 @@ void main() {
       expect(h.session.requests, hasLength(1));
       expect(h.state.generating, isFalse);
       expect(h.state.canRegenerate, isTrue);
-      expect(
-        h.state.viewedCard!.generationState,
-        ChatroomCardGenerationState.failed,
-      );
+      expect(h.state.cardCount, 1);
+      expect(h.state.viewedCardId, 101);
+      expect(h.state.displayedMessages.first.content, 'Original');
       expect(h.state.error, isA<ApiException>());
     },
   );
@@ -3092,7 +3123,7 @@ void main() {
   );
 
   test(
-    'failed candidate retains its page and never exposes uncommitted text',
+    'failed candidate is removed and pagination returns to complete cards',
     () async {
       final h = _Harness();
       addTearDown(h.controller.dispose);
@@ -3116,12 +3147,10 @@ void main() {
       h.controller.receiveEvent(_terminal('failed'));
       await _settle();
       expect(h.state.canSwitchCards, isTrue);
-      await h.controller.browse('l', 1);
-      expect(h.state.displayedMessages, isEmpty);
-      expect(h.state.cardCount, 2);
-      expect(h.state.cardPosition, 2);
-      expect(h.state.canEdit, isFalse);
-      await h.controller.browse('l', -1);
+      expect(h.state.cardCount, 1);
+      expect(h.state.cardPosition, 1);
+      expect(h.state.viewedCardId, 101);
+      expect(h.state.displayedMessages.first.content, 'Original');
       expect(h.state.canEdit, isTrue);
     },
   );
