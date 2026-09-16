@@ -1368,6 +1368,71 @@ void main() {
     expect(tester.getRect(find.byKey(closeKey)), closeRect);
     expect(tester.getTopLeft(find.byKey(contentKey)).dy, contentTop);
   });
+  testWidgets('expanding inspiration tracks the growing conversation bottom', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    final messages = List.generate(
+      25,
+      (index) => ChatMessageVm(
+        localId: 'growing-bottom-$index',
+        senderId: 'character',
+        senderName: 'Character',
+        text:
+            'A reply long enough to keep the conversation scrollable while the inspiration list expands.',
+        isMe: false,
+        status: 'sent',
+        senderType: 'character',
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        scrollBehavior: const GenesisScrollBehavior(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 390,
+            height: 650,
+            child: NotificationListener<ScrollNotification>(
+              onNotification: coordinator.handleScrollNotification,
+              child: LocationChatAnchoredMessageList(
+                inspirationFeature: const LocationChatInspirationFeature(
+                  messages: _inspirationReplies,
+                  state: LocationChatReplyActionState.idle,
+                  freeUsesRemaining: 2,
+                ),
+                coordinator: coordinator,
+                messages: messages,
+                topTitle: '',
+                replyActionsMessageId: 'growing-bottom-24',
+                style: kLocationChatStyle,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final position = coordinator.controller.position;
+    coordinator.deactivate();
+    coordinator.controller.jumpTo(position.maxScrollExtent - 48);
+
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await tester.pump();
+    await tester.pump();
+    for (var frame = 0; frame < 10; frame++) {
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+
+    expect(
+      position.maxScrollExtent - position.pixels,
+      lessThan(LocationChatScrollCoordinator.bottomTolerance),
+      reason:
+          'The scroll animation must retarget as the inspiration list grows.',
+    );
+    await tester.pumpAndSettle();
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+  });
   testWidgets('collapsing inspiration keeps the bottom after horizontal swipes', (
     tester,
   ) async {

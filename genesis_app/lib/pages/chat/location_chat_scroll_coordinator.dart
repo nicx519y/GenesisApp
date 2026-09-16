@@ -169,15 +169,18 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
         case LocationChatBottomBehavior.jump:
           _jumpTo(target);
         case LocationChatBottomBehavior.animate:
-          _animateTo(
-            target,
-            duration,
-            generation,
-            settleAtLatest:
-                reason == LocationChatBottomReason.replyGeneration ||
-                reason == LocationChatBottomReason.inspirationExpanded ||
-                reason == LocationChatBottomReason.editPromptExpanded,
-          );
+          if (reason == LocationChatBottomReason.inspirationExpanded) {
+            _animateToGrowingBottom(duration, generation);
+          } else {
+            _animateTo(
+              target,
+              duration,
+              generation,
+              settleAtLatest:
+                  reason == LocationChatBottomReason.replyGeneration ||
+                  reason == LocationChatBottomReason.editPromptExpanded,
+            );
+          }
       }
     });
   }
@@ -374,6 +377,48 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
       // Content may have grown while the request and scroll ran together.
       _jumpTo(controller.position.maxScrollExtent);
     }
+  }
+
+  /// Follows a bottom edge that is itself moving during the expansion.
+  ///
+  /// A regular [ScrollController.animateTo] captures one target extent. The
+  /// inspiration list grows during the same 220ms, so that target is stale on
+  /// the next layout and produces a visible catch-up jump at the end. Sampling
+  /// the latest extent on every frame keeps the conversation scroll and the
+  /// list expansion in one animation while retaining generation cancellation
+  /// for user drags.
+  void _animateToGrowingBottom(Duration duration, int generation) {
+    if (!_commandIsCurrent(generation) || !controller.hasClients) return;
+    final startPixels = controller.position.pixels;
+    Duration? startTimestamp;
+
+    void tick(Duration timestamp) {
+      if (!_commandIsCurrent(generation) || !controller.hasClients) return;
+      startTimestamp ??= timestamp;
+      final elapsed = timestamp - startTimestamp!;
+      final progress = duration == Duration.zero
+          ? 1.0
+          : (elapsed.inMicroseconds / duration.inMicroseconds).clamp(0.0, 1.0);
+      final eased = Curves.easeOut.transform(progress);
+      final position = controller.position;
+      final target =
+          startPixels + (position.maxScrollExtent - startPixels) * eased;
+      _jumpTo(target.clamp(position.minScrollExtent, position.maxScrollExtent));
+      if (progress < 1) {
+        WidgetsBinding.instance.scheduleFrameCallback(tick);
+        return;
+      }
+      if (_animatedBottomScrollGeneration == generation) {
+        _animatedBottomScrollGeneration = null;
+      }
+      if (_commandIsCurrent(generation) &&
+          controller.hasClients &&
+          shouldFollowLatest) {
+        _jumpTo(controller.position.maxScrollExtent);
+      }
+    }
+
+    WidgetsBinding.instance.scheduleFrameCallback(tick);
   }
 
   @override
