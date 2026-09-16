@@ -7,14 +7,23 @@ import 'membership_purchase.dart';
 export 'membership_order_product.dart';
 
 class MembershipProductList {
-  const MembershipProductList({required this.products});
+  const MembershipProductList({required this.products, this.lastAccountUuid});
 
   factory MembershipProductList.fromJson(Map<String, dynamic> json) {
     final list = json['list'];
     if (list is! List || list.any((item) => item is! Map)) {
       throw const FormatException('Invalid membership product list');
     }
+    final rawUuid = json['last_account_uuid'];
+    if (rawUuid != null && rawUuid is! String) {
+      throw const FormatException('Invalid membership last account UUID');
+    }
+    final uuid = (rawUuid as String?)?.trim().toLowerCase();
+    if (uuid != null && uuid.isNotEmpty && !isMembershipAccountUuid(uuid)) {
+      throw const FormatException('Invalid membership last account UUID');
+    }
     return MembershipProductList(
+      lastAccountUuid: uuid == null || uuid.isEmpty ? null : uuid,
       products: List.unmodifiable(
         list.map((item) => MembershipProduct.fromJson(asJsonMap(item))),
       ),
@@ -23,6 +32,10 @@ class MembershipProductList {
 
   final List<MembershipProduct> products;
 
+  /// Store identity from the current response, shared by all plans.
+  final String? lastAccountUuid;
+
+  /// Display cache only. Purchase identity must come from a live catalog load.
   Map<String, Object?> toJson() => {
     'list': [for (final product in products) product.toJson()],
   };
@@ -39,8 +52,6 @@ class MembershipProduct extends MembershipOrderProduct {
     required this.monthlyGemsCent,
     required this.priceCurrencyCode,
     required this.priceAmount,
-    this.accountUuid,
-    this.upgradePurchaseToken,
     super.basePlanId,
     super.offerId,
   });
@@ -91,22 +102,6 @@ class MembershipProduct extends MembershipOrderProduct {
         gems < 0) {
       throw const FormatException('Invalid membership product configuration');
     }
-    final accountUuid = json['account_uuid'];
-    final upgradeToken = json['purchase_token'];
-    final hasAccountUuid = json.containsKey('account_uuid');
-    final hasToken = json.containsKey('purchase_token');
-    if (hasAccountUuid &&
-        (accountUuid is! String || !isMembershipAccountUuid(accountUuid))) {
-      throw const FormatException('Invalid membership account UUID');
-    }
-    if (hasToken &&
-        (provider != MembershipProvider.google ||
-            !hasAccountUuid ||
-            upgradeToken is! String ||
-            upgradeToken.trim().isEmpty ||
-            planCode != 'pro_yearly')) {
-      throw const FormatException('Invalid membership upgrade credentials');
-    }
     return MembershipProduct(
       title: title,
       benefits: List.unmodifiable(benefits),
@@ -119,8 +114,6 @@ class MembershipProduct extends MembershipOrderProduct {
       monthlyGemsCent: gems,
       priceCurrencyCode: currency,
       priceAmount: amount as int?,
-      accountUuid: (accountUuid as String?)?.toLowerCase(),
-      upgradePurchaseToken: upgradeToken as String?,
     );
   }
 
@@ -129,13 +122,6 @@ class MembershipProduct extends MembershipOrderProduct {
   final int billingMonths;
   final int monthlyGemsCent;
   final String priceCurrencyCode;
-
-  /// Preferred purchase identity from the current catalog, for guests or users.
-  /// Kept in memory; never included in display/order product snapshots.
-  final String? accountUuid;
-
-  /// Original Google token when replacing an existing subscription.
-  final String? upgradePurchaseToken;
 
   /// Full billing cycle price, in hundredths of the currency's main unit.
   final int? priceAmount;

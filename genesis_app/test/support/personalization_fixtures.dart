@@ -8,6 +8,7 @@ Map<String, dynamic> personalizationJson({
   'gender': completed ? 'g0' : '',
   'age': completed ? 'a0' : '',
   'completed': completed,
+  'origin_feed_gender': '',
   'form': [
     {
       'name': 'gender',

@@ -9,6 +9,7 @@ import 'app/bootstrap/service_registry.dart';
 import 'app/startup/startup_endpoint_config.dart';
 import 'app/debug/origin_world_sheet_debug_settings.dart';
 import 'app/debug/world_new_content_debug_settings.dart';
+import 'app/debug/purchase_toast_debug_settings.dart';
 import 'app/genesis_app.dart';
 import 'app/startup/app_startup_coordinator.dart';
 import 'app/startup/initial_landing_page_resolver.dart';
@@ -77,6 +78,8 @@ Future<void> main() async {
   final worldNewContentDebugSettingsLoad = kDebugMode
       ? worldNewContentDebugSettings.load()
       : Future<bool>.value(false);
+  // Local debug preference loads in parallel without holding the first frame.
+  if (kDebugMode) unawaited(purchaseToastDebugSettings.load());
   final appConfig = await appConfigLoad;
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
   if (appConfig.useMock != true) {

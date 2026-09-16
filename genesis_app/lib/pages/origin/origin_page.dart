@@ -16,12 +16,14 @@ import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/common/genesis_action_box.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/genesis_modal_routes.dart';
 import '../../components/origin/origin_item_card.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_safe_area.dart';
 import '../../ui/components/secend_tabs.dart';
@@ -131,17 +133,17 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     final automatic = await loadOriginFeedAudienceState(
       services.sessionStore,
       personalization: services.personalization,
-      waitForGuestProfile:
+      waitForPersonalization:
           services.appGlobalConfig.requestState.value.isLoading ||
           services.appGlobalConfig.value.showPersonalizationForm,
-      loadManualGender: (ownerUid) async {
+      loadCachedGender: (ownerUid) async {
         if (_manualGenderOwnerUid == ownerUid && _manualGender != null) {
           return _manualGender;
         }
         try {
           final saved = await OriginFeedCacheStore(
             ownerUid: ownerUid,
-          ).loadManualGender().timeout(const Duration(seconds: 1));
+          ).loadPreferredGender().timeout(const Duration(seconds: 1));
           if (saved != null && mounted && revision == _audienceRevision) {
             _manualGender = saved;
             _manualGenderOwnerUid = ownerUid;
@@ -156,23 +158,13 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     final cache = ownerUid == null
         ? null
         : OriginFeedCacheStore(ownerUid: ownerUid);
-    var gender = automatic.audience.gender;
-    if (!automatic.isReady) {
-      try {
-        gender =
-            await cache?.loadLastConfirmedGender().timeout(
-              const Duration(seconds: 2),
-            ) ??
-            gender;
-      } catch (_) {
-        // A missing/unreadable display hint must not resolve the live audience.
-      }
-    }
-    final next = (
-      audience: (ownerUid: ownerUid, gender: gender),
-      isReady: automatic.isReady,
-    );
-    if (next.isReady && mounted && revision == _audienceRevision) {
+    final next = automatic;
+    // An unset value or failed GET may display All, but must not become a
+    // persistent preference that overrides a later successful response.
+    if (next.isReady &&
+        next.audience.gender != null &&
+        mounted &&
+        revision == _audienceRevision) {
       unawaited(
         cache
             ?.saveLastConfirmedGender(next.audience.gender)
@@ -187,6 +179,8 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     setState(() => _genderFilterOpen = true);
     String? selected;
     String? ownerUid;
+    final services = _services!;
+    final sessionRevision = services.sessionRevision.value;
     try {
       final audience = await _audience;
       if (!mounted) return;
@@ -283,17 +277,39 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
     } finally {
       if (mounted) setState(() => _genderFilterOpen = false);
     }
-    if (!mounted || selected == null) return;
-    // null follows the user profile; empty explicitly selects All.
+    if (!mounted || selected == null || ownerUid == null) return;
+    final uid = await services.sessionStore.readLoginUid();
+    if (!mounted ||
+        !identical(services, _services) ||
+        sessionRevision != services.sessionRevision.value ||
+        ownerUid != (uid ?? OriginFeedCacheStore.anonymousOwnerUid)) {
+      return;
+    }
+    // Empty explicitly selects All; keep it distinct from a cache miss.
     _manualGender = selected;
     _manualGenderOwnerUid = ownerUid;
-    final saving = ownerUid == null
-        ? null
-        : OriginFeedCacheStore(
-            ownerUid: ownerUid,
-          ).saveManualGender(selected).catchError((Object _) {});
+    final saving = OriginFeedCacheStore(
+      ownerUid: ownerUid,
+    ).saveManualGender(selected).catchError((Object _) {});
+    final reporting = services
+        .updateOriginFeedGender(
+          uid: uid,
+          gender: selected.isEmpty ? 'All' : selected,
+        )
+        .catchError((Object error) {
+          debugPrint('[Origin] preference update failed: ${error.runtimeType}');
+          if (mounted &&
+              identical(services, _services) &&
+              sessionRevision == services.sessionRevision.value) {
+            showGenesisToast(
+              context,
+              'Unable to save your preference. Please try again.',
+            );
+          }
+        });
     await _reloadAudience();
     await saving;
+    await reporting;
   }
 
   Future<void> _reloadAudience() async {

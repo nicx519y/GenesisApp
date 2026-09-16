@@ -84,9 +84,6 @@ Object? _membershipReportProfileJson(Object? value) {
             'err_msg',
             'data',
             'status',
-            'report_id',
-            'membership_id',
-            'reason',
           }.contains(entry.key)
           ? entry.value is Map || entry.value is List
                 ? _membershipReportProfileJson(entry.value)
@@ -95,7 +92,7 @@ Object? _membershipReportProfileJson(Object? value) {
   };
 }
 
-/// Keep catalog display data inspectable without exposing upgrade credentials.
+/// Keep catalog display data inspectable without exposing the last purchase identity.
 List<int> membershipProductProfileBody(List<int> bytes) {
   if (bytes.isEmpty) return bytes;
   try {

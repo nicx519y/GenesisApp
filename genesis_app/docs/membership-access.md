@@ -35,18 +35,27 @@ services.membership.checkVip((isVip) {
 
 ### 订阅购买入口
 
-- 购买点击不调用 `checkVip` 或 `refresh()`，不请求或等待 wallet。
-- 购买服务不读取本地或 wallet 会员状态；年转月、月转年、同套餐、无会员及状态未知等情况统一交给平台购买回调处理，不在客户端判断是否允许订阅。
+- 点击月会员时使用全局 `checkVip` 的缓存/在途钱包请求确认状态；只有当前账号 `membership_status=1`、`expires_at` 未过期且 `plan_code=pro_yearly` 才拦截，沿用不能降级的 Toast。年会员购买不读取会员状态，其余状态不作资格拦截，交给平台回调。不会每次点击强制刷新 wallet。
 - 页面打开时的展示刷新及 report/claim 成功后的钱包刷新保持原有流程。同套餐有效会员仅在 `auto_renew=true` 时显示 `Subscribed`；`auto_renew=false` 时恢复 `Monthly: 价格`／`Yearly: 价格`。该字段只影响按钮文案，不作为购买拦截条件，也不改变尚未到期的会员权益。
-- 全屏购买页和购买 sheet 在选中 Subscription 时，每次 App `resumed` 都调用 `membership.refresh()` 请求最新 wallet，不受全局 30 秒回前台缓存限制；复用正在进行的钱包请求。刷新后更新按钮，失败保留仍有效的旧展示，下次回前台继续刷新。未登录继续跳过需要登录态的钱包接口，购买点击不等待此刷新。
-- report 网络失败／超时保存原凭据重试，`accepted` 继续补报，`completed`／`rejected` 为终态；补报不重新调起平台购买。
+- 全屏购买页和购买 sheet 在选中 Subscription 时，每次 App `resumed` 都调用 `membership.refresh()` 请求最新 wallet，不受全局 30 秒回前台缓存限制；复用正在进行的钱包请求。刷新后更新按钮，失败保留仍有效的旧展示，下次回前台继续刷新。未登录继续跳过需要登录态的钱包接口，月会员点击复用全局会员查询。
+- report 响应仅解析 `data.status`，删除 report_id/membership_id/reason 依赖。网络失败／超时保存原凭据重试，`accepted` 继续补报，`completed`／`rejected` 为终态；补报不重新调起平台购买。
 
 ### 商品预加载
 
 - 启动身份及必要的未绑定支付登录检查结束后，后台请求 `/api/v1/membership/products`，与 personalization 请求并行，不阻塞首页或填表。填表开关关闭时也预加载，供 Home 等订阅入口复用。
-- 所有订阅入口共用 `MembershipCatalog`：复用进行中的请求，以及同一账号下 1 分钟内成功取得的接口结果。过期或失败后进入订阅页重新请求，磁盘缓存仍仅用于先展示。
-- 登录、退出、换号以及 report／claim 状态变化使下单缓存失效；旧请求不能覆盖新结果。账号 UUID 和升级凭证只保留在内存中，不写入商品展示缓存。
+- 所有订阅入口共用 `MembershipCatalog`：每次打开订阅全屏页或 sheet 都重新请求商品列表，不受 1 分钟缓存限制；已有缓存／预加载结果仅用于先展示。进入时发起的新请求也更新下单凭据，购买点击等待这次请求，不使用旧缓存直接下单。仅后台预加载继续复用进行中的请求或同一账号下 1 分钟内成功取得的结果。
+- 购买 report 完成或 claim 状态变化后，先使旧下单凭据失效；仍打开的订阅页面立即静默重新请求商品列表，更新展示与下单凭据。购买成功后原有关闭页面／sheet 的交互保持不变，下次进入仍重新请求。
+- 登录、退出、换号以及 report／claim 状态变化使下单缓存失效；旧请求不能覆盖新结果。列表顶层 `last_account_uuid` 只保留在内存中，不写入商品展示缓存。
 - 商品预加载失败只记录诊断，不弹 Toast，不改变 Continue 的会员判断，也不提前调用平台购买或 report。
+
+每次进入刷新改动的本地验证命令（2026-09-16，95 项相关测试、4 项 Home 入口测试及静态检查通过，未重新安装真机验证）：
+
+```sh
+flutter test --no-pub test/app/membership/membership_catalog_test.dart test/components/pro_subscription_content_test.dart test/components/personalization_gate_test.dart
+flutter test --no-pub test/widget_test.dart --plain-name 'Home crown'
+flutter analyze --no-pub lib/app/membership/membership_catalog.dart test/app/membership/membership_catalog_test.dart test/components/pro_subscription_content_test.dart test/components/personalization_gate_test.dart test/widget_test.dart
+git diff --check
+```
 
 预加载改动的本地验证命令（2026-09-15）：
 
@@ -101,3 +110,8 @@ git diff --check
 及 Gems 页面相关测试。
 覆盖失败重试、并发合并、缓存与到期、时钟、登录隔离、迟到响应、启动及登录接入。
 真机弱网、后台挂起及服务端真实续费场景仍需联调验证。
+
+### 购买身份（2026-09-16）
+
+- 商品项删除 can_purchase、purchase_block_reason、purchase_action、account_uuid、purchase_token。`last_account_uuid` 与 list 平级，非空时登录/游客均优先使用。为空时游客 prepare，登录用户读取本人 UUID。
+- base_plan_id / offer_id 仍用于选中 Google 套餐；同一商品的套餐切换由 Play 默认替换配置决定。不再依赖商品接口的旧 token。

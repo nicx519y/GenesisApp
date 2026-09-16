@@ -82,6 +82,13 @@ MembershipStoreFailure membershipStoreError(
         _ => normalized,
       };
     }
+    final debugMessage =
+        values['debugMessage'] ?? (details is String ? details : message);
+    if (normalized == 'developer_error' &&
+        debugMessage is String &&
+        debugMessage.trim() == _googleAccountIdentifiersMismatch) {
+      normalized = 'account_identifiers_mismatch';
+    }
   } else {
     final typed = values['storeKitCode'];
     if (typed is String) normalized = _normalize(typed);
@@ -134,6 +141,9 @@ const membershipGoogleResponseCodes = <int, String>{
   12: 'network_error',
 };
 
+const _googleAccountIdentifiersMismatch =
+    "Account identifiers don't match the previous subscription.";
+
 const membershipGoogleErrorMessages = <String, String>{
   'service_timeout': 'Google Play took too long to respond. Please try again.',
   'feature_not_supported':
@@ -147,8 +157,8 @@ const membershipGoogleErrorMessages = <String, String>{
       'Google Play billing is unavailable. Please check your Play account and payment settings.',
   'item_unavailable':
       'This Premium subscription is currently unavailable on Google Play.',
-  'developer_error':
-      'Google Play could not start this subscription purchase. Please contact support if this continues.',
+  'developer_error': 'Premium purchase canceled.',
+  'account_identifiers_mismatch': _googleAccountIdentifiersMismatch,
   'error':
       'Google Play could not complete this Premium purchase. Please try again.',
   'item_already_owned':

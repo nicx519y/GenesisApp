@@ -50,7 +50,7 @@ class MembershipCatalog {
     DateTime Function()? now,
   }) : _now = now ?? DateTime.now;
 
-  static const entryCacheAge = Duration(minutes: 1);
+  static const preloadCacheAge = Duration(minutes: 1);
 
   final Future<MembershipProductList> Function(MembershipProvider provider)
   loadProducts;
@@ -120,9 +120,13 @@ class MembershipCatalog {
     return _loading = _load(_session, generation);
   }
 
-  /// Share startup preloads and recent API results across all subscription entries.
+  /// Every entry refreshes prices and checkout credentials. Cached/preloaded
+  /// products remain available for display while this new request is pending.
+  Future<MembershipCatalogData> loadForEntry() => load();
+
+  /// Only background preloads may reuse an in-flight or recent API response.
   /// Disk snapshots never satisfy this freshness check or authorize checkout.
-  Future<MembershipCatalogData> loadForEntry() async {
+  Future<MembershipCatalogData> _loadForPreload() async {
     final session = _session;
     final owner = await readOwnerUid?.call();
     if (session != _session) {
@@ -137,7 +141,7 @@ class MembershipCatalog {
         owner == _checkoutOwner &&
         age != null &&
         !age.isNegative &&
-        age < entryCacheAge) {
+        age < preloadCacheAge) {
       return _cached!;
     }
     return load();
@@ -147,7 +151,7 @@ class MembershipCatalog {
   Future<void> preload() async {
     if (provider == null) return;
     try {
-      await loadForEntry();
+      await _loadForPreload();
     } catch (error) {
       debugPrint('[Membership] catalog preload failed: ${error.runtimeType}');
     }
@@ -188,11 +192,12 @@ class MembershipCatalog {
     final result = _catalog(response, platform);
     if (session == _session && generation == _loadGeneration) {
       _checkoutProducts = MembershipProductList(
+        lastAccountUuid: response.lastAccountUuid,
         products: List.unmodifiable(response.products),
       );
       _checkoutOwner = owner;
       _loadedAt = _now();
-      // Cache display fields without account UUIDs or upgrade purchase tokens.
+      // Cache display fields without the last purchase UUID.
       _cached = _catalog(
         MembershipProductList(
           products: [

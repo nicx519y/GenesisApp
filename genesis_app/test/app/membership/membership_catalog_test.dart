@@ -13,7 +13,7 @@ void main() {
 
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider preload shares in-flight and completed entry requests',
+      '$provider background preloads share in-flight and recent requests',
       () async {
         var calls = 0;
         final response = Completer<MembershipProductList>();
@@ -25,29 +25,46 @@ void main() {
           },
         );
         final preloading = catalog.preload();
-        final page = catalog.loadForEntry();
-        final sheet = catalog.loadForEntry();
+        final secondPreload = catalog.preload();
         await pumpEventQueue();
         expect(calls, 1);
         response.complete(
           MembershipProductList(
-            products: [
-              membershipProduct(
-                provider: provider,
-                accountUuid: '2b74ec68-7abc-4cce-a223-e997e31dc811',
-              ),
-            ],
+            lastAccountUuid: '2b74ec68-7abc-4cce-a223-e997e31dc811',
+            products: [membershipProduct(provider: provider)],
           ),
         );
-        await Future.wait([preloading, page, sheet]);
-        await catalog.loadForEntry();
+        await Future.wait([preloading, secondPreload]);
+        await catalog.preload();
         final checkout = await catalog.readCheckoutProducts();
         expect(
-          checkout.products.single.accountUuid,
+          checkout.lastAccountUuid,
           '2b74ec68-7abc-4cce-a223-e997e31dc811',
         );
-        expect(catalog.cached!.offers.single.product.accountUuid, isNull);
         expect(calls, 1);
+      },
+    );
+
+    test(
+      '$provider every entry replaces recent checkout credentials',
+      () async {
+        var calls = 0;
+        final catalog = MembershipCatalog(
+          provider: provider,
+          loadProducts: (_) async => MembershipProductList(
+            lastAccountUuid: '00000000-0000-4000-8000-00000000000${++calls}',
+            products: [membershipProduct(provider: provider)],
+          ),
+        );
+        await catalog.preload();
+        for (var entry = 2; entry <= 3; entry++) {
+          await catalog.loadForEntry();
+          expect(calls, entry);
+          expect(
+            (await catalog.readCheckoutProducts()).lastAccountUuid,
+            '00000000-0000-4000-8000-00000000000$entry',
+          );
+        }
       },
     );
   }
@@ -68,7 +85,7 @@ void main() {
         },
       );
       await catalog.preload();
-      now = now.add(MembershipCatalog.entryCacheAge);
+      now = now.add(MembershipCatalog.preloadCacheAge);
       offline = true;
       await catalog.preload();
       expect(calls, 2);
@@ -145,18 +162,17 @@ void main() {
       final store = MembershipCatalogCache(namespace: 'catalog-checkout');
       const uuid = '2b74ec68-7abc-4cce-a223-e997e31dc811';
       var calls = 0;
-      final product = membershipProduct(
-        yearly: true,
-        accountUuid: uuid,
-        upgradePurchaseToken: 'original-monthly-token',
-      );
+      final product = membershipProduct(yearly: true);
       final catalog = MembershipCatalog(
         provider: MembershipProvider.google,
         cacheStore: store,
         readOwnerUid: () async => 'user-test',
         loadProducts: (_) async {
           calls++;
-          return MembershipProductList(products: [product]);
+          return MembershipProductList(
+            products: [product],
+            lastAccountUuid: uuid,
+          );
         },
       );
       await expectLater(catalog.readCheckoutProducts(), throwsStateError);
@@ -164,22 +180,12 @@ void main() {
       await catalog.load();
       for (var attempt = 0; attempt < 2; attempt++) {
         final checkout = await catalog.readCheckoutProducts();
-        expect(checkout.products.single.accountUuid, uuid);
-        expect(
-          checkout.products.single.upgradePurchaseToken,
-          'original-monthly-token',
-        );
+        expect(checkout.lastAccountUuid, uuid);
       }
       expect(calls, 1);
-      expect(catalog.cached!.offers.single.product.accountUuid, isNull);
-      expect(
-        catalog.cached!.offers.single.product.upgradePurchaseToken,
-        isNull,
-      );
       await pumpEventQueue();
       final disk = await store.load(MembershipProvider.google, 'user-test');
-      expect(disk!.products.single.accountUuid, isNull);
-      expect(disk.products.single.upgradePurchaseToken, isNull);
+      expect(disk!.lastAccountUuid, isNull);
     },
   );
 

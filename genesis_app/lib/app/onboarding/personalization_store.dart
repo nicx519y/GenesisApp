@@ -62,6 +62,21 @@ class PersonalizationStore {
 
   Future<PersonalizationData?> refresh() {
     if (_disposed || !_enabled) return Future.value(null);
+    return _refresh();
+  }
+
+  /// Worldo still needs the preference when the onboarding form is disabled.
+  /// Reuse the startup request/data rather than issuing a second GET.
+  Future<PersonalizationData?> loadForOriginFeed() {
+    if (_disposed) return Future.value(null);
+    if (_request != null) return _request!;
+    if (state.value.data != null || state.value.error != null) {
+      return Future.value(state.value.data);
+    }
+    return _refresh();
+  }
+
+  Future<PersonalizationData?> _refresh() {
     if (_request != null) return _request!;
     final generation = _generation;
     late final Future<PersonalizationData?> request;
@@ -74,9 +89,10 @@ class PersonalizationStore {
 
   Future<PersonalizationData?> _load(int generation) async {
     bool current() => !_disposed && generation == _generation;
+    String? uid;
     _publish(const PersonalizationState(loading: true));
     try {
-      final uid = await readLoginUid().timeout(const Duration(seconds: 20));
+      uid = await readLoginUid().timeout(const Duration(seconds: 20));
       if (!current()) return null;
       final data = await load().timeout(const Duration(seconds: 20));
       final currentUid = await readLoginUid().timeout(
@@ -90,7 +106,7 @@ class PersonalizationStore {
       _publish(PersonalizationState(data: data, uid: uid));
       return data;
     } catch (error) {
-      if (current()) _publish(PersonalizationState(error: error));
+      if (current()) _publish(PersonalizationState(uid: uid, error: error));
       return null;
     }
   }

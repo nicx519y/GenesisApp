@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../app/onboarding/personalization_store.dart';
 import '../../platform/session/user_session_store.dart';
 import 'origin_feed_cache_store.dart';
@@ -21,15 +23,15 @@ Future<OriginFeedAudience> loadOriginFeedAudience(
 Future<OriginFeedAudienceState> loadOriginFeedAudienceState(
   UserSessionStore store, {
   PersonalizationStore? personalization,
-  bool waitForGuestProfile = false,
-  Future<String?> Function(String ownerUid)? loadManualGender,
+  bool waitForPersonalization = false,
+  Future<String?> Function(String ownerUid)? loadCachedGender,
 }) async {
   try {
     return await _readOriginFeedAudience(
       store,
       personalization,
-      waitForGuestProfile,
-      loadManualGender,
+      waitForPersonalization,
+      loadCachedGender,
     ).timeout(const Duration(seconds: 2));
   } catch (_) {
     // An unresolved owner must not read/write another account's first-page cache.
@@ -41,46 +43,42 @@ Future<OriginFeedAudienceState> loadOriginFeedAudienceState(
 Future<OriginFeedAudienceState> _readOriginFeedAudience(
   UserSessionStore store,
   PersonalizationStore? personalization,
-  bool waitForGuestProfile,
-  Future<String?> Function(String ownerUid)? loadManualGender,
+  bool waitForPersonalization,
+  Future<String?> Function(String ownerUid)? loadCachedGender,
 ) async {
   final uid = await store.readLoginUid();
   final ownerUid = uid ?? OriginFeedCacheStore.anonymousOwnerUid;
-  final manualGender = await loadManualGender?.call(ownerUid);
-  if (manualGender != null) {
+  final cachedGender = await loadCachedGender?.call(ownerUid);
+  if (cachedGender != null) {
     return (
-      audience: (ownerUid: ownerUid, gender: manualGender),
+      audience: (ownerUid: ownerUid, gender: cachedGender),
       isReady: true,
     );
   }
-  Object? gender;
-  var isReady = true;
-  if (uid == null) {
-    // Reuse the guest device profile loaded by onboarding. Do not start another
-    // request or use a logged-in user's personalization after signing out.
-    final profile = personalization?.state.value;
-    if (profile?.uid == null) gender = profile?.data?.profile.gender;
-    isReady =
-        !waitForGuestProfile ||
-        (profile?.uid == null &&
-            (profile?.data != null || profile?.error != null));
-  } else {
-    final user = await store.readUserInfo().catchError((Object _) => null);
-    final cachedUid = user?['uid'];
-    // Do not apply another account's profile during a session transition.
-    if (cachedUid is! String || cachedUid.trim() == uid) {
-      gender = user?['gender'];
-    }
+  // Both signed-in and guest identities use the startup GET, never gender
+  // from userInfo or a client-side opposite-gender mapping.
+  var profile = personalization?.state.value;
+  if (!waitForPersonalization &&
+      personalization != null &&
+      profile?.data == null &&
+      profile?.error == null) {
+    // The onboarding form may be disabled, but the feed still needs its data.
+    unawaited(personalization.loadForOriginFeed());
+    profile = personalization.state.value;
   }
+  final sameOwner = profile?.uid == uid;
+  final preference = sameOwner ? profile?.data?.profile.originFeedGender : null;
   return (
     audience: (
       ownerUid: ownerUid,
-      gender: switch (gender is String ? gender.trim().toLowerCase() : '') {
-        'male' => 'Female',
-        'female' => 'Male',
+      gender: switch (preference) {
+        'Male' || 'Female' || 'Non_binary' => preference,
+        'All' => '',
         _ => null,
       },
     ),
-    isReady: isReady,
+    isReady:
+        personalization == null ||
+        (sameOwner && (profile?.data != null || profile?.error != null)),
   );
 }

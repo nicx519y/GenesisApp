@@ -334,7 +334,12 @@ void main() {
             'err_msg': 'succ',
             'data': request.method == 'GET'
                 ? personalizationJson()
-                : {'gender': 'g4', 'age': 'a6', 'completed': true},
+                : {
+                    'gender': 'g4',
+                    'age': 'a6',
+                    'completed': true,
+                    'origin_feed_gender': 'Female',
+                  },
           }),
         ),
       );
@@ -354,11 +359,71 @@ void main() {
         profile: const PersonalizationProfile(gender: 'g4', age: 'a6'),
       );
       expect(saved.completed, isTrue);
+      expect(saved.originFeedGender, 'Female');
       expect(transport.lastRequest!.method, 'POST');
       expect(jsonDecode(utf8.decode(transport.lastRequest!.bodyBytes!)), {
         'gender': 'g4',
         'age': 'a6',
       });
+    },
+  );
+
+  test(
+    'origin preference POST sends only preference and device identity',
+    () async {
+      final transport = _FakeTransport(
+        handler: (request) => TransportResponse(
+          statusCode: 200,
+          headers: const {'content-type': 'application/json'},
+          body: jsonEncode({
+            'err_no': 0,
+            'err_msg': 'succ',
+            'data': {
+              'gender': '',
+              'age': '',
+              'completed': false,
+              'origin_feed_gender':
+                  (jsonDecode(utf8.decode(request.bodyBytes!))
+                      as Map)['origin_feed_gender'],
+            },
+          }),
+        ),
+      );
+      final api = _apiWith(transport, transport);
+      for (final gender in ['Male', 'Female', 'Non_binary', 'All']) {
+        final saved = await api.v1.device.updateOriginFeedGender(
+          deviceId: 'test-device',
+          gender: gender,
+        );
+        expect(saved.originFeedGender, gender);
+        expect(saved.completed, isFalse);
+        final request = transport.lastRequest!;
+        expect(request.method, 'POST');
+        expect(
+          request.uri.path,
+          '/api/v1/device/personalization/update_origin_feed_gender',
+        );
+        expect(request.headers['X-Device-ID'], 'test-device');
+        expect(jsonDecode(utf8.decode(request.bodyBytes!)), {
+          'origin_feed_gender': gender,
+        });
+      }
+    },
+  );
+  test(
+    'origin preference rejects malformed GET values instead of deriving from gender',
+    () {
+      for (final value in [null, 1, 'unknown']) {
+        final json = personalizationJson()..['origin_feed_gender'] = value;
+        expect(() => PersonalizationData.fromJson(json), throwsFormatException);
+      }
+      for (final value in ['', 'All', 'Male', 'Female', 'Non_binary']) {
+        final json = personalizationJson()..['origin_feed_gender'] = value;
+        expect(
+          PersonalizationData.fromJson(json).profile.originFeedGender,
+          value.isEmpty ? null : value,
+        );
+      }
     },
   );
 
@@ -375,6 +440,13 @@ void main() {
       final api = _apiWith(transport, transport);
       await expectLater(
         api.v1.device.personalization(deviceId: 'test-device'),
+        throwsA(isA<ApiException>()),
+      );
+      await expectLater(
+        api.v1.device.updateOriginFeedGender(
+          deviceId: 'test-device',
+          gender: 'All',
+        ),
         throwsA(isA<ApiException>()),
       );
       final malformed = personalizationJson()..remove('completed');

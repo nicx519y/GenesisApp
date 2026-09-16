@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:genesis_flutter_android/app/debug/purchase_toast_debug_settings.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -49,6 +51,12 @@ Future<void> open(WidgetTester tester, service.Harness h) async {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    purchaseToastDebugSettings.resetForTesting();
+  });
+  tearDown(purchaseToastDebugSettings.resetForTesting);
+
   for (final provider in MembershipProvider.values) {
     testWidgets(
       '$provider active yearly member buying monthly reaches the store and uses its callback',
@@ -275,6 +283,7 @@ void main() {
     testWidgets(
       '$outcome dismisses processing with VIP feedback and leaves the page open',
       (tester) async {
+        await purchaseToastDebugSettings.setEnabled(true);
         final h = service.Harness();
         if (outcome == 'failed') h.platform.launchResult = false;
         if (outcome == 'query failure') {
@@ -291,8 +300,6 @@ void main() {
             status: outcome == 'accepted'
                 ? MembershipReportStatus.accepted
                 : MembershipReportStatus.rejected,
-            reportId: 'test-report',
-            reason: outcome == 'rejected' ? 'invalid_receipt' : null,
           );
         }
         await open(tester, h);
@@ -336,7 +343,7 @@ void main() {
           'cancelled' => 'store_callback; status=canceled',
           'pending' => 'store_callback; status=pending',
           'accepted' => 'report; status=accepted',
-          'rejected' => 'report; status=rejected; reason=invalid_receipt',
+          'rejected' => 'report; status=rejected',
           'failed' => 'membership_launch_rejected',
           'query failure' => 'code=membership_product_not_found',
           'deferred' => 'report; StateError; offline',
