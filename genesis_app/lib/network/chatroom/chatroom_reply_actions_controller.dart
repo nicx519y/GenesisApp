@@ -173,7 +173,7 @@ class ChatroomReplyRoundState {
   bool get invalidatedByTick => _invalidated;
   Object? get error => _error;
   bool get _hasReplyActionSource =>
-      _formal.any(_isReply) ||
+      _formal.any(_isRenderableReply) ||
       (_conversationType == 'tick' &&
           _formal.any((message) => message.businessType == 'tick'));
   bool get complete => !_active && (_ended || _hasReplyActionSource);
@@ -347,7 +347,10 @@ class ChatroomReplyRoundState {
       _streamMessages.entries.any(
         (entry) =>
             !previousCardIds.contains(entry.key) &&
-            entry.value.values.any((message) => message._receivedChunk),
+            entry.value.values.any(
+              (message) =>
+                  message._receivedChunk && message._hasRenderableOutput,
+            ),
       ) ||
       _cards.any(
         (card) =>
@@ -360,11 +363,14 @@ class ChatroomReplyRoundState {
   bool hasCandidateChunk(int cardId) =>
       (_snapshotChunkCardIds?.contains(cardId) ?? false) ||
       (_streamMessages[cardId]?.values.any(
-            (message) => message._receivedChunk,
+            (message) => message._receivedChunk && message._hasRenderableOutput,
           ) ??
           false) ||
       (_authoritativeCards.contains(cardId) &&
-          (_card(cardId)?.messages.isNotEmpty ?? false));
+          (_card(
+                cardId,
+              )?.messages.any((message) => message.content.trim().isNotEmpty) ??
+              false));
 
   ChatroomLlmCard? _card(int id) {
     for (final card in _cards) {
@@ -655,7 +661,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         _noteGoOnStreamStarted(source);
       }
       if (next._formal.any(
-        (message) => !message.streaming && _isReply(message),
+        (message) => !message.streaming && _isRenderableReply(message),
       )) {
         _background(source, () => _recoverGoOn(source));
       }
@@ -1082,6 +1088,12 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     state._cardsResponse = result;
     state._selectedCardId = result.selectedCardId;
     state._confirmed = result.confirmed;
+    final retainedResultCards = result.list
+        .where(_cardHasRenderableOrPendingContent)
+        .toList(growable: false);
+    final retainedResultCardIds = retainedResultCards
+        .map((card) => card.cardId)
+        .toSet();
     final unresolved = state._card(-1);
     if (unresolved != null &&
         result.activeCardId > 0 &&
@@ -1090,13 +1102,19 @@ class ChatroomReplyActionsController extends ChangeNotifier {
               card.cardId == result.activeCardId &&
               card.cardIndex >= unresolved.cardIndex,
         )) {
-      if (state._viewedCardId == -1) state._viewedCardId = result.activeCardId;
+      if (state._viewedCardId == -1) {
+        state._viewedCardId =
+            retainedResultCardIds.contains(result.activeCardId)
+            ? result.activeCardId
+            : state._lastCompleteCardId;
+      }
       state._cards.removeWhere((card) => card.cardId == -1);
     }
     final pending = state._cards
         .where(
           (card) =>
               !result.list.any((item) => item.cardId == card.cardId) &&
+              _cardHasRenderableOrPendingContent(card) &&
               (card.cardId == state._fixedCardId ||
                   card.cardId < 0 ||
                   (card.cardId == 0 && result.list.isEmpty) ||
@@ -1105,7 +1123,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         .toList();
     state._cards
       ..clear()
-      ..addAll(result.list)
+      ..addAll(retainedResultCards)
       ..addAll(pending);
     state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
     for (final card in result.list) {
@@ -1115,10 +1133,15 @@ class ChatroomReplyActionsController extends ChangeNotifier {
         state._authoritativeCards.add(card.cardId);
       }
     }
+    if (!_completeCard(state._card(state._lastCompleteCardId))) {
+      state._lastCompleteCardId = _lastCompleteCardId(state._cards);
+    }
     if (state._card(state._viewedCardId) == null) {
-      final nextView = result.selectedCardId > 0
+      final nextView = retainedResultCardIds.contains(result.selectedCardId)
           ? result.selectedCardId
-          : result.originalCardId;
+          : retainedResultCardIds.contains(result.originalCardId)
+          ? result.originalCardId
+          : state._lastCompleteCardId;
       if (nextView != state._viewedCardId) {
         state._viewedCardId = nextView;
         state._presentationRevision++;
@@ -1668,43 +1691,58 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     final streams = state._streamMessages[event.cardId]?.values.toList()
       ?..sort((a, b) => a.index.compareTo(b.index));
     final failed = event.generationState == ChatroomCardGenerationState.failed;
+    final completedMessages = failed
+        ? const <WorldChatroomMessage>[]
+        : (streams ?? const <_CandidateMessage>[])
+              .map(
+                (message) => message.toMessage(state.locationId, state.roundId),
+              )
+              .where(_messageHasRenderableOutput)
+              .toList(growable: false);
     final complete =
         !failed &&
         streams != null &&
         streams.isNotEmpty &&
-        streams.every((m) => m._ended);
+        streams.every((m) => m._ended) &&
+        completedMessages.isNotEmpty;
+    final transferComplete =
+        failed ||
+        (streams != null &&
+            streams.isNotEmpty &&
+            streams.every((message) => message._ended));
     state._cards.removeWhere(
       (card) => card.cardId == event.cardId || card.cardId == -1,
     );
-    state._cards.add(
-      _assembledCard(
-        state,
-        event.cardId,
-        old?.cardIndex ?? state._cards.length + 1,
-        failed
-            ? const []
-            : (streams ?? [])
-                  .map((m) => m.toMessage(state.locationId, state.roundId))
-                  .toList(),
-        billing: event.billing,
-        generation: !failed && !complete
-            ? ChatroomCardGenerationState.generating
-            : event.generationState,
-        editable: complete,
-        error: event.error,
-      ),
-    );
+    if (complete || !transferComplete) {
+      state._cards.add(
+        _assembledCard(
+          state,
+          event.cardId,
+          old?.cardIndex ?? state._cards.length + 1,
+          complete ? completedMessages : const [],
+          billing: event.billing,
+          generation: complete
+              ? event.generationState
+              : ChatroomCardGenerationState.generating,
+          editable: complete,
+          error: event.error,
+        ),
+      );
+    }
     state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
-    if (failed &&
-        (state._viewedCardId == -1 || state._viewedCardId == event.cardId)) {
-      state._viewedCardId = state._lastCompleteCardId;
+    if (transferComplete && !complete) {
+      state._lastCompleteCardId = _lastCompleteCardId(state._cards);
+      if (state._viewedCardId == -1 || state._viewedCardId == event.cardId) {
+        state._viewedCardId = state._lastCompleteCardId;
+      }
       state._presentationRevision++;
     } else if (state._viewedCardId == -1) {
       state._viewedCardId = event.cardId;
     }
-    if (failed || complete) {
+    if (transferComplete) {
       state._authoritativeCards.add(event.cardId);
       state._streamMessages.remove(event.cardId);
+      state._cardTerminals.remove(event.cardId);
     }
     if (failed) state._regenerateDispatching = false;
     state._generating = state._cards.any(
@@ -1846,7 +1884,8 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     canEdit: editable,
     canDelete: editable,
     messages: [
-      for (final (position, message) in messages.indexed)
+      for (final (position, message)
+          in messages.where(_messageHasRenderableOutput).indexed)
         ChatroomLlmCardMessage(
           cardId: id,
           cardMessageIndex: isOriginal ? position + 1 : message.roundOrder,
@@ -2026,19 +2065,11 @@ class ChatroomReplyActionsController extends ChangeNotifier {
       state._viewedCardId = state._lastCompleteCardId;
     } else if (card != null && !_terminal(card.generationState)) {
       state._cards.remove(card);
-      state._cards.add(
-        _assembledCard(
-          state,
-          card.cardId,
-          card.cardIndex,
-          const [],
-          billing: card.billing,
-          editable: false,
-          generation: ChatroomCardGenerationState.failed,
-          error: error,
-        ),
-      );
-      state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
+      state._lastCompleteCardId = _lastCompleteCardId(state._cards);
+      if (state._viewedCardId == cardId) {
+        state._viewedCardId = state._lastCompleteCardId;
+      }
+      state._presentationRevision++;
     }
     state._regenerationRequestId = null;
     state._regenerateDispatching = false;
@@ -2186,7 +2217,7 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     final messages = next._formal
         .where((message) => !message.streaming)
         .toList(growable: false);
-    if (!messages.any(_isReply)) {
+    if (!messages.any(_isRenderableReply)) {
       // The contract commits a successful round atomically. Persisted AI
       // replies prove success even when end was lost; an empty/non-AI result
       // does not prove that an accepted request failed.
@@ -2206,11 +2237,11 @@ class ChatroomReplyActionsController extends ChangeNotifier {
     next._ended = true;
     pending.finished = true;
     _cancelGoOnWatchdog(source);
-    source._error = messages.any(_isReply)
+    source._error = messages.any(_isRenderableReply)
         ? null
         : StateError('No usable reply was persisted');
     next._error = source._error;
-    if (!messages.any(_isReply)) _rollbackGoOnRound(source);
+    if (!messages.any(_isRenderableReply)) _rollbackGoOnRound(source);
     _onGoOnFinished?.call(source.locationId, round);
     await _persist(source);
     _notify(source.locationId);
@@ -2321,6 +2352,10 @@ class _CandidateMessage {
   bool _receivedChunk = false;
   WorldChatroomMessage? _snapshot;
 
+  bool get _hasRenderableOutput =>
+      _content.trim().isNotEmpty ||
+      _chunks.values.any((chunk) => chunk.trim().isNotEmpty);
+
   bool apply(ChatroomLlmCardStream event) {
     if (_ended || event.cardMessageIndex != index) return false;
     if (event.streamType == 'chunk') {
@@ -2392,13 +2427,30 @@ bool _isReply(WorldChatroomMessage message) =>
     }.contains(message.businessType) &&
     (const {'character', 'narrator', 'llm'}.contains(message.businessType) ||
         const {'character', 'narrator', 'ai'}.contains(message.senderType));
+bool _messageHasRenderableOutput(WorldChatroomMessage message) =>
+    message.content.trim().isNotEmpty;
+bool _isRenderableReply(WorldChatroomMessage message) =>
+    _isReply(message) && _messageHasRenderableOutput(message);
+bool _cardHasRenderableOrPendingContent(ChatroomLlmCard card) =>
+    !_terminal(card.generationState) ||
+    (card.generationState == ChatroomCardGenerationState.succeeded &&
+        card.messages.any((message) => message.content.trim().isNotEmpty));
+int _lastCompleteCardId(Iterable<ChatroomLlmCard> cards) {
+  ChatroomLlmCard? last;
+  for (final card in cards) {
+    if (!_completeCard(card)) continue;
+    if (last == null || card.cardIndex > last.cardIndex) last = card;
+  }
+  return last?.cardId ?? 0;
+}
+
 bool _terminal(ChatroomCardGenerationState state) =>
     state == ChatroomCardGenerationState.succeeded ||
     state == ChatroomCardGenerationState.failed;
 bool _completeCard(ChatroomLlmCard? card) =>
     card != null &&
     card.generationState == ChatroomCardGenerationState.succeeded &&
-    card.messages.isNotEmpty;
+    card.messages.any((message) => message.content.trim().isNotEmpty);
 WorldChatroomMessage _candidateToWorld(ChatroomLlmCardMessage message) =>
     WorldChatroomMessage.fromHttpMessage(
       ChatroomHttpMessage.fromV2Message(message.message),

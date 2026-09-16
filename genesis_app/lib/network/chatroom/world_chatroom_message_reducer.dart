@@ -540,9 +540,9 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
         triggerUid: event.triggerUid.isNotEmpty
             ? event.triggerUid
             : existing.triggerUid,
-        content: event.content.trim().isEmpty
-            ? existing.content
-            : event.content,
+        // The terminal frame is authoritative. If it completes with no
+        // visible content, page projection removes the provisional bubble.
+        content: event.content,
         currentTime: event.currentTime.trim().isEmpty
             ? existing.currentTime
             : event.currentTime,
@@ -570,7 +570,8 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       if (removeAll) return true;
       return message.locationId.trim() == locationId.trim() &&
           message.conversationRoundId.trim() == conversationRoundId.trim() &&
-          message.senderId.trim() == senderId.trim();
+          (senderId.trim().isEmpty ||
+              message.senderId.trim() == senderId.trim());
     }
 
     final worldMessages = _state.worldMessages
@@ -607,6 +608,25 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           streamMessagesByKey,
         ),
       ),
+    );
+  }
+
+  void _discardErroredProvisionalStreams(ChatroomErrorEvent event) {
+    if (event.worldId.isNotEmpty && event.worldId != _worldId) return;
+    final locationId = event.locationId.trim();
+    final roundId = event.conversationRoundId.trim();
+    final senderId = event.senderId.trim();
+    if (locationId.isEmpty || roundId.isEmpty) return;
+    _streamAccumulators.removeWhere((_, accumulator) {
+      final message = accumulator.message;
+      return message.locationId.trim() == locationId &&
+          message.conversationRoundId.trim() == roundId &&
+          (senderId.isEmpty || message.senderId.trim() == senderId);
+    });
+    _removeProvisionalStreamMessages(
+      locationId: locationId,
+      conversationRoundId: roundId,
+      senderId: senderId,
     );
   }
 

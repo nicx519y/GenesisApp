@@ -132,20 +132,23 @@ bool locationChatMessageHasRenderableBusinessContent(
     return message.timelinePayload is ChatroomCharactersMovedPayload;
   }
   if (businessType == 'narrator') {
-    return messageType == chatroomTextMessageType ||
-        messageType == chatroomImageMessageType;
+    return (messageType == chatroomTextMessageType ||
+            messageType == chatroomImageMessageType) &&
+        locationChatMessageDisplayText(message).trim().isNotEmpty;
   }
   if (businessType == 'user' ||
       businessType == 'character' ||
       businessType == 'system') {
-    return messageType == chatroomTextMessageType;
+    return messageType == chatroomTextMessageType &&
+        locationChatMessageDisplayText(message).trim().isNotEmpty;
   }
   if (message.hasExplicitBusinessType) return false;
-  return resolveChatroomMessageRenderKind(
-        messageType: message.messageType,
-        senderId: message.senderId,
-      ) !=
-      ChatroomMessageRenderKind.hidden;
+  final renderKind = resolveChatroomMessageRenderKind(
+    messageType: message.messageType,
+    senderId: message.senderId,
+  );
+  return renderKind != ChatroomMessageRenderKind.hidden &&
+      locationChatMessageDisplayText(message).trim().isNotEmpty;
 }
 
 String locationChatMessageCurrentTime(WorldChatroomMessage message) {

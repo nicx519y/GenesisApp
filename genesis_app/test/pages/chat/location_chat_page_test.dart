@@ -450,6 +450,70 @@ void main() {
       );
     }
   }
+
+  testWidgets('stream completion with blank content removes its bubble', (
+    tester,
+  ) async {
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+    );
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_start',
+      roundId: 401,
+      messageId: 402,
+      locationMessageId: 402,
+      conversationType: 'go_on',
+    );
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_chunk',
+      roundId: 401,
+      messageId: 402,
+      locationMessageId: 402,
+      seq: 1,
+      content: 'Temporary output',
+      conversationType: 'go_on',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text('Temporary output').evaluate().isNotEmpty,
+    );
+    expect(find.text('Temporary output'), findsOneWidget);
+
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      roundId: 401,
+      messageId: 402,
+      locationMessageId: 402,
+      content: ' \n ',
+      conversationType: 'go_on',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          harness.service.state.messagesByLocation['location-current']?.any(
+            (message) =>
+                message.messageId == 402 &&
+                !message.streaming &&
+                message.content.trim().isEmpty,
+          ) ==
+          true,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Temporary output'), findsNothing);
+    final list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    expect(
+      list.messages.where((message) => message.globalMessageId == 90402),
+      isEmpty,
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump();
+  });
+
   for (final prepared in [false, true]) {
     testWidgets(
       'Tick without conversation type reveals idle controls without round end, prepared=$prepared',
@@ -10529,6 +10593,36 @@ void main() {
     }
   });
 
+  test('ordinary HTTP messages with blank content have no parser', () {
+    for (final businessType in const [
+      'user',
+      'character',
+      'system',
+      'narrator',
+    ]) {
+      for (final content in const <Object?>[null, '', ' \n ']) {
+        final message = _v2HttpWorldMessage(
+          type: businessType,
+          senderType: businessType,
+          senderId: businessType == 'narrator' ? 'nar' : 'sender',
+          messageType: 'text',
+          content: content,
+        );
+
+        expect(
+          locationChatMessageHasRenderableBusinessContent(message),
+          isFalse,
+          reason: '$businessType content=$content',
+        );
+        expect(
+          locationChatMessageParserForTesting(message),
+          isNull,
+          reason: '$businessType content=$content',
+        );
+      }
+    }
+  });
+
   test(
     'visible location chat messages keep rendered old data before new gaps',
     () {
@@ -10831,6 +10925,7 @@ WorldChatroomMessage _v2HttpWorldMessage({
   required String senderType,
   required String senderId,
   required String messageType,
+  Object? content = 'Payload',
 }) {
   return WorldChatroomMessage.fromHttpMessage(
     ChatroomHttpMessage.fromV2Json({
@@ -10852,7 +10947,7 @@ WorldChatroomMessage _v2HttpWorldMessage({
       'message_type': messageType,
       'min_app_version': 0,
       'created_at': '2026-08-10 11:06:37',
-      'payload': const <String, dynamic>{'content': 'Payload'},
+      'payload': <String, dynamic>{'content': content},
       'err_no': 0,
       'err_msg': '',
     }),
