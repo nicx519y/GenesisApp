@@ -11,6 +11,7 @@ import '../../platform/auth/auth_session.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import '../common/genesis_bottom_sheet_panel.dart';
+import '../gems/pro_subscription_content.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_modal_routes.dart';
 import '../login_provider_button.dart';
@@ -503,8 +504,25 @@ class _PersonalizationHeader extends StatelessWidget {
     title: switch (step) {
       PersonalizationStep.form => formTitle,
       PersonalizationStep.signIn => 'Sign in',
-      PersonalizationStep.subscription => 'Subscription',
+      // The wordmark beside the crown is the title on this step.
+      PersonalizationStep.subscription => '',
     },
+    // The crown rides inside the title rather than in the header's leading
+    // slot: that slot is 28 wide with an 8 gap, which would set the wordmark
+    // 4.5px right of the benefit copy below it. 26 + 5 lands on the same column.
+    titleWidget: step == PersonalizationStep.subscription
+        ? const Row(
+            children: [
+              SizedBox(width: 26, child: _SubscriptionCrown()),
+              SizedBox(width: 5),
+              Flexible(
+                child: PremiumWordmark(
+                  textStyle: GenesisActionSheetHeader.titleStyle,
+                ),
+              ),
+            ],
+          )
+        : null,
     leading: switch (step) {
       PersonalizationStep.form => null,
       PersonalizationStep.signIn => IconButton(
@@ -515,16 +533,7 @@ class _PersonalizationHeader extends StatelessWidget {
         constraints: const BoxConstraints.tightFor(width: 28, height: 24),
         icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
       ),
-      PersonalizationStep.subscription => SvgPicture.asset(
-        proCrownIconAsset,
-        key: const ValueKey('personalization-subscription-icon'),
-        width: 22,
-        height: 22,
-        colorFilter: const ColorFilter.mode(
-          GenesisColors.darkTextPrimary,
-          BlendMode.srcIn,
-        ),
-      ),
+      PersonalizationStep.subscription => null,
     },
     trailing: step == PersonalizationStep.subscription
         ? TextButton(
@@ -539,5 +548,17 @@ class _PersonalizationHeader extends StatelessWidget {
             child: const Text('Skip'),
           )
         : null,
+  );
+}
+
+class _SubscriptionCrown extends StatelessWidget {
+  const _SubscriptionCrown();
+
+  @override
+  Widget build(BuildContext context) => SvgPicture.asset(
+    proCrownGoldIconAsset,
+    key: const ValueKey('personalization-subscription-icon'),
+    width: 26,
+    height: 18,
   );
 }

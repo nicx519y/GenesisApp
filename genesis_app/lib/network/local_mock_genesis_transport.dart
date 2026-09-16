@@ -683,7 +683,8 @@ class LocalMockGenesisTransport implements HttpTransport {
       });
     }
 
-    if (path == 'device/personalization') {
+    if (path == 'device/personalization' ||
+        path == 'device/personalization/update_origin_feed_gender') {
       final owner = _state.isAuthenticated || requestHasAuthorization
           ? 'uid:${_state.me['uid']}'
           : 'device:$deviceId';
@@ -691,6 +692,22 @@ class LocalMockGenesisTransport implements HttpTransport {
         'gender': ['Male', 'Female', 'Non_binary'],
         'age': ['18-24', '25-34', '35-44', '45+'],
       };
+      final existing = _personalizationProfiles[owner];
+      if (path.endsWith('/update_origin_feed_gender') && method == 'POST') {
+        final gender = body['origin_feed_gender'];
+        if (!const {'Male', 'Female', 'Non_binary', 'All'}.contains(gender)) {
+          return _v1BusinessError(4004, 'ErrorParamInvalid');
+        }
+        final profile = <String, Object?>{
+          'gender': '',
+          'age': '',
+          'completed': false,
+          ...?existing,
+          'origin_feed_gender': gender,
+        };
+        _personalizationProfiles[owner] = profile;
+        return _v1Ok(profile);
+      }
       if (method == 'POST') {
         if (!choices['gender']!.contains(body['gender']) ||
             !choices['age']!.contains(body['age'])) {
@@ -699,6 +716,14 @@ class LocalMockGenesisTransport implements HttpTransport {
         final profile = <String, Object?>{
           'gender': body['gender'],
           'age': body['age'],
+          'origin_feed_gender':
+              (existing?['origin_feed_gender'] as String?)?.isNotEmpty == true
+              ? existing!['origin_feed_gender']
+              : switch (body['gender']) {
+                  'Male' => 'Female',
+                  'Female' => 'Male',
+                  _ => 'Non_binary',
+                },
           'completed': true,
         };
         _personalizationProfiles[owner] = profile;
@@ -706,6 +731,7 @@ class LocalMockGenesisTransport implements HttpTransport {
       }
       if (method == 'GET') {
         return _v1Ok({
+          'origin_feed_gender': '',
           ...?_personalizationProfiles[owner],
           if (!_personalizationProfiles.containsKey(owner)) ...{
             'gender': '',
@@ -910,7 +936,7 @@ class LocalMockGenesisTransport implements HttpTransport {
           'data': <String, dynamic>{},
         });
       }
-      return _v1Ok({'list': <Object?>[]});
+      return _v1Ok({'list': <Object?>[], 'last_account_uuid': ''});
     }
 
     if (method == 'POST' &&

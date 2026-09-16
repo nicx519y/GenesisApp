@@ -1,3 +1,6 @@
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
@@ -5,13 +8,11 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/network/models/membership_benefit.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_catalog_cache.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
@@ -257,14 +258,12 @@ void main() {
 
   for (final outcome in ['success', 'failure', 'empty']) {
     testWidgets(
-      'reenter after freshness window shows cache until refresh $outcome',
+      'immediate reentry shows cache and always refreshes with $outcome',
       (tester) async {
         final response = Completer<MembershipProductList>();
         var calls = 0;
-        var now = DateTime.utc(2040);
         final catalog = MembershipCatalog(
           provider: MembershipProvider.google,
-          now: () => now,
           loadProducts: (_) async {
             if (++calls == 1) {
               return MembershipProductList(
@@ -280,9 +279,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text(r'Yearly: $99.99'), findsOneWidget);
         await tester.pumpWidget(const SizedBox.shrink());
-        now = now.add(MembershipCatalog.entryCacheAge);
         await tester.pumpWidget(page(null, catalog: catalog));
-        expect(find.text(r'Yearly: $99.99'), findsOneWidget);
         expect(find.text(r'Yearly: $99.99'), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsNothing);
         await tester.pump();
@@ -310,7 +307,7 @@ void main() {
           outcome == 'failure' ? findsOneWidget : findsNothing,
         );
         if (outcome == 'success') {
-          expect(find.text('Premium'), findsOneWidget);
+          expect(find.text('Worldo Premium'), findsOneWidget);
           expect(find.text(r'Yearly: $119.99'), findsOneWidget);
         }
         expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -338,7 +335,7 @@ void main() {
     );
     await tester.pumpWidget(page(null, catalog: catalog));
     await tester.pumpAndSettle();
-    expect(find.text('Premium'), findsOneWidget);
+    expect(find.text('Worldo Premium'), findsOneWidget);
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     response.complete(
@@ -403,6 +400,48 @@ void main() {
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {
+    testWidgets('$provider purchase completion refreshes recent catalog', (
+      tester,
+    ) async {
+      var calls = 0;
+      final catalog = MembershipCatalog(
+        provider: provider,
+        loadProducts: (_) async => MembershipProductList(
+          products: [
+            membershipProduct(
+              provider: provider,
+              yearly: true,
+              priceAmount: ++calls == 1 ? 9999 : 11999,
+            ),
+          ],
+        ),
+      );
+      final h = support.Harness(provider: provider);
+      try {
+        await tester.pumpWidget(
+          page(null, catalog: catalog, service: h.service),
+        );
+        await tester.pumpAndSettle();
+        expect(calls, 1);
+        await tester.tap(find.byKey(buttonKey));
+        await tester.pump(const Duration(milliseconds: 250));
+        await h.service.interceptPurchase(h.purchase(yearly: true));
+        await tester.pumpAndSettle();
+        expect(calls, 2);
+        expect(
+          (await catalog.readCheckoutProducts()).products.single.priceAmount,
+          11999,
+        );
+        await tester.tap(find.text('Enjoy it'));
+        await tester.pumpAndSettle();
+        expect(find.text(r'Yearly: $119.99'), findsOneWidget);
+        expect(calls, 2);
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        h.service.dispose();
+      }
+    });
+
     testWidgets(
       '$provider debug store order number appears above purchase after callback',
       (tester) async {
@@ -457,20 +496,16 @@ void main() {
         (tester) async {
           var calls = 0;
           const uuid = '2b74ec68-7abc-4cce-a223-e997e31dc811';
-          final product = membershipProduct(
-            provider: provider,
-            yearly: true,
-            accountUuid: uuid,
-            upgradePurchaseToken: provider == MembershipProvider.google
-                ? 'original-monthly-token'
-                : null,
-          );
+          final product = membershipProduct(provider: provider, yearly: true);
           final catalog = MembershipCatalog(
             provider: provider,
             readOwnerUid: () async => signedIn ? 'user-test' : null,
             loadProducts: (_) async {
               calls++;
-              return MembershipProductList(products: [product]);
+              return MembershipProductList(
+                products: [product],
+                lastAccountUuid: uuid,
+              );
             },
           );
           final h = support.Harness(
@@ -490,10 +525,6 @@ void main() {
               expect(calls, 1);
               expect(h.platform.launches, attempt);
               expect(h.platform.uuid, uuid);
-              expect(
-                h.platform.product!.upgradePurchaseToken,
-                product.upgradePurchaseToken,
-              );
               expect(h.refreshes, 0);
               expect(h.guestPrepares, 0);
               await h.service.interceptPurchase(
@@ -583,7 +614,6 @@ void main() {
       ];
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.accepted,
-        reportId: 'accepted',
       );
       await h.service.purchase(h.product(yearly: true));
       await h.service.interceptPurchase(h.purchase(yearly: true));
@@ -640,14 +670,14 @@ void main() {
       );
       await tester.pumpWidget(page(catalog.load));
       await tester.pumpAndSettle();
-      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Worldo Premium'), findsOneWidget);
       expect(find.text('Annual VIP'), findsNothing);
       expect(find.text('Annual benefit'), findsOneWidget);
       expect(find.text('Pro'), findsNothing);
       expect(find.text('Monthly VIP'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Worldo Premium'), findsOneWidget);
       expect(find.text('Monthly VIP'), findsNothing);
       expect(find.text('Monthly benefit'), findsOneWidget);
       expect(find.text('Annual VIP'), findsNothing);
@@ -670,7 +700,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Premium'), findsOneWidget);
+    expect(find.text('Worldo Premium'), findsOneWidget);
     expect(find.text('Monthly VIP'), findsNothing);
     expect(find.text('Monthly bonus Gems'), findsOneWidget);
     expect(find.text('Pro'), findsNothing);
@@ -732,9 +762,7 @@ void main() {
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(
-        find.text(
-          'debug：vip.eligibility; reason=already_subscribed\nYou already have an active Premium subscription.',
-        ),
+        find.text('You already have an active Premium subscription.'),
         findsNothing,
       );
       expect(purchases, 1);
@@ -777,16 +805,7 @@ void main() {
           provider: MembershipProvider.apple,
           restoreEnabled: true,
         );
-        h.reportHandler = (_) async => MembershipPurchaseReport(
-          status: status,
-          reportId: 'report',
-          membershipId: status == MembershipReportStatus.completed
-              ? 'membership'
-              : null,
-          reason: status == MembershipReportStatus.rejected
-              ? 'invalid_purchase'
-              : null,
-        );
+        h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
         var loads = 0;
         final refresh = Completer<MembershipCatalogData>();
         final initial = MembershipCatalogData(
@@ -869,35 +888,19 @@ void main() {
       tester.getTopLeft(find.text('Server enhanced')).dy,
       lessThan(tester.getTopLeft(find.text('Server locked')).dy),
     );
-    expect(find.byIcon(Icons.stars_outlined), findsOneWidget);
-    expect(
-      tester
-          .widget<Icon>(
-            find.byKey(const ValueKey('pro-benefit-status-Server included')),
-          )
-          .icon,
-      Icons.check_rounded,
+    // Unknown keys use the same upgrade arrow as recharge.
+    final fallback = tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byKey(const ValueKey('pro-benefit-icon-included')),
+        matching: find.byType(SvgPicture),
+      ),
     );
     expect(
-      find.byKey(const ValueKey('pro-benefit-status-Server enhanced')),
-      findsOneWidget,
+      (fallback.bytesLoader as SvgAssetLoader).assetName,
+      upgradeIconAsset,
     );
-    expect(
-      tester
-          .widget<SvgPicture>(
-            find.byKey(const ValueKey('pro-benefit-status-Server enhanced')),
-          )
-          .semanticsLabel,
-      'Improved with Pro',
-    );
-    expect(
-      tester
-          .widget<Icon>(
-            find.byKey(const ValueKey('pro-benefit-status-Server locked')),
-          )
-          .icon,
-      Icons.lock_outline_rounded,
-    );
+    // Design 30b carries no per-benefit status mark, so display_type no longer
+    // changes how a row is drawn; every row reads the same.
     expect(
       tester.widget<Text>(find.text('Server locked')).style?.color,
       GenesisColors.darkTextPrimary,

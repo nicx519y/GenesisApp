@@ -143,12 +143,19 @@ void main() {
             await tester.pumpAndSettle();
           }
           expect(find.text('Daily Check-in'), findsOneWidget);
-          expect(find.text('Get 100'), findsNothing);
+          final showNonMemberFallback = outcome != 'completed';
+          expect(
+            find.text('Get 100'),
+            showNonMemberFallback ? findsOneWidget : findsNothing,
+          );
           expect(find.text('Check in'), findsOneWidget);
-          expect(find.text('Cancel'), findsOneWidget);
+          expect(
+            find.text('Cancel'),
+            showNonMemberFallback ? findsNothing : findsOneWidget,
+          );
           expect(
             find.byKey(const ValueKey('daily-check-in-subscription-gem')),
-            findsNothing,
+            showNonMemberFallback ? findsOneWidget : findsNothing,
           );
           expect(h.claimRequests, hasLength(1));
           if (outcome == 'completed') {
@@ -162,9 +169,11 @@ void main() {
           } else {
             expect(h.store.claims, hasLength(1));
           }
-          await tester.tap(find.text('Cancel'));
+          await tester.tap(
+            find.text(showNonMemberFallback ? 'Check in' : 'Cancel'),
+          );
           await tester.pumpAndSettle();
-          expect(confirmed, isFalse);
+          expect(confirmed, showNonMemberFallback);
         } finally {
           await tester.pumpWidget(const SizedBox.shrink());
           h.service.dispose();

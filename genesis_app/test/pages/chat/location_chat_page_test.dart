@@ -3532,6 +3532,20 @@ void main() {
       await tester.tap(find.bySemanticsLabel('Inspiration'));
       await tester.pumpAndSettle();
       expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsNothing,
+      );
+      expect(
+        find.text('Free inspiration uses left: "2"\nGet more >'),
+        findsOneWidget,
+      );
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsOneWidget,
+      );
+      expect(
         find.text('Free inspiration uses left: "2"\nGet more >'),
         findsOneWidget,
       );
@@ -3696,6 +3710,101 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  for (final quotaState in [
+    'missing',
+    'loaded',
+    'failed',
+    'delayed',
+    'member',
+  ]) {
+    testWidgets(
+      'cached inspiration restores its prompt with $quotaState quota on entry',
+      (tester) async {
+        final storage = MemoryChatroomInspirationStorage();
+        final quotaBarrier = quotaState == 'delayed' ? Completer<void>() : null;
+        final backend = _LocationChatReplyHttpTransport()
+          ..localMember = quotaState == 'member'
+          ..quotaMember = quotaState == 'member'
+          ..includeQuotas = true
+          ..inspirationRemaining = 0
+          ..quotaBarrier = quotaBarrier
+          ..quotaFails = quotaState == 'failed';
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: backend,
+          inspirationStorage: storage,
+        );
+        final source = harness.service.replyActions!
+            .stateFor('location-current')!
+            .inspirationSource!;
+        await storage.save(
+          source,
+          ChatroomInspirationResponse(
+            conversationRoundId: source.roundId,
+            cardId: source.cardId ?? 0,
+            sourceCardId: source.sourceCardId,
+            messages: const ['Cached suggestion.'],
+            gatewayRequestId: '',
+          ),
+        );
+        if (quotaState == 'loaded') {
+          await harness.services.featureQuotas.fetch();
+          backend.quotaFails = true;
+        }
+        final prompt = find.byKey(
+          const ValueKey('inspiration-subscription-prompt'),
+        );
+        expect(prompt, findsNothing);
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await tester.pumpAndSettle();
+        expect(find.text('Cached suggestion.'), findsOneWidget);
+        expect(backend.inspirationRequests, isEmpty);
+        expect(backend.quotaRequests, 1);
+        expect(
+          prompt,
+          ['failed', 'delayed', 'member'].contains(quotaState)
+              ? findsNothing
+              : findsOneWidget,
+        );
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await tester.pumpAndSettle();
+        expect(
+          prompt,
+          ['failed', 'delayed', 'member'].contains(quotaState)
+              ? findsNothing
+              : findsOneWidget,
+        );
+        expect(find.text('Cached suggestion.'), findsNothing);
+        if (quotaBarrier != null) {
+          final coordinator = tester
+              .widget<LocationChatAnchoredMessageList>(
+                find.byType(LocationChatAnchoredMessageList),
+              )
+              .coordinator;
+          final commandGeneration = coordinator.commandGeneration;
+          quotaBarrier.complete();
+          await tester.pumpAndSettle();
+          expect(prompt, findsOneWidget);
+          expect(
+            coordinator.commandGeneration,
+            commandGeneration,
+            reason: 'A display-only quota response must not start a scroll.',
+          );
+        }
+        backend.quotaFails = false;
+        await tester.tap(find.bySemanticsLabel('Inspiration'));
+        await tester.pumpAndSettle();
+        expect(find.text('Cached suggestion.'), findsOneWidget);
+        expect(prompt, quotaState == 'member' ? findsNothing : findsOneWidget);
+        expect(backend.inspirationRequests, isEmpty);
+        expect(backend.quotaRequests, quotaState == 'failed' ? 2 : 1);
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+  }
+
   for (final transition in ['send', 'go-on', 'tick']) {
     testWidgets('inspiration cache retires when $transition waiting renders', (
       tester,
@@ -3854,9 +3963,24 @@ void main() {
       );
       expect(backend.inspirationRequests, hasLength(1));
       expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsNothing,
+      );
+      expect(
         find.text('Free inspiration uses left: "0"\nGet more >'),
         findsOneWidget,
       );
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('inspiration-replies-carousel')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Free inspiration uses left: "0"\nGet more >'),
+        findsOneWidget,
+      );
+      expect(backend.inspirationRequests, hasLength(1));
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
       await tester.pump(const Duration(seconds: 3));

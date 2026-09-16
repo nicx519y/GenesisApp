@@ -19,8 +19,6 @@ MembershipRestoreRecord legacy(
   purchase: h.purchase(transaction: transaction),
   product: h.product(),
   reportStatus: status,
-  reportId: 'legacy-report-id',
-  reportReason: reason,
   finished: finished,
 );
 
@@ -62,7 +60,6 @@ void main() {
         await h.store.saveRestore(old);
         h.reportHandler = (_) async => const MembershipPurchaseReport(
           status: MembershipReportStatus.accepted,
-          reportId: 'pending-report',
         );
         await h.service.start();
         expect(h.reports.single.toJson(), old.request.toJson());
@@ -93,7 +90,6 @@ void main() {
       h.recoverable = [h.purchase(), h.purchase()];
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.accepted,
-        reportId: 'pending-report',
       );
       await h.service.restorePurchases(products: [h.product()]);
       expect(h.reports, hasLength(1));

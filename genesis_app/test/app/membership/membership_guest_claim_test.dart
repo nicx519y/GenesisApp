@@ -240,7 +240,6 @@ void main() {
       final h = Harness(claimEnabled: true)..uid = null;
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.accepted,
-        reportId: 'processing-report',
       );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
@@ -290,7 +289,6 @@ void main() {
       final h = Harness(claimEnabled: true)..uid = null;
       h.reportHandler = (_) async => const MembershipPurchaseReport(
         status: MembershipReportStatus.accepted,
-        reportId: 'accepted',
       );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(

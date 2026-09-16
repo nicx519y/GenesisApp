@@ -12,28 +12,24 @@ void main() {
   test(
     'display cache persists across instances and excludes upgrade credentials',
     () async {
-      final product = membershipProduct(
-        yearly: true,
-        title: 'Cached annual',
-        accountUuid: '4b74ec68-7abc-4cce-a223-e997e31dc811',
-        upgradePurchaseToken: 'private-upgrade-token',
-      );
+      final product = membershipProduct(yearly: true, title: 'Cached annual');
       final cache = MembershipCatalogCache(namespace: 'production');
       await cache.save(
         MembershipProvider.google,
         'user-a',
-        MembershipProductList(products: [product]),
+        MembershipProductList(
+          products: [product],
+          lastAccountUuid: '4b74ec68-7abc-4cce-a223-e997e31dc811',
+        ),
       );
       final loaded = await MembershipCatalogCache(
         namespace: 'production',
       ).load(MembershipProvider.google, 'user-a');
 
       expect(loaded!.products.single.toJson(), product.toJson());
-      expect(loaded.products.single.accountUuid, isNull);
-      expect(loaded.products.single.upgradePurchaseToken, isNull);
+      expect(loaded.lastAccountUuid, isNull);
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(prefs.getKeys().single)!;
-      expect(raw, isNot(contains('private-upgrade-token')));
       expect(raw, isNot(contains('account_uuid')));
     },
   );

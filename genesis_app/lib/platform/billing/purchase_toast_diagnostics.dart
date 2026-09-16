@@ -1,12 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/debug/purchase_toast_debug_settings.dart';
 import '../../network/api_exception.dart';
 import 'billing_models.dart';
 
 /// Keep diagnostic data separate from the existing customer-facing message.
 String purchaseToastMessage(String message, {required String debugInfo}) {
-  if (!kDebugMode) return message;
+  if (!purchaseToastDebugSettings.enabled) return message;
   return 'debug：${_singleLine(debugInfo)}\n$message';
 }
 

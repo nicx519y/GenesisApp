@@ -8,7 +8,6 @@ import 'membership_purchase_service_test.dart' as support;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   const catalogUuid = '2b74ec68-7abc-4cce-a223-e997e31dc811';
-  const staleUuid = '3b74ec68-7abc-4cce-a223-e997e31dc811';
 
   for (final provider in MembershipProvider.values) {
     for (final guest in [false, true]) {
@@ -24,12 +23,9 @@ void main() {
                 userInfoCalls++;
                 return support.accountUuid;
               };
+              h.lastAccountUuid = supplied ? catalogUuid : null;
               h.productsHandler = () async => [
-                membershipProduct(
-                  provider: provider,
-                  yearly: yearly,
-                  accountUuid: supplied ? catalogUuid : null,
-                ),
+                membershipProduct(provider: provider, yearly: yearly),
               ];
               final expected = supplied
                   ? catalogUuid
@@ -39,11 +35,7 @@ void main() {
 
               // A displayed snapshot must not override the current checkout catalog.
               await h.service.purchase(
-                membershipProduct(
-                  provider: provider,
-                  yearly: yearly,
-                  accountUuid: staleUuid,
-                ),
+                membershipProduct(provider: provider, yearly: yearly),
               );
               expect(h.eligibilityQueries, 1);
               expect(h.platform.launches, 1);

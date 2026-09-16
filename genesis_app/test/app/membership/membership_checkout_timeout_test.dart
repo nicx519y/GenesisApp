@@ -160,7 +160,6 @@ void main() {
           if (outcome == BillingPurchaseStatus.pending) {
             h.reportHandler = (_) async => const MembershipPurchaseReport(
               status: MembershipReportStatus.accepted,
-              reportId: 'pending-test',
             );
           }
           final result = Completer<void>();

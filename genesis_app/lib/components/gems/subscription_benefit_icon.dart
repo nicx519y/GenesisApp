@@ -6,13 +6,13 @@ import '../../ui/tokens/genesis_colors.dart';
 import 'gem_assets.dart';
 
 /// Subscription artwork selected solely by the backend's icon_key.
-/// Unknown identifiers deliberately retain the original circled-star fallback.
+/// Unknown identifiers use the upgrade arrow fallback.
 class SubscriptionBenefitIcon extends StatelessWidget {
   const SubscriptionBenefitIcon({
     super.key,
     required this.iconKey,
-    this.size = 20,
-    this.color = GenesisColors.darkTextPrimary,
+    this.size = 18,
+    this.color = GenesisColors.darkTextSecondary,
   });
 
   final String iconKey;
@@ -22,11 +22,12 @@ class SubscriptionBenefitIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final asset = switch (iconKey) {
-      'gem' => gemOutlineIconAsset,
+      'gem' => gemDiamondIconAsset,
       'inspiration' => inspirationIconAsset,
       'edit' => editSquareIconAsset,
       'badge' => proCrownIconAsset,
-      _ => null,
+      'memory' => null,
+      _ => upgradeIconAsset,
     };
     if (asset != null) {
       // These wider silhouettes need a smaller drawing inside the same slot.
@@ -36,16 +37,15 @@ class SubscriptionBenefitIcon extends StatelessWidget {
         child: Center(child: _svg(asset, size * scale)),
       );
     }
-    final icon = switch (iconKey) {
-      'memory' => Icons.sd_storage_outlined,
-      'recharge' => Icons.add_card_outlined,
-      _ => Icons.stars_outlined,
-    };
     return ExcludeSemantics(
       child: SizedBox.square(
         dimension: size,
         child: Center(
-          child: Icon(icon, size: size * 0.9, color: color),
+          child: Icon(
+            Icons.auto_stories_outlined,
+            size: size * 0.9,
+            color: color,
+          ),
         ),
       ),
     );

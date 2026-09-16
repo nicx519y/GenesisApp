@@ -16,23 +16,21 @@ lib/ui/
 
 ## Subscription 权益图标
 
-统一使用 `lib/components/gems/subscription_benefit_icon.dart` 的 `SubscriptionBenefitIcon`。图标占位为 20×20、颜色为 `GenesisColors.darkTextPrimary`，权益行保留 28×28、圆角 8 的淡色底框。
+统一使用 `lib/components/gems/subscription_benefit_icon.dart` 的 `SubscriptionBenefitIcon`。购买页权益行传入 18×18 图标占位和会员金色，不再显示淡色底框或右侧状态标签。
 
-所有图形在 20×20 占位中居中：gem、badge 绘制为 20×20；edit、inspiration 按 85% 绘制为 17×17；memory、recharge 和默认圆圈五角星按 90% 绘制为 18×18。传入其他 size 时保持相同比例。该调整只用于 Subscription 权益列表，不修改 Message 操作栏或共享 SVG。
+gem、badge、recharge 与兜底箭头按占位尺寸绘制；edit、inspiration 按 85% 绘制；memory 按 90% 绘制。传入其他 size 时保持相同比例，不修改 Message 操作栏或共享 SVG。
 
-| 后端 icon_key | 简洁图形 | 本地资源 |
+| 后端 icon_key | 图形 | 本地资源 |
 | --- | --- | --- |
-| gem | Buy Gems Tab 同款线条宝石 | icon_benefit_gem.svg |
-| memory | 存储卡图标 | Material sd_storage_outlined |
-| inspiration | Message 操作栏同款灵感图标 | icon_benefit_inspiration.svg |
-| edit | Message 操作栏同款编辑图标 | icon_benefit_edit.svg |
-| badge | 皇冠轮廓 | icon_benefit_badge.svg |
-| recharge | 保留卡片加号 | Material add_card_outlined |
-| 未知值（含已废弃 key） | 原圆圈内五角星 | Material stars_outlined |
+| gem | 宝石 | gem_diamond.svg |
+| memory | 书本 | Material auto_stories_outlined |
+| inspiration | 灵感 | icon_benefit_inspiration.svg |
+| edit | 编辑 | icon_benefit_edit.svg |
+| badge | 皇冠 | icon_benefit_badge.svg |
+| recharge | 向上升级箭头 | `upgradeIconAsset` |
+| 未知值（含已废弃 key） | 向上升级箭头 | `upgradeIconAsset` |
 
-原有四个 SVG 直接重命名为 `assets/custom-icons/svg/icon_benefit_<icon_key>.svg`，共享资源常量同步更新，其他页面继续引用同一份文件，不保留旧文件或额外副本。memory、recharge 和未知值继续使用原 Material 内置图标，不生成 SVG 或 PNG。
-
-只按 `icon_key` 映射，不根据 title/code 猜测，不保留旧 key 别名。文案和排序继续由后端提供；`display_type` 决定右侧 enhanced 红色 UP、included 白色勾、locked 白色锁，客户端不为某项权益覆盖状态。共享 SVG 在其他页面仍有引用时不得删除。
+保留主分支已重命名的 `icon_benefit_*` 共享资源，不恢复旧路径。图标只按 `icon_key` 映射，不根据 title/code 猜测。权益数据来自后端；购买页将 gem 权益合并为一个模块，其余按后端顺序展示，`display_type` 不再生成右侧状态图标，也不作为功能权限判断依据。
 
 ## 使用入口
 
@@ -233,7 +231,7 @@ Gems 购买仍通过 `PurchaseOptionsSheet` 的 Buy Gems Tab 展示。`GemPurcha
 
 用户端交互 / 提交 Sheet 的公共 Header，总高 68（含正文前留白），标题 18 / 600、行高 24，左对齐，左右边距 16，标题与左右操作在 Header 内垂直居中。普通深色 `GenesisBottomSheetPanel` 自动复用；无固定高度的发帖 / 回复编辑弹层也直接复用，并将右侧关闭接到原有键盘退出动画。允许关闭的弹层使用标准圆形关闭按钮；新用户订阅保留 Skip。
 
-购买 Sheet 使用 `.tabs` 变体，同样高 68，保留 16 / 600 的图标 Tab 与下划线；Subscription 正文在该容器中设 `topSpacing: 0`，Buy Gems 设 `compactBalance: true`；两个 Tab 正文顶部均与 Header 底部对齐，Wallet 页面仍保留原有余额区布局。Mention、World / Worldo 内容面板和开发工具保留各自 Header。
+购买 Sheet 使用 `.tabs` 变体，同样高 68，使用 16 / 600 的纯文字 Tab（无图标）与下划线；Subscription 下划线为会员金色、Buy Gems 为品牌红，文字仍用公共一级 / 二级白；Subscription 正文在该容器中设 `topSpacing: 0`，Buy Gems 设 `compactBalance: true`；两个 Tab 正文顶部均与 Header 底部对齐，Wallet 页面仍保留原有余额区布局。Mention、World / Worldo 内容面板和开发工具保留各自 Header。 订阅协议下方统一保留 10px，系统底部安全区由外层处理一次。
 
 ### GenesisActionSheetBody
 

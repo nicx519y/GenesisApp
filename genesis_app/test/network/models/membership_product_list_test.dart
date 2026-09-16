@@ -28,70 +28,51 @@ void main() {
       'list': [product],
     });
   });
-  test(
-    'catalog identity and upgrade proof are optional and never serialized',
-    () {
-      const uuid = '8b74ec68-7abc-4cce-a223-e997e31dc811';
-      final yearly = {
-        ...product,
-        'plan_code': 'pro_yearly',
-        'billing_months': 12,
-      };
-      final google = {
-        ...yearly,
-        'provider': 'google',
-        'base_plan_id': 'yearly',
-      };
-      final appleUpgrade = MembershipProduct.fromJson({
-        ...yearly,
-        'account_uuid': uuid,
-      });
-      final googleUpgrade = MembershipProduct.fromJson({
-        ...google,
-        'account_uuid': uuid.toUpperCase(),
-        'purchase_token': 'old-token',
-      });
-      expect(appleUpgrade.accountUuid, uuid);
-      expect(appleUpgrade.upgradePurchaseToken, isNull);
-      expect(googleUpgrade.accountUuid, uuid);
-      expect(googleUpgrade.upgradePurchaseToken, 'old-token');
-      for (final parsed in [appleUpgrade, googleUpgrade]) {
-        expect(parsed.toJson(), isNot(contains('account_uuid')));
-        expect(parsed.toJson(), isNot(contains('purchase_token')));
-        expect(parsed.toOrderJson(), isNot(contains('account_uuid')));
-        expect(parsed.toOrderJson(), isNot(contains('purchase_token')));
-      }
-      expect(MembershipProduct.fromJson(google).accountUuid, isNull);
-      for (final allowed in [
-        {...google, 'account_uuid': uuid},
-        {...product, 'account_uuid': uuid},
-      ]) {
-        expect(MembershipProduct.fromJson(allowed).accountUuid, uuid);
-      }
-      for (final invalid in [
-        {...google, 'purchase_token': 'old-token'},
-        {...google, 'account_uuid': uuid, 'purchase_token': ''},
-        {...google, 'account_uuid': uuid, 'purchase_token': null},
-        {...google, 'account_uuid': null, 'purchase_token': 'old-token'},
-        {...yearly, 'account_uuid': 'invalid'},
-        {...yearly, 'account_uuid': ''},
-        {...yearly, 'account_uuid': null},
-        {...yearly, 'account_uuid': uuid, 'purchase_token': 'old-token'},
+  test('last account UUID is top-level, normalized and not cached', () {
+    const uuid = '8b74ec68-7abc-4cce-a223-e997e31dc811';
+    final parsed = MembershipProductList.fromJson({
+      'list': [product],
+      'last_account_uuid': ' ${uuid.toUpperCase()} ',
+    });
+    expect(parsed.lastAccountUuid, uuid);
+    expect(parsed.toJson(), {
+      'list': [product],
+    });
+    for (final empty in [null, '', '   ']) {
+      expect(
+        MembershipProductList.fromJson({
+          'list': [product],
+          'last_account_uuid': empty,
+        }).lastAccountUuid,
+        isNull,
+      );
+    }
+    for (final invalid in ['invalid', 123, false]) {
+      expect(
+        () => MembershipProductList.fromJson({
+          'list': [product],
+          'last_account_uuid': invalid,
+        }),
+        throwsFormatException,
+      );
+    }
+  });
+  test('removed product fields have no effect and are never serialized', () {
+    final parsed = MembershipProductList.fromJson({
+      'list': [
         {
-          ...google,
-          'plan_code': 'pro_monthly',
-          'billing_months': 1,
-          'account_uuid': uuid,
-          'purchase_token': 'old-token',
+          ...product,
+          'can_purchase': false,
+          'purchase_block_reason': 'already_subscribed',
+          'purchase_action': 'upgrade',
+          'account_uuid': 'ignored',
+          'purchase_token': 'ignored',
         },
-      ]) {
-        expect(
-          () => MembershipProduct.fromJson(invalid),
-          throwsFormatException,
-        );
-      }
-    },
-  );
+      ],
+    });
+    expect(parsed.lastAccountUuid, isNull);
+    expect(parsed.products.single.toJson(), product);
+  });
   test(
     'Google catalog still requires and preserves the checkout base plan',
     () {

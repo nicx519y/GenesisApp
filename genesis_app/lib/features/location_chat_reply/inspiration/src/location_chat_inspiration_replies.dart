@@ -16,6 +16,7 @@ class LocationChatInspirationReplies extends StatefulWidget {
     required this.onPageChanged,
     required this.onSend,
     required this.onEdit,
+    this.footer,
   });
 
   final Object? identity;
@@ -27,6 +28,7 @@ class LocationChatInspirationReplies extends StatefulWidget {
   final ValueChanged<int> onPageChanged;
   final ValueChanged<String> onSend;
   final ValueChanged<String> onEdit;
+  final Widget? footer;
 
   @override
   State<LocationChatInspirationReplies> createState() =>
@@ -42,8 +44,10 @@ class _InspirationRepliesState extends State<LocationChatInspirationReplies>
   double _viewportFraction = 1;
   int _currentPage = 0;
   List<String> _displayedReplies = const [];
+  Widget? _displayedFooter;
   Object? _displayedIdentity;
-  bool get _wantsOpen => widget.expanded && widget.replies.isNotEmpty;
+  bool get _wantsOpen =>
+      widget.expanded && (widget.replies.isNotEmpty || widget.footer != null);
   bool get _acceptsInput => _wantsOpen && widget.identity == _displayedIdentity;
 
   static const double _editStripWidth = 27;
@@ -126,10 +130,13 @@ class _InspirationRepliesState extends State<LocationChatInspirationReplies>
     if (_expansionController.isDismissed) {
       _pageController?.dispose();
       _pageController = null;
-      _currentPage = widget.initialPage.clamp(0, widget.replies.length - 1);
+      _currentPage = widget.replies.isEmpty
+          ? 0
+          : widget.initialPage.clamp(0, widget.replies.length - 1);
     }
     _displayedIdentity = widget.identity;
     _displayedReplies = List<String>.unmodifiable(widget.replies);
+    _displayedFooter = widget.footer;
     _expansionController.forward();
   }
 
@@ -141,7 +148,10 @@ class _InspirationRepliesState extends State<LocationChatInspirationReplies>
       setState(_syncExpansion);
     } else if (widget.replies.isEmpty ||
         widget.identity != _displayedIdentity) {
-      setState(() => _displayedReplies = const []);
+      setState(() {
+        _displayedReplies = const [];
+        _displayedFooter = null;
+      });
     }
   }
 
@@ -156,7 +166,8 @@ class _InspirationRepliesState extends State<LocationChatInspirationReplies>
   List<String> get replies => _displayedReplies;
 
   @override
-  Widget build(BuildContext context) => replies.isEmpty
+  Widget build(BuildContext context) =>
+      replies.isEmpty && _displayedFooter == null
       ? const SizedBox.shrink()
       : AnimatedBuilder(
           animation: _expansionController,
@@ -164,11 +175,19 @@ class _InspirationRepliesState extends State<LocationChatInspirationReplies>
             ignoring: !_acceptsInput,
             child: ExcludeSemantics(
               excluding: !_acceptsInput,
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  top: LocationChatReplyActions.contentBottomGap,
-                ),
-                child: _buildReplies(context),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (replies.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: LocationChatReplyActions.contentBottomGap,
+                      ),
+                      child: _buildReplies(context),
+                    ),
+                  if (_displayedFooter case final footer?) footer,
+                ],
               ),
             ),
           ),

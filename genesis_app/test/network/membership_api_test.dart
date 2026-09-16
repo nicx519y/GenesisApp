@@ -17,12 +17,7 @@ class _Transport implements HttpTransport {
   Object? response = {
     'err_no': 0,
     'err_msg': 'succ',
-    'data': {
-      'status': 'completed',
-      'report_id': 'report-test',
-      'membership_id': 'membership-test',
-      'current_grant': null,
-    },
+    'data': {'status': 'completed', 'current_grant': null},
   };
   @override
   Future<TransportResponse> send(TransportRequest request) async {
@@ -245,34 +240,22 @@ void main() {
     },
   );
 
-  test(
-    'catalog parses original subscription credentials from the response',
-    () async {
-      const uuid = '8b74ec68-7abc-4cce-a223-e997e31dc811';
-      final transport = _Transport()
-        ..response = {
-          'err_no': 0,
-          'data': {
-            'list': [
-              {
-                ...membershipProduct(yearly: true).toJson(),
-                'account_uuid': uuid,
-                'purchase_token': 'old-subscription-token',
-              },
-            ],
-          },
-        };
-      final api = MembershipV1Api(
-        ApiClient(baseUrl: 'https://test.invalid/api/', transport: transport),
-      );
-      final result = await api.products(provider: MembershipProvider.google);
-      expect(result.products.single.accountUuid, uuid);
-      expect(
-        result.products.single.upgradePurchaseToken,
-        'old-subscription-token',
-      );
-    },
-  );
+  test('catalog parses list-level last_account_uuid', () async {
+    const uuid = '8b74ec68-7abc-4cce-a223-e997e31dc811';
+    final transport = _Transport()
+      ..response = {
+        'err_no': 0,
+        'data': {
+          'list': [membershipProduct(yearly: true).toJson()],
+          'last_account_uuid': uuid,
+        },
+      };
+    final api = MembershipV1Api(
+      ApiClient(baseUrl: 'https://test.invalid/api/', transport: transport),
+    );
+    final result = await api.products(provider: MembershipProvider.google);
+    expect(result.lastAccountUuid, uuid);
+  });
 
   test(
     'claim uses session and the original UUID and receipt without a request ID',
@@ -468,7 +451,7 @@ void main() {
       });
       transport.response = {
         'err_no': 0,
-        'data': {'status': 'accepted', 'report_id': 'report-test'},
+        'data': {'status': 'accepted'},
       };
       final result = await api.reportPurchase(
         MembershipPurchaseRequest(
@@ -492,25 +475,21 @@ void main() {
       expect(body.containsKey('plan_code'), isFalse);
     },
   );
-  test('missing envelope, status or report id is not acknowledged', () async {
+  test('missing envelope or invalid status is not acknowledged', () async {
     final transport = _Transport();
     final api = MembershipV1Api(
       ApiClient(baseUrl: 'https://test.invalid/api/', transport: transport),
     );
     for (final response in [
-      {'status': 'accepted', 'report_id': 'report-test'},
+      {'status': 'accepted'},
       {
         'err_no': 'invalid',
-        'data': {'status': 'accepted', 'report_id': 'report-test'},
+        'data': {'status': 'accepted'},
       },
       {'err_no': 0, 'data': <String, Object?>{}},
       {
         'err_no': 0,
-        'data': {'status': 'accepted'},
-      },
-      {
-        'err_no': 0,
-        'data': {'status': 'completed', 'report_id': 'report-test'},
+        'data': {'status': 'unknown'},
       },
     ]) {
       transport.response = response;
@@ -525,6 +504,36 @@ void main() {
       );
     }
   });
+  for (final status in MembershipReportStatus.values) {
+    test(
+      'report accepts status-only ${status.name} for guest and user',
+      () async {
+        final transport = _Transport()
+          ..response = {
+            'err_no': 0,
+            'data': {'status': status.name},
+          };
+        final api = MembershipV1Api(
+          ApiClient(baseUrl: 'https://test.invalid/api/', transport: transport),
+        );
+        for (final guest in [
+          null,
+          const MembershipGuestIdentity(
+            accountUuid: '8b74ec68-7abc-4cce-a223-e997e31dc811',
+          ),
+        ]) {
+          final result = await api.reportPurchase(
+            MembershipPurchaseRequest(
+              product: membershipProduct(),
+              purchaseToken: 'test-token',
+              guest: guest,
+            ),
+          );
+          expect(result.status, status);
+        }
+      },
+    );
+  }
   test('business errors preserve existing ApiException behavior', () async {
     final transport = _Transport()
       ..response = {'err_no': 5000, 'err_msg': 'system busy', 'data': null};

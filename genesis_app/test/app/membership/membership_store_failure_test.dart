@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/membership_store_failure.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
+import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 
 void main() {
@@ -13,7 +14,7 @@ void main() {
     (2, 'serviceUnavailable', 'temporarily unavailable'),
     (3, 'billingUnavailable', 'payment settings'),
     (4, 'itemUnavailable', 'Premium subscription is currently unavailable'),
-    (5, 'developerError', 'could not start this subscription'),
+    (5, 'developerError', 'Premium purchase canceled.'),
     (6, 'error', 'could not complete this Premium purchase'),
     (7, 'itemAlreadyOwned', 'already own this subscription'),
     (8, 'itemNotOwned', 'could not find the subscription to change'),
@@ -82,9 +83,103 @@ void main() {
         code: 'developerError',
         details: {'subResponseCode': 999},
       ).message,
-      contains('could not start'),
+      'Premium purchase canceled.',
     );
   });
+
+  test(
+    'Google exact identity mismatch is shown for query, launch and callback',
+    () {
+      const message =
+          "Account identifiers don't match the previous subscription.";
+      for (final error in [
+        const BillingPlatformException('developerError', message),
+        PlatformException(code: 'developerError', message: message),
+        IAPError(
+          source: 'google_play',
+          code: 'purchase_error',
+          message: 'BillingResponse.developerError',
+          details: {
+            'responseCode': 'developerError',
+            'subResponseCode': 0,
+            'debugMessage': message,
+          },
+        ),
+        IAPError(
+          source: 'google_play',
+          code: 'purchase_error',
+          message: 'BillingResponse.developerError',
+          details: message,
+        ),
+        PlatformException(
+          code: 'purchase_error',
+          details: {'responseCode': 5, 'debugMessage': ' $message\n'},
+        ),
+      ]) {
+        final failure = membershipStoreFailure(
+          MembershipProvider.google,
+          error,
+        )!;
+        expect(failure.message, message);
+        expect(failure.canceled, isFalse);
+      }
+    },
+  );
+
+  test(
+    'Google does not infer identity mismatch from generic developer errors',
+    () {
+      for (final debugMessage in [
+        null,
+        '',
+        'Invalid offer token.',
+        'Account identifiers do not match.',
+      ]) {
+        final failure = membershipStoreError(
+          MembershipProvider.google,
+          code: 'developerError',
+          details: {'debugMessage': debugMessage},
+        );
+        expect(failure.code, 'developer_error');
+        expect(
+          failure.message,
+          membershipGoogleErrorMessages['developer_error'],
+        );
+      }
+    },
+  );
+
+  test(
+    'identity text does not override other platform codes or Google subcodes',
+    () {
+      const message =
+          "Account identifiers don't match the previous subscription.";
+      for (final (code, subcode, expectedCode) in [
+        ('userCanceled', 0, 'user_canceled'),
+        ('ok', 0, 'ok'),
+        ('error', 0, 'error'),
+        ('developerError', 1, 'insufficient_funds'),
+        ('developerError', 2, 'user_ineligible'),
+      ]) {
+        expect(
+          membershipStoreError(
+            MembershipProvider.google,
+            code: code,
+            details: {'subResponseCode': subcode, 'debugMessage': message},
+          ).code,
+          expectedCode,
+        );
+      }
+      expect(
+        membershipStoreError(
+          MembershipProvider.apple,
+          code: 'developerError',
+          message: message,
+        ).message,
+        'The App Store could not complete this Premium purchase. Please try again.',
+      );
+    },
+  );
 
   for (final code in [
     'unknown',
