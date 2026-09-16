@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../app/membership/subscription_analytics.dart';
 import '../../app/membership/membership_purchase_service.dart';
 import '../../app/membership/membership_purchase_eligibility.dart';
 import '../../network/models/membership_product.dart';
@@ -54,9 +55,17 @@ class MembershipPurchasePresentation {
   bool _resolved = false;
   bool _closing = false;
 
-  Future<bool> purchase(MembershipProduct product) async {
-    if (_disposed || _route != null || service.isBusy) return false;
-    final attemptId = newBillingAttemptId();
+  Future<bool> purchase(
+    MembershipProduct product, {
+    SubscriptionTracking? tracking,
+  }) async {
+    if (_disposed || _route != null || service.isBusy) {
+      if (tracking != null) {
+        service.analytics.failed(tracking, 'purchase_in_progress', once: true);
+      }
+      return false;
+    }
+    final attemptId = tracking?.id ?? newBillingAttemptId();
     service.attachCheckoutPresentation(attemptId);
     final state = ValueNotifier(
       GemBillingPurchaseDialogState.processing(attemptId: attemptId),
@@ -133,25 +142,25 @@ class MembershipPurchasePresentation {
     }, onDone: () => _close(false));
     final result = navigator.push(route);
     unawaited(
-      service.purchase(product, attemptId: attemptId).catchError((
-        Object error,
-      ) {
-        if (_disposed || _resolved) return;
-        _resolved = true;
-        _close(false);
-        if (context.mounted) {
-          showGenesisToast(
-            context,
-            purchaseToastMessage(
-              'Purchase failed.',
-              debugInfo: purchaseDebugInfo(
-                'vip.checkout_exception',
-                error: error,
-              ),
-            ),
-          );
-        }
-      }),
+      service
+          .purchase(product, attemptId: attemptId, tracking: tracking)
+          .catchError((Object error) {
+            if (_disposed || _resolved) return;
+            _resolved = true;
+            _close(false);
+            if (context.mounted) {
+              showGenesisToast(
+                context,
+                purchaseToastMessage(
+                  'Purchase failed.',
+                  debugInfo: purchaseDebugInfo(
+                    'vip.checkout_exception',
+                    error: error,
+                  ),
+                ),
+              );
+            }
+          }),
     );
     try {
       final confirmed = await result == true;

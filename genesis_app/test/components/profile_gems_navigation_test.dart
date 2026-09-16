@@ -56,7 +56,15 @@ void main() {
         await tester.pumpAndSettle();
         expect(opened, hasLength(previousCount + 1));
         expect(opened.last.name, RouteNames.gemWallet);
-        expect(opened.last.arguments, subscription ? 'subscription' : isNull);
+        final args = opened.last.arguments as GemWalletRouteArgs;
+        expect(args.showSubscription, subscription);
+        expect(
+          args.subscriptionSource,
+          subscription
+              ? SubscriptionSource.mePinkGems
+              : SubscriptionSource.unknown,
+        );
+        expect(args.gemsSource, subscription ? isNull : 'me_gems');
         navigator.currentState!.pop();
         await tester.pumpAndSettle();
       }

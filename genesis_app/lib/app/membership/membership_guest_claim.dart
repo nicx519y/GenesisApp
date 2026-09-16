@@ -174,10 +174,12 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         MembershipGuestClaimRecord(
           guest: guest,
           purchaseRequestId: purchase.requestId,
+          tracking: _trackingFor(purchase),
         );
     if (claim.purchaseRequestId == null && claim.recoveredProof == null) {
       claim = claim.copyWith(
         purchaseRequestId: purchase.requestId,
+        tracking: _trackingFor(purchase),
         autoClaimAllowed: true,
       );
     }
@@ -395,7 +397,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         }
         retry.attempts++;
         requested = true;
-        final result = await claimGuest!(request);
+        final result = await _sendTrackedClaim(record, request);
         record = record.copyWith(status: result.status.name);
         await _saveGuestClaim(record);
         if (result.status == MembershipReportStatus.completed) {

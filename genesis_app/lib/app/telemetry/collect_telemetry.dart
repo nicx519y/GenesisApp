@@ -710,6 +710,7 @@ class CollectTelemetryUploader {
   Future<bool> enqueuePayloadWithResult(
     Map<String, Object?> payload, {
     bool includeIdentityHeaders = true,
+    String? eventId,
   }) {
     if (!_enabled) return Future<bool>.value(false);
     if (_disposed) {
@@ -724,7 +725,7 @@ class CollectTelemetryUploader {
     final CollectEvent event;
     try {
       event = CollectEvent(
-        eventId: _idGenerator(),
+        eventId: eventId ?? _idGenerator(),
         actionType: actionType,
         action: action,
         appTimestamp: _clock().millisecondsSinceEpoch,

@@ -79,7 +79,10 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
       throw BillingPlatformException(
         response.billingResult.responseCode.name,
         response.billingResult.debugMessage ?? '',
-        {'subResponseCode': response.billingResult.subResponseCode},
+        {
+          'responseCode': response.billingResult.responseCode.name,
+          'subResponseCode': response.billingResult.subResponseCode,
+        },
       );
     }
     return ProductDetailsResponse(

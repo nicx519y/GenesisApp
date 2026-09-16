@@ -29,7 +29,14 @@ void main() {
     await tester.tap(find.text('Subscribe'));
     await tester.pumpAndSettle();
     expect(destination?.name, RouteNames.gemWallet);
-    expect(destination?.arguments, 'subscription');
+    expect(
+      (destination?.arguments as GemWalletRouteArgs).subscriptionSource,
+      SubscriptionSource.meMembership,
+    );
+    expect(
+      (destination?.arguments as GemWalletRouteArgs).showSubscription,
+      isTrue,
+    );
     expect(tester.takeException(), isNull);
   });
 

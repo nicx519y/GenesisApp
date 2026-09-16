@@ -56,9 +56,12 @@ class ProfileMembershipCard extends StatelessWidget {
     final isMember = isActive;
     final isLapsed = !isMember && isExpired;
     const height = _cardHeight;
-    void openMembership() => Navigator.of(
-      context,
-    ).pushNamed(RouteNames.gemWallet, arguments: 'subscription');
+    void openMembership() => Navigator.of(context).pushNamed(
+      RouteNames.gemWallet,
+      arguments: const GemWalletRouteArgs.subscription(
+        SubscriptionSource.meMembership,
+      ),
+    );
 
     return Semantics(
       button: true,

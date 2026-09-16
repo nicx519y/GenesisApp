@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 
+import 'subscription_tracking_scope.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
 import '../../app/membership/membership_catalog.dart';
@@ -94,6 +95,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   MembershipPurchasePresentation? _purchasePresentation;
   MembershipPurchaseService? _presentationService;
   MembershipPurchaseService? _catalogService;
+  final _ownTracking = SubscriptionPageTracking();
+  late SubscriptionPageTracking _tracking;
 
   MembershipCatalog? get _catalog =>
       widget.catalog ??
@@ -109,6 +112,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _tracking = SubscriptionTrackingScope.maybeOf(context) ?? _ownTracking;
     final services = AppServicesScope.maybeOf(context);
     if (!_started || !identical(services, _services)) {
       _services?.sessionRevision.removeListener(_sessionChanged);
@@ -259,6 +263,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       unawaited(_load());
       return;
     }
+    final tracking = _tracking.click();
     final handler = widget.purchaseHandler;
     if (handler != null) {
       await handler(offer.product);
@@ -266,6 +271,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     }
     final service = widget.purchaseService ?? _services?.membershipPurchases;
     if (service == null) {
+      _tracking.analytics.failed(tracking, 'service_unavailable', once: true);
       showGenesisToast(
         context,
         purchaseToastMessage(
@@ -286,7 +292,10 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
         service: service,
       );
     }
-    final confirmed = await _purchasePresentation!.purchase(offer.product);
+    final confirmed = await _purchasePresentation!.purchase(
+      offer.product,
+      tracking: tracking,
+    );
     if (confirmed &&
         mounted &&
         widget.closeOnPurchaseSuccess &&
@@ -301,7 +310,17 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => SubscriptionExposure(
+    key: ValueKey('subscription-exposure-${_tracking.pageId}'),
+    onVisible: () {
+      if (!mounted || ModalRoute.of(context)?.isCurrent == false) return false;
+      _tracking.show();
+      return true;
+    },
+    child: _buildContent(context),
+  );
+
+  Widget _buildContent(BuildContext context) {
     final selectedProduct = _offerFor(_plan)?.product;
     if (_loading) {
       // Match Buy Gems' initial loading indicator in the same tab content area.

@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/membership/subscription_analytics.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../features/location_chat_reply/edit/edit.dart';
 import '../../features/location_chat_reply/go_on/go_on.dart';
@@ -723,7 +724,10 @@ class LocationChatSubscriptionPrompt extends StatelessWidget {
     child: GestureDetector(
       key: promptKey,
       behavior: HitTestBehavior.opaque,
-      onTap: () => showSubscriptionPurchaseBottomSheet(context),
+      onTap: () => showSubscriptionPurchaseBottomSheet(
+        context,
+        source: SubscriptionSource.chatFeatureQuota,
+      ),
       child: ChatStableBackdropSurface(
         borderRadius: BorderRadius.circular(style.bubbleBorderRadius),
         sigma: style.bubbleBackdropBlurSigma,
