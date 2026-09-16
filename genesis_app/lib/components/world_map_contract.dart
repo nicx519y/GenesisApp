@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../ui/tokens/genesis_blur.dart';
 import '../ui/tokens/genesis_typography.dart';
 
 import 'world_point.dart';
@@ -12,6 +14,9 @@ const double worldMapMessageBubbleMaxWidth = 220;
 const double worldMapMessageBubbleHorizontalPadding = 11;
 const double worldMapMessageBubbleVerticalPadding = 8;
 const double worldMapMessageBubblePointerWidth = 12;
+const double worldMapMessageBubblePointerHeight = 10;
+const double worldMapMessageBubbleBorderWidth = 1;
+const Color worldMapMessageBubbleBorderColor = Color(0x2EFFFFFF);
 // Centers the 30px drill-up control against the 68px zoom control whose
 // bottom inset is 30px: 30 + (68 - 30) / 2.
 const double worldMapDrillExitBottom = 49;
@@ -29,23 +34,96 @@ const TextStyle worldMapMessageBubbleTextStyle = TextStyle(
 );
 
 class WorldMapMessageBubbleSurface extends StatelessWidget {
-  const WorldMapMessageBubbleSurface({super.key, required this.child});
+  const WorldMapMessageBubbleSurface({
+    super.key,
+    required this.pointerLeft,
+    required this.child,
+  });
 
+  final double pointerLeft;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: worldMapMessageBubbleBorderRadius,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: worldMapMessageBubbleBackgroundColor,
-          borderRadius: worldMapMessageBubbleBorderRadius,
+    final clipper = _WorldMapMessageBubbleClipper(pointerLeft);
+    return ClipPath(
+      clipper: clipper,
+      child: BackdropFilter(
+        filter: ui.ImageFilter.blur(
+          sigmaX: GenesisBlur.light,
+          sigmaY: GenesisBlur.light,
         ),
-        child: child,
+        child: CustomPaint(
+          foregroundPainter: _WorldMapMessageBubbleBorderPainter(clipper),
+          child: ColoredBox(
+            color: worldMapMessageBubbleBackgroundColor,
+            child: child,
+          ),
+        ),
       ),
     );
   }
+}
+
+class _WorldMapMessageBubbleClipper extends CustomClipper<Path> {
+  const _WorldMapMessageBubbleClipper(this.pointerLeft);
+
+  final double pointerLeft;
+
+  @override
+  Path getClip(Size size) {
+    final body = Path()
+      ..addRRect(
+        worldMapMessageBubbleBorderRadius.toRRect(
+          Rect.fromLTWH(
+            0,
+            worldMapMessageBubblePointerHeight,
+            size.width,
+            size.height - worldMapMessageBubblePointerHeight,
+          ),
+        ),
+      );
+    final pointer = Path()
+      ..moveTo(pointerLeft, 0)
+      ..lineTo(
+        pointerLeft + worldMapMessageBubblePointerWidth / 2,
+        worldMapMessageBubblePointerHeight,
+      )
+      ..lineTo(
+        pointerLeft - worldMapMessageBubblePointerWidth / 2,
+        worldMapMessageBubblePointerHeight,
+      )
+      ..close();
+    // One silhouette keeps the fill, blur and border seamless at the tail.
+    return Path.combine(PathOperation.union, body, pointer);
+  }
+
+  @override
+  bool shouldReclip(_WorldMapMessageBubbleClipper oldClipper) =>
+      pointerLeft != oldClipper.pointerLeft;
+}
+
+class _WorldMapMessageBubbleBorderPainter extends CustomPainter {
+  const _WorldMapMessageBubbleBorderPainter(this.clipper);
+
+  final _WorldMapMessageBubbleClipper clipper;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawPath(
+      clipper.getClip(size),
+      Paint()
+        ..color = worldMapMessageBubbleBorderColor
+        ..style = PaintingStyle.stroke
+        // ClipPath removes the outside half, leaving a 1px inner border.
+        ..strokeWidth = worldMapMessageBubbleBorderWidth * 2
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_WorldMapMessageBubbleBorderPainter oldDelegate) =>
+      clipper.pointerLeft != oldDelegate.clipper.pointerLeft;
 }
 
 TextStyle resolveWorldMapMessageBubbleTextStyle(BuildContext context) {

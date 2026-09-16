@@ -238,24 +238,16 @@ void main() {
     );
 
     final surface = find.byType(WorldMapMessageBubbleSurface);
-    final decoration =
-        tester
-                .widget<DecoratedBox>(
-                  find.descendant(
-                    of: surface,
-                    matching: find.byType(DecoratedBox),
-                  ),
-                )
-                .decoration
-            as BoxDecoration;
-    expect(decoration.color, const Color(0xCC3A3942));
-    expect(decoration.borderRadius, worldMapMessageBubbleBorderRadius);
+    final fill = tester.widget<ColoredBox>(
+      find.descendant(of: surface, matching: find.byType(ColoredBox)),
+    );
+    expect(fill.color, const Color(0xCC3A3942));
     expect(worldMapMessageBubbleHorizontalPadding, 11);
     expect(worldMapMessageBubbleVerticalPadding, 8);
     expect(worldMapMessageBubbleBorderRadius, BorderRadius.circular(8));
     expect(
       find.descendant(of: surface, matching: find.byType(BackdropFilter)),
-      findsNothing,
+      findsOneWidget,
     );
     final text = tester.widget<Text>(find.text('AI response'));
     expect(text.style, worldMapMessageBubbleTextStyle);
