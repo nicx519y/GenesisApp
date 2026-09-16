@@ -527,6 +527,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
         link('privacy', 'Privacy Policy'),
         Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
         link('terms', 'Terms of Service'),
+        Text('&', style: GenesisTypography.resolve(context, _legalStyle)),
+        link('eula', 'EULA'),
       ],
     );
   }

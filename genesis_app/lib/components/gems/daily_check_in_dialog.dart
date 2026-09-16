@@ -91,6 +91,7 @@ Future<bool> showDailyCheckInDialog(
           label: 'Check in',
           value: _DailyCheckInAction.checkIn,
           color: GenesisColors.darkTextPrimary,
+          fontWeight: FontWeight.w400,
         )
       else
         GenesisActionBoxAction<_DailyCheckInAction>(

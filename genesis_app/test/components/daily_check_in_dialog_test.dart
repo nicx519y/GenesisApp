@@ -284,7 +284,7 @@ void main() {
       expect(find.text('Get 100'), findsOneWidget);
       expect(
         tester.widget<Text>(find.text('Check in')).style?.fontWeight,
-        FontWeight.w600,
+        FontWeight.w400,
       );
       expect(
         tester.widget<Text>(find.text('Get 100')).style?.color,
