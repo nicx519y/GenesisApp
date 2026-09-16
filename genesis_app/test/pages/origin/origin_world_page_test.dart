@@ -60,6 +60,42 @@ void main() {
     );
   });
 
+  test('origin sheet handle and inline title headers stay transparent', () {
+    final pinnedHeaderStart = originWorldDetailSheetSource.indexOf(
+      'class _OriginSheetPinnedHeader',
+    );
+    final pinnedHeaderEnd = originWorldDetailSheetSource.indexOf(
+      'class _OriginSheetHeaderContent',
+      pinnedHeaderStart,
+    );
+    final pinnedHeaderSource = originWorldDetailSheetSource.substring(
+      pinnedHeaderStart,
+      pinnedHeaderEnd,
+    );
+    expect(pinnedHeaderSource, isNot(contains('ColoredBox')));
+    expect(
+      pinnedHeaderSource,
+      isNot(contains('originWorldDetailSheetSurfaceColor')),
+    );
+
+    final locationHeaderStart = originSectionsSource.indexOf(
+      'class _OriginOpeningLocationHeader',
+    );
+    final locationHeaderEnd = originSectionsSource.indexOf(
+      'List<Widget> _originWorldoBriefSlivers',
+      locationHeaderStart,
+    );
+    final locationHeaderSource = originSectionsSource.substring(
+      locationHeaderStart,
+      locationHeaderEnd,
+    );
+    expect(locationHeaderSource, isNot(contains('ColoredBox')));
+    expect(
+      locationHeaderSource,
+      isNot(contains('originWorldDetailSheetSurfaceColor')),
+    );
+  });
+
   test('origin detail sheet uses the requested dark color tiers', () {
     expect(originWorldDetailSheetPrimaryTextColor, const Color(0xF2FFFFFF));
     expect(originWorldDetailSheetSecondaryTextColor, const Color(0xB8FFFFFF));
