@@ -13,6 +13,7 @@ import '../../ui/tokens/genesis_typography.dart';
 import '../legacy_world_map/legacy_world_map_gesture.dart';
 import '../world_event_count_badge.dart';
 import '../world_map_contract.dart';
+import '../world_map_overlay.dart';
 import '../world_new_badge.dart';
 import '../world_point.dart';
 import 'tilemap_fog.dart';

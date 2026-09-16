@@ -5,6 +5,8 @@ import '../../ui/tokens/genesis_colors.dart';
 
 const Color originWorldDetailSheetBackgroundColor =
     GenesisColors.darkBackground;
+final Color originWorldDetailSheetSurfaceColor =
+    originWorldDetailSheetBackgroundColor.withValues(alpha: 0.9);
 const Color originWorldDetailSheetPrimaryTextColor =
     GenesisColors.darkTextPrimary;
 const Color originWorldDetailSheetSecondaryTextColor =

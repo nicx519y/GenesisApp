@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../ui/tokens/genesis_blur.dart';
@@ -287,6 +288,7 @@ class WorldMapCommonConfig {
     this.drillExitBottom = worldMapDrillExitBottom,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
+    this.mapOverlayOpacity,
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
@@ -296,6 +298,9 @@ class WorldMapCommonConfig {
   final double drillExitBottom;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
+
+  /// Location markers, names, avatars, message bubbles and zoom controls.
+  final ValueListenable<double>? mapOverlayOpacity;
   final VoidCallback? onDrillIntoLocation;
   final VoidCallback? onMapTap;
   final WorldPointTapCallback? onPointTap;

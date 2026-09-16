@@ -404,6 +404,7 @@ class Tilemap extends StatefulWidget {
     this.drillExitBottom = worldMapDrillExitBottom,
     this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
+    this.mapOverlayOpacity,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
@@ -435,6 +436,7 @@ class Tilemap extends StatefulWidget {
     this.drillExitBottom = worldMapDrillExitBottom,
     this.drillExitMaxWidth,
     this.showVisualModeToggle = true,
+    this.mapOverlayOpacity,
     this.visualModeToggleTop,
     this.visualModeToggleRight = 9.5,
     this.recentChatLocationIds = const <String>{},
@@ -465,6 +467,7 @@ class Tilemap extends StatefulWidget {
   final double drillExitBottom;
   final double? drillExitMaxWidth;
   final bool showVisualModeToggle;
+  final ValueListenable<double>? mapOverlayOpacity;
   final double? visualModeToggleTop;
   final double visualModeToggleRight;
   final Set<String> recentChatLocationIds;
@@ -2079,6 +2082,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
       waitForVisibleTileImageFrames: widget.tileImageLoader == null,
       isForeground: foreground,
       animationsPaused: widget.animationsPaused,
+      mapOverlayOpacity: widget.mapOverlayOpacity,
       locationImageFlowPaused: widget.locationImageFlowPaused,
       visualMode: _visualMode,
       fogControlPoints: _fogControlPoints,

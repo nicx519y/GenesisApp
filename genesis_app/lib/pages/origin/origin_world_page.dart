@@ -5,7 +5,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart'
-    show RenderProxySliver, SliverHitTestResult;
+    show RenderProxyBox, RenderProxySliver, SliverHitTestResult;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -196,6 +196,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   }
 
   late bool _waitingForOpeningSheetExpansion;
+  final _mapOverlayOpacity = ValueNotifier<double>(1);
   final ValueNotifier<bool> _detailSheetRaisedNotifier = ValueNotifier<bool>(
     false,
   );
@@ -238,6 +239,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   void initState() {
     super.initState();
     _waitingForOpeningSheetExpansion = widget.showOpeningSheetOnEntry;
+    _mapOverlayOpacity.value = widget.showOpeningSheetOnEntry ? 0 : 1;
     tilemapVisualModeController.addListener(_handleTilemapVisualModeChanged);
     _tilemapVisualModeLoad = _loadTilemapVisualMode();
     _scheduleInitialOriginLoadAfterFrameworkFrame();
@@ -285,6 +287,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _tilemapRestorationController.clear();
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
       _waitingForOpeningSheetExpansion = widget.showOpeningSheetOnEntry;
+      _mapOverlayOpacity.value = widget.showOpeningSheetOnEntry ? 0 : 1;
       _detailSheetRaisedNotifier.value = false;
       _scheduleInitialOriginLoadAfterFrameworkFrame();
     }
@@ -314,6 +317,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     _roleAvatarSnapshots.dispose();
     _tilemapRestorationController.dispose();
     _detailSheetRaisedNotifier.dispose();
+    _mapOverlayOpacity.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     super.dispose();
   }
@@ -977,6 +981,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               definitionVersion: origin.definitionVersion,
               originId: origin.oid,
               common: WorldMapCommonConfig(
+                mapOverlayOpacity: _mapOverlayOpacity,
                 locationNodes: mapPresentationData.locationNodes,
                 messageBubbles: _activeChatLocation == null
                     ? mapPresentationData.messageBubbles
@@ -1036,6 +1041,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               initiallyExpanded: widget.showOpeningSheetOnEntry,
               autoExpansionPending: _waitingForOpeningSheetExpansion,
               onRaisedChanged: _handleDetailSheetRaisedChanged,
+              onMapOverlayOpacityChanged: (opacity) =>
+                  _mapOverlayOpacity.value = opacity,
               onFullyExpanded: _handleOpeningSheetFullyExpanded,
               onAutoExpansionInterrupted:
                   _handleOpeningSheetExpansionInterrupted,

@@ -353,7 +353,7 @@ class _OriginOpeningLocationHeader extends StatelessWidget {
     return SizedBox(
       height: topPadding + _contentHeight,
       child: ColoredBox(
-        color: originWorldDetailSheetBackgroundColor,
+        color: Colors.transparent,
         child: Padding(
           key: const ValueKey<String>('origin-opening-location'),
           padding: EdgeInsets.fromLTRB(

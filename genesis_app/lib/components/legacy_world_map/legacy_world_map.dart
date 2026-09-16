@@ -7,6 +7,7 @@ import 'package:flutter/scheduler.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../world_map_avatar_logic.dart';
 import '../world_map_contract.dart';
+import '../world_map_overlay.dart';
 import '../world_map_location_action.dart';
 import '../world_map_exit_location_button.dart';
 import '../world_location_list.dart';
@@ -242,65 +243,67 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
                   initialFocus: initialFocus,
                   initialTransformKey: initialTransformKey,
                   initialViewportSize: visibleViewportSize,
-                  overlayBuilder: (context, transform, onOverlayPointerDown) =>
-                      Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          IgnorePointer(
-                            ignoring: widget.showPointsList,
-                            child: Opacity(
-                              opacity: widget.showPointsList ? 0.6 : 1,
-                              child: Stack(
-                                children: [
+                  overlayBuilder: (context, transform, onOverlayPointerDown) => Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      IgnorePointer(
+                        ignoring: widget.showPointsList,
+                        child: WorldMapOverlay(
+                          opacity: widget.common.mapOverlayOpacity,
+                          child: Opacity(
+                            opacity: widget.showPointsList ? 0.6 : 1,
+                            child: Stack(
+                              children: [
+                                for (final p in visiblePoints)
+                                  LegacyWorldMapPointPositioned(
+                                    point: p,
+                                    showRecentChatIcon:
+                                        legacyWorldMapPointMatchesLocationIds(
+                                          p,
+                                          widget.recentChatMapLocationIds,
+                                        ),
+                                    showEventIcon:
+                                        legacyWorldMapPointMatchesLocationIds(
+                                          p,
+                                          widget.eventMapLocationIds,
+                                        ),
+                                    width: viewport.width,
+                                    height: viewport.height,
+                                    transform: transform,
+                                    enableAvatarScaleReboundHint:
+                                        widget.enableAvatarScaleReboundHint,
+                                    onPointerDown: onOverlayPointerDown,
+                                    onTap: _pointTapHandler(p),
+                                  ),
+                                if (activeBubble != null)
                                   for (final p in visiblePoints)
-                                    LegacyWorldMapPointPositioned(
+                                    LegacyWorldMapPointMessageBubblePositioned(
                                       point: p,
-                                      showRecentChatIcon:
-                                          legacyWorldMapPointMatchesLocationIds(
-                                            p,
-                                            widget.recentChatMapLocationIds,
-                                          ),
-                                      showEventIcon:
-                                          legacyWorldMapPointMatchesLocationIds(
-                                            p,
-                                            widget.eventMapLocationIds,
-                                          ),
                                       width: viewport.width,
                                       height: viewport.height,
                                       transform: transform,
-                                      enableAvatarScaleReboundHint:
-                                          widget.enableAvatarScaleReboundHint,
                                       onPointerDown: onOverlayPointerDown,
                                       onTap: _pointTapHandler(p),
-                                    ),
-                                  if (activeBubble != null)
-                                    for (final p in visiblePoints)
-                                      LegacyWorldMapPointMessageBubblePositioned(
-                                        point: p,
-                                        width: viewport.width,
-                                        height: viewport.height,
-                                        transform: transform,
-                                        onPointerDown: onOverlayPointerDown,
-                                        onTap: _pointTapHandler(p),
-                                        messageBubble: _bubbleForPoint(
-                                          p,
-                                          activeBubble,
-                                        ),
+                                      messageBubble: _bubbleForPoint(
+                                        p,
+                                        activeBubble,
                                       ),
-                                ],
-                              ),
+                                    ),
+                              ],
                             ),
                           ),
-                          IgnorePointer(
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 220),
-                              color: widget.dimmed
-                                  ? Colors.black.withValues(alpha: 0.08)
-                                  : Colors.transparent,
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
+                      IgnorePointer(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          color: widget.dimmed
+                              ? Colors.black.withValues(alpha: 0.08)
+                              : Colors.transparent,
+                        ),
+                      ),
+                    ],
+                  ),
                   onMapTap: widget.onMapTap,
                   onScaleChanged: _handleMapZoomScaleChanged,
                   onHorizontalPanStateChanged: _handleHorizontalPanStateChanged,
@@ -360,20 +363,23 @@ class _LegacyWorldMapState extends State<LegacyWorldMap> {
               Positioned(
                 right: legacyWorldMapZoomControlRightGap,
                 bottom: legacyWorldMapZoomControlBottomGap,
-                child: LegacyWorldMapZoomControl(
-                  value: _mapZoomScale,
-                  min: LegacyWorldMapZoomableContent.minScale,
-                  max: LegacyWorldMapZoomableContent.maxScale,
-                  onChanged: (scale) =>
-                      _zoomByControl?.call(scale - _mapZoomScale),
-                  canZoomIn:
-                      _mapZoomScale <
-                      LegacyWorldMapZoomableContent.maxScale - 0.001,
-                  canZoomOut:
-                      _mapZoomScale >
-                      LegacyWorldMapZoomableContent.minScale + 0.001,
-                  onZoomIn: () => _zoomByControl?.call(0.25),
-                  onZoomOut: () => _zoomByControl?.call(-0.25),
+                child: WorldMapOverlay(
+                  opacity: widget.common.mapOverlayOpacity,
+                  child: LegacyWorldMapZoomControl(
+                    value: _mapZoomScale,
+                    min: LegacyWorldMapZoomableContent.minScale,
+                    max: LegacyWorldMapZoomableContent.maxScale,
+                    onChanged: (scale) =>
+                        _zoomByControl?.call(scale - _mapZoomScale),
+                    canZoomIn:
+                        _mapZoomScale <
+                        LegacyWorldMapZoomableContent.maxScale - 0.001,
+                    canZoomOut:
+                        _mapZoomScale >
+                        LegacyWorldMapZoomableContent.minScale + 0.001,
+                    onZoomIn: () => _zoomByControl?.call(0.25),
+                    onZoomOut: () => _zoomByControl?.call(-0.25),
+                  ),
                 ),
               ),
           ],

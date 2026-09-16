@@ -12019,7 +12019,7 @@ void main() {
     );
     expect(
       (sheetSurface.decoration as BoxDecoration).color,
-      const Color(0xFF151517),
+      originWorldDetailSheetSurfaceColor,
     );
     final firstOpeningRow =
         openingDelegate.builder(buildContext, 0) as ChatMessageRow;

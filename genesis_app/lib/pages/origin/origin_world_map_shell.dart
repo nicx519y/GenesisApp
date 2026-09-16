@@ -101,7 +101,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
       child: WorldMap.origin(
         definitionVersion: 2,
         originId: widget.oid,
-        common: const WorldMapCommonConfig(),
+        common: WorldMapCommonConfig(mapOverlayOpacity: _mapOverlayOpacity),
         legacy: const LegacyWorldMapConfig(points: <WorldPoint>[]),
         tilemap: WorldMapTilemapOptions(
           implementationKey: _tilemapImplementationKey,
@@ -188,8 +188,8 @@ class _OriginDetailLoadingSheet extends StatelessWidget {
           heightFactor: heightFactor,
           child: DecoratedBox(
             key: const ValueKey<String>('origin-detail-loading-sheet'),
-            decoration: const BoxDecoration(
-              color: originWorldDetailSheetBackgroundColor,
+            decoration: BoxDecoration(
+              color: originWorldDetailSheetSurfaceColor,
               borderRadius: GenesisRadii.sheet,
             ),
             child: ClipRRect(

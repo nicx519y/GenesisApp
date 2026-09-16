@@ -28,6 +28,7 @@ class TilemapRenderer extends StatefulWidget {
     this.waitForVisibleTileImageFrames = true,
     this.isForeground = true,
     this.animationsPaused = false,
+    this.mapOverlayOpacity,
     this.locationImageFlowPaused = false,
     this.visualMode = tilemapDefaultVisualMode,
     this.fogControlPoints = tilemapDefaultFogControlPoints,
@@ -67,6 +68,7 @@ class TilemapRenderer extends StatefulWidget {
   final bool waitForVisibleTileImageFrames;
   final bool isForeground;
   final bool animationsPaused;
+  final ValueListenable<double>? mapOverlayOpacity;
   final bool locationImageFlowPaused;
   final TilemapVisualMode visualMode;
   final List<TilemapFogControlPoint> fogControlPoints;
@@ -619,57 +621,79 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                             ),
                                           ),
                                         ),
-                                      for (final label in locationLabels)
-                                        _TilemapLocationBubble(
-                                          key: ValueKey<String>(
-                                            'tile-location-label-'
-                                            '${label.tile.x}-${label.tile.y}',
-                                          ),
-                                          name: label.name,
-                                          avatars: label.avatars,
-                                          showRecentChat: label.showRecentChat,
-                                          showEvent: label.showEvent,
-                                          showNew: label.showNew,
-                                          newBadgeKey: ValueKey<String>(
-                                            'tilemap-location-new-badge-'
-                                            '${label.tile.x}-${label.tile.y}',
-                                          ),
-                                          onLabelTap:
-                                              widget.onTileAction == null
-                                              ? null
-                                              : () => _handleOverlayTileTap(
-                                                  label.tile,
+                                      Positioned.fill(
+                                        child: WorldMapOverlay(
+                                          opacity: widget.mapOverlayOpacity,
+                                          child: Stack(
+                                            children: [
+                                              for (final label
+                                                  in locationLabels)
+                                                _TilemapLocationBubble(
+                                                  key: ValueKey<String>(
+                                                    'tile-location-label-'
+                                                    '${label.tile.x}-${label.tile.y}',
+                                                  ),
+                                                  name: label.name,
+                                                  avatars: label.avatars,
+                                                  showRecentChat:
+                                                      label.showRecentChat,
+                                                  showEvent: label.showEvent,
+                                                  showNew: label.showNew,
+                                                  newBadgeKey: ValueKey<String>(
+                                                    'tilemap-location-new-badge-'
+                                                    '${label.tile.x}-${label.tile.y}',
+                                                  ),
+                                                  onLabelTap:
+                                                      widget.onTileAction ==
+                                                          null
+                                                      ? null
+                                                      : () =>
+                                                            _handleOverlayTileTap(
+                                                              label.tile,
+                                                            ),
+                                                  onAvatarTap:
+                                                      widget.onTileAction ==
+                                                          null
+                                                      ? null
+                                                      : () =>
+                                                            _handleOverlayTileTap(
+                                                              label.tile,
+                                                            ),
+                                                  anchor: MatrixUtils.transformPoint(
+                                                    matrix,
+                                                    tilemapLocationBubbleSceneAnchor(
+                                                      projection,
+                                                      label.tile,
+                                                    ),
+                                                  ),
                                                 ),
-                                          onAvatarTap:
-                                              widget.onTileAction == null
-                                              ? null
-                                              : () => _handleOverlayTileTap(
-                                                  label.tile,
+                                              if (activeBubble != null &&
+                                                  activeBubbleLabel != null &&
+                                                  activeBubbleAvatarTopLeft !=
+                                                      null)
+                                                TilemapCharacterMessageBubble(
+                                                  text: activeBubble.content,
+                                                  avatarTopLeft:
+                                                      activeBubbleAvatarTopLeft,
+                                                  viewportWidth:
+                                                      viewportSize.width,
+                                                  preservePageWidth:
+                                                      activeBubble
+                                                          .preservePageWidth,
+                                                  onTap:
+                                                      widget.onTileAction ==
+                                                          null
+                                                      ? null
+                                                      : () =>
+                                                            _handleOverlayTileTap(
+                                                              activeBubbleLabel!
+                                                                  .tile,
+                                                            ),
                                                 ),
-                                          anchor: MatrixUtils.transformPoint(
-                                            matrix,
-                                            tilemapLocationBubbleSceneAnchor(
-                                              projection,
-                                              label.tile,
-                                            ),
+                                            ],
                                           ),
                                         ),
-                                      if (activeBubble != null &&
-                                          activeBubbleLabel != null &&
-                                          activeBubbleAvatarTopLeft != null)
-                                        TilemapCharacterMessageBubble(
-                                          text: activeBubble.content,
-                                          avatarTopLeft:
-                                              activeBubbleAvatarTopLeft,
-                                          viewportWidth: viewportSize.width,
-                                          preservePageWidth:
-                                              activeBubble.preservePageWidth,
-                                          onTap: widget.onTileAction == null
-                                              ? null
-                                              : () => _handleOverlayTileTap(
-                                                  activeBubbleLabel!.tile,
-                                                ),
-                                        ),
+                                      ),
                                     ],
                                   );
                                 },
@@ -684,33 +708,36 @@ class _TilemapRendererState extends State<TilemapRenderer>
                 Positioned(
                   right: legacyWorldMapZoomControlRightGap,
                   bottom: legacyWorldMapZoomControlBottomGap,
-                  child: ValueListenableBuilder<Matrix4>(
-                    valueListenable: _transformationController,
-                    builder: (context, matrix, child) {
-                      final scale = tilemapTransformScale(matrix);
-                      return LegacyWorldMapZoomControl(
-                        value: scale,
-                        min: tilemapMinScale,
-                        max: tilemapMaxScale,
-                        onChanged: (targetScale) => _zoomToScaleByControl(
-                          targetScale: targetScale,
-                          viewportSize: viewportSize,
-                          dragBoundary: dragBoundary,
-                        ),
-                        canZoomIn: scale < tilemapMaxScale - 0.001,
-                        canZoomOut: scale > tilemapMinScale + 0.001,
-                        onZoomIn: () => _zoomByControl(
-                          zoomIn: true,
-                          viewportSize: viewportSize,
-                          dragBoundary: dragBoundary,
-                        ),
-                        onZoomOut: () => _zoomByControl(
-                          zoomIn: false,
-                          viewportSize: viewportSize,
-                          dragBoundary: dragBoundary,
-                        ),
-                      );
-                    },
+                  child: WorldMapOverlay(
+                    opacity: widget.mapOverlayOpacity,
+                    child: ValueListenableBuilder<Matrix4>(
+                      valueListenable: _transformationController,
+                      builder: (context, matrix, child) {
+                        final scale = tilemapTransformScale(matrix);
+                        return LegacyWorldMapZoomControl(
+                          value: scale,
+                          min: tilemapMinScale,
+                          max: tilemapMaxScale,
+                          onChanged: (targetScale) => _zoomToScaleByControl(
+                            targetScale: targetScale,
+                            viewportSize: viewportSize,
+                            dragBoundary: dragBoundary,
+                          ),
+                          canZoomIn: scale < tilemapMaxScale - 0.001,
+                          canZoomOut: scale > tilemapMinScale + 0.001,
+                          onZoomIn: () => _zoomByControl(
+                            zoomIn: true,
+                            viewportSize: viewportSize,
+                            dragBoundary: dragBoundary,
+                          ),
+                          onZoomOut: () => _zoomByControl(
+                            zoomIn: false,
+                            viewportSize: viewportSize,
+                            dragBoundary: dragBoundary,
+                          ),
+                        );
+                      },
+                    ),
                   ),
                 ),
               ],

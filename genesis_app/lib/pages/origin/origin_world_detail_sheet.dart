@@ -90,6 +90,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.initiallyExpanded,
     required this.autoExpansionPending,
     required this.onRaisedChanged,
+    required this.onMapOverlayOpacityChanged,
     required this.onFullyExpanded,
     required this.onAutoExpansionInterrupted,
     required this.onOriginChanged,
@@ -111,6 +112,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final bool initiallyExpanded;
   final bool autoExpansionPending;
   final ValueChanged<bool> onRaisedChanged;
+  final ValueChanged<double> onMapOverlayOpacityChanged;
   final VoidCallback onFullyExpanded;
   final VoidCallback onAutoExpansionInterrupted;
   final VoidCallback onOriginChanged;
@@ -638,6 +640,7 @@ class _OriginDetailDraggableSheetState
         (maxChildSize - extent).abs() <= _extentUpdateEpsilon;
     final isRaised = extent > _minChildSize + _extentUpdateEpsilon;
     _updateRaisedState(isRaised);
+    _updateMapOverlayOpacity(extent);
     if (isFullyExpanded && !_isFullyExpanded) {
       GenesisTelemetry.collectLog(
         actionType: 'event',
@@ -685,7 +688,14 @@ class _OriginDetailDraggableSheetState
       _updateRaisedState(
         _sheetController.size > _minChildSize + _extentUpdateEpsilon,
       );
+      _updateMapOverlayOpacity(_sheetController.size);
     });
+  }
+
+  void _updateMapOverlayOpacity(double extent) {
+    if (!_sheetController.isAttached) return;
+    final raisedPixels = _sheetController.sizeToPixels(extent - _minChildSize);
+    widget.onMapOverlayOpacityChanged((1 - raisedPixels / 300).clamp(0.0, 1.0));
   }
 
   void _updateRaisedState(bool isRaised) {
@@ -1586,7 +1596,7 @@ class _OriginDetailDraggableSheetState
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: BoxDecoration(
-                  color: originWorldDetailSheetBackgroundColor,
+                  color: originWorldDetailSheetSurfaceColor,
                   borderRadius: GenesisRadii.sheet,
                 ),
                 child: ClipRRect(
@@ -1599,26 +1609,28 @@ class _OriginDetailDraggableSheetState
                       children: [
                         NotificationListener<ScrollEndNotification>(
                           onNotification: _handlePageScrollEnd,
-                          child: PageView.builder(
-                            key: const ValueKey<String>(
-                              'origin-detail-sheet-pages',
+                          child: _OriginSheetScrollClip(
+                            child: PageView.builder(
+                              key: const ValueKey<String>(
+                                'origin-detail-sheet-pages',
+                              ),
+                              controller: _pageController,
+                              itemCount: 2,
+                              physics: _openingKeyboardMode
+                                  ? const NeverScrollableScrollPhysics()
+                                  : const PageScrollPhysics(),
+                              itemBuilder: (context, page) {
+                                final pageScrollController = _sheetInteraction
+                                    .pageScrollControllerFor(page);
+                                return page == _originOpeningSheetPageIndex
+                                    ? _buildOpeningPage(
+                                        pageScrollController,
+                                        initialDialoguePreview,
+                                        locationChatLocationId,
+                                      )
+                                    : _buildInfoPage(pageScrollController);
+                              },
                             ),
-                            controller: _pageController,
-                            itemCount: 2,
-                            physics: _openingKeyboardMode
-                                ? const NeverScrollableScrollPhysics()
-                                : const PageScrollPhysics(),
-                            itemBuilder: (context, page) {
-                              final pageScrollController = _sheetInteraction
-                                  .pageScrollControllerFor(page);
-                              return page == _originOpeningSheetPageIndex
-                                  ? _buildOpeningPage(
-                                      pageScrollController,
-                                      initialDialoguePreview,
-                                      locationChatLocationId,
-                                    )
-                                  : _buildInfoPage(pageScrollController);
-                            },
                           ),
                         ),
                         Positioned(
@@ -1804,6 +1816,33 @@ class _OriginSheetPageIndicatorSegment extends StatelessWidget {
   }
 }
 
+// Paint-only clipping preserves the header's existing page-swipe hit area.
+// Its background now comes from the shared translucent sheet surface.
+class _OriginSheetScrollClip extends SingleChildRenderObjectWidget {
+  const _OriginSheetScrollClip({required super.child});
+
+  @override
+  RenderProxyBox createRenderObject(BuildContext context) =>
+      _RenderOriginSheetScrollClip();
+}
+
+class _RenderOriginSheetScrollClip extends RenderProxyBox {
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    context.pushClipRect(
+      needsCompositing,
+      offset,
+      Rect.fromLTRB(
+        0,
+        math.min(originDetailSheetHeaderHeightForTesting, size.height),
+        size.width,
+        size.height,
+      ),
+      super.paint,
+    );
+  }
+}
+
 class _OriginSheetPinnedHeader extends StatelessWidget {
   const _OriginSheetPinnedHeader({required this.topPadding});
 
@@ -1813,7 +1852,6 @@ class _OriginSheetPinnedHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       height: topPadding + originDetailSheetHeaderHeightForTesting,
-      child: const ColoredBox(color: originWorldDetailSheetBackgroundColor),
     );
   }
 }
