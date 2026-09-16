@@ -16,7 +16,8 @@ export 'legacy_world_map/legacy_world_map_marker.dart'
     show
         worldMapAvatarBorderColorForTesting,
         worldMapInitialZoomFocusForTesting;
-export 'tilemap/tilemap.dart' show TilemapRestorationController;
+export 'tilemap/tilemap.dart'
+    show TilemapOverlayOcclusionController, TilemapRestorationController;
 export 'world_location_list.dart';
 export 'world_map_avatar_logic.dart';
 export 'world_map_contract.dart';
@@ -39,6 +40,8 @@ class WorldMapTilemapOptions {
     this.eventLocationIds = const <String>{},
     this.animationsPaused = false,
     this.locationImageFlowPaused = false,
+    this.overlayOcclusionController,
+    this.bottomEdgeFadeExtent = 0,
     this.reloadRevision = 0,
     this.restorationController,
     this.onMapTap,
@@ -62,6 +65,8 @@ class WorldMapTilemapOptions {
   final Set<String> eventLocationIds;
   final bool animationsPaused;
   final bool locationImageFlowPaused;
+  final TilemapOverlayOcclusionController? overlayOcclusionController;
+  final double bottomEdgeFadeExtent;
   final int reloadRevision;
   final TilemapRestorationController? restorationController;
   final VoidCallback? onMapTap;
@@ -128,6 +133,8 @@ class WorldMap extends StatelessWidget {
         eventLocationIds: tilemap.eventLocationIds,
         animationsPaused: tilemap.animationsPaused,
         locationImageFlowPaused: tilemap.locationImageFlowPaused,
+        overlayOcclusionController: tilemap.overlayOcclusionController,
+        bottomEdgeFadeExtent: tilemap.bottomEdgeFadeExtent,
         reloadRevision: tilemap.reloadRevision,
         messageBubbles: common.messageBubbles,
         messageBubblePlaybackPaused:
@@ -156,6 +163,8 @@ class WorldMap extends StatelessWidget {
         eventLocationIds: tilemap.eventLocationIds,
         animationsPaused: tilemap.animationsPaused,
         locationImageFlowPaused: tilemap.locationImageFlowPaused,
+        overlayOcclusionController: tilemap.overlayOcclusionController,
+        bottomEdgeFadeExtent: tilemap.bottomEdgeFadeExtent,
         reloadRevision: tilemap.reloadRevision,
         messageBubbles: common.messageBubbles,
         messageBubblePlaybackPaused: common.messageBubblePlaybackPaused,

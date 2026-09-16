@@ -41,10 +41,58 @@ void main() {
 
   test('origin page and detail sheet share the base background', () {
     expect(originWorldDetailSheetBackgroundColor, const Color(0xFF151517));
+    expect(
+      originWorldDetailSheetSurfaceColor,
+      GenesisColors.darkBackground.withValues(alpha: 0.9),
+    );
     expect(GenesisColors.darkRaisedBackground, const Color(0xFF181C1F));
     expect(
       originWorldMapShellSource,
       contains('backgroundColor: originWorldDetailSheetBackgroundColor'),
+    );
+    expect(
+      originWorldMapShellSource,
+      contains('color: originWorldDetailSheetSurfaceColor'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('color: originWorldDetailSheetSurfaceColor'),
+    );
+  });
+
+  test('origin sheet handle and inline title headers stay transparent', () {
+    final pinnedHeaderStart = originWorldDetailSheetSource.indexOf(
+      'class _OriginSheetPinnedHeader',
+    );
+    final pinnedHeaderEnd = originWorldDetailSheetSource.indexOf(
+      'class _OriginSheetHeaderContent',
+      pinnedHeaderStart,
+    );
+    final pinnedHeaderSource = originWorldDetailSheetSource.substring(
+      pinnedHeaderStart,
+      pinnedHeaderEnd,
+    );
+    expect(pinnedHeaderSource, isNot(contains('ColoredBox')));
+    expect(
+      pinnedHeaderSource,
+      isNot(contains('originWorldDetailSheetSurfaceColor')),
+    );
+
+    final locationHeaderStart = originSectionsSource.indexOf(
+      'class _OriginOpeningLocationHeader',
+    );
+    final locationHeaderEnd = originSectionsSource.indexOf(
+      'List<Widget> _originWorldoBriefSlivers',
+      locationHeaderStart,
+    );
+    final locationHeaderSource = originSectionsSource.substring(
+      locationHeaderStart,
+      locationHeaderEnd,
+    );
+    expect(locationHeaderSource, isNot(contains('ColoredBox')));
+    expect(
+      locationHeaderSource,
+      isNot(contains('originWorldDetailSheetSurfaceColor')),
     );
   });
 
@@ -76,7 +124,10 @@ void main() {
     );
     expect(
       originWorldLocationChatSource,
-      contains('_originDetailSheetChatComposerStyle => kLocationChatStyle;'),
+      contains(
+        'copyWith(composerBackgroundColor: '
+        'originWorldDetailSheetSurfaceColor)',
+      ),
     );
     expect(
       originWorldDetailSheetSource,

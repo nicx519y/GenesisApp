@@ -1289,7 +1289,7 @@ void main() {
       expect(distantScale.max, 16);
       final viewportPadding = tester.widget<Slider>(viewportPaddingSlider);
       final minimumBoundsSize = tester.widget<Slider>(minimumBoundsSizeSlider);
-      expect(viewportPadding.value, 24);
+      expect(viewportPadding.value, 0);
       expect(viewportPadding.min, 0);
       expect(viewportPadding.max, 120);
       expect(viewportPadding.divisions, 30);

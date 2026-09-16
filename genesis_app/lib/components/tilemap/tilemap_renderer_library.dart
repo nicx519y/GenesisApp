@@ -53,7 +53,7 @@ const double tilemapDistantLocationInitialScaleMax = 16;
 const double tilemapLocationBoundsViewportPaddingMin = 0;
 const double tilemapLocationBoundsViewportPaddingMax = 120;
 const double tilemapLocationBoundsViewportPaddingStep = 4;
-const double tilemapDefaultLocationBoundsViewportPadding = 24;
+const double tilemapDefaultLocationBoundsViewportPadding = 0;
 const double tilemapMinimumLocationBoundsSizeTilesMin = 1;
 const double tilemapMinimumLocationBoundsSizeTilesMax = 6;
 const double tilemapMinimumLocationBoundsSizeTilesStep = 1;
@@ -77,6 +77,31 @@ const double tilemapLocationImageFlowDurationSecondsMin = 0.5;
 const double tilemapLocationImageFlowDurationSecondsMax = 10;
 const double tilemapLocationImageFlowActiveFraction = 2 / 3;
 const double tilemapLocationImageFlowBandWidthFraction = 0.18;
+const double tilemapOverlayOcclusionFadeExtent = 100;
+
+/// Controls how much of Tilemap's transient location overlay is unobscured.
+///
+/// [visibleHeight] is measured in logical pixels from the top of the Tilemap
+/// viewport. Content below that boundary fades out inside Tilemap; callers do
+/// not need to know how labels, avatars, or message bubbles are composed.
+class TilemapOverlayOcclusionController extends ChangeNotifier {
+  double? _visibleHeight;
+
+  double? get visibleHeight => _visibleHeight;
+
+  void setVisibleHeight(double height) {
+    final nextHeight = height.isFinite ? height : null;
+    if (_visibleHeight == nextHeight) return;
+    _visibleHeight = nextHeight;
+    notifyListeners();
+  }
+
+  void clear() {
+    if (_visibleHeight == null) return;
+    _visibleHeight = null;
+    notifyListeners();
+  }
+}
 
 @immutable
 class TilemapLocationImageFlowGradientPoint {

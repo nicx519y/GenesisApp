@@ -5,6 +5,8 @@ import '../../ui/tokens/genesis_colors.dart';
 
 const Color originWorldDetailSheetBackgroundColor =
     GenesisColors.darkBackground;
+final Color originWorldDetailSheetSurfaceColor = GenesisColors.darkBackground
+    .withValues(alpha: 0.9);
 const Color originWorldDetailSheetPrimaryTextColor =
     GenesisColors.darkTextPrimary;
 const Color originWorldDetailSheetSecondaryTextColor =
@@ -25,6 +27,7 @@ const double originWorldCollapsedSheetHeightFraction =
     1 - originWorldMapHeightFraction;
 const double originWorldCollapsedSheetContentMaxHeight = 270;
 const double originWorldMapSheetUnderlap = GenesisRadii.sheetTopRadiusValue;
+const double originWorldTilemapBottomFadeExtent = 40;
 const double originWorldDetailExpandedTopOffset = 50;
 const double originWorldOpeningRoleAvatarMaxDevicePixelRatio = 2;
 

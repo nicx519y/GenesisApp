@@ -1008,7 +1008,7 @@ class _OriginSetupRoleInlineEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ColoredBox(
-      color: originWorldDetailSheetBackgroundColor,
+      color: originWorldDetailSheetSurfaceColor,
       child: AbsorbPointer(
         absorbing: busy,
         child: SingleChildScrollView(
@@ -1428,7 +1428,7 @@ class _OriginSetupRoleDetails extends StatelessWidget {
         key: ValueKey<String>(
           'origin-setup-role-details-background-${content.stableId}',
         ),
-        color: originWorldDetailSheetBackgroundColor,
+        color: originWorldDetailSheetSurfaceColor,
         child: SingleChildScrollView(
           key: ValueKey<String>(
             'origin-setup-role-details-scroll-${content.stableId}',

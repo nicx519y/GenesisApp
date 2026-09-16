@@ -147,7 +147,7 @@ void main() {
       'distant_location_distance_tiles': 2.25,
       'nearby_location_initial_scale': 15.0,
       'distant_location_initial_scale': 5.0,
-      'location_bounds_viewport_padding_pixels': 24.0,
+      'location_bounds_viewport_padding_pixels': 0.0,
       'minimum_location_bounds_size_tiles': 2.0,
       'drag_boundary_padding_tiles': 2.0,
     });

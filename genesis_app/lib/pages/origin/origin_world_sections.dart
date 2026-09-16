@@ -351,34 +351,32 @@ class _OriginOpeningLocationHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      key: const ValueKey<String>('origin-opening-location-header'),
       height: topPadding + _contentHeight,
-      child: ColoredBox(
-        color: originWorldDetailSheetBackgroundColor,
-        child: Padding(
-          key: const ValueKey<String>('origin-opening-location'),
-          padding: EdgeInsets.fromLTRB(
-            horizontalPadding.left,
-            topPadding,
-            horizontalPadding.right,
-            8,
-          ),
-          child: Row(
-            key: contentStartKey,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              Icon(Icons.place_outlined, size: 14, color: iconColor),
-              SizedBox(width: iconGap),
-              Expanded(
-                child: Text(
-                  locationName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.left,
-                  style: textStyle,
-                ),
+      child: Padding(
+        key: const ValueKey<String>('origin-opening-location'),
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding.left,
+          topPadding,
+          horizontalPadding.right,
+          8,
+        ),
+        child: Row(
+          key: contentStartKey,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Icon(Icons.place_outlined, size: 14, color: iconColor),
+            SizedBox(width: iconGap),
+            Expanded(
+              child: Text(
+                locationName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.left,
+                style: textStyle,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

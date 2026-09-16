@@ -21,6 +21,55 @@ void main() {
     expect(tilemapDefaultVisualMode, TilemapVisualMode.dark);
   });
 
+  test('overlay occlusion controller publishes and clears visible height', () {
+    final controller = TilemapOverlayOcclusionController();
+    var notifications = 0;
+    controller.addListener(() => notifications += 1);
+
+    expect(controller.visibleHeight, isNull);
+    controller.setVisibleHeight(180);
+    expect(controller.visibleHeight, 180);
+    expect(notifications, 1);
+
+    controller.setVisibleHeight(180);
+    expect(notifications, 1);
+    controller.setVisibleHeight(double.nan);
+    expect(controller.visibleHeight, isNull);
+    expect(notifications, 2);
+
+    controller.setVisibleHeight(-12);
+    controller.clear();
+    expect(controller.visibleHeight, isNull);
+    expect(notifications, 4);
+    controller.dispose();
+  });
+
+  test('overlay occlusion gradient fades before the covered boundary', () {
+    final gradient = tilemapOverlayOcclusionGradient(
+      visibleHeight: 160,
+      viewportHeight: 200,
+    );
+
+    expect(tilemapOverlayOcclusionFadeExtent, 100);
+    expect(gradient.stops, const <double>[0, 0.3, 0.8, 1]);
+    expect(gradient.colors[0], Colors.white);
+    expect(gradient.colors[1], Colors.white);
+    expect(gradient.colors[2].a, 0);
+    expect(gradient.colors[3].a, 0);
+  });
+
+  test('tilemap bottom edge fade keeps the viewport then fades smoothly', () {
+    final gradient = tilemapBottomEdgeFadeGradient(
+      viewportHeight: 200,
+      fadeExtent: 32,
+    );
+
+    expect(gradient.stops, const <double>[0, 0.84, 1]);
+    expect(gradient.colors[0], Colors.white);
+    expect(gradient.colors[1], Colors.white);
+    expect(gradient.colors[2].a, 0);
+  });
+
   test('tilemap visual modes use the specified light and dark palette', () {
     expect(
       tilemapVisualStyleFor(TilemapVisualMode.light).backgroundColor,
@@ -944,7 +993,7 @@ void main() {
         locationContentBounds: bounds,
         centerContentInitially: true,
       ),
-      6.5,
+      7.5,
     );
     expect(
       tilemapInitialScaleForViewport(
@@ -1005,7 +1054,7 @@ void main() {
           centerContentInitially: true,
           viewportPadding: double.nan,
         ),
-        6.5,
+        7.5,
       );
     },
   );
@@ -1018,6 +1067,7 @@ void main() {
       viewportSize: viewportSize,
       locationContentBounds: contentBounds,
       centerContentInitially: true,
+      viewportPadding: 24,
     );
     final transform = tilemapInitialTransform(
       viewportSize: viewportSize,
@@ -1541,6 +1591,100 @@ void main() {
     expect(
       find.byKey(const ValueKey<String>('tile-highlight-0-0')),
       findsNothing,
+    );
+  });
+
+  testWidgets('renderer masks only the location overlay', (tester) async {
+    final controller = TilemapOverlayOcclusionController();
+    final replacementController = TilemapOverlayOcclusionController();
+    addTearDown(controller.dispose);
+    addTearDown(replacementController.dispose);
+    final config = TilemapConfig.fromTiles(
+      id: 'overlay_occlusion',
+      width: 1,
+      height: 1,
+      tileTypes: const {'a': 'https://invalid.example.test/tile/a.png'},
+      tiles: const [TilemapCell(x: 0, y: 0, type: 'a', locationId: 'loc_1')],
+    );
+
+    Widget buildRenderer(TilemapOverlayOcclusionController controller) {
+      return MaterialApp(
+        home: SizedBox(
+          width: 320,
+          height: 480,
+          child: TilemapRenderer(
+            config: config,
+            locationNameForTile: (_) => 'High School',
+            locationAvatarsForTile: (_) => const <UserAvatar>[
+              UserAvatar('AA', id: 'char_1', name: 'Ada'),
+            ],
+            messageBubbles: const <WorldMapMessageBubble>[
+              WorldMapMessageBubble(
+                characterId: 'char_1',
+                content: 'Hello from the map',
+              ),
+            ],
+            overlayOcclusionController: controller,
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildRenderer(controller));
+    await tester.pump();
+
+    const maskKey = ValueKey<String>('tilemap-overlay-occlusion-mask');
+    expect(find.byKey(maskKey), findsNothing);
+
+    controller.setVisibleHeight(160);
+    await tester.pump();
+
+    final mask = find.byKey(maskKey);
+    final label = find.byKey(const ValueKey<String>('tile-location-label-0-0'));
+    final avatar = find.byKey(
+      const ValueKey<String>('tilemap-location-avatar-char_1'),
+    );
+    final messageBubble = find.byKey(
+      const ValueKey<String>('tilemap-character-message-bubble-body'),
+    );
+    final grid = find.byKey(const ValueKey<String>('tilemap-grid'));
+    expect(mask, findsOneWidget);
+    expect(find.descendant(of: mask, matching: label), findsOneWidget);
+    expect(find.descendant(of: mask, matching: avatar), findsOneWidget);
+    expect(find.descendant(of: mask, matching: messageBubble), findsOneWidget);
+    expect(find.descendant(of: mask, matching: grid), findsNothing);
+
+    controller.setVisibleHeight(1000);
+    await tester.pump();
+    expect(find.byKey(maskKey), findsNothing);
+
+    controller.setVisibleHeight(-tilemapOverlayOcclusionFadeExtent);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey<String>('tilemap-overlay-occlusion-hidden')),
+      findsOneWidget,
+    );
+
+    controller.clear();
+    controller.setVisibleHeight(160);
+    await tester.pump();
+    expect(find.byKey(maskKey), findsOneWidget);
+    controller.clear();
+    await tester.pump();
+    expect(find.byKey(maskKey), findsNothing);
+
+    replacementController.setVisibleHeight(120);
+    await tester.pumpWidget(buildRenderer(replacementController));
+    expect(find.byKey(maskKey), findsOneWidget);
+    replacementController.clear();
+    await tester.pump();
+    expect(find.byKey(maskKey), findsNothing);
+    controller.setVisibleHeight(120);
+    await tester.pump();
+    expect(
+      find.byKey(maskKey),
+      findsNothing,
+      reason: 'The renderer must stop listening to the replaced controller.',
     );
   });
 

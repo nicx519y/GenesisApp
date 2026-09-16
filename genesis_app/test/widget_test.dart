@@ -10915,6 +10915,9 @@ void main() {
       );
       final loadingMapRect = tester.getRect(mapViewport);
       final loadingSheetRect = tester.getRect(loadingSheet);
+      final loadingSheetDecoration =
+          tester.widget<DecoratedBox>(loadingSheet).decoration as BoxDecoration;
+      expect(loadingSheetDecoration.color, originWorldDetailSheetSurfaceColor);
       expect(
         find.byKey(const ValueKey<String>('origin-loading-generic-title')),
         findsOneWidget,
@@ -11016,6 +11019,28 @@ void main() {
           find.byKey(const ValueKey<String>('origin-detail-sheet-surface')),
         ),
         loadingSheetRect,
+      );
+      await tester.pump();
+      final sheetSurface = find.byKey(
+        const ValueKey<String>('origin-detail-sheet-surface'),
+      );
+      final surfaceDecoration =
+          tester.widget<DecoratedBox>(sheetSurface).decoration as BoxDecoration;
+      expect(surfaceDecoration.color, originWorldDetailSheetSurfaceColor);
+      final pinnedHeader = find.byKey(
+        const ValueKey<String>('origin-sheet-pinned-header'),
+      );
+      expect(pinnedHeader, findsOneWidget);
+      expect(
+        find.descendant(of: pinnedHeader, matching: find.byType(ColoredBox)),
+        findsNothing,
+      );
+      final tilemap = tester.widget<Tilemap>(find.byType(Tilemap));
+      expect(tilemap.overlayOcclusionController, isNotNull);
+      expect(tilemap.bottomEdgeFadeExtent, originWorldTilemapBottomFadeExtent);
+      expect(
+        tilemap.overlayOcclusionController!.visibleHeight,
+        closeTo(tester.getTopLeft(sheetSurface).dy, 0.01),
       );
       expect(
         find.byKey(const ValueKey<String>('origin-bottom-launch-blur')),
@@ -11328,9 +11353,9 @@ void main() {
             as BoxDecoration;
     final selectRoleBackground =
         selectRoleDecoration.gradient! as LinearGradient;
-    expect(selectRoleBackground.colors, const [
-      originWorldDetailSheetBackgroundColor,
-      originWorldDetailSheetBackgroundColor,
+    expect(selectRoleBackground.colors, [
+      originWorldDetailSheetSurfaceColor,
+      originWorldDetailSheetSurfaceColor,
       Color(0x00151517),
     ]);
     expect(selectRoleBackground.stops, const [0, 0.55, 1]);
@@ -11545,6 +11570,12 @@ void main() {
       expect(tester.widget<IgnorePointer>(visibility).ignoring, isTrue);
       final expandedSheetTop = tester.getTopLeft(sheetSurface).dy;
       expect(expandedSheetTop, lessThan(collapsedSheetTop));
+      final tilemap = tester.widget<Tilemap>(find.byType(Tilemap));
+      expect(
+        tilemap.overlayOcclusionController!.visibleHeight,
+        closeTo(expandedSheetTop, 0.01),
+      );
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
 
       pagesRect = tester.getRect(sheetPages);
       await tester.dragFrom(
@@ -11577,6 +11608,16 @@ void main() {
             'Returning to Worldo Brief must not show the collapsed-only '
             'overlay while the sheet remains expanded.',
       );
+
+      await tester.drag(sheetSurface, const Offset(0, 700));
+      await tester.pumpAndSettle();
+      final collapsedAgainTop = tester.getTopLeft(sheetSurface).dy;
+      expect(collapsedAgainTop, closeTo(collapsedSheetTop, 1));
+      expect(
+        tilemap.overlayOcclusionController!.visibleHeight,
+        closeTo(collapsedAgainTop, 0.01),
+      );
+      expect(transport.requestsFor('/api/v1/origin/map'), hasLength(1));
     },
   );
 
@@ -11945,7 +11986,18 @@ void main() {
     final openingLocation = find.byKey(
       const ValueKey<String>('origin-opening-location'),
     );
+    final openingLocationHeader = find.byKey(
+      const ValueKey<String>('origin-opening-location-header'),
+    );
     expect(brief, findsOneWidget);
+    expect(openingLocationHeader, findsOneWidget);
+    expect(
+      find.descendant(
+        of: openingLocationHeader,
+        matching: find.byType(ColoredBox),
+      ),
+      findsNothing,
+    );
     final briefTitle = tester.widget<Text>(find.text('Worldo Brief'));
     expect(briefTitle.style?.fontSize, 14);
     expect(
@@ -14496,7 +14548,7 @@ void main() {
     expect(actionBackground.decoration, isA<BoxDecoration>());
     expect(
       (actionBackground.decoration as BoxDecoration).color,
-      originWorldDetailSheetBackgroundColor,
+      originWorldDetailSheetSurfaceColor,
     );
     expect(
       find.byKey(
@@ -14554,7 +14606,7 @@ void main() {
         const ValueKey<String>('origin-setup-role-details-background-$roleId'),
       ),
     );
-    expect(detailsBackground.color, originWorldDetailSheetBackgroundColor);
+    expect(detailsBackground.color, originWorldDetailSheetSurfaceColor);
     expect(
       find.descendant(of: details, matching: find.text('Name')),
       findsNothing,
