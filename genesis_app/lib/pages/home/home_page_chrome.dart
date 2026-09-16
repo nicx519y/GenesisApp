@@ -124,7 +124,12 @@ class _HomeGemWalletEntry extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: () {
           final navigator = Navigator.of(context);
-          navigator.pushNamed(RouteNames.gemWallet, arguments: 'subscription');
+          navigator.pushNamed(
+            RouteNames.gemWallet,
+            arguments: const GemWalletRouteArgs.subscription(
+              SubscriptionSource.homeMembership,
+            ),
+          );
         },
         child: SizedBox(
           width: 36,

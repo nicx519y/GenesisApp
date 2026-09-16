@@ -20,8 +20,11 @@ import '../../platform/billing/purchase_toast_diagnostics.dart';
 import 'membership_purchase_eligibility.dart';
 import 'membership_access_store.dart';
 import 'membership_store_failure.dart';
+import 'subscription_analytics.dart';
+import 'subscription_failure_reason.dart';
 
 part 'membership_purchase_restore.dart';
+part 'membership_purchase_tracking.dart';
 part 'membership_guest_claim.dart';
 part 'membership_guest_startup_check.dart';
 
@@ -66,6 +69,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     required this.queryPurchases,
     required this.provider,
     required this.readCheckoutProducts,
+    SubscriptionAnalytics? analytics,
     this.otherPurchaseBusy,
     this.readMembershipAccess,
     this.refreshWallet,
@@ -77,7 +81,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     this.retryDelay = const Duration(seconds: 15),
     this.attemptTimeout = const Duration(seconds: 90),
     this.guestRecoveryTimeout = const Duration(seconds: 15),
-  });
+  }) : analytics = analytics ?? SubscriptionAnalytics();
+
+  final SubscriptionAnalytics analytics;
+  final Map<String, SubscriptionTracking> _attemptTracking = {};
 
   final MembershipCheckoutPlatform platform;
   final MembershipPendingStore store;
@@ -288,17 +295,26 @@ class MembershipPurchaseService with WidgetsBindingObserver {
 
   Future<void> _save(MembershipPurchaseRecord record) async {
     // Checkout attempts and successful history live only in this process.
+    record = record.copyWith(tracking: _trackingFor(record));
     _records[record.requestId] = record;
     if (record.hasReceipt && (record.paid || record.state == 'pending')) {
       _pendingRequestIds.add(record.requestId);
     }
   }
 
-  Future<void> purchase(MembershipProduct product, {String? attemptId}) async {
+  Future<void> purchase(
+    MembershipProduct product, {
+    String? attemptId,
+    SubscriptionTracking? tracking,
+  }) async {
     final startedAt = DateTime.now();
     attemptId ??= newBillingAttemptId();
     if (_disposed) return;
+    _attemptTracking[attemptId] =
+        tracking ??
+        SubscriptionTracking.recovery('${provider.name}:attempt:$attemptId');
     if (_busy || (otherPurchaseBusy?.call() ?? false)) {
+      _checkoutFailure(attemptId, 'purchase_in_progress');
       _emitCheckout(
         MembershipCheckoutState.failed,
         attemptId,
@@ -325,6 +341,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         !wait.storeCallbackReceived;
     void onTimeout() {
       if (!isCurrent() || wait.storeHandedOff) return;
+      analytics.timeout(_attemptTracking[id]!, 'prepare');
       _release(id);
       _setState(
         MembershipCheckoutState.deferred,
@@ -357,6 +374,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       final currentUid = await readLoginUid();
       if (!canContinue()) return false;
       if (currentUid == uid) return true;
+      _checkoutFailure(id, 'session_changed');
       _release(id);
       _setState(MembershipCheckoutState.idle, attemptId: id);
       return false;
@@ -434,6 +452,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         final record = MembershipPurchaseRecord(
           requestId: id,
+          tracking: _attemptTracking[id],
           product: product,
           accountUuid: uuid,
           ownerUid: uid,
@@ -454,6 +473,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
                 MembershipGuestClaimRecord(
                   guest: guest,
                   autoClaimAllowed: false,
+                  tracking: _attemptTracking[id],
                 ),
               );
             }
@@ -476,6 +496,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       } catch (error) {
         // Expired operations and completed callbacks cannot overwrite a newer UI.
         if (!canContinue()) return;
+        _checkoutFailure(
+          id,
+          _preparationFailure(preparationError ?? error, stage),
+        );
         final record = _records[attemptId];
         if (record != null && record.state == 'prepared') {
           try {
@@ -652,6 +676,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       return;
     }
     if (!sameAccount(record)) return;
+    _trackingFor(record);
     // Only this order's callback ends its store deadline. Reporting has its own
     // HTTP timeout; keep the wait registered so session/stream resets close UI.
     final wait = _checkoutWaits[record.requestId];
@@ -689,6 +714,17 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
     if (purchase.status == BillingPurchaseStatus.canceled ||
         purchase.status == BillingPurchaseStatus.error) {
+      _checkoutFailure(
+        record.requestId,
+        subscriptionStoreFailureReason(
+          provider,
+          code: purchase.rawErrorCode ?? purchase.errorCode,
+          source: purchase.errorSource,
+          details: purchase.errorDetails,
+          stage: 'callback',
+          status: purchase.status.name,
+        )!,
+      );
       final failure = purchase.status == BillingPurchaseStatus.error
           ? membershipStoreError(
               provider,
@@ -750,6 +786,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     await _save(record);
     _release(record.requestId);
     if (record.needsReceiptRecovery) {
+      _checkoutFailure(record.requestId, 'receipt_missing');
       _setState(
         MembershipCheckoutState.deferred,
         attemptId: record.requestId,
@@ -761,7 +798,16 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       _scheduleRetry();
       return;
     }
-    await _prepareGuestClaim(record, purchaseTime: purchase.purchaseTime);
+    if (purchase.status == BillingPurchaseStatus.pending) {
+      record = _trackPending(record, 'store_callback_pending');
+      await _save(record);
+    }
+    try {
+      await _prepareGuestClaim(record, purchaseTime: purchase.purchaseTime);
+    } catch (_) {
+      _checkoutFailure(record.requestId, 'local_storage_failed');
+      rethrow;
+    }
     if (purchase.status == BillingPurchaseStatus.pending) {
       _setState(
         MembershipCheckoutState.pending,
@@ -774,6 +820,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   }
 
   Future<void> _report(MembershipPurchaseRecord record) async {
+    record = record.copyWith(tracking: _trackingFor(record));
     if (_disposed ||
         !_pendingRequestIds.contains(record.requestId) ||
         !record.hasReceipt ||
@@ -795,13 +842,31 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           MembershipCheckoutState.reporting,
           attemptId: record.requestId,
         );
-        final request = await _guestPurchaseRequest(record);
+        late final MembershipPurchaseRequest request;
+        try {
+          request = await _guestPurchaseRequest(record);
+        } catch (error) {
+          _checkoutFailure(
+            record.requestId,
+            error is BillingPlatformException &&
+                    error.code == 'membership_signed_transaction_missing'
+                ? 'signed_transaction_missing'
+                : subscriptionStoreFailureReason(
+                        provider,
+                        error: error,
+                        stage: 'query',
+                      ) ??
+                      'unknown_error',
+          );
+          rethrow;
+        }
         if (_disposed ||
             session != _session ||
             record.guest == null && await readLoginUid() != record.ownerUid) {
           return;
         }
-        final report = await reportPurchase(request);
+        final report = await _sendTrackedReport(record, request);
+        record = _trackReportResult(record, report);
         record = record.copyWith(
           reportStatus: report.status.name,
           state:
@@ -1024,6 +1089,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       debugPrint('[Membership] $operation: ${error.runtimeType}');
 
   void resetForSession() {
+    for (final entry in _checkoutWaits.entries) {
+      if (!entry.value.storeHandedOff && !entry.value.storeCallbackReceived) {
+        _checkoutFailure(entry.key, 'session_changed');
+      }
+    }
     _endCheckoutWaits(MembershipCheckoutState.idle);
     _session++;
     _debugAttemptId = null;
@@ -1043,7 +1113,19 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     if (_guestHomeSeen) unawaited(checkGuestPurchasesOnHome());
   }
 
-  void handleStreamError() {
+  void handleStreamError([Object? error]) {
+    final reason =
+        subscriptionStoreFailureReason(
+          provider,
+          error: error,
+          stage: 'callback',
+        ) ??
+        'unknown_error';
+    for (final entry in _checkoutWaits.entries) {
+      if (!entry.value.storeCallbackReceived) {
+        _checkoutFailure(entry.key, reason);
+      }
+    }
     _endCheckoutWaits(
       MembershipCheckoutState.deferred,
       debugInfo: purchaseDebugInfo('vip.store_stream', reason: 'stream_error'),

@@ -108,6 +108,8 @@ class BillingPurchase {
     this.signedTransaction = '',
     this.errorMessage,
     this.errorDetails,
+    this.errorSource,
+    this.rawErrorCode,
   });
 
   final BillingProvider provider;
@@ -127,6 +129,8 @@ class BillingPurchase {
 
   /// Original native diagnostics for VIP error mapping; never persisted.
   final Object? errorDetails;
+  final String? errorSource;
+  final String? rawErrorCode;
 }
 
 @immutable

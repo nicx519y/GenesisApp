@@ -191,6 +191,8 @@ BillingPurchase _toBillingPurchase(PurchaseDetails purchase) {
     obfuscatedAccountId: purchase is SK2PurchaseDetails
         ? purchase.appAccountToken
         : null,
+    errorSource: purchase.error?.source,
+    rawErrorCode: purchase.error?.code,
     errorCode: purchase.error?.code,
     errorMessage: purchase.error?.message,
     errorDetails:

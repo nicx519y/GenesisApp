@@ -4,6 +4,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 import '../../network/models/membership_order_product.dart';
+import '../../app/membership/subscription_analytics.dart';
 import '../../network/models/membership_purchase.dart';
 import 'membership_restore_record.dart';
 import 'membership_guest_claim_record.dart';
@@ -25,6 +26,7 @@ class MembershipPurchaseRecord {
     this.state = 'prepared',
     this.reportStatus,
     this.finished = false,
+    this.tracking,
   });
 
   final String requestId;
@@ -41,6 +43,7 @@ class MembershipPurchaseRecord {
   final String state;
   final String? reportStatus;
   final bool finished;
+  final SubscriptionTracking? tracking;
 
   bool replacesPurchaseToken(String token) =>
       token.isNotEmpty &&
@@ -73,6 +76,7 @@ class MembershipPurchaseRecord {
     String? state,
     String? reportStatus,
     bool? finished,
+    SubscriptionTracking? tracking,
     bool newReport = false,
     bool retryReport = false,
   }) => MembershipPurchaseRecord(
@@ -90,6 +94,7 @@ class MembershipPurchaseRecord {
         ? null
         : reportStatus ?? this.reportStatus,
     finished: newReport ? false : finished ?? this.finished,
+    tracking: tracking ?? (newReport ? null : this.tracking),
   );
 
   /// Keep store receipt identity for restore after removing the guest identity.
@@ -106,6 +111,7 @@ class MembershipPurchaseRecord {
         state: state,
         reportStatus: reportStatus,
         finished: finished,
+        tracking: tracking,
       );
 
   Map<String, Object?> toJson() => {
@@ -122,11 +128,13 @@ class MembershipPurchaseRecord {
     'state': state,
     'report_status': reportStatus,
     'finished': finished,
+    if (tracking != null) 'subscription_tracking': tracking!.toJson(),
   };
 
   factory MembershipPurchaseRecord.fromJson(Map<String, dynamic> json) =>
       MembershipPurchaseRecord(
         requestId: json['request_id'] as String,
+        tracking: SubscriptionTracking.fromJson(json['subscription_tracking']),
         product: MembershipOrderProduct.fromJson(
           Map<String, dynamic>.from(json['product'] as Map),
         ),

@@ -3,10 +3,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/membership/subscription_analytics.dart';
+import '../gems/subscription_tracking_scope.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/personalization.dart';
-export '../../network/models/personalization.dart';
-
 import '../../platform/auth/auth_session.dart';
 import '../../ui/genesis_ui.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
@@ -15,6 +15,8 @@ import '../gems/pro_subscription_content.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_modal_routes.dart';
 import '../login_provider_button.dart';
+
+export '../../network/models/personalization.dart';
 
 /// The caller owns authentication, persistence and list refresh. Preview callers
 /// inject local callbacks only. A null login result means cancellation.
@@ -77,6 +79,9 @@ class PersonalizationSheet extends StatefulWidget {
 
 class _PersonalizationSheetState extends State<PersonalizationSheet> {
   late PersonalizationStep _step;
+  final _subscriptionTracking = SubscriptionPageTracking(
+    source: SubscriptionSource.onboarding,
+  );
   String? _gender;
   String? _age;
   IdentityProvider? _signingIn;
@@ -260,7 +265,10 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
         key: const ValueKey('personalization-subscription-scroll'),
         child: SizedBox(
           height: math.max(constraints.maxHeight, minimumHeight),
-          child: widget.subscriptionBuilder(context),
+          child: SubscriptionTrackingScope(
+            page: _subscriptionTracking,
+            child: widget.subscriptionBuilder(context),
+          ),
         ),
       );
     },

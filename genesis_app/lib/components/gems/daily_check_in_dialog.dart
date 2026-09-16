@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../app/membership/subscription_analytics.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/membership/membership_access_store.dart';
 import '../../app/membership/membership_purchase_service.dart';
@@ -107,7 +108,10 @@ Future<bool> showDailyCheckInDialog(
     showCancel: !showSubscriptionOffer,
   );
   if (action == _DailyCheckInAction.subscribe && context.mounted) {
-    await showSubscriptionPurchaseBottomSheet(context);
+    await showSubscriptionPurchaseBottomSheet(
+      context,
+      source: SubscriptionSource.dailyCheckIn,
+    );
   }
   return action == _DailyCheckInAction.checkIn;
 }

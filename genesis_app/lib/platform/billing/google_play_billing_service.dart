@@ -32,7 +32,7 @@ class GooglePlayBillingService implements BillingService {
     Duration attemptTimeout = const Duration(seconds: 90),
     Future<bool> Function(BillingPurchase)? interceptPurchase,
     bool Function()? otherPurchaseBusy,
-    VoidCallback? onPurchaseStreamError,
+    ValueChanged<Object>? onPurchaseStreamError,
   }) : _platform = platform,
        _pendingPurchaseStore = pendingPurchaseStore,
        _loadBillingAccountId = loadBillingAccountId,
@@ -57,7 +57,7 @@ class GooglePlayBillingService implements BillingService {
   final Duration _attemptTimeout;
   final Future<bool> Function(BillingPurchase)? _interceptPurchase;
   final bool Function()? _otherPurchaseBusy;
-  final VoidCallback? _onPurchaseStreamError;
+  final ValueChanged<Object>? _onPurchaseStreamError;
   final ValueNotifier<BillingState> _state = ValueNotifier<BillingState>(
     BillingState(),
   );

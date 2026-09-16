@@ -1,5 +1,6 @@
 import '../../network/models/membership_purchase.dart';
 import 'membership_guest_claim_proof.dart';
+import '../../app/membership/subscription_analytics.dart';
 
 /// Separately persists the guest's claim and the first login chosen to own it.
 class MembershipGuestClaimRecord {
@@ -13,6 +14,7 @@ class MembershipGuestClaimRecord {
     this.autoClaimAllowed = true,
     this.recoveredProof,
     this.purchasedAt,
+    this.tracking,
   });
 
   final MembershipGuestIdentity guest;
@@ -26,6 +28,7 @@ class MembershipGuestClaimRecord {
   final bool autoClaimAllowed;
   final MembershipGuestClaimProof? recoveredProof;
   final int? purchasedAt;
+  final SubscriptionTracking? tracking;
 
   /// A prepare identity alone must never be checked or offered for claiming.
   bool get hasPurchase =>
@@ -48,6 +51,7 @@ class MembershipGuestClaimRecord {
     bool? autoClaimAllowed,
     MembershipGuestClaimProof? recoveredProof,
     int? purchasedAt,
+    SubscriptionTracking? tracking,
   }) => MembershipGuestClaimRecord(
     guest: guest,
     ownerUid: ownerUid ?? this.ownerUid,
@@ -58,10 +62,12 @@ class MembershipGuestClaimRecord {
     autoClaimAllowed: autoClaimAllowed ?? this.autoClaimAllowed,
     recoveredProof: recoveredProof ?? this.recoveredProof,
     purchasedAt: purchasedAt ?? this.purchasedAt,
+    tracking: tracking ?? this.tracking,
   );
 
   Map<String, Object?> toJson() => {
     'guest': guest.toJson(),
+    if (tracking != null) 'subscription_tracking': tracking!.toJson(),
     'owner_uid': ownerUid,
     'status': status,
     'login_required': loginRequired,
@@ -74,6 +80,7 @@ class MembershipGuestClaimRecord {
 
   factory MembershipGuestClaimRecord.fromJson(Map<String, dynamic> json) =>
       MembershipGuestClaimRecord(
+        tracking: SubscriptionTracking.fromJson(json['subscription_tracking']),
         guest: MembershipGuestIdentity.fromJson(
           Map<String, dynamic>.from(json['guest'] as Map),
         ),
