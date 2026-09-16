@@ -10,13 +10,17 @@ import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/startup/startup_request_diagnostics.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
+import '../../components/common/genesis_center_toast.dart';
 import '../../components/common/list_loading_skeleton.dart';
 import '../../components/home/world_item_card.dart';
+import '../../components/me/signed_out_me_view.dart';
 import '../../components/page_header.dart';
 import '../../components/search_bar.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/api_exception.dart';
 import '../../network/json_utils.dart';
+import '../../platform/auth/auth_cancelled_exception.dart';
+import '../../platform/auth/auth_session.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_deleted_list_item_transition.dart';
@@ -88,6 +92,8 @@ class HomePage extends StatefulWidget {
     this.isFirstPageViewReported,
     this.onFirstPageViewReady,
     this.onOpenWorldo,
+    this.onLogin,
+    this.onLoginCompleted,
     this.initialRequestMetricWindow = Duration.zero,
     this.localRestoreTimeout = _homeLocalRestoreTimeout,
     this.myWorldsCacheLoader,
@@ -100,6 +106,8 @@ class HomePage extends StatefulWidget {
   final bool Function(String action)? isFirstPageViewReported;
   final void Function(String action)? onFirstPageViewReady;
   final VoidCallback? onOpenWorldo;
+  final Future<bool> Function(IdentityProvider provider)? onLogin;
+  final Future<void> Function()? onLoginCompleted;
   final Duration initialRequestMetricWindow;
   final Duration localRestoreTimeout;
   final HomeMyWorldsCacheLoader? myWorldsCacheLoader;
@@ -112,6 +120,46 @@ class _HomePageState extends State<HomePage> {
   // Feed widgets still observe this notifier for their own loading lifecycle;
   // startup permissions never change it.
   late final ValueNotifier<bool> _homeNetworkRequestsAllowed;
+  IdentityProvider? _loggingInProvider;
+
+  Future<void> _login(IdentityProvider provider) async {
+    if (_loggingInProvider != null) return;
+    final login = widget.onLogin;
+    if (login == null) {
+      showGenesisToast(
+        context,
+        'Sign-in unavailable',
+        brightness: Brightness.dark,
+      );
+      return;
+    }
+    final onLoginCompleted = widget.onLoginCompleted;
+    setState(() => _loggingInProvider = provider);
+    try {
+      final ok = await login(provider);
+      if (ok) {
+        await onLoginCompleted?.call();
+      } else if (mounted) {
+        showGenesisToast(
+          context,
+          'Sign-in failed',
+          brightness: Brightness.dark,
+        );
+      }
+    } on AuthCancelledException {
+      // The user closed the provider sign-in flow.
+    } catch (error) {
+      if (mounted) {
+        showGenesisToast(
+          context,
+          error.toString(),
+          brightness: Brightness.dark,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loggingInProvider = null);
+    }
+  }
 
   @override
   void initState() {
@@ -161,6 +209,19 @@ class _HomePageState extends State<HomePage> {
       child: ColoredBox(
         color: GenesisColors.darkBackground,
         child: _HomeScaffold(
+          signedOutView: SignedOutMeView(
+            loggingInProvider: _loggingInProvider,
+            onLogin: _login,
+            reselectionListenable: widget.reselectionListenable,
+            isActiveListenable: widget.isActiveListenable,
+            topSafeArea: false,
+            showLogo: false,
+            title: 'Your worlds, all in one place',
+            description: 'Sign in to create worlds and continue your stories.',
+            titleFontSize: 20,
+            descriptionFontSize: 14,
+            titleLetterSpacing: 0,
+          ),
           activationListenable: widget.activationListenable,
           reselectionListenable: widget.reselectionListenable,
           isActiveListenable: widget.isActiveListenable,

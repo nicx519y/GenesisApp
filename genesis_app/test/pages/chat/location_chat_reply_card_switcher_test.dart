@@ -969,6 +969,91 @@ void main() {
     },
   );
 
+  testWidgets(
+    'regenerate stays collapsed until the replacement has renderable content',
+    (tester) async {
+      final key = GlobalKey<LocationChatReplyCardSwitcherState>();
+      var currentCardId = 1;
+      var regenerationInProgress = false;
+      var cards = [
+        LocationChatReplyCard(id: 1, messages: [_message('old', 2)]),
+        const LocationChatReplyCard(id: -1, messages: []),
+      ];
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return MediaQuery(
+                  data: const MediaQueryData(disableAnimations: false),
+                  child: SizedBox(
+                    width: 400,
+                    child: LocationChatReplyCardSwitcher(
+                      key: key,
+                      identity: 'delayed-regenerate-content',
+                      cards: cards,
+                      currentCardId: currentCardId,
+                      regenerationInProgress: regenerationInProgress,
+                      cardBuilder: (card) => SizedBox(
+                        key: ValueKey('delayed-regenerate-body-${card.id}'),
+                        height: 120,
+                      ),
+                      onCommit: (_) => true,
+                      onBusyChanged: (_) {},
+                      onWillChangeLayout: () {},
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      key.currentState!.beginRegenerateCollapse();
+      await tester.pump();
+      update(() {
+        currentCardId = -1;
+        regenerationInProgress = true;
+      });
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(
+        find.byKey(const ValueKey('reply-card-regenerate-gradient')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('delayed-regenerate-body-1')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('delayed-regenerate-body--1')),
+        findsNothing,
+        reason: 'An empty pending card must not reopen the collapsed deck.',
+      );
+
+      update(() {
+        cards = [
+          LocationChatReplyCard(id: 1, messages: [_message('old', 2)]),
+          LocationChatReplyCard(id: 2, messages: [_message('new', 2)]),
+        ];
+        currentCardId = 2;
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(
+        find.byKey(const ValueKey('delayed-regenerate-body-2')),
+        findsOneWidget,
+      );
+      update(() => regenerationInProgress = false);
+      await tester.pump();
+    },
+  );
+
   testWidgets('regenerate failure reverses the partial collapse', (
     tester,
   ) async {

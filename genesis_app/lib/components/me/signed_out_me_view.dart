@@ -15,8 +15,24 @@ class SignedOutMeView extends StatefulWidget {
     required this.onLogin,
     this.reselectionListenable,
     this.isActiveListenable,
+    this.showLogo = true,
+    this.title = 'LIVE YOUR WORLD',
+    this.description =
+        'Play world, create worldo, invite friends,\n'
+        'and continue them anywhere.',
+    this.titleFontSize = 14,
+    this.descriptionFontSize = 12,
+    this.titleLetterSpacing = 9,
+    this.topSafeArea = true,
   });
 
+  final bool showLogo;
+  final String title;
+  final String description;
+  final double titleFontSize;
+  final double descriptionFontSize;
+  final double titleLetterSpacing;
+  final bool topSafeArea;
   final IdentityProvider? loggingInProvider;
   final ValueChanged<IdentityProvider> onLogin;
   final ValueListenable<int>? reselectionListenable;
@@ -95,6 +111,7 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
     return SafeArea(
+      top: widget.topSafeArea,
       bottom: false,
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -110,32 +127,34 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                       child: Column(
                         children: [
                           SizedBox(height: constraints.maxHeight * 0.15),
-                          GestureDetector(
-                            key: const ValueKey<String>(
-                              'signed-out-debug-button-restore',
-                            ),
-                            behavior: HitTestBehavior.opaque,
-                            onTap: _handleTopTap,
-                            child: ClipRRect(
-                              key: const Key('signed_out_worldo_logo'),
-                              borderRadius: BorderRadius.circular(12),
-                              child: Image.asset(
-                                'assets/images/app_icon.png',
-                                width: 96,
-                                height: 96,
-                                fit: BoxFit.contain,
-                                semanticLabel: 'Worldo',
+                          if (widget.showLogo) ...[
+                            GestureDetector(
+                              key: const ValueKey<String>(
+                                'signed-out-debug-button-restore',
+                              ),
+                              behavior: HitTestBehavior.opaque,
+                              onTap: _handleTopTap,
+                              child: ClipRRect(
+                                key: const Key('signed_out_worldo_logo'),
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.asset(
+                                  'assets/images/app_icon.png',
+                                  width: 96,
+                                  height: 96,
+                                  fit: BoxFit.contain,
+                                  semanticLabel: 'Worldo',
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(height: 30),
+                            const SizedBox(height: 30),
+                          ],
                           Text(
-                            'LIVE YOUR WORLD',
+                            widget.title,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: widget.titleFontSize,
                               fontWeight: FontWeight.w600,
-                              letterSpacing: 9,
+                              letterSpacing: widget.titleLetterSpacing,
                               color: dark
                                   ? GenesisColors.darkTextPrimary
                                   : const Color(0xFF7A7A7A),
@@ -143,11 +162,10 @@ class _SignedOutMeViewState extends State<SignedOutMeView> {
                           ),
                           const SizedBox(height: 18),
                           Text(
-                            'Play world, create worldo, invite friends,\n'
-                            'and continue them anywhere.',
+                            widget.description,
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: widget.descriptionFontSize,
                               height: 1.35,
                               color: dark
                                   ? GenesisColors.darkTextSecondary

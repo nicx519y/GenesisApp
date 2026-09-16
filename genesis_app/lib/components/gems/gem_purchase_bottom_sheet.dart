@@ -61,6 +61,8 @@ Future<void> showGemPurchaseBottomSheet(
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
+    isDismissible: false,
+    enableDrag: false,
     backgroundColor: Colors.transparent,
     builder: (_) => FractionallySizedBox(
       key: const ValueKey<String>('gem-purchase-sheet-size'),
@@ -86,6 +88,8 @@ Future<void> showSubscriptionPurchaseBottomSheet(BuildContext context) async {
     context: context,
     useRootNavigator: true,
     isScrollControlled: true,
+    isDismissible: false,
+    enableDrag: false,
     backgroundColor: Colors.transparent,
     builder: (_) => FractionallySizedBox(
       heightFactor: 0.8,

@@ -55,6 +55,7 @@ extension _WorldChatroomEventProjection on WorldChatroomService {
       case ChatroomAiStreamEnd e:
         _finishStream(e);
       case ChatroomErrorEvent e:
+        _discardErroredProvisionalStreams(e);
         _recordFailure(ChatroomFailureEvent.fromError(e));
       case ChatroomFailureEvent e:
         _recordFailure(e);

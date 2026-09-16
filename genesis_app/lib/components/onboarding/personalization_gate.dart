@@ -297,6 +297,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                       topSpacing: 0,
                       horizontalInset: 0,
                       closeOnPurchaseSuccess: true,
+                      showHeading: false,
                     ),
               );
             },

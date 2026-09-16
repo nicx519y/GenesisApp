@@ -236,7 +236,18 @@ class ChatroomLlmCard {
     if (rawMessages is! List || json['created_at'] is! String) {
       throw const FormatException('Invalid saved card');
     }
-    final messages = rawMessages.map(ChatroomLlmCardMessage.fromJson).toList();
+    final messages = <ChatroomLlmCardMessage>[];
+    for (final rawMessage in rawMessages) {
+      final messageJson = llmCardMap(rawMessage);
+      final payload = messageJson['payload'];
+      final content = payload is Map ? payload['content'] : null;
+      // A missing/null/blank body is not a candidate message. Ignore it here
+      // so one empty row cannot create a bubble or invalidate useful siblings.
+      if (content == null || (content is String && content.trim().isEmpty)) {
+        continue;
+      }
+      messages.add(ChatroomLlmCardMessage.fromJson(messageJson));
+    }
     final ids = <int>{};
     var lastIndex = 0;
     for (final message in messages) {

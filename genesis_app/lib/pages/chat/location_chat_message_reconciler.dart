@@ -624,7 +624,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
 LocationChatMessageParser? locationChatMessageParserForTesting(
   WorldChatroomMessage message,
 ) {
-  if (!locationChatMessageHasSupportedExplicitV2Envelope(message)) {
+  if (!locationChatMessageHasRenderableBusinessContent(message)) {
     return null;
   }
   final businessType = locationChatBusinessType(message);

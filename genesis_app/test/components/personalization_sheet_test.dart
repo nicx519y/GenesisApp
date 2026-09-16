@@ -53,9 +53,12 @@ void main() {
       expect(header.height, 68);
       expect(body.top, header.bottom);
       expect(titleStyle?.fontSize, 18);
-      void expectSameHeader() {
+      void expectSameHeader({bool plainTitle = true}) {
         expect(tester.getRect(control('header')), header);
         expect(tester.getRect(control('body')), body);
+        // The subscription step titles itself with the plan's wordmark, so
+        // only the header's geometry carries over from the other steps.
+        if (!plainTitle) return;
         expect(tester.widget<Text>(control('header-title')).style, titleStyle);
         expect(
           tester.getRect(control('header-title')).center.dy,
@@ -97,7 +100,7 @@ void main() {
       );
       expect(find.text('Buy Gems'), findsNothing);
       expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
-      expectSameHeader();
+      expectSameHeader(plainTitle: false);
       await choose('newUser');
       expect(control('sign-in'), findsOneWidget);
       await choose('close');
@@ -267,9 +270,12 @@ void main() {
       expect(header.height, 68);
       expect(body.top, header.bottom);
       expect(titleStyle?.fontSize, 18);
-      void expectSameHeader() {
+      void expectSameHeader({bool plainTitle = true}) {
         expect(tester.getRect(control('header')), header);
         expect(tester.getRect(control('body')), body);
+        // The subscription step titles itself with the plan's wordmark, so
+        // only the header's geometry carries over from the other steps.
+        if (!plainTitle) return;
         expect(tester.widget<Text>(control('header-title')).style, titleStyle);
         expect(
           tester.getRect(control('header-title')).center.dy,
@@ -309,7 +315,7 @@ void main() {
       expect(enabled(tester), isTrue);
       await tap(tester, 'continue');
       expect(tester.getRect(find.byType(GenesisBottomSheetPanel)), panel);
-      expectSameHeader();
+      expectSameHeader(plainTitle: false);
       expect(find.text('Buy Gems'), findsNothing);
       expect(find.text('Skip'), findsOneWidget);
       expect(control('subscription-icon'), findsOneWidget);

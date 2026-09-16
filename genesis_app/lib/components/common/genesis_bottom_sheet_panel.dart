@@ -67,6 +67,7 @@ class GenesisActionSheetHeader extends StatelessWidget {
     super.key,
     required this.title,
     this.titleKey,
+    this.titleWidget,
     this.leading,
     this.trailing,
     this.showClose = false,
@@ -84,6 +85,7 @@ class GenesisActionSheetHeader extends StatelessWidget {
     this.closeButtonKey,
   }) : title = '',
        titleKey = null,
+       titleWidget = null,
        leading = null;
 
   static const double height = 68;
@@ -97,6 +99,10 @@ class GenesisActionSheetHeader extends StatelessWidget {
 
   final String title;
   final Key? titleKey;
+
+  /// Replaces [title] when the title brings its own styling, such as a
+  /// gradient wordmark that the plain [titleStyle] cannot express.
+  final Widget? titleWidget;
   final Widget? leading;
   final Widget? trailing;
   final Widget? tabs;
@@ -148,14 +154,16 @@ class GenesisActionSheetHeader extends StatelessWidget {
                     const SizedBox(width: 8),
                   ],
                   Expanded(
-                    child: Text(
-                      title,
-                      key: titleKey,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.left,
-                      style: titleStyle,
-                    ),
+                    child:
+                        titleWidget ??
+                        Text(
+                          title,
+                          key: titleKey,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.left,
+                          style: titleStyle,
+                        ),
                   ),
                 ],
               ),

@@ -78,7 +78,9 @@ class _ReplyRoundPerformance {
         (tail, message) =>
             message.locationMessageId > tail ? message.locationMessageId : tail,
       );
-      final messages = state._formal.where(_isReply).toList(growable: false);
+      final messages = state._formal
+          .where(_isRenderableReply)
+          .toList(growable: false);
       if (!listEquals(messages, _formalMessages)) {
         _formalMessages = List.unmodifiable(messages);
         _formalStructure = [
@@ -321,11 +323,12 @@ class _ReplyCardPerformance {
     }
     if (_streams != null) {
       _converted.clear();
-      return _messages = List.unmodifiable(
-        _sortedStreams.map(
-          (message) => message.toMessage(state.locationId, state.roundId),
-        ),
-      );
+      return _messages = List.unmodifiable([
+        for (final message in _sortedStreams)
+          if (message.toMessage(state.locationId, state.roundId)
+              case final rendered when _messageHasRenderableOutput(rendered))
+            rendered,
+      ]);
     }
     final converted = <int, (Object?, WorldChatroomMessage)>{};
     final result = <WorldChatroomMessage>[];

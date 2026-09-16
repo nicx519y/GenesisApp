@@ -2,6 +2,7 @@ part of 'home_page.dart';
 
 class _MyWorldFeed extends StatefulWidget {
   const _MyWorldFeed({
+    required this.signedOutView,
     required this.index,
     required this.initialRequestMetricWindow,
     required this.networkRequestsAllowed,
@@ -19,6 +20,7 @@ class _MyWorldFeed extends StatefulWidget {
     this.myWorldsCacheLoader,
   });
 
+  final Widget signedOutView;
   final int index;
   final Duration initialRequestMetricWindow;
   final ValueListenable<bool> networkRequestsAllowed;
@@ -1148,11 +1150,11 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       );
     }
 
+    if (_isSignedOut) return widget.signedOutView;
+
     final emptyListView = ListView(
       key: const PageStorageKey<String>('home-feed-my-world'),
-      physics: _isSignedOut
-          ? const NeverScrollableScrollPhysics()
-          : const AlwaysScrollableScrollPhysics(),
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
         SizedBox(
           height: MediaQuery.sizeOf(context).height * 0.62,
@@ -1160,10 +1162,6 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
         ),
       ],
     );
-
-    if (_items.isEmpty && _isSignedOut) {
-      return emptyListView;
-    }
 
     return GenesisRefreshIndicator(
       onRefresh: _refreshItems,

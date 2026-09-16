@@ -252,22 +252,10 @@ extension ChatroomRegenerateFeatureImplementation
     }
     if (receipt.generationState == ChatroomCardGenerationState.failed) {
       // A successful outer ACK can already contain the failed final state.
-      // The real candidate remains a counted attempt; restore the complete
-      // card immediately and reconcile its billing/permissions from HTTP.
+      // It produced no usable card, so restore the last complete card without
+      // retaining an empty page in the deck or pagination count.
       state._cards.removeWhere((card) => card.cardId == receipt.cardId);
-      state._cards.add(
-        _assembledCard(
-          state,
-          receipt.cardId,
-          pendingIndex,
-          const [],
-          billing: receipt.billing,
-          generation: ChatroomCardGenerationState.failed,
-          editable: false,
-          error: receipt.error,
-        ),
-      );
-      state._cards.sort((a, b) => a.cardIndex.compareTo(b.cardIndex));
+      state._lastCompleteCardId = _lastCompleteCardId(state._cards);
       state._authoritativeCards.add(receipt.cardId);
       state._streamMessages.remove(receipt.cardId);
       if (state._viewedCardId == receipt.cardId || state._viewedCardId == -1) {
@@ -301,13 +289,18 @@ extension ChatroomRegenerateFeatureImplementation
       try {
         await _loadCards(state, force: true);
       } catch (_) {
-        // Receipt replay proves success but contains no body. Keep the
-        // actual candidate for a later read and display the complete source.
-        if (dispatchGeneration == state._regenerationDispatchGeneration &&
-            state._viewedCardId == receipt.cardId &&
-            !_completeCard(state.viewedCard)) {
-          state._viewedCardId = oldView == 0 ? receipt.originalCardId : oldView;
-          state._presentationRevision++;
+        // A receipt without a readable body is not a displayable card. A later
+        // authoritative read can add it back once real content exists.
+        if (dispatchGeneration == state._regenerationDispatchGeneration) {
+          state._cards.removeWhere(
+            (card) => card.cardId == receipt.cardId && !_completeCard(card),
+          );
+          if (state._viewedCardId == receipt.cardId) {
+            state._viewedCardId = oldView == 0
+                ? receipt.originalCardId
+                : oldView;
+            state._presentationRevision++;
+          }
         }
         rethrow;
       } finally {

@@ -108,6 +108,15 @@ class LocationChatReplyCardSwitcherState
         : null;
   }
 
+  bool get _regenerateReplacementReady {
+    if (!_regenerateReplacementObserved) return false;
+    final replacement = _card(widget.currentCardId);
+    return replacement != null &&
+        replacement.messages.any(
+          (message) => message.text.trim().isNotEmpty || message.isImage,
+        );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -155,7 +164,7 @@ class LocationChatReplyCardSwitcherState
 
   /// Starts a presentation-only collapse. The owner must invoke Regenerate
   /// first so this transition's busy callback cannot block its own request.
-  void beginRegenerateCollapse() {
+  void beginRegenerateCollapse({bool deferBusyNotification = false}) {
     if (_busy || _regenerateOriginalCard != null) return;
     final current = _card(_displayedId);
     if (current == null ||
@@ -171,7 +180,7 @@ class LocationChatReplyCardSwitcherState
     _regenerateSourceId = current.id;
     _showRegenerateSnapshot = true;
     _regenerateReplacementObserved = false;
-    _setBusy(true);
+    _setBusy(true, deferred: deferBusyNotification);
     setState(() {});
     _regenerateCollapseAnimation.forward(from: 0);
   }
@@ -181,7 +190,9 @@ class LocationChatReplyCardSwitcherState
     if (sourceId == null) return;
     if (widget.currentCardId != sourceId) {
       _regenerateReplacementObserved = true;
-      _displayedId = widget.currentCardId;
+      if (_regenerateReplacementReady) {
+        _displayedId = widget.currentCardId;
+      }
     }
     if (!widget.regenerationInProgress && widget.currentCardId == sourceId) {
       _scheduleRegenerateTransitionUpdate();
@@ -215,7 +226,9 @@ class LocationChatReplyCardSwitcherState
     if (status == AnimationStatus.completed) {
       setState(() {
         _showRegenerateSnapshot = false;
-        _displayedId = widget.currentCardId;
+        if (_regenerateReplacementReady) {
+          _displayedId = widget.currentCardId;
+        }
       });
       _setBusy(false);
       if (!widget.regenerationInProgress) {
@@ -412,7 +425,7 @@ class LocationChatReplyCardSwitcherState
   Widget build(BuildContext context) {
     final current = _showRegenerateSnapshot
         ? _regenerateOriginalCard
-        : _regenerateOriginalCard != null && !_regenerateReplacementObserved
+        : _regenerateOriginalCard != null && !_regenerateReplacementReady
         ? null
         : _card(_displayedId);
     if (current == null) {
