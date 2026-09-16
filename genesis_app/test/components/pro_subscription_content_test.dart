@@ -1023,9 +1023,18 @@ void main() {
       tester.view.physicalSize = Size(width, 568);
       await tester.pumpWidget(page(() async => offers));
       await tester.pumpAndSettle();
-      for (final plan in ['yearly', 'monthly']) {
+      List<Rect> geometry() => [
+        for (final plan in ['yearly', 'monthly']) ...[
+          tester.getRect(find.byKey(ValueKey('pro-plan-$plan'))),
+          tester.getRect(find.text(plan == 'yearly' ? 'Yearly' : 'Monthly')),
+        ],
+        tester.getRect(find.byKey(buttonKey)),
+      ];
+      final initialGeometry = geometry();
+      for (final plan in ['monthly', 'yearly', 'monthly']) {
         await tester.tap(find.byKey(ValueKey('pro-plan-$plan')));
         await tester.pump();
+        expect(geometry(), initialGeometry);
         expectOriginalContent(tester);
         expect(find.text('Save 17%'), findsNothing);
         expect(tester.takeException(), isNull);
