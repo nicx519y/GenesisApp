@@ -76,7 +76,10 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   bool _userScrollIncludesTemporaryTail = false;
   bool _hasMessageContentBelowViewport = false;
   Set<String> _messageLocalIdsBelowViewport = const {};
+  Set<String> _messageLocalIdsIntersectingViewport = const {};
   Set<String> get messageLocalIdsBelowViewport => _messageLocalIdsBelowViewport;
+  Set<String> get messageLocalIdsIntersectingViewport =>
+      _messageLocalIdsIntersectingViewport;
 
   /// Excludes waiting space, action controls, and message bottom spacing.
   bool get hasMessageContentBelowViewport => _hasMessageContentBelowViewport;
@@ -84,14 +87,22 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   void reportMessageContentBelowViewport(
     bool value, {
     Set<String> messageLocalIds = const {},
+    Set<String> visibleMessageLocalIds = const {},
   }) {
     if (_disposed ||
         (value == _hasMessageContentBelowViewport &&
-            setEquals(messageLocalIds, _messageLocalIdsBelowViewport))) {
+            setEquals(messageLocalIds, _messageLocalIdsBelowViewport) &&
+            setEquals(
+              visibleMessageLocalIds,
+              _messageLocalIdsIntersectingViewport,
+            ))) {
       return;
     }
     _hasMessageContentBelowViewport = value;
     _messageLocalIdsBelowViewport = Set.unmodifiable(messageLocalIds);
+    _messageLocalIdsIntersectingViewport = Set.unmodifiable(
+      visibleMessageLocalIds,
+    );
     notifyListeners();
   }
 
@@ -603,6 +614,7 @@ class _LocationChatAnchoredMessageListState
     with SingleTickerProviderStateMixin {
   final GlobalKey _messageContentKey = GlobalKey();
   final Map<String, GlobalKey> _messageLayoutKeys = <String, GlobalKey>{};
+  final Map<String, GlobalKey> _messageVisibilityKeys = <String, GlobalKey>{};
   final GlobalKey _scrollViewportKey = GlobalKey();
   final GlobalKey _replyControlLayoutKey = GlobalKey();
   final GlobalKey _waitingBubbleLayoutKey = GlobalKey();
@@ -682,16 +694,21 @@ class _LocationChatAnchoredMessageListState
       final hasContentBelow =
           bottom == null || bottom - bottomGap > viewport.bottom + 0.5;
       final below = <String>{};
-      if (hasContentBelow) {
-        final rows = <Rect?>[];
-        var lastLaidOutIndex = -1;
-        for (var index = 0; index < _renderedMessages.length; index++) {
-          final row = _messageBounds(
-            _messageLayoutId(_renderedMessages[index]),
-          );
-          rows.add(row);
-          if (row != null) lastLaidOutIndex = index;
+      final visible = <String>{};
+      final rows = <Rect?>[];
+      var lastLaidOutIndex = -1;
+      for (var index = 0; index < _renderedMessages.length; index++) {
+        final message = _renderedMessages[index];
+        final layoutId = _messageLayoutId(message);
+        final row = _messageBounds(layoutId);
+        rows.add(row);
+        if (row != null) lastLaidOutIndex = index;
+        final messageBounds = _messageVisibilityBounds(layoutId);
+        if (messageBounds != null && messageBounds.overlaps(viewport)) {
+          visible.add(message.localId);
         }
+      }
+      if (hasContentBelow) {
         for (var index = 0; index < _renderedMessages.length; index++) {
           final message = _renderedMessages[index];
           final row = rows[index];
@@ -711,6 +728,7 @@ class _LocationChatAnchoredMessageListState
       widget.coordinator.reportMessageContentBelowViewport(
         hasContentBelow,
         messageLocalIds: below,
+        visibleMessageLocalIds: visible,
       );
     });
   }
@@ -1123,6 +1141,12 @@ class _LocationChatAnchoredMessageListState
           : ValueKey('preview-${message.localId}'),
       child: _messageRow(
         key: ValueKey(message.localId),
+        visibilityKey: currentRole
+            ? _messageVisibilityKeys.putIfAbsent(
+                _messageLayoutId(message),
+                GlobalKey.new,
+              )
+            : null,
         streamIdentity: (
           widget.replyCardBindingIdentity,
           card.id,
@@ -1629,6 +1653,7 @@ class _LocationChatAnchoredMessageListState
       ..removeStatusListener(_handleOldestEdgeLoadingStatus)
       ..dispose();
     _messageLayoutKeys.clear();
+    _messageVisibilityKeys.clear();
     super.dispose();
   }
 
@@ -1953,6 +1978,9 @@ class _LocationChatAnchoredMessageListState
     _messageLayoutKeys.removeWhere(
       (localId, _) => !retainedLocalIds.contains(localId),
     );
+    _messageVisibilityKeys.removeWhere(
+      (localId, _) => !retainedLocalIds.contains(localId),
+    );
   }
 
   double? _takeReplySwitchLayoutCorrection() {
@@ -2096,6 +2124,17 @@ class _LocationChatAnchoredMessageListState
     return _globalBounds(renderObject);
   }
 
+  Rect? _messageVisibilityBounds(String localId) {
+    if (localId.isEmpty) return null;
+    final messageContext = _messageVisibilityKeys[localId]?.currentContext;
+    if (!_isActive(messageContext)) return null;
+    final renderObject = messageContext!.findRenderObject();
+    if (renderObject is! RenderBox || !_hasLaidOutRenderPath(renderObject)) {
+      return null;
+    }
+    return _globalBounds(renderObject);
+  }
+
   bool _isActive(BuildContext? context) {
     if (context == null || !context.mounted) return false;
     var active = true;
@@ -2181,6 +2220,10 @@ class _LocationChatAnchoredMessageListState
         children: [
           _messageRow(
             key: ValueKey(layoutId),
+            visibilityKey: _messageVisibilityKeys.putIfAbsent(
+              layoutId,
+              GlobalKey.new,
+            ),
             streamIdentity: ('timeline', layoutId),
             message: current,
             imageViewerMessages: _imageViewerMessages,
@@ -2209,6 +2252,7 @@ class _LocationChatAnchoredMessageListState
   // ownership of layout keys, preview identity and cache lifetimes.
   Widget _messageRow({
     required Key key,
+    required Key? visibilityKey,
     required Object streamIdentity,
     Object streamContinuationNamespace = 'timeline',
     required ChatMessageVm message,
@@ -2230,6 +2274,7 @@ class _LocationChatAnchoredMessageListState
     streaming: message.status == 'streaming',
     child: ChatMessageRow(
       key: key,
+      visibilityKey: visibilityKey,
       message: message,
       imageViewerMessages: imageViewerMessages,
       style: compact

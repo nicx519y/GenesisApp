@@ -129,6 +129,9 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         ids.difference(_observedReplyMessageLocalIds),
       );
     }
+    _unseenReplyMessageLocalIds.removeAll(
+      _scrollCoordinator.messageLocalIdsIntersectingViewport,
+    );
     _observedReplyMessageLocalIds.addAll(ids);
   }
 

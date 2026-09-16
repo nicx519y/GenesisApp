@@ -521,6 +521,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
           },
         );
         if (_isCurrentService(service, generation)) {
+          _liveUnreadTrackingReady = true;
           _notifyInitialContentReady();
         }
         return;
@@ -578,6 +579,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
           '$error\n$stackTrace',
         );
       }
+      _liveUnreadTrackingReady = true;
       _notifyInitialContentReady();
     }
   }
@@ -594,10 +596,12 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       return;
     }
     if (refreshReason.isEmpty) {
+      _liveUnreadTrackingReady = true;
       _notifyInitialContentReady();
       return;
     }
     if (!widget.active) {
+      _liveUnreadTrackingReady = true;
       _notifyInitialContentReady();
       return;
     }
@@ -622,6 +626,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
               'sourceCount=${_chatroomState.messagesByLocation[widget.locationId]?.length ?? 0} '
               'vmCount=${_messages.length}',
             );
+            _liveUnreadTrackingReady = true;
             _notifyInitialContentReady();
           })
           .catchError((Object error, StackTrace stackTrace) {
@@ -644,6 +649,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
                 '$error\n$stackTrace',
               );
             }
+            _liveUnreadTrackingReady = true;
             _notifyInitialContentReady();
           }),
     );
@@ -734,12 +740,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         !_joiningLocation) {
       unawaited(_joinLocation(service));
     }
-    final wasFollowingLatest =
-        _scrollCoordinator.shouldFollowLatest && _scrollCoordinator.isAtBottom;
     final previousSource =
         _chatroomState.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
-    final previousLatestLocalId = _latestMessageLocalId();
     final nextSource =
         state.messagesByLocation[widget.locationId] ??
         const <WorldChatroomMessage>[];
@@ -819,13 +822,10 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     }
     if (nextSource.isNotEmpty) _notifyInitialContentReady();
     _maybeSendInitialMessage();
-    if (changedMessages && wasFollowingLatest) {
-      _clearUnseenIncomingCount();
-    } else if (changedMessages) {
+    if (changedMessages) {
       final incomingMessageLocalIds =
-          previousLatestLocalId.isNotEmpty &&
-              _latestMessageLocalId() != previousLatestLocalId
-          ? _newIncomingTailMessageLocalIds(previousSource, nextSource)
+          _liveUnreadTrackingReady && !_loadingOlderMessages
+          ? _newIncomingMessageLocalIds(previousSource, nextSource)
           : const <String>{};
       _syncUnseenIncomingRenderedMessages(incomingMessageLocalIds);
     }

@@ -116,9 +116,12 @@ int debugLocationChatReplyMessageParseCount = 0;
 
 @visibleForTesting
 int locationChatNewMessageNoticeCountForTesting({
-  required bool hasUnseenMessages,
+  required Set<String> unreadMessageLocalIds,
   required Set<String> messageLocalIdsBelowViewport,
-}) => hasUnseenMessages ? messageLocalIdsBelowViewport.length : 0;
+  required Set<String> messageLocalIdsIntersectingViewport,
+}) => (unreadMessageLocalIds.intersection(
+  messageLocalIdsBelowViewport,
+)..removeAll(messageLocalIdsIntersectingViewport)).length;
 
 @visibleForTesting
 Future<void> runLocationChatMetadataUpdateBestEffort(
@@ -600,6 +603,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _olderMessagesExhaustedByRemote = false;
   bool _olderMessagesExhaustedByCursorlessContent = false;
   bool _initialContentReadyNotified = false;
+  // Entry hydration and the first remote refresh define the already-read
+  // baseline. Only later queue additions are eligible for unread tracking.
+  bool _liveUnreadTrackingReady = false;
   Future<void>? _initialLatestMessagesRefresh;
   final Set<String> _unseenIncomingMessageLocalIds = <String>{};
   final Set<String> _unseenReplyMessageLocalIds = <String>{};
@@ -609,9 +615,14 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       _unseenIncomingMessageLocalIds.length +
       _unseenReplyMessageLocalIds.length;
   int get _newMessageNoticeCount => locationChatNewMessageNoticeCountForTesting(
-    hasUnseenMessages: _unseenIncomingCount > 0,
+    unreadMessageLocalIds: {
+      ..._unseenIncomingMessageLocalIds,
+      ..._unseenReplyMessageLocalIds,
+    },
     messageLocalIdsBelowViewport:
         _scrollCoordinator.messageLocalIdsBelowViewport,
+    messageLocalIdsIntersectingViewport:
+        _scrollCoordinator.messageLocalIdsIntersectingViewport,
   );
   int _clientMsgCounter = 0;
   final Set<String> _messageGapFillKeys = <String>{};
@@ -761,7 +772,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   void _handleViewportCoordinatorChanged() {
     if (!mounted) return;
-    _setLocationChatState(() {});
+    _setLocationChatState(() {
+      final visibleMessageLocalIds =
+          _scrollCoordinator.messageLocalIdsIntersectingViewport;
+      _unseenIncomingMessageLocalIds.removeAll(visibleMessageLocalIds);
+      _unseenReplyMessageLocalIds.removeAll(visibleMessageLocalIds);
+    });
     _handleMessageListScroll();
   }
 
@@ -958,7 +974,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     }
     if (changedChatTarget || changedOpeningPreview) {
       _cancelOlderMessagesLoadSchedule();
-      if (!adoptingLaunchedWorld) _initialContentReadyNotified = false;
+      if (!adoptingLaunchedWorld) {
+        _initialContentReadyNotified = false;
+        _liveUnreadTrackingReady = false;
+        _unseenIncomingMessageLocalIds.clear();
+        _unseenReplyMessageLocalIds.clear();
+      }
       unawaited(
         _closeChatroom().then((_) {
           if (!mounted) return;
@@ -969,7 +990,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           }
           _loadingOlderMessages = false;
           _showOlderMessagesLoading = false;
-          if (!adoptingLaunchedWorld) _initialContentReadyNotified = false;
+          if (!adoptingLaunchedWorld) {
+            _initialContentReadyNotified = false;
+            _liveUnreadTrackingReady = false;
+          }
           _initialLatestMessagesRefresh = null;
           _messageGapFillKeys.clear();
           _messageGapFillBeforeLocationMessageIds.clear();

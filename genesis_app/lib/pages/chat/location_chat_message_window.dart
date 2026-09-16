@@ -6,13 +6,6 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
       _cancelOlderMessagesLoadSchedule();
       return;
     }
-    // Waiting space may put us at the scroll extent while a visible stream
-    // is still growing. Keep tracking it until it actually leaves the viewport.
-    if (_unseenIncomingCount > 0 &&
-        _scrollCoordinator.shouldFollowLatest &&
-        _scrollCoordinator.isAtBottom) {
-      _clearUnseenIncomingCount();
-    }
     if (!widget.active ||
         !widget.isLeafLocation ||
         _loadingOlderMessages ||
@@ -163,7 +156,7 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     return _oldestLocationMessageId(source);
   }
 
-  Set<String> _newIncomingTailMessageLocalIds(
+  Set<String> _newIncomingMessageLocalIds(
     List<WorldChatroomMessage> previous,
     List<WorldChatroomMessage> next,
   ) {
@@ -194,6 +187,9 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     final nextUnseenLocalIds = _unseenIncomingMessageLocalIds.intersection(
       renderedIncomingLocalIds,
     )..addAll(incomingMessageLocalIds.intersection(renderedIncomingLocalIds));
+    nextUnseenLocalIds.removeAll(
+      _scrollCoordinator.messageLocalIdsIntersectingViewport,
+    );
     if (setEquals(nextUnseenLocalIds, _unseenIncomingMessageLocalIds)) {
       return;
     }

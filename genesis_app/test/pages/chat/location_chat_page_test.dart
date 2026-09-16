@@ -75,26 +75,43 @@ Finder _replyActionLoading(String label) => find.descendant(
 );
 
 void main() {
-  test('new-message notice counts every bubble below the viewport', () {
-    expect(
-      locationChatNewMessageNoticeCountForTesting(
-        hasUnseenMessages: true,
-        messageLocalIdsBelowViewport: const {
-          'incoming-below',
-          'reply-below',
-          'already-seen-below',
-        },
-      ),
-      3,
-    );
-    expect(
-      locationChatNewMessageNoticeCountForTesting(
-        hasUnseenMessages: false,
-        messageLocalIdsBelowViewport: const {'already-seen-below'},
-      ),
-      0,
-    );
-  });
+  test(
+    'new-message notice excludes unread bubbles intersecting the viewport',
+    () {
+      expect(
+        locationChatNewMessageNoticeCountForTesting(
+          unreadMessageLocalIds: const {
+            'incoming-above',
+            'incoming-below',
+            'reply-below',
+          },
+          messageLocalIdsBelowViewport: const {
+            'incoming-below',
+            'reply-below',
+            'already-seen-below',
+          },
+          messageLocalIdsIntersectingViewport: const {'reply-below'},
+        ),
+        1,
+      );
+      expect(
+        locationChatNewMessageNoticeCountForTesting(
+          unreadMessageLocalIds: const {},
+          messageLocalIdsBelowViewport: const {'already-seen-below'},
+          messageLocalIdsIntersectingViewport: const {},
+        ),
+        0,
+      );
+      expect(
+        locationChatNewMessageNoticeCountForTesting(
+          unreadMessageLocalIds: const {'last-partially-visible'},
+          messageLocalIdsBelowViewport: const {'last-partially-visible'},
+          messageLocalIdsIntersectingViewport: const {'last-partially-visible'},
+        ),
+        0,
+      );
+    },
+  );
 
   testWidgets('composer Send dismisses keyboard before waiting for ACK', (
     tester,
@@ -124,7 +141,7 @@ void main() {
   });
 
   testWidgets(
-    'waiting space does not show notice until the same stream exceeds viewport',
+    'a visible stream stays read when the same bubble later exceeds viewport',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(390, 720));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -195,7 +212,7 @@ void main() {
       );
       await tester.pump();
       expect(position.pixels, closeTo(held, 0.1));
-      expect(find.text('1 new message'), findsOneWidget);
+      expect(find.byKey(notice), findsNothing);
       final currentList = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
       );
@@ -206,10 +223,6 @@ void main() {
         coordinator.messageLocalIdsBelowViewport,
         contains(overflowingMessage.localId),
       );
-      await tester.tap(find.byKey(notice));
-      await tester.pump();
-      await tester.pump();
-      expect(find.byKey(notice), findsNothing);
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
       await tester.pump();
@@ -218,7 +231,7 @@ void main() {
 
   for (final prepared in [false, true]) {
     testWidgets(
-      'regenerate counts only overflowing card bubbles prepared=$prepared',
+      'regenerate marks a bubble read when it starts entering viewport prepared=$prepared',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(390, 720));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -272,7 +285,17 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(coordinator.controller.position.pixels, closeTo(held, 0.1));
-        expect(find.text('1 new message'), findsOneWidget);
+        expect(find.byKey(notice), findsNothing);
+        final listAfterSecond = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        final second = listAfterSecond.messages.singleWhere(
+          (message) => message.globalMessageId == 90503,
+        );
+        expect(
+          coordinator.messageLocalIdsIntersectingViewport,
+          contains(second.localId),
+        );
         harness.socket.serverCandidateStream(
           streamType: 'chunk',
           messageIndex: 3,
@@ -280,7 +303,7 @@ void main() {
           seq: 1,
         );
         await tester.pumpAndSettle();
-        expect(find.text('2 new message'), findsOneWidget);
+        expect(find.text('1 new message'), findsOneWidget);
         harness.socket.serverCandidateStream(
           streamType: 'chunk',
           messageIndex: 3,
@@ -288,7 +311,7 @@ void main() {
           seq: 2,
         );
         await tester.pumpAndSettle();
-        expect(find.text('2 new message'), findsOneWidget);
+        expect(find.text('1 new message'), findsOneWidget);
         for (var index = 1; index <= 3; index++) {
           harness.socket.serverCandidateStream(
             streamType: 'end',
@@ -302,32 +325,32 @@ void main() {
         }
         harness.socket.serverCandidateGenerationEnd();
         await tester.pumpAndSettle();
-        expect(find.text('2 new message'), findsOneWidget);
+        expect(find.text('1 new message'), findsOneWidget);
         final currentList = tester.widget<LocationChatAnchoredMessageList>(
           find.byType(LocationChatAnchoredMessageList),
         );
-        final second = currentList.messages.singleWhere(
-          (message) => message.globalMessageId == 90503,
+        final third = currentList.messages.singleWhere(
+          (message) => message.globalMessageId == 90504,
         );
-        final secondBottom = tester
-            .getBottomLeft(
-              find.byKey(ValueKey('chat-message-bubble-${second.localId}')),
+        final thirdTop = tester
+            .getTopLeft(
+              find.byKey(ValueKey('chat-message-bubble-${third.localId}')),
             )
             .dy;
         final viewportBottom = tester
             .getBottomLeft(find.byType(LocationChatAnchoredMessageList))
             .dy;
         final position = coordinator.controller.position;
-        position.jumpTo(position.pixels + secondBottom - viewportBottom + 1);
-        await tester.pumpAndSettle();
-        expect(find.text('1 new message'), findsOneWidget);
-        position.jumpTo(held);
-        await tester.pumpAndSettle();
-        expect(find.text('2 new message'), findsOneWidget);
-        await tester.tap(find.byKey(notice));
+        position.jumpTo(position.pixels + thirdTop - viewportBottom + 1);
         await tester.pumpAndSettle();
         expect(find.byKey(notice), findsNothing);
-        expect(coordinator.isAtBottom, isTrue);
+        expect(
+          coordinator.messageLocalIdsIntersectingViewport,
+          contains(third.localId),
+        );
+        position.jumpTo(held);
+        await tester.pumpAndSettle();
+        expect(find.byKey(notice), findsNothing);
         await tester.pumpWidget(const SizedBox.shrink());
         unawaited(harness.service.dispose());
         await tester.pump();
@@ -2769,8 +2792,7 @@ void main() {
       await tester.tap(
         find.byKey(const ValueKey('location-chat-new-message-notice')),
       );
-      await tester.pump();
-      await tester.pump();
+      await tester.pumpAndSettle();
 
       expect(
         viewportCoordinator.mode,
@@ -2806,6 +2828,145 @@ void main() {
         find.byKey(const ValueKey('location-chat-new-message-notice')),
         findsNothing,
       );
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+      unawaited(service.dispose());
+    },
+  );
+
+  testWidgets(
+    'initial history stays read but a new middle insertion is counted',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 360));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final sessionStore = MemoryUserSessionStore();
+      await sessionStore.saveUid('user-1');
+      await sessionStore.saveAuthToken('token-1');
+      final services = ServiceRegistry.build(
+        config: const AppConfig(useMock: true),
+        sessionStoreOverride: sessionStore,
+        chatroomMessagesOverride: MemoryChatroomMessageStorage(),
+      );
+      final socket = _LocationChatTestSocket();
+      final client = ChatroomClient(
+        wsBaseUrl: 'ws://localhost:8082/aitown-chat/ws',
+        sessionStore: sessionStore,
+        transport: _LocationChatTestTransport(socket),
+        autoHeartbeat: false,
+        handshakeHeaderSigner: (_, headers) async => <String, String>{
+          ...headers,
+          'X-App-Version': '0.3.4',
+        },
+      );
+      final service = WorldChatroomService(
+        api: services.api,
+        client: client,
+        messageStorage: MemoryChatroomMessageStorage(),
+        replyActionStorage: MemoryChatroomReplyActionStorage(),
+        inspirationStorage: MemoryChatroomInspirationStorage(),
+        refreshInitialSnapshotOnConnect: false,
+      );
+      await service.connect(
+        worldId: 'world-current',
+        identity: const ChatroomConnectionIdentity(
+          userId: 'user-1',
+          senderId: 'user-1',
+          senderName: 'Player One',
+        ),
+      );
+      await service.join(locationId: 'location-current');
+      await service.refreshLocationHistory(locationId: 'location-current');
+      for (var id = 2; id <= 40; id += 2) {
+        socket.serverV2UserMessage(messageId: id);
+      }
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.length == 20,
+      );
+
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            tester
+                .widget<LocationChatAnchoredMessageList>(
+                  find.byKey(const ValueKey('location-chat-message-list')),
+                )
+                .messages
+                .length >=
+            18,
+      );
+
+      const notice = ValueKey('location-chat-new-message-notice');
+      expect(find.byKey(notice), findsNothing);
+      final scrollable = find.descendant(
+        of: find.byKey(const ValueKey('location-chat-message-list')),
+        matching: find.byType(Scrollable),
+      );
+      final position = tester.state<ScrollableState>(scrollable).position;
+      final viewportCoordinator = tester
+          .widget<LocationChatAnchoredMessageList>(
+            find.byKey(const ValueKey('location-chat-message-list')),
+          )
+          .coordinator;
+      position.jumpTo(position.maxScrollExtent / 2);
+      viewportCoordinator.deactivate();
+      await tester.pump();
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+
+      socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        roundId: 999,
+        messageId: 999,
+        locationMessageId: 35,
+        content: 'Inserted in the middle.',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            service.state.messagesByLocation['location-current']?.any(
+              (message) => message.globalMessageId == 90999,
+            ) ==
+            true,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byKey(const ValueKey('location-chat-message-list')),
+      );
+      final insertedIndex = list.messages.indexWhere(
+        (message) => message.globalMessageId == 90999,
+      );
+      expect(insertedIndex, greaterThanOrEqualTo(0));
+      expect(insertedIndex, lessThan(list.messages.length - 1));
+      final inserted = list.messages[insertedIndex];
+      expect(
+        viewportCoordinator.messageLocalIdsIntersectingViewport,
+        isNot(contains(inserted.localId)),
+      );
+      expect(
+        viewportCoordinator.messageLocalIdsBelowViewport,
+        contains(inserted.localId),
+      );
+      expect(find.text('1 new message'), findsOneWidget);
 
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();

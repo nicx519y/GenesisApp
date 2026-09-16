@@ -5,6 +5,7 @@ class ChatMessageRow extends StatelessWidget {
     super.key,
     required this.message,
     required this.showDateDivider,
+    this.visibilityKey,
     this.imageViewerMessages = const <ChatMessageVm>[],
     this.onAvatarTap,
     this.onMessageLongPressStart,
@@ -17,6 +18,7 @@ class ChatMessageRow extends StatelessWidget {
 
   final ChatMessageVm message;
   final bool showDateDivider;
+  final Key? visibilityKey;
   final List<ChatMessageVm> imageViewerMessages;
   final VoidCallback? onAvatarTap;
   final ChatMessageLongPressStart? onMessageLongPressStart;
@@ -29,63 +31,82 @@ class ChatMessageRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final style = this.style ?? ChatUiStyleConfig.standard;
+    Widget trackVisibility(Widget child) => visibilityKey == null
+        ? child
+        : KeyedSubtree(key: visibilityKey, child: child);
     if (message.isAiContentDisclaimer) {
-      return ChatAiContentDisclaimerMessageBubble(message: message);
+      return trackVisibility(
+        ChatAiContentDisclaimerMessageBubble(message: message),
+      );
     }
     final onLongPressStart = onMessageLongPressStart == null
         ? null
         : (LongPressStartDetails details) =>
               onMessageLongPressStart!(context, message, details);
     if (message.isUserEnterLocation) {
-      return ChatUserEnterLocationMessageBubble(
-        message: message,
-        style: style,
-        onLongPressStart: onLongPressStart,
+      return trackVisibility(
+        ChatUserEnterLocationMessageBubble(
+          message: message,
+          style: style,
+          onLongPressStart: onLongPressStart,
+        ),
       );
     }
     if (message.isStoryEvents) {
-      return ChatStoryEventsMessageBubble(
-        message: message,
-        style: style,
-        onLongPressStart: onLongPressStart,
+      return trackVisibility(
+        ChatStoryEventsMessageBubble(
+          message: message,
+          style: style,
+          onLongPressStart: onLongPressStart,
+        ),
       );
     }
     if (message.isCharactersMoved) {
-      return ChatCharactersMovedMessageBubble(
-        message: message,
-        style: style,
-        onLongPressStart: onLongPressStart,
-        onLocationTap: onCharactersMovedLocationTap,
+      return trackVisibility(
+        ChatCharactersMovedMessageBubble(
+          message: message,
+          style: style,
+          onLongPressStart: onLongPressStart,
+          onLocationTap: onCharactersMovedLocationTap,
+        ),
       );
     }
     if (message.isImage) {
-      return ChatImageMessage(
-        message: message,
-        imageViewerMessages: imageViewerMessages,
-        style: style,
-        onLongPressStart: onLongPressStart,
+      return trackVisibility(
+        ChatImageMessage(
+          message: message,
+          imageViewerMessages: imageViewerMessages,
+          style: style,
+          onLongPressStart: onLongPressStart,
+        ),
       );
     }
     if (message.isNarrator) {
-      return ChatNarratorMessageBubble(
-        message: message,
-        style: style,
-        onLongPressStart: onLongPressStart,
+      return trackVisibility(
+        ChatNarratorMessageBubble(
+          message: message,
+          style: style,
+          onLongPressStart: onLongPressStart,
+        ),
       );
     }
     if (message.isTick) {
-      return ChatTickMessageBubble(
-        message: message,
-        style: style,
-        onLongPressStart: onLongPressStart,
-        onLocationTap: onCharactersMovedLocationTap,
+      return trackVisibility(
+        ChatTickMessageBubble(
+          message: message,
+          style: style,
+          onLongPressStart: onLongPressStart,
+          onLocationTap: onCharactersMovedLocationTap,
+        ),
       );
     }
     if (message.isSystem) {
-      return ChatSystemMessage(
-        text: message.text,
-        style: style,
-        onLongPressStart: onLongPressStart,
+      return trackVisibility(
+        ChatSystemMessage(
+          text: message.text,
+          style: style,
+          onLongPressStart: onLongPressStart,
+        ),
       );
     }
 
@@ -104,12 +125,13 @@ class ChatMessageRow extends StatelessWidget {
             onAvatarTap: onAvatarTap,
             onLongPressStart: onLongPressStart,
           );
-    if (!showDateDivider) return row;
+    final visibleRow = trackVisibility(row);
+    if (!showDateDivider) return visibleRow;
 
     return Column(
       children: [
         ChatDateDivider(time: message.createdAt, style: style),
-        row,
+        visibleRow,
       ],
     );
   }
