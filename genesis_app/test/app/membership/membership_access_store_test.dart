@@ -401,7 +401,7 @@ void main() {
   );
 
   _testMembership(
-    'foreground expiry refreshes even after the general cache expires',
+    'foreground expiry does not schedule a refresh or change the display',
     (tester, h) async {
       h.load = () async =>
           _response(expiry: h.epoch.add(const Duration(minutes: 6)));
@@ -411,6 +411,9 @@ void main() {
       expect(h.calls, 1);
       h.load = () async => _response(status: 2);
       await tester.pump(const Duration(minutes: 1));
+      expect(h.calls, 1);
+      expect(h.access.debugState.status, active);
+      expect(await _checkVip(h.access), inactive);
       expect(h.calls, 2);
       expect(h.access.debugState.status, inactive);
     },
@@ -424,7 +427,7 @@ void main() {
       await h.access.start();
       h.access.didChangeAppLifecycleState(AppLifecycleState.paused);
       await tester.pump(const Duration(minutes: 1));
-      expect(h.access.debugState.status, inactive);
+      expect(h.access.debugState.status, active);
       expect(h.calls, 1);
       final response = Completer<GemWallet>();
       h.load = () => response.future;

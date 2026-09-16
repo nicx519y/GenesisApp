@@ -860,7 +860,7 @@ void main() {
         statusCode: 200,
         headers: {'content-type': 'application/json'},
         body:
-            '{"err_no":0,"err_msg":"succ","data":{"list":[{"ledger_id":"gl_1","amount_cent":-2000,"scene":"world_tick","reason_code":"message","title":"Message","subtitle":"Location chat","world_name":"Thorn Haven","world_id":"w_1","order_id":"ord_1","created_at":1783586400,"expires_at":0}],"total":1,"pn":1,"rn":20}}',
+            '{"err_no":0,"err_msg":"succ","data":{"list":[{"ledger_id":"gl_1","regular_amount_cent":-1200,"membership_amount_cent":-800,"scene":"world_tick","reason_code":"message","title":"Message","subtitle":"Location chat","world_name":"Thorn Haven","world_id":"w_1","order_id":"ord_1","created_at":1783586400,"expires_at":0}],"total":1,"pn":1,"rn":20}}',
       ),
     );
     final api = _apiWith(
@@ -882,7 +882,8 @@ void main() {
     expect(apiTransport.lastRequest!.uri.queryParameters['pn'], '1');
     expect(records.total, 1);
     expect(records.items.single.ledgerId, 'gl_1');
-    expect(records.items.single.amountCent, -2000);
+    expect(records.items.single.regularAmountCent, -1200);
+    expect(records.items.single.membershipAmountCent, -800);
     expect(records.items.single.title, 'Message');
     expect(records.items.single.worldName, 'Thorn Haven');
     expect(records.items.single.worldId, 'w_1');

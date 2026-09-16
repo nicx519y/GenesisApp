@@ -31,11 +31,27 @@ void main() {
     });
 
     const svgs = <String>[
-      'gem_outline', 'icon_gems_stack', 'inspiration', 'edit_square',
-      'edit_pencil_line', 'pro_crown', 'pro_crown_filled', 'paragraph_icon',
-      'clue', 'upgrade', 'refresh_2', 'arrow-change-svgrepo-com', 'records',
-      'info', 'worlddetail-icon', 'character_icon', 'go_on', 'route',
-      'connect_icon', 'events', 'world_tab_status', 'launch_icon',
+      'gem_diamond',
+      'icon_gems_stack',
+      'icon_benefit_inspiration',
+      'icon_benefit_edit',
+      'edit_pencil_line',
+      'icon_benefit_badge',
+      'paragraph_icon',
+      'clue',
+      'upgrade',
+      'refresh_2',
+      'arrow-change-svgrepo-com',
+      'records',
+      'info',
+      'worlddetail-icon',
+      'character_icon',
+      'go_on',
+      'route',
+      'connect_icon',
+      'events',
+      'world_tab_status',
+      'launch_icon',
     ];
     const material = <String, IconData>{
       'auto_stories': Icons.auto_stories_outlined,
@@ -97,7 +113,11 @@ void main() {
                   for (final entry in material.entries)
                     cell(
                       'M: ${entry.key}',
-                      Icon(entry.value, size: 22, color: const Color(0xFFF5C24B)),
+                      Icon(
+                        entry.value,
+                        size: 22,
+                        color: const Color(0xFFF5C24B),
+                      ),
                     ),
                 ],
               ),

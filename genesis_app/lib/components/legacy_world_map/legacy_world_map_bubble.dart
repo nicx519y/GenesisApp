@@ -52,9 +52,9 @@ class LegacyWorldMapPositionedMessageBubble extends StatelessWidget {
   final VoidCallback? onTap;
 
   static const double _avatarSize = legacyWorldMapAvatarImageLogicalSize;
-  static const double _bubbleGap = 8;
+  static const double _bubbleGap = worldMapMessageBubblePointerHeight + 2;
   static const double _pointerWidth = worldMapMessageBubblePointerWidth;
-  static const double _pointerHeight = 10;
+  static const double _pointerHeight = worldMapMessageBubblePointerHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -99,66 +99,27 @@ class _MapMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Positioned(
-          left: pointerLeft - 6,
-          top: 0,
-          width: 12,
-          height: 10,
-          child: CustomPaint(
-            painter: const _MapMessageBubblePointerPainter(
-              color: worldMapMessageBubbleBackgroundColor,
+    return WorldMapMessageBubbleSurface(
+      pointerLeft: pointerLeft,
+      child: Padding(
+        padding: const EdgeInsets.only(top: worldMapMessageBubblePointerHeight),
+        child: SizedBox(
+          key: const ValueKey<String>('world-map-message-bubble-body'),
+          width: double.infinity,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: worldMapMessageBubbleHorizontalPadding,
+              vertical: worldMapMessageBubbleVerticalPadding,
+            ),
+            child: Text(
+              text,
+              maxLines: 3,
+              overflow: TextOverflow.clip,
+              style: worldMapMessageBubbleTextStyle,
             ),
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.only(top: 10),
-          child: SizedBox(
-            key: const ValueKey<String>('world-map-message-bubble-body'),
-            width: double.infinity,
-            child: WorldMapMessageBubbleSurface(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: worldMapMessageBubbleHorizontalPadding,
-                  vertical: worldMapMessageBubbleVerticalPadding,
-                ),
-                child: Text(
-                  text,
-                  maxLines: 3,
-                  overflow: TextOverflow.clip,
-                  style: worldMapMessageBubbleTextStyle,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+      ),
     );
-  }
-}
-
-class _MapMessageBubblePointerPainter extends CustomPainter {
-  const _MapMessageBubblePointerPainter({required this.color});
-
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill;
-    final path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(path, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _MapMessageBubblePointerPainter oldDelegate) {
-    return oldDelegate.color != color;
   }
 }

@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../components/common/genesis_center_toast.dart';
+import '../../components/gems/gem_assets.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
 import '../../ui/tokens/genesis_colors.dart';
+import '../../ui/tokens/genesis_typography.dart';
 import '../../components/page_header.dart';
 import '../../network/models/gem_records.dart';
 import '../../utils/gem_amount.dart';
@@ -307,10 +310,16 @@ class _GemRecordTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isIncome = record.amountCent >= 0;
-    final amountText = isIncome
-        ? '+${formatGemCent(record.amountCent)}'
-        : formatGemCent(record.amountCent);
+    final regular = record.regularAmountCent;
+    final membership = record.membershipAmountCent;
+    final amounts = <Widget>[
+      if (regular != null && regular != 0)
+        _GemRecordAmount(amountCent: regular, iconAsset: gemIconAsset),
+      if (membership != null && membership != 0)
+        _GemRecordAmount(amountCent: membership, iconAsset: roseGemIconAsset),
+      if (regular == 0 && membership == 0)
+        const _GemRecordAmount(amountCent: 0, iconAsset: gemIconAsset),
+    ];
     final detailLines = _recordDetailLines(record);
     return Container(
       key: ValueKey<String>('gem-record-item-${record.ledgerId}'),
@@ -322,17 +331,7 @@ class _GemRecordTile extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  _recordTitle(record),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 17 / 14,
-                    fontWeight: FontWeight.w600,
-                    color: GenesisColors.darkTextPrimary,
-                  ),
-                ),
+                _GemRecordTitle(_recordTitle(record)),
                 const SizedBox(height: 8),
                 for (var index = 0; index < detailLines.length; index += 1) ...[
                   _GemRecordDetailLine(
@@ -346,19 +345,110 @@ class _GemRecordTile extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-          Text(
-            amountText,
-            style: TextStyle(
-              fontSize: 14,
-              height: 20 / 14,
-              fontWeight: FontWeight.w600,
-              color: isIncome
-                  ? GenesisColors.redSecondary
-                  : GenesisColors.darkTextPrimary,
+          if (amounts.isEmpty)
+            const Text('--', style: _GemRecordAmount.textStyle)
+          else
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var index = 0; index < amounts.length; index++) ...[
+                  if (index > 0) const SizedBox(width: 8),
+                  amounts[index],
+                ],
+              ],
             ),
-          ),
         ],
       ),
+    );
+  }
+}
+
+class _GemRecordTitle extends StatelessWidget {
+  const _GemRecordTitle(this.title);
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final baseStyle = GenesisTypography.withFallback(
+      DefaultTextStyle.of(context).style.merge(
+        TextStyle(
+          fontSize: 14,
+          height: 17 / 14,
+          fontWeight: MediaQuery.boldTextOf(context)
+              ? FontWeight.w700
+              : FontWeight.w600,
+          color: GenesisColors.darkTextPrimary,
+        ),
+      ),
+    ).copyWith(inherit: false);
+    final textScaler = MediaQuery.textScalerOf(context);
+    final locale = Localizations.maybeLocaleOf(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final painter = TextPainter(
+          textDirection: Directionality.of(context),
+          textScaler: textScaler,
+          locale: locale,
+          maxLines: 1,
+        );
+        var style = baseStyle;
+        for (var size = 14.0; size >= 8; size -= 0.5) {
+          style = baseStyle.copyWith(fontSize: size);
+          painter.text = TextSpan(text: title, style: style);
+          painter.layout();
+          if (painter.width <= constraints.maxWidth &&
+              !painter.didExceedMaxLines) {
+            break;
+          }
+        }
+        painter.dispose();
+        return Text(
+          title,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textScaler: textScaler,
+          locale: locale,
+          style: style,
+        );
+      },
+    );
+  }
+}
+
+class _GemRecordAmount extends StatelessWidget {
+  const _GemRecordAmount({required this.amountCent, required this.iconAsset});
+
+  final int amountCent;
+  final String iconAsset;
+
+  static const textStyle = TextStyle(
+    fontSize: 14,
+    height: 20 / 14,
+    fontWeight: FontWeight.w600,
+    color: GenesisColors.darkTextPrimary,
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final isIncome = amountCent > 0;
+    final amountText = amountCent == 0
+        ? '-0.0'
+        : isIncome
+        ? '+${formatGemCent(amountCent)}'
+        : formatGemCent(amountCent);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          amountText,
+          style: isIncome
+              ? textStyle.copyWith(color: GenesisColors.redSecondary)
+              : textStyle,
+        ),
+        const SizedBox(width: 4),
+        SvgPicture.asset(iconAsset, width: 9, height: 12),
+      ],
     );
   }
 }

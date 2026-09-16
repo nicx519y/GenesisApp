@@ -7,7 +7,8 @@
 | 场景 | JSON 字段 | Dart 字段 |
 |---|---|---|
 | 钱包 | `wallet.balance_cent` | `GemWallet.balanceCent` |
-| 流水 | `list[].amount_cent` | `GemRecordItem.amountCent` |
+| 流水普通宝石（红钻） | `list[].regular_amount_cent` | `GemRecordItem.regularAmountCent` |
+| 流水会员宝石（粉钻） | `list[].membership_amount_cent` | `GemRecordItem.membershipAmountCent` |
 | 商品 | `base_gems_cent`、`bonus_gems_cent` | `baseGemsCent`、`bonusGemsCent` |
 | 购买完成 | `granted_gems_cent` | `GemPurchaseReport.grantedGemsCent` |
 | 任务 | `reward_gems_cent` | `GemTask.rewardGemsCent` |
@@ -15,13 +16,13 @@
 | 模型消息区间 | `min_gems_cent`、`max_gems_cent` | `minGemsCent`、`maxGemsCent` |
 | WebSocket 低余额 | `balance_cent` | `ChatroomBalanceLow.balanceCent` |
 
-上述 cent 字段必须是 JSON 整数。字段缺失，或值为浮点数、字符串等其他类型时，客户端按协议错误处理，不使用其他字段回退。购买结果只有 `status=completed` 时要求并解析 `granted_gems_cent`；其他状态不承载发放金额。
+流水两个金额字段必返，允许 `null` 表示历史来源未知，不能转为 0；其他上述 cent 字段必须是 JSON 整数。字段缺失，或值为浮点数、字符串等其他类型时，客户端按协议错误处理，不使用其他字段回退。购买结果只有 `status=completed` 时要求并解析 `granted_gems_cent`；其他状态不承载发放金额。
 
 ## 展示规则
 
 - 用户可见 Gems 数值（包括 Model item 的预计消息费用和消息区间）统一通过 `formatGemCent` 展示一位小数。
 - cent 除以 100 后固定显示一位小数，并使用整数运算四舍五入到 0.1 Gem；例如 `100 -> 1.0`、`10 -> 0.1`、`105 -> 1.1`、`123456 -> 1,234.6`。
-- 负数先按绝对值四舍五入，再恢复原始负号，即使舍入为零也保留；例如 `-10 -> -0.1`、`-1 -> -0.0`。流水正负号和颜色仍按原始 `amount_cent` 判断，零及正数的展示规则不变。
+- 负数先按绝对值四舍五入，再恢复原始负号，即使舍入为零也保留；例如 `-10 -> -0.1`、`-1 -> -0.0`。流水按各自原始分项金额判断正负号和颜色，正数保留 `+` 及红色，负数保留 `-` 及原文字颜色。
 - 服务端下发的 `title`、`description` 等文本保持原样，客户端不替换其中的数字。模型列表不再读取 `range_text`。
 
 ## Model item 范围（2026-09-14）
@@ -41,3 +42,12 @@
 - `price_amount` 是法币最小单位，继续使用现有法币格式化和支付逻辑，不属于 Gems cent 展示转换。
 - 支付请求、任务请求、订单恢复和订单持久化不修改金额语义。
 - 任务领取成功后继续刷新钱包；不从领取响应建立第二条本地余额更新链路。
+
+## Gem Records 分项金额（2026-09-16）
+
+- 客户端移除 `amount_cent` 总额字段，不使用它回退。`membership_amount_cent` 对应粉钻 `roseGemIconAsset`，`regular_amount_cent` 对应红钻 `gemIconAsset`；图标放在金额后。
+- 仅显示非零分项；两项都非零时右侧同一行先展示红钻金额、再展示粉钻金额，组间距 8px，保留现有字号和文字颜色，钻石尺寸为 9×12。
+- 两项都明确为 0 时只显示 `-0.0` 加红钻，使用支出文字颜色。
+- 流水标题默认 14px，根据金额区域占用后剩余的宽度按 0.5px 递减，最小 8px；最小字号仍放不下时单行省略。测量与显示共用字体、系统文字缩放和字重。
+- `null` 不是零，不显示该未知分项；仍展示已知的非零分项。如果没有可展示的非零分项且不满足两项都为 0，则显示 `--`，不使用总额或虚构零消费。
+- 查询参数、分页、服务端标题、世界 ID 展示和复制行为不变。Mock 与测试使用分项字段，不代表实际计费。

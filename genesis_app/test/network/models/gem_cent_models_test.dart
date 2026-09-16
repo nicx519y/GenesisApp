@@ -7,6 +7,35 @@ import 'package:genesis_flutter_android/network/models/gem_task.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 
 void main() {
+  test('record split amounts preserve null and ignore the removed total', () {
+    for (final amounts in [(null, null), (0, 0), (-100, -260), (null, -1)]) {
+      final record = GemRecordItem.fromJson({
+        'regular_amount_cent': amounts.$1,
+        'membership_amount_cent': amounts.$2,
+        'amount_cent': 'must not be read',
+      });
+      expect(record.regularAmountCent, amounts.$1);
+      expect(record.membershipAmountCent, amounts.$2);
+    }
+  });
+
+  test('both record split fields are required nullable integers', () {
+    for (final field in ['regular_amount_cent', 'membership_amount_cent']) {
+      for (final invalid in <Object?>[null, 1.5, '100', true]) {
+        final json = <String, dynamic>{
+          'regular_amount_cent': 0,
+          'membership_amount_cent': 0,
+        };
+        if (invalid == null) {
+          json.remove(field);
+        } else {
+          json[field] = invalid;
+        }
+        expect(() => GemRecordItem.fromJson(json), throwsFormatException);
+      }
+    }
+  });
+
   Map<String, dynamic> quotation() => {
     'model_code': 'miranda',
     'title': 'Miranda',
@@ -83,7 +112,10 @@ void main() {
       55000,
     );
     expect(
-      GemRecordItem.fromJson(<String, dynamic>{'amount_cent': -400}).amountCent,
+      GemRecordItem.fromJson(<String, dynamic>{
+        'regular_amount_cent': -400,
+        'membership_amount_cent': 0,
+      }).regularAmountCent,
       -400,
     );
     expect(
@@ -139,7 +171,8 @@ void main() {
       );
       expect(
         () => GemRecordItem.fromJson(<String, dynamic>{
-          if (invalid != null) 'amount_cent': invalid,
+          if (invalid != null) 'regular_amount_cent': invalid,
+          'membership_amount_cent': 0,
         }),
         throwsFormatException,
       );

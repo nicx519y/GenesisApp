@@ -223,9 +223,9 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
     this.preservePageWidth = false,
   });
 
-  static const double _bubbleGap = 8;
+  static const double _bubbleGap = worldMapMessageBubblePointerHeight + 2;
   static const double _pointerWidth = worldMapMessageBubblePointerWidth;
-  static const double _pointerHeight = 10;
+  static const double _pointerHeight = worldMapMessageBubblePointerHeight;
   static const double _viewportPadding = 8;
 
   final String text;
@@ -249,8 +249,13 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
     final viewportConstrainedLeft = (avatarCenterX - bubbleWidth / 2)
         .clamp(_viewportPadding, maximumLeft)
         .toDouble();
+    final pointerInset =
+        worldMapMessageBubbleBorderRadius.topLeft.x + _pointerWidth / 2;
     final pointerLeft = (avatarCenterX - viewportConstrainedLeft)
-        .clamp(bubbleWidth / 4, bubbleWidth * 3 / 4)
+        .clamp(
+          math.max(bubbleWidth / 4, pointerInset),
+          math.min(bubbleWidth * 3 / 4, bubbleWidth - pointerInset),
+        )
         .toDouble();
     final left = avatarCenterX - pointerLeft;
 
@@ -265,29 +270,27 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            Positioned(
-              key: const ValueKey<String>(
-                'tilemap-character-message-bubble-pointer',
-              ),
-              left: pointerLeft - _pointerWidth / 2,
-              top: 0,
-              width: _pointerWidth,
-              height: _pointerHeight,
-              child: CustomPaint(
-                painter: const _TilemapMessageBubblePointerPainter(),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: _pointerHeight),
-              child: SizedBox(
+        child: WorldMapMessageBubbleSurface(
+          pointerLeft: pointerLeft,
+          child: Stack(
+            children: [
+              Positioned(
                 key: const ValueKey<String>(
-                  'tilemap-character-message-bubble-body',
+                  'tilemap-character-message-bubble-pointer',
                 ),
-                width: double.infinity,
-                child: WorldMapMessageBubbleSurface(
+                left: pointerLeft - _pointerWidth / 2,
+                top: 0,
+                width: _pointerWidth,
+                height: _pointerHeight,
+                child: const SizedBox.expand(),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: _pointerHeight),
+                child: SizedBox(
+                  key: const ValueKey<String>(
+                    'tilemap-character-message-bubble-body',
+                  ),
+                  width: double.infinity,
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: worldMapMessageBubbleHorizontalPadding,
@@ -302,32 +305,10 @@ class TilemapCharacterMessageBubble extends StatelessWidget {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
-}
-
-class _TilemapMessageBubblePointerPainter extends CustomPainter {
-  const _TilemapMessageBubblePointerPainter();
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(size.width, size.height)
-      ..lineTo(0, size.height)
-      ..close();
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = worldMapMessageBubbleBackgroundColor
-        ..style = PaintingStyle.fill,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_TilemapMessageBubblePointerPainter oldDelegate) => false;
 }

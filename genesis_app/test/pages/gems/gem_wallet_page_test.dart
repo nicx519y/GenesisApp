@@ -798,7 +798,8 @@ void main() {
                 items: [
                   GemRecordItem(
                     ledgerId: 'gl_$scene',
-                    amountCent: 5000,
+                    membershipAmountCent: 0,
+                    regularAmountCent: 5000,
                     scene: 'task',
                     reasonCode: 'daily_checkin',
                     title: scene == 'earned'
@@ -1817,7 +1818,9 @@ void main() {
     final button = find.byKey(
       const ValueKey<String>('gem-task-action-daily_checkin'),
     );
-    await tester.tap(button);
+    // Tapping the card's padding opens the same action as its small button.
+    final taskCard = find.byKey(const ValueKey('gem-task-row-daily_checkin'));
+    await tester.tapAt(tester.getTopLeft(taskCard) + const Offset(4, 4));
     await tester.pumpAndSettle();
     expect(find.text('Daily Check-in'), findsOneWidget);
     expect(reportCalls, 0);

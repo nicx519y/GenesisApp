@@ -35,7 +35,8 @@ class GemRecordList {
 class GemRecordItem {
   const GemRecordItem({
     required this.ledgerId,
-    required this.amountCent,
+    required this.regularAmountCent,
+    required this.membershipAmountCent,
     required this.scene,
     required this.reasonCode,
     required this.title,
@@ -53,7 +54,8 @@ class GemRecordItem {
         : const <String, dynamic>{};
     return GemRecordItem(
       ledgerId: asString(json['ledger_id']),
-      amountCent: requireGemCent(json['amount_cent'], fieldName: 'amount_cent'),
+      regularAmountCent: _readAmount(json, 'regular_amount_cent'),
+      membershipAmountCent: _readAmount(json, 'membership_amount_cent'),
       scene: asString(json['scene']),
       reasonCode: asString(json['reason_code']),
       title: asString(json['title']),
@@ -97,7 +99,9 @@ class GemRecordItem {
   }
 
   final String ledgerId;
-  final int amountCent;
+  // A null split means the historical source is unknown, not zero.
+  final int? regularAmountCent;
+  final int? membershipAmountCent;
   final String scene;
   final String reasonCode;
   final String title;
@@ -107,4 +111,12 @@ class GemRecordItem {
   final String worldName;
   final String worldId;
   final String orderId;
+
+  static int? _readAmount(Map<String, dynamic> json, String field) {
+    if (!json.containsKey(field)) {
+      throw FormatException('$field is required');
+    }
+    final value = json[field];
+    return value == null ? null : requireGemCent(value, fieldName: field);
+  }
 }

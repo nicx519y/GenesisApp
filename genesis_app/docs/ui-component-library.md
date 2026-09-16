@@ -30,7 +30,7 @@ gem、badge、recharge 与兜底箭头按占位尺寸绘制；edit、inspiration
 | recharge | 向上升级箭头 | `upgradeIconAsset` |
 | 未知值（含已废弃 key） | 向上升级箭头 | `upgradeIconAsset` |
 
-保留主分支已重命名的 `icon_benefit_*` 共享资源，不恢复旧路径。图标只按 `icon_key` 映射，不根据 title/code 猜测。权益数据来自后端；购买页将 gem 权益合并为一个模块，其余按后端顺序展示，`display_type` 不再生成右侧状态图标，也不作为功能权限判断依据。
+保留仍在使用的 `icon_benefit_edit`、`icon_benefit_inspiration`、`icon_benefit_badge` 共享资源，不恢复旧路径；旧线框宝石 `icon_benefit_gem` 已由 `gem_diamond` 替换并删除。图标只按 `icon_key` 映射，不根据 title/code 猜测。权益数据来自后端；购买页将 gem 权益合并为一个模块，其余按后端顺序展示，`display_type` 不再生成右侧状态图标，也不作为功能权限判断依据。
 
 ## 使用入口
 
