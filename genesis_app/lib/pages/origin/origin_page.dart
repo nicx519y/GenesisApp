@@ -253,7 +253,8 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                             Expanded(
                               child: Text(
                                 entry.value,
-                                style: GenesisActionBox.actionTextStyle,
+                                style: GenesisActionBox.actionTextStyle
+                                    .copyWith(fontWeight: FontWeight.w400),
                               ),
                             ),
                             if (entry.key == selectedGender) ...[
