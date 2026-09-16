@@ -152,8 +152,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
   }) {
     if (_disposed) return;
     if (_holdingReplyPosition &&
-        (reason == LocationChatBottomReason.composerFocus ||
-            reason == LocationChatBottomReason.replyGeneration)) {
+        reason == LocationChatBottomReason.replyGeneration) {
       return;
     }
     _holdingReplyPosition = false;

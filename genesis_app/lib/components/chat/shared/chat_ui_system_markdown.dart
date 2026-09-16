@@ -42,6 +42,9 @@ class _InlineMarkdownText extends StatelessWidget {
           platform,
           mentionCatalog: mentionCatalog,
           emphasisColor: emphasisColor,
+          optimisticUnclosedEmphasis: ChatStreamingMessage.isStreamingActive(
+            context,
+          ),
           suppressIosEmphasisSkew: softItalic && usesIosSoftItalicSkew,
           softItalicPlainText: softItalicPerToken && usesIosSoftItalicSkew,
         ),
@@ -68,6 +71,7 @@ List<InlineSpan> _inlineMarkdownSpans(
   TargetPlatform platform, {
   required ChatMentionCatalog? mentionCatalog,
   required Color emphasisColor,
+  bool optimisticUnclosedEmphasis = false,
   bool suppressIosEmphasisSkew = false,
   bool softItalicPlainText = false,
 }) {
@@ -103,40 +107,50 @@ List<InlineSpan> _inlineMarkdownSpans(
     buffer.clear();
   }
 
+  void appendEmphasis(String emphasisText) {
+    final mentionStyle = suppressIosEmphasisSkew
+        ? baseStyle.copyWith(color: emphasisColor)
+        : GenesisTypography.inlineEmphasis(
+            baseStyle,
+            platform: platform,
+            color: emphasisColor,
+          );
+    spans.addAll(
+      _chatMentionAwareSpans(
+        emphasisText,
+        mentionCatalog,
+        mentionStyle,
+        (piece) => suppressIosEmphasisSkew
+            ? <InlineSpan>[
+                TextSpan(
+                  text: piece,
+                  style: baseStyle.copyWith(color: emphasisColor),
+                ),
+              ]
+            : _inlineEmphasisSpans(
+                piece,
+                baseStyle,
+                platform,
+                color: emphasisColor,
+              ),
+      ),
+    );
+  }
+
   while (index < text.length) {
     final marker = text[index];
     if (marker == '*' && !_isRepeatedMarker(text, index, marker)) {
       final end = _findInlineItalicEnd(text, index + 1, marker);
       if (end != -1 && end > index + 1) {
         flushPlain();
-        final mentionStyle = suppressIosEmphasisSkew
-            ? baseStyle.copyWith(color: emphasisColor)
-            : GenesisTypography.inlineEmphasis(
-                baseStyle,
-                platform: platform,
-                color: emphasisColor,
-              );
-        spans.addAll(
-          _chatMentionAwareSpans(
-            text.substring(index + 1, end),
-            mentionCatalog,
-            mentionStyle,
-            (piece) => suppressIosEmphasisSkew
-                ? <InlineSpan>[
-                    TextSpan(
-                      text: piece,
-                      style: baseStyle.copyWith(color: emphasisColor),
-                    ),
-                  ]
-                : _inlineEmphasisSpans(
-                    piece,
-                    baseStyle,
-                    platform,
-                    color: emphasisColor,
-                  ),
-          ),
-        );
+        appendEmphasis(text.substring(index + 1, end));
         index = end + 1;
+        continue;
+      }
+      if (optimisticUnclosedEmphasis) {
+        flushPlain();
+        appendEmphasis(text.substring(index + 1));
+        index = text.length;
         continue;
       }
     }

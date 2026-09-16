@@ -57,16 +57,25 @@ extension _LocationChatLayout on _LocationChatPanelState {
     return GenesisSafeAreaInsets.top(context) + style.headerHeight;
   }
 
+  void _followLatestForComposer() {
+    _ignoreInheritedKeyboardInset = false;
+    _scrollCoordinator.requestBottom(
+      reason: LocationChatBottomReason.composerFocus,
+      behavior: LocationChatBottomBehavior.jump,
+    );
+  }
+
   void _handleComposerFocusChanged() {
     if (!mounted) return;
     if (_composerFocusNode.hasFocus) {
-      _ignoreInheritedKeyboardInset = false;
-      _scrollCoordinator.requestBottom(
-        reason: LocationChatBottomReason.composerFocus,
-        behavior: LocationChatBottomBehavior.jump,
-      );
+      _followLatestForComposer();
     }
     _setLocationChatState(() {});
+  }
+
+  void _handleComposerInputTap() {
+    if (!mounted) return;
+    _followLatestForComposer();
   }
 
   void _handleDraftTextChanged() {

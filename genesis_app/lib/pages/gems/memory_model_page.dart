@@ -90,8 +90,9 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
   void initState() {
     super.initState();
     _trackSwitchModelPage();
-    unawaited(_refresh(useCache: true));
-    unawaited(_loadMemorySettings(useCache: true));
+    _restoreCachedSnapshot();
+    unawaited(_refresh(preserveContent: true));
+    unawaited(_loadMemorySettings(preservePending: true));
   }
 
   @override
@@ -104,12 +105,20 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       _latestModelRequest = null;
       _latestMemoryRequest = null;
       _memoryUncertainRevision = null;
+      _catalog = null;
+      _error = null;
+      _pendingModelCode = '';
+      _confirmedModelCode = '';
+      _memorySettings = null;
       _rangeMemorySettings = null;
       _confirmedMemoryTokens = null;
       _lastSavedMemoryTokens = null;
+      _memoryError = null;
+      _pendingMemoryTokens = 0;
       _trackSwitchModelPage();
-      unawaited(_refresh());
-      unawaited(_loadMemorySettings());
+      _restoreCachedSnapshot();
+      unawaited(_refresh(preserveContent: true));
+      unawaited(_loadMemorySettings(preservePending: true));
     }
   }
 
@@ -133,13 +142,26 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     );
   }
 
-  Future<GemModelCatalog> _loadCatalog({bool useCache = false}) {
-    final cache = widget.pageCache;
-    final cached =
-        useCache && cache?.memorySettings?.worldId == widget.worldId.trim()
-        ? cache?.modelCatalog
-        : null;
-    if (cached != null) return Future<GemModelCatalog>.value(cached);
+  void _restoreCachedSnapshot() {
+    final pageCache = widget.pageCache;
+    final worldId = widget.worldId.trim();
+    final memory = pageCache?.memorySettings;
+    if (memory == null || memory.worldId?.trim() != worldId) return;
+
+    _memorySettings = memory;
+    _rangeMemorySettings = memory;
+    _confirmedMemoryTokens = memory.memoryTokens;
+    _lastSavedMemoryTokens = memory.memoryTokens;
+    _pendingMemoryTokens = memory.memoryTokens;
+
+    final catalog = pageCache?.modelCatalog;
+    if (catalog == null) return;
+    _catalog = catalog;
+    _confirmedModelCode = catalog.selectedModelCode.trim();
+    _pendingModelCode = _confirmedModelCode;
+  }
+
+  Future<GemModelCatalog> _loadCatalog() {
     final loader = widget.catalogLoader;
     if (loader != null) return loader(widget.worldId);
     return AppServicesScope.read(
@@ -155,10 +177,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     ).api.v1.user.memorySettings(worldId: worldId);
   }
 
-  Future<void> _loadMemorySettings({
-    bool preservePending = false,
-    bool useCache = false,
-  }) async {
+  Future<void> _loadMemorySettings({bool preservePending = false}) async {
     final pageCache = widget.pageCache;
     final worldId = widget.worldId.trim();
     final generation = ++_memoryLoadGeneration;
@@ -175,9 +194,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     });
     try {
       final loaded = _validatedMemorySettings(
-        await (useCache && pageCache?.memorySettings?.worldId == worldId
-            ? Future<UserMemorySettings>.value(pageCache!.memorySettings!)
-            : _loadMemory(worldId)),
+        await _loadMemory(worldId),
         requireWorldUsage: true,
         expectedWorldId: worldId,
       );
@@ -351,10 +368,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     });
   }
 
-  Future<void> _refresh({
-    bool preserveContent = false,
-    bool useCache = false,
-  }) async {
+  Future<void> _refresh({bool preserveContent = false}) async {
     final pageCache = widget.pageCache;
     final generation = ++_loadGeneration;
     setState(() {
@@ -363,7 +377,7 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
       if (!preserveContent) _catalog = null;
     });
     try {
-      final catalog = await _loadCatalog(useCache: useCache);
+      final catalog = await _loadCatalog();
       if (generation != _loadGeneration) return;
       pageCache?.storeModelCatalog(catalog);
       if (!mounted) return;

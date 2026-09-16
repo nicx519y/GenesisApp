@@ -2523,6 +2523,29 @@ void main() {
       );
       expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
 
+      // The platform back action can hide the keyboard without clearing the
+      // TextField focus. A later tap must still be an explicit follow-latest
+      // action even though the FocusNode does not change again.
+      tester.view.resetViewInsets();
+      await tester.pump();
+      expect(tester.widget<TextField>(textField).focusNode?.hasFocus, isTrue);
+      viewportCoordinator.deactivate();
+      position.jumpTo(position.maxScrollExtent - 120);
+      await tester.pump();
+      expect(viewportCoordinator.mode, LocationChatViewportMode.detached);
+
+      await tester.tap(textField);
+      await tester.pump();
+      await tester.pump();
+      expect(
+        viewportCoordinator.mode,
+        LocationChatViewportMode.followingLatest,
+      );
+      expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+
+      tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+      await tester.pump();
+
       await tester.drag(scrollable, const Offset(0, 300));
       await tester.pump();
       tester.view.resetViewInsets();

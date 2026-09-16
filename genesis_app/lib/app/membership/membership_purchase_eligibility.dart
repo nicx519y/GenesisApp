@@ -35,7 +35,7 @@ String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
       'Please resolve your current subscription in the store before purchasing.',
     'sale_disabled' => 'Premium purchase is currently unavailable.',
     'device_id_required' || 'eligibility_unavailable' =>
-      'Unable to verify Premium purchase eligibility. Please try again.',
+      'Unable to verify purchase eligibility. Please try again.',
     'account_mismatch' =>
       'This Premium purchase belongs to a different account.',
     'invalid_purchase' => 'The store could not verify this Premium purchase.',
@@ -43,7 +43,7 @@ String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
       'The Premium purchase does not match the selected plan.',
     'purchase_canceled' => 'This Premium purchase was canceled.',
     'purchase_revoked' => 'This Premium purchase was revoked.',
-    _ => 'Premium purchase failed.',
+    _ => 'Purchase failed.',
   };
   return purchaseToastMessage(
     message,

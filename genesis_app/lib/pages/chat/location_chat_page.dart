@@ -1062,6 +1062,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
             builder: (context, _, child) => LocationChatComposerInput(
               controller: _textController,
               focusNode: _composerFocusNode,
+              onInputTap: _handleComposerInputTap,
               hintText: 'Text...',
               inputEnabled:
                   widget.active &&

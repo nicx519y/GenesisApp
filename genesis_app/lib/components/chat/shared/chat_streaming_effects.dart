@@ -90,6 +90,10 @@ class ChatStreamingMessage extends StatelessWidget {
   final bool streaming;
   final Widget child;
 
+  static bool isStreamingActive(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_MessageScope>()?.streaming ??
+      false;
+
   @override
   Widget build(BuildContext context) {
     final effects = context.dependOnInheritedWidgetOfExactType<_EffectsScope>();

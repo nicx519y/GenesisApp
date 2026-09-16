@@ -143,7 +143,7 @@ class MembershipPurchasePresentation {
           showGenesisToast(
             context,
             purchaseToastMessage(
-              'Premium purchase failed.',
+              'Purchase failed.',
               debugInfo: purchaseDebugInfo(
                 'vip.checkout_exception',
                 error: error,
@@ -170,13 +170,12 @@ class MembershipPurchasePresentation {
   }
 
   String _message(MembershipCheckoutState state) => switch (state) {
-    MembershipCheckoutState.canceled => 'Premium purchase canceled.',
-    MembershipCheckoutState.pending => 'Premium payment is pending.',
-    MembershipCheckoutState.accepted =>
-      'Your Premium purchase is being confirmed.',
+    MembershipCheckoutState.canceled => 'Purchase canceled.',
+    MembershipCheckoutState.pending => 'Your purchase is pending.',
+    MembershipCheckoutState.accepted => 'Your purchase is being confirmed.',
     MembershipCheckoutState.deferred =>
-      'Premium purchase confirmation is delayed. Please check again later.',
-    _ => 'Premium purchase failed.',
+      'Purchase confirmation is delayed. Please check again later.',
+    _ => 'Purchase failed.',
   };
 
   void _close(bool confirmed) {

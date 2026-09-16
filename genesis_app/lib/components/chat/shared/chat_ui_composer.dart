@@ -17,6 +17,7 @@ class ChatComposer extends StatelessWidget {
     this.bottomSafeAreaInset,
     this.focusNode,
     this.onInputTap,
+    this.onInputTapAlwaysCalled = false,
     this.leadingShortcutLabel,
     this.onLeadingShortcutPressed,
     this.secondaryLeadingShortcutLabel,
@@ -40,6 +41,7 @@ class ChatComposer extends StatelessWidget {
   final double? bottomSafeAreaInset;
   final FocusNode? focusNode;
   final VoidCallback? onInputTap;
+  final bool onInputTapAlwaysCalled;
   final String? leadingShortcutLabel;
   final VoidCallback? onLeadingShortcutPressed;
   final String? secondaryLeadingShortcutLabel;
@@ -144,6 +146,7 @@ class ChatComposer extends StatelessWidget {
                                         .primaryFocus
                                         ?.unfocus(),
                                     onTap: onInputTap,
+                                    onTapAlwaysCalled: onInputTapAlwaysCalled,
                                     onSubmitted: submitFromKeyboard
                                         ? (_) {
                                             if (sendEnabled) {

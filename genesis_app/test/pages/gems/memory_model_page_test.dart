@@ -349,9 +349,7 @@ void main() {
     },
   );
 
-  testWidgets('reentry reuses the saved pair without extra requests', (
-    tester,
-  ) async {
+  testWidgets('reentry shows the saved pair and refreshes it', (tester) async {
     final memoryApi = _FakeMemoryApi();
     final cache = MemoryModelPageCache();
     var catalogLoads = 0;
@@ -375,8 +373,12 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pumpWidget(page());
     await tester.pumpAndSettle();
-    expect(catalogLoads, 2);
-    expect(memoryApi.loads, ['W_CACHE_RANGE', 'W_CACHE_RANGE']);
+    expect(catalogLoads, 3);
+    expect(memoryApi.loads, [
+      'W_CACHE_RANGE',
+      'W_CACHE_RANGE',
+      'W_CACHE_RANGE',
+    ]);
     expect(find.text('2.2–4.8 gems (memory 6K → 1M)'), findsOneWidget);
   });
 
@@ -956,38 +958,65 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('reuses both settings responses within one WorldPage cache', (
+  testWidgets('shows cached settings while refreshing every page entry', (
     tester,
   ) async {
     final pageCache = MemoryModelPageCache();
+    pageCache
+      ..storeMemorySettings(
+        _worldSettings('W_CACHED', memoryTokens: 48000, usedTokens: 6000),
+      )
+      ..storeModelCatalog(
+        _quotationCatalog(memoryTokens: 48000, minCent: 216, maxCent: 483),
+      );
+    final refreshedMemory = Completer<UserMemorySettings>();
+    final refreshedCatalog = Completer<GemModelCatalog>();
     var memoryLoads = 0;
     var modelLoads = 0;
 
-    Widget page() => _testApp(
-      MemoryModelPage(
-        worldId: 'W_CACHED',
-        pageCache: pageCache,
-        memorySettingsLoader: (_) async {
-          memoryLoads += 1;
-          return _worldSettings('W_CACHED');
-        },
-        catalogLoader: (_) async {
-          modelLoads += 1;
-          return _catalog();
-        },
+    await tester.pumpWidget(
+      _testApp(
+        MemoryModelPage(
+          worldId: 'W_CACHED',
+          pageCache: pageCache,
+          memorySettingsLoader: (_) {
+            memoryLoads += 1;
+            return refreshedMemory.future;
+          },
+          catalogLoader: (_) {
+            modelLoads += 1;
+            return refreshedCatalog.future;
+          },
+        ),
       ),
     );
-
-    await tester.pumpWidget(page());
-    await tester.pumpAndSettle();
+    await tester.pump();
     expect(memoryLoads, 1);
     expect(modelLoads, 1);
+    expect(
+      find.textContaining(
+        'Estimated next message 2.2 gems',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('2.2–4.8 gems (memory 6K → 48K)'), findsOneWidget);
 
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpWidget(page());
+    refreshedMemory.complete(
+      _worldSettings('W_CACHED', memoryTokens: 48000, usedTokens: 9000),
+    );
+    refreshedCatalog.complete(
+      _quotationCatalog(memoryTokens: 48000, minCent: 300, maxCent: 900),
+    );
     await tester.pumpAndSettle();
-    expect(memoryLoads, 1);
-    expect(modelLoads, 1);
+    expect(
+      find.textContaining(
+        'Estimated next message 3.0 gems',
+        findRichText: true,
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('3.0–9.0 gems (memory 9K → 48K)'), findsOneWidget);
 
     pageCache.dispose();
     expect(pageCache.memorySettings, isNull);
