@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/components/ai_content_disclaimer.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/components/common/genesis_image_viewer_overlay.dart';
@@ -2940,6 +2941,155 @@ void main() {
     expect(_textHasItalicFragment(bubbleText, 'quietly'), isTrue);
     expect(_textFragmentColor(bubbleText, 'quietly'), const Color(0xFF888888));
   });
+
+  for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+    testWidgets(
+      'streaming markdown keeps open emphasis stable when it closes on $platform',
+      (WidgetTester tester) async {
+        Widget view(String text) => MaterialApp(
+          theme: ThemeData(platform: platform),
+          home: Scaffold(
+            body: ChatStreamingEffects(
+              settings: LocationChatBubbleLayoutSettings.defaults.copyWith(
+                animateStreamingHeight: false,
+                streamingTextReveal: false,
+              ),
+              child: ChatStreamingMessage(
+                identity: 'streaming-markdown',
+                streaming: true,
+                child: ChatMessageBubble(
+                  message: ChatMessageVm(
+                    localId: 'streaming-markdown',
+                    senderId: 'peer',
+                    senderName: 'Peer',
+                    text: text,
+                    isMe: false,
+                    status: 'streaming',
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+        await tester.pumpWidget(view('hello *quietly'));
+        var bubbleText = tester.widget<Text>(
+          find.descendant(
+            of: find.byType(ChatMessageBubble),
+            matching: find.byType(Text),
+          ),
+        );
+        final openSize = tester.getSize(find.byType(ChatMessageBubble));
+        final openStyle = _textFragmentStyle(bubbleText, 'quietly');
+        expect(bubbleText.textSpan?.toPlainText(), 'hello quietly');
+        expect(openStyle?.fontStyle, FontStyle.italic);
+        expect(openStyle?.fontFamily, GenesisTypography.fontFamily);
+
+        await tester.pumpWidget(view('hello *quietly*'));
+        bubbleText = tester.widget<Text>(
+          find.descendant(
+            of: find.byType(ChatMessageBubble),
+            matching: find.byType(Text),
+          ),
+        );
+        final closedStyle = _textFragmentStyle(bubbleText, 'quietly');
+        expect(bubbleText.textSpan?.toPlainText(), 'hello quietly');
+        expect(closedStyle?.fontStyle, openStyle?.fontStyle);
+        expect(closedStyle?.fontFamily, openStyle?.fontFamily);
+        expect(closedStyle?.color, openStyle?.color);
+        expect(tester.getSize(find.byType(ChatMessageBubble)), openSize);
+      },
+    );
+  }
+
+  testWidgets('closing streaming emphasis does not reset reveal progress', (
+    WidgetTester tester,
+  ) async {
+    const openText =
+        'intro\n*first emphasized line\nsecond emphasized line\nthird emphasized line';
+    Widget view(String text) => MaterialApp(
+      home: Scaffold(
+        body: ChatStreamingEffects(
+          settings: LocationChatBubbleLayoutSettings.defaults.copyWith(
+            animateStreamingHeight: false,
+            streamingTextDurationMs: 1000,
+          ),
+          child: ChatStreamingMessage(
+            identity: 'revealing-markdown',
+            streaming: true,
+            child: ChatMessageBubble(
+              message: ChatMessageVm(
+                localId: 'revealing-markdown',
+                senderId: 'peer',
+                senderName: 'Peer',
+                text: text,
+                isMe: false,
+                status: 'streaming',
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(view(openText));
+    await tester.pump(const Duration(milliseconds: 650));
+    final beforeClose = tester.getSize(find.byType(ChatStreamingBody));
+    expect(beforeClose.height, greaterThan(0));
+
+    await tester.pumpWidget(view('$openText*'));
+    expect(tester.getSize(find.byType(ChatStreamingBody)), beforeClose);
+  });
+
+  testWidgets(
+    'unfinished streaming emphasis returns to plain text on completion',
+    (WidgetTester tester) async {
+      Widget view({required bool streaming}) => MaterialApp(
+        home: Scaffold(
+          body: ChatStreamingEffects(
+            settings: LocationChatBubbleLayoutSettings.defaults.copyWith(
+              animateStreamingHeight: false,
+              streamingTextReveal: false,
+            ),
+            child: ChatStreamingMessage(
+              identity: 'unfinished-markdown',
+              streaming: streaming,
+              child: ChatMessageBubble(
+                message: ChatMessageVm(
+                  localId: 'unfinished-markdown',
+                  senderId: 'peer',
+                  senderName: 'Peer',
+                  text: 'hello *unfinished',
+                  isMe: false,
+                  status: streaming ? 'streaming' : 'sent',
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(view(streaming: true));
+      var bubbleText = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(ChatMessageBubble),
+          matching: find.byType(Text),
+        ),
+      );
+      expect(bubbleText.textSpan?.toPlainText(), 'hello unfinished');
+      expect(_textHasItalicFragment(bubbleText, 'unfinished'), isTrue);
+
+      await tester.pumpWidget(view(streaming: false));
+      bubbleText = tester.widget<Text>(
+        find.descendant(
+          of: find.byType(ChatMessageBubble),
+          matching: find.byType(Text),
+        ),
+      );
+      expect(bubbleText.textSpan?.toPlainText(), 'hello *unfinished');
+      expect(_textHasItalicFragment(bubbleText, 'unfinished'), isFalse);
+    },
+  );
 
   testWidgets('self chat markdown uses the AI emphasis color', (
     WidgetTester tester,
