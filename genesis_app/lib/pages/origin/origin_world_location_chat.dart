@@ -1,11 +1,7 @@
 part of 'origin_world_page.dart';
 
-ChatUiStyleConfig get _originDetailSheetChatComposerStyle =>
-    kLocationChatStyle.copyWith(
-      composerBackgroundColor: originWorldDetailSheetBackgroundColor.withValues(
-        alpha: 0.9,
-      ),
-    );
+ChatUiStyleConfig get _originDetailSheetChatComposerStyle => kLocationChatStyle
+    .copyWith(composerBackgroundColor: originWorldDetailSheetSurfaceColor);
 
 const double _originLocationChatRolePillAvatarSize = 22;
 const double _originLocationChatDockRoleOffsetY = -2;

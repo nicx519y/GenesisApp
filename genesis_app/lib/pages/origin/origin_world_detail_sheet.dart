@@ -90,6 +90,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
     required this.initiallyExpanded,
     required this.autoExpansionPending,
     required this.onRaisedChanged,
+    required this.onOverlayVisibleHeightChanged,
     required this.onFullyExpanded,
     required this.onAutoExpansionInterrupted,
     required this.onOriginChanged,
@@ -111,6 +112,7 @@ class _OriginDetailDraggableSheet extends StatefulWidget {
   final bool initiallyExpanded;
   final bool autoExpansionPending;
   final ValueChanged<bool> onRaisedChanged;
+  final ValueChanged<double> onOverlayVisibleHeightChanged;
   final VoidCallback onFullyExpanded;
   final VoidCallback onAutoExpansionInterrupted;
   final VoidCallback onOriginChanged;
@@ -266,6 +268,7 @@ class _OriginDetailDraggableSheetState
       onCommit: (draft) => widget.onSaveProfileRole(draft),
     )..addListener(_handleRoleEditorInteractionChanged);
     _scheduleDiscussPreloadAfterPaint();
+    _syncRaisedStateAfterBuild();
     if (widget.initiallyExpanded && widget.autoExpansionPending) {
       _completeInitialExpansionAfterPaint();
     }
@@ -637,6 +640,7 @@ class _OriginDetailDraggableSheetState
     final isFullyExpanded =
         (maxChildSize - extent).abs() <= _extentUpdateEpsilon;
     final isRaised = extent > _minChildSize + _extentUpdateEpsilon;
+    _reportOverlayVisibleHeight(extent);
     _updateRaisedState(isRaised);
     if (isFullyExpanded && !_isFullyExpanded) {
       GenesisTelemetry.collectLog(
@@ -650,6 +654,14 @@ class _OriginDetailDraggableSheetState
     }
     _isFullyExpanded = isFullyExpanded;
     return false;
+  }
+
+  void _reportOverlayVisibleHeight(double extent) {
+    final viewportHeight = MediaQuery.sizeOf(context).height;
+    if (viewportHeight <= 0) return;
+    widget.onOverlayVisibleHeightChanged(
+      viewportHeight * (1 - extent.clamp(0.0, 1.0)),
+    );
   }
 
   void _scheduleAutomaticExpansionCompletionAfterPaint() {
@@ -682,6 +694,7 @@ class _OriginDetailDraggableSheetState
   void _syncRaisedStateAfterBuild() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_sheetController.isAttached) return;
+      _reportOverlayVisibleHeight(_sheetController.size);
       _updateRaisedState(
         _sheetController.size > _minChildSize + _extentUpdateEpsilon,
       );
@@ -1586,7 +1599,7 @@ class _OriginDetailDraggableSheetState
               return DecoratedBox(
                 key: const ValueKey<String>('origin-detail-sheet-surface'),
                 decoration: BoxDecoration(
-                  color: originWorldDetailSheetBackgroundColor,
+                  color: originWorldDetailSheetSurfaceColor,
                   borderRadius: GenesisRadii.sheet,
                 ),
                 child: ClipRRect(
@@ -1677,9 +1690,9 @@ class _OriginCollapsedOpeningRoleAction extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.bottomCenter,
           end: Alignment.topCenter,
-          colors: const [
-            originWorldDetailSheetBackgroundColor,
-            originWorldDetailSheetBackgroundColor,
+          colors: [
+            originWorldDetailSheetSurfaceColor,
+            originWorldDetailSheetSurfaceColor,
             Color(0x00151517),
           ],
           stops: const [0, 0.55, 1],
@@ -1812,8 +1825,8 @@ class _OriginSheetPinnedHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
+      key: const ValueKey<String>('origin-sheet-pinned-header'),
       height: topPadding + originDetailSheetHeaderHeightForTesting,
-      child: const ColoredBox(color: originWorldDetailSheetBackgroundColor),
     );
   }
 }

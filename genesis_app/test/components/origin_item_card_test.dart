@@ -5,8 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/ui/theme/genesis_dark_theme.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/components/common/list_loading_skeleton.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_card.dart';
 import 'package:genesis_flutter_android/components/origin/origin_item_cover_gradient_painter.dart';
@@ -87,7 +85,7 @@ void main() {
       status: 1,
       versionNum: 3,
       name: 'Alpha Empire',
-      cover: '',
+      cover: 'assets/images/app_icon.png',
       displaySubtitle: 'Tycoon idols',
       worldView: '',
       createdUid: 'u_1',
@@ -160,6 +158,10 @@ void main() {
       find.byKey(const ValueKey<String>('origin-item-card-cover-loader')),
     );
     expect(coverImage.image, isA<AssetImage>());
+    expect(
+      (coverImage.image as AssetImage).assetName,
+      'assets/images/app_icon.png',
+    );
     final paintedCover = tester.widget<CustomPaint>(
       find.byKey(const ValueKey<String>('origin-item-card-painted-cover')),
     );
@@ -225,135 +227,105 @@ void main() {
     expect(subtitle.maxLines, 3);
   });
 
-  for (final dark in [false, true]) {
-    testWidgets(
-      'keeps the whole item hidden until its cover is ready (${dark ? 'dark' : 'light'})',
-      (WidgetTester tester) async {
-        final frame = Completer<ImageInfo>();
-        final sourceImage = await _solidImage(const Color(0xFFFF0000));
-        addTearDown(sourceImage.dispose);
-        debugOriginItemCoverImageProvider = (_) =>
-            _CompletingTestImageProvider(frame.future);
+  testWidgets(
+    'renders details before the cover and merges in the loaded cover',
+    (WidgetTester tester) async {
+      final frame = Completer<ImageInfo>();
+      final sourceImage = await _solidImage(const Color(0xFFFF0000));
+      addTearDown(sourceImage.dispose);
+      debugOriginItemCoverImageProvider = (_) =>
+          _CompletingTestImageProvider(frame.future);
 
-        const item = OriginListItem(
-          oid: 'o_delayed',
-          status: 1,
-          versionNum: 1,
-          name: 'Delayed Origin',
-          cover: '',
-          displaySubtitle: 'Wait for the cover',
-          worldView: '',
-          createdUid: 'u_1',
-          createdUserName: 'Shawn',
-          createdAt: '2026-05-01T00:00:00Z',
-          updatedAt: '2026-05-02T00:00:00Z',
-          tags: <String>[],
-          copyCnt: 3,
-          connectCnt: 4,
-          discussCnt: 0,
-          characterCnt: 5,
-          locationCnt: 0,
-        );
-        var coverLoaded = false;
+      const item = OriginListItem(
+        oid: 'o_delayed',
+        status: 1,
+        versionNum: 1,
+        name: 'Delayed Origin',
+        cover: 'assets/images/app_icon.png',
+        displaySubtitle: 'Wait for the cover',
+        worldView: '',
+        createdUid: 'u_1',
+        createdUserName: 'Shawn',
+        createdAt: '2026-05-01T00:00:00Z',
+        updatedAt: '2026-05-02T00:00:00Z',
+        tags: <String>[],
+        copyCnt: 3,
+        connectCnt: 4,
+        discussCnt: 0,
+        characterCnt: 5,
+        locationCnt: 0,
+      );
+      var coverLoaded = false;
 
-        await tester.pumpWidget(
-          MaterialApp(
-            builder: (context, child) =>
-                dark ? GenesisDarkTheme(child: child!) : child!,
-            home: Scaffold(
-              body: SizedBox(
-                width: 220,
-                child: OriginItemCard(
-                  item: item,
-                  onCoverLoaded: () => coverLoaded = true,
-                ),
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 220,
+              child: OriginItemCard(
+                item: item,
+                onCoverLoaded: () => coverLoaded = true,
               ),
             ),
           ),
-        );
-        await tester.pump();
+        ),
+      );
+      await tester.pump();
 
-        final loadingFinder = find.byKey(
-          const ValueKey<String>('origin-item-card-loading'),
-        );
-        expect(loadingFinder, findsOneWidget);
-        expect(
-          tester.getSize(loadingFinder),
-          const Size(220, 330 + genesisOriginCardBottomExtension),
-        );
-        final placeholderFinder = find.descendant(
-          of: loadingFinder,
-          matching: find.byType(DecoratedBox),
-        );
-        expect(placeholderFinder, findsOneWidget);
-        final initialDecoration =
-            tester.widget<DecoratedBox>(placeholderFinder).decoration
-                as BoxDecoration;
-        final initialGradient = initialDecoration.gradient! as LinearGradient;
-        expect(
-          initialGradient.colors,
-          dark
-              ? const [
-                  GenesisColors.darkRaisedBackground,
-                  GenesisColors.darkFaintSurface,
-                ]
-              : const [Color(0xFFE8EBF0), Color(0xFFF3F4F6)],
-        );
-        await tester.pump(const Duration(milliseconds: 350));
-        final movedDecoration =
-            tester.widget<DecoratedBox>(placeholderFinder).decoration
-                as BoxDecoration;
-        final movedGradient = movedDecoration.gradient! as LinearGradient;
-        expect(movedGradient, initialGradient);
-        expect(
-          find.descendant(
-            of: loadingFinder,
-            matching: find.byType(AnimatedBuilder),
-          ),
-          findsNothing,
-        );
-        expect(find.text('#Delayed Origin'), findsNothing);
-        expect(
-          find.byKey(
-            const ValueKey<String>('origin-item-card-footer-extension'),
-          ),
-          findsNothing,
-        );
-        expect(coverLoaded, isFalse);
+      expect(find.text('#Delayed Origin'), findsOneWidget);
+      expect(find.text('Wait for the cover'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-footer-extension')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-loading')),
+        findsOneWidget,
+      );
+      expect(find.byType(GenesisOriginCardLoadingBone), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-ready')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-painted-cover')),
+        findsOneWidget,
+      );
+      expect(coverLoaded, isFalse);
 
-        frame.complete(ImageInfo(image: sourceImage.clone()));
-        await _pumpUntilOriginCardReady(tester);
+      frame.complete(ImageInfo(image: sourceImage.clone()));
+      await _pumpUntilOriginCardReady(tester);
 
-        expect(loadingFinder, findsNothing);
-        expect(
-          find.byKey(const ValueKey<String>('origin-item-card-ready')),
-          findsOneWidget,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(OriginItemCard),
-            matching: find.byType(AnimatedOpacity),
-          ),
-          findsNothing,
-        );
-        expect(
-          find.descendant(
-            of: find.byType(OriginItemCard),
-            matching: find.byType(FadeTransition),
-          ),
-          findsNothing,
-        );
-        expect(find.text('#Delayed Origin'), findsOneWidget);
-        expect(
-          find.byKey(
-            const ValueKey<String>('origin-item-card-footer-extension'),
-          ),
-          findsOneWidget,
-        );
-        expect(coverLoaded, isTrue);
-      },
-    );
-  }
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-ready')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-painted-cover')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(OriginItemCard),
+          matching: find.byType(AnimatedOpacity),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: find.byType(OriginItemCard),
+          matching: find.byType(FadeTransition),
+        ),
+        findsNothing,
+      );
+      expect(find.text('#Delayed Origin'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('origin-item-card-footer-extension')),
+        findsOneWidget,
+      );
+      expect(coverLoaded, isTrue);
+    },
+  );
 
   testWidgets('retries a queued cover superseded before loading', (
     WidgetTester tester,
@@ -378,7 +350,7 @@ void main() {
       status: 1,
       versionNum: 1,
       name: 'Retried Origin',
-      cover: '',
+      cover: 'assets/images/app_icon.png',
       displaySubtitle: 'Retry the cover',
       worldView: '',
       createdUid: 'u_1',
@@ -405,27 +377,88 @@ void main() {
       find.byKey(const ValueKey<String>('origin-item-card-loading-cancelled')),
       findsOneWidget,
     );
-    final loadingBoneElement = find
-        .byType(GenesisOriginCardLoadingBone)
-        .evaluate()
-        .single;
+    expect(find.text('#Retried Origin'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-loading')),
+      findsOneWidget,
+    );
 
     await tester.pump(const Duration(milliseconds: 150));
     expect(attempts, greaterThanOrEqualTo(2));
-    expect(
-      identical(
-        find.byType(GenesisOriginCardLoadingBone).evaluate().single,
-        loadingBoneElement,
-      ),
-      isTrue,
-      reason: 'The static placeholder must remain stable across a cover retry.',
-    );
+    expect(find.text('#Retried Origin'), findsOneWidget);
 
     retriedFrame.complete(ImageInfo(image: sourceImage.clone()));
     await _pumpUntilOriginCardReady(tester);
 
     expect(attempts, greaterThanOrEqualTo(2));
     expect(find.text('#Retried Origin'), findsOneWidget);
+  });
+
+  testWidgets('keeps the item background when cover loading fails', (
+    WidgetTester tester,
+  ) async {
+    debugOriginItemCoverImageProvider = (_) => _CompletingTestImageProvider(
+      Future<ImageInfo>.error(StateError('cover failed')),
+    );
+
+    const item = OriginListItem(
+      oid: 'o_failed',
+      status: 1,
+      versionNum: 1,
+      name: 'Failed Origin',
+      cover: 'assets/images/app_icon.png',
+      displaySubtitle: 'Details stay visible',
+      worldView: '',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>[],
+      copyCnt: 1,
+      connectCnt: 2,
+      discussCnt: 0,
+      characterCnt: 3,
+      locationCnt: 0,
+    );
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(width: 220, child: OriginItemCard(item: item)),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('#Failed Origin'), findsOneWidget);
+    expect(find.text('Details stay visible'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-cover-error')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-loading')),
+      findsOneWidget,
+    );
+    expect(find.byType(GenesisOriginCardLoadingBone), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-ready')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-painted-cover')),
+      findsOneWidget,
+    );
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Image &&
+            widget.image is AssetImage &&
+            (widget.image as AssetImage).assetName ==
+                'assets/images/default_list_image.png',
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('does not render origin tags', (WidgetTester tester) async {
@@ -456,7 +489,7 @@ void main() {
         ),
       ),
     );
-    await _pumpUntilOriginCardReady(tester);
+    await tester.pump();
 
     expect(find.text('one'), findsNothing);
     expect(find.text('two'), findsNothing);
@@ -497,7 +530,7 @@ void main() {
         ),
       ),
     );
-    await _pumpUntilOriginCardReady(tester);
+    await tester.pump();
 
     final titleFinder = find.text('#$longTitle');
     final title = tester.widget<Text>(titleFinder);

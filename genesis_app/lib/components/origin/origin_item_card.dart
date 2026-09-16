@@ -8,7 +8,6 @@ import '../../icons/custom_icon_assets.dart';
 import '../../network/genesis_api.dart';
 import '../../network/json_utils.dart';
 import '../../network/models/origin.dart';
-import '../../ui/components/genesis_list_image.dart';
 import '../../ui/components/genesis_static_network_image.dart';
 import '../../ui/tokens/genesis_image_radii.dart';
 import '../../ui/tokens/genesis_origin_card_geometry.dart';
@@ -233,18 +232,6 @@ class _OriginItemCardState extends State<OriginItemCard> {
           devicePixelRatio: effectiveDevicePixelRatio,
           maxDevicePixelRatio: effectiveDevicePixelRatio,
         ).trim();
-        final sourceProvider = _originCoverProvider(
-          resolvedImageUrl,
-          outputWidth: math.max(1, (width * effectiveDevicePixelRatio).ceil()),
-          outputHeight: math.max(
-            1,
-            (coverHeight * effectiveDevicePixelRatio).ceil(),
-          ),
-          cancellationToken: _coverLoadCancellationToken,
-        );
-        final ImageProvider<Object> coverProvider =
-            debugOriginItemCoverImageProvider?.call(sourceProvider) ??
-            sourceProvider;
         final totalHeight = coverHeight + genesisOriginCardBottomExtension;
 
         return ClipRRect(
@@ -253,75 +240,41 @@ class _OriginItemCardState extends State<OriginItemCard> {
             width: width,
             height: totalHeight,
             child: Stack(
+              key: const ValueKey<String>('origin-item-card-content'),
               fit: StackFit.expand,
               children: [
-                if (!_coverLoadNotified)
-                  const SizedBox(
-                    key: ValueKey<String>('origin-item-card-loading'),
-                    child: GenesisOriginCardLoadingBone(borderRadius: 0),
-                  ),
-                KeyedSubtree(
-                  key: ValueKey<String>(
-                    'origin-item-card-cover-attempt-$_coverLoadRevision',
-                  ),
-                  child: Image(
-                    key: const ValueKey<String>(
-                      'origin-item-card-cover-loader',
-                    ),
-                    image: coverProvider,
-                    width: width,
+                const SizedBox(
+                  key: ValueKey<String>('origin-item-card-loading'),
+                  child: GenesisOriginCardLoadingBone(borderRadius: 0),
+                ),
+                if (resolvedImageUrl.isNotEmpty)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
                     height: coverHeight,
-                    fit: BoxFit.cover,
-                    gaplessPlayback: false,
-                    filterQuality: FilterQuality.medium,
-                    frameBuilder:
-                        (context, cover, frame, wasSynchronouslyLoaded) {
-                          if (!wasSynchronouslyLoaded && frame == null) {
-                            return const SizedBox.expand(
-                              key: ValueKey<String>(
-                                'origin-item-card-loading-frame',
-                              ),
-                            );
-                          }
-                          _notifyCoverLoaded();
-                          return _LoadedOriginItemCard(
-                            item: widget.item,
-                            cover: _paintCoverGradient(cover),
-                          );
-                        },
-                    errorBuilder: (context, error, stackTrace) {
-                      if (error is OriginItemCoverLoadCancelledException) {
-                        _scheduleCancelledCoverLoadRetry();
-                        return const SizedBox.expand(
-                          key: ValueKey<String>(
-                            'origin-item-card-loading-cancelled',
-                          ),
-                        );
-                      }
-                      return Image.asset(
-                        genesisDefaultListImageAsset,
-                        width: width,
-                        height: coverHeight,
-                        fit: BoxFit.cover,
-                        frameBuilder:
-                            (context, cover, frame, wasSynchronouslyLoaded) {
-                              if (!wasSynchronouslyLoaded && frame == null) {
-                                return const SizedBox.expand(
-                                  key: ValueKey<String>(
-                                    'origin-item-card-loading-error',
-                                  ),
-                                );
-                              }
-                              _notifyCoverLoaded();
-                              return _LoadedOriginItemCard(
-                                item: widget.item,
-                                cover: _paintCoverGradient(cover),
-                              );
-                            },
-                      );
-                    },
+                    child: _buildCover(
+                      resolvedImageUrl,
+                      width: width,
+                      coverHeight: coverHeight,
+                      devicePixelRatio: effectiveDevicePixelRatio,
+                    ),
+                  ),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  height: coverHeight,
+                  child: const IgnorePointer(
+                    child: CustomPaint(
+                      key: ValueKey<String>('origin-item-card-painted-cover'),
+                      foregroundPainter: OriginItemCoverGradientPainter(
+                        transitionHeight: _coverDetailsTransitionHeight,
+                      ),
+                    ),
                   ),
                 ),
+                _OriginItemCardDetails(item: widget.item),
               ],
             ),
           ),
@@ -330,13 +283,60 @@ class _OriginItemCardState extends State<OriginItemCard> {
     );
   }
 
-  Widget _paintCoverGradient(Widget cover) {
-    return CustomPaint(
-      key: const ValueKey<String>('origin-item-card-painted-cover'),
-      foregroundPainter: const OriginItemCoverGradientPainter(
-        transitionHeight: _coverDetailsTransitionHeight,
+  Widget _buildCover(
+    String imageUrl, {
+    required double width,
+    required double coverHeight,
+    required double devicePixelRatio,
+  }) {
+    final sourceProvider = _originCoverProvider(
+      imageUrl,
+      outputWidth: math.max(1, (width * devicePixelRatio).ceil()),
+      outputHeight: math.max(1, (coverHeight * devicePixelRatio).ceil()),
+      cancellationToken: _coverLoadCancellationToken,
+    );
+    final ImageProvider<Object> coverProvider =
+        debugOriginItemCoverImageProvider?.call(sourceProvider) ??
+        sourceProvider;
+    return KeyedSubtree(
+      key: ValueKey<String>(
+        'origin-item-card-cover-attempt-$_coverLoadRevision',
       ),
-      child: cover,
+      child: Image(
+        key: const ValueKey<String>('origin-item-card-cover-loader'),
+        image: coverProvider,
+        width: width,
+        height: coverHeight,
+        fit: BoxFit.cover,
+        gaplessPlayback: false,
+        filterQuality: FilterQuality.medium,
+        frameBuilder: (context, cover, frame, wasSynchronouslyLoaded) {
+          if (!wasSynchronouslyLoaded && frame == null) {
+            return const SizedBox.expand(
+              key: ValueKey<String>('origin-item-card-loading-frame'),
+            );
+          }
+          _notifyCoverLoaded();
+          return KeyedSubtree(
+            key: const ValueKey<String>('origin-item-card-ready'),
+            child: KeyedSubtree(
+              key: const ValueKey<String>('origin-item-card-rendered-cover'),
+              child: cover,
+            ),
+          );
+        },
+        errorBuilder: (context, error, stackTrace) {
+          if (error is OriginItemCoverLoadCancelledException) {
+            _scheduleCancelledCoverLoadRetry();
+            return const SizedBox.expand(
+              key: ValueKey<String>('origin-item-card-loading-cancelled'),
+            );
+          }
+          return const SizedBox.expand(
+            key: ValueKey<String>('origin-item-card-cover-error'),
+          );
+        },
+      ),
     );
   }
 }
@@ -347,7 +347,6 @@ ImageProvider<Object> _originCoverProvider(
   required int outputHeight,
   required OriginItemCoverLoadCancellationToken cancellationToken,
 }) {
-  if (imageUrl.isEmpty) return const AssetImage(genesisDefaultListImageAsset);
   if (imageUrl.startsWith('assets/')) return AssetImage(imageUrl);
   return OriginItemCoverThrottledImageProvider(
     sourceProvider: GenesisStaticNetworkImageProvider(
@@ -360,33 +359,24 @@ ImageProvider<Object> _originCoverProvider(
   );
 }
 
-class _LoadedOriginItemCard extends StatelessWidget {
-  const _LoadedOriginItemCard({required this.item, required this.cover});
+class _OriginItemCardDetails extends StatelessWidget {
+  const _OriginItemCardDetails({required this.item});
 
   final OriginListItem item;
-  final Widget cover;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
-      key: const ValueKey<String>('origin-item-card-ready'),
       children: [
-        Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            KeyedSubtree(
-              key: const ValueKey<String>('origin-item-card-rendered-cover'),
-              child: cover,
-            ),
-            const SizedBox(
-              height: genesisOriginCardBottomExtension,
-              child: ColoredBox(
-                key: ValueKey<String>('origin-item-card-footer-extension'),
-                color: _cardFooterColor,
-              ),
-            ),
-          ],
+        const Positioned(
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: genesisOriginCardBottomExtension,
+          child: ColoredBox(
+            key: ValueKey<String>('origin-item-card-footer-extension'),
+            color: _cardFooterColor,
+          ),
         ),
         Positioned(
           left: 0,
