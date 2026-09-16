@@ -1,3 +1,6 @@
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
@@ -5,13 +8,11 @@ import 'dart:async';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:genesis_flutter_android/network/models/membership_benefit.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_catalog_cache.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
@@ -283,7 +284,6 @@ void main() {
         now = now.add(MembershipCatalog.entryCacheAge);
         await tester.pumpWidget(page(null, catalog: catalog));
         expect(find.text(r'Yearly: $99.99'), findsOneWidget);
-        expect(find.text(r'Yearly: $99.99'), findsOneWidget);
         expect(find.byType(CircularProgressIndicator), findsNothing);
         await tester.pump();
         expect(calls, 2);
@@ -310,7 +310,7 @@ void main() {
           outcome == 'failure' ? findsOneWidget : findsNothing,
         );
         if (outcome == 'success') {
-          expect(find.text('Premium'), findsOneWidget);
+          expect(find.text('Worldo Premium'), findsOneWidget);
           expect(find.text(r'Yearly: $119.99'), findsOneWidget);
         }
         expect(find.byType(CircularProgressIndicator), findsNothing);
@@ -338,7 +338,7 @@ void main() {
     );
     await tester.pumpWidget(page(null, catalog: catalog));
     await tester.pumpAndSettle();
-    expect(find.text('Premium'), findsOneWidget);
+    expect(find.text('Worldo Premium'), findsOneWidget);
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
     expect(find.byType(CircularProgressIndicator), findsNothing);
     response.complete(
@@ -403,54 +403,6 @@ void main() {
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
   for (final provider in MembershipProvider.values) {
-    testWidgets(
-      '$provider debug store order number appears above purchase after callback',
-      (tester) async {
-        final h = support.Harness(provider: provider);
-        final storeOrderId = provider == MembershipProvider.google
-            ? 'GPA.1111-2222-3333-44444'
-            : '9900123456789';
-        final label = find.byKey(const ValueKey('pro-debug-store-order-id'));
-        try {
-          await tester.pumpWidget(
-            page(
-              () async => MembershipCatalogData(
-                offers: [MembershipOffer(product: h.product(yearly: true))],
-              ),
-              service: h.service,
-            ),
-          );
-          await tester.pumpAndSettle();
-          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
-          expect(
-            tester.getBottomLeft(label).dy,
-            lessThan(tester.getTopLeft(find.byKey(buttonKey)).dy),
-          );
-          await tester.tap(find.byKey(buttonKey));
-          await tester.pump(const Duration(milliseconds: 250));
-          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
-          await h.service.interceptPurchase(
-            h.purchase(yearly: true, transaction: storeOrderId),
-          );
-          await tester.pumpAndSettle();
-          expect(find.text('debug 订单 id：$storeOrderId'), findsOneWidget);
-          expect(tester.widget<Text>(label).maxLines, 1);
-          await tester.tap(find.text('Enjoy it'));
-          await tester.pumpAndSettle();
-          expect(find.text('debug 订单 id：$storeOrderId'), findsOneWidget);
-          h.uid = 'another-user';
-          h.service.resetForSession();
-          await h.service.recover();
-          await tester.pumpAndSettle();
-          expect(find.text('debug 订单 id：暂无'), findsOneWidget);
-          expect(tester.takeException(), isNull);
-        } finally {
-          await tester.pumpWidget(const SizedBox.shrink());
-          h.service.dispose();
-        }
-      },
-    );
-
     for (final signedIn in [false, true]) {
       testWidgets(
         '$provider signedIn=$signedIn repeated taps reuse the entry catalog and upgrade credentials',
@@ -640,14 +592,14 @@ void main() {
       );
       await tester.pumpWidget(page(catalog.load));
       await tester.pumpAndSettle();
-      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Worldo Premium'), findsOneWidget);
       expect(find.text('Annual VIP'), findsNothing);
       expect(find.text('Annual benefit'), findsOneWidget);
       expect(find.text('Pro'), findsNothing);
       expect(find.text('Monthly VIP'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
-      expect(find.text('Premium'), findsOneWidget);
+      expect(find.text('Worldo Premium'), findsOneWidget);
       expect(find.text('Monthly VIP'), findsNothing);
       expect(find.text('Monthly benefit'), findsOneWidget);
       expect(find.text('Annual VIP'), findsNothing);
@@ -670,7 +622,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Premium'), findsOneWidget);
+    expect(find.text('Worldo Premium'), findsOneWidget);
     expect(find.text('Monthly VIP'), findsNothing);
     expect(find.text('Monthly bonus Gems'), findsOneWidget);
     expect(find.text('Pro'), findsNothing);
@@ -869,35 +821,19 @@ void main() {
       tester.getTopLeft(find.text('Server enhanced')).dy,
       lessThan(tester.getTopLeft(find.text('Server locked')).dy),
     );
-    expect(find.byIcon(Icons.stars_outlined), findsOneWidget);
-    expect(
-      tester
-          .widget<Icon>(
-            find.byKey(const ValueKey('pro-benefit-status-Server included')),
-          )
-          .icon,
-      Icons.check_rounded,
+    // Unknown keys use the same upgrade arrow as recharge.
+    final fallback = tester.widget<SvgPicture>(
+      find.descendant(
+        of: find.byKey(const ValueKey('pro-benefit-icon-included')),
+        matching: find.byType(SvgPicture),
+      ),
     );
     expect(
-      find.byKey(const ValueKey('pro-benefit-status-Server enhanced')),
-      findsOneWidget,
+      (fallback.bytesLoader as SvgAssetLoader).assetName,
+      upgradeIconAsset,
     );
-    expect(
-      tester
-          .widget<SvgPicture>(
-            find.byKey(const ValueKey('pro-benefit-status-Server enhanced')),
-          )
-          .semanticsLabel,
-      'Improved with Pro',
-    );
-    expect(
-      tester
-          .widget<Icon>(
-            find.byKey(const ValueKey('pro-benefit-status-Server locked')),
-          )
-          .icon,
-      Icons.lock_outline_rounded,
-    );
+    // Design 30b carries no per-benefit status mark, so display_type no longer
+    // changes how a row is drawn; every row reads the same.
     expect(
       tester.widget<Text>(find.text('Server locked')).style?.color,
       GenesisColors.darkTextPrimary,

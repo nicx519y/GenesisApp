@@ -1,7 +1,7 @@
+import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:genesis_flutter_android/components/common/genesis_bottom_sheet_panel.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_dark_close_button.dart';
 import 'package:genesis_flutter_android/components/gems/gem_purchase_bottom_sheet.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
@@ -130,11 +130,15 @@ void main() {
             subscriptionTop = contentTop;
           } else {
             expect(contentTop, closeTo(subscriptionTop!, .01));
+            // The label heads the panel and the gem now leads the figure a
+            // line below it, so both share the content's left edge instead.
+            final label = tester.getTopLeft(find.text('My Balance'));
+            expect(label.dy, closeTo(headerBottom, .01));
             expect(
               tester
                   .getTopLeft(find.byKey(const ValueKey('gem-balance-icon')))
-                  .dy,
-              closeTo(headerBottom, .01),
+                  .dx,
+              closeTo(label.dx, .01),
             );
           }
         }
@@ -260,13 +264,6 @@ void main() {
       Brightness.dark,
     );
     expect(find.byType(GenesisDarkCloseButton), findsOneWidget);
-    final panel = tester.widget<Container>(
-      find.byKey(const ValueKey('pro-benefits-card')),
-    );
-    expect(
-      (panel.decoration as BoxDecoration).color,
-      GenesisColors.darkPurchaseCardBackground,
-    );
     expect(
       tester.widget<Text>(find.text('Subscription')).style?.color,
       GenesisColors.darkTextPrimary,

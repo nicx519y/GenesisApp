@@ -67,3 +67,27 @@ const proButtonGradient = LinearGradient(
   ],
   stops: [0, 0.28, 0.5, 0.72, 1],
 );
+
+// --- Premium paywall (design 30b) ---------------------------------------
+// Values verbatim from `会员详情页设计/export/30b-premium/styles.css`.
+
+const premiumGold = Color(0xFFF5C24B);
+const premiumGoldLight = Color(0xFFFFE7A6);
+const premiumGoldTint = Color(0x17F5C24B);
+const premiumGoldTagFill = Color(0x29F5C24B);
+const premiumGoldTagRing = Color(0x80F5C24B);
+
+/// `premiumGoldTagFill` already flattened onto the dark ground, for the tag
+/// that overlaps a card edge and so cannot let anything show through.
+const premiumGoldTagSolid = Color(0xFF3C3726);
+const premiumHairline = Color(0x24FFFFFF);
+const premiumRing = Color(0x1FFFFFFF);
+const premiumInkOnGold = Color(0xFF2A1C05);
+
+/// The paywall button's sweep, `linear-gradient(100deg, …)`.
+const premiumCtaGradient = LinearGradient(
+  begin: Alignment(-0.98, -0.17),
+  end: Alignment(0.98, 0.17),
+  colors: [Color(0xFFF0B02F), Color(0xFFFFD96B), Color(0xFFF3B534)],
+  stops: [0, 0.46, 1],
+);
