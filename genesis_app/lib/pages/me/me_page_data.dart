@@ -8,6 +8,7 @@ extension _MePageData on _MePageState {
       return const _MePageContent.signedOut();
     }
     if (!signedIn) {
+      _profileData.value = null;
       _originsState.reset();
       _worldsState.reset();
       return const _MePageContent.signedOut();
@@ -88,6 +89,7 @@ extension _MePageData on _MePageState {
       worlds: const [],
     );
     if (!_canUpdateAsyncState || generation != _loadGeneration) return data;
+    _publishProfileData(data);
     _avatarUrl.value = data.avatarUrl;
     _displayName.value = data.displayName;
     unawaited(
@@ -115,9 +117,30 @@ extension _MePageData on _MePageState {
     _loadGeneration += 1;
     _originsState.reset();
     _worldsState.reset();
+    if (_profileData.value != null) {
+      unawaited(_refreshSignedInContentAfterSessionChange());
+      return;
+    }
     _updateState(() {
       _future = _loadData();
     });
+  }
+
+  Future<void> _refreshSignedInContentAfterSessionChange() async {
+    final generation = _loadGeneration;
+    final signedIn = await _hasLocalLoginSession();
+    if (!_canUpdateAsyncState || generation != _loadGeneration) return;
+    if (!signedIn) {
+      _loadGeneration += 1;
+      _profileData.value = null;
+      _updateState(() {
+        _future = SynchronousFuture<_MePageContent>(
+          const _MePageContent.signedOut(),
+        );
+      });
+      return;
+    }
+    await _loadProfileData(refreshAllCollections: true);
   }
 
   Future<void> _refreshDataOnActivation() async {
@@ -136,6 +159,7 @@ extension _MePageData on _MePageState {
         if (!_canUpdateAsyncState || generation != _loadGeneration) return;
         if (!signedIn) {
           _loadGeneration += 1;
+          _profileData.value = null;
           _originsState.reset();
           _worldsState.reset();
           _updateState(() {
@@ -145,17 +169,20 @@ extension _MePageData on _MePageState {
           });
           return;
         }
+        final hadProfileData = _profileData.value != null;
         final data = await _loadProfileData(
           refreshCollectionTabIndex: _selectedCollectionTabIndex,
           refreshAllCollections:
               !_originsState.hasLoaded || !_worldsState.hasLoaded,
         );
         if (!_canUpdateAsyncState || _loadGeneration != generation + 1) return;
-        _updateState(() {
-          _future = SynchronousFuture<_MePageContent>(
-            _MePageContent.signedIn(data),
-          );
-        });
+        if (!hadProfileData) {
+          _updateState(() {
+            _future = SynchronousFuture<_MePageContent>(
+              _MePageContent.signedIn(data),
+            );
+          });
+        }
       } while (_hasPendingActivationRefresh && mounted);
     } finally {
       _isActivationRefreshing = false;
@@ -177,8 +204,8 @@ extension _MePageData on _MePageState {
   }
 
   void _handleProfileCollapsedChanged(bool collapsed) {
-    if (_profileCollapsed == collapsed) return;
-    _updateState(() => _profileCollapsed = collapsed);
+    if (_profileCollapsed.value == collapsed) return;
+    _profileCollapsed.value = collapsed;
   }
 
   Future<void> _refreshCollectionTab(int tabIndex) async {
@@ -265,9 +292,13 @@ extension _MePageData on _MePageState {
     )) {
       return;
     }
-    _updateState(() {
-      _future = Future<_MePageContent>.value(_MePageContent.signedIn(nextData));
-    });
+    _publishProfileData(nextData);
+  }
+
+  void _publishProfileData(UserProfileData data) {
+    final current = _profileData.value;
+    if (current != null && _sameRenderedUserInfo(current, data)) return;
+    _profileData.value = data;
   }
 
   Future<void> _refresh() async {
