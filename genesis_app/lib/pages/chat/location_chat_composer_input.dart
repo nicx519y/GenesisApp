@@ -9,6 +9,7 @@ class LocationChatComposerInput extends StatelessWidget {
     required this.sendEnabled,
     required this.sending,
     required this.onSend,
+    this.onInputTap,
     this.onHeightChanged,
     this.hintText = 'Text...',
     this.style,
@@ -26,6 +27,7 @@ class LocationChatComposerInput extends StatelessWidget {
   final bool sendEnabled;
   final bool sending;
   final Future<void> Function() onSend;
+  final VoidCallback? onInputTap;
   final ValueChanged<double>? onHeightChanged;
   final String hintText;
   final ChatUiStyleConfig? style;
@@ -60,6 +62,8 @@ class LocationChatComposerInput extends StatelessWidget {
           sending: sending,
           animateSendButton: animateSendButton,
           onSend: onSend,
+          onInputTap: onInputTap,
+          onInputTapAlwaysCalled: onInputTap != null,
           onHeightChanged: onHeightChanged,
           bottomSafeAreaInset: bottomSafeAreaInset,
           composerHeader: composerHeader,

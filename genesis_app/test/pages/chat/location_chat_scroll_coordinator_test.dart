@@ -237,6 +237,30 @@ void main() {
     expect(find.byType(GlowingOverscrollIndicator), findsNothing);
   });
 
+  testWidgets('composer focus overrides a waiting reply position hold', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    await tester.pumpWidget(viewport(coordinator));
+    await tester.pumpAndSettle();
+    final position = coordinator.controller.position;
+
+    coordinator.positionWaitingReply(position.maxScrollExtent - 120);
+    await tester.pumpAndSettle();
+    expect(coordinator.mode, LocationChatViewportMode.detached);
+    expect(position.pixels, lessThan(position.maxScrollExtent));
+
+    coordinator.requestBottom(
+      reason: LocationChatBottomReason.composerFocus,
+      behavior: LocationChatBottomBehavior.jump,
+    );
+    await tester.pump();
+
+    expect(coordinator.mode, LocationChatViewportMode.followingLatest);
+    expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
+  });
+
   testWidgets(
     'reply generation scrolls over 500ms and respects a user interruption',
     (tester) async {
