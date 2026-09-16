@@ -180,6 +180,7 @@ Future<Map<String, Object?>> _setEndpoint(
     AppServicesScope.replaceWithConfig(
       appContext,
       overrides.applyTo(const AppConfig()),
+      reason: 'agent_endpoint_set',
     );
   }
   return _endpointResult(overrides, dryRun: request.dryRun);
@@ -204,7 +205,11 @@ Future<Map<String, Object?>> _clearEndpoint(
         message: 'App context is no longer available.',
       );
     }
-    AppServicesScope.replaceWithConfig(appContext, const AppConfig());
+    AppServicesScope.replaceWithConfig(
+      appContext,
+      const AppConfig(),
+      reason: 'agent_endpoint_clear',
+    );
   }
   return {'cleared': !request.dryRun, 'dryRun': request.dryRun};
 }

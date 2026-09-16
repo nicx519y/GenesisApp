@@ -45,9 +45,17 @@ class AppServicesScope extends StatefulWidget {
     return scope?.services;
   }
 
-  static AppServices replaceWithConfig(BuildContext context, AppConfig config) {
+  static AppServices replaceWithConfig(
+    BuildContext context,
+    AppConfig config, {
+    String reason = 'config_change',
+  }) {
     final current = read(context);
-    final updated = ServiceRegistry.rebuildFrom(current, config: config);
+    final updated = ServiceRegistry.rebuildFrom(
+      current,
+      config: config,
+      reason: reason,
+    );
     final element = context
         .getElementForInheritedWidgetOfExactType<_AppServicesInheritedScope>();
     final scope = element?.widget as _AppServicesInheritedScope?;

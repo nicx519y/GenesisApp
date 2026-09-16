@@ -8,7 +8,7 @@
 
 登录状态复用公共 UID：有效 UID 非空表示事件发生时已登录；未登录时 UID 为空。当前 collect 在事件入队时保存用户上下文，通过公共 X-UID 发送，不在业务字段重复传 UID。正常初始化后使用该口径；身份尚未初始化或采集上下文异常不能直接推断游客。
 
-游客登录后，后续事件会有 UID。判断是否由游客发起购买，应按 object2 关联，查看 subscription_product_click 当时的 UID，不能用 claim 事件的 UID 倒推。没有原点击的恢复订单，不猜最初登录状态。
+游客登录后，后续事件会有 UID。判断是否由游客发起购买，应按 object2 关联，查看 subscription_purchase_click 当时的 UID，不能用 claim 事件的 UID 倒推。没有原点击的恢复订单，不猜最初登录状态。
 
 不改购买、重试、超时、登录拦截、UI 或 Gems 原有业务；不为打点增加接口请求。Firebase 收入统计保持原逻辑。
 
@@ -17,7 +17,7 @@
 | action | object1 | object2 | object3 | 触发时机 |
 | --- | --- | --- | --- | --- |
 | subscription_page_show | subscription_page / subscription_sheet | track_id_{pageId} | 第 4 节入口来源 | Subscription 首次实际可见，包括加载状态；隐藏 Tab 仅构建不记录。 |
-| subscription_product_click |  | track_id_{pageId}_{clickId} | subscription_page / subscription_sheet | 已选中商品且进入购买回调，在异步准备和降级检查之前；禁用按钮未触发回调不记录。 |
+| subscription_purchase_click | yearly / monthly | track_id_{pageId}_{clickId} | subscription_page / subscription_sheet | 点击底部购买按钮并进入购买回调，在异步准备和降级检查之前；object1 取本次选中的商品套餐，年会员为 yearly，月会员为 monthly；仅切换套餐或禁用按钮未触发回调不记录。 |
 | subscription_pending |  | 本次购买关联 ID | store_callback_pending / report_accepted | 平台明确 pending 或 report 明确 accepted；独立记录，不归到 failed。 |
 | subscription_timeout |  | 本次购买关联 ID | prepare / report | 准备超时或实际 report 请求超时；独立记录，不重复发 failed。 |
 | subscription_success | 第 4 节入口来源 | 本次购买关联 ID | 本笔商店订单号，没有则空字符串 | 首次 report.status=completed；不等登录、绑定或点击成功弹窗。 |
@@ -72,7 +72,7 @@ report 模型仅有 status；订单号取平台回调或精确匹配的已保存
 | from_buy_gems_tab | 从 Buy Gems 切到 Subscription。 |
 | from_unknown | 未提供或无法还原入口。 |
 
-同一容器中，Subscription 首次可见记一次；反复切 Tab、build、刷新和回前台不重复。关闭后重开使用新 pageId。表单仍可见或直接转登录而未展示订阅时，不记订阅曝光。page_source 是入口枚举名称，不再单独写入 ext_data。subscription_success.object1 沿用本次购买发起时的入口来源，随购买关联保存；重试、登录或绑定不改变来源，恢复时无法还原则用 from_unknown。其余已清空的 object1 不传套餐字段。
+同一容器中，Subscription 首次可见记一次；反复切 Tab、build、刷新和回前台不重复。关闭后重开使用新 pageId。表单仍可见或直接转登录而未展示订阅时，不记订阅曝光。page_source 是入口枚举名称，不再单独写入 ext_data。subscription_success.object1 沿用本次购买发起时的入口来源，随购买关联保存；重试、登录或绑定不改变来源，恢复时无法还原则用 from_unknown。仅 subscription_purchase_click.object1 传 yearly / monthly，不传 plan_code；其余已清空的 object1 继续留空。
 
 Buy Gems 只做增量：原文档、事件、字段、曝光时机和 tick_no_balance / msg_low_balance / msg_no_balance 保持不变，不加 from_。整页来源补充 me_gems（Me 红钻、Top Up、对应区域）和 subscription_tab（Subscription 切到 Buy Gems）；Sheet 追加 subscription_tab。反向切换的 Subscription 来源为 from_buy_gems_tab。
 
@@ -91,8 +91,8 @@ Buy Gems 只做增量：原文档、事件、字段、曝光时机和 tick_no_ba
 
 | 场景 | 应记录 |
 | --- | --- |
-| 直接购买成功 | page_show → product_click → success；平台 pending 时插入 pending。 |
-| 平台取消或错误 | product_click → failed，object3 优先保留平台原始错误码/子码；同一失败经外层捕获不重复记录，无码才用 SDK 或明确状态兜底。 |
+| 直接购买成功 | page_show → purchase_click → success；平台 pending 时插入 pending。 |
+| 平台取消或错误 | purchase_click → failed，object3 优先保留平台原始错误码/子码；同一失败经外层捕获不重复记录，无码才用 SDK 或明确状态兜底。 |
 | report accepted 后 completed | pending(report_accepted) → success，保持原关联。 |
 | report 失败/超时后重试成功 | failed(report_failed[code]) 或 timeout(report) → success；不能仅凭失败条数判断最终失败。 |
 | 游客购买后登录绑定 | 点击时公共 UID 为空；登录后的 claim_result 带 UID；completed 表示绑定成功。 |

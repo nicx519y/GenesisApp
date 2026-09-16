@@ -20,9 +20,9 @@ class SubscriptionPageTracking {
   final SubscriptionAnalytics analytics;
 
   void show() => analytics.pageShow(pageId, surface, source);
-  SubscriptionTracking click() {
+  SubscriptionTracking click({required bool isYearly}) {
     show();
-    return analytics.click(pageId, surface, source);
+    return analytics.click(pageId, surface, source, isYearly: isYearly);
   }
 }
 

@@ -88,9 +88,13 @@ void main() {
             page: page,
             child: ProSubscriptionContent(
               productsLoader: loadTestMembershipOffers,
-              purchaseHandler: (_) async {
+              purchaseHandler: (product) async {
                 calls++;
-                expect(events.last.action, 'subscription_product_click');
+                expect(events.last.action, 'subscription_purchase_click');
+                expect(
+                  events.last.object1,
+                  product.isYearly ? 'yearly' : 'monthly',
+                );
               },
             ),
           ),
@@ -106,7 +110,25 @@ void main() {
     expect(calls, 1);
     expect(events.first.object2, 'track_id_container');
     expect(events.last.object2, startsWith('track_id_container_'));
-    expect(events.last.object1, '');
+    expect(events.last.object1, 'yearly');
+    expect(events.last.object3, 'subscription_page');
+    final firstClickId = events.last.object2;
+    final eventCount = events.length;
+    await tester.ensureVisible(find.byKey(const ValueKey('pro-plan-monthly')));
+    await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+    await tester.pumpAndSettle();
+    expect(events, hasLength(eventCount));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('pro-subscribe-button')),
+    );
+    await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
+    await tester.pump();
+    expect(calls, 2);
+    expect(events, hasLength(eventCount + 1));
+    expect(events.last.action, 'subscription_purchase_click');
+    expect(events.last.object1, 'monthly');
+    expect(events.last.object2, startsWith('track_id_container_'));
+    expect(events.last.object2, isNot(firstClickId));
     expect(events.last.object3, 'subscription_page');
     await tester.pumpWidget(const SizedBox());
   });

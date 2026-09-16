@@ -43,11 +43,13 @@ void main() {
         'page',
         SubscriptionSurface.sheet,
         SubscriptionSource.dailyCheckIn,
+        isYearly: true,
       );
       final second = analytics.click(
         'page',
         SubscriptionSurface.sheet,
         SubscriptionSource.dailyCheckIn,
+        isYearly: false,
       );
       expect(first.id, startsWith('track_id_page_'));
       expect(first.id, isNot(second.id));
@@ -55,8 +57,12 @@ void main() {
       expect(events.first.object1, 'subscription_sheet');
       expect(events.first.object2, 'track_id_page');
       expect(events.first.object3, 'from_daily_check_in');
-      expect(events[1].object1, '');
+      expect(events[1].action, 'subscription_purchase_click');
+      expect(events[1].object1, 'yearly');
       expect(events[1].object3, 'subscription_sheet');
+      expect(events[2].action, 'subscription_purchase_click');
+      expect(events[2].object1, 'monthly');
+      expect(events[2].object3, 'subscription_sheet');
       expect(events.length, 3);
     },
   );

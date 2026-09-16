@@ -37,9 +37,7 @@ class AppBootstrap {
     GenesisHttpCacheManager.configureTransport(httpTransport);
     unawaited(_warmUpStaticImageConnections());
     final services = ServiceRegistry.build(config: config);
-    final billing = services.billing;
-    if (billing != null) unawaited(billing.start());
-    unawaited(services.membershipPurchases?.start());
+    services.startPurchaseServices();
     return services;
   }
 

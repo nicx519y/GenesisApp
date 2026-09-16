@@ -191,6 +191,7 @@ class Harness {
   Harness({
     this.provider = MembershipProvider.google,
     SubscriptionAnalytics? analytics,
+    Future<void> Function()? ensureStoreListening,
     Future<MembershipProductList> Function()? checkoutProducts,
     PendingStore? storage,
     bool restoreEnabled = false,
@@ -202,6 +203,7 @@ class Harness {
   }) : store = storage ?? PendingStore() {
     service = MembershipPurchaseService(
       analytics: analytics,
+      ensureStoreListening: ensureStoreListening,
       platform: platform,
       store: store,
       provider: provider,

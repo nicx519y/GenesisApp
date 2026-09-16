@@ -19,6 +19,7 @@ void main() {
         'page',
         SubscriptionSurface.sheet,
         SubscriptionSource.meMembership,
+        isYearly: false,
       );
       GenesisTelemetry.setUserId('login-owner');
       analytics.claim(tracking, 'completed');
@@ -28,7 +29,7 @@ void main() {
       expect(guest.userId, '');
       expect(loggedIn.userId, 'login-owner');
       expect(guest.object2, loggedIn.object2);
-      expect(guest.object1, '');
+      expect(guest.object1, 'monthly');
       expect(guest.extData, '');
       expect(guest.actionType, 'pay_event');
       expect(loggedIn.action, 'subscription_claim_result');

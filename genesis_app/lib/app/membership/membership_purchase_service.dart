@@ -70,6 +70,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     required this.provider,
     required this.readCheckoutProducts,
     SubscriptionAnalytics? analytics,
+    this.ensureStoreListening,
     this.otherPurchaseBusy,
     this.readMembershipAccess,
     this.refreshWallet,
@@ -96,6 +97,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   final Future<List<BillingPurchase>> Function() queryPurchases;
   final MembershipProvider provider;
   final Future<MembershipProductList> Function() readCheckoutProducts;
+  final Future<void> Function()? ensureStoreListening;
 
   final ValueNotifier<int> catalogRevision = ValueNotifier(0);
   final _debugStoreOrderId = ValueNotifier<String?>(null);
@@ -391,6 +393,12 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         if (product.provider != provider) {
           throw StateError('membership_provider_mismatch');
         }
+        // Subscriptions launch through the platform directly, while their
+        // results arrive through the shared billing service. Never launch
+        // without first starting that listener, including after replacement.
+        stage = 'start_store_listener';
+        await ensureStoreListening?.call();
+        if (!canContinue()) return;
         stage = 'load_local_orders';
         await _load();
         if (!canContinue()) return;

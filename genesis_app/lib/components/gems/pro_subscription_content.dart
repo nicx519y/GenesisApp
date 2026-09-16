@@ -263,7 +263,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       unawaited(_load());
       return;
     }
-    final tracking = _tracking.click();
+    final tracking = _tracking.click(isYearly: offer.product.isYearly);
     final handler = widget.purchaseHandler;
     if (handler != null) {
       await handler(offer.product);

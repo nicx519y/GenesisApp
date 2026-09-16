@@ -150,17 +150,19 @@ class SubscriptionAnalytics {
   SubscriptionTracking click(
     String pageId,
     SubscriptionSurface surface,
-    SubscriptionSource source,
-  ) {
+    SubscriptionSource source, {
+    required bool isYearly,
+  }) {
     final tracking = SubscriptionTracking(
       id: billingPurchaseTrackId(pageId),
       source: source,
     );
     _emit(
       SubscriptionAnalyticsEvent(
-        'subscription_product_click',
+        'subscription_purchase_click',
         tracking.id,
         surface.value,
+        object1: isYearly ? 'yearly' : 'monthly',
       ),
     );
     return tracking;
