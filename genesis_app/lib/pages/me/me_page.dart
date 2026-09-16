@@ -1,5 +1,4 @@
 import '../../components/gems/pro_membership_badge.dart';
-import '../../app/membership/membership_access_store.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -74,11 +73,13 @@ class _MePageState extends State<MePage> with RouteAware {
   final ValueNotifier<bool> _isUpdatingProfile = ValueNotifier<bool>(false);
   final ValueNotifier<String> _avatarUrl = ValueNotifier<String>('');
   final ValueNotifier<String> _displayName = ValueNotifier<String>('');
+  final ValueNotifier<UserProfileData?> _profileData =
+      ValueNotifier<UserProfileData?>(null);
+  final ValueNotifier<bool> _profileCollapsed = ValueNotifier<bool>(false);
   IdentityProvider? _loggingInProvider;
   late final MeCollectionController<UserProfileOriginItem> _originsState;
   late final MeCollectionController<UserProfileWorldItem> _worldsState;
   int _loadGeneration = 0;
-  bool _profileCollapsed = false;
   bool _isActivationRefreshing = false;
   bool _hasPendingActivationRefresh = false;
   int _selectedCollectionTabIndex = 0;
@@ -177,6 +178,8 @@ class _MePageState extends State<MePage> with RouteAware {
     _isUpdatingProfile.dispose();
     _avatarUrl.dispose();
     _displayName.dispose();
+    _profileData.dispose();
+    _profileCollapsed.dispose();
     _originsState.dispose();
     _worldsState.dispose();
     super.dispose();
@@ -197,9 +200,13 @@ class _MePageState extends State<MePage> with RouteAware {
         child: FutureBuilder<_MePageContent>(
           future: _future,
           builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
+            if (snapshot.connectionState == ConnectionState.waiting &&
+                !snapshot.hasData) {
               return const Center(
-                child: GenesisLoadingIndicator(strokeWidth: 4),
+                child: GenesisLoadingIndicator(
+                  key: ValueKey<String>('me-page-initial-loading'),
+                  strokeWidth: 4,
+                ),
               );
             }
             if (snapshot.hasError) {
@@ -245,9 +252,8 @@ class _MePageState extends State<MePage> with RouteAware {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        AnimatedOpacity(
-                          opacity: _profileCollapsed ? 1 : 0,
-                          duration: const Duration(milliseconds: 120),
+                        ValueListenableBuilder<bool>(
+                          valueListenable: _profileCollapsed,
                           child: const Align(
                             alignment: Alignment.centerLeft,
                             child: Padding(
@@ -255,6 +261,12 @@ class _MePageState extends State<MePage> with RouteAware {
                               child: PageTitleText(pageName: 'Me'),
                             ),
                           ),
+                          builder: (context, collapsed, child) =>
+                              AnimatedOpacity(
+                                opacity: collapsed ? 1 : 0,
+                                duration: const Duration(milliseconds: 120),
+                                child: child,
+                              ),
                         ),
                         Align(
                           alignment: Alignment.centerRight,
@@ -297,47 +309,52 @@ class _MePageState extends State<MePage> with RouteAware {
                     ),
                   ),
                   Expanded(
-                    child: ValueListenableBuilder<MembershipAccessState>(
-                      valueListenable: AppServicesScope.of(
-                        context,
-                      ).membership.state,
-                      builder: (context, membership, _) => UserProfileContent(
-                        data: data,
-                        originsListenable: _originsState,
-                        worldsListenable: _worldsState,
-                        avatarUrlListenable: _avatarUrl,
-                        displayNameListenable: _displayName,
-                        // The crown now sits bare beside the name, so the
-                        // 50x20 plate box it used to need is gone.
-                        displayNameTrailing:
-                            !data.deleted && data.membershipStatus == 1
-                            ? ProMembershipBadge.beside(
-                                key: const ValueKey('me-profile-crown-icon'),
-                                // The display name renders at 20.
-                                fontSize: MediaQuery.textScalerOf(
-                                  context,
-                                ).scale(20),
-                              )
-                            : null,
-                        isUpdatingProfileListenable: _isUpdatingProfile,
-                        gemWalletStateListenable: gemWalletState,
-                        reselectionListenable: widget.reselectionListenable,
-                        isActiveListenable: widget.isActiveListenable,
-                        onEditAvatar: _editAvatar,
-                        onEditDisplayName: _editNickName,
-                        onRefresh: _refreshCurrentCollection,
-                        onRefreshOrigins: _refreshOrigins,
-                        onRefreshWorlds: _refreshWorlds,
-                        onLoadMoreOrigins: _loadMoreOrigins,
-                        onLoadMoreWorlds: _loadMoreWorlds,
-                        onWorldDeleted: _handleWorldDeleted,
-                        onCollectionTabChanged: _handleCollectionTabChanged,
-                        onCollapsedChanged: _handleProfileCollapsedChanged,
-                        originTabLabel: 'Worldo',
-                        worldTabLabel: 'Playing',
-                        showCollectionCounts: true,
-                        tabLabelFontSize: 14,
-                      ),
+                    child: ValueListenableBuilder<UserProfileData?>(
+                      valueListenable: _profileData,
+                      builder: (context, currentData, _) {
+                        final visibleData = currentData ?? data;
+                        return UserProfileContent(
+                          data: visibleData,
+                          originsListenable: _originsState,
+                          worldsListenable: _worldsState,
+                          avatarUrlListenable: _avatarUrl,
+                          displayNameListenable: _displayName,
+                          // The crown now sits bare beside the name, so the
+                          // 50x20 plate box it used to need is gone.
+                          displayNameTrailing:
+                              !visibleData.deleted &&
+                                  visibleData.membershipStatus == 1
+                              ? ProMembershipBadge.beside(
+                                  key: const ValueKey('me-profile-crown-icon'),
+                                  // The display name renders at 20.
+                                  fontSize: MediaQuery.textScalerOf(
+                                    context,
+                                  ).scale(20),
+                                )
+                              : null,
+                          isUpdatingProfileListenable: _isUpdatingProfile,
+                          gemWalletStateListenable: gemWalletState,
+                          membershipStateListenable: AppServicesScope.of(
+                            context,
+                          ).membership.state,
+                          reselectionListenable: widget.reselectionListenable,
+                          isActiveListenable: widget.isActiveListenable,
+                          onEditAvatar: _editAvatar,
+                          onEditDisplayName: _editNickName,
+                          onRefresh: _refreshCurrentCollection,
+                          onRefreshOrigins: _refreshOrigins,
+                          onRefreshWorlds: _refreshWorlds,
+                          onLoadMoreOrigins: _loadMoreOrigins,
+                          onLoadMoreWorlds: _loadMoreWorlds,
+                          onWorldDeleted: _handleWorldDeleted,
+                          onCollectionTabChanged: _handleCollectionTabChanged,
+                          onCollapsedChanged: _handleProfileCollapsedChanged,
+                          originTabLabel: 'Worldo',
+                          worldTabLabel: 'Playing',
+                          showCollectionCounts: true,
+                          tabLabelFontSize: 14,
+                        );
+                      },
                     ),
                   ),
                 ],

@@ -588,7 +588,7 @@ class _AppShellPageState extends State<AppShellPage>
   }
 
   void _handleMeLoggedOut() {
-    _resetSessionBoundState(selectedIndex: 4);
+    _resetSessionBoundState(selectedIndex: 4, preserveActiveMePage: true);
     unawaited(
       AppServicesScope.read(context).directMessageConversations.loadFromDb(),
     );
@@ -596,7 +596,10 @@ class _AppShellPageState extends State<AppShellPage>
 
   void _handleSessionChanged() {
     if (!mounted) return;
-    _resetSessionBoundState(selectedIndex: _selectedIndex);
+    _resetSessionBoundState(
+      selectedIndex: _selectedIndex,
+      preserveActiveMePage: true,
+    );
     final services = AppServicesScope.read(context);
     services.billing?.resetForSession();
     unawaited(
@@ -647,9 +650,21 @@ class _AppShellPageState extends State<AppShellPage>
     }
   }
 
-  void _resetSessionBoundState({required int selectedIndex}) {
+  void _resetSessionBoundState({
+    required int selectedIndex,
+    bool preserveActiveMePage = false,
+  }) {
+    final activeMePage = preserveActiveMePage && selectedIndex == 4
+        ? _tabPageCache[4]
+        : null;
     setState(() {
       _tabPageCache.clear();
+      if (activeMePage != null) {
+        // Me owns fine-grained session listeners for its profile and
+        // collections. Keep that state alive so login/logout refreshes its
+        // data in place instead of replacing the whole page.
+        _tabPageCache[4] = activeMePage;
+      }
       _sessionPageStorageBucket = PageStorageBucket();
       _sessionTabGeneration += 1;
       _visitedTabIndexes

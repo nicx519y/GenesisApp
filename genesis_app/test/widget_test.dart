@@ -6820,7 +6820,7 @@ void main() {
     services.gemWallet.state.removeListener(listener);
   });
 
-  testWidgets('Me login does not use disposed GemWallet state', (
+  testWidgets('Me login refreshes in place without recreating the page', (
     WidgetTester tester,
   ) async {
     AppStartupCoordinator.resetForTesting();
@@ -6858,6 +6858,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
+    final meStateBeforeLogin = tester.state(find.byType(MePage));
     await tester.tap(find.text('Continue with Google'));
     for (
       var i = 0;
@@ -6865,17 +6866,84 @@ void main() {
       i += 1
     ) {
       await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        find.byKey(const ValueKey<String>('me-page-initial-loading')),
+        findsNothing,
+      );
     }
 
     expect(tester.takeException(), isNull);
     expect(backendAuth.loginCount, 1);
     expect(find.text('Continue with Google'), findsNothing);
+    expect(tester.state(find.byType(MePage)), same(meStateBeforeLogin));
     void listener() {}
     expect(
       () => services.gemWallet.state.addListener(listener),
       returnsNormally,
     );
     services.gemWallet.state.removeListener(listener);
+  });
+
+  testWidgets('Me session refresh stays local and logout keeps page state', (
+    WidgetTester tester,
+  ) async {
+    final services = await _testServices(
+      transport: _RecordingV1ListTransport(),
+      useMock: false,
+      initialUid: 'u_cached',
+      initialAuthToken: 'backend-token',
+      initialUserInfo: const {
+        'uid': 'u_cached',
+        'name': 'Remote User',
+        'avatar': '',
+        'following_cnt': 13,
+        'follower_cnt': 17,
+      },
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: AppServicesScope(
+          services: services,
+          child: const Scaffold(body: MePage()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final meState = tester.state(find.byType(MePage));
+    final profileWidget = tester.widget<UserProfileContent>(
+      find.byType(UserProfileContent),
+    );
+
+    services.notifySessionChanged();
+    await tester.pumpAndSettle();
+
+    expect(tester.state(find.byType(MePage)), same(meState));
+    expect(
+      tester.widget<UserProfileContent>(find.byType(UserProfileContent)),
+      same(profileWidget),
+    );
+    expect(
+      find.byKey(const ValueKey<String>('me-page-initial-loading')),
+      findsNothing,
+    );
+
+    await services.sessionStore.clearUid();
+    services.notifySessionChanged();
+    for (
+      var i = 0;
+      i < 20 && find.text('Continue with Google').evaluate().isEmpty;
+      i += 1
+    ) {
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        find.byKey(const ValueKey<String>('me-page-initial-loading')),
+        findsNothing,
+      );
+    }
+
+    expect(tester.state(find.byType(MePage)), same(meState));
+    expect(find.text('Continue with Google'), findsOneWidget);
   });
 
   testWidgets('signed-out Worldo startup and Home opens My Worlds', (
@@ -21072,6 +21140,9 @@ void main() {
     );
     expect(transport.requestsFor('/api/v1/origin/list'), hasLength(1));
     expect(transport.requestsFor('/api/v1/world/list'), hasLength(1));
+    final pageShellBeforeRemoteProfile = tester.widget<GenesisTopSafeArea>(
+      find.byType(GenesisTopSafeArea),
+    );
 
     await tester.tap(find.text('Playing'));
     await tester.pump();
@@ -21116,7 +21187,14 @@ void main() {
         'data': {'list': const <Object?>[], 'total': 0},
       }),
     );
-    await tester.pump();
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remote User'), findsOneWidget);
+    expect(find.text('17'), findsOneWidget);
+    expect(
+      tester.widget<GenesisTopSafeArea>(find.byType(GenesisTopSafeArea)),
+      same(pageShellBeforeRemoteProfile),
+    );
   });
 
   testWidgets('profile list notifier update does not rebuild profile shell', (
