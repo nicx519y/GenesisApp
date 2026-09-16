@@ -203,6 +203,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
   final LocationChatBackgroundPreloader _locationChatBackgroundPreloader =
       LocationChatBackgroundPreloader();
   final _tilemapRestorationController = TilemapRestorationController();
+  final _tilemapOverlayOcclusionController =
+      TilemapOverlayOcclusionController();
   final GlobalKey _tilemapImplementationKey = GlobalKey(
     debugLabel: 'origin-detail-tilemap',
   );
@@ -283,6 +285,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
       _selectedLocationChatRoleId = _profileLocationChatRoleId;
       _currentTilemapLocationIds = const <String>{};
       _tilemapRestorationController.clear();
+      _tilemapOverlayOcclusionController.clear();
       _locationChatBackgroundPreloader.preload(const <Object?>[]);
       _waitingForOpeningSheetExpansion = widget.showOpeningSheetOnEntry;
       _detailSheetRaisedNotifier.value = false;
@@ -313,6 +316,7 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     _locationChatBackgroundPreloader.dispose();
     _roleAvatarSnapshots.dispose();
     _tilemapRestorationController.dispose();
+    _tilemapOverlayOcclusionController.dispose();
     _detailSheetRaisedNotifier.dispose();
     tilemapVisualModeController.removeListener(_handleTilemapVisualModeChanged);
     super.dispose();
@@ -1012,6 +1016,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
                     topPadding + 8 + genesisSearchFieldHeight + 8,
                 visualModeToggleRight: 12,
                 restorationController: _tilemapRestorationController,
+                overlayOcclusionController: _tilemapOverlayOcclusionController,
+                bottomEdgeFadeExtent: originWorldTilemapBottomFadeExtent,
                 onMapTap: () => _recordWorldoTilemapClick(origin),
                 onCurrentLocationsChanged:
                     _handleCurrentTilemapLocationsChanged,
@@ -1036,6 +1042,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
               initiallyExpanded: widget.showOpeningSheetOnEntry,
               autoExpansionPending: _waitingForOpeningSheetExpansion,
               onRaisedChanged: _handleDetailSheetRaisedChanged,
+              onOverlayVisibleHeightChanged:
+                  _tilemapOverlayOcclusionController.setVisibleHeight,
               onFullyExpanded: _handleOpeningSheetFullyExpanded,
               onAutoExpansionInterrupted:
                   _handleOpeningSheetExpansionInterrupted,

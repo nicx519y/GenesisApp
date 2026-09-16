@@ -186,6 +186,90 @@ void _appendParallelGridLines({
   }
 }
 
+@visibleForTesting
+LinearGradient tilemapOverlayOcclusionGradient({
+  required double visibleHeight,
+  required double viewportHeight,
+}) {
+  final height = math.max(1.0, viewportHeight);
+  final fadeStart = visibleHeight - tilemapOverlayOcclusionFadeExtent;
+  double opacityAt(double y) {
+    if (y <= fadeStart) return 1;
+    if (y >= visibleHeight) return 0;
+    return (visibleHeight - y) / tilemapOverlayOcclusionFadeExtent;
+  }
+
+  final colors = <Color>[
+    Colors.white.withValues(alpha: opacityAt(0).clamp(0.0, 1.0)),
+  ];
+  final stops = <double>[0];
+  final fadeStartStop = (fadeStart / height).clamp(0.0, 1.0);
+  final fadeEndStop = (visibleHeight / height).clamp(0.0, 1.0);
+  if (fadeStartStop > 0 && fadeStartStop < 1) {
+    colors.add(Colors.white);
+    stops.add(fadeStartStop);
+  }
+  if (fadeEndStop > 0 && fadeEndStop < 1) {
+    colors.add(Colors.transparent);
+    stops.add(fadeEndStop);
+  }
+  colors.add(Colors.white.withValues(alpha: opacityAt(height).clamp(0.0, 1.0)));
+  stops.add(1);
+  return LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: colors,
+    stops: stops,
+  );
+}
+
+class _TilemapOverlayOcclusionMask extends StatelessWidget {
+  const _TilemapOverlayOcclusionMask({
+    required this.controller,
+    required this.child,
+  });
+
+  final TilemapOverlayOcclusionController? controller;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final occlusionController = controller;
+    if (occlusionController == null) return child;
+    return AnimatedBuilder(
+      animation: occlusionController,
+      child: child,
+      builder: (context, overlayChild) => LayoutBuilder(
+        builder: (context, constraints) {
+          final viewportHeight = constraints.maxHeight;
+          final visibleHeight = occlusionController.visibleHeight;
+          if (visibleHeight == null ||
+              !viewportHeight.isFinite ||
+              visibleHeight >= viewportHeight) {
+            return overlayChild!;
+          }
+          if (visibleHeight <= 0) {
+            return Opacity(
+              key: const ValueKey<String>('tilemap-overlay-occlusion-hidden'),
+              opacity: 0,
+              child: overlayChild,
+            );
+          }
+          return ShaderMask(
+            key: const ValueKey<String>('tilemap-overlay-occlusion-mask'),
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (bounds) => tilemapOverlayOcclusionGradient(
+              visibleHeight: visibleHeight,
+              viewportHeight: bounds.height,
+            ).createShader(bounds),
+            child: overlayChild,
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _TilemapLocationBubble extends StatelessWidget {
   const _TilemapLocationBubble({
     super.key,

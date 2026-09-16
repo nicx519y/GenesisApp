@@ -22,6 +22,7 @@ class TilemapRenderer extends StatefulWidget {
     this.centerContentInitially = false,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
+    this.overlayOcclusionController,
     this.onMapTap,
     this.onImageError,
     this.onViewportReady,
@@ -61,6 +62,7 @@ class TilemapRenderer extends StatefulWidget {
   final bool centerContentInitially;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
+  final TilemapOverlayOcclusionController? overlayOcclusionController;
   final VoidCallback? onMapTap;
   final ValueChanged<Object>? onImageError;
   final VoidCallback? onViewportReady;
@@ -619,57 +621,84 @@ class _TilemapRendererState extends State<TilemapRenderer>
                                             ),
                                           ),
                                         ),
-                                      for (final label in locationLabels)
-                                        _TilemapLocationBubble(
-                                          key: ValueKey<String>(
-                                            'tile-location-label-'
-                                            '${label.tile.x}-${label.tile.y}',
-                                          ),
-                                          name: label.name,
-                                          avatars: label.avatars,
-                                          showRecentChat: label.showRecentChat,
-                                          showEvent: label.showEvent,
-                                          showNew: label.showNew,
-                                          newBadgeKey: ValueKey<String>(
-                                            'tilemap-location-new-badge-'
-                                            '${label.tile.x}-${label.tile.y}',
-                                          ),
-                                          onLabelTap:
-                                              widget.onTileAction == null
-                                              ? null
-                                              : () => _handleOverlayTileTap(
-                                                  label.tile,
+                                      Positioned.fill(
+                                        child: _TilemapOverlayOcclusionMask(
+                                          controller:
+                                              widget.overlayOcclusionController,
+                                          child: Stack(
+                                            fit: StackFit.expand,
+                                            clipBehavior: Clip.none,
+                                            children: [
+                                              for (final label
+                                                  in locationLabels)
+                                                _TilemapLocationBubble(
+                                                  key: ValueKey<String>(
+                                                    'tile-location-label-'
+                                                    '${label.tile.x}-'
+                                                    '${label.tile.y}',
+                                                  ),
+                                                  name: label.name,
+                                                  avatars: label.avatars,
+                                                  showRecentChat:
+                                                      label.showRecentChat,
+                                                  showEvent: label.showEvent,
+                                                  showNew: label.showNew,
+                                                  newBadgeKey: ValueKey<String>(
+                                                    'tilemap-location-new-'
+                                                    'badge-${label.tile.x}-'
+                                                    '${label.tile.y}',
+                                                  ),
+                                                  onLabelTap:
+                                                      widget.onTileAction ==
+                                                          null
+                                                      ? null
+                                                      : () =>
+                                                            _handleOverlayTileTap(
+                                                              label.tile,
+                                                            ),
+                                                  onAvatarTap:
+                                                      widget.onTileAction ==
+                                                          null
+                                                      ? null
+                                                      : () =>
+                                                            _handleOverlayTileTap(
+                                                              label.tile,
+                                                            ),
+                                                  anchor: MatrixUtils.transformPoint(
+                                                    matrix,
+                                                    tilemapLocationBubbleSceneAnchor(
+                                                      projection,
+                                                      label.tile,
+                                                    ),
+                                                  ),
                                                 ),
-                                          onAvatarTap:
-                                              widget.onTileAction == null
-                                              ? null
-                                              : () => _handleOverlayTileTap(
-                                                  label.tile,
+                                              if (activeBubble != null &&
+                                                  activeBubbleLabel != null &&
+                                                  activeBubbleAvatarTopLeft !=
+                                                      null)
+                                                TilemapCharacterMessageBubble(
+                                                  text: activeBubble.content,
+                                                  avatarTopLeft:
+                                                      activeBubbleAvatarTopLeft,
+                                                  viewportWidth:
+                                                      viewportSize.width,
+                                                  preservePageWidth:
+                                                      activeBubble
+                                                          .preservePageWidth,
+                                                  onTap:
+                                                      widget.onTileAction ==
+                                                          null
+                                                      ? null
+                                                      : () =>
+                                                            _handleOverlayTileTap(
+                                                              activeBubbleLabel!
+                                                                  .tile,
+                                                            ),
                                                 ),
-                                          anchor: MatrixUtils.transformPoint(
-                                            matrix,
-                                            tilemapLocationBubbleSceneAnchor(
-                                              projection,
-                                              label.tile,
-                                            ),
+                                            ],
                                           ),
                                         ),
-                                      if (activeBubble != null &&
-                                          activeBubbleLabel != null &&
-                                          activeBubbleAvatarTopLeft != null)
-                                        TilemapCharacterMessageBubble(
-                                          text: activeBubble.content,
-                                          avatarTopLeft:
-                                              activeBubbleAvatarTopLeft,
-                                          viewportWidth: viewportSize.width,
-                                          preservePageWidth:
-                                              activeBubble.preservePageWidth,
-                                          onTap: widget.onTileAction == null
-                                              ? null
-                                              : () => _handleOverlayTileTap(
-                                                  activeBubbleLabel!.tile,
-                                                ),
-                                        ),
+                                      ),
                                     ],
                                   );
                                 },

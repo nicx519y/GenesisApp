@@ -41,10 +41,22 @@ void main() {
 
   test('origin page and detail sheet share the base background', () {
     expect(originWorldDetailSheetBackgroundColor, const Color(0xFF151517));
+    expect(
+      originWorldDetailSheetSurfaceColor,
+      GenesisColors.darkBackground.withValues(alpha: 0.9),
+    );
     expect(GenesisColors.darkRaisedBackground, const Color(0xFF181C1F));
     expect(
       originWorldMapShellSource,
       contains('backgroundColor: originWorldDetailSheetBackgroundColor'),
+    );
+    expect(
+      originWorldMapShellSource,
+      contains('color: originWorldDetailSheetSurfaceColor'),
+    );
+    expect(
+      originWorldDetailSheetSource,
+      contains('color: originWorldDetailSheetSurfaceColor'),
     );
   });
 
@@ -76,7 +88,10 @@ void main() {
     );
     expect(
       originWorldLocationChatSource,
-      contains('_originDetailSheetChatComposerStyle => kLocationChatStyle;'),
+      contains(
+        'copyWith(composerBackgroundColor: '
+        'originWorldDetailSheetSurfaceColor)',
+      ),
     );
     expect(
       originWorldDetailSheetSource,

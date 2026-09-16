@@ -108,6 +108,7 @@ extension _OriginWorldPageMapShell on _OriginWorldPageState {
           locationId: locationId,
           centerContentInitially: true,
           showVisualModeToggle: false,
+          bottomEdgeFadeExtent: originWorldTilemapBottomFadeExtent,
           restorationController: _tilemapRestorationController,
         ),
       ),
@@ -188,8 +189,8 @@ class _OriginDetailLoadingSheet extends StatelessWidget {
           heightFactor: heightFactor,
           child: DecoratedBox(
             key: const ValueKey<String>('origin-detail-loading-sheet'),
-            decoration: const BoxDecoration(
-              color: originWorldDetailSheetBackgroundColor,
+            decoration: BoxDecoration(
+              color: originWorldDetailSheetSurfaceColor,
               borderRadius: GenesisRadii.sheet,
             ),
             child: ClipRRect(

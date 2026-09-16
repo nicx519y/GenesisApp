@@ -26,6 +26,8 @@ import 'tilemap_renderer.dart';
 import 'tilemap_settings_button_visibility.dart';
 import 'tilemap_settings_store.dart';
 
+export 'tilemap_renderer.dart' show TilemapOverlayOcclusionController;
+
 part 'tilemap_settings_panel.dart';
 part 'tilemap_fog_editor.dart';
 part 'tilemap_image_flow_editor.dart';
@@ -36,6 +38,22 @@ enum _TilemapSource { origin, world }
 typedef TilemapTileImageLoader = Future<void> Function(String assetUrl);
 typedef TilemapCurrentLocationsChanged =
     void Function(String mapId, Set<String> locationIds);
+
+@visibleForTesting
+LinearGradient tilemapBottomEdgeFadeGradient({
+  required double viewportHeight,
+  required double fadeExtent,
+}) {
+  final height = math.max(1.0, viewportHeight);
+  final extent = fadeExtent.clamp(0.0, height);
+  final fadeStart = ((height - extent) / height).clamp(0.0, 1.0);
+  return LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: const <Color>[Colors.white, Colors.white, Colors.transparent],
+    stops: <double>[0, fadeStart, 1],
+  );
+}
 
 class TilemapRestorationController extends ChangeNotifier {
   String _scopeKey = '';
@@ -414,6 +432,8 @@ class Tilemap extends StatefulWidget {
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
+    this.overlayOcclusionController,
+    this.bottomEdgeFadeExtent = 0,
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
@@ -445,6 +465,8 @@ class Tilemap extends StatefulWidget {
     this.reloadRevision = 0,
     this.messageBubbles = const <WorldMapMessageBubble>[],
     this.messageBubblePlaybackPaused = false,
+    this.overlayOcclusionController,
+    this.bottomEdgeFadeExtent = 0,
     this.onDrillIntoLocation,
     this.onMapTap,
     this.onPointTap,
@@ -475,6 +497,8 @@ class Tilemap extends StatefulWidget {
   final int reloadRevision;
   final List<WorldMapMessageBubble> messageBubbles;
   final bool messageBubblePlaybackPaused;
+  final TilemapOverlayOcclusionController? overlayOcclusionController;
+  final double bottomEdgeFadeExtent;
   final VoidCallback? onDrillIntoLocation;
   final VoidCallback? onMapTap;
   final FutureOr<void> Function(WorldPoint point)? onPointTap;
@@ -2068,6 +2092,9 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
           !interactive ||
           !includeLiveContent ||
           widget.messageBubblePlaybackPaused,
+      overlayOcclusionController: foreground
+          ? widget.overlayOcclusionController
+          : null,
       onMapTap: interactive ? widget.onMapTap : null,
       onImageError:
           backgroundImageError ??
@@ -2491,6 +2518,23 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
     return Stack(fit: StackFit.expand, children: children);
   }
 
+  Widget _buildBottomEdgeFadedViewport(
+    BuildContext context,
+    Size viewportSize,
+  ) {
+    final viewport = _buildMapViewport(context, viewportSize);
+    if (widget.bottomEdgeFadeExtent <= 0) return viewport;
+    return ShaderMask(
+      key: const ValueKey<String>('tilemap-bottom-edge-fade'),
+      blendMode: BlendMode.dstIn,
+      shaderCallback: (bounds) => tilemapBottomEdgeFadeGradient(
+        viewportHeight: bounds.height,
+        fadeExtent: widget.bottomEdgeFadeExtent,
+      ).createShader(bounds),
+      child: viewport,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final exitLocationLabel =
@@ -2526,7 +2570,7 @@ class _TilemapState extends State<Tilemap> with WidgetsBindingObserver {
           return Stack(
             fit: StackFit.expand,
             children: [
-              _buildMapViewport(context, viewportSize),
+              _buildBottomEdgeFadedViewport(context, viewportSize),
               if (_locationTrail.isNotEmpty)
                 Positioned(
                   left: 12,
