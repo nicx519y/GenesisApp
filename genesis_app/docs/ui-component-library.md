@@ -155,7 +155,11 @@ GenesisPageHeader(
 
 ### GenesisPrimaryButton
 
-主按钮组件，默认使用全局 `FilledButtonTheme`，固定单行省略，适合表单提交和页面底部主操作。
+主按钮组件，固定单行省略，适合表单提交和页面底部主操作。
+
+提交中传 `isLoading: true`：禁止重复提交，底色保持正常 `backgroundColor`，不套用普通禁用底色。已有圆环保留；原来没有圆环、只显示文字的按钮同时设置 `showLoadingIndicator: false`，保留原文案。圆环默认 18×18、线宽 2，已有调用的圆环覆盖参数继续保留；不因本规则统一前景颜色或增加圆环。
+
+普通校验禁用仍使用 `onPressed: null` 和公共禁用配色。上述 loading 保留底色的规则也适用于自定义提交按钮：品牌红、灰底、金色渐变和透明底均保持原样。清单见 [用户端提交按钮](button-loading-states.md)。
 
 ```dart
 GenesisPrimaryButton(

@@ -304,6 +304,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
               const SizedBox(height: 40),
               GenesisPrimaryButton(
                 key: const ValueKey('personalization-continue'),
+                isLoading: _saving,
                 label: 'Continue',
                 height: 48,
                 onDisabledPressed: _saving

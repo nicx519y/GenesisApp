@@ -28,6 +28,7 @@ class GenesisPrimaryButton extends StatelessWidget {
     this.minimumSize,
     this.tapTargetSize,
     this.isLoading = false,
+    this.showLoadingIndicator = true,
     this.loadingSize = 18,
     this.loadingStrokeWidth = 2,
     this.leadingIcon,
@@ -66,6 +67,9 @@ class GenesisPrimaryButton extends StatelessWidget {
   final Size? minimumSize;
   final MaterialTapTargetSize? tapTargetSize;
   final bool isLoading;
+
+  /// Keep existing progress text instead of adding a spinner when false.
+  final bool showLoadingIndicator;
   final double loadingSize;
   final double loadingStrokeWidth;
   final Widget? leadingIcon;
@@ -75,11 +79,12 @@ class GenesisPrimaryButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final disabled = isLoading || onPressed == null;
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final resolvedDisabledBackground =
-        disabledBackgroundColor ??
-        (dark
-            ? GenesisColors.darkButtonDisabledBackground
-            : defaultDisabledBackgroundColor);
+    final resolvedDisabledBackground = isLoading
+        ? backgroundColor ?? defaultBackgroundColor
+        : disabledBackgroundColor ??
+              (dark
+                  ? GenesisColors.darkButtonDisabledBackground
+                  : defaultDisabledBackgroundColor);
     final resolvedDisabledForeground =
         disabledForegroundColor ??
         (dark
@@ -130,7 +135,7 @@ class GenesisPrimaryButton extends StatelessWidget {
             minimumSize: minimumSize,
             tapTargetSize: tapTargetSize,
           ),
-          child: isLoading
+          child: isLoading && showLoadingIndicator
               ? SizedBox.square(
                   dimension: loadingSize,
                   child: CircularProgressIndicator(

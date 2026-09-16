@@ -402,7 +402,7 @@ void main() {
   });
 
   testWidgets(
-    'GenesisPrimaryButton uses muted dark disabled and loading states',
+    'GenesisPrimaryButton keeps its background while loading and mutes validation-disabled state',
     (tester) async {
       var taps = 0;
       for (final loading in [false, true]) {
@@ -430,7 +430,9 @@ void main() {
         );
         expect(
           button.style?.backgroundColor?.resolve({WidgetState.disabled}),
-          GenesisColors.redPrimary.withValues(alpha: 0.4),
+          loading
+              ? GenesisColors.redPrimary
+              : GenesisColors.redPrimary.withValues(alpha: 0.4),
         );
         expect(
           button.style?.foregroundColor?.resolve({WidgetState.disabled}),
@@ -450,6 +452,37 @@ void main() {
           );
         }
       }
+    },
+  );
+
+  testWidgets(
+    'text-only loading preserves custom fill without adding a spinner',
+    (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.dark(),
+          home: Scaffold(
+            body: GenesisPrimaryButton(
+              label: 'Saving...',
+              onPressed: () => taps++,
+              isLoading: true,
+              showLoadingIndicator: false,
+              backgroundColor: GenesisColors.darkFaintFill,
+              disabledBackgroundColor: Colors.transparent,
+            ),
+          ),
+        ),
+      );
+      final button = tester.widget<FilledButton>(find.byType(FilledButton));
+      expect(
+        button.style?.backgroundColor?.resolve({WidgetState.disabled}),
+        GenesisColors.darkFaintFill,
+      );
+      expect(find.text('Saving...'), findsOneWidget);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
+      await tester.tap(find.byType(FilledButton));
+      expect(taps, 0);
     },
   );
 
