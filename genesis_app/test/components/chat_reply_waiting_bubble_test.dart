@@ -63,4 +63,44 @@ void main() {
     expect(tester.getTopLeft(surface).dx, 60);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'hidden waiting bubble keeps geometry without dots or semantics',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatReplyWaitingBubble(
+              style: kLocationChatStyle,
+              visible: false,
+            ),
+          ),
+        ),
+      );
+
+      final bubble = find.byType(ChatReplyWaitingBubble);
+      final hiddenSize = tester.getSize(bubble);
+      expect(hiddenSize.height, greaterThan(0));
+      expect(
+        find.byKey(const ValueKey('location-chat-ack-loading-dots')),
+        findsNothing,
+      );
+      expect(find.bySemanticsLabel('AI reply loading'), findsNothing);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ChatReplyWaitingBubble(style: kLocationChatStyle),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.getSize(bubble), hiddenSize);
+      expect(
+        find.byKey(const ValueKey('location-chat-ack-loading-dots')),
+        findsOneWidget,
+      );
+      expect(find.bySemanticsLabel('AI reply loading'), findsOneWidget);
+    },
+  );
 }

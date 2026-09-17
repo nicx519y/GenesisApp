@@ -46,6 +46,35 @@ const locationChatOldestEdgeLoadingAnimationDuration = Duration(
 const _locationChatLayoutCorrectionExtentSignal = 0.01;
 const _locationChatAnchorRestoreCacheExtent = 1000000000.0;
 
+double locationChatStableReplyViewportHeightForTesting({
+  required double currentViewportHeight,
+  required double effectiveKeyboardInset,
+}) => (currentViewportHeight + effectiveKeyboardInset).clamp(
+  currentViewportHeight,
+  double.infinity,
+);
+
+/// Provides the keyboard inset already applied outside the message viewport.
+class LocationChatKeyboardInsetScope extends InheritedWidget {
+  const LocationChatKeyboardInsetScope({
+    super.key,
+    required this.effectiveInset,
+    required super.child,
+  });
+
+  final double effectiveInset;
+
+  static double read(BuildContext context) =>
+      context
+          .getInheritedWidgetOfExactType<LocationChatKeyboardInsetScope>()
+          ?.effectiveInset ??
+      0;
+
+  @override
+  bool updateShouldNotify(LocationChatKeyboardInsetScope oldWidget) =>
+      effectiveInset != oldWidget.effectiveInset;
+}
+
 /// Owns every programmatic scroll-position change for location chat.
 class LocationChatScrollCoordinator extends ChangeNotifier {
   LocationChatScrollCoordinator({ScrollController? controller})
@@ -494,6 +523,9 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     required this.topTitle,
     this.loadingAfterMessageLocalId,
     this.loadingIdentity,
+    this.preAckWaitingAfterMessageLocalId,
+    this.preAckWaitingIdentity,
+    this.waitingPositionResetRevision = 0,
     this.goOnAwaitingContentIdentity,
     this.replyWaitingPositioningEnabled = true,
     this.replyViewportReserveFraction =
@@ -544,6 +576,9 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final String topTitle;
   final String? loadingAfterMessageLocalId;
   final String? loadingIdentity;
+  final String? preAckWaitingAfterMessageLocalId;
+  final String? preAckWaitingIdentity;
+  final int waitingPositionResetRevision;
 
   /// Accepted Go On waiting for its first non-empty rendered reply.
   final String? goOnAwaitingContentIdentity;
@@ -778,6 +813,7 @@ class _LocationChatAnchoredMessageListState
       : list.replyRegenerationInProgress
       ? 'regenerate:${list.replyCardBindingIdentity ?? list.replyActionsIdentity}'
       : list.goOnAwaitingContentIdentity ??
+            list.preAckWaitingIdentity ??
             (list.loadingAfterMessageLocalId == null
                 ? null
                 : list.loadingIdentity ?? list.loadingAfterMessageLocalId);
@@ -814,8 +850,15 @@ class _LocationChatAnchoredMessageListState
           coordinator.controller.position.pixels +
           (regenerating ? anchor.top : anchor.bottom) -
           viewport.top;
+      final stableViewportHeight =
+          locationChatStableReplyViewportHeightForTesting(
+            currentViewportHeight: viewport.height,
+            effectiveKeyboardInset: LocationChatKeyboardInsetScope.read(
+              context,
+            ),
+          );
       final reservedHeight =
-          viewport.height *
+          stableViewportHeight *
           LocationChatBubbleLayoutSettings.normalizeReplyViewportReserveFraction(
             widget.replyViewportReserveFraction,
           );
@@ -823,12 +866,12 @@ class _LocationChatAnchoredMessageListState
       // so dismissing the bubble never clamps the reader back down the list.
       setState(() {
         _waitingMinContentExtent = (contentAnchor + reservedHeight).clamp(
-          viewport.height,
+          stableViewportHeight,
           double.infinity,
         );
       });
       coordinator.positionWaitingReply(
-        contentAnchor - (viewport.height - reservedHeight),
+        contentAnchor - (stableViewportHeight - reservedHeight),
       );
     });
   }
@@ -877,18 +920,46 @@ class _LocationChatAnchoredMessageListState
       _currentReplyCard?.messages.lastOrNull?.localId ==
           _renderedMessages.last.localId;
 
-  bool get _loadingInReplyActionSlot =>
-      widget.loadingAfterMessageLocalId != null &&
+  bool get _immediateSendWaitingActive =>
+      widget.replyWaitingPositioningEnabled &&
+      widget.preAckWaitingAfterMessageLocalId != null &&
+      widget.preAckWaitingIdentity != null;
+
+  String? get _waitingAfterMessageLocalId => _immediateSendWaitingActive
+      ? widget.preAckWaitingAfterMessageLocalId
+      : widget.loadingAfterMessageLocalId;
+
+  Object? get _waitingIndicatorIdentity => _immediateSendWaitingActive
+      ? widget.preAckWaitingIdentity
+      : widget.loadingIdentity;
+
+  bool get _waitingInReplyActionSlot =>
+      _waitingAfterMessageLocalId != null &&
       _timelineMessageCount > 0 &&
       _renderedMessages[_timelineMessageCount - 1].localId ==
-          widget.loadingAfterMessageLocalId;
+          _waitingAfterMessageLocalId;
+
+  bool get _loadingInReplyActionSlot =>
+      widget.loadingAfterMessageLocalId != null && _waitingInReplyActionSlot;
+
+  bool get _reservingPreAckLoadingInReplyActionSlot =>
+      _immediateSendWaitingActive &&
+      _waitingInReplyActionSlot &&
+      widget.loadingAfterMessageLocalId == null;
+
+  bool get _usesImmediateSendWaitingSlot =>
+      _immediateSendWaitingActive && _waitingInReplyActionSlot;
 
   bool get _showLoadingInReplyActionSlot =>
       _loadingInReplyActionSlot || widget.goOnAwaitingContentIdentity != null;
 
-  String? get _replyActionSlotLoadingIdentity => _loadingInReplyActionSlot
-      ? widget.loadingIdentity
+  Object? get _replyActionSlotLoadingIdentity => _loadingInReplyActionSlot
+      ? _waitingIndicatorIdentity
       : widget.goOnAwaitingContentIdentity;
+
+  Object? get _replyControlWaitingIdentity => _showLoadingInReplyActionSlot
+      ? _replyActionSlotLoadingIdentity
+      : _replyIdentity;
 
   ChatMessageVm? get _messageBeforeReplyCard {
     final id = _currentReplyCard?.messages.firstOrNull?.localId;
@@ -914,8 +985,9 @@ class _LocationChatAnchoredMessageListState
       start,
       length,
       _replyIdentity,
-      widget.loadingAfterMessageLocalId,
-      widget.loadingIdentity,
+      _waitingAfterMessageLocalId,
+      _waitingIndicatorIdentity,
+      widget.loadingAfterMessageLocalId != null,
     );
     if (_timelineIdentity == identity) return _cachedTimelineEntries;
     _timelineIdentity = identity;
@@ -925,8 +997,8 @@ class _LocationChatAnchoredMessageListState
         if (i == count) -1,
         if (i < count && !(start >= 0 && i >= start && i < start + length)) i,
         if (i < count &&
-            _renderedMessages[i].localId == widget.loadingAfterMessageLocalId &&
-            !_loadingInReplyActionSlot &&
+            _renderedMessages[i].localId == _waitingAfterMessageLocalId &&
+            !_waitingInReplyActionSlot &&
             !(start >= 0 && i >= start && i < start + length))
           -3,
       ],
@@ -939,7 +1011,7 @@ class _LocationChatAnchoredMessageListState
   }
 
   Key _entryKey(int entry) => ValueKey<String>(switch (entry) {
-    -3 => 'location-chat-ack-loading:${widget.loadingIdentity}',
+    -3 => 'location-chat-ack-loading:$_waitingIndicatorIdentity',
     -2 => 'location-chat-reply-deck:$_replyIdentity',
     -1 => 'location-chat-reply-action-slot',
     _ =>
@@ -952,7 +1024,10 @@ class _LocationChatAnchoredMessageListState
           key: _entryKey(entry),
           child: KeyedSubtree(
             key: _waitingBubbleLayoutKey,
-            child: ChatReplyWaitingBubble(style: style),
+            child: ChatReplyWaitingBubble(
+              style: style,
+              visible: widget.loadingAfterMessageLocalId != null,
+            ),
           ),
         ),
         -2 => KeyedSubtree(
@@ -1230,6 +1305,20 @@ class _LocationChatAnchoredMessageListState
         deferBusyNotification: true,
       );
     }
+    if (oldWidget.waitingPositionResetRevision !=
+        widget.waitingPositionResetRevision) {
+      _waitingMinContentExtent = 0;
+      final resetRevision = widget.waitingPositionResetRevision;
+      final coordinator = widget.coordinator;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted ||
+            widget.coordinator != coordinator ||
+            widget.waitingPositionResetRevision != resetRevision) {
+          return;
+        }
+        coordinator.releaseWaitingReplyPosition();
+      });
+    }
     final disabledWaitingPositioning =
         oldWidget.replyWaitingPositioningEnabled &&
         !widget.replyWaitingPositioningEnabled;
@@ -1318,7 +1407,8 @@ class _LocationChatAnchoredMessageListState
       _editPromptExpanded = false;
       _inspirationPage = 0;
     }
-    if (_showLoadingInReplyActionSlot ||
+    if (_usesImmediateSendWaitingSlot ||
+        _showLoadingInReplyActionSlot ||
         !widget.replyActionsVisible ||
         widget.inspirationFeature.state == LocationChatReplyActionState.none ||
         (oldWidget.inspirationFeature.messages.isNotEmpty &&
@@ -2308,7 +2398,7 @@ class _LocationChatAnchoredMessageListState
 
   Widget _buildReplyControls(ChatUiStyleConfig style) => KeyedSubtree(
     key: ValueKey<String>(
-      'location-chat-reply-control:${_showLoadingInReplyActionSlot ? _replyActionSlotLoadingIdentity : _replyIdentity}',
+      'location-chat-reply-control:$_replyControlWaitingIdentity',
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2320,14 +2410,14 @@ class _LocationChatAnchoredMessageListState
           padding: const EdgeInsets.only(bottom: GenesisSpacing.xl),
           child: IgnorePointer(
             key: ValueKey(
-              'reply-actions-input-blocker-${_showLoadingInReplyActionSlot ? _replyActionSlotLoadingIdentity : _replyIdentity}',
+              'reply-actions-input-blocker-$_replyControlWaitingIdentity',
             ),
             ignoring: _cardTransitionBusy,
             child: LocationChatReplyActions(
-              key: ValueKey(
-                'reply-actions-${_showLoadingInReplyActionSlot ? _replyActionSlotLoadingIdentity : _replyIdentity}',
-              ),
-              loadingIndicator: _showLoadingInReplyActionSlot
+              key: ValueKey('reply-actions-$_replyControlWaitingIdentity'),
+              loadingIndicator:
+                  _showLoadingInReplyActionSlot &&
+                      !_usesImmediateSendWaitingSlot
                   ? KeyedSubtree(
                       key: _waitingBubbleLayoutKey,
                       child: ChatReplyWaitingBubble(
@@ -2339,7 +2429,21 @@ class _LocationChatAnchoredMessageListState
                       ),
                     )
                   : null,
+              reservedLoadingIndicator: _usesImmediateSendWaitingSlot
+                  ? KeyedSubtree(
+                      key: _waitingBubbleLayoutKey,
+                      child: ChatReplyWaitingBubble(
+                        key: ValueKey<String>(
+                          'location-chat-ack-loading:${widget.preAckWaitingIdentity}',
+                        ),
+                        style: style,
+                        inActionSlot: true,
+                        visible: !_reservingPreAckLoadingInReplyActionSlot,
+                      ),
+                    )
+                  : null,
               actionsExpanded:
+                  _usesImmediateSendWaitingSlot ||
                   _showLoadingInReplyActionSlot ||
                   (widget.replyActionsVisible && _replyIdentity != null),
               actionToolbarKey: _replyActionToolbarKey,

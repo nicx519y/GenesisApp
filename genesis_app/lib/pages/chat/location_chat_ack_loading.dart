@@ -3,6 +3,18 @@ part of 'location_chat_page.dart';
 const Duration _locationChatAckLoadingTimeout = Duration(seconds: 10);
 
 extension _LocationChatAckLoading on _LocationChatPanelState {
+  void _clearPreAckWaiting({required bool resetPosition}) {
+    if (_preAckWaitingClientMsgId == null &&
+        _preAckWaitingMessageLocalId == null) {
+      _preAckWaitingAccepted = false;
+      return;
+    }
+    _preAckWaitingClientMsgId = null;
+    _preAckWaitingMessageLocalId = null;
+    _preAckWaitingAccepted = false;
+    if (resetPosition) _waitingPositionResetRevision += 1;
+  }
+
   void _startAckLoading({
     required WorldChatroomService service,
     required String locationId,
@@ -23,7 +35,10 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     }
     if (sentMessage.status == 'failed') return;
 
-    _clearAckLoading();
+    final continuesImmediateWaiting =
+        _preAckWaitingClientMsgId == clientMsgId &&
+        _preAckWaitingMessageLocalId == sentMessage.localId;
+    _clearAckLoading(preservePreAckWaiting: continuesImmediateWaiting);
     _inspirationAckPreviousRound = _messages
         .where((message) => message.localId != sentMessage.localId)
         .fold<int>(
@@ -33,6 +48,7 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
         );
     _ackLoadingClientMsgId = clientMsgId;
     _ackLoadingMessageLocalId = sentMessage.localId;
+    _preAckWaitingAccepted = continuesImmediateWaiting;
     if (_dismissAckLoadingIfVisible()) return;
     _ackLoadingTimeout = Timer(_locationChatAckLoadingTimeout, () {
       if (!mounted || _ackLoadingClientMsgId != clientMsgId) return;
@@ -47,11 +63,14 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     }
   }
 
-  void _clearAckLoading() {
+  void _clearAckLoading({bool preservePreAckWaiting = false}) {
     _ackLoadingTimeout?.cancel();
     _ackLoadingTimeout = null;
     _ackLoadingClientMsgId = null;
     _ackLoadingMessageLocalId = null;
+    if (!preservePreAckWaiting) {
+      _clearPreAckWaiting(resetPosition: !_preAckWaitingAccepted);
+    }
   }
 
   String _ackLoadingRoundId() {
@@ -94,6 +113,9 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     for (final message in _messages) {
       if (message.clientMsgId == clientMsgId) {
         _ackLoadingMessageLocalId = message.localId;
+        if (_preAckWaitingClientMsgId == clientMsgId) {
+          _preAckWaitingMessageLocalId = message.localId;
+        }
         break;
       }
     }
