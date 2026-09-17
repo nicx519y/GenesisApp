@@ -344,7 +344,9 @@ class _ChatPageState extends State<ChatPage> with WidgetsBindingObserver {
     if (_sending || _peerUid.isEmpty) return;
     final content = normalizeGenesisUgcTextForSubmission(_textController.text);
     if (isGenesisUgcTextBlank(content)) return;
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.privateChat)) {
+      return;
+    }
     if (!mounted) return;
     final services = AppServicesScope.read(context);
     final sessionUid = (await services.sessionStore.readUid())?.trim() ?? '';

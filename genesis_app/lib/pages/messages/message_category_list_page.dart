@@ -282,7 +282,9 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     _NotificationItem item,
     _JoinRequestAction action,
   ) async {
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.messages)) {
+      return;
+    }
     if (!mounted) return;
     final applyId = item.applyId.trim();
     if (applyId.isEmpty) {
@@ -319,7 +321,9 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
     if (item.senderDeleted || uid.isEmpty || _loadingFollowUids.contains(uid)) {
       return;
     }
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.messages)) {
+      return;
+    }
     if (!mounted) return;
     setState(() => _loadingFollowUids.add(uid));
     try {

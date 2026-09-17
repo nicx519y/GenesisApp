@@ -251,7 +251,7 @@ extension _OriginWorldPageLocationChat on _OriginWorldPageState {
     // Keep the visible role when signing in adds a profile role to the list.
     final selectedRoleId = _effectiveLocationChatRoleId(origin);
     _setLocationChatRoleId(selectedRoleId);
-    if (!await ensureGenesisLogin(context)) {
+    if (!await ensureGenesisLogin(context, source: LoginSource.worldoDetail)) {
       if (!mounted) return _OriginLocationChatSendResult.notLaunched;
       return await hasGenesisLoginSession(context)
           ? _OriginLocationChatSendResult.loginCompleted

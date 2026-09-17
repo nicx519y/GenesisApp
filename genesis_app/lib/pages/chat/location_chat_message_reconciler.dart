@@ -594,6 +594,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       if (!mounted) return;
       final loggedIn = await ensureGenesisLogin(
         context,
+        source: LoginSource.locationChat,
         continueAfterLogin: true,
       );
       if (!mounted) return;

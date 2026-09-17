@@ -550,7 +550,7 @@ class _ReplyActionRow extends StatelessWidget {
         controller.isLikePending(normalizedDiscussId)) {
       return;
     }
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.discuss)) return;
     if (!context.mounted) return;
 
     final previousLiked = isLiked;

@@ -9,10 +9,16 @@ import '../../network/models/user.dart';
 import '../session/user_session_store.dart';
 import 'auth_session.dart';
 import 'identity_auth_service.dart';
+import 'login_source.dart';
+
+export 'login_source.dart';
 
 abstract interface class BackendAuthCoordinator {
   Future<bool> hasAuthenticatedBackendSession({bool tryAutoRefresh = true});
-  Future<User> loginWithIdentity(AuthSession session);
+  Future<User> loginWithIdentity(
+    AuthSession session, {
+    LoginSource source = LoginSource.unknown,
+  });
   Future<void> deleteAccount();
   Future<void> signOut();
 }
@@ -45,7 +51,10 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
   }
 
   @override
-  Future<User> loginWithIdentity(AuthSession session) async {
+  Future<User> loginWithIdentity(
+    AuthSession session, {
+    LoginSource source = LoginSource.unknown,
+  }) async {
     final stopwatch = Stopwatch()..start();
     GenesisTelemetry.event(
       'login_start',
@@ -57,7 +66,11 @@ class GenesisBackendAuthCoordinator implements BackendAuthCoordinator {
       final user = await _api.loginWithIdentity(session);
       stopwatch.stop();
       GenesisTelemetry.setUserId(user.uid);
-      GenesisTelemetry.collectLog(actionType: 'event', action: 'login');
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'login',
+        object1: source.value,
+      );
       final onLoginSuccess = _onLoginSuccess;
       if (onLoginSuccess != null) {
         unawaited(onLoginSuccess(user.uid));

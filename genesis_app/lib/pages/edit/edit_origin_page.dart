@@ -263,7 +263,7 @@ class _EditOriginPageState extends State<EditOriginPage> {
     OriginDraftRepository repository,
     CreateOriginDraft draft,
   ) async {
-    if (!await ensureGenesisLogin(context)) {
+    if (!await ensureGenesisLogin(context, source: LoginSource.editWorldo)) {
       return const OriginSubmitResult(message: '', showMessage: false);
     }
     if (!context.mounted) {

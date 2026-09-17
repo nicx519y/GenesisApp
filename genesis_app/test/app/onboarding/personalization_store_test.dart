@@ -10,6 +10,33 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test('confirmed save is reported before a later session change', () async {
+    String? uid;
+    final results = <bool>[];
+    final store = PersonalizationStore(
+      readLoginUid: () async => uid,
+      load: () async => personalizationData(),
+      save: (profile) async {
+        uid = 'new-user';
+        return PersonalizationProfile(
+          gender: profile.gender,
+          age: profile.age,
+          completed: true,
+        );
+      },
+    );
+    addTearDown(store.dispose);
+    await store.start();
+    await expectLater(
+      store.submit(
+        const PersonalizationProfile(gender: 'g0', age: 'a0'),
+        onSaveResult: results.add,
+      ),
+      throwsStateError,
+    );
+    expect(results, [true]);
+  });
+
   test(
     'successful submissions replace cached choices without a Worldo page',
     () async {

@@ -421,7 +421,7 @@ class _AppShellPageState extends State<AppShellPage>
     }
 
     if (index == 2) {
-      if (!await _ensureMainTabLogin()) return;
+      if (!await _ensureMainTabLogin(LoginSource.createWorldo)) return;
       if (!mounted) return;
       await Navigator.of(context).push(
         GenesisDarkPageRoute<void>(builder: (_) => const CreateOriginPage()),
@@ -430,7 +430,7 @@ class _AppShellPageState extends State<AppShellPage>
     }
 
     if (index == 3) {
-      if (!await _ensureMainTabLogin()) return;
+      if (!await _ensureMainTabLogin(LoginSource.messages)) return;
       if (!mounted) return;
       if (_selectedIndex == 3) {
         _messagesTabReselectionNotifier.value += 1;
@@ -451,18 +451,25 @@ class _AppShellPageState extends State<AppShellPage>
     }
   }
 
-  Future<bool> _ensureMainTabLogin() => ensureGenesisLogin(context);
+  Future<bool> _ensureMainTabLogin(LoginSource source) =>
+      ensureGenesisLogin(context, source: source);
 
   Future<bool> _hasLocalLoginSession() async {
     final services = AppServicesScope.read(context);
     return await services.sessionStore.readLoginUid() != null;
   }
 
-  Future<bool> _loginWithProvider(IdentityProvider provider) async {
+  Future<bool> _loginWithProvider(
+    IdentityProvider provider, {
+    required LoginSource source,
+  }) async {
     debugPrint('[Auth][AppShell] onLogin start provider=$provider');
     final services = AppServicesScope.read(context);
     final session = await services.identityAuth.signIn(provider);
-    final user = await services.backendAuth.loginWithIdentity(session);
+    final user = await services.backendAuth.loginWithIdentity(
+      session,
+      source: source,
+    );
     if (user.uid.trim().isNotEmpty) {
       await services.sessionStore.saveUid(user.uid);
     }
@@ -690,7 +697,8 @@ class _AppShellPageState extends State<AppShellPage>
           isFirstPageViewReported: _isFirstContentPageViewReported,
           onFirstPageViewReady: _recordFirstContentPageView,
           onOpenWorldo: () => unawaited(_onTapNav(1)),
-          onLogin: _loginWithProvider,
+          onLogin: (provider) =>
+              _loginWithProvider(provider, source: LoginSource.home),
           onLoginCompleted: () => scheduleDailyCheckInAfterLogin(context),
         ),
         1 => OriginPage(
@@ -715,7 +723,8 @@ class _AppShellPageState extends State<AppShellPage>
         4 => MePage(
           key: ValueKey<String>('me-session-$_sessionTabGeneration'),
           onLoggedOut: _handleMeLoggedOut,
-          onLogin: _loginWithProvider,
+          onLogin: (provider) =>
+              _loginWithProvider(provider, source: LoginSource.me),
           onLoginCompleted: () => scheduleDailyCheckInAfterLogin(context),
           activationListenable: _meTabActivationNotifier,
           reselectionListenable: _meTabReselectionNotifier,

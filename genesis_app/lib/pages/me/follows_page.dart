@@ -201,7 +201,7 @@ class _FollowsPageState extends State<FollowsPage>
   Future<void> _toggleFollow(_FollowUserItem item, bool isFollowed) async {
     final uid = item.uid.trim();
     if (uid.isEmpty || _loadingUids.contains(uid)) return;
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.follows)) return;
     if (!mounted) return;
     final generation = _loadGeneration;
 

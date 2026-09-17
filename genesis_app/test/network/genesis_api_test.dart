@@ -4719,6 +4719,9 @@ void main() {
             displayName: 'User',
             photoUrl: '',
           ),
+          source: provider == IdentityProvider.google
+              ? LoginSource.personalization
+              : LoginSource.membershipClaim,
         );
         await Future<void>.delayed(Duration.zero);
 
@@ -4745,6 +4748,21 @@ void main() {
           ('after_session_expired', ''),
           ('login', 'u_login'),
         ]);
+        final loginEvent = identityEvents.singleWhere(
+          (event) => event.action == 'login',
+        );
+        expect(
+          loginEvent.object1,
+          provider == IdentityProvider.google
+              ? 'from_personalization'
+              : 'from_membership_claim',
+        );
+        expect([
+          loginEvent.object2,
+          loginEvent.object3,
+          loginEvent.object4,
+          loginEvent.extData,
+        ], everyElement(''));
       },
     );
   }

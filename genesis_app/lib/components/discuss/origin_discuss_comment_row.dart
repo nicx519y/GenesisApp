@@ -354,7 +354,7 @@ class _DiscussActions extends StatelessWidget {
   Future<void> _toggleLike(BuildContext context) async {
     final discussId = item.discussId.trim();
     if (discussId.isEmpty || controller.isLikePending(discussId)) return;
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.discuss)) return;
     if (!context.mounted) return;
 
     final previousLiked = item.isLiked;

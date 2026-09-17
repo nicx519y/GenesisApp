@@ -587,7 +587,7 @@ class _UserProfileContentState extends State<UserProfileContent>
     if (_followLoading) return;
     final uid = widget.data.uid.trim();
     if (uid.isEmpty) return;
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.profile)) return;
     if (!mounted) return;
 
     setState(() => _followLoading = true);
@@ -616,7 +616,7 @@ class _UserProfileContentState extends State<UserProfileContent>
   }
 
   Future<void> _openMessages() async {
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.profile)) return;
     if (!mounted) return;
     Navigator.of(context).pushNamed(
       RouteNames.chat,

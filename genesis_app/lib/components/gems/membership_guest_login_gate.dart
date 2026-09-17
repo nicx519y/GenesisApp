@@ -82,6 +82,7 @@ class _MembershipGuestLoginGateState extends State<MembershipGuestLoginGate> {
           ? await login(context)
           : await ensureGenesisLogin(
               context,
+              source: LoginSource.membershipClaim,
               continueAfterLogin: true,
               isDismissible: false,
               linkPurchasedMembership: true,

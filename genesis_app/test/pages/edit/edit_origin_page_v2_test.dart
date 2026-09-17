@@ -633,7 +633,10 @@ class _AuthenticatedBackendAuthCoordinator implements BackendAuthCoordinator {
   }
 
   @override
-  Future<User> loginWithIdentity(AuthSession session) {
+  Future<User> loginWithIdentity(
+    AuthSession session, {
+    LoginSource source = LoginSource.unknown,
+  }) {
     throw UnsupportedError('Backend login is not used in this test.');
   }
 

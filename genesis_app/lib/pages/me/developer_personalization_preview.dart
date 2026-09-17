@@ -167,6 +167,7 @@ class _DeveloperPersonalizationPreviewState
           ),
           Flexible(
             child: PersonalizationSheet(
+              trackFormEvents: false,
               form: personalizationPreviewForm,
               onSubmit: (_) async => PersonalizationNextStep.subscription,
               key: ValueKey(_revision),

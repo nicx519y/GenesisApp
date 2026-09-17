@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../app/membership/subscription_analytics.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../gems/subscription_tracking_scope.dart';
 import '../../icons/custom_icon_assets.dart';
 import '../../network/models/personalization.dart';
@@ -57,6 +58,7 @@ class PersonalizationSheet extends StatefulWidget {
     this.initialProfile = const PersonalizationProfile(),
     this.initiallySignedIn = false,
     this.requiresSignIn = false,
+    this.trackFormEvents = true,
   });
 
   final Future<PersonalizationProfile?> Function(IdentityProvider) onSignIn;
@@ -72,13 +74,18 @@ class PersonalizationSheet extends StatefulWidget {
   final PersonalizationProfile initialProfile;
   final bool initiallySignedIn;
   final bool requiresSignIn;
+  final bool trackFormEvents;
 
   @override
   State<PersonalizationSheet> createState() => _PersonalizationSheetState();
 }
 
-class _PersonalizationSheetState extends State<PersonalizationSheet> {
+class _PersonalizationSheetState extends State<PersonalizationSheet>
+    with WidgetsBindingObserver {
   late PersonalizationStep _step;
+  final _formExposureKey = GlobalKey();
+  bool _formShowReported = false;
+  bool _skippingSubscription = false;
   final _subscriptionTracking = SubscriptionPageTracking(
     source: SubscriptionSource.onboarding,
   );
@@ -94,6 +101,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _step = widget.initialStep;
     _gender = widget.initialProfile.gender;
     _age = widget.initialProfile.age;
@@ -101,6 +109,67 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
     _requiresSignIn = widget.requiresSignIn;
     if (_loginRequired) _step = PersonalizationStep.signIn;
     _validateSelections();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Recheck an initially covered form when its route becomes current.
+    ModalRoute.isCurrentOf(context);
+    _repaintFormExposure();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _repaintFormExposure();
+  }
+
+  void _repaintFormExposure() {
+    if (!_formShowReported) {
+      _formExposureKey.currentContext?.findRenderObject()?.markNeedsPaint();
+    }
+  }
+
+  bool _reportFormShow() {
+    if (!widget.trackFormEvents || _formShowReported) return true;
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (!mounted ||
+        _step != PersonalizationStep.form ||
+        ModalRoute.of(context)?.isCurrent == false ||
+        (lifecycle != null && lifecycle != AppLifecycleState.resumed)) {
+      return false;
+    }
+    _formShowReported = true;
+    GenesisTelemetry.collectLog(
+      actionType: 'pageview',
+      action: 'personalization_form_show',
+    );
+    return true;
+  }
+
+  void _openSignIn() {
+    if (_saving) return;
+    setState(() => _step = PersonalizationStep.signIn);
+  }
+
+  void _skipSubscription() {
+    if (_step != PersonalizationStep.subscription || _skippingSubscription) {
+      return;
+    }
+    _skippingSubscription = true;
+    if (widget.trackFormEvents) {
+      GenesisTelemetry.collectLog(
+        actionType: 'event',
+        action: 'personalization_skip_click',
+      );
+    }
+    Navigator.of(context).pop(_profile);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
   }
 
   @override
@@ -237,7 +306,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
                 onBack: !_loginRequired && _signingIn == null
                     ? _backToForm
                     : null,
-                onSkip: () => Navigator.of(context).pop(_profile),
+                onSkip: _skipSubscription,
               ),
               child: SizedBox(
                 key: const ValueKey('personalization-body'),
@@ -246,7 +315,11 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
                   child: _step == PersonalizationStep.subscription
                       ? _subscription()
                       : _step == PersonalizationStep.form
-                      ? _form()
+                      ? SubscriptionExposure(
+                          key: _formExposureKey,
+                          onVisible: _reportFormShow,
+                          child: _form(),
+                        )
                       : _login(),
                 ),
               ),
@@ -332,11 +405,7 @@ class _PersonalizationSheetState extends State<PersonalizationSheet> {
                 Center(
                   child: TextButton(
                     key: const ValueKey('personalization-sign-in'),
-                    onPressed: _saving
-                        ? null
-                        : () => setState(
-                            () => _step = PersonalizationStep.signIn,
-                          ),
+                    onPressed: _saving ? null : _openSignIn,
                     child: const Text.rich(
                       TextSpan(
                         children: [
