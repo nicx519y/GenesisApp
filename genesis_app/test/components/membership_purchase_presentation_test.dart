@@ -131,9 +131,10 @@ void main() {
           await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
           await tester.pumpAndSettle();
           expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+          final catalogReadsBeforeClick = h.eligibilityQueries;
           await tester.tap(find.byKey(const ValueKey('pro-subscribe-button')));
           await tester.pumpAndSettle();
-          expect(h.eligibilityQueries, 0);
+          expect(h.eligibilityQueries, catalogReadsBeforeClick);
           expect(walletRequests, requestsBeforePurchase);
           expect(h.platform.launches, 0);
           expect(h.reports, isEmpty);
@@ -288,6 +289,23 @@ void main() {
     },
   );
 
+  testWidgets('legacy queue storage failure does not hide report success', (
+    tester,
+  ) async {
+    final h = service.Harness();
+    await open(tester, h);
+    h.store.fail = true;
+    await h.service.interceptPurchase(h.purchase(yearly: true));
+    await tester.pumpAndSettle();
+    expect(find.text('Purchase successful!'), findsOneWidget);
+    expect(h.reports, hasLength(1));
+    expect(h.store.records, isEmpty);
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(const SizedBox.shrink());
+    h.service.dispose();
+  });
+
   for (final outcome in [
     'cancelled',
     'pending',
@@ -296,7 +314,6 @@ void main() {
     'failed',
     'query failure',
     'deferred',
-    'storage failure',
     'stream failure',
   ]) {
     testWidgets(

@@ -312,26 +312,24 @@ void main() {
     },
   );
 
-  test(
-    'claim cleanup removes terminal report residue after report cleanup failed',
-    () async {
-      final h = support.Harness(claimEnabled: true)..uid = null;
-      await h.service.purchase(h.product());
-      h.store.failComplete = true;
-      await h.service.interceptPurchase(h.purchase());
-      expect(h.store.records.values.single.reportStatus, 'completed');
-      h.uid = 'first-login';
-      await h.service.recover();
-      expect(h.claimRequests, hasLength(1));
-      expect(h.store.records, isEmpty);
-      expect(h.store.confirmed, isEmpty);
-      expect(h.store.claims, isEmpty);
-      h.service.dispose();
-      final restarted = support.Harness(storage: h.store, claimEnabled: true)
-        ..uid = 'first-login';
-      await restarted.service.recover();
-      expect(restarted.claimRequests, isEmpty);
-      expect(restarted.reports, isEmpty);
-    },
-  );
+  test('claim cleanup removes guest proof without a report queue', () async {
+    final h = support.Harness(claimEnabled: true)..uid = null;
+    await h.service.purchase(h.product());
+    h.store.failComplete = true;
+    await h.service.interceptPurchase(h.purchase());
+    expect(h.store.records, isEmpty);
+    expect(h.store.confirmed.values.single.reportStatus, 'completed');
+    h.uid = 'first-login';
+    await h.service.recover();
+    expect(h.claimRequests, hasLength(1));
+    expect(h.store.records, isEmpty);
+    expect(h.store.confirmed, isEmpty);
+    expect(h.store.claims, isEmpty);
+    h.service.dispose();
+    final restarted = support.Harness(storage: h.store, claimEnabled: true)
+      ..uid = 'first-login';
+    await restarted.service.recover();
+    expect(restarted.claimRequests, isEmpty);
+    expect(restarted.reports, isEmpty);
+  });
 }

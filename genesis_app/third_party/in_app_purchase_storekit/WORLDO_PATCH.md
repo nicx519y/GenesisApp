@@ -18,24 +18,18 @@ deadline during that interaction.
 Pigeon source and both generated purchase-option codecs include the trailing
 optional `handoffId`; regenerate both together when updating upstream.
 
-## Expired subscription purchase gate
+## Subscription purchase delegation
 
-The upstream duplicate-product check also matches expired, unfinished subscription
-renewals. Worldo skips a same-product unfinished transaction only when both the
-queried product and that verified transaction are auto-renewable subscriptions, and the old
-transaction's `expirationDate <= signedDate`. Apple's verified signing time proves
-that billing period has ended; the decision does not use the device clock. Missing
-expiry or a signature from before expiry preserves the original duplicate guard.
-Every unfinished transaction is checked, so an expired renewal cannot hide a
-later unfinished period that still blocks purchase. Other product types retain
-the original guard, including consumable Gems.
+Auto-renewable subscriptions call `Product.purchase` without scanning or blocking
+on `Transaction.unfinished`. StoreKit decides the outcome, including existing
+subscriptions. Non-subscription products, including consumable Gems, keep their
+original unfinished-transaction guard. This change does not finish or report
+historical transactions, alter entitlement, or bypass the preparation deadline.
 
-This gate does not finish, report, claim, delete, or emit the skipped historical
-transaction. `Transaction.unfinished` queries, receipt recovery, verification,
-handoff authorization, and purchase-result delivery are unchanged. In particular,
-expiry is not proof of backend settlement or ownership, and the old receipt stays
-available for authorized recovery. The new purchase still goes through StoreKit
-and the existing backend report/claim flow before entitlement is granted.
+Apple and Google subscription callbacks share one report operation. Any business
+status ends it. Transient connection/timeouts and HTTP 408/429/5xx allow at most
+three immediate attempts with the same receipt; no report queue or restart retry
+is created. Guest ownership proof remains available only for login/claim.
 
 Membership store settlement is server-owned on both platforms: Apple uses App
 Store Server API Finish Transaction; Google uses subscription acknowledgement.

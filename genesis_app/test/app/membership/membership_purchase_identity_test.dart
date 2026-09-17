@@ -37,7 +37,7 @@ void main() {
               await h.service.purchase(
                 membershipProduct(provider: provider, yearly: yearly),
               );
-              expect(h.eligibilityQueries, 1);
+              expect(h.eligibilityQueries, 2);
               expect(h.platform.launches, 1);
               expect(h.platform.uuid, expected);
               expect(h.guestPrepares, guest && !supplied ? 1 : 0);

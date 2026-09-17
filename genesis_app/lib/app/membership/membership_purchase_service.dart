@@ -13,7 +13,6 @@ import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/membership_checkout_platform.dart';
 import '../../platform/billing/membership_pending_store.dart';
 import '../../platform/billing/membership_store_purchase.dart';
-import '../../platform/billing/membership_restore_record.dart';
 import '../../platform/billing/membership_guest_claim_record.dart';
 import '../../platform/billing/membership_guest_claim_proof.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
@@ -23,7 +22,6 @@ import 'membership_store_failure.dart';
 import 'subscription_analytics.dart';
 import 'subscription_failure_reason.dart';
 
-part 'membership_purchase_restore.dart';
 part 'membership_checkout_preparation.dart';
 part 'membership_purchase_tracking.dart';
 part 'membership_guest_claim.dart';
@@ -144,7 +142,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   final Set<String> _pendingGuestClaimWrites = {};
   final Map<String, _MembershipClaimRetry> _claimRetries = {};
   final Map<String, int> _claimWalletRefreshSessions = {};
-  final Set<String> _claimReportsRequeued = {};
   final Future<List<BillingPurchase>> Function(Set<String>)?
   queryRestorePurchases;
   final Duration retryDelay;
@@ -157,9 +154,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     MembershipCheckoutState.idle,
   );
   final Map<String, MembershipPurchaseRecord> _records = {};
-  final Set<String> _pendingRequestIds = {};
-  final Map<String, MembershipRestoreRecord> _restoreRecords = {};
-  final Set<String> _pendingRestoreIds = {};
+  // Consumed by one callback-driven operation, regardless of business outcome
+  // or exhausted technical retries. Never persisted as a report queue.
+  final Set<String> _reportedRequestIds = {};
   Future<void>? _loading;
   Future<void>? _recovery;
   bool _recoverAgain = false;
@@ -246,7 +243,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         _currentGuestLoginUuids.add(claim.guest.accountUuid);
         await _saveGuestClaim(claim.copyWith(loginRequired: true));
       } catch (error) {
-        _scheduleRetry();
+        _scheduleGuestMaintenance();
         _log('guest login persistence deferred', error);
       }
     });
@@ -272,21 +269,22 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       for (final record in await store.loadConfirmedReceipts()) {
         if (record.guest != null) {
           _records[record.requestId] = record;
+          _reportedRequestIds.add(record.requestId);
         } else {
           await store.complete(record);
         }
       }
+      // Retire legacy report queues without issuing any network report. Guest
+      // receipts remain separate proof for login/claim, never report recovery.
       for (final record in await store.loadAll()) {
-        if (!record.hasReceipt || (!record.paid && record.state != 'pending')) {
-          await store.complete(record);
-          continue;
+        if (record.guest != null && record.paid && record.hasReceipt) {
+          _records[record.requestId] = record;
+          _reportedRequestIds.add(record.requestId);
         }
-        _records[record.requestId] = record;
-        _pendingRequestIds.add(record.requestId);
+        await store.complete(record);
       }
       for (final record in await store.loadRestores()) {
-        _restoreRecords[record.requestId] = record;
-        _pendingRestoreIds.add(record.requestId);
+        await store.removeRestore(record.requestId);
       }
     }();
     _loading = task;
@@ -302,20 +300,15 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     // Checkout attempts and successful history live only in this process.
     record = record.copyWith(tracking: _trackingFor(record));
     _records[record.requestId] = record;
-    if (record.hasReceipt && (record.paid || record.state == 'pending')) {
-      _pendingRequestIds.add(record.requestId);
-    }
   }
 
-  /// Prepare only Google checkout for a fresh, visible subscription page.
+  /// Prepare store checkout for a fresh, visible subscription page.
   /// Failure is silent; a real click retries through the normal checkout path.
   MembershipCheckoutPreparation? prepareCheckout(
     MembershipProduct product, {
     VoidCallback? onExpired,
   }) {
-    if (_disposed ||
-        provider != MembershipProvider.google ||
-        product.provider != provider) {
+    if (_disposed || product.provider != provider) {
       return null;
     }
     final ticket = MembershipCheckoutPreparation._(
@@ -351,7 +344,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
               p.offerId == product.offerId,
         );
         if (matches.length != 1) return null;
-        final prepared = await _prepareGoogleCheckout(
+        final prepared = await _prepareStoreCheckout(
           uid,
           products,
           matches.single,
@@ -419,7 +412,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         attemptId: id,
         debugInfo: purchaseDebugInfo('vip.$stage', reason: 'prepare_timeout'),
       );
-      if (wait.launchRequested) _scheduleRetry();
     }
 
     bool canContinue() {
@@ -509,67 +501,42 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         late final Object nativeProduct;
         late final MembershipGuestIdentity? guest;
         late final String uuid;
-        if (provider == MembershipProvider.google) {
-          stage = 'prepare_google_checkout';
-          try {
-            final reusable = await _takeCheckoutPreparation(
-              preparation,
-              uid,
-              products,
-              product,
-            );
-            if (!await canContinueForOwner(uid)) return;
-            final prepared =
-                reusable ??
-                await _prepareGoogleCheckout(uid, products, product);
-            nativeProduct = prepared.nativeProduct;
-            guest = prepared.identity.guest;
-            uuid = prepared.identity.uuid;
-          } on _CheckoutPreparationFailure catch (failure) {
-            stage = failure.stage;
-            throw failure.error;
-          }
+        stage = 'prepare_store_checkout';
+        try {
+          final reusable = await _takeCheckoutPreparation(
+            preparation,
+            uid,
+            products,
+            product,
+          );
           if (!await canContinueForOwner(uid)) return;
-          // A page refresh can finish while Google or identity preparation waits.
-          // Re-read the in-memory catalog, never a new products API request.
-          stage = 'read_catalog';
-          final latestProducts = await readCheckoutProducts();
-          if (!await canContinueForOwner(uid)) return;
-          if (latestProducts.lastAccountUuid != products.lastAccountUuid ||
-              !latestProducts.products.any(
-                (p) =>
-                    p.provider == product.provider &&
-                    p.planCode == product.planCode &&
-                    p.storeProductId == product.storeProductId &&
-                    p.basePlanId == product.basePlanId &&
-                    p.offerId == product.offerId &&
-                    p.priceAmount == product.priceAmount &&
-                    p.priceCurrencyCode == product.priceCurrencyCode,
-              )) {
-            throw const MembershipPurchaseBlocked('eligibility_unavailable');
-          }
-        } else {
-          stage = 'query_store_product';
-          nativeProduct = await platform.prepare(product);
-          if (!await canContinueForOwner(uid)) return;
-          stage = 'prepare_guest';
-          guest = uid == null
-              ? products.lastAccountUuid == null
-                    ? await prepareGuest()
-                    : MembershipGuestIdentity(
-                        accountUuid: products.lastAccountUuid!,
-                      )
-              : null;
-          if (!canContinue()) return;
-          stage = 'load_account_uuid';
-          uuid =
-              products.lastAccountUuid ??
-              guest?.accountUuid ??
-              await loadAccountUuid();
-          if (!canContinue()) return;
-          if (!isMembershipAccountUuid(uuid)) {
-            throw StateError('membership_account_uuid_missing');
-          }
+          final prepared =
+              reusable ?? await _prepareStoreCheckout(uid, products, product);
+          nativeProduct = prepared.nativeProduct;
+          guest = prepared.identity.guest;
+          uuid = prepared.identity.uuid;
+        } on _CheckoutPreparationFailure catch (failure) {
+          stage = failure.stage;
+          throw failure.error;
+        }
+        if (!await canContinueForOwner(uid)) return;
+        // A page refresh can finish while store or identity preparation waits.
+        // Re-read the in-memory catalog, never a new products API request.
+        stage = 'read_catalog';
+        final latestProducts = await readCheckoutProducts();
+        if (!await canContinueForOwner(uid)) return;
+        if (latestProducts.lastAccountUuid != products.lastAccountUuid ||
+            !latestProducts.products.any(
+              (p) =>
+                  p.provider == product.provider &&
+                  p.planCode == product.planCode &&
+                  p.storeProductId == product.storeProductId &&
+                  p.basePlanId == product.basePlanId &&
+                  p.offerId == product.offerId &&
+                  p.priceAmount == product.priceAmount &&
+                  p.priceCurrencyCode == product.priceCurrencyCode,
+            )) {
+          throw const MembershipPurchaseBlocked('eligibility_unavailable');
         }
         final record = MembershipPurchaseRecord(
           requestId: id,
@@ -640,7 +607,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             );
             // Keep the original attempt/identity for a delayed valid receipt.
             // This is an unconfirmed result, not a new purchase or a failure.
-            _scheduleRetry();
           });
         }
       } catch (error) {
@@ -754,7 +720,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         await _handle(purchase);
       } catch (error) {
         _setState(MembershipCheckoutState.deferred);
-        _scheduleRetry();
         _log('callback deferred', error);
       }
       return true;
@@ -856,7 +821,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         attemptId: record.requestId,
         debugInfo: purchaseDebugInfo('vip.handle_callback', error: error),
       );
-      _scheduleRetry();
       _log('callback deferred', error);
     }
   }
@@ -872,7 +836,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       _signedTransactions['${record.accountUuid}:${purchase.transactionId}'] =
           purchase.signedTransaction;
     }
-    if (!_pendingRequestIds.contains(record.requestId) &&
+    if (_reportedRequestIds.contains(record.requestId) &&
         record.paid &&
         (purchase.transactionId.isEmpty ||
             purchase.transactionId == record.transactionId)) {
@@ -961,7 +925,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           reason: 'receipt_missing',
         ),
       );
-      _scheduleRetry();
       return;
     }
     if (purchase.status == BillingPurchaseStatus.pending) {
@@ -970,9 +933,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
     try {
       await _prepareGuestClaim(record, purchaseTime: purchase.purchaseTime);
-    } catch (_) {
-      _checkoutFailure(record.requestId, 'local_storage_failed');
-      rethrow;
+    } catch (error) {
+      _scheduleGuestMaintenance();
+      _log('guest proof persistence deferred', error);
     }
     if (purchase.status == BillingPurchaseStatus.pending) {
       _setState(
@@ -988,7 +951,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   Future<void> _report(MembershipPurchaseRecord record) async {
     record = record.copyWith(tracking: _trackingFor(record));
     if (_disposed ||
-        !_pendingRequestIds.contains(record.requestId) ||
+        _reportedRequestIds.contains(record.requestId) ||
         !record.hasReceipt ||
         (!record.paid && record.state != 'pending')) {
       return;
@@ -996,9 +959,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     if (record.guest == null && await readLoginUid() != record.ownerUid) return;
     final session = _session;
     final previousResult = record.reportStatus;
+    _reportedRequestIds.add(record.requestId);
     try {
       await _save(record);
-      if (record.reportStatus == null || record.reportStatus == 'accepted') {
+      if (record.reportStatus == null) {
         if (_disposed ||
             session != _session ||
             record.guest == null && await readLoginUid() != record.ownerUid) {
@@ -1057,9 +1021,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           ),
         );
       }
-      // Pending payments can become verified through report retry alone.
-      // Preserve guest claim/login state before clearing that pending receipt.
-      await _prepareGuestClaim(record);
+      // Guest ownership proof supports claim after login, not report retry.
+      try {
+        await _prepareGuestClaim(record);
+      } catch (error) {
+        _scheduleGuestMaintenance();
+        _log('guest proof persistence deferred', error);
+      }
       if (record.reportStatus == 'completed' &&
           record.guest == null &&
           await readLoginUid() == record.ownerUid) {
@@ -1067,17 +1035,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           await refreshWallet?.call();
         } catch (_) {}
       }
-      // The server owns Apple finish and Google acknowledgement. A terminal
-      // report only completes our local retry work; accepted retains its receipt.
-      if ((record.paid || record.reportStatus == 'rejected') &&
-          (record.reportStatus == 'completed' ||
-              record.reportStatus == 'rejected')) {
-        await store.complete(record);
-        _pendingRequestIds.remove(record.requestId);
-      } else if (record.reportStatus == 'accepted') {
-        await store.save(record);
-        _scheduleRetry();
-      }
+      // Every server status ends this report operation. Store settlement
+      // remains server-owned; there is no persisted report or background retry.
       _setState(
         switch (record.reportStatus) {
           'completed' => MembershipCheckoutState.completed,
@@ -1089,22 +1048,13 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         debugInfo: purchaseDebugInfo('vip.report', status: record.reportStatus),
       );
       _release(record.requestId);
-      if (record.reportStatus != 'accepted') _retryCount = 0;
     } catch (error) {
-      // Keep exactly the original request/receipt for report retry. A local
-      // cleanup failure after a terminal response retries cleanup, not payment.
-      try {
-        await store.save(record);
-      } catch (storageError) {
-        _log('report retry persistence deferred', storageError);
-      }
       _setState(
         MembershipCheckoutState.deferred,
         attemptId: record.requestId,
         debugInfo: purchaseDebugInfo('vip.report', error: error),
       );
-      _scheduleRetry();
-      _log('report deferred', error);
+      _log('report ended', error);
     } finally {
       if (session == _session &&
           record.reportStatus != null &&
@@ -1114,6 +1064,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
   }
 
+  /// Recover guest identity/claim and local cleanup only. Never repost reports.
   Future<void> recover() {
     final existing = _recovery;
     if (existing != null) return existing;
@@ -1132,21 +1083,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
                 await _prepareGuestClaim(record);
               }
               await _refreshGuestLoginRequest();
-              for (final record in _records.values.toList()) {
-                if (record.product.provider == provider &&
-                    _pendingRequestIds.contains(record.requestId)) {
-                  await _report(record);
-                }
-              }
-              for (final record in _restoreRecords.values.toList()) {
-                if (_pendingRestoreIds.contains(record.requestId)) {
-                  await _processRestore(record);
-                }
-              }
               await _claimPendingGuests();
             });
           } catch (error) {
-            _scheduleRetry();
+            _scheduleGuestMaintenance();
             _log('recovery deferred', error);
           }
         }().whenComplete(() {
@@ -1160,7 +1100,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     return task;
   }
 
-  void _scheduleRetry() {
+  void _scheduleGuestMaintenance() {
     if (_disposed || _retry != null) return;
     final delay = Duration(
       milliseconds: math.min(
@@ -1291,7 +1231,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     _activeRequestId = null;
     _busy = false;
     _setState(MembershipCheckoutState.deferred);
-    _scheduleRetry();
   }
 
   @override
@@ -1302,7 +1241,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
   }
 
-  /// Compatibility entry: retry failed reports only; never import store history.
+  /// Compatibility entry: guest claim maintenance; never report store history.
   Future<void> restorePurchases({List<MembershipProduct>? products}) =>
       recover();
 

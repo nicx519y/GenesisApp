@@ -151,7 +151,7 @@ void main() {
             final subscription = h.service.checkoutEvents.listen(events.add);
             await h.service.purchase(h.product(yearly: yearly));
             await pumpEventQueue();
-            expect(h.eligibilityQueries, 1);
+            expect(h.eligibilityQueries, 2);
             expect(h.refreshes, 0);
             expect(h.platform.launches, 1);
             expect(h.platform.product?.isYearly, yearly);
@@ -182,7 +182,7 @@ void main() {
               }),
             ];
             await h.service.purchase(h.product(yearly: true));
-            expect(h.eligibilityQueries, 1);
+            expect(h.eligibilityQueries, 2);
             expect(h.platform.product?.isYearly, isTrue);
             expect(h.platform.launches, 1);
             expect(h.guestPrepares, guest ? 1 : 0);
@@ -242,45 +242,54 @@ void main() {
 
   for (final provider in MembershipProvider.values) {
     for (final outcome in ['offline', 'timeout', 'accepted']) {
-      testWidgets('$provider retries $outcome report without repurchasing', (
-        tester,
-      ) async {
-        final h = support.Harness(
-          provider: provider,
-          retryDelay: const Duration(seconds: 15),
-        );
-        h.reportHandler = (_) async {
-          if (h.reports.length > 1) return support.completed;
-          if (outcome == 'offline') throw StateError('offline');
-          if (outcome == 'timeout') throw TimeoutException('report timeout');
-          return const MembershipPurchaseReport(
-            status: MembershipReportStatus.accepted,
+      testWidgets(
+        '$provider ends $outcome report without background retry or repurchase',
+        (tester) async {
+          final h = support.Harness(
+            provider: provider,
+            retryDelay: const Duration(seconds: 15),
           );
-        };
-        await h.service.purchase(h.product());
-        expect(h.platform.launches, 1);
-        expect(h.reports, isEmpty);
-        await h.service.interceptPurchase(h.purchase());
-        expect(h.reports, hasLength(1));
-        expect(h.store.records, hasLength(1));
-        expect(h.service.isBusy, isFalse);
+          h.reportHandler = (_) async {
+            if (h.reports.length > 1) return support.completed;
+            if (outcome == 'offline') throw StateError('offline');
+            if (outcome == 'timeout') throw TimeoutException('report timeout');
+            return const MembershipPurchaseReport(
+              status: MembershipReportStatus.accepted,
+            );
+          };
+          await h.service.purchase(h.product());
+          expect(h.platform.launches, 1);
+          expect(h.reports, isEmpty);
+          await h.service.interceptPurchase(h.purchase());
+          final requests = outcome == 'timeout' ? 2 : 1;
+          expect(h.reports, hasLength(requests));
+          expect(h.store.records, isEmpty);
+          expect(h.service.isBusy, isFalse);
 
-        await tester.pump(const Duration(seconds: 15));
-        expect(h.reports, hasLength(2));
-        expect(h.reports.last.toJson(), h.reports.first.toJson());
-        expect(h.platform.launches, 1);
-        expect(h.store.records, isEmpty);
-        expect(h.refreshes, 1);
-        expect(h.service.state.value, MembershipCheckoutState.completed);
-        await h.service.recover();
-        expect(h.reports, hasLength(2));
-      });
+          await tester.pump(const Duration(seconds: 15));
+          expect(h.reports, hasLength(requests));
+          expect(h.reports.last.toJson(), h.reports.first.toJson());
+          expect(h.platform.launches, 1);
+          expect(h.store.records, isEmpty);
+          expect(h.refreshes, outcome == 'timeout' ? 1 : 0);
+          expect(
+            h.service.state.value,
+            outcome == 'timeout'
+                ? MembershipCheckoutState.completed
+                : outcome == 'accepted'
+                ? MembershipCheckoutState.accepted
+                : MembershipCheckoutState.deferred,
+          );
+          await h.service.recover();
+          expect(h.reports, hasLength(requests));
+        },
+      );
     }
   }
 
   for (final status in ['accepted', 'offline', 'pending']) {
     test(
-      '$status report retry survives restart without blocking another plan',
+      '$status report is not recovered and does not block another plan',
       () async {
         final h = support.Harness();
         h.reportHandler = (_) async {
@@ -300,9 +309,9 @@ void main() {
         );
         final restarted = support.Harness(storage: h.store);
         await restarted.service.purchase(restarted.product());
-        expect(restarted.eligibilityQueries, 1);
+        expect(restarted.eligibilityQueries, 2);
         expect(restarted.platform.launches, 1);
-        expect(h.store.records, hasLength(1));
+        expect(h.store.records, isEmpty);
         expect(h.store.confirmed, isEmpty);
       },
     );
@@ -318,12 +327,12 @@ void main() {
       // A later server response allows new purchase after the old plan expired.
       await h.service.purchase(h.product());
       expect(h.platform.launches, 2);
-      expect(h.eligibilityQueries, 2);
+      expect(h.eligibilityQueries, 4);
     },
   );
 
   test(
-    'accepted pending payment can complete by retry without another store callback',
+    'accepted pending payment never becomes completed through recovery',
     () async {
       final h = support.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => const MembershipPurchaseReport(
@@ -333,15 +342,16 @@ void main() {
       await h.service.interceptPurchase(
         h.purchase(status: BillingPurchaseStatus.pending),
       );
-      expect(h.store.records.values.single.state, 'pending');
+      expect(h.store.records, isEmpty);
       expect(h.service.catalogRevision.value, 1);
       h.reportHandler = null;
       await h.service.recover();
       expect(h.reports.last.toJson(), h.reports.first.toJson());
-      expect(h.service.state.value, MembershipCheckoutState.completed);
+      expect(h.service.state.value, MembershipCheckoutState.accepted);
       expect(h.store.records, isEmpty);
       expect(h.store.confirmed, isEmpty);
-      expect(h.service.catalogRevision.value, 2);
+      expect(h.service.catalogRevision.value, 1);
+      expect(h.reports, hasLength(1));
     },
   );
 
@@ -381,7 +391,7 @@ void main() {
       await h.service.recover();
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
-      expect(h.store.completedRecords.last.reportStatus, 'rejected');
+      expect(h.store.completedRecords, isEmpty);
       expect(h.refreshes, 0);
       expect(h.service.state.value, MembershipCheckoutState.rejected);
       expect(h.service.isBusy, isFalse);

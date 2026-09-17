@@ -1,10 +1,10 @@
 # VIP 购买按钮与平台错误文案
 
-购买流程更新：2026-09-15。适用 Android Google Play / iOS App Store 的 VIP 订阅购买。Gems 继续使用原有提示；用户可见称谓与取消拼写以 `premium-purchase-copy.md` 为准。
+购买流程更新：2026-09-17。适用 Android Google Play / iOS App Store 的 VIP 订阅购买。Gems 继续使用原有提示；用户可见称谓与取消拼写以 `premium-purchase-copy.md` 为准。
 
 ## 1. 商品接口和按钮
 
-`GET /api/v1/membership/products` 提供 `data.list` 商品配置。页面打开时仍可刷新全局会员状态用于展示；点击购买不读取本地会员状态，也不发起或等待 wallet 请求；年转月、月转年、同套餐和无会员等情况统一交给平台购买，由平台决定是否允许。
+`GET /api/v1/membership/products` 提供 `data.list` 商品配置。页面打开时仍可刷新全局会员状态用于展示；点击月套餐保留原有效年会员降级拦截弹窗；其他情况交给平台。点击不额外发起 wallet 请求，不新增 iOS 特有的会员或旧订单拦截。
 
 已有同套餐有效会员且 wallet `membership.auto_renew=true` 时，按钮显示 `Subscribed`；`auto_renew=false` 时恢复 `Monthly: 价格`／`Yearly: 价格`，仍可点击继续平台购买。非同套餐和没有有效会员时沿用套餐金额文案。关闭自动续费只改变按钮文案，不改变尚未到期的会员权益。
 
@@ -14,14 +14,14 @@
 | --- | --- | --- | --- |
 | 无／已失效 | 原 Monthly + 金额 | 原 Yearly + 金额 | 月付、年付均交给平台 |
 | 月会员 | 自动续费开启：`Subscribed`；关闭：原 Monthly + 金额 | 原 Yearly + 金额 | 月付、年付均交给平台，不拦截同套餐购买 |
-| 年会员 | 原 Monthly + 金额 | 自动续费开启：`Subscribed`；关闭：原 Yearly + 金额 | 月付、年付均交给平台，不在客户端拦截降级 |
+| 年会员 | 原 Monthly + 金额 | 自动续费开启：`Subscribed`；关闭：原 Yearly + 金额 | 月付显示原不能降级弹窗；年付交给平台 |
 | 未知／wallet 刷新失败 | 原套餐金额或仍有效的原展示状态 | 原套餐金额或仍有效的原展示状态 | 不等待 wallet，月付、年付均交给平台 |
 
-`MembershipAccessStore` 会员快照仅用于页面展示，不参与购买资格判断。允许发起平台购买不代表确认具有会员权益。游客继续原有身份准备、未绑定订单登录提示及 report/claim。
+`MembershipAccessStore` 会员快照用于页面展示及原有年转月降级检查。允许发起平台购买不代表确认具有会员权益。游客继续原有身份准备、未绑定订单登录提示及 report/claim。
 
-同套餐的 `Subscribed` 只用于展示，点击不再产生客户端 `already_subscribed` 拦截。年转月也不再弹客户端不能降级提示。商品缓存 v3 仅存展示配置；商品及升级凭据仍复用本次页面 API 响应，不因点击购买重复请求，未完成时等待同一商品请求。缺少商品或身份凭据、账号切换、购买进行中等原有流程保护继续生效。
+同套餐的 `Subscribed` 只用于展示，点击不再产生客户端 `already_subscribed` 拦截。有效年会员购买月套餐保留原不能降级弹窗。商品缓存 v3 仅存展示配置；商品及升级凭据仍复用本次页面 API 响应，不因点击购买重复请求，未完成时等待同一商品请求。缺少商品或身份凭据、账号切换、购买进行中等原有流程保护继续生效。
 
-平台返回成功后继续 report 验单，返回取消或失败则走平台错误提示。补报与 Gems 的结果处理规则一致：网络异常、超时或 `accepted` 保存原凭据并重试；`completed` 完成订单并刷新钱包；明确 `rejected` 为终态，不自动反复上报。VIP 保留 15 秒起步、最长 5 分钟的退避重试，以及启动／回前台恢复。Android / iOS 商店收尾统一由服务端处理，客户端不 acknowledge 或 finish；Apple `account_mismatch` 沿用原有归属恢复流程。补报只重试 report，不重新发起平台扣款。
+平台回调携带有效凭据后发起 report；取消或平台失败不 report。Google / Apple 共用结果处理：`completed` 刷新钱包并显示成功；`accepted` 提示确认中；`rejected` 提示失败。任一业务状态、业务错误或未知状态都结束本次 report，不补报。仅网络连接异常、超时和 HTTP 408/429/5xx 在当前操作内最多尝试 3 次，沿用原凭据，不重新拉起支付；耗尽后提示确认延迟。不保存 report 队列，不在启动、回前台、定时器或 claim accepted 后重报。游客绑定证明及独立 claim 流程保留。Android / iOS 商店收尾继续由服务端负责。
 
 Apple 的 `Product.purchase` Future 已返回、但 10 秒内仍没有匹配本次购买的回调时，关闭 `Purchasing Premium` 并提示确认延迟。该计时只覆盖返回后的回调交付/匹配，不计算用户停留在 Apple 付款页的时间，也不替代 report 自身超时。保留原购买身份和迟到回调处理，不把旧账号交易绑定到新购买，不自动重扣款或 finish；Android 调起后的等待行为不变。
 
@@ -149,13 +149,13 @@ StoreKit 2 返回具名 Error case，不能把它们当作 Google 数字码。�
 | Google `PENDING`、Apple `.pending` | `VIP payment is pending.`，等待后续平台结果，按原逻辑处理凭据 |
 | 用户主动取消 / Apple `.userCancelled` | `VIP purchase cancelled.`，关闭购买 Loading，不上报支付成功 |
 | 平台返回已支付 / Apple `.success` | 继续原 report 验单，不能只凭 launch OK 或商店成功回调就显示服务端已确认 |
-| report accepted | `Your VIP purchase is being confirmed.`，原有补报逻辑继续 |
+| report accepted | `Your VIP purchase is being confirmed.`，结束本次 report，不再补报 |
 | report/确认延迟 | `VIP purchase confirmation is delayed. Please check again later.` |
 | report completed | 原 VIP 成功弹窗 |
 | 未识别 Google 错误 | `Google Play could not complete this VIP purchase. Please try again.` |
 | 未识别 Apple 错误 | `The App Store could not complete this VIP purchase. Please try again.` |
 
-Apple 购买结果来源：[Product.PurchaseResult](https://developer.apple.com/documentation/storekit/product/purchaseresult)。服务端 report/claim 业务错误仍走原业务提示，不套平台码表。会员到期、宽限、扣款重试、暂停等是订阅生命周期状态，不能与本表的购买调用错误一一对应；客户端不根据会员状态拦截购买，年转月也以平台结果为准。
+Apple 购买结果来源：[Product.PurchaseResult](https://developer.apple.com/documentation/storekit/product/purchaseresult)。服务端 report/claim 业务错误仍走原业务提示，不套平台码表。会员到期、宽限、扣款重试、暂停等是订阅生命周期状态，不能与本表的购买调用错误一一对应；客户端保留原有效年会员购买月套餐的降级拦截，其余由平台决定。
 
 ## 7. 错误传递和验证
 

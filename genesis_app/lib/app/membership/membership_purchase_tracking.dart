@@ -85,19 +85,29 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
     MembershipPurchaseRecord record,
     MembershipPurchaseRequest request,
   ) async {
-    try {
-      return await reportPurchase(request);
-    } catch (error) {
-      final tracking = _trackingFor(record);
-      if (subscriptionRequestTimedOut(error)) {
-        analytics.timeout(tracking, 'report');
-      } else {
-        analytics.failed(
-          tracking,
-          subscriptionRequestFailure('report_failed', error),
-        );
+    final session = _session;
+    // One operation, at most three HTTP attempts using the original receipt.
+    // Only its final outcome is a purchase analytics event.
+    for (var attempt = 1; ; attempt++) {
+      try {
+        return await reportPurchase(request);
+      } catch (error) {
+        if (attempt < 3 && subscriptionReportCanRetry(error)) {
+          final ownerUnchanged =
+              record.guest != null || await readLoginUid() == record.ownerUid;
+          if (!_disposed && session == _session && ownerUnchanged) continue;
+        }
+        final tracking = _trackingFor(record);
+        if (subscriptionRequestTimedOut(error)) {
+          analytics.timeout(tracking, 'report');
+        } else {
+          analytics.failed(
+            tracking,
+            subscriptionRequestFailure('report_failed', error),
+          );
+        }
+        rethrow;
       }
-      rethrow;
     }
   }
 

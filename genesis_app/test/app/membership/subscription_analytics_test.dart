@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
+import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/app/membership/subscription_failure_reason.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
@@ -135,14 +136,18 @@ void main() {
   );
 
   test(
-    'report retries each produce a result, eventual success stays correlated',
+    'immediate technical retries emit only the final correlated result',
     () async {
       final h = support.Harness(analytics: analytics);
       var requests = 0;
       h.reportHandler = (_) async {
         requests++;
         if (requests == 1) {
-          throw ApiException(message: 'private response', code: 1403);
+          throw ApiException(
+            message: 'connection lost',
+            kind: ApiExceptionKind.transport,
+            transportErrorKind: TransportErrorKind.connection,
+          );
         }
         if (requests == 2) throw TimeoutException('timeout');
         return support.completed;
@@ -156,16 +161,8 @@ void main() {
       await h.service.recover();
       await h.service.recover();
       await h.service.interceptPurchase(h.purchase(transaction: 'GPA.actual'));
-      expect(events.map((e) => e.action), [
-        'subscription_failed',
-        'subscription_timeout',
-        'subscription_success',
-      ]);
-      expect(events.map((e) => e.object3), [
-        'report_failed[1403]',
-        'report',
-        'GPA.actual',
-      ]);
+      expect(events.map((e) => e.action), ['subscription_success']);
+      expect(events.map((e) => e.object3), ['GPA.actual']);
       expect(events.every((e) => e.object2 == tracking.id), isTrue);
       expect(events.last.object1, 'from_me_membership');
       expect(
@@ -175,53 +172,41 @@ void main() {
     },
   );
 
-  test(
-    'pending and accepted dedupe separately across restart; success once',
-    () async {
-      final h = support.Harness(analytics: analytics);
-      h.reportHandler = (_) async => const MembershipPurchaseReport(
-        status: MembershipReportStatus.accepted,
-      );
-      await h.service.purchase(
-        h.product(),
-        attemptId: tracking.id,
-        tracking: tracking,
-      );
-      await h.service.interceptPurchase(
-        h.purchase(status: BillingPurchaseStatus.pending),
-      );
-      await h.service.interceptPurchase(
-        h.purchase(status: BillingPurchaseStatus.pending),
-      );
-      expect(events.map((e) => e.object3), [
-        'store_callback_pending',
-        'report_accepted',
-      ]);
-      final persisted = h.store.records.values.single;
-      final restoredRecord = MembershipPurchaseRecord.fromJson(
-        persisted.toJson(),
-      );
-      expect(restoredRecord.tracking!.pending, [
-        'store_callback_pending',
-        'report_accepted',
-      ]);
-      h.service.dispose();
-      h.store.records[persisted.requestId] = restoredRecord;
-      final restarted = support.Harness(
-        storage: h.store,
-        analytics: SubscriptionAnalytics(sink: events.add),
-      );
-      await restarted.service.recover();
-      await restarted.service.recover();
-      expect(events.map((e) => e.action), [
-        'subscription_pending',
-        'subscription_pending',
-        'subscription_success',
-      ]);
-      expect(events.last.object2, tracking.id);
-      expect(events.last.object1, 'from_me_membership');
-    },
-  );
+  test('pending and accepted dedupe without reporting after restart', () async {
+    final h = support.Harness(analytics: analytics);
+    h.reportHandler = (_) async =>
+        const MembershipPurchaseReport(status: MembershipReportStatus.accepted);
+    await h.service.purchase(
+      h.product(),
+      attemptId: tracking.id,
+      tracking: tracking,
+    );
+    await h.service.interceptPurchase(
+      h.purchase(status: BillingPurchaseStatus.pending),
+    );
+    await h.service.interceptPurchase(
+      h.purchase(status: BillingPurchaseStatus.pending),
+    );
+    expect(events.map((e) => e.object3), [
+      'store_callback_pending',
+      'report_accepted',
+    ]);
+    expect(h.reports, hasLength(1));
+    expect(h.store.records, isEmpty);
+    h.service.dispose();
+    final restarted = support.Harness(
+      storage: h.store,
+      analytics: SubscriptionAnalytics(sink: events.add),
+    );
+    await restarted.service.recover();
+    await restarted.service.recover();
+    expect(events.map((e) => e.action), [
+      'subscription_pending',
+      'subscription_pending',
+    ]);
+    expect(events.last.object2, tracking.id);
+    expect(events.last.object1, isEmpty);
+  });
 
   test(
     'success precedes wallet/cache cleanup; cleanup failure is not failed',
@@ -246,8 +231,8 @@ void main() {
       await h.service.recover();
       expect(events, hasLength(1));
       expect(events.single.object3, 'apple-this-transaction');
-      final persisted = h.store.records.values.single;
-      expect(persisted.tracking?.successEventId, isNotNull);
+      expect(h.store.records, isEmpty);
+      expect(h.service.state.value, MembershipCheckoutState.completed);
     },
   );
 
@@ -454,7 +439,7 @@ void main() {
     },
   );
 
-  test('stable recovery ID and no fabricated source/click', () async {
+  test('legacy queue cleanup fabricates no report or analytics', () async {
     final h = support.Harness(analytics: analytics);
     h.store.records['legacy'] = MembershipPurchaseRecord(
       requestId: 'legacy',
@@ -466,11 +451,9 @@ void main() {
       state: 'purchased',
     );
     await h.service.recover();
-    expect(events.single.object2, startsWith('recovery_'));
-    expect(events.single.object2, isNot(contains('sensitive-token')));
-    expect(events.single.object1, 'from_unknown');
-    final other = SubscriptionTracking.recovery('google:attempt:legacy');
-    expect(events.single.object2, other.id);
+    expect(events, isEmpty);
+    expect(h.reports, isEmpty);
+    expect(h.store.records, isEmpty);
   });
 
   test(

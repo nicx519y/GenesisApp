@@ -261,8 +261,16 @@ void main() {
     expect(h.platform.launches, 0);
   });
 
-  test('Apple does not prewarm Google checkout', () {
-    final h = support.Harness(provider: MembershipProvider.apple);
-    expect(h.service.prepareCheckout(h.product()), isNull);
-  });
+  test(
+    'Apple uses the shared preparation without launching or reporting',
+    () async {
+      final h = support.Harness(provider: MembershipProvider.apple);
+      final ticket = h.service.prepareCheckout(h.product());
+      expect(ticket, isNotNull);
+      ticket!.invalidate();
+      await Future<void>.delayed(Duration.zero);
+      expect(h.platform.launches, 0);
+      expect(h.reports, isEmpty);
+    },
+  );
 }

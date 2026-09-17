@@ -13,6 +13,26 @@ bool subscriptionRequestTimedOut(Object error) =>
         (error.kind == ApiExceptionKind.timeout ||
             error.transportErrorKind == TransportErrorKind.timeout);
 
+/// Retry only transient technical failures within the current report operation.
+/// A business response (including an unrecognized status) is never retried.
+bool subscriptionReportCanRetry(Object error) {
+  if (error is TimeoutException) return true;
+  if (error is! ApiException) return false;
+  return switch (error.kind) {
+    ApiExceptionKind.timeout => true,
+    ApiExceptionKind.transport =>
+      error.transportErrorKind == TransportErrorKind.connection ||
+          error.transportErrorKind == TransportErrorKind.timeout,
+    ApiExceptionKind.httpStatus =>
+      error.statusCode == 408 ||
+          error.statusCode == 429 ||
+          (error.statusCode != null &&
+              error.statusCode! >= 500 &&
+              error.statusCode! <= 599),
+    _ => false,
+  };
+}
+
 String subscriptionRequestFailure(String reason, Object error) {
   final code = error is ApiException
       ? error.code ?? error.clientFailureCode?.value ?? error.statusCode

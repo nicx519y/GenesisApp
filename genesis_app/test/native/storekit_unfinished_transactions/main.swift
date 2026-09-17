@@ -32,34 +32,33 @@ if #available(macOS 12.0, *) {
 
   var active = expired
   active.expirationDate = Date(timeIntervalSince1970: 3_000)
-  check("active unfinished purchase stays blocked", active, blocks: true)
+  check("active unfinished subscription delegates to Apple", active, blocks: false)
   var atExpiry = expired
   atExpiry.expirationDate = atExpiry.signedDate
   check("exact expiry boundary permits purchase", atExpiry, blocks: false)
   var unknownExpiry = expired
   unknownExpiry.expirationDate = nil
-  check("missing expiry stays blocked", unknownExpiry, blocks: true)
+  check("missing expiry delegates to Apple", unknownExpiry, blocks: false)
   var oldSignature = expired
   oldSignature.signedDate = Date(timeIntervalSince1970: 500)
-  check("device time cannot make an old signature prove expiry", oldSignature, blocks: true)
+  check("old signature delegates to Apple", oldSignature, blocks: false)
 
   for type in [Product.ProductType.consumable, .nonConsumable, .nonRenewable] {
     var other = expired
     other.productType = type
     check(
       "non-auto-renewable keeps original guard: \(type)", other, productType: type, blocks: true)
-    check("transaction type mismatch stays blocked: \(type)", other, blocks: true)
+    check("subscription request delegates to Apple: \(type)", other, blocks: false)
     check("product type mismatch stays blocked: \(type)", expired, productType: type, blocks: true)
     check(
       "other SKU remains independent: \(type)", other,
       productID: "other-product", productType: type, blocks: false)
   }
 
-  // Several expired renewals must not hide an active/unknown unfinished period,
-  // regardless of StoreKit's iteration order.
+  // All historical subscription periods delegate eligibility to StoreKit.
   for transactions in [[expired, active], [active, expired], [expired, unknownExpiry]] {
     precondition(
-      transactions.contains {
+      !transactions.contains {
         storeKitUnfinishedTransactionBlocksPurchase(
           $0, productID: "test-subscription", productType: .autoRenewable)
       })

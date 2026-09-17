@@ -85,25 +85,27 @@ extension InAppPurchasePlugin: InAppPurchase2API {
           }
         }
 
-        for await verificationResult in Transaction.unfinished {
-          switch verificationResult {
-          case .verified(let transaction):
-            if storeKitUnfinishedTransactionBlocksPurchase(
-              transaction, productID: id, productType: product.type)
-            {
-              let error = PigeonError(
-                code: "storekit_duplicate_product_object",
-                message:
-                  "There is a pending transaction for the same product identifier. Please either wait for it to be finished or finish it manually using `completePurchase` to avoid edge cases.",
-                details: id)
-              return completion(.failure(error))
+        if product.type != .autoRenewable {
+          for await verificationResult in Transaction.unfinished {
+            switch verificationResult {
+            case .verified(let transaction):
+              if storeKitUnfinishedTransactionBlocksPurchase(
+                transaction, productID: id, productType: product.type)
+              {
+                let error = PigeonError(
+                  code: "storekit_duplicate_product_object",
+                  message:
+                    "There is a pending transaction for the same product identifier. Please either wait for it to be finished or finish it manually using `completePurchase` to avoid edge cases.",
+                  details: id)
+                return completion(.failure(error))
+              }
+            case .unverified:
+              break
             }
-          case .unverified:
-            break
           }
         }
 
-        // Native product lookup and unfinished-transaction checks stay within
+        // Native product lookup and non-subscription transaction checks stay within
         // the app's preparation deadline. Never launch an expired checkout.
         if let handoffId = options?.handoffId {
           let allowed: Bool = await withCheckedContinuation { continuation in

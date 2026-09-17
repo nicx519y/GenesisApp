@@ -107,7 +107,14 @@ class PendingStore implements MembershipPendingStore {
   @override
   Future<void> saveGuestPurchase(MembershipPurchaseRecord record) async {
     if (fail || failClaim) throw StateError('guest storage unavailable');
-    confirmed[record.requestId] = record;
+    if (record.guest != null &&
+        record.paid &&
+        record.hasReceipt &&
+        record.reportStatus != 'rejected') {
+      confirmed[record.requestId] = record;
+    } else {
+      confirmed.remove(record.requestId);
+    }
   }
 
   @override
@@ -366,18 +373,12 @@ void main() {
 
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider Firebase purchase waits for completed and deduplicates callbacks',
+      '$provider Firebase purchase records completed once and deduplicates callbacks',
       () async {
         final client = enableFirebaseAnalytics();
         final h = Harness(provider: provider);
-        h.reportHandler = (_) async => const MembershipPurchaseReport(
-          status: MembershipReportStatus.accepted,
-        );
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(h.purchase());
-        await _settleAnalytics();
-        expect(client.events, isEmpty);
-        h.reportHandler = (_) async => completed;
         await h.service.recover();
         await h.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
@@ -386,13 +387,13 @@ void main() {
           'purchase_first',
           'subscription_first',
         ]);
-        expect(h.reports, hasLength(2));
+        expect(h.reports, hasLength(1));
         expect(h.service.state.value, MembershipCheckoutState.completed);
       },
     );
 
     test(
-      '$provider Firebase pending completion records once without purchased callback',
+      '$provider Firebase accepted does not become success after restart',
       () async {
         final client = enableFirebaseAnalytics();
         final h = Harness(provider: provider);
@@ -408,14 +409,11 @@ void main() {
         final restarted = Harness(provider: provider, storage: h.store);
         await restarted.service.recover();
         await _settleAnalytics();
-        expect(client.events.map((e) => e.name), [
-          'purchase',
-          'purchase_first',
-          'subscription_first',
-        ]);
+        expect(client.events, isEmpty);
+        expect(restarted.reports, isEmpty);
         await restarted.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
-        expect(client.events, hasLength(3));
+        expect(client.events, isEmpty);
       },
     );
   }
@@ -565,24 +563,21 @@ void main() {
     expect(restarted.store.confirmed, isEmpty);
     expect(restarted.store.restores, isEmpty);
   });
-  test(
-    'cleanup failure keeps server-confirmed order and retries without another report',
-    () async {
-      final h = Harness(provider: MembershipProvider.apple);
-      h.store.failComplete = true;
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      expect(h.service.state.value, MembershipCheckoutState.deferred);
-      expect(h.store.records.values.single.reportStatus, 'completed');
-      h.store.failComplete = false;
-      await h.service.recover();
-      expect(h.reports, hasLength(1));
-      expect(h.store.records, isEmpty);
-    },
-  );
+  test('completed report does not depend on legacy queue cleanup', () async {
+    final h = Harness(provider: MembershipProvider.apple);
+    h.store.failComplete = true;
+    await h.service.purchase(h.product());
+    await h.service.interceptPurchase(h.purchase());
+    expect(h.service.state.value, MembershipCheckoutState.completed);
+    expect(h.store.records, isEmpty);
+    h.store.failComplete = false;
+    await h.service.recover();
+    expect(h.reports, hasLength(1));
+    expect(h.store.records, isEmpty);
+  });
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider accepted order retries its same request then cleans up only after completed',
+      '$provider accepted ends report without persistence or later retry',
       () async {
         final h = Harness(provider: provider);
         h.reportHandler = (_) async => const MembershipPurchaseReport(
@@ -590,15 +585,15 @@ void main() {
         );
         await h.service.purchase(h.product());
         await h.service.interceptPurchase(h.purchase());
-        expect(h.store.records.values.single.reportStatus, 'accepted');
+        expect(h.store.records, isEmpty);
         expect(h.store.confirmed, isEmpty);
         expect(h.refreshes, 0);
         h.reportHandler = null;
         await h.service.recover();
-        expect(h.reports, hasLength(2));
-        expect(h.reports.first.toJson(), h.reports.last.toJson());
+        expect(h.reports, hasLength(1));
+        expect(h.service.state.value, MembershipCheckoutState.accepted);
         expect(h.store.records, isEmpty);
-        expect(h.refreshes, 1);
+        expect(h.refreshes, 0);
       },
     );
   }
@@ -730,20 +725,18 @@ void main() {
       expect(await h.service.interceptPurchase(canceled), isFalse);
     },
   );
-  test(
-    'report failure survives restart and retries identical proof without a request ID',
-    () async {
-      final h = Harness();
-      h.reportHandler = (_) async => throw StateError('offline');
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      expect(h.service.state.value, MembershipCheckoutState.deferred);
-      final restarted = Harness(storage: h.store);
-      await restarted.service.recover();
-      expect(restarted.reports.single.toJson(), h.reports.single.toJson());
-      expect(restarted.reports.single.toJson(), isNot(contains('request_id')));
-    },
-  );
+  test('report failure is not saved or retried after restart', () async {
+    final h = Harness();
+    h.reportHandler = (_) async => throw StateError('offline');
+    await h.service.purchase(h.product());
+    await h.service.interceptPurchase(h.purchase());
+    expect(h.service.state.value, MembershipCheckoutState.deferred);
+    final restarted = Harness(storage: h.store);
+    await restarted.service.recover();
+    expect(restarted.reports, isEmpty);
+    expect(h.store.records, isEmpty);
+    expect(h.reports.single.toJson(), isNot(contains('request_id')));
+  });
   test(
     'cleanup storage failure does not prevent report or cause a duplicate report',
     () async {
@@ -767,9 +760,15 @@ void main() {
           await h.service.purchase(h.product());
           await h.service.interceptPurchase(h.purchase());
           expect(h.reports, hasLength(1));
-          final record = h.store.records.values.single;
-          expect(record.reportStatus, 'completed');
-          h.store.records[record.requestId] = record.copyWith(
+          h.store.records['legacy-completed'] = MembershipPurchaseRecord(
+            requestId: 'legacy-completed',
+            product: h.product(),
+            accountUuid: accountUuid,
+            ownerUid: h.uid,
+            purchaseToken: 'test-token',
+            transactionId: '100',
+            state: 'purchased',
+            reportStatus: 'completed',
             finished: legacyFinished,
           );
           h.service.dispose();
@@ -780,32 +779,29 @@ void main() {
           expect(restarted.platform.launches, 0);
           expect(restarted.store.records, isEmpty);
           expect(restarted.store.confirmed, isEmpty);
-          expect(restarted.refreshes, 1);
+          expect(restarted.refreshes, 0);
         },
       );
     }
   }
-  test('accepted keeps its order while rejected completes its order', () async {
-    for (final status in [
-      MembershipReportStatus.accepted,
-      MembershipReportStatus.rejected,
-    ]) {
-      final h = Harness();
-      h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      await h.service.recover();
-      expect(
-        h.reports,
-        hasLength(status == MembershipReportStatus.accepted ? 2 : 1),
-      );
-      expect(
-        h.store.records.length,
-        status == MembershipReportStatus.accepted ? 1 : 0,
-      );
-      expect(h.refreshes, 0);
-    }
-  });
+  test(
+    'accepted and rejected both end reporting without a durable queue',
+    () async {
+      for (final status in [
+        MembershipReportStatus.accepted,
+        MembershipReportStatus.rejected,
+      ]) {
+        final h = Harness();
+        h.reportHandler = (_) async => MembershipPurchaseReport(status: status);
+        await h.service.purchase(h.product());
+        await h.service.interceptPurchase(h.purchase());
+        await h.service.recover();
+        expect(h.reports, hasLength(1));
+        expect(h.store.records.length, 0);
+        expect(h.refreshes, 0);
+      }
+    },
+  );
   test(
     'pending Apple payment is not completed or reported without a transaction',
     () async {
@@ -837,7 +833,7 @@ void main() {
     },
   );
   test(
-    'receipt from previous account is retained and not reported under new account',
+    'account changes never trigger reports without another store callback',
     () async {
       final h = Harness();
       await h.service.purchase(h.product());
@@ -846,6 +842,8 @@ void main() {
       expect(h.reports, isEmpty);
       h.uid = 'user-test';
       await h.service.recover();
+      expect(h.reports, isEmpty);
+      await h.service.interceptPurchase(h.purchase());
       expect(h.reports, hasLength(1));
     },
   );
