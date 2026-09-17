@@ -27,6 +27,8 @@ Apple / Google 购买 UUID 统一优先取商品接口 `last_account_uuid`；没
 
 Apple 本次 `Product.purchase` 直接返回的回调携带本地 `checkoutAttemptId`，用于结束对应点击的等待。该标识不发给 Apple 或后端，不修改原交易凭据。未处理交易即使 `appAccountToken` 与请求 UUID 不同，也将原请求身份和交易凭据交给 report，由服务端决定结果，客户端不新增账号不一致拦截。已处理交易沿用原 report 结果结束本次等待，不重复 report，也不把旧交易重新认领为本次购买。
 
+当 Apple 本次购买直接返回已 report `completed` 的同一笔交易时，结束 Purchasing 并显示 `You already own this subscription on the App Store.`，与 Google `ITEM_ALREADY_OWNED` 的“已拥有该订阅”提示对齐，仅商店名称不同。该提示不新增成功／失败打点、不弹本次支付成功窗口、不重新上报，也不以旧交易推断当前会员是否有效。`Subscribed` 按钮仍正常调用商店购买，没有增加购买前拦截。
+
 只有 `Product.purchase` Future 已返回、10 秒内仍未收到对应回调时，才关闭 `Purchasing Premium` 并提示确认延迟。该计时不包含用户停留在 Apple 付款页的时间，也不替代 report 自身超时。后台历史交易和上一笔迟到回调不能结束新一笔购买；Android 调起后的等待行为不变。
 
 ## 2. Google Play 主错误码
@@ -45,7 +47,7 @@ Apple 本次 `Product.purchase` 直接返回的回调携带本地 `checkoutAttem
 | 4 | `ITEM_UNAVAILABLE` | This VIP plan is currently unavailable on Google Play. |
 | 5 | `DEVELOPER_ERROR` | Premium purchase canceled. |
 | 6 | `ERROR` | Google Play could not complete this VIP purchase. Please try again. |
-| 7 | `ITEM_ALREADY_OWNED` | You already own this subscription on Google Play. Please check Manage subscriptions. |
+| 7 | `ITEM_ALREADY_OWNED` | You already own this subscription on Google Play. |
 | 8 | `ITEM_NOT_OWNED` | Google Play could not find the subscription to change. Please check Manage subscriptions. |
 | 12 | `NETWORK_ERROR` | Could not connect to Google Play. Please check your internet connection and try again. |
 

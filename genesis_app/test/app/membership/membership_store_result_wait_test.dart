@@ -96,7 +96,8 @@ void main() {
           expect(h.service.isBusy, isFalse);
           expect(events.last.attemptId, 'current');
           expect(events.last.state, switch (status) {
-            MembershipReportStatus.completed => MembershipCheckoutState.idle,
+            MembershipReportStatus.completed =>
+              MembershipCheckoutState.alreadyProcessed,
             MembershipReportStatus.accepted => MembershipCheckoutState.accepted,
             MembershipReportStatus.rejected => MembershipCheckoutState.rejected,
           });

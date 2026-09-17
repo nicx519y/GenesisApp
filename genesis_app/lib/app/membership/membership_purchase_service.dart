@@ -43,6 +43,7 @@ enum MembershipCheckoutState {
   deferred,
   loginRequired,
   checking,
+  alreadyProcessed,
 }
 
 class MembershipCheckoutEvent {
@@ -855,7 +856,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       _release(sourceId);
       _setState(
         switch (record?.reportStatus) {
-          'completed' => MembershipCheckoutState.idle,
+          'completed' => MembershipCheckoutState.alreadyProcessed,
           'accepted' => MembershipCheckoutState.accepted,
           'rejected' => MembershipCheckoutState.rejected,
           _ when _reportedRequestIds.contains(record?.requestId) =>

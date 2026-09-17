@@ -133,6 +133,7 @@ class MembershipPurchasePresentation {
           _resolved = true;
           _close(false);
           return;
+        case MembershipCheckoutState.alreadyProcessed:
         case MembershipCheckoutState.accepted:
         case MembershipCheckoutState.pending:
         case MembershipCheckoutState.deferred:
@@ -242,6 +243,8 @@ class MembershipPurchasePresentation {
   }
 
   String _message(MembershipCheckoutState state) => switch (state) {
+    MembershipCheckoutState.alreadyProcessed =>
+      'You already own this subscription on the App Store.',
     MembershipCheckoutState.canceled => 'Purchase canceled.',
     MembershipCheckoutState.pending => 'Your purchase is pending.',
     MembershipCheckoutState.accepted => 'Your purchase is being confirmed.',

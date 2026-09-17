@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:genesis_flutter_android/app/gems/gem_wallet_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
+import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -268,6 +269,86 @@ void main() {
       }
     }
   }
+
+  testWidgets(
+    'Subscribed click shows feedback for an already completed Apple transaction',
+    (tester) async {
+      final events = <SubscriptionAnalyticsEvent>[];
+      final h = service.Harness(
+        provider: MembershipProvider.apple,
+        analytics: SubscriptionAnalytics(sink: events.add),
+      );
+      final wallet = GemWalletStore(
+        readUid: () async => h.uid,
+        loadWallet: () async => GemWallet(
+          balanceCent: 0,
+          membership: membershipAccessSnapshot(
+            planCode: 'pro_yearly',
+            autoRenew: true,
+          ).membership,
+        ),
+      );
+      final membership = MembershipAccessStore(
+        wallet: wallet,
+        readLoginUid: () async => h.uid,
+        serverNow: () => DateTime.utc(2026),
+      );
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      try {
+        await h.service.purchase(
+          h.product(yearly: true),
+          attemptId: 'original',
+        );
+        await h.service.interceptPurchase(h.purchase(yearly: true));
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: GenesisTheme.light(),
+            home: Scaffold(body: subscription(h, membership: membership)),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Subscribed'), findsOneWidget);
+        for (var click = 1; click <= 2; click++) {
+          await tester.tap(find.text('Subscribed'));
+          await tester.pump(const Duration(milliseconds: 250));
+          expect(find.text('Purchasing Premium'), findsOneWidget);
+          expect(h.platform.launches, click + 1);
+          await h.service.interceptPurchase(
+            h.purchase(
+              yearly: true,
+              checkoutAttemptId: h.platform.checkoutAttemptId,
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Purchasing Premium'), findsNothing);
+          expect(
+            find.text('You already own this subscription on the App Store.'),
+            findsOneWidget,
+          );
+          expect(find.text('Purchase successful!'), findsNothing);
+          expect(find.textContaining('Purchase failed.'), findsNothing);
+          expect(find.text('Subscribed'), findsOneWidget);
+          expect(h.service.isBusy, isFalse);
+          expect(h.reports, hasLength(1));
+          expect(events.map((event) => event.action), ['subscription_success']);
+          await tester.pump(const Duration(seconds: 11));
+          expect(
+            find.textContaining('Purchase confirmation is delayed.'),
+            findsNothing,
+          );
+        }
+      } finally {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        membership.dispose();
+        wallet.dispose();
+        h.service.dispose();
+      }
+    },
+  );
 
   testWidgets(
     'Apple existing rejected transaction closes loading immediately',
