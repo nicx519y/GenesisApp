@@ -275,23 +275,8 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
       _scheduleRetry();
       return;
     }
-    // A reinstall can claim an unfinished transaction without a local report.
-    // Only finish the exact proof after claim has confirmed its owner. Keep the
-    // completed claim and proof until cleanup succeeds so retries never claim
-    // again or finish another transaction from the subscription's history.
-    if (provider == MembershipProvider.apple) {
-      final purchase = _claimPurchase(record);
-      final transactionId =
-          record.recoveredProof?.transactionId ?? purchase?.transactionId;
-      if (transactionId != null &&
-          transactionId.isNotEmpty &&
-          (record.recoveredProof != null || purchase?.finished != true)) {
-        await platform.finishAppleTransaction(transactionId);
-        if (purchase != null && purchase.transactionId == transactionId) {
-          _records[purchase.requestId] = purchase.copyWith(finished: true);
-        }
-      }
-    }
+    // The server also owns store settlement for a recovered claim. Keep the
+    // completed claim and proof until local cleanup succeeds, without reposting.
     await store.completeGuestClaim(record);
     for (final purchase in _records.values.toList()) {
       if (purchase.guest?.accountUuid == record.guest.accountUuid) {
@@ -413,7 +398,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
                 purchase.paid &&
                 purchase.hasReceipt &&
                 purchase.reportStatus == 'completed') {
-              // Preserve the receipt, request key and any completed Apple finish.
+              // Preserve the original receipt and request key for report retry.
               final retry = purchase.copyWith(retryReport: true);
               await _save(retry);
               await store.save(retry);

@@ -19,7 +19,7 @@
 | subscription_page_show | subscription_page / subscription_sheet | track_id_{pageId} | 第 4 节入口来源 | Subscription 首次实际可见，包括加载状态；隐藏 Tab 仅构建不记录。 |
 | subscription_purchase_click | yearly / monthly | track_id_{pageId}_{clickId} | subscription_page / subscription_sheet | 点击底部购买按钮并进入购买回调，在异步准备和降级检查之前；object1 取本次选中的商品套餐，年会员为 yearly，月会员为 monthly；仅切换套餐或禁用按钮未触发回调不记录。 |
 | subscription_pending |  | 本次购买关联 ID | store_callback_pending / report_accepted | 平台明确 pending 或 report 明确 accepted；独立记录，不归到 failed。 |
-| subscription_timeout |  | 本次购买关联 ID | prepare / report | 准备超时或实际 report 请求超时；独立记录，不重复发 failed。 |
+| subscription_timeout |  | 本次购买关联 ID | prepare / store_callback / report | 准备超时、Apple 调用已返回后的匹配回调等待超时，或实际 report 请求超时；独立记录，不重复发 failed。 |
 | subscription_success | 第 4 节入口来源 | 本次购买关联 ID | 本笔商店订单号，没有则空字符串 | 首次 report.status=completed；不等登录、绑定或点击成功弹窗。 |
 | subscription_failed |  | 本次购买关联 ID | 第 3 节平台原始错误信息或兜底原因 | 实际失败、取消、业务拦截、平台错误、report 拒绝或非超时异常。 |
 | subscription_claim_result |  | 原购买关联 ID；无法还原则稳定 recovery_{id} | completed / accepted / rejected / error[error_code] / timeout | 每次实际 claim 请求返回结果时记录；无码用 error。不记录 start，不另加阶段事件。 |
@@ -55,7 +55,7 @@ report 模型仅有 status；订单号取平台回调或精确匹配的已保存
 | report_rejected | report.status=rejected；响应无 reason，不编造原因。 |
 | unknown_error | 明确发生异常且无平台/SDK 信息、无更准确客户端分类时兜底；无回调不等于错误。 |
 
-**pending 与 timeout 保持独立，不在 failed 重复统计。** 平台明确 pending → subscription_pending；客户端准备计时到期或 report 请求超时 → subscription_timeout。平台返回明确失败码，即使码名含 timeout，仍在 subscription_failed 保留该平台码，不额外补发 timeout。平台返回成功、purchased/restored 不记 failed，继续既有 report 流程。
+**pending 与 timeout 保持独立，不在 failed 重复统计。** 平台明确 pending → subscription_pending；客户端准备计时到期、Apple 调用已返回后的匹配回调等待超时，或 report 请求超时 → subscription_timeout。store_callback 计时不包含用户停留在 Apple 付款页的时间。平台返回明确失败码，即使码名含 timeout，仍在 subscription_failed 保留该平台码，不额外补发 timeout。平台返回成功、purchased/restored 不记 failed，继续既有 report 流程。
 
 同一平台失败在查询/发起购买返回、购买回调、外层 catch 或状态监听重复传递时，只由一个责任点记录一次，并优先使用该失败可取得的原始平台信息；不能同时记平台码和本地兜底原因。不得为等待补充信息新增固定等待或接口请求。后续新的 report 请求失败属于独立结果，按真实请求记录，不跨请求吞掉重试结果。
 
@@ -83,7 +83,7 @@ Buy Gems 只做增量：原文档、事件、字段、曝光时机和 tick_no_ba
 - 重复 pending/accepted 按 object2 + 原因去重。重复平台回调、重复 completed 不重复计 success；按平台 + 本笔交易身份归并，无订单号时先按原关联去重，补齐后归并。
 - 每次真实 report 失败/超时分别记录；重试 completed 仍记一次 success，object2 不变。一个异常只由一个责任点记录，避免同一请求重复上报。
 - 每次实际 claim 结果记一次；保持首次失败后最多额外 5 次退避重试的既有策略。claim completed 不重复计购买 success。同一游客身份多笔订单共用一次 claim 时，只记一次真实请求结果；不按订单数复制事件。
-- 购买或绑定成功后的 wallet 刷新、平台 finish、缓存清理失败，不撤销已完成结果；本版不再为这些步骤新增事件。
+- 购买或绑定成功后的 wallet 刷新、客户端缓存清理失败，不撤销已完成结果；本版不再为这些步骤新增事件。Apple finish 与 Google acknowledge 统一由服务端处理，不属于客户端成功后的步骤。
 - 准备沿用当前超时，平台交接后结束前置计时；不为系统付款页等待新增倒计时。report timeout 按真实 HTTP 结果记录。
 - 复用 collect 持久化队列及 event_id 重传去重。业务关联须随待处理记录恢复；打点失败不阻塞支付、登录或绑定。跨重装不能承诺客户端绝对去重，以服务端订单核对为准。
 

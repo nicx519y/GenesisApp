@@ -129,6 +129,272 @@ void _testWidgets(String name, Future<void> Function(WidgetTester) body) {
 }
 
 void main() {
+  testWidgets(
+    'expiry refreshes preparation repeatedly without another catalog load',
+    (tester) async {
+      final response = MembershipProductList(
+        products: [membershipProduct(yearly: true)],
+      );
+      final h = support.Harness(checkoutProducts: () async => response);
+      var nativeCalls = 0;
+      var identityCalls = 0;
+      var catalogCalls = 0;
+      h.platform.onPrepare = () async {
+        nativeCalls++;
+      };
+      h.accountUuidHandler = () async {
+        identityCalls++;
+        return support.accountUuid;
+      };
+      await tester.pumpWidget(
+        page(() async {
+          catalogCalls++;
+          return MembershipCatalogData(
+            offers: response.products
+                .map((p) => MembershipOffer(product: p))
+                .toList(),
+          );
+        }, service: h.service),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 119));
+      expect(nativeCalls, 1);
+      await tester.pump(const Duration(seconds: 1));
+      expect(nativeCalls, 2);
+      expect(identityCalls, 2);
+      await tester.pump(const Duration(minutes: 2));
+      expect(nativeCalls, 3);
+      expect(catalogCalls, 1);
+      expect(h.platform.launches, 0);
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pump();
+      expect(nativeCalls, 3);
+      expect(h.platform.launches, 1);
+      await tester.pump(const Duration(minutes: 3));
+      expect(nativeCalls, 3);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('click during expiry refresh shares the new query', (
+    tester,
+  ) async {
+    final response = MembershipProductList(
+      products: [membershipProduct(yearly: true)],
+    );
+    final h = support.Harness(checkoutProducts: () async => response);
+    final refresh = Completer<void>();
+    var calls = 0;
+    h.platform.onPrepare = () async {
+      if (++calls == 2) await refresh.future;
+    };
+    await tester.pumpWidget(
+      page(
+        () async => MembershipCatalogData(
+          offers: response.products
+              .map((p) => MembershipOffer(product: p))
+              .toList(),
+        ),
+        service: h.service,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(minutes: 2));
+    expect(calls, 2);
+    await tester.tap(find.byKey(buttonKey));
+    await tester.pump();
+    expect(calls, 2);
+    expect(h.platform.launches, 0);
+    refresh.complete();
+    await tester.pump();
+    expect(calls, 2);
+    expect(h.platform.launches, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('expiry refresh failure stays silent and click retries', (
+    tester,
+  ) async {
+    final response = MembershipProductList(
+      products: [membershipProduct(yearly: true)],
+    );
+    final h = support.Harness(checkoutProducts: () async => response);
+    var calls = 0;
+    h.platform.onPrepare = () async {
+      if (++calls == 2) throw StateError('query unavailable');
+    };
+    await tester.pumpWidget(
+      page(
+        () async => MembershipCatalogData(
+          offers: response.products
+              .map((p) => MembershipOffer(product: p))
+              .toList(),
+        ),
+        service: h.service,
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(minutes: 2));
+    expect(calls, 2);
+    expectOriginalContent(tester);
+    await tester.pump(const Duration(minutes: 3));
+    expect(calls, 2);
+    expect(h.platform.launches, 0);
+    await tester.tap(find.byKey(buttonKey));
+    await tester.pump();
+    expect(calls, 3);
+    expect(h.platform.launches, 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets(
+    'preparation resumes after a failed checkout leaves the page open',
+    (tester) async {
+      final response = MembershipProductList(
+        products: [membershipProduct(yearly: true)],
+      );
+      final h = support.Harness(checkoutProducts: () async => response);
+      h.platform.launchResult = false;
+      var calls = 0;
+      h.platform.onPrepare = () async {
+        calls++;
+      };
+      await tester.pumpWidget(
+        page(
+          () async => MembershipCatalogData(
+            offers: response.products
+                .map((p) => MembershipOffer(product: p))
+                .toList(),
+          ),
+          service: h.service,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pumpAndSettle();
+      expect(h.platform.launches, 1);
+      expect(calls, 2);
+      await tester.pump(const Duration(minutes: 2));
+      expect(calls, 3);
+      expect(h.platform.launches, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('backgrounding and disposal stop expiry refresh', (tester) async {
+    final response = MembershipProductList(
+      products: [membershipProduct(yearly: true)],
+    );
+    final h = support.Harness(checkoutProducts: () async => response);
+    var calls = 0;
+    h.platform.onPrepare = () async {
+      calls++;
+    };
+    await tester.pumpWidget(
+      page(
+        () async => MembershipCatalogData(
+          offers: response.products
+              .map((p) => MembershipOffer(product: p))
+              .toList(),
+        ),
+        service: h.service,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump(const Duration(minutes: 3));
+    expect(calls, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(calls, 2);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump(const Duration(minutes: 3));
+    expect(calls, 2);
+  });
+
+  testWidgets(
+    'page prepares Google checkout and click shares pending product query',
+    (tester) async {
+      final response = MembershipProductList(
+        products: [membershipProduct(yearly: true)],
+      );
+      final h = support.Harness(checkoutProducts: () async => response);
+      final gate = Completer<void>();
+      var nativeCalls = 0;
+      var identityCalls = 0;
+      h.platform.onPrepare = () {
+        nativeCalls++;
+        return gate.future;
+      };
+      h.accountUuidHandler = () async {
+        identityCalls++;
+        return support.accountUuid;
+      };
+      await tester.pumpWidget(
+        page(
+          () async => MembershipCatalogData(
+            offers: response.products
+                .map((p) => MembershipOffer(product: p))
+                .toList(),
+          ),
+          service: h.service,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(nativeCalls, 1);
+      expect(identityCalls, 1);
+      expect(h.platform.launches, 0);
+      await tester.tap(find.byKey(buttonKey));
+      await tester.pump();
+      expect(nativeCalls, 1);
+      gate.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(h.platform.launches, 1);
+      expect(nativeCalls, 1);
+      expect(identityCalls, 1);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('changing plan prepares the newly selected Google product', (
+    tester,
+  ) async {
+    final response = MembershipProductList(
+      products: [membershipProduct(yearly: true), membershipProduct()],
+    );
+    final h = support.Harness(checkoutProducts: () async => response);
+    final prepared = <String>[];
+    h.platform.onPrepare = () async {
+      prepared.add(h.platform.product!.planCode);
+    };
+    await tester.pumpWidget(
+      page(
+        () async => MembershipCatalogData(
+          offers: response.products
+              .map((p) => MembershipOffer(product: p))
+              .toList(),
+        ),
+        service: h.service,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(prepared, ['pro_yearly']);
+    await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+    await tester.pumpAndSettle();
+    expect(prepared, ['pro_yearly', 'pro_monthly']);
+    expect(h.platform.launches, 0);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpAndSettle();
+  });
+
   _testWidgets(
     'payment proceeds while the page wallet refresh is still pending',
     (tester) async {

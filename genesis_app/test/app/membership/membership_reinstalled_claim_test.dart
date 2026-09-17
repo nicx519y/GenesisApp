@@ -12,7 +12,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'reinstalled Apple transaction finishes only after claim completes',
+    'reinstalled Apple proof is cleared only after server claim completes',
     () async {
       final h = support.Harness(
         provider: MembershipProvider.apple,
@@ -29,17 +29,14 @@ void main() {
       final recovery = h.service.recover();
       await pumpEventQueue();
       expect(h.claimRequests, hasLength(1));
-      expect(h.platform.finishes, 0);
       expect(h.store.claims.values.single.recoveredProof, isNotNull);
       result.complete(
         const MembershipClaimResult(status: MembershipReportStatus.completed),
       );
       await recovery;
-      expect(h.platform.finishedTransactions, ['101']);
       expect(h.store.claims, isEmpty);
       expect(h.reports, isEmpty);
       await h.service.recover();
-      expect(h.platform.finishes, 1);
       expect(h.claimRequests, hasLength(1));
     },
   );
@@ -49,7 +46,7 @@ void main() {
     MembershipReportStatus.rejected,
   ]) {
     test(
-      'reinstalled Apple $status claim does not finish the transaction',
+      'reinstalled Apple $status claim retains its original proof',
       () async {
         final h = support.Harness(
           provider: MembershipProvider.apple,
@@ -61,7 +58,7 @@ void main() {
         h.claimHandler = (_) async => MembershipClaimResult(status: status);
         h.uid = 'first-login';
         await h.service.recover();
-        expect(h.platform.finishes, 0);
+        expect(h.store.claims.values.single.status, status.name);
         expect(h.store.claims.values.single.recoveredProof, isNotNull);
         expect(h.reports, isEmpty);
       },
@@ -69,7 +66,7 @@ void main() {
   }
 
   test(
-    'completed Apple claim retries finish after restart without claiming again',
+    'completed Apple claim retries local cleanup after restart without claiming again',
     () async {
       final h = support.Harness(
         provider: MembershipProvider.apple,
@@ -80,21 +77,20 @@ void main() {
         MembershipStorePurchase(purchase: h.purchase(transaction: '102')),
       ];
       await h.service.checkGuestPurchasesOnHome();
-      h.platform.finishFails = true;
+      h.store.failClaimCleanup = true;
       h.uid = 'first-login';
       await h.service.recover();
       expect(h.claimRequests, hasLength(1));
-      expect(h.platform.finishedTransactions, isEmpty);
       expect(h.store.claims.values.single.status, 'completed');
       expect(h.store.claims.values.single.recoveredProof!.transactionId, '102');
       h.service.dispose();
+      h.store.failClaimCleanup = false;
       final restarted = support.Harness(
         provider: MembershipProvider.apple,
         claimEnabled: true,
         storage: h.store,
       )..uid = 'first-login';
       await restarted.service.start();
-      expect(restarted.platform.finishedTransactions, ['102']);
       expect(restarted.claimRequests, isEmpty);
       expect(restarted.reports, isEmpty);
       expect(restarted.store.claims, isEmpty);

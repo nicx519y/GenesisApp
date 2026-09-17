@@ -12,6 +12,8 @@ import 'billing_models.dart';
 import 'membership_product_store.dart';
 
 abstract interface class MembershipCheckoutPlatform {
+  // Store settlement belongs to the server; this adapter only launches or
+  // inspects purchases and must not acknowledge or finish them.
   Future<Object> prepare(MembershipProduct product);
   Future<bool> launch(
     Object product,
@@ -19,7 +21,6 @@ abstract interface class MembershipCheckoutPlatform {
     bool Function()? onStoreHandoff,
   });
   Future<bool> isSubscription(String productId);
-  Future<void> finishAppleTransaction(String transactionId);
 }
 
 class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
@@ -153,8 +154,4 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
     AppStoreProductDetails() => product.skProduct.subscriptionPeriod != null,
     _ => false,
   };
-
-  @override
-  Future<void> finishAppleTransaction(String transactionId) =>
-      SK2Transaction.finish(int.parse(transactionId));
 }

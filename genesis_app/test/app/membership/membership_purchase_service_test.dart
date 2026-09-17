@@ -138,13 +138,10 @@ class PendingStore implements MembershipPendingStore {
 
 class Checkout implements MembershipCheckoutPlatform {
   int launches = 0;
-  int finishes = 0;
-  final finishedTransactions = <String>[];
   int queries = 0;
   String? uuid;
   MembershipProduct? product;
   bool launchResult = true;
-  bool finishFails = false;
   Future<void> Function()? onPrepare;
   Future<void> Function()? onLaunch;
   bool autoHandoff = true;
@@ -174,13 +171,6 @@ class Checkout implements MembershipCheckoutPlatform {
   Future<bool> isSubscription(String productId) async {
     queries++;
     return !productId.startsWith('gem');
-  }
-
-  @override
-  Future<void> finishAppleTransaction(String transactionId) async {
-    finishes++;
-    if (finishFails) throw StateError('finish failed');
-    finishedTransactions.add(transactionId);
   }
 }
 
@@ -576,7 +566,7 @@ void main() {
     expect(restarted.store.restores, isEmpty);
   });
   test(
-    'cleanup failure keeps acknowledged order and retries without another report',
+    'cleanup failure keeps server-confirmed order and retries without another report',
     () async {
       final h = Harness(provider: MembershipProvider.apple);
       h.store.failComplete = true;
@@ -584,33 +574,34 @@ void main() {
       await h.service.interceptPurchase(h.purchase());
       expect(h.service.state.value, MembershipCheckoutState.deferred);
       expect(h.store.records.values.single.reportStatus, 'completed');
-      expect(h.platform.finishes, 1);
       h.store.failComplete = false;
       await h.service.recover();
       expect(h.reports, hasLength(1));
-      expect(h.platform.finishes, 1);
       expect(h.store.records, isEmpty);
     },
   );
-  test(
-    'accepted order retries its same request then cleans up only after completed',
-    () async {
-      final h = Harness();
-      h.reportHandler = (_) async => const MembershipPurchaseReport(
-        status: MembershipReportStatus.accepted,
-      );
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      expect(h.store.records.values.single.reportStatus, 'accepted');
-      expect(h.store.confirmed, isEmpty);
-      h.reportHandler = null;
-      await h.service.recover();
-      expect(h.reports, hasLength(2));
-      expect(h.reports.first.toJson(), h.reports.last.toJson());
-      expect(h.store.records, isEmpty);
-      expect(h.refreshes, 1);
-    },
-  );
+  for (final provider in MembershipProvider.values) {
+    test(
+      '$provider accepted order retries its same request then cleans up only after completed',
+      () async {
+        final h = Harness(provider: provider);
+        h.reportHandler = (_) async => const MembershipPurchaseReport(
+          status: MembershipReportStatus.accepted,
+        );
+        await h.service.purchase(h.product());
+        await h.service.interceptPurchase(h.purchase());
+        expect(h.store.records.values.single.reportStatus, 'accepted');
+        expect(h.store.confirmed, isEmpty);
+        expect(h.refreshes, 0);
+        h.reportHandler = null;
+        await h.service.recover();
+        expect(h.reports, hasLength(2));
+        expect(h.reports.first.toJson(), h.reports.last.toJson());
+        expect(h.store.records, isEmpty);
+        expect(h.refreshes, 1);
+      },
+    );
+  }
   test(
     'stream errors release the lock and a late callback can still report',
     () async {
@@ -642,7 +633,6 @@ void main() {
       expect(h.reports, hasLength(1));
       expect(h.reports.single.product.basePlanId, 'test-annual');
       expect(h.refreshes, 1);
-      expect(h.platform.finishes, 0);
       expect(h.service.isBusy, isFalse);
     },
   );
@@ -767,23 +757,34 @@ void main() {
       expect(h.reports, hasLength(1));
     },
   );
-  test(
-    'Apple finishes only after durable server takeover and retries finish without reposting',
-    () async {
-      final h = Harness(provider: MembershipProvider.apple);
-      h.platform.finishFails = true;
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      expect(h.reports, hasLength(1));
-      expect(h.platform.finishes, 1);
-      h.platform.finishFails = false;
-      await h.service.recover();
-      expect(h.platform.finishes, 2);
-      expect(h.reports, hasLength(1));
-      expect(h.store.records, isEmpty);
-      expect(h.store.confirmed, isEmpty);
-    },
-  );
+  for (final provider in MembershipProvider.values) {
+    for (final legacyFinished in [false, true]) {
+      test(
+        '$provider completed report survives restart with legacy finished=$legacyFinished',
+        () async {
+          final h = Harness(provider: provider);
+          h.store.failComplete = true;
+          await h.service.purchase(h.product());
+          await h.service.interceptPurchase(h.purchase());
+          expect(h.reports, hasLength(1));
+          final record = h.store.records.values.single;
+          expect(record.reportStatus, 'completed');
+          h.store.records[record.requestId] = record.copyWith(
+            finished: legacyFinished,
+          );
+          h.service.dispose();
+          h.store.failComplete = false;
+          final restarted = Harness(provider: provider, storage: h.store);
+          await restarted.service.start();
+          expect(restarted.reports, isEmpty);
+          expect(restarted.platform.launches, 0);
+          expect(restarted.store.records, isEmpty);
+          expect(restarted.store.confirmed, isEmpty);
+          expect(restarted.refreshes, 1);
+        },
+      );
+    }
+  }
   test('accepted keeps its order while rejected completes its order', () async {
     for (final status in [
       MembershipReportStatus.accepted,
@@ -817,11 +818,11 @@ void main() {
           token: '',
         ),
       );
-      expect(h.platform.finishes, 0);
       expect(h.reports, isEmpty);
       await h.service.interceptPurchase(h.purchase());
       expect(h.reports, hasLength(1));
-      expect(h.platform.finishes, 1);
+      expect(h.store.records, isEmpty);
+      expect(h.service.state.value, MembershipCheckoutState.completed);
     },
   );
   test(

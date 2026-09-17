@@ -83,12 +83,15 @@ class ProSubscriptionContent extends StatefulWidget {
   State<ProSubscriptionContent> createState() => _ProSubscriptionContentState();
 }
 
-class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
+class _ProSubscriptionContentState extends State<ProSubscriptionContent>
+    with WidgetsBindingObserver {
   _ProPlan _plan = _ProPlan.yearly;
   AppServices? _services;
   List<MembershipOffer> _offers = [];
   MembershipAccessStore? _membership;
   bool _submitting = false;
+  bool _hasFreshCatalog = false;
+  MembershipCheckoutPreparation? _checkoutPreparation;
   bool _loading = false;
   bool _started = false;
   int _requestGeneration = 0;
@@ -107,6 +110,21 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       if (offer.product.planCode == plan.code) return offer;
     }
     return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      _clearCheckoutPreparation();
+    } else if (!_submitting && _hasFreshCatalog) {
+      _prepareSelectedCheckout();
+    }
   }
 
   @override
@@ -158,6 +176,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     final service = widget.purchaseService ?? _services?.membershipPurchases;
     if (identical(service, _catalogService)) return;
     _catalogService?.catalogRevision.removeListener(_purchaseChanged);
+    _clearCheckoutPreparation();
     _catalogService = service;
     service?.catalogRevision.addListener(_purchaseChanged);
   }
@@ -173,6 +192,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _clearCheckoutPreparation();
     _purchasePresentation?.dispose();
     _membership?.state.removeListener(_membershipChanged);
     _requestGeneration++;
@@ -182,6 +203,8 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
   }
 
   Future<void> _load({bool silent = false, bool forceRefresh = false}) async {
+    _clearCheckoutPreparation();
+    _hasFreshCatalog = false;
     final request = ++_requestGeneration;
     final source = _catalog;
     final cached = source?.cached;
@@ -221,10 +244,12 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       final catalog = await loader();
       if (!mounted || request != _requestGeneration) return;
       freshApplied = true;
+      _hasFreshCatalog = true;
       setState(() {
         _applyCatalog(catalog);
         _loading = false;
       });
+      _prepareSelectedCheckout();
     } catch (error) {
       if (!mounted || request != _requestGeneration) return;
       debugPrint('[Membership] catalog load failed: ${error.runtimeType}');
@@ -242,6 +267,39 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
     }
   }
 
+  void _clearCheckoutPreparation() {
+    _checkoutPreparation?.invalidate();
+    _checkoutPreparation = null;
+  }
+
+  void _prepareSelectedCheckout() {
+    _clearCheckoutPreparation();
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    final service = widget.purchaseService ?? _services?.membershipPurchases;
+    if (!mounted ||
+        widget.purchaseHandler != null ||
+        !_hasFreshCatalog ||
+        _submitting ||
+        service == null ||
+        service.isBusy ||
+        (service.otherPurchaseBusy?.call() ?? false) ||
+        (lifecycle != null && lifecycle != AppLifecycleState.resumed) ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
+    final offer = _offerFor(_plan);
+    if (offer == null) return;
+    MembershipCheckoutPreparation? preparation;
+    preparation = service.prepareCheckout(
+      offer.product,
+      onExpired: () {
+        if (!mounted || !identical(_checkoutPreparation, preparation)) return;
+        _prepareSelectedCheckout();
+      },
+    );
+    _checkoutPreparation = preparation;
+  }
+
   Future<void> _onSubscribePressed() async {
     if (_submitting) return;
     _submitting = true;
@@ -249,6 +307,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
       await _subscribe();
     } finally {
       _submitting = false;
+      if (mounted) _prepareSelectedCheckout();
     }
   }
 
@@ -292,10 +351,14 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
         service: service,
       );
     }
+    final preparation = _checkoutPreparation;
+    _checkoutPreparation = null;
     final confirmed = await _purchasePresentation!.purchase(
       offer.product,
       tracking: tracking,
+      preparation: preparation,
     );
+    preparation?.invalidate();
     if (confirmed &&
         mounted &&
         widget.closeOnPurchaseSuccess &&
@@ -464,7 +527,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent> {
                                   _offers,
                                 ),
                           selected: _plan == plan,
-                          onTap: () => setState(() => _plan = plan),
+                          onTap: () {
+                            if (_plan == plan) return;
+                            setState(() => _plan = plan);
+                            _prepareSelectedCheckout();
+                          },
                         ),
                       ),
                     ],

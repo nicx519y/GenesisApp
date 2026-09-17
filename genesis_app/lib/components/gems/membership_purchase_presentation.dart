@@ -58,6 +58,7 @@ class MembershipPurchasePresentation {
   Future<bool> purchase(
     MembershipProduct product, {
     SubscriptionTracking? tracking,
+    MembershipCheckoutPreparation? preparation,
   }) async {
     if (_disposed || _route != null || service.isBusy) {
       if (tracking != null) {
@@ -143,7 +144,12 @@ class MembershipPurchasePresentation {
     final result = navigator.push(route);
     unawaited(
       service
-          .purchase(product, attemptId: attemptId, tracking: tracking)
+          .purchase(
+            product,
+            attemptId: attemptId,
+            tracking: tracking,
+            preparation: preparation,
+          )
           .catchError((Object error) {
             if (_disposed || _resolved) return;
             _resolved = true;

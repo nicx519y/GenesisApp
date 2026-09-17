@@ -2667,15 +2667,17 @@ World：
 - 游客 report 与 claim 使用同一原购买证明，除可刷新的 Apple JWS 外，购买参数保持一致。本地 request_id 仅用于关联回调、弹窗、持久化队列及清理，不进入 HTTP 请求、查询参数或请求头。当前刷新后的 Apifox 已允许省略 plan_code，但仍将 request_id 标为必填；客户端按本次明确要求实现，后端需要同步支持无 request_id 的验单与幂等处理，客户端删除字段不代表已完成服务器联调或修复旧幂等记录。
 - report 响应必须有合法业务 envelope 和 `data.status`，模型只保留 status，不再读取 report_id、membership_id、reason。允许 completed、accepted、rejected；缺失或未知状态保留原凭据重试。
 - report 的 completed 才表示官方校验及同步完成，随后刷新 wallet；accepted 保留订单并继续原凭据重试，不显示成功；rejected 是终态，显示通用购买失败并停止重报。响应不再区分拒绝原因，因此所有 rejected Apple 交易都不 finish，避免结束其他账号的交易。旧版本拒绝记录的 finished 标记读取时保守处理。
-- Google 初次订阅 acknowledge 由服务端负责。已付款的 Apple 交易在 completed/accepted 响应已本地保存后 finish；仍待付款且仅 accepted 时不 finish。平台先返回 pending 后，若服务端重试已取得 completed，则按官方确认完成后续 finish/清理，不再依赖另一次平台回调。已经取得 `completed/rejected` 的记录在 finish 或本地清理失败后仅重试剩余步骤，不重复上报。
-- VIP 本地持久化只用于 report 重试和游客购买身份/认领。准备、取消、调起失败及无凭据回调不保存历史订单；登录购买 completed/rejected 后清理重试记录，不另存成功订单归档。游客在调起支付前先单独持久化本次 UUID，保存失败不调起支付；仅身份缓存不表示已付款，不触发 check、登录或购买拦截。明确取消或平台拒绝调起时删除该次未成交 UUID；若同 UUID 仍有已付款凭据、待付款记录或已绑定归属，则保留。超时及未知网络错误不作为取消。付款后保存绑定所需凭据与购买时间；claim completed 且 report/平台收尾结束后删除 UUID 和购买凭据，不留已绑定身份缓存。
-- iOS 历史交易查询从 `Transaction.all` 保留每笔已验证交易的 JWS，包括已 finish 的原订单；重启后的游客 report/claim 按原交易 ID、商品及 UUID 恢复签名，不用最新续费交易替换原凭据。重装后无本地 report 的认领仅在 `claim=completed` 后 finish 本次证明对应的 Apple 交易，再清理认领凭据；finish 失败保留 completed claim 及凭据，重启后只重试收尾，不重复 claim。`accepted/rejected` 不触发该收尾，也不批量 finish 订阅链中其他交易。原生 finish 查不到已验证交易时返回明确错误，不让 Dart 一直等待。
+- Apple 原生购买前的重复交易检查：仅对已验证的自动续订交易，在目标商品也是自动续订且 `expirationDate <= signedDate`（Apple 签名时该账期已结束）时，不再用该旧交易阻止新购买。不依赖设备时钟；缺少到期时间、签名早于到期时间及其他商品类型保留原拦截。仍逐笔检查其他未结束交易。此判断不代表服务端已结算，不 finish、删除、补报或认领旧交易，不改变游客启动检查；新的购买仍经原 StoreKit、report、claim 和 wallet 流程。
+- 2026-09-17 按用户要求统一商店收尾职责：Android / iOS 客户端上报真实购买凭据，不调用 acknowledge、consume 或 finish。服务端验单并持久化权益后，Google 初次订阅调用 acknowledge，Apple 调用 [App Store Server API Finish Transaction](https://developer.apple.com/documentation/appstoreserverapi/finish-transaction)，失败由服务端持久化任务重试。Apple 的 finish 不能用成功接收 report 或验单代替。这里约定职责，不代表已验证线上服务端实现。客户端 `accepted` 继续保存原凭据并重试 report；`completed/rejected` 已持久化后只重试本地清理，不重复上报。待付款回调也可由 report 重试取得 `completed` 后完成本地流程，不再依赖另一次平台回调。旧缓存 `finished` 字段仅为格式兼容保留，不决定收尾或重试。
+- Apple `Product.purchase` Future 已返回后，若 10 秒内仍未收到能关联本次购买的回调，结束前台等待并提示确认延迟，保留原身份与迟到回调处理。该计时不包含用户停留在 Apple 付款页的时间；正常回调收到后停止计时，report 沿用原 HTTP 超时。历史或其他账号回调不冒充本次成功，不自动重扣款或 finish。Android 调起后的等待行为不变。
+- VIP 本地持久化只用于 report 重试和游客购买身份/认领。准备、取消、调起失败及无凭据回调不保存历史订单；登录购买 completed/rejected 后清理重试记录，不另存成功订单归档。游客在调起支付前先单独持久化本次 UUID，保存失败不调起支付；仅身份缓存不表示已付款，不触发 check、登录或购买拦截。明确取消或平台拒绝调起时删除该次未成交 UUID；若同 UUID 仍有已付款凭据、待付款记录或已绑定归属，则保留。超时及未知网络错误不作为取消。付款后保存绑定所需凭据与购买时间；claim completed 且本地 report 已取得最终状态后删除 UUID 和购买凭据，商店收尾由服务端负责，不留已绑定身份缓存。
+- iOS 历史交易查询从 `Transaction.all` 保留每笔已验证交易的 JWS，包括已 finish 的原订单；重启后的游客 report/claim 按原交易 ID、商品及 UUID 恢复签名，不用最新续费交易替换原凭据。重装后无本地 report 的认领在 `claim=completed` 后清理本地认领凭据，Apple finish 也由服务端按已验证交易处理。客户端本地清理失败保留 completed claim 及原凭据，重启后只重试清理，不重复 claim；`accepted/rejected` 保留对应凭据与原有重试/归属处理。客户端不批量 finish 订阅链中的历史交易。
 - `purchased/restored` 回调缺少凭据时不发送 report，也不生成旧订单恢复记录或阻止新购买；本次操作在内存中保留，迟到的真实回调仍可按原套餐上报。客户端不再通过旧缓存判定 purchase_processing，除 wallet 有效年转月限制外由平台处理购买资格，当前正在发起的支付仍防重复点击。
 - GEMS 回调与商店恢复入口增加会员分流，已知 GEMS 操作和持久记录沿用原处理。VIP 不进入 Gem 上报、发货弹窗或 Gem 埋点路径；互相购买期间拦截重复调起。普通 GEMS 请求和 TAB 按需加载保持原逻辑。
 - 会员接口继续排除 App 持久化网络捕获和原生 body 采集，使用支持按请求排除采集的 HTTP/2 传输。按产品要求，Debug 包的 Flutter DevTools 对 products、prepare、report、check、claim 显示原始 URI/header/body/响应及错误，不替换 UUID、token 或 JWS；非 Debug 的 products/report/check 保持脱敏，prepare/claim 不创建 profile。普通日志仍只记状态或错误类型。
 - Subscription 页只加载商品，不再自动查询并保存商店已购记录。启动、回前台和重试只处理实际 report 重试及游客缓存；无法关联当前购买或补报请求的商店历史回调不新建恢复记录。
 - 升级清理旧恢复缓存时，能构造完整 report 的失败/accepted 请求保留原 request_id、凭据和账号，先安全迁入 report 队列后清理旧条目。无法确定套餐的商店历史记录、completed/rejected 历史记录直接清理，不据此阻止购买；有效补报请求写入失败时保留原副本，其他账号的请求不作为当前账号上报。
-- Android、Apple 均不再因启动或进入 Subscription 而生成旧订单队列。Apple 已取得服务端最终状态但 finish/本地清理尚未完成时只重试剩余步骤，不重复 report；这类短暂清理重试不阻止新购买。
+- Android、Apple 均不再因启动或进入 Subscription 而生成旧订单队列。已取得服务端最终状态但本地清理尚未完成时只重试本地清理，不重复 report；这类短暂清理重试不阻止新购买。
 - 补报复用实际购买时的 store_product_id 和凭据，HTTP 请求不发送 plan_code、request_id 或 base_plan_id；本地快照的套餐及记录编号不会重新注入上报参数。未知套餐的商店历史不猜测、不落入补报队列。已登录升级继续使用最新商品列表返回的原订阅 UUID/token 和目标 base plan，不依赖本地成功订单历史。
 - 本地 mock 对 prepare/report 返回 `5000`，不伪造购买身份、商店验单或会员发放。
 

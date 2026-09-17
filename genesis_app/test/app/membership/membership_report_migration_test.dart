@@ -25,6 +25,20 @@ MembershipRestoreRecord legacy(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  for (final provider in MembershipProvider.values) {
+    for (final status in [null, 'accepted', 'completed', 'rejected']) {
+      test('$provider legacy $status retry ignores client finished flag', () {
+        final h = support.Harness(provider: provider);
+        for (final finished in [false, true]) {
+          final record = MembershipRestoreRecord.fromJson(
+            legacy(h, status: status, finished: finished).toJson(),
+          );
+          expect(record.needsRetry, status == null || status == 'accepted');
+        }
+      });
+    }
+  }
+
   test(
     'legacy report failure without a response preserves its request and receipt',
     () async {
@@ -102,26 +116,22 @@ void main() {
   );
 
   for (final status in ['completed', 'rejected']) {
-    test(
-      'legacy $status only finishes and cleans up without posting report',
-      () async {
-        final h = support.Harness(provider: MembershipProvider.apple);
-        await h.store.saveRestore(
-          legacy(
-            h,
-            status: status,
-            reason: status == 'rejected' ? 'account_mismatch' : null,
-            finished: status == 'rejected',
-          ),
-        );
-        await h.service.start();
-        expect(h.reports, isEmpty);
-        expect(h.store.restores, isEmpty);
-        expect(h.store.records, isEmpty);
-        expect(h.platform.finishes, 0);
-        expect(h.store.confirmed, isEmpty);
-      },
-    );
+    test('legacy $status only cleans up without posting report', () async {
+      final h = support.Harness(provider: MembershipProvider.apple);
+      await h.store.saveRestore(
+        legacy(
+          h,
+          status: status,
+          reason: status == 'rejected' ? 'account_mismatch' : null,
+          finished: status == 'rejected',
+        ),
+      );
+      await h.service.start();
+      expect(h.reports, isEmpty);
+      expect(h.store.restores, isEmpty);
+      expect(h.store.records, isEmpty);
+      expect(h.store.confirmed, isEmpty);
+    });
   }
 
   test(

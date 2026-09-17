@@ -24,9 +24,12 @@ import 'subscription_analytics.dart';
 import 'subscription_failure_reason.dart';
 
 part 'membership_purchase_restore.dart';
+part 'membership_checkout_preparation.dart';
 part 'membership_purchase_tracking.dart';
 part 'membership_guest_claim.dart';
 part 'membership_guest_startup_check.dart';
+
+const _appleResultCallbackTimeout = Duration(seconds: 10);
 
 enum MembershipCheckoutState {
   idle,
@@ -304,10 +307,76 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
   }
 
+  /// Prepare only Google checkout for a fresh, visible subscription page.
+  /// Failure is silent; a real click retries through the normal checkout path.
+  MembershipCheckoutPreparation? prepareCheckout(
+    MembershipProduct product, {
+    VoidCallback? onExpired,
+  }) {
+    if (_disposed ||
+        provider != MembershipProvider.google ||
+        product.provider != provider) {
+      return null;
+    }
+    final ticket = MembershipCheckoutPreparation._(
+      this,
+      _session,
+      catalogRevision.value,
+      onExpired,
+    );
+    ticket._future = () async {
+      try {
+        final results = await Future.wait<Object?>([
+          Future<void>.sync(() async {
+            await ensureStoreListening?.call();
+          }),
+          _load(),
+          readLoginUid(),
+          readCheckoutProducts(),
+        ], eagerError: true);
+        if (!ticket._usable ||
+            ticket._session != _session ||
+            ticket._revision != catalogRevision.value ||
+            _disposed) {
+          return null;
+        }
+        final uid = results[2] as String?;
+        final products = results[3] as MembershipProductList;
+        final matches = products.products.where(
+          (p) =>
+              p.provider == provider &&
+              p.planCode == product.planCode &&
+              p.storeProductId == product.storeProductId &&
+              p.basePlanId == product.basePlanId &&
+              p.offerId == product.offerId,
+        );
+        if (matches.length != 1) return null;
+        final prepared = await _prepareGoogleCheckout(
+          uid,
+          products,
+          matches.single,
+        );
+        if (!ticket._usable ||
+            ticket._session != _session ||
+            ticket._revision != catalogRevision.value ||
+            _disposed) {
+          return null;
+        }
+        ticket._markReady();
+        return prepared;
+      } catch (_) {
+        ticket.invalidate();
+        return null;
+      }
+    }();
+    return ticket;
+  }
+
   Future<void> purchase(
     MembershipProduct product, {
     String? attemptId,
     SubscriptionTracking? tracking,
+    MembershipCheckoutPreparation? preparation,
   }) async {
     final startedAt = DateTime.now();
     attemptId ??= newBillingAttemptId();
@@ -437,26 +506,70 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           throw const MembershipPurchaseBlocked('eligibility_unavailable');
         }
         product = current;
-        stage = 'query_store_product';
-        final nativeProduct = await platform.prepare(product);
-        if (!await canContinueForOwner(uid)) return;
-        stage = 'prepare_guest';
-        final guest = uid == null
-            ? products.lastAccountUuid == null
-                  ? await prepareGuest()
-                  : MembershipGuestIdentity(
-                      accountUuid: products.lastAccountUuid!,
-                    )
-            : null;
-        if (!canContinue()) return;
-        stage = 'load_account_uuid';
-        final uuid =
-            products.lastAccountUuid ??
-            guest?.accountUuid ??
-            await loadAccountUuid();
-        if (!canContinue()) return;
-        if (!isMembershipAccountUuid(uuid)) {
-          throw StateError('membership_account_uuid_missing');
+        late final Object nativeProduct;
+        late final MembershipGuestIdentity? guest;
+        late final String uuid;
+        if (provider == MembershipProvider.google) {
+          stage = 'prepare_google_checkout';
+          try {
+            final reusable = await _takeCheckoutPreparation(
+              preparation,
+              uid,
+              products,
+              product,
+            );
+            if (!await canContinueForOwner(uid)) return;
+            final prepared =
+                reusable ??
+                await _prepareGoogleCheckout(uid, products, product);
+            nativeProduct = prepared.nativeProduct;
+            guest = prepared.identity.guest;
+            uuid = prepared.identity.uuid;
+          } on _CheckoutPreparationFailure catch (failure) {
+            stage = failure.stage;
+            throw failure.error;
+          }
+          if (!await canContinueForOwner(uid)) return;
+          // A page refresh can finish while Google or identity preparation waits.
+          // Re-read the in-memory catalog, never a new products API request.
+          stage = 'read_catalog';
+          final latestProducts = await readCheckoutProducts();
+          if (!await canContinueForOwner(uid)) return;
+          if (latestProducts.lastAccountUuid != products.lastAccountUuid ||
+              !latestProducts.products.any(
+                (p) =>
+                    p.provider == product.provider &&
+                    p.planCode == product.planCode &&
+                    p.storeProductId == product.storeProductId &&
+                    p.basePlanId == product.basePlanId &&
+                    p.offerId == product.offerId &&
+                    p.priceAmount == product.priceAmount &&
+                    p.priceCurrencyCode == product.priceCurrencyCode,
+              )) {
+            throw const MembershipPurchaseBlocked('eligibility_unavailable');
+          }
+        } else {
+          stage = 'query_store_product';
+          nativeProduct = await platform.prepare(product);
+          if (!await canContinueForOwner(uid)) return;
+          stage = 'prepare_guest';
+          guest = uid == null
+              ? products.lastAccountUuid == null
+                    ? await prepareGuest()
+                    : MembershipGuestIdentity(
+                        accountUuid: products.lastAccountUuid!,
+                      )
+              : null;
+          if (!canContinue()) return;
+          stage = 'load_account_uuid';
+          uuid =
+              products.lastAccountUuid ??
+              guest?.accountUuid ??
+              await loadAccountUuid();
+          if (!canContinue()) return;
+          if (!isMembershipAccountUuid(uuid)) {
+            throw StateError('membership_account_uuid_missing');
+          }
         }
         final record = MembershipPurchaseRecord(
           requestId: id,
@@ -470,16 +583,17 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         stage = 'prepare_order';
         await _save(record);
         if (!await canContinueForOwner(uid)) return;
-        if (guest != null) {
+        final purchaseGuest = guest;
+        if (purchaseGuest != null) {
           stage = 'persist_guest_identity';
           await _serialize(() async {
             if (!await canContinueForOwner(uid)) return;
-            final previous = _guestClaims[guest.accountUuid];
+            final previous = _guestClaims[purchaseGuest.accountUuid];
             if (previous == null || previous.status == 'completed') {
               // Identity only: no paid order, login request or claim permission.
               await _saveGuestClaim(
                 MembershipGuestClaimRecord(
-                  guest: guest,
+                  guest: purchaseGuest,
                   autoClaimAllowed: false,
                   tracking: _attemptTracking[id],
                 ),
@@ -492,14 +606,42 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         _setState(MembershipCheckoutState.store, attemptId: id);
         wait.launchRequested = true;
         stage = 'launch_store';
-        final launched = await platform.launch(
-          nativeProduct,
-          uuid,
-          onStoreHandoff: onStoreHandoff,
-        );
+        final launchClock = Stopwatch()..start();
+        final launched = await platform
+            .launch(nativeProduct, uuid, onStoreHandoff: onStoreHandoff)
+            .whenComplete(() {
+              if (kDebugMode) {
+                debugPrint(
+                  '[Membership][checkout_timing] stage=launch_store elapsed_ms=${launchClock.elapsedMilliseconds} click_elapsed_ms=${DateTime.now().difference(startedAt).inMilliseconds}',
+                );
+              }
+            });
         if (!canContinue()) return;
         if (!launched) {
           throw const BillingPlatformException('membership_launch_rejected');
+        }
+        if (provider == MembershipProvider.apple) {
+          // StoreKit's purchase Future returns after the user's store flow has
+          // ended. Its stream callback can still arrive on a separate channel.
+          // Bound only that delivery/matching wait, never time in Apple's UI.
+          wait.storeResultReturned = true;
+          wait.timer?.cancel();
+          wait.timer = Timer(_appleResultCallbackTimeout, () {
+            if (!isCurrent()) return;
+            analytics.timeout(_attemptTracking[id]!, 'store_callback');
+            _release(id);
+            _setState(
+              MembershipCheckoutState.deferred,
+              attemptId: id,
+              debugInfo: purchaseDebugInfo(
+                'vip.store_result',
+                reason: 'store_callback_missing',
+              ),
+            );
+            // Keep the original attempt/identity for a delayed valid receipt.
+            // This is an unconfirmed result, not a new purchase or a failure.
+            _scheduleRetry();
+          });
         }
       } catch (error) {
         // Expired operations and completed callbacks cannot overwrite a newer UI.
@@ -581,6 +723,22 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     return _serialize(() async {
       try {
         await _load();
+        if (kDebugMode && provider == MembershipProvider.apple) {
+          final active = _records[_activeRequestId];
+          final callbackAccount = purchase.obfuscatedAccountId?.trim();
+          final transaction = purchase.transactionId;
+          final suffix = transaction.length > 6
+              ? transaction.substring(transaction.length - 6)
+              : transaction;
+          debugPrint(
+            '[Membership][store_callback] status=${purchase.status.name} '
+            'product=${purchase.productId} transaction_suffix=$suffix '
+            'purchase_time=${purchase.purchaseTime} '
+            'active=${active != null} '
+            'same_product=${active?.product.storeProductId == purchase.productId} '
+            'same_account=${active != null && (callbackAccount?.isNotEmpty != true || callbackAccount!.toLowerCase() == active.accountUuid.toLowerCase())}',
+          );
+        }
         if (purchase.productId.isEmpty) {
           final active = _records[_activeRequestId];
           if (active == null) return false;
@@ -909,16 +1067,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           await refreshWallet?.call();
         } catch (_) {}
       }
-      // Ownership rejection ends this report, not the Apple transaction.
-      // Never finish another account's transaction or a pending payment.
-      if (provider == MembershipProvider.apple &&
-          record.paid &&
-          record.reportStatus != 'rejected' &&
-          !record.finished) {
-        await platform.finishAppleTransaction(record.transactionId);
-        record = record.copyWith(finished: true);
-        await _save(record);
-      }
+      // The server owns Apple finish and Google acknowledgement. A terminal
+      // report only completes our local retry work; accepted retains its receipt.
       if ((record.paid || record.reportStatus == 'rejected') &&
           (record.reportStatus == 'completed' ||
               record.reportStatus == 'rejected')) {
@@ -1179,6 +1329,7 @@ class _MembershipCheckoutWait {
   final done = Completer<void>();
   bool launchRequested = false;
   bool storeHandedOff = false;
+  bool storeResultReturned = false;
   bool storeCallbackReceived = false;
 
   void receiveStoreCallback() {

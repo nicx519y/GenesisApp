@@ -333,14 +333,12 @@ void main() {
       await h.service.interceptPurchase(
         h.purchase(status: BillingPurchaseStatus.pending),
       );
-      expect(h.platform.finishes, 0);
       expect(h.store.records.values.single.state, 'pending');
       expect(h.service.catalogRevision.value, 1);
       h.reportHandler = null;
       await h.service.recover();
       expect(h.reports.last.toJson(), h.reports.first.toJson());
       expect(h.service.state.value, MembershipCheckoutState.completed);
-      expect(h.platform.finishes, 1);
       expect(h.store.records, isEmpty);
       expect(h.store.confirmed, isEmpty);
       expect(h.service.catalogRevision.value, 2);
@@ -348,7 +346,7 @@ void main() {
   );
 
   test(
-    'status-only rejected pending payment is terminal without finishing unpaid transaction',
+    'status-only rejected pending payment is terminal without granting entitlement',
     () async {
       final h = support.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => const MembershipPurchaseReport(
@@ -366,14 +364,13 @@ void main() {
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
       expect(h.store.confirmed, isEmpty);
-      expect(h.platform.finishes, 0);
       expect(h.refreshes, 0);
       expect(h.service.catalogRevision.value, 1);
     },
   );
 
   test(
-    'status-only rejection never finishes an unverified Apple transaction',
+    'status-only rejection cleans retry work without granting entitlement',
     () async {
       final h = support.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => const MembershipPurchaseReport(
@@ -382,17 +379,15 @@ void main() {
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
       await h.service.recover();
-      expect(h.platform.finishes, 0);
       expect(h.reports, hasLength(1));
       expect(h.store.records, isEmpty);
       expect(h.store.completedRecords.last.reportStatus, 'rejected');
-      expect(h.store.completedRecords.last.finished, isFalse);
+      expect(h.refreshes, 0);
       expect(h.service.state.value, MembershipCheckoutState.rejected);
       expect(h.service.isBusy, isFalse);
       await h.service.interceptPurchase(h.purchase());
       await h.service.recover();
       expect(h.reports, hasLength(1));
-      expect(h.platform.finishes, 0);
     },
   );
 }

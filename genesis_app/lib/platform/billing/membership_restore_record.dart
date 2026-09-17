@@ -19,6 +19,7 @@ class MembershipRestoreRecord {
   final BillingPurchase purchase;
   final MembershipOrderProduct? product;
   final String? reportStatus;
+  // Legacy cache compatibility only; never used to decide store settlement.
   final bool finished;
 
   bool get paid =>
@@ -27,10 +28,7 @@ class MembershipRestoreRecord {
       purchase.status == BillingPurchaseStatus.purchased ||
       purchase.status == BillingPurchaseStatus.restored;
   String get receiptKey => membershipReceiptKey(purchase);
-  bool get needsRetry =>
-      reportStatus == null ||
-      reportStatus == 'accepted' ||
-      purchase.provider == BillingProvider.appStore && paid && !finished;
+  bool get needsRetry => reportStatus == null || reportStatus == 'accepted';
 
   MembershipPurchaseRequest get request => MembershipPurchaseRequest(
     product:

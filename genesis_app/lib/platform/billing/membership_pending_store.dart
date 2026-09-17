@@ -42,6 +42,8 @@ class MembershipPurchaseRecord {
   final String replacedPurchaseTokenFingerprint;
   final String state;
   final String? reportStatus;
+  // Legacy local-cache field retained for format compatibility only. Store
+  // settlement now belongs to the server and never depends on this value.
   final bool finished;
   final SubscriptionTracking? tracking;
 

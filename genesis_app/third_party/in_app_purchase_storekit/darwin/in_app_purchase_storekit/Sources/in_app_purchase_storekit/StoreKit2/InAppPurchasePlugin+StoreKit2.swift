@@ -88,7 +88,9 @@ extension InAppPurchasePlugin: InAppPurchase2API {
         for await verificationResult in Transaction.unfinished {
           switch verificationResult {
           case .verified(let transaction):
-            if transaction.productID == id {
+            if storeKitUnfinishedTransactionBlocksPurchase(
+              transaction, productID: id, productType: product.type)
+            {
               let error = PigeonError(
                 code: "storekit_duplicate_product_object",
                 message:

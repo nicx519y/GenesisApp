@@ -224,13 +224,13 @@ void main() {
   );
 
   test(
-    'success precedes wallet/finish/cache cleanup; cleanup failure is not failed',
+    'success precedes wallet/cache cleanup; cleanup failure is not failed',
     () async {
       final h = support.Harness(
         provider: MembershipProvider.apple,
         analytics: analytics,
       );
-      h.platform.finishFails = true;
+      h.store.failComplete = true;
       h.walletRefreshHandler = () async {
         expect(events.single.action, 'subscription_success');
         throw StateError('wallet unavailable');

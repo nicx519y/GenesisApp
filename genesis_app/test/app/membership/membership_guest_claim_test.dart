@@ -389,37 +389,35 @@ void main() {
     expect(h.claimRequests, hasLength(1));
   });
 
-  testWidgets(
-    'accepted claim replays original receipt before retry without refinish',
-    (tester) async {
-      final h = Harness(
-        provider: MembershipProvider.apple,
-        claimEnabled: true,
-        retryDelay: const Duration(seconds: 15),
-      )..uid = null;
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(h.purchase());
-      final request = h.reports.single;
-      final localId = h.store.confirmed.keys.single;
-      h.uid = 'first-login';
-      h.claimHandler = (identity) async =>
-          MembershipClaimResult(status: MembershipReportStatus.accepted);
-      await h.service.recover();
-      expect(h.store.records.values.single.requestId, localId);
-      expect(h.store.records.values.single.finished, isTrue);
-      h.claimHandler = null;
-      await tester.pump(const Duration(seconds: 15));
-      await h.service.recover();
-      expect(h.reports, hasLength(2));
-      expect(h.reports.last.toJson(), request.toJson());
-      expect(h.platform.finishes, 1);
-      expect(h.store.records, isEmpty);
-      expect(
-        h.store.claims.values.where((r) => r.status != 'completed'),
-        isEmpty,
-      );
-    },
-  );
+  testWidgets('accepted claim replays original receipt before retry', (
+    tester,
+  ) async {
+    final h = Harness(
+      provider: MembershipProvider.apple,
+      claimEnabled: true,
+      retryDelay: const Duration(seconds: 15),
+    )..uid = null;
+    await h.service.purchase(h.product());
+    await h.service.interceptPurchase(h.purchase());
+    final request = h.reports.single;
+    final localId = h.store.confirmed.keys.single;
+    h.uid = 'first-login';
+    h.claimHandler = (identity) async =>
+        MembershipClaimResult(status: MembershipReportStatus.accepted);
+    await h.service.recover();
+    expect(h.store.records.values.single.requestId, localId);
+    expect(h.store.records.values.single.transactionId, request.transactionId);
+    h.claimHandler = null;
+    await tester.pump(const Duration(seconds: 15));
+    await h.service.recover();
+    expect(h.reports, hasLength(2));
+    expect(h.reports.last.toJson(), request.toJson());
+    expect(h.store.records, isEmpty);
+    expect(
+      h.store.claims.values.where((r) => r.status != 'completed'),
+      isEmpty,
+    );
+  });
 
   test('cancelled purchase never requests a login or claims a guest', () async {
     final h = Harness(claimEnabled: true)..uid = null;

@@ -60,6 +60,33 @@ void main() {
   });
   tearDown(purchaseToastDebugSettings.resetForTesting);
 
+  testWidgets(
+    'Apple returned result without callback dismisses blocking dialog',
+    (tester) async {
+      final h = service.Harness(provider: MembershipProvider.apple);
+      await open(tester, h);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
+      await tester.pump(const Duration(seconds: 10));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Purchasing Premium'), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
+      expect(find.byType(ProSubscriptionContent), findsOneWidget);
+      expect(
+        find.textContaining('Purchase confirmation is delayed.'),
+        findsOneWidget,
+      );
+      expect(h.service.isBusy, isFalse);
+      expect(h.platform.launches, 1);
+      expect(h.reports, isEmpty);
+      await h.service.interceptPurchase(h.purchase(yearly: true));
+      await tester.pump();
+      expect(h.reports, hasLength(1));
+      expect(find.text('Purchase successful!'), findsNothing);
+      await tester.pump(const Duration(seconds: 3));
+      h.service.dispose();
+    },
+  );
+
   for (final provider in MembershipProvider.values) {
     testWidgets(
       '$provider active yearly member buying monthly shows the downgrade action dialog',

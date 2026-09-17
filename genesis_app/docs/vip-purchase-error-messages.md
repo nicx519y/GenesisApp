@@ -21,7 +21,9 @@
 
 同套餐的 `Subscribed` 只用于展示，点击不再产生客户端 `already_subscribed` 拦截。年转月也不再弹客户端不能降级提示。商品缓存 v3 仅存展示配置；商品及升级凭据仍复用本次页面 API 响应，不因点击购买重复请求，未完成时等待同一商品请求。缺少商品或身份凭据、账号切换、购买进行中等原有流程保护继续生效。
 
-平台返回成功后继续 report 验单，返回取消或失败则走平台错误提示。补报与 Gems 的结果处理规则一致：网络异常、超时或 `accepted` 保存原凭据并重试；`completed` 完成订单并刷新钱包；明确 `rejected` 为终态，不自动反复上报。VIP 保留 15 秒起步、最长 5 分钟的退避重试，以及启动／回前台恢复。Apple `account_mismatch` 仍不 finish 其他账号的交易，沿用原有归属恢复流程。补报只重试 report，不重新发起平台扣款。
+平台返回成功后继续 report 验单，返回取消或失败则走平台错误提示。补报与 Gems 的结果处理规则一致：网络异常、超时或 `accepted` 保存原凭据并重试；`completed` 完成订单并刷新钱包；明确 `rejected` 为终态，不自动反复上报。VIP 保留 15 秒起步、最长 5 分钟的退避重试，以及启动／回前台恢复。Android / iOS 商店收尾统一由服务端处理，客户端不 acknowledge 或 finish；Apple `account_mismatch` 沿用原有归属恢复流程。补报只重试 report，不重新发起平台扣款。
+
+Apple 的 `Product.purchase` Future 已返回、但 10 秒内仍没有匹配本次购买的回调时，关闭 `Purchasing Premium` 并提示确认延迟。该计时只覆盖返回后的回调交付/匹配，不计算用户停留在 Apple 付款页的时间，也不替代 report 自身超时。保留原购买身份和迟到回调处理，不把旧账号交易绑定到新购买，不自动重扣款或 finish；Android 调起后的等待行为不变。
 
 ## 2. Google Play 主错误码
 

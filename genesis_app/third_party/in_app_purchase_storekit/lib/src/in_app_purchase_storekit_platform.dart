@@ -175,7 +175,12 @@ class InAppPurchaseStoreKitPlatform extends InAppPurchasePlatform {
           );
         }
 
-        await SK2Product.purchase(purchaseParam.productDetails.id, options: options);
+        final result = await SK2Product.purchase(purchaseParam.productDetails.id, options: options);
+        if (kDebugMode) {
+          debugPrint(
+            '[StoreKit][purchase_result] product=${purchaseParam.productDetails.id} result=${result.name}',
+          );
+        }
       }
 
       final onHandoff = purchaseParam is Sk2PurchaseParam ? purchaseParam.onStoreHandoff : null;
