@@ -14,6 +14,8 @@ import '../support/membership_fixtures.dart';
 
 class _Transport implements HttpTransport {
   TransportRequest? last;
+  int calls = 0;
+  Object? error;
   Object? response = {
     'err_no': 0,
     'err_msg': 'succ',
@@ -22,6 +24,8 @@ class _Transport implements HttpTransport {
   @override
   Future<TransportResponse> send(TransportRequest request) async {
     last = request;
+    calls++;
+    if (error != null) throw error!;
     return TransportResponse(
       statusCode: 200,
       headers: const {},
@@ -31,6 +35,38 @@ class _Transport implements HttpTransport {
 }
 
 void main() {
+  for (final guest in [false, true]) {
+    test('report guest=$guest disables configured POST retries', () async {
+      final transport = _Transport()
+        ..error = ApiException(
+          message: 'timeout',
+          kind: ApiExceptionKind.timeout,
+        );
+      final api = MembershipV1Api(
+        ApiClient(
+          baseUrl: 'https://test.invalid/api/',
+          transport: transport,
+          retryPolicy: const ApiRetryPolicy(maxAttempts: 3, methods: {'POST'}),
+        ),
+      );
+      await expectLater(
+        api.reportPurchase(
+          MembershipPurchaseRequest(
+            product: membershipProduct(provider: MembershipProvider.apple),
+            transactionId: 'original-transaction',
+            signedTransaction: 'header.payload.signature',
+            guest: guest
+                ? const MembershipGuestIdentity(
+                    accountUuid: '4b74ec68-7abc-4cce-a223-e997e31dc811',
+                  )
+                : null,
+          ),
+        ),
+        throwsA(isA<ApiException>()),
+      );
+      expect(transport.calls, 1);
+    });
+  }
   for (final provider in MembershipProvider.values) {
     for (final yearly in [false, true]) {
       test(
@@ -548,6 +584,68 @@ void main() {
         ),
       ),
       throwsA(isA<ApiException>().having((e) => e.code, 'code', 5000)),
+    );
+  });
+
+  for (final provider in MembershipProvider.values) {
+    for (final guest in [false, true]) {
+      test(
+        '$provider guest=$guest report preserves rejection reason',
+        () async {
+          final transport = _Transport()
+            ..response = {
+              'err_no': 0,
+              'data': {'status': 'rejected', 'reason': 'account_mismatch'},
+            };
+          final api = MembershipV1Api(
+            ApiClient(
+              baseUrl: 'https://test.invalid/api/',
+              transport: transport,
+            ),
+          );
+          final report = await api.reportPurchase(
+            MembershipPurchaseRequest(
+              product: membershipProduct(provider: provider),
+              purchaseToken: 'token-test',
+              transactionId: 'transaction-test',
+              signedTransaction: 'signed.test.proof',
+              guest: guest
+                  ? const MembershipGuestIdentity(
+                      accountUuid: '8b74ec68-7abc-4cce-a223-e997e31dc811',
+                    )
+                  : null,
+            ),
+          );
+          expect(report.status, MembershipReportStatus.rejected);
+          expect(report.reason, 'account_mismatch');
+          expect(
+            transport.last!.uri.path,
+            guest
+                ? '/api/v1/membership/guest/purchase/report'
+                : '/api/v1/membership/purchase/report',
+          );
+          expect(transport.calls, 1);
+        },
+      );
+    }
+  }
+
+  test('report keeps nonempty reason text and accepts a missing reason', () {
+    for (final reason in [null, '', '  ', 123, false, <String>[]]) {
+      expect(
+        MembershipPurchaseReport.fromJson({
+          'status': 'rejected',
+          'reason': reason,
+        }).reason,
+        isNull,
+      );
+    }
+    expect(
+      MembershipPurchaseReport.fromJson({
+        'status': 'rejected',
+        'reason': '  server reason  ',
+      }).reason,
+      '  server reason  ',
     );
   });
 }

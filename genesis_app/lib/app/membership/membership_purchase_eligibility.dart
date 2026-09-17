@@ -1,4 +1,5 @@
 import 'membership_access_store.dart';
+import 'membership_store_failure.dart';
 import '../../network/models/membership_product.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
 
@@ -36,8 +37,7 @@ String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
     'sale_disabled' => 'Premium purchase is currently unavailable.',
     'device_id_required' || 'eligibility_unavailable' =>
       'Unable to verify purchase eligibility. Please try again.',
-    'account_mismatch' =>
-      'This Premium purchase belongs to a different account.',
+    'account_mismatch' => membershipAccountIdentifiersMismatchMessage,
     'invalid_purchase' => 'The store could not verify this Premium purchase.',
     'product_mismatch' =>
       'The Premium purchase does not match the selected plan.',

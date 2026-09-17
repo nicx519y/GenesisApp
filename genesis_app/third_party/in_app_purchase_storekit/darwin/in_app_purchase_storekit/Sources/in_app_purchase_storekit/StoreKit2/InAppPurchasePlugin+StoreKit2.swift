@@ -131,12 +131,15 @@ extension InAppPurchasePlugin: InAppPurchase2API {
             productId: id,
             transaction: verification.unsafePayloadValue,
             receipt: verification.jwsRepresentation,
-            status: .purchased
+            status: .purchased,
+            checkoutAttemptId: options?.checkoutAttemptId
           )
         case .pending:
-          sendTransactionUpdate(productId: id, status: .pending)
+          sendTransactionUpdate(
+            productId: id, status: .pending, checkoutAttemptId: options?.checkoutAttemptId)
         case .userCancelled:
-          sendTransactionUpdate(productId: id, status: .cancelled)
+          sendTransactionUpdate(
+            productId: id, status: .cancelled, checkoutAttemptId: options?.checkoutAttemptId)
         @unknown default:
           return completion(.failure(PigeonError(
             code: "storekit2_unknown_purchase_result",
@@ -500,9 +503,10 @@ extension InAppPurchasePlugin: InAppPurchase2API {
     productId: String,
     transaction: Transaction? = nil,
     receipt: String? = nil,
-    status: SK2PurchaseStatusMessage
+    status: SK2PurchaseStatusMessage,
+    checkoutAttemptId: String? = nil
   ) {
-    let transactionMessage: SK2TransactionMessage
+    var transactionMessage: SK2TransactionMessage
 
     if let transaction = transaction {
       // Has real transaction: use transaction info
@@ -518,6 +522,9 @@ extension InAppPurchasePlugin: InAppPurchase2API {
       )
     }
 
+    // Only Product.purchase results carry this marker. Transaction.updates,
+    // restore and unfinished-history callbacks must not resolve another checkout.
+    transactionMessage.checkoutAttemptId = checkoutAttemptId
     sendTransactionUpdates([transactionMessage])
   }
 

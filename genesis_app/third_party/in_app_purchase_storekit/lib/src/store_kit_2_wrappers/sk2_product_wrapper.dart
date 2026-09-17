@@ -290,6 +290,7 @@ class SK2ProductPurchaseOptions {
     this.promotionalOffer,
     this.winBackOfferId,
     this.handoffId,
+    this.checkoutAttemptId,
   });
 
   /// Sets a UUID to associate the purchase with an account in your system.
@@ -307,6 +308,9 @@ class SK2ProductPurchaseOptions {
   /// Local checkout correlation; never sent to the App Store or backend.
   final String? handoffId;
 
+  /// Echoed only on this call's result, never on background transactions.
+  final String? checkoutAttemptId;
+
   /// Convert to pigeon representation [SK2ProductPurchaseOptionsMessage].
   SK2ProductPurchaseOptionsMessage convertToPigeon() {
     return SK2ProductPurchaseOptionsMessage(
@@ -315,6 +319,7 @@ class SK2ProductPurchaseOptions {
       winBackOfferId: winBackOfferId,
       promotionalOffer: promotionalOffer,
       handoffId: handoffId,
+      checkoutAttemptId: checkoutAttemptId,
     );
   }
 }

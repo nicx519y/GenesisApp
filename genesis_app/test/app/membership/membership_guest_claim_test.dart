@@ -317,13 +317,17 @@ void main() {
   );
 
   test(
-    'guest pending payment verified by initial report requires success OK then login',
+    'guest pending payment waits for purchased before report and success OK',
     () async {
       final h = Harness(claimEnabled: true)..uid = null;
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(
         h.purchase(status: BillingPurchaseStatus.pending),
       );
+      expect(h.reports, isEmpty);
+      expect(h.store.confirmed, isEmpty);
+      await h.service.interceptPurchase(h.purchase());
+      expect(h.reports, hasLength(1));
       final requestId = h.store.confirmed.keys.single;
       expect(h.service.guestLoginRequestId.value, requestId);
       expect(h.service.hasAcknowledgedGuestPurchase(requestId), isFalse);

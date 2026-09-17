@@ -14,7 +14,7 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'preparation queries Google and identity concurrently, click reuses both',
+    'prewarming only queries product; click loads identity while sharing query',
     () async {
       final product = membershipProduct(yearly: true);
       final catalog = MembershipProductList(products: [product]);
@@ -35,7 +35,7 @@ void main() {
       addTearDown(preparation.invalidate);
       await settle();
       expect(nativeCalls, 1);
-      expect(identityCalls, 1);
+      expect(identityCalls, 0);
       expect(h.platform.launches, 0);
       expect(h.store.records, isEmpty);
       final checkout = h.service.purchase(product, preparation: preparation);
@@ -91,25 +91,28 @@ void main() {
     expect(h.platform.launches, 1);
   });
 
-  test('changed owner discards old prepared identity', () async {
-    final p = membershipProduct(yearly: true);
-    final catalog = MembershipProductList(products: [p]);
-    final h = support.Harness(checkoutProducts: () async => catalog);
-    var calls = 0;
-    h.accountUuidHandler = () async {
-      calls++;
-      return h.uid == 'new-user'
-          ? 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
-          : support.accountUuid;
-    };
-    final ticket = h.service.prepareCheckout(p)!;
-    addTearDown(ticket.invalidate);
-    await settle();
-    h.uid = 'new-user';
-    await h.service.purchase(p, preparation: ticket);
-    expect(calls, 2);
-    expect(h.platform.uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
-  });
+  test(
+    'click loads the current owner identity after product prewarming',
+    () async {
+      final p = membershipProduct(yearly: true);
+      final catalog = MembershipProductList(products: [p]);
+      final h = support.Harness(checkoutProducts: () async => catalog);
+      var calls = 0;
+      h.accountUuidHandler = () async {
+        calls++;
+        return h.uid == 'new-user'
+            ? 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'
+            : support.accountUuid;
+      };
+      final ticket = h.service.prepareCheckout(p)!;
+      addTearDown(ticket.invalidate);
+      await settle();
+      h.uid = 'new-user';
+      await h.service.purchase(p, preparation: ticket);
+      expect(calls, 1);
+      expect(h.platform.uuid, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
+    },
+  );
 
   test(
     'catalog refresh during in-flight preparation cannot launch old product',

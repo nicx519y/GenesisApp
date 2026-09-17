@@ -129,6 +129,72 @@ void _testWidgets(String name, Future<void> Function(WidgetTester) body) {
 }
 
 void main() {
+  for (final provider in MembershipProvider.values) {
+    testWidgets(
+      '$provider browsing and switching plans never prepares a guest identity',
+      (tester) async {
+        final response = MembershipProductList(
+          products: [
+            membershipProduct(provider: provider, yearly: true),
+            membershipProduct(provider: provider),
+          ],
+        );
+        final h = support.Harness(
+          provider: provider,
+          checkoutProducts: () async => response,
+        )..uid = null;
+        final identity = Completer<MembershipGuestIdentity>();
+        h.guestHandler = () => identity.future;
+        h.platform.launchResult = false;
+        await tester.pumpWidget(
+          page(
+            () async => MembershipCatalogData(
+              offers: response.products
+                  .map((p) => MembershipOffer(product: p))
+                  .toList(),
+            ),
+            service: h.service,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(h.guestPrepares, 0);
+        for (var i = 0; i < 5; i++) {
+          for (final plan in ['monthly', 'yearly']) {
+            await tester.tap(find.byKey(ValueKey('pro-plan-$plan')));
+            await tester.pump();
+            expect(h.guestPrepares, 0);
+          }
+        }
+        await tester.pump(const Duration(minutes: 2));
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await tester.pump();
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(h.guestPrepares, 0);
+        expect(h.platform.launches, 0);
+        expect(h.reports, isEmpty);
+
+        await tester.tap(find.byKey(buttonKey));
+        await tester.pump();
+        expect(h.guestPrepares, 1);
+        expect(h.platform.launches, 0);
+        identity.complete(support.guest);
+        await tester.pumpAndSettle();
+        expect(h.platform.launches, 1);
+        expect(h.platform.uuid, support.guest.accountUuid);
+        expect(h.reports, isEmpty);
+        await tester.pump(const Duration(minutes: 2));
+        await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+        await tester.pumpAndSettle();
+        expect(h.guestPrepares, 1);
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      },
+    );
+  }
+
   testWidgets(
     'expiry refreshes preparation repeatedly without another catalog load',
     (tester) async {
@@ -161,7 +227,7 @@ void main() {
       expect(nativeCalls, 1);
       await tester.pump(const Duration(seconds: 1));
       expect(nativeCalls, 2);
-      expect(identityCalls, 2);
+      expect(identityCalls, 0);
       await tester.pump(const Duration(minutes: 2));
       expect(nativeCalls, 3);
       expect(catalogCalls, 1);
@@ -170,6 +236,7 @@ void main() {
       await tester.pump();
       expect(nativeCalls, 3);
       expect(h.platform.launches, 1);
+      expect(identityCalls, 1);
       await tester.pump(const Duration(minutes: 3));
       expect(nativeCalls, 3);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -348,7 +415,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(nativeCalls, 1);
-      expect(identityCalls, 1);
+      expect(identityCalls, 0);
       expect(h.platform.launches, 0);
       await tester.tap(find.byKey(buttonKey));
       await tester.pump();

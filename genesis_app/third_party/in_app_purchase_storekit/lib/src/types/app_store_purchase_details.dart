@@ -92,11 +92,15 @@ class SK2PurchaseDetails extends PurchaseDetails {
     required super.transactionDate,
     required super.status,
     this.appAccountToken,
+    this.checkoutAttemptId,
   });
 
   /// A UUID that associates the transaction with a user on your own service.
   /// This is the value set when making the purchase via appAccountToken option.
   final String? appAccountToken;
+
+  /// Present only for the direct result of the matching local purchase call.
+  final String? checkoutAttemptId;
 
   @override
   bool get pendingCompletePurchase => status == PurchaseStatus.purchased;

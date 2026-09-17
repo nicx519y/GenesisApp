@@ -17,6 +17,7 @@ class Sk2PurchaseParam extends PurchaseParam {
     this.winBackOfferId,
     this.promotionalOffer,
     this.onStoreHandoff,
+    this.checkoutAttemptId,
   });
 
   /// Creates a [Sk2PurchaseParam] from a [ProductDetails] and a [SK2SubscriptionOffer].
@@ -60,4 +61,7 @@ class Sk2PurchaseParam extends PurchaseParam {
   /// Return false if this checkout expired or its account/session changed.
   /// This signals handoff to StoreKit, not confirmation that a sheet is visible.
   final bool Function()? onStoreHandoff;
+
+  /// Local correlation for the direct purchase result, never a store identity.
+  final String? checkoutAttemptId;
 }

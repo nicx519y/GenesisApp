@@ -641,6 +641,7 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
   var promotionalOffer: SK2SubscriptionOfferPurchaseMessage? = nil
   var winBackOfferId: String? = nil
   var handoffId: String? = nil
+  var checkoutAttemptId: String? = nil
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> SK2ProductPurchaseOptionsMessage? {
@@ -649,13 +650,15 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
     let promotionalOffer: SK2SubscriptionOfferPurchaseMessage? = nilOrValue(pigeonVar_list[2])
     let winBackOfferId: String? = nilOrValue(pigeonVar_list[3])
     let handoffId: String? = nilOrValue(pigeonVar_list[4])
+    let checkoutAttemptId: String? = nilOrValue(pigeonVar_list[5])
 
     return SK2ProductPurchaseOptionsMessage(
       appAccountToken: appAccountToken,
       quantity: quantity,
       promotionalOffer: promotionalOffer,
       winBackOfferId: winBackOfferId,
-      handoffId: handoffId
+      handoffId: handoffId,
+      checkoutAttemptId: checkoutAttemptId
     )
   }
   func toList() -> [Any?] {
@@ -665,6 +668,7 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
       promotionalOffer,
       winBackOfferId,
       handoffId,
+      checkoutAttemptId,
     ]
   }
   static func == (lhs: SK2ProductPurchaseOptionsMessage, rhs: SK2ProductPurchaseOptionsMessage)
@@ -678,6 +682,7 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.promotionalOffer, rhs.promotionalOffer)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.winBackOfferId, rhs.winBackOfferId)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.handoffId, rhs.handoffId)
+      && StoreKit2MessagesPigeonInternal.deepEquals(lhs.checkoutAttemptId, rhs.checkoutAttemptId)
   }
 
   func hash(into hasher: inout Hasher) {
@@ -687,11 +692,12 @@ struct SK2ProductPurchaseOptionsMessage: Hashable, CustomStringConvertible {
     StoreKit2MessagesPigeonInternal.deepHash(value: promotionalOffer, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: winBackOfferId, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: handoffId, hasher: &hasher)
+    StoreKit2MessagesPigeonInternal.deepHash(value: checkoutAttemptId, hasher: &hasher)
   }
 
   public var description: String {
     return
-      "SK2ProductPurchaseOptionsMessage(appAccountToken: \(String(describing: appAccountToken)), quantity: \(String(describing: quantity)), promotionalOffer: \(String(describing: promotionalOffer)), winBackOfferId: \(String(describing: winBackOfferId)), handoffId: \(String(describing: handoffId)))"
+      "SK2ProductPurchaseOptionsMessage(appAccountToken: \(String(describing: appAccountToken)), quantity: \(String(describing: quantity)), promotionalOffer: \(String(describing: promotionalOffer)), winBackOfferId: \(String(describing: winBackOfferId)), handoffId: \(String(describing: handoffId)), checkoutAttemptId: \(String(describing: checkoutAttemptId)))"
   }
 }
 
@@ -710,6 +716,7 @@ struct SK2TransactionMessage: Hashable, CustomStringConvertible {
   /// The status of this purchase transaction.
   /// Set by native side to communicate the result state to Dart layer.
   var status: SK2PurchaseStatusMessage
+  var checkoutAttemptId: String? = nil
 
   // swift-format-ignore: AlwaysUseLowerCamelCase
   static func fromList(_ pigeonVar_list: [Any?]) -> SK2TransactionMessage? {
@@ -724,6 +731,7 @@ struct SK2TransactionMessage: Hashable, CustomStringConvertible {
     let error: SK2ErrorMessage? = nilOrValue(pigeonVar_list[8])
     let jsonRepresentation: String? = nilOrValue(pigeonVar_list[9])
     let status = pigeonVar_list[10] as! SK2PurchaseStatusMessage
+    let checkoutAttemptId: String? = nilOrValue(pigeonVar_list[11])
 
     return SK2TransactionMessage(
       id: id,
@@ -736,7 +744,8 @@ struct SK2TransactionMessage: Hashable, CustomStringConvertible {
       receiptData: receiptData,
       error: error,
       jsonRepresentation: jsonRepresentation,
-      status: status
+      status: status,
+      checkoutAttemptId: checkoutAttemptId
     )
   }
   func toList() -> [Any?] {
@@ -752,6 +761,7 @@ struct SK2TransactionMessage: Hashable, CustomStringConvertible {
       error,
       jsonRepresentation,
       status,
+      checkoutAttemptId,
     ]
   }
   static func == (lhs: SK2TransactionMessage, rhs: SK2TransactionMessage) -> Bool {
@@ -769,6 +779,7 @@ struct SK2TransactionMessage: Hashable, CustomStringConvertible {
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.error, rhs.error)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.jsonRepresentation, rhs.jsonRepresentation)
       && StoreKit2MessagesPigeonInternal.deepEquals(lhs.status, rhs.status)
+      && StoreKit2MessagesPigeonInternal.deepEquals(lhs.checkoutAttemptId, rhs.checkoutAttemptId)
   }
 
   func hash(into hasher: inout Hasher) {
@@ -784,11 +795,12 @@ struct SK2TransactionMessage: Hashable, CustomStringConvertible {
     StoreKit2MessagesPigeonInternal.deepHash(value: error, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: jsonRepresentation, hasher: &hasher)
     StoreKit2MessagesPigeonInternal.deepHash(value: status, hasher: &hasher)
+    StoreKit2MessagesPigeonInternal.deepHash(value: checkoutAttemptId, hasher: &hasher)
   }
 
   public var description: String {
     return
-      "SK2TransactionMessage(id: \(String(describing: id)), originalId: \(String(describing: originalId)), productId: \(String(describing: productId)), purchaseDate: \(String(describing: purchaseDate)), expirationDate: \(String(describing: expirationDate)), purchasedQuantity: \(String(describing: purchasedQuantity)), appAccountToken: \(String(describing: appAccountToken)), receiptData: \(String(describing: receiptData)), error: \(String(describing: error)), jsonRepresentation: \(String(describing: jsonRepresentation)), status: \(String(describing: status)))"
+      "SK2TransactionMessage(id: \(String(describing: id)), originalId: \(String(describing: originalId)), productId: \(String(describing: productId)), purchaseDate: \(String(describing: purchaseDate)), expirationDate: \(String(describing: expirationDate)), purchasedQuantity: \(String(describing: purchasedQuantity)), appAccountToken: \(String(describing: appAccountToken)), receiptData: \(String(describing: receiptData)), error: \(String(describing: error)), jsonRepresentation: \(String(describing: jsonRepresentation)), status: \(String(describing: status)), checkoutAttemptId: \(String(describing: checkoutAttemptId)))"
   }
 }
 

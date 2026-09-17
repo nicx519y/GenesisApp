@@ -153,6 +153,7 @@ class Checkout implements MembershipCheckoutPlatform {
   Future<void> Function()? onLaunch;
   bool autoHandoff = true;
   bool Function()? handoff;
+  String? checkoutAttemptId;
   @override
   Future<Object> prepare(MembershipProduct product) async {
     this.product = product;
@@ -165,10 +166,12 @@ class Checkout implements MembershipCheckoutPlatform {
     Object product,
     String accountUuid, {
     bool Function()? onStoreHandoff,
+    String? checkoutAttemptId,
   }) async {
     launches++;
     uuid = accountUuid;
     handoff = onStoreHandoff;
+    this.checkoutAttemptId = checkoutAttemptId;
     await onLaunch?.call();
     if (launchResult && autoHandoff) onStoreHandoff?.call();
     return launchResult;
@@ -333,6 +336,7 @@ class Harness {
     String transaction = '100',
     String? uuid,
     String purchaseTime = '',
+    String? checkoutAttemptId,
   }) => BillingPurchase(
     provider: provider == MembershipProvider.google
         ? BillingProvider.googlePlay
@@ -347,6 +351,7 @@ class Harness {
         : '',
     purchaseTime: purchaseTime,
     status: status,
+    checkoutAttemptId: checkoutAttemptId,
     obfuscatedAccountId:
         uuid ?? (uid == null ? guest.accountUuid : accountUuid),
   );
@@ -401,9 +406,7 @@ void main() {
           status: MembershipReportStatus.accepted,
         );
         await h.service.purchase(h.product());
-        await h.service.interceptPurchase(
-          h.purchase(status: BillingPurchaseStatus.pending),
-        );
+        await h.service.interceptPurchase(h.purchase());
         await _settleAnalytics();
         expect(client.events, isEmpty);
         final restarted = Harness(provider: provider, storage: h.store);
@@ -422,7 +425,7 @@ void main() {
     test('subscription Firebase purchase excludes $outcome', () async {
       final client = enableFirebaseAnalytics();
       final h = Harness();
-      if (outcome == 'rejected') {
+      if (outcome == 'rejected' || outcome == 'foreign_account') {
         h.reportHandler = (_) async => const MembershipPurchaseReport(
           status: MembershipReportStatus.rejected,
         );
@@ -435,6 +438,7 @@ void main() {
         h.purchase(uuid: outcome == 'foreign_account' ? 'other-account' : null),
       );
       await _settleAnalytics();
+      expect(h.reports, hasLength(1));
       expect(client.events, isEmpty);
     });
   }
@@ -730,7 +734,7 @@ void main() {
     h.reportHandler = (_) async => throw StateError('offline');
     await h.service.purchase(h.product());
     await h.service.interceptPurchase(h.purchase());
-    expect(h.service.state.value, MembershipCheckoutState.deferred);
+    expect(h.service.state.value, MembershipCheckoutState.failed);
     final restarted = Harness(storage: h.store);
     await restarted.service.recover();
     expect(restarted.reports, isEmpty);

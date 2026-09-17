@@ -19,11 +19,15 @@
 
 `MembershipAccessStore` 会员快照用于页面展示及原有年转月降级检查。允许发起平台购买不代表确认具有会员权益。游客继续原有身份准备、未绑定订单登录提示及 report/claim。
 
+Apple / Google 购买 UUID 统一优先取商品接口 `last_account_uuid`；没有时，游客取 `prepare` 的 UUID，登录用户取 `/user/info.uuid`。使用获取到的 UUID 发起商店购买，购买链路不比较历史订单、商店回调或随后刷新得到的 UUID，不因不一致拦截或丢弃回调；是否能购买由商店决定，凭据上报结果由服务端决定。
+
 同套餐的 `Subscribed` 只用于展示，点击不再产生客户端 `already_subscribed` 拦截。有效年会员购买月套餐保留原不能降级弹窗。商品缓存 v3 仅存展示配置；商品及升级凭据仍复用本次页面 API 响应，不因点击购买重复请求，未完成时等待同一商品请求。缺少商品或身份凭据、账号切换、购买进行中等原有流程保护继续生效。
 
-平台回调携带有效凭据后发起 report；取消或平台失败不 report。Google / Apple 共用结果处理：`completed` 刷新钱包并显示成功；`accepted` 提示确认中；`rejected` 提示失败。任一业务状态、业务错误或未知状态都结束本次 report，不补报。仅网络连接异常、超时和 HTTP 408/429/5xx 在当前操作内最多尝试 3 次，沿用原凭据，不重新拉起支付；耗尽后提示确认延迟。不保存 report 队列，不在启动、回前台、定时器或 claim accepted 后重报。游客绑定证明及独立 claim 流程保留。Android / iOS 商店收尾继续由服务端负责。
+仅平台购买成功（`purchased`）回调携带有效凭据后调用一次 report；`pending`、`restored`、取消或平台失败均不 report。Google / Apple 共用结果处理：`completed` 刷新钱包并显示成功；`accepted` 提示确认中；`rejected` 的非空 reason 原样 Toast，但 `account_mismatch` 统一显示 Google 身份不一致时的 `Account identifiers don't match the previous subscription.`。接口无可用 reason 时显示 `Report failed.`，不再显示 `Purchase failed.`。原 reason 随本地交易结果保留，重复返回已拒绝的交易时继续使用同一文案，不重新上报获取原因，也不把 reason 用作本地购买拦截。任一业务状态、业务错误或未知状态都结束本次 report，不补报。连接异常、超时、HTTP 408/429/5xx、Gateway 错误及无效响应均直接结束并提示 `Report failed.`，不做任何 report 重试。不保存 report 队列，不在启动、回前台、定时器或 claim accepted 后重报。游客绑定证明及独立 claim 流程保留。Android / iOS 商店收尾继续由服务端负责。
 
-Apple 的 `Product.purchase` Future 已返回、但 10 秒内仍没有匹配本次购买的回调时，关闭 `Purchasing Premium` 并提示确认延迟。该计时只覆盖返回后的回调交付/匹配，不计算用户停留在 Apple 付款页的时间，也不替代 report 自身超时。保留原购买身份和迟到回调处理，不把旧账号交易绑定到新购买，不自动重扣款或 finish；Android 调起后的等待行为不变。
+Apple 本次 `Product.purchase` 直接返回的回调携带本地 `checkoutAttemptId`，用于结束对应点击的等待。该标识不发给 Apple 或后端，不修改原交易凭据。未处理交易即使 `appAccountToken` 与请求 UUID 不同，也将原请求身份和交易凭据交给 report，由服务端决定结果，客户端不新增账号不一致拦截。已处理交易沿用原 report 结果结束本次等待，不重复 report，也不把旧交易重新认领为本次购买。
+
+只有 `Product.purchase` Future 已返回、10 秒内仍未收到对应回调时，才关闭 `Purchasing Premium` 并提示确认延迟。该计时不包含用户停留在 Apple 付款页的时间，也不替代 report 自身超时。后台历史交易和上一笔迟到回调不能结束新一笔购买；Android 调起后的等待行为不变。
 
 ## 2. Google Play 主错误码
 
@@ -146,7 +150,7 @@ StoreKit 2 返回具名 Error case，不能把它们当作 Google 数字码。�
 
 | 结果 | 显示 / 后续处理 |
 | --- | --- |
-| Google `PENDING`、Apple `.pending` | `VIP payment is pending.`，等待后续平台结果，按原逻辑处理凭据 |
+| Google `PENDING`、Apple `.pending` | `VIP payment is pending.`，不上报，等待后续 purchased 回调 |
 | 用户主动取消 / Apple `.userCancelled` | `VIP purchase cancelled.`，关闭购买 Loading，不上报支付成功 |
 | 平台返回已支付 / Apple `.success` | 继续原 report 验单，不能只凭 launch OK 或商店成功回调就显示服务端已确认 |
 | report accepted | `Your VIP purchase is being confirmed.`，结束本次 report，不再补报 |

@@ -17,6 +17,39 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'report reason survives receipt storage but is cleared for a new report',
+    () {
+      final record = MembershipPurchaseRecord(
+        requestId: 'rejected-purchase',
+        product: membershipProduct(provider: MembershipProvider.apple),
+        accountUuid: support.guest.accountUuid,
+        ownerUid: null,
+        guest: support.guest,
+        transactionId: 'transaction-test',
+        signedTransaction: 'signed.test.proof',
+        state: 'purchased',
+        reportStatus: 'rejected',
+        reportReason: 'account_mismatch',
+      );
+      final decoded = MembershipPurchaseRecord.fromJson(record.toJson());
+      expect(decoded.reportReason, 'account_mismatch');
+      expect(
+        decoded.copyWith(state: 'purchased').reportReason,
+        'account_mismatch',
+      );
+      expect(
+        decoded.bindGuestToAccount('user-test').reportReason,
+        'account_mismatch',
+      );
+      expect(decoded.copyWith(newReport: true).reportReason, isNull);
+      expect(decoded.copyWith(reportStatus: 'completed').reportReason, isNull);
+      expect(decoded.request.toJson(), isNot(contains('report_reason')));
+      final legacy = record.toJson()..remove('report_reason');
+      expect(MembershipPurchaseRecord.fromJson(legacy).reportReason, isNull);
+    },
+  );
+
+  test(
     'guest Apple JWS survives secure storage restart and is removed after claim',
     () async {
       FlutterSecureStorage.setMockInitialValues({});

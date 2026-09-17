@@ -138,22 +138,18 @@ class MembershipStoreRestorer {
   /// Look up the exact transaction, including finished purchases after restart.
   /// Do not replace a receipt with the latest renewal's different transaction.
   Future<String> signedTransaction(MembershipClaimRequest request) async {
-    final uuid = request.guest.accountUuid;
     if (provider != MembershipProvider.apple ||
         request.provider != MembershipProvider.apple) {
       throw const BillingPlatformException('invalid_guest_apple_request');
     }
     var foundTransaction = false;
     var productMatches = false;
-    var accountMatches = false;
     var verified = false;
     var hasSignature = false;
     for (final transaction in await _appleQuery()) {
       if (transaction.id == request.transactionId) {
         foundTransaction = true;
         productMatches = transaction.productId == request.storeProductId;
-        accountMatches =
-            transaction.appAccountToken?.toLowerCase() == uuid.toLowerCase();
         verified = transaction.error == null;
         hasSignature = transaction.receiptData?.isNotEmpty == true;
       }
@@ -169,7 +165,7 @@ class MembershipStoreRestorer {
     debugPrint(
       '[Membership][guest_claim] signed_proof_missing; '
       'transaction_found=$foundTransaction product_matches=$productMatches '
-      'account_matches=$accountMatches verified=$verified has_signature=$hasSignature',
+      'verified=$verified has_signature=$hasSignature',
     );
     throw const BillingPlatformException(
       'membership_signed_transaction_missing',

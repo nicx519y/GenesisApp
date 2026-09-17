@@ -94,12 +94,15 @@ class GatewayRequestInterceptor {
       request.cancellationToken?.throwIfCancelled();
       final response = await send(signed);
       request.cancellationToken?.throwIfCancelled();
-      // These writes have no idempotency key. Preserve signing, but leave any
-      // retry after a server response to the caller, including Gateway errors.
+      // These writes must not be replayed after a response, including Gateway
+      // errors. Membership reports are strictly one request per store success.
       if (request.method == 'POST' &&
-          RegExp(
-            r'^/aitown-chat/api/v1/worlds/[^/]+/locations/[^/]+/llm-messages/(batch|select)$',
-          ).hasMatch(request.uri.path)) {
+          (RegExp(
+                r'^/aitown-chat/api/v1/worlds/[^/]+/locations/[^/]+/llm-messages/(batch|select)$',
+              ).hasMatch(request.uri.path) ||
+              RegExp(
+                r'^/api/v1/membership/(guest/)?purchase/report$',
+              ).hasMatch(request.uri.path))) {
         return response;
       }
       final errNo = gatewayErrNo(response.body);

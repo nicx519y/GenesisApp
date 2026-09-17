@@ -400,44 +400,50 @@ void main() {
       );
     },
   );
-  test('message writes never replay after Gateway rejection', () async {
-    final coordinator = GatewayAuthCoordinator(
-      gatewayBaseUrl: 'https://gateway.test/apix/',
-      appHeaderProvider: _testAppHeaders,
-      deviceIdService: const _TestDeviceIdService(),
-      keyStore: _FakeKeyStore(),
-      registrationStore: _MemoryGatewayRegistrationStore(),
-      transport: _FakeTransport(handler: _gatewayAuthResponse),
-    );
-    final interceptor = GatewayRequestInterceptor(coordinator: coordinator);
-    for (final route in ['batch', 'select']) {
-      for (final code in [20502, 20503, 20504, 20509]) {
-        var attempts = 0;
-        final response = await interceptor.call(
-          TransportRequest(
-            method: 'POST',
-            uri: Uri.parse(
-              'https://gateway.test/aitown-chat/api/v1/worlds/w/locations/l/llm-messages/$route',
+  test(
+    'message writes and membership reports never replay Gateway rejection',
+    () async {
+      final coordinator = GatewayAuthCoordinator(
+        gatewayBaseUrl: 'https://gateway.test/apix/',
+        appHeaderProvider: _testAppHeaders,
+        deviceIdService: const _TestDeviceIdService(),
+        keyStore: _FakeKeyStore(),
+        registrationStore: _MemoryGatewayRegistrationStore(),
+        transport: _FakeTransport(handler: _gatewayAuthResponse),
+      );
+      final interceptor = GatewayRequestInterceptor(coordinator: coordinator);
+      for (final path in [
+        '/aitown-chat/api/v1/worlds/w/locations/l/llm-messages/batch',
+        '/aitown-chat/api/v1/worlds/w/locations/l/llm-messages/select',
+        '/api/v1/membership/purchase/report',
+        '/api/v1/membership/guest/purchase/report',
+      ]) {
+        for (final code in [20502, 20503, 20504, 20509]) {
+          var attempts = 0;
+          final response = await interceptor.call(
+            TransportRequest(
+              method: 'POST',
+              uri: Uri.parse('https://gateway.test$path'),
+              headers: const {},
+              bodyBytes: null,
+              timeoutMs: 15000,
             ),
-            headers: const {},
-            bodyBytes: null,
-            timeoutMs: 15000,
-          ),
-          (request) async {
-            attempts++;
-            expect(request.headers['X-Signature'], isNotEmpty);
-            return _json({
-              'err_no': code,
-              'err_msg': 'rejected',
-              'data': false,
-            });
-          },
-        );
-        expect(gatewayErrNo(response.body), code);
-        expect(attempts, 1);
+            (request) async {
+              attempts++;
+              expect(request.headers['X-Signature'], isNotEmpty);
+              return _json({
+                'err_no': code,
+                'err_msg': 'rejected',
+                'data': false,
+              });
+            },
+          );
+          expect(gatewayErrNo(response.body), code);
+          expect(attempts, 1);
+        }
       }
-    }
-  });
+    },
+  );
 
   test('interceptor syncs server time and retries once on 20502', () async {
     final keyStore = _FakeKeyStore();

@@ -26,6 +26,7 @@ class MembershipPurchaseRecord {
     this.replacedPurchaseTokenFingerprint = '',
     this.state = 'prepared',
     this.reportStatus,
+    this.reportReason,
     this.finished = false,
     this.tracking,
   });
@@ -45,6 +46,7 @@ class MembershipPurchaseRecord {
   final String replacedPurchaseTokenFingerprint;
   final String state;
   final String? reportStatus;
+  final String? reportReason;
   // Legacy local-cache field retained for format compatibility only. Store
   // settlement now belongs to the server and never depends on this value.
   final bool finished;
@@ -82,6 +84,7 @@ class MembershipPurchaseRecord {
     String? signedTransaction,
     String? state,
     String? reportStatus,
+    String? reportReason,
     bool? finished,
     SubscriptionTracking? tracking,
     bool newReport = false,
@@ -105,6 +108,11 @@ class MembershipPurchaseRecord {
     reportStatus: newReport || retryReport
         ? null
         : reportStatus ?? this.reportStatus,
+    reportReason: newReport || retryReport
+        ? null
+        : reportStatus != null
+        ? reportReason
+        : reportReason ?? this.reportReason,
     finished: newReport ? false : finished ?? this.finished,
     tracking: tracking ?? (newReport ? null : this.tracking),
   );
@@ -122,6 +130,7 @@ class MembershipPurchaseRecord {
         replacedPurchaseTokenFingerprint: replacedPurchaseTokenFingerprint,
         state: state,
         reportStatus: reportStatus,
+        reportReason: reportReason,
         finished: finished,
         tracking: tracking,
       );
@@ -143,6 +152,7 @@ class MembershipPurchaseRecord {
       'replaced_purchase_token_fingerprint': replacedPurchaseTokenFingerprint,
     'state': state,
     'report_status': reportStatus,
+    if (reportReason != null) 'report_reason': reportReason,
     'finished': finished,
     if (tracking != null) 'subscription_tracking': tracking!.toJson(),
   };
@@ -169,6 +179,7 @@ class MembershipPurchaseRecord {
             json['replaced_purchase_token_fingerprint'] as String? ?? '',
         state: json['state'] as String,
         reportStatus: json['report_status'] as String?,
+        reportReason: json['report_reason'] as String?,
         // Older clients marked an ownership rejection as finished without
         // calling StoreKit. Never treat that legacy flag as store completion.
         finished: json['report_status'] == 'rejected'

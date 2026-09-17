@@ -209,7 +209,7 @@ void main() {
               MembershipCheckoutState.completed,
             BillingPurchaseStatus.canceled => MembershipCheckoutState.canceled,
             BillingPurchaseStatus.error => MembershipCheckoutState.failed,
-            _ => MembershipCheckoutState.accepted,
+            _ => MembershipCheckoutState.pending,
           });
           expect(h.service.isBusy, isFalse);
           h.service.dispose();
@@ -288,7 +288,7 @@ void main() {
     expect(h.reports, hasLength(1));
   });
 
-  testWidgets('report HTTP timeout retries immediately and is not retained', (
+  testWidgets('report HTTP timeout fails once and is never retried', (
     tester,
   ) async {
     final h = Harness(retryDelay: const Duration(seconds: 15));
@@ -307,11 +307,11 @@ void main() {
       ),
     );
     await callback;
-    expect(h.service.state.value, MembershipCheckoutState.deferred);
+    expect(h.service.state.value, MembershipCheckoutState.failed);
     expect(h.store.records, isEmpty);
     h.reportHandler = null;
     await tester.pump(const Duration(seconds: 15));
-    expect(h.reports, hasLength(3));
+    expect(h.reports, hasLength(1));
     expect(h.reports.first.toJson(), h.reports.last.toJson());
     expect(h.store.records, isEmpty);
   });

@@ -162,6 +162,7 @@ class InAppPurchaseStoreKitPlatform extends InAppPurchasePlatform {
         if (purchaseParam is Sk2PurchaseParam) {
           options = SK2ProductPurchaseOptions(
             handoffId: handoffId,
+            checkoutAttemptId: purchaseParam.checkoutAttemptId,
             appAccountToken: purchaseParam.applicationUserName,
             quantity: purchaseParam.quantity,
             winBackOfferId: purchaseParam.winBackOfferId,

@@ -52,6 +52,7 @@ void main() {
         final args = message! as List<Object?>;
         final options = args[1]! as SK2ProductPurchaseOptionsMessage;
         expect(options.appAccountToken, '4b74ec68-7abc-4cce-a223-e997e31dc811');
+        expect(options.checkoutAttemptId, 'test-checkout');
         nativeId = options.handoffId;
         await prepared.future;
         expect(await nativeReady(nativeId!), isTrue);
@@ -63,6 +64,7 @@ void main() {
             purchaseParam: Sk2PurchaseParam(
               productDetails: product,
               applicationUserName: '4b74ec68-7abc-4cce-a223-e997e31dc811',
+              checkoutAttemptId: 'test-checkout',
               onStoreHandoff: () {
                 handedOff = true;
                 return true;

@@ -121,7 +121,13 @@ class MembershipPurchasePresentation {
                   reason: event.reason,
                 );
             final reason = event.reason;
-            if (reason != null) {
+            final reportMessage = event.reportMessage;
+            if (reportMessage != null) {
+              showGenesisToast(
+                context,
+                purchaseToastMessage(reportMessage, debugInfo: debugInfo),
+              );
+            } else if (reason != null) {
               unawaited(
                 showMembershipPurchaseFailure(
                   context,

@@ -26,10 +26,11 @@ subscriptions. Non-subscription products, including consumable Gems, keep their
 original unfinished-transaction guard. This change does not finish or report
 historical transactions, alter entitlement, or bypass the preparation deadline.
 
-Apple and Google subscription callbacks share one report operation. Any business
-status ends it. Transient connection/timeouts and HTTP 408/429/5xx allow at most
-three immediate attempts with the same receipt; no report queue or restart retry
-is created. Guest ownership proof remains available only for login/claim.
+Apple and Google subscription callbacks report only on `purchased`, exactly once.
+Pending, restored, canceled and failed callbacks never report. Any business status
+or technical failure ends the operation, without immediate, Gateway, background
+or restart retries. Only `completed` shows purchase success; report errors show
+failure. Guest ownership proof remains available only for login/claim.
 
 Membership store settlement is server-owned on both platforms: Apple uses App
 Store Server API Finish Transaction; Google uses subscription acknowledgement.
@@ -39,10 +40,18 @@ durably track and retry settlement after verification and entitlement delivery;
 this client change does not establish that the deployed backend implements it.
 
 Debug builds log the `Product.purchase` result category without receipts or
-account tokens. Membership also logs callback timing and identity-match booleans
+account tokens. Membership also logs callback timing and product/call correlation
 to distinguish a returned historical transaction from a missing callback. After
 the Apple purchase Future returns, membership bounds the remaining unmatched
 callback wait to 10 seconds; time spent inside Apple's purchase UI is unchanged.
+
+Direct purchase-result callbacks also carry an optional local `checkoutAttemptId`
+through the generated codecs and Dart purchase objects. Background transaction
+updates do not carry it. Membership uses it to end the originating checkout even
+when StoreKit returns a previously reported transaction. A newly received direct
+result is reported with its original proof even if its account token differs from
+the requested UUID; the server decides ownership and entitlement. The correlation
+id is not sent to Apple purchase options or the backend.
 
 Native regression checks compile and execute the production decision:
 

@@ -86,7 +86,7 @@ MembershipStoreFailure membershipStoreError(
         values['debugMessage'] ?? (details is String ? details : message);
     if (normalized == 'developer_error' &&
         debugMessage is String &&
-        debugMessage.trim() == _googleAccountIdentifiersMismatch) {
+        debugMessage.trim() == membershipAccountIdentifiersMismatchMessage) {
       normalized = 'account_identifiers_mismatch';
     }
   } else {
@@ -141,7 +141,7 @@ const membershipGoogleResponseCodes = <int, String>{
   12: 'network_error',
 };
 
-const _googleAccountIdentifiersMismatch =
+const membershipAccountIdentifiersMismatchMessage =
     "Account identifiers don't match the previous subscription.";
 
 const membershipGoogleErrorMessages = <String, String>{
@@ -158,7 +158,7 @@ const membershipGoogleErrorMessages = <String, String>{
   'item_unavailable':
       'This Premium subscription is currently unavailable on Google Play.',
   'developer_error': 'Purchase canceled.',
-  'account_identifiers_mismatch': _googleAccountIdentifiersMismatch,
+  'account_identifiers_mismatch': membershipAccountIdentifiersMismatchMessage,
   'error':
       'Google Play could not complete this Premium purchase. Please try again.',
   'item_already_owned': 'You already own this subscription on Google Play.',

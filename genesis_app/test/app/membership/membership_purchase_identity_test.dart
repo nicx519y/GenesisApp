@@ -14,7 +14,7 @@ void main() {
       for (final yearly in [false, true]) {
         for (final supplied in [false, true]) {
           test(
-            '$provider guest=$guest yearly=$yearly catalogUuid=$supplied chooses the current purchase identity',
+            '$provider guest=$guest yearly=$yearly catalogUuid=$supplied uses fetched UUID without comparing callback UUID',
             () async {
               final h = support.Harness(provider: provider, claimEnabled: true);
               if (guest) h.uid = null;
@@ -44,7 +44,10 @@ void main() {
               expect(userInfoCalls, !guest && !supplied ? 1 : 0);
 
               await h.service.interceptPurchase(
-                h.purchase(yearly: yearly, uuid: expected),
+                h.purchase(
+                  yearly: yearly,
+                  uuid: '00000000-0000-4000-8000-000000000002',
+                ),
               );
               expect(h.reports, hasLength(1));
               expect(h.service.state.value, MembershipCheckoutState.completed);
@@ -67,6 +70,26 @@ void main() {
           );
         }
       }
+    }
+  }
+
+  for (final provider in MembershipProvider.values) {
+    for (final isGuest in [false, true]) {
+      test(
+        '$provider guest=$isGuest uses fetched UUID when catalog UUID changes during preparation',
+        () async {
+          final h = support.Harness(provider: provider);
+          if (isGuest) h.uid = null;
+          h.lastAccountUuid = catalogUuid;
+          h.platform.onPrepare = () async {
+            h.lastAccountUuid = '00000000-0000-4000-8000-000000000002';
+          };
+          await h.service.purchase(h.product());
+          expect(h.platform.launches, 1);
+          expect(h.platform.uuid, catalogUuid);
+          expect(h.service.state.value, MembershipCheckoutState.store);
+        },
+      );
     }
   }
 }

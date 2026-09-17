@@ -155,6 +155,7 @@ class SK2ProductPurchaseOptionsMessage {
     this.promotionalOffer,
     this.winBackOfferId,
     this.handoffId,
+    this.checkoutAttemptId,
   });
 
   final String? appAccountToken;
@@ -162,6 +163,7 @@ class SK2ProductPurchaseOptionsMessage {
   final SK2SubscriptionOfferPurchaseMessage? promotionalOffer;
   final String? winBackOfferId;
   final String? handoffId;
+  final String? checkoutAttemptId;
 }
 
 class SK2TransactionMessage {
@@ -177,6 +179,7 @@ class SK2TransactionMessage {
     this.receiptData,
     this.jsonRepresentation,
     required this.status,
+    this.checkoutAttemptId,
   });
   final int id;
   final int originalId;
@@ -192,6 +195,7 @@ class SK2TransactionMessage {
   /// The status of this purchase transaction.
   /// Set by native side to communicate the result state to Dart layer.
   final SK2PurchaseStatusMessage status;
+  final String? checkoutAttemptId;
 }
 
 class SK2ErrorMessage {

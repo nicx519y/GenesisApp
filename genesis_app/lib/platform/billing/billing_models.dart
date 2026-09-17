@@ -110,6 +110,7 @@ class BillingPurchase {
     this.errorDetails,
     this.errorSource,
     this.rawErrorCode,
+    this.checkoutAttemptId,
   });
 
   final BillingProvider provider;
@@ -131,6 +132,10 @@ class BillingPurchase {
   final Object? errorDetails;
   final String? errorSource;
   final String? rawErrorCode;
+
+  /// Local StoreKit call correlation, not an account/transaction identifier.
+  /// Never persisted or sent to the backend.
+  final String? checkoutAttemptId;
 }
 
 @immutable

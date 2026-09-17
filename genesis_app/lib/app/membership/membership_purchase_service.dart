@@ -50,12 +50,15 @@ class MembershipCheckoutEvent {
     this.reason,
     this.debugInfo,
     this.storeFailure,
+    this.reportMessage,
   });
   final String attemptId;
   final MembershipCheckoutState state;
   final String? reason;
   final String? debugInfo;
   final MembershipStoreFailure? storeFailure;
+  // Report feedback is separate from local eligibility guard codes.
+  final String? reportMessage;
 }
 
 /// Owns subscription attempts and receipts independently of the Gems queue/UI.
@@ -158,7 +161,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   );
   final Map<String, MembershipPurchaseRecord> _records = {};
   // Consumed by one callback-driven operation, regardless of business outcome
-  // or exhausted technical retries. Never persisted as a report queue.
+  // or technical failure. Never persisted as a report queue.
   final Set<String> _reportedRequestIds = {};
   Future<void>? _loading;
   Future<void>? _recovery;
@@ -306,7 +309,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     _records[record.requestId] = record;
   }
 
-  /// Prepare store checkout for a fresh, visible subscription page.
+  /// Preload only the store product for a fresh, visible subscription page.
+  /// Purchase identity is obtained only after an explicit purchase click.
   /// Failure is silent; a real click retries through the normal checkout path.
   MembershipCheckoutPreparation? prepareCheckout(
     MembershipProduct product, {
@@ -348,7 +352,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
               p.offerId == product.offerId,
         );
         if (matches.length != 1) return null;
-        final prepared = await _prepareStoreCheckout(
+        final prepared = await _prepareStoreProduct(
           uid,
           products,
           matches.single,
@@ -507,18 +511,29 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         late final String uuid;
         stage = 'prepare_store_checkout';
         try {
-          final reusable = await _takeCheckoutPreparation(
-            preparation,
-            uid,
-            products,
-            product,
-          );
+          // Product prewarming must never create guest identities. Only this
+          // purchase click fetches the UUID, in parallel with the store query.
+          final results = await Future.wait<Object?>([
+            () async {
+              final reusable = await _takeCheckoutPreparation(
+                preparation,
+                uid,
+                products,
+                product,
+              );
+              if (!await canContinueForOwner(uid)) return null;
+              return reusable ??
+                  await _prepareStoreProduct(uid, products, product);
+            }(),
+            _prepareCheckoutIdentity(uid, products),
+          ], eagerError: true);
           if (!await canContinueForOwner(uid)) return;
-          final prepared =
-              reusable ?? await _prepareStoreCheckout(uid, products, product);
+          final prepared = results[0] as _PreparedMembershipProduct?;
+          if (prepared == null) return;
+          final identity = results[1] as _CheckoutIdentity;
           nativeProduct = prepared.nativeProduct;
-          guest = prepared.identity.guest;
-          uuid = prepared.identity.uuid;
+          guest = identity.guest;
+          uuid = identity.uuid;
         } on _CheckoutPreparationFailure catch (failure) {
           stage = failure.stage;
           throw failure.error;
@@ -529,17 +544,16 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         stage = 'read_catalog';
         final latestProducts = await readCheckoutProducts();
         if (!await canContinueForOwner(uid)) return;
-        if (latestProducts.lastAccountUuid != products.lastAccountUuid ||
-            !latestProducts.products.any(
-              (p) =>
-                  p.provider == product.provider &&
-                  p.planCode == product.planCode &&
-                  p.storeProductId == product.storeProductId &&
-                  p.basePlanId == product.basePlanId &&
-                  p.offerId == product.offerId &&
-                  p.priceAmount == product.priceAmount &&
-                  p.priceCurrencyCode == product.priceCurrencyCode,
-            )) {
+        if (!latestProducts.products.any(
+          (p) =>
+              p.provider == product.provider &&
+              p.planCode == product.planCode &&
+              p.storeProductId == product.storeProductId &&
+              p.basePlanId == product.basePlanId &&
+              p.offerId == product.offerId &&
+              p.priceAmount == product.priceAmount &&
+              p.priceCurrencyCode == product.priceCurrencyCode,
+        )) {
           throw const MembershipPurchaseBlocked('eligibility_unavailable');
         }
         final record = MembershipPurchaseRecord(
@@ -579,7 +593,12 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         stage = 'launch_store';
         final launchClock = Stopwatch()..start();
         final launched = await platform
-            .launch(nativeProduct, uuid, onStoreHandoff: onStoreHandoff)
+            .launch(
+              nativeProduct,
+              uuid,
+              onStoreHandoff: onStoreHandoff,
+              checkoutAttemptId: id,
+            )
             .whenComplete(() {
               if (kDebugMode) {
                 debugPrint(
@@ -695,7 +714,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         await _load();
         if (kDebugMode && provider == MembershipProvider.apple) {
           final active = _records[_activeRequestId];
-          final callbackAccount = purchase.obfuscatedAccountId?.trim();
           final transaction = purchase.transactionId;
           final suffix = transaction.length > 6
               ? transaction.substring(transaction.length - 6)
@@ -705,8 +723,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             'product=${purchase.productId} transaction_suffix=$suffix '
             'purchase_time=${purchase.purchaseTime} '
             'active=${active != null} '
-            'same_product=${active?.product.storeProductId == purchase.productId} '
-            'same_account=${active != null && (callbackAccount?.isNotEmpty != true || callbackAccount!.toLowerCase() == active.accountUuid.toLowerCase())}',
+            'direct_result=${purchase.checkoutAttemptId != null} '
+            'same_product=${active?.product.storeProductId == purchase.productId}',
           );
         }
         if (purchase.productId.isEmpty) {
@@ -743,6 +761,17 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   Future<void> _handle(BillingPurchase purchase, {String? productId}) async {
     productId ??= purchase.productId;
     if (_disposed || purchase.provider.apiValue != provider.name) return;
+    final sourceId = provider == MembershipProvider.apple
+        ? purchase.checkoutAttemptId
+        : null;
+    final sourceAttempt = sourceId == null ? null : _records[sourceId];
+    // A direct StoreKit result belongs only to its original call, including
+    // when it arrives after timeout. Never attach it to a newer checkout.
+    if (sourceId != null &&
+        (sourceAttempt == null ||
+            sourceAttempt.product.storeProductId != productId)) {
+      return;
+    }
     MembershipPurchaseRecord? record;
     final candidates = _records.values
         .where(
@@ -768,10 +797,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
     // Prefer the exact renewal transaction so a late older callback stays deduplicated.
     record ??= tokenMatch;
-    final accountUuid = purchase.obfuscatedAccountId?.trim() ?? '';
-    bool sameAccount(MembershipPurchaseRecord r) =>
-        accountUuid.isEmpty ||
-        accountUuid.toLowerCase() == r.accountUuid.toLowerCase();
+    // A correlated StoreKit result is the outcome of this exact purchase call.
+    // Send its original proof to the server even when appAccountToken differs
+    // from the requested UUID; receipt ownership is not a client eligibility gate.
+    record ??= sourceAttempt;
     bool canAttachToAttempt(MembershipPurchaseRecord r) =>
         purchase.status != BillingPurchaseStatus.restored ||
         r.hasReceipt ||
@@ -781,23 +810,57 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       if (active != null &&
           active.product.storeProductId == productId &&
           canAttachToAttempt(active) &&
-          !active.replacesPurchaseToken(purchase.purchaseToken) &&
-          sameAccount(active)) {
+          !active.replacesPurchaseToken(purchase.purchaseToken)) {
         record = active;
       }
     }
-    if (record == null) {
+    if (record == null && sourceAttempt == null) {
       final pending = candidates
           .where(
             (r) =>
                 (r.state == 'prepared' ||
                     r.state == 'pending' ||
                     r.needsReceiptRecovery) &&
-                sameAccount(r) &&
                 canAttachToAttempt(r),
           )
           .toList();
       if (pending.length == 1) record = pending.single;
+    }
+    final sourceWait = _checkoutWaits[sourceId];
+    if (sourceAttempt != null &&
+        _activeRequestId == sourceId &&
+        sourceWait?.launchRequested == true &&
+        !sourceWait!.storeCallbackReceived &&
+        record?.requestId != sourceId) {
+      // Apple can return an existing transaction after "already subscribed".
+      // Receipt deduplication must not leave this separate click waiting for a
+      // callback that has already arrived. Do not transfer its proof/ownership.
+      sourceWait.receiveStoreCallback();
+      _release(sourceId);
+      _setState(
+        switch (record?.reportStatus) {
+          'completed' => MembershipCheckoutState.idle,
+          'accepted' => MembershipCheckoutState.accepted,
+          'rejected' => MembershipCheckoutState.rejected,
+          _ when _reportedRequestIds.contains(record?.requestId) =>
+            MembershipCheckoutState.failed,
+          _ => MembershipCheckoutState.deferred,
+        },
+        attemptId: sourceId,
+        reportMessage: _reportFailureMessage(record),
+        debugInfo: purchaseDebugInfo(
+          'vip.store_result',
+          status: record?.reportStatus,
+          reason: 'existing_store_transaction',
+        ),
+      );
+      if (!sourceAttempt.paid && !sourceAttempt.hasReceipt) {
+        _records.remove(sourceId);
+        if (sourceAttempt.guest != null) {
+          await _discardUnpurchasedGuestIdentity(sourceAttempt.accountUuid);
+        }
+      }
+      return;
     }
     if (record == null) {
       // Unsolicited store history is not a failed report from this client.
@@ -810,7 +873,6 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       }
       return;
     }
-    if (!sameAccount(record)) return;
     _trackingFor(record);
     // Only this order's callback ends its store deadline. Reporting has its own
     // HTTP timeout; keep the wait registered so session/stream resets close UI.
@@ -955,6 +1017,20 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         attemptId: record.requestId,
         debugInfo: purchaseDebugInfo('vip.store_callback', status: 'pending'),
       );
+      return;
+    }
+    // Restore callbacks retain ownership proof for claim, but only a successful
+    // purchase callback may start the single report request.
+    if (purchase.status != BillingPurchaseStatus.purchased) {
+      _setState(
+        MembershipCheckoutState.deferred,
+        attemptId: record.requestId,
+        debugInfo: purchaseDebugInfo(
+          'vip.store_callback',
+          status: purchase.status.name,
+        ),
+      );
+      return;
     }
     await _report(record);
     await _claimPendingGuests();
@@ -965,7 +1041,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     if (_disposed ||
         _reportedRequestIds.contains(record.requestId) ||
         !record.hasReceipt ||
-        (!record.paid && record.state != 'pending')) {
+        record.state != 'purchased') {
       return;
     }
     if (record.guest == null && await readLoginUid() != record.ownerUid) return;
@@ -1012,6 +1088,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         record = record.copyWith(
           signedTransaction: request.signedTransaction,
           reportStatus: report.status.name,
+          reportReason: report.reason,
           state:
               report.status == MembershipReportStatus.completed && !record.paid
               ? 'purchased'
@@ -1058,13 +1135,15 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           _ => MembershipCheckoutState.deferred,
         },
         attemptId: record.requestId,
+        reportMessage: _reportFailureMessage(record),
         debugInfo: purchaseDebugInfo('vip.report', status: record.reportStatus),
       );
       _release(record.requestId);
     } catch (error) {
       _setState(
-        MembershipCheckoutState.deferred,
+        MembershipCheckoutState.failed,
         attemptId: record.requestId,
+        reportMessage: 'Report failed.',
         debugInfo: purchaseDebugInfo('vip.report', error: error),
       );
       _log('report ended', error);
@@ -1075,6 +1154,24 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         _catalogChanged();
       }
     }
+  }
+
+  String? _reportFailureMessage(MembershipPurchaseRecord? record) {
+    if (record == null) return null;
+    if (record.reportStatus == 'rejected') {
+      final reason = record.reportReason;
+      if (reason?.trim() == 'account_mismatch') {
+        return membershipAccountIdentifiersMismatchMessage;
+      }
+      return reason != null && reason.trim().isNotEmpty
+          ? reason
+          : 'Report failed.';
+    }
+    if (record.reportStatus == null &&
+        _reportedRequestIds.contains(record.requestId)) {
+      return 'Report failed.';
+    }
+    return null;
   }
 
   /// Recover guest identity/claim and local cleanup only. Never repost reports.
@@ -1140,6 +1237,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     String? reason,
     String? debugInfo,
     MembershipStoreFailure? storeFailure,
+    String? reportMessage,
   }) {
     if (_disposed) return;
     state.value = value;
@@ -1150,6 +1248,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         reason: reason,
         debugInfo: debugInfo,
         storeFailure: storeFailure,
+        reportMessage: reportMessage,
       );
     }
   }
@@ -1160,6 +1259,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     String? reason,
     String? debugInfo,
     MembershipStoreFailure? storeFailure,
+    String? reportMessage,
   }) {
     if (_disposed) return;
     if (kDebugMode) {
@@ -1186,6 +1286,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         reason: reason,
         debugInfo: debugInfo,
         storeFailure: storeFailure,
+        reportMessage: reportMessage,
       ),
     );
   }

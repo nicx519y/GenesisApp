@@ -1,6 +1,6 @@
 part of 'membership_purchase_service.dart';
 
-/// A single-use, page-owned preparation. Never persisted or shared across pages.
+/// A single-use, page-owned store product. Never prepares a purchase identity.
 class MembershipCheckoutPreparation {
   MembershipCheckoutPreparation._(
     this._service,
@@ -14,7 +14,7 @@ class MembershipCheckoutPreparation {
   final int _revision;
   final VoidCallback? _onExpired;
   final Stopwatch _age = Stopwatch();
-  late final Future<_PreparedMembershipCheckout?> _future;
+  late final Future<_PreparedMembershipProduct?> _future;
   Timer? _expiry;
   bool _invalid = false;
   bool _consumed = false;
@@ -36,19 +36,17 @@ class MembershipCheckoutPreparation {
   bool get _usable => !_invalid && !_consumed && _age.elapsed < _maxAge;
 }
 
-class _PreparedMembershipCheckout {
-  const _PreparedMembershipCheckout(
+class _PreparedMembershipProduct {
+  const _PreparedMembershipProduct(
     this.owner,
     this.catalog,
     this.product,
     this.nativeProduct,
-    this.identity,
   );
   final String? owner;
   final MembershipProductList catalog;
   final MembershipProduct product;
   final Object nativeProduct;
-  final _CheckoutIdentity identity;
 }
 
 class _CheckoutIdentity {
@@ -107,30 +105,19 @@ extension _MembershipCheckoutPreparation on MembershipPurchaseService {
     return _CheckoutIdentity(uuid, guest);
   }
 
-  Future<_PreparedMembershipCheckout> _prepareStoreCheckout(
+  Future<_PreparedMembershipProduct> _prepareStoreProduct(
     String? uid,
     MembershipProductList products,
     MembershipProduct product,
   ) async {
-    // Install error handlers on both tasks immediately; a fast failure in one
-    // must not become an unhandled error while the other is still pending.
-    final results = await Future.wait<Object>([
-      _timedCheckoutPreparation(
-        'query_store_product',
-        () => platform.prepare(product),
-      ),
-      _prepareCheckoutIdentity(uid, products),
-    ], eagerError: true);
-    return _PreparedMembershipCheckout(
-      uid,
-      products,
-      product,
-      results[0],
-      results[1] as _CheckoutIdentity,
+    final nativeProduct = await _timedCheckoutPreparation(
+      'query_store_product',
+      () => platform.prepare(product),
     );
+    return _PreparedMembershipProduct(uid, products, product, nativeProduct);
   }
 
-  Future<_PreparedMembershipCheckout?> _takeCheckoutPreparation(
+  Future<_PreparedMembershipProduct?> _takeCheckoutPreparation(
     MembershipCheckoutPreparation? preparation,
     String? uid,
     MembershipProductList products,

@@ -49,6 +49,7 @@ class MembershipV1Api extends V1ApiResource {
             ? 'membership/purchase/report'
             : 'membership/guest/purchase/report',
         request.toJson(),
+        retryPolicy: ApiRetryPolicy.none,
       ),
     );
   }
@@ -81,8 +82,12 @@ class MembershipV1Api extends V1ApiResource {
     String path,
     Map<String, Object?> body, {
     Map<String, String>? headers,
+    ApiRetryPolicy? retryPolicy,
   }) async {
-    final response = await client.post<Object?>(
+    final requestClient = retryPolicy == null
+        ? client
+        : client.copyWith(retryPolicy: retryPolicy);
+    final response = await requestClient.post<Object?>(
       'v1/$path',
       body: body,
       headers: headers,

@@ -580,6 +580,7 @@ class SK2ProductPurchaseOptionsMessage {
     this.promotionalOffer,
     this.winBackOfferId,
     this.handoffId,
+    this.checkoutAttemptId,
   });
 
   String? appAccountToken;
@@ -592,8 +593,17 @@ class SK2ProductPurchaseOptionsMessage {
 
   String? handoffId;
 
+  String? checkoutAttemptId;
+
   List<Object?> _toList() {
-    return <Object?>[appAccountToken, quantity, promotionalOffer, winBackOfferId, handoffId];
+    return <Object?>[
+      appAccountToken,
+      quantity,
+      promotionalOffer,
+      winBackOfferId,
+      handoffId,
+      checkoutAttemptId,
+    ];
   }
 
   Object encode() {
@@ -608,6 +618,7 @@ class SK2ProductPurchaseOptionsMessage {
       promotionalOffer: result[2] as SK2SubscriptionOfferPurchaseMessage?,
       winBackOfferId: result[3] as String?,
       handoffId: result[4] as String?,
+      checkoutAttemptId: result[5] as String?,
     );
   }
 
@@ -624,7 +635,8 @@ class SK2ProductPurchaseOptionsMessage {
         _deepEquals(quantity, other.quantity) &&
         _deepEquals(promotionalOffer, other.promotionalOffer) &&
         _deepEquals(winBackOfferId, other.winBackOfferId) &&
-        _deepEquals(handoffId, other.handoffId);
+        _deepEquals(handoffId, other.handoffId) &&
+        _deepEquals(checkoutAttemptId, other.checkoutAttemptId);
   }
 
   @override
@@ -633,7 +645,7 @@ class SK2ProductPurchaseOptionsMessage {
 
   @override
   String toString() {
-    return 'SK2ProductPurchaseOptionsMessage(appAccountToken: $appAccountToken, quantity: $quantity, promotionalOffer: $promotionalOffer, winBackOfferId: $winBackOfferId, handoffId: $handoffId)';
+    return 'SK2ProductPurchaseOptionsMessage(appAccountToken: $appAccountToken, quantity: $quantity, promotionalOffer: $promotionalOffer, winBackOfferId: $winBackOfferId, handoffId: $handoffId, checkoutAttemptId: $checkoutAttemptId)';
   }
 }
 
@@ -650,6 +662,7 @@ class SK2TransactionMessage {
     this.error,
     this.jsonRepresentation,
     required this.status,
+    this.checkoutAttemptId,
   });
 
   int id;
@@ -676,6 +689,8 @@ class SK2TransactionMessage {
   /// Set by native side to communicate the result state to Dart layer.
   SK2PurchaseStatusMessage status;
 
+  String? checkoutAttemptId;
+
   List<Object?> _toList() {
     return <Object?>[
       id,
@@ -689,6 +704,7 @@ class SK2TransactionMessage {
       error,
       jsonRepresentation,
       status,
+      checkoutAttemptId,
     ];
   }
 
@@ -710,6 +726,7 @@ class SK2TransactionMessage {
       error: result[8] as SK2ErrorMessage?,
       jsonRepresentation: result[9] as String?,
       status: result[10]! as SK2PurchaseStatusMessage,
+      checkoutAttemptId: result[11] as String?,
     );
   }
 
@@ -732,7 +749,8 @@ class SK2TransactionMessage {
         _deepEquals(receiptData, other.receiptData) &&
         _deepEquals(error, other.error) &&
         _deepEquals(jsonRepresentation, other.jsonRepresentation) &&
-        _deepEquals(status, other.status);
+        _deepEquals(status, other.status) &&
+        _deepEquals(checkoutAttemptId, other.checkoutAttemptId);
   }
 
   @override
@@ -741,7 +759,7 @@ class SK2TransactionMessage {
 
   @override
   String toString() {
-    return 'SK2TransactionMessage(id: $id, originalId: $originalId, productId: $productId, purchaseDate: $purchaseDate, expirationDate: $expirationDate, purchasedQuantity: $purchasedQuantity, appAccountToken: $appAccountToken, receiptData: $receiptData, error: $error, jsonRepresentation: $jsonRepresentation, status: $status)';
+    return 'SK2TransactionMessage(id: $id, originalId: $originalId, productId: $productId, purchaseDate: $purchaseDate, expirationDate: $expirationDate, purchasedQuantity: $purchasedQuantity, appAccountToken: $appAccountToken, receiptData: $receiptData, error: $error, jsonRepresentation: $jsonRepresentation, status: $status, checkoutAttemptId: $checkoutAttemptId)';
   }
 }
 

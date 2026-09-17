@@ -19,6 +19,7 @@ abstract interface class MembershipCheckoutPlatform {
     Object product,
     String accountUuid, {
     bool Function()? onStoreHandoff,
+    String? checkoutAttemptId,
   });
   Future<bool> isSubscription(String productId);
 }
@@ -99,6 +100,7 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
     Object product,
     String accountUuid, {
     bool Function()? onStoreHandoff,
+    String? checkoutAttemptId,
   }) async {
     if (product is! ProductDetails || !_subscription(product)) {
       throw const BillingPlatformException('invalid_membership_product');
@@ -116,6 +118,7 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
             productDetails: product,
             applicationUserName: accountUuid,
             onStoreHandoff: onStoreHandoff,
+            checkoutAttemptId: checkoutAttemptId,
           );
     if (kDebugMode && param is GooglePlayPurchaseParam) {
       final diagnostics = jsonEncode({

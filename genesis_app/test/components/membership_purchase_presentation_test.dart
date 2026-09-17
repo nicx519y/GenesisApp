@@ -60,6 +60,80 @@ void main() {
   });
   tearDown(purchaseToastDebugSettings.resetForTesting);
 
+  for (final provider in MembershipProvider.values) {
+    for (final guest in [false, true]) {
+      for (final entry in const {
+        'account_mismatch':
+            "Account identifiers don't match the previous subscription.",
+        'product_mismatch': 'product_mismatch',
+        'downgrade_not_allowed': 'downgrade_not_allowed',
+        'The receipt could not be verified.':
+            'The receipt could not be verified.',
+      }.entries) {
+        testWidgets(
+          '$provider guest=$guest displays report reason ${entry.key}',
+          (tester) async {
+            final h = service.Harness(provider: provider);
+            if (guest) h.uid = null;
+            h.reportHandler = (_) async => MembershipPurchaseReport(
+              status: MembershipReportStatus.rejected,
+              reason: entry.key,
+            );
+            await open(tester, h);
+            await h.service.interceptPurchase(h.purchase(yearly: true));
+            await tester.pumpAndSettle();
+            expect(find.text(entry.value), findsOneWidget);
+            expect(find.textContaining('Purchase failed.'), findsNothing);
+            expect(find.text('Purchase successful!'), findsNothing);
+            expect(find.byType(Dialog), findsNothing);
+            await h.service.interceptPurchase(h.purchase(yearly: true));
+            await h.service.recover();
+            expect(h.reports, hasLength(1));
+            await tester.pump(const Duration(seconds: 3));
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+          },
+        );
+      }
+    }
+  }
+
+  testWidgets(
+    'Apple existing rejected transaction closes loading immediately',
+    (tester) async {
+      final h = service.Harness(provider: MembershipProvider.apple);
+      h.reportHandler = (_) async => const MembershipPurchaseReport(
+        status: MembershipReportStatus.rejected,
+        reason: 'account_mismatch',
+      );
+      await h.service.purchase(h.product(yearly: true), attemptId: 'original');
+      await h.service.interceptPurchase(h.purchase(yearly: true));
+      await open(tester, h);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
+      await h.service.interceptPurchase(
+        h.purchase(
+          yearly: true,
+          checkoutAttemptId: h.platform.checkoutAttemptId,
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(find.text('Purchasing Premium'), findsNothing);
+      expect(find.text('Purchase successful!'), findsNothing);
+      expect(
+        find.text("Account identifiers don't match the previous subscription."),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Purchase failed.'), findsNothing);
+      expect(h.reports, hasLength(1));
+      await tester.pump(const Duration(seconds: 11));
+      expect(
+        find.textContaining('Purchase confirmation is delayed.'),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets(
     'Apple returned result without callback dismisses blocking dialog',
     (tester) async {
@@ -313,14 +387,18 @@ void main() {
     'rejected',
     'failed',
     'query failure',
-    'deferred',
+    'report failure',
     'stream failure',
   ]) {
     testWidgets(
       '$outcome dismisses processing with VIP feedback and leaves the page open',
       (tester) async {
         await purchaseToastDebugSettings.setEnabled(true);
-        final h = service.Harness();
+        final h = service.Harness(
+          provider: outcome == 'report failure'
+              ? MembershipProvider.apple
+              : MembershipProvider.google,
+        );
         if (outcome == 'failed') h.platform.launchResult = false;
         if (outcome == 'query failure') {
           h.platform.onPrepare = () async =>
@@ -328,7 +406,7 @@ void main() {
                 'membership_product_not_found',
               );
         }
-        if (outcome == 'deferred') {
+        if (outcome == 'report failure') {
           h.reportHandler = (_) async => throw StateError('offline');
         }
         if (outcome == 'accepted' || outcome == 'rejected') {
@@ -363,7 +441,8 @@ void main() {
           'cancelled' => 'Purchase canceled.',
           'pending' => 'Your purchase is pending.',
           'accepted' => 'Your purchase is being confirmed.',
-          'deferred' || 'storage failure' || 'stream failure' =>
+          'rejected' || 'report failure' => 'Report failed.',
+          'stream failure' =>
             'Purchase confirmation is delayed. Please check again later.',
           'failed' =>
             'The store could not open this Premium purchase. Please try again.',
@@ -382,7 +461,7 @@ void main() {
           'rejected' => 'report; status=rejected',
           'failed' => 'membership_launch_rejected',
           'query failure' => 'code=membership_product_not_found',
-          'deferred' => 'report; StateError; offline',
+          'report failure' => 'report; StateError; offline',
           'storage failure' => 'report; StateError; storage unavailable',
           'stream failure' => 'store_stream; reason=stream_error',
           _ => throw StateError('Unhandled outcome'),

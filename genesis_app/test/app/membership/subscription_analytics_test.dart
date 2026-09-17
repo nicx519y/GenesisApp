@@ -136,7 +136,7 @@ void main() {
   );
 
   test(
-    'immediate technical retries emit only the final correlated result',
+    'report technical failure emits one correlated failure without retry',
     () async {
       final h = support.Harness(analytics: analytics);
       var requests = 0;
@@ -161,10 +161,11 @@ void main() {
       await h.service.recover();
       await h.service.recover();
       await h.service.interceptPurchase(h.purchase(transaction: 'GPA.actual'));
-      expect(events.map((e) => e.action), ['subscription_success']);
-      expect(events.map((e) => e.object3), ['GPA.actual']);
+      expect(requests, 1);
+      expect(events.map((e) => e.action), ['subscription_failed']);
+      expect(events.single.object3, startsWith('report_failed'));
       expect(events.every((e) => e.object2 == tracking.id), isTrue);
-      expect(events.last.object1, 'from_me_membership');
+      expect(events.last.object1, isEmpty);
       expect(
         h.reports.every((r) => !r.toJson().containsKey('request_id')),
         isTrue,
@@ -187,6 +188,8 @@ void main() {
     await h.service.interceptPurchase(
       h.purchase(status: BillingPurchaseStatus.pending),
     );
+    expect(h.reports, isEmpty);
+    await h.service.interceptPurchase(h.purchase());
     expect(events.map((e) => e.object3), [
       'store_callback_pending',
       'report_accepted',

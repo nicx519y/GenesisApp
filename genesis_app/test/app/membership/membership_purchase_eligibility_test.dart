@@ -261,7 +261,7 @@ void main() {
           expect(h.platform.launches, 1);
           expect(h.reports, isEmpty);
           await h.service.interceptPurchase(h.purchase());
-          final requests = outcome == 'timeout' ? 2 : 1;
+          const requests = 1;
           expect(h.reports, hasLength(requests));
           expect(h.store.records, isEmpty);
           expect(h.service.isBusy, isFalse);
@@ -271,14 +271,12 @@ void main() {
           expect(h.reports.last.toJson(), h.reports.first.toJson());
           expect(h.platform.launches, 1);
           expect(h.store.records, isEmpty);
-          expect(h.refreshes, outcome == 'timeout' ? 1 : 0);
+          expect(h.refreshes, 0);
           expect(
             h.service.state.value,
-            outcome == 'timeout'
-                ? MembershipCheckoutState.completed
-                : outcome == 'accepted'
+            outcome == 'accepted'
                 ? MembershipCheckoutState.accepted
-                : MembershipCheckoutState.deferred,
+                : MembershipCheckoutState.failed,
           );
           await h.service.recover();
           expect(h.reports, hasLength(requests));
@@ -331,32 +329,26 @@ void main() {
     },
   );
 
-  test(
-    'accepted pending payment never becomes completed through recovery',
-    () async {
-      final h = support.Harness(provider: MembershipProvider.apple);
-      h.reportHandler = (_) async => const MembershipPurchaseReport(
-        status: MembershipReportStatus.accepted,
-      );
-      await h.service.purchase(h.product());
-      await h.service.interceptPurchase(
-        h.purchase(status: BillingPurchaseStatus.pending),
-      );
-      expect(h.store.records, isEmpty);
-      expect(h.service.catalogRevision.value, 1);
-      h.reportHandler = null;
-      await h.service.recover();
-      expect(h.reports.last.toJson(), h.reports.first.toJson());
-      expect(h.service.state.value, MembershipCheckoutState.accepted);
-      expect(h.store.records, isEmpty);
-      expect(h.store.confirmed, isEmpty);
-      expect(h.service.catalogRevision.value, 1);
-      expect(h.reports, hasLength(1));
-    },
-  );
+  test('accepted report never becomes completed through recovery', () async {
+    final h = support.Harness(provider: MembershipProvider.apple);
+    h.reportHandler = (_) async =>
+        const MembershipPurchaseReport(status: MembershipReportStatus.accepted);
+    await h.service.purchase(h.product());
+    await h.service.interceptPurchase(h.purchase());
+    expect(h.store.records, isEmpty);
+    expect(h.service.catalogRevision.value, 1);
+    h.reportHandler = null;
+    await h.service.recover();
+    expect(h.reports.last.toJson(), h.reports.first.toJson());
+    expect(h.service.state.value, MembershipCheckoutState.accepted);
+    expect(h.store.records, isEmpty);
+    expect(h.store.confirmed, isEmpty);
+    expect(h.service.catalogRevision.value, 1);
+    expect(h.reports, hasLength(1));
+  });
 
   test(
-    'status-only rejected pending payment is terminal without granting entitlement',
+    'status-only rejected report is terminal without granting entitlement',
     () async {
       final h = support.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => const MembershipPurchaseReport(
@@ -366,9 +358,7 @@ void main() {
         (e) => e.state == MembershipCheckoutState.rejected,
       );
       await h.service.purchase(h.product());
-      await h.service.interceptPurchase(
-        h.purchase(status: BillingPurchaseStatus.pending),
-      );
+      await h.service.interceptPurchase(h.purchase());
       expect((await rejected).reason, isNull);
       await h.service.recover();
       expect(h.reports, hasLength(1));

@@ -199,8 +199,13 @@ void main() {
         await checkout.prepare(product),
         '4b74ec68-7abc-4cce-a223-e997e31dc811',
         onStoreHandoff: onHandoff,
+        checkoutAttemptId: 'subscription-click',
       );
       expect((store.param as Sk2PurchaseParam).onStoreHandoff, same(onHandoff));
+      expect(
+        (store.param as Sk2PurchaseParam).checkoutAttemptId,
+        'subscription-click',
+      );
       expect(store.param?.productDetails.id, product.storeProductId);
       expect(
         store.param?.applicationUserName,
@@ -219,6 +224,7 @@ void main() {
         onStoreHandoff: onHandoff,
       );
       expect((store.param as Sk2PurchaseParam).onStoreHandoff, same(onHandoff));
+      expect((store.param as Sk2PurchaseParam).checkoutAttemptId, isNull);
     },
   );
   test(
