@@ -4,6 +4,7 @@ enum LoginSource {
   home('from_home'),
   me('from_me'),
   personalization('from_personalization'),
+  membershipPurchase('from_membership_purchase'),
   membershipClaim('from_membership_claim'),
   createWorldo('from_create_worldo'),
   editWorldo('from_edit_worldo'),

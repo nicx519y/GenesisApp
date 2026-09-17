@@ -7,7 +7,11 @@ import 'membership_purchase.dart';
 export 'membership_order_product.dart';
 
 class MembershipProductList {
-  const MembershipProductList({required this.products, this.lastAccountUuid});
+  const MembershipProductList({
+    required this.products,
+    this.lastAccountUuid,
+    this.hasSubscriptionOrder = false,
+  });
 
   factory MembershipProductList.fromJson(Map<String, dynamic> json) {
     final list = json['list'];
@@ -22,8 +26,13 @@ class MembershipProductList {
     if (uuid != null && uuid.isNotEmpty && !isMembershipAccountUuid(uuid)) {
       throw const FormatException('Invalid membership last account UUID');
     }
+    final hasSubscriptionOrder = json['has_subscription_order'];
+    if (hasSubscriptionOrder != null && hasSubscriptionOrder is! bool) {
+      throw const FormatException('Invalid membership subscription order flag');
+    }
     return MembershipProductList(
       lastAccountUuid: uuid == null || uuid.isEmpty ? null : uuid,
+      hasSubscriptionOrder: hasSubscriptionOrder == true,
       products: List.unmodifiable(
         list.map((item) => MembershipProduct.fromJson(asJsonMap(item))),
       ),
@@ -35,7 +44,10 @@ class MembershipProductList {
   /// Store identity from the current response, shared by all plans.
   final String? lastAccountUuid;
 
-  /// Display cache only. Purchase identity must come from a live catalog load.
+  /// Current response's order flag, shared by all plans.
+  final bool hasSubscriptionOrder;
+
+  /// Display cache only. Checkout fields must come from a live catalog load.
   Map<String, Object?> toJson() => {
     'list': [for (final product in products) product.toJson()],
   };

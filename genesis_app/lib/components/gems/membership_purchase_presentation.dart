@@ -8,6 +8,7 @@ import '../../app/membership/membership_purchase_eligibility.dart';
 import '../../network/models/membership_product.dart';
 import '../../platform/billing/billing_models.dart';
 import '../../platform/billing/purchase_toast_diagnostics.dart';
+import '../auth/login_guard.dart';
 import '../common/genesis_action_box.dart';
 import '../common/genesis_center_toast.dart';
 import '../common/genesis_modal_routes.dart';
@@ -44,10 +45,12 @@ class MembershipPurchasePresentation {
   MembershipPurchasePresentation({
     required this.context,
     required this.service,
+    this.requestLogin,
   });
 
   final BuildContext context;
   final MembershipPurchaseService service;
+  final Future<bool> Function(BuildContext)? requestLogin;
   RawDialogRoute<bool>? _route;
   NavigatorState? _navigator;
   StreamSubscription<MembershipCheckoutEvent>? _subscription;
@@ -86,6 +89,7 @@ class MembershipPurchasePresentation {
       ),
     );
     _route = route;
+    var loginRequired = false;
     _subscription = service.checkoutEvents.listen((event) {
       if (_disposed || _resolved || event.attemptId != attemptId) return;
       switch (event.state) {
@@ -101,6 +105,11 @@ class MembershipPurchasePresentation {
           );
           return;
         case MembershipCheckoutState.idle:
+          _resolved = true;
+          _close(false);
+          return;
+        case MembershipCheckoutState.loginRequired:
+          loginRequired = true;
           _resolved = true;
           _close(false);
           return;
@@ -177,6 +186,22 @@ class MembershipPurchasePresentation {
     try {
       final confirmed = await result == true;
       if (confirmed) await service.confirmGuestPurchase(attemptId);
+      if (loginRequired) {
+        // Finish dismissing the purchase dialog before presenting login. This
+        // click ends here; login never automatically starts another purchase.
+        await route.completed;
+        if (!_disposed && context.mounted) {
+          final login = requestLogin;
+          if (login != null) {
+            await login(context);
+          } else {
+            await ensureGenesisLogin(
+              context,
+              source: LoginSource.membershipPurchase,
+            );
+          }
+        }
+      }
       return confirmed;
     } finally {
       _resolved = true;

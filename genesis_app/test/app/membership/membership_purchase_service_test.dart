@@ -186,6 +186,7 @@ class Checkout implements MembershipCheckoutPlatform {
 
 class Harness {
   String? lastAccountUuid;
+  bool hasSubscriptionOrder = false;
   MembershipAccessState access = const MembershipAccessState();
   Future<MembershipAccessState> Function()? membershipAccessHandler;
   Harness({
@@ -215,6 +216,7 @@ class Harness {
             eligibilityQueries++;
             return MembershipProductList(
               lastAccountUuid: lastAccountUuid,
+              hasSubscriptionOrder: hasSubscriptionOrder,
               products: productsHandler == null
                   ? [product(), product(yearly: true)]
                   : await productsHandler!(),

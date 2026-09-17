@@ -172,6 +172,7 @@ void main() {
           return MembershipProductList(
             products: [product],
             lastAccountUuid: uuid,
+            hasSubscriptionOrder: true,
           );
         },
       );
@@ -181,11 +182,13 @@ void main() {
       for (var attempt = 0; attempt < 2; attempt++) {
         final checkout = await catalog.readCheckoutProducts();
         expect(checkout.lastAccountUuid, uuid);
+        expect(checkout.hasSubscriptionOrder, isTrue);
       }
       expect(calls, 1);
       await pumpEventQueue();
       final disk = await store.load(MembershipProvider.google, 'user-test');
       expect(disk!.lastAccountUuid, isNull);
+      expect(disk.hasSubscriptionOrder, isFalse);
     },
   );
 

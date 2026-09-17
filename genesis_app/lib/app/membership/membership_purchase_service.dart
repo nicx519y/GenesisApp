@@ -41,6 +41,7 @@ enum MembershipCheckoutState {
   canceled,
   failed,
   deferred,
+  loginRequired,
 }
 
 class MembershipCheckoutEvent {
@@ -493,6 +494,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           throw const MembershipPurchaseBlocked('eligibility_unavailable');
         }
         if (!await canContinueForOwner(uid)) return;
+        if (uid == null && products.hasSubscriptionOrder) {
+          _release(id);
+          _setState(MembershipCheckoutState.loginRequired, attemptId: id);
+          return;
+        }
         final matches = products.products.where(
           (p) => p.provider == provider && p.planCode == product.planCode,
         );

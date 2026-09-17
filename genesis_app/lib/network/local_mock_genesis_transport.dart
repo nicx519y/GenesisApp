@@ -936,7 +936,11 @@ class LocalMockGenesisTransport implements HttpTransport {
           'data': <String, dynamic>{},
         });
       }
-      return _v1Ok({'list': <Object?>[], 'last_account_uuid': ''});
+      return _v1Ok({
+        'list': <Object?>[],
+        'last_account_uuid': '',
+        'has_subscription_order': false,
+      });
     }
 
     if (method == 'POST' &&

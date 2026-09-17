@@ -11,6 +11,8 @@ import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/common/genesis_action_box.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
+import 'package:genesis_flutter_android/components/gems/membership_purchase_presentation.dart';
+import 'package:genesis_flutter_android/components/login_sheet.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
@@ -59,6 +61,75 @@ void main() {
     purchaseToastDebugSettings.resetForTesting();
   });
   tearDown(purchaseToastDebugSettings.resetForTesting);
+
+  for (final provider in MembershipProvider.values) {
+    for (final loginSucceeds in [false, true]) {
+      testWidgets(
+        '$provider existing guest order opens login without buying, login=$loginSucceeds',
+        (tester) async {
+          final h = service.Harness(provider: provider)
+            ..uid = null
+            ..hasSubscriptionOrder = true;
+          MembershipPurchasePresentation? presentation;
+          bool? result;
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Scaffold(
+                body: Builder(
+                  builder: (context) {
+                    presentation ??= MembershipPurchasePresentation(
+                      context: context,
+                      service: h.service,
+                      requestLogin: (context) => showLoginSheet(
+                        context: context,
+                        onLogin: (_) async {
+                          h.uid = 'user-test';
+                          return true;
+                        },
+                      ),
+                    );
+                    return TextButton(
+                      onPressed: () async {
+                        result = await presentation!.purchase(h.product());
+                      },
+                      child: const Text('Buy'),
+                    );
+                  },
+                ),
+              ),
+            ),
+          );
+          try {
+            expect(find.byType(LoginSheet), findsNothing);
+            await tester.tap(find.text('Buy'));
+            await tester.pumpAndSettle();
+            expect(find.byType(LoginSheet), findsOneWidget);
+            expect(find.text('Purchasing Premium'), findsNothing);
+            expect(find.textContaining('Purchase failed.'), findsNothing);
+            expect(h.platform.launches, 0);
+            expect(h.guestPrepares, 0);
+            expect(h.reports, isEmpty);
+            if (loginSucceeds) {
+              await tester.tap(find.text('Continue with Google'));
+            } else {
+              await tester.tap(find.byTooltip('Close'));
+            }
+            await tester.pumpAndSettle();
+            expect(find.byType(LoginSheet), findsNothing);
+            expect(result, isFalse);
+            expect(h.platform.launches, 0);
+            expect(h.guestPrepares, 0);
+            expect(h.reports, isEmpty);
+          } finally {
+            presentation?.dispose();
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+            h.service.dispose();
+          }
+        },
+      );
+    }
+  }
 
   for (final provider in MembershipProvider.values) {
     for (final guest in [false, true]) {

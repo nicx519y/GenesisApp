@@ -276,7 +276,7 @@ void main() {
     },
   );
 
-  test('catalog parses list-level last_account_uuid', () async {
+  test('catalog parses list-level purchase identity and order flag', () async {
     const uuid = '8b74ec68-7abc-4cce-a223-e997e31dc811';
     final transport = _Transport()
       ..response = {
@@ -284,6 +284,7 @@ void main() {
         'data': {
           'list': [membershipProduct(yearly: true).toJson()],
           'last_account_uuid': uuid,
+          'has_subscription_order': true,
         },
       };
     final api = MembershipV1Api(
@@ -291,6 +292,7 @@ void main() {
     );
     final result = await api.products(provider: MembershipProvider.google);
     expect(result.lastAccountUuid, uuid);
+    expect(result.hasSubscriptionOrder, isTrue);
   });
 
   test(

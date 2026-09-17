@@ -193,6 +193,7 @@ class MembershipCatalog {
     if (session == _session && generation == _loadGeneration) {
       _checkoutProducts = MembershipProductList(
         lastAccountUuid: response.lastAccountUuid,
+        hasSubscriptionOrder: response.hasSubscriptionOrder,
         products: List.unmodifiable(response.products),
       );
       _checkoutOwner = owner;

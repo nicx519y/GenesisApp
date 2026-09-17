@@ -15,6 +15,7 @@
 | login.object1 | 发起登录的入口 |
 | --- | --- |
 | from_personalization | 个性化表单内普通 Sign in 登录 |
+| from_membership_purchase | 未登录用户点击订阅购买按钮，商品接口 has_subscription_order=true 时弹出的登录窗 |
 | from_membership_claim | 购买会员后或恢复游客订单时要求登录领取权益，包括启动前置登录和表单内强制登录 |
 | from_home | Home 登录区域 |
 | from_me | Me 登录区域 |

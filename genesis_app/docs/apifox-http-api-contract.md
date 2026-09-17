@@ -2618,24 +2618,25 @@ World：
 
 ## Pro 会员商品列表（2026-09-11 客户端契约）
 
-来源：[Apifox 会员商品列表](https://app.apifox.com/link/project/8297783/apis/api-512137864)。2026-09-16 按用户确认的 last_account_uuid 与 status-only report 契约更新；本次不编辑在线 Apifox。
+来源：[Apifox 会员商品列表](https://app.apifox.com/link/project/8297783/apis/api-512137864)。2026-09-17 按用户确认增加 has_subscription_order；本次不编辑在线 Apifox。
 
-- 商品响应为 `{err_no, err_msg, data: {list: [...], last_account_uuid: "..."}}`，不携带客户端使用的会员状态；成功但无配置时 `list=[]`。业务错误沿用统一处理。
+- 商品响应为 `{err_no, err_msg, data: {list: [...], last_account_uuid: "...", has_subscription_order: false}}`，不携带客户端使用的会员状态；成功但无配置时 `list=[]`。业务错误沿用统一处理。
 - 每项提供 `title`、`benefits`、`plan_code`（`pro_monthly`/`pro_yearly`）、`provider`、`store_product_id`、`billing_months`（1/12）、`monthly_gems_cent`、`price_currency_code`、`price_amount`。Google 还必含 `base_plan_id`，可选 `offer_id`；Apple 不返回 base plan。标题、权益、价格继续按当前契约解析，不填默认商品。
 - `last_account_uuid` 与 list 平级；非空时是所有套餐优先使用的购买身份，空/null 时游客 prepare、登录用户读取本人 UUID。商品项不再解析 can_purchase、purchase_block_reason、purchase_action、account_uuid、purchase_token。该 UUID 不表示会员权益。
+- `has_subscription_order` 为与 `list`、`last_account_uuid` 平级的布尔值。未登录用户点击购买时，当前商品响应中该值为 true 则结束本次购买并弹出已有登录弹窗，不获取购买 UUID、不调用 prepare、不调起商店、不 report；登录成功或关闭弹窗均不自动购买。已登录用户继续原购买流程。旧响应缺失/null 按 false 兼容，非布尔值视为契约错误。页面加载、商品预热和套餐切换不会因此弹登录窗。
 - `GemWalletStore` 保存当前账号钱包及会员数据；`MembershipAccessStore` 统一从 `/api/v1/gem/wallet` 的 `membership` 推导当前账号权益。`membership_status=0` 为未开通，2 为已失效；1 时必须有有效到期时间及服务端校准时间，且 `expires_at > now` 才有效，等于或早于 now 为已过期。会员数据、有效状态所需时间缺失时为未知。`auto_renew` 和宝石余额不参与有效性判断。
 - 全局 `checkVip(callback)` 保持一次异步回调；true 有效、false 非有效、null 未知。wallet 没有在途刷新且最近请求未失败时，有效缓存可直接使用；如页面或购买/绑定流程已发起 wallet 刷新（含读取登录身份阶段），先等待同一请求完成再判断，不提前返回旧缓存、不重复发请求。请求失败或超时返回未知，不把旧的非会员缓存用于签到订阅入口；缺失或过期缓存按原去重/冷却策略刷新。退出及切换账号清空旧状态并忽略迟到结果。
 - 已登录用户每次打开完整支付页面或购买底部弹层，先展示当前账号缓存并请求 wallet 刷新，商品请求并行；在途 wallet 请求复用。同一次打开不因组件重建或切换 TAB 重复触发会员刷新。商品初始仍只加载当前 TAB，另一个 TAB 首次访问才加载，Gems 原有请求逻辑不变。
 - Subscription 按全局 wallet 状态展示。同套餐且自动续订时显示 Subscribed，其余显示金额。点击月付时复用全局 checkVip（缓存有效直接用，刷新中等待同一请求），仅有效年会员拦截降级；月升年、同套餐、过期、未知均交给平台。点击不强制刷新 wallet，也不重复请求 products；等待本次页面商品加载，没有有效商品配置时不能调起。
 - Me 当前账号会员卡片和徽章读取同一全局状态；状态 2 或状态 1 且已到期使用已有失效样式。只调整数据绑定，不调整 UI 尺寸、布局、颜色或文案。
 - 未登录用户不请求 wallet、不按游客月年会员类型做客户端购买拦截。游客继续依据 `/membership/guest/purchase/check` 的 `has_unbound_order` 触发登录绑定；该字段不是会员有效状态。启动时优先用已购买缓存中的 UUID 调用 check，不查询商店；没有已购买缓存时才只读查询当前 App 的 Google SUBS / Apple 有效订阅，排除待付款及已过期订单，按购买时间选择最新一笔取得原 UUID，只查这一笔。仅 prepare 的临时身份不参与 check；false 是正常结果，不触发退避重试。平台交易校验、归属校验、购买成功后的 report、成功弹窗 OK、强制登录及 claim 退避重试保持原链路。
-- 商品展示缓存为 v3，按账号、平台和环境隔离，仅存展示与选中套餐配置。last_account_uuid 仅保留本次响应的内存下单快照，不写商品磁盘缓存；重新进入或切换账号后使用新响应。report/claim 状态变化继续使快照失效并刷新商品。
+- 商品展示缓存为 v3，按账号、平台和环境隔离，仅存展示与选中套餐配置。last_account_uuid 和 has_subscription_order 仅保留本次响应的内存下单快照，不写商品磁盘缓存；重新进入或切换账号后使用新响应。report/claim 状态变化继续使快照失效并刷新商品。
 - 年付卡片展示完整年价除以 `billing_months` 的月均金额，底部按钮展示完整周期价格；币种及月额度相同才按月价乘 12 与年价计算 Save。实际扣款由商店确认。展示列表不查询平台，点击购买才查询匹配 store product/base plan/offer。
 - `report=completed` 后登录用户刷新 wallet，游客保留待绑定证明；accepted 提示确认中，rejected 提示失败。任一业务状态都结束 report，不再补报；claim 独立处理，完成后刷新 wallet，不重新触发 report。
 - 商品权益仍由服务端返回并按当前套餐展示；title 保持现有固定页面标题行为，价格及权益不补本地数据。`enhanced/locked/included`、图标映射和加载表现保持现有样式。未登录仍隐藏 Buy Gems 和购买历史入口。
 - 普通 Gems 使用 `wallet.balance_cent`，会员 Blue Gems 使用 `membership.blue_gems_cent`，互不替换；原 Gems 购买、签到、补报逻辑不变。
 - 签到确认弹窗通过全局 `checkVip(callback)` 区分会员：有效会员把原 `Get 100` 按钮替换为 `Cancel`（去掉宝石图标），点击只关闭弹窗；`Check in` 保持原来的第二行位置、样式和签到行为，不展示订阅入口；明确非会员（含过期会员）的未签到弹窗保留 `Get 100` / `Check in`。签到入口（登录后自动弹出与 Buy Gems 手动入口共用）先等待当前账号的游客 claim 本轮处理及其完成后的 wallet 刷新，再调用全局 checkVip；不能用登录后、绑定前返回的非会员缓存提前选定弹窗按钮。claim 仍 accepted、失败或等待超时，以及绑定后 wallet 刷新失败时，都按会员状态暂不可确认处理。会员信息暂不可用时保留普通签到和取消，不引导重复订阅。会员待领奖按钮也使用 `Check in` 文案，底层仍按任务状态调用原 report/claim；已领取的禁用状态和奖励展示不变。登录后自动签到和 Buy Gems 签到入口共用此处理。
-- 本地 mock 返回 `{data: {list: [], last_account_uuid: ""}}`，不伪造商品、标题、价格和权益。
+- 本地 mock 返回 `{data: {list: [], last_account_uuid: "", has_subscription_order: false}}`，不伪造商品、标题、价格和权益。
 - 仅 Debug 包在 Subscription 购买按钮上方原有间距内显示 `debug 订单 id：…`。读取当前会话最近一次主动购买回调的 `transactionId`（Google 商店订单号／Apple 交易 ID），取得前显示 `暂无`；不使用本地 request_id、report_id、商品 ID 或 purchase_token 代替。新购买及切换账号清空显示，旧订单的后台补报不覆盖新购买。只观察现有购买状态，不增加网络或商店查询，Profile/Release 不显示该行且保留原布局。
 
 

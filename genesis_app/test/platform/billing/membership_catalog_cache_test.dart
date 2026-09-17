@@ -20,6 +20,7 @@ void main() {
         MembershipProductList(
           products: [product],
           lastAccountUuid: '4b74ec68-7abc-4cce-a223-e997e31dc811',
+          hasSubscriptionOrder: true,
         ),
       );
       final loaded = await MembershipCatalogCache(
@@ -28,9 +29,11 @@ void main() {
 
       expect(loaded!.products.single.toJson(), product.toJson());
       expect(loaded.lastAccountUuid, isNull);
+      expect(loaded.hasSubscriptionOrder, isFalse);
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString(prefs.getKeys().single)!;
       expect(raw, isNot(contains('account_uuid')));
+      expect(raw, isNot(contains('has_subscription_order')));
     },
   );
 

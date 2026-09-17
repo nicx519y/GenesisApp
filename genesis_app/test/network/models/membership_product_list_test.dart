@@ -57,6 +57,31 @@ void main() {
       );
     }
   });
+  test('subscription order flag is top-level and is not cached', () {
+    for (final flag in [true, false, null]) {
+      final parsed = MembershipProductList.fromJson({
+        'list': [product],
+        'has_subscription_order': flag,
+      });
+      expect(parsed.hasSubscriptionOrder, flag == true);
+      expect(parsed.toJson().containsKey('has_subscription_order'), isFalse);
+    }
+    expect(
+      MembershipProductList.fromJson({
+        'list': [product],
+      }).hasSubscriptionOrder,
+      isFalse,
+    );
+    for (final invalid in ['true', 1, [], {}]) {
+      expect(
+        () => MembershipProductList.fromJson({
+          'list': [product],
+          'has_subscription_order': invalid,
+        }),
+        throwsFormatException,
+      );
+    }
+  });
   test('removed product fields have no effect and are never serialized', () {
     final parsed = MembershipProductList.fromJson({
       'list': [

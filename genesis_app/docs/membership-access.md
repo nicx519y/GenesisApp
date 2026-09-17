@@ -35,6 +35,7 @@ services.membership.checkVip((isVip) {
 
 ### 订阅购买入口
 
+- 未登录用户点击购买时，当前商品响应的 `has_subscription_order=true` 则弹登录窗并结束本次点击，不调用 prepare、商店购买或 report；登录后不自动续购。已登录用户继续原流程。此字段与 `last_account_uuid` 平级，只使用本次接口响应，不写入商品展示磁盘缓存。
 - 点击月会员时使用全局 `checkVip` 的缓存/在途钱包请求确认状态；只有当前账号 `membership_status=1`、`expires_at` 未过期且 `plan_code=pro_yearly` 才拦截，沿用不能降级的 Toast。年会员购买不读取会员状态，其余状态不作资格拦截，交给平台回调。不会每次点击强制刷新 wallet。
 - 页面打开时的展示刷新及 report/claim 成功后的钱包刷新保持原有流程。同套餐有效会员仅在 `auto_renew=true` 时显示 `Subscribed`；`auto_renew=false` 时恢复 `Monthly: 价格`／`Yearly: 价格`。该字段只影响按钮文案，不作为购买拦截条件，也不改变尚未到期的会员权益。
 - 全屏购买页和购买 sheet 在选中 Subscription 时，每次 App `resumed` 都调用 `membership.refresh()` 请求最新 wallet，不受全局 30 秒回前台缓存限制；复用正在进行的钱包请求。刷新后更新按钮，失败保留仍有效的旧展示，下次回前台继续刷新。未登录继续跳过需要登录态的钱包接口，月会员点击复用全局会员查询。
@@ -45,7 +46,7 @@ services.membership.checkVip((isVip) {
 - 启动身份及必要的未绑定支付登录检查结束后，后台请求 `/api/v1/membership/products`，与 personalization 请求并行，不阻塞首页或填表。填表开关关闭时也预加载，供 Home 等订阅入口复用。
 - 所有订阅入口共用 `MembershipCatalog`：每次打开订阅全屏页或 sheet 都重新请求商品列表，不受 1 分钟缓存限制；已有缓存／预加载结果仅用于先展示。进入时发起的新请求也更新下单凭据，购买点击等待这次请求，不使用旧缓存直接下单。仅后台预加载继续复用进行中的请求或同一账号下 1 分钟内成功取得的结果。
 - 购买 report 完成或 claim 状态变化后，先使旧下单凭据失效；仍打开的订阅页面立即静默重新请求商品列表，更新展示与下单凭据。购买成功后原有关闭页面／sheet 的交互保持不变，下次进入仍重新请求。
-- 登录、退出、换号以及 report／claim 状态变化使下单缓存失效；旧请求不能覆盖新结果。列表顶层 `last_account_uuid` 只保留在内存中，不写入商品展示缓存。
+- 登录、退出、换号以及 report／claim 状态变化使下单缓存失效；旧请求不能覆盖新结果。列表顶层 `last_account_uuid`、`has_subscription_order` 只保留在内存中，不写入商品展示缓存。
 - 商品预加载失败只记录诊断，不弹 Toast，不改变 Continue 的会员判断，也不提前调用平台购买或 report。
 
 每次进入刷新改动的本地验证命令（2026-09-16，95 项相关测试、4 项 Home 入口测试及静态检查通过，未重新安装真机验证）：
