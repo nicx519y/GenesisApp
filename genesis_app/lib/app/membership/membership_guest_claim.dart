@@ -42,14 +42,18 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
   Future<MembershipPurchaseRequest> _guestPurchaseRequest(
     MembershipPurchaseRecord purchase,
   ) async {
-    final request = purchase.request;
-    if (request.guest == null || provider != MembershipProvider.apple) {
-      return request;
+    final reported = _guestPurchaseRequests[purchase.requestId];
+    if (reported != null) return reported;
+    var request = purchase.request;
+    if (request.guest == null) return request;
+    if (provider == MembershipProvider.apple) {
+      final signed = await _signedGuestRequest(
+        MembershipClaimRequest.fromPurchase(request),
+      );
+      request = request.withSignedTransaction(signed.signedTransaction);
     }
-    final signed = await _signedGuestRequest(
-      MembershipClaimRequest.fromPurchase(request),
-    );
-    return request.withSignedTransaction(signed.signedTransaction);
+    if (!_disposed) _guestPurchaseRequests[purchase.requestId] = request;
+    return request;
   }
 
   Future<MembershipClaimRequest> _signedGuestRequest(
@@ -97,7 +101,9 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         p.paid &&
         p.hasReceipt;
     final saved = _records[claim.purchaseRequestId];
-    if (saved != null && matches(saved)) return saved;
+    if (claim.purchaseRequestId != null) {
+      return saved != null && matches(saved) ? saved : null;
+    }
     // Legacy claims may not yet have an associated request ID. Recover the
     // original persisted receipt, never invent a new idempotency key.
     for (final purchase in _records.values.toList().reversed) {
@@ -147,6 +153,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
   Future<void> _prepareGuestClaim(
     MembershipPurchaseRecord purchase, {
     String? purchaseTime,
+    bool fromStoreCallback = false,
   }) async {
     final guest = purchase.guest;
     if (_disposed || guest == null || !purchase.paid || !purchase.hasReceipt) {
@@ -159,14 +166,21 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
       return;
     }
     var previous = _guestClaims[guest.accountUuid];
-    if (previous?.recoveredProof != null &&
-        _checkoutWaits.containsKey(purchase.requestId)) {
+    if (previous != null &&
+        previous.hasPurchase &&
+        previous.purchaseRequestId != purchase.requestId) {
+      // A new paid callback selects its own order. Maintenance of an older
+      // receipt must never overwrite it, or move an already pinned claim.
+      if (!fromStoreCallback ||
+          previous.ownerUid != null && previous.status != 'completed') {
+        return;
+      }
       previous = null;
     }
     if (previous?.status == 'completed') {
       // A later explicit guest checkout may reuse the UUID retained for check.
       // Its new receipt needs a new claim; an old background callback does not.
-      if (!_checkoutWaits.containsKey(purchase.requestId)) return;
+      if (!fromStoreCallback) return;
       previous = null;
     }
     if (previous == null ||
@@ -285,6 +299,9 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
     _claimWalletRefreshSessions.remove(accountUuid);
     _signedTransactions.removeWhere(
       (key, _) => key.startsWith('$accountUuid:'),
+    );
+    _guestPurchaseRequests.removeWhere(
+      (_, request) => request.guest?.accountUuid == accountUuid,
     );
     await _refreshGuestLoginRequest();
   }

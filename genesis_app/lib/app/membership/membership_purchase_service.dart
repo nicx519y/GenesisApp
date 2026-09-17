@@ -136,6 +136,9 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   /// Checks a paid cached identity, or the latest owned store subscription.
   Future<void> checkGuestPurchasesOnHome() => _checkGuestPurchasesOnHome();
   final Map<String, String> _signedTransactions = {};
+  // Reuse the exact guest report body for claim after login, including Apple JWS.
+  // This stays in memory across login and is not a report retry queue.
+  final Map<String, MembershipPurchaseRequest> _guestPurchaseRequests = {};
   final ValueNotifier<String?> guestLoginRequestId = ValueNotifier(null);
   final Set<String> _presentedAttempts = {};
   final Map<String, MembershipGuestClaimRecord> _guestClaims = {};
@@ -932,7 +935,11 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       await _save(record);
     }
     try {
-      await _prepareGuestClaim(record, purchaseTime: purchase.purchaseTime);
+      await _prepareGuestClaim(
+        record,
+        purchaseTime: purchase.purchaseTime,
+        fromStoreCallback: true,
+      );
     } catch (error) {
       _scheduleGuestMaintenance();
       _log('guest proof persistence deferred', error);
@@ -1183,8 +1190,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     }
   }
 
-  void _log(String operation, Object error) =>
-      debugPrint('[Membership] $operation: ${error.runtimeType}');
+  void _log(String operation, Object error) => debugPrint(
+    '[Membership] $operation: ${error.runtimeType}'
+    '${error is BillingPlatformException ? '; code=${error.code}' : ''}',
+  );
 
   void resetForSession() {
     for (final entry in _checkoutWaits.entries) {
@@ -1247,6 +1256,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
 
   void dispose() {
     _signedTransactions.clear();
+    _guestPurchaseRequests.clear();
     if (_disposed) return;
     _endCheckoutWaits(MembershipCheckoutState.idle);
     _disposed = true;
