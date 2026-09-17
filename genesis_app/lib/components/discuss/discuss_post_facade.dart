@@ -46,7 +46,10 @@ Future<bool> showDiscussPostComposer({
   bool requireLogin = true,
   bool showImagePickerButton = false,
 }) async {
-  if (requireLogin && !await ensureGenesisLogin(context)) return false;
+  if (requireLogin &&
+      !await ensureGenesisLogin(context, source: LoginSource.discuss)) {
+    return false;
+  }
   if (!context.mounted) return false;
 
   final submitted = await showGenesisGeneralDialog<bool>(

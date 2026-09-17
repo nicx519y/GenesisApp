@@ -106,7 +106,7 @@ class _CreateOriginPageState extends State<CreateOriginPage> {
     OriginDraftRepository repository,
     CreateOriginDraft draft,
   ) async {
-    if (!await ensureGenesisLogin(context)) {
+    if (!await ensureGenesisLogin(context, source: LoginSource.createWorldo)) {
       return const OriginSubmitResult(message: '', showMessage: false);
     }
     if (!context.mounted) {

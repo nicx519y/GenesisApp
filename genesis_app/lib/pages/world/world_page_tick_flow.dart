@@ -10,7 +10,9 @@ extension _WorldPageTickFlow on _WorldPageState {
     }
     if (_worldActionRunning) return;
     if (action == WorldHeaderActionKind.request) {
-      if (!await ensureGenesisLogin(context)) return;
+      if (!await ensureGenesisLogin(context, source: LoginSource.worldDetail)) {
+        return;
+      }
       if (!mounted) return;
       final confirmed = await _confirmWorldRequest();
       if (!mounted || !confirmed) return;
@@ -306,7 +308,9 @@ extension _WorldPageTickFlow on _WorldPageState {
 
   Future<void> _showLaunchRoleSheet(WorldDetail world) async {
     if (_worldActionRunning) return;
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.worldDetail)) {
+      return;
+    }
     if (!mounted) return;
     final selection = await showOriginRoleLaunchSheet(
       context: context,
@@ -374,5 +378,6 @@ extension _WorldPageTickFlow on _WorldPageState {
     );
   }
 
-  Future<bool> _ensureProfileFillLogin() => ensureGenesisLogin(context);
+  Future<bool> _ensureProfileFillLogin() =>
+      ensureGenesisLogin(context, source: LoginSource.worldDetail);
 }

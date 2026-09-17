@@ -8,6 +8,7 @@ import '../../app/config/app_global_config.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../app/membership/membership_access_store.dart';
 import '../../app/onboarding/personalization_store.dart';
+import '../../app/telemetry/genesis_telemetry.dart';
 import '../../platform/auth/auth_session.dart';
 import '../../routers/app_router.dart';
 import '../auth/login_guard.dart';
@@ -235,7 +236,13 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                     if (login != null) {
                       await login(sheetContext, provider);
                     } else {
-                      await loginGenesisWithProvider(sheetContext, provider);
+                      await loginGenesisWithProvider(
+                        sheetContext,
+                        provider,
+                        source: _requiresSignIn.value
+                            ? LoginSource.membershipClaim
+                            : LoginSource.personalization,
+                      );
                     }
                     if (!mounted || !sheetContext.mounted) return null;
                     // Cancellation must not reuse the completed guest profile
@@ -257,7 +264,14 @@ class _PersonalizationGateState extends State<PersonalizationGate>
                   }
                 },
                 onSubmit: (profile) async {
-                  await store.submit(profile);
+                  await store.submit(
+                    profile,
+                    onSaveResult: (success) => GenesisTelemetry.collectLog(
+                      actionType: 'event',
+                      action: 'personalization_continue_click',
+                      object1: success ? 'success' : 'failed',
+                    ),
+                  );
                   if (!mounted ||
                       !sheetContext.mounted ||
                       !identical(store, widget.store)) {
@@ -359,6 +373,7 @@ class _PersonalizationGateState extends State<PersonalizationGate>
               ? await login(context)
               : await ensureGenesisLogin(
                   context,
+                  source: LoginSource.membershipClaim,
                   continueAfterLogin: true,
                   isDismissible: false,
                   linkPurchasedMembership: true,

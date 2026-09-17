@@ -114,7 +114,10 @@ class PersonalizationStore {
     }
   }
 
-  Future<void> submit(PersonalizationProfile profile) async {
+  Future<void> submit(
+    PersonalizationProfile profile, {
+    void Function(bool success)? onSaveResult,
+  }) async {
     final generation = _generation;
     final snapshot = state.value;
     bool current() => !_disposed && generation == _generation;
@@ -125,7 +128,16 @@ class PersonalizationStore {
     if (!current() || snapshot.uid != uid) {
       throw StateError('Personalization session changed');
     }
-    final saved = await save(profile).timeout(const Duration(seconds: 20));
+    final PersonalizationProfile saved;
+    try {
+      saved = await save(profile).timeout(const Duration(seconds: 20));
+    } catch (_) {
+      onSaveResult?.call(false);
+      rethrow;
+    }
+    // Record the save response before session/cache checks or navigation can
+    // fail independently. A timeout means the client did not confirm success.
+    onSaveResult?.call(saved.completed);
     final currentUid = await readLoginUid();
     if (!current() || uid != currentUid) {
       throw StateError('Personalization session changed');

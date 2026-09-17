@@ -678,6 +678,7 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
   int signOutCount = 0;
   int sessionCheckCount = 0;
   IdentityProvider? lastLoginProvider;
+  LoginSource? lastLoginSource;
 
   @override
   Future<bool> hasAuthenticatedBackendSession({
@@ -688,9 +689,13 @@ class _FakeBackendAuthCoordinator implements BackendAuthCoordinator {
   }
 
   @override
-  Future<User> loginWithIdentity(AuthSession session) async {
+  Future<User> loginWithIdentity(
+    AuthSession session, {
+    LoginSource source = LoginSource.unknown,
+  }) async {
     loginCount += 1;
     lastLoginProvider = session.provider;
+    lastLoginSource = source;
     final error = _loginError;
     if (error != null) throw error;
     final user =
@@ -21664,6 +21669,7 @@ void main() {
     expect(find.text('Your worlds, all in one place'), findsNothing);
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 0);
     expect(backendAuth.loginCount, 1);
+    expect(backendAuth.lastLoginSource, LoginSource.home);
     expect(backendAuth.lastLoginProvider, IdentityProvider.google);
     expect(find.text('Continue with Google'), findsNothing);
     expect(find.text('Daily Check-in'), findsOneWidget);
@@ -21717,6 +21723,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(backendAuth.loginCount, 1);
+    expect(backendAuth.lastLoginSource, LoginSource.me);
     expect(backendAuth.lastLoginProvider, IdentityProvider.google);
     expect(find.text('Continue with Google'), findsNothing);
     expect(find.text('Daily Check-in'), findsOneWidget);
@@ -21939,6 +21946,7 @@ void main() {
     await tester.tap(find.text('Continue with Google').last);
     await tester.pumpAndSettle();
     expect(backendAuth.loginCount, 1);
+    expect(backendAuth.lastLoginSource, LoginSource.messages);
     expect(await sessionStore.readUid(), 'backend_uid');
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 4);
     expect(find.byType(UserProfileContent), findsOneWidget);
@@ -22076,10 +22084,16 @@ void main() {
     final createEntry = find.byKey(const ValueKey('bottom-nav-Create'));
     await tester.tap(createEntry);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Continue with Google'));
+    await tester.tap(
+      find.descendant(
+        of: find.byType(LoginSheet),
+        matching: find.text('Continue with Google'),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(backendAuth.loginCount, 1);
+    expect(backendAuth.lastLoginSource, LoginSource.createWorldo);
     expect(find.byType(LoginSheet), findsNothing);
     expect(find.byType(CreateOriginPage), findsNothing);
     expect(tester.widget<BottomTabs>(find.byType(BottomTabs)).currentIndex, 0);

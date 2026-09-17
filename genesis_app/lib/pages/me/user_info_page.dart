@@ -299,7 +299,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       showGenesisToast(context, 'Block failed', brightness: Brightness.dark);
       return;
     }
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.profile)) return;
     if (!mounted) return;
     final confirmed = await _confirmBlockUser();
     if (!confirmed || !mounted) return;
@@ -355,7 +355,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
       showGenesisToast(context, 'Unblock failed', brightness: Brightness.dark);
       return;
     }
-    if (!await ensureGenesisLogin(context)) return;
+    if (!await ensureGenesisLogin(context, source: LoginSource.profile)) return;
     if (!mounted) return;
     setState(() => _isBlockingUser = true);
     try {

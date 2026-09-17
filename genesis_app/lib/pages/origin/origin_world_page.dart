@@ -915,7 +915,8 @@ class _OriginWorldPageState extends State<OriginWorldPage> {
     );
   }
 
-  Future<bool> _ensureProfileFillLogin() => ensureGenesisLogin(context);
+  Future<bool> _ensureProfileFillLogin() =>
+      ensureGenesisLogin(context, source: LoginSource.worldoDetail);
 
   @override
   Widget build(BuildContext context) {

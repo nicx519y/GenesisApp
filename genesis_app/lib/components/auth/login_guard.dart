@@ -3,8 +3,11 @@ import 'package:flutter/material.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/gems/daily_check_in_coordinator.dart';
 import '../../platform/auth/auth_session.dart';
+import '../../platform/auth/login_source.dart';
 import '../../platform/session/user_session_store.dart';
 import '../login_sheet.dart';
+
+export '../../platform/auth/login_source.dart';
 
 /// Whether the caller may continue its current operation.
 ///
@@ -15,6 +18,7 @@ Future<bool> ensureGenesisLogin(
   bool continueAfterLogin = false,
   bool isDismissible = true,
   bool linkPurchasedMembership = false,
+  LoginSource source = LoginSource.unknown,
 }) async {
   if (await hasGenesisLoginSession(context)) return true;
   if (!context.mounted) return false;
@@ -25,7 +29,7 @@ Future<bool> ensureGenesisLogin(
     isDismissible: isDismissible,
     linkPurchasedMembership: linkPurchasedMembership,
     onLogin: (provider) {
-      return loginGenesisWithProvider(loginContext, provider);
+      return loginGenesisWithProvider(loginContext, provider, source: source);
     },
   );
   if (!loginContext.mounted || !loggedIn) return false;
@@ -43,11 +47,15 @@ Future<bool> hasGenesisLoginSession(BuildContext context) async {
 /// Shared authentication commit for LoginSheet and personalization's login step.
 Future<bool> loginGenesisWithProvider(
   BuildContext context,
-  IdentityProvider provider,
-) async {
+  IdentityProvider provider, {
+  LoginSource source = LoginSource.unknown,
+}) async {
   final services = AppServicesScope.read(context);
   final session = await services.identityAuth.signIn(provider);
-  final user = await services.backendAuth.loginWithIdentity(session);
+  final user = await services.backendAuth.loginWithIdentity(
+    session,
+    source: source,
+  );
   if (user.uid.trim().isNotEmpty) {
     await services.sessionStore.saveUid(user.uid);
   }
