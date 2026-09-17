@@ -21,6 +21,15 @@ import '../app/membership/membership_purchase_service_test.dart' as service;
 import '../support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 
+class _PurchaseDialogObserver extends NavigatorObserver {
+  int pushes = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route is RawDialogRoute<bool>) pushes++;
+  }
+}
+
 Widget subscription(
   service.Harness h, {
   bool closeOnSuccess = false,
@@ -71,9 +80,11 @@ void main() {
             ..uid = null
             ..hasSubscriptionOrder = true;
           MembershipPurchasePresentation? presentation;
+          final observer = _PurchaseDialogObserver();
           bool? result;
           await tester.pumpWidget(
             MaterialApp(
+              navigatorObservers: [observer],
               home: Scaffold(
                 body: Builder(
                   builder: (context) {
@@ -102,6 +113,12 @@ void main() {
           try {
             expect(find.byType(LoginSheet), findsNothing);
             await tester.tap(find.text('Buy'));
+            expect(observer.pushes, 0);
+            for (var frame = 0; frame < 25; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expect(find.text('Purchasing Premium'), findsNothing);
+              expect(observer.pushes, 0);
+            }
             await tester.pumpAndSettle();
             expect(find.byType(LoginSheet), findsOneWidget);
             expect(find.text('Purchasing Premium'), findsNothing);
@@ -129,6 +146,89 @@ void main() {
         },
       );
     }
+  }
+
+  for (final outcome in ['login', 'purchase', 'leave', 'timeout']) {
+    testWidgets('pending order check has no purchase dialog: $outcome', (
+      tester,
+    ) async {
+      final products = Completer<MembershipProductList>();
+      final h = service.Harness(checkoutProducts: () => products.future)
+        ..uid = null;
+      final observer = _PurchaseDialogObserver();
+      MembershipPurchasePresentation? presentation;
+      bool? result;
+      var loginCalls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorObservers: [observer],
+          home: Scaffold(
+            body: Builder(
+              builder: (context) {
+                presentation ??= MembershipPurchasePresentation(
+                  context: context,
+                  service: h.service,
+                  requestLogin: (_) async {
+                    loginCalls++;
+                    return false;
+                  },
+                );
+                return TextButton(
+                  onPressed: () async =>
+                      result = await presentation!.purchase(h.product()),
+                  child: const Text('Buy'),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      try {
+        await tester.tap(find.text('Buy'));
+        await tester.pump(const Duration(seconds: 1));
+        expect(observer.pushes, 0);
+        expect(find.text('Purchasing Premium'), findsNothing);
+        expect(h.guestPrepares, 0);
+        expect(h.platform.launches, 0);
+        if (outcome == 'leave') {
+          presentation!.dispose();
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pump();
+        } else if (outcome == 'timeout') {
+          await tester.pump(const Duration(seconds: 90));
+        }
+        products.complete(
+          MembershipProductList(
+            products: [h.product()],
+            hasSubscriptionOrder: outcome == 'login',
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 250));
+        if (outcome == 'purchase') {
+          expect(observer.pushes, 1);
+          expect(find.text('Purchasing Premium'), findsOneWidget);
+          expect(h.platform.launches, 1);
+          await h.service.interceptPurchase(
+            h.purchase(status: BillingPurchaseStatus.canceled),
+          );
+        } else {
+          expect(observer.pushes, 0);
+          expect(h.platform.launches, 0);
+          expect(h.guestPrepares, 0);
+        }
+        await tester.pumpAndSettle();
+        expect(result, isFalse);
+        expect(loginCalls, outcome == 'login' ? 1 : 0);
+        expect(h.service.isBusy, isFalse);
+        expect(h.reports, isEmpty);
+        await tester.pump(const Duration(seconds: 3));
+      } finally {
+        presentation?.dispose();
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+        h.service.dispose();
+      }
+    });
   }
 
   for (final provider in MembershipProvider.values) {

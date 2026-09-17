@@ -54,6 +54,8 @@ class MembershipPurchasePresentation {
   RawDialogRoute<bool>? _route;
   NavigatorState? _navigator;
   StreamSubscription<MembershipCheckoutEvent>? _subscription;
+  Completer<bool>? _dialogResult;
+  String? _attemptId;
   bool _disposed = false;
   bool _resolved = false;
   bool _closing = false;
@@ -70,6 +72,7 @@ class MembershipPurchasePresentation {
       return false;
     }
     final attemptId = tracking?.id ?? newBillingAttemptId();
+    _attemptId = attemptId;
     service.attachCheckoutPresentation(attemptId);
     final state = ValueNotifier(
       GemBillingPurchaseDialogState.processing(attemptId: attemptId),
@@ -89,13 +92,29 @@ class MembershipPurchasePresentation {
       ),
     );
     _route = route;
+    final result = Completer<bool>();
+    _dialogResult = result;
+    var dialogShown = false;
+    void showPurchaseDialog() {
+      if (dialogShown || _disposed || result.isCompleted) return;
+      dialogShown = true;
+      unawaited(
+        navigator.push(route).then((confirmed) {
+          if (!result.isCompleted) result.complete(confirmed == true);
+        }),
+      );
+    }
+
     var loginRequired = false;
     _subscription = service.checkoutEvents.listen((event) {
       if (_disposed || _resolved || event.attemptId != attemptId) return;
       switch (event.state) {
+        case MembershipCheckoutState.checking:
+          return;
         case MembershipCheckoutState.preparing:
         case MembershipCheckoutState.store:
         case MembershipCheckoutState.reporting:
+          showPurchaseDialog();
           return;
         case MembershipCheckoutState.completed:
           _resolved = true;
@@ -103,6 +122,7 @@ class MembershipPurchasePresentation {
             attemptId: attemptId,
             grantedText: '',
           );
+          showPurchaseDialog();
           return;
         case MembershipCheckoutState.idle:
           _resolved = true;
@@ -156,7 +176,6 @@ class MembershipPurchasePresentation {
           }
       }
     }, onDone: () => _close(false));
-    final result = navigator.push(route);
     unawaited(
       service
           .purchase(
@@ -184,12 +203,11 @@ class MembershipPurchasePresentation {
           }),
     );
     try {
-      final confirmed = await result == true;
+      final confirmed = await result.future;
       if (confirmed) await service.confirmGuestPurchase(attemptId);
       if (loginRequired) {
-        // Finish dismissing the purchase dialog before presenting login. This
-        // click ends here; login never automatically starts another purchase.
-        await route.completed;
+        // The order check finishes before any purchase dialog is pushed. Login
+        // ends this click and never automatically starts another purchase.
         if (!_disposed && context.mounted) {
           final login = requestLogin;
           if (login != null) {
@@ -208,9 +226,17 @@ class MembershipPurchasePresentation {
       unawaited(_subscription?.cancel());
       _subscription = null;
       // The route still renders during its dismissal transition.
-      await route.completed;
+      if (dialogShown) {
+        await route.completed;
+      } else {
+        route.dispose();
+      }
       state.dispose();
-      if (identical(_route, route)) _route = null;
+      if (identical(_route, route)) {
+        _route = null;
+        _dialogResult = null;
+        _attemptId = null;
+      }
       await service.detachCheckoutPresentation(attemptId);
     }
   }
@@ -227,14 +253,16 @@ class MembershipPurchasePresentation {
   void _close(bool confirmed) {
     final route = _route;
     final navigator = _navigator;
-    if (_closing ||
-        route == null ||
-        navigator == null ||
-        !navigator.mounted ||
-        !route.isActive) {
+    if (_closing || route == null || navigator == null) {
       return;
     }
     _closing = true;
+    if (route.navigator == null) {
+      final result = _dialogResult;
+      if (result != null && !result.isCompleted) result.complete(confirmed);
+      return;
+    }
+    if (!navigator.mounted || !route.isActive) return;
     if (route.isCurrent) {
       navigator.pop(confirmed);
     } else {
@@ -244,6 +272,8 @@ class MembershipPurchasePresentation {
 
   void dispose() {
     _disposed = true;
+    final attemptId = _attemptId;
+    if (attemptId != null) service.cancelCheckoutBeforeStore(attemptId);
     unawaited(_subscription?.cancel());
     // Parent disposal can run while the Navigator is locked for a frame.
     WidgetsBinding.instance.addPostFrameCallback((_) => _close(false));

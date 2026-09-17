@@ -10,6 +10,30 @@ import 'membership_purchase_service_test.dart' as support;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'existing guest order requires login without initializing billing',
+    () async {
+      var listenerStarts = 0;
+      final h =
+          support.Harness(
+              ensureStoreListening: () async {
+                listenerStarts++;
+                throw StateError('billing unavailable');
+              },
+            )
+            ..uid = null
+            ..hasSubscriptionOrder = true;
+      addTearDown(h.service.dispose);
+      h.store.fail = true;
+      await h.service.purchase(h.product());
+      expect(h.service.state.value, MembershipCheckoutState.loginRequired);
+      expect(listenerStarts, 0);
+      expect(h.platform.launches, 0);
+      expect(h.guestPrepares, 0);
+      expect(h.reports, isEmpty);
+    },
+  );
+
   for (final provider in MembershipProvider.values) {
     for (final yearly in [false, true]) {
       for (final signedIn in [false, true]) {

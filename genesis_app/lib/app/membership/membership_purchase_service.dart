@@ -42,6 +42,7 @@ enum MembershipCheckoutState {
   failed,
   deferred,
   loginRequired,
+  checking,
 }
 
 class MembershipCheckoutEvent {
@@ -227,6 +228,15 @@ class MembershipPurchaseService with WidgetsBindingObserver {
 
   void attachCheckoutPresentation(String requestId) {
     _presentedAttempts.add(requestId);
+  }
+
+  void cancelCheckoutBeforeStore(String requestId) {
+    final wait = _checkoutWaits[requestId];
+    if (wait == null || wait.launchRequested || wait.storeCallbackReceived) {
+      return;
+    }
+    _release(requestId);
+    _setState(MembershipCheckoutState.idle, attemptId: requestId);
   }
 
   Future<void> detachCheckoutPresentation(String requestId) async {
@@ -457,21 +467,12 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       elapsed < attemptTimeout ? attemptTimeout - elapsed : Duration.zero,
       onTimeout,
     );
-    _setState(MembershipCheckoutState.preparing, attemptId: id);
+    _setState(MembershipCheckoutState.checking, attemptId: id);
     Future<void> runCheckout() async {
       try {
         if (product.provider != provider) {
           throw StateError('membership_provider_mismatch');
         }
-        // Subscriptions launch through the platform directly, while their
-        // results arrive through the shared billing service. Never launch
-        // without first starting that listener, including after replacement.
-        stage = 'start_store_listener';
-        await ensureStoreListening?.call();
-        if (!canContinue()) return;
-        stage = 'load_local_orders';
-        await _load();
-        if (!canContinue()) return;
         stage = 'read_session';
         final uid = await readLoginUid();
         if (!canContinue()) return;
@@ -512,6 +513,15 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           throw const MembershipPurchaseBlocked('eligibility_unavailable');
         }
         product = current;
+        _setState(MembershipCheckoutState.preparing, attemptId: id);
+        // Login-only clicks never depend on billing initialization. Purchases
+        // still start the shared listener before launching the platform.
+        stage = 'start_store_listener';
+        await ensureStoreListening?.call();
+        if (!canContinue()) return;
+        stage = 'load_local_orders';
+        await _load();
+        if (!canContinue()) return;
         late final Object nativeProduct;
         late final MembershipGuestIdentity? guest;
         late final String uuid;
@@ -1269,7 +1279,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
   }) {
     if (_disposed) return;
     if (kDebugMode) {
-      if (value == MembershipCheckoutState.preparing) {
+      if (value == MembershipCheckoutState.checking) {
         _debugAttemptId = attemptId;
         _debugStoreOrderId.value = null;
       }
@@ -1280,7 +1290,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
       }
     }
-    if (value != MembershipCheckoutState.preparing &&
+    if (value != MembershipCheckoutState.checking &&
+        value != MembershipCheckoutState.preparing &&
         value != MembershipCheckoutState.store &&
         value != MembershipCheckoutState.reporting) {
       _checkoutWaits.remove(attemptId)?.finish();
