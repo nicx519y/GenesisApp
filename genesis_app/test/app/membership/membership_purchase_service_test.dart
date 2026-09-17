@@ -2,6 +2,7 @@ import 'package:genesis_flutter_android/app/membership/subscription_analytics.da
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
@@ -154,16 +155,29 @@ class Checkout implements MembershipCheckoutPlatform {
   bool autoHandoff = true;
   bool Function()? handoff;
   String? checkoutAttemptId;
+  int? priceAmountMicros = 9990000;
+  String priceCurrencyCode = 'USD';
   @override
-  Future<Object> prepare(MembershipProduct product) async {
+  Future<PreparedMembershipCheckout> prepare(MembershipProduct product) async {
     this.product = product;
     await onPrepare?.call();
-    return product;
+    return PreparedMembershipCheckout(
+      nativeProduct: ProductDetails(
+        id: product.storeProductId,
+        title: product.planCode,
+        description: product.planCode,
+        price: r'$9.99',
+        rawPrice: 9.99,
+        currencyCode: 'USD',
+      ),
+      priceAmountMicros: priceAmountMicros,
+      priceCurrencyCode: priceCurrencyCode,
+    );
   }
 
   @override
   Future<bool> launch(
-    Object product,
+    PreparedMembershipCheckout product,
     String accountUuid, {
     bool Function()? onStoreHandoff,
     String? checkoutAttemptId,
@@ -380,11 +394,22 @@ void main() {
 
   for (final provider in MembershipProvider.values) {
     test(
-      '$provider Firebase purchase records completed once and deduplicates callbacks',
+      '$provider prewarmed checkout retains Firebase price and deduplicates callbacks',
       () async {
         final client = enableFirebaseAnalytics();
-        final h = Harness(provider: provider);
-        await h.service.purchase(h.product());
+        final product = membershipProduct(provider: provider);
+        final catalog = MembershipProductList(products: [product]);
+        final h = Harness(
+          provider: provider,
+          checkoutProducts: () async => catalog,
+        );
+        h.platform.priceAmountMicros = 89990000;
+        h.platform.priceCurrencyCode = 'EUR';
+        final preparation = h.service.prepareCheckout(product)!;
+        addTearDown(preparation.invalidate);
+        await _settleAnalytics();
+        await h.service.purchase(product, preparation: preparation);
+        expect(h.reports, isEmpty);
         await h.service.interceptPurchase(h.purchase());
         await h.service.recover();
         await h.service.interceptPurchase(h.purchase());
@@ -395,6 +420,8 @@ void main() {
           'subscription_first',
         ]);
         expect(h.reports, hasLength(1));
+        expect(client.events.first.parameters['value'], 89.99);
+        expect(client.events.first.parameters['currency'], 'EUR');
         expect(h.service.state.value, MembershipCheckoutState.completed);
       },
     );
@@ -546,11 +573,15 @@ void main() {
         'provider': 'google',
         'product_id': google.product().storeProductId,
         'device_id': 'test-device-id',
+        'value': 9.99,
+        'currency': 'USD',
       });
       expect(analytics.events.last.parameters, <String, Object>{
         'provider': 'apple',
         'product_id': apple.product(yearly: true).storeProductId,
         'device_id': 'test-device-id',
+        'value': 9.99,
+        'currency': 'USD',
       });
     },
   );

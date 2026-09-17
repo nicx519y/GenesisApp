@@ -391,10 +391,20 @@ class GooglePlayBillingService implements BillingService {
           return;
         }
 
+        final storeProduct = queryResult.product!;
+        final storeCurrency = storeProduct.priceCurrencyCode.trim();
+        if (storeProduct.priceAmountMicros >= 0 && storeCurrency.isNotEmpty) {
+          attempt = attempt.copyWithStorePrice(
+            priceAmountMicros: storeProduct.priceAmountMicros,
+            priceCurrencyCode: storeCurrency,
+          );
+          _attemptByStoreProductId[storeProductId] = attempt;
+        }
+
         try {
           launchRequested = true;
           final accepted = await _platform.buyConsumable(
-            product: queryResult.product!,
+            product: storeProduct,
             billingAccountId: billingAccountId,
             onStoreHandoff: onStoreHandoff,
           );

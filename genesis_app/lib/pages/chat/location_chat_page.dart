@@ -575,6 +575,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   List<WorldChatroomEntity>? _lastActiveOccupants;
   List<WorldChatroomEntity>? _exitRetainedOccupants;
   bool _sending = false;
+  String? _preAckWaitingClientMsgId;
+  String? _preAckWaitingMessageLocalId;
+  bool _preAckWaitingAccepted = false;
+  int _waitingPositionResetRevision = 0;
   String? _ackLoadingClientMsgId;
   String? _ackLoadingMessageLocalId;
   Timer? _ackLoadingTimeout;
@@ -1105,7 +1109,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               sending: false,
               onSend: () {
                 _composerFocusNode.unfocus();
-                return _send();
+                return _send(positionWaitingImmediately: true);
               },
               style: style,
               keepShortcutsVisible:
@@ -1270,6 +1274,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               messages: displayMessages,
               loadingAfterMessageLocalId: loadingAfterMessageLocalId,
               loadingIdentity: _ackLoadingClientMsgId,
+              preAckWaitingAfterMessageLocalId: _preAckWaitingMessageLocalId,
+              preAckWaitingIdentity: _preAckWaitingClientMsgId,
+              waitingPositionResetRevision: _waitingPositionResetRevision,
               goOnAwaitingContentIdentity: controls.goOnAwaitingContentIdentity,
               replyWaitingPositioningEnabled: locationChatBubbleLayoutSettings
                   .value
@@ -1890,34 +1897,37 @@ class _LocationChatKeyboardInsetLayoutState
         : 0.0;
     return Padding(
       padding: EdgeInsets.only(bottom: liveKeyboardInset),
-      child: Column(
-        children: [
-          widget.header,
-          Expanded(
-            child: Stack(
-              children: [
-                Positioned.fill(
-                  child: ClipRect(
-                    key: const ValueKey<String>(
-                      'location-chat-message-viewport-clip',
+      child: LocationChatKeyboardInsetScope(
+        effectiveInset: liveKeyboardInset,
+        child: Column(
+          children: [
+            widget.header,
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: ClipRect(
+                      key: const ValueKey<String>(
+                        'location-chat-message-viewport-clip',
+                      ),
+                      child: RepaintBoundary(child: widget.messageViewport),
                     ),
-                    child: RepaintBoundary(child: widget.messageViewport),
                   ),
-                ),
-                if (widget.composerTopOverlay != null)
-                  Positioned(
-                    key: const ValueKey<String>(
-                      'location-chat-composer-top-overlay',
+                  if (widget.composerTopOverlay != null)
+                    Positioned(
+                      key: const ValueKey<String>(
+                        'location-chat-composer-top-overlay',
+                      ),
+                      left: 0,
+                      bottom: 0,
+                      child: widget.composerTopOverlay!,
                     ),
-                    left: 0,
-                    bottom: 0,
-                    child: widget.composerTopOverlay!,
-                  ),
-              ],
+                ],
+              ),
             ),
-          ),
-          if (widget.composer != null) widget.composer!,
-        ],
+            if (widget.composer != null) widget.composer!,
+          ],
+        ),
       ),
     );
   }

@@ -111,3 +111,52 @@ MembershipStorePrice? matchMembershipStorePrice(
   }
   return null;
 }
+
+/// Returns the first billing phase selected for this checkout. Unlike the
+/// display price, a free trial is intentionally represented as zero.
+MembershipStorePrice? matchMembershipCheckoutPrice(
+  MembershipProduct config,
+  ProductDetails product,
+) {
+  if (product.id != config.storeProductId) return null;
+  if (config.provider == MembershipProvider.google) {
+    if (product is! GooglePlayProductDetails) return null;
+    final index = product.subscriptionIndex;
+    final offers = product.productDetails.subscriptionOfferDetails;
+    if (index == null ||
+        offers == null ||
+        index < 0 ||
+        index >= offers.length) {
+      return null;
+    }
+    final offer = offers[index];
+    if (offer.basePlanId != config.basePlanId ||
+        (offer.offerId ?? '') != config.offerId ||
+        offer.installmentPlanDetails != null ||
+        offer.pricingPhases.isEmpty) {
+      return null;
+    }
+    final phase = offer.pricingPhases.first;
+    if (phase.priceAmountMicros < 0 || phase.priceCurrencyCode.isEmpty) {
+      return null;
+    }
+    return MembershipStorePrice(
+      formattedPrice: phase.formattedPrice,
+      amountMicros: phase.priceAmountMicros,
+      currencyCode: phase.priceCurrencyCode,
+      currencySymbol: product.currencySymbol,
+      hasIntroductoryPrice: offer.pricingPhases.length > 1,
+    );
+  }
+  if (product is GooglePlayProductDetails ||
+      product.rawPrice < 0 ||
+      product.currencyCode.isEmpty) {
+    return null;
+  }
+  return MembershipStorePrice(
+    formattedPrice: product.price,
+    amountMicros: (product.rawPrice * 1000000).round(),
+    currencyCode: product.currencyCode,
+    currencySymbol: product.currencySymbol,
+  );
+}

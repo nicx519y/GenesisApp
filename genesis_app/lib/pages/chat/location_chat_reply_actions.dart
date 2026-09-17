@@ -45,6 +45,7 @@ class LocationChatReplyActions extends StatefulWidget {
     this.editPromptExpanded,
     this.onEditPromptExpandedChanged,
     this.loadingIndicator,
+    this.reservedLoadingIndicator,
     this.actionsExpanded = true,
     this.actionToolbarKey,
     this.paginationKey,
@@ -67,6 +68,9 @@ class LocationChatReplyActions extends StatefulWidget {
 
   /// Replaces the action buttons while a sent message awaits reply content.
   final Widget? loadingIndicator;
+
+  /// Keeps the future loading slot laid out without changing toolbar animation.
+  final Widget? reservedLoadingIndicator;
   final bool actionsExpanded;
   final Key? actionToolbarKey;
   final Key? paginationKey;
@@ -146,14 +150,16 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
 
   @override
   Widget build(BuildContext context) {
+    final hasWaitingIndicator =
+        widget.loadingIndicator != null ||
+        widget.reservedLoadingIndicator != null;
     final paginationVisible =
-        widget.loadingIndicator == null &&
-        widget.cardCount > 1 &&
-        !widget.cardsConfirmed;
+        !hasWaitingIndicator && widget.cardCount > 1 && !widget.cardsConfirmed;
     final prompt = _visibleQuotaPrompt();
     final actionButtons = <Widget>[
-      if (widget.loadingIndicator case final indicator?) indicator,
-      if (widget.loadingIndicator == null) ...[
+      if (widget.reservedLoadingIndicator == null)
+        if (widget.loadingIndicator case final indicator?) indicator,
+      if (!hasWaitingIndicator) ...[
         if (_regenerate.state != LocationChatReplyActionState.none)
           LocationChatRegenerateButton(
             key: const ValueKey('location-chat-regenerate'),
@@ -208,13 +214,14 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
           animateChanges: widget.loadingIndicator == null,
           style: style,
           actions: actionButtons,
+          reservedIndicator: widget.reservedLoadingIndicator,
         ),
         LocationChatInspirationReplies(
           key: widget.inspirationListKey,
           identity: widget.inspirationIdentity,
           expanded:
               widget.actionsExpanded &&
-              widget.loadingIndicator == null &&
+              !hasWaitingIndicator &&
               _inspiration.state != LocationChatReplyActionState.none &&
               _inspirationExpanded,
           replies: _inspiration.messages,
@@ -572,12 +579,14 @@ class _LocationChatReplyActionToolbar extends StatefulWidget {
     required this.animateChanges,
     required this.style,
     required this.actions,
+    this.reservedIndicator,
   });
 
   final bool expanded;
   final bool animateChanges;
   final ChatUiStyleConfig style;
   final List<Widget> actions;
+  final Widget? reservedIndicator;
 
   @override
   State<_LocationChatReplyActionToolbar> createState() =>
@@ -647,55 +656,77 @@ class _LocationChatReplyActionToolbarState
   }
 
   @override
-  Widget build(BuildContext context) => _displayedActions.isEmpty
-      ? const SizedBox.shrink()
-      : AnimatedBuilder(
-          animation: _expansionController,
-          child: IgnorePointer(
-            ignoring: !_wantsOpen,
-            child: ExcludeSemantics(
-              excluding: !_wantsOpen,
-              child: Padding(
-                padding: EdgeInsets.only(
-                  left: widget.style.avatarSize + widget.style.avatarBubbleGap,
-                ),
-                child: SizedBox(
-                  height: LocationChatReplyActions.buttonSize,
-                  child: Row(
-                    key: const ValueKey(
-                      'location-chat-reply-actions-four-icons',
-                    ),
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.start,
-                    children: [
-                      for (
-                        var index = 0;
-                        index < _displayedActions.length;
-                        index++
-                      ) ...[
-                        if (index > 0)
-                          const SizedBox(
-                            width:
-                                LocationChatReplyActions.centerSpacing -
-                                LocationChatReplyActions.buttonSize,
-                          ),
-                        _displayedActions[index],
+  Widget build(BuildContext context) {
+    final toolbar = _displayedActions.isEmpty
+        ? const SizedBox.shrink()
+        : AnimatedBuilder(
+            animation: _expansionController,
+            child: IgnorePointer(
+              ignoring: !_wantsOpen,
+              child: ExcludeSemantics(
+                excluding: !_wantsOpen,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left:
+                        widget.style.avatarSize + widget.style.avatarBubbleGap,
+                  ),
+                  child: SizedBox(
+                    height: LocationChatReplyActions.buttonSize,
+                    child: Row(
+                      key: const ValueKey(
+                        'location-chat-reply-actions-four-icons',
+                      ),
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.start,
+                      children: [
+                        for (
+                          var index = 0;
+                          index < _displayedActions.length;
+                          index++
+                        ) ...[
+                          if (index > 0)
+                            const SizedBox(
+                              width:
+                                  LocationChatReplyActions.centerSpacing -
+                                  LocationChatReplyActions.buttonSize,
+                            ),
+                          _displayedActions[index],
+                        ],
                       ],
-                    ],
+                    ),
                   ),
                 ),
               ),
             ),
+            builder: (context, child) => _expansionController.isDismissed
+                ? const SizedBox.shrink()
+                : SizeTransition(
+                    key: const ValueKey(
+                      'location-chat-reply-actions-transition',
+                    ),
+                    sizeFactor: _expansion,
+                    alignment: Alignment.bottomLeft,
+                    child: child,
+                  ),
+          );
+    final indicator = widget.reservedIndicator;
+    if (indicator == null) return toolbar;
+    return Stack(
+      alignment: Alignment.bottomLeft,
+      children: [
+        toolbar,
+        Padding(
+          padding: EdgeInsets.only(
+            left: widget.style.avatarSize + widget.style.avatarBubbleGap,
           ),
-          builder: (context, child) => _expansionController.isDismissed
-              ? const SizedBox.shrink()
-              : SizeTransition(
-                  key: const ValueKey('location-chat-reply-actions-transition'),
-                  sizeFactor: _expansion,
-                  alignment: Alignment.bottomLeft,
-                  child: child,
-                ),
-        );
+          child: SizedBox(
+            height: LocationChatReplyActions.buttonSize,
+            child: Align(alignment: Alignment.centerLeft, child: indicator),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// Shared appearance for inline subscription prompts below reply actions.

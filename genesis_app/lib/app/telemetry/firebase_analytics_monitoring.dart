@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../platform/device/method_channel_device_id_service.dart';
+import '../../utils/server_clock.dart';
 import 'firebase_runtime.dart';
 import 'telemetry_upload_policy.dart';
 
@@ -22,6 +23,40 @@ typedef FirebaseAnalyticsCollectionConfigurator =
     Future<void> Function(bool enabled, String appEnvironment);
 
 enum FirebaseAnalyticsPurchaseKind { gems, subscription }
+
+abstract interface class FirebaseAnalyticsDay0AnchorStore {
+  Future<DateTime?> read();
+
+  Future<void> write(DateTime serverUtc);
+}
+
+class SharedPreferencesFirebaseAnalyticsDay0AnchorStore
+    implements FirebaseAnalyticsDay0AnchorStore {
+  const SharedPreferencesFirebaseAnalyticsDay0AnchorStore();
+
+  static const String storageKey =
+      'firebase_analytics_purchase_day0_anchor_utc_ms_v1';
+
+  @override
+  Future<DateTime?> read() async {
+    final preferences = await SharedPreferences.getInstance();
+    final millis = preferences.getInt(storageKey);
+    if (millis == null || millis <= 0) return null;
+    return DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+  }
+
+  @override
+  Future<void> write(DateTime serverUtc) async {
+    final preferences = await SharedPreferences.getInstance();
+    final saved = await preferences.setInt(
+      storageKey,
+      serverUtc.toUtc().millisecondsSinceEpoch,
+    );
+    if (!saved) {
+      throw StateError('Failed to persist Firebase Analytics Day0 anchor');
+    }
+  }
+}
 
 abstract interface class FirebaseAnalyticsOnceEventStore {
   Future<bool> wasSent(String eventName);
@@ -83,12 +118,19 @@ class FirebaseAnalyticsMonitoring {
   static FirebaseReadiness _readiness = FirebaseRuntime.ensureInitialized;
   static FirebaseAnalyticsOnceEventStore _onceEventStore =
       const SharedPreferencesFirebaseAnalyticsOnceEventStore();
+  static FirebaseAnalyticsDay0AnchorStore _day0AnchorStore =
+      const SharedPreferencesFirebaseAnalyticsDay0AnchorStore();
   static var _messageSentCountIncrementer =
       const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment;
   static Future<String> Function() _deviceIdReader = _readNativeDeviceId;
   static final Map<String, Future<void>> _onceEventRecordings =
       <String, Future<void>>{};
   static final Map<String, Future<void>> _purchaseEligibilityWrites = {};
+  static ServerClock _purchaseServerClock = ServerClock();
+  static DateTime? Function() _purchaseServerNow = () =>
+      _purchaseServerClock.now;
+  static DateTime? _day0AnchorUtc;
+  static Future<void>? _day0AnchorInitialization;
   static Future<void> _messageSentCountQueue = Future<void>.value();
   static bool? _enabledOverride;
   static FirebaseAnalyticsCollectionConfigurator _collectionConfigurator =
@@ -193,6 +235,43 @@ class FirebaseAnalyticsMonitoring {
     return task;
   }
 
+  /// Records the first successful Gateway server-time synchronization as the
+  /// Day0 anchor. Later synchronizations refresh the monotonic server clock but
+  /// never move the persisted anchor.
+  static Future<void> recordServerTimeSynchronized(DateTime serverUtc) {
+    final normalized = serverUtc.toUtc();
+    _purchaseServerClock.synchronize(normalized);
+    if (_day0AnchorUtc != null) return Future<void>.value();
+    final pending = _day0AnchorInitialization;
+    if (pending != null) return pending;
+
+    late final Future<void> task;
+    task =
+        (() async {
+          try {
+            final stored = await _day0AnchorStore.read();
+            if (stored != null) {
+              _day0AnchorUtc = stored.toUtc();
+              return;
+            }
+            await _day0AnchorStore.write(normalized);
+            _day0AnchorUtc = normalized;
+          } catch (e, st) {
+            debugPrint(
+              '[Telemetry][FirebaseAnalytics] Day0 anchor initialization failed: '
+              '$e',
+            );
+            debugPrint('[Telemetry][FirebaseAnalytics] stacktrace:\n$st');
+          }
+        })().whenComplete(() {
+          if (identical(_day0AnchorInitialization, task)) {
+            _day0AnchorInitialization = null;
+          }
+        });
+    _day0AnchorInitialization = task;
+    return task;
+  }
+
   static String _purchaseIdentityDigest(
     String provider,
     FirebaseAnalyticsPurchaseKind kind,
@@ -218,6 +297,8 @@ class FirebaseAnalyticsMonitoring {
     required FirebaseAnalyticsPurchaseKind kind,
     required String purchaseIdentity,
     bool requireEligibility = false,
+    int? priceAmountMicros,
+    String priceCurrencyCode = '',
   }) async {
     if (!_isEnabled || purchaseIdentity.trim().isEmpty) return;
     if (requireEligibility) {
@@ -251,7 +332,13 @@ class FirebaseAnalyticsMonitoring {
       'provider': provider,
       'product_id': productId,
       'device_id': deviceId,
+      ..._purchasePriceParameters(
+        priceAmountMicros: priceAmountMicros,
+        priceCurrencyCode: priceCurrencyCode,
+      ),
     };
+    final day0 = await _isPurchaseDay0();
+    final kindName = kind.name;
     await Future.wait<void>([
       _recordEventOnce(
         'purchase',
@@ -260,7 +347,51 @@ class FirebaseAnalyticsMonitoring {
       ),
       _recordEventOnce('purchase_first', parameters),
       _recordEventOnce(kindFirstEvent, parameters),
+      if (day0) ...[
+        _recordEventOnce(
+          'purchase_day0',
+          parameters,
+          storageKey: 'purchase_day0_transaction_v1.$identity',
+        ),
+        _recordEventOnce(
+          '${kindName}_day0',
+          parameters,
+          storageKey: '${kindName}_day0_transaction_v1.$identity',
+        ),
+        _recordEventOnce('purchase_first_day0', parameters),
+        _recordEventOnce('${kindName}_first_day0', parameters),
+      ],
     ]);
+  }
+
+  static Map<String, Object> _purchasePriceParameters({
+    required int? priceAmountMicros,
+    required String priceCurrencyCode,
+  }) {
+    final currency = priceCurrencyCode.trim().toUpperCase();
+    if (priceAmountMicros == null ||
+        priceAmountMicros < 0 ||
+        !RegExp(r'^[A-Z]{3}$').hasMatch(currency)) {
+      return const <String, Object>{};
+    }
+    return <String, Object>{
+      'value': priceAmountMicros / 1000000,
+      'currency': currency,
+    };
+  }
+
+  static Future<bool> _isPurchaseDay0() async {
+    final pending = _day0AnchorInitialization;
+    if (pending != null) await pending;
+    final anchor = _day0AnchorUtc;
+    final now = _purchaseServerNow()?.toUtc();
+    if (anchor == null || now == null || now.isBefore(anchor)) return false;
+    const chinaOffset = Duration(hours: 8);
+    final anchorChina = anchor.add(chinaOffset);
+    final nowChina = now.add(chinaOffset);
+    return anchorChina.year == nowChina.year &&
+        anchorChina.month == nowChina.month &&
+        anchorChina.day == nowChina.day;
   }
 
   static Future<void> recordPerformanceOperation({
@@ -407,6 +538,20 @@ class FirebaseAnalyticsMonitoring {
   }
 
   @visibleForTesting
+  static void setDay0AnchorStoreForTesting(
+    FirebaseAnalyticsDay0AnchorStore value,
+  ) {
+    _day0AnchorStore = value;
+    _day0AnchorUtc = null;
+    _day0AnchorInitialization = null;
+  }
+
+  @visibleForTesting
+  static void setPurchaseServerNowForTesting(DateTime? Function() value) {
+    _purchaseServerNow = value;
+  }
+
+  @visibleForTesting
   static void setDeviceIdReaderForTesting(Future<String> Function() value) {
     _deviceIdReader = value;
   }
@@ -424,11 +569,17 @@ class FirebaseAnalyticsMonitoring {
     _client = const _FirebaseAppAnalyticsClient();
     _readiness = FirebaseRuntime.ensureInitialized;
     _onceEventStore = const SharedPreferencesFirebaseAnalyticsOnceEventStore();
+    _day0AnchorStore =
+        const SharedPreferencesFirebaseAnalyticsDay0AnchorStore();
     _messageSentCountIncrementer =
         const SharedPreferencesFirebaseAnalyticsMessageSentCounter().increment;
     _deviceIdReader = _readNativeDeviceId;
     _onceEventRecordings.clear();
     _purchaseEligibilityWrites.clear();
+    _purchaseServerClock = ServerClock();
+    _purchaseServerNow = () => _purchaseServerClock.now;
+    _day0AnchorUtc = null;
+    _day0AnchorInitialization = null;
     _messageSentCountQueue = Future<void>.value();
     _enabledOverride = null;
     _collectionConfigurator = _configureFirebaseAnalyticsCollection;

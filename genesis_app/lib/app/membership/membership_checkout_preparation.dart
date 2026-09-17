@@ -46,7 +46,7 @@ class _PreparedMembershipProduct {
   final String? owner;
   final MembershipProductList catalog;
   final MembershipProduct product;
-  final Object nativeProduct;
+  final PreparedMembershipCheckout nativeProduct;
 }
 
 class _CheckoutIdentity {

@@ -29,6 +29,8 @@ class MembershipPurchaseRecord {
     this.reportReason,
     this.finished = false,
     this.tracking,
+    this.priceAmountMicros,
+    this.priceCurrencyCode = '',
   });
 
   final String requestId;
@@ -51,6 +53,8 @@ class MembershipPurchaseRecord {
   // settlement now belongs to the server and never depends on this value.
   final bool finished;
   final SubscriptionTracking? tracking;
+  final int? priceAmountMicros;
+  final String priceCurrencyCode;
 
   bool replacesPurchaseToken(String token) =>
       token.isNotEmpty &&
@@ -87,6 +91,8 @@ class MembershipPurchaseRecord {
     String? reportReason,
     bool? finished,
     SubscriptionTracking? tracking,
+    int? priceAmountMicros,
+    String? priceCurrencyCode,
     bool newReport = false,
     bool retryReport = false,
   }) => MembershipPurchaseRecord(
@@ -115,6 +121,8 @@ class MembershipPurchaseRecord {
         : reportReason ?? this.reportReason,
     finished: newReport ? false : finished ?? this.finished,
     tracking: tracking ?? (newReport ? null : this.tracking),
+    priceAmountMicros: priceAmountMicros ?? this.priceAmountMicros,
+    priceCurrencyCode: priceCurrencyCode ?? this.priceCurrencyCode,
   );
 
   /// Keep store receipt identity for restore after removing the guest identity.
@@ -133,6 +141,8 @@ class MembershipPurchaseRecord {
         reportReason: reportReason,
         finished: finished,
         tracking: tracking,
+        priceAmountMicros: priceAmountMicros,
+        priceCurrencyCode: priceCurrencyCode,
       );
 
   Map<String, Object?> toJson() => {
@@ -155,6 +165,8 @@ class MembershipPurchaseRecord {
     if (reportReason != null) 'report_reason': reportReason,
     'finished': finished,
     if (tracking != null) 'subscription_tracking': tracking!.toJson(),
+    if (priceAmountMicros != null) 'price_amount_micros': priceAmountMicros,
+    if (priceCurrencyCode.isNotEmpty) 'price_currency_code': priceCurrencyCode,
   };
 
   factory MembershipPurchaseRecord.fromJson(Map<String, dynamic> json) =>
@@ -180,6 +192,8 @@ class MembershipPurchaseRecord {
         state: json['state'] as String,
         reportStatus: json['report_status'] as String?,
         reportReason: json['report_reason'] as String?,
+        priceAmountMicros: json['price_amount_micros'] as int?,
+        priceCurrencyCode: json['price_currency_code'] as String? ?? '',
         // Older clients marked an ownership rejection as finished without
         // calling StoreKit. Never treat that legacy flag as store completion.
         finished: json['report_status'] == 'rejected'

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app/telemetry/genesis_telemetry.dart';
@@ -261,6 +262,8 @@ class GatewayRequestSigner {
 typedef GatewayHandshakeHeaderSigner =
     Future<Map<String, String>> Function(Uri uri, Map<String, String> headers);
 typedef GatewayIdentityProvider = Future<AppRequestIdentity> Function();
+typedef GatewayServerTimeSynchronized =
+    Future<void> Function(DateTime serverUtc);
 
 GatewayHandshakeHeaderSigner gatewayHandshakeHeaderSigner({
   required GatewayAuthCoordinator coordinator,
@@ -392,6 +395,7 @@ class GatewayAuthCoordinator {
     required GatewayDeviceKeyStore keyStore,
     GatewayRegistrationStore? registrationStore,
     HttpTransport? transport,
+    GatewayServerTimeSynchronized? onServerTimeSynchronized,
   }) : _appHeaderProvider = appHeaderProvider,
        _identityProvider = identityProvider,
        _deviceIdService = deviceIdService,
@@ -402,6 +406,7 @@ class GatewayAuthCoordinator {
              namespace: gatewayRegistrationNamespace(gatewayBaseUrl),
            ),
        _gatewayBaseUri = Uri.parse(gatewayBaseUrl),
+       _onServerTimeSynchronized = onServerTimeSynchronized,
        _transport = transport ?? GenesisHttpTransportRegistry.current {
     _client = ApiClient(
       baseUrl: gatewayBaseUrl,
@@ -420,6 +425,7 @@ class GatewayAuthCoordinator {
   final GatewayDeviceKeyStore _keyStore;
   final GatewayRegistrationStore _registrationStore;
   final Uri _gatewayBaseUri;
+  final GatewayServerTimeSynchronized? _onServerTimeSynchronized;
   final HttpTransport _transport;
   late final ApiClient _client;
   int? _serverTimeOffsetMs;
@@ -583,9 +589,12 @@ class GatewayAuthCoordinator {
       );
       final offset = serverTimeMs - DateTime.now().millisecondsSinceEpoch;
       _serverTimeOffsetMs = offset;
-      serverClock.synchronize(
-        DateTime.fromMillisecondsSinceEpoch(serverTimeMs, isUtc: true),
+      final serverUtc = DateTime.fromMillisecondsSinceEpoch(
+        serverTimeMs,
+        isUtc: true,
       );
+      serverClock.synchronize(serverUtc);
+      await _notifyServerTimeSynchronized(serverUtc);
       stopwatch.stop();
       _gatewayTelemetry(
         'gateway.time_sync',
@@ -614,6 +623,18 @@ class GatewayAuthCoordinator {
         code: ApiClientFailureCode.gatewayTimeSync,
         message: 'Gateway time synchronization failed',
       );
+    }
+  }
+
+  Future<void> _notifyServerTimeSynchronized(DateTime serverUtc) async {
+    final callback = _onServerTimeSynchronized;
+    if (callback == null) return;
+    try {
+      await callback(serverUtc);
+    } catch (error) {
+      // Analytics bookkeeping must never make Gateway time synchronization
+      // fail or block business requests from being signed.
+      debugPrint('[GatewayAuth] server time observer failed: $error');
     }
   }
 

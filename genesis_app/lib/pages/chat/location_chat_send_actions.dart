@@ -41,6 +41,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     String? textOverride,
     ChatroomInspirationSource? inspirationSource,
     int? inspirationEpoch,
+    bool positionWaitingImmediately = false,
   }) async {
     final service = _service;
     if (service == null ||
@@ -104,6 +105,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         localMessage.status = 'sending';
         localMessage.error = null;
         if (!_messages.contains(localMessage)) _messages.add(localMessage);
+        if (positionWaitingImmediately) {
+          _preAckWaitingClientMsgId = clientMsgId;
+          _preAckWaitingMessageLocalId = localMessage.localId;
+          _preAckWaitingAccepted = false;
+        }
         if (outgoingMessage != null) return;
         if (_textController.serializedText == draftAtSubmit) {
           _hasDraftText = false;
@@ -146,6 +152,11 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       }
     }
 
+    void cancelImmediateWaiting() {
+      if (_preAckWaitingClientMsgId != clientMsgId) return;
+      _clearPreAckWaiting(resetPosition: true);
+    }
+
     // All send gestures insert the bubble and hide the previous reply's
     // controls in the same state update, before any reply finalization awaits.
     addOptimisticMessage();
@@ -175,6 +186,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             identical(service, _service)) {
           _setLocationChatState(() {
             _sending = false;
+            cancelImmediateWaiting();
             if (optimisticMessageAdded) {
               rollbackOptimisticMessage();
             }
@@ -188,6 +200,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           }
         } else if (mounted && optimisticMessageAdded) {
           _setLocationChatState(() {
+            cancelImmediateWaiting();
             rollbackOptimisticMessage();
             _sending = false;
             if (_suppressedReplyActionsIdentity ==
@@ -205,6 +218,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           !identical(service, _service)) {
         if (mounted && optimisticMessageAdded) {
           _setLocationChatState(() {
+            cancelImmediateWaiting();
             rollbackOptimisticMessage();
             _sending = false;
             if (_suppressedReplyActionsIdentity ==
@@ -221,6 +235,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           widget.worldTickInProgress) {
         _setLocationChatState(() {
           _sending = false;
+          cancelImmediateWaiting();
           if (optimisticMessageAdded) {
             rollbackOptimisticMessage();
           }
@@ -424,6 +439,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
               activeSendFailure: true,
             );
       _setLocationChatState(() {
+        if (!receiptReceived && _preAckWaitingClientMsgId == clientMsgId) {
+          _clearPreAckWaiting(resetPosition: true);
+        }
         if (!receiptReceived && _ackLoadingClientMsgId == clientMsgId) {
           _clearAckLoading();
         }

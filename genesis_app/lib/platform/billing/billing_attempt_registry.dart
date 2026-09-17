@@ -123,6 +123,11 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       status: BillingPendingPurchaseStatus.pending,
       retryCount: existing?.retryCount ?? 0,
       reportTimeoutTracked: existing?.reportTimeoutTracked ?? false,
+      priceAmountMicros:
+          attempt?.priceAmountMicros ?? existing?.priceAmountMicros,
+      priceCurrencyCode: attempt?.priceCurrencyCode.trim().isNotEmpty == true
+          ? attempt!.priceCurrencyCode.trim()
+          : existing?.priceCurrencyCode ?? '',
       createdAt: existing?.createdAt ?? now,
       updatedAt: now,
     );
@@ -145,6 +150,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
     required DateTime updatedAt,
     int retryCount = 0,
     bool reportTimeoutTracked = false,
+    int? priceAmountMicros,
+    String priceCurrencyCode = '',
   }) {
     return BillingPendingPurchase(
       provider: purchase.provider,
@@ -159,6 +166,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
       status: status,
       retryCount: retryCount,
       reportTimeoutTracked: reportTimeoutTracked,
+      priceAmountMicros: priceAmountMicros,
+      priceCurrencyCode: priceCurrencyCode,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
@@ -266,6 +275,8 @@ extension _GooglePlayBillingAttemptRegistry on GooglePlayBillingService {
             kind: FirebaseAnalyticsPurchaseKind.gems,
             purchaseIdentity: record.purchaseToken,
             requireEligibility: true,
+            priceAmountMicros: record.priceAmountMicros,
+            priceCurrencyCode: record.priceCurrencyCode,
           ),
         );
       }

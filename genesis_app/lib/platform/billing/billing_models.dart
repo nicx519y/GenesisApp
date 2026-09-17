@@ -146,6 +146,8 @@ class BillingPurchaseAttempt {
     required this.billingAccountId,
     required this.source,
     required this.startedAt,
+    this.priceAmountMicros,
+    this.priceCurrencyCode = '',
   });
 
   final String id;
@@ -153,6 +155,21 @@ class BillingPurchaseAttempt {
   final String billingAccountId;
   final BillingRecoverySource source;
   final DateTime startedAt;
+  final int? priceAmountMicros;
+  final String priceCurrencyCode;
+
+  BillingPurchaseAttempt copyWithStorePrice({
+    required int priceAmountMicros,
+    required String priceCurrencyCode,
+  }) => BillingPurchaseAttempt(
+    id: id,
+    product: product,
+    billingAccountId: billingAccountId,
+    source: source,
+    startedAt: startedAt,
+    priceAmountMicros: priceAmountMicros,
+    priceCurrencyCode: priceCurrencyCode,
+  );
 }
 
 @immutable
@@ -172,6 +189,8 @@ class BillingPendingPurchase {
     required this.createdAt,
     required this.updatedAt,
     this.reportTimeoutTracked = false,
+    this.priceAmountMicros,
+    this.priceCurrencyCode = '',
   });
 
   final BillingProvider provider;
@@ -188,6 +207,8 @@ class BillingPendingPurchase {
   final DateTime createdAt;
   final DateTime updatedAt;
   final bool reportTimeoutTracked;
+  final int? priceAmountMicros;
+  final String priceCurrencyCode;
 
   String get key => '${provider.name}:$purchaseToken';
 
@@ -197,6 +218,8 @@ class BillingPendingPurchase {
     int? retryCount,
     DateTime? updatedAt,
     bool? reportTimeoutTracked,
+    int? priceAmountMicros,
+    String? priceCurrencyCode,
   }) {
     return BillingPendingPurchase(
       provider: provider,
@@ -213,6 +236,8 @@ class BillingPendingPurchase {
       createdAt: createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       reportTimeoutTracked: reportTimeoutTracked ?? this.reportTimeoutTracked,
+      priceAmountMicros: priceAmountMicros ?? this.priceAmountMicros,
+      priceCurrencyCode: priceCurrencyCode ?? this.priceCurrencyCode,
     );
   }
 }

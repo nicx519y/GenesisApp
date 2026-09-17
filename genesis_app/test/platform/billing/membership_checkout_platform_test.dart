@@ -133,6 +133,8 @@ void main() {
       final checkout = StoreMembershipCheckoutPlatform(store: store);
       final product = membershipProduct(yearly: true, offerId: 'test-offer');
       final native = await checkout.prepare(product);
+      expect(native.priceAmountMicros, 0);
+      expect(native.priceCurrencyCode, 'USD');
       var handoff = false;
       final launched = Completer<bool>();
       store.buyHandler = () => launched.future;
@@ -153,7 +155,7 @@ void main() {
       expect(store.ids, {'test_pro'});
       expect(param.offerToken, 'test-token-annual-test-offer');
       expect(param.applicationUserName, '4b74ec68-7abc-4cce-a223-e997e31dc811');
-      expect(param.productDetails, same(native));
+      expect(param.productDetails, same(native.nativeProduct));
       expect(param.changeSubscriptionParam, isNull);
     },
   );
@@ -194,9 +196,12 @@ void main() {
       );
       final store = _Store([native]);
       final checkout = StoreMembershipCheckoutPlatform(store: store);
+      final prepared = await checkout.prepare(product);
+      expect(prepared.priceAmountMicros, 99990000);
+      expect(prepared.priceCurrencyCode, 'USD');
       bool onHandoff() => true;
       await checkout.launch(
-        await checkout.prepare(product),
+        prepared,
         '4b74ec68-7abc-4cce-a223-e997e31dc811',
         onStoreHandoff: onHandoff,
         checkoutAttemptId: 'subscription-click',

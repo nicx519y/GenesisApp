@@ -523,7 +523,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         stage = 'load_local_orders';
         await _load();
         if (!canContinue()) return;
-        late final Object nativeProduct;
+        late final PreparedMembershipCheckout preparedProduct;
         late final MembershipGuestIdentity? guest;
         late final String uuid;
         stage = 'prepare_store_checkout';
@@ -548,7 +548,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           final prepared = results[0] as _PreparedMembershipProduct?;
           if (prepared == null) return;
           final identity = results[1] as _CheckoutIdentity;
-          nativeProduct = prepared.nativeProduct;
+          preparedProduct = prepared.nativeProduct;
           guest = identity.guest;
           uuid = identity.uuid;
         } on _CheckoutPreparationFailure catch (failure) {
@@ -580,6 +580,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           accountUuid: uuid,
           ownerUid: uid,
           guest: guest,
+          priceAmountMicros: preparedProduct.priceAmountMicros,
+          priceCurrencyCode: preparedProduct.priceCurrencyCode,
         );
         // Retain the selected plan in memory until the store callback arrives.
         stage = 'prepare_order';
@@ -611,7 +613,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         final launchClock = Stopwatch()..start();
         final launched = await platform
             .launch(
-              nativeProduct,
+              preparedProduct,
               uuid,
               onStoreHandoff: onStoreHandoff,
               checkoutAttemptId: id,
@@ -1125,6 +1127,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             purchaseIdentity: provider == MembershipProvider.google
                 ? record.purchaseToken
                 : record.transactionId,
+            priceAmountMicros: record.priceAmountMicros,
+            priceCurrencyCode: record.priceCurrencyCode,
           ),
         );
       }

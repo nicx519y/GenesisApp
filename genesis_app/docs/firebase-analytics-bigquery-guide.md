@@ -9,7 +9,7 @@
 | 版本口径 | Git 依据 | 说明 |
 | --- | --- | --- |
 | iOS 0.4.1 | 标签 `ios-v0.4.1+6`，提交 `01397ad169641a015ee85024c464d10dd90f147a` | 本次历史事件核验的基线版本。标签表示 iOS `0.4.1 (6)`；该提交中的 `pubspec.yaml` 为 `0.4.1+41`，因此判断 iOS 发布版本时以 iOS 标签和实际构建号为准。 |
-| 当前仓库最新版 | `origin/main`，提交 `76b84ae174ac83e1cf6fc99d25db3ee488969858`，`pubspec.yaml` 为 `0.4.3+45` | 表示当前仓库代码版本；它不等同于已经发布到 App Store 的 iOS 线上版本。该提交同时对应 Android 标签 `android-v0.4.3+45`。 |
+| 当前仓库最新版 | 当前工作树中的正式业务代码 | 表示本文随仓库代码共同维护的最新版口径；它不等同于已经发布到 App Store 或 Google Play 的线上版本。 |
 
 本文档中的“事件”主要指应用代码主动发送的 Firebase Analytics 自定义事件。Firebase SDK 自动事件、Firebase Performance、Crashlytics 和 Worldo Collect 是不同的数据通道，不能混为同一类事件。
 
@@ -23,6 +23,7 @@
 - 只查询 `events_YYYYMMDD` 正式日表。
 - 按“平台 + 事件 + 首次用户来源 + 媒介 + Campaign + 安装商店”拆分结果。
 - 统计事件数、Firebase App 实例数、业务 `device_id` 数量和覆盖率。
+- 按币种汇总支付自定义事件的实际商店金额 `value`；价格缺失的事件保留为 `currency IS NULL`。
 - 不使用 `STRING_AGG` 合并来源，因此每个来源会成为单独的一行。
 
 ### 2.2 使用方法
@@ -66,7 +67,25 @@ WITH event_rows AS (
         WHERE param.key = 'device_id'
       ),
       ''
-    ) AS device_id
+    ) AS device_id,
+
+    -- 支付自定义事件的实际商店金额；非支付事件为 NULL。
+    (
+      SELECT ANY_VALUE(
+        COALESCE(
+          param.value.double_value,
+          CAST(param.value.float_value AS FLOAT64),
+          CAST(param.value.int_value AS FLOAT64)
+        )
+      )
+      FROM UNNEST(event_params) AS param
+      WHERE param.key = 'value'
+    ) AS purchase_value,
+    (
+      SELECT ANY_VALUE(param.value.string_value)
+      FROM UNNEST(event_params) AS param
+      WHERE param.key = 'currency'
+    ) AS currency
 
   FROM `worldo-2026.analytics_541728927.events_*`
 
@@ -90,6 +109,12 @@ WITH event_rows AS (
       'purchase_first',
       'gems_first',
       'subscription_first',
+      'purchase_day0',
+      'gems_day0',
+      'subscription_day0',
+      'purchase_first_day0',
+      'gems_first_day0',
+      'subscription_first_day0',
       'perf_operation_complete',
       'in_app_purchase'
     )
@@ -98,6 +123,7 @@ WITH event_rows AS (
 SELECT
   platform,
   event_name,
+  currency,
 
   -- 来源维度：每种组合单独成行，不合并为字符串。
   source_scope,
@@ -109,6 +135,7 @@ SELECT
   COUNT(*) AS event_count,
   COUNT(DISTINCT user_pseudo_id) AS user_count,
   COUNT(DISTINCT device_id) AS device_count,
+  SUM(purchase_value) AS purchase_value_sum,
 
   COUNTIF(device_id IS NOT NULL) AS with_device_id_count,
   COUNTIF(device_id IS NULL) AS without_device_id_count,
@@ -142,6 +169,7 @@ FROM event_rows
 GROUP BY
   platform,
   event_name,
+  currency,
   source_scope,
   source,
   medium,
@@ -262,6 +290,12 @@ iOS 0.4.1 没有以下应用自定义 Firebase Analytics 事件：
 - `purchase_first`
 - `gems_first`
 - `subscription_first`
+- `purchase_day0`
+- `gems_day0`
+- `subscription_day0`
+- `purchase_first_day0`
+- `gems_first_day0`
+- `subscription_first_day0`
 
 因此，iOS 0.4.1 的上述事件在 BigQuery 中出现 `with_device_id_count = 0` 符合代码预期，不代表 BigQuery 丢失了已经上传的 `device_id`。
 
@@ -285,7 +319,7 @@ iOS 0.4.1 已包含验证 StoreKit 2 transaction 后调用 Firebase 原生 `Anal
 
 具体字段是否出现由 StoreKit transaction 和 Firebase SDK 决定。该事件不是 `FirebaseAnalyticsMonitoring` 发送的业务自定义事件，业务代码没有为它显式添加 `device_id`。
 
-## 6. 当前仓库最新版 0.4.3+45 的事件和参数
+## 6. 当前仓库最新版的事件和参数
 
 ### 6.1 事件总表
 
@@ -301,10 +335,16 @@ iOS 0.4.1 已包含验证 StoreKit 2 transaction 后调用 Firebase 原生 `Anal
 | `message_sent_20_first` | 本地累计初始发送达到或超过 20 次时的一次性事件 | 与 `message_sent` 相同 | 有 |
 | `login` | 每次 Genesis 后端登录成功时发送 | `method` | 有 |
 | `login_first` | 本地首次成功登录的一次性事件；不是“账号首次注册” | 与 `login` 相同 | 有 |
-| `purchase` | 关联购买流程的 Gems 或会员订单由后端返回 `completed` 后发送；按购买凭据持久化去重 | `provider`、`product_id` | 有 |
+| `purchase` | 关联购买流程的 Gems 或会员订单由后端返回 `completed` 后发送；按购买凭据持久化去重 | `provider`、`product_id`、可选 `value`、`currency` | 有 |
 | `purchase_first` | 本地首次 Gems/会员业务购买共同使用的一次性事件 | 与 `purchase` 相同 | 有 |
 | `gems_first` | 本地首次 Gems 支付的一次性事件 | 与 `purchase` 相同 | 有 |
 | `subscription_first` | 本地首次会员订阅支付的一次性事件 | 与 `purchase` 相同 | 有 |
+| `purchase_day0` | Day0 内每笔后端 `completed` 的 Gems/会员购买；按购买凭据持久化去重 | 与 `purchase` 相同 | 有 |
+| `gems_day0` | Day0 内每笔后端 `completed` 的 Gems 购买；按购买凭据持久化去重 | 与 `purchase` 相同 | 有 |
+| `subscription_day0` | Day0 内每笔后端 `completed` 的会员购买；按购买凭据持久化去重 | 与 `purchase` 相同 | 有 |
+| `purchase_first_day0` | 当前安装 Day0 内第一次 Gems/会员购买的一次性事件 | 与 `purchase` 相同 | 有 |
+| `gems_first_day0` | 当前安装 Day0 内第一次 Gems 购买的一次性事件 | 与 `purchase` 相同 | 有 |
+| `subscription_first_day0` | 当前安装 Day0 内第一次会员购买的一次性事件 | 与 `purchase` 相同 | 有 |
 | `perf_operation_complete` | 每次受监控操作完成时发送 | `surface`、`phase`、`result`、`duration_ms`、`attempt`、`data_source`、可选 `error_type` | 无显式添加 |
 | `in_app_purchase` | iOS 由验证后的 StoreKit 2 transaction 交给 Firebase SDK 生成 | Firebase SDK 标准购买参数 | 无显式添加 |
 
@@ -312,23 +352,27 @@ iOS 0.4.1 已包含验证 StoreKit 2 transaction 后调用 Firebase 原生 `Anal
 
 | 参数 | 适用事件 | 可能值或说明 |
 | --- | --- | --- |
-| `device_id` | `launch*`、`launch_success*`、`message_sent*`、`login*`、`purchase*`、`gems_first`、`subscription_first` | 平台设备标识字符串；读取为空时发送 `unknown` |
+| `device_id` | `launch*`、`launch_success*`、`message_sent*`、`login*`、全部业务支付事件 | 平台设备标识字符串；读取为空时发送 `unknown` |
 | `method` | `login`、`login_first` | `google`、`apple` |
-| `provider` | `purchase`、`purchase_first`、`gems_first`、`subscription_first` | `google`、`apple` |
-| `product_id` | `purchase`、`purchase_first`、`gems_first`、`subscription_first` | Google Play/App Store 商品 ID |
+| `provider` | 全部业务支付事件 | `google`、`apple` |
+| `product_id` | 全部业务支付事件 | Google Play/App Store 商品 ID |
+| `value` | 全部业务支付事件；价格有效时与 `currency` 同时发送 | 实际商店成交阶段金额，主币单位；由 `priceAmountMicros / 1,000,000` 得出。Google 订阅取所选 offer 首个计费阶段，免费试用为 `0` |
+| `currency` | 全部业务支付事件；价格有效时与 `value` 同时发送 | 大写 ISO 4217 三字母币种。价格缺失或币种无效时，`value` 与 `currency` 同时省略 |
 | `app_environment` | 最新版启用 Analytics 后设置的 Firebase 默认事件参数 | `production`、`test`；正式 Release + production flavor + 官方 endpoint 为 `production`，开发页强制上传等调试场景为 `test` |
 
-除 `purchase` 外的基础事件仍然可以重复发送；`*_first` 事件是在本地 SharedPreferences 中记录的一次性事件。这里的“一次”是本地安装数据生命周期内的一次，不代表整个账号在所有设备上的全局第一次。
+`purchase`、`purchase_day0`、`gems_day0`、`subscription_day0` 是按购买凭据去重的交易级事件，不同有效交易可以重复发送；`*_first` 事件是在本地 SharedPreferences 中记录的安装级一次性事件。这里的“一次”是本地安装数据生命周期内的一次，不代表整个账号在所有设备上的全局第一次。
 
-购买事件以后端 `completed` 为触发边界，`purchased` 回调本身、`accepted`、`rejected` 和上报异常均不触发；已知 pending 订单通过现有补报链路变为 `completed` 时也可发送。Gems 仅为通过账号校验且匹配当前下单的 pending/purchased 凭据保存埋点资格标记，后续恢复沿用该标记；无关联历史和单独 restored 回调不建立资格。订阅复用已有订单归属判断，restored 记录不发送。升级前没有 Gems 埋点资格的旧记录不追溯补记。
+购买事件以后端 `completed` 为触发边界，`purchased` 回调本身、`accepted`、`rejected` 和上报异常均不触发；已知 pending 订单通过现有补报链路变为 `completed` 时也可发送。Gems 仅为通过账号校验且匹配当前下单的 pending/purchased 凭据保存埋点资格标记，后续恢复沿用该标记；无关联历史和单独 restored 回调不建立资格。订阅复用已有订单归属判断，restored 记录不发送。升级前没有 Gems 埋点资格的旧记录不追溯补记。金额只来自商店商品查询并随待处理订单持久化，不用后端目录价补齐；旧订单缺少金额时仍发送事件，但不发送 `value/currency`。原生 `in_app_purchase` 保持 Firebase SDK 自身参数，不注入这些业务自定义参数。
 
-Google 新购/升级以 purchase token、Apple 以当前 transaction ID 标识购买；Google 后续同 token 的自动续费不会产生第二条新购事件。平台、购买类别及凭据的 SHA-256 摘要构成去重 key，原凭据不进入事件参数或普通日志。`purchase` 使用独立的 `purchase_transaction_v1.<摘要>` 已发送标记，三个首次事件沿用原 key，全部位于 `firebase_analytics_once_event_v1.` 前缀下。SDK 接受后才分别标记成功，并发调用合并；某项失败时，下一次相同完成埋点只重试未成功项。本次不增加自动重试队列，不保证每个失败事件都会再次获得业务触发。SDK 接受后、本地标记写入前进程退出仍可能重复，不能视作服务器恰好一次入库保证。设备 ID 获取异常时，这四个购买事件使用 `unknown` 继续发送。支付、验单、发货和恢复流程保持原样。
+Day0 锚点是当前安装第一次成功取得的 Gateway 服务器 UTC 时间，持久化后不再被后续校时覆盖。判断时使用同步后的单调服务器时间，把锚点和支付完成时间固定换算为 UTC+8；仅当支付时间不早于锚点且两者属于同一个北京时间年月日，才发送 Day0 事件。它不是连续 24 小时窗口，也不使用设备时区。存量安装升级后从首次成功校时开始，离线首启则从以后第一次成功校时开始。Day0 首次标记与旧 `purchase_first`、`gems_first`、`subscription_first` 标记相互独立。
+
+Google 新购/升级以 purchase token、Apple 以当前 transaction ID 标识购买；Google 后续同 token 的自动续费不会产生第二条新购事件。平台、购买类别及凭据的 SHA-256 摘要构成去重 key，原凭据不进入事件参数或普通日志。`purchase`、`purchase_day0` 和品类 Day0 事件分别使用独立的交易摘要已发送标记；六个首次事件使用各自的安装级 key，全部位于 `firebase_analytics_once_event_v1.` 前缀下。SDK 接受后才分别标记成功，并发调用合并；某项失败时，下一次相同完成埋点只重试未成功项。本次不增加自动重试队列，不保证每个失败事件都会再次获得业务触发。SDK 接受后、本地标记写入前进程退出仍可能重复，不能视作服务器恰好一次入库保证。设备 ID 获取异常时，这十个购买自定义事件使用 `unknown` 继续发送。支付、验单、发货和恢复流程保持原样。
 
 升级时不会根据已有的 `purchase_first` 标记回填 `gems_first` 或 `subscription_first`，因为旧标记无法识别购买类别；两个分类事件会在升级后的下一次对应支付时分别建立自己的本地标记。
 
 ### 6.3 相比 iOS 0.4.1 的新增内容
 
-| 变化 | iOS 0.4.1 | 当前仓库 0.4.3+45 |
+| 变化 | iOS 0.4.1 | 当前仓库最新版 |
 | --- | --- | --- |
 | 基础 `launch`、`launch_success`、`message_sent` | 有 | 保留 |
 | `perf_operation_complete` | 有 | 保留，参数结构不变 |
@@ -371,6 +415,12 @@ purchase
 purchase_first
 gems_first
 subscription_first
+purchase_day0
+gems_day0
+subscription_day0
+purchase_first_day0
+gems_first_day0
+subscription_first_day0
 ```
 
 以下事件当前没有在业务参数中显式添加 `device_id`：

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/regenerate.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_card_switcher.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
@@ -87,40 +88,180 @@ void main() {
     LocationChatScrollCoordinator coordinator, {
     int count = 20,
     String? waiting,
+    String? preAckWaiting,
     bool goOn = false,
     bool secondScroll = false,
     bool active = true,
     bool positioningEnabled = true,
     String suffix = '',
     double reserveFraction = 0.75,
+    double viewportHeight = 360,
+    double effectiveKeyboardInset = 0,
+    int waitingPositionResetRevision = 0,
   }) => MaterialApp(
     home: Scaffold(
       body: SizedBox(
-        height: 360,
-        child: NotificationListener<ScrollNotification>(
-          onNotification: coordinator.handleScrollNotification,
-          child: LocationChatAnchoredMessageList(
-            active: active,
-            coordinator: coordinator,
-            replyWaitingPositioningEnabled: positioningEnabled,
-            replyViewportReserveFraction: reserveFraction,
-            messages: messages(count, suffix: suffix),
-            topTitle: secondScroll ? 'Start' : '',
-            oldestEdgeNoticeRequiresSecondScroll: secondScroll,
-            loadingAfterMessageLocalId: waiting != null && !goOn
-                ? 'message-${count - 1}'
-                : null,
-            loadingIdentity: goOn ? null : waiting,
-            goOnAwaitingContentIdentity: goOn ? waiting : null,
-            showDateDividers: false,
-            style: ChatUiStyleConfig.standard.copyWith(
-              messageListPadding: EdgeInsets.zero,
+        height: viewportHeight,
+        child: LocationChatKeyboardInsetScope(
+          effectiveInset: effectiveKeyboardInset,
+          child: NotificationListener<ScrollNotification>(
+            onNotification: coordinator.handleScrollNotification,
+            child: LocationChatAnchoredMessageList(
+              active: active,
+              coordinator: coordinator,
+              replyWaitingPositioningEnabled: positioningEnabled,
+              replyViewportReserveFraction: reserveFraction,
+              messages: messages(count, suffix: suffix),
+              topTitle: secondScroll ? 'Start' : '',
+              oldestEdgeNoticeRequiresSecondScroll: secondScroll,
+              loadingAfterMessageLocalId: waiting != null && !goOn
+                  ? 'message-${count - 1}'
+                  : null,
+              loadingIdentity: goOn ? null : waiting,
+              preAckWaitingAfterMessageLocalId: preAckWaiting == null
+                  ? null
+                  : 'message-${count - 1}',
+              preAckWaitingIdentity: preAckWaiting,
+              waitingPositionResetRevision: waitingPositionResetRevision,
+              goOnAwaitingContentIdentity: goOn ? waiting : null,
+              showDateDividers: false,
+              style: ChatUiStyleConfig.standard.copyWith(
+                messageListPadding: EdgeInsets.zero,
+              ),
             ),
           ),
         ),
       ),
     ),
   );
+
+  test('stable reply viewport includes the applied keyboard inset', () {
+    for (final geometry in [
+      (viewport: 60.0, inset: 300.0),
+      (viewport: 160.0, inset: 200.0),
+      (viewport: 260.0, inset: 100.0),
+      (viewport: 360.0, inset: 0.0),
+    ]) {
+      expect(
+        locationChatStableReplyViewportHeightForTesting(
+          currentViewportHeight: geometry.viewport,
+          effectiveKeyboardInset: geometry.inset,
+        ),
+        360,
+      );
+    }
+  });
+
+  testWidgets(
+    'pre-ACK Send uses the closed-keyboard viewport and ACK reveals in place',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      await tester.pumpWidget(
+        tree(coordinator, viewportHeight: 200, effectiveKeyboardInset: 160),
+      );
+      await tester.pump();
+      await tester.pumpWidget(
+        tree(
+          coordinator,
+          preAckWaiting: 'send-1',
+          viewportHeight: 200,
+          effectiveKeyboardInset: 160,
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final waitingBubble = find.byType(ChatReplyWaitingBubble);
+      const dots = ValueKey<String>('location-chat-ack-loading-dots');
+      expect(waitingBubble, findsOneWidget);
+      expect(find.byKey(dots), findsNothing);
+      expect(tester.getBottomLeft(waitingBubble).dy, closeTo(90, 1));
+      final heldPixels = coordinator.controller.position.pixels;
+      expect(coordinator.isDetached, isTrue);
+      expect(coordinator.isReadingHistory, isFalse);
+
+      await tester.pumpWidget(
+        tree(
+          coordinator,
+          preAckWaiting: 'send-1',
+          viewportHeight: 280,
+          effectiveKeyboardInset: 80,
+        ),
+      );
+      await tester.pump();
+      expect(tester.getBottomLeft(waitingBubble).dy, closeTo(90, 1));
+      expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
+
+      await tester.pumpWidget(
+        tree(
+          coordinator,
+          waiting: 'send-1',
+          preAckWaiting: 'send-1',
+          viewportHeight: 360,
+        ),
+      );
+      await tester.pump();
+      expect(find.byKey(dots), findsOneWidget);
+      expect(tester.getBottomLeft(waitingBubble).dy, closeTo(90, 1));
+      expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('fast ACK before first waiting layout positions only once', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    await tester.pumpWidget(tree(coordinator));
+    await tester.pump();
+    final generationBeforeAck = coordinator.commandGeneration;
+
+    await tester.pumpWidget(
+      tree(
+        coordinator,
+        waiting: 'fast-send',
+        preAckWaiting: 'fast-send',
+        viewportHeight: 200,
+        effectiveKeyboardInset: 160,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(
+      find.byKey(const ValueKey<String>('location-chat-ack-loading-dots')),
+      findsOneWidget,
+    );
+    expect(coordinator.commandGeneration, generationBeforeAck + 1);
+    expect(coordinator.isDetached, isTrue);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('pre-ACK failure reset removes the waiting tail', (tester) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    await tester.pumpWidget(tree(coordinator));
+    await tester.pump();
+    await tester.pumpWidget(tree(coordinator, preAckWaiting: 'failed-send'));
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(coordinator.isDetached, isTrue);
+
+    await tester.pumpWidget(tree(coordinator, waitingPositionResetRevision: 1));
+    await tester.pump();
+    expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+    expect(coordinator.isDetached, isFalse);
+    expect(
+      coordinator.controller.position.pixels,
+      closeTo(coordinator.controller.position.maxScrollExtent, 0.1),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   for (final goOn in [false, true]) {
     for (final secondScroll in [false, true]) {
@@ -404,6 +545,7 @@ void main() {
         addTearDown(coordinator.dispose);
         var waiting = false;
         var regenerating = false;
+        var regenerationDispatchRevision = 0;
         var currentCardId = 1;
         late StateSetter update;
         final rows = messages(20, suffix: '\nOriginal reply line' * 4);
@@ -439,11 +581,16 @@ void main() {
                           ),
                       ],
                       replyRegenerationInProgress: regenerating,
+                      replyRegenerationDispatchRevision:
+                          regenerationDispatchRevision,
                       regenerateFeature: LocationChatRegenerateFeature(
                         state: regenerating
                             ? LocationChatReplyActionState.busy
                             : LocationChatReplyActionState.idle,
-                        onInvoke: () => update(() => regenerating = true),
+                        onInvoke: () => update(() {
+                          regenerating = true;
+                          regenerationDispatchRevision++;
+                        }),
                       ),
                       style: ChatUiStyleConfig.standard.copyWith(
                         messageListPadding: EdgeInsets.zero,
@@ -484,7 +631,11 @@ void main() {
         if (positioningEnabled) {
           expect(
             tester.getTopLeft(find.byType(LocationChatReplyCardSwitcher)).dy,
-            closeTo(360 * (1 - scenario.reserve), 0.1),
+            closeTo(
+              360 * (1 - scenario.reserve) -
+                  LocationChatReplyActions.buttonSize,
+              0.1,
+            ),
           );
           expect(coordinator.isDetached, isTrue);
           expect(coordinator.isReadingHistory, isFalse);

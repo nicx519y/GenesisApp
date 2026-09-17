@@ -25,32 +25,58 @@ abstract interface class BillingPendingPurchaseStore {
 
 class SqfliteBillingPendingPurchaseStore
     implements BillingPendingPurchaseStore {
+  SqfliteBillingPendingPurchaseStore({
+    DatabaseFactory? databaseFactoryOverride,
+    this.databasePath,
+  }) : _databaseFactory = databaseFactoryOverride;
+
+  final DatabaseFactory? _databaseFactory;
+  final String? databasePath;
   Database? _database;
 
   Future<Database> get _db async {
     final existing = _database;
     if (existing != null) return existing;
-    final root = await getDatabasesPath();
-    final database = await openDatabase(
-      '$root/genesis_billing.db',
-      version: 3,
-      onCreate: (db, _) => db.execute(_createTableSql),
-      onUpgrade: (db, oldVersion, _) async {
-        if (oldVersion < 2) {
-          await db.execute('DROP TABLE IF EXISTS billing_pending_purchases');
-          await db.execute(_createTableSql);
-          return;
-        }
-        if (oldVersion < 3) {
-          await db.execute(
-            'ALTER TABLE billing_pending_purchases '
-            'ADD COLUMN report_timeout_tracked INTEGER NOT NULL DEFAULT 0',
-          );
-        }
-      },
+    final factory = _databaseFactory ?? databaseFactory;
+    final root = await factory.getDatabasesPath();
+    final database = await factory.openDatabase(
+      databasePath ?? '$root/genesis_billing.db',
+      options: OpenDatabaseOptions(
+        version: 4,
+        onCreate: (db, _) => db.execute(_createTableSql),
+        onUpgrade: (db, oldVersion, _) async {
+          if (oldVersion < 2) {
+            await db.execute('DROP TABLE IF EXISTS billing_pending_purchases');
+            await db.execute(_createTableSql);
+            return;
+          }
+          if (oldVersion < 3) {
+            await db.execute(
+              'ALTER TABLE billing_pending_purchases '
+              'ADD COLUMN report_timeout_tracked INTEGER NOT NULL DEFAULT 0',
+            );
+          }
+          if (oldVersion < 4) {
+            await db.execute(
+              'ALTER TABLE billing_pending_purchases '
+              'ADD COLUMN price_amount_micros INTEGER',
+            );
+            await db.execute(
+              'ALTER TABLE billing_pending_purchases '
+              "ADD COLUMN price_currency_code TEXT NOT NULL DEFAULT ''",
+            );
+          }
+        },
+      ),
     );
     _database = database;
     return database;
+  }
+
+  Future<void> close() async {
+    final database = _database;
+    _database = null;
+    await database?.close();
   }
 
   @override
@@ -173,6 +199,8 @@ Map<String, Object?> _toRow(BillingPendingPurchase purchase) {
     'status': purchase.status.name,
     'retry_count': purchase.retryCount,
     'report_timeout_tracked': purchase.reportTimeoutTracked ? 1 : 0,
+    'price_amount_micros': purchase.priceAmountMicros,
+    'price_currency_code': purchase.priceCurrencyCode,
     'created_at': purchase.createdAt.millisecondsSinceEpoch,
     'updated_at': purchase.updatedAt.millisecondsSinceEpoch,
   };
@@ -192,6 +220,8 @@ BillingPendingPurchase _fromRow(Map<String, Object?> row) {
     status: BillingPendingPurchaseStatus.values.byName('${row['status']}'),
     retryCount: row['retry_count'] as int? ?? 0,
     reportTimeoutTracked: (row['report_timeout_tracked'] as int? ?? 0) != 0,
+    priceAmountMicros: row['price_amount_micros'] as int?,
+    priceCurrencyCode: '${row['price_currency_code'] ?? ''}',
     createdAt: DateTime.fromMillisecondsSinceEpoch(row['created_at'] as int),
     updatedAt: DateTime.fromMillisecondsSinceEpoch(row['updated_at'] as int),
   );
@@ -211,6 +241,8 @@ const _createTableSql = '''
     status TEXT NOT NULL,
     retry_count INTEGER NOT NULL,
     report_timeout_tracked INTEGER NOT NULL DEFAULT 0,
+    price_amount_micros INTEGER,
+    price_currency_code TEXT NOT NULL DEFAULT '',
     created_at INTEGER NOT NULL,
     updated_at INTEGER NOT NULL,
     PRIMARY KEY(provider, purchase_token)
