@@ -26,6 +26,9 @@ class PurchaseSessionBuilder extends StatefulWidget {
 class _PurchaseSessionBuilderState extends State<PurchaseSessionBuilder> {
   AppServices? _services;
   Future<String?>? _loginUid;
+  bool _hasResolvedSession = false;
+  String? _resolvedUid;
+  int _contentGeneration = 0;
 
   @override
   void didChangeDependencies() {
@@ -57,17 +60,28 @@ class _PurchaseSessionBuilderState extends State<PurchaseSessionBuilder> {
       child: FutureBuilder<String?>(
         future: _loginUid,
         builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
+          final resolved = snapshot.connectionState == ConnectionState.done;
+          if (!resolved && (!_hasResolvedSession || _resolvedUid != null)) {
             return ColoredBox(
               color: widget.backgroundColor,
               child: const GemPurchaseLoading(),
             );
           }
-          // A different account must not retain the previous tabs or Gems data.
-          final uid = snapshot.hasError ? null : snapshot.data;
+          if (resolved) {
+            final uid = snapshot.hasError ? null : snapshot.data;
+            // Guest -> login retains the subscription UI. Logging out or
+            // changing an existing account still discards its private Gems UI.
+            if (_hasResolvedSession &&
+                _resolvedUid != null &&
+                _resolvedUid != uid) {
+              _contentGeneration++;
+            }
+            _resolvedUid = uid;
+            _hasResolvedSession = true;
+          }
           return KeyedSubtree(
-            key: ValueKey(uid),
-            child: widget.builder(context, uid != null),
+            key: ValueKey(_contentGeneration),
+            child: widget.builder(context, _resolvedUid != null),
           );
         },
       ),

@@ -46,8 +46,8 @@ class PurchaseOptionsSheet extends StatefulWidget {
 }
 
 class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
-  late final TabController _tabs;
+    with TickerProviderStateMixin, WidgetsBindingObserver {
+  late TabController _tabs;
   late bool _gemsVisited;
   late bool _subscriptionVisited;
   MembershipAccessStore? _membership;
@@ -96,6 +96,22 @@ class _PurchaseOptionsSheetState extends State<PurchaseOptionsSheet>
       setState(() => _gemsVisited = true);
       widget.onFirstBuyGems?.call();
     }
+  }
+
+  @override
+  void didUpdateWidget(PurchaseOptionsSheet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showBuyGems == widget.showBuyGems) return;
+    final index = widget.showBuyGems ? _tabs.index : 0;
+    _tabs.removeListener(_visitCurrentTab);
+    _tabs.dispose();
+    _tabs = TabController(
+      length: widget.showBuyGems ? 2 : 1,
+      initialIndex: index,
+      vsync: this,
+    )..addListener(_visitCurrentTab);
+    if (!widget.showBuyGems) _gemsVisited = false;
+    _visitCurrentTab();
   }
 
   @override

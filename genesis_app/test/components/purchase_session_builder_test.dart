@@ -29,6 +29,13 @@ class _DeferredSession extends MemoryUserSessionStore {
   Future<String?> readUid() => uid.future;
 }
 
+class _DelayedLoginSession extends MemoryUserSessionStore {
+  Completer<String?>? loginRead;
+
+  @override
+  Future<String?> readUid() => loginRead?.future ?? super.readUid();
+}
+
 AppServices _servicesFor(MemoryUserSessionStore session) {
   // Session and routing checks do not need a native store connection.
   final platform = debugDefaultTargetPlatformOverride;
@@ -44,6 +51,136 @@ AppServices _servicesFor(MemoryUserSessionStore session) {
 }
 
 void main() {
+  for (final sheet in [false, true]) {
+    for (final refreshFails in [false, true]) {
+      testWidgets(
+        'login keeps ${sheet ? 'sheet' : 'page'} visible and selected while refreshing, failure=$refreshFails',
+        (tester) async {
+          tester.view.physicalSize = const Size(390, 844);
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          final session = _DelayedLoginSession();
+          final services = _servicesFor(session);
+          final fresh = Completer<MembershipCatalogData>();
+          var requests = 0;
+          Future<MembershipCatalogData> loadMemberships() {
+            requests++;
+            return requests == 1 ? loadTestMembershipOffers() : fresh.future;
+          }
+
+          await tester.pumpWidget(
+            AppServicesScope(
+              services: services,
+              child: MaterialApp(
+                home: Scaffold(
+                  body: PurchaseSessionBuilder(
+                    builder: (_, showBuyGems) => sheet
+                        ? PurchaseOptionsSheet(
+                            showBuyGems: showBuyGems,
+                            initialTab: PurchaseSheetTab.subscription,
+                            membershipProductsLoader: loadMemberships,
+                            gemsBuilder: (_) => const Text('Gem packs'),
+                          )
+                        : GemWalletPage(
+                            showBuyGems: showBuyGems,
+                            showSubscriptionInitially: true,
+                            membershipProductsLoader: loadMemberships,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          try {
+            await tester.pumpAndSettle();
+            await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
+            final benefits = find.byKey(
+              const PageStorageKey('pro-benefits-scroll'),
+            );
+            await tester.drag(benefits, const Offset(0, -120));
+            await tester.pumpAndSettle();
+            final content = tester.state(find.byType(ProSubscriptionContent));
+            final scroll = tester.state<ScrollableState>(
+              find
+                  .descendant(of: benefits, matching: find.byType(Scrollable))
+                  .first,
+            );
+            final offset = scroll.position.pixels;
+            expect(offset, greaterThan(0));
+            expect(requests, 1);
+
+            void expectStableContent() {
+              expect(find.byType(GemPurchaseLoading), findsNothing);
+              expect(
+                tester.state(find.byType(ProSubscriptionContent)),
+                same(content),
+              );
+              expect(scroll.position.pixels, closeTo(offset, .01));
+              expect(find.text(r'Monthly: $9.99'), findsOneWidget);
+              expect(tester.takeException(), isNull);
+            }
+
+            await session.saveUid('member');
+            session.loginRead = Completer<String?>();
+            services.notifySessionChanged();
+            for (var frame = 0; frame < 4; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expectStableContent();
+            }
+            expect(requests, 2);
+            session.loginRead!.complete('member');
+            for (var frame = 0; frame < 25; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expectStableContent();
+            }
+            expect(find.text('Buy Gems'), findsOneWidget);
+            expect(requests, 2);
+            if (refreshFails) {
+              fresh.completeError(StateError('catalog offline'));
+            } else {
+              fresh.complete(
+                MembershipCatalogData(
+                  offers: [
+                    for (final yearly in [true, false])
+                      MembershipOffer(
+                        product: membershipProduct(
+                          yearly: yearly,
+                          priceAmount: yearly ? 11999 : 1299,
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            }
+            await tester.pumpAndSettle();
+            expect(find.byType(GemPurchaseLoading), findsNothing);
+            expect(
+              tester.state(find.byType(ProSubscriptionContent)),
+              same(content),
+            );
+            expect(scroll.position.pixels, closeTo(offset, .01));
+            expect(
+              find.text(refreshFails ? r'Monthly: $9.99' : r'Monthly: $12.99'),
+              findsOneWidget,
+            );
+            expect(requests, 2);
+            expect(tester.takeException(), isNull);
+          } finally {
+            if (!fresh.isCompleted) {
+              fresh.complete(await loadTestMembershipOffers());
+            }
+            if (session.loginRead?.isCompleted == false) {
+              session.loginRead!.complete('member');
+            }
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pumpAndSettle();
+          }
+        },
+      );
+    }
+  }
+
   for (final sheet in [false, true]) {
     testWidgets(
       'guest ${sheet ? 'sheet' : 'page'} hides Gems and follows login changes',

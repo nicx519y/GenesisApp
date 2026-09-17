@@ -186,8 +186,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
   }
 
   void _sessionChanged() {
-    _plan = _ProPlan.yearly;
-    unawaited(_load());
+    unawaited(_load(silent: _offers.isNotEmpty, forceRefresh: true));
   }
 
   @override
@@ -215,7 +214,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       }
     });
     var freshApplied = false;
-    if (source != null && cached == null) {
+    if (source != null && cached == null && !silent) {
       unawaited(() async {
         try {
           final snapshot = await source.loadCached();

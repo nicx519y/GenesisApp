@@ -115,7 +115,7 @@ Future<void> showGemBillingPurchaseOverlayPreview(BuildContext context) async {
 }
 
 class _GemWalletPageState extends State<GemWalletPage>
-    with SingleTickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
+    with TickerProviderStateMixin, WidgetsBindingObserver, RouteAware {
   static final Uri _discordUri = Uri.parse('https://discord.gg/wuKHk7cyX7');
   List<GemProduct>? _products;
   List<GemTaskGroup>? _taskGroups;
@@ -139,7 +139,7 @@ class _GemWalletPageState extends State<GemWalletPage>
   bool _billingPurchaseDialogShowing = false;
   bool _billingPurchaseDialogDismissing = false;
   bool _storeRecoveryStarted = false;
-  late final TabController _purchaseTabs;
+  late TabController _purchaseTabs;
   late bool _subscriptionVisited;
   late bool _gemsVisited;
   AppServices? _membershipServices;
@@ -186,6 +186,22 @@ class _GemWalletPageState extends State<GemWalletPage>
       _trackBuyGemsPageView();
       unawaited(_refreshAll());
     }
+  }
+
+  @override
+  void didUpdateWidget(GemWalletPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.showBuyGems == widget.showBuyGems) return;
+    final index = widget.showBuyGems ? _purchaseTabs.index : 0;
+    _purchaseTabs.removeListener(_visitCurrentTab);
+    _purchaseTabs.dispose();
+    _purchaseTabs = TabController(
+      length: widget.showBuyGems ? 2 : 1,
+      initialIndex: index,
+      vsync: this,
+    )..addListener(_visitCurrentTab);
+    if (!widget.showBuyGems) _gemsVisited = false;
+    _visitCurrentTab();
   }
 
   @override
