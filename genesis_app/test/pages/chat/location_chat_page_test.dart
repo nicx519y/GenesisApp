@@ -6678,13 +6678,14 @@ void main() {
         find.byKey(const ValueKey('inspiration-replies-carousel')),
         findsNothing,
       );
-      final optimisticBubbleTop = tester.getTopLeft(optimisticText).dy;
+      await tester.pump(const Duration(milliseconds: 300));
+      final waitingPositionedBubbleTop = tester.getTopLeft(optimisticText).dy;
       await tester.pump(const Duration(milliseconds: 50));
       expect(
         tester.getTopLeft(optimisticText).dy,
-        closeTo(optimisticBubbleTop, 0.1),
+        closeTo(waitingPositionedBubbleTop, 0.1),
         reason:
-            'After inspiration collapses, selection must not move the bubble.',
+            'The inspiration bubble must stay fixed after waiting positioning settles.',
       );
       expect(
         list.messages.where(
@@ -6694,12 +6695,12 @@ void main() {
         reason:
             'Tapping the inspiration card must create the local bubble before selection succeeds.',
       );
+      const loadingDots = ValueKey<String>('location-chat-ack-loading-dots');
+      final preAckWaitingBubble = find.byType(ChatReplyWaitingBubble);
+      expect(preAckWaitingBubble, findsOneWidget);
+      expect(find.byKey(loadingDots), findsNothing);
       expect(
-        find.byKey(
-          const ValueKey(
-            'location-chat-reply-control:world-current/location-current/301',
-          ),
-        ),
+        find.byKey(const ValueKey('location-chat-reply-actions-four-icons')),
         findsNothing,
       );
       expect(list.replyCardSwitchEnabled, isFalse);
@@ -6725,19 +6726,15 @@ void main() {
           final hasUserMessage = list.messages.any(
             (message) => message.isMe && message.text == 'Good job!',
           );
-          final hasOldActionRow = find
-              .byKey(
-                const ValueKey(
-                  'location-chat-reply-control:world-current/location-current/301',
-                ),
-              )
+          final hasOldActionToolbar = find
+              .byKey(const ValueKey('location-chat-reply-actions-four-icons'))
               .evaluate()
               .isNotEmpty;
           expect(
-            hasUserMessage == hasOldActionRow,
+            hasUserMessage == hasOldActionToolbar,
             isFalse,
             reason:
-                'The optimistic inspiration message and old action-row removal must be painted in the same frame.',
+                'The optimistic inspiration message and old toolbar removal must be painted in the same frame.',
           );
           if (hasUserMessage) {
             userMessageRendered = true;
@@ -6747,7 +6744,7 @@ void main() {
         expect(userMessageRendered, isTrue);
         expect(
           tester.getTopLeft(optimisticText).dy,
-          closeTo(optimisticBubbleTop, 0.1),
+          closeTo(waitingPositionedBubbleTop, 0.1),
           reason: 'Card confirmation must not shift the optimistic bubble.',
         );
         expect(harness.socket.sendMessageCount, 1);
@@ -6761,7 +6758,28 @@ void main() {
           hasLength(rangeRequestsBeforeSelection + 1),
           reason: 'Only conversation_range_updated may refresh formal history.',
         );
+        final coordinator = tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .coordinator;
+        final preAckWaitingBottom = tester
+            .getBottomLeft(preAckWaitingBubble)
+            .dy;
+        final preAckPixels = coordinator.controller.position.pixels;
         harness.socket.serverV2AckForLatestSend(errNo: 0);
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => find.byKey(loadingDots).evaluate().isNotEmpty,
+        );
+        expect(
+          tester.getBottomLeft(preAckWaitingBubble).dy,
+          closeTo(preAckWaitingBottom, 0.1),
+        );
+        expect(
+          coordinator.controller.position.pixels,
+          closeTo(preAckPixels, 0.1),
+        );
         harness.socket.serverV2UserMessage(
           messageId: 401,
           clientMsgId: sent['client_msg_id'] as String,
@@ -6786,12 +6804,15 @@ void main() {
         );
         expect(
           tester.getTopLeft(optimisticText).dy,
-          closeTo(optimisticBubbleTop, 0.1),
+          closeTo(waitingPositionedBubbleTop, 0.1),
           reason: 'Acknowledgement must not shift the inspiration bubble.',
         );
       }
       await tester.pump(const Duration(seconds: 4));
       expect(harness.socket.sendMessageCount, outcome == 'success' ? 1 : 0);
+      if (outcome != 'success') {
+        expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+      }
       if (outcome == 'failure') {
         list = tester.widget<LocationChatAnchoredMessageList>(
           find.byType(LocationChatAnchoredMessageList),
@@ -6978,10 +6999,9 @@ void main() {
         );
         await tester.pump();
         expectSelectedCard();
-        expect(
-          find.byKey(const ValueKey('reply-card-gesture')).evaluate().single,
-          same(selectedCardElement),
-        );
+        // Waiting positioning can move the selected card outside the lazy
+        // viewport after the canonical echo. Its selected-card projection is
+        // the stable contract; the render element need not remain mounted.
 
         backend.commitSelectedCardToHistory();
         harness.socket.serverConversationRangeUpdated(start: 301, end: 301);

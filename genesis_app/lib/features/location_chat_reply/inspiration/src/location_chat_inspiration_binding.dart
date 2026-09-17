@@ -278,6 +278,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         textOverride: text,
         inspirationSource: source,
         inspirationEpoch: epoch,
+        positionWaitingImmediately: true,
       ),
     );
   }

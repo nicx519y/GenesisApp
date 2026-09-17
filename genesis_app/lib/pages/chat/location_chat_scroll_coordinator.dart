@@ -844,12 +844,15 @@ class _LocationChatAnchoredMessageListState
         _scrollViewportKey.currentContext?.findRenderObject(),
       );
       if (anchor == null || viewport == null) return;
-      // Regenerate shrinks towards the old card's top; Send/Go On anchor at
-      // the loading bubble's bottom. Both leave the same area for new content.
+      // Regenerate has no loading bubble. Treat the collapsing card as if the
+      // shared 32px loading/action slot still followed its top, so its content
+      // starts at the same visual position as Send/Go On while the reserve is
+      // still measured below that virtual slot's bottom.
+      final anchorEdge = regenerating
+          ? anchor.top + LocationChatReplyActions.buttonSize
+          : anchor.bottom;
       final contentAnchor =
-          coordinator.controller.position.pixels +
-          (regenerating ? anchor.top : anchor.bottom) -
-          viewport.top;
+          coordinator.controller.position.pixels + anchorEdge - viewport.top;
       final stableViewportHeight =
           locationChatStableReplyViewportHeightForTesting(
             currentViewportHeight: viewport.height,

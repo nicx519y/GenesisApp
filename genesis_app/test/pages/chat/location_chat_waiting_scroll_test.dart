@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/regenerate.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_card_switcher.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
@@ -544,6 +545,7 @@ void main() {
         addTearDown(coordinator.dispose);
         var waiting = false;
         var regenerating = false;
+        var regenerationDispatchRevision = 0;
         var currentCardId = 1;
         late StateSetter update;
         final rows = messages(20, suffix: '\nOriginal reply line' * 4);
@@ -579,11 +581,16 @@ void main() {
                           ),
                       ],
                       replyRegenerationInProgress: regenerating,
+                      replyRegenerationDispatchRevision:
+                          regenerationDispatchRevision,
                       regenerateFeature: LocationChatRegenerateFeature(
                         state: regenerating
                             ? LocationChatReplyActionState.busy
                             : LocationChatReplyActionState.idle,
-                        onInvoke: () => update(() => regenerating = true),
+                        onInvoke: () => update(() {
+                          regenerating = true;
+                          regenerationDispatchRevision++;
+                        }),
                       ),
                       style: ChatUiStyleConfig.standard.copyWith(
                         messageListPadding: EdgeInsets.zero,
@@ -624,7 +631,11 @@ void main() {
         if (positioningEnabled) {
           expect(
             tester.getTopLeft(find.byType(LocationChatReplyCardSwitcher)).dy,
-            closeTo(360 * (1 - scenario.reserve), 0.1),
+            closeTo(
+              360 * (1 - scenario.reserve) -
+                  LocationChatReplyActions.buttonSize,
+              0.1,
+            ),
           );
           expect(coordinator.isDetached, isTrue);
           expect(coordinator.isReadingHistory, isFalse);
