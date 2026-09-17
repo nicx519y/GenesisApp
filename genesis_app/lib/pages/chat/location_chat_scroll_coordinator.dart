@@ -46,6 +46,9 @@ const locationChatOldestEdgeLoadingAnimationDuration = Duration(
 const _locationChatLayoutCorrectionExtentSignal = 0.01;
 const _locationChatAnchorRestoreCacheExtent = 1000000000.0;
 
+@visibleForTesting
+int debugLocationChatMessageRowBuildCount = 0;
+
 double locationChatStableReplyViewportHeightForTesting({
   required double currentViewportHeight,
   required double effectiveKeyboardInset,
@@ -2305,6 +2308,10 @@ class _LocationChatAnchoredMessageListState
         locationChatReplyMessagesEqual(cached.snapshot, current)) {
       return cached.child;
     }
+    assert(() {
+      debugLocationChatMessageRowBuildCount++;
+      return true;
+    }());
     _scheduleRowCacheCleanup();
     final row = KeyedSubtree(
       key: layoutKey,

@@ -390,6 +390,7 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
     String? inspirationReplacementLocation,
   }) {
     if (_disposed) return;
+    final previousState = _state;
     _state = state;
     _inspirationReplacementLocation = inspirationReplacementLocation;
     try {
@@ -398,7 +399,77 @@ extension _WorldChatroomWorldProjection on WorldChatroomService {
       _inspirationReplacementLocation = null;
     }
     _syncEntrySnapshots();
+    _publishLocationMessageChanges(previousState, state);
     if (!_states.isClosed) _states.add(state);
+  }
+
+  void _publishLocationMessageChanges(
+    WorldChatroomState previous,
+    WorldChatroomState next,
+  ) {
+    if (_locationMessageChanges.isEmpty) return;
+    for (final entry in _locationMessageChanges.entries.toList()) {
+      final locationId = entry.key;
+      final previousMessages =
+          previous.messagesByLocation[locationId] ??
+          const <WorldChatroomMessage>[];
+      final nextMessages =
+          next.messagesByLocation[locationId] ?? const <WorldChatroomMessage>[];
+      if (identical(previousMessages, nextMessages)) continue;
+
+      final previousByKey = <String, WorldChatroomMessage>{
+        for (final message in previousMessages)
+          _locationMessageChangeKey(message): message,
+      };
+      final nextByKey = <String, WorldChatroomMessage>{
+        for (final message in nextMessages)
+          _locationMessageChangeKey(message): message,
+      };
+      final previousKeys = previousMessages
+          .map(_locationMessageChangeKey)
+          .toList(growable: false);
+      final nextKeys = nextMessages
+          .map(_locationMessageChangeKey)
+          .toList(growable: false);
+      final changedKeys = <String>{};
+      for (final nextEntry in nextByKey.entries) {
+        if (!identical(previousByKey[nextEntry.key], nextEntry.value)) {
+          changedKeys.add(nextEntry.key);
+        }
+      }
+      final removedKeys = previousByKey.keys.toSet()..removeAll(nextByKey.keys);
+      final structureChanged = !listEquals(previousKeys, nextKeys);
+      if (changedKeys.isEmpty && removedKeys.isEmpty && !structureChanged) {
+        continue;
+      }
+      final revision = (_locationMessageChangeRevisions[locationId] ?? 0) + 1;
+      _locationMessageChangeRevisions[locationId] = revision;
+      entry.value.value = WorldChatroomLocationMessagesChange(
+        locationId: locationId,
+        messages: nextMessages,
+        changedMessageKeys: Set<String>.unmodifiable(changedKeys),
+        removedMessageKeys: Set<String>.unmodifiable(removedKeys),
+        structureChanged: structureChanged,
+        revision: revision,
+      );
+    }
+  }
+
+  String _locationMessageChangeKey(WorldChatroomMessage message) {
+    if (!isChatroomMessageIdOrderedSupplemental(
+          message.senderType,
+          locationMessageId: message.locationMessageId,
+        ) &&
+        message.locationMessageId > 0) {
+      return 'location:${message.locationMessageId}';
+    }
+    if (message.globalMessageId > 0) {
+      return 'global:${message.globalMessageId}';
+    }
+    if (message.messageId > 0) return 'message:${message.messageId}';
+    final clientMsgId = message.clientMsgId.trim();
+    if (clientMsgId.isNotEmpty) return 'client:$clientMsgId';
+    return 'stream:${message.conversationRoundId}:${message.senderId}';
   }
 
   void _throwIfDisposed() {

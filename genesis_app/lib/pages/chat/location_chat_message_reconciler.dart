@@ -1,5 +1,17 @@
 part of 'location_chat_page.dart';
 
+class _LocationChatMessageParseCacheEntry {
+  const _LocationChatMessageParseCacheEntry({
+    required this.source,
+    required this.identityRevision,
+    required this.parsed,
+  });
+
+  final WorldChatroomMessage source;
+  final int identityRevision;
+  final LocationChatParsedMessage? parsed;
+}
+
 extension _LocationChatMessageReconciler on _LocationChatPanelState {
   bool _reconcileMessages(
     List<WorldChatroomMessage> source, {
@@ -50,16 +62,26 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       ),
     );
     final retainedTimelineCacheKeys = <String>{};
+    final retainedMessageParseCacheKeys = <String>{};
     final visibleSource = <LocationChatParsedMessage>[];
     for (final message in renderWindow.messages) {
       final isTimelineMessage = isChatroomTimelinePayloadSenderType(
         message.senderType,
       );
       final timelineCacheKey = locationChatMessageLocalId(message);
+      retainedMessageParseCacheKeys.add(timelineCacheKey);
+      final cachedParsed = _messageParseCache[timelineCacheKey];
+      if (isTimelineMessage) retainedTimelineCacheKeys.add(timelineCacheKey);
+      if (cachedParsed != null &&
+          identical(cachedParsed.source, message) &&
+          cachedParsed.identityRevision == timelineIdentityIndex.revision) {
+        final parsed = cachedParsed.parsed;
+        if (parsed != null) visibleSource.add(parsed);
+        continue;
+      }
       var parseContext = baseParseContext;
       _LocationChatTimelineVmCacheEntry? cachedTimelineEntry;
       if (isTimelineMessage) {
-        retainedTimelineCacheKeys.add(timelineCacheKey);
         final cached = _timelineVmCache[timelineCacheKey];
         if (cached != null &&
             identical(cached.payload, message.timelinePayload) &&
@@ -73,7 +95,17 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       }
       final parser = _parserForMessage(message);
       if (parser == null) continue;
+      assert(() {
+        debugLocationChatMessageParseCount++;
+        return true;
+      }());
       final parsed = parser.parse(message, parseContext);
+      _messageParseCache[timelineCacheKey] =
+          _LocationChatMessageParseCacheEntry(
+            source: message,
+            identityRevision: timelineIdentityIndex.revision,
+            parsed: parsed,
+          );
       if (isTimelineMessage && cachedTimelineEntry == null) {
         _timelineVmCache[timelineCacheKey] = _LocationChatTimelineVmCacheEntry(
           payload: message.timelinePayload,
@@ -86,6 +118,9 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     }
     _timelineVmCache.removeWhere(
       (key, _) => !retainedTimelineCacheKeys.contains(key),
+    );
+    _messageParseCache.removeWhere(
+      (key, _) => !retainedMessageParseCacheKeys.contains(key),
     );
     final previous = _messages.where((message) => !message.isSystem).toList();
     final existingByKey = {
@@ -777,6 +812,8 @@ class _LocationChatTimelineIdentityIndex {
       entitiesById: state.entitiesById,
     );
     final revision = Object.hashAll(<Object?>[
+      ...currentUserIds.map(_chatroomIdentityKey),
+      ...currentSenderIds.map(_chatroomIdentityKey),
       ...characterNamesById.entries.expand((entry) => [entry.key, entry.value]),
       ...locationNamesById.entries.expand((entry) => [entry.key, entry.value]),
       ...roleNamesById.entries.expand((entry) => [entry.key, entry.value]),

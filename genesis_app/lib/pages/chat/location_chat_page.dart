@@ -90,6 +90,7 @@ part 'location_chat_panel_actions.dart';
 part 'location_chat_layout.dart';
 part 'location_chat_tick_progress.dart';
 part 'location_chat_panel_widgets.dart';
+part 'location_chat_message_viewport.dart';
 part 'location_chat_shared.dart';
 
 const double _locationChatAvatarLogicalSize = 40;
@@ -113,6 +114,15 @@ int debugLocationChatReplyProjectionCount = 0;
 
 @visibleForTesting
 int debugLocationChatReplyMessageParseCount = 0;
+
+@visibleForTesting
+int debugLocationChatMessageParseCount = 0;
+
+@visibleForTesting
+int debugLocationChatPanelBuildCount = 0;
+
+@visibleForTesting
+int debugLocationChatMessageViewportBuildCount = 0;
 
 @visibleForTesting
 int locationChatNewMessageNoticeCountForTesting({
@@ -467,6 +477,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   ChatroomReplyActionsController? _replyController;
   Listenable? _replyLocationChanges;
   final ValueNotifier<int> _replyControlsRevision = ValueNotifier<int>(0);
+  final ValueNotifier<int> _messageViewportRevision = ValueNotifier<int>(0);
   Object? _lastReplyBodyRevision;
   int _replyProjectionEpoch = 0;
   late final _replyProjection = _LocationChatReplyProjectionCache(this);
@@ -540,8 +551,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final _messages = <ChatMessageVm>[];
   final Map<String, _LocationChatTimelineVmCacheEntry> _timelineVmCache =
       <String, _LocationChatTimelineVmCacheEntry>{};
+  final Map<String, _LocationChatMessageParseCacheEntry> _messageParseCache =
+      <String, _LocationChatMessageParseCacheEntry>{};
   WorldChatroomService? _service;
   StreamSubscription<WorldChatroomState>? _stateSubscription;
+  ValueListenable<WorldChatroomLocationMessagesChange>? _locationMessageChanges;
   StreamSubscription<ChatroomFailureEvent>? _failuresSubscription;
   StreamSubscription<GemBalanceAlert>? _balanceAlertSubscription;
   WorldChatroomState _chatroomState = const WorldChatroomState();
@@ -768,6 +782,12 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     });
   }
 
+  void _notifyMessageViewport({bool invalidateReplyProjection = true}) {
+    if (!mounted) return;
+    if (invalidateReplyProjection) _replyProjectionEpoch++;
+    _messageViewportRevision.value++;
+  }
+
   void _setReplyControlsState(VoidCallback callback) {
     callback();
     _replyControlsRevision.value++;
@@ -776,12 +796,13 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   void _handleViewportCoordinatorChanged() {
     if (!mounted) return;
-    _setLocationChatState(() {
-      final visibleMessageLocalIds =
-          _scrollCoordinator.messageLocalIdsIntersectingViewport;
-      _unseenIncomingMessageLocalIds.removeAll(visibleMessageLocalIds);
-      _unseenReplyMessageLocalIds.removeAll(visibleMessageLocalIds);
-    });
+    final visibleMessageLocalIds =
+        _scrollCoordinator.messageLocalIdsIntersectingViewport;
+    _unseenIncomingMessageLocalIds.removeAll(visibleMessageLocalIds);
+    _unseenReplyMessageLocalIds.removeAll(visibleMessageLocalIds);
+    // Notice count also depends on the coordinator's below/intersecting sets,
+    // so every semantic viewport report refreshes this isolated subtree.
+    _notifyMessageViewport(invalidateReplyProjection: false);
     _handleMessageListScroll();
   }
 
@@ -873,9 +894,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     );
     _detachReplyActions();
     _replyControlsRevision.dispose();
+    _messageViewportRevision.dispose();
     _cancelOlderMessagesLoadSchedule();
     _selectedModelLoadGeneration++;
     _timelineVmCache.clear();
+    _messageParseCache.clear();
     _userInfoRevisionListenable?.removeListener(_handleCachedUserInfoChanged);
     _recordPanelDebug(action: 'dispose', activeOverride: false);
     final service = _service;
@@ -1045,6 +1068,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
 
   @override
   Widget build(BuildContext context) {
+    assert(() {
+      debugLocationChatPanelBuildCount++;
+      return true;
+    }());
     final occupants = !widget.active && _exitRetainedOccupants != null
         ? _exitRetainedOccupants!
         : _roomOccupantsForCurrentLocation(_chatroomState);
@@ -1194,156 +1221,19 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       backdropGroupKey: _surfaceBackdropKey,
     );
     final headerHeight = _locationChatHeaderHeight(style);
-    // The opening history is not a new reply to the queued launch message.
-    // Keep its controls from appearing below that message before its echo.
-    final awaitingOpeningEcho =
-        _initialOutgoingMessage != null && !_initialOutgoingMessageReconciled;
-    final replyPresentationState = awaitingOpeningEcho
-        ? null
-        : _displayReplyState;
-    final replyPresentation = _replyProjection.presentation(
-      replyPresentationState,
-    );
-    final replyActionsIdentity = replyPresentationState == null
-        ? null
-        : '${widget.worldId}/${widget.locationId}/${replyPresentationState.roundId}';
-    final displayMessages = replyPresentation.messages;
-    final loadingRoundId = _ackLoadingRoundId();
-    final loadingAfterMessageLocalId =
-        _ackLoadingMessageLocalId != null &&
-            !_hasVisibleAiReplyForRound(displayMessages, loadingRoundId)
-        ? _ackLoadingMessageLocalId
-        : null;
     final managesKeyboardInset = locationChatManagesKeyboardInsetForTesting(
       platform: Theme.of(context).platform,
       androidSdkInt: _androidSdkInt,
     );
     final bottomSafeAreaInset = GenesisSafeAreaInsets.bottom(context);
-    final messageList = ChatStreamingEffects(
-      key: ValueKey((widget.worldId, widget.locationId)),
-      settings: locationChatBubbleLayoutSettings.value,
-      child: ChatMentionScope(
-        catalog: _textController.catalog,
-        child: ValueListenableBuilder<int>(
-          valueListenable: _replyControlsRevision,
-          builder: (context, _, child) {
-            final replyState = awaitingOpeningEcho
-                ? null
-                : (_usesPreparedEntry
-                      ? _preparedEntry?.snapshot?.actions
-                      : _replyController?.stateFor(widget.locationId));
-            final controls = _replyControlsFor(
-              replyState,
-              replyPresentationState,
-              displayMessages,
-            );
-            _scheduleInspirationConversationRendered(
-              displayMessages,
-              ackRoundId:
-                  loadingAfterMessageLocalId != null &&
-                      displayMessages.any(
-                        (m) => m.localId == loadingAfterMessageLocalId,
-                      )
-                  ? int.tryParse(loadingRoundId) ??
-                        (_inspirationAckPreviousRound + 1)
-                  : null,
-              goOnRoundId: controls.goOnAwaitingRoundId,
-            );
-            final actions = controls.actions;
-            final regenerateFeature = actions.hidden
-                ? const LocationChatRegenerateFeature.disabled()
-                : _regenerateFeature(actions);
-            final goOnFeature = actions.hidden
-                ? const LocationChatGoOnFeature.disabled()
-                : _goOnFeature(actions.goOn);
-            final editFeature = actions.hidden
-                ? const LocationChatEditFeature.disabled()
-                : _editFeature(
-                    actions.edit,
-                    style,
-                    ordinaryMessageBubbleMaxWidthCaps.selfMessage,
-                    ordinaryMessageBubbleMaxWidthCaps.otherMessage,
-                  );
-            final inspirationFeature = actions.hidden
-                ? const LocationChatInspirationFeature.disabled()
-                : _inspirationFeature(actions.inspiration);
-            return LocationChatAnchoredMessageList(
-              key: const ValueKey<String>('location-chat-message-list'),
-              coordinator: _scrollCoordinator,
-              active: widget.active,
-              messages: displayMessages,
-              loadingAfterMessageLocalId: loadingAfterMessageLocalId,
-              loadingIdentity: _ackLoadingClientMsgId,
-              preAckWaitingAfterMessageLocalId: _preAckWaitingMessageLocalId,
-              preAckWaitingIdentity: _preAckWaitingClientMsgId,
-              waitingPositionResetRevision: _waitingPositionResetRevision,
-              goOnAwaitingContentIdentity: controls.goOnAwaitingContentIdentity,
-              replyWaitingPositioningEnabled: locationChatBubbleLayoutSettings
-                  .value
-                  .replyWaitingPositioningEnabled,
-              replyViewportReserveFraction: locationChatBubbleLayoutSettings
-                  .value
-                  .replyViewportReserveFraction,
-              messageLayoutId: _locationChatMessageLayoutId,
-              replyActionsIdentity: replyActionsIdentity,
-              replyActionsMessageId:
-                  replyPresentation.replyMessages.lastOrNull?.localId,
-              replyActionsVisible:
-                  !controls.goOnContentIsRendering &&
-                  _suppressedReplyActionsIdentity != replyActionsIdentity,
-              replyPresentationRevision:
-                  replyPresentationState?.presentationRevision ?? 0,
-              replyCards: _replyProjection.cards(
-                replyPresentationState,
-                replyPresentation.replyMessages,
-              ),
-              replyCurrentCardId: replyPresentationState?.viewedCardId ?? 0,
-              replyCardBindingIdentity:
-                  '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyPresentationState?.roundId}',
-              replyCardSwitchEnabled: controls.cardSwitchEnabled,
-              replyRegenerationInProgress: controls.regenerationInProgress,
-              replyRegenerationDispatchRevision:
-                  _replyRegenerationDispatchRevision,
-              onReplyCardSelected: _commitReplyCard,
-              onReplyCardTransitionChanged: _replyTransitionChangedHandler,
-              regenerateFeature: regenerateFeature,
-              goOnFeature: goOnFeature,
-              editFeature: editFeature,
-              replyCardIndex: math.max(
-                0,
-                (replyPresentationState?.cardPosition ?? 1) - 1,
-              ),
-              replyCardCount: controls.tickSupersededReply
-                  ? 0
-                  : replyPresentationState?.cardCount ?? 0,
-              replyCardsConfirmed: replyPresentationState?.confirmed ?? false,
-              showConfirmedCardPagination: controls.showConfirmedCardPagination,
-              onPreviousReplyCard: () => _browseReplyCard(-1),
-              onNextReplyCard: () => _browseReplyCard(1),
-              inspirationFeature: inspirationFeature,
-              inspirationIdentity:
-                  '${_currentInspirationSource?.key}:$_inspirationResetRevision',
-              inspirationPresentationRevision: _inspirationPresentationRevision,
-              topTitle: '',
-              oldestEdgeLoading: _showOlderMessagesLoading,
-              onOldestEdgeLoadingCollapsed:
-                  _handleOlderMessagesLoadingCollapsed,
-              onMessageLongPressStart: _messageLongPressHandler,
-              onFailedMessageTap: _failedMessageTapHandler,
-              onCharactersMovedLocationTap:
-                  widget.onCharactersMovedLocationTap == null
-                  ? null
-                  : _movementTapHandler,
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              showDateDividers: false,
-              selfMessageBubbleMaxWidthCap:
-                  ordinaryMessageBubbleMaxWidthCaps.selfMessage,
-              otherMessageBubbleMaxWidthCap:
-                  ordinaryMessageBubbleMaxWidthCaps.otherMessage,
-              style: style,
-            );
-          },
-        ),
+    final messageViewport = ValueListenableBuilder<int>(
+      valueListenable: _messageViewportRevision,
+      builder: (context, _, child) => _buildMessageViewport(
+        style: style,
+        selfMessageBubbleMaxWidthCap:
+            ordinaryMessageBubbleMaxWidthCaps.selfMessage,
+        otherMessageBubbleMaxWidthCap:
+            ordinaryMessageBubbleMaxWidthCaps.otherMessage,
       ),
     );
 
@@ -1394,33 +1284,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                           );
                         }
                       : null,
-                  messageViewport: Stack(
-                    children: [
-                      Positioned.fill(
-                        child: NotificationListener<ScrollNotification>(
-                          onNotification:
-                              _scrollCoordinator.handleScrollNotification,
-                          child: messageList,
-                        ),
-                      ),
-                      if (widget.emptyState != null)
-                        Positioned.fill(
-                          child: IgnorePointer(child: widget.emptyState),
-                        ),
-                      if (_newMessageNoticeCount > 0)
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 12,
-                          child: Center(
-                            child: _LocationChatNewMessageNotice(
-                              count: _newMessageNoticeCount,
-                              onTap: _openUnseenIncomingMessages,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  messageViewport: messageViewport,
                   header: header,
                   composerTopOverlay: widget.showComposer
                       ? widget.composerTopOverlay

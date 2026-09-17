@@ -22,6 +22,97 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test('location message changes are scoped and batched by location', () async {
+    final socket = _FakeChatroomSocket();
+    final service = await _service(
+      socketTransport: _FakeChatroomTransport(socket),
+      useV2Protocol: true,
+      refreshInitialSnapshotOnConnect: false,
+    );
+    addTearDown(service.dispose);
+    await service.connect(worldId: 'world-1', identity: _identity());
+    final changes = service.changesForLocation('loc-1');
+    var notifications = 0;
+    changes.addListener(() => notifications++);
+
+    socket.serverV2Message(
+      type: 'character',
+      senderId: 'char-2',
+      senderName: 'Bob',
+      messageId: 20,
+      locationMessageId: 1,
+      roundId: 1,
+      content: 'Other location',
+      locationId: 'loc-2',
+    );
+    await _waitFor(
+      () => service.state.messagesByLocation['loc-2']?.isNotEmpty ?? false,
+    );
+    expect(notifications, 0);
+
+    socket.serverV2Message(
+      type: 'character',
+      senderId: 'char-1',
+      senderName: 'Alice',
+      messageId: 10,
+      locationMessageId: 1,
+      roundId: 1,
+      content: 'First chunk',
+      locationId: 'loc-1',
+    );
+    await _waitFor(() => notifications == 1);
+    expect(changes.value.structureChanged, isTrue);
+    expect(changes.value.changedMessageKeys, {'location:1'});
+
+    socket.serverV2Message(
+      type: 'character',
+      senderId: 'char-1',
+      senderName: 'Alice',
+      messageId: 10,
+      locationMessageId: 1,
+      roundId: 1,
+      content: 'First chunk continued',
+      locationId: 'loc-1',
+    );
+    await _waitFor(() => notifications == 2);
+    expect(changes.value.structureChanged, isFalse);
+    expect(changes.value.changedMessageKeys, {'location:1'});
+  });
+
+  test(
+    'unchanged HTTP history keeps message identity and stays quiet',
+    () async {
+      final http = _WorldChatroomHttpTransport()
+        ..messagesByLocation['loc-1'] = [
+          _httpMessageJson(
+            messageId: 10,
+            locationId: 'loc-1',
+            content: 'Stable history',
+          ),
+        ];
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(_FakeChatroomSocket()),
+        httpTransport: http,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      final changes = service.changesForLocation('loc-1');
+      var notifications = 0;
+      changes.addListener(() => notifications++);
+
+      await service.refreshLatestMessages(locationId: 'loc-1');
+      final first = service.state.messagesByLocation['loc-1']!.single;
+      expect(notifications, 1);
+
+      notifications = 0;
+      await service.refreshLatestMessages(locationId: 'loc-1');
+      final second = service.state.messagesByLocation['loc-1']!.single;
+      expect(second, same(first));
+      expect(notifications, 0);
+    },
+  );
+
   test(
     'reply observation ignores rewrapped unchanged location queues',
     () async {

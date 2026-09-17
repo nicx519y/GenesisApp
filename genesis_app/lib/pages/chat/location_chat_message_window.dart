@@ -193,11 +193,10 @@ extension _LocationChatMessageWindow on _LocationChatPanelState {
     if (setEquals(nextUnseenLocalIds, _unseenIncomingMessageLocalIds)) {
       return;
     }
-    _setLocationChatState(() {
-      _unseenIncomingMessageLocalIds
-        ..clear()
-        ..addAll(nextUnseenLocalIds);
-    });
+    _unseenIncomingMessageLocalIds
+      ..clear()
+      ..addAll(nextUnseenLocalIds);
+    _notifyMessageViewport(invalidateReplyProjection: false);
   }
 
   String _messageDedupKey(WorldChatroomMessage message) {

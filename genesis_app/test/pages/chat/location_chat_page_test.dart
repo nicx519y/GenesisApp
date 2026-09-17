@@ -54,6 +54,7 @@ String _readLocationChatImplementationSource() {
     'lib/pages/chat/location_chat_page.dart',
     'lib/pages/chat/location_chat_panel_connection.dart',
     'lib/pages/chat/location_chat_message_reconciler.dart',
+    'lib/pages/chat/location_chat_message_viewport.dart',
     'lib/pages/chat/location_chat_send_actions.dart',
     'lib/pages/chat/location_chat_message_window.dart',
     'lib/pages/chat/location_chat_identity.dart',
@@ -110,6 +111,101 @@ void main() {
         ),
         0,
       );
+    },
+  );
+
+  testWidgets(
+    'history refresh rebuilds only the message viewport and changed bubble',
+    (tester) async {
+      final backend = _LocationChatReplyHttpTransport();
+      final harness = await _connectedLocationChatTestService(
+        replyTransport: backend,
+      );
+      addTearDown(() => unawaited(harness.service.dispose()));
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: harness.services,
+          child: MaterialApp(
+            home: LocationChatPanel(
+              worldId: 'world-current',
+              locationId: 'location-current',
+              service: harness.service,
+              leaveOnInactive: false,
+              messageQueueInitializationCovered: true,
+            ),
+          ),
+        ),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.state.joinedLocationId == 'location-current',
+      );
+      await tester.pumpAndSettle();
+
+      debugLocationChatPanelBuildCount = 0;
+      debugLocationChatMessageViewportBuildCount = 0;
+      debugLocationChatMessageParseCount = 0;
+      debugLocationChatMessageRowBuildCount = 0;
+      backend.messages.addAll([
+        backend._messageJson(
+          101,
+          'narrator',
+          'narrator',
+          'First message',
+          roundId: 101,
+          conversationType: '',
+        ),
+        backend._messageJson(
+          102,
+          'narrator',
+          'narrator',
+          'Second message',
+          roundId: 102,
+          conversationType: '',
+        ),
+      ]);
+      await harness.service.refreshLatestMessages(
+        locationId: 'location-current',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('Second message').evaluate().isNotEmpty,
+      );
+      await tester.pump();
+      expect(debugLocationChatPanelBuildCount, 0);
+      expect(debugLocationChatMessageViewportBuildCount, greaterThan(0));
+      expect(debugLocationChatMessageParseCount, 2);
+
+      final viewportBuilds = debugLocationChatMessageViewportBuildCount;
+      final parses = debugLocationChatMessageParseCount;
+      final rowBuilds = debugLocationChatMessageRowBuildCount;
+      backend.messages[1]['payload'] = <String, Object?>{
+        'content': 'Second message updated',
+      };
+      await harness.service.refreshLatestMessages(
+        locationId: 'location-current',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('Second message updated').evaluate().isNotEmpty,
+      );
+      await tester.pump();
+
+      expect(debugLocationChatPanelBuildCount, 0);
+      expect(
+        debugLocationChatMessageViewportBuildCount,
+        greaterThan(viewportBuilds),
+      );
+      expect(debugLocationChatMessageParseCount - parses, 1);
+      expect(
+        debugLocationChatMessageRowBuildCount - rowBuilds,
+        lessThanOrEqualTo(1),
+        reason:
+            'A one-message edit must not invalidate more than the changed row.',
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
     },
   );
 
