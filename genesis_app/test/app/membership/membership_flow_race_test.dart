@@ -66,7 +66,7 @@ void main() {
   );
 
   test(
-    'report rechecks account ownership before sending and retries only as original owner',
+    'report rechecks ownership and never retries on account recovery',
     () async {
       final h = Harness();
       await h.service.purchase(h.product());
@@ -78,11 +78,11 @@ void main() {
       h.loginUidHandler = null;
       h.uid = 'user-test';
       await h.service.recover();
-      expect(h.reports, hasLength(1));
+      expect(h.reports, isEmpty);
     },
   );
 
-  testWidgets('claim timer firing during recovery schedules the next pass', (
+  testWidgets('claim timer retries binding without invoking report', (
     tester,
   ) async {
     final h = Harness(
@@ -95,21 +95,12 @@ void main() {
     h.claimHandler = (_) async =>
         const MembershipClaimResult(status: MembershipReportStatus.accepted);
     await h.service.recover();
-    final entered = Completer<void>();
-    final response = Completer<MembershipPurchaseReport>();
-    h.reportHandler = (_) {
-      entered.complete();
-      return response.future;
-    };
-    final recovery = h.service.recover();
-    await entered.future;
-    await tester.pump(const Duration(seconds: 15));
+    await h.service.recover();
     expect(h.claimRequests, hasLength(1));
     h.claimHandler = null;
-    response.complete(completed);
-    await recovery;
-    await tester.pump();
+    await tester.pump(const Duration(seconds: 15));
     await h.service.recover();
+    expect(h.reports, hasLength(1));
     expect(h.claimRequests, hasLength(2));
     expect(
       h.store.claims.values.where((r) => r.status != 'completed'),

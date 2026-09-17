@@ -57,7 +57,7 @@ report 模型仅有 status；订单号取平台回调或精确匹配的已保存
 
 **pending 与 timeout 保持独立，不在 failed 重复统计。** 平台明确 pending → subscription_pending；客户端准备计时到期、Apple 调用已返回后的匹配回调等待超时，或 report 请求超时 → subscription_timeout。store_callback 计时不包含用户停留在 Apple 付款页的时间。平台返回明确失败码，即使码名含 timeout，仍在 subscription_failed 保留该平台码，不额外补发 timeout。平台返回成功、purchased/restored 不记 failed，继续既有 report 流程。
 
-同一平台失败在查询/发起购买返回、购买回调、外层 catch 或状态监听重复传递时，只由一个责任点记录一次，并优先使用该失败可取得的原始平台信息；不能同时记平台码和本地兜底原因。不得为等待补充信息新增固定等待或接口请求。后续新的 report 请求失败属于独立结果，按真实请求记录，不跨请求吞掉重试结果。
+同一平台失败在查询/发起购买返回、购买回调、外层 catch 或状态监听重复传递时，只由一个责任点记录一次，并优先使用该失败可取得的原始平台信息；不能同时记平台码和本地兜底原因。不得为等待补充信息新增固定等待或接口请求。report 的当次技术重试归属同一逻辑操作，只记录最终结果；中间技术失败不额外记购买失败。HTTP 请求监控仍按实际请求记录。
 
 ## 4. Subscription 入口来源
 
@@ -81,7 +81,7 @@ Buy Gems 只做增量：原文档、事件、字段、曝光时机和 tick_no_ba
 - 一个购买容器一个 pageId，每次真实购买点击一个 clickId；回调、report 重试和该购买的 claim 沿用 object2。不恢复已删除的 report HTTP request_id 参数。
 - 原关联丢失的恢复流程使用稳定 recovery_{id}；不补造页面曝光或点击。成功事件的入口来源无法可靠还原用 from_unknown。
 - 重复 pending/accepted 按 object2 + 原因去重。重复平台回调、重复 completed 不重复计 success；按平台 + 本笔交易身份归并，无订单号时先按原关联去重，补齐后归并。
-- 每次真实 report 失败/超时分别记录；重试 completed 仍记一次 success，object2 不变。一个异常只由一个责任点记录，避免同一请求重复上报。
+- report 只记录一次最终状态；当次技术重试成功只记 success，耗尽后按最终错误记一次 failed 或 timeout，object2 不变。任何业务状态结束上报，不持久化或恢复 report。
 - 每次实际 claim 结果记一次；保持首次失败后最多额外 5 次退避重试的既有策略。claim completed 不重复计购买 success。同一游客身份多笔订单共用一次 claim 时，只记一次真实请求结果；不按订单数复制事件。
 - 购买或绑定成功后的 wallet 刷新、客户端缓存清理失败，不撤销已完成结果；本版不再为这些步骤新增事件。Apple finish 与 Google acknowledge 统一由服务端处理，不属于客户端成功后的步骤。
 - 准备沿用当前超时，平台交接后结束前置计时；不为系统付款页等待新增倒计时。report timeout 按真实 HTTP 结果记录。
@@ -93,8 +93,8 @@ Buy Gems 只做增量：原文档、事件、字段、曝光时机和 tick_no_ba
 | --- | --- |
 | 直接购买成功 | page_show → purchase_click → success；平台 pending 时插入 pending。 |
 | 平台取消或错误 | purchase_click → failed，object3 优先保留平台原始错误码/子码；同一失败经外层捕获不重复记录，无码才用 SDK 或明确状态兜底。 |
-| report accepted 后 completed | pending(report_accepted) → success，保持原关联。 |
-| report 失败/超时后重试成功 | failed(report_failed[code]) 或 timeout(report) → success；不能仅凭失败条数判断最终失败。 |
+| report accepted | pending(report_accepted)，结束上报，不重试成 completed。 |
+| report 当次技术重试成功 | 只记 success，沿用原关联；中间技术错误不记购买失败。 |
 | 游客购买后登录绑定 | 点击时公共 UID 为空；登录后的 claim_result 带 UID；completed 表示绑定成功。 |
 | claim 重试 | 每次真实结果均为 claim_result，不增加重试或阶段 action。 |
 

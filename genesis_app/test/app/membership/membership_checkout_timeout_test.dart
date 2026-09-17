@@ -288,34 +288,33 @@ void main() {
     expect(h.reports, hasLength(1));
   });
 
-  testWidgets(
-    'report HTTP timeout retains receipt and retries the same request',
-    (tester) async {
-      final h = Harness(retryDelay: const Duration(seconds: 15));
-      final response = Completer<MembershipPurchaseReport>();
-      h.reportHandler = (_) => response.future;
-      await h.service.purchase(h.product());
-      await tester.pump(const Duration(seconds: 89));
-      final callback = h.service.interceptPurchase(h.purchase());
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 15));
-      expect(h.service.state.value, MembershipCheckoutState.reporting);
-      response.completeError(
-        ApiException(
-          message: 'request timed out',
-          kind: ApiExceptionKind.timeout,
-        ),
-      );
-      await callback;
-      expect(h.service.state.value, MembershipCheckoutState.deferred);
-      expect(h.store.records.values.single.hasReceipt, isTrue);
-      h.reportHandler = null;
-      await tester.pump(const Duration(seconds: 15));
-      expect(h.reports, hasLength(2));
-      expect(h.reports.first.toJson(), h.reports.last.toJson());
-      expect(h.store.records, isEmpty);
-    },
-  );
+  testWidgets('report HTTP timeout retries immediately and is not retained', (
+    tester,
+  ) async {
+    final h = Harness(retryDelay: const Duration(seconds: 15));
+    final response = Completer<MembershipPurchaseReport>();
+    h.reportHandler = (_) => response.future;
+    await h.service.purchase(h.product());
+    await tester.pump(const Duration(seconds: 89));
+    final callback = h.service.interceptPurchase(h.purchase());
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 15));
+    expect(h.service.state.value, MembershipCheckoutState.reporting);
+    response.completeError(
+      ApiException(
+        message: 'request timed out',
+        kind: ApiExceptionKind.timeout,
+      ),
+    );
+    await callback;
+    expect(h.service.state.value, MembershipCheckoutState.deferred);
+    expect(h.store.records, isEmpty);
+    h.reportHandler = null;
+    await tester.pump(const Duration(seconds: 15));
+    expect(h.reports, hasLength(3));
+    expect(h.reports.first.toJson(), h.reports.last.toJson());
+    expect(h.store.records, isEmpty);
+  });
 
   testWidgets('another order callback cannot cancel current store deadline', (
     tester,

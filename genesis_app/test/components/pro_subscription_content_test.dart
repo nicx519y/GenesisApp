@@ -821,7 +821,7 @@ void main() {
   }
 
   testWidgets(
-    'entry loads products once while a report retry remains pending',
+    'entry loads products once after accepted without report recovery',
     (tester) async {
       final h = support.Harness(
         provider: MembershipProvider.apple,
@@ -848,13 +848,14 @@ void main() {
       expect(loads, 1);
       // Opening the page never queries or imports store history.
       expect(h.reports, hasLength(1));
-      expect(h.store.records.values.single.reportStatus, 'accepted');
+      expect(h.store.records, isEmpty);
 
-      // A later real transition must still update purchase eligibility.
+      // Recovery cannot turn accepted into completed or refresh the catalog.
       h.reportHandler = null;
       await h.service.recover();
       await tester.pumpAndSettle();
-      expect(loads, 2);
+      expect(loads, 1);
+      expect(h.reports, hasLength(1));
       expect(h.restoreQueries, 0);
       expect(h.store.restores, isEmpty);
       await tester.pumpWidget(const SizedBox.shrink());

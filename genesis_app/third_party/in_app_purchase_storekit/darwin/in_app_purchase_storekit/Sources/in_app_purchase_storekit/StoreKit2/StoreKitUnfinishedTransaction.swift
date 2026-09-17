@@ -26,14 +26,8 @@ func storeKitUnfinishedTransactionBlocksPurchase(
   productID: String,
   productType: Product.ProductType
 ) -> Bool {
-  guard transaction.productID == productID else { return false }
-  guard productType == .autoRenewable,
-    transaction.productType == .autoRenewable,
-    let expirationDate = transaction.expirationDate
-  else { return true }
-
-  // An Apple signature issued at/after expiry proves this billing period has
-  // ended without trusting the device clock. An older signature is inconclusive
-  // and retains the original guard until StoreKit returns newer evidence.
-  return expirationDate > transaction.signedDate
+  // Subscription eligibility belongs to StoreKit. A historical transaction,
+  // regardless of expiry, must not prevent invoking Product.purchase.
+  guard productType != .autoRenewable else { return false }
+  return transaction.productID == productID
 }

@@ -107,7 +107,7 @@ extension _MembershipCheckoutPreparation on MembershipPurchaseService {
     return _CheckoutIdentity(uuid, guest);
   }
 
-  Future<_PreparedMembershipCheckout> _prepareGoogleCheckout(
+  Future<_PreparedMembershipCheckout> _prepareStoreCheckout(
     String? uid,
     MembershipProductList products,
     MembershipProduct product,

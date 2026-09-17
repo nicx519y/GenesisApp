@@ -34,7 +34,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
       }
       _unpaidGuestCleanup.remove(uuid);
     } catch (error) {
-      _scheduleRetry();
+      _scheduleGuestMaintenance();
       _log('canceled guest identity cleanup deferred', error);
     }
   }
@@ -42,14 +42,18 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
   Future<MembershipPurchaseRequest> _guestPurchaseRequest(
     MembershipPurchaseRecord purchase,
   ) async {
-    final request = purchase.request;
-    if (request.guest == null || provider != MembershipProvider.apple) {
-      return request;
+    final reported = _guestPurchaseRequests[purchase.requestId];
+    if (reported != null) return reported;
+    var request = purchase.request;
+    if (request.guest == null) return request;
+    if (provider == MembershipProvider.apple) {
+      final signed = await _signedGuestRequest(
+        MembershipClaimRequest.fromPurchase(request),
+      );
+      request = request.withSignedTransaction(signed.signedTransaction);
     }
-    final signed = await _signedGuestRequest(
-      MembershipClaimRequest.fromPurchase(request),
-    );
-    return request.withSignedTransaction(signed.signedTransaction);
+    if (!_disposed) _guestPurchaseRequests[purchase.requestId] = request;
+    return request;
   }
 
   Future<MembershipClaimRequest> _signedGuestRequest(
@@ -97,7 +101,9 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         p.paid &&
         p.hasReceipt;
     final saved = _records[claim.purchaseRequestId];
-    if (saved != null && matches(saved)) return saved;
+    if (claim.purchaseRequestId != null) {
+      return saved != null && matches(saved) ? saved : null;
+    }
     // Legacy claims may not yet have an associated request ID. Recover the
     // original persisted receipt, never invent a new idempotency key.
     for (final purchase in _records.values.toList().reversed) {
@@ -111,7 +117,6 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
       retry.timer?.cancel();
     }
     _claimRetries.clear();
-    _claimReportsRequeued.clear();
     _claimWalletRefreshSessions.clear();
   }
 
@@ -148,20 +153,34 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
   Future<void> _prepareGuestClaim(
     MembershipPurchaseRecord purchase, {
     String? purchaseTime,
+    bool fromStoreCallback = false,
   }) async {
     final guest = purchase.guest;
     if (_disposed || guest == null || !purchase.paid || !purchase.hasReceipt) {
       return;
     }
+    if (purchase.reportStatus == 'rejected') {
+      // Drop the provisional guest proof just as terminal cleanup did before;
+      // it must not become an unconfirmed purchase again after restart.
+      await store.saveGuestPurchase(purchase);
+      return;
+    }
     var previous = _guestClaims[guest.accountUuid];
-    if (previous?.recoveredProof != null &&
-        _checkoutWaits.containsKey(purchase.requestId)) {
+    if (previous != null &&
+        previous.hasPurchase &&
+        previous.purchaseRequestId != purchase.requestId) {
+      // A new paid callback selects its own order. Maintenance of an older
+      // receipt must never overwrite it, or move an already pinned claim.
+      if (!fromStoreCallback ||
+          previous.ownerUid != null && previous.status != 'completed') {
+        return;
+      }
       previous = null;
     }
     if (previous?.status == 'completed') {
       // A later explicit guest checkout may reuse the UUID retained for check.
       // Its new receipt needs a new claim; an old background callback does not.
-      if (!_checkoutWaits.containsKey(purchase.requestId)) return;
+      if (!fromStoreCallback) return;
       previous = null;
     }
     if (previous == null ||
@@ -262,25 +281,11 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         _claimWalletRefreshSessions[accountUuid] = session;
       }
     }
-    // Keep the original guest report body until every receipt has a terminal
-    // report result; a completed claim can arrive before a local report retry.
-    if (_records.values.any(
-      (purchase) =>
-          purchase.guest?.accountUuid == record.guest.accountUuid &&
-          purchase.hasReceipt &&
-          (purchase.paid || purchase.state == 'pending') &&
-          purchase.reportStatus != 'completed' &&
-          purchase.reportStatus != 'rejected',
-    )) {
-      _scheduleRetry();
-      return;
-    }
     // The server also owns store settlement for a recovered claim. Keep the
     // completed claim and proof until local cleanup succeeds, without reposting.
     await store.completeGuestClaim(record);
     for (final purchase in _records.values.toList()) {
       if (purchase.guest?.accountUuid == record.guest.accountUuid) {
-        _pendingRequestIds.remove(purchase.requestId);
         _records[purchase.requestId] = purchase.bindGuestToAccount(
           record.ownerUid!,
         );
@@ -292,9 +297,11 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
     _pendingGuestClaimWrites.remove(record.guest.accountUuid);
     _claimRetries.remove(accountUuid)?.timer?.cancel();
     _claimWalletRefreshSessions.remove(accountUuid);
-    _claimReportsRequeued.remove(accountUuid);
     _signedTransactions.removeWhere(
       (key, _) => key.startsWith('$accountUuid:'),
+    );
+    _guestPurchaseRequests.removeWhere(
+      (_, request) => request.guest?.accountUuid == accountUuid,
     );
     await _refreshGuestLoginRequest();
   }
@@ -311,7 +318,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         }
         if (claim.status == 'completed') await _completeGuestClaim(claim);
       } catch (error) {
-        _scheduleRetry();
+        _scheduleGuestMaintenance();
         _log('guest claim cleanup deferred', error);
       }
     }
@@ -360,7 +367,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
           retry.proofAttempts++;
           final recovered = await _recoverGuestProofAfterLogin(record, uid);
           if (recovered == null) {
-            _scheduleRetry();
+            _scheduleGuestMaintenance();
             continue;
           }
           record = recovered;
@@ -388,30 +395,12 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         if (result.status == MembershipReportStatus.completed) {
           await _completeGuestClaim(record);
         }
-        if (result.status == MembershipReportStatus.accepted &&
-            !_claimReportsRequeued.contains(accountUuid)) {
-          // The response model deliberately retains only status. Reconcile
-          // known guest receipts once per session so accepted cannot strand an
-          // awaiting-purchase-report claim; the original report is idempotent.
-          for (final purchase in _records.values.toList()) {
-            if (purchase.guest?.accountUuid == record.guest.accountUuid &&
-                purchase.paid &&
-                purchase.hasReceipt &&
-                purchase.reportStatus == 'completed') {
-              // Preserve the original receipt and request key for report retry.
-              final retry = purchase.copyWith(retryReport: true);
-              await _save(retry);
-              await store.save(retry);
-            }
-          }
-          _claimReportsRequeued.add(accountUuid);
-        }
         if (record.needsRetry) _scheduleGuestClaimRetry(accountUuid, retry);
       } catch (error) {
         if (requested && record.needsRetry) {
           _scheduleGuestClaimRetry(accountUuid, retry);
         } else {
-          _scheduleRetry();
+          _scheduleGuestMaintenance();
         }
         _log('guest claim deferred', error);
       } finally {

@@ -54,7 +54,7 @@ void main() {
       }
     }
     test(
-      '$provider report retry retains original catalog UUID after catalog changes',
+      '$provider guest proof retains original UUID without report retry after catalog changes',
       () async {
         final h = support.Harness(provider: provider)..uid = null;
         addTearDown(h.service.dispose);
@@ -65,13 +65,13 @@ void main() {
         await h.service.purchase(h.product(yearly: true));
         await h.service.interceptPurchase(h.purchase(yearly: true));
         expect(
-          h.store.records.values.single.accountUuid,
+          h.store.confirmed.values.single.accountUuid,
           support.guest.accountUuid,
         );
         h.lastAccountUuid = support.accountUuid;
         h.reportHandler = (_) async => support.completed;
         await h.service.recover();
-        expect(h.reports, hasLength(2));
+        expect(h.reports, hasLength(1));
         expect(h.reports.last.toJson(), h.reports.first.toJson());
         expect(h.platform.launches, 1);
         expect(h.guestPrepares, 0);

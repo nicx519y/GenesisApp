@@ -1,4 +1,3 @@
-import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
@@ -146,43 +145,33 @@ void main() {
     },
   );
 
-  test(
-    'startup requires login before an unrelated report retry completes',
-    () async {
-      final storage = PendingStore();
-      await storage.saveGuestClaim(
-        const MembershipGuestClaimRecord(
-          guest: guest,
-          purchaseRequestId: 'paid-order',
-          purchaseConfirmed: true,
-        ),
-      );
-      final h = Harness(storage: storage, claimEnabled: true)..uid = null;
-      await storage.save(
-        MembershipPurchaseRecord(
-          requestId: 'retrying-order',
-          product: h.product(),
-          accountUuid: guest.accountUuid,
-          ownerUid: null,
-          guest: guest,
-          purchaseToken: 'pending-token',
-          state: 'purchased',
-        ),
-      );
-      final entered = Completer<void>();
-      final response = Completer<MembershipPurchaseReport>();
-      h.reportHandler = (_) {
-        entered.complete();
-        return response.future;
-      };
-      final recovery = h.service.start();
-      await entered.future;
-      expect(h.service.guestLoginRequestId.value, 'paid-order');
-      expect(storage.claims.values.single.guest.accountUuid, guest.accountUuid);
-      response.complete(completed);
-      await recovery;
-    },
-  );
+  test('startup keeps guest login without reporting legacy receipts', () async {
+    final storage = PendingStore();
+    await storage.saveGuestClaim(
+      const MembershipGuestClaimRecord(
+        guest: guest,
+        purchaseRequestId: 'paid-order',
+        purchaseConfirmed: true,
+      ),
+    );
+    final h = Harness(storage: storage, claimEnabled: true)..uid = null;
+    await storage.save(
+      MembershipPurchaseRecord(
+        requestId: 'retrying-order',
+        product: h.product(),
+        accountUuid: guest.accountUuid,
+        ownerUid: null,
+        guest: guest,
+        purchaseToken: 'pending-token',
+        state: 'purchased',
+      ),
+    );
+    await h.service.start();
+    expect(h.service.guestLoginRequestId.value, 'paid-order');
+    expect(storage.claims.values.single.guest.accountUuid, guest.accountUuid);
+    expect(h.reports, isEmpty);
+    expect(storage.records, isEmpty);
+  });
 
   test(
     'a failed binding followed by logout still requires login after restart',
@@ -235,7 +224,7 @@ void main() {
   );
 
   test(
-    'completed claim preserves an unconfirmed guest report until it settles',
+    'completed claim cleans guest proof without retrying accepted report',
     () async {
       final h = Harness(claimEnabled: true)..uid = null;
       h.reportHandler = (_) async => const MembershipPurchaseReport(
@@ -246,14 +235,11 @@ void main() {
       final originalRequest = h.reports.single.toJson();
       h.uid = 'first-login';
       await h.service.recover();
-      expect(h.store.claims.values.single.status, 'completed');
-      expect(
-        h.store.records.values.single.guest?.accountUuid,
-        guest.accountUuid,
-      );
+      expect(h.store.claims, isEmpty);
+      expect(h.store.records, isEmpty);
       h.reportHandler = null;
       await h.service.recover();
-      expect(h.reports.last.toJson(), originalRequest);
+      expect(h.reports.single.toJson(), originalRequest);
       expect(h.claimRequests, hasLength(1));
       expect(
         h.store.claims.values.where((r) => r.status != 'completed'),
@@ -284,19 +270,13 @@ void main() {
   );
 
   test(
-    'guest pending payment verified on retry still requires success OK then login',
+    'guest pending payment verified by initial report requires success OK then login',
     () async {
       final h = Harness(claimEnabled: true)..uid = null;
-      h.reportHandler = (_) async => const MembershipPurchaseReport(
-        status: MembershipReportStatus.accepted,
-      );
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(
         h.purchase(status: BillingPurchaseStatus.pending),
       );
-      expect(h.service.guestLoginRequestId.value, isNull);
-      h.reportHandler = null;
-      await h.service.recover();
       final requestId = h.store.confirmed.keys.single;
       expect(h.service.guestLoginRequestId.value, requestId);
       expect(h.service.hasAcknowledgedGuestPurchase(requestId), isFalse);
@@ -389,7 +369,7 @@ void main() {
     expect(h.claimRequests, hasLength(1));
   });
 
-  testWidgets('accepted claim replays original receipt before retry', (
+  testWidgets('accepted claim retries binding without replaying report', (
     tester,
   ) async {
     final h = Harness(
@@ -405,12 +385,15 @@ void main() {
     h.claimHandler = (identity) async =>
         MembershipClaimResult(status: MembershipReportStatus.accepted);
     await h.service.recover();
-    expect(h.store.records.values.single.requestId, localId);
-    expect(h.store.records.values.single.transactionId, request.transactionId);
+    expect(h.store.confirmed.values.single.requestId, localId);
+    expect(
+      h.store.confirmed.values.single.transactionId,
+      request.transactionId,
+    );
     h.claimHandler = null;
     await tester.pump(const Duration(seconds: 15));
     await h.service.recover();
-    expect(h.reports, hasLength(2));
+    expect(h.reports, hasLength(1));
     expect(h.reports.last.toJson(), request.toJson());
     expect(h.store.records, isEmpty);
     expect(
