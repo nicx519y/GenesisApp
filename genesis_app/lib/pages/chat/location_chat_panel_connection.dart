@@ -12,6 +12,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _joinedLocation = false;
     _joiningLocation = false;
     _joiningLocationFuture = null;
+    _unbindLocationMessageChanges();
 
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
@@ -277,6 +278,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _joinedLocation = false;
     _joiningLocation = false;
     _joiningLocationFuture = null;
+    _unbindLocationMessageChanges();
     await _stateSubscription?.cancel();
     await _failuresSubscription?.cancel();
     await _balanceAlertSubscription?.cancel();
@@ -407,7 +409,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       );
     }
     if (_stateSubscription != null || _failuresSubscription != null) {
-      _syncFromServiceState(service);
+      _bindLocationMessageChanges(service);
+      _syncFromServiceState(service, forceMessageReconcile: true);
       return;
     }
     _failuresSubscription = bindChatroomFailureToast(
@@ -419,8 +422,28 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       },
       onFailure: _handleFailure,
     );
+    _bindLocationMessageChanges(service);
     _stateSubscription = service.states.listen(_handleChatroomState);
-    _syncFromServiceState(service);
+    _syncFromServiceState(service, forceMessageReconcile: true);
+  }
+
+  void _bindLocationMessageChanges(WorldChatroomService service) {
+    final next = service.changesForLocation(widget.locationId);
+    if (identical(_locationMessageChanges, next)) return;
+    _unbindLocationMessageChanges();
+    _locationMessageChanges = next;
+    next.addListener(_handleLocationMessageChanges);
+  }
+
+  void _unbindLocationMessageChanges() {
+    _locationMessageChanges?.removeListener(_handleLocationMessageChanges);
+    _locationMessageChanges = null;
+  }
+
+  void _handleLocationMessageChanges() {
+    final service = _service;
+    if (service == null || !mounted) return;
+    _handleChatroomState(service.state, forceMessageReconcile: true);
   }
 
   void _startHydrateLocalMessages(
@@ -682,11 +705,20 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
         senderType != 'system';
   }
 
-  void _syncFromServiceState(WorldChatroomService service) {
-    _handleChatroomState(service.state);
+  void _syncFromServiceState(
+    WorldChatroomService service, {
+    bool forceMessageReconcile = false,
+  }) {
+    _handleChatroomState(
+      service.state,
+      forceMessageReconcile: forceMessageReconcile,
+    );
   }
 
-  void _handleChatroomState(WorldChatroomState state) {
+  void _handleChatroomState(
+    WorldChatroomState state, {
+    bool forceMessageReconcile = false,
+  }) {
     if (_usesPreparedEntry) {
       final entry = _service?.entryForLocation(widget.locationId).value;
       state = state.copyWith(
@@ -759,29 +791,40 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     final reconcileStopwatch = _panelMetricsEnabled
         ? (Stopwatch()..start())
         : null;
-    final changedMessages = _reconcileMessages(
-      nextSource,
-      identityState: state,
-    );
+    final identityProjectionChanged =
+        !identical(_chatroomState.entitiesById, state.entitiesById) ||
+        !identical(_chatroomState.world, state.world);
+    final shouldReconcileMessages =
+        forceMessageReconcile ||
+        !identical(previousSource, nextSource) ||
+        identityProjectionChanged;
+    final changedMessages =
+        shouldReconcileMessages &&
+        _reconcileMessages(nextSource, identityState: state);
     final mentionCatalogChanged = _textController.updateCatalog(
       _mentionCatalogForState(state),
     );
     final tickProgressResolved = _resolveTickProgressMessageIfAvailable();
     final changedHasMoreOlder = _syncHasMoreOlderMessagesForSource(nextSource);
-    final shouldRebuild =
+    final visibleChatroomStateChanged = _hasVisibleChatroomStateChange(
+      _chatroomState,
+      state,
+    );
+    final messageViewportChanged =
         historyChanged ||
         changedMessages ||
         changedHasMoreOlder ||
         mentionCatalogChanged ||
         tickProgressStarted ||
-        tickProgressResolved ||
-        _hasVisibleChatroomStateChange(_chatroomState, state);
-    if (shouldRebuild) {
+        tickProgressResolved;
+    final shouldRebuild = messageViewportChanged || visibleChatroomStateChanged;
+    if (visibleChatroomStateChanged) {
       _setLocationChatState(() {
         _chatroomState = state;
       });
     } else {
       _chatroomState = state;
+      if (messageViewportChanged) _notifyMessageViewport();
     }
     _scheduleDeferredTickReleaseIfReady();
     _logPanelMetric(
@@ -789,7 +832,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       'vm $beforeVmCount->${_messages.length} changed=$changedMessages '
       'joined=${state.joinedLocationId == widget.locationId} '
       'joining=${state.joining} connected=${state.connected} '
-      'rebuild=$shouldRebuild '
+      'rebuild=$shouldRebuild shell=$visibleChatroomStateChanged '
       'reconcile=${reconcileStopwatch?.elapsedMilliseconds}ms',
     );
     _recordPanelDebug(

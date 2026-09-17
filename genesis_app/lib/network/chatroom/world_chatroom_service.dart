@@ -64,6 +64,29 @@ class WorldChatroomOlderMessagesPage {
   final bool hasMore;
 }
 
+/// A synchronous, location-scoped projection of message queue changes.
+///
+/// Consumers that only render one location can listen here instead of
+/// rebuilding for every mutation published by [states]. One service mutation
+/// produces at most one notification for each affected location.
+class WorldChatroomLocationMessagesChange {
+  const WorldChatroomLocationMessagesChange({
+    required this.locationId,
+    required this.messages,
+    required this.changedMessageKeys,
+    required this.removedMessageKeys,
+    required this.structureChanged,
+    required this.revision,
+  });
+
+  final String locationId;
+  final List<WorldChatroomMessage> messages;
+  final Set<String> changedMessageKeys;
+  final Set<String> removedMessageKeys;
+  final bool structureChanged;
+  final int revision;
+}
+
 /// The transport-level acknowledgement for a submitted chat message.
 ///
 /// V2 ACK frames intentionally do not contain canonical message ids. Those
@@ -380,6 +403,10 @@ class WorldChatroomService {
   final _reportedFailureOccurrences = <Object>{};
   final _latestFetchedMessages =
       StreamController<List<WorldChatroomMessage>>.broadcast();
+  final Map<String, ValueNotifier<WorldChatroomLocationMessagesChange>>
+  _locationMessageChanges =
+      <String, ValueNotifier<WorldChatroomLocationMessagesChange>>{};
+  final Map<String, int> _locationMessageChangeRevisions = <String, int>{};
 
   WorldChatroomState _state = const WorldChatroomState();
   ChatroomSession? _session;
@@ -445,6 +472,26 @@ class WorldChatroomService {
 
   Stream<List<WorldChatroomMessage>> get latestFetchedMessages =>
       _latestFetchedMessages.stream;
+
+  ValueListenable<WorldChatroomLocationMessagesChange> changesForLocation(
+    String locationId,
+  ) {
+    final key = locationId.trim();
+    return _locationMessageChanges.putIfAbsent(key, () {
+      final messages =
+          _state.messagesByLocation[key] ?? const <WorldChatroomMessage>[];
+      return ValueNotifier<WorldChatroomLocationMessagesChange>(
+        WorldChatroomLocationMessagesChange(
+          locationId: key,
+          messages: messages,
+          changedMessageKeys: const <String>{},
+          removedMessageKeys: const <String>{},
+          structureChanged: false,
+          revision: _locationMessageChangeRevisions[key] ?? 0,
+        ),
+      );
+    });
+  }
 
   WorldChatroomState get state => _state;
 
@@ -1491,5 +1538,10 @@ class WorldChatroomService {
     await _failures.close();
     await _balanceAlerts.close();
     await _latestFetchedMessages.close();
+    for (final notifier in _locationMessageChanges.values) {
+      notifier.dispose();
+    }
+    _locationMessageChanges.clear();
+    _locationMessageChangeRevisions.clear();
   }
 }

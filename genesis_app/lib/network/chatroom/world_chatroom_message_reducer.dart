@@ -882,9 +882,11 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
     if (!existingIsAuthoritativeStreamEnd ||
         !incomingIsCanonicalFinal ||
         !_sameStreamIdentity(existing, incoming)) {
-      return mergedIncoming;
+      return _sameMessageValue(existing, mergedIncoming)
+          ? existing
+          : mergedIncoming;
     }
-    return mergedIncoming.copyWith(
+    final merged = mergedIncoming.copyWith(
       globalMessageId: existing.globalMessageId > 0
           ? existing.globalMessageId
           : incoming.globalMessageId,
@@ -909,6 +911,38 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           ? existing.rawPayload
           : incoming.rawPayload,
     );
+    return _sameMessageValue(existing, merged) ? existing : merged;
+  }
+
+  bool _sameMessageValue(
+    WorldChatroomMessage left,
+    WorldChatroomMessage right,
+  ) {
+    return left.globalMessageId == right.globalMessageId &&
+        left.messageId == right.messageId &&
+        left.locationMessageId == right.locationMessageId &&
+        left.conversationRoundId == right.conversationRoundId &&
+        left.conversationType == right.conversationType &&
+        left.triggerUid == right.triggerUid &&
+        left.roundOrder == right.roundOrder &&
+        left.tickNo == right.tickNo &&
+        left.subTickNo == right.subTickNo &&
+        left.locationId == right.locationId &&
+        left.senderType == right.senderType &&
+        left.businessType == right.businessType &&
+        left.streamType == right.streamType &&
+        left.userId == right.userId &&
+        left.senderId == right.senderId &&
+        left.senderName == right.senderName &&
+        left.clientMsgId == right.clientMsgId &&
+        left.content == right.content &&
+        left.messageType == right.messageType &&
+        left.currentTime == right.currentTime &&
+        left.createdAt == right.createdAt &&
+        left.streaming == right.streaming &&
+        left.isLlmStreamMessage == right.isLlmStreamMessage &&
+        left.minAppVersion == right.minAppVersion &&
+        mapEquals(left.rawPayload, right.rawPayload);
   }
 
   bool _sameStreamIdentity(

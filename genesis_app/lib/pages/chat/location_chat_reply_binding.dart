@@ -98,7 +98,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         );
         if (loadingChanged || bodyRevision != _lastReplyBodyRevision) {
           _lastReplyBodyRevision = bodyRevision;
-          _setLocationChatState(_syncUnseenReplyMessages);
+          _syncUnseenReplyMessages();
+          _notifyMessageViewport();
         } else {
           _setReplyControlsState(() {});
         }
