@@ -302,6 +302,40 @@ void main() {
     },
   );
 
+  test(
+    'time sync notifies analytics observer without coupling failures',
+    () async {
+      final expectedTime = DateTime.utc(2040, 2, 3, 4, 5, 6);
+      DateTime? observed;
+      final transport = _FakeTransport(
+        handler: (_) => _json({
+          'err_no': 0,
+          'data': {'server_time_ms': expectedTime.millisecondsSinceEpoch},
+        }),
+      );
+      var shouldFail = false;
+      final coordinator = GatewayAuthCoordinator(
+        gatewayBaseUrl: 'https://gateway.test/apix/',
+        appHeaderProvider: _testAppHeaders,
+        deviceIdService: const _TestDeviceIdService(),
+        keyStore: _FakeKeyStore(),
+        registrationStore: _MemoryGatewayRegistrationStore(),
+        transport: transport,
+        onServerTimeSynchronized: (serverUtc) async {
+          observed = serverUtc;
+          if (shouldFail) throw StateError('analytics storage failed');
+        },
+      );
+
+      await coordinator.syncServerTime();
+      expect(observed, expectedTime);
+      expect(observed!.isUtc, isTrue);
+
+      shouldFail = true;
+      await expectLater(coordinator.syncServerTime(), completes);
+    },
+  );
+
   test('handshake signer adds Gateway headers for websocket connect', () async {
     final keyStore = _FakeKeyStore();
     final authTransport = _FakeTransport(handler: _gatewayAuthResponse);

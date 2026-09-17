@@ -87,6 +87,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             status: BillingPendingPurchaseStatus.received,
             createdAt: now,
             updatedAt: now,
+            priceAmountMicros: recoveredAttempt?.priceAmountMicros,
+            priceCurrencyCode: recoveredAttempt?.priceCurrencyCode ?? '',
           )
         : _purchaseRecord(
             purchase: purchase,
@@ -98,6 +100,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
             updatedAt: now,
             retryCount: persistedRecord.retryCount,
             reportTimeoutTracked: persistedRecord.reportTimeoutTracked,
+            priceAmountMicros: persistedRecord.priceAmountMicros,
+            priceCurrencyCode: persistedRecord.priceCurrencyCode,
           );
     final belongsToCurrentAccount = _storePurchaseBelongsToCurrentAccount(
       purchase,
@@ -461,6 +465,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           status: BillingPendingPurchaseStatus.received,
           createdAt: now,
           updatedAt: now,
+          priceAmountMicros: resolvedAttempt.priceAmountMicros,
+          priceCurrencyCode: resolvedAttempt.priceCurrencyCode,
         );
         try {
           await _pendingPurchaseStore.upsert(record);
@@ -488,6 +494,8 @@ extension _GooglePlayBillingRecovery on GooglePlayBillingService {
           updatedAt: DateTime.now(),
           retryCount: record.retryCount,
           reportTimeoutTracked: record.reportTimeoutTracked,
+          priceAmountMicros: record.priceAmountMicros,
+          priceCurrencyCode: record.priceCurrencyCode,
         );
         try {
           await _pendingPurchaseStore.upsert(record);

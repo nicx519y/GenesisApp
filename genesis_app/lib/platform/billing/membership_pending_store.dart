@@ -27,6 +27,8 @@ class MembershipPurchaseRecord {
     this.reportStatus,
     this.finished = false,
     this.tracking,
+    this.priceAmountMicros,
+    this.priceCurrencyCode = '',
   });
 
   final String requestId;
@@ -44,6 +46,8 @@ class MembershipPurchaseRecord {
   final String? reportStatus;
   final bool finished;
   final SubscriptionTracking? tracking;
+  final int? priceAmountMicros;
+  final String priceCurrencyCode;
 
   bool replacesPurchaseToken(String token) =>
       token.isNotEmpty &&
@@ -77,6 +81,8 @@ class MembershipPurchaseRecord {
     String? reportStatus,
     bool? finished,
     SubscriptionTracking? tracking,
+    int? priceAmountMicros,
+    String? priceCurrencyCode,
     bool newReport = false,
     bool retryReport = false,
   }) => MembershipPurchaseRecord(
@@ -95,6 +101,8 @@ class MembershipPurchaseRecord {
         : reportStatus ?? this.reportStatus,
     finished: newReport ? false : finished ?? this.finished,
     tracking: tracking ?? (newReport ? null : this.tracking),
+    priceAmountMicros: priceAmountMicros ?? this.priceAmountMicros,
+    priceCurrencyCode: priceCurrencyCode ?? this.priceCurrencyCode,
   );
 
   /// Keep store receipt identity for restore after removing the guest identity.
@@ -112,6 +120,8 @@ class MembershipPurchaseRecord {
         reportStatus: reportStatus,
         finished: finished,
         tracking: tracking,
+        priceAmountMicros: priceAmountMicros,
+        priceCurrencyCode: priceCurrencyCode,
       );
 
   Map<String, Object?> toJson() => {
@@ -129,6 +139,8 @@ class MembershipPurchaseRecord {
     'report_status': reportStatus,
     'finished': finished,
     if (tracking != null) 'subscription_tracking': tracking!.toJson(),
+    if (priceAmountMicros != null) 'price_amount_micros': priceAmountMicros,
+    if (priceCurrencyCode.isNotEmpty) 'price_currency_code': priceCurrencyCode,
   };
 
   factory MembershipPurchaseRecord.fromJson(Map<String, dynamic> json) =>
@@ -152,6 +164,8 @@ class MembershipPurchaseRecord {
             json['replaced_purchase_token_fingerprint'] as String? ?? '',
         state: json['state'] as String,
         reportStatus: json['report_status'] as String?,
+        priceAmountMicros: json['price_amount_micros'] as int?,
+        priceCurrencyCode: json['price_currency_code'] as String? ?? '',
         // Older clients marked an ownership rejection as finished without
         // calling StoreKit. Never treat that legacy flag as store completion.
         finished: json['report_status'] == 'rejected'

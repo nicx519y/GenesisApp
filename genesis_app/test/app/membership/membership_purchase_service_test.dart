@@ -2,6 +2,7 @@ import 'package:genesis_flutter_android/app/membership/subscription_analytics.da
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
@@ -149,16 +150,29 @@ class Checkout implements MembershipCheckoutPlatform {
   Future<void> Function()? onLaunch;
   bool autoHandoff = true;
   bool Function()? handoff;
+  int? priceAmountMicros = 9990000;
+  String priceCurrencyCode = 'USD';
   @override
-  Future<Object> prepare(MembershipProduct product) async {
+  Future<PreparedMembershipCheckout> prepare(MembershipProduct product) async {
     this.product = product;
     await onPrepare?.call();
-    return product;
+    return PreparedMembershipCheckout(
+      nativeProduct: ProductDetails(
+        id: product.storeProductId,
+        title: product.planCode,
+        description: product.planCode,
+        price: r'$9.99',
+        rawPrice: 9.99,
+        currencyCode: 'USD',
+      ),
+      priceAmountMicros: priceAmountMicros,
+      priceCurrencyCode: priceCurrencyCode,
+    );
   }
 
   @override
   Future<bool> launch(
-    Object product,
+    PreparedMembershipCheckout product,
     String accountUuid, {
     bool Function()? onStoreHandoff,
   }) async {
@@ -550,11 +564,15 @@ void main() {
         'provider': 'google',
         'product_id': google.product().storeProductId,
         'device_id': 'test-device-id',
+        'value': 9.99,
+        'currency': 'USD',
       });
       expect(analytics.events.last.parameters, <String, Object>{
         'provider': 'apple',
         'product_id': apple.product(yearly: true).storeProductId,
         'device_id': 'test-device-id',
+        'value': 9.99,
+        'currency': 'USD',
       });
     },
   );

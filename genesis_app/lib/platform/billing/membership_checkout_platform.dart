@@ -11,10 +11,22 @@ import '../../network/models/membership_product.dart';
 import 'billing_models.dart';
 import 'membership_product_store.dart';
 
+class PreparedMembershipCheckout {
+  const PreparedMembershipCheckout({
+    required this.nativeProduct,
+    this.priceAmountMicros,
+    this.priceCurrencyCode = '',
+  });
+
+  final ProductDetails nativeProduct;
+  final int? priceAmountMicros;
+  final String priceCurrencyCode;
+}
+
 abstract interface class MembershipCheckoutPlatform {
-  Future<Object> prepare(MembershipProduct product);
+  Future<PreparedMembershipCheckout> prepare(MembershipProduct product);
   Future<bool> launch(
-    Object product,
+    PreparedMembershipCheckout product,
     String accountUuid, {
     bool Function()? onStoreHandoff,
   });
@@ -29,7 +41,7 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
   final Map<String, bool> _types = {};
 
   @override
-  Future<Object> prepare(MembershipProduct product) async {
+  Future<PreparedMembershipCheckout> prepare(MembershipProduct product) async {
     if (kDebugMode && product.provider == MembershipProvider.google) {
       final diagnostics = jsonEncode({
         'productId': product.storeProductId,
@@ -58,7 +70,12 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
           detail.offerToken?.isNotEmpty != true) {
         continue;
       }
-      return detail;
+      final checkoutPrice = matchMembershipCheckoutPrice(product, detail);
+      return PreparedMembershipCheckout(
+        nativeProduct: detail,
+        priceAmountMicros: checkoutPrice?.amountMicros,
+        priceCurrencyCode: checkoutPrice?.currencyCode ?? '',
+      );
     }
     throw const BillingPlatformException('membership_product_not_found');
   }
@@ -95,24 +112,25 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
 
   @override
   Future<bool> launch(
-    Object product,
+    PreparedMembershipCheckout product,
     String accountUuid, {
     bool Function()? onStoreHandoff,
   }) async {
-    if (product is! ProductDetails || !_subscription(product)) {
+    final nativeProduct = product.nativeProduct;
+    if (!_subscription(nativeProduct)) {
       throw const BillingPlatformException('invalid_membership_product');
     }
-    final param = product is GooglePlayProductDetails
+    final param = nativeProduct is GooglePlayProductDetails
         ? GooglePlayPurchaseParam(
             throwOnBillingFailure: true,
-            productDetails: product,
-            offerToken: product.offerToken,
+            productDetails: nativeProduct,
+            offerToken: nativeProduct.offerToken,
             applicationUserName: accountUuid,
             // Monthly/yearly are base plans of the same Play subscription.
             // With no replacement params, Play uses its configured switch mode.
           )
         : Sk2PurchaseParam(
-            productDetails: product,
+            productDetails: nativeProduct,
             applicationUserName: accountUuid,
             onStoreHandoff: onStoreHandoff,
           );
@@ -127,7 +145,7 @@ class StoreMembershipCheckoutPlatform implements MembershipCheckoutPlatform {
     final accepted = await _store.buyNonConsumable(purchaseParam: param);
     // Play returns when its purchase UI is launched; StoreKit calls back from
     // native preparation before waiting for the user's purchase result.
-    if (accepted && product is GooglePlayProductDetails) {
+    if (accepted && nativeProduct is GooglePlayProductDetails) {
       onStoreHandoff?.call();
     }
     return accepted;

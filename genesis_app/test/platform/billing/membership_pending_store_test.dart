@@ -182,6 +182,28 @@ void main() {
     );
   });
 
+  test('membership purchase price survives secure record serialization', () {
+    final record = MembershipPurchaseRecord(
+      requestId: 'priced-membership',
+      product: membershipProduct(),
+      accountUuid: support.accountUuid,
+      ownerUid: 'user-test',
+      priceAmountMicros: 9990000,
+      priceCurrencyCode: 'USD',
+    );
+
+    final restored = MembershipPurchaseRecord.fromJson(record.toJson());
+    expect(restored.priceAmountMicros, 9990000);
+    expect(restored.priceCurrencyCode, 'USD');
+
+    final legacyJson = record.toJson()
+      ..remove('price_amount_micros')
+      ..remove('price_currency_code');
+    final legacy = MembershipPurchaseRecord.fromJson(legacyJson);
+    expect(legacy.priceAmountMicros, isNull);
+    expect(legacy.priceCurrencyCode, isEmpty);
+  });
+
   for (final provider in MembershipProvider.values) {
     test(
       '$provider legacy claim proof drops stored plan without losing credentials',

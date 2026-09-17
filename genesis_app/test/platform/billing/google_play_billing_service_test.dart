@@ -28,6 +28,9 @@ class _FakeBillingPlatform implements BillingPlatform {
           id: expectedStoreProductId,
           type: BillingStoreProductType.inApp,
           nativeProduct: const Object(),
+          formattedPrice: r'$1.49',
+          priceAmountMicros: 1490000,
+          priceCurrencyCode: 'USD',
         ),
       );
   bool available = true;
@@ -364,6 +367,20 @@ void main() {
     },
   );
 
+  test(
+    'queried Gems store price is persisted with the pending order',
+    () async {
+      reportStatus = GemPurchaseReportStatus.accepted;
+      await service.purchaseGem(_product);
+      platform.emit(_purchase(BillingPurchaseStatus.pending));
+      await _settle();
+
+      final pending = (await pendingStore.loadAll()).single;
+      expect(pending.priceAmountMicros, 1490000);
+      expect(pending.priceCurrencyCode, 'USD');
+    },
+  );
+
   for (final outcome in [
     'rejected',
     'offline',
@@ -541,21 +558,29 @@ void main() {
           'provider': 'google',
           'product_id': 'worldo_gems_500',
           'device_id': 'test-device-id',
+          'value': 1.49,
+          'currency': 'USD',
         }),
         const _FirebaseAnalyticsRecord('purchase_first', <String, Object>{
           'provider': 'google',
           'product_id': 'worldo_gems_500',
           'device_id': 'test-device-id',
+          'value': 1.49,
+          'currency': 'USD',
         }),
         const _FirebaseAnalyticsRecord('gems_first', <String, Object>{
           'provider': 'google',
           'product_id': 'worldo_gems_500',
           'device_id': 'test-device-id',
+          'value': 1.49,
+          'currency': 'USD',
         }),
         const _FirebaseAnalyticsRecord('purchase', <String, Object>{
           'provider': 'google',
           'product_id': 'worldo_gems_500',
           'device_id': 'test-device-id',
+          'value': 1.49,
+          'currency': 'USD',
         }),
       ]);
     },
@@ -797,10 +822,18 @@ void main() {
   test(
     'store recovery processes a current account local order normally',
     () async {
+      final firebase = enableFirebaseAnalytics();
+      await FirebaseAnalyticsMonitoring.markPurchaseEligible(
+        provider: 'google',
+        kind: FirebaseAnalyticsPurchaseKind.gems,
+        purchaseIdentity: 'purchase-token-1',
+      );
       await pendingStore.upsert(
         _localPurchase(
           attemptId: 'track_id_original',
           status: BillingPendingPurchaseStatus.received,
+          priceAmountMicros: 1490000,
+          priceCurrencyCode: 'USD',
         ),
       );
       platform.recoverablePurchases = <BillingPurchase>[
@@ -813,6 +846,8 @@ void main() {
       expect(recovered, isTrue);
       expect(reports, hasLength(1));
       expect(await pendingStore.loadAll(), isEmpty);
+      expect(firebase.events.first.parameters['value'], 1.49);
+      expect(firebase.events.first.parameters['currency'], 'USD');
       expect(
         uiEvents.where((event) => event.kind == BillingUiEventKind.success),
         hasLength(1),
@@ -2476,6 +2511,8 @@ BillingPendingPurchase _localPurchase({
   String billingAccountId = '4b74ec68-7abc-4cce-a223-e997e31dc811',
   BillingPendingPurchaseStatus status = BillingPendingPurchaseStatus.received,
   bool reportTimeoutTracked = false,
+  int? priceAmountMicros,
+  String priceCurrencyCode = '',
 }) {
   final now = DateTime(2026);
   return BillingPendingPurchase(
@@ -2495,6 +2532,8 @@ BillingPendingPurchase _localPurchase({
     status: status,
     retryCount: 0,
     reportTimeoutTracked: reportTimeoutTracked,
+    priceAmountMicros: priceAmountMicros,
+    priceCurrencyCode: priceCurrencyCode,
     createdAt: now,
     updatedAt: now,
   );

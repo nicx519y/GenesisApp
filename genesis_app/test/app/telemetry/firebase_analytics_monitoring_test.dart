@@ -297,6 +297,286 @@ void main() {
     );
   });
 
+  test(
+    'first Day0 Gems purchase records all Day0 events with store price',
+    () async {
+      final anchorStore = _MemoryDay0AnchorStore();
+      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(anchorStore);
+      final anchor = DateTime.utc(2026, 1, 1, 0);
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(anchor);
+      FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+        () => DateTime.utc(2026, 1, 1, 12),
+      );
+
+      await FirebaseAnalyticsMonitoring.recordPurchase(
+        provider: 'google',
+        productId: 'worldo_gems_500',
+        kind: FirebaseAnalyticsPurchaseKind.gems,
+        purchaseIdentity: 'day0-gems-1',
+        priceAmountMicros: 4990000,
+        priceCurrencyCode: 'usd',
+      );
+
+      expect(client.events.map((event) => event.name).toSet(), {
+        'purchase',
+        'purchase_first',
+        'gems_first',
+        'purchase_day0',
+        'gems_day0',
+        'purchase_first_day0',
+        'gems_first_day0',
+      });
+      expect(client.events, hasLength(7));
+      for (final event in client.events) {
+        expect(event.parameters, <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+          'value': 4.99,
+          'currency': 'USD',
+        });
+        expect(event.parameters.values, isNot(contains('day0-gems-1')));
+      }
+    },
+  );
+
+  test(
+    'later Day0 purchase emits only transaction-scoped Day0 events',
+    () async {
+      final anchor = DateTime.utc(2026, 1, 1, 0);
+      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
+        _MemoryDay0AnchorStore(),
+      );
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(anchor);
+      FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+        () => DateTime.utc(2026, 1, 1, 1),
+      );
+
+      await purchase(identity: 'day0-first');
+      client.events.clear();
+      await purchase(identity: 'day0-second');
+      await purchase(identity: 'day0-second');
+
+      expect(client.events.map((event) => event.name).toSet(), {
+        'purchase',
+        'purchase_day0',
+        'gems_day0',
+      });
+      expect(client.events, hasLength(3));
+    },
+  );
+
+  test(
+    'Day0 category first markers remain independent across purchases',
+    () async {
+      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
+        _MemoryDay0AnchorStore(),
+      );
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
+        DateTime.utc(2026, 1, 1),
+      );
+      FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+        () => DateTime.utc(2026, 1, 1, 2),
+      );
+
+      await purchase(identity: 'day0-gems');
+      await FirebaseAnalyticsMonitoring.recordPurchase(
+        provider: 'apple',
+        productId: 'subscription-1',
+        kind: FirebaseAnalyticsPurchaseKind.subscription,
+        purchaseIdentity: 'day0-subscription',
+      );
+
+      expect(
+        client.events.where((event) => event.name == 'purchase_first_day0'),
+        hasLength(1),
+      );
+      expect(
+        client.events.where((event) => event.name == 'gems_first_day0'),
+        hasLength(1),
+      );
+      expect(
+        client.events.where((event) => event.name == 'subscription_first_day0'),
+        hasLength(1),
+      );
+      expect(
+        client.events.where((event) => event.name == 'purchase_day0'),
+        hasLength(2),
+      );
+    },
+  );
+
+  test('Day0 uses the fixed Beijing calendar boundary', () async {
+    FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
+      _MemoryDay0AnchorStore(),
+    );
+    await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
+      DateTime.utc(2025, 12, 31, 16),
+    );
+    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+      () => DateTime.utc(2026, 1, 1, 15, 59, 59, 999),
+    );
+    await purchase(identity: 'beijing-end');
+    expect(client.events.any((event) => event.name == 'purchase_day0'), isTrue);
+
+    client.events.clear();
+    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+      () => DateTime.utc(2026, 1, 1, 16),
+    );
+    await purchase(identity: 'beijing-next-day');
+    expect(client.events.map((event) => event.name), ['purchase']);
+  });
+
+  test('a server time before the anchor is never Day0 eligible', () async {
+    final anchor = DateTime.utc(2026, 1, 1, 1);
+    FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
+      _MemoryDay0AnchorStore(),
+    );
+    await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(anchor);
+    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+      () => anchor.subtract(const Duration(milliseconds: 1)),
+    );
+
+    await purchase(identity: 'before-anchor');
+
+    expect(client.events.any((event) => event.name.contains('day0')), isFalse);
+  });
+
+  test(
+    'Day0 anchor persists once and failed writes retry on the next sync',
+    () async {
+      final store = _MemoryDay0AnchorStore(failWrites: 1);
+      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(store);
+      final first = DateTime.utc(2026, 1, 1, 2);
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(first);
+      expect(store.value, isNull);
+
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(first);
+      expect(store.value, first);
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
+        DateTime.utc(2026, 1, 2, 2),
+      );
+      expect(store.value, first);
+      expect(store.successfulWrites, 1);
+
+      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(store);
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
+        DateTime.utc(2026, 1, 3, 2),
+      );
+      expect(store.value, first);
+      expect(store.successfulWrites, 1);
+    },
+  );
+
+  test('Day0 transaction markers and anchor survive an app restart', () async {
+    SharedPreferences.setMockInitialValues({});
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+      const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
+    );
+    FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
+      const SharedPreferencesFirebaseAnalyticsDay0AnchorStore(),
+    );
+    final anchor = DateTime.utc(2026, 1, 1);
+    await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(anchor);
+    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+      () => anchor.add(const Duration(hours: 1)),
+    );
+    await purchase(identity: 'restart-day0');
+    expect(client.events, hasLength(7));
+
+    FirebaseAnalyticsMonitoring.resetForTesting();
+    FirebaseAnalyticsMonitoring.setClientForTesting(client);
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(
+      const SharedPreferencesFirebaseAnalyticsOnceEventStore(),
+    );
+    FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
+      const SharedPreferencesFirebaseAnalyticsDay0AnchorStore(),
+    );
+    FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
+    FirebaseAnalyticsMonitoring.setReadinessForTesting(Future<void>.value());
+    FirebaseAnalyticsMonitoring.setDeviceIdReaderForTesting(
+      () async => 'test-device-id',
+    );
+    await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
+      anchor.add(const Duration(hours: 2)),
+    );
+    FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+      () => anchor.add(const Duration(hours: 2)),
+    );
+    await purchase(identity: 'restart-day0');
+
+    expect(client.events, hasLength(7));
+    final preferences = await SharedPreferences.getInstance();
+    expect(
+      preferences.getInt(
+        SharedPreferencesFirebaseAnalyticsDay0AnchorStore.storageKey,
+      ),
+      anchor.millisecondsSinceEpoch,
+    );
+  });
+
+  test(
+    'legacy first markers do not block independent Day0 first events',
+    () async {
+      final onceStore = _MemoryOnceEventStore()
+        ..sentEvents.addAll({'purchase_first', 'gems_first'});
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(onceStore);
+      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
+        _MemoryDay0AnchorStore(),
+      );
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
+        DateTime.utc(2026, 1, 1),
+      );
+
+      await purchase(identity: 'upgrade-day0');
+
+      expect(client.events.map((event) => event.name).toSet(), {
+        'purchase',
+        'purchase_day0',
+        'gems_day0',
+        'purchase_first_day0',
+        'gems_first_day0',
+      });
+    },
+  );
+
+  test('purchase price is all-or-nothing and zero remains valid', () async {
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'apple',
+      productId: 'trial',
+      kind: FirebaseAnalyticsPurchaseKind.subscription,
+      purchaseIdentity: 'free-trial',
+      priceAmountMicros: 0,
+      priceCurrencyCode: 'usd',
+    );
+    expect(
+      client.events.every(
+        (event) =>
+            event.parameters['value'] == 0 &&
+            event.parameters['currency'] == 'USD',
+      ),
+      isTrue,
+    );
+
+    client.events.clear();
+    await FirebaseAnalyticsMonitoring.recordPurchase(
+      provider: 'apple',
+      productId: 'missing-price',
+      kind: FirebaseAnalyticsPurchaseKind.subscription,
+      purchaseIdentity: 'missing-price',
+      priceAmountMicros: 9990000,
+      priceCurrencyCode: 'not-a-currency',
+    );
+    expect(
+      client.events.every(
+        (event) =>
+            !event.parameters.containsKey('value') &&
+            !event.parameters.containsKey('currency'),
+      ),
+      isTrue,
+    );
+  });
+
   test('base event repeats while first event skips later triggers', () async {
     await FirebaseAnalyticsMonitoring.recordLaunch(
       originId: 'origin-1',
@@ -766,6 +1046,27 @@ class _MemoryOnceEventStore implements FirebaseAnalyticsOnceEventStore {
   @override
   Future<bool> wasSent(String eventName) async {
     return sentEvents.contains(eventName);
+  }
+}
+
+class _MemoryDay0AnchorStore implements FirebaseAnalyticsDay0AnchorStore {
+  _MemoryDay0AnchorStore({this.failWrites = 0});
+
+  DateTime? value;
+  int failWrites;
+  int successfulWrites = 0;
+
+  @override
+  Future<DateTime?> read() async => value;
+
+  @override
+  Future<void> write(DateTime serverUtc) async {
+    if (failWrites > 0) {
+      failWrites -= 1;
+      throw StateError('storage unavailable');
+    }
+    successfulWrites += 1;
+    value = serverUtc.toUtc();
   }
 }
 

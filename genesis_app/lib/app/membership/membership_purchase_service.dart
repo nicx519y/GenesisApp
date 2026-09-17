@@ -430,7 +430,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         product = current;
         stage = 'query_store_product';
-        final nativeProduct = await platform.prepare(product);
+        final preparedProduct = await platform.prepare(product);
         if (!await canContinueForOwner(uid)) return;
         stage = 'prepare_guest';
         final guest = uid == null
@@ -457,6 +457,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           accountUuid: uuid,
           ownerUid: uid,
           guest: guest,
+          priceAmountMicros: preparedProduct.priceAmountMicros,
+          priceCurrencyCode: preparedProduct.priceCurrencyCode,
         );
         // Retain the selected plan in memory until the store callback arrives.
         stage = 'prepare_order';
@@ -485,7 +487,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         wait.launchRequested = true;
         stage = 'launch_store';
         final launched = await platform.launch(
-          nativeProduct,
+          preparedProduct,
           uuid,
           onStoreHandoff: onStoreHandoff,
         );
@@ -888,6 +890,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
             purchaseIdentity: provider == MembershipProvider.google
                 ? record.purchaseToken
                 : record.transactionId,
+            priceAmountMicros: record.priceAmountMicros,
+            priceCurrencyCode: record.priceCurrencyCode,
           ),
         );
       }

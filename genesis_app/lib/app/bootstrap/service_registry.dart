@@ -34,6 +34,7 @@ import '../../platform/billing/membership_checkout_platform.dart';
 import '../../platform/billing/membership_pending_store.dart';
 import '../../platform/billing/membership_store_restorer.dart';
 import '../telemetry/device_info_telemetry.dart';
+import '../telemetry/firebase_analytics_monitoring.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../version/app_version_check_service.dart';
 import '../../platform/billing/app_store_billing_platform.dart';
@@ -346,6 +347,8 @@ class ServiceRegistry {
         deviceIdService: deviceId,
         keyStore: const NativeGatewayDeviceKeyStore(),
         transport: httpTransport,
+        onServerTimeSynchronized:
+            FirebaseAnalyticsMonitoring.recordServerTimeSynchronized,
       );
       gatewayRequestInterceptor = GatewayRequestInterceptor(
         coordinator: gatewayAuthCoordinator,
