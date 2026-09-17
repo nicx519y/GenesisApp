@@ -22,6 +22,7 @@ class MembershipPurchaseRecord {
     this.transactionId = '',
     this.originalTransactionId = '',
     this.purchaseToken = '',
+    this.signedTransaction = '',
     this.replacedPurchaseTokenFingerprint = '',
     this.state = 'prepared',
     this.reportStatus,
@@ -37,6 +38,8 @@ class MembershipPurchaseRecord {
   final String transactionId;
   final String originalTransactionId;
   final String purchaseToken;
+  // Kept with the guest receipt in secure storage until claim completes.
+  final String signedTransaction;
   // Legacy attempts may carry an old-token digest. Keep reading it so their
   // delayed callbacks remain excluded after an app update.
   final String replacedPurchaseTokenFingerprint;
@@ -67,6 +70,7 @@ class MembershipPurchaseRecord {
     product: product,
     transactionId: transactionId,
     purchaseToken: purchaseToken,
+    signedTransaction: signedTransaction,
     guest: guest,
   );
 
@@ -75,6 +79,7 @@ class MembershipPurchaseRecord {
     String? transactionId,
     String? originalTransactionId,
     String? purchaseToken,
+    String? signedTransaction,
     String? state,
     String? reportStatus,
     bool? finished,
@@ -90,6 +95,11 @@ class MembershipPurchaseRecord {
     transactionId: transactionId ?? this.transactionId,
     originalTransactionId: originalTransactionId ?? this.originalTransactionId,
     purchaseToken: purchaseToken ?? this.purchaseToken,
+    signedTransaction:
+        signedTransaction ??
+        (transactionId != null && transactionId != this.transactionId
+            ? ''
+            : this.signedTransaction),
     replacedPurchaseTokenFingerprint: replacedPurchaseTokenFingerprint,
     state: state ?? this.state,
     reportStatus: newReport || retryReport
@@ -125,6 +135,10 @@ class MembershipPurchaseRecord {
     'transaction_id': transactionId,
     'original_transaction_id': originalTransactionId,
     'purchase_token': purchaseToken,
+    if (guest != null &&
+        product.provider == MembershipProvider.apple &&
+        signedTransaction.isNotEmpty)
+      'signed_transaction': signedTransaction,
     if (replacedPurchaseTokenFingerprint.isNotEmpty)
       'replaced_purchase_token_fingerprint': replacedPurchaseTokenFingerprint,
     'state': state,
@@ -150,6 +164,7 @@ class MembershipPurchaseRecord {
         transactionId: json['transaction_id'] as String,
         originalTransactionId: json['original_transaction_id'] as String,
         purchaseToken: json['purchase_token'] as String,
+        signedTransaction: json['signed_transaction'] as String? ?? '',
         replacedPurchaseTokenFingerprint:
             json['replaced_purchase_token_fingerprint'] as String? ?? '',
         state: json['state'] as String,

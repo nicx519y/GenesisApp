@@ -117,7 +117,13 @@ extension _MembershipPurchaseTracking on MembershipPurchaseService {
   ) async {
     final tracking = _trackingForClaim(record);
     try {
+      debugPrint(
+        '[Membership][guest_claim] request; provider=${provider.name}',
+      );
       final result = await claimGuest!(request);
+      debugPrint(
+        '[Membership][guest_claim] response; status=${result.status.name}',
+      );
       analytics.claim(tracking, result.status.name);
       return result;
     } catch (error) {

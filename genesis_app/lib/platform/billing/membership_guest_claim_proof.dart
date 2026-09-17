@@ -1,7 +1,7 @@
 import '../../network/models/membership_order_product.dart';
 
 /// Store proof retained only to claim a guest purchase after reinstall.
-/// It is independent of report retries and contains no Apple signed JWS.
+/// It is independent of report retries and is kept in secure storage.
 class MembershipGuestClaimProof {
   const MembershipGuestClaimProof({
     required this.provider,
@@ -9,6 +9,7 @@ class MembershipGuestClaimProof {
     required this.requestId,
     this.purchaseToken = '',
     this.transactionId = '',
+    this.signedTransaction = '',
   });
 
   final MembershipProvider provider;
@@ -16,6 +17,17 @@ class MembershipGuestClaimProof {
   final String requestId;
   final String purchaseToken;
   final String transactionId;
+  final String signedTransaction;
+
+  MembershipGuestClaimProof withSignedTransaction(String value) =>
+      MembershipGuestClaimProof(
+        provider: provider,
+        storeProductId: storeProductId,
+        requestId: requestId,
+        purchaseToken: purchaseToken,
+        transactionId: transactionId,
+        signedTransaction: value,
+      );
 
   Map<String, Object?> toJson() => {
     'provider': provider.name,
@@ -23,6 +35,8 @@ class MembershipGuestClaimProof {
     'request_id': requestId,
     if (provider == MembershipProvider.google) 'purchase_token': purchaseToken,
     if (provider == MembershipProvider.apple) 'transaction_id': transactionId,
+    if (provider == MembershipProvider.apple && signedTransaction.isNotEmpty)
+      'signed_transaction': signedTransaction,
   };
 
   factory MembershipGuestClaimProof.fromJson(Map<String, dynamic> json) {
@@ -35,6 +49,7 @@ class MembershipGuestClaimProof {
     final requestId = json['request_id'];
     final token = json['purchase_token'] ?? '';
     final transaction = json['transaction_id'] ?? '';
+    final signed = json['signed_transaction'] ?? '';
     if (storeId is! String ||
         storeId.isEmpty ||
         requestId is! String ||
@@ -42,6 +57,7 @@ class MembershipGuestClaimProof {
         requestId.length > 64 ||
         token is! String ||
         transaction is! String ||
+        signed is! String ||
         (provider == MembershipProvider.google
             ? token.isEmpty
             : transaction.isEmpty)) {
@@ -53,6 +69,7 @@ class MembershipGuestClaimProof {
       requestId: requestId,
       purchaseToken: token,
       transactionId: transaction,
+      signedTransaction: signed,
     );
   }
 }

@@ -285,6 +285,7 @@ extension _MembershipGuestStartupCheck on MembershipPurchaseService {
                               requestId: newBillingAttemptId(),
                               purchaseToken: purchase.purchaseToken,
                               transactionId: purchase.transactionId,
+                              signedTransaction: purchase.signedTransaction,
                             ),
                           );
                 }

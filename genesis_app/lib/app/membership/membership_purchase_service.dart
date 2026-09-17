@@ -286,6 +286,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         }
         await store.complete(record);
       }
+      await _repairLegacyGuestClaimReferences();
       for (final record in await store.loadRestores()) {
         await store.removeRestore(record.requestId);
       }
@@ -912,6 +913,10 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       purchaseToken: purchase.purchaseToken.isEmpty
           ? null
           : purchase.purchaseToken,
+      signedTransaction:
+          record.guest != null && purchase.signedTransaction.isNotEmpty
+          ? purchase.signedTransaction
+          : null,
       state: record.paid && purchase.status == BillingPurchaseStatus.pending
           ? null
           : purchase.status.name,
@@ -1005,6 +1010,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
         final report = await _sendTrackedReport(record, request);
         record = _trackReportResult(record, report);
         record = record.copyWith(
+          signedTransaction: request.signedTransaction,
           reportStatus: report.status.name,
           state:
               report.status == MembershipReportStatus.completed && !record.paid

@@ -5,6 +5,7 @@ import 'package:genesis_flutter_android/network/models/membership_claim.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_store_purchase.dart';
+import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_proof.dart';
 
 import 'membership_purchase_service_test.dart' as support;
 
@@ -174,10 +175,7 @@ void main() {
             restarted.claimRequests.single.transactionId,
             saved.transactionId,
           );
-          expect(
-            restarted.signedTransactionQueries,
-            provider == MembershipProvider.apple ? 1 : 0,
-          );
+          expect(restarted.signedTransactionQueries, 0);
           expect(restarted.eligibilityQueries, 0);
           expect(restarted.store.claims, isEmpty);
           expect(restarted.store.claims, isEmpty);
@@ -190,7 +188,7 @@ void main() {
   }
 
   test(
-    'restarting before login uses persisted proof and reloads only Apple JWS',
+    'restarting before login reuses the complete persisted Apple proof',
     () async {
       final first = support.Harness(
         provider: MembershipProvider.apple,
@@ -215,8 +213,9 @@ void main() {
       h.service.resetForSession();
       await h.service.recover();
       expect(h.claimRequests.single.transactionId, proof.transactionId);
+      expect(h.claimRequests.single.signedTransaction, proof.signedTransaction);
       expect(h.claimRequests.single.toJson(), isNot(contains('request_id')));
-      expect(h.signedTransactionQueries, 1);
+      expect(h.signedTransactionQueries, 0);
       expect(h.reports, isEmpty);
     },
   );
@@ -259,6 +258,12 @@ void main() {
         MembershipStorePurchase(purchase: first.purchase()),
       ];
       await first.service.checkGuestPurchasesOnHome();
+      final cached = first.store.claims.values.single;
+      first.store.claims[support.guest.accountUuid] = cached.copyWith(
+        recoveredProof: MembershipGuestClaimProof.fromJson(
+          cached.recoveredProof!.toJson()..remove('signed_transaction'),
+        ),
+      );
       first.service.dispose();
       final h = support.Harness(
         provider: MembershipProvider.apple,
@@ -281,7 +286,7 @@ void main() {
   );
 
   test(
-    'iOS waits for the original signed transaction and then claims the retained proof',
+    'legacy iOS cache reloads the original signature without changing the transaction',
     () async {
       final first = support.Harness(
         provider: MembershipProvider.apple,
@@ -292,6 +297,16 @@ void main() {
       ];
       await first.service.checkGuestPurchasesOnHome();
       final saved = first.store.claims.values.single.recoveredProof!;
+      first.store.claims[support.guest.accountUuid] = first
+          .store
+          .claims
+          .values
+          .single
+          .copyWith(
+            recoveredProof: MembershipGuestClaimProof.fromJson(
+              saved.toJson()..remove('signed_transaction'),
+            ),
+          );
       first.service.dispose();
       final h = support.Harness(
         provider: MembershipProvider.apple,

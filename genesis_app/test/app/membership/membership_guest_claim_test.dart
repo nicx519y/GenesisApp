@@ -1,11 +1,12 @@
-
 import 'package:flutter_test/flutter_test.dart';
+import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_pending_store.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_record.dart';
+import 'package:genesis_flutter_android/platform/billing/membership_store_restorer.dart';
 
 import 'membership_purchase_service_test.dart';
 
@@ -13,7 +14,52 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
-    'Apple guest claim after restart reloads signed proof for the original transaction',
+    'legacy Apple UUID drift reaches claim with the original body and JWS',
+    () async {
+      final h = Harness(provider: MembershipProvider.apple)..uid = null;
+      await h.service.purchase(h.product());
+      await h.service.interceptPurchase(h.purchase());
+      final report = h.reports.single;
+      final saved = h.store.confirmed.values.single;
+      h.store.confirmed[saved.requestId] = MembershipPurchaseRecord.fromJson(
+        saved.toJson()..remove('signed_transaction'),
+      );
+      h.service.dispose();
+      final restarted = Harness(
+        provider: MembershipProvider.apple,
+        claimEnabled: true,
+        storage: h.store,
+      )..uid = 'first-login';
+      final restorer = MembershipStoreRestorer(
+        provider: MembershipProvider.apple,
+        appleQuery: () async => [
+          SK2Transaction(
+            id: report.transactionId,
+            originalId: report.transactionId,
+            productId: report.product.storeProductId,
+            purchaseDate: '1000',
+            appAccountToken: accountUuid,
+            receiptData: 'store.verified.signature',
+          ),
+        ],
+      );
+      restarted.signedTransactionHandler = restorer.signedTransaction;
+      await restarted.service.recover();
+      expect(restarted.claimRequests.single.toJson(), {
+        ...report.toJson(),
+        'signed_transaction': 'store.verified.signature',
+      });
+      expect(
+        restarted.claimRequests.single.guest.accountUuid,
+        guest.accountUuid,
+      );
+      expect(restarted.reports, isEmpty);
+      expect(restarted.store.claims, isEmpty);
+    },
+  );
+
+  test(
+    'Apple guest claim after restart reuses the complete original report proof',
     () async {
       final h = Harness(provider: MembershipProvider.apple, claimEnabled: true)
         ..uid = null;
@@ -23,26 +69,22 @@ void main() {
       expect(report.toJson()['signed_transaction'], 'test.header.signature');
       expect(h.signedTransactionQueries, 0);
       expect(
-        h.store.confirmed.values.single.toJson(),
-        isNot(contains('signed_transaction')),
+        h.store.confirmed.values.single.toJson()['signed_transaction'],
+        report.signedTransaction,
       );
+      h.service.dispose();
       final restarted = Harness(
         provider: MembershipProvider.apple,
         claimEnabled: true,
         storage: h.store,
       )..uid = 'first-login';
-      restarted.signedTransactionHandler = (request) async {
-        expect(request.storeProductId, report.product.storeProductId);
-        expect(request.transactionId, report.transactionId);
-        expect(request.guest.accountUuid, guest.accountUuid);
-        return 'new.header.signature';
-      };
+      restarted.signedTransactionHandler = (_) async =>
+          throw const BillingPlatformException(
+            'membership_signed_transaction_missing',
+          );
       await restarted.service.recover();
-      expect(restarted.signedTransactionQueries, 1);
-      expect(restarted.claimRequests.single.toJson(), {
-        ...report.toJson(),
-        'signed_transaction': 'new.header.signature',
-      });
+      expect(restarted.signedTransactionQueries, 0);
+      expect(restarted.claimRequests.single.toJson(), report.toJson());
       expect(restarted.refreshes, 1);
       expect(
         restarted.store.claims.values.where((r) => r.status != 'completed'),
@@ -52,12 +94,17 @@ void main() {
   );
 
   test(
-    'missing Apple signed proof preserves guest cache and never sends UUID-only claim',
+    'legacy missing Apple proof preserves guest cache and never sends UUID-only claim',
     () async {
       final h = Harness(provider: MembershipProvider.apple, claimEnabled: true)
         ..uid = null;
       await h.service.purchase(h.product());
       await h.service.interceptPurchase(h.purchase());
+      final saved = h.store.confirmed.values.single;
+      h.store.confirmed[saved.requestId] = MembershipPurchaseRecord.fromJson(
+        saved.toJson()..remove('signed_transaction'),
+      );
+      h.service.dispose();
       final restarted = Harness(
         provider: MembershipProvider.apple,
         claimEnabled: true,

@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:in_app_purchase_android/billing_client_wrappers.dart';
 import 'package:in_app_purchase_storekit/store_kit_2_wrappers.dart';
+import 'package:in_app_purchase_storekit/store_kit_wrappers.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/network/models/membership_claim.dart';
@@ -130,7 +131,7 @@ void main() {
   );
 
   test(
-    'Apple claim proof lookup matches transaction, product and UUID exactly',
+    'Apple claim proof lookup matches exact verified transaction and product',
     () async {
       const uuid = '4b74ec68-7abc-4cce-a223-e997e31dc811';
       final request = MembershipClaimRequest(
@@ -144,19 +145,36 @@ void main() {
         provider: MembershipProvider.apple,
         appleQuery: () async => transactions,
       );
-      SK2Transaction transaction(String id, String product, String owner) =>
-          SK2Transaction(
-            id: id,
-            originalId: 'chain',
-            productId: product,
-            purchaseDate: '1000',
-            appAccountToken: owner,
-            receiptData: 'signed.$id.proof',
-          );
+      SK2Transaction transaction(
+        String id,
+        String product,
+        String? owner, {
+        String? signed = 'signed.100.proof',
+        SKError? error,
+      }) => SK2Transaction(
+        id: id,
+        originalId: 'chain',
+        productId: product,
+        purchaseDate: '1000',
+        appAccountToken: owner,
+        receiptData: signed,
+        error: error,
+      );
       for (final wrong in [
         transaction('101', 'test_pro', uuid),
         transaction('100', 'other_product', uuid),
-        transaction('100', 'test_pro', 'other-uuid'),
+        transaction('100', 'test_pro', uuid, signed: ''),
+        transaction('100', 'test_pro', uuid, signed: null),
+        transaction(
+          '100',
+          'test_pro',
+          uuid,
+          error: SKError(
+            code: 0,
+            domain: 'StoreKitVerificationError',
+            userInfo: const {},
+          ),
+        ),
       ]) {
         transactions = [wrong];
         await expectLater(
@@ -169,6 +187,12 @@ void main() {
         transaction('100', 'test_pro', uuid.toUpperCase()),
       ];
       expect(await restorer.signedTransaction(request), 'signed.100.proof');
+      // The backend validates the signed UUID and corrects the request UUID.
+      // Dart must not discard the exact transaction's JWS because of drift.
+      for (final account in ['8b74ec68-7abc-4cce-a223-e997e31dc811', null]) {
+        transactions = [transaction('100', 'test_pro', account)];
+        expect(await restorer.signedTransaction(request), 'signed.100.proof');
+      }
     },
   );
   test(

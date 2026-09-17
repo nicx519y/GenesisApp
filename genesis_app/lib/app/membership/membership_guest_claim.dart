@@ -51,6 +51,19 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         MembershipClaimRequest.fromPurchase(request),
       );
       request = request.withSignedTransaction(signed.signedTransaction);
+      if (!_disposed &&
+          purchase.paid &&
+          purchase.signedTransaction != request.signedTransaction) {
+        final complete = purchase.copyWith(
+          signedTransaction: request.signedTransaction,
+        );
+        await _save(complete);
+        try {
+          await store.saveGuestPurchase(complete);
+        } catch (error) {
+          _log('guest signed proof persistence deferred', error);
+        }
+      }
     }
     if (!_disposed) _guestPurchaseRequests[purchase.requestId] = request;
     return request;
@@ -59,7 +72,10 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
   Future<MembershipClaimRequest> _signedGuestRequest(
     MembershipClaimRequest request,
   ) async {
-    if (request.provider != MembershipProvider.apple) return request;
+    if (request.provider != MembershipProvider.apple ||
+        request.signedTransaction.isNotEmpty) {
+      return request;
+    }
     final key = '${request.guest.accountUuid}:${request.transactionId}';
     var signed = _signedTransactions[key];
     if (signed == null || signed.isEmpty) {
@@ -90,6 +106,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         guest: claim.guest,
         purchaseToken: proof.purchaseToken,
         transactionId: proof.transactionId,
+        signedTransaction: proof.signedTransaction,
       ),
     );
   }
@@ -110,6 +127,43 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
       if (matches(purchase)) return purchase;
     }
     return null;
+  }
+
+  Future<void> _repairLegacyGuestClaimReferences() async {
+    // Earlier clients appended each paid receipt but left the unclaimed UUID
+    // pointing at its first report. The secure receipt list preserves write
+    // order. Repair only those unsigned, unowned completed-report records;
+    // once claim has an owner or response, its proof must remain fixed.
+    for (final claim in _guestClaims.values.toList()) {
+      if (claim.ownerUid != null ||
+          claim.status != null ||
+          !claim.purchaseConfirmed ||
+          claim.recoveredProof != null) {
+        continue;
+      }
+      final selected = _claimPurchase(claim);
+      if (selected == null ||
+          selected.signedTransaction.isNotEmpty ||
+          selected.reportStatus != 'completed') {
+        continue;
+      }
+      final candidates = _records.values.where(
+        (purchase) =>
+            purchase.product.provider == provider &&
+            purchase.guest?.accountUuid == claim.guest.accountUuid &&
+            purchase.paid &&
+            purchase.hasReceipt &&
+            purchase.reportStatus == 'completed',
+      );
+      final latest = candidates.last;
+      if (latest.requestId == selected.requestId) continue;
+      await _saveGuestClaim(
+        claim.copyWith(
+          purchaseRequestId: latest.requestId,
+          tracking: _trackingFor(latest),
+        ),
+      );
+    }
   }
 
   void _resetGuestClaimRetries() {
@@ -380,7 +434,14 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         if (_disposed || session != _session || await readLoginUid() != uid) {
           return;
         }
-        record = record.copyWith(ownerUid: uid);
+        record = record.copyWith(
+          ownerUid: uid,
+          recoveredProof: request.signedTransaction.isEmpty
+              ? null
+              : record.recoveredProof?.withSignedTransaction(
+                  request.signedTransaction,
+                ),
+        );
         // Pin the first login before sending a request. A timeout must never
         // cause this receipt to be claimed by a later, different account.
         await _saveGuestClaim(record);
@@ -452,6 +513,7 @@ extension _MembershipGuestClaim on MembershipPurchaseService {
         requestId: newBillingAttemptId(),
         purchaseToken: purchase.purchaseToken,
         transactionId: purchase.transactionId,
+        signedTransaction: purchase.signedTransaction,
       ),
     );
     if (provider == MembershipProvider.apple &&

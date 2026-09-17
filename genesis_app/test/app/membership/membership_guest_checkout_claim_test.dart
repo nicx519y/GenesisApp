@@ -1,11 +1,71 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
+import 'package:genesis_flutter_android/platform/billing/membership_pending_store.dart';
 
 import 'membership_purchase_service_test.dart' as support;
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  for (final pinned in [false, true]) {
+    test(
+      'restart repairs only unowned legacy claim references; pinned=$pinned',
+      () async {
+        final h = support.Harness(provider: MembershipProvider.apple)
+          ..uid = null;
+        await h.service.purchase(h.product(), attemptId: 'old-checkout');
+        await h.service.interceptPurchase(
+          h.purchase(transaction: 'old-transaction'),
+        );
+        final staleClaim = h.store.claims.values.single;
+        await h.service.purchase(h.product(), attemptId: 'current-checkout');
+        await h.service.interceptPurchase(
+          h.purchase(transaction: 'current-transaction'),
+        );
+        final report = pinned ? h.reports.first : h.reports.last;
+        // Reproduce the persisted state left by the previous client: both paid
+        // receipts exist, but claim still references the first one and has no JWS.
+        h.store.claims[support.guest.accountUuid] = pinned
+            ? staleClaim.copyWith(ownerUid: 'first-login', status: 'accepted')
+            : staleClaim;
+        for (final saved in h.store.confirmed.values.toList()) {
+          h.store.confirmed[saved.requestId] =
+              MembershipPurchaseRecord.fromJson(
+                saved.toJson()..remove('signed_transaction'),
+              );
+        }
+        h.service.dispose();
+        final restarted = support.Harness(
+          provider: MembershipProvider.apple,
+          claimEnabled: true,
+          guestRecoveryEnabled: true,
+          storage: h.store,
+        )..uid = null;
+        restarted.signedTransactionHandler = (request) async {
+          if (request.transactionId != report.transactionId) {
+            throw const BillingPlatformException(
+              'membership_signed_transaction_missing',
+            );
+          }
+          return report.signedTransaction;
+        };
+        await restarted.service.start();
+        await restarted.service.checkGuestPurchasesOnHome();
+        expect(
+          restarted.service.guestLoginRequestId.value,
+          pinned ? 'old-checkout' : 'current-checkout',
+        );
+        restarted.uid = 'first-login';
+        restarted.service.resetForSession();
+        await restarted.service.recover();
+        expect(restarted.claimRequests.single.toJson(), report.toJson());
+        expect(restarted.reports, isEmpty);
+        expect(restarted.signedTransactionQueries, 1);
+        expect(restarted.guestDiscoveries, 0);
+      },
+    );
+  }
 
   for (final provider in MembershipProvider.values) {
     for (final pendingFirst in [false, true]) {

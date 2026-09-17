@@ -17,6 +17,81 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'guest Apple JWS survives secure storage restart and is removed after claim',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      final store = SecureMembershipPendingStore();
+      final purchase = MembershipPurchaseRecord(
+        requestId: 'paid-apple',
+        product: membershipProduct(provider: MembershipProvider.apple),
+        accountUuid: support.guest.accountUuid,
+        ownerUid: null,
+        guest: support.guest,
+        transactionId: 'paid-transaction',
+        signedTransaction: 'original.signed.proof',
+        state: 'purchased',
+        reportStatus: 'completed',
+      );
+      final claim = MembershipGuestClaimRecord(
+        guest: support.guest,
+        purchaseRequestId: purchase.requestId,
+        purchaseConfirmed: true,
+      );
+      await store.saveGuestPurchase(purchase);
+      await store.saveGuestClaim(claim);
+      final restarted = SecureMembershipPendingStore();
+      final restored = (await restarted.loadConfirmedReceipts()).single;
+      expect(restored.request.toJson(), purchase.request.toJson());
+      expect(
+        restored
+            .copyWith(transactionId: 'different-transaction')
+            .signedTransaction,
+        isEmpty,
+      );
+      expect(
+        restored.bindGuestToAccount('first-login').toJson(),
+        isNot(contains('signed_transaction')),
+      );
+      final completed = claim.copyWith(
+        ownerUid: 'first-login',
+        status: 'completed',
+      );
+      await restarted.saveGuestClaim(completed);
+      await restarted.completeGuestClaim(completed);
+      expect(
+        await const FlutterSecureStorage().read(
+          key: 'membership_confirmed_receipts_v1',
+        ),
+        isNull,
+      );
+      expect(await restarted.loadGuestClaims(), isEmpty);
+    },
+  );
+
+  test(
+    'store-discovered Apple proof retains JWS across serialization',
+    () async {
+      FlutterSecureStorage.setMockInitialValues({});
+      const proof = MembershipGuestClaimProof(
+        provider: MembershipProvider.apple,
+        storeProductId: 'apple-product',
+        requestId: 'recovered-claim',
+        transactionId: 'verified-transaction',
+        signedTransaction: 'recovered.signed.proof',
+      );
+      await SecureMembershipPendingStore().saveGuestClaim(
+        const MembershipGuestClaimRecord(
+          guest: support.guest,
+          recoveredProof: proof,
+        ),
+      );
+      final claim =
+          (await SecureMembershipPendingStore().loadGuestClaims()).single;
+      expect(claim.recoveredProof!.toJson(), proof.toJson());
+    },
+  );
+
+  test(
     'unpaid identity cleanup is durable and preserves other UUIDs',
     () async {
       FlutterSecureStorage.setMockInitialValues({});

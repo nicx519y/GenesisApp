@@ -143,15 +143,34 @@ class MembershipStoreRestorer {
         request.provider != MembershipProvider.apple) {
       throw const BillingPlatformException('invalid_guest_apple_request');
     }
+    var foundTransaction = false;
+    var productMatches = false;
+    var accountMatches = false;
+    var verified = false;
+    var hasSignature = false;
     for (final transaction in await _appleQuery()) {
+      if (transaction.id == request.transactionId) {
+        foundTransaction = true;
+        productMatches = transaction.productId == request.storeProductId;
+        accountMatches =
+            transaction.appAccountToken?.toLowerCase() == uuid.toLowerCase();
+        verified = transaction.error == null;
+        hasSignature = transaction.receiptData?.isNotEmpty == true;
+      }
+      // Claim resolves UUID drift from the verified JWS on the server. Keep
+      // the exact transaction/product proof even when the cached UUID differs.
       if (transaction.id == request.transactionId &&
           transaction.productId == request.storeProductId &&
-          transaction.appAccountToken?.toLowerCase() == uuid.toLowerCase() &&
           transaction.error == null &&
           transaction.receiptData?.isNotEmpty == true) {
         return transaction.receiptData!;
       }
     }
+    debugPrint(
+      '[Membership][guest_claim] signed_proof_missing; '
+      'transaction_found=$foundTransaction product_matches=$productMatches '
+      'account_matches=$accountMatches verified=$verified has_signature=$hasSignature',
+    );
     throw const BillingPlatformException(
       'membership_signed_transaction_missing',
     );

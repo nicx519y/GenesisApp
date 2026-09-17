@@ -123,7 +123,7 @@ class BillingPurchase {
   final String? obfuscatedAccountId;
   final String? errorCode;
 
-  /// In-memory StoreKit JWS for VIP guest reporting/claiming; never persisted.
+  /// StoreKit JWS for VIP guest report/claim; unclaimed proof uses secure storage.
   final String signedTransaction;
   final String? errorMessage;
 

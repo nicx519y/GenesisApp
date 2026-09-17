@@ -33,7 +33,7 @@ class MembershipPurchaseRequest {
   final String transactionId;
   final String purchaseToken;
 
-  /// Apple JWS is obtained from StoreKit and never serialized to local storage.
+  /// Apple JWS from StoreKit, retained with unclaimed guest proof in secure storage.
   final String signedTransaction;
   final MembershipGuestIdentity? guest;
 
