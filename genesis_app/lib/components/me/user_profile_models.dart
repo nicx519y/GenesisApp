@@ -5,14 +5,16 @@ class UserProfileCollectionState<T> {
     required this.items,
     required this.isLoading,
     this.total,
+    bool? hasLoaded,
     this.hasMore = false,
     this.isLoadingMore = false,
     this.loadMoreFailed = false,
-  });
+  }) : hasLoaded = hasLoaded ?? (total != null);
 
   final List<T> items;
   final bool isLoading;
   final int? total;
+  final bool hasLoaded;
   final bool hasMore;
   final bool isLoadingMore;
   final bool loadMoreFailed;

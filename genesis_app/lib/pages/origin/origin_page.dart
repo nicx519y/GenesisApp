@@ -1421,7 +1421,10 @@ class _OriginFeedState extends State<_OriginFeed>
     _initialLoadInFlight = _isPrimaryFeed && !_initialLoadCompleted;
     setState(() {
       _error = null;
-      _isInitialLoading = _items.isEmpty && !_hasHydratedCache;
+      _isInitialLoading =
+          _items.isEmpty &&
+          !_hasHydratedCache &&
+          !_hasCompletedFirstPageNetworkRequest;
       _isRefreshing = true;
     });
 

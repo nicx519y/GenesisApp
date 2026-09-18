@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:genesis_flutter_android/app/membership/membership_access_store.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -7,6 +9,8 @@ import 'package:genesis_flutter_android/components/gems/profile_membership_card.
 import 'package:genesis_flutter_android/network/models/gem_wallet.dart';
 import 'package:genesis_flutter_android/components/me/user_profile_content.dart';
 import 'package:genesis_flutter_android/pages/me/me_page.dart';
+import 'package:genesis_flutter_android/pages/me/me_collection_controller.dart';
+import 'package:genesis_flutter_android/network/models/paged_response.dart';
 import 'package:genesis_flutter_android/routers/app_router.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_avatar.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_profile_collection_list_item.dart';
@@ -14,6 +18,103 @@ import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
 import 'package:genesis_flutter_android/utils/entity_deleted.dart';
 
 void main() {
+  for (final playing in [false, true]) {
+    testWidgets(
+      'Me retains loaded empty collection during refresh, playing=$playing',
+      (tester) async {
+        var response = Completer<PagedResponse<Never>>();
+        final origins = MeCollectionController<UserProfileOriginItem>(
+          itemId: (item) => item.oid,
+          loadPage: (_) => response.future,
+        );
+        final worlds = MeCollectionController<UserProfileWorldItem>(
+          itemId: (item) => item.wid,
+          loadPage: (_) => response.future,
+        );
+        addTearDown(origins.dispose);
+        addTearDown(worlds.dispose);
+        final collection = playing ? worlds : origins;
+        final loadingKey = ValueKey(
+          playing
+              ? 'profile-world-list-loading'
+              : 'profile-origin-list-loading',
+        );
+        final emptyText = playing
+            ? 'No Worlds you created yet.'
+            : 'No Worldo you created yet.';
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: UserProfileContent(
+                data: const UserProfileData(
+                  avatarUrl: '',
+                  displayName: 'User',
+                  uid: 'user',
+                  followingCount: 0,
+                  followerCount: 0,
+                  origins: [],
+                  worlds: [],
+                ),
+                originsListenable: origins,
+                worldsListenable: worlds,
+                originTabLabel: 'Worldo',
+                worldTabLabel: 'Playing',
+              ),
+            ),
+          ),
+        );
+        if (playing) {
+          await tester.tap(find.text('Playing'));
+          await tester.pumpAndSettle();
+        }
+        final initial = collection.refresh();
+        await tester.pump();
+        expect(find.byKey(loadingKey), findsOneWidget);
+        response.complete(
+          const PagedResponse<Never>(data: [], total: 0, limit: 30, offset: 0),
+        );
+        await initial;
+        await tester.pumpAndSettle();
+        expect(find.text(emptyText), findsOneWidget);
+
+        for (final fail in [false, true]) {
+          response = Completer<PagedResponse<Never>>();
+          final refresh = collection.refresh();
+          await tester.pump();
+          expect(find.text(emptyText), findsOneWidget);
+          expect(find.byKey(loadingKey), findsNothing);
+          if (fail) {
+            response.completeError(StateError('offline'));
+          } else {
+            response.complete(
+              const PagedResponse<Never>(
+                data: [],
+                total: 0,
+                limit: 30,
+                offset: 0,
+              ),
+            );
+          }
+          await refresh;
+          await tester.pumpAndSettle();
+          expect(find.text(emptyText), findsOneWidget);
+        }
+
+        collection.reset();
+        response = Completer<PagedResponse<Never>>();
+        final newSession = collection.refresh();
+        await tester.pump();
+        expect(find.byKey(loadingKey), findsOneWidget);
+        response.complete(
+          const PagedResponse<Never>(data: [], total: 0, limit: 30, offset: 0),
+        );
+        await newSession;
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'Me shows one membership card and keeps wallet and membership balances independent',
     (tester) async {

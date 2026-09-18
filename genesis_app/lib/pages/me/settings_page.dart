@@ -367,7 +367,9 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
 
   Future<void> _refresh() async {
     final next = _loadBlockedUsers();
-    setState(() => _future = next);
+    setState(() {
+      _future = next;
+    });
     await next;
   }
 
@@ -457,7 +459,8 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
               child: FutureBuilder<List<_BlockedUserItem>>(
                 future: _future,
                 builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
                     return const Center(
                       child: SizedBox.square(
                         dimension: 24,
@@ -487,7 +490,9 @@ class _BlockedUsersPageState extends State<BlockedUsersPage> {
                               fullWidth: false,
                               width: 140,
                               onPressed: () {
-                                setState(() => _future = _loadBlockedUsers());
+                                setState(() {
+                                  _future = _loadBlockedUsers();
+                                });
                               },
                             ),
                           ],

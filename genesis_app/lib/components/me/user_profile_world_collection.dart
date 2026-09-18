@@ -128,6 +128,7 @@ class _WorldProfileCollectionListState
           .toList(growable: false),
       emptyText: widget.emptyText,
       isLoading: isLoading,
+      hasLoaded: state?.hasLoaded ?? false,
       loadingKey: const ValueKey('profile-world-list-loading'),
       onRefresh: widget.onRefresh,
       refreshKey: const ValueKey('profile-world-list-refresh'),

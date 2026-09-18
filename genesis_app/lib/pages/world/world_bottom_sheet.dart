@@ -395,7 +395,7 @@ class WorldSingleSectionBottomSheetState
       unawaited(_loadEventsPage(1, force: true));
       return;
     }
-    if (_eventsCache.ticks.isEmpty) {
+    if (_eventsCache.page == 0) {
       unawaited(_loadEventsPage(1));
     }
   }
@@ -482,7 +482,7 @@ class WorldSingleSectionBottomSheetState
         key: const PageStorageKey<String>('world-events-section-bottom-sheet'),
         world: _currentWorld,
         ticks: _eventsCache.ticks,
-        initialLoading: _eventsCache.initialLoading,
+        initialLoading: _eventsCache.initialLoading && _eventsCache.page == 0,
         loadingMore: _eventsCache.loadingMore,
         hasMore: _eventsHasMore,
         error: _eventsCache.error,

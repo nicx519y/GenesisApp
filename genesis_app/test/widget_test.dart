@@ -1,3 +1,5 @@
+import 'package:genesis_flutter_android/pages/world/world_bottom_sheet.dart';
+import 'package:genesis_flutter_android/pages/world/world_models.dart';
 import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.dart';
 import 'support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_record.dart';
@@ -2763,6 +2765,185 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  testWidgets('loaded empty events survive reopening during refresh', (
+    tester,
+  ) async {
+    final transport = _EmptyListRefreshTransport('/api/v1/world/tick/list');
+    final services = await _testServices(transport: transport, useMock: false);
+    final world = await services.api.getWorld('w_test_1');
+    final worldState = ValueNotifier<WorldDetail?>(world);
+    final selection = ValueNotifier(
+      const WorldBottomSheetSelection(
+        kind: WorldBottomSheetKind.events,
+        eventsLatestRevision: 0,
+      ),
+    );
+    final notices = ValueNotifier<List<WorldNewUserJoinNotice>>([]);
+    final cache = WorldSectionsEventsCache()..reset(world.worldId);
+    addTearDown(worldState.dispose);
+    addTearDown(selection.dispose);
+    addTearDown(notices.dispose);
+    Widget page() => MaterialApp(
+      home: Scaffold(
+        body: WorldSingleSectionBottomSheet(
+          selectionListenable: selection,
+          services: services,
+          initialWorld: world,
+          worldListenable: worldState,
+          newUserJoinNoticesListenable: notices,
+          eventsCache: cache,
+          currentUid: 'u_mock',
+          recentChatLocationIds: const {},
+          onLocationTap: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpWidget(page());
+    await tester.pumpAndSettle();
+    expect(find.text('No events yet.'), findsOneWidget);
+    expect(cache.page, 1);
+    final requests = transport.totalRequests;
+    worldState.value = null;
+    await tester.pumpAndSettle();
+    expect(transport.totalRequests, requests);
+    await tester.pumpWidget(const SizedBox.shrink());
+    transport.delay = true;
+    await tester.pumpWidget(page());
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(transport.pendingRequests, 1);
+    expect(find.text('No events yet.'), findsOneWidget);
+    transport.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('No events yet.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+  for (final example in [
+    (
+      name: 'following',
+      path: '/api/v1/user/following',
+      page: const FollowsPage(uid: 'u_mock'),
+      empty: 'No following yet.',
+    ),
+    (
+      name: 'followers',
+      path: '/api/v1/user/followers',
+      page: const FollowsPage(uid: 'u_mock', initialIndex: 1),
+      empty: 'No followers yet.',
+    ),
+    (
+      name: 'blocked',
+      path: '/api/v1/user/blocks',
+      page: const BlockedUsersPage(),
+      empty: 'No blocked users yet.',
+    ),
+    (
+      name: 'notifications',
+      path: '/api/v1/message/notifications',
+      page: const MessageCategoryListPage(
+        title: 'Notifications',
+        block: 'world_apply',
+        emptyText: 'No messages yet.',
+      ),
+      empty: 'No messages yet.',
+    ),
+    (
+      name: 'worldo',
+      path: '/api/v1/origin/feed',
+      page: const OriginPage(),
+      empty: 'No data',
+    ),
+    (
+      name: 'home',
+      path: '/api/v1/world/list',
+      page: const HomePage(),
+      empty: '',
+    ),
+  ]) {
+    testWidgets('loaded empty list survives refresh: ${example.name}', (
+      tester,
+    ) async {
+      final transport = _EmptyListRefreshTransport(example.path);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(
+            transport: transport,
+            useMock: false,
+            initialAuthToken: 'backend-token',
+          ),
+          child: MaterialApp(home: example.page),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final empty = example.name == 'home'
+          ? find.byKey(const ValueKey<String>('home-my-worlds-empty-action'))
+          : find.text(example.empty);
+      expect(empty, findsOneWidget);
+      transport.delay = true;
+      final refresh = tester
+          .widget<RefreshIndicator>(find.byType(RefreshIndicator).first)
+          .onRefresh();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(transport.pendingRequests, 1);
+      expect(empty, findsOneWidget);
+      expect(find.byType(GenesisListLoadingSkeleton), findsNothing);
+      transport.complete();
+      await refresh;
+      await tester.pumpAndSettle();
+      expect(empty, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
+  testWidgets(
+    'loaded empty peer collections survive refresh and show new cards',
+    (tester) async {
+      final transport = _UserInfoRefreshTransport(initialItemCount: 0);
+      await tester.pumpWidget(
+        AppServicesScope(
+          services: await _testServices(transport: transport, useMock: false),
+          child: const MaterialApp(home: UserInfoPage(uid: 'u_refresh_peer')),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final playing in [false, true]) {
+        if (playing) {
+          await tester.tap(find.text('Playing'));
+          await tester.pumpAndSettle();
+        }
+        final empty = find.text(playing ? 'No Worlds yet.' : 'No Worldo yet.');
+        expect(empty, findsOneWidget);
+        final refresh = tester
+            .widget<RefreshIndicator>(find.byType(RefreshIndicator).first)
+            .onRefresh();
+        await tester.pump();
+        expect(empty, findsOneWidget);
+        expect(
+          find.byKey(
+            ValueKey(
+              playing
+                  ? 'profile-world-list-loading'
+                  : 'profile-origin-list-loading',
+            ),
+          ),
+          findsNothing,
+        );
+        if (playing) {
+          transport.completeWorldRefresh();
+        } else {
+          transport.completeOriginRefresh();
+        }
+        await refresh;
+        await tester.pumpAndSettle();
+        expect(empty, findsNothing);
+        expect(
+          find.text(playing ? 'World New' : '#Origin New'),
+          findsOneWidget,
+        );
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final mode in ['subscription_page', 'subscription_sheet', 'gems_page']) {
     final sheet = mode == 'subscription_sheet';
     final initialGems = mode == 'gems_page';
@@ -38341,4 +38522,37 @@ class _PersonalizationStartupTransport implements HttpTransport {
     }
     return delegate.send(request);
   }
+}
+
+class _EmptyListRefreshTransport extends _RecordingV1ListTransport {
+  _EmptyListRefreshTransport(this.path)
+    : super(
+        worldRelationStatus: 'approved',
+        worldDetailTickCountsByRequest: const [0],
+      );
+  final String path;
+  bool delay = false;
+  int pendingRequests = 0;
+  int totalRequests = 0;
+  final pending = Completer<TransportResponse>();
+  TransportResponse get emptyResponse => _v1Response({
+    'list': <Object?>[],
+    'total': 0,
+    'pn': 1,
+    'rn': 30,
+    'has_more': false,
+    'next_score': 0,
+  });
+  @override
+  Future<TransportResponse> send(TransportRequest request) async {
+    if (request.uri.path != path) return super.send(request);
+    totalRequests++;
+    if (delay) {
+      pendingRequests++;
+      return pending.future;
+    }
+    return emptyResponse;
+  }
+
+  void complete() => pending.complete(emptyResponse);
 }
