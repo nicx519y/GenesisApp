@@ -569,7 +569,10 @@ void main() {
           reason: 'http3_quic_42',
         ),
         (
-          error: Exception('NetworkClientException: errorCode=6'),
+          error: Exception(
+            'NetworkClientException: errorCode=6, '
+            'cronetInternalErrorCode=-118, immediatelyRetryable=false',
+          ),
           reason: 'cronet_6',
         ),
         (
@@ -610,7 +613,7 @@ void main() {
         'tech_client_1021',
         'tech_client_1015',
         'tech_client_1015',
-        'tech_client_1019',
+        'tech_client_1001',
         'tech_client_1011',
         'tech_client_1019',
         'tech_client_1019',
@@ -619,11 +622,63 @@ void main() {
       ]);
       expect(_extData(failures[1]), isEmpty);
       expect(_extData(failures[2])['native_code'], '42');
-      expect(_extData(failures[3])['native_code'], '6');
+      expect(_extData(failures[3]), {
+        'native_code': '6',
+        'cronet_error_code': '6',
+        'cronet_internal_error_code': '-118',
+        'cronet_immediately_retryable': false,
+      });
       expect(_extData(failures[4])['native_code'], '-1009');
       expect(_extData(failures[7])['message'], contains('transport state'));
     },
   );
+
+  test('Cronet network codes use precise client failure categories', () async {
+    const expectedCodes = <int, String>{
+      1: 'tech_client_1010',
+      2: 'tech_client_1011',
+      3: 'tech_client_1019',
+      4: 'tech_client_1004',
+      5: 'tech_client_1014',
+      6: 'tech_client_1001',
+      7: 'tech_client_1012',
+      8: 'tech_client_1013',
+      9: 'tech_client_1011',
+      10: 'tech_client_1015',
+      11: 'tech_client_1019',
+    };
+
+    for (final entry in expectedCodes.entries) {
+      final client = ApiClient(
+        baseUrl: 'https://example.test/api/',
+        transport: _FakeTransport(
+          handler: (_) => throw Exception(
+            'NetworkClientException: errorCode=${entry.key}, '
+            'cronetInternalErrorCode=-${entry.key}, '
+            'immediatelyRetryable=true',
+          ),
+        ),
+      );
+      await expectLater(
+        client.get<Object?>('v1/profile'),
+        throwsA(isA<ApiException>()),
+      );
+    }
+
+    final failures = (await events())
+        .where((event) => event.action == 'api_req_fail_tech')
+        .toList();
+    expect(failures.map((event) => event.object3), expectedCodes.values);
+    for (var index = 0; index < failures.length; index += 1) {
+      final expectedCode = expectedCodes.keys.elementAt(index).toString();
+      expect(_extData(failures[index])['cronet_error_code'], expectedCode);
+      expect(
+        _extData(failures[index])['cronet_internal_error_code'],
+        '-$expectedCode',
+      );
+      expect(_extData(failures[index])['cronet_immediately_retryable'], isTrue);
+    }
+  });
 
   test(
     'startup gateway endpoints are fixed-tracked while other paths stay excluded',

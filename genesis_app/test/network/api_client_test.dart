@@ -381,6 +381,59 @@ void main() {
     expect(attempts, 2);
   });
 
+  test('safe retry policy retries GET Cronet connection failures', () async {
+    var attempts = 0;
+    final transport = _FakeTransport(
+      handler: (_) {
+        attempts += 1;
+        if (attempts == 1) {
+          throw Exception('NetworkClientException: errorCode=6');
+        }
+        return const TransportResponse(
+          statusCode: 200,
+          headers: {'content-type': 'application/json'},
+          body: '{"ok":true}',
+        );
+      },
+    );
+    final client = ApiClient(
+      baseUrl: 'https://example.com/',
+      transport: transport,
+      retryPolicy: ApiRetryPolicy.safe,
+    );
+
+    expect(await client.get<Object?>('/ping'), {'ok': true});
+    expect(attempts, 2);
+  });
+
+  test(
+    'safe retry policy retries GET iOS network-unavailable failures',
+    () async {
+      var attempts = 0;
+      final transport = _FakeTransport(
+        handler: (_) {
+          attempts += 1;
+          if (attempts == 1) {
+            throw Exception('NSErrorClientException: code=-1009');
+          }
+          return const TransportResponse(
+            statusCode: 200,
+            headers: {'content-type': 'application/json'},
+            body: '{"ok":true}',
+          );
+        },
+      );
+      final client = ApiClient(
+        baseUrl: 'https://example.com/',
+        transport: transport,
+        retryPolicy: ApiRetryPolicy.safe,
+      );
+
+      expect(await client.get<Object?>('/ping'), {'ok': true});
+      expect(attempts, 2);
+    },
+  );
+
   test('safe retry policy does not retry POST transport timeouts', () async {
     var attempts = 0;
     final transport = _FakeTransport(

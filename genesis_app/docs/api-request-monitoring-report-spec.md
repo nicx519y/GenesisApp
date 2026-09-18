@@ -206,6 +206,8 @@ tech_http_<HTTP状态码>
 | `tech_client_1015` | 实际 HTTP/2、HTTP/3 或 QUIC 协议协商失败；正常回退 HTTP/1.1 或协议元数据缺失不算失败 | `client_protocol` |
 | `tech_client_1019` | 其他已确认的连接类错误 | `client_network_other` |
 
+Android Cronet `NetworkException.errorCode` 必须先映射到上述稳定码：`1` DNS、`2/9` 网络不可用或不可达、`4` 未知阶段超时、`5` 连接关闭、`6` 建连超时、`7` 拒绝、`8` 重置、`10` QUIC 协商失败；只有 `3`（网络已变化）、`11`（其他）及无法识别的连接错误使用 `1019`。
+
 #### TLS 与证书 `1020-1021`
 
 | `object3` | 含义 | 建议根因组 |
@@ -266,6 +268,9 @@ Gateway 内部访问上游接口失败时，原业务请求没有自己的 HTTP 
 | `field` | string | 能明确定位到非法响应字段时使用 |
 | `message` | string | 服务端 `err_msg` 或未知异常的精简信息确有排障价值时使用 |
 | `native_code` | string | 原生网络库提供稳定错误码时使用 |
+| `cronet_error_code` | string | Android Cronet `NetworkException.errorCode`，用于细分原生网络失败 |
+| `cronet_internal_error_code` | string | Android Cronet 提供时记录内部错误码，用于诊断，不作为稳定报表分组键 |
+| `cronet_immediately_retryable` | boolean | Android Cronet 提供时记录其即时重试建议 |
 | `upstream_status` | number | Gateway 等准备流程的上游 HTTP 状态时使用 |
 | `upstream_path` | string | 外层业务请求因 Gateway 前置流程失败时，记录实际失败的 `/apix/...` path |
 | `retry_count` | number | 最终失败且确实发生过自动重试时使用；大于 0 才写入 |

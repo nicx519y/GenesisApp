@@ -989,6 +989,7 @@ _ApiRequestFailureOutcome _apiRequestFailureOutcome({
       ? 'tech_http_$httpStatus'
       : 'tech_client_${code.value}';
   final nativeCode = _nativeErrorCode(apiError?.error ?? error);
+  final cronetDiagnostics = _cronetDiagnostics(apiError?.error ?? error);
   final upstreamStatus =
       !hasResponseStatus && apiError?.kind == ApiExceptionKind.gatewayAuth
       ? apiError?.statusCode
@@ -1017,6 +1018,11 @@ _ApiRequestFailureOutcome _apiRequestFailureOutcome({
       reason: responseFailureReason,
       message: message,
       nativeCode: nativeCode,
+      cronetErrorCode: cronetDiagnostics['error_code'] as String?,
+      cronetInternalErrorCode:
+          cronetDiagnostics['internal_error_code'] as String?,
+      cronetImmediatelyRetryable:
+          cronetDiagnostics['immediately_retryable'] as bool?,
       upstreamStatus: upstreamStatus,
       upstreamPath: upstreamPath,
       retryCount: retryCount,
@@ -1029,6 +1035,9 @@ String _minimalFailureExtData({
   String? field,
   String? message,
   String? nativeCode,
+  String? cronetErrorCode,
+  String? cronetInternalErrorCode,
+  bool? cronetImmediatelyRetryable,
   int? upstreamStatus,
   String? upstreamPath,
   required int retryCount,
@@ -1039,6 +1048,12 @@ String _minimalFailureExtData({
     if (message?.trim().isNotEmpty == true)
       'message': _sanitizeErrorMessage(message!),
     if (nativeCode?.trim().isNotEmpty == true) 'native_code': nativeCode,
+    if (cronetErrorCode?.trim().isNotEmpty == true)
+      'cronet_error_code': cronetErrorCode,
+    if (cronetInternalErrorCode?.trim().isNotEmpty == true)
+      'cronet_internal_error_code': cronetInternalErrorCode,
+    if (cronetImmediatelyRetryable != null)
+      'cronet_immediately_retryable': cronetImmediatelyRetryable,
     if (upstreamStatus != null) 'upstream_status': upstreamStatus,
     if (upstreamPath?.trim().isNotEmpty == true) 'upstream_path': upstreamPath,
     if (retryCount > 0) 'retry_count': retryCount,
@@ -1204,6 +1219,11 @@ ApiClientFailureCode _clientFailureCodeFor(Object? error) {
 }
 
 ApiClientFailureCode _timeoutFailureCode(Object? error) {
+  final cronetCode = _cronetFailureCode(error);
+  if (cronetCode == ApiClientFailureCode.connectTimeout ||
+      cronetCode == ApiClientFailureCode.timeoutUnknownPhase) {
+    return cronetCode!;
+  }
   final signature = _safeErrorText(error ?? '');
   if (signature.contains('connecttimeout') ||
       signature.contains('connection timeout') ||
@@ -1263,6 +1283,8 @@ ApiClientFailureCode _socketFailureCode(SocketException error) {
 
 ApiClientFailureCode _connectionFailureCode(Object? error) {
   if (error is SocketException) return _socketFailureCode(error);
+  final cronetCode = _cronetFailureCode(error);
+  if (cronetCode != null) return cronetCode;
   final signature = _safeErrorText(error ?? '');
   final nativeCode = _nativeErrorCode(error);
   if (signature.contains('failed host lookup') || nativeCode == '-1003') {
@@ -1325,6 +1347,59 @@ String? _nativeErrorCode(Object? error) {
       _errorCode(text, 'code');
 }
 
+/// Maps stable Android Cronet NetworkException error codes into the
+/// cross-platform monitoring contract. This stays text-based so the shared
+/// API client has no Android-only dependency.
+ApiClientFailureCode? _cronetFailureCode(Object? error) {
+  final code = _cronetDiagnostics(error)['error_code'];
+  switch (code) {
+    case '1':
+      return ApiClientFailureCode.dnsLookup;
+    case '2':
+    case '9':
+      return ApiClientFailureCode.networkUnavailable;
+    case '3':
+    case '11':
+      return ApiClientFailureCode.connectionOther;
+    case '4':
+      return ApiClientFailureCode.timeoutUnknownPhase;
+    case '5':
+      return ApiClientFailureCode.connectionClosed;
+    case '6':
+      return ApiClientFailureCode.connectTimeout;
+    case '7':
+      return ApiClientFailureCode.connectionRefused;
+    case '8':
+      return ApiClientFailureCode.connectionReset;
+    case '10':
+      return ApiClientFailureCode.protocolNegotiation;
+  }
+  return null;
+}
+
+Map<String, Object?> _cronetDiagnostics(Object? error) {
+  if (error == null) return const <String, Object?>{};
+  final text = _safeRawErrorText(error);
+  final signature = text.toLowerCase();
+  if (!signature.contains('networkclientexception') &&
+      !signature.contains('quicexception')) {
+    return const <String, Object?>{};
+  }
+  final errorCode = _errorCode(text, 'errorCode');
+  if (errorCode == null) return const <String, Object?>{};
+  final immediatelyRetryable = RegExp(
+    r'immediatelyRetryable=(true|false)',
+    caseSensitive: false,
+  ).firstMatch(text)?.group(1);
+  return <String, Object?>{
+    'error_code': errorCode,
+    if (_errorCode(text, 'cronetInternalErrorCode') case final internalCode?)
+      'internal_error_code': internalCode,
+    if (immediatelyRetryable != null)
+      'immediately_retryable': immediatelyRetryable.toLowerCase() == 'true',
+  };
+}
+
 TransportErrorKind _transportErrorKind(Object error) {
   if (error is TimeoutException) return TransportErrorKind.timeout;
   final text = _safeErrorText(error);
@@ -1332,6 +1407,22 @@ TransportErrorKind _transportErrorKind(Object error) {
   if (text.contains('cancel')) return TransportErrorKind.cancelled;
   if (text.contains('certificate') || text.contains('handshake')) {
     return TransportErrorKind.badCertificate;
+  }
+  switch (_clientFailureCodeFor(error)) {
+    case ApiClientFailureCode.connectTimeout:
+    case ApiClientFailureCode.sendTimeout:
+    case ApiClientFailureCode.receiveTimeout:
+    case ApiClientFailureCode.timeoutUnknownPhase:
+      return TransportErrorKind.timeout;
+    case ApiClientFailureCode.dnsLookup:
+    case ApiClientFailureCode.networkUnavailable:
+    case ApiClientFailureCode.connectionRefused:
+    case ApiClientFailureCode.connectionReset:
+    case ApiClientFailureCode.connectionClosed:
+    case ApiClientFailureCode.connectionOther:
+      return TransportErrorKind.connection;
+    default:
+      break;
   }
   if (text.contains('socketexception') ||
       text.contains('connection reset') ||
