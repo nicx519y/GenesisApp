@@ -2,6 +2,7 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatReplyBinding on _LocationChatPanelState {
   void _detachReplyActions() {
+    _replyRenderGate.reset();
     _clearDeferredTick(resetOrdering: true);
     _entryChanges?.removeListener(_onPreparedEntryChanged);
     _entryChanges = null;
@@ -11,6 +12,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     _inspirationQuotaQueried = false;
     _detachInspirations();
     _replyBindingGeneration++;
+    _waitingPositionOperation = 0;
+    _waitingPositionClientMsgId = null;
     _replyRebuildScheduled = false;
     _replyLocationChanges?.removeListener(_onReplyActionsChanged);
     _replyLocationChanges = null;
@@ -155,10 +158,13 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     final location = widget.locationId;
     final operation = _LocationChatReplyOperationScope(this);
     final replyState = controller.stateFor(location);
-    final needsLatestMessageReveal = _scrollCoordinator
-        .prepareWaitingReplyPosition();
+    final positioningEnabled =
+        locationChatBubbleLayoutSettings.value.replyWaitingPositioningEnabled;
+    if (positioningEnabled) _scrollCoordinator.prepareWaitingReplyPosition();
     _setReplyControlsState(() {
       _preparingReplyAction = true;
+      _waitingPositionOperation++;
+      _waitingPositionClientMsgId = null;
       _replyRequestLoading = true;
       if (!regenerating) {
         // Card confirmation can remove a capability before Go On is accepted.
@@ -184,7 +190,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         };
       }
     });
-    if (needsLatestMessageReveal) {
+    if (!positioningEnabled) {
       _scrollCoordinator.requestBottom(
         reason: LocationChatBottomReason.replyGeneration,
         behavior: LocationChatBottomBehavior.animate,
@@ -195,6 +201,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
       await action(controller);
     } catch (error) {
       if (mounted && operation.canApplyToReply) {
+        _setReplyControlsState(() => _waitingPositionResetRevision++);
         // HTTP and WS business errors already use the global presenter.
         if (!isChatroomErrorPresentedGlobally(error)) {
           showGenesisToast(context, chatroomOperationErrorMessage(error));

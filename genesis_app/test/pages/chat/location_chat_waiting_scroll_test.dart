@@ -1,12 +1,319 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/regenerate.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_card_switcher.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
+double messageBubbleBottom(WidgetTester tester, String id) {
+  final row = find.byWidgetPredicate(
+    (widget) => widget is ChatMessageRow && widget.message.localId == id,
+  );
+  return ChatBubbleGeometry.globalBoundsOf(tester.renderObject(row))!.bottom;
+}
+
+double waitingPredecessorBottom(WidgetTester tester) {
+  final list = tester.widget<LocationChatAnchoredMessageList>(
+    find.byType(LocationChatAnchoredMessageList),
+  );
+  return messageBubbleBottom(
+    tester,
+    list.preAckWaitingAfterMessageLocalId ??
+        list.loadingAfterMessageLocalId ??
+        list.messages.last.localId,
+  );
+}
+
 void main() {
+  testWidgets('Send promotes old card without replaying above the user row', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    Widget build(int phase) {
+      final old = ChatMessageVm(
+        localId: phase == 2 ? 'formal-42' : 'card-42',
+        globalMessageId: 42,
+        senderId: 'peer',
+        senderName: 'Peer',
+        isMe: false,
+        text: 'old reply already displayed',
+        status: 'sent',
+      );
+      final sent = ChatMessageVm(
+        localId: 'new-send',
+        senderId: 'me',
+        senderName: 'Me',
+        isMe: true,
+        text: 'new user message',
+        status: 'sent',
+      );
+      final fresh = ChatMessageVm(
+        localId: 'new-reply',
+        globalMessageId: 43,
+        senderId: 'peer',
+        senderName: 'Peer',
+        isMe: false,
+        text: 'new reply below the user',
+        status: 'sent',
+      );
+      return MaterialApp(
+        home: Scaffold(
+          body: ChatStreamingEffects(
+            settings: LocationChatBubbleLayoutSettings.defaults.copyWith(
+              animateStreamingHeight: false,
+            ),
+            presentationRevision: phase,
+            child: LocationChatAnchoredMessageList(
+              coordinator: coordinator,
+              topTitle: '',
+              showDateDividers: false,
+              messages: [old, if (phase > 0) sent, if (phase == 2) fresh],
+              waitingPositionIdentity: phase == 0 ? null : 'send-operation',
+              replyWaitingPositioningEnabled: false,
+              replyActionsIdentity: 'round',
+              replyCardBindingIdentity: 'round',
+              replyCurrentCardId: phase + 1,
+              replyCards: [
+                LocationChatReplyCard(
+                  id: phase + 1,
+                  messages: [phase == 2 ? fresh : old],
+                ),
+              ],
+              style: kLocationChatStyle,
+            ),
+          ),
+        ),
+      );
+    }
+
+    Finder row(String id) => find.byWidgetPredicate(
+      (w) => w is ChatMessageRow && w.message.localId == id,
+    );
+    double progress(String id) => ChatStreamingBody.revealedGraphemesOf(
+      tester.element(
+        find.descendant(of: row(id), matching: find.byType(ChatStreamingBody)),
+      ),
+    );
+    await tester.pumpWidget(build(0));
+    await tester.pumpAndSettle();
+    expect(progress('card-42'), 'old reply already displayed'.length);
+    await tester.pumpWidget(build(1));
+    expect(progress('card-42'), 'old reply already displayed'.length);
+    await tester.pumpWidget(build(2));
+    expect(progress('formal-42'), 'old reply already displayed'.length);
+    expect(progress('new-reply'), 0);
+    await tester.pump(const Duration(milliseconds: 12));
+    expect(progress('new-reply'), closeTo(2, .001));
+    expect(progress('formal-42'), 'old reply already displayed'.length);
+    expect(row('formal-42'), findsOneWidget);
+    expect(row('new-reply'), findsOneWidget);
+    expect(
+      tester.getTopLeft(row('formal-42')).dy,
+      lessThan(tester.getTopLeft(row('new-send')).dy),
+    );
+    expect(
+      tester.getTopLeft(row('new-reply')).dy,
+      greaterThan(tester.getTopLeft(row('new-send')).dy),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final mode in ['send', 'go-on', 'regenerate', 'regenerate-terminal']) {
+    final regenerate = mode.startsWith('regenerate');
+    final terminal = mode == 'regenerate-terminal';
+    final goOn = mode == 'go-on';
+    testWidgets(
+      'loading to large serial stream preserves held pixels ($mode)',
+      (tester) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        var phase = 0;
+        final history = [
+          for (var i = 0; i < 70; i++)
+            ChatMessageVm(
+              localId: 'h-$i',
+              senderId: 'p',
+              senderName: 'P',
+              text: ('history $i\n' * (i % 5 + 1)).trim(),
+              isMe: false,
+              status: 'sent',
+            ),
+        ];
+        final oldReply = ChatMessageVm(
+          localId: 'old',
+          senderId: 'p',
+          senderName: 'P',
+          text: 'Old reply\n' * 20,
+          isMe: false,
+          status: 'sent',
+        );
+        Widget build() {
+          final incoming = [
+            for (var i = 0; i < 3; i++)
+              ChatMessageVm(
+                localId: 'new-$i',
+                senderId: 'p-$i',
+                senderName: 'P',
+                text: 'Large incoming chunk\n' * 100,
+                isMe: false,
+                status: terminal ? 'sent' : 'streaming',
+              ),
+          ];
+          return MaterialApp(
+            home: Scaffold(
+              body: SizedBox(
+                height: 360,
+                child: ChatStreamingEffects(
+                  settings: LocationChatBubbleLayoutSettings.defaults,
+                  presentationRevision: phase,
+                  child: LocationChatAnchoredMessageList(
+                    coordinator: coordinator,
+                    topTitle: '',
+                    showDateDividers: false,
+                    messages: [
+                      ...history,
+                      if (phase < 2 || !regenerate) oldReply,
+                      if (phase == 2) ...incoming,
+                    ],
+                    waitingPositionIdentity: phase == 0 ? null : 'operation',
+                    loadingAfterMessageLocalId: phase == 1 && !regenerate
+                        ? 'old'
+                        : null,
+                    loadingIdentity: phase == 1 ? 'operation' : null,
+                    replyActionsIdentity: regenerate || goOn
+                        ? 'round-${goOn && phase == 2 ? 2 : 1}'
+                        : null,
+                    replyCardBindingIdentity: regenerate || goOn
+                        ? 'round-${goOn && phase == 2 ? 2 : 1}'
+                        : null,
+                    goOnAwaitingContentIdentity: goOn && phase == 1
+                        ? 'go-on'
+                        : null,
+                    replyRegenerationInProgress:
+                        regenerate && phase > 0 && !(terminal && phase == 2),
+                    replyRegenerationDispatchRevision: phase == 0 ? 0 : 1,
+                    replyCurrentCardId: phase < 2 ? 1 : 2,
+                    replyCards: regenerate || goOn
+                        ? [
+                            if (!goOn || phase < 2)
+                              LocationChatReplyCard(
+                                id: 1,
+                                messages: [oldReply],
+                              ),
+                            if (phase > 0 && (regenerate || phase == 2))
+                              LocationChatReplyCard(
+                                id: 2,
+                                messages: phase == 2 ? incoming : const [],
+                              ),
+                          ]
+                        : const [],
+                    style: kLocationChatStyle,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+
+        await tester.pumpWidget(build());
+        await tester.pumpAndSettle();
+        coordinator.prepareWaitingReplyPosition();
+        phase = 1;
+        await tester.pumpWidget(build());
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        await tester.pump();
+        final held = coordinator.controller.position.pixels;
+        phase = 2;
+        await tester.pumpWidget(build());
+        for (var frame = 0; frame < 150; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(
+            coordinator.controller.position.pixels,
+            closeTo(held, .01),
+            reason: 'frame=$frame',
+          );
+        }
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final inCard in [false, true]) {
+    testWidgets(
+      'actual message rows reveal one bubble at a time (card=$inCard)',
+      (tester) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        Widget build({bool complete = false}) {
+          final rows = [
+            for (var i = 0; i < 2; i++)
+              ChatMessageVm(
+                localId: 'serial-$i',
+                senderId: 'peer-$i',
+                senderName: 'Peer',
+                isMe: false,
+                text: 'a' * 20,
+                status: complete ? 'sent' : 'streaming',
+              ),
+          ];
+          return MaterialApp(
+            home: Scaffold(
+              body: ChatStreamingEffects(
+                settings: LocationChatBubbleLayoutSettings.defaults.copyWith(
+                  animateStreamingHeight: false,
+                ),
+                child: LocationChatAnchoredMessageList(
+                  coordinator: coordinator,
+                  topTitle: '',
+                  showDateDividers: false,
+                  messages: rows,
+                  replyActionsIdentity: inCard ? 'round' : null,
+                  replyCardBindingIdentity: inCard ? 'round' : null,
+                  replyCurrentCardId: inCard ? 1 : 0,
+                  replyCards: inCard
+                      ? [LocationChatReplyCard(id: 1, messages: rows)]
+                      : const [],
+                  style: kLocationChatStyle,
+                ),
+              ),
+            ),
+          );
+        }
+
+        double progress(int index) => ChatStreamingBody.revealedGraphemesOf(
+          tester.element(
+            find.descendant(
+              of: find.byWidgetPredicate(
+                (w) =>
+                    w is ChatMessageRow && w.message.localId == 'serial-$index',
+              ),
+              matching: find.byType(ChatStreamingBody),
+            ),
+          ),
+        );
+        await tester.pumpWidget(build());
+        await tester.pump(const Duration(milliseconds: 30));
+        expect(progress(0), closeTo(5, .001));
+        expect(progress(1), 0);
+        await tester.pumpWidget(build(complete: true));
+        await tester.pump(const Duration(milliseconds: 30));
+        expect(progress(0), closeTo(10, .001));
+        expect(progress(1), 0);
+        await tester.pumpAndSettle(const Duration(milliseconds: 16));
+        expect(progress(0), 20);
+        expect(progress(1), 20);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets('stream end compact gap does not pull bottom bubbles down', (
     tester,
   ) async {
@@ -104,7 +411,15 @@ void main() {
     int waitingPositionResetRevision = 0,
     bool showReplyActions = false,
     int replyPresentationRevision = 0,
+    ChatUiStyleConfig? bubbleStyle,
+    TextScaler textScaler = TextScaler.noScaling,
+    String? operation,
+    String? clientMsgId,
   }) => MaterialApp(
+    builder: (context, child) => MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: textScaler),
+      child: child!,
+    ),
     home: Scaffold(
       body: SizedBox(
         height: viewportHeight,
@@ -133,6 +448,8 @@ void main() {
                   : 'message-${count - 1}',
               preAckWaitingIdentity: preAckWaiting,
               waitingPositionResetRevision: waitingPositionResetRevision,
+              waitingPositionIdentity: operation,
+              waitingPositionClientMsgId: clientMsgId,
               goOnAwaitingContentIdentity: goOn ? waiting : null,
               replyActionsIdentity: showReplyActions ? 'round-1' : null,
               replyActionsMessageId: showReplyActions
@@ -147,7 +464,7 @@ void main() {
                     )
                   : const LocationChatRegenerateFeature.disabled(),
               showDateDividers: false,
-              style: ChatUiStyleConfig.standard.copyWith(
+              style: (bubbleStyle ?? ChatUiStyleConfig.standard).copyWith(
                 messageListPadding: EdgeInsets.zero,
               ),
             ),
@@ -157,25 +474,611 @@ void main() {
     ),
   );
 
-  test('stable reply viewport includes the applied keyboard inset', () {
-    for (final geometry in [
-      (viewport: 60.0, inset: 300.0),
-      (viewport: 160.0, inset: 200.0),
-      (viewport: 260.0, inset: 100.0),
-      (viewport: 360.0, inset: 0.0),
-    ]) {
-      expect(
-        locationChatStableReplyViewportHeightForTesting(
-          currentViewportHeight: geometry.viewport,
-          effectiveKeyboardInset: geometry.inset,
-        ),
-        360,
+  test(
+    'reply position uses a common reference height but visible scroll bounds',
+    () {
+      for (final viewportHeight in [60.0, 160.0, 260.0, 360.0]) {
+        final result = locationChatWaitingPosition(
+          pixels: 120,
+          bubbleBottom: 340,
+          viewportTop: 40,
+          viewportHeight: viewportHeight,
+          referenceViewportHeight: 360,
+          reserveFraction: 0.75,
+        );
+        expect(420 - result.offset, viewportHeight < 90 ? viewportHeight : 90);
+        expect(result.minExtent, result.offset + viewportHeight);
+      }
+    },
+  );
+
+  test(
+    'position formula accounts for boundaries without bubble dimensions',
+    () {
+      final result = locationChatWaitingPosition(
+        pixels: 120,
+        bubbleBottom: 340,
+        viewportTop: 40,
+        viewportHeight: 360,
+        reserveFraction: 0.75,
+      );
+      expect(result.offset, 330);
+      expect(result.minExtent, 690);
+      expect(result.preparationExtent, 690);
+      final short = locationChatWaitingPosition(
+        pixels: 0,
+        bubbleBottom: 45,
+        viewportTop: 10,
+        viewportHeight: 360,
+        reserveFraction: 0.75,
+      );
+      expect(short.offset, 0);
+      expect(short.minExtent, 360);
+    },
+  );
+
+  for (final goOn in [false, true]) {
+    for (final secondScroll in [false, true]) {
+      testWidgets(
+        'actual bubble edge survives layout changes: goOn=$goOn second=$secondScroll',
+        (tester) async {
+          final coordinator = LocationChatScrollCoordinator();
+          addTearDown(coordinator.dispose);
+          for (var variant = 0; variant < 3; variant++) {
+            final style = ChatUiStyleConfig.standard.copyWith(
+              avatarSize: 45 + variant * 45,
+              rowBottomPadding: 7 + variant * 19,
+              bubblePadding: EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 8 + variant * 7,
+              ),
+            );
+            Widget build({String? waiting}) => tree(
+              coordinator,
+              waiting: waiting,
+              goOn: goOn,
+              secondScroll: secondScroll,
+              operation: waiting,
+              bubbleStyle: style,
+              textScaler: TextScaler.linear(1 + variant * 0.3),
+            );
+            await tester.pumpWidget(build());
+            await tester.pumpAndSettle();
+            coordinator.prepareWaitingReplyPosition();
+            await tester.pumpWidget(build(waiting: 'operation-$variant'));
+            await tester.pump();
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 240));
+            await tester.pump();
+            expect(
+              waitingPredecessorBottom(tester),
+              closeTo(90, 1 / tester.view.devicePixelRatio),
+            );
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
       );
     }
-  });
+  }
+
+  for (final enabled in [true, false]) {
+    testWidgets(
+      'same-frame send ACK and final reply retain the client bubble anchor (positioning=$enabled)',
+      (tester) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        var rows = messages(20);
+        String? operation;
+        Widget build() => MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: ChatStreamingEffects(
+                settings: LocationChatBubbleLayoutSettings.defaults,
+                child: LocationChatAnchoredMessageList(
+                  coordinator: coordinator,
+                  messages: rows,
+                  topTitle: '',
+                  showDateDividers: false,
+                  waitingPositionIdentity: operation,
+                  replyWaitingPositioningEnabled: enabled,
+                  waitingPositionClientMsgId: operation == null
+                      ? null
+                      : 'send-client',
+                  style: ChatUiStyleConfig.standard.copyWith(
+                    messageListPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpWidget(build());
+        await tester.pump();
+        if (enabled) coordinator.prepareWaitingReplyPosition();
+        operation = 'send-1';
+        rows = [
+          ...rows,
+          ChatMessageVm(
+            localId: 'canonical-send',
+            clientMsgId: 'send-client',
+            senderId: 'me',
+            senderName: 'Me',
+            isMe: true,
+            text: 'Sent from composer or inspiration',
+            status: 'sent',
+          ),
+          ChatMessageVm(
+            localId: 'terminal-reply',
+            senderId: 'peer',
+            senderName: 'Peer',
+            isMe: false,
+            text: 'large terminal reply ' * 30,
+            status: 'sent',
+          ),
+        ];
+        await tester.pumpWidget(build());
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 240));
+        await tester.pump();
+        if (enabled) {
+          expect(
+            messageBubbleBottom(tester, 'canonical-send'),
+            closeTo(54, 0.01),
+          );
+        }
+        final held = coordinator.controller.position.pixels;
+        final terminalBody = find.descendant(
+          of: find.byWidgetPredicate(
+            (w) => w is ChatMessageRow && w.message.localId == 'terminal-reply',
+          ),
+          matching: find.byType(ChatStreamingBody),
+        );
+        expect(
+          ChatStreamingBody.revealedGraphemesOf(tester.element(terminalBody)),
+          lessThanOrEqualTo(
+            240 /
+                LocationChatBubbleLayoutSettings
+                    .defaults
+                    .effectiveStreamingTextDurationMs,
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 240));
+        if (enabled) {
+          expect(coordinator.controller.position.pixels, closeTo(held, 0.01));
+        }
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
 
   testWidgets(
-    'pre-ACK Send uses the closed-keyboard viewport and ACK reveals in place',
+    'Go On then same-frame terminal Regenerate keeps the old snapshot through collapse',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final history = messages(19);
+      final original = messages(20).last;
+      final replacement = ChatMessageVm(
+        localId: 'regenerated',
+        senderId: 'peer',
+        senderName: 'Peer',
+        isMe: false,
+        text: 'Fast complete regenerated message ' * 20,
+        status: 'sent',
+      );
+      String? operation;
+      var goOnWaiting = false;
+      var revision = 0;
+      Widget build() => MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 360,
+            child: ChatStreamingEffects(
+              settings: LocationChatBubbleLayoutSettings.defaults,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: coordinator.handleScrollNotification,
+                child: LocationChatAnchoredMessageList(
+                  coordinator: coordinator,
+                  messages: [
+                    ...history,
+                    if (revision == 0) original else replacement,
+                  ],
+                  topTitle: '',
+                  showDateDividers: false,
+                  replyViewportReserveFraction: 0.5,
+                  waitingPositionIdentity: operation,
+                  goOnAwaitingContentIdentity: goOnWaiting ? 'go-on' : null,
+                  replyActionsIdentity: 'round',
+                  replyCardBindingIdentity: 'round',
+                  replyCurrentCardId: revision == 0 ? 1 : 2,
+                  replyRegenerationDispatchRevision: revision,
+                  // The terminal reply already arrived before this build.
+                  replyRegenerationInProgress: false,
+                  replyActionsMessageId: revision == 0
+                      ? original.localId
+                      : replacement.localId,
+                  replyCards: [
+                    LocationChatReplyCard(id: 1, messages: [original]),
+                    if (revision != 0)
+                      LocationChatReplyCard(id: 2, messages: [replacement]),
+                  ],
+                  style: ChatUiStyleConfig.standard.copyWith(
+                    rowBottomPadding: 19,
+                    messageListPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      coordinator.prepareWaitingReplyPosition();
+      operation = 'go-on';
+      goOnWaiting = true;
+      await tester.pumpWidget(build());
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 240));
+      await tester.pump();
+      expect(messageBubbleBottom(tester, original.localId), closeTo(180, 0.01));
+      goOnWaiting = false;
+      await tester.pumpWidget(build());
+      await tester.pump();
+      final deck = find.byType(
+        LocationChatReplyCardSwitcher,
+        skipOffstage: false,
+      );
+      final beforeTop = tester.getTopLeft(deck).dy;
+      coordinator.prepareWaitingReplyPosition();
+      operation = 'regenerate';
+      revision++;
+      await tester.pumpWidget(build());
+      expect(tester.getTopLeft(deck).dy, closeTo(beforeTop, 0.01));
+      expect(find.text(replacement.text), findsNothing);
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 240));
+      await tester.pump();
+      expect(
+        messageBubbleBottom(tester, history.last.localId),
+        closeTo(180, 0.01),
+      );
+      final held = coordinator.controller.position.pixels;
+      final alignedTop = tester.getTopLeft(deck).dy;
+      var revealFrames = 0;
+      for (var frame = 0; frame < 75; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (find.text(replacement.text).evaluate().isNotEmpty) revealFrames++;
+        expect(coordinator.controller.position.pixels, closeTo(held, 0.01));
+        expect(tester.getTopLeft(deck).dy, closeTo(alignedTop, 0.01));
+      }
+      expect(find.text(replacement.text), findsOneWidget);
+      final body = find.descendant(
+        of: find.byWidgetPredicate(
+          (w) =>
+              w is ChatMessageRow && w.message.localId == replacement.localId,
+        ),
+        matching: find.byType(ChatStreamingBody),
+      );
+      expect(
+        ChatStreamingBody.revealedGraphemesOf(tester.element(body)),
+        lessThanOrEqualTo(
+          revealFrames *
+              16 /
+              LocationChatBubbleLayoutSettings
+                  .defaults
+                  .effectiveStreamingTextDurationMs,
+        ),
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  for (final variant in ['large-layout', 'empty-card', 'no-predecessor']) {
+    testWidgets('regenerate measures the outside predecessor: $variant', (
+      tester,
+    ) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final history = variant == 'no-predecessor'
+          ? <ChatMessageVm>[]
+          : messages(15);
+      final card = variant == 'empty-card'
+          ? <ChatMessageVm>[]
+          : [
+              ChatMessageVm(
+                localId: 'card-only',
+                senderId: 'peer',
+                senderName: 'Peer',
+                isMe: false,
+                text: 'Old card',
+                status: 'sent',
+              ),
+            ];
+      var revision = 0;
+      Widget build() => MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 360,
+            child: MediaQuery(
+              data: MediaQueryData.fromView(
+                tester.view,
+              ).copyWith(textScaler: const TextScaler.linear(1.6)),
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: [...history, if (revision == 0) ...card],
+                topTitle: '',
+                showDateDividers: false,
+                replyActionsIdentity: 'round',
+                replyCardBindingIdentity: 'round',
+                replyCurrentCardId: revision == 0 ? 1 : 2,
+                replyRegenerationInProgress: revision > 0,
+                replyRegenerationDispatchRevision: revision,
+                replyCards: [
+                  LocationChatReplyCard(id: 1, messages: card),
+                  if (revision > 0)
+                    const LocationChatReplyCard(id: 2, messages: []),
+                ],
+                style: ChatUiStyleConfig.standard.copyWith(
+                  avatarSize: 110,
+                  rowBottomPadding: 31,
+                  bubblePadding: const EdgeInsets.all(19),
+                  messageListPadding: EdgeInsets.zero,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      revision++;
+      await tester.pumpWidget(build());
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 240));
+      await tester.pump();
+      if (history.isEmpty) {
+        expect(
+          coordinator.isDetached,
+          isFalse,
+          reason:
+              'No card-internal bubble may substitute for the missing predecessor.',
+        );
+      } else {
+        expect(
+          messageBubbleBottom(tester, history.last.localId),
+          closeTo(54, 1 / tester.view.devicePixelRatio),
+        );
+      }
+      final held = coordinator.controller.position.pixels;
+      for (var frame = 0; frame < 55; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (history.isNotEmpty) {
+          expect(coordinator.controller.position.pixels, closeTo(held, .01));
+          expect(
+            messageBubbleBottom(tester, history.last.localId),
+            closeTo(54, .01),
+          );
+        }
+      }
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
+  for (final secondScroll in [false, true]) {
+    testWidgets(
+      'keyboard consumes waiting tail before moving bubbles (second=$secondScroll)',
+      (tester) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        final rows = messages(20);
+        var started = false;
+        Widget build(double height) => MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: height,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: coordinator.handleScrollNotification,
+                child: LocationChatAnchoredMessageList(
+                  coordinator: coordinator,
+                  messages: rows,
+                  topTitle: secondScroll ? 'Start' : '',
+                  oldestEdgeNoticeRequiresSecondScroll: secondScroll,
+                  showDateDividers: false,
+                  waitingPositionIdentity: started ? 'waiting' : null,
+                  style: ChatUiStyleConfig.standard.copyWith(
+                    messageListPadding: const EdgeInsets.fromLTRB(7, 9, 11, 13),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpWidget(build(500));
+        await tester.pumpAndSettle();
+        final position = coordinator.controller.position;
+        final naturalExtent =
+            position.maxScrollExtent + position.viewportDimension;
+        coordinator.prepareWaitingReplyPosition();
+        started = true;
+        await tester.pumpWidget(build(500));
+        await tester.pumpAndSettle();
+        final held = position.pixels;
+        final bubbleBottom = messageBubbleBottom(tester, rows.last.localId);
+        // A tap and focus notification can both request focus in one frame.
+        for (var request = 0; request < 2; request++) {
+          coordinator.requestBottom(
+            reason: LocationChatBottomReason.composerFocus,
+            behavior: LocationChatBottomBehavior.jump,
+          );
+        }
+        await tester.pump();
+        expect(position.pixels, closeTo(held, .01));
+        final generation = coordinator.commandGeneration;
+        for (final height in [460.0, 400.0, 320.0, 220.0, 140.0]) {
+          await tester.pumpWidget(build(height));
+          await tester.pump(const Duration(milliseconds: 16));
+          final expected = (naturalExtent - height).clamp(
+            held,
+            double.infinity,
+          );
+          expect(
+            position.pixels,
+            closeTo(expected, .01),
+            reason: 'height=$height',
+          );
+          expect(
+            messageBubbleBottom(tester, rows.last.localId),
+            closeTo(bubbleBottom - (expected - held), .01),
+          );
+          expect(coordinator.commandGeneration, generation);
+        }
+        // Dismissal restores the available space without a second positioning.
+        await tester.pumpWidget(build(500));
+        await tester.pump();
+        expect(position.pixels, closeTo(held, .01));
+        expect(
+          messageBubbleBottom(tester, rows.last.localId),
+          closeTo(bubbleBottom, .01),
+        );
+        await tester.drag(
+          find.byType(LocationChatAnchoredMessageList),
+          const Offset(0, 80),
+        );
+        await tester.pumpAndSettle();
+        final manualPixels = position.pixels;
+        expect(coordinator.isReadingHistory, isTrue);
+        await tester.pumpWidget(build(460));
+        await tester.pump();
+        expect(
+          position.pixels,
+          closeTo(manualPixels, .01),
+          reason: 'A manual drag retires the keyboard consumption anchor.',
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  for (final mode in ['send', 'go-on', 'regenerate']) {
+    for (final scenario in [
+      (inset: 80.0, closing: false, secondScroll: false),
+      (inset: 160.0, closing: false, secondScroll: false),
+      (inset: 160.0, closing: true, secondScroll: false),
+      (inset: 160.0, closing: true, secondScroll: true),
+    ]) {
+      final inset = scenario.inset;
+      testWidgets('$mode keeps the closed-keyboard position ($scenario)', (
+        tester,
+      ) async {
+        final coordinator = LocationChatScrollCoordinator();
+        addTearDown(coordinator.dispose);
+        final rows = messages(20);
+        final regenerate = mode == 'regenerate';
+        final anchorId = rows[regenerate ? 17 : 19].localId;
+        var started = false;
+        Widget build(double keyboard) => MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              height: 360,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: keyboard),
+                child: LocationChatKeyboardInsetScope(
+                  effectiveInset: keyboard,
+                  child: LocationChatAnchoredMessageList(
+                    coordinator: coordinator,
+                    messages: rows,
+                    topTitle: scenario.secondScroll ? 'Start' : '',
+                    oldestEdgeNoticeRequiresSecondScroll: scenario.secondScroll,
+                    showDateDividers: false,
+                    waitingPositionIdentity: started ? 'operation' : null,
+                    preAckWaitingIdentity: started && mode == 'send'
+                        ? 'operation'
+                        : null,
+                    preAckWaitingAfterMessageLocalId: started && mode == 'send'
+                        ? anchorId
+                        : null,
+                    goOnAwaitingContentIdentity: started && mode == 'go-on'
+                        ? 'operation'
+                        : null,
+                    replyActionsIdentity: 'round',
+                    replyCardBindingIdentity: 'round',
+                    replyCurrentCardId: 1,
+                    replyCards: regenerate
+                        ? [
+                            LocationChatReplyCard(
+                              id: 1,
+                              messages: rows.sublist(18),
+                            ),
+                          ]
+                        : const [],
+                    replyRegenerationInProgress: regenerate && started,
+                    replyRegenerationDispatchRevision: regenerate && started
+                        ? 1
+                        : 0,
+                    style: ChatUiStyleConfig.standard.copyWith(
+                      messageListPadding: EdgeInsets.zero,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpWidget(build(inset));
+        await tester.pumpAndSettle();
+        coordinator.prepareWaitingReplyPosition();
+        started = true;
+        await tester.pumpWidget(build(inset));
+        await tester.pump();
+        await tester.pump();
+        if (scenario.closing) {
+          // Grow the viewport before animateTo reaches its destination.
+          // The tail must preserve the target, not just the current pixels.
+          for (var keyboard = inset - 20; keyboard >= 0; keyboard -= 20) {
+            await tester.pumpWidget(build(keyboard));
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+        }
+        await tester.pump(const Duration(milliseconds: 240));
+        await tester.pump();
+        const expectedPosition = 360 * .15;
+        expect(
+          messageBubbleBottom(tester, anchorId),
+          closeTo(expectedPosition, 1 / tester.view.devicePixelRatio),
+        );
+        final held = coordinator.controller.position.pixels;
+        final generation = coordinator.commandGeneration;
+        // Keyboard dismissal must not trigger a second positioning command.
+        for (final keyboard in scenario.closing ? [0.0] : [inset / 2, 0.0]) {
+          await tester.pumpWidget(build(keyboard));
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(coordinator.controller.position.pixels, closeTo(held, .01));
+          expect(
+            messageBubbleBottom(tester, anchorId),
+            closeTo(expectedPosition, .01),
+          );
+          expect(coordinator.commandGeneration, generation);
+        }
+        // Go On's waiting dots intentionally keep ticking until a reply arrives.
+        await tester.pump(const Duration(milliseconds: 900));
+        expect(coordinator.controller.position.pixels, closeTo(held, .01));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      });
+    }
+  }
+
+  testWidgets(
+    'pre-ACK Send uses the common reference and ACK reveals in place',
     (tester) async {
       final coordinator = LocationChatScrollCoordinator();
       addTearDown(coordinator.dispose);
@@ -200,7 +1103,7 @@ void main() {
       const dots = ValueKey<String>('location-chat-ack-loading-dots');
       expect(waitingBubble, findsOneWidget);
       expect(find.byKey(dots), findsNothing);
-      expect(tester.getTopLeft(waitingBubble).dy, closeTo(90, 1));
+      expect(waitingPredecessorBottom(tester), closeTo(90, 1));
       final heldPixels = coordinator.controller.position.pixels;
       expect(coordinator.isDetached, isTrue);
       expect(coordinator.isReadingHistory, isFalse);
@@ -214,7 +1117,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(tester.getTopLeft(waitingBubble).dy, closeTo(90, 1));
+      expect(waitingPredecessorBottom(tester), closeTo(90, 1));
       expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
 
       await tester.pumpWidget(
@@ -227,7 +1130,7 @@ void main() {
       );
       await tester.pump();
       expect(find.byKey(dots), findsOneWidget);
-      expect(tester.getTopLeft(waitingBubble).dy, closeTo(90, 1));
+      expect(waitingPredecessorBottom(tester), closeTo(90, 1));
       expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
       await tester.pumpWidget(const SizedBox.shrink());
     },
@@ -253,30 +1156,20 @@ void main() {
         final needsLatestMessageReveal = coordinator
             .prepareWaitingReplyPosition();
         expect(needsLatestMessageReveal, expectLatestMessageReveal);
-        if (needsLatestMessageReveal) {
-          coordinator.requestBottom(
-            reason: LocationChatBottomReason.sentMessage,
-            behavior: LocationChatBottomBehavior.jump,
-          );
-        }
         await tester.pumpWidget(
           tree(coordinator, count: count, preAckWaiting: identity),
         );
 
-        // Waiting positioning owns the viewport before the optimistic row is
-        // laid out. A history reader may need one latest-message reveal, but a
-        // prior reply hold must never jump to the end of its artificial tail.
-        expect(coordinator.isDetached, !needsLatestMessageReveal);
+        // The transaction lays out the actual target without first jumping to
+        // the end of the old artificial tail, even from a history viewport.
+        expect(coordinator.isDetached, isTrue);
         await tester.pump();
         expect(coordinator.isDetached, isTrue);
         expect(coordinator.isReadingHistory, isFalse);
         await tester.pump();
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
-        expect(
-          tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
-          closeTo(90, 1),
-        );
+        expect(waitingPredecessorBottom(tester), closeTo(90, 1));
       }
 
       await send(
@@ -336,10 +1229,10 @@ void main() {
     final heldMessage = find.text('Message 30');
     final heldMessageTop = tester.getTopLeft(heldMessage).dy;
     final heldPixels = coordinator.controller.position.pixels;
-    expect(
-      tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
-      closeTo(90, 1),
-    );
+    final waitingTop = tester
+        .getTopLeft(find.byType(ChatReplyWaitingBubble))
+        .dy;
+    expect(waitingPredecessorBottom(tester), closeTo(90, 1));
 
     // The first rendered AI chunk removes both the ACK loading state and the
     // pre-ACK placeholder in the same rebuild while adding the reply row.
@@ -358,9 +1251,9 @@ void main() {
             ),
           )
           .dy,
-      closeTo(90, 1),
+      closeTo(waitingTop, 1),
       reason:
-          'The first rendered reply must start at the same top anchor as its waiting placeholder.',
+          'The reply uses the actual layout spacing after the anchored bubble.',
     );
 
     // Subsequent stream growth must consume the reserved tail. If the loading
@@ -456,7 +1349,8 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
           final waitingBubble = find.byType(ChatReplyWaitingBubble);
-          expect(tester.getTopLeft(waitingBubble).dy, closeTo(90, 1));
+          expect(waitingBubble, findsOneWidget);
+          expect(waitingPredecessorBottom(tester), closeTo(90, 1));
           final position = coordinator.controller.position;
           final held = position.pixels;
           expect(coordinator.isDetached, isTrue);
@@ -653,10 +1547,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(
-        tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
-        closeTo(180, 1),
-      );
+      expect(waitingPredecessorBottom(tester), closeTo(180, 1));
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
@@ -787,7 +1678,10 @@ void main() {
                       replyActionsIdentity: 'round',
                       replyCurrentCardId: currentCardId,
                       replyCards: [
-                        LocationChatReplyCard(id: 1, messages: [rows.last]),
+                        LocationChatReplyCard(
+                          id: 1,
+                          messages: rows.sublist(18),
+                        ),
                         if (currentCardId == 2)
                           LocationChatReplyCard(
                             id: 2,
@@ -834,23 +1728,33 @@ void main() {
         await tester.tap(find.bySemanticsLabel('Regenerate'));
         await tester.pump();
         await tester.pump();
-        for (final duration in [80, 80, 800]) {
-          await tester.pump(Duration(milliseconds: duration));
-        }
-        expect(
-          tester.getSize(find.byType(LocationChatReplyCardSwitcher)).height,
-          0,
+        await tester.pump(); // Start the positioning animation's first tick.
+        await tester.pump(const Duration(milliseconds: 240));
+        await tester.pump();
+        final deck = find.byType(
+          LocationChatReplyCardSwitcher,
+          skipOffstage: false,
         );
+        final alignedTop = tester.getTopLeft(deck).dy;
+        final alignedPixels = position.pixels;
         if (positioningEnabled) {
           expect(
-            tester.getTopLeft(find.byType(LocationChatReplyCardSwitcher)).dy,
+            messageBubbleBottom(tester, rows[17].localId),
             closeTo(360 * (1 - scenario.reserve), 0.1),
-            reason:
-                'Regenerate must use the same top anchor as Send and Go On.',
+            reason: 'Regenerate aligns the bubble immediately above the card.',
           );
           expect(coordinator.isDetached, isTrue);
           expect(coordinator.isReadingHistory, isFalse);
-        } else {
+        }
+        for (var frame = 0; frame < 52; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (positioningEnabled) {
+            expect(position.pixels, closeTo(alignedPixels, 0.01));
+            expect(tester.getTopLeft(deck).dy, closeTo(alignedTop, 0.01));
+          }
+        }
+        expect(tester.getSize(deck).height, 0);
+        if (!positioningEnabled) {
           expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
           expect(coordinator.isDetached, isFalse);
         }
@@ -858,7 +1762,7 @@ void main() {
         update(() {
           currentCardId = 2;
           renderedRows = [
-            ...rows.take(19),
+            ...rows.take(18),
             ChatMessageVm(
               localId: 'candidate',
               senderId: 'peer',
@@ -989,10 +1893,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(
-        tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
-        lessThanOrEqualTo(91),
-      );
+      expect(waitingPredecessorBottom(tester), lessThanOrEqualTo(91));
       expect(coordinator.controller.position.pixels, greaterThanOrEqualTo(0));
       final held = coordinator.controller.position.pixels;
       await tester.pumpWidget(tree(coordinator, count: 1));
@@ -1043,10 +1944,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
-      expect(
-        tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
-        closeTo(90, 1),
-      );
+      expect(waitingPredecessorBottom(tester), closeTo(90, 1));
       final held = coordinator.controller.position.pixels;
       await tester.pumpWidget(tree(coordinator, count: 21 + round));
       await tester.pump(const Duration(milliseconds: 300));

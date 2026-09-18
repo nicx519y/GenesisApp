@@ -22,33 +22,37 @@ class ChatStoryEventsMessageBubble extends StatelessWidget {
       padding: style.systemMessageMargin,
       child: GestureDetector(
         onLongPressStart: onLongPressStart,
-        child: Container(
-          key: ValueKey<String>('chat-story-events-message-${message.localId}'),
-          width: double.infinity,
-          padding: style.systemMessagePadding,
-          decoration: BoxDecoration(
-            color: style.systemMessageBackgroundColor,
-            borderRadius: BorderRadius.circular(
-              style.systemMessageBorderRadius,
+        child: ChatBubbleGeometry(
+          child: Container(
+            key: ValueKey<String>(
+              'chat-story-events-message-${message.localId}',
             ),
-          ),
-          child: ChatStreamingBody(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (
-                  var index = 0;
-                  index < payload.paragraphs.length;
-                  index += 1
-                )
-                  _ChatStoryEventParagraph(
-                    messageLocalId: message.localId,
-                    index: index,
-                    paragraph: payload.paragraphs[index],
-                    style: style,
-                    addTopSpacing: index > 0,
-                  ),
-              ],
+            width: double.infinity,
+            padding: style.systemMessagePadding,
+            decoration: BoxDecoration(
+              color: style.systemMessageBackgroundColor,
+              borderRadius: BorderRadius.circular(
+                style.systemMessageBorderRadius,
+              ),
+            ),
+            child: ChatStreamingBody(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (
+                    var index = 0;
+                    index < payload.paragraphs.length;
+                    index += 1
+                  )
+                    _ChatStoryEventParagraph(
+                      messageLocalId: message.localId,
+                      index: index,
+                      paragraph: payload.paragraphs[index],
+                      style: style,
+                      addTopSpacing: index > 0,
+                    ),
+                ],
+              ),
             ),
           ),
         ),

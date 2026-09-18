@@ -1014,9 +1014,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
                         _DeveloperSliderControl(
                           label: height
                               ? 'Height animation duration'
-                              : 'Text reveal duration',
+                              : 'Text reveal duration per grapheme',
                           valueLabel:
-                              '${height ? bubbleLayoutSettings.streamingHeightDurationMs : bubbleLayoutSettings.streamingTextDurationMs}ms',
+                              '${height ? bubbleLayoutSettings.streamingHeightDurationMs : bubbleLayoutSettings.effectiveStreamingTextDurationMs.toStringAsFixed(0)}ms',
                           value:
                               (height
                                       ? bubbleLayoutSettings

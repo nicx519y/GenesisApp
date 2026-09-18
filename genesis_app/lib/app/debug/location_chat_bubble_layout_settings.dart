@@ -18,7 +18,7 @@ class LocationChatBubbleLayoutSettings {
   static const double defaultCrowdedEffectiveWidthThreshold = 410;
   static const double minReplyViewportReserveFraction = 0.25;
   static const double maxReplyViewportReserveFraction = 0.9;
-  static const double defaultReplyViewportReserveFraction = 0.75;
+  static const double defaultReplyViewportReserveFraction = 0.85;
 
   static double normalizeReplyViewportReserveFraction(double value) =>
       value.isFinite
@@ -38,7 +38,14 @@ class LocationChatBubbleLayoutSettings {
   final bool animateStreamingHeight;
   final bool streamingTextReveal;
   final int streamingHeightDurationMs;
+
+  /// Stored base duration. Preserve existing preferences while accelerating all
+  /// reveal speeds uniformly, independently of backend chunk size.
   final int streamingTextDurationMs;
+
+  static const streamingTextSpeedMultiplier = 20;
+  double get effectiveStreamingTextDurationMs =>
+      streamingTextDurationMs / streamingTextSpeedMultiplier;
 
   static int normalizeAnimationDuration(num value, int fallback) =>
       value.isFinite ? ((value.clamp(40, 1000) / 20).round() * 20) : fallback;

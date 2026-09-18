@@ -147,40 +147,45 @@ class _ChatTickSurface extends StatelessWidget {
     final borderRadius = BorderRadius.circular(
       usesScenePlate ? 10 : style.systemMessageBorderRadius,
     );
-    final surface = Container(
-      key: const ValueKey<String>('chat-tick-message-surface'),
-      width: double.infinity,
-      clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: _tickMessageBackgroundColor,
-        borderRadius: borderRadius,
-        border: usesScenePlate
-            ? Border.all(color: _tickMessageBorderColor)
-            : null,
-      ),
-      child: usesScenePlate
-          ? Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-              child: ChatStreamingBody(child: child),
-            )
-          : Stack(
-              children: [
-                const Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: 2,
-                  child: ColoredBox(
-                    key: ValueKey<String>('chat-tick-message-accent'),
-                    color: _tickMessageAccentColor,
+    final surface = ChatBubbleGeometry(
+      child: Container(
+        key: const ValueKey<String>('chat-tick-message-surface'),
+        width: double.infinity,
+        clipBehavior: Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: _tickMessageBackgroundColor,
+          borderRadius: borderRadius,
+          border: usesScenePlate
+              ? Border.all(color: _tickMessageBorderColor)
+              : null,
+        ),
+        child: usesScenePlate
+            ? Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 13,
+                ),
+                child: ChatStreamingBody(child: child),
+              )
+            : Stack(
+                children: [
+                  const Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: 2,
+                    child: ColoredBox(
+                      key: ValueKey<String>('chat-tick-message-accent'),
+                      color: _tickMessageAccentColor,
+                    ),
                   ),
-                ),
-                Padding(
-                  padding: style.systemMessagePadding,
-                  child: ChatStreamingBody(child: child),
-                ),
-              ],
-            ),
+                  Padding(
+                    padding: style.systemMessagePadding,
+                    child: ChatStreamingBody(child: child),
+                  ),
+                ],
+              ),
+      ),
     );
     final margin = style.systemMessageMargin;
     final plateMargin = usesScenePlate

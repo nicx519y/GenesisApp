@@ -2,7 +2,56 @@ part of 'chat_ui_library.dart';
 
 enum ChatComposerSendIcon { send, arrowUp }
 
+class _ComposerKeyboardAccessory extends SingleChildRenderObjectWidget {
+  const _ComposerKeyboardAccessory({required super.child});
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderComposerKeyboardAccessory();
+}
+
+class _RenderComposerKeyboardAccessory extends RenderProxyBox {}
+
 class ChatComposer extends StatelessWidget {
+  /// Actual extra row height from focus-only shortcuts, excluding any height
+  /// already required by the text input or taller adjacent action buttons.
+  static double keyboardExpansionOf(RenderObject? root) {
+    var expansion = 0.0;
+    void visit(RenderObject node) {
+      if (!node.attached) return;
+      if (node is _RenderComposerKeyboardAccessory && node.hasSize) {
+        RenderObject child = node;
+        RenderObject? parent = child.parent;
+        while (parent != null &&
+            !(parent is RenderFlex && parent.direction == Axis.horizontal)) {
+          child = parent;
+          parent = parent.parent;
+        }
+        if (parent is RenderFlex &&
+            parent.hasSize &&
+            child is RenderBox &&
+            child.hasSize) {
+          var collapsedHeight = math.max(
+            0.0,
+            child.size.height - node.size.height,
+          );
+          RenderBox? sibling = parent.firstChild;
+          while (sibling != null) {
+            if (sibling != child && sibling.hasSize) {
+              collapsedHeight = math.max(collapsedHeight, sibling.size.height);
+            }
+            sibling = (sibling.parentData! as FlexParentData).nextSibling;
+          }
+          expansion += math.max(0.0, parent.size.height - collapsedHeight);
+        }
+        return;
+      }
+      node.visitChildren(visit);
+    }
+
+    if (root != null) visit(root);
+    return expansion;
+  }
+
   const ChatComposer({
     super.key,
     required this.controller,
@@ -171,42 +220,45 @@ class ChatComposer extends StatelessWidget {
                                 ),
                                 if (leadingShortcutLabel != null ||
                                     secondaryLeadingShortcutLabel != null)
-                                  Padding(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      8,
-                                      0,
-                                      0,
-                                      8,
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (leadingShortcutLabel != null)
-                                          _ComposerShortcutButton(
-                                            buttonKey: const ValueKey<String>(
-                                              'chat-composer-leading-shortcut',
+                                  _ComposerKeyboardAccessory(
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(
+                                        8,
+                                        0,
+                                        0,
+                                        8,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          if (leadingShortcutLabel != null)
+                                            _ComposerShortcutButton(
+                                              buttonKey: const ValueKey<String>(
+                                                'chat-composer-leading-shortcut',
+                                              ),
+                                              label: leadingShortcutLabel!,
+                                              onPressed:
+                                                  onLeadingShortcutPressed,
+                                              style: style,
                                             ),
-                                            label: leadingShortcutLabel!,
-                                            onPressed: onLeadingShortcutPressed,
-                                            style: style,
-                                          ),
-                                        if (leadingShortcutLabel != null &&
-                                            secondaryLeadingShortcutLabel !=
-                                                null)
-                                          const SizedBox(width: 6),
-                                        if (secondaryLeadingShortcutLabel !=
-                                            null)
-                                          _ComposerShortcutButton(
-                                            buttonKey: const ValueKey<String>(
-                                              'chat-composer-secondary-leading-shortcut',
+                                          if (leadingShortcutLabel != null &&
+                                              secondaryLeadingShortcutLabel !=
+                                                  null)
+                                            const SizedBox(width: 6),
+                                          if (secondaryLeadingShortcutLabel !=
+                                              null)
+                                            _ComposerShortcutButton(
+                                              buttonKey: const ValueKey<String>(
+                                                'chat-composer-secondary-leading-shortcut',
+                                              ),
+                                              label:
+                                                  secondaryLeadingShortcutLabel!,
+                                              onPressed:
+                                                  onSecondaryLeadingShortcutPressed,
+                                              style: style,
                                             ),
-                                            label:
-                                                secondaryLeadingShortcutLabel!,
-                                            onPressed:
-                                                onSecondaryLeadingShortcutPressed,
-                                            style: style,
-                                          ),
-                                      ],
+                                        ],
+                                      ),
                                     ),
                                   ),
                               ],

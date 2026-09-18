@@ -19,12 +19,15 @@ Widget harness(
   Widget? content,
   TextDirection direction = TextDirection.ltr,
   bool scoped = true,
+  bool animateArrival = false,
+  bool mountedBody = true,
 }) {
   final body = ChatStreamingMessage(
     key: ValueKey(identity),
     identity: identity,
     continuationIdentity: continuation,
     streaming: streaming,
+    animateArrival: animateArrival,
     child: ChatBubbleSurface(
       color: Colors.black,
       borderRadius: BorderRadius.zero,
@@ -54,7 +57,10 @@ Widget harness(
             child: RepaintBoundary(
               key: bodyKey,
               child: scoped
-                  ? ChatStreamingEffects(settings: settings, child: body)
+                  ? ChatStreamingEffects(
+                      settings: settings,
+                      child: mountedBody ? body : const SizedBox.shrink(),
+                    )
                   : body,
             ),
           ),
@@ -73,6 +79,328 @@ Future<void> settle(WidgetTester tester) async {
 }
 
 void main() {
+  double progress(WidgetTester tester) => ChatStreamingBody.revealedGraphemesOf(
+    tester.element(find.byType(ChatStreamingBody).first),
+  );
+
+  Widget queued({
+    List<int> mounted = const [0, 1, 2],
+    bool firstStreaming = false,
+    bool enabled = true,
+    bool freezeFirst = false,
+    String firstText = 'abcd',
+    Object operation = 0,
+  }) => MaterialApp(
+    home: Scaffold(
+      body: ChatStreamingEffects(
+        operationIdentity: operation,
+        presentationRevision: (
+          firstText,
+          firstStreaming,
+          freezeFirst,
+          Object.hashAll(mounted),
+        ),
+        settings: defaults.copyWith(
+          animateStreamingHeight: false,
+          streamingTextReveal: enabled,
+        ),
+        child: Column(
+          children: [
+            for (final index in mounted)
+              TickerMode(
+                key: ValueKey(index),
+                enabled: index != 0 || !freezeFirst,
+                child: ChatStreamingMessage(
+                  identity: index,
+                  order: () => index.toDouble(),
+                  streaming: index == 0 && firstStreaming,
+                  animateArrival: true,
+                  child: Semantics(
+                    label: 'message-row-$index',
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        children: [
+                          Text('sender-$index'),
+                          ChatBubbleSurface(
+                            color: Colors.black,
+                            borderRadius: BorderRadius.zero,
+                            padding: const EdgeInsets.all(12),
+                            child: ChatStreamingText(
+                              child: Text(index == 0 ? firstText : 'abcd'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            Builder(
+              builder: (context) => Text(
+                ChatStreamingEffects.isSettledOf(context)
+                    ? 'settled'
+                    : 'revealing',
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+
+  double queuedProgress(WidgetTester tester, int index) =>
+      ChatStreamingBody.revealedGraphemesOf(
+        tester.element(
+          find.descendant(
+            of: find.byKey(ValueKey(index)),
+            matching: find.byType(ChatStreamingBody),
+          ),
+        ),
+      );
+
+  testWidgets(
+    'bubbles reveal serially in display order with no waiting credit',
+    (tester) async {
+      // Deliberately mount out of sequence to exercise explicit display order.
+      await tester.pumpWidget(queued(mounted: [2, 0, 1]));
+      await tester.pump(const Duration(milliseconds: 12));
+      expect(find.text('settled'), findsNothing);
+      expect(queuedProgress(tester, 0), closeTo(2, .001));
+      expect(queuedProgress(tester, 1), 0);
+      expect(queuedProgress(tester, 2), 0);
+      await tester.pump(const Duration(milliseconds: 36));
+      expect(queuedProgress(tester, 0), 4);
+      expect(queuedProgress(tester, 1), 0);
+      await tester.pump(); // Start the next ticker, without accumulated credit.
+      await tester.pump(const Duration(milliseconds: 12));
+      expect(queuedProgress(tester, 1), closeTo(2, .001));
+      expect(queuedProgress(tester, 2), 0);
+      await settle(tester);
+      expect(find.text('settled'), findsOneWidget);
+      for (var i = 0; i < 3; i++) {
+        expect(queuedProgress(tester, i), 4);
+      }
+    },
+  );
+
+  testWidgets('queued rows hide chrome, spacing, geometry and semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(queued());
+    for (var index = 0; index < 3; index++) {
+      final row = find.byKey(ValueKey(index));
+      expect(tester.getSize(row).height, 0);
+      expect(
+        (tester.renderObject(row) as RenderBox).hitTest(
+          BoxHitTestResult(),
+          position: const Offset(1, 1),
+        ),
+        isFalse,
+      );
+      expect(
+        ChatBubbleGeometry.globalBoundsOf(tester.renderObject(row)),
+        isNull,
+      );
+      expect(find.bySemanticsLabel(RegExp('message-row-$index')), findsNothing);
+    }
+    await tester.pump(const Duration(milliseconds: 6));
+    expect(
+      tester.getSize(find.byKey(const ValueKey(0))).height,
+      greaterThan(0),
+    );
+    expect(tester.getSize(find.byKey(const ValueKey(1))).height, 0);
+    expect(find.bySemanticsLabel(RegExp('message-row-0')), findsOneWidget);
+    expect(find.bySemanticsLabel(RegExp('message-row-1')), findsNothing);
+    await settle(tester);
+    expect(
+      tester.getSize(find.byKey(const ValueKey(2))).height,
+      greaterThan(0),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets('new operation retires old reveal tasks before new replies', (
+    tester,
+  ) async {
+    await tester.pumpWidget(queued(firstStreaming: true));
+    await tester.pump(const Duration(milliseconds: 6));
+    expect(queuedProgress(tester, 0), 1);
+    await tester.pumpWidget(queued(mounted: [0, 1, 2, 3], operation: 1));
+    for (var index = 0; index < 3; index++) {
+      expect(queuedProgress(tester, index), 4);
+    }
+    expect(queuedProgress(tester, 3), 0);
+    await tester.pump(const Duration(milliseconds: 6));
+    expect(queuedProgress(tester, 3), 1);
+    await settle(tester);
+  });
+
+  testWidgets('chunk gaps retain the turn until the first stream finishes', (
+    tester,
+  ) async {
+    await tester.pumpWidget(queued(firstStreaming: true));
+    await settle(tester);
+    expect(find.text('settled'), findsNothing);
+    expect(queuedProgress(tester, 1), 0);
+    await tester.pump(const Duration(seconds: 10));
+    await tester.pumpWidget(
+      queued(firstStreaming: true, firstText: 'abcdefgh'),
+    );
+    await tester.pump(const Duration(milliseconds: 6));
+    expect(queuedProgress(tester, 0), closeTo(5, .001));
+    expect(queuedProgress(tester, 1), 0);
+    await tester.pumpWidget(queued(firstText: 'abcdefgh'));
+    await settle(tester);
+    expect(queuedProgress(tester, 0), 8);
+    expect(queuedProgress(tester, 2), 4);
+  });
+
+  for (final freeze in [false, true]) {
+    testWidgets(
+      'removing or freezing the active bubble releases its turn ($freeze)',
+      (tester) async {
+        await tester.pumpWidget(queued(firstStreaming: true));
+        await tester.pump(const Duration(milliseconds: 6));
+        await tester.pumpWidget(
+          queued(
+            firstStreaming: true,
+            mounted: freeze ? [0, 1, 2] : [1, 2],
+            freezeFirst: freeze,
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 6));
+        expect(queuedProgress(tester, 1), closeTo(1, .001));
+        expect(queuedProgress(tester, 2), 0);
+        await settle(tester);
+        expect(queuedProgress(tester, 2), 4);
+      },
+    );
+  }
+
+  testWidgets('disabling reveal immediately displays the whole queue', (
+    tester,
+  ) async {
+    await tester.pumpWidget(queued(firstStreaming: true));
+    await tester.pump(const Duration(milliseconds: 6));
+    await tester.pumpWidget(queued(firstStreaming: true, enabled: false));
+    for (var i = 0; i < 3; i++) {
+      expect(queuedProgress(tester, i), 4);
+    }
+    await tester.pumpWidget(queued(firstStreaming: true));
+    await settle(tester);
+    expect(queuedProgress(tester, 2), 4);
+  });
+
+  testWidgets('background pause is not presentation completion', (
+    tester,
+  ) async {
+    await tester.pumpWidget(queued());
+    await tester.pump(const Duration(milliseconds: 6));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.text('settled'), findsNothing);
+    expect(queuedProgress(tester, 1), 0);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await settle(tester);
+    expect(find.text('settled'), findsOneWidget);
+  });
+
+  testWidgets('chunk size and terminal frames never exceed the grapheme rate', (
+    tester,
+  ) async {
+    final settings = defaults.copyWith(animateStreamingHeight: false);
+    await tester.pumpWidget(harness('a' * 200, settings: settings));
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(progress(tester), closeTo(10, 0.001));
+    for (var chunk = 0; chunk < 12; chunk++) {
+      final before = progress(tester);
+      await tester.pumpWidget(
+        harness('a' * (300 + chunk * 100), settings: settings),
+      );
+      expect(progress(tester), closeTo(before, 0.001));
+      await tester.pump(const Duration(milliseconds: 6));
+      expect(progress(tester), closeTo(before + 1, 0.001));
+    }
+    final beforeEnd = progress(tester);
+    await tester.pumpWidget(
+      harness('a' * 1500, settings: settings, streaming: false),
+    );
+    expect(progress(tester), closeTo(beforeEnd, 0.001));
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(progress(tester), closeTo(beforeEnd + 10, 0.001));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+    'one terminal arrival still reveals and counts complete graphemes',
+    (tester) async {
+      await tester.pumpWidget(
+        harness('中👨‍👩‍👧‍👦e\u0301文', streaming: false, animateArrival: true),
+      );
+      expect(progress(tester), 0);
+      await tester.pump(const Duration(milliseconds: 12));
+      expect(progress(tester), closeTo(2, 0.001));
+      await settle(tester);
+      expect(progress(tester), 4);
+    },
+  );
+
+  testWidgets('remount and canonical identity preserve unfinished progress', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      harness('a' * 60, identity: 'temporary', continuation: 'round/sender'),
+    );
+    await tester.pump(const Duration(milliseconds: 60));
+    final before = progress(tester);
+    await tester.pumpWidget(harness('', mountedBody: false));
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpWidget(
+      harness('a' * 60, identity: 'temporary', continuation: 'round/sender'),
+    );
+    expect(progress(tester), closeTo(before, 0.001));
+    await tester.pumpWidget(
+      harness(
+        'a' * 70,
+        identity: 'canonical',
+        continuation: 'round/sender',
+        streaming: false,
+      ),
+    );
+    expect(progress(tester), closeTo(before, 0.001));
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(progress(tester), closeTo(before + 10, 0.001));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('background time and idle time cannot buy reveal credit', (
+    tester,
+  ) async {
+    await tester.pumpWidget(harness('a' * 60));
+    await tester.pump(const Duration(milliseconds: 60));
+    final before = progress(tester);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 20));
+    expect(progress(tester), closeTo(before, 0.001));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(progress(tester), closeTo(before + 10, 0.001));
+    await tester.pumpWidget(harness('a'));
+    await settle(tester);
+    await tester.pump(const Duration(seconds: 20));
+    await tester.pumpWidget(harness('a' * 100));
+    expect(progress(tester), 1);
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(progress(tester), closeTo(11, 0.001));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('height grows and shrinks through intermediate sizes', (
     tester,
   ) async {
@@ -109,7 +437,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     final first = height(tester);
     expect(first, greaterThan(0));
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 5000));
     expect(height(tester), greaterThan(first));
     await settle(tester);
     expect(height(tester), closeTo(first * 3, 1));
@@ -251,7 +579,7 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 200));
       final first = height(tester);
-      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 8000));
       expect(height(tester), greaterThan(first));
       expect(tester.takeException(), isNull);
       await settle(tester);
@@ -456,7 +784,7 @@ void main() {
     );
     expect(height(tester), before);
     await tester.pump(const Duration(milliseconds: 100));
-    expect(height(tester), before);
+    expect(height(tester), greaterThan(before));
     await settle(tester);
     expect(height(tester), greaterThan(before));
   });

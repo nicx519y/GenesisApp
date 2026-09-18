@@ -5,6 +5,8 @@ import '../../../ui/tokens/genesis_blur.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart'
+    show RenderProxyBox, RenderFlex, FlexParentData;
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -28,11 +30,13 @@ import '../../../ui/text/genesis_text_input_formatters.dart';
 import '../../../utils/genesis_message_image.dart';
 import 'chat_scene_plate_tokens.dart';
 import 'chat_streaming_effects.dart';
+import 'chat_bubble_geometry.dart';
 import 'chat_mention.dart';
 import 'chat_ui_style_config.dart';
 
 export 'chat_mention.dart';
 export 'chat_streaming_effects.dart';
+export 'chat_bubble_geometry.dart';
 export 'chat_ui_style_config.dart';
 
 part 'chat_ui_message_model.dart';

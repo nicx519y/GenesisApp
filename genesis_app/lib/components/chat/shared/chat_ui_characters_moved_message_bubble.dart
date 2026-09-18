@@ -24,37 +24,39 @@ class ChatCharactersMovedMessageBubble extends StatelessWidget {
       padding: style.systemMessageMargin,
       child: GestureDetector(
         onLongPressStart: onLongPressStart,
-        child: Container(
-          key: ValueKey<String>(
-            'chat-characters-moved-message-${message.localId}',
-          ),
-          width: double.infinity,
-          padding: style.systemMessagePadding,
-          decoration: BoxDecoration(
-            color: style.systemMessageBackgroundColor,
-            borderRadius: BorderRadius.circular(
-              style.systemMessageBorderRadius,
+        child: ChatBubbleGeometry(
+          child: Container(
+            key: ValueKey<String>(
+              'chat-characters-moved-message-${message.localId}',
             ),
-          ),
-          child: ChatStreamingBody(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                for (
-                  var index = 0;
-                  index < payload.movements.length;
-                  index += 1
-                ) ...[
-                  if (index > 0) const SizedBox(height: 10),
-                  _ChatCharacterMovementRow(
-                    messageLocalId: message.localId,
-                    index: index,
-                    movement: payload.movements[index],
-                    style: style,
-                    onLocationTap: onLocationTap,
-                  ),
+            width: double.infinity,
+            padding: style.systemMessagePadding,
+            decoration: BoxDecoration(
+              color: style.systemMessageBackgroundColor,
+              borderRadius: BorderRadius.circular(
+                style.systemMessageBorderRadius,
+              ),
+            ),
+            child: ChatStreamingBody(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (
+                    var index = 0;
+                    index < payload.movements.length;
+                    index += 1
+                  ) ...[
+                    if (index > 0) const SizedBox(height: 10),
+                    _ChatCharacterMovementRow(
+                      messageLocalId: message.localId,
+                      index: index,
+                      movement: payload.movements[index],
+                      style: style,
+                      onLocationTap: onLocationTap,
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

@@ -77,7 +77,11 @@ class LocationChatReplyCardSwitcher extends StatefulWidget {
 
 class LocationChatReplyCardSwitcherState
     extends State<LocationChatReplyCardSwitcher>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  // The one displayed deck must survive shrinking out of the lazy cache;
+  // otherwise its collapse state is lost before replacement content arrives.
+  @override
+  bool get wantKeepAlive => true;
   late final AnimationController _animation;
   late final AnimationController _regenerateCollapseAnimation;
   late int _displayedId;
@@ -97,6 +101,7 @@ class LocationChatReplyCardSwitcherState
   bool _showRegenerateSnapshot = false;
   bool _regenerateReplacementObserved = false;
   bool _regenerateTransitionUpdateScheduled = false;
+  bool _regenerateAwaitingPosition = false;
   double _from = 0, _to = 0;
 
   LocationChatReplyCard? _card(int? id) =>
@@ -163,14 +168,21 @@ class LocationChatReplyCardSwitcherState
     }
   }
 
+  /// Identifies the displayed card's start, even if new data replaced its ID.
+  LocationChatReplyCard? get regenerateSourceCard =>
+      _regenerateOriginalCard ?? _card(_displayedId);
+
   /// Starts a presentation-only collapse. The owner must invoke Regenerate
   /// first so this transition's busy callback cannot block its own request.
-  bool beginRegenerateCollapse({bool deferBusyNotification = false}) {
+  bool beginRegenerateCollapse({
+    bool deferBusyNotification = false,
+    bool deferAnimation = false,
+  }) {
     if (_busy || _regenerateOriginalCard != null) return false;
     final current = _card(_displayedId);
     if (current == null ||
         (current.messages.isEmpty && current.status == null) ||
-        MediaQuery.disableAnimationsOf(context)) {
+        (!deferAnimation && MediaQuery.disableAnimationsOf(context))) {
       return false;
     }
     final snapshot = LocationChatReplyCard(
@@ -190,10 +202,21 @@ class LocationChatReplyCardSwitcherState
     _regenerateSourceId = current.id;
     _showRegenerateSnapshot = true;
     _regenerateReplacementObserved = false;
+    _regenerateAwaitingPosition = deferAnimation;
     _setBusy(true, deferred: deferBusyNotification);
     setState(() {});
-    _regenerateCollapseAnimation.forward(from: 0);
+    if (!deferAnimation) _regenerateCollapseAnimation.forward(from: 0);
     return true;
+  }
+
+  void resumeRegenerateCollapse() {
+    if (!_regenerateAwaitingPosition || _regenerateOriginalCard == null) return;
+    _regenerateAwaitingPosition = false;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _regenerateCollapseAnimation.value = 1;
+    } else {
+      _regenerateCollapseAnimation.forward(from: 0);
+    }
   }
 
   void _syncRegenerateCollapse() {
@@ -266,6 +289,11 @@ class LocationChatReplyCardSwitcherState
   void _recoverRegenerateSource() {
     if (_regenerateOriginalCard == null) return;
     _regenerateCollapseAnimation.stop();
+    if (_regenerateAwaitingPosition) {
+      _regenerateAwaitingPosition = false;
+      _finishRegenerateTransition();
+      return;
+    }
     setState(() {
       _displayedId = _regenerateSourceId!;
       _showRegenerateSnapshot = true;
@@ -279,6 +307,7 @@ class LocationChatReplyCardSwitcherState
   }
 
   void _finishRegenerateTransition() {
+    _regenerateAwaitingPosition = false;
     _regenerateCollapseAnimation.stop();
     setState(() {
       _regenerateOriginalCard = null;
@@ -294,6 +323,7 @@ class LocationChatReplyCardSwitcherState
   }
 
   void _cancelRegenerateCollapse({bool deferred = false}) {
+    _regenerateAwaitingPosition = false;
     if (_regenerateOriginalCard == null) return;
     _regenerateCollapseAnimation.stop();
     _regenerateOriginalCard = null;
@@ -442,6 +472,7 @@ class LocationChatReplyCardSwitcherState
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final current = _showRegenerateSnapshot
         ? _regenerateOriginalCard
         : _regenerateOriginalCard != null && !_regenerateReplacementReady
@@ -454,7 +485,7 @@ class LocationChatReplyCardSwitcherState
     final target = _card(_targetId);
     _cardChildren.removeWhere((id, _) => id != current.id && id != target?.id);
     final currentChild = _showRegenerateSnapshot
-        ? _regenerateSnapshotChild!
+        ? TickerMode(enabled: false, child: _regenerateSnapshotChild!)
         : _childFor(current);
     final targetChild = target == null ? null : _childFor(target);
     return LayoutBuilder(

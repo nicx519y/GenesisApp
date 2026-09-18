@@ -43,56 +43,64 @@ class ChatUserEnterLocationMessageBubble extends StatelessWidget {
     return Center(
       child: GestureDetector(
         onLongPressStart: onLongPressStart,
-        child: Container(
-          key: ValueKey<String>(
-            'chat-user-enter-location-message-${message.localId}',
-          ),
-          margin: style.systemMessageMargin,
-          padding: const EdgeInsets.fromLTRB(9, 6, 12, 6),
-          decoration: BoxDecoration(
-            color: const Color(0x21FFFFFF),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: ChatStreamingBody(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CustomPaint(
-                  key: const ValueKey<String>('chat-user-enter-location-icon'),
-                  size: const Size.square(12),
-                  painter: _ChatEnterLocationIconPainter(
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
-                ),
-                const SizedBox(width: 7),
-                Flexible(
-                  child: displayParts == null
-                      ? _InlineMarkdownText(
-                          text: payload.text,
-                          textAlign: TextAlign.left,
-                          style: mainTextStyle,
-                        )
-                      : ChatStreamingText(
-                          child: Text.rich(
-                            TextSpan(
+        child: Padding(
+          padding: style.systemMessageMargin,
+          child: ChatBubbleGeometry(
+            child: Container(
+              key: ValueKey<String>(
+                'chat-user-enter-location-message-${message.localId}',
+              ),
+              padding: const EdgeInsets.fromLTRB(9, 6, 12, 6),
+              decoration: BoxDecoration(
+                color: const Color(0x21FFFFFF),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: ChatStreamingBody(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CustomPaint(
+                      key: const ValueKey<String>(
+                        'chat-user-enter-location-icon',
+                      ),
+                      size: const Size.square(12),
+                      painter: _ChatEnterLocationIconPainter(
+                        color: Colors.white.withValues(alpha: 0.8),
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Flexible(
+                      child: displayParts == null
+                          ? _InlineMarkdownText(
+                              text: payload.text,
+                              textAlign: TextAlign.left,
                               style: mainTextStyle,
-                              children: [
-                                TextSpan(text: displayParts.characterName),
+                            )
+                          : ChatStreamingText(
+                              child: Text.rich(
                                 TextSpan(
-                                  text: ' came to ',
-                                  style: mainTextStyle.copyWith(
-                                    color: Colors.white.withValues(alpha: 0.73),
-                                    fontWeight: FontWeight.w400,
-                                  ),
+                                  style: mainTextStyle,
+                                  children: [
+                                    TextSpan(text: displayParts.characterName),
+                                    TextSpan(
+                                      text: ' came to ',
+                                      style: mainTextStyle.copyWith(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.73,
+                                        ),
+                                        fontWeight: FontWeight.w400,
+                                      ),
+                                    ),
+                                    TextSpan(text: displayParts.locationName),
+                                  ],
                                 ),
-                                TextSpan(text: displayParts.locationName),
-                              ],
+                                textAlign: TextAlign.left,
+                              ),
                             ),
-                            textAlign: TextAlign.left,
-                          ),
-                        ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),

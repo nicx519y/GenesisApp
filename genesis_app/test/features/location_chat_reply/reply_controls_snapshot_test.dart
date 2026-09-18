@@ -28,6 +28,98 @@ LocationChatReplyControlsSnapshot _resolve({
 
 void main() {
   test(
+    'terminal controls wait for all rendering and recover as one snapshot',
+    () {
+      final gate = LocationChatReplyControlsRenderGate();
+      final pending = (actions: _resolve(hidden: true), visible: false);
+      final complete = (actions: _resolve(), visible: true);
+      expect(
+        gate.resolve(pending, backendPending: true, presentationSettled: true),
+        pending,
+      );
+      // End frame can arrive long before the last queued bubble is revealed.
+      expect(
+        gate.resolve(
+          complete,
+          backendPending: false,
+          presentationSettled: false,
+        ),
+        pending,
+      );
+      expect(
+        gate.resolve(
+          complete,
+          backendPending: false,
+          presentationSettled: false,
+        ),
+        pending,
+      );
+      expect(
+        gate.resolve(
+          complete,
+          backendPending: false,
+          presentationSettled: true,
+        ),
+        complete,
+      );
+    },
+  );
+
+  test('same-frame terminal arrival never keeps old actions clickable', () {
+    final gate = LocationChatReplyControlsRenderGate();
+    final complete = (actions: _resolve(), visible: true);
+    gate.resolve(complete, backendPending: false, presentationSettled: true);
+    final held = gate.resolve(
+      complete,
+      backendPending: false,
+      presentationSettled: false,
+    );
+    expect([
+      held.actions.regenerate,
+      held.actions.goOn,
+      held.actions.edit,
+      held.actions.inspiration,
+    ], everyElement(LocationChatReplyActionState.disabled));
+    expect(held.actions.canExplainRegenerateLimit, isFalse);
+    gate.reset();
+    expect(
+      gate
+          .resolve(complete, backendPending: false, presentationSettled: false)
+          .visible,
+      isFalse,
+    );
+  });
+
+  test('failure and Tick discard stale pending controls immediately', () {
+    final gate = LocationChatReplyControlsRenderGate();
+    gate.resolve(
+      (actions: _resolve(hidden: true), visible: false),
+      backendPending: true,
+      presentationSettled: false,
+    );
+    final failure = (actions: _resolve(), visible: true);
+    expect(
+      gate.resolve(
+        failure,
+        backendPending: false,
+        presentationSettled: false,
+        discardPending: true,
+      ),
+      failure,
+    );
+    final tick = (actions: _resolve(hidden: true), visible: false);
+    expect(
+      gate.resolve(
+        tick,
+        backendPending: false,
+        presentationSettled: false,
+        discardPending: true,
+      ),
+      tick,
+    );
+  });
+
+  test(
     'silent edit quota check locks other actions without showing a spinner',
     () {
       final result = _resolve(

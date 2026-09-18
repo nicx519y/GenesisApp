@@ -29,17 +29,19 @@ class ChatImageMessage extends StatelessWidget {
             final maxWidth = constraints.maxWidth.isFinite
                 ? constraints.maxWidth
                 : MediaQuery.sizeOf(context).width;
-            return ChatThumbnailImage(
-              key: ValueKey<String>('chat-image-message-${message.localId}'),
-              imageUrl: _rawImageUrl(message),
-              maxWidth: maxWidth,
-              placeholderColor: chatNarratorMessageBackgroundColor(style),
-              borderRadius: BorderRadius.circular(8),
-              onTap: _rawImageUrl(message).isEmpty
-                  ? null
-                  : (previewImageProvider) =>
-                        _showImageViewer(context, previewImageProvider),
-              onLongPressStart: onLongPressStart,
+            return ChatBubbleGeometry(
+              child: ChatThumbnailImage(
+                key: ValueKey<String>('chat-image-message-${message.localId}'),
+                imageUrl: _rawImageUrl(message),
+                maxWidth: maxWidth,
+                placeholderColor: chatNarratorMessageBackgroundColor(style),
+                borderRadius: BorderRadius.circular(8),
+                onTap: _rawImageUrl(message).isEmpty
+                    ? null
+                    : (previewImageProvider) =>
+                          _showImageViewer(context, previewImageProvider),
+                onLongPressStart: onLongPressStart,
+              ),
             );
           },
         ),

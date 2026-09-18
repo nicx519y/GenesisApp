@@ -16,6 +16,7 @@ void main() {
     expect(initial.streamingTextReveal, isTrue);
     expect(initial.streamingHeightDurationMs, 180);
     expect(initial.streamingTextDurationMs, 120);
+    expect(initial.effectiveStreamingTextDurationMs, 6);
     expect(initial.replyWaitingPositioningEnabled, isTrue);
     locationChatBubbleLayoutSettings.previewStreamingAnimations(
       heightEnabled: false,
@@ -30,7 +31,8 @@ void main() {
     expect(stored.streamingTextReveal, isFalse);
     expect(stored.streamingHeightDurationMs, 400);
     expect(stored.streamingTextDurationMs, 760);
-    expect(stored.replyViewportReserveFraction, .75);
+    expect(stored.effectiveStreamingTextDurationMs, 38);
+    expect(stored.replyViewportReserveFraction, .85);
   });
 
   test(
@@ -100,7 +102,7 @@ void main() {
       });
       final settings = await locationChatBubbleLayoutSettings.load();
       expect(settings.replyWaitingPositioningEnabled, isTrue);
-      expect(settings.replyViewportReserveFraction, 0.75);
+      expect(settings.replyViewportReserveFraction, 0.85);
       expect(settings.crowdedEffectiveWidthThreshold, 375);
     },
   );
@@ -145,7 +147,7 @@ void main() {
       );
       expect(
         locationChatBubbleLayoutSettings.value.replyViewportReserveFraction,
-        0.75,
+        0.85,
       );
     },
   );

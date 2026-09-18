@@ -5084,7 +5084,13 @@ void main() {
       );
       expect(find.text('Original reply.'), findsOneWidget);
       expect(find.text('Private candidate.'), findsNothing);
-      await tester.pump(const Duration(milliseconds: 740));
+      // Positioning precedes the original 800ms collapse. Advance frames until
+      // the measured-position transaction hands the snapshot to the new card.
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('Original reply.').evaluate().isEmpty,
+        step: const Duration(milliseconds: 16),
+      );
       expect(find.text('Original reply.'), findsNothing);
       expect(find.text('Private candidate.'), findsOneWidget);
       expect(
@@ -5164,13 +5170,26 @@ void main() {
         seq: 3,
       );
       harness.socket.serverCandidateGenerationEnd();
+      await tester.pump();
+      await tester.pump();
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect([
+        list.regenerateFeature.enabled,
+        list.goOnFeature.enabled,
+        list.editFeature.enabled,
+        list.inspirationFeature.enabled,
+      ], everyElement(isFalse));
       await _pumpUntilLocationChatTest(
         tester,
         () => tester
             .widget<LocationChatAnchoredMessageList>(
               find.byType(LocationChatAnchoredMessageList),
             )
-            .replyCardSwitchEnabled,
+            .editFeature
+            .enabled,
+        step: const Duration(milliseconds: 16),
       );
       list = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
@@ -5451,6 +5470,27 @@ void main() {
               (message) => message.content == 'The story continues.',
             ),
       );
+      // Authoritative completion is already available, but no animation time
+      // has elapsed during the zero-duration event pumps above.
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect([
+        list.regenerateFeature.enabled,
+        list.goOnFeature.enabled,
+        list.editFeature.enabled,
+        list.inspirationFeature.enabled,
+      ], everyElement(isFalse));
+      await tester.pump(const Duration(milliseconds: 120));
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect([
+        list.regenerateFeature.enabled,
+        list.goOnFeature.enabled,
+        list.editFeature.enabled,
+        list.inspirationFeature.enabled,
+      ], everyElement(isFalse));
       await tester.pumpAndSettle();
       for (final label in ['Regenerate', 'Go on', 'Edit', 'Inspiration']) {
         expect(find.bySemanticsLabel(label), findsOneWidget);
@@ -6656,124 +6696,126 @@ void main() {
     },
   );
 
-  testWidgets('inspiration timeout shows useful copy and unlocks retry', (
-    tester,
-  ) async {
-    final inspirationBarrier = Completer<void>();
-    final backend = _LocationChatReplyHttpTransport()
-      ..localMember = false
-      ..includeQuotas = true
-      ..inspirationTimeout = true
-      ..inspirationBarrier = inspirationBarrier;
-    final harness = await _mountCompletedReplyActionPanel(
-      tester,
-      backend: backend,
-    );
-    final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
-    composer.controller.text = 'Keep this draft';
-    await tester.pump();
-    expect(
-      tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
-      isTrue,
-    );
-
-    await tester.tap(find.bySemanticsLabel('Inspiration'));
-    await _pumpUntilLocationChatTest(
-      tester,
-      () => backend.inspirationRequests.isNotEmpty,
-    );
-    expect(
-      tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
-      isFalse,
-    );
-    final sendButton = find.descendant(
-      of: find.byKey(const ValueKey('chat-composer-send-button')),
-      matching: find.byType(TextButton),
-    );
-    expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
-    final loadingList = tester.widget<LocationChatAnchoredMessageList>(
-      find.byType(LocationChatAnchoredMessageList),
-    );
-    expect(loadingList.regenerateFeature.enabled, isFalse);
-    expect(loadingList.goOnFeature.enabled, isFalse);
-    expect(loadingList.editFeature.enabled, isFalse);
-    expect(loadingList.replyCardSwitchEnabled, isFalse);
-    for (final action in ['Regenerate', 'Go on', 'Edit']) {
+  testWidgets(
+    'inspiration timeout unlocks retry without fabricated error copy',
+    (tester) async {
+      final inspirationBarrier = Completer<void>();
+      final backend = _LocationChatReplyHttpTransport()
+        ..localMember = false
+        ..includeQuotas = true
+        ..inspirationTimeout = true
+        ..inspirationBarrier = inspirationBarrier;
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: backend,
+      );
+      final composer = tester.widget<ChatComposer>(find.byType(ChatComposer));
+      composer.controller.text = 'Keep this draft';
+      await tester.pump();
       expect(
-        tester
-            .widget<Semantics>(find.bySemanticsLabel(action))
-            .properties
-            .enabled,
+        tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+        isTrue,
+      );
+
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => backend.inspirationRequests.isNotEmpty,
+      );
+      expect(
+        tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
         isFalse,
       );
-    }
-    expect(
-      find.byKey(const ValueKey('location-chat-loading-bubble')),
-      findsNothing,
-    );
-    expect(_replyActionLoading('Inspiration'), findsOneWidget);
-    await tester.tap(find.bySemanticsLabel('Inspiration'));
-    await tester.pump();
-    expect(backend.inspirationRequests, hasLength(1));
-    await tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend();
-    expect(harness.socket.sendMessageCount, 0);
-    expect(composer.controller.text, 'Keep this draft');
-    inspirationBarrier.complete();
-    await _pumpUntilLocationChatTest(
-      tester,
-      () => !tester
-          .widget<LocationChatAnchoredMessageList>(
-            find.byType(LocationChatAnchoredMessageList),
-          )
-          .inspirationFeature
-          .loading,
-    );
+      final sendButton = find.descendant(
+        of: find.byKey(const ValueKey('chat-composer-send-button')),
+        matching: find.byType(TextButton),
+      );
+      expect(tester.widget<TextButton>(sendButton).onPressed, isNull);
+      final loadingList = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(loadingList.regenerateFeature.enabled, isFalse);
+      expect(loadingList.goOnFeature.enabled, isFalse);
+      expect(loadingList.editFeature.enabled, isFalse);
+      expect(loadingList.replyCardSwitchEnabled, isFalse);
+      for (final action in ['Regenerate', 'Go on', 'Edit']) {
+        expect(
+          tester
+              .widget<Semantics>(find.bySemanticsLabel(action))
+              .properties
+              .enabled,
+          isFalse,
+        );
+      }
+      expect(
+        find.byKey(const ValueKey('location-chat-loading-bubble')),
+        findsNothing,
+      );
+      expect(_replyActionLoading('Inspiration'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await tester.pump();
+      expect(backend.inspirationRequests, hasLength(1));
+      await tester.widget<ChatComposer>(find.byType(ChatComposer)).onSend();
+      expect(harness.socket.sendMessageCount, 0);
+      expect(composer.controller.text, 'Keep this draft');
+      inspirationBarrier.complete();
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => !tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .inspirationFeature
+            .loading,
+      );
 
-    expect(find.text('Request timed out. Please try again.'), findsOneWidget);
-    var list = tester.widget<LocationChatAnchoredMessageList>(
-      find.byType(LocationChatAnchoredMessageList),
-    );
-    expect(list.inspirationFeature.enabled, isTrue);
-    expect(list.inspirationFeature.loading, isFalse);
-    expect(
-      tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
-      isTrue,
-    );
-    expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
-    expect(_replyActionLoading('Inspiration'), findsNothing);
+      // A transport timeout has no backend err_message to display.
+      expect(find.text('Request timed out. Please try again.'), findsNothing);
+      var list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(list.inspirationFeature.enabled, isTrue);
+      expect(list.inspirationFeature.loading, isFalse);
+      expect(
+        tester.widget<ChatComposer>(find.byType(ChatComposer)).sendEnabled,
+        isTrue,
+      );
+      expect(tester.widget<TextButton>(sendButton).onPressed, isNotNull);
+      expect(_replyActionLoading('Inspiration'), findsNothing);
 
-    backend.inspirationTimeout = false;
-    backend.inspirationBarrier = null;
-    expect(
-      find.byKey(const ValueKey('inspiration-subscription-prompt')),
-      findsOneWidget,
-    );
-    await tester.tap(find.bySemanticsLabel('Inspiration'));
-    await _pumpUntilLocationChatTest(
-      tester,
-      () => backend.inspirationRequests.length == 2,
-    );
-    await _pumpUntilLocationChatTest(
-      tester,
-      () => tester
-          .widget<LocationChatAnchoredMessageList>(
-            find.byType(LocationChatAnchoredMessageList),
-          )
-          .inspirationFeature
-          .messages
-          .isNotEmpty,
-    );
-    list = tester.widget<LocationChatAnchoredMessageList>(
-      find.byType(LocationChatAnchoredMessageList),
-    );
-    expect(list.inspirationFeature.loading, isFalse);
-    expect(list.inspirationFeature.messages, isNotEmpty);
+      backend.inspirationTimeout = false;
+      backend.inspirationBarrier = null;
+      expect(
+        find.byKey(const ValueKey('inspiration-subscription-prompt')),
+        findsOneWidget,
+      );
+      await tester.tap(find.bySemanticsLabel('Inspiration'));
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => backend.inspirationRequests.length == 2,
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .inspirationFeature
+            .messages
+            .isNotEmpty,
+      );
+      list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(list.inspirationFeature.loading, isFalse);
+      expect(list.inspirationFeature.messages, isNotEmpty);
 
-    await tester.pump(const Duration(seconds: 3));
-    await tester.pumpWidget(const SizedBox.shrink());
-    unawaited(harness.service.dispose());
-    await tester.pump();
-  });
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump();
+    },
+  );
 
   for (final outcome in ['success', 'failure', 'new-round']) {
     testWidgets('inspiration confirms its card before sending: $outcome', (
@@ -7161,6 +7203,22 @@ void main() {
             isFalse,
             reason: 'The stale original card must never replace the selection.',
           );
+          final oldBodies = find.descendant(
+            of: find.byWidgetPredicate(
+              (widget) =>
+                  widget is ChatMessageRow &&
+                  widget.message.text == 'Candidate reply.',
+            ),
+            matching: find.byType(ChatStreamingBody),
+          );
+          for (final body in oldBodies.evaluate()) {
+            expect(
+              ChatStreamingBody.revealedGraphemesOf(body),
+              'Candidate reply.'.length,
+              reason:
+                  'Sending must not restart revelation of the old card above the new user bubble.',
+            );
+          }
         }
 
         expectSelectedCard();
@@ -7827,6 +7885,184 @@ void main() {
     await tester.pump();
   });
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final operation in ['send', 'send-closing', 'go-on', 'regenerate']) {
+      testWidgets(
+        'keyboard-open $operation matches closed position on $platform',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetDevicePixelRatio);
+          addTearDown(tester.view.resetViewInsets);
+          final backend = _LocationChatReplyHttpTransport();
+          final harness = await _mountCompletedReplyActionPanel(
+            tester,
+            backend: backend,
+            platform: platform,
+            initialUserText: 'Earlier conversation\n' * 30,
+          );
+          final listFinder = find.byType(LocationChatAnchoredMessageList);
+          LocationChatAnchoredMessageList list() =>
+              tester.widget<LocationChatAnchoredMessageList>(listFinder);
+          final closedViewport = tester.getRect(listFinder);
+          final expectedPosition =
+              closedViewport.top + closedViewport.height * .15;
+          // Focus adds the actual shortcut row as well as applying the keyboard.
+          await tester.showKeyboard(find.byType(TextField));
+          tester.view.viewInsets = const FakeViewPadding(bottom: 240);
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(
+            tester.getSize(listFinder).height,
+            lessThan(closedViewport.height - 240),
+          );
+          expect(
+            tester
+                .widget<Scaffold>(find.byType(Scaffold))
+                .resizeToAvoidBottomInset,
+            platform == TargetPlatform.android,
+            reason: 'Exercise both manual inset and Scaffold resize paths.',
+          );
+          final composer = tester.widget<ChatComposer>(
+            find.byType(ChatComposer),
+          );
+          String anchorId;
+          if (operation.startsWith('send')) {
+            composer.controller.text = 'A new message';
+            await tester.pump();
+            unawaited(composer.onSend());
+            if (operation == 'send-closing') {
+              // The keyboard closes DURING positioning, not after it settles.
+              for (var inset = 210.0; inset >= 0; inset -= 30) {
+                tester.view.viewInsets = FakeViewPadding(bottom: inset);
+                await tester.pump(const Duration(milliseconds: 16));
+              }
+            }
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => harness.socket.sendMessageCount == 1,
+            );
+            anchorId = list().messages.lastWhere((m) => m.isMe).localId;
+          } else {
+            anchorId = operation == 'go-on'
+                ? list().messages.last.localId
+                : list().messages.firstWhere((m) => m.isMe).localId;
+            if (operation == 'go-on') {
+              list().goOnFeature.onInvoke!();
+            } else {
+              list().regenerateFeature.onInvoke!();
+            }
+            await tester.pump();
+          }
+          await tester.pump();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 240));
+          await tester.pump();
+          double bottom() => ChatBubbleGeometry.globalBoundsOf(
+            tester.renderObject(
+              find.byWidgetPredicate(
+                (w) => w is ChatMessageRow && w.message.localId == anchorId,
+              ),
+            ),
+          )!.bottom;
+          expect(
+            bottom(),
+            closeTo(expectedPosition, 1),
+            reason:
+                'Open and closed keyboards must share the same reference point, including focus-only shortcut height.',
+          );
+          final held = list().coordinator.controller.position.pixels;
+          for (final inset
+              in operation == 'send-closing' ? [0.0] : [160.0, 80.0, 0.0]) {
+            tester.view.viewInsets = FakeViewPadding(bottom: inset);
+            await tester.pump();
+            expect(bottom(), closeTo(expectedPosition, 1));
+            expect(
+              list().coordinator.controller.position.pixels,
+              closeTo(held, .1),
+            );
+          }
+          if (operation.startsWith('send')) {
+            harness.socket.serverV2AckForLatestSend(errNo: 9001);
+          } else {
+            harness.socket.serverReplyActionAck(
+              operation == 'go-on' ? 'go_on' : 'regenerate_llm_card',
+              roundId: 301,
+              errNo: 9001,
+            );
+          }
+          await tester.pump();
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+          unawaited(harness.service.dispose());
+          await tester.pump(const Duration(seconds: 3));
+        },
+      );
+    }
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('opening keyboard consumes Send waiting space on $platform', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(800, 1000);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetViewInsets);
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: _LocationChatReplyHttpTransport(),
+        platform: platform,
+        initialUserText: 'Earlier conversation\n' * 40,
+      );
+      ChatComposer composer() =>
+          tester.widget<ChatComposer>(find.byType(ChatComposer));
+      LocationChatAnchoredMessageList list() =>
+          tester.widget<LocationChatAnchoredMessageList>(
+            find.byType(LocationChatAnchoredMessageList),
+          );
+      composer().controller.text = 'Keep this message in place';
+      await tester.pump();
+      unawaited(composer().onSend());
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.socket.sendMessageCount == 1,
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump();
+      final anchor = list().messages.lastWhere((m) => m.isMe).localId;
+      double bottom() => ChatBubbleGeometry.globalBoundsOf(
+        tester.renderObject(
+          find.byWidgetPredicate(
+            (w) => w is ChatMessageRow && w.message.localId == anchor,
+          ),
+        ),
+      )!.bottom;
+      final held = list().coordinator.controller.position.pixels;
+      final before = bottom();
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      expect(bottom(), closeTo(before, 1));
+      for (final inset in [60.0, 120.0, 180.0, 240.0]) {
+        tester.view.viewInsets = FakeViewPadding(bottom: inset);
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(bottom(), closeTo(before, 1), reason: 'inset=$inset');
+        expect(
+          list().coordinator.controller.position.pixels,
+          closeTo(held, .1),
+        );
+      }
+      harness.socket.serverV2AckForLatestSend(errNo: 9001);
+      await tester.pump();
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'composer Send keeps one stable waiting position while iOS keyboard closes',
     (WidgetTester tester) async {
@@ -8197,6 +8433,110 @@ void main() {
     await service.dispose();
   });
 
+  for (final terminalOnly in [false, true]) {
+    testWidgets(
+      'Send unlocks with toolbar after queued reveal, terminalOnly=$terminalOnly',
+      (tester) async {
+        final harness = await _mountCompletedReplyActionPanel(
+          tester,
+          backend: _LocationChatReplyHttpTransport(),
+        );
+        ChatComposer composer() =>
+            tester.widget<ChatComposer>(find.byType(ChatComposer));
+        LocationChatAnchoredMessageList list() =>
+            tester.widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            );
+        composer().controller.text = 'send now';
+        await tester.pumpAndSettle();
+        expect(composer().sendEnabled, isTrue);
+        unawaited(composer().onSend());
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => harness.socket.sendMessageCount == 1,
+        );
+        expect(composer().sendEnabled, isFalse);
+        final request = harness.socket.replyActionFrames('send_message').single;
+        harness.socket.serverWaitingConversationRound(roundId: 401);
+        harness.socket.serverV2AckForLatestSend(errNo: 0);
+        harness.socket.serverV2UserMessage(
+          messageId: 401,
+          clientMsgId: request['client_msg_id'] as String,
+          content: 'send now',
+          conversationType: 'user_message',
+        );
+        await tester.pump();
+        composer().controller.text = 'next draft';
+        for (final id in [402, 403]) {
+          if (!terminalOnly) {
+            harness.socket.serverV2StreamFrame(
+              streamType: 'llm_stream_start',
+              roundId: 401,
+              messageId: id,
+              conversationType: 'user_message',
+            );
+            harness.socket.serverV2StreamFrame(
+              streamType: 'llm_chunk',
+              roundId: 401,
+              messageId: id,
+              seq: 1,
+              content: 'Reply $id ' * 30,
+              conversationType: 'user_message',
+            );
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          harness.socket.serverV2StreamFrame(
+            streamType: 'llm_stream_end',
+            roundId: 401,
+            messageId: id,
+            content: 'Reply $id ' * 30,
+            conversationType: 'user_message',
+          );
+        }
+        harness.socket.serverEndConversationRound(
+          roundId: 401,
+          conversationType: 'user_message',
+        );
+        await _pumpUntilLocationChatTest(
+          tester,
+          () => !harness.service.state.waitingConversationRoundIdsByLocation
+              .containsKey('location-current'),
+        );
+        await tester.pump();
+        expect(
+          composer().sendEnabled,
+          isFalse,
+          reason: 'Backend end is not reveal completion.',
+        );
+        await composer().onSend();
+        expect(
+          harness.socket.sendMessageCount,
+          1,
+          reason: 'The send entry must also reject sends during reveal.',
+        );
+        expect(composer().controller.text, 'next draft');
+        var unlocked = false;
+        for (var frame = 0; frame < 500; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(
+            composer().sendEnabled,
+            list().editFeature.enabled,
+            reason: 'Send and toolbar must unlock on the same frame ($frame).',
+          );
+          if (composer().sendEnabled) {
+            unlocked = true;
+            break;
+          }
+        }
+        expect(unlocked, isTrue);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+        unawaited(harness.service.dispose());
+        await tester.pump(const Duration(seconds: 3));
+      },
+    );
+  }
+
   testWidgets('server waiting round disables send until matching end event', (
     WidgetTester tester,
   ) async {
@@ -8226,7 +8566,7 @@ void main() {
     final composerFinder = find.byType(ChatComposer);
     final composer = tester.widget<ChatComposer>(composerFinder);
     composer.controller.text = 'draft while the server responds';
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
 
     socket.serverWaitingConversationRound(roundId: 301);
@@ -8320,6 +8660,8 @@ void main() {
       ),
     );
     await tester.pump();
+    expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isFalse);
+    await tester.pumpAndSettle();
     expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
     expect(
       tester
@@ -11533,6 +11875,8 @@ _mountCompletedReplyActionPanel(
   String conversationType = 'user_message',
   String triggerUid = 'user-1',
   bool waitForEdit = true,
+  TargetPlatform? platform,
+  String? initialUserText,
   ChatroomInspirationStorage? inspirationStorage,
 }) async {
   final harness = await _connectedLocationChatTestService(
@@ -11560,6 +11904,7 @@ _mountCompletedReplyActionPanel(
       services: harness.services,
       child: MaterialApp(
         scrollBehavior: const GenesisScrollBehavior(),
+        theme: platform == null ? null : ThemeData(platform: platform),
         onGenerateRoute: AppRouter.onGenerateRoute,
         home: LocationChatPanel(
           worldId: 'world-current',
@@ -11580,8 +11925,12 @@ _mountCompletedReplyActionPanel(
     conversationType: conversationType,
     triggerUid: triggerUid,
   );
+  if (initialUserText != null) {
+    backend.messages.first['payload'] = {'content': initialUserText};
+  }
   harness.socket.serverV2UserMessage(
     messageId: 301,
+    content: initialUserText,
     conversationType: conversationType,
     triggerUid: triggerUid,
   );

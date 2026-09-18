@@ -17,6 +17,49 @@ typedef LocationChatReplyControlsSnapshot = ({
   bool canExplainRegenerateLimit,
 });
 
+typedef LocationChatRenderedReplyControls = ({
+  LocationChatReplyControlsSnapshot actions,
+  bool visible,
+});
+
+/// Holds the last pending toolbar until terminal data AND its presentation have
+/// settled. Network completion remains independent of this UI-only barrier.
+class LocationChatReplyControlsRenderGate {
+  LocationChatRenderedReplyControls? _previous;
+
+  void reset() => _previous = null;
+
+  LocationChatRenderedReplyControls resolve(
+    LocationChatRenderedReplyControls next, {
+    required bool backendPending,
+    required bool presentationSettled,
+    bool discardPending = false,
+  }) {
+    if (backendPending || presentationSettled || discardPending) {
+      return _previous = next;
+    }
+    final retained = _previous;
+    final actions = retained?.actions ?? next.actions;
+    // A terminal-only arrival may have no preceding busy frame. Never retain
+    // clickable actions from the previous round in that case.
+    LocationChatReplyActionState hold(LocationChatReplyActionState state) =>
+        state == LocationChatReplyActionState.idle
+        ? LocationChatReplyActionState.disabled
+        : state;
+    return (
+      visible: retained?.visible ?? false,
+      actions: (
+        hidden: actions.hidden,
+        regenerate: hold(actions.regenerate),
+        goOn: hold(actions.goOn),
+        edit: hold(actions.edit),
+        inspiration: hold(actions.inspiration),
+        canExplainRegenerateLimit: false,
+      ),
+    );
+  }
+}
+
 LocationChatReplyControlsSnapshot resolveLocationChatReplyControls({
   required bool hidden,
   required bool blocked,

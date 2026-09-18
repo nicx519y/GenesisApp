@@ -30,6 +30,45 @@ class _JumpRecordingScrollController extends ScrollController {
 }
 
 void main() {
+  testWidgets(
+    'bubble geometry excludes margin and a taller neighboring avatar',
+    (tester) async {
+      const rowKey = ValueKey('geometry-row');
+      const surfaceKey = ValueKey('geometry-surface');
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: Row(
+              key: rowKey,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(width: 80, height: 200),
+                ChatBubbleSurface(
+                  surfaceKey: surfaceKey,
+                  color: Colors.black,
+                  borderRadius: BorderRadius.zero,
+                  padding: EdgeInsets.symmetric(vertical: 17, horizontal: 13),
+                  margin: EdgeInsets.only(top: 7, bottom: 39),
+                  child: Text('body'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      final body = ChatBubbleGeometry.globalBoundsOf(
+        tester.renderObject(find.byKey(rowKey)),
+      )!;
+      expect(body, tester.getRect(find.byKey(surfaceKey)));
+      expect(
+        body.bottom,
+        lessThan(tester.getBottomLeft(find.byKey(rowKey)).dy),
+      );
+      expect(body.height, tester.getSize(find.text('body')).height + 34);
+      expect(body.top, 7);
+    },
+  );
+
   test('private chat uses dark surfaces and standard input tokens', () {
     expect(kPrivateChatStyle.composerSendButtonColor, GenesisColors.redPrimary);
     expect(
@@ -2423,7 +2462,8 @@ void main() {
         backdrop.filterConfig,
         const ImageFilterConfig.blur(sigmaX: 14, sigmaY: 14, bounded: false),
       );
-      expect(backdrop.child, isA<Container>());
+      expect(backdrop.child, isA<ChatBubbleGeometry>());
+      expect((backdrop.child! as ChatBubbleGeometry).child, isA<Container>());
     }
 
     final aiName = tester.widget<Text>(

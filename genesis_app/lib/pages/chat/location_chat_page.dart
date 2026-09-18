@@ -450,6 +450,7 @@ class LocationChatPanel extends StatefulWidget {
 }
 
 class _LocationChatPanelState extends State<LocationChatPanel> {
+  final _unobscuredPanelKey = GlobalKey();
   ValueListenable<ChatroomLocationEntry>? _entryChanges;
   bool get _usesPreparedEntry =>
       widget.usePreparedEntry && widget.service != null;
@@ -477,6 +478,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   ChatroomReplyActionsController? _replyController;
   Listenable? _replyLocationChanges;
   final ValueNotifier<int> _replyControlsRevision = ValueNotifier<int>(0);
+  final _replyRenderGate = LocationChatReplyControlsRenderGate();
+  final _replyPresentationContextKey = GlobalKey();
   final ValueNotifier<int> _messageViewportRevision = ValueNotifier<int>(0);
   Object? _lastReplyBodyRevision;
   int _replyProjectionEpoch = 0;
@@ -507,7 +510,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   }
 
   void _handleReplyTransitionChanged(bool busy) {
-    if (mounted) _setReplyControlsState(() => _replyCardTransitionBusy = busy);
+    if (!mounted) return;
+    _setReplyControlsState(() => _replyCardTransitionBusy = busy);
+    // Re-arm layout settlement before a replacement card exposes its controls.
+    if (!busy) _notifyMessageViewport();
   }
 
   ChatroomInspirationController? _inspirationController;
@@ -593,6 +599,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   String? _preAckWaitingMessageLocalId;
   bool _preAckWaitingAccepted = false;
   int _waitingPositionResetRevision = 0;
+  int _waitingPositionOperation = 0;
+  String? _waitingPositionClientMsgId;
   String? _ackLoadingClientMsgId;
   String? _ackLoadingMessageLocalId;
   Timer? _ackLoadingTimeout;
@@ -1132,6 +1140,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                   !_replyGenerationInProgress &&
                   !_initialMessageSendPending &&
                   !_sendAwaitingResponse &&
+                  _replyReadyToSend(context) &&
                   !inputBlocked,
               sending: false,
               onSend: () {
@@ -1237,104 +1246,112 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       ),
     );
 
-    return GenesisBottomSystemBarStyleScope(
-      style: GenesisBottomSystemBarStyle(color: style.composerBackgroundColor),
-      child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: widget.systemUiOverlayStyle,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: _LocationChatBackground(
-                imageUrl: widget.backgroundImageUrl,
-                previewImageUrl: widget.backgroundPreviewImageUrl,
-                color: style.conversationBackgroundColor,
-                enabled: widget.renderBackgroundImage,
+    return ValueListenableBuilder<int>(
+      valueListenable: _messageViewportRevision,
+      builder: (context, _, child) => _withReplyStreamingEffects(child!),
+      child: GenesisBottomSystemBarStyleScope(
+        style: GenesisBottomSystemBarStyle(
+          color: style.composerBackgroundColor,
+        ),
+        child: AnnotatedRegion<SystemUiOverlayStyle>(
+          value: widget.systemUiOverlayStyle,
+          child: Stack(
+            key: _unobscuredPanelKey,
+            children: [
+              Positioned.fill(
+                child: _LocationChatBackground(
+                  imageUrl: widget.backgroundImageUrl,
+                  previewImageUrl: widget.backgroundPreviewImageUrl,
+                  color: style.conversationBackgroundColor,
+                  enabled: widget.renderBackgroundImage,
+                ),
               ),
-            ),
-            Positioned.fill(
-              child: Scaffold(
-                backgroundColor: Colors.transparent,
-                resizeToAvoidBottomInset:
-                    !managesKeyboardInset &&
-                    _composerFocusNode.hasFocus &&
-                    !_mentionComposerPositionFrozen,
-                body: _LocationChatKeyboardInsetLayout(
-                  key: const ValueKey<String>(
-                    'location-chat-ios-keyboard-inset',
-                  ),
-                  managesKeyboardInset:
-                      managesKeyboardInset && !_ignoreInheritedKeyboardInset,
-                  freezeKeyboardInset: _mentionComposerPositionFrozen,
-                  frozenKeyboardInset: _mentionSheetKeyboardInset,
-                  onFrozenKeyboardInsetRestored:
-                      _handleMentionKeyboardInsetRestored,
-                  bottomSafeAreaInset: bottomSafeAreaInset,
-                  onKeyboardMotionTraceSettled: kDebugMode
-                      ? (samples) {
-                          if (!LocationChatDebugSlice.enabled) return;
-                          LocationChatDebugSlice.recordEvent(
-                            source: 'panel',
-                            action: 'keyboard_motion_settled',
-                            worldId: widget.worldId,
-                            locationId: widget.locationId,
-                            details: <String, Object?>{
-                              'sampleCount': samples.length,
-                              'samples': samples,
-                            },
-                          );
-                        }
-                      : null,
-                  messageViewport: messageViewport,
-                  header: header,
-                  composerTopOverlay: widget.showComposer
-                      ? widget.composerTopOverlay
-                      : null,
-                  composer: composer == null
-                      ? null
-                      : RepaintBoundary(
-                          child: _LocationChatComposerExtension(
-                            style: style,
-                            child: composer,
+              Positioned.fill(
+                child: Scaffold(
+                  backgroundColor: Colors.transparent,
+                  resizeToAvoidBottomInset:
+                      !managesKeyboardInset &&
+                      _composerFocusNode.hasFocus &&
+                      !_mentionComposerPositionFrozen,
+                  body: _LocationChatKeyboardInsetLayout(
+                    unobscuredPanelKey: _unobscuredPanelKey,
+                    key: const ValueKey<String>(
+                      'location-chat-ios-keyboard-inset',
+                    ),
+                    managesKeyboardInset:
+                        managesKeyboardInset && !_ignoreInheritedKeyboardInset,
+                    freezeKeyboardInset: _mentionComposerPositionFrozen,
+                    frozenKeyboardInset: _mentionSheetKeyboardInset,
+                    onFrozenKeyboardInsetRestored:
+                        _handleMentionKeyboardInsetRestored,
+                    bottomSafeAreaInset: bottomSafeAreaInset,
+                    onKeyboardMotionTraceSettled: kDebugMode
+                        ? (samples) {
+                            if (!LocationChatDebugSlice.enabled) return;
+                            LocationChatDebugSlice.recordEvent(
+                              source: 'panel',
+                              action: 'keyboard_motion_settled',
+                              worldId: widget.worldId,
+                              locationId: widget.locationId,
+                              details: <String, Object?>{
+                                'sampleCount': samples.length,
+                                'samples': samples,
+                              },
+                            );
+                          }
+                        : null,
+                    messageViewport: messageViewport,
+                    header: header,
+                    composerTopOverlay: widget.showComposer
+                        ? widget.composerTopOverlay
+                        : null,
+                    composer: composer == null
+                        ? null
+                        : RepaintBoundary(
+                            child: _LocationChatComposerExtension(
+                              style: style,
+                              child: composer,
+                            ),
                           ),
-                        ),
-                ),
-              ),
-            ),
-            if (_supportsEdgeSwipeBack)
-              PositionedDirectional(
-                start: 0,
-                top: 0,
-                bottom: 0,
-                width: _edgeSwipeBackWidth(context),
-                child: GestureDetector(
-                  behavior: HitTestBehavior.translucent,
-                  onHorizontalDragStart: _handleEdgeSwipeBackStart,
-                  onHorizontalDragUpdate: _handleEdgeSwipeBackUpdate,
-                  onHorizontalDragEnd: _handleEdgeSwipeBackEnd,
-                  onHorizontalDragCancel: _resetEdgeSwipeBack,
-                ),
-              ),
-            if (_rosterOpen)
-              Positioned(
-                key: const ValueKey<String>('location-chat-roster-layer'),
-                left: 16,
-                right: 16,
-                top: headerHeight + 4,
-                child: TapRegion(
-                  groupId: _rosterTapRegionGroup,
-                  onTapOutside: (_) {
-                    if (mounted && _rosterOpen) {
-                      setState(() => _rosterOpen = false);
-                    }
-                  },
-                  child: _LocationChatRoster(
-                    key: const ValueKey<String>('location-chat-roster'),
-                    occupants: occupants,
-                    selfOccupantId: selfOccupantId,
                   ),
                 ),
               ),
-          ],
+              if (_supportsEdgeSwipeBack)
+                PositionedDirectional(
+                  start: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: _edgeSwipeBackWidth(context),
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.translucent,
+                    onHorizontalDragStart: _handleEdgeSwipeBackStart,
+                    onHorizontalDragUpdate: _handleEdgeSwipeBackUpdate,
+                    onHorizontalDragEnd: _handleEdgeSwipeBackEnd,
+                    onHorizontalDragCancel: _resetEdgeSwipeBack,
+                  ),
+                ),
+              if (_rosterOpen)
+                Positioned(
+                  key: const ValueKey<String>('location-chat-roster-layer'),
+                  left: 16,
+                  right: 16,
+                  top: headerHeight + 4,
+                  child: TapRegion(
+                    groupId: _rosterTapRegionGroup,
+                    onTapOutside: (_) {
+                      if (mounted && _rosterOpen) {
+                        setState(() => _rosterOpen = false);
+                      }
+                    },
+                    child: _LocationChatRoster(
+                      key: const ValueKey<String>('location-chat-roster'),
+                      occupants: occupants,
+                      selfOccupantId: selfOccupantId,
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1546,6 +1563,7 @@ class _OccupantChevronPainter extends CustomPainter {
 class _LocationChatKeyboardInsetLayout extends StatefulWidget {
   const _LocationChatKeyboardInsetLayout({
     super.key,
+    required this.unobscuredPanelKey,
     required this.managesKeyboardInset,
     required this.freezeKeyboardInset,
     required this.frozenKeyboardInset,
@@ -1559,6 +1577,7 @@ class _LocationChatKeyboardInsetLayout extends StatefulWidget {
   });
 
   final bool managesKeyboardInset;
+  final GlobalKey unobscuredPanelKey;
   final bool freezeKeyboardInset;
   final double frozenKeyboardInset;
   final VoidCallback onFrozenKeyboardInsetRestored;
@@ -1578,6 +1597,7 @@ class _LocationChatKeyboardInsetLayoutState
     extends State<_LocationChatKeyboardInsetLayout>
     with WidgetsBindingObserver {
   int _keyboardMetricsGeneration = 0;
+  final _composerGeometryKey = GlobalKey();
   double _liveKeyboardInset = 0;
   double _frozenKeyboardInset = 0;
   List<Map<String, Object?>>? _keyboardMotionSamples;
@@ -1763,6 +1783,23 @@ class _LocationChatKeyboardInsetLayoutState
       padding: EdgeInsets.only(bottom: liveKeyboardInset),
       child: LocationChatKeyboardInsetScope(
         effectiveInset: liveKeyboardInset,
+        referenceHeightAdjustment: () {
+          final panel = widget.unobscuredPanelKey.currentContext
+              ?.findRenderObject();
+          final body = context.findRenderObject();
+          final scaffoldReduction =
+              panel is RenderBox &&
+                  panel.hasSize &&
+                  body is RenderBox &&
+                  body.hasSize
+              ? math.max(0.0, panel.size.height - body.size.height)
+              : 0.0;
+          return liveKeyboardInset +
+              scaffoldReduction +
+              ChatComposer.keyboardExpansionOf(
+                _composerGeometryKey.currentContext?.findRenderObject(),
+              );
+        },
         child: Column(
           children: [
             widget.header,
@@ -1789,7 +1826,8 @@ class _LocationChatKeyboardInsetLayoutState
                 ],
               ),
             ),
-            if (widget.composer != null) widget.composer!,
+            if (widget.composer != null)
+              KeyedSubtree(key: _composerGeometryKey, child: widget.composer!),
           ],
         ),
       ),

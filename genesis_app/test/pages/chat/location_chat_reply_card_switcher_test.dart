@@ -1278,6 +1278,23 @@ void main() {
       find.byKey(const ValueKey('reply-card-regenerate-gradient')),
       findsNothing,
     );
+
+    // Reduced motion still retains the source while its bubble is measured;
+    // only the collapse animation itself is skipped after positioning.
+    update(() => currentCardId = 1);
+    await tester.pump();
+    expect(
+      key.currentState!.beginRegenerateCollapse(deferAnimation: true),
+      isTrue,
+    );
+    update(() => currentCardId = 2);
+    await tester.pump();
+    expect(find.byKey(const ValueKey('reduced-motion-body-1')), findsOneWidget);
+    expect(find.byKey(const ValueKey('reduced-motion-body-2')), findsNothing);
+    key.currentState!.resumeRegenerateCollapse();
+    await tester.pump();
+    expect(find.byKey(const ValueKey('reduced-motion-body-1')), findsNothing);
+    expect(find.byKey(const ValueKey('reduced-motion-body-2')), findsOneWidget);
   });
 
   testWidgets(

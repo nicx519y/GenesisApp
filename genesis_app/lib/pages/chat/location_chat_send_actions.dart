@@ -51,6 +51,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _replyGenerationInProgress ||
         _preparingReplyAction ||
         _replyCardTransitionBusy ||
+        _replyPresentationBlocksSend ||
         _sending) {
       return;
     }
@@ -75,11 +76,14 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     late final String clientMsgId;
     late final ChatMessageVm localMessage;
     var optimisticMessageAdded = false;
+    final positionWaiting =
+        positionWaitingImmediately &&
+        locationChatBubbleLayoutSettings.value.replyWaitingPositioningEnabled;
 
     void addOptimisticMessage() {
-      final needsLatestMessageReveal =
-          positionWaitingImmediately &&
-          _scrollCoordinator.prepareWaitingReplyPosition();
+      if (positionWaiting) {
+        _scrollCoordinator.prepareWaitingReplyPosition();
+      }
       clientMsgId = _nextClientMsgId();
       localMessage =
           outgoingMessage ??
@@ -100,6 +104,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       _setLocationChatState(() {
         _clearAckLoading();
         _sending = true;
+        if (positionWaitingImmediately) {
+          _waitingPositionOperation++;
+          _waitingPositionClientMsgId = clientMsgId;
+        }
         if (replyActionsSuppressionIdentity != null) {
           _suppressedReplyActionsIdentity = replyActionsSuppressionIdentity;
         }
@@ -108,7 +116,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         localMessage.status = 'sending';
         localMessage.error = null;
         if (!_messages.contains(localMessage)) _messages.add(localMessage);
-        if (positionWaitingImmediately) {
+        if (positionWaiting) {
           _preAckWaitingClientMsgId = clientMsgId;
           _preAckWaitingMessageLocalId = localMessage.localId;
           _preAckWaitingAccepted = false;
@@ -131,8 +139,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           'vm': LocationChatDebugSlice.debugRenderMessage(localMessage),
         },
       );
-      if (outgoingMessage == null &&
-          (!positionWaitingImmediately || needsLatestMessageReveal)) {
+      if (outgoingMessage == null && !positionWaiting) {
         _scrollCoordinator.requestBottom(
           reason: LocationChatBottomReason.sentMessage,
           behavior: LocationChatBottomBehavior.jump,
@@ -483,14 +490,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   String _nextClientMsgId() {
     _clientMsgCounter += 1;
     return '${DateTime.now().microsecondsSinceEpoch}-$_clientMsgCounter';
-  }
-
-  String _latestMessageLocalId() {
-    final unreadCandidates = _messages.where(
-      (message) => message.status != 'system',
-    );
-    if (unreadCandidates.isEmpty) return '';
-    return unreadCandidates.last.localId;
   }
 
   bool _syncHasMoreOlderMessagesForSource(List<WorldChatroomMessage> source) {

@@ -28,26 +28,30 @@ class ChatBubbleSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final surface = Container(
-      key: surfaceKey,
-      margin: margin,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: borderRadius,
-        border: foregroundBorder ? null : border,
+    final surface = ChatBubbleGeometry(
+      child: Container(
+        key: surfaceKey,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: color,
+          borderRadius: borderRadius,
+          border: foregroundBorder ? null : border,
+        ),
+        foregroundDecoration: foregroundBorder && border != null
+            ? BoxDecoration(border: border, borderRadius: borderRadius)
+            : null,
+        child: ChatStreamingBody(child: child),
       ),
-      foregroundDecoration: foregroundBorder && border != null
-          ? BoxDecoration(border: border, borderRadius: borderRadius)
-          : null,
-      child: ChatStreamingBody(child: child),
     );
-    return blurSigma > 0
+    final decorated = blurSigma > 0
         ? ChatStableBackdropSurface(
             borderRadius: borderRadius,
             sigma: blurSigma,
             child: surface,
           )
         : surface;
+    return margin == null
+        ? decorated
+        : Padding(padding: margin!, child: decorated);
   }
 }
