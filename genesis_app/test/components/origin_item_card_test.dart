@@ -394,6 +394,73 @@ void main() {
     expect(find.text('#Retried Origin'), findsOneWidget);
   });
 
+  testWidgets('starts on enable and cancels transport when disabled', (
+    WidgetTester tester,
+  ) async {
+    final pendingFrame = Completer<ImageInfo>();
+    OriginItemCoverLoadCancellationToken? capturedToken;
+    var attempts = 0;
+    debugOriginItemCoverImageProvider = (provider) {
+      attempts += 1;
+      final throttled = provider as OriginItemCoverThrottledImageProvider;
+      capturedToken = throttled.cancellationToken;
+      return _CompletingTestImageProvider(pendingFrame.future);
+    };
+
+    const item = OriginListItem(
+      oid: 'o_priority',
+      status: 1,
+      versionNum: 1,
+      name: 'Priority Origin',
+      cover: 'https://cdn.example.com/priority.webp',
+      displaySubtitle: 'Viewport controlled',
+      worldView: '',
+      createdUid: 'u_1',
+      createdUserName: 'Shawn',
+      createdAt: '2026-05-01T00:00:00Z',
+      updatedAt: '2026-05-02T00:00:00Z',
+      tags: <String>[],
+      copyCnt: 0,
+      connectCnt: 0,
+      discussCnt: 0,
+      characterCnt: 0,
+      locationCnt: 0,
+    );
+
+    Widget buildCard(OriginItemCoverLoadPriority priority) {
+      return MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 220,
+            child: OriginItemCard(item: item, coverLoadPriority: priority),
+          ),
+        ),
+      );
+    }
+
+    await tester.pumpWidget(buildCard(OriginItemCoverLoadPriority.disabled));
+    expect(attempts, 0);
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-cover-loader')),
+      findsNothing,
+    );
+
+    await tester.pumpWidget(buildCard(OriginItemCoverLoadPriority.visible));
+    await tester.pump();
+    expect(attempts, 1);
+    expect(capturedToken, isNotNull);
+    expect(capturedToken!.isCancelled, isFalse);
+
+    await tester.pumpWidget(buildCard(OriginItemCoverLoadPriority.disabled));
+    await tester.pump();
+    expect(capturedToken!.isCancelled, isTrue);
+    expect(capturedToken!.networkToken.isCancelled, isTrue);
+    expect(
+      find.byKey(const ValueKey<String>('origin-item-card-cover-loader')),
+      findsNothing,
+    );
+  });
+
   testWidgets('keeps the item background when cover loading fails', (
     WidgetTester tester,
   ) async {

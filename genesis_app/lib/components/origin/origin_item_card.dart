@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -149,10 +150,16 @@ class OriginListItem {
 }
 
 class OriginItemCard extends StatefulWidget {
-  const OriginItemCard({super.key, required this.item, this.onCoverLoaded});
+  const OriginItemCard({
+    super.key,
+    required this.item,
+    this.onCoverLoaded,
+    this.coverLoadPriority = OriginItemCoverLoadPriority.visible,
+  });
 
   final OriginListItem item;
   final VoidCallback? onCoverLoaded;
+  final OriginItemCoverLoadPriority coverLoadPriority;
 
   @override
   State<OriginItemCard> createState() => _OriginItemCardState();
@@ -165,18 +172,22 @@ class _OriginItemCardState extends State<OriginItemCard> {
   var _coverLoadRevision = 0;
   Timer? _coverLoadRetryTimer;
   var _coverLoadCancellationToken = OriginItemCoverLoadCancellationToken();
+  late final ValueNotifier<OriginItemCoverLoadPriority>
+  _coverLoadPriorityListenable = ValueNotifier<OriginItemCoverLoadPriority>(
+    widget.coverLoadPriority,
+  );
 
   @override
   void didUpdateWidget(covariant OriginItemCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.item.oid != widget.item.oid ||
         oldWidget.item.cover != widget.item.cover) {
-      _coverLoadRetryTimer?.cancel();
-      _coverLoadRetryTimer = null;
-      _coverLoadCancellationToken.cancel();
-      _coverLoadCancellationToken = OriginItemCoverLoadCancellationToken();
+      _resetCoverLoad();
       _coverLoadNotified = false;
       _coverLoadRevision = 0;
+    }
+    if (oldWidget.coverLoadPriority != widget.coverLoadPriority) {
+      _updateCoverLoadPriority(widget.coverLoadPriority);
     }
   }
 
@@ -184,7 +195,38 @@ class _OriginItemCardState extends State<OriginItemCard> {
   void dispose() {
     _coverLoadRetryTimer?.cancel();
     _coverLoadCancellationToken.cancel();
+    _coverLoadPriorityListenable.dispose();
     super.dispose();
+  }
+
+  void _resetCoverLoad() {
+    _coverLoadRetryTimer?.cancel();
+    _coverLoadRetryTimer = null;
+    _coverLoadCancellationToken.cancel();
+    _coverLoadCancellationToken = OriginItemCoverLoadCancellationToken();
+    _coverLoadPriorityListenable.value = widget.coverLoadPriority;
+  }
+
+  void _updateCoverLoadPriority(OriginItemCoverLoadPriority priority) {
+    if (_coverLoadNotified) {
+      _coverLoadPriorityListenable.value = priority;
+      return;
+    }
+    final previous = _coverLoadPriorityListenable.value;
+    if (priority == OriginItemCoverLoadPriority.disabled) {
+      _coverLoadRetryTimer?.cancel();
+      _coverLoadRetryTimer = null;
+      _coverLoadPriorityListenable.value = priority;
+      _coverLoadCancellationToken.cancel();
+      return;
+    }
+    if (previous == OriginItemCoverLoadPriority.disabled) {
+      _coverLoadCancellationToken = OriginItemCoverLoadCancellationToken();
+      _coverLoadPriorityListenable.value = priority;
+      _coverLoadRevision += 1;
+      return;
+    }
+    _coverLoadPriorityListenable.value = priority;
   }
 
   void _notifyCoverLoaded() {
@@ -198,12 +240,18 @@ class _OriginItemCardState extends State<OriginItemCard> {
   }
 
   void _scheduleCancelledCoverLoadRetry() {
+    if (widget.coverLoadPriority == OriginItemCoverLoadPriority.disabled) {
+      return;
+    }
     if (_coverLoadRetryTimer != null) return;
     final oid = widget.item.oid;
     final cover = widget.item.cover;
     _coverLoadRetryTimer = Timer(_cancelledLoadRetryDelay, () {
       _coverLoadRetryTimer = null;
       if (!mounted || widget.item.oid != oid || widget.item.cover != cover) {
+        return;
+      }
+      if (widget.coverLoadPriority == OriginItemCoverLoadPriority.disabled) {
         return;
       }
       if (Scrollable.recommendDeferredLoadingForContext(context)) {
@@ -247,7 +295,10 @@ class _OriginItemCardState extends State<OriginItemCard> {
                   key: ValueKey<String>('origin-item-card-loading'),
                   child: GenesisOriginCardLoadingBone(borderRadius: 0),
                 ),
-                if (resolvedImageUrl.isNotEmpty)
+                if (resolvedImageUrl.isNotEmpty &&
+                    (_coverLoadNotified ||
+                        widget.coverLoadPriority !=
+                            OriginItemCoverLoadPriority.disabled))
                   Positioned(
                     left: 0,
                     right: 0,
@@ -294,6 +345,7 @@ class _OriginItemCardState extends State<OriginItemCard> {
       outputWidth: math.max(1, (width * devicePixelRatio).ceil()),
       outputHeight: math.max(1, (coverHeight * devicePixelRatio).ceil()),
       cancellationToken: _coverLoadCancellationToken,
+      priorityListenable: _coverLoadPriorityListenable,
     );
     final ImageProvider<Object> coverProvider =
         debugOriginItemCoverImageProvider?.call(sourceProvider) ??
@@ -346,6 +398,7 @@ ImageProvider<Object> _originCoverProvider(
   required int outputWidth,
   required int outputHeight,
   required OriginItemCoverLoadCancellationToken cancellationToken,
+  required ValueListenable<OriginItemCoverLoadPriority> priorityListenable,
 }) {
   if (imageUrl.startsWith('assets/')) return AssetImage(imageUrl);
   return OriginItemCoverThrottledImageProvider(
@@ -354,8 +407,10 @@ ImageProvider<Object> _originCoverProvider(
       cacheWidth: outputWidth,
       cacheHeight: outputHeight,
       fit: BoxFit.cover,
+      cancellationToken: cancellationToken.networkToken,
     ),
     cancellationToken: cancellationToken,
+    priorityListenable: priorityListenable,
   );
 }
 

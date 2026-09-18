@@ -9,6 +9,7 @@ import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
 import '../../app/config/genesis_image_config.dart';
 import '../../network/genesis_http_cache_manager.dart';
+import '../../network/http_transport.dart';
 import '../../utils/genesis_image_resource.dart';
 
 @visibleForTesting
@@ -130,6 +131,7 @@ class GenesisStaticNetworkImageProvider
     this.cacheWidth,
     this.cacheHeight,
     this.fit,
+    this.cancellationToken,
   }) : imageUrl = imageUrl.trim(),
        cacheManager = cacheManager ?? GenesisHttpCacheManager();
 
@@ -138,6 +140,7 @@ class GenesisStaticNetworkImageProvider
   final int? cacheWidth;
   final int? cacheHeight;
   final BoxFit? fit;
+  final NetworkCancellationToken? cancellationToken;
 
   @override
   Future<GenesisStaticNetworkImageProvider> obtainKey(
@@ -175,20 +178,38 @@ class GenesisStaticNetworkImageProvider
     if (key.imageUrl.isEmpty) {
       throw StateError('Image URL is empty');
     }
-    final file = await key.cacheManager.getSingleFile(key.imageUrl);
+    final file = await key._getSingleFile();
+    key.cancellationToken?.throwIfCancelled();
     try {
       return await _decodeFile(key, file, decode);
+    } on NetworkRequestCancelledException {
+      rethrow;
     } catch (_) {
       await _removeCachedFileSafely(key);
     }
 
-    final retryFile = await key.cacheManager.getSingleFile(key.imageUrl);
+    final retryFile = await key._getSingleFile();
+    key.cancellationToken?.throwIfCancelled();
     try {
       return await _decodeFile(key, retryFile, decode);
+    } on NetworkRequestCancelledException {
+      rethrow;
     } catch (error, stackTrace) {
       await _removeCachedFileSafely(key);
       Error.throwWithStackTrace(error, stackTrace);
     }
+  }
+
+  Future<File> _getSingleFile() {
+    final token = cancellationToken;
+    final manager = cacheManager;
+    if (token != null && manager is GenesisHttpCacheManager) {
+      return manager.getSingleFileCancellable(
+        imageUrl,
+        cancellationToken: token,
+      );
+    }
+    return manager.getSingleFile(imageUrl);
   }
 
   Future<ImageInfo> _decodeFile(
@@ -196,9 +217,11 @@ class GenesisStaticNetworkImageProvider
     File file,
     ImageDecoderCallback decode,
   ) async {
+    key.cancellationToken?.throwIfCancelled();
     final buffer = await ui.ImmutableBuffer.fromUint8List(
       await file.readAsBytes(),
     );
+    key.cancellationToken?.throwIfCancelled();
     final hasTargetSize = key.cacheWidth != null || key.cacheHeight != null;
     final codec = await decode(
       buffer,
@@ -208,7 +231,12 @@ class GenesisStaticNetworkImageProvider
           : null,
     );
     try {
+      key.cancellationToken?.throwIfCancelled();
       final frame = await codec.getNextFrame();
+      if (key.cancellationToken?.isCancelled ?? false) {
+        frame.image.dispose();
+        throw const NetworkRequestCancelledException();
+      }
       return ImageInfo(image: frame.image, scale: 1);
     } finally {
       codec.dispose();

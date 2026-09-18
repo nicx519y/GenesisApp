@@ -1,6 +1,10 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:file/file.dart' show Directory, File;
+import 'package:file/memory.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/network/genesis_http_cache_manager.dart';
 import 'package:genesis_flutter_android/network/genesis_http_transport_pool.dart';
@@ -327,6 +331,206 @@ void main() {
       false,
     );
   });
+
+  test(
+    'cancellable image read returns a valid disk cache without network',
+    () async {
+      final transport = _RecordingTransport(
+        const TransportResponse(statusCode: 500, headers: {}, body: ''),
+      );
+      final manager = _newCancellableCacheManager(transport);
+      addTearDown(() async {
+        await manager.emptyCache();
+        await manager.dispose();
+      });
+      const url = 'https://cdn.example.com/cached.webp';
+      final bytes = Uint8List.fromList(utf8.encode('cached-image'));
+      await manager.putFile(
+        url,
+        bytes,
+        maxAge: const Duration(hours: 1),
+        fileExtension: 'webp',
+      );
+
+      final file = await manager.getSingleFileCancellable(
+        url,
+        cancellationToken: NetworkCancellationToken(),
+      );
+
+      expect(await file.readAsBytes(), bytes);
+      expect(transport.requests, isEmpty);
+    },
+  );
+
+  test(
+    'shared cancellable download survives one consumer cancellation',
+    () async {
+      final transport = _CancellablePendingTransport();
+      final manager = _newCancellableCacheManager(transport);
+      addTearDown(() async {
+        await manager.emptyCache();
+        await manager.dispose();
+      });
+      const url = 'https://cdn.example.com/shared.webp';
+      final firstToken = NetworkCancellationToken();
+      final secondToken = NetworkCancellationToken();
+      final first = manager.getSingleFileCancellable(
+        url,
+        cancellationToken: firstToken,
+      );
+      final firstExpectation = expectLater(
+        first,
+        throwsA(isA<NetworkRequestCancelledException>()),
+      );
+      final second = manager.getSingleFileCancellable(
+        url,
+        cancellationToken: secondToken,
+      );
+      await _waitForRequestCount(transport.requests, 1);
+
+      firstToken.cancel();
+      await firstExpectation;
+      expect(transport.cancellationCount, 0);
+      transport.complete(
+        TransportResponse(
+          statusCode: 200,
+          headers: const <String, String>{
+            'cache-control': 'public, max-age=60',
+            'content-type': 'image/webp',
+            'etag': 'shared-v1',
+          },
+          body: '',
+          bodyBytes: utf8.encode('shared-image'),
+        ),
+      );
+
+      final file = await second;
+      expect(await file.readAsString(), 'shared-image');
+      expect(transport.requests, hasLength(1));
+      expect(transport.cancellationCount, 0);
+      final cached = await manager.store.retrieveCacheData(url);
+      expect(cached?.eTag, 'shared-v1');
+      expect(cached!.validTill.isAfter(DateTime.now()), isTrue);
+    },
+  );
+
+  test(
+    'cancellable stale cache revalidates with ETag and keeps file on 304',
+    () async {
+      final transport = _RecordingTransport(
+        const TransportResponse(
+          statusCode: 304,
+          headers: <String, String>{
+            'cache-control': 'public, max-age=60',
+            'etag': 'image-v2',
+          },
+          body: '',
+        ),
+      );
+      final manager = _newCancellableCacheManager(transport);
+      addTearDown(() async {
+        await manager.emptyCache();
+        await manager.dispose();
+      });
+      const url = 'https://cdn.example.com/revalidated.webp';
+      final bytes = Uint8List.fromList(utf8.encode('stale-image'));
+      await manager.putFile(
+        url,
+        bytes,
+        eTag: 'image-v1',
+        maxAge: Duration.zero,
+        fileExtension: 'webp',
+      );
+
+      final file = await manager.getSingleFileCancellable(
+        url,
+        cancellationToken: NetworkCancellationToken(),
+      );
+
+      expect(await file.readAsBytes(), bytes);
+      expect(transport.requests, hasLength(1));
+      expect(transport.requests.single.headers['if-none-match'], 'image-v1');
+      final cached = await manager.store.retrieveCacheData(url);
+      expect(cached?.eTag, 'image-v2');
+      expect(cached!.validTill.isAfter(DateTime.now()), isTrue);
+    },
+  );
+
+  test(
+    'last consumer cancellation aborts transport and writes no cache',
+    () async {
+      final transport = _CancellablePendingTransport();
+      final manager = _newCancellableCacheManager(transport);
+      addTearDown(() async {
+        await manager.emptyCache();
+        await manager.dispose();
+      });
+      const url = 'https://cdn.example.com/cancelled.webp';
+      final firstToken = NetworkCancellationToken();
+      final secondToken = NetworkCancellationToken();
+      final first = manager.getSingleFileCancellable(
+        url,
+        cancellationToken: firstToken,
+      );
+      final second = manager.getSingleFileCancellable(
+        url,
+        cancellationToken: secondToken,
+      );
+      final firstExpectation = expectLater(
+        first,
+        throwsA(isA<NetworkRequestCancelledException>()),
+      );
+      final secondExpectation = expectLater(
+        second,
+        throwsA(isA<NetworkRequestCancelledException>()),
+      );
+      await _waitForRequestCount(transport.requests, 1);
+
+      firstToken.cancel();
+      expect(transport.cancellationCount, 0);
+      secondToken.cancel();
+
+      await Future.wait<void>(<Future<void>>[
+        firstExpectation,
+        secondExpectation,
+      ]);
+      await Future<void>.delayed(Duration.zero);
+      expect(transport.cancellationCount, 1);
+      expect(await manager.getFileFromCache(url), isNull);
+    },
+  );
+}
+
+var _cacheManagerSequence = 0;
+
+GenesisHttpCacheManager _newCancellableCacheManager(HttpTransport transport) {
+  _cacheManagerSequence += 1;
+  final key = 'origin-cancellable-test-$_cacheManagerSequence';
+  final memoryFileSystem = MemoryFileSystem.test();
+  final directory = memoryFileSystem.systemTempDirectory.createTempSync(key);
+  return GenesisHttpCacheManager.debug(
+    transport: transport,
+    config: Config(
+      key,
+      repo: JsonCacheInfoRepository.withFile(directory.childFile('$key.json')),
+      fileSystem: _MemoryCacheFileSystem(directory),
+      fileService: GenesisHttpFileService(transport: transport),
+    ),
+  );
+}
+
+Future<void> _waitForRequestCount(
+  List<TransportRequest> requests,
+  int count,
+) async {
+  for (
+    var attempt = 0;
+    attempt < 100 && requests.length < count;
+    attempt += 1
+  ) {
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+  }
+  expect(requests, hasLength(count));
 }
 
 class _PendingWarmUpTransport implements HttpTransport {
@@ -350,6 +554,41 @@ class _RecordingTransport implements HttpTransport {
   Future<TransportResponse> send(TransportRequest request) async {
     requests.add(request);
     return response;
+  }
+}
+
+class _MemoryCacheFileSystem implements FileSystem {
+  _MemoryCacheFileSystem(this.directory);
+
+  final Directory directory;
+
+  @override
+  Future<File> createFile(String name) async {
+    await directory.create(recursive: true);
+    return directory.childFile(name);
+  }
+}
+
+class _CancellablePendingTransport implements HttpTransport {
+  final List<TransportRequest> requests = <TransportRequest>[];
+  final Completer<TransportResponse> _response = Completer<TransportResponse>();
+  var cancellationCount = 0;
+
+  void complete(TransportResponse response) {
+    if (!_response.isCompleted) _response.complete(response);
+  }
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) {
+    requests.add(request);
+    final removeCancellationListener = request.cancellationToken
+        ?.addCancelListener(() {
+          cancellationCount += 1;
+          if (!_response.isCompleted) {
+            _response.completeError(const NetworkRequestCancelledException());
+          }
+        });
+    return _response.future.whenComplete(removeCancellationListener ?? () {});
   }
 }
 
