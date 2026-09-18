@@ -7287,6 +7287,19 @@ void main() {
     await tester.pump();
     expect(harness.socket.sendMessageCount, 1);
     harness.socket.serverV2AckForLatestSend(errNo: 4001);
+    final failedInspirationBubble = find.byWidgetPredicate(
+      (widget) =>
+          widget is ChatSelfMessageBubble &&
+          widget.message.text == 'A different suggestion.' &&
+          widget.message.status == 'failed',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => failedInspirationBubble.evaluate().isNotEmpty,
+    );
+    expect(failedInspirationBubble, findsOneWidget);
+    expect(composer.controller.text, isEmpty);
+    expect(find.byType(ChatReplyWaitingBubble), findsNothing);
     await tester.pump(const Duration(seconds: 4));
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
@@ -7450,87 +7463,99 @@ void main() {
     },
   );
 
-  testWidgets(
-    'location chat records one message_sent across transport retries',
-    (WidgetTester tester) async {
-      final analytics = _enableLocationChatAnalyticsForTesting(
-        initialMessageSentCount: 9,
-      );
-      final harness = await _connectedLocationChatTestService(
-        ackTimeout: const Duration(milliseconds: 10),
-      );
-      final service = harness.service;
-      final socket = harness.socket;
+  testWidgets('ACK timeout keeps one failed bubble across transport retries', (
+    WidgetTester tester,
+  ) async {
+    final analytics = _enableLocationChatAnalyticsForTesting(
+      initialMessageSentCount: 9,
+    );
+    final harness = await _connectedLocationChatTestService(
+      ackTimeout: const Duration(milliseconds: 10),
+    );
+    final service = harness.service;
+    final socket = harness.socket;
 
-      await tester.pumpWidget(
-        AppServicesScope(
-          services: harness.services,
-          child: MaterialApp(
-            home: LocationChatPanel(
-              worldId: 'world-current',
-              locationId: 'location-current',
-              service: service,
-              leaveOnInactive: false,
-              messageQueueInitializationCovered: true,
-            ),
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            locationId: 'location-current',
+            service: service,
+            leaveOnInactive: false,
+            messageQueueInitializationCovered: true,
           ),
         ),
-      );
-      await _pumpUntilLocationChatTest(
-        tester,
-        () => service.state.joinedLocationId == 'location-current',
-      );
+      ),
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => service.state.joinedLocationId == 'location-current',
+    );
 
-      final composerFinder = find.byType(ChatComposer);
-      tester.widget<ChatComposer>(composerFinder).controller.text =
-          'hello from location chat';
-      await tester.pump();
-      unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
-      await _pumpUntilLocationChatTest(
-        tester,
-        () =>
-            socket.sendMessageCount == 1 &&
-            analytics.events.any(
-              (event) => event.name == 'message_sent_10_first',
-            ),
-      );
+    final composerFinder = find.byType(ChatComposer);
+    tester.widget<ChatComposer>(composerFinder).controller.text =
+        'hello from location chat';
+    await tester.pump();
+    unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
+    await _pumpUntilLocationChatTest(
+      tester,
+      () =>
+          socket.sendMessageCount == 1 &&
+          analytics.events.any(
+            (event) => event.name == 'message_sent_10_first',
+          ),
+    );
 
-      expect(analytics.events, <_LocationChatAnalyticsEvent>[
-        const _LocationChatAnalyticsEvent('message_sent', <String, Object>{
+    expect(analytics.events, <_LocationChatAnalyticsEvent>[
+      const _LocationChatAnalyticsEvent('message_sent', <String, Object>{
+        'world_id': 'world-current',
+        'location_id': 'location-current',
+        'device_id': 'test-device-id',
+      }),
+      const _LocationChatAnalyticsEvent('message_sent_first', <String, Object>{
+        'world_id': 'world-current',
+        'location_id': 'location-current',
+        'device_id': 'test-device-id',
+      }),
+      const _LocationChatAnalyticsEvent(
+        'message_sent_10_first',
+        <String, Object>{
           'world_id': 'world-current',
           'location_id': 'location-current',
           'device_id': 'test-device-id',
-        }),
-        const _LocationChatAnalyticsEvent(
-          'message_sent_first',
-          <String, Object>{
-            'world_id': 'world-current',
-            'location_id': 'location-current',
-            'device_id': 'test-device-id',
-          },
-        ),
-        const _LocationChatAnalyticsEvent(
-          'message_sent_10_first',
-          <String, Object>{
-            'world_id': 'world-current',
-            'location_id': 'location-current',
-            'device_id': 'test-device-id',
-          },
-        ),
-      ]);
+        },
+      ),
+    ]);
 
-      // The chatroom client retries a missing ACK internally. Those transport
-      // attempts must not create additional business-level Analytics events.
-      await tester.pump(const Duration(milliseconds: 35));
-      expect(socket.sendMessageCount, 3);
-      expect(analytics.events, hasLength(3));
-      await tester.pump(const Duration(seconds: 3));
+    // The chatroom client retries a missing ACK internally. Those transport
+    // attempts must not create additional business-level Analytics events.
+    await tester.pump(const Duration(milliseconds: 35));
+    expect(socket.sendMessageCount, 3);
+    expect(analytics.events, hasLength(3));
+    final failedTimeoutBubble = find.byWidgetPredicate(
+      (widget) =>
+          widget is ChatSelfMessageBubble &&
+          widget.message.text == 'hello from location chat' &&
+          widget.message.status == 'failed',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => failedTimeoutBubble.evaluate().isNotEmpty,
+    );
+    expect(failedTimeoutBubble, findsOneWidget);
+    expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+    expect(
+      tester.widget<ChatComposer>(composerFinder).controller.text,
+      isEmpty,
+    );
+    await tester.pump(const Duration(seconds: 3));
 
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-      unawaited(service.dispose());
-    },
-  );
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(service.dispose());
+  });
 
   testWidgets('manual failed-message retry does not record message_sent', (
     WidgetTester tester,
@@ -7580,7 +7605,10 @@ void main() {
       () => find.byType(ChatFailedBadge).evaluate().isNotEmpty,
     );
 
-    await tester.tap(find.byType(ChatFailedBadge));
+    final failedBubble = tester.widget<ChatSelfMessageBubble>(
+      find.byType(ChatSelfMessageBubble),
+    );
+    failedBubble.onFailedMessageTap!(failedBubble.message);
     await _pumpUntilLocationChatTest(
       tester,
       () => socket.sendMessageCount == 2,
@@ -8494,7 +8522,7 @@ void main() {
 
   for (final fromOpening in [true, false]) {
     testWidgets(
-      '${fromOpening ? 'Opening' : 'Regular'} balance rejection keeps the draft without resurrecting its bubble',
+      '${fromOpening ? 'Opening' : 'Regular'} balance rejection keeps a failed bubble',
       (tester) async {
         final harness = await _connectedLocationChatTestService();
         final service = harness.service;
@@ -8547,19 +8575,31 @@ void main() {
         }
 
         socket.serverV2AckForLatestSend(errNo: 3001);
+        final failedBalanceBubble = find.byWidgetPredicate(
+          (widget) =>
+              widget is ChatSelfMessageBubble &&
+              widget.message.text == 'little' &&
+              widget.message.status == 'failed',
+        );
         await _pumpUntilLocationChatTest(
           tester,
-          () =>
-              tester.widget<ChatComposer>(composerFinder).controller.text ==
-              'little',
+          () => failedBalanceBubble.evaluate().isNotEmpty,
         );
         await tester.pump();
         expect(find.byType(ChatSendingBadge), findsNothing);
-        expect(find.byType(ChatSelfMessageBubble), findsNothing);
-        expect(tester.widget<ChatComposer>(composerFinder).sendEnabled, isTrue);
+        expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
+        expect(failedBalanceBubble, findsOneWidget);
+        expect(
+          tester.widget<ChatComposer>(composerFinder).controller.text,
+          isEmpty,
+        );
+        expect(
+          tester.widget<ChatComposer>(composerFinder).sendEnabled,
+          isFalse,
+        );
 
-        // Later server/state updates must not reinsert the rejected opening
-        // message, even though it never received a canonical message id.
+        // Later server/state updates must preserve the failed local row even
+        // though it never received a canonical message id.
         socket.serverV2Tick(
           messageId: 1,
           locationMessageId: 1,
@@ -8572,10 +8612,11 @@ void main() {
         );
         await tester.pump();
         expect(find.byType(ChatSendingBadge), findsNothing);
-        expect(find.byType(ChatSelfMessageBubble), findsNothing);
+        expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
+        expect(find.byType(ChatFailedBadge), findsOneWidget);
         expect(
           tester.widget<ChatComposer>(composerFinder).controller.text,
-          'little',
+          isEmpty,
         );
         expect(socket.sendMessageCount, 1);
 
@@ -8584,12 +8625,10 @@ void main() {
           tester,
           () => service.state.waitingConversationRoundIdsByLocation.isEmpty,
         );
-        // Editing and resending must create just one new attempt using the
-        // restored composer, rather than the stale initial outgoing message.
-        tester.widget<ChatComposer>(composerFinder).controller.text =
-            'little again';
-        await tester.pump();
-        unawaited(tester.widget<ChatComposer>(composerFinder).onSend());
+        final failedBubble = tester.widget<ChatSelfMessageBubble>(
+          failedBalanceBubble,
+        );
+        failedBubble.onFailedMessageTap!(failedBubble.message);
         await _pumpUntilLocationChatTest(
           tester,
           () => socket.sendMessageCount == 2,
@@ -8601,17 +8640,15 @@ void main() {
               .widget<ChatSelfMessageBubble>(find.byType(ChatSelfMessageBubble))
               .message
               .text,
-          'little again',
+          'little',
         );
         socket.serverV2AckForLatestSend(errNo: 3001);
         await _pumpUntilLocationChatTest(
           tester,
-          () =>
-              tester.widget<ChatComposer>(composerFinder).controller.text ==
-              'little again',
+          () => find.byType(ChatFailedBadge).evaluate().isNotEmpty,
         );
         await tester.pump();
-        expect(find.byType(ChatSelfMessageBubble), findsNothing);
+        expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
         expect(find.byType(ChatSendingBadge), findsNothing);
 
         await tester.pumpWidget(const SizedBox.shrink());
@@ -8621,234 +8658,6 @@ void main() {
       },
     );
   }
-
-  test('ack 3001 removes the optimistic message and restores its draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-balance',
-      clientMsgId: 'client-balance',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Try this again after top up',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: '3001',
-        message: 'Insufficient balance',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, 'Try this again after top up');
-    expect(messages, isEmpty);
-  });
-
-  test('ack 2010 removes the optimistic message and restores its draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-rate-limited',
-      clientMsgId: 'client-rate-limited',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Send this later',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: '2010',
-        message: 'Rate limit exceeded',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, 'Send this later');
-    expect(messages, isEmpty);
-  });
-
-  test('ack 2006 removes the optimistic message and restores its draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-world-progressing',
-      clientMsgId: 'client-world-progressing',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Send after world progress',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: '2006',
-        message: 'World is progressing',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, 'Send after world progress');
-    expect(messages, isEmpty);
-  });
-
-  test('ack 5000 removes the optimistic message and restores its draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-server-error',
-      clientMsgId: 'client-server-error',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Retry after server recovery',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: '5000',
-        message: 'Service unavailable',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, 'Retry after server recovery');
-    expect(messages, isEmpty);
-  });
-
-  test('ack 1002 removes the optimistic message and restores its draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-format-error',
-      clientMsgId: 'client-format-error',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Edit this message',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: '1002',
-        message: 'Message format error',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, 'Edit this message');
-    expect(messages, isEmpty);
-  });
-
-  test('ack 1008 removes the optimistic message and restores its draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-send-format-error',
-      clientMsgId: 'client-send-format-error',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Edit this send message',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: '1008',
-        message: 'Send message format error',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, 'Edit this send message');
-    expect(messages, isEmpty);
-  });
-
-  test('ack 10001 removes the optimistic message and restores its draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-unauthorized',
-      clientMsgId: 'client-unauthorized',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Retry this message',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: '10001',
-        message: 'Unauthorized',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, 'Retry this message');
-    expect(messages, isEmpty);
-  });
-
-  test('active socket close send failure restores its draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-socket-closed',
-      clientMsgId: 'client-socket-closed',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Put this back in the input',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: 'socket_closed',
-        message: 'Something went wrong',
-        sourceType: 'socket_closed',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-      activeSendFailure: true,
-    );
-
-    expect(restoredDraft, 'Put this back in the input');
-    expect(messages, isEmpty);
-  });
-
-  test('passive socket close does not restore a draft', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-passive-socket-closed',
-      clientMsgId: 'client-passive-socket-closed',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Do not restore this',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: 'socket_closed',
-        message: 'Something went wrong',
-        sourceType: 'socket_closed',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, isNull);
-    expect(messages, [localMessage]);
-  });
 
   test('only ack 10001 prompts chat login recovery', () {
     expect(
@@ -8866,31 +8675,6 @@ void main() {
       ),
       isFalse,
     );
-  });
-
-  test('other send failures keep the optimistic message', () {
-    final localMessage = ChatMessageVm(
-      localId: 'local-failed',
-      clientMsgId: 'client-failed',
-      senderId: 'u_me',
-      senderName: 'Me',
-      text: 'Keep this failed message',
-      isMe: true,
-      status: 'sending',
-    );
-    final messages = <ChatMessageVm>[localMessage];
-
-    final restoredDraft = recoverLocationChatDraftAfterRetriableAckFailure(
-      failure: const ChatroomFailureEvent(
-        code: 'send_failed',
-        message: 'Send failed',
-      ),
-      localMessage: localMessage,
-      messages: messages,
-    );
-
-    expect(restoredDraft, isNull);
-    expect(messages, [localMessage]);
   });
 
   test('location chat model entry is server driven and world scoped', () {

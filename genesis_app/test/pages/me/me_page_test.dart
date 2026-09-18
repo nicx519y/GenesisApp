@@ -184,23 +184,25 @@ void main() {
           expect(find.text('5,482.4'), findsOneWidget);
           expect(wallet.state.value.membership!.blueGemsCent, 30000);
         }
-        response = const GemWallet(
-          balanceCent: 518240,
-          membership: GemWalletMembership(
-            status: 1,
-            planCode: 'pro_monthly',
-            expiresAt: null,
-            autoRenew: false,
-            blueGemsCent: 0,
-          ),
-        );
-        await access.refresh();
-        await tester.pumpAndSettle();
-        expect(find.text('Subscribe'), findsOneWidget);
-        expect(find.text('Expires —'), findsNothing);
-        expect(find.text('Expired'), findsNothing);
-        expect(find.text('5,182.4'), findsOneWidget);
-        expect(tester.takeException(), isNull);
+        for (final status in [1, 2]) {
+          response = GemWallet(
+            balanceCent: 518240,
+            membership: GemWalletMembership(
+              status: status,
+              planCode: 'pro_monthly',
+              expiresAt: null,
+              autoRenew: false,
+              blueGemsCent: 0,
+            ),
+          );
+          await access.refresh();
+          await tester.pumpAndSettle();
+          expect(find.text('Subscribe'), findsOneWidget);
+          expect(find.text('Expires —'), findsNothing);
+          expect(find.text('Expired'), findsNothing);
+          expect(find.text('5,182.4'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        }
       } finally {
         access.dispose();
         wallet.dispose();

@@ -303,6 +303,7 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     }
     if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
+      final stoppedHoldingReplyPosition = _holdingReplyPosition;
       _holdingReplyPosition = false;
       _cancelPendingCommands();
       _userDragActive = true;
@@ -310,6 +311,10 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
       _stopAtOldestMessageForCurrentDrag =
           stopOffset != null &&
           notification.metrics.pixels > stopOffset + oldestMessageStopTolerance;
+      // A held reply and manual history reading share the detached viewport
+      // mode. Notify when the hold ends so visible-row anchoring starts only
+      // for the user's drag, never for the growing generated reply itself.
+      if (stoppedHoldingReplyPosition) notifyListeners();
     } else if (notification is UserScrollNotification &&
         notification.direction == ScrollDirection.idle) {
       _userDragActive = false;
@@ -1559,7 +1564,7 @@ class _LocationChatAnchoredMessageListState
         !_replyLayoutFinishing &&
         !_replyLayoutBridge.isActive &&
         _replySwitchAnchor == null &&
-        widget.coordinator.isDetached &&
+        widget.coordinator.isReadingHistory &&
         _requiresAnchorRestore(previousLocalIds, nextLocalIds);
     final visibleLayoutAnchor = shouldPreserveAnchor
         ? _visibleRetainedAnchor(previousLocalIds, nextLocalIds.toSet())
@@ -1615,7 +1620,7 @@ class _LocationChatAnchoredMessageListState
       _detachedLayoutAnchor = null;
       _replyLayoutCommandGeneration = null;
     }
-    if (!widget.coordinator.isDetached) {
+    if (!widget.coordinator.isReadingHistory) {
       _detachedLayoutAnchor = null;
       _anchorRestorePending = false;
       _anchorRestoreMessageCount = null;
@@ -1629,7 +1634,7 @@ class _LocationChatAnchoredMessageListState
     _detachedAnchorSnapshotScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _detachedAnchorSnapshotScheduled = false;
-      if (!mounted || !widget.coordinator.isDetached) return;
+      if (!mounted || !widget.coordinator.isReadingHistory) return;
       final anchor = _visibleRetainedAnchor(
         _messageLocalIds,
         _messageLocalIds.toSet(),
@@ -2146,6 +2151,12 @@ class _LocationChatAnchoredMessageListState
   }
 
   double? _takeDetachedLayoutCorrection() {
+    if (!widget.coordinator.isReadingHistory) {
+      _detachedLayoutAnchor = null;
+      _anchorRestorePending = false;
+      _anchorRestoreMessageCount = null;
+      return null;
+    }
     final anchor = _detachedLayoutAnchor;
     if (anchor == null) return null;
     final nextContentOffset = _messageContentOffset(anchor.localId);

@@ -331,13 +331,14 @@ class MembershipAccessStore with WidgetsBindingObserver {
 
   bool get _isExpired {
     final membership = _membership;
-    if (membership?.status == 2) return true;
     final expiry = membership?.expiresAt;
+    // A missing expiry means the account has no subscription history. Some
+    // compatible wallet payloads still carry status=2 in that case; don't
+    // present it as an expired subscription.
+    if (expiry == null) return false;
     final now = serverNow();
-    return membership?.status == 1 &&
-        expiry != null &&
-        now != null &&
-        !expiry.isAfter(now);
+    if (membership?.status == 2) return true;
+    return membership?.status == 1 && now != null && !expiry.isAfter(now);
   }
 
   void _scheduleCacheExpiry() {
