@@ -530,7 +530,7 @@ void main() {
         for (final renew in [false, true]) (plan, renew),
     ]) {
       _testWidgets(
-        '$provider membership plan=$raw autoRenew=$autoRenew preserves labels and delegates every purchase',
+        '$provider membership plan=$raw autoRenew=$autoRenew blocks only the subscribed plan',
         (tester) async {
           var purchases = 0;
           final catalog = MembershipCatalogData(
@@ -574,13 +574,13 @@ void main() {
             final previous = purchases;
             await tester.tap(find.byKey(buttonKey));
             await tester.pump(const Duration(milliseconds: 300));
-            expect(purchases, previous + 1);
+            expect(purchases, previous + (subscribed ? 0 : 1));
             expect(find.text('Notification'), findsNothing);
             expect(
               find.textContaining(
                 'You already have an active Premium subscription.',
               ),
-              findsNothing,
+              subscribed ? findsOneWidget : findsNothing,
             );
             await tester.pump(const Duration(seconds: 3));
           }
@@ -1049,9 +1049,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(
         find.text('You already have an active Premium subscription.'),
-        findsNothing,
+        findsOneWidget,
       );
-      expect(purchases, 1);
+      expect(purchases, 0);
       await tester.pump(const Duration(seconds: 3));
       autoRenew = false;
       await access.refresh();
@@ -1066,7 +1066,7 @@ void main() {
       expect(tester.getRect(find.byKey(buttonKey)), originalButtonRect);
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
-      expect(purchases, 2);
+      expect(purchases, 1);
       await tester.tap(find.byKey(const ValueKey('pro-plan-monthly')));
       await tester.pumpAndSettle();
       expect(find.text(r'Monthly: $9.99'), findsOneWidget);
@@ -1078,7 +1078,7 @@ void main() {
       await tester.tap(find.byKey(buttonKey));
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Notification'), findsNothing);
-      expect(purchases, 3);
+      expect(purchases, 2);
       expect(find.byType(Dialog), findsNothing);
     },
   );

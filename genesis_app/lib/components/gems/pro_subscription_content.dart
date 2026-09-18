@@ -322,6 +322,12 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       return;
     }
     final tracking = _tracking.click(isYearly: offer.product.isYearly);
+    final access = _membership?.state.value ?? const MembershipAccessState();
+    if (membershipIsSubscribedToSelectedPlan(offer.product, access)) {
+      _tracking.analytics.failed(tracking, 'already_subscribed', once: true);
+      await showMembershipPurchaseFailure(context, 'already_subscribed');
+      return;
+    }
     final handler = widget.purchaseHandler;
     if (handler != null) {
       await handler(offer.product);
@@ -565,8 +571,7 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final access = _membership?.state.value ?? const MembershipAccessState();
     final subscribed =
         product != null &&
-        membershipHasSelectedPlan(product, access) &&
-        access.membership?.autoRenew == true;
+        membershipIsSubscribedToSelectedPlan(product, access);
     final radius = BorderRadius.circular(13);
     return DecoratedBox(
       key: const ValueKey('pro-subscribe-gold-surface'),

@@ -8,11 +8,22 @@ class MembershipPurchaseBlocked implements Exception {
   final String reason;
 }
 
-/// Display-only; having the selected plan no longer blocks a store purchase.
+/// The active wallet membership matches the currently selected plan.
 bool membershipHasSelectedPlan(
   MembershipProduct product,
   MembershipAccessState access,
 ) => access.isVip == true && access.membership?.planCode == product.planCode;
+
+/// A selected plan that is active and set to renew is already subscribed.
+///
+/// The subscription page uses this same condition for its `Subscribed` label
+/// and its local purchase interception, so iOS and Android behave identically.
+bool membershipIsSubscribedToSelectedPlan(
+  MembershipProduct product,
+  MembershipAccessState access,
+) =>
+    membershipHasSelectedPlan(product, access) &&
+    access.membership?.autoRenew == true;
 
 /// Wallet membership is authoritative; only an active yearly plan blocks monthly.
 bool membershipIsDowngrade(
