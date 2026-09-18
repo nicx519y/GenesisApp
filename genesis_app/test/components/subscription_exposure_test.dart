@@ -58,7 +58,8 @@ void main() {
       hidden.value = false;
       await tester.pump();
       expect(events.single.action, 'subscription_page_show');
-      expect(events.single.object3, 'from_onboarding');
+      expect(events.single.object1, 'from_onboarding');
+      expect(events.single.object3, 'subscription_sheet');
       expect(catalog.isCompleted, isFalse);
       hidden.value = true;
       await tester.pump();
@@ -92,7 +93,7 @@ void main() {
                 calls++;
                 expect(events.last.action, 'subscription_purchase_click');
                 expect(
-                  events.last.object1,
+                  events.last.object3,
                   product.isYearly ? 'yearly' : 'monthly',
                 );
               },
@@ -110,8 +111,8 @@ void main() {
     expect(calls, 1);
     expect(events.first.object2, 'track_id_container');
     expect(events.last.object2, startsWith('track_id_container_'));
-    expect(events.last.object1, 'yearly');
-    expect(events.last.object3, 'subscription_page');
+    expect(events.last.object1, 'from_home_membership');
+    expect(events.last.object3, 'yearly');
     final firstClickId = events.last.object2;
     final eventCount = events.length;
     await tester.ensureVisible(find.byKey(const ValueKey('pro-plan-monthly')));
@@ -126,10 +127,10 @@ void main() {
     expect(calls, 2);
     expect(events, hasLength(eventCount + 1));
     expect(events.last.action, 'subscription_purchase_click');
-    expect(events.last.object1, 'monthly');
+    expect(events.last.object1, 'from_home_membership');
     expect(events.last.object2, startsWith('track_id_container_'));
     expect(events.last.object2, isNot(firstClickId));
-    expect(events.last.object3, 'subscription_page');
+    expect(events.last.object3, 'monthly');
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -158,8 +159,8 @@ void main() {
       var exposure = sink.events
           .where((e) => e.name == 'subscription_page_show')
           .single;
-      expect(exposure.data['object1'], 'subscription_sheet');
-      expect(exposure.data['object3'], 'from_buy_gems_tab');
+      expect(exposure.data['object1'], 'from_buy_gems_tab');
+      expect(exposure.data['object3'], 'subscription_sheet');
       await tester.tap(find.byKey(const ValueKey('wallet-buy-gems-tab')));
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const ValueKey('wallet-subscription-tab')));

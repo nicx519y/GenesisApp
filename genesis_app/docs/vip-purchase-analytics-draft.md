@@ -16,13 +16,13 @@
 
 | action | object1 | object2 | object3 | 触发时机 |
 | --- | --- | --- | --- | --- |
-| subscription_page_show | subscription_page / subscription_sheet | track_id_{pageId} | 第 4 节入口来源 | Subscription 首次实际可见，包括加载状态；隐藏 Tab 仅构建不记录。 |
-| subscription_purchase_click | yearly / monthly | track_id_{pageId}_{clickId} | subscription_page / subscription_sheet | 点击底部购买按钮并进入购买回调，在异步准备和降级检查之前；object1 取本次选中的商品套餐，年会员为 yearly，月会员为 monthly；仅切换套餐或禁用按钮未触发回调不记录。 |
-| subscription_pending |  | 本次购买关联 ID | store_callback_pending / report_accepted | 平台明确 pending 或 report 明确 accepted；独立记录，不归到 failed。 |
-| subscription_timeout |  | 本次购买关联 ID | prepare / store_callback / report | 准备超时、Apple 调用已返回后的匹配回调等待超时，或实际 report 请求超时；独立记录，不重复发 failed。 |
+| subscription_page_show | 第 4 节入口来源 | track_id_{pageId} | subscription_page / subscription_sheet | Subscription 首次实际可见，包括加载状态；隐藏 Tab 仅构建不记录。 |
+| subscription_purchase_click | 第 4 节入口来源 | track_id_{pageId}_{clickId} | yearly / monthly | 点击底部购买按钮并进入购买回调，在异步准备和降级检查之前；object3 取本次选中的商品套餐，年会员为 yearly，月会员为 monthly；仅切换套餐或禁用按钮未触发回调不记录。 |
+| subscription_pending | 第 4 节入口来源 | 本次购买关联 ID | store_callback_pending / report_accepted | 平台明确 pending 或 report 明确 accepted；独立记录，不归到 failed。 |
+| subscription_timeout | 第 4 节入口来源 | 本次购买关联 ID | prepare / store_callback / report | 准备超时、Apple 调用已返回后的匹配回调等待超时，或实际 report 请求超时；独立记录，不重复发 failed。 |
 | subscription_success | 第 4 节入口来源 | 本次购买关联 ID | 本笔商店订单号，没有则空字符串 | 首次 report.status=completed；不等登录、绑定或点击成功弹窗。 |
-| subscription_failed |  | 本次购买关联 ID | 第 3 节平台原始错误信息或兜底原因 | 实际失败、取消、业务拦截、平台错误、report 拒绝或非超时异常。 |
-| subscription_claim_result |  | 原购买关联 ID；无法还原则稳定 recovery_{id} | completed / accepted / rejected / error[error_code] / timeout | 每次实际 claim 请求返回结果时记录；无码用 error。不记录 start，不另加阶段事件。 |
+| subscription_failed | 第 4 节入口来源 | 本次购买关联 ID | 第 3 节平台原始错误信息或兜底原因 | 实际失败、取消、业务拦截、平台错误、report 拒绝或非超时异常。 |
+| subscription_claim_result | 第 4 节入口来源 | 原购买关联 ID；无法还原则稳定 recovery_{id} | completed / accepted / rejected / error[error_code] / timeout | 每次实际 claim 请求返回结果时记录；无码用 error。不记录 start，不另加阶段事件。 |
 
 平台 purchased/restored 进入既有 report 流程，不单独增加回调事件，也不能仅因尚未 report 完成就发 failed。其后按 report 结果记录 success、pending、timeout 或 failed。
 
@@ -61,7 +61,7 @@ report 模型仅有 status；订单号取平台回调或精确匹配的已保存
 
 ## 4. Subscription 入口来源
 
-| page_source / page_show.object3 / success.object1 | 入口 |
+| 所有订阅事件的 object1 | 入口 |
 | --- | --- |
 | from_home_membership | Home 会员入口。 |
 | from_me_membership | Me 会员卡片。 |
@@ -72,7 +72,7 @@ report 模型仅有 status；订单号取平台回调或精确匹配的已保存
 | from_buy_gems_tab | 从 Buy Gems 切到 Subscription。 |
 | from_unknown | 未提供或无法还原入口。 |
 
-同一容器中，Subscription 首次可见记一次；反复切 Tab、build、刷新和回前台不重复。关闭后重开使用新 pageId。表单仍可见或直接转登录而未展示订阅时，不记订阅曝光。page_source 是入口枚举名称，不再单独写入 ext_data。subscription_success.object1 沿用本次购买发起时的入口来源，随购买关联保存；重试、登录或绑定不改变来源，恢复时无法还原则用 from_unknown。仅 subscription_purchase_click.object1 传 yearly / monthly，不传 plan_code；其余已清空的 object1 继续留空。
+同一容器中，Subscription 首次可见记一次；反复切 Tab、build、刷新和回前台不重复。关闭后重开使用新 pageId。表单仍可见或直接转登录而未展示订阅时，不记订阅曝光。入口来源统一写入 object1，不再单独写入 ext_data；购买、report、登录或绑定不改变原始来源，恢复时无法还原则用 from_unknown。仅 subscription_purchase_click.object3 传 yearly / monthly，不传 plan_code。
 
 Buy Gems 只做增量：原文档、事件、字段、曝光时机和 tick_no_balance / msg_low_balance / msg_no_balance 保持不变，不加 from_。整页来源补充 me_gems（Me 红钻、Top Up、对应区域）和 subscription_tab（Subscription 切到 Buy Gems）；Sheet 追加 subscription_tab。反向切换的 Subscription 来源为 from_buy_gems_tab。
 

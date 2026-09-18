@@ -141,8 +141,8 @@ class SubscriptionAnalytics {
       SubscriptionAnalyticsEvent(
         'subscription_page_show',
         billingPageTrackId(pageId),
-        source.value,
-        object1: surface.value,
+        surface.value,
+        object1: source.value,
       ),
     );
   }
@@ -161,8 +161,8 @@ class SubscriptionAnalytics {
       SubscriptionAnalyticsEvent(
         'subscription_purchase_click',
         tracking.id,
-        surface.value,
-        object1: isYearly ? 'yearly' : 'monthly',
+        isYearly ? 'yearly' : 'monthly',
+        object1: source.value,
       ),
     );
     return tracking;
@@ -175,7 +175,12 @@ class SubscriptionAnalytics {
   }) {
     if (once && !_once.add('checkout:${tracking.id}')) return;
     _emit(
-      SubscriptionAnalyticsEvent('subscription_failed', tracking.id, reason),
+      SubscriptionAnalyticsEvent(
+        'subscription_failed',
+        tracking.id,
+        reason,
+        object1: tracking.source.value,
+      ),
     );
   }
 
@@ -184,7 +189,12 @@ class SubscriptionAnalytics {
       return;
     }
     _emit(
-      SubscriptionAnalyticsEvent('subscription_timeout', tracking.id, stage),
+      SubscriptionAnalyticsEvent(
+        'subscription_timeout',
+        tracking.id,
+        stage,
+        object1: tracking.source.value,
+      ),
     );
   }
 
@@ -198,6 +208,7 @@ class SubscriptionAnalytics {
         'subscription_pending',
         tracking.id,
         reason,
+        object1: tracking.source.value,
         eventId: subscriptionEventId('pending:${tracking.id}:$reason'),
       ),
     );
@@ -233,6 +244,7 @@ class SubscriptionAnalytics {
       'subscription_claim_result',
       tracking.id,
       result,
+      object1: tracking.source.value,
     ),
   );
 }
