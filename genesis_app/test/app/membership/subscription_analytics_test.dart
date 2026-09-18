@@ -55,18 +55,53 @@ void main() {
       expect(first.id, startsWith('track_id_page_'));
       expect(first.id, isNot(second.id));
       expect(events.first.action, 'subscription_page_show');
-      expect(events.first.object1, 'subscription_sheet');
+      expect(events.first.object1, 'from_daily_check_in');
       expect(events.first.object2, 'track_id_page');
-      expect(events.first.object3, 'from_daily_check_in');
+      expect(events.first.object3, 'subscription_sheet');
       expect(events[1].action, 'subscription_purchase_click');
-      expect(events[1].object1, 'yearly');
-      expect(events[1].object3, 'subscription_sheet');
+      expect(events[1].object1, 'from_daily_check_in');
+      expect(events[1].object3, 'yearly');
       expect(events[2].action, 'subscription_purchase_click');
-      expect(events[2].object1, 'monthly');
-      expect(events[2].object3, 'subscription_sheet');
+      expect(events[2].object1, 'from_daily_check_in');
+      expect(events[2].object3, 'monthly');
       expect(events.length, 3);
     },
   );
+
+  test('every purchase result keeps the original source in object1', () {
+    const purchase = SubscriptionTracking(
+      id: 'track_id_result',
+      source: SubscriptionSource.chatFeatureQuota,
+    );
+    analytics.pending(purchase, 'store_callback_pending');
+    analytics.timeout(purchase, 'report');
+    analytics.failed(purchase, 'report_rejected');
+    analytics.success(purchase, 'google', 'GPA.result');
+    analytics.claim(purchase, 'completed');
+
+    expect(events.map((event) => event.action), [
+      'subscription_pending',
+      'subscription_timeout',
+      'subscription_failed',
+      'subscription_success',
+      'subscription_claim_result',
+    ]);
+    expect(
+      events.every((event) => event.object1 == 'from_chat_feature_quota'),
+      isTrue,
+    );
+    expect(events.map((event) => event.object3), [
+      'store_callback_pending',
+      'report',
+      'report_rejected',
+      'GPA.result',
+      'completed',
+    ]);
+
+    final recovered = SubscriptionTracking.recovery('missing-click');
+    analytics.failed(recovered, 'report_rejected');
+    expect(events.last.object1, 'from_unknown');
+  });
 
   test(
     'native errors keep primary and optional subcode, never inspect messages',
@@ -165,7 +200,7 @@ void main() {
       expect(events.map((e) => e.action), ['subscription_failed']);
       expect(events.single.object3, startsWith('report_failed'));
       expect(events.every((e) => e.object2 == tracking.id), isTrue);
-      expect(events.last.object1, isEmpty);
+      expect(events.last.object1, 'from_me_membership');
       expect(
         h.reports.every((r) => !r.toJson().containsKey('request_id')),
         isTrue,
@@ -208,7 +243,7 @@ void main() {
       'subscription_pending',
     ]);
     expect(events.last.object2, tracking.id);
-    expect(events.last.object1, isEmpty);
+    expect(events.last.object1, 'from_me_membership');
   });
 
   test(
@@ -267,6 +302,7 @@ void main() {
         'subscription_claim_result',
       ]);
       expect(events.last.object2, tracking.id);
+      expect(events.last.object1, 'from_me_membership');
       expect(events.last.object3, 'completed');
     },
   );
@@ -297,6 +333,12 @@ void main() {
             .where((e) => e.action == 'subscription_claim_result')
             .map((e) => e.object3),
         ['error[1500]', 'error[1500]'],
+      );
+      expect(
+        events
+            .where((e) => e.action == 'subscription_claim_result')
+            .every((e) => e.object1 == 'from_me_membership'),
+        isTrue,
       );
       expect(
         events.where((e) => e.action == 'subscription_success'),

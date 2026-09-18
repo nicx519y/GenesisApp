@@ -272,84 +272,68 @@ void main() {
     }
   }
 
-  testWidgets(
-    'Subscribed click reports the Apple callback even for a previously reported transaction',
-    (tester) async {
-      final events = <SubscriptionAnalyticsEvent>[];
-      final h = service.Harness(
-        provider: MembershipProvider.apple,
-        analytics: SubscriptionAnalytics(sink: events.add),
-      );
-      final wallet = GemWalletStore(
-        readUid: () async => h.uid,
-        loadWallet: () async => GemWallet(
-          balanceCent: 0,
-          membership: membershipAccessSnapshot(
-            planCode: 'pro_yearly',
-            autoRenew: true,
-          ).membership,
+  testWidgets('Subscribed click is locally blocked before Apple checkout', (
+    tester,
+  ) async {
+    final events = <SubscriptionAnalyticsEvent>[];
+    final h = service.Harness(
+      provider: MembershipProvider.apple,
+      analytics: SubscriptionAnalytics(sink: events.add),
+    );
+    final wallet = GemWalletStore(
+      readUid: () async => h.uid,
+      loadWallet: () async => GemWallet(
+        balanceCent: 0,
+        membership: membershipAccessSnapshot(
+          planCode: 'pro_yearly',
+          autoRenew: true,
+        ).membership,
+      ),
+    );
+    final membership = MembershipAccessStore(
+      wallet: wallet,
+      readLoginUid: () async => h.uid,
+      serverNow: () => DateTime.utc(2026),
+    );
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    try {
+      await h.service.purchase(h.product(yearly: true), attemptId: 'original');
+      await h.service.interceptPurchase(h.purchase(yearly: true));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: GenesisTheme.light(),
+          home: Scaffold(body: subscription(h, membership: membership)),
         ),
       );
-      final membership = MembershipAccessStore(
-        wallet: wallet,
-        readLoginUid: () async => h.uid,
-        serverNow: () => DateTime.utc(2026),
-      );
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      try {
-        await h.service.purchase(
-          h.product(yearly: true),
-          attemptId: 'original',
+      await tester.pumpAndSettle();
+      expect(find.text('Subscribed'), findsOneWidget);
+      final launchesBefore = h.platform.launches;
+      final reportsBefore = h.reports.length;
+      for (var click = 1; click <= 2; click++) {
+        await tester.tap(find.text('Subscribed'));
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(find.text('Purchasing Premium'), findsNothing);
+        expect(
+          find.text('You already have an active Premium subscription.'),
+          findsOneWidget,
         );
-        await h.service.interceptPurchase(h.purchase(yearly: true));
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: GenesisTheme.light(),
-            home: Scaffold(body: subscription(h, membership: membership)),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text('Subscribed'), findsOneWidget);
-        for (var click = 1; click <= 2; click++) {
-          await tester.tap(find.text('Subscribed'));
-          await tester.pump(const Duration(milliseconds: 250));
-          expect(find.text('Purchasing Premium'), findsOneWidget);
-          expect(h.platform.launches, click + 1);
-          expect(h.reports, hasLength(click));
-          await h.service.interceptPurchase(
-            h.purchase(
-              yearly: true,
-              checkoutAttemptId: h.platform.checkoutAttemptId,
-            ),
-          );
-          await tester.pumpAndSettle();
-          expect(find.text('Purchasing Premium'), findsNothing);
-          expect(find.text('Purchase successful!'), findsOneWidget);
-          expect(find.textContaining('Purchase failed.'), findsNothing);
-          expect(find.text('Subscribed'), findsOneWidget);
-          expect(h.service.isBusy, isFalse);
-          expect(h.reports, hasLength(click + 1));
-          expect(events.map((event) => event.action), ['subscription_success']);
-          await tester.tap(find.text('Continue'));
-          await tester.pumpAndSettle();
-          await tester.pump(const Duration(seconds: 11));
-          expect(
-            find.textContaining('Purchase confirmation is delayed.'),
-            findsNothing,
-          );
-        }
-      } finally {
-        await tester.pumpWidget(const SizedBox.shrink());
-        await tester.pumpAndSettle();
-        membership.dispose();
-        wallet.dispose();
-        h.service.dispose();
+        expect(h.platform.launches, launchesBefore);
+        expect(h.reports, hasLength(reportsBefore));
+        expect(h.service.isBusy, isFalse);
+        expect(events.map((event) => event.action), ['subscription_success']);
+        await tester.pump(const Duration(seconds: 3));
       }
-    },
-  );
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+      membership.dispose();
+      wallet.dispose();
+      h.service.dispose();
+    }
+  });
 
   testWidgets(
     'Apple previously rejected transaction waits for the current report response',
