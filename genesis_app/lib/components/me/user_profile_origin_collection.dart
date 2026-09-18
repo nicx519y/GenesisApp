@@ -125,6 +125,7 @@ class _OriginProfileCollectionList extends StatelessWidget {
           .toList(growable: false),
       emptyText: emptyText,
       isLoading: isLoading,
+      hasLoaded: state?.hasLoaded ?? false,
       loadingKey: const ValueKey('profile-origin-list-loading'),
       onRefresh: onRefresh,
       refreshKey: const ValueKey('profile-origin-list-refresh'),

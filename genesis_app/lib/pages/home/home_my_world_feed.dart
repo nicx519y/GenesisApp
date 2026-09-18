@@ -715,7 +715,10 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
       _error = null;
       _isSignedOut = false;
       _hasResolvedLocalSession = true;
-      _isInitialLoading = _items.isEmpty && !_hasLoadedCachedPage;
+      _isInitialLoading =
+          _items.isEmpty &&
+          !_hasLoadedCachedPage &&
+          !_hasCompletedInitialNetworkRefresh;
       _isRefreshing = true;
     });
 
@@ -937,6 +940,7 @@ class _MyWorldFeedState extends State<_MyWorldFeed>
     return widget.keepInitialNetworkFailureLoading &&
         _items.isEmpty &&
         !_hasLoadedCachedPage &&
+        !_hasCompletedInitialNetworkRefresh &&
         !_isSignedOut &&
         _isNetworkLikeHomeError(error);
   }

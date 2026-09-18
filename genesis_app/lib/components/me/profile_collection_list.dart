@@ -11,6 +11,7 @@ class ProfileCollectionList extends StatefulWidget {
     required this.items,
     required this.emptyText,
     this.isLoading = false,
+    this.hasLoaded = false,
     this.loadingKey,
     this.onRefresh,
     this.onLoadMore,
@@ -30,6 +31,9 @@ class ProfileCollectionList extends StatefulWidget {
   final List<GenesisProfileCollectionItemData> items;
   final String emptyText;
   final bool isLoading;
+
+  /// A successful empty result is content too; retain it during refresh.
+  final bool hasLoaded;
   final Key? loadingKey;
   final Future<void> Function()? onRefresh;
   final Future<void> Function()? onLoadMore;
@@ -114,7 +118,7 @@ class _ProfileCollectionListState extends State<ProfileCollectionList> {
       bottom: 16 + bottomInset + _collapseCompensation,
     );
 
-    if (widget.items.isEmpty && widget.isLoading) {
+    if (widget.items.isEmpty && widget.isLoading && !widget.hasLoaded) {
       final loading = SizedBox(
         key: widget.loadingKey,
         width: 24,

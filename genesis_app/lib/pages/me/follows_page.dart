@@ -353,7 +353,7 @@ class _FollowUsersPane extends StatelessWidget {
       builder: (context, snapshot) {
         final items = snapshot.data ?? const <_FollowUserItem>[];
         if (snapshot.connectionState == ConnectionState.waiting &&
-            items.isEmpty) {
+            !snapshot.hasData) {
           return const Center(child: GenesisLoadingIndicator());
         }
         if (snapshot.hasError && items.isEmpty) {

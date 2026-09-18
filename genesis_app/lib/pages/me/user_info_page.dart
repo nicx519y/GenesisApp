@@ -173,38 +173,42 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   Future<void> _loadOrigins(int generation, GenesisApi api, String uid) async {
+    final current = _originsState.value;
     try {
       final items = await _loadOriginItems(api, uid);
       if (!mounted || generation != _loadGeneration) return;
       _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
         items: items,
         isLoading: false,
+        hasLoaded: true,
       );
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
-      _originsState.value =
-          const UserProfileCollectionState<UserProfileOriginItem>(
-            items: <UserProfileOriginItem>[],
-            isLoading: false,
-          );
+      _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+        items: current.items,
+        isLoading: false,
+        hasLoaded: current.hasLoaded,
+      );
     }
   }
 
   Future<void> _loadWorlds(int generation, GenesisApi api, String uid) async {
+    final current = _worldsState.value;
     try {
       final items = await _loadWorldItems(api, uid);
       if (!mounted || generation != _loadGeneration) return;
       _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
         items: items,
         isLoading: false,
+        hasLoaded: true,
       );
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
-      _worldsState.value =
-          const UserProfileCollectionState<UserProfileWorldItem>(
-            items: <UserProfileWorldItem>[],
-            isLoading: false,
-          );
+      _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+        items: current.items,
+        isLoading: false,
+        hasLoaded: current.hasLoaded,
+      );
     }
   }
 
@@ -229,6 +233,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
     _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
       items: current.items,
       isLoading: true,
+      hasLoaded: current.hasLoaded,
     );
     try {
       final api = AppServicesScope.read(context).api;
@@ -237,12 +242,14 @@ class _UserInfoPageState extends State<UserInfoPage> {
       _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
         items: items,
         isLoading: false,
+        hasLoaded: true,
       );
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
       _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
         items: current.items,
         isLoading: false,
+        hasLoaded: current.hasLoaded,
       );
     }
   }
@@ -255,6 +262,7 @@ class _UserInfoPageState extends State<UserInfoPage> {
     _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
       items: current.items,
       isLoading: true,
+      hasLoaded: current.hasLoaded,
     );
     try {
       final api = AppServicesScope.read(context).api;
@@ -263,12 +271,14 @@ class _UserInfoPageState extends State<UserInfoPage> {
       _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
         items: items,
         isLoading: false,
+        hasLoaded: true,
       );
     } catch (_) {
       if (!mounted || generation != _loadGeneration) return;
       _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
         items: current.items,
         isLoading: false,
+        hasLoaded: current.hasLoaded,
       );
     }
   }
@@ -400,14 +410,17 @@ class _UserInfoPageState extends State<UserInfoPage> {
   }
 
   void _markProfileCollectionsLoading() {
-    _originsState.value =
-        const UserProfileCollectionState<UserProfileOriginItem>(
-          items: <UserProfileOriginItem>[],
-          isLoading: true,
-        );
-    _worldsState.value = const UserProfileCollectionState<UserProfileWorldItem>(
-      items: <UserProfileWorldItem>[],
+    final origins = _originsState.value;
+    final worlds = _worldsState.value;
+    _originsState.value = UserProfileCollectionState<UserProfileOriginItem>(
+      items: origins.items,
       isLoading: true,
+      hasLoaded: origins.hasLoaded,
+    );
+    _worldsState.value = UserProfileCollectionState<UserProfileWorldItem>(
+      items: worlds.items,
+      isLoading: true,
+      hasLoaded: worlds.hasLoaded,
     );
   }
 
@@ -541,9 +554,11 @@ class _UserInfoPageState extends State<UserInfoPage> {
           body: SafeArea(
             bottom: false,
             child: FutureBuilder<UserProfileData>(
+              key: ValueKey('user-info-data-$_sessionListGeneration'),
               future: _future,
               builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
+                if (snapshot.connectionState == ConnectionState.waiting &&
+                    !snapshot.hasData) {
                   return const _UserInfoLoadingSkeleton();
                 }
                 if (snapshot.hasError) {

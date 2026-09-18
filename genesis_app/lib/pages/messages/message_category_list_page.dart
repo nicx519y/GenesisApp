@@ -59,6 +59,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
   var _page = 1;
   var _total = 0;
   var _loading = true;
+  var _hasLoaded = false;
   var _loadingMore = false;
   var _refreshing = false;
   Object? _error;
@@ -109,6 +110,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
       _page = 1;
       _total = 0;
       _loading = true;
+      _hasLoaded = false;
       _loadingMore = false;
       _refreshing = false;
       _error = null;
@@ -144,7 +146,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
 
   Future<void> _loadFirstPage() async {
     setState(() {
-      _loading = _items.isEmpty;
+      _loading = !_hasLoaded;
       _refreshing = true;
       _loadingMore = false;
       _error = null;
@@ -182,6 +184,7 @@ class _MessageCategoryListPageState extends State<MessageCategoryListPage> {
           _items.addAll(items);
         }
         _page = page;
+        _hasLoaded = true;
         _total = asInt(data['total'], fallback: _items.length);
         _loading = false;
         _loadingMore = false;
