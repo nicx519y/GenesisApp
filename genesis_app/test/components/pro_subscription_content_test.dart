@@ -16,6 +16,8 @@ import 'package:genesis_flutter_android/platform/billing/membership_catalog_cach
 import 'package:genesis_flutter_android/app/membership/membership_catalog.dart';
 import 'package:genesis_flutter_android/app/membership/membership_purchase_service.dart';
 import 'package:genesis_flutter_android/components/gems/pro_subscription_content.dart';
+import 'package:genesis_flutter_android/components/gems/subscription_tracking_scope.dart';
+import 'package:genesis_flutter_android/app/membership/subscription_analytics.dart';
 import 'package:genesis_flutter_android/network/models/membership_product.dart';
 import 'package:genesis_flutter_android/network/models/membership_purchase.dart';
 import 'package:genesis_flutter_android/platform/billing/billing_models.dart';
@@ -44,17 +46,21 @@ Widget page(
   Future<void> Function(MembershipProduct)? purchase,
   MembershipPurchaseService? service,
   MembershipAccessStore? membership,
+  SubscriptionPageTracking? tracking,
 }) => MaterialApp(
   theme: GenesisTheme.light(),
   home: Scaffold(
     body: RepaintBoundary(
       key: surfaceKey,
-      child: ProSubscriptionContent(
-        productsLoader: loader,
-        catalog: catalog,
-        purchaseHandler: purchase,
-        purchaseService: service,
-        membershipAccess: membership,
+      child: SubscriptionTrackingScope(
+        page: tracking ?? SubscriptionPageTracking(),
+        child: ProSubscriptionContent(
+          productsLoader: loader,
+          catalog: catalog,
+          purchaseHandler: purchase,
+          purchaseService: service,
+          membershipAccess: membership,
+        ),
       ),
     ),
   ),
@@ -1290,6 +1296,95 @@ void main() {
     expect(calls, 2);
     expect(find.text(r'Yearly: $99.99'), findsOneWidget);
   });
+
+  for (final provider in MembershipProvider.values) {
+    testWidgets(
+      '$provider refreshes an unavailable checkout catalog before another purchase click',
+      (tester) async {
+        final events = <SubscriptionAnalyticsEvent>[];
+        final refresh = Completer<MembershipProductList>();
+        final product = membershipProduct(provider: provider, yearly: true);
+        var loads = 0;
+        final catalog = MembershipCatalog(
+          provider: provider,
+          loadProducts: (_) {
+            loads++;
+            if (loads == 1) {
+              return Future.value(MembershipProductList(products: [product]));
+            }
+            return refresh.future;
+          },
+        );
+        final h = support.Harness(
+          provider: provider,
+          analytics: SubscriptionAnalytics(sink: events.add),
+          checkoutProducts: catalog.readCheckoutProducts,
+        );
+        try {
+          await tester.pumpWidget(
+            page(
+              null,
+              catalog: catalog,
+              service: h.service,
+              tracking: SubscriptionPageTracking(
+                analytics: SubscriptionAnalytics(sink: events.add),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(loads, 1);
+
+          // The page still has a visible offer, but its checkout credentials
+          // are gone. This reproduces the pre-store catalog failure.
+          catalog.invalidate();
+          await tester.tap(find.byKey(buttonKey));
+          await tester.pump();
+          expect(loads, 2);
+          expect(h.platform.launches, 0);
+          expect(
+            events.where(
+              (event) => event.action == 'subscription_purchase_click',
+            ),
+            hasLength(1),
+          );
+          expect(
+            events.where((event) => event.action == 'subscription_failed'),
+            hasLength(1),
+          );
+
+          // While that refresh is unresolved, repeated physical taps are part
+          // of the same attempt and cannot emit more click/failure pairs.
+          for (var i = 0; i < 5; i++) {
+            await tester.tap(find.byKey(buttonKey));
+            await tester.pump();
+          }
+          expect(loads, 2);
+          expect(
+            events.where(
+              (event) => event.action == 'subscription_purchase_click',
+            ),
+            hasLength(1),
+          );
+          expect(
+            events.where((event) => event.action == 'subscription_failed'),
+            hasLength(1),
+          );
+
+          refresh.complete(MembershipProductList(products: [product]));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(buttonKey));
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(h.platform.launches, 1);
+          // The pre-store failure toast dismisses itself asynchronously.
+          await tester.pump(const Duration(seconds: 3));
+        } finally {
+          await tester.pumpWidget(const SizedBox.shrink());
+          await tester.pumpAndSettle();
+          h.service.dispose();
+        }
+      },
+    );
+  }
 
   testWidgets('each plan submits the selected API product', (tester) async {
     final selected = <MembershipProduct>[];

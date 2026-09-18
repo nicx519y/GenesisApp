@@ -303,6 +303,13 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     if (_submitting) return;
     _submitting = true;
     try {
+      // A display cache is enough to render the plans, but cannot authorize a
+      // checkout. Refresh it first and do not emit a purchase click until the
+      // in-memory catalog includes current checkout credentials.
+      if (!_hasFreshCatalog) {
+        await _load(forceRefresh: true);
+        return;
+      }
       await _subscribe();
     } finally {
       _submitting = false;
@@ -364,6 +371,14 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
       preparation: preparation,
     );
     preparation?.invalidate();
+    if (!confirmed &&
+        _purchasePresentation!.requiresCatalogRefresh &&
+        mounted) {
+      // Keep this click occupied until the fresh catalog resolves. Without
+      // this, a fast pre-store catalog failure releases `_submitting` and
+      // repeated touches emit click/failed pairs in the same second.
+      await _load(forceRefresh: true);
+    }
     if (confirmed &&
         mounted &&
         widget.closeOnPurchaseSuccess &&

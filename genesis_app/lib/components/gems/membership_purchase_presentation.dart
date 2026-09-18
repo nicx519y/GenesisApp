@@ -59,6 +59,12 @@ class MembershipPurchasePresentation {
   bool _disposed = false;
   bool _resolved = false;
   bool _closing = false;
+  bool _requiresCatalogRefresh = false;
+
+  /// The checkout product credentials held by [MembershipCatalog] were no
+  /// longer usable when this attempt started. The caller must refresh the
+  /// catalog before accepting another purchase click.
+  bool get requiresCatalogRefresh => _requiresCatalogRefresh;
 
   Future<bool> purchase(
     MembershipProduct product, {
@@ -81,6 +87,7 @@ class MembershipPurchasePresentation {
     _navigator = navigator;
     _resolved = false;
     _closing = false;
+    _requiresCatalogRefresh = false;
     final route = RawDialogRoute<bool>(
       barrierColor: kGenesisModalBarrierColor,
       barrierDismissible: false,
@@ -140,6 +147,10 @@ class MembershipPurchasePresentation {
         case MembershipCheckoutState.failed:
         case MembershipCheckoutState.rejected:
           _resolved = true;
+          // The service emits this internal reason when its in-memory catalog
+          // is missing, stale, or no longer matches the displayed offer. It
+          // happens before StoreKit/Play is launched.
+          _requiresCatalogRefresh = event.reason == 'eligibility_unavailable';
           _close(false);
           if (context.mounted) {
             final debugInfo =
