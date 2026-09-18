@@ -72,13 +72,17 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
-  List<ChatMessageVm> messages(int count, {String suffix = ''}) => [
+  List<ChatMessageVm> messages(
+    int count, {
+    String suffix = '',
+    int? suffixIndex,
+  }) => [
     for (var i = 0; i < count; i++)
       ChatMessageVm(
         localId: 'message-$i',
         senderId: 'peer',
         senderName: 'Peer',
-        text: 'Message $i${i == count - 1 ? suffix : ''}',
+        text: 'Message $i${i == (suffixIndex ?? count - 1) ? suffix : ''}',
         isMe: false,
         status: 'sent',
       ),
@@ -94,6 +98,7 @@ void main() {
     bool active = true,
     bool positioningEnabled = true,
     String suffix = '',
+    int? suffixIndex,
     double reserveFraction = 0.75,
     double viewportHeight = 360,
     double effectiveKeyboardInset = 0,
@@ -113,7 +118,11 @@ void main() {
               coordinator: coordinator,
               replyWaitingPositioningEnabled: positioningEnabled,
               replyViewportReserveFraction: reserveFraction,
-              messages: messages(count, suffix: suffix),
+              messages: messages(
+                count,
+                suffix: suffix,
+                suffixIndex: suffixIndex,
+              ),
               topTitle: secondScroll ? 'Start' : '',
               oldestEdgeNoticeRequiresSecondScroll: secondScroll,
               loadingAfterMessageLocalId: waiting != null && !goOn
@@ -333,6 +342,50 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'held Go On does not anchor a lower message while an earlier stream grows',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      await tester.pumpWidget(tree(coordinator));
+      await tester.pump();
+      await tester.pumpWidget(
+        tree(coordinator, waiting: 'round-1', goOn: true),
+      );
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final position = coordinator.controller.position;
+      final held = position.pixels;
+      expect(coordinator.isDetached, isTrue);
+      expect(coordinator.isReadingHistory, isFalse);
+
+      // The real Go On response can contain several bubbles. Once a lower
+      // bubble is nearest the viewport center, growth in the earlier bubble
+      // must consume the waiting tail instead of preserving that lower row.
+      await tester.pumpWidget(tree(coordinator, count: 22));
+      await tester.pump();
+      await tester.pump();
+      expect(position.pixels, closeTo(held, 0.1));
+      expect(find.text('Message 21'), findsOneWidget);
+
+      await tester.pumpWidget(
+        tree(
+          coordinator,
+          count: 22,
+          suffixIndex: 20,
+          suffix: '\nStreaming reply' * 15,
+        ),
+      );
+      await tester.pump();
+
+      expect(position.pixels, closeTo(held, 0.1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets('turning positioning off releases an active waiting hold', (
     tester,

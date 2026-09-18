@@ -430,14 +430,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         service.cancelCanonicalMessageWait(clientMsgId, reason: e);
       }
       if (!mounted) return;
-      final restoredDraft = receiptReceived
-          ? null
-          : recoverLocationChatDraftAfterRetriableAckFailure(
-              failure: e,
-              localMessage: localMessage,
-              messages: _messages,
-              activeSendFailure: true,
-            );
       _setLocationChatState(() {
         if (!receiptReceived && _preAckWaitingClientMsgId == clientMsgId) {
           _clearPreAckWaiting(resetPosition: true);
@@ -445,15 +437,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         if (!receiptReceived && _ackLoadingClientMsgId == clientMsgId) {
           _clearAckLoading();
         }
-        if (restoredDraft != null) {
-          if (identical(localMessage, _initialOutgoingMessage)) {
-            // Draft recovery ends the queued opening send. Otherwise later
-            // state updates would reinsert this message without a server id.
-            _initialOutgoingMessage = null;
-          }
-          _hasDraftText = restoredDraft.trim().isNotEmpty;
-          _textController.setSerializedText(restoredDraft);
-        } else if (!receiptReceived) {
+        if (!receiptReceived) {
+          // ACK rejection, timeout, and transport failure share the same retry
+          // affordance for composer and Inspiration sends.
           localMessage.status = 'failed';
           localMessage.error = e.toString();
         } else {
@@ -469,14 +455,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _suppressedReplyActionsIdentity = null;
         }
       });
-      if (restoredDraft != null && _shouldShowDraftRestoreToast(e)) {
-        showGenesisToast(
-          context,
-          _locationChatDraftRestoreToastMessage(e),
-          duration: const Duration(seconds: 4),
-          brightness: Brightness.dark,
-        );
-      }
       if (receiptReceived) {
         showGenesisToast(
           context,
