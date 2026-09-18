@@ -34,11 +34,18 @@ bool membershipIsDowngrade(
     access.isVip == true &&
     access.membership?.planCode == 'pro_yearly';
 
-String membershipPurchaseFailureMessage(String reason, {String? debugInfo}) {
+String membershipPurchaseFailureMessage(
+  String reason, {
+  MembershipProduct? product,
+  String? debugInfo,
+}) {
   final message = switch (reason) {
     'downgrade_not_allowed' =>
       'An active yearly Premium subscription cannot be changed to a monthly plan.',
-    'already_subscribed' => 'You already have an active Premium subscription.',
+    'already_subscribed' =>
+      product == null
+          ? 'You already have an active Premium subscription.'
+          : 'You’re already subscribed to Premium ${product.label}.',
     'purchase_processing' =>
       'Your previous Premium purchase is still being confirmed.',
     'cross_platform_upgrade_not_allowed' =>

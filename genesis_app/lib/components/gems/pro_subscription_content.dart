@@ -332,7 +332,11 @@ class _ProSubscriptionContentState extends State<ProSubscriptionContent>
     final access = _membership?.state.value ?? const MembershipAccessState();
     if (membershipIsSubscribedToSelectedPlan(offer.product, access)) {
       _tracking.analytics.failed(tracking, 'already_subscribed', once: true);
-      await showMembershipPurchaseFailure(context, 'already_subscribed');
+      await showMembershipPurchaseFailure(
+        context,
+        'already_subscribed',
+        product: offer.product,
+      );
       return;
     }
     final handler = widget.purchaseHandler;
