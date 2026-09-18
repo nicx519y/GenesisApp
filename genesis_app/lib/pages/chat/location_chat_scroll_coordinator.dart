@@ -1383,6 +1383,9 @@ class _LocationChatAnchoredMessageListState
         !_cardTransitionBusy &&
         !_replyLayoutFinishing &&
         !_replyLayoutBridge.isActive &&
+        // Detached viewports belong to their visible-message anchor. Anchoring
+        // an on-screen reply footer here would move history by stream growth.
+        widget.coordinator.shouldFollowLatest &&
         oldReplyIdentity == _replyIdentity &&
         _replyIdentity != null &&
         oldWidget.coordinator == widget.coordinator) {
