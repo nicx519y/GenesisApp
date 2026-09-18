@@ -4,9 +4,14 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-const int originItemCoverMaxConcurrentLoads = 4;
+import '../../network/http_transport.dart';
+
+const int originItemCoverMaxConcurrentLoads = 6;
+const int originItemCoverMaxConcurrentPrefetchLoads = 1;
 const int originItemCoverMaxPendingLoads = 24;
 const Duration originItemCoverLoadTimeout = Duration(seconds: 15);
+
+enum OriginItemCoverLoadPriority { disabled, prefetch, visible }
 
 class OriginItemCoverLoadCancelledException implements Exception {
   const OriginItemCoverLoadCancelledException();
@@ -17,6 +22,7 @@ class OriginItemCoverLoadCancelledException implements Exception {
 
 class OriginItemCoverLoadCancellationToken {
   final Set<VoidCallback> _listeners = <VoidCallback>{};
+  final NetworkCancellationToken networkToken = NetworkCancellationToken();
   var _isCancelled = false;
 
   bool get isCancelled => _isCancelled;
@@ -36,6 +42,7 @@ class OriginItemCoverLoadCancellationToken {
   void cancel() {
     if (_isCancelled) return;
     _isCancelled = true;
+    networkToken.cancel();
     final listeners = List<VoidCallback>.of(_listeners);
     _listeners.clear();
     for (final listener in listeners) {
@@ -48,73 +55,163 @@ class OriginItemCoverLoadCancellationToken {
 class OriginItemCoverLoadLimiter {
   OriginItemCoverLoadLimiter({
     required this.maxConcurrentLoads,
+    this.maxConcurrentPrefetchLoads = originItemCoverMaxConcurrentPrefetchLoads,
     this.maxPendingLoads = originItemCoverMaxPendingLoads,
   }) : assert(maxConcurrentLoads > 0),
+       assert(maxConcurrentPrefetchLoads >= 0),
+       assert(maxConcurrentPrefetchLoads <= maxConcurrentLoads),
        assert(maxPendingLoads >= 0);
 
   final int maxConcurrentLoads;
+  final int maxConcurrentPrefetchLoads;
   final int maxPendingLoads;
-  final Queue<_OriginItemCoverLoadJob> _waiters =
+  final Queue<_OriginItemCoverLoadJob> _visibleWaiters =
+      Queue<_OriginItemCoverLoadJob>();
+  final Queue<_OriginItemCoverLoadJob> _prefetchWaiters =
       Queue<_OriginItemCoverLoadJob>();
   var _activeLoads = 0;
+  var _activePrefetchLoads = 0;
 
   @visibleForTesting
   int get activeLoadCount => _activeLoads;
 
   @visibleForTesting
-  int get pendingLoadCount => _waiters.length;
+  int get activePrefetchLoadCount => _activePrefetchLoads;
+
+  @visibleForTesting
+  int get pendingLoadCount => _visibleWaiters.length + _prefetchWaiters.length;
 
   Future<T> schedule<T>(
     Future<T> Function() load, {
     OriginItemCoverLoadCancellationToken? cancellationToken,
+    ValueListenable<OriginItemCoverLoadPriority>? priorityListenable,
   }) {
-    final job = _TypedOriginItemCoverLoadJob<T>(load);
+    final job = _TypedOriginItemCoverLoadJob<T>(
+      load,
+      priority:
+          priorityListenable?.value ?? OriginItemCoverLoadPriority.visible,
+    );
     void handleCancellation() {
       if (job.hasStarted) return;
-      _waiters.remove(job);
+      _removePending(job);
       job.cancel();
+      _drain();
     }
 
-    job.onSettled = cancellationToken == null
-        ? null
-        : () => cancellationToken.removeListener(handleCancellation);
+    void handlePriorityChange() {
+      if (job.hasStarted || job.isCancelled) return;
+      final nextPriority =
+          priorityListenable?.value ?? OriginItemCoverLoadPriority.visible;
+      if (job.priority == nextPriority) return;
+      _removePending(job);
+      job.priority = nextPriority;
+      if (nextPriority == OriginItemCoverLoadPriority.disabled) {
+        job.cancel();
+      } else {
+        _enqueue(job);
+      }
+      _drain();
+    }
+
+    job.onSettled = () {
+      cancellationToken?.removeListener(handleCancellation);
+      priorityListenable?.removeListener(handlePriorityChange);
+    };
+    priorityListenable?.addListener(handlePriorityChange);
     cancellationToken?.addListener(handleCancellation);
     if (job.isCancelled) return job.future;
 
-    if (_activeLoads < maxConcurrentLoads) {
-      _start(job);
+    if (job.priority == OriginItemCoverLoadPriority.disabled) {
+      job.cancel();
       return job.future;
     }
 
     if (maxPendingLoads == 0) {
-      job.cancel();
+      if (_canStart(job)) {
+        _start(job);
+      } else {
+        job.cancel();
+      }
       return job.future;
     }
-    while (_waiters.length >= maxPendingLoads) {
-      _waiters.removeFirst().cancel();
+    while (pendingLoadCount >= maxPendingLoads) {
+      final superseded = _prefetchWaiters.isNotEmpty
+          ? _prefetchWaiters.removeFirst()
+          : _visibleWaiters.removeFirst();
+      superseded.cancel();
     }
-    _waiters.addLast(job);
+    _enqueue(job);
+    _drain();
     return job.future;
+  }
+
+  void _enqueue(_OriginItemCoverLoadJob job) {
+    switch (job.priority) {
+      case OriginItemCoverLoadPriority.visible:
+        _visibleWaiters.addLast(job);
+        return;
+      case OriginItemCoverLoadPriority.prefetch:
+        _prefetchWaiters.addLast(job);
+        return;
+      case OriginItemCoverLoadPriority.disabled:
+        job.cancel();
+        return;
+    }
+  }
+
+  void _removePending(_OriginItemCoverLoadJob job) {
+    _visibleWaiters.remove(job);
+    _prefetchWaiters.remove(job);
+  }
+
+  bool _canStart(_OriginItemCoverLoadJob job) {
+    if (_activeLoads >= maxConcurrentLoads) return false;
+    return job.priority == OriginItemCoverLoadPriority.visible ||
+        _activePrefetchLoads < maxConcurrentPrefetchLoads;
+  }
+
+  void _drain() {
+    while (_activeLoads < maxConcurrentLoads) {
+      _OriginItemCoverLoadJob? next;
+      while (_visibleWaiters.isNotEmpty && next == null) {
+        final candidate = _visibleWaiters.removeLast();
+        if (!candidate.isCancelled) next = candidate;
+      }
+      while (next == null &&
+          _activePrefetchLoads < maxConcurrentPrefetchLoads &&
+          _prefetchWaiters.isNotEmpty) {
+        final candidate = _prefetchWaiters.removeLast();
+        if (!candidate.isCancelled) next = candidate;
+      }
+      if (next == null) return;
+      _start(next);
+    }
   }
 
   void _start(_OriginItemCoverLoadJob job) {
     _activeLoads += 1;
-    unawaited(job.run().whenComplete(_release));
+    final startedAsPrefetch =
+        job.priority == OriginItemCoverLoadPriority.prefetch;
+    if (startedAsPrefetch) _activePrefetchLoads += 1;
+    unawaited(
+      job.run().whenComplete(
+        () => _release(startedAsPrefetch: startedAsPrefetch),
+      ),
+    );
   }
 
-  void _release() {
+  void _release({required bool startedAsPrefetch}) {
     _activeLoads -= 1;
-    while (_waiters.isNotEmpty) {
-      // Newer requests are more likely to still be close to the viewport.
-      final next = _waiters.removeLast();
-      if (next.isCancelled) continue;
-      _start(next);
-      return;
-    }
+    if (startedAsPrefetch) _activePrefetchLoads -= 1;
+    _drain();
   }
 }
 
 abstract interface class _OriginItemCoverLoadJob {
+  OriginItemCoverLoadPriority get priority;
+
+  set priority(OriginItemCoverLoadPriority value);
+
   bool get isCancelled;
 
   bool get hasStarted;
@@ -127,10 +224,12 @@ abstract interface class _OriginItemCoverLoadJob {
 }
 
 class _TypedOriginItemCoverLoadJob<T> implements _OriginItemCoverLoadJob {
-  _TypedOriginItemCoverLoadJob(this._load);
+  _TypedOriginItemCoverLoadJob(this._load, {required this.priority});
 
   final Future<T> Function() _load;
   final Completer<T> _completer = Completer<T>();
+  @override
+  OriginItemCoverLoadPriority priority;
   var _started = false;
   var _cancelled = false;
   var _settled = false;
@@ -183,7 +282,7 @@ final OriginItemCoverLoadLimiter _sharedOriginItemCoverLoadLimiter =
       maxConcurrentLoads: originItemCoverMaxConcurrentLoads,
     );
 
-/// Resolves an Origin list cover only after entering the shared four-slot
+/// Resolves an Origin list cover only after entering the shared six-slot
 /// loading queue. The decoded frame is cached under this provider's key, so
 /// the source provider is loaded directly without adding a duplicate image
 /// cache entry.
@@ -194,6 +293,7 @@ class OriginItemCoverThrottledImageProvider
     required this.sourceProvider,
     OriginItemCoverLoadLimiter? loadLimiter,
     this.cancellationToken,
+    this.priorityListenable,
     this.loadTimeout = originItemCoverLoadTimeout,
   }) : assert(loadTimeout > Duration.zero),
        loadLimiter = loadLimiter ?? _sharedOriginItemCoverLoadLimiter;
@@ -201,6 +301,7 @@ class OriginItemCoverThrottledImageProvider
   final ImageProvider<Object> sourceProvider;
   final OriginItemCoverLoadLimiter loadLimiter;
   final OriginItemCoverLoadCancellationToken? cancellationToken;
+  final ValueListenable<OriginItemCoverLoadPriority>? priorityListenable;
   final Duration loadTimeout;
 
   @override
@@ -219,6 +320,7 @@ class OriginItemCoverThrottledImageProvider
       key.loadLimiter.schedule(
         () => key._loadFirstFrame(decode),
         cancellationToken: key.cancellationToken,
+        priorityListenable: key.priorityListenable,
       ),
       informationCollector: () => <DiagnosticsNode>[
         DiagnosticsProperty<ImageProvider<Object>>(
@@ -230,6 +332,10 @@ class OriginItemCoverThrottledImageProvider
           key.loadLimiter.maxConcurrentLoads,
         ),
         IntProperty('Maximum pending loads', key.loadLimiter.maxPendingLoads),
+        EnumProperty<OriginItemCoverLoadPriority>(
+          'Load priority',
+          key.priorityListenable?.value,
+        ),
         DiagnosticsProperty<Duration>('Load timeout', key.loadTimeout),
       ],
     );

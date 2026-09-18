@@ -10,6 +10,7 @@ import 'package:visibility_detector/visibility_detector.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
 import '../../app/bootstrap/app_services_scope.dart';
 import '../../app/bootstrap/service_registry.dart';
+import '../../app/debug_page_tracker.dart';
 import '../../app/startup/app_startup_coordinator.dart';
 import '../../app/startup/startup_request_diagnostics.dart';
 import '../../app/telemetry/firebase_performance_operation.dart';
@@ -31,8 +32,9 @@ import '../../ui/tokens/genesis_colors.dart';
 import '../../ui/tokens/genesis_spacing.dart';
 import '../../ui/tokens/genesis_typography.dart';
 import '../../ui/theme/genesis_dark_theme.dart';
-import 'origin_feed_cache_store.dart';
+import 'origin_cover_load_window.dart';
 import 'origin_feed_audience.dart';
+import 'origin_feed_cache_store.dart';
 
 @visibleForTesting
 Duration? debugOriginExposureVisibilityUpdateInterval;
@@ -55,7 +57,8 @@ class OriginPage extends StatefulWidget {
   State<OriginPage> createState() => _OriginPageState();
 }
 
-class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
+class _OriginPageState extends State<OriginPage>
+    with WidgetsBindingObserver, RouteAware {
   static const _tabsHeight = 32.0;
   static const _searchTopSpacing = 12.0;
   static const _scrollToTopDuration = Duration(milliseconds: 240);
@@ -92,6 +95,11 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   var _hotTagsSyncInFlight = false;
   var _retryHotTagsOnResume = false;
   AppLifecycleState? _lifecycleState;
+  PageRoute<dynamic>? _subscribedRoute;
+  var _isRouteVisible = true;
+  late final ValueNotifier<bool> _coverLoadingActive = ValueNotifier<bool>(
+    _isPageActive,
+  );
   bool get _isPageActive => widget.isActiveListenable?.value ?? true;
 
   @override
@@ -108,6 +116,14 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute<dynamic> && !identical(route, _subscribedRoute)) {
+      genesisPageRouteObserver.unsubscribe(this);
+      _subscribedRoute = route;
+      genesisPageRouteObserver.subscribe(this, route);
+      _isRouteVisible = route.isCurrent;
+      _updateCoverLoadingActivity();
+    }
     final services = AppServicesScope.of(context);
     if (identical(services, _services)) return;
     _dismissGenderFilter?.call();
@@ -414,16 +430,50 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
 
   void _handlePageActivation() {
     if (!_isPageActive) _dismissGenderFilter?.call();
+    _updateCoverLoadingActivity();
+  }
+
+  void _updateCoverLoadingActivity() {
+    final next = _isPageActive && _isRouteVisible;
+    if (_coverLoadingActive.value != next) {
+      _coverLoadingActive.value = next;
+    }
+  }
+
+  @override
+  void didPush() {
+    _isRouteVisible = true;
+    _updateCoverLoadingActivity();
+  }
+
+  @override
+  void didPushNext() {
+    _isRouteVisible = false;
+    _updateCoverLoadingActivity();
+  }
+
+  @override
+  void didPopNext() {
+    _isRouteVisible = true;
+    _updateCoverLoadingActivity();
+  }
+
+  @override
+  void didPop() {
+    _isRouteVisible = false;
+    _updateCoverLoadingActivity();
   }
 
   @override
   void dispose() {
     _dismissGenderFilter?.call();
+    genesisPageRouteObserver.unsubscribe(this);
     widget.isActiveListenable?.removeListener(_handlePageActivation);
     _removeAudienceListeners();
     widget.activationListenable?.removeListener(_handleMainNavReselected);
     WidgetsBinding.instance.removeObserver(this);
     _iosPrimaryScrollController.dispose();
+    _coverLoadingActive.dispose();
     super.dispose();
   }
 
@@ -709,6 +759,7 @@ class _OriginPageState extends State<OriginPage> with WidgetsBindingObserver {
                             index: entry.$1,
                             category: entry.$2,
                             audience: _audience,
+                            isPageActiveListenable: _coverLoadingActive,
                             isInitialPage:
                                 widget.isInitialPage && entry.$1 == 0,
                             onFirstPageReady: entry.$1 == 0
@@ -894,6 +945,7 @@ class _OriginFeed extends StatefulWidget {
     required this.index,
     required this.category,
     required this.audience,
+    this.isPageActiveListenable,
     this.isInitialPage = false,
     this.onFirstPageReady,
     this.onInitialLoadCompleted,
@@ -902,6 +954,7 @@ class _OriginFeed extends StatefulWidget {
   final int index;
   final _OriginCategory category;
   final Future<OriginFeedAudienceState> audience;
+  final ValueListenable<bool>? isPageActiveListenable;
   final bool isInitialPage;
   final VoidCallback? onFirstPageReady;
   final VoidCallback? onInitialLoadCompleted;
@@ -924,6 +977,8 @@ class _OriginFeedState extends State<_OriginFeed>
 
   TabController? _tabController;
   final ScrollController _scrollController = ScrollController();
+  final ValueNotifier<OriginCoverLoadWindow> _coverLoadWindow =
+      ValueNotifier<OriginCoverLoadWindow>(OriginCoverLoadWindow.disabled);
   final GlobalKey _exposureViewportKey = GlobalKey(
     debugLabel: 'origin-feed-exposure-viewport',
   );
@@ -964,12 +1019,15 @@ class _OriginFeedState extends State<_OriginFeed>
   var _firstScreenRenderCompleted = false;
   var _launchRenderRevision = 0;
   var _isSendingExposures = false;
+  double? _originGridRowStride;
 
   bool get _isForYouFeed => widget.category.scene == 'foryou';
 
   bool get _usesFirstPageCache => _isForYouFeed;
 
   bool get _isCurrentTab => _tabController?.index == widget.index;
+
+  bool get _isPageActive => widget.isPageActiveListenable?.value ?? true;
 
   bool get _isCurrentTabSettled {
     final controller = _tabController;
@@ -1020,10 +1078,12 @@ class _OriginFeedState extends State<_OriginFeed>
           _exposureVisibilityUpdateInterval;
     }
     WidgetsBinding.instance.addObserver(this);
+    widget.isPageActiveListenable?.addListener(_updateCoverLoadWindow);
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _updateCoverLoadWindow();
     if (_isPrimaryFeed) {
       AppStartupCoordinator.recordLaunchPageState(
         page: 'worldo',
@@ -1094,6 +1154,11 @@ class _OriginFeedState extends State<_OriginFeed>
   @override
   void didUpdateWidget(covariant _OriginFeed oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.isPageActiveListenable != widget.isPageActiveListenable) {
+      oldWidget.isPageActiveListenable?.removeListener(_updateCoverLoadWindow);
+      widget.isPageActiveListenable?.addListener(_updateCoverLoadWindow);
+      _updateCoverLoadWindow();
+    }
     if (oldWidget.category != widget.category ||
         oldWidget.index != widget.index) {
       _resetListState();
@@ -1123,16 +1188,19 @@ class _OriginFeedState extends State<_OriginFeed>
     unawaited(_activeFirstScreenRequestOperation?.cancel());
     unawaited(_activeFirstScreenRenderOperation?.cancel());
     WidgetsBinding.instance.removeObserver(this);
+    widget.isPageActiveListenable?.removeListener(_updateCoverLoadWindow);
     _tabController?.removeListener(_handleTabChange);
     _clearExposureCandidates();
     _exposureQueueFlushTimer?.cancel();
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
+    _coverLoadWindow.dispose();
     super.dispose();
   }
 
   void _resetListState() {
+    _coverLoadWindow.value = OriginCoverLoadWindow.disabled;
     _startupRequestDiagnostics?.cancel('feed_reset');
     if (_isPrimaryFeed) {
       AppStartupCoordinator.recordLaunchPageState(
@@ -1246,6 +1314,7 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _handleTabChange() {
+    _updateCoverLoadWindow();
     _requestIfCurrentTab();
     if (_isCurrentTabSettled && _items.isNotEmpty) {
       _scheduleVisibilityFlush();
@@ -1280,6 +1349,7 @@ class _OriginFeedState extends State<_OriginFeed>
   }
 
   void _handleScroll() {
+    _updateCoverLoadWindow();
     _scheduleExposureViewportValidation();
     if (!_hasCompletedFirstPageNetworkRequest ||
         !_scrollController.hasClients ||
@@ -1291,6 +1361,42 @@ class _OriginFeedState extends State<_OriginFeed>
     }
     _trackForYouListLoad(type: 'load_more', page: _nextPage);
     unawaited(_loadNextPage());
+  }
+
+  void _scheduleCoverLoadWindowUpdate(double rowStride) {
+    if (_originGridRowStride == rowStride) return;
+    _originGridRowStride = rowStride;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _updateCoverLoadWindow();
+    });
+  }
+
+  void _updateCoverLoadWindow() {
+    final lifecycleState = WidgetsBinding.instance.lifecycleState;
+    final canLoad =
+        mounted &&
+        _isPageActive &&
+        _isCurrentTabSettled &&
+        _items.isNotEmpty &&
+        _scrollController.hasClients &&
+        _originGridRowStride != null &&
+        (lifecycleState == null || lifecycleState == AppLifecycleState.resumed);
+    if (!canLoad) {
+      if (_coverLoadWindow.value != OriginCoverLoadWindow.disabled) {
+        _coverLoadWindow.value = OriginCoverLoadWindow.disabled;
+      }
+      return;
+    }
+
+    final position = _scrollController.position;
+    final next = OriginCoverLoadWindow.forGrid(
+      itemCount: _items.length,
+      scrollOffset: position.pixels,
+      viewportDimension: position.viewportDimension,
+      rowStride: _originGridRowStride!,
+      gridTop: genesisOriginGridPadding.top,
+    );
+    if (_coverLoadWindow.value != next) _coverLoadWindow.value = next;
   }
 
   void _scheduleFeedPaginationContinuation() {
@@ -2011,6 +2117,9 @@ class _OriginFeedState extends State<_OriginFeed>
                           final itemHeight =
                               itemWidth / genesisOriginCoverAspectRatio +
                               genesisOriginCardBottomExtension;
+                          _scheduleCoverLoadWindowUpdate(
+                            itemHeight + genesisOriginGridSpacing,
+                          );
                           return SliverGrid(
                             key: const ValueKey<String>(
                               'origin-feed-virtual-grid',
@@ -2051,15 +2160,25 @@ class _OriginFeedState extends State<_OriginFeed>
                                             },
                                           );
                                         },
-                                  child: OriginItemCard(
-                                    item: item,
-                                    onCoverLoaded: _isForYouFeed
-                                        ? () => _handleCoverLoaded(
-                                            item.oid,
-                                            item.cover,
-                                          )
-                                        : null,
-                                  ),
+                                  child:
+                                      ValueListenableBuilder<
+                                        OriginCoverLoadWindow
+                                      >(
+                                        valueListenable: _coverLoadWindow,
+                                        builder: (context, loadWindow, child) {
+                                          return OriginItemCard(
+                                            item: item,
+                                            coverLoadPriority: loadWindow
+                                                .priorityFor(index),
+                                            onCoverLoaded: _isForYouFeed
+                                                ? () => _handleCoverLoaded(
+                                                    item.oid,
+                                                    item.cover,
+                                                  )
+                                                : null,
+                                          );
+                                        },
+                                      ),
                                 );
                                 if (!_isForYouFeed) return card;
                                 return VisibilityDetector(

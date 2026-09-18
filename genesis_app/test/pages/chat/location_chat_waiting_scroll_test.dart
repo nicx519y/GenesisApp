@@ -98,6 +98,8 @@ void main() {
     double viewportHeight = 360,
     double effectiveKeyboardInset = 0,
     int waitingPositionResetRevision = 0,
+    bool showReplyActions = false,
+    int replyPresentationRevision = 0,
   }) => MaterialApp(
     home: Scaffold(
       body: SizedBox(
@@ -124,6 +126,18 @@ void main() {
               preAckWaitingIdentity: preAckWaiting,
               waitingPositionResetRevision: waitingPositionResetRevision,
               goOnAwaitingContentIdentity: goOn ? waiting : null,
+              replyActionsIdentity: showReplyActions ? 'round-1' : null,
+              replyActionsMessageId: showReplyActions
+                  ? 'message-${count - 1}'
+                  : null,
+              replyActionsVisible: showReplyActions,
+              replyPresentationRevision: replyPresentationRevision,
+              regenerateFeature: showReplyActions
+                  ? LocationChatRegenerateFeature(
+                      state: LocationChatReplyActionState.idle,
+                      onInvoke: () {},
+                    )
+                  : const LocationChatRegenerateFeature.disabled(),
               showDateDividers: false,
               style: ChatUiStyleConfig.standard.copyWith(
                 messageListPadding: EdgeInsets.zero,
@@ -722,6 +736,50 @@ void main() {
     expect(coordinator.controller.position.pixels, closeTo(held, 1));
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'visible reply controls do not pull a detached viewport during output',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      await tester.pumpWidget(tree(coordinator, showReplyActions: true));
+      await tester.pumpAndSettle();
+
+      final position = coordinator.controller.position;
+      coordinator.deactivate();
+      position.jumpTo(position.maxScrollExtent - 30);
+      await tester.pump();
+
+      final viewport = find.byType(LocationChatAnchoredMessageList);
+      final replyControls = find.byKey(
+        const ValueKey<String>('location-chat-reply-control:round-1'),
+        skipOffstage: false,
+      );
+      expect(replyControls, findsOneWidget);
+      expect(
+        tester.getRect(replyControls).overlaps(tester.getRect(viewport)),
+        isTrue,
+      );
+      final visibleMessage = find.text('Message 18');
+      expect(visibleMessage, findsOneWidget);
+      final visibleTop = tester.getTopLeft(visibleMessage).dy;
+      final heldPixels = position.pixels;
+
+      await tester.pumpWidget(
+        tree(
+          coordinator,
+          showReplyActions: true,
+          replyPresentationRevision: 1,
+          suffix: '\nStreaming reply' * 12,
+        ),
+      );
+      await tester.pump();
+
+      expect(position.pixels, closeTo(heldPixels, 0.1));
+      expect(tester.getTopLeft(visibleMessage).dy, closeTo(visibleTop, 0.1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets(
     'short history keeps loading in upper quarter without overscroll',

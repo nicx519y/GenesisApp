@@ -10241,6 +10241,7 @@ void main() {
 
     expect(
       resolveLocationChatMessageAvatarForTesting(
+        businessType: 'character',
         senderId: 'char-role',
         characters: characters,
         entitiesById: const {
@@ -10257,6 +10258,7 @@ void main() {
     );
     expect(
       resolveLocationChatMessageAvatarForTesting(
+        businessType: 'character',
         senderId: 'entity-role',
         characters: const <Map<String, dynamic>>[],
         entitiesById: const {
@@ -10273,6 +10275,7 @@ void main() {
     );
     expect(
       resolveLocationChatMessageAvatarForTesting(
+        businessType: 'user',
         userId: 'user-role',
         senderId: 'unknown-sender',
         characters: const <Map<String, dynamic>>[],
@@ -10290,6 +10293,33 @@ void main() {
     );
     expect(
       resolveLocationChatMessageAvatarForTesting(
+        businessType: 'character',
+        userId: 'user-role',
+        senderId: 'npc-role',
+        characters: const <Map<String, dynamic>>[],
+        entitiesById: const {
+          'user-role': WorldChatroomEntity(
+            id: 'user-role',
+            name: 'Triggering User',
+            avatarUrl: 'https://example.test/user.webp',
+            type: WorldChatroomEntityType.player,
+            locationId: 'loc-1',
+          ),
+          'npc-role': WorldChatroomEntity(
+            id: 'npc-role',
+            name: 'NPC Role',
+            avatarUrl: 'https://example.test/npc.webp',
+            type: WorldChatroomEntityType.character,
+            locationId: 'loc-1',
+            isAi: true,
+          ),
+        },
+      ),
+      'https://example.test/npc.webp',
+    );
+    expect(
+      resolveLocationChatMessageAvatarForTesting(
+        businessType: 'character',
         senderId: 'missing-role',
         characters: characters,
       ),
@@ -10297,8 +10327,11 @@ void main() {
     );
   });
 
-  testWidgets('inactive opening preview uses entity avatar', (tester) async {
+  testWidgets('inactive character preview ignores its triggering user avatar', (
+    tester,
+  ) async {
     const avatarAsset = 'assets/images/default_list_image.png';
+    const userAvatarAsset = 'assets/images/app_icon.png';
     await tester.pumpWidget(
       const MaterialApp(
         home: LocationChatPanel(
@@ -10312,6 +10345,7 @@ void main() {
               roundOrder: 0,
               locationId: 'loc-1',
               senderType: 'character',
+              userId: 'user-role',
               senderId: 'char-role',
               senderName: 'Preview Role',
               content: 'Opening line.',
@@ -10319,6 +10353,13 @@ void main() {
             ),
           ],
           openingPreviewEntities: [
+            WorldChatroomEntity(
+              id: 'user-role',
+              name: 'Triggering User',
+              avatarUrl: userAvatarAsset,
+              type: WorldChatroomEntityType.player,
+              locationId: 'loc-1',
+            ),
             WorldChatroomEntity(
               id: 'CHAR-ROLE',
               name: 'Preview Role',

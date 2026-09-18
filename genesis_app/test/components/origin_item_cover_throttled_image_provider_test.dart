@@ -21,11 +21,11 @@ void main() {
       ..clearLiveImages();
   });
 
-  test('limits Worldo cover loading to four concurrent operations', () async {
+  test('limits Worldo cover loading to six concurrent operations', () async {
     final limiter = OriginItemCoverLoadLimiter(
       maxConcurrentLoads: originItemCoverMaxConcurrentLoads,
     );
-    final gates = List<Completer<void>>.generate(6, (_) => Completer<void>());
+    final gates = List<Completer<void>>.generate(8, (_) => Completer<void>());
     final started = <int>[];
     var activeLoads = 0;
     var peakActiveLoads = 0;
@@ -45,17 +45,17 @@ void main() {
     ];
 
     await Future<void>.delayed(Duration.zero);
-    expect(started, <int>[0, 1, 2, 3]);
+    expect(started, <int>[0, 1, 2, 3, 4, 5]);
     expect(peakActiveLoads, originItemCoverMaxConcurrentLoads);
 
     gates[0].complete();
     await Future<void>.delayed(Duration.zero);
-    expect(started, <int>[0, 1, 2, 3, 5]);
+    expect(started, <int>[0, 1, 2, 3, 4, 5, 7]);
     expect(peakActiveLoads, originItemCoverMaxConcurrentLoads);
 
     gates[1].complete();
     await Future<void>.delayed(Duration.zero);
-    expect(started, <int>[0, 1, 2, 3, 5, 4]);
+    expect(started, <int>[0, 1, 2, 3, 4, 5, 7, 6]);
     expect(peakActiveLoads, originItemCoverMaxConcurrentLoads);
 
     for (final gate in gates.skip(2)) {
@@ -134,6 +134,116 @@ void main() {
     activeGate.complete();
     await active;
     expect(limiter.activeLoadCount, 0);
+  });
+
+  test('allows at most one active prefetch alongside visible covers', () async {
+    final limiter = OriginItemCoverLoadLimiter(
+      maxConcurrentLoads: originItemCoverMaxConcurrentLoads,
+      maxConcurrentPrefetchLoads: 1,
+      maxPendingLoads: 8,
+    );
+    final gates = List<Completer<void>>.generate(8, (_) => Completer<void>());
+    final priorities =
+        List<ValueNotifier<OriginItemCoverLoadPriority>>.generate(
+          3,
+          (_) => ValueNotifier<OriginItemCoverLoadPriority>(
+            OriginItemCoverLoadPriority.prefetch,
+          ),
+        );
+    addTearDown(() {
+      for (final priority in priorities) {
+        priority.dispose();
+      }
+    });
+    final started = <int>[];
+
+    Future<void> schedule(
+      int index, {
+      ValueListenable<OriginItemCoverLoadPriority>? priority,
+    }) {
+      return limiter.schedule(() async {
+        started.add(index);
+        await gates[index].future;
+      }, priorityListenable: priority);
+    }
+
+    final loads = <Future<void>>[
+      for (var index = 0; index < priorities.length; index += 1)
+        schedule(index, priority: priorities[index]),
+      for (var index = priorities.length; index < gates.length; index += 1)
+        schedule(index),
+    ];
+    await Future<void>.delayed(Duration.zero);
+
+    expect(started, <int>[0, 3, 4, 5, 6, 7]);
+    expect(limiter.activeLoadCount, originItemCoverMaxConcurrentLoads);
+    expect(limiter.activePrefetchLoadCount, 1);
+
+    for (final gate in gates) {
+      gate.complete();
+    }
+    await Future.wait(loads);
+    expect(limiter.activeLoadCount, 0);
+    expect(limiter.activePrefetchLoadCount, 0);
+  });
+
+  test('promotes a queued prefetch without scheduling a second load', () async {
+    final limiter = OriginItemCoverLoadLimiter(
+      maxConcurrentLoads: 1,
+      maxConcurrentPrefetchLoads: 1,
+      maxPendingLoads: 4,
+    );
+    final gates = List<Completer<void>>.generate(3, (_) => Completer<void>());
+    final firstPriority = ValueNotifier<OriginItemCoverLoadPriority>(
+      OriginItemCoverLoadPriority.prefetch,
+    );
+    final secondPriority = ValueNotifier<OriginItemCoverLoadPriority>(
+      OriginItemCoverLoadPriority.prefetch,
+    );
+    addTearDown(firstPriority.dispose);
+    addTearDown(secondPriority.dispose);
+    final started = <int>[];
+
+    Future<void> schedule(
+      int index, {
+      ValueListenable<OriginItemCoverLoadPriority>? priority,
+    }) {
+      return limiter.schedule(() async {
+        started.add(index);
+        await gates[index].future;
+      }, priorityListenable: priority);
+    }
+
+    final active = schedule(0);
+    final promoted = schedule(1, priority: firstPriority);
+    final prefetch = schedule(2, priority: secondPriority);
+    firstPriority.value = OriginItemCoverLoadPriority.visible;
+
+    gates[0].complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(started, <int>[0, 1]);
+
+    gates[1].complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(started, <int>[0, 1, 2]);
+
+    gates[2].complete();
+    await Future.wait(<Future<void>>[active, promoted, prefetch]);
+    expect(started.where((index) => index == 1), hasLength(1));
+  });
+
+  test('bridges cover cancellation to the network token', () {
+    final token = OriginItemCoverLoadCancellationToken();
+    var networkCancellationObserved = false;
+    token.networkToken.addCancelListener(() {
+      networkCancellationObserved = true;
+    });
+
+    token.cancel();
+
+    expect(token.isCancelled, isTrue);
+    expect(token.networkToken.isCancelled, isTrue);
+    expect(networkCancellationObserved, isTrue);
   });
 
   test('times out a cover that never produces its first frame', () async {
