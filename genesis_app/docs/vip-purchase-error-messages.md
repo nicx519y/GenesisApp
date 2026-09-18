@@ -23,11 +23,11 @@ Apple / Google 购买 UUID 统一优先取商品接口 `last_account_uuid`；没
 
 同套餐的 `Subscribed` 只用于展示，点击不再产生客户端 `already_subscribed` 拦截。有效年会员购买月套餐保留原不能降级弹窗。商品缓存 v3 仅存展示配置；商品及升级凭据仍复用本次页面 API 响应，不因点击购买重复请求，未完成时等待同一商品请求。缺少商品或身份凭据、账号切换、购买进行中等原有流程保护继续生效。
 
-仅平台购买成功（`purchased`）回调携带有效凭据后调用一次 report；`pending`、`restored`、取消或平台失败均不 report。Google / Apple 共用结果处理：`completed` 刷新钱包并显示成功；`accepted` 提示确认中；`rejected` 的非空 reason 原样 Toast，但 `account_mismatch` 统一显示 Google 身份不一致时的 `Account identifiers don't match the previous subscription.`。接口无可用 reason 时显示 `Report failed.`，不再显示 `Purchase failed.`。原 reason 随本地交易结果保留，重复返回已拒绝的交易时继续使用同一文案，不重新上报获取原因，也不把 reason 用作本地购买拦截。任一业务状态、业务错误或未知状态都结束本次 report，不补报。连接异常、超时、HTTP 408/429/5xx、Gateway 错误及无效响应均直接结束并提示 `Report failed.`，不做任何 report 重试。不保存 report 队列，不在启动、回前台、定时器或 claim accepted 后重报。游客绑定证明及独立 claim 流程保留。Android / iOS 商店收尾继续由服务端负责。
+仅平台购买成功（`purchased`）回调携带有效凭据后调用一次 report；`pending`、`restored`、取消或平台失败均不 report。Google / Apple 共用结果处理：`completed` 刷新钱包并显示成功；`accepted` 提示确认中；`rejected` 显示 `We couldn’t verify your subscription. Please contact support.`，涵盖 `subscription_superseded`、其他原因及缺失 reason；`account_mismatch` 保留具体提示 `Account identifiers don't match the previous subscription.`。不直接展示服务端错误码，也不将拒绝原因解释为订阅已变更。原始 reason 仍保存在本次记录中用于排查，不用历史 reason 决定新一次购买的结果。任一业务状态、业务错误或未知状态都结束本次 report，不补报。连接异常、超时、HTTP 408/429/5xx、Gateway 错误及无效响应均直接结束并提示 `Report failed.`，不做任何 report 重试。不保存 report 队列，不在启动、回前台、定时器或 claim accepted 后重报。游客绑定证明及独立 claim 流程保留。Android / iOS 商店收尾继续由服务端负责。
 
-Apple 本次 `Product.purchase` 直接返回的回调携带本地 `checkoutAttemptId`，用于结束对应点击的等待。该标识不发给 Apple 或后端，不修改原交易凭据。未处理交易即使 `appAccountToken` 与请求 UUID 不同，也将原请求身份和交易凭据交给 report，由服务端决定结果，客户端不新增账号不一致拦截。已处理交易沿用原 report 结果结束本次等待，不重复 report，也不把旧交易重新认领为本次购买。
+Apple 本次 `Product.purchase` 直接返回的回调携带本地 `checkoutAttemptId`，用于关联对应点击。成功回调携带有效凭据后直接执行本次 report，不查询或比较历史 transactionId，不沿用历史 report 状态，也不生成本地“已拥有”提示。即使 Apple 返回之前出现过的交易，仍按本次回调的原始凭据上报，页面按本次服务端结果展示。Apple 返回的商品 ID 与点击套餐不同（例如点月订阅却返回年订阅）时，也按 checkoutAttemptId 接收本次直接结果，不丢弃回调或继续等待超时；report 和后续 claim 的 store_product_id、transaction_id、JWS 来自同一回调。所选套餐仍保留为本地点击信息，不将其价格记到不同的回调商品上。该本地关联标识不进入 Apple 购买参数、HTTP 或持久化。
 
-当 Apple 本次购买直接返回已 report `completed` 的同一笔交易时，结束 Purchasing 并显示 `You already own this subscription on the App Store.`，与 Google `ITEM_ALREADY_OWNED` 的“已拥有该订阅”提示对齐，仅商店名称不同。该提示不新增成功／失败打点、不弹本次支付成功窗口、不重新上报，也不以旧交易推断当前会员是否有效。`Subscribed` 按钮仍正常调用商店购买，没有增加购买前拦截。
+同一次购买按 requestId 防止重复 report，Apple 回调去重不比较 transactionId；同一交易的成功埋点仍按原规则去重。无关联标识的后台交易只能继续同商品唯一的待处理回调（pending、restored 或缺凭据），不能占用一个刚打开的购买流程。游客登录后 claim 所需的原始购买证明继续保存，但不参与 Apple 新购买的历史交易匹配。Google 的 token/续费交易匹配保持原逻辑。
 
 只有 `Product.purchase` Future 已返回、10 秒内仍未收到对应回调时，才关闭 `Purchasing Premium` 并提示确认延迟。该计时不包含用户停留在 Apple 付款页的时间，也不替代 report 自身超时。后台历史交易和上一笔迟到回调不能结束新一笔购买；Android 调起后的等待行为不变。
 

@@ -237,13 +237,15 @@ void main() {
       for (final entry in const {
         'account_mismatch':
             "Account identifiers don't match the previous subscription.",
-        'product_mismatch': 'product_mismatch',
-        'downgrade_not_allowed': 'downgrade_not_allowed',
+        'product_mismatch':
+            'We couldn’t verify your subscription. Please contact support.',
+        'downgrade_not_allowed':
+            'We couldn’t verify your subscription. Please contact support.',
         'The receipt could not be verified.':
-            'The receipt could not be verified.',
+            'We couldn’t verify your subscription. Please contact support.',
       }.entries) {
         testWidgets(
-          '$provider guest=$guest displays report reason ${entry.key}',
+          '$provider guest=$guest displays readable report rejection ${entry.key}',
           (tester) async {
             final h = service.Harness(provider: provider);
             if (guest) h.uid = null;
@@ -271,7 +273,7 @@ void main() {
   }
 
   testWidgets(
-    'Subscribed click shows feedback for an already completed Apple transaction',
+    'Subscribed click reports the Apple callback even for a previously reported transaction',
     (tester) async {
       final events = <SubscriptionAnalyticsEvent>[];
       final h = service.Harness(
@@ -316,6 +318,7 @@ void main() {
           await tester.pump(const Duration(milliseconds: 250));
           expect(find.text('Purchasing Premium'), findsOneWidget);
           expect(h.platform.launches, click + 1);
+          expect(h.reports, hasLength(click));
           await h.service.interceptPurchase(
             h.purchase(
               yearly: true,
@@ -324,16 +327,14 @@ void main() {
           );
           await tester.pumpAndSettle();
           expect(find.text('Purchasing Premium'), findsNothing);
-          expect(
-            find.text('You already own this subscription on the App Store.'),
-            findsOneWidget,
-          );
-          expect(find.text('Purchase successful!'), findsNothing);
+          expect(find.text('Purchase successful!'), findsOneWidget);
           expect(find.textContaining('Purchase failed.'), findsNothing);
           expect(find.text('Subscribed'), findsOneWidget);
           expect(h.service.isBusy, isFalse);
-          expect(h.reports, hasLength(1));
+          expect(h.reports, hasLength(click + 1));
           expect(events.map((event) => event.action), ['subscription_success']);
+          await tester.tap(find.text('Continue'));
+          await tester.pumpAndSettle();
           await tester.pump(const Duration(seconds: 11));
           expect(
             find.textContaining('Purchase confirmation is delayed.'),
@@ -351,7 +352,7 @@ void main() {
   );
 
   testWidgets(
-    'Apple existing rejected transaction closes loading immediately',
+    'Apple previously rejected transaction waits for the current report response',
     (tester) async {
       final h = service.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => const MembershipPurchaseReport(
@@ -360,24 +361,77 @@ void main() {
       );
       await h.service.purchase(h.product(yearly: true), attemptId: 'original');
       await h.service.interceptPurchase(h.purchase(yearly: true));
+      final response = Completer<MembershipPurchaseReport>();
+      h.reportHandler = (_) => response.future;
       await open(tester, h);
       expect(find.text('Purchasing Premium'), findsOneWidget);
-      await h.service.interceptPurchase(
+      final callback = h.service.interceptPurchase(
         h.purchase(
           yearly: true,
           checkoutAttemptId: h.platform.checkoutAttemptId,
         ),
       );
       await tester.pump();
+      expect(h.reports, hasLength(2));
+      expect(find.text('Purchasing Premium'), findsOneWidget);
+      expect(
+        find.text("Account identifiers don't match the previous subscription."),
+        findsNothing,
+      );
+      response.complete(
+        const MembershipPurchaseReport(
+          status: MembershipReportStatus.rejected,
+          reason: 'Current report rejection',
+        ),
+      );
+      await callback;
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
       expect(find.text('Purchasing Premium'), findsNothing);
       expect(find.text('Purchase successful!'), findsNothing);
       expect(
-        find.text("Account identifiers don't match the previous subscription."),
+        find.text(
+          'We couldn’t verify your subscription. Please contact support.',
+        ),
         findsOneWidget,
       );
       expect(find.textContaining('Purchase failed.'), findsNothing);
-      expect(h.reports, hasLength(1));
+      expect(h.reports, hasLength(2));
+      await tester.pump(const Duration(seconds: 11));
+      expect(
+        find.textContaining('Purchase confirmation is delayed.'),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
+    'Apple returning another product ends loading as soon as report responds',
+    (tester) async {
+      final h = service.Harness(provider: MembershipProvider.apple);
+      addTearDown(h.service.dispose);
+      h.reportHandler = (_) async => const MembershipPurchaseReport(
+        status: MembershipReportStatus.rejected,
+        reason: 'subscription_superseded',
+      );
+      await open(tester, h);
+      expect(h.platform.product!.isYearly, isTrue);
+      expect(find.text('Purchasing Premium'), findsOneWidget);
+      await h.service.interceptPurchase(h.purchase(yearly: false));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(
+        h.reports.single.product.storeProductId,
+        h.product().storeProductId,
+      );
+      expect(find.text('Purchasing Premium'), findsNothing);
+      expect(find.byType(Dialog), findsNothing);
+      expect(
+        find.text(
+          'We couldn’t verify your subscription. Please contact support.',
+        ),
+        findsOneWidget,
+      );
       await tester.pump(const Duration(seconds: 11));
       expect(
         find.textContaining('Purchase confirmation is delayed.'),
@@ -693,7 +747,9 @@ void main() {
           'cancelled' => 'Purchase canceled.',
           'pending' => 'Your purchase is pending.',
           'accepted' => 'Your purchase is being confirmed.',
-          'rejected' || 'report failure' => 'Report failed.',
+          'rejected' =>
+            'We couldn’t verify your subscription. Please contact support.',
+          'report failure' => 'Report failed.',
           'stream failure' =>
             'Purchase confirmation is delayed. Please check again later.',
           'failed' =>

@@ -353,6 +353,7 @@ class Harness {
     String? uuid,
     String purchaseTime = '',
     String? checkoutAttemptId,
+    bool directResult = true,
   }) => BillingPurchase(
     provider: provider == MembershipProvider.google
         ? BillingProvider.googlePlay
@@ -367,7 +368,15 @@ class Harness {
         : '',
     purchaseTime: purchaseTime,
     status: status,
-    checkoutAttemptId: checkoutAttemptId,
+    // Native Apple purchase results carry the originating checkout marker;
+    // background updates and store-history queries do not.
+    checkoutAttemptId:
+        checkoutAttemptId ??
+        (provider == MembershipProvider.apple &&
+                directResult &&
+                status != BillingPurchaseStatus.restored
+            ? platform.checkoutAttemptId
+            : null),
     obfuscatedAccountId:
         uuid ?? (uid == null ? guest.accountUuid : accountUuid),
   );

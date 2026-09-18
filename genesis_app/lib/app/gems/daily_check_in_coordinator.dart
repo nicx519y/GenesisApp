@@ -57,6 +57,22 @@ Future<void> showPendingDailyCheckInAfterLogin(
   if (!canShow()) return;
   late final GemTask? task;
   try {
+    // The reward is account-specific. Fetching tasks before guest ownership is
+    // bound can freeze a non-member amount while the dialog later shows member
+    // buttons after its own membership check.
+    final purchases = services.membershipPurchases;
+    if (purchases != null) {
+      final settled = await purchases.waitForGuestClaim().timeout(
+        services.membership.requestTimeout,
+      );
+      if (!isCurrentRequest() || !canShow()) return;
+      if (!settled) {
+        // Binding is unresolved, so this automatic prompt has no confirmed
+        // reward yet. Do not immediately reschedule it in the main-tab loop.
+        pending.value = null;
+        return;
+      }
+    }
     task = _findDailyCheckInTask((await services.api.v1.gem.tasks()).groups);
   } catch (_) {
     if (isCurrentRequest() && canShow()) pending.value = null;

@@ -82,6 +82,7 @@ class MembershipPurchaseRecord {
 
   MembershipPurchaseRecord copyWith({
     String? requestId,
+    MembershipOrderProduct? product,
     String? transactionId,
     String? originalTransactionId,
     String? purchaseToken,
@@ -93,11 +94,12 @@ class MembershipPurchaseRecord {
     SubscriptionTracking? tracking,
     int? priceAmountMicros,
     String? priceCurrencyCode,
+    bool clearPrice = false,
     bool newReport = false,
     bool retryReport = false,
   }) => MembershipPurchaseRecord(
     requestId: requestId ?? this.requestId,
-    product: product,
+    product: product ?? this.product,
     accountUuid: accountUuid,
     ownerUid: ownerUid,
     guest: guest,
@@ -121,8 +123,12 @@ class MembershipPurchaseRecord {
         : reportReason ?? this.reportReason,
     finished: newReport ? false : finished ?? this.finished,
     tracking: tracking ?? (newReport ? null : this.tracking),
-    priceAmountMicros: priceAmountMicros ?? this.priceAmountMicros,
-    priceCurrencyCode: priceCurrencyCode ?? this.priceCurrencyCode,
+    priceAmountMicros: clearPrice
+        ? null
+        : priceAmountMicros ?? this.priceAmountMicros,
+    priceCurrencyCode: clearPrice
+        ? ''
+        : priceCurrencyCode ?? this.priceCurrencyCode,
   );
 
   /// Keep store receipt identity for restore after removing the guest identity.

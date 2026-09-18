@@ -43,7 +43,6 @@ enum MembershipCheckoutState {
   deferred,
   loginRequired,
   checking,
-  alreadyProcessed,
 }
 
 class MembershipCheckoutEvent {
@@ -752,9 +751,15 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           await _handle(purchase, productId: active.product.storeProductId);
           return true;
         }
-        final known = _records.values.any(
-          (r) => r.product.storeProductId == purchase.productId,
-        );
+        // A direct Apple result already identifies its subscription checkout.
+        // StoreKit may return another product in the subscription group; do not
+        // query the catalog before processing that returned proof.
+        final known =
+            provider == MembershipProvider.apple &&
+                _records.containsKey(purchase.checkoutAttemptId) ||
+            _records.values.any(
+              (r) => r.product.storeProductId == purchase.productId,
+            );
         if (!known && !await platform.isSubscription(purchase.productId)) {
           return false;
         }
@@ -786,100 +791,83 @@ class MembershipPurchaseService with WidgetsBindingObserver {
     final sourceAttempt = sourceId == null ? null : _records[sourceId];
     // A direct StoreKit result belongs only to its original call, including
     // when it arrives after timeout. Never attach it to a newer checkout.
-    if (sourceId != null &&
-        (sourceAttempt == null ||
-            sourceAttempt.product.storeProductId != productId)) {
-      return;
-    }
-    MembershipPurchaseRecord? record;
-    final candidates = _records.values
-        .where(
-          (r) =>
-              r.product.storeProductId == productId &&
-              !r.replacesPurchaseToken(purchase.purchaseToken),
-        )
-        .toList();
-    MembershipPurchaseRecord? tokenMatch;
-    for (final candidate in candidates.reversed) {
-      if (provider == MembershipProvider.google) {
+    if (sourceId != null && sourceAttempt == null) return;
+    MembershipPurchaseRecord? record = sourceAttempt;
+    if (provider == MembershipProvider.apple) {
+      // Product.purchase results belong to their checkout, regardless of the
+      // returned transaction ID. Never look up a previous Apple receipt here.
+      if (record == null &&
+          (purchase.status == BillingPurchaseStatus.error ||
+              purchase.status == BillingPurchaseStatus.canceled)) {
+        // Some platform failures have no checkout marker. Preserve their
+        // existing UI handling; these events never report a transaction.
+        final active = _records[_activeRequestId];
+        if (active?.product.storeProductId == productId) record = active;
+      }
+      if (record == null) {
+        // A pending purchase may later complete via Transaction.updates, which
+        // has no checkout marker. Only an unresolved store result can accept it;
+        // background deliveries cannot complete a newly opened purchase sheet.
+        final pending = _records.values
+            .where(
+              (r) =>
+                  r.product.storeProductId == productId &&
+                  !_reportedRequestIds.contains(r.requestId) &&
+                  (r.state == 'pending' ||
+                      r.state == 'restored' ||
+                      r.needsReceiptRecovery),
+            )
+            .toList();
+        if (pending.length == 1) record = pending.single;
+      }
+    } else {
+      final candidates = _records.values
+          .where(
+            (r) =>
+                r.product.storeProductId == productId &&
+                !r.replacesPurchaseToken(purchase.purchaseToken),
+          )
+          .toList();
+      MembershipPurchaseRecord? tokenMatch;
+      for (final candidate in candidates.reversed) {
         if (purchase.purchaseToken.isEmpty ||
             candidate.purchaseToken != purchase.purchaseToken) {
           continue;
         }
         tokenMatch ??= candidate;
-      }
-      if (purchase.transactionId.isNotEmpty &&
-          candidate.transactionId == purchase.transactionId) {
-        record = candidate;
-        break;
-      }
-    }
-    // Prefer the exact renewal transaction so a late older callback stays deduplicated.
-    record ??= tokenMatch;
-    // A correlated StoreKit result is the outcome of this exact purchase call.
-    // Send its original proof to the server even when appAccountToken differs
-    // from the requested UUID; receipt ownership is not a client eligibility gate.
-    record ??= sourceAttempt;
-    bool canAttachToAttempt(MembershipPurchaseRecord r) =>
-        purchase.status != BillingPurchaseStatus.restored ||
-        r.hasReceipt ||
-        r.needsReceiptRecovery;
-    if (record == null) {
-      final active = _records[_activeRequestId];
-      if (active != null &&
-          active.product.storeProductId == productId &&
-          canAttachToAttempt(active) &&
-          !active.replacesPurchaseToken(purchase.purchaseToken)) {
-        record = active;
-      }
-    }
-    if (record == null && sourceAttempt == null) {
-      final pending = candidates
-          .where(
-            (r) =>
-                (r.state == 'prepared' ||
-                    r.state == 'pending' ||
-                    r.needsReceiptRecovery) &&
-                canAttachToAttempt(r),
-          )
-          .toList();
-      if (pending.length == 1) record = pending.single;
-    }
-    final sourceWait = _checkoutWaits[sourceId];
-    if (sourceAttempt != null &&
-        _activeRequestId == sourceId &&
-        sourceWait?.launchRequested == true &&
-        !sourceWait!.storeCallbackReceived &&
-        record?.requestId != sourceId) {
-      // Apple can return an existing transaction after "already subscribed".
-      // Receipt deduplication must not leave this separate click waiting for a
-      // callback that has already arrived. Do not transfer its proof/ownership.
-      sourceWait.receiveStoreCallback();
-      _release(sourceId);
-      _setState(
-        switch (record?.reportStatus) {
-          'completed' => MembershipCheckoutState.alreadyProcessed,
-          'accepted' => MembershipCheckoutState.accepted,
-          'rejected' => MembershipCheckoutState.rejected,
-          _ when _reportedRequestIds.contains(record?.requestId) =>
-            MembershipCheckoutState.failed,
-          _ => MembershipCheckoutState.deferred,
-        },
-        attemptId: sourceId,
-        reportMessage: _reportFailureMessage(record),
-        debugInfo: purchaseDebugInfo(
-          'vip.store_result',
-          status: record?.reportStatus,
-          reason: 'existing_store_transaction',
-        ),
-      );
-      if (!sourceAttempt.paid && !sourceAttempt.hasReceipt) {
-        _records.remove(sourceId);
-        if (sourceAttempt.guest != null) {
-          await _discardUnpurchasedGuestIdentity(sourceAttempt.accountUuid);
+        if (purchase.transactionId.isNotEmpty &&
+            candidate.transactionId == purchase.transactionId) {
+          record = candidate;
+          break;
         }
       }
-      return;
+      // Google renewals can share a token; match their individual transactions.
+      record ??= tokenMatch;
+      bool canAttachToAttempt(MembershipPurchaseRecord r) =>
+          purchase.status != BillingPurchaseStatus.restored ||
+          r.hasReceipt ||
+          r.needsReceiptRecovery;
+      if (record == null) {
+        final active = _records[_activeRequestId];
+        if (active != null &&
+            active.product.storeProductId == productId &&
+            canAttachToAttempt(active) &&
+            !active.replacesPurchaseToken(purchase.purchaseToken)) {
+          record = active;
+        }
+      }
+      if (record == null) {
+        final pending = candidates
+            .where(
+              (r) =>
+                  (r.state == 'prepared' ||
+                      r.state == 'pending' ||
+                      r.needsReceiptRecovery) &&
+                  canAttachToAttempt(r),
+            )
+            .toList();
+        if (pending.length == 1) record = pending.single;
+      }
     }
     if (record == null) {
       // Unsolicited store history is not a failed report from this client.
@@ -922,10 +910,27 @@ class MembershipPurchaseService with WidgetsBindingObserver {
           purchase.signedTransaction;
     }
     if (_reportedRequestIds.contains(record.requestId) &&
-        record.paid &&
-        (purchase.transactionId.isEmpty ||
-            purchase.transactionId == record.transactionId)) {
+        (provider == MembershipProvider.apple ||
+            record.paid &&
+                (purchase.transactionId.isEmpty ||
+                    purchase.transactionId == record.transactionId))) {
       return;
+    }
+    if (provider == MembershipProvider.apple &&
+        purchase.status == BillingPurchaseStatus.purchased &&
+        purchase.productId.isNotEmpty &&
+        purchase.productId != record.product.storeProductId) {
+      // Report/claim must describe the transaction Apple actually returned,
+      // even when it differs from the selected product. The selected plan stays
+      // local; its price cannot be attributed to this different store product.
+      record = record.copyWith(
+        product: MembershipOrderProduct(
+          planCode: record.product.planCode,
+          provider: provider,
+          storeProductId: purchase.productId,
+        ),
+        clearPrice: true,
+      );
     }
     if (purchase.status == BillingPurchaseStatus.canceled ||
         purchase.status == BillingPurchaseStatus.error) {
@@ -975,7 +980,8 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       return;
     }
     // A new Google renewal can reuse its token; retain a separate operation key.
-    if (record.paid &&
+    if (provider == MembershipProvider.google &&
+        record.paid &&
         record.transactionId.isNotEmpty &&
         purchase.transactionId.isNotEmpty &&
         record.transactionId != purchase.transactionId) {
@@ -1184,9 +1190,7 @@ class MembershipPurchaseService with WidgetsBindingObserver {
       if (reason?.trim() == 'account_mismatch') {
         return membershipAccountIdentifiersMismatchMessage;
       }
-      return reason != null && reason.trim().isNotEmpty
-          ? reason
-          : 'Report failed.';
+      return 'We couldn’t verify your subscription. Please contact support.';
     }
     if (record.reportStatus == null &&
         _reportedRequestIds.contains(record.requestId)) {

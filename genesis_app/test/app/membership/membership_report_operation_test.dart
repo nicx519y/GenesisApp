@@ -228,20 +228,33 @@ void main() {
   }
 
   test(
-    'Apple returning an already failed transaction does not retry report',
+    'Apple reports a new checkout after a previous report failed without automatic retries',
     () async {
       final h = support.Harness(provider: MembershipProvider.apple);
       h.reportHandler = (_) async => throw TimeoutException('report timeout');
       await h.service.purchase(h.product(), attemptId: 'first');
       await h.service.interceptPurchase(h.purchase(checkoutAttemptId: 'first'));
+      expect(h.service.state.value, MembershipCheckoutState.failed);
+      await h.service.interceptPurchase(h.purchase(checkoutAttemptId: 'first'));
+      await h.service.recover();
+      expect(h.reports, hasLength(1));
+      h.reportHandler = (_) async => const MembershipPurchaseReport(
+        status: MembershipReportStatus.completed,
+      );
       await h.service.purchase(h.product(), attemptId: 'second');
       expect(h.platform.launches, 2);
+      expect(h.reports, hasLength(1));
       await h.service.interceptPurchase(
         h.purchase(checkoutAttemptId: 'second'),
       );
-      expect(h.reports, hasLength(1));
-      expect(h.service.state.value, MembershipCheckoutState.failed);
+      expect(h.reports, hasLength(2));
+      expect(h.service.state.value, MembershipCheckoutState.completed);
       expect(h.service.isBusy, isFalse);
+      await h.service.interceptPurchase(
+        h.purchase(checkoutAttemptId: 'second'),
+      );
+      await h.service.recover();
+      expect(h.reports, hasLength(2));
       h.service.dispose();
     },
   );

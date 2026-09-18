@@ -8,6 +8,29 @@ import 'membership_purchase_service_test.dart' as support;
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'guest claim uses the product Apple returned instead of the selected plan',
+    () async {
+      final h = support.Harness(
+        provider: MembershipProvider.apple,
+        claimEnabled: true,
+      )..uid = null;
+      addTearDown(h.service.dispose);
+      await h.service.purchase(h.product(), attemptId: 'current');
+      final returned = h.purchase(yearly: true);
+      await h.service.interceptPurchase(returned);
+      final report = h.reports.single;
+      expect(report.product.storeProductId, returned.productId);
+      await h.service.confirmGuestPurchase('current');
+      h.uid = 'first-login';
+      h.service.resetForSession();
+      await h.service.recover();
+      expect(h.claimRequests.single.toJson(), report.toJson());
+      expect(h.claimRequests.single.transactionId, returned.transactionId);
+      expect(h.signedTransactionQueries, 0);
+    },
+  );
+
   for (final pinned in [false, true]) {
     test(
       'restart repairs only unowned legacy claim references; pinned=$pinned',
