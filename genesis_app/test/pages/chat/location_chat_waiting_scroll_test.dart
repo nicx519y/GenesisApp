@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/regenerate/regenerate.dart';
 import 'package:genesis_flutter_android/features/location_chat_reply/shared/reply_action_state.dart';
-import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_card_switcher.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
 
@@ -194,13 +193,14 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
+      await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
 
       final waitingBubble = find.byType(ChatReplyWaitingBubble);
       const dots = ValueKey<String>('location-chat-ack-loading-dots');
       expect(waitingBubble, findsOneWidget);
       expect(find.byKey(dots), findsNothing);
-      expect(tester.getBottomLeft(waitingBubble).dy, closeTo(90, 1));
+      expect(tester.getTopLeft(waitingBubble).dy, closeTo(90, 1));
       final heldPixels = coordinator.controller.position.pixels;
       expect(coordinator.isDetached, isTrue);
       expect(coordinator.isReadingHistory, isFalse);
@@ -214,7 +214,7 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(tester.getBottomLeft(waitingBubble).dy, closeTo(90, 1));
+      expect(tester.getTopLeft(waitingBubble).dy, closeTo(90, 1));
       expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
 
       await tester.pumpWidget(
@@ -227,11 +227,158 @@ void main() {
       );
       await tester.pump();
       expect(find.byKey(dots), findsOneWidget);
-      expect(tester.getBottomLeft(waitingBubble).dy, closeTo(90, 1));
+      expect(tester.getTopLeft(waitingBubble).dy, closeTo(90, 1));
       expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets(
+    'consecutive pre-ACK Sends wait for bottom layout and replace the old tail',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      await tester.pumpWidget(tree(coordinator, count: 30));
+      await tester.pump();
+
+      await tester.drag(find.byType(Scrollable).first, const Offset(0, 180));
+      await tester.pumpAndSettle();
+      expect(coordinator.isReadingHistory, isTrue);
+
+      Future<void> send({
+        required int count,
+        required String identity,
+        required bool expectLatestMessageReveal,
+      }) async {
+        final needsLatestMessageReveal = coordinator
+            .prepareWaitingReplyPosition();
+        expect(needsLatestMessageReveal, expectLatestMessageReveal);
+        if (needsLatestMessageReveal) {
+          coordinator.requestBottom(
+            reason: LocationChatBottomReason.sentMessage,
+            behavior: LocationChatBottomBehavior.jump,
+          );
+        }
+        await tester.pumpWidget(
+          tree(coordinator, count: count, preAckWaiting: identity),
+        );
+
+        // Waiting positioning owns the viewport before the optimistic row is
+        // laid out. A history reader may need one latest-message reveal, but a
+        // prior reply hold must never jump to the end of its artificial tail.
+        expect(coordinator.isDetached, !needsLatestMessageReveal);
+        await tester.pump();
+        expect(coordinator.isDetached, isTrue);
+        expect(coordinator.isReadingHistory, isFalse);
+        await tester.pump();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+        expect(
+          tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
+          closeTo(90, 1),
+        );
+      }
+
+      await send(
+        count: 31,
+        identity: 'send-1',
+        expectLatestMessageReveal: true,
+      );
+      final firstHeldPixels = coordinator.controller.position.pixels;
+      await tester.pumpWidget(
+        tree(
+          coordinator,
+          count: 31,
+          preAckWaiting: 'send-1',
+          suffixIndex: 30,
+          suffix: '\nGrowing reply' * 20,
+        ),
+      );
+      await tester.pump();
+      expect(
+        coordinator.controller.position.pixels,
+        closeTo(firstHeldPixels, 0.1),
+      );
+      expect(
+        coordinator.controller.position.maxScrollExtent,
+        greaterThan(firstHeldPixels),
+      );
+
+      // The second Send starts from a held viewport with a reserved tail. It
+      // must replace that reserve instead of compounding a stale extent.
+      await send(
+        count: 32,
+        identity: 'send-2',
+        expectLatestMessageReveal: false,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('first AI content replaces loading without moving the viewport', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    await tester.pumpWidget(tree(coordinator, count: 31));
+    await tester.pump();
+
+    coordinator.prepareWaitingReplyPosition();
+    await tester.pumpWidget(
+      tree(coordinator, count: 31, waiting: 'send-1', preAckWaiting: 'send-1'),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    final heldMessage = find.text('Message 30');
+    final heldMessageTop = tester.getTopLeft(heldMessage).dy;
+    final heldPixels = coordinator.controller.position.pixels;
+    expect(
+      tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
+      closeTo(90, 1),
+    );
+
+    // The first rendered AI chunk removes both the ACK loading state and the
+    // pre-ACK placeholder in the same rebuild while adding the reply row.
+    await tester.pumpWidget(tree(coordinator, count: 32));
+    await tester.pump();
+
+    expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+    expect(tester.getTopLeft(heldMessage).dy, closeTo(heldMessageTop, 0.1));
+    expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
+    expect(find.text('Message 31'), findsOneWidget);
+    expect(
+      tester
+          .getTopLeft(
+            find.byKey(
+              const ValueKey<String>('location-chat-message-row:message-31'),
+            ),
+          )
+          .dy,
+      closeTo(90, 1),
+      reason:
+          'The first rendered reply must start at the same top anchor as its waiting placeholder.',
+    );
+
+    // Subsequent stream growth must consume the reserved tail. If the loading
+    // transition released the hold, following the growing real bottom would
+    // keep increasing pixels and push the sent bubble above the viewport.
+    await tester.pumpWidget(
+      tree(
+        coordinator,
+        count: 32,
+        suffixIndex: 31,
+        suffix: '\nGrowing AI reply' * 20,
+      ),
+    );
+    await tester.pump();
+    expect(tester.getTopLeft(heldMessage).dy, closeTo(heldMessageTop, 0.1));
+    expect(coordinator.controller.position.pixels, closeTo(heldPixels, 0.1));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('fast ACK before first waiting layout positions only once', (
     tester,
@@ -309,7 +456,7 @@ void main() {
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
           final waitingBubble = find.byType(ChatReplyWaitingBubble);
-          expect(tester.getBottomLeft(waitingBubble).dy, closeTo(90, 1));
+          expect(tester.getTopLeft(waitingBubble).dy, closeTo(90, 1));
           final position = coordinator.controller.position;
           final held = position.pixels;
           expect(coordinator.isDetached, isTrue);
@@ -507,7 +654,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(
-        tester.getBottomLeft(find.byType(ChatReplyWaitingBubble)).dy,
+        tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
         closeTo(180, 1),
       );
       await tester.pumpWidget(const SizedBox.shrink());
@@ -684,7 +831,6 @@ void main() {
         } else {
           expect(position.pixels, closeTo(position.maxScrollExtent, 0.1));
         }
-
         await tester.tap(find.bySemanticsLabel('Regenerate'));
         await tester.pump();
         await tester.pump();
@@ -698,11 +844,9 @@ void main() {
         if (positioningEnabled) {
           expect(
             tester.getTopLeft(find.byType(LocationChatReplyCardSwitcher)).dy,
-            closeTo(
-              360 * (1 - scenario.reserve) -
-                  LocationChatReplyActions.buttonSize,
-              0.1,
-            ),
+            closeTo(360 * (1 - scenario.reserve), 0.1),
+            reason:
+                'Regenerate must use the same top anchor as Send and Go On.',
           );
           expect(coordinator.isDetached, isTrue);
           expect(coordinator.isReadingHistory, isFalse);
@@ -846,7 +990,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(
-        tester.getBottomLeft(find.byType(ChatReplyWaitingBubble)).dy,
+        tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
         lessThanOrEqualTo(91),
       );
       expect(coordinator.controller.position.pixels, greaterThanOrEqualTo(0));
@@ -900,7 +1044,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(
-        tester.getBottomLeft(find.byType(ChatReplyWaitingBubble)).dy,
+        tester.getTopLeft(find.byType(ChatReplyWaitingBubble)).dy,
         closeTo(90, 1),
       );
       final held = coordinator.controller.position.pixels;

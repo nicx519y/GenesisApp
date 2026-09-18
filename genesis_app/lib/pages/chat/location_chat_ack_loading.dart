@@ -2,6 +2,12 @@ part of 'location_chat_page.dart';
 
 const Duration _locationChatAckLoadingTimeout = Duration(seconds: 10);
 
+@visibleForTesting
+bool locationChatAckLoadingShouldResetWaitingPosition({
+  required bool immediateWaitingAccepted,
+  required bool visibleReply,
+}) => !visibleReply && !immediateWaitingAccepted;
+
 extension _LocationChatAckLoading on _LocationChatPanelState {
   void _clearPreAckWaiting({required bool resetPosition}) {
     if (_preAckWaitingClientMsgId == null &&
@@ -63,13 +69,21 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
     }
   }
 
-  void _clearAckLoading({bool preservePreAckWaiting = false}) {
+  void _clearAckLoading({
+    bool preservePreAckWaiting = false,
+    bool visibleReply = false,
+  }) {
     _ackLoadingTimeout?.cancel();
     _ackLoadingTimeout = null;
     _ackLoadingClientMsgId = null;
     _ackLoadingMessageLocalId = null;
     if (!preservePreAckWaiting) {
-      _clearPreAckWaiting(resetPosition: !_preAckWaitingAccepted);
+      _clearPreAckWaiting(
+        resetPosition: locationChatAckLoadingShouldResetWaitingPosition(
+          immediateWaitingAccepted: _preAckWaitingAccepted,
+          visibleReply: visibleReply,
+        ),
+      );
     }
   }
 
@@ -128,7 +142,12 @@ extension _LocationChatAckLoading on _LocationChatPanelState {
         .presentation(presentationState)
         .messages;
     if (!_hasVisibleAiReplyForRound(displayMessages, roundId)) return false;
-    _clearAckLoading();
+    // The reply row is replacing the loading slot, not cancelling the reply.
+    // Keep the reserved tail and held viewport even if an earlier ACK/echo
+    // race failed to mark the pre-ACK placeholder as accepted. Releasing here
+    // lets the shorter first chunk clamp the scroll position, which is seen as
+    // a jump exactly when the loading bubble disappears.
+    _clearAckLoading(visibleReply: true);
     return true;
   }
 }

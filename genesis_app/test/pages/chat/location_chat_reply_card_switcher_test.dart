@@ -225,7 +225,19 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     // Deliver the terminal vsync as well as the nominal duration boundary.
     await tester.pump(const Duration(milliseconds: 16));
-    expect(find.text('Original text'), findsNothing);
+    expect(find.text('Original text'), findsOneWidget);
+    expect(
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey('reply-card-regenerate-collapse-viewport'),
+            ),
+          )
+          .height,
+      0,
+      reason:
+          'The frozen source remains mounted at zero height until replacement or recovery.',
+    );
     expect(tester.takeException(), isNull);
   });
 
@@ -970,6 +982,76 @@ void main() {
   );
 
   testWidgets(
+    'regenerate keeps the exact old card layout while pending state changes',
+    (tester) async {
+      final key = GlobalKey<LocationChatReplyCardSwitcherState>();
+      var currentCardId = 1;
+      var regenerationInProgress = false;
+      late StateSetter update;
+      final cards = [
+        LocationChatReplyCard(id: 1, messages: [_message('old', 2)]),
+        LocationChatReplyCard(id: 2, messages: [_message('new', 2)]),
+      ];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return SizedBox(
+                  width: 400,
+                  child: LocationChatReplyCardSwitcher(
+                    key: key,
+                    identity: 'stable-regenerate-layout',
+                    currentCardId: currentCardId,
+                    cards: cards,
+                    regenerationInProgress: regenerationInProgress,
+                    cardBuilderIdentity: currentCardId,
+                    cardBuilder: (card) => SizedBox(
+                      key: ValueKey('stable-regenerate-body-${card.id}'),
+                      height: card.id == 1
+                          ? currentCardId == 1
+                                ? 180
+                                : 186
+                          : 120,
+                    ),
+                    onCommit: (_) => true,
+                    onBusyChanged: (_) {},
+                    onWillChangeLayout: () {},
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+
+      key.currentState!.beginRegenerateCollapse();
+      await tester.pump();
+      update(() {
+        currentCardId = 2;
+        regenerationInProgress = true;
+      });
+      await tester.pump(const Duration(milliseconds: 16));
+
+      expect(
+        tester
+            .widget<SizedBox>(
+              find.byKey(const ValueKey('stable-regenerate-body-1')),
+            )
+            .height,
+        180,
+        reason:
+            'The pending card must not rebuild the collapsing snapshot with new spacing.',
+      );
+      expect(
+        find.byKey(const ValueKey('stable-regenerate-body-2')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets(
     'regenerate stays collapsed until the replacement has renderable content',
     (tester) async {
       final key = GlobalKey<LocationChatReplyCardSwitcherState>();
@@ -1023,11 +1105,21 @@ void main() {
 
       expect(
         find.byKey(const ValueKey('reply-card-regenerate-gradient')),
-        findsNothing,
+        findsOneWidget,
       );
       expect(
         find.byKey(const ValueKey('delayed-regenerate-body-1')),
-        findsNothing,
+        findsOneWidget,
+      );
+      expect(
+        tester
+            .getSize(
+              find.byKey(
+                const ValueKey('reply-card-regenerate-collapse-viewport'),
+              ),
+            )
+            .height,
+        0,
       );
       expect(
         find.byKey(const ValueKey('delayed-regenerate-body--1')),

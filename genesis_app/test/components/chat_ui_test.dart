@@ -760,6 +760,32 @@ void main() {
     expect(retryCount, 2);
   });
 
+  testWidgets('message bubbles never render diagnostic error text', (
+    tester,
+  ) async {
+    final message = ChatMessageVm(
+      localId: 'failed-message-with-error',
+      senderId: 'me',
+      senderName: 'Me',
+      text: 'Keep only this message',
+      isMe: true,
+      status: 'failed',
+    )..error = 'ChatroomFailureEvent(send_message 5000): internal detail';
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: ChatMessageRow(message: message, showDateDivider: false),
+        ),
+      ),
+    );
+
+    expect(find.text('Keep only this message'), findsOneWidget);
+    expect(find.textContaining('ChatroomFailureEvent'), findsNothing);
+    expect(find.textContaining('internal detail'), findsNothing);
+    expect(find.byType(ChatFailedBadge), findsOneWidget);
+  });
+
   testWidgets('chat header can show Memory & Model entry', (
     WidgetTester tester,
   ) async {

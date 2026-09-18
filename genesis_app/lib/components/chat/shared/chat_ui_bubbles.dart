@@ -46,9 +46,9 @@ class ChatMessageBubble extends StatelessWidget {
                 bottomRight: Radius.circular(style.bubbleBorderRadius),
                 bottomLeft: Radius.circular(style.bubbleBorderRadius),
               ));
-    final text = message.error == null
-        ? message.text
-        : '${message.text}\n${message.error}';
+    // Delivery failures are represented by the status badge. Error objects are
+    // diagnostic state and must never become user-visible message content.
+    final text = message.text;
     final editor = ChatMessageEditorScope.controllerOf(
       context,
       message.localId,

@@ -77,6 +77,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     var optimisticMessageAdded = false;
 
     void addOptimisticMessage() {
+      final needsLatestMessageReveal =
+          positionWaitingImmediately &&
+          _scrollCoordinator.prepareWaitingReplyPosition();
       clientMsgId = _nextClientMsgId();
       localMessage =
           outgoingMessage ??
@@ -128,7 +131,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           'vm': LocationChatDebugSlice.debugRenderMessage(localMessage),
         },
       );
-      if (outgoingMessage == null) {
+      if (outgoingMessage == null &&
+          (!positionWaitingImmediately || needsLatestMessageReveal)) {
         _scrollCoordinator.requestBottom(
           reason: LocationChatBottomReason.sentMessage,
           behavior: LocationChatBottomBehavior.jump,
@@ -441,12 +445,12 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           // ACK rejection, timeout, and transport failure share the same retry
           // affordance for composer and Inspiration sends.
           localMessage.status = 'failed';
-          localMessage.error = e.toString();
+          localMessage.error = null;
         } else {
           // The command was accepted. Keep the optimistic message as sent so
           // a sync timeout cannot invite an accidental duplicate retry.
           localMessage.status = 'sent';
-          localMessage.error = e.toString();
+          localMessage.error = null;
         }
         _sending = false;
         if (!receiptReceived &&
@@ -455,14 +459,6 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _suppressedReplyActionsIdentity = null;
         }
       });
-      if (receiptReceived) {
-        showGenesisToast(
-          context,
-          'Message sent, but syncing the server message timed out.',
-          duration: const Duration(seconds: 4),
-          brightness: Brightness.dark,
-        );
-      }
       _recordPanelDebug(
         action: 'sendFailed',
         details: {'clientMsgId': clientMsgId, 'error': '$e'},

@@ -6,6 +6,28 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_models.dart';
 
+ChatroomFailureEvent _serverAckFailure({
+  required int code,
+  required String errMsg,
+  String requestType = 'send_message',
+}) {
+  final ack = ChatroomAck(
+    sessionId: 'session',
+    worldId: 'world',
+    locationId: 'location',
+    userId: 'user',
+    code: code,
+    codeMsg: errMsg,
+    ts: null,
+    clientMsgId: 'client-$code',
+  );
+  return ChatroomFailureEvent.fromPayloadEvent(
+    ack,
+    sourceType: 'ack',
+    requestType: requestType,
+  );
+}
+
 void main() {
   group('shouldShowChatroomFailureToast', () {
     test('hides passive websocket disconnect failures', () {
@@ -101,40 +123,38 @@ void main() {
       }
     });
 
-    test('keeps user initiated operation failures visible', () {
-      expect(
-        shouldShowChatroomFailureToast(
-          const ChatroomFailureEvent(
-            code: 'send_message_send_failed',
-            message: 'Failed to send chatroom send_message',
-            sourceType: 'send_message',
-            requestType: 'send_message',
+    test(
+      'hides client-generated operation failures without backend err_msg',
+      () {
+        expect(
+          shouldShowChatroomFailureToast(
+            const ChatroomFailureEvent(
+              code: 'send_message_send_failed',
+              message: 'Failed to send chatroom send_message',
+              sourceType: 'send_message',
+              requestType: 'send_message',
+            ),
           ),
-        ),
-        isTrue,
-      );
-      expect(
-        shouldShowChatroomFailureToast(
-          const ChatroomFailureEvent(
-            code: 'join_failed',
-            message: 'Failed to join chatroom',
-            sourceType: 'join',
-            requestType: 'join',
+          isFalse,
+        );
+        expect(
+          shouldShowChatroomFailureToast(
+            const ChatroomFailureEvent(
+              code: 'join_failed',
+              message: 'Failed to join chatroom',
+              sourceType: 'join',
+              requestType: 'join',
+            ),
           ),
-        ),
-        isTrue,
-      );
-    });
+          isFalse,
+        );
+      },
+    );
 
     test('shows server balance errors for user actions', () {
       expect(
         shouldShowChatroomFailureToast(
-          const ChatroomFailureEvent(
-            code: '3001',
-            message: 'Insufficient balance',
-            sourceType: 'ack',
-            requestType: 'send_message',
-          ),
+          _serverAckFailure(code: 3001, errMsg: 'Insufficient balance'),
         ),
         isTrue,
       );
@@ -142,135 +162,39 @@ void main() {
   });
 
   group('chatroomFailureToastMessage', () {
-    test('maps internal protocol messages to user facing copy', () {
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: 'send_message_send_failed',
-            message: 'Failed to send chatroom send_message',
-            sourceType: 'send_message',
-            requestType: 'send_message',
-          ),
+    test('does not invent copy for client-generated failures', () {
+      for (final failure in <ChatroomFailureEvent>[
+        const ChatroomFailureEvent(
+          code: 'send_message_send_failed',
+          message: 'Failed to send chatroom send_message',
+          sourceType: 'send_message',
+          requestType: 'send_message',
         ),
-        'Send failed',
-      );
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: 'ack_timeout',
-            message: 'Timed out waiting for go_on ack',
-            sourceType: 'ack',
-            requestType: 'go_on',
-          ),
+        const ChatroomFailureEvent(
+          code: 'ack_timeout',
+          message: 'Timed out waiting for go_on ack',
+          sourceType: 'ack',
+          requestType: 'go_on',
         ),
-        'Could not confirm Go on. Please try again.',
-      );
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: 'ack_timeout',
-            message: 'Timed out waiting for send_message ack',
-            sourceType: 'ack',
-            requestType: 'send_message',
-          ),
+        const ChatroomFailureEvent(
+          code: 'join_failed',
+          message: 'Something went wrong',
+          sourceType: 'join',
+          requestType: 'join',
         ),
-        'Send failed',
-      );
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: 'join_failed',
-            message: 'Something went wrong',
-            sourceType: 'join',
-            requestType: 'join',
-          ),
-        ),
-        'Join failed',
-      );
+      ]) {
+        expect(chatroomFailureToastMessage(failure), isEmpty);
+      }
     });
 
-    test('keeps server provided user facing messages', () {
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: 'muted',
-            message: 'You cannot send messages right now',
-            sourceType: 'ack',
-            requestType: 'send_message',
-          ),
-        ),
-        'You cannot send messages right now',
-      );
-    });
-
-    test('preserves rate limit err_msg', () {
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: '2010',
-            message: 'Rate limit exceeded',
-            sourceType: 'ack',
-            requestType: 'send_message',
-          ),
-        ),
-        'Rate limit exceeded',
-      );
-    });
-
-    test('preserves world progress err_msg', () {
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: '2006',
-            message: 'World is progressing',
-            sourceType: 'ack',
-            requestType: 'send_message',
-          ),
-        ),
-        'World is progressing',
-      );
-    });
-
-    test('preserves temporary server failure err_msg', () {
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: '5000',
-            message: 'Service unavailable',
-            sourceType: 'ack',
-            requestType: 'send_message',
-          ),
-        ),
-        'Service unavailable',
-      );
-    });
-
-    test('maps unauthorized ack to sign-in copy', () {
-      expect(
-        chatroomFailureToastMessage(
-          const ChatroomFailureEvent(
-            code: '10001',
-            message: 'Unauthorized',
-            sourceType: 'ack',
-            requestType: 'send_message',
-          ),
-        ),
-        "You've been signed out unexpectedly. Please sign in again.",
-      );
-    });
-
-    test('preserves message format err_msg', () {
-      for (final code in <String>['1002', '1008']) {
+    test('preserves backend ACK err_msg exactly for every business code', () {
+      for (final code in <int>[1002, 1008, 2006, 2010, 3001, 5000, 10001]) {
+        final message = '服务端原始提示 $code';
         expect(
           chatroomFailureToastMessage(
-            ChatroomFailureEvent(
-              code: code,
-              message: 'Message format error',
-              sourceType: 'ack',
-              requestType: 'send_message',
-            ),
+            _serverAckFailure(code: code, errMsg: message),
           ),
-          'Message format error',
+          message,
         );
       }
     });
@@ -297,14 +221,16 @@ void main() {
         '5000',
         '98765',
       ]) {
-        final failure = ChatroomFailureEvent(
-          code: code,
-          message: '服务端 llm 错误 $code',
+        final failure = ChatroomFailureEvent.fromError(
+          ChatroomErrorEvent(
+            code: code,
+            message: '服务端 llm 错误 $code',
+            sourceType: type,
+          ),
           requestType: type,
-          sourceType: type,
         );
         expect(shouldShowChatroomFailureToast(failure), isTrue);
-        expect(chatroomFailureToastMessage(failure), failure.message);
+        expect(chatroomFailureToastMessage(failure), '服务端 llm 错误 $code');
       }
     }
   });
@@ -316,7 +242,9 @@ void main() {
         code: code,
         kind: ApiExceptionKind.business,
       );
-      final ws = ChatroomFailureEvent(code: '$code', message: 'server $code');
+      final ws = ChatroomFailureEvent.fromError(
+        ChatroomErrorEvent(code: '$code', message: 'server $code'),
+      );
       final event = ChatroomErrorEvent(code: '$code', message: 'server $code');
       for (final error in [http, ws, event]) {
         expect(isChatroomErrorPresentedGlobally(error), isTrue);
@@ -328,20 +256,14 @@ void main() {
       kind: ApiExceptionKind.transport,
     );
     expect(isChatroomErrorPresentedGlobally(local), isFalse);
-    expect(
-      chatroomOperationErrorMessage(local),
-      'Network unavailable. Check your connection and try again.',
-    );
+    expect(chatroomOperationErrorMessage(local), isEmpty);
     expect(
       chatroomOperationErrorMessage(
         ApiException(message: 'Request failed', kind: ApiExceptionKind.timeout),
       ),
-      'Request timed out. Please try again.',
+      isEmpty,
     );
-    expect(
-      chatroomOperationErrorMessage(TimeoutException('late')),
-      'Request timed out. Please try again.',
-    );
+    expect(chatroomOperationErrorMessage(TimeoutException('late')), isEmpty);
   });
 
   testWidgets(

@@ -76,6 +76,30 @@ Finder _replyActionLoading(String label) => find.descendant(
 );
 
 void main() {
+  test('visible AI reply never resets the held waiting position', () {
+    expect(
+      locationChatAckLoadingShouldResetWaitingPosition(
+        immediateWaitingAccepted: false,
+        visibleReply: true,
+      ),
+      isFalse,
+    );
+    expect(
+      locationChatAckLoadingShouldResetWaitingPosition(
+        immediateWaitingAccepted: false,
+        visibleReply: false,
+      ),
+      isTrue,
+    );
+    expect(
+      locationChatAckLoadingShouldResetWaitingPosition(
+        immediateWaitingAccepted: true,
+        visibleReply: false,
+      ),
+      isFalse,
+    );
+  });
+
   test(
     'new-message notice excludes unread bubbles intersecting the viewport',
     () {
@@ -453,6 +477,96 @@ void main() {
       },
     );
   }
+
+  testWidgets(
+    'regenerate keeps the first reply bubble still on its opening frame',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 720));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: _LocationChatReplyHttpTransport(),
+      );
+      final reply = find.text('Original reply.');
+      const deckKey = ValueKey<String>(
+        'location-chat-reply-deck:world-current/location-current/301',
+      );
+      expect(reply, findsOneWidget);
+      expect(find.byKey(deckKey), findsOneWidget);
+      final before = tester.getTopLeft(reply).dy;
+      final deckTopBefore = tester.getTopLeft(find.byKey(deckKey)).dy;
+
+      await tester.tap(find.bySemanticsLabel('Regenerate'));
+      await tester.pump();
+
+      expect(
+        tester.getTopLeft(reply).dy,
+        closeTo(before, 0.01),
+        reason:
+            'Entering Regenerate must not move the first collapsing bubble.',
+      );
+      expect(
+        harness.socket.replyActionFrames('regenerate_llm_card'),
+        isNotEmpty,
+      );
+      await tester.pump(const Duration(milliseconds: 799));
+      final deckTopBeforeCompletion = tester.getTopLeft(find.byKey(deckKey)).dy;
+      final actionsTopBeforeCompletion = tester
+          .getTopLeft(find.bySemanticsLabel('Regenerate'))
+          .dy;
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(
+        tester.getTopLeft(find.byKey(deckKey)).dy,
+        closeTo(deckTopBeforeCompletion, 0.01),
+        reason: 'The collapse completion tick must not move the deck.',
+      );
+      expect(
+        tester.getTopLeft(find.bySemanticsLabel('Regenerate')).dy,
+        closeTo(actionsTopBeforeCompletion, 0.01),
+        reason: 'The collapse completion tick must not move the action row.',
+      );
+      expect(
+        find.byKey(const ValueKey('reply-card-regenerate-collapse-viewport')),
+        findsOneWidget,
+        reason:
+            'The zero-height source snapshot stays mounted until replacement content or recovery.',
+      );
+      expect(
+        tester.getTopLeft(find.byKey(deckKey)).dy,
+        closeTo(deckTopBefore, 0.01),
+        reason:
+            'Completing the Regenerate collapse must not change the deck top.',
+      );
+      final precedingRow = tester.widget<ChatMessageRow>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is ChatMessageRow && widget.message.text == 'message 301',
+        ),
+      );
+      expect(
+        precedingRow.style?.rowBottomPadding,
+        kLocationChatStyle.rowBottomPadding,
+        reason:
+            'The row above a collapsing Regenerate card must keep normal spacing.',
+      );
+      harness.socket.serverReplyActionAck(
+        'regenerate_llm_card',
+        roundId: 301,
+        errNo: 5001,
+        errMsg: 'Regenerate rejected',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => _replyActionLoading('Regenerate').evaluate().isEmpty,
+        step: const Duration(milliseconds: 5),
+      );
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
 
   for (final shrinks in [false, true]) {
     for (final awaiting in [false, true]) {
@@ -7545,6 +7659,12 @@ void main() {
       () => failedTimeoutBubble.evaluate().isNotEmpty,
     );
     expect(failedTimeoutBubble, findsOneWidget);
+    expect(
+      tester.widget<ChatSelfMessageBubble>(failedTimeoutBubble).message.error,
+      isNull,
+    );
+    expect(find.textContaining('Timed out waiting'), findsNothing);
+    expect(find.text('Send failed'), findsNothing);
     expect(find.byType(ChatReplyWaitingBubble), findsNothing);
     expect(
       tester.widget<ChatComposer>(composerFinder).controller.text,
@@ -8589,6 +8709,21 @@ void main() {
         expect(find.byType(ChatSendingBadge), findsNothing);
         expect(find.byType(ChatSelfMessageBubble), findsOneWidget);
         expect(failedBalanceBubble, findsOneWidget);
+        expect(
+          tester
+              .widget<ChatSelfMessageBubble>(failedBalanceBubble)
+              .message
+              .error,
+          isNull,
+        );
+        expect(
+          find.descendant(
+            of: failedBalanceBubble,
+            matching: find.textContaining('rejected'),
+          ),
+          findsNothing,
+        );
+        expect(find.text('rejected'), findsOneWidget);
         expect(
           tester.widget<ChatComposer>(composerFinder).controller.text,
           isEmpty,

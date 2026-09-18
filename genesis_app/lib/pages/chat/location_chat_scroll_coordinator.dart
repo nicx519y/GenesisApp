@@ -227,6 +227,24 @@ class LocationChatScrollCoordinator extends ChangeNotifier {
     });
   }
 
+  /// Reserve ownership of the viewport for an imminent generated reply
+  /// without moving it.
+  ///
+  /// Returns whether the reader was explicitly browsing history. Only that
+  /// case needs a preliminary latest-message reveal so the lazy list builds
+  /// the new trailing row; an existing reply hold already has the row/tail
+  /// region laid out and must not jump to the bottom of its artificial space.
+  bool prepareWaitingReplyPosition() {
+    if (_disposed) return false;
+    final needsLatestMessageReveal = isReadingHistory;
+    _cancelPendingCommands();
+    _entryRevealScheduled = false;
+    _holdingReplyPosition = true;
+    _userScrollIncludesTemporaryTail = false;
+    _setMode(LocationChatViewportMode.detached);
+    return needsLatestMessageReveal;
+  }
+
   /// Move once, then let incoming content fill the space below this viewport.
   void positionWaitingReply(double target) {
     if (_disposed || !controller.hasClients) return;
@@ -831,16 +849,19 @@ class _LocationChatAnchoredMessageListState
     if (identity == null || !widget.active) return;
     final coordinator = widget.coordinator;
     final generation = coordinator.commandGeneration;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          !widget.active ||
-          widget.coordinator != coordinator ||
-          _waitingIdentity(widget) != identity ||
-          coordinator.commandGeneration != generation ||
-          !coordinator.canPositionWaitingReply ||
-          !coordinator.controller.hasClients) {
-        return;
-      }
+    final waitForBottomLayout = widget.preAckWaitingIdentity != null;
+
+    bool requestIsCurrent() =>
+        mounted &&
+        widget.active &&
+        widget.coordinator == coordinator &&
+        _waitingIdentity(widget) == identity &&
+        coordinator.commandGeneration == generation &&
+        coordinator.canPositionWaitingReply &&
+        coordinator.controller.hasClients;
+
+    void measureAndPosition(Duration _) {
+      if (!requestIsCurrent()) return;
       final regenerating = widget.replyRegenerationInProgress;
       final anchor = _globalBounds(
         (regenerating
@@ -852,13 +873,10 @@ class _LocationChatAnchoredMessageListState
         _scrollViewportKey.currentContext?.findRenderObject(),
       );
       if (anchor == null || viewport == null) return;
-      // Regenerate has no loading bubble. Treat the collapsing card as if the
-      // shared 32px loading/action slot still followed its top, so its content
-      // starts at the same visual position as Send/Go On while the reserve is
-      // still measured below that virtual slot's bottom.
-      final anchorEdge = regenerating
-          ? anchor.top + LocationChatReplyActions.buttonSize
-          : anchor.bottom;
+      // Send, Go On and Regenerate all place the top of their actual layout
+      // anchor at the same reply-content origin. Do not add a virtual action
+      // slot or switch to the waiting bubble's bottom edge.
+      final anchorEdge = anchor.top;
       final contentAnchor =
           coordinator.controller.position.pixels + anchorEdge - viewport.top;
       final stableViewportHeight =
@@ -884,6 +902,19 @@ class _LocationChatAnchoredMessageListState
       coordinator.positionWaitingReply(
         contentAnchor - (stableViewportHeight - reservedHeight),
       );
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((timestamp) {
+      if (!requestIsCurrent()) return;
+      if (!waitForBottomLayout) {
+        measureAndPosition(timestamp);
+        return;
+      }
+      // The optimistic row and its reserved waiting slot are introduced in the
+      // same rebuild. Measure after one complete layout frame so global bounds
+      // cannot combine the new scroll pixels with the previous row geometry.
+      WidgetsBinding.instance.addPostFrameCallback(measureAndPosition);
+      WidgetsBinding.instance.scheduleFrame();
     });
   }
 
@@ -1343,8 +1374,17 @@ class _LocationChatAnchoredMessageListState
       oldWidget.coordinator.releaseWaitingReplyPosition();
     }
     _retainExtentOnStreamCompletion();
-    if (_waitingIdentity(oldWidget) != _waitingIdentity(widget) ||
-        (!oldWidget.active && widget.active)) {
+    final waitingIdentityChanged =
+        _waitingIdentity(oldWidget) != _waitingIdentity(widget);
+    if (waitingIdentityChanged &&
+        oldWidget.preAckWaitingIdentity != widget.preAckWaitingIdentity &&
+        widget.preAckWaitingIdentity != null) {
+      // A new Send owns a fresh reserve. Never let unused or malformed tail
+      // space from an earlier reply determine the next bottom reveal.
+      _waitingMinContentExtent = 0;
+      widget.coordinator._userScrollIncludesTemporaryTail = false;
+    }
+    if (waitingIdentityChanged || (!oldWidget.active && widget.active)) {
       _scheduleWaitingPosition();
     }
     final oldReplyIdentity =
@@ -2292,6 +2332,7 @@ class _LocationChatAnchoredMessageListState
     final layoutKey = _messageLayoutKeys.putIfAbsent(layoutId, GlobalKey.new);
     // An empty pending card can put the pager directly after the prior row.
     final showsPagerAfterEmptyCard =
+        !widget.replyRegenerationInProgress &&
         widget.replyCardCount > 1 &&
         !widget.replyCardsConfirmed &&
         _currentReplyCard?.messages.isEmpty == true &&

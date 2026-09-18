@@ -89,6 +89,7 @@ class LocationChatReplyCardSwitcherState
   _cardChildren = {};
   int? _targetId;
   LocationChatReplyCard? _regenerateOriginalCard;
+  Widget? _regenerateSnapshotChild;
   int? _regenerateSourceId;
   int _delta = 0, _generation = 0;
   double _progress = 0, _dragDistance = 0, _width = 1;
@@ -164,25 +165,35 @@ class LocationChatReplyCardSwitcherState
 
   /// Starts a presentation-only collapse. The owner must invoke Regenerate
   /// first so this transition's busy callback cannot block its own request.
-  void beginRegenerateCollapse({bool deferBusyNotification = false}) {
-    if (_busy || _regenerateOriginalCard != null) return;
+  bool beginRegenerateCollapse({bool deferBusyNotification = false}) {
+    if (_busy || _regenerateOriginalCard != null) return false;
     final current = _card(_displayedId);
     if (current == null ||
         (current.messages.isEmpty && current.status == null) ||
         MediaQuery.disableAnimationsOf(context)) {
-      return;
+      return false;
     }
-    _regenerateOriginalCard = LocationChatReplyCard(
+    final snapshot = LocationChatReplyCard(
       id: current.id,
       messages: freezeLocationChatReplyMessages(current.messages),
       status: current.status,
     );
+    _regenerateOriginalCard = snapshot;
+    // Keep the exact rendered card that was on screen when Regenerate began.
+    // The live current-card id immediately changes to the empty pending card,
+    // which also changes compact row spacing and builder identity. Rebuilding
+    // the old card from that new state adds a few pixels for one frame and is
+    // visible as a small jump against the bubble above it.
+    _regenerateSnapshotChild =
+        _cardChildren[current.id]?.child ??
+        RepaintBoundary(child: widget.cardBuilder(snapshot));
     _regenerateSourceId = current.id;
     _showRegenerateSnapshot = true;
     _regenerateReplacementObserved = false;
     _setBusy(true, deferred: deferBusyNotification);
     setState(() {});
     _regenerateCollapseAnimation.forward(from: 0);
+    return true;
   }
 
   void _syncRegenerateCollapse() {
@@ -192,6 +203,12 @@ class LocationChatReplyCardSwitcherState
       _regenerateReplacementObserved = true;
       if (_regenerateReplacementReady) {
         _displayedId = widget.currentCardId;
+        // The collapsed source stays mounted at zero height until real
+        // replacement content exists. Swapping it for the empty pending card
+        // on the completion tick can produce a one-frame visual jump.
+        if (_regenerateCollapseAnimation.isCompleted) {
+          _showRegenerateSnapshot = false;
+        }
       }
     }
     if (!widget.regenerationInProgress && widget.currentCardId == sourceId) {
@@ -224,12 +241,12 @@ class LocationChatReplyCardSwitcherState
   void _handleRegenerateCollapseStatus(AnimationStatus status) {
     if (!mounted) return;
     if (status == AnimationStatus.completed) {
-      setState(() {
-        _showRegenerateSnapshot = false;
-        if (_regenerateReplacementReady) {
+      if (_regenerateReplacementReady) {
+        setState(() {
           _displayedId = widget.currentCardId;
-        }
-      });
+          _showRegenerateSnapshot = false;
+        });
+      }
       _setBusy(false);
       if (!widget.regenerationInProgress) {
         if (widget.currentCardId == _regenerateSourceId) {
@@ -265,6 +282,7 @@ class LocationChatReplyCardSwitcherState
     _regenerateCollapseAnimation.stop();
     setState(() {
       _regenerateOriginalCard = null;
+      _regenerateSnapshotChild = null;
       _regenerateSourceId = null;
       _showRegenerateSnapshot = false;
       _regenerateReplacementObserved = false;
@@ -279,6 +297,7 @@ class LocationChatReplyCardSwitcherState
     if (_regenerateOriginalCard == null) return;
     _regenerateCollapseAnimation.stop();
     _regenerateOriginalCard = null;
+    _regenerateSnapshotChild = null;
     _regenerateSourceId = null;
     _showRegenerateSnapshot = false;
     _regenerateReplacementObserved = false;
@@ -434,7 +453,9 @@ class LocationChatReplyCardSwitcherState
     }
     final target = _card(_targetId);
     _cardChildren.removeWhere((id, _) => id != current.id && id != target?.id);
-    final currentChild = _childFor(current);
+    final currentChild = _showRegenerateSnapshot
+        ? _regenerateSnapshotChild!
+        : _childFor(current);
     final targetChild = target == null ? null : _childFor(target);
     return LayoutBuilder(
       builder: (context, constraints) {

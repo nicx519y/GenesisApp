@@ -155,6 +155,8 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     final location = widget.locationId;
     final operation = _LocationChatReplyOperationScope(this);
     final replyState = controller.stateFor(location);
+    final needsLatestMessageReveal = _scrollCoordinator
+        .prepareWaitingReplyPosition();
     _setReplyControlsState(() {
       _preparingReplyAction = true;
       _replyRequestLoading = true;
@@ -182,11 +184,13 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
         };
       }
     });
-    _scrollCoordinator.requestBottom(
-      reason: LocationChatBottomReason.replyGeneration,
-      behavior: LocationChatBottomBehavior.animate,
-      duration: const Duration(milliseconds: 500),
-    );
+    if (needsLatestMessageReveal) {
+      _scrollCoordinator.requestBottom(
+        reason: LocationChatBottomReason.replyGeneration,
+        behavior: LocationChatBottomBehavior.animate,
+        duration: const Duration(milliseconds: 500),
+      );
+    }
     try {
       await action(controller);
     } catch (error) {
