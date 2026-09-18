@@ -856,9 +856,9 @@ class _OriginSetupRoleCardState extends State<_OriginSetupRoleCard>
         foregroundDecoration: BoxDecoration(
           border: Border.all(
             color: widget.selected
-                ? _originSetupRoleSelectedAccentColor
+                ? GenesisColors.redPrimary
                 : Colors.white.withValues(alpha: 0.12),
-            width: 1,
+            width: widget.selected ? 1.5 : 1,
           ),
           borderRadius: BorderRadius.circular(12),
         ),

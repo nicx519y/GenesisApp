@@ -62,6 +62,7 @@ void showGenesisToastInOverlay(
           child: Text(
             trimmedMessage,
             textAlign: TextAlign.center,
+            textWidthBasis: TextWidthBasis.longestLine,
             style: TextStyle(
               inherit: false,
               fontFamily: GenesisTypography.fontFamily,

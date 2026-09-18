@@ -17,6 +17,7 @@ import 'gem_billing_purchase_dialog.dart';
 Future<void> showMembershipPurchaseFailure(
   BuildContext context,
   String reason, {
+  MembershipProduct? product,
   String? debugInfo,
 }) async {
   if (reason == 'downgrade_not_allowed') {
@@ -36,7 +37,11 @@ Future<void> showMembershipPurchaseFailure(
   }
   showGenesisToast(
     context,
-    membershipPurchaseFailureMessage(reason, debugInfo: debugInfo),
+    membershipPurchaseFailureMessage(
+      reason,
+      product: product,
+      debugInfo: debugInfo,
+    ),
   );
 }
 
@@ -172,6 +177,7 @@ class MembershipPurchasePresentation {
                 showMembershipPurchaseFailure(
                   context,
                   reason,
+                  product: product,
                   debugInfo: debugInfo,
                 ),
               );
