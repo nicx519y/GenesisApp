@@ -288,6 +288,7 @@ String resolveLocationChatMessageSenderNameForTesting({
 
 @visibleForTesting
 String resolveLocationChatMessageAvatarForTesting({
+  required String businessType,
   String userId = '',
   required String senderId,
   required Iterable<Map<String, dynamic>> characters,
@@ -298,10 +299,17 @@ String resolveLocationChatMessageAvatarForTesting({
   final characterAvatar = character == null
       ? ''
       : _firstMapImageUrl(character, const ['avatar']);
+  final senderAvatar = _locationChatEntityAvatarForIdentity(
+    entitiesById,
+    senderId,
+  );
+  if (businessType.trim().toLowerCase() != 'user') {
+    return firstNonEmpty([characterAvatar, senderAvatar]);
+  }
   return firstNonEmpty([
     characterAvatar,
     _locationChatEntityAvatarForIdentity(entitiesById, userId),
-    _locationChatEntityAvatarForIdentity(entitiesById, senderId),
+    senderAvatar,
   ]);
 }
 

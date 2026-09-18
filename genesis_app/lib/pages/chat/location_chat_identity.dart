@@ -62,6 +62,7 @@ extension _LocationChatIdentity on _LocationChatPanelState {
   }) {
     final state = identityState ?? _chatroomState;
     final avatarUrl = resolveLocationChatMessageAvatarForTesting(
+      businessType: message.businessType,
       userId: message.userId,
       senderId: message.senderId,
       characters: state.world?.characters ?? const <Map<String, dynamic>>[],
