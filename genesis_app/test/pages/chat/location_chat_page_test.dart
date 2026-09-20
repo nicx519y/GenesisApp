@@ -76,6 +76,119 @@ Finder _replyActionLoading(String label) => find.descendant(
 );
 
 void main() {
+  for (final prepared in [false, true]) {
+    for (final completedWhileAway in [false, true]) {
+      testWidgets(
+        'reopening checks stream completion prepared=$prepared completed=$completedWhileAway',
+        (tester) async {
+          final harness = await _connectedLocationChatTestService();
+          Widget panel({bool show = true}) => AppServicesScope(
+            services: harness.services,
+            child: MaterialApp(
+              home: !show
+                  ? const SizedBox.shrink()
+                  : LocationChatPanel(
+                      worldId: 'world-current',
+                      locationId: 'location-current',
+                      service: harness.service,
+                      leaveOnInactive: false,
+                      usePreparedEntry: prepared,
+                      messageQueueInitializationCovered: true,
+                    ),
+            ),
+          );
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            unawaited(harness.service.dispose());
+            await tester.pump();
+          });
+          await tester.pumpWidget(panel());
+          await _pumpUntilLocationChatTest(
+            tester,
+            () => harness.service.state.joinedLocationId == 'location-current',
+          );
+          await tester.pumpAndSettle();
+          final text = 'a' * 500;
+          harness.socket.serverV2StreamFrame(
+            streamType: 'llm_stream_start',
+            roundId: 301,
+            messageId: 401,
+          );
+          harness.socket.serverV2StreamFrame(
+            streamType: 'llm_chunk',
+            roundId: 301,
+            messageId: 401,
+            seq: 1,
+            content: text,
+          );
+          final row = find.byWidgetPredicate(
+            (widget) => widget is ChatMessageRow && widget.message.text == text,
+          );
+          Finder body() => find.descendant(
+            of: row,
+            matching: find.byType(ChatStreamingBody),
+          );
+          await _pumpUntilLocationChatTest(
+            tester,
+            () => body().evaluate().isNotEmpty,
+            step: const Duration(milliseconds: 5),
+          );
+          double progress() => ChatStreamingBody.revealedGraphemesOf(
+            tester.element(body().first),
+          );
+          await tester.pump(const Duration(milliseconds: 60));
+          expect(progress(), greaterThan(0));
+          expect(progress(), lessThan(text.length));
+          for (var entry = 0; entry < 3; entry++) {
+            await tester.pumpWidget(panel(show: false));
+            await tester.pump();
+            if (entry == 0 && completedWhileAway) {
+              harness.socket.serverV2StreamFrame(
+                streamType: 'llm_stream_end',
+                roundId: 301,
+                messageId: 401,
+                content: text,
+              );
+              await tester.pump();
+            }
+            await tester.pumpWidget(panel());
+            await _pumpUntilLocationChatTest(
+              tester,
+              () => body().evaluate().isNotEmpty,
+              step: const Duration(milliseconds: 5),
+            );
+            expect(
+              progress(),
+              completedWhileAway ? equals(text.length) : lessThan(text.length),
+            );
+            await tester.pump(const Duration(milliseconds: 60));
+            expect(
+              progress(),
+              completedWhileAway ? equals(text.length) : lessThan(text.length),
+            );
+            tester
+                    .widget<ChatComposer>(find.byType(ChatComposer))
+                    .controller
+                    .text =
+                'next message';
+            await tester.pump();
+            expect(
+              tester
+                  .widget<ChatComposer>(find.byType(ChatComposer))
+                  .sendEnabled,
+              completedWhileAway,
+              reason:
+                  'Completed entry has no visual backlog; unfinished reception still blocks Send.',
+            );
+          }
+          await tester.pumpWidget(const SizedBox.shrink());
+          unawaited(harness.service.dispose());
+          await tester.pump();
+        },
+      );
+    }
+  }
+
   test('visible AI reply never resets the held waiting position', () {
     expect(
       locationChatAckLoadingShouldResetWaitingPosition(
@@ -5092,6 +5205,11 @@ void main() {
         step: const Duration(milliseconds: 16),
       );
       expect(find.text('Original reply.'), findsNothing);
+      // A zero-height new sliver is not onstage until its first reveal frame.
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text('Private candidate.').evaluate().isNotEmpty,
+      );
       expect(find.text('Private candidate.'), findsOneWidget);
       expect(
         find.byKey(const ValueKey('location-chat-loading-bubble')),
@@ -8299,6 +8417,14 @@ void main() {
       () => find.text('Other round.').evaluate().isNotEmpty,
     );
     expect(find.byKey(dots), findsOneWidget);
+    // Serial reveal deliberately keeps the first stream's turn until end.
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      roundId: 302,
+      messageId: 400,
+      content: 'Other round.',
+      conversationType: 'user_message',
+    );
     harness.socket.serverV2StreamFrame(
       streamType: 'llm_stream_start',
       roundId: 301,
@@ -11856,9 +11982,19 @@ Future<void> _pumpUntilLocationChatTest(
 }) async {
   for (var attempt = 0; attempt < 100; attempt += 1) {
     if (condition()) return;
-    await tester.pump(step);
+    // Drain data microtasks first; a zero-height lazy sliver becomes onstage
+    // only once reveal has had an actual frame, not merely another layout.
+    await tester.pump(
+      step == Duration.zero && attempt >= 50
+          ? const Duration(milliseconds: 16)
+          : step,
+    );
   }
-  fail('Timed out pumping location chat test state.');
+  final list = find.byType(LocationChatAnchoredMessageList);
+  fail(
+    'Timed out pumping location chat test state. '
+    '${list.evaluate().isEmpty ? "" : ChatStreamingEffects.debugTasksOf(tester.element(list))}',
+  );
 }
 
 Future<

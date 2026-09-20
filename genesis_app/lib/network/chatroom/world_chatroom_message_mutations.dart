@@ -408,7 +408,7 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
           if (!next.any((old) => identical(old, m))) next.add(m);
         }
         next.sort(_compareMessages);
-        final trimmed = _trimMessageList(next, _maxMessagesPerLocation);
+        final trimmed = _retainLocationMessages(location, next);
         final incomingIds = incoming
             .map((m) => m.globalMessageId)
             .where((id) => id > 0)
@@ -451,7 +451,10 @@ extension _WorldChatroomMessageMutations on WorldChatroomService {
               ..._state.messagesByLocation,
               location: trimmed,
             },
-            worldMessages: List.unmodifiable(world),
+            worldMessages: _retainedWorldIndex(world, {
+              ..._state.messagesByLocation,
+              location: trimmed,
+            }),
             newestLocationMessageIds: {
               ..._state.newestLocationMessageIds,
               location: newest,

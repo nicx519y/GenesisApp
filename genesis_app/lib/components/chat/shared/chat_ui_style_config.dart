@@ -4,6 +4,38 @@ import '../../../ui/tokens/genesis_avatar_radii.dart';
 import '../../../ui/tokens/genesis_colors.dart';
 
 class ChatUiStyleConfig {
+  /// Value-based layout identity; rebuilding an equal style must not invalidate
+  /// every offscreen message measurement. Paint-only colors are excluded.
+  Object get messageGeometrySignature => (
+    messageListPadding,
+    rowBottomPadding,
+    selfBubbleMaxWidthFactor,
+    otherBubbleMaxWidthFactor,
+    badgeBubbleGap,
+    avatarBubbleGap,
+    avatarSideSpacerWidth,
+    senderNameBottomGap,
+    statusTextTopGap,
+    statusTextStyle,
+    senderNameTextStyle,
+    showSenderNameAboveOtherBubble,
+    bubblePadding,
+    bubbleTextStyle,
+    useScenePlateBubbleGeometry,
+    useConfiguredScenePlateSystemStyle,
+    avatarSize,
+    avatarTextStyle,
+    aiBadgeSize,
+    sendingBadgeSize,
+    sendingBadgePadding,
+    failedBadgeSize,
+    dateDividerBottomPadding,
+    dateDividerTextStyle,
+    systemMessageMargin,
+    systemMessagePadding,
+    systemMessageTextStyle,
+  );
+
   const ChatUiStyleConfig({
     // Overall chat page background color.
     required this.conversationBackgroundColor,

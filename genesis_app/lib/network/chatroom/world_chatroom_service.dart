@@ -19,6 +19,7 @@ import 'chatroom_models.dart';
 import 'chatroom_failure_identity.dart';
 import 'chatroom_reply_actions_controller.dart';
 import 'chatroom_reply_action_storage.dart';
+import 'location_message_retention.dart';
 import '../../features/location_chat_reply/inspiration/inspiration.dart';
 
 export 'chatroom_reply_actions_controller.dart';
@@ -32,6 +33,7 @@ part 'world_chatroom_event_projection.dart';
 part 'world_chatroom_message_reducer.dart';
 part 'world_chatroom_world_projection.dart';
 part 'world_chatroom_models.dart';
+part 'world_chatroom_retention.dart';
 
 const _maxMessagesPerLocation = 200;
 const _maxRecoverableLocationMessageGap = 50;
@@ -451,6 +453,11 @@ class WorldChatroomService {
 
   final Map<String, _ChatroomStreamAccumulator> _streamAccumulators =
       <String, _ChatroomStreamAccumulator>{};
+  final _retentionLeases =
+      <Object, ({String location, Set<Object> keys, Object? focus})>{};
+  final _cacheEvictedRanges = <String, List<({int first, int last})>>{};
+  final _retentionPolicy = const LocationMessageRetention();
+  bool _retentionScheduled = false;
   int _sendClientMessageSequence = 0;
   int _conversationRoundGeneration = 0;
   bool _heartbeatInFlight = false;
@@ -822,6 +829,8 @@ class WorldChatroomService {
       _suspendInspirations();
       _cancelHistoryRefreshes();
       _deletedMessageIds.clear();
+      _retentionLeases.clear();
+      _cacheEvictedRanges.clear();
       _publishedContentUpdateOccurrences.clear();
       _reportedFailureOccurrences.clear();
     }
@@ -1411,7 +1420,7 @@ class WorldChatroomService {
       // A cached history page is one logical update. Publishing every row
       // separately makes the chat reconcile and rebuild the growing list up
       // to [limit] times during a single upward pagination request.
-      _upsertMessages(localMessages, persist: false);
+      _upsertMessages(localMessages, persist: false, protectIncoming: true);
     }
 
     final response = await _api.chatroomHttp.getMessages(
@@ -1514,6 +1523,8 @@ class WorldChatroomService {
 
   Future<void> dispose() async {
     if (_disposed) return;
+    _retentionLeases.clear();
+    _cacheEvictedRanges.clear();
     _clearAllConversationRounds();
     _disposed = true;
     _replyActionsController?.dispose();

@@ -122,6 +122,12 @@ extension _WorldChatroomHistoryRepository on WorldChatroomService {
       );
       if (gap == null) return;
       final gapKey = _locationMessageGapKey('', gap);
+      // A deliberate memory-window gap is loaded on demand, not repaired as
+      // missing protocol data (which would immediately undo eviction).
+      if (isCacheEvictionGap(locationId, gap.lower, gap.upper)) {
+        unresolvedGapKeys.add(gapKey);
+        continue;
+      }
       if (gap.missingCount > _maxRecoverableLocationMessageGap) {
         await _discardLocationMessagesAtOrBefore(
           locationId: locationId,

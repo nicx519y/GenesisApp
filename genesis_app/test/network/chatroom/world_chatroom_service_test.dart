@@ -22,6 +22,82 @@ import 'package:genesis_flutter_android/platform/device/device_id_service.dart';
 import 'package:genesis_flutter_android/platform/session/memory_user_session_store.dart';
 
 void main() {
+  test(
+    'retention protects viewport, exposes eviction gaps and prunes duplicate index',
+    () async {
+      final socket = _FakeChatroomSocket();
+      final service = await _service(
+        socketTransport: _FakeChatroomTransport(socket),
+        useV2Protocol: true,
+        refreshInitialSnapshotOnConnect: false,
+      );
+      addTearDown(service.dispose);
+      await service.connect(worldId: 'world-1', identity: _identity());
+      void send(int i) => socket.serverV2Message(
+        type: 'character',
+        senderId: 'char-1',
+        senderName: 'Alice',
+        messageId: i,
+        locationMessageId: i,
+        roundId: i,
+        content: 'Message $i',
+      );
+      for (var i = 1; i <= 240; i++) {
+        send(i);
+      }
+      await _waitFor(
+        () => service.state.messagesByLocation['loc-1']?.length == 240,
+      );
+      final owner = Object();
+      service.retainMessageWindow(
+        owner: owner,
+        locationId: 'loc-1',
+        protectedKeys: {('global', 90020), ('global', 90021)},
+        focus: ('global', 90020),
+      );
+      send(241);
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.last.locationMessageId ==
+            241,
+      );
+      final queue = service.state.messagesByLocation['loc-1']!;
+      expect(queue.length, 200);
+      expect(queue.map((m) => m.locationMessageId), containsAll([20, 21, 241]));
+      expect(
+        service.state.worldMessages
+            .where((m) => m.locationId == 'loc-1')
+            .length,
+        200,
+      );
+      final gaps = service.cacheEvictionGaps('loc-1');
+      expect(gaps, hasLength(1));
+      expect(
+        service.isCacheEvictionGap(
+          'loc-1',
+          gaps.single.lower,
+          gaps.single.upper,
+        ),
+        isTrue,
+      );
+      service.releaseMessageWindow(owner);
+      for (var i = 242; i <= 282; i++) {
+        send(i);
+      }
+      await _waitFor(
+        () =>
+            service.state.messagesByLocation['loc-1']?.last.locationMessageId ==
+            282,
+      );
+      expect(service.state.messagesByLocation['loc-1']!.length, 200);
+      // Selection cannot reconstruct the evicted middle without a page request.
+      expect(
+        service.state.messagesByLocation['loc-1']!.first.locationMessageId,
+        42,
+      );
+    },
+  );
+
   test('location message changes are scoped and batched by location', () async {
     final socket = _FakeChatroomSocket();
     final service = await _service(
