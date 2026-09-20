@@ -600,6 +600,8 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.initialContentReady = true,
     this.loadingAfterMessageLocalId,
     this.loadingIdentity,
+    this.enterWaitingAfterMessageLocalId,
+    this.enterWaitingIdentity,
     this.preAckWaitingAfterMessageLocalId,
     this.preAckWaitingIdentity,
     this.waitingPositionResetRevision = 0,
@@ -663,6 +665,12 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final bool initialContentReady;
   final String? loadingAfterMessageLocalId;
   final String? loadingIdentity;
+
+  /// Display-only waiting row for a server-started Enter conversation.
+  /// It is inserted immediately after the matching Enter message and never
+  /// participates in message persistence, ordering, unread, or reply actions.
+  final String? enterWaitingAfterMessageLocalId;
+  final String? enterWaitingIdentity;
   final String? preAckWaitingAfterMessageLocalId;
   final String? preAckWaitingIdentity;
   final int waitingPositionResetRevision;
@@ -1379,6 +1387,8 @@ class _LocationChatAnchoredMessageListState
       _waitingAfterMessageLocalId,
       _waitingIndicatorIdentity,
       widget.loadingAfterMessageLocalId != null,
+      widget.enterWaitingAfterMessageLocalId,
+      widget.enterWaitingIdentity,
     );
     if (_timelineIdentity == identity) return _cachedTimelineEntries;
     _timelineIdentity = identity;
@@ -1395,12 +1405,19 @@ class _LocationChatAnchoredMessageListState
             !_waitingInReplyActionSlot &&
             !(cardMessageIds?.contains(_renderedMessages[i].localId) ?? false))
           -3,
+        if (i < count &&
+            widget.enterWaitingIdentity != null &&
+            _renderedMessages[i].localId ==
+                widget.enterWaitingAfterMessageLocalId &&
+            !(cardMessageIds?.contains(_renderedMessages[i].localId) ?? false))
+          -4,
       ],
     ];
     return _cachedTimelineEntries;
   }
 
   Key _entryKey(int entry) => ValueKey<String>(switch (entry) {
+    -4 => 'location-chat-enter-loading:${widget.enterWaitingIdentity}',
     -3 => 'location-chat-ack-loading:$_waitingIndicatorIdentity',
     -2 => 'location-chat-reply-deck:$_replyIdentity',
     -1 => 'location-chat-reply-action-slot',
@@ -1410,6 +1427,10 @@ class _LocationChatAnchoredMessageListState
 
   Widget _buildEntry(int entry, ChatUiStyleConfig style, {bool lazy = true}) =>
       switch (entry) {
+        -4 => KeyedSubtree(
+          key: _entryKey(entry),
+          child: ChatReplyWaitingBubble(style: style),
+        ),
         -3 => KeyedSubtree(
           key: _entryKey(entry),
           child: KeyedSubtree(

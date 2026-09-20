@@ -2055,6 +2055,235 @@ void main() {
     await tester.pump(const Duration(seconds: 3));
   });
 
+  testWidgets(
+    'Enter waiting is order independent and yields atomically to same-round content',
+    (tester) async {
+      final harness = await _mountEnterConversationPanel(tester);
+      final enterLoading = find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'location-chat-enter-loading:',
+            ),
+      );
+
+      harness.socket.serverWaitingConversationRound(roundId: 401);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () =>
+            harness
+                .service
+                .state
+                .conversationRoundStatesByLocation['location-current']
+                ?.conversationRoundId ==
+            '401',
+      );
+      expect(enterLoading, findsNothing);
+
+      harness.socket.serverUserEnterLocation(
+        roundId: 401,
+        messageId: 401,
+        locationMessageId: 401,
+        userId: 'user-2',
+        senderId: 'char-peer',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => enterLoading.evaluate().isNotEmpty,
+      );
+      var list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      final enter = list.messages.singleWhere(
+        (message) => message.isUserEnterLocation,
+      );
+      expect(enter.isMe, isFalse);
+      expect(list.enterWaitingAfterMessageLocalId, enter.localId);
+      expect(
+        list.enterWaitingIdentity,
+        'world-current/location-current/401/${enter.localId}',
+      );
+      expect(find.byType(ChatReplyWaitingBubble), findsOneWidget);
+      final enterElement = tester.element(
+        find.byType(ChatUserEnterLocationMessageBubble),
+      );
+
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_stream_start',
+        roundId: 401,
+        messageId: 402,
+      );
+      await tester.pump();
+      await tester.pump();
+      expect(enterLoading, findsOneWidget);
+
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        roundId: 499,
+        messageId: 499,
+        content: 'Another round must not dismiss Enter waiting.',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => tester
+            .widget<LocationChatAnchoredMessageList>(
+              find.byType(LocationChatAnchoredMessageList),
+            )
+            .messages
+            .any((message) => message.roundId == '499'),
+      );
+      expect(enterLoading, findsOneWidget);
+
+      const enterReply = 'The Enter conversation has started.';
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        roundId: 401,
+        messageId: 402,
+        seq: 1,
+        content: enterReply,
+      );
+      var contentRendered = false;
+      for (var attempt = 0; attempt < 100; attempt += 1) {
+        await tester.pump();
+        list = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        final hasContent =
+            list.messages.any(
+              (message) =>
+                  message.roundId == '401' && message.text == enterReply,
+            ) &&
+            find.text(enterReply).evaluate().isNotEmpty;
+        final hasWaiting = enterLoading.evaluate().isNotEmpty;
+        expect(
+          hasContent == hasWaiting,
+          isFalse,
+          reason:
+              'Enter content and its waiting bubble must be mutually exclusive in every frame.',
+        );
+        if (hasContent) {
+          contentRendered = true;
+          break;
+        }
+      }
+      expect(contentRendered, isTrue);
+      expect(enterLoading, findsNothing);
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
+      expect(
+        tester.element(find.byType(ChatUserEnterLocationMessageBubble)),
+        same(enterElement),
+      );
+      await _disposeEnterConversationPanel(tester, harness.service);
+    },
+  );
+
+  testWidgets(
+    'Enter waiting appears after late waiting and only matching successful end removes it',
+    (tester) async {
+      final harness = await _mountEnterConversationPanel(tester);
+      final enterLoading = find.byWidgetPredicate(
+        (widget) =>
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'location-chat-enter-loading:',
+            ),
+      );
+
+      harness.socket.serverUserEnterLocation(
+        roundId: 401,
+        messageId: 401,
+        locationMessageId: 401,
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find
+            .byType(ChatUserEnterLocationMessageBubble)
+            .evaluate()
+            .isNotEmpty,
+      );
+      expect(enterLoading, findsNothing);
+
+      harness.socket.serverWaitingConversationRound(roundId: 401);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => enterLoading.evaluate().isNotEmpty,
+      );
+      expect(enterLoading, findsOneWidget);
+
+      harness.socket.serverEndConversationRound(roundId: 402);
+      await tester.pump();
+      expect(enterLoading, findsOneWidget);
+
+      harness.socket.serverEndConversationRound(roundId: 401, errNo: 5001);
+      await tester.pump();
+      expect(enterLoading, findsOneWidget);
+
+      harness.socket.serverEndConversationRound(
+        roundId: 401,
+        locationId: 'location-other',
+      );
+      await tester.pump();
+      expect(enterLoading, findsOneWidget);
+
+      harness.socket.serverUserEnterLocation(
+        roundId: 401,
+        messageId: 401,
+        locationMessageId: 401,
+      );
+      harness.socket.serverWaitingConversationRound(roundId: 401);
+      await tester.pump();
+      expect(enterLoading, findsOneWidget);
+
+      harness.socket.serverEndConversationRound(roundId: 401);
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => enterLoading.evaluate().isEmpty,
+      );
+      expect(
+        harness.service.state.conversationRoundStatesByLocation,
+        isNot(contains('location-current')),
+      );
+      await _disposeEnterConversationPanel(tester, harness.service);
+    },
+  );
+
+  testWidgets('Enter waiting follows the existing conversation timeout', (
+    tester,
+  ) async {
+    final harness = await _mountEnterConversationPanel(
+      tester,
+      conversationRoundTimeout: const Duration(milliseconds: 80),
+    );
+    final enterLoading = find.byWidgetPredicate(
+      (widget) =>
+          widget.key is ValueKey<String> &&
+          (widget.key! as ValueKey<String>).value.startsWith(
+            'location-chat-enter-loading:',
+          ),
+    );
+
+    harness.socket.serverWaitingConversationRound(roundId: 401);
+    harness.socket.serverUserEnterLocation(
+      roundId: 401,
+      messageId: 401,
+      locationMessageId: 401,
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => enterLoading.evaluate().isNotEmpty,
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => enterLoading.evaluate().isEmpty,
+    );
+    expect(
+      harness.service.state.conversationRoundStatesByLocation,
+      isNot(contains('location-current')),
+    );
+    await _disposeEnterConversationPanel(tester, harness.service);
+  });
+
   for (final mode in ['ordinary', 'candidates', 'confirmed']) {
     testWidgets(
       'prepared entry first frame includes $mode and supported idle toolbar before join',
@@ -10952,6 +11181,7 @@ void main() {
       await tester.pump();
 
       expect(find.byType(ChatUserEnterLocationMessageBubble), findsNWidgets(2));
+      expect(find.byType(ChatReplyWaitingBubble), findsNothing);
       expect(find.byType(ChatStoryEventsMessageBubble), findsOneWidget);
       expect(find.byType(ChatCharactersMovedMessageBubble), findsOneWidget);
       expect(
@@ -13075,8 +13305,54 @@ Future<
     _LocationChatTestSocket socket,
   })
 >
+_mountEnterConversationPanel(
+  WidgetTester tester, {
+  Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
+}) async {
+  final harness = await _connectedLocationChatTestService(
+    conversationRoundTimeout: conversationRoundTimeout,
+  );
+  await tester.pumpWidget(
+    AppServicesScope(
+      services: harness.services,
+      child: MaterialApp(
+        scrollBehavior: const GenesisScrollBehavior(),
+        home: LocationChatPanel(
+          worldId: 'world-current',
+          locationId: 'location-current',
+          service: harness.service,
+          leaveOnInactive: false,
+          messageQueueInitializationCovered: true,
+        ),
+      ),
+    ),
+  );
+  await _pumpUntilLocationChatTest(
+    tester,
+    () => harness.service.state.joinedLocationId == 'location-current',
+  );
+  return harness;
+}
+
+Future<void> _disposeEnterConversationPanel(
+  WidgetTester tester,
+  WorldChatroomService service,
+) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  unawaited(service.dispose());
+  await tester.pump(const Duration(seconds: 3));
+}
+
+Future<
+  ({
+    AppServices services,
+    WorldChatroomService service,
+    _LocationChatTestSocket socket,
+  })
+>
 _connectedLocationChatTestService({
   Duration ackTimeout = const Duration(seconds: 12),
+  Duration conversationRoundTimeout = conversationRoundFallbackTimeout,
   HttpTransport? replyTransport,
   ChatroomMessageStorage? messageStorage,
   ChatroomInspirationStorage? inspirationStorage,
@@ -13154,6 +13430,7 @@ _connectedLocationChatTestService({
         inspirationStorage ?? MemoryChatroomInspirationStorage(),
     messageStorage: messageStorage ?? MemoryChatroomMessageStorage(),
     refreshInitialSnapshotOnConnect: false,
+    conversationRoundTimeout: conversationRoundTimeout,
   );
   await service.connect(
     worldId: 'world-current',
@@ -13931,6 +14208,42 @@ class _LocationChatTestSocket implements ChatroomSocket {
     });
   }
 
+  void serverUserEnterLocation({
+    required int roundId,
+    required int messageId,
+    required int locationMessageId,
+    String userId = 'user-1',
+    String senderId = 'char-1',
+  }) {
+    _serverFrame('user_enter_location', {
+      'stream_type': '',
+      'ts': 1786327200000 + messageId,
+      'world_id': 'world-current',
+      'session_id': 'session-1',
+      'global_message_id': 90000 + messageId,
+      'message_id': messageId,
+      'location_message_id': locationMessageId,
+      'conversation_round_id': roundId,
+      'trigger_uid': userId,
+      'user_id': userId,
+      'sender_type': 'user_enter_location',
+      'sender_id': senderId,
+      'sender_name': 'Entering character',
+      'location_id': 'location-current',
+      'client_msg_id': '',
+      'message_type': 'text',
+      'min_app_version': 0,
+      'created_at': '2026-08-10 10:00:00',
+      'broadcast': true,
+      'payload': <String, Object?>{
+        'content': 'Entering character came to the current location.',
+        'message_type': 'text',
+      },
+      'err_no': 0,
+      'err_msg': '',
+    });
+  }
+
   void serverWaitingConversationRound({required int roundId}) {
     _serverFrame('waiting_conversation_round', {
       'stream_type': '',
@@ -13951,20 +14264,22 @@ class _LocationChatTestSocket implements ChatroomSocket {
     required int roundId,
     String conversationType = '',
     String triggerUid = 'user-1',
+    String locationId = 'location-current',
+    int errNo = 0,
   }) {
     _serverFrame('end_conversation_round', {
       'stream_type': '',
       'ts': 1785890001000,
       'world_id': 'world-current',
       'session_id': 'session-1',
-      'location_id': 'location-current',
+      'location_id': locationId,
       'conversation_round_id': roundId,
       if (conversationType.isNotEmpty) 'conversation_type': conversationType,
       'trigger_uid': triggerUid,
       'user_id': 'user-1',
       'payload': <String, Object?>{},
-      'err_no': 0,
-      'err_msg': '',
+      'err_no': errNo,
+      'err_msg': errNo == 0 ? '' : 'conversation failed',
     });
   }
 

@@ -118,6 +118,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             !_hasVisibleAiReplyForRound(displayMessages, loadingRoundId)
         ? _ackLoadingMessageLocalId
         : null;
+    final enterWaiting = _enterConversationWaitingFor(displayMessages);
 
     final messageList = ChatMentionScope(
       key: _replyPresentationContextKey,
@@ -190,6 +191,8 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
             historyGapLoaders: _historyGapLoaders(displayMessages),
             loadingAfterMessageLocalId: loadingAfterMessageLocalId,
             loadingIdentity: _ackLoadingClientMsgId,
+            enterWaitingAfterMessageLocalId: enterWaiting?.messageLocalId,
+            enterWaitingIdentity: enterWaiting?.identity,
             preAckWaitingAfterMessageLocalId: _preAckWaitingMessageLocalId,
             preAckWaitingIdentity: _preAckWaitingClientMsgId,
             waitingPositionResetRevision: _waitingPositionResetRevision,
@@ -286,5 +289,49 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
           ),
       ],
     );
+  }
+
+  ({String messageLocalId, String identity})? _enterConversationWaitingFor(
+    List<ChatMessageVm> messages,
+  ) {
+    final state = _service?.state ?? _chatroomState;
+    final activeRound =
+        state.conversationRoundStatesByLocation[widget.locationId];
+    if (activeRound?.phase != ConversationRoundPhase.processing) return null;
+
+    final roundId = activeRound!.conversationRoundId.trim();
+    final numericRoundId = int.tryParse(roundId);
+    if (numericRoundId == null || numericRoundId <= 0) return null;
+
+    final enterIndex = messages.indexWhere(
+      (message) =>
+          message.isUserEnterLocation && message.roundId.trim() == roundId,
+    );
+    if (enterIndex < 0) return null;
+
+    final contentStarted = messages
+        .skip(enterIndex + 1)
+        .any(
+          (message) =>
+              message.roundId.trim() == roundId &&
+              _isVisibleEnterConversationContent(message),
+        );
+    if (contentStarted) return null;
+
+    final enterMessage = messages[enterIndex];
+    return (
+      messageLocalId: enterMessage.localId,
+      identity:
+          '${widget.worldId}/${widget.locationId}/$roundId/${enterMessage.localId}',
+    );
+  }
+
+  bool _isVisibleEnterConversationContent(ChatMessageVm message) {
+    if (message.isUserEnterLocation || message.isAiContentDisclaimer) {
+      return false;
+    }
+    return message.text.trim().isNotEmpty ||
+        message.imageUrl.trim().isNotEmpty ||
+        message.timelinePayload != null;
   }
 }
