@@ -4,7 +4,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
   void _detachReplyActions() {
     _finishPendingReplyAnalyticsForDetach();
     _replyRenderGate.reset();
-    _clearDeferredTick(resetOrdering: true);
+    _clearDeferredTick();
     _entryChanges?.removeListener(_onPreparedEntryChanged);
     _entryChanges = null;
     _editQuotaChecking = false;

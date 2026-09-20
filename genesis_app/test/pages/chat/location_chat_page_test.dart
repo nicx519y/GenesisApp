@@ -1805,74 +1805,91 @@ void main() {
     );
   }
 
-  testWidgets('a Tick waits for the current AI stream to finish rendering', (
-    tester,
-  ) async {
-    final harness = await _mountCompletedReplyActionPanel(
-      tester,
-      backend: _LocationChatReplyHttpTransport(),
-    );
-    harness.socket.serverV2StreamFrame(
-      streamType: 'llm_chunk',
-      roundId: 401,
-      messageId: 402,
-      seq: 1,
-      content: 'Streaming answer',
-      conversationType: 'user_message',
-    );
-    await _pumpUntilLocationChatTest(
-      tester,
-      () => find.text('Streaming answer').evaluate().isNotEmpty,
-    );
+  testWidgets(
+    'a Tick keeps location order without restarting the active reveal',
+    (tester) async {
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: _LocationChatReplyHttpTransport(),
+      );
+      final answer = 'Streaming answer ' * 40;
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        roundId: 401,
+        messageId: 402,
+        seq: 1,
+        content: answer,
+        conversationType: 'user_message',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text(answer).evaluate().isNotEmpty,
+      );
+      Finder answerBody() => find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) => widget is ChatMessageRow && widget.message.text == answer,
+        ),
+        matching: find.byType(ChatStreamingBody),
+      );
+      await tester.pump(const Duration(milliseconds: 60));
+      final revealBeforeTick = ChatStreamingBody.revealedGraphemesOf(
+        tester.element(answerBody().last),
+      );
+      expect(revealBeforeTick, greaterThan(0));
+      expect(revealBeforeTick, lessThan(answer.length));
 
-    harness.socket.serverV2Tick(
-      messageId: 501,
-      locationMessageId: 501,
-      globalText: 'The world advanced.',
-    );
-    await _pumpUntilLocationChatTest(
-      tester,
-      () => harness.service.state.messagesByLocation['location-current']!.any(
-        (message) => message.businessType == 'tick',
-      ),
-    );
-    await tester.pump();
-    var list = tester.widget<LocationChatAnchoredMessageList>(
-      find.byType(LocationChatAnchoredMessageList),
-    );
-    expect(list.messages.any((message) => message.isTick), isFalse);
-    expect(
-      list.messages.any((message) => message.text == 'Streaming answer'),
-      isTrue,
-    );
-    expect(list.regenerateFeature.state, LocationChatReplyActionState.none);
-    expect(list.goOnFeature.state, LocationChatReplyActionState.none);
-    expect(list.editFeature.state, LocationChatReplyActionState.none);
-    expect(list.inspirationFeature.state, LocationChatReplyActionState.none);
-
-    harness.socket.serverV2StreamFrame(
-      streamType: 'llm_stream_end',
-      roundId: 401,
-      messageId: 602,
-      content: 'Final answer',
-      conversationType: 'user_message',
-    );
-    await _pumpUntilLocationChatTest(tester, () {
-      list = tester.widget<LocationChatAnchoredMessageList>(
+      harness.socket.serverV2Tick(
+        messageId: 501,
+        locationMessageId: 501,
+        globalText: 'The world advanced.',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.state.messagesByLocation['location-current']!.any(
+          (message) => message.businessType == 'tick',
+        ),
+      );
+      await tester.pump();
+      var list = tester.widget<LocationChatAnchoredMessageList>(
         find.byType(LocationChatAnchoredMessageList),
       );
-      return list.messages.any((message) => message.isTick);
-    });
-    final finalAnswerIndex = list.messages.indexWhere(
-      (message) => message.text == 'Final answer',
-    );
-    final tickIndex = list.messages.indexWhere((message) => message.isTick);
-    expect(finalAnswerIndex, greaterThanOrEqualTo(0));
-    expect(tickIndex, greaterThan(finalAnswerIndex));
-    await tester.pumpWidget(const SizedBox.shrink());
-    unawaited(harness.service.dispose());
-    await tester.pump(const Duration(seconds: 3));
-  });
+      expect(list.messages.any((message) => message.isTick), isFalse);
+      expect(list.messages.any((message) => message.text == answer), isTrue);
+      expect(list.regenerateFeature.state, LocationChatReplyActionState.none);
+      expect(list.goOnFeature.state, LocationChatReplyActionState.none);
+      expect(list.editFeature.state, LocationChatReplyActionState.none);
+      expect(list.inspirationFeature.state, LocationChatReplyActionState.none);
+
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        roundId: 401,
+        messageId: 602,
+        content: answer,
+        conversationType: 'user_message',
+      );
+      await _pumpUntilLocationChatTest(tester, () {
+        list = tester.widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        );
+        return list.messages.any((message) => message.isTick);
+      });
+      await tester.pump();
+      final revealAfterTick = ChatStreamingBody.revealedGraphemesOf(
+        tester.element(answerBody().last),
+      );
+      expect(revealAfterTick, greaterThanOrEqualTo(revealBeforeTick));
+      expect(revealAfterTick, lessThan(answer.length));
+      final finalAnswerIndex = list.messages.indexWhere(
+        (message) => message.text == answer,
+      );
+      final tickIndex = list.messages.indexWhere((message) => message.isTick);
+      expect(finalAnswerIndex, greaterThanOrEqualTo(0));
+      expect(tickIndex, lessThan(finalAnswerIndex));
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
 
   testWidgets('a Tick waits for the current conversation round to end', (
     tester,

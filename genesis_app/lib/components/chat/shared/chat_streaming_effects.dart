@@ -13,12 +13,14 @@ import 'chat_scene_plate_tokens.dart';
 class ChatStreamingTask {
   const ChatStreamingTask({
     required this.identity,
+    this.continuityIdentity,
     required this.streaming,
     required this.animateArrival,
     this.restoredContent = false,
     this.continuation,
   });
   final Object identity;
+  final Object? continuityIdentity;
   final Object? continuation;
   final bool streaming;
   final bool animateArrival;
@@ -125,6 +127,7 @@ class ChatStreamingEffects extends StatefulWidget {
 
 class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
   final _records = <Object, _StreamRecord>{};
+  final _continuityRecords = <Object, _StreamRecord>{};
   final _pending = <Object, Map<Object, _StreamRecord>>{};
   final _bodies = <_RenderStreamingBody>{};
   bool _settled = false;
@@ -143,6 +146,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
           _pending.containsKey(task.continuation)) {
         record(
           task.identity,
+          task.continuityIdentity,
           task.continuation,
           task.streaming,
           animateArrival: task.animateArrival,
@@ -170,6 +174,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
         record.finishing = false;
       }
       _pending.clear();
+      _continuityRecords.clear();
       for (final body in _bodies) {
         body.markNeedsLayout();
       }
@@ -260,12 +265,17 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
 
   _StreamRecord record(
     Object identity,
+    Object? continuityIdentity,
     Object? continuation,
     bool streaming, {
     bool animateArrival = false,
     bool restoredContent = false,
   }) {
     var result = _records[identity];
+    if (result == null && continuityIdentity != null) {
+      final continuous = _continuityRecords[continuityIdentity];
+      if (continuous != null && !continuous.cancelled) result = continuous;
+    }
     final candidates = _pending[continuation];
     // Final IDs can replace temporary stream IDs. Only migrate an unambiguous
     // same-round/sender record; never merge concurrent candidate streams.
@@ -285,9 +295,18 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       result.finishing = true;
     }
     _records[identity] = result;
+    if (continuityIdentity != null) {
+      _continuityRecords[continuityIdentity] = result;
+    }
     if (continuation != null) {
-      if (streaming) {
-        (_pending[continuation] ??= {})[identity] = result;
+      if (streaming || result.finishing) {
+        final pending = _pending[continuation] ??= {};
+        // Presentation can replace a candidate-card identity with its
+        // canonical timeline identity while the terminal reveal is still
+        // running. Keep one alias for that record so the replacement adopts
+        // its exact progress instead of starting from zero.
+        pending.removeWhere((_, record) => identical(record, result));
+        pending[identity] = result;
       } else {
         candidates?.removeWhere((_, record) => identical(record, result));
         if (candidates?.isEmpty ?? false) _pending.remove(continuation);
@@ -314,12 +333,44 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
           )
           .firstOrNull;
       final evicted = key == null ? null : _records.remove(key);
-      for (final pending in _pending.values) {
-        pending.removeWhere((_, record) => identical(record, evicted));
+      final recordStillIndexed =
+          evicted != null &&
+          _records.values.any((record) => identical(record, evicted));
+      if (!recordStillIndexed) {
+        _continuityRecords.removeWhere(
+          (_, record) => identical(record, evicted),
+        );
+        for (final pending in _pending.values) {
+          pending.removeWhere((_, record) => identical(record, evicted));
+        }
+        _pending.removeWhere((_, pending) => pending.isEmpty);
       }
-      _pending.removeWhere((_, pending) => pending.isEmpty);
     }
     return result;
+  }
+
+  void releasePendingRecord(_StreamRecord record) {
+    if (recordIsStreaming(record)) return;
+    for (final pending in _pending.values) {
+      pending.removeWhere((_, candidate) => identical(candidate, record));
+    }
+    _pending.removeWhere((_, pending) => pending.isEmpty);
+  }
+
+  bool recordIsStreaming(_StreamRecord record) {
+    final declaredStreaming =
+        _tasks?.any(
+          (task) =>
+              task.streaming && identical(_records[task.identity], record),
+        ) ??
+        false;
+    return declaredStreaming ||
+        _bodies.any(
+          (body) =>
+              body.attached &&
+              body._scope.streaming &&
+              identical(body._scope.record, record),
+        );
   }
 
   @override
@@ -356,6 +407,7 @@ class ChatStreamingMessage extends StatelessWidget {
   const ChatStreamingMessage({
     super.key,
     required this.identity,
+    this.continuityIdentity,
     this.continuationIdentity,
     required this.streaming,
     this.animateArrival = false,
@@ -364,6 +416,7 @@ class ChatStreamingMessage extends StatelessWidget {
     required this.child,
   });
   final Object identity;
+  final Object? continuityIdentity;
   final Object? continuationIdentity;
   final bool streaming;
   final bool animateArrival;
@@ -386,6 +439,7 @@ class ChatStreamingMessage extends StatelessWidget {
     if (effects == null) return child;
     final record = effects.owner.record(
       identity,
+      continuityIdentity,
       continuationIdentity,
       streaming,
       animateArrival: animateArrival,
@@ -840,10 +894,13 @@ class _RenderStreamingBody extends RenderProxyBox {
         next.isNotEmpty &&
         (record.revealed <= 0 || record.height <= 0);
     _laidOut = true;
-    if (!_scope.streaming &&
+    if (record.finishing &&
+        !_scope.streaming &&
+        !_scope.owner.recordIsStreaming(record) &&
         !_height.running(_clock) &&
         !_reveal.running(_clock)) {
       record.finishing = false;
+      _scope.owner.releasePendingRecord(record);
     }
     _inLayout = false;
     _scope.owner.refreshQueue();

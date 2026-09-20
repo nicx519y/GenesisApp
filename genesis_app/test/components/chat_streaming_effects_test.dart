@@ -15,6 +15,7 @@ Widget harness(
   LocationChatBubbleLayoutSettings settings = defaults,
   bool streaming = true,
   Object identity = 'message',
+  Object? continuity,
   Object? continuation,
   Widget? content,
   TextDirection direction = TextDirection.ltr,
@@ -25,6 +26,7 @@ Widget harness(
   final body = ChatStreamingMessage(
     key: ValueKey(identity),
     identity: identity,
+    continuityIdentity: continuity,
     continuationIdentity: continuation,
     streaming: streaming,
     animateArrival: animateArrival,
@@ -376,6 +378,47 @@ void main() {
     expect(progress(tester), closeTo(before + 10, 0.001));
     await tester.pumpWidget(const SizedBox.shrink());
   });
+
+  testWidgets(
+    'presentation and server identity changes preserve unfinished progress',
+    (tester) async {
+      const continuation = 'round/sender';
+      await tester.pumpWidget(
+        harness(
+          'a' * 100,
+          identity: 'card-message',
+          continuity: 'receipt-1',
+          continuation: continuation,
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 60));
+      final beforePresentationChange = progress(tester);
+
+      await tester.pumpWidget(
+        harness(
+          'a' * 100,
+          identity: 'timeline-message',
+          continuity: 'receipt-1',
+          continuation: continuation,
+        ),
+      );
+      expect(progress(tester), closeTo(beforePresentationChange, 0.001));
+
+      await tester.pumpWidget(
+        harness(
+          'a' * 100,
+          identity: 'final-server-message',
+          continuity: 'receipt-2',
+          continuation: continuation,
+          streaming: false,
+        ),
+      );
+      expect(progress(tester), closeTo(beforePresentationChange, 0.001));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(progress(tester), closeTo(beforePresentationChange + 10, 0.001));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
 
   testWidgets('background time and idle time cannot buy reveal credit', (
     tester,

@@ -598,10 +598,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final Set<int> _deferredTickActionRoundIds = <int>{};
   int? _deferredTickConversationGeneration;
   bool _deferredTickWaitsForConversationCompletion = false;
-  final Map<String, Set<String>> _tickPrecedingStreamKeys =
-      <String, Set<String>>{};
-  final Map<String, Set<int>> _tickPrecedingActionRoundIds =
-      <String, Set<int>>{};
   bool _deferredTickReleaseScheduled = false;
   int _deferredTickGeneration = 0;
   final Set<String> _myUserIdKeys = <String>{};

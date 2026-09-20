@@ -836,6 +836,26 @@ class _LocationChatAnchoredMessageListState
         )
       : ('timeline', _receiptIdentity(message));
 
+  Object _streamContinuationNamespace(ChatMessageVm message, {int? cardId}) {
+    // Candidate-only streams remain isolated per card. Once the server gives
+    // a message its location cursor, the selected card and canonical timeline
+    // are two presentations of the same reveal and must share continuity.
+    if (cardId != null && message.locationMessageId <= 0) {
+      return (widget.replyCardBindingIdentity, cardId);
+    }
+    return 'timeline';
+  }
+
+  Object? _streamContinuityIdentity(ChatMessageVm message, {int? cardId}) {
+    // Unconfirmed candidate cards can reuse message IDs and must animate
+    // independently. Formal/card-0 content and confirmed selections are the
+    // same business message when they move into the canonical timeline.
+    if (cardId != null && cardId > 0 && !widget.replyCardsConfirmed) {
+      return null;
+    }
+    return ('location-chat-message', _receiptIdentity(message));
+  }
+
   void _captureRestoredEntryContent({bool reentering = false}) {
     if (!widget.restoreInitialCompletedContent ||
         (!reentering && widget.waitingPositionIdentity != null)) {
@@ -1609,7 +1629,11 @@ class _LocationChatAnchoredMessageListState
           card.id,
           _receiptIdentity(message),
         ),
-        streamContinuationNamespace: (widget.replyCardBindingIdentity, card.id),
+        streamCardId: card.id,
+        streamContinuationNamespace: _streamContinuationNamespace(
+          message,
+          cardId: card.id,
+        ),
         streamOrder: () {
           final currentCard = widget.replyCards
               .where((candidate) => candidate.id == card.id)
@@ -2318,15 +2342,21 @@ class _LocationChatAnchoredMessageListState
                     _receiptIdentity(message),
                   )
                 : ('timeline', _receiptIdentity(message)),
+            continuityIdentity: _streamContinuityIdentity(
+              message,
+              cardId: cardIds.contains(message.localId)
+                  ? widget.replyCurrentCardId
+                  : null,
+            ),
             continuation: message.roundId.isEmpty
                 ? null
                 : (
-                    cardIds.contains(message.localId)
-                        ? (
-                            widget.replyCardBindingIdentity,
-                            widget.replyCurrentCardId,
-                          )
-                        : 'timeline',
+                    _streamContinuationNamespace(
+                      message,
+                      cardId: cardIds.contains(message.localId)
+                          ? widget.replyCurrentCardId
+                          : null,
+                    ),
                     message.roundId,
                     message.senderId,
                     message.senderType,
@@ -3031,6 +3061,7 @@ class _LocationChatAnchoredMessageListState
     required Key? visibilityKey,
     required Object streamIdentity,
     required ValueGetter<double> streamOrder,
+    int? streamCardId,
     Object streamContinuationNamespace = 'timeline',
     required ChatMessageVm message,
     required List<ChatMessageVm> imageViewerMessages,
@@ -3040,6 +3071,10 @@ class _LocationChatAnchoredMessageListState
   }) => ChatStreamingMessage(
     key: ValueKey(('stream-effects', key)),
     identity: streamIdentity,
+    continuityIdentity: _streamContinuityIdentity(
+      message,
+      cardId: streamCardId,
+    ),
     order: streamOrder,
     continuationIdentity: message.roundId.isEmpty
         ? null
