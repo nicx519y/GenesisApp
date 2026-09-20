@@ -4166,6 +4166,9 @@ void main() {
     (WidgetTester tester) async {
       AppStartupCoordinator.resetForTesting();
       addTearDown(AppStartupCoordinator.resetForTesting);
+      final telemetry = _CapturingTelemetrySink();
+      GenesisTelemetry.setSinkForTesting(telemetry);
+      addTearDown(GenesisTelemetry.resetForTesting);
       final transport = _RecordingV1ListTransport();
       await tester.pumpWidget(
         GenesisApp(
@@ -4209,6 +4212,10 @@ void main() {
         transport.requestsFor('/api/v1/world/list'),
         hasLength(initialRequestCount + 2),
       );
+      final visibleForegroundPageViews = _pageViewCount(
+        telemetry,
+        'home_my_worlds',
+      );
 
       final shellContext = tester.element(find.byType(AppShellPage));
       Navigator.of(shellContext).push(
@@ -4220,6 +4227,19 @@ void main() {
       expect(
         transport.requestsFor('/api/v1/world/list'),
         hasLength(initialRequestCount + 2),
+      );
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pumpAndSettle();
+
+      expect(
+        transport.requestsFor('/api/v1/world/list'),
+        hasLength(initialRequestCount + 2),
+      );
+      expect(
+        _pageViewCount(telemetry, 'home_my_worlds'),
+        visibleForegroundPageViews,
       );
 
       Navigator.of(tester.element(find.text('Covered Home'))).pop();
