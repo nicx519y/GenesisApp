@@ -13,6 +13,50 @@ class _LocationChatMessageParseCacheEntry {
 }
 
 extension _LocationChatMessageReconciler on _LocationChatPanelState {
+  Set<String> get _renderableGapKeys => {
+    ..._releasedMessageGapKeys,
+    for (final gap
+        in _service?.cacheEvictionGaps(widget.locationId) ??
+            const <({int lower, int upper})>[])
+      _locationChatMessageGapKey(
+        widget.locationId,
+        _LocationChatMessageGap(
+          lowerLocationMessageId: gap.lower,
+          upperLocationMessageId: gap.upper,
+        ),
+      ),
+  };
+
+  Map<String, VoidCallback> _historyGapLoaders(
+    List<ChatMessageVm> messages,
+  ) => {
+    for (final gap
+        in _service?.cacheEvictionGaps(widget.locationId) ??
+            const <({int lower, int upper})>[])
+      for (final message
+          in messages.where((m) => m.locationMessageId == gap.upper).take(1))
+        message.localId: () => unawaited(_loadEvictedMessageGap(gap.upper)),
+  };
+
+  Future<void> _loadEvictedMessageGap(int upper) async {
+    final service = _service;
+    if (service == null ||
+        !_messageGapFillBeforeLocationMessageIds.add(upper)) {
+      return;
+    }
+    try {
+      await service.loadOlderMessages(
+        locationId: widget.locationId,
+        beforeMessageId: upper,
+      );
+    } catch (error) {
+      // Loading history must not invent a reply bubble or a user-facing error.
+      debugPrint('[WorldChat] retained history page failed: $error');
+    } finally {
+      _messageGapFillBeforeLocationMessageIds.remove(upper);
+    }
+  }
+
   bool _reconcileMessages(
     List<WorldChatroomMessage> source, {
     WorldChatroomState? identityState,
@@ -31,7 +75,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     final renderWindow = _visibleLocationChatMessages(
       source,
       renderedLocationMessageIds: _renderedLocationMessageIds(),
-      releasedGapKeys: _releasedMessageGapKeys,
+      releasedGapKeys: _renderableGapKeys,
       locationId: widget.locationId,
     );
     _requestVisibleMessageGapFillIfNeeded(renderWindow.gaps, source);
@@ -359,6 +403,13 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       return;
     }
     for (final gap in gaps) {
+      if (service.isCacheEvictionGap(
+        widget.locationId,
+        gap.lowerLocationMessageId,
+        gap.upperLocationMessageId,
+      )) {
+        continue;
+      }
       final key = _locationChatMessageGapKey(widget.locationId, gap);
       if (_releasedMessageGapKeys.contains(key)) continue;
       if (!_messageGapFillBeforeLocationMessageIds.add(
@@ -399,7 +450,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     final renderWindow = _visibleLocationChatMessages(
       source,
       renderedLocationMessageIds: _renderedLocationMessageIds(),
-      releasedGapKeys: _releasedMessageGapKeys,
+      releasedGapKeys: _renderableGapKeys,
       locationId: widget.locationId,
     );
     _requestVisibleMessageGapFillIfNeeded(renderWindow.gaps, source);

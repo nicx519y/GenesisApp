@@ -808,10 +808,49 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         _scrollCoordinator.messageLocalIdsIntersectingViewport;
     _unseenIncomingMessageLocalIds.removeAll(visibleMessageLocalIds);
     _unseenReplyMessageLocalIds.removeAll(visibleMessageLocalIds);
+    _updateMessageRetention();
     // Notice count also depends on the coordinator's below/intersecting sets,
     // so every semantic viewport report refreshes this isolated subtree.
     _notifyMessageViewport(invalidateReplyProjection: false);
     _handleMessageListScroll();
+  }
+
+  void _updateMessageRetention() {
+    final service = _service;
+    if (service == null) return;
+    if (!widget.active) {
+      service.releaseMessageWindow(this);
+      return;
+    }
+    Object key(ChatMessageVm m) => m.globalMessageId > 0
+        ? ('global', m.globalMessageId)
+        : m.clientMsgId.isNotEmpty
+        ? ('client', m.clientMsgId)
+        : ('stream', widget.locationId, m.roundId, m.senderId);
+    final protectedIds = _scrollCoordinator.retainedMessageLocalIds;
+    // Candidate projection IDs differ from canonical history IDs; translate
+    // the displayed VMs to business keys before leasing the service window.
+    final displayed = _replyProjection
+        .presentation(_renderedReplyState)
+        .messages;
+    final focus = displayed
+        .where(
+          (m) => _scrollCoordinator.messageLocalIdsIntersectingViewport
+              .contains(m.localId),
+        )
+        .firstOrNull;
+    service.retainMessageWindow(
+      owner: this,
+      locationId: widget.locationId,
+      protectedKeys: {
+        for (final m in [..._messages, ...displayed])
+          if (protectedIds.contains(m.localId) ||
+              m.status == 'sending' ||
+              m.status == 'streaming')
+            key(m),
+      },
+      focus: focus == null ? null : key(focus),
+    );
   }
 
   @override
@@ -967,6 +1006,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
       _optimisticSelfOccupancy = false;
     }
     if (changedChatTarget || becameInactive) {
+      _service?.releaseMessageWindow(this);
       _rosterOpen = false;
     }
     final worldTickProgressChanged =

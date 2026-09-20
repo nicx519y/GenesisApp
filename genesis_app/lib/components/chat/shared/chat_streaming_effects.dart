@@ -8,6 +8,26 @@ import 'package:flutter/scheduler.dart';
 import '../../../app/debug/location_chat_bubble_layout_settings.dart';
 import 'chat_scene_plate_tokens.dart';
 
+/// A presentation task is declared before its bubble is mounted. This keeps
+/// offscreen/queued replies in the completion barrier without building history.
+class ChatStreamingTask {
+  const ChatStreamingTask({
+    required this.identity,
+    required this.streaming,
+    required this.animateArrival,
+    this.restoredContent = false,
+    this.continuation,
+  });
+  final Object identity;
+  final Object? continuation;
+  final bool streaming;
+  final bool animateArrival;
+
+  /// A completed entry snapshot should be shown without draining an old
+  /// animation backlog. A still-streaming message must not use this shortcut.
+  final bool restoredContent;
+}
+
 /// The owner is a location, not the shared chat library. Cached rows still
 /// receive setting changes through this inherited scope.
 class ChatStreamingEffects extends StatefulWidget {
@@ -22,6 +42,64 @@ class ChatStreamingEffects extends StatefulWidget {
   final Object? presentationRevision;
   final Object? operationIdentity;
   final Widget child;
+
+  static Object? activeTaskOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_EffectsScope>()
+      ?.owner
+      ._firstTask;
+
+  @visibleForTesting
+  static List<Object> debugTasksOf(BuildContext context) {
+    final owner = context.getInheritedWidgetOfExactType<_EffectsScope>()?.owner;
+    return [
+      for (final task in owner?._tasks ?? const <ChatStreamingTask>[])
+        (
+          task.identity,
+          task.streaming,
+          owner!._records[task.identity]?.finishing,
+          owner._records[task.identity]?.cancelled,
+          owner._records[task.identity]?.seen,
+          owner._records[task.identity]?.revealed,
+          owner._bodies.any(
+            (body) =>
+                identical(body._scope.record, owner._records[task.identity]),
+          ),
+        ),
+    ];
+  }
+
+  static void declareTasks(
+    BuildContext context,
+    List<ChatStreamingTask> tasks,
+  ) {
+    context
+        .dependOnInheritedWidgetOfExactType<_EffectsScope>()
+        ?.owner
+        .declareTasks(tasks);
+  }
+
+  static bool needsLayoutOf(BuildContext context, Object identity) {
+    final owner = context
+        .dependOnInheritedWidgetOfExactType<_EffectsScope>()
+        ?.owner;
+    if (owner == null) return false;
+    return owner._firstTask == identity ||
+        (!owner.widget.settings.streamingTextReveal &&
+            (owner._records[identity]?.finishing ?? false));
+  }
+
+  static bool isQueuedOf(BuildContext context, Object identity) {
+    final owner = context
+        .dependOnInheritedWidgetOfExactType<_EffectsScope>()
+        ?.owner;
+    final record = owner?._records[identity];
+    return (owner?.widget.settings.streamingTextReveal ?? false) &&
+        record != null &&
+        !record.cancelled &&
+        record.finishing &&
+        !record.seen &&
+        owner?._firstTask != identity;
+  }
 
   /// True only after the current subtree has laid out and every participating
   /// bubble has drained both its text reveal and height animation.
@@ -51,6 +129,29 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
   final _bodies = <_RenderStreamingBody>{};
   bool _settled = false;
   bool _settlementScheduled = false;
+  List<ChatStreamingTask>? _tasks;
+  Object? _firstTask;
+  int _queueRevision = 0;
+  bool _queueUpdateScheduled = false;
+
+  void declareTasks(List<ChatStreamingTask> tasks) {
+    _tasks = tasks;
+    for (final task in tasks) {
+      if (task.streaming ||
+          task.animateArrival ||
+          _records.containsKey(task.identity) ||
+          _pending.containsKey(task.continuation)) {
+        record(
+          task.identity,
+          task.continuation,
+          task.streaming,
+          animateArrival: task.animateArrival,
+          restoredContent: task.restoredContent,
+        );
+      }
+    }
+    refreshQueue();
+  }
 
   @override
   void initState() {
@@ -89,13 +190,25 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _settlementScheduled = false;
       if (!mounted) return;
-      final settled = !_bodies.any(
-        (body) =>
-            body.attached &&
-            body._presentationActive &&
-            !body._scope.record.cancelled &&
-            (body._scope.streaming || body._scope.record.finishing),
-      );
+      final pendingTask =
+          _tasks?.any((task) {
+            final record = _records[task.identity];
+            return record != null &&
+                !record.cancelled &&
+                !record.restored &&
+                (task.streaming || record.finishing);
+          }) ??
+          false;
+      final settled =
+          !pendingTask &&
+          !_bodies.any(
+            (body) =>
+                body.attached &&
+                body._presentationActive &&
+                !body._scope.record.cancelled &&
+                !body._scope.record.restored &&
+                (body._scope.streaming || body._scope.record.finishing),
+          );
       if (_settled != settled) setState(() => _settled = settled);
     });
   }
@@ -104,6 +217,27 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
   // bubble retains its turn between chunks until its terminal reveal settles.
   void refreshQueue() {
     _scheduleSettlement();
+    Object? firstTask;
+    for (final task in _tasks ?? const <ChatStreamingTask>[]) {
+      final record = _records[task.identity];
+      if (record != null &&
+          !record.cancelled &&
+          !record.restored &&
+          (task.streaming || record.finishing)) {
+        firstTask = task.identity;
+        break;
+      }
+    }
+    if (_firstTask != firstTask) {
+      _firstTask = firstTask;
+      if (!_queueUpdateScheduled) {
+        _queueUpdateScheduled = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _queueUpdateScheduled = false;
+          if (mounted) setState(() => _queueRevision++);
+        });
+      }
+    }
     _RenderStreamingBody? first;
     for (final body in _bodies) {
       if (!body._needsRevealTurn) continue;
@@ -114,7 +248,13 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       }
     }
     for (final body in _bodies) {
-      body._setQueueBlocked(body._needsRevealTurn && body != first);
+      final declaredFirst = firstTask == null ? null : _records[firstTask];
+      body._setQueueBlocked(
+        body._needsRevealTurn &&
+            (declaredFirst != null
+                ? body._scope.record != declaredFirst
+                : body != first),
+      );
     }
   }
 
@@ -123,6 +263,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
     Object? continuation,
     bool streaming, {
     bool animateArrival = false,
+    bool restoredContent = false,
   }) {
     var result = _records[identity];
     final candidates = _pending[continuation];
@@ -132,8 +273,15 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       result = candidates!.values.single;
     }
     result ??= _StreamRecord();
+    // Entry restoration is distinct from an end frame on an open page:
+    // discard the old visual backlog only when this message has completed.
+    // This also covers a retained owner whose body was hidden while it ended.
+    result.restored = restoredContent && !streaming;
+    if (result.restored) result.finishing = false;
     // Remember receipt even if streaming and terminal builds share a frame.
-    if (!result.cancelled && (streaming || (animateArrival && !result.seen))) {
+    if (!result.cancelled &&
+        !result.restored &&
+        (streaming || (animateArrival && !result.seen))) {
       result.finishing = true;
     }
     _records[identity] = result;
@@ -146,7 +294,26 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
       }
     }
     if (_records.length > 512) {
-      final evicted = _records.remove(_records.keys.first);
+      final declared =
+          _tasks
+              ?.where(
+                (task) =>
+                    task.streaming ||
+                    (_records[task.identity]?.finishing ?? false),
+              )
+              .map((task) => task.identity)
+              .toSet() ??
+          {};
+      final key = _records.keys
+          .where(
+            (key) =>
+                !declared.contains(key) &&
+                !_bodies.any(
+                  (body) => identical(body._scope.record, _records[key]),
+                ),
+          )
+          .firstOrNull;
+      final evicted = key == null ? null : _records.remove(key);
       for (final pending in _pending.values) {
         pending.removeWhere((_, record) => identical(record, evicted));
       }
@@ -160,6 +327,7 @@ class _ChatStreamingEffectsState extends State<ChatStreamingEffects> {
     owner: this,
     settings: widget.settings,
     settled: _settled,
+    queueRevision: _queueRevision,
     child: widget.child,
   );
 }
@@ -169,14 +337,18 @@ class _EffectsScope extends InheritedWidget {
     required this.owner,
     required this.settings,
     required this.settled,
+    required this.queueRevision,
     required super.child,
   });
   final _ChatStreamingEffectsState owner;
   final LocationChatBubbleLayoutSettings settings;
   final bool settled;
+  final int queueRevision;
   @override
   bool updateShouldNotify(_EffectsScope oldWidget) =>
-      settings != oldWidget.settings || settled != oldWidget.settled;
+      settings != oldWidget.settings ||
+      settled != oldWidget.settled ||
+      queueRevision != oldWidget.queueRevision;
 }
 
 /// Each candidate card has its own identity, even when its messages share IDs.
@@ -187,6 +359,7 @@ class ChatStreamingMessage extends StatelessWidget {
     this.continuationIdentity,
     required this.streaming,
     this.animateArrival = false,
+    this.restoredContent = false,
     this.order,
     required this.child,
   });
@@ -194,6 +367,9 @@ class ChatStreamingMessage extends StatelessWidget {
   final Object? continuationIdentity;
   final bool streaming;
   final bool animateArrival;
+
+  /// Matches the task's entry snapshot, not a backend completion signal.
+  final bool restoredContent;
 
   /// Resolve current display order without rebuilding cached message rows when
   /// history is prepended or a neighboring bubble is inserted.
@@ -213,6 +389,7 @@ class ChatStreamingMessage extends StatelessWidget {
       continuationIdentity,
       streaming,
       animateArrival: animateArrival,
+      restoredContent: restoredContent,
     );
     return _MessageScope(
       owner: effects.owner,
@@ -352,6 +529,7 @@ class _StreamRecord {
   bool wasStreaming = false;
   bool finishing = false;
   bool cancelled = false;
+  bool restored = false;
   bool hidden = false;
 }
 
@@ -471,6 +649,7 @@ class _RenderStreamingBody extends RenderProxyBox {
       !_paused &&
       _scope.settings.streamingTextReveal &&
       !_scope.record.cancelled &&
+      !_scope.record.restored &&
       (_scope.streaming || _scope.record.finishing);
 
   void _setQueueBlocked(bool value) {
@@ -555,11 +734,17 @@ class _RenderStreamingBody extends RenderProxyBox {
     child!.layout(constraints, parentUsesSize: true);
     final record = _scope.record;
     final settings = _scope.settings;
-    if (!record.cancelled && record.wasStreaming && !_scope.streaming) {
+    if (!record.cancelled &&
+        !record.restored &&
+        record.wasStreaming &&
+        !_scope.streaming) {
       record.finishing = true;
     }
     record.wasStreaming = _scope.streaming;
-    final active = !record.cancelled && (_scope.streaming || record.finishing);
+    final active =
+        !record.cancelled &&
+        !record.restored &&
+        (_scope.streaming || record.finishing);
     final texts = <_RenderStreamingText>[];
     bool editing = false;
     void visit(RenderObject node) {

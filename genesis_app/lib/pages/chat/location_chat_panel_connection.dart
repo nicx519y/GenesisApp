@@ -5,6 +5,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _clearAckLoading();
     _detachReplyActions();
     final service = _service;
+    service?.releaseMessageWindow(this);
     final ownsService = _ownsService;
     _serviceGeneration++;
     _service = null;

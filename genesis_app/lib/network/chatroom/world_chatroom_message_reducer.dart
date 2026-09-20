@@ -329,7 +329,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
           );
         }
         if (_historyIsCurrent(locationId, ticket)) {
-          _upsertMessages(worldMessages, persist: false);
+          _upsertMessages(worldMessages, persist: false, protectIncoming: true);
         }
       });
       if (!_historyIsCurrent(locationId, ticket)) {
@@ -704,6 +704,7 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
   void _upsertMessages(
     List<WorldChatroomMessage> messages, {
     bool persist = true,
+    bool protectIncoming = false,
     String socketCurrentTime = '',
     int socketTickNo = 0,
     int socketSubTickNo = 0,
@@ -740,12 +741,9 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       }
       worldMessages = _upsertIntoList(worldMessages, message);
       if (_shouldStoreMessageInLocationQueue(message)) {
-        byLocation[message.locationId] = _trimMessageList(
-          _upsertIntoList(
-            byLocation[message.locationId] ?? const <WorldChatroomMessage>[],
-            message,
-          ),
-          _maxMessagesPerLocation,
+        byLocation[message.locationId] = _upsertIntoList(
+          byLocation[message.locationId] ?? const <WorldChatroomMessage>[],
+          message,
         );
       }
       final key = _streamKey(
@@ -764,6 +762,21 @@ extension _WorldChatroomMessageReducer on WorldChatroomService {
       }
       _completeLegacyCharacterRound(message);
     }
+    for (final location in resolvedMessages.map((m) => m.locationId).toSet()) {
+      final queue = byLocation[location];
+      if (queue == null) continue;
+      byLocation[location] = _retainLocationMessages(
+        location,
+        queue,
+        incoming: protectIncoming
+            ? resolvedMessages
+                  .where((m) => m.locationId == location)
+                  .map(locationMessageRetentionKey)
+                  .toSet()
+            : const {},
+      );
+    }
+    worldMessages = _retainedWorldIndex(worldMessages, byLocation);
     _setState(
       _stateWithSocketWorldProgress(
         _state.copyWith(

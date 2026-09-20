@@ -27,6 +27,320 @@ double waitingPredecessorBottom(WidgetTester tester) {
 }
 
 void main() {
+  testWidgets('restored middle history does not enter the live reveal queue', (
+    tester,
+  ) async {
+    final coordinator = LocationChatScrollCoordinator();
+    addTearDown(coordinator.dispose);
+    ChatMessageVm row(int id) => ChatMessageVm(
+      localId: 'history-$id',
+      globalMessageId: id,
+      senderId: 'narrator',
+      senderName: '',
+      text: 'Historical paragraph $id',
+      senderType: 'narrator',
+      isMe: false,
+      status: 'sent',
+    );
+    var rows = [row(1), row(100)];
+    Widget build() => MaterialApp(
+      home: Scaffold(
+        body: ChatStreamingEffects(
+          settings: LocationChatBubbleLayoutSettings.defaults,
+          child: LocationChatAnchoredMessageList(
+            coordinator: coordinator,
+            messages: rows,
+            topTitle: '',
+            waitingPositionIdentity: 'existing-operation',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(build());
+    await tester.pumpAndSettle();
+    rows = [rows.first, row(50), rows.last];
+    await tester.pumpWidget(build());
+    await tester.pump();
+    expect(
+      ChatStreamingEffects.isSettledOf(
+        tester.element(find.byType(LocationChatAnchoredMessageList)),
+        listen: false,
+      ),
+      isTrue,
+    );
+    expect(find.text('Historical paragraph 50'), findsOneWidget);
+  });
+
+  testWidgets(
+    'offscreen serial tasks settle without mounting the loaded history',
+    (tester) async {
+      final coordinator = LocationChatScrollCoordinator();
+      addTearDown(coordinator.dispose);
+      final history = List.generate(
+        200,
+        (i) => ChatMessageVm(
+          localId: 'history-$i',
+          senderId: 'peer',
+          senderName: 'Peer',
+          text: 'History message $i',
+          isMe: false,
+          status: 'sent',
+        ),
+      );
+      var rows = history;
+      var masks = true;
+      Widget build() => MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 360,
+            child: ChatStreamingEffects(
+              settings: LocationChatBubbleLayoutSettings.defaults.copyWith(
+                streamingTextReveal: masks,
+              ),
+              child: LocationChatAnchoredMessageList(
+                coordinator: coordinator,
+                messages: rows,
+                topTitle: '',
+                showDateDividers: false,
+                waitingPositionIdentity: 'offscreen-operation',
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 200));
+      await tester.pumpAndSettle();
+      rows = [
+        ...history,
+        for (var i = 0; i < 3; i++)
+          ChatMessageVm(
+            localId: 'queued-$i',
+            senderId: 'narrator',
+            senderName: '',
+            senderType: 'narrator',
+            text: 'A narrated message $i. ' * 6,
+            isMe: false,
+            status: 'sent',
+          ),
+      ];
+      await tester.pumpWidget(build());
+      await tester.pump();
+      final listContext = tester.element(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(
+        ChatStreamingEffects.isSettledOf(listContext, listen: false),
+        isFalse,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is ChatMessageRow && w.message.localId == 'queued-2',
+          skipOffstage: false,
+        ),
+        findsNothing,
+      );
+      for (var i = 0; i < 250; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          find.byType(ChatMessageRow, skipOffstage: false).evaluate().length,
+          lessThan(35),
+        );
+      }
+      expect(
+        ChatStreamingEffects.isSettledOf(listContext, listen: false),
+        isTrue,
+      );
+      // The disabled mask mounts all new tasks immediately, never waits for a
+      // serial text turn that cannot advance while the mask is disabled.
+      masks = false;
+      rows = [
+        ...rows,
+        for (var i = 3; i < 6; i++)
+          ChatMessageVm(
+            localId: 'queued-$i',
+            senderId: 'narrator',
+            senderName: '',
+            senderType: 'narrator',
+            text: 'Disabled mask $i. ' * 6,
+            isMe: false,
+            status: 'sent',
+          ),
+      ];
+      await tester.pumpWidget(build());
+      await tester.pumpAndSettle();
+      expect(
+        ChatStreamingEffects.isSettledOf(listContext, listen: false),
+        isTrue,
+      );
+    },
+  );
+
+  for (final secondScroll in [false, true]) {
+    for (final operation in ['send', 'go-on', 'regenerate']) {
+      testWidgets(
+        'held $operation survives repeated queue prefix eviction (secondScroll=$secondScroll)',
+        (tester) async {
+          final coordinator = LocationChatScrollCoordinator();
+          addTearDown(coordinator.dispose);
+          final regenerating = operation == 'regenerate';
+          final sending = operation == 'send';
+          var phase = 0;
+          var evicted = 0;
+          final history = [
+            for (var i = 0; i < 198; i++)
+              ChatMessageVm(
+                localId: 'history-$i',
+                globalMessageId: i + 1,
+                senderId: 'peer',
+                senderName: 'Peer',
+                text: 'History $i\n' * (i % 4 + 1),
+                isMe: false,
+                status: 'sent',
+              ),
+          ];
+          final sent = ChatMessageVm(
+            localId: 'sent',
+            clientMsgId: 'client',
+            senderId: 'me',
+            senderName: 'Me',
+            text: 'Send anchor',
+            isMe: true,
+            status: 'sent',
+          );
+          final old = ChatMessageVm(
+            localId: 'old-reply',
+            globalMessageId: 300,
+            senderId: 'peer',
+            senderName: 'Peer',
+            text: 'Previous reply\n' * 15,
+            isMe: false,
+            status: 'sent',
+          );
+          Widget build() {
+            final displayedOld = phase < 2 || regenerating
+                ? old
+                : ChatMessageVm(
+                    localId: 'formal-old-reply',
+                    globalMessageId: old.globalMessageId,
+                    senderId: old.senderId,
+                    senderName: old.senderName,
+                    text: old.text,
+                    isMe: false,
+                    status: 'sent',
+                  );
+            final incoming = [
+              for (var i = 0; i < evicted; i++)
+                ChatMessageVm(
+                  localId: 'incoming-$i',
+                  globalMessageId: 400 + i,
+                  senderId: 'peer-$i',
+                  senderName: 'Peer',
+                  text: 'New streaming reply\n' * 80,
+                  isMe: false,
+                  status: 'streaming',
+                ),
+            ];
+            return MaterialApp(
+              home: Scaffold(
+                body: SizedBox(
+                  height: 600,
+                  child: ChatStreamingEffects(
+                    settings: LocationChatBubbleLayoutSettings.defaults,
+                    operationIdentity: phase == 0 ? 0 : 1,
+                    presentationRevision: (phase, evicted),
+                    child: LocationChatAnchoredMessageList(
+                      coordinator: coordinator,
+                      topTitle: secondScroll ? 'History' : '',
+                      oldestEdgeNoticeRequiresSecondScroll: secondScroll,
+                      showDateDividers: false,
+                      messages: [
+                        ...history.skip(evicted),
+                        if (sending) displayedOld,
+                        sent,
+                        if (!sending && (!regenerating || phase == 0))
+                          displayedOld,
+                        ...incoming,
+                      ],
+                      waitingPositionIdentity: phase == 0 ? null : 'operation',
+                      waitingPositionClientMsgId: sending && phase > 0
+                          ? 'client'
+                          : null,
+                      loadingAfterMessageLocalId: phase == 1 && !regenerating
+                          ? (sending ? 'sent' : 'old-reply')
+                          : null,
+                      loadingIdentity: phase == 1 ? 'operation' : null,
+                      replyActionsIdentity: regenerating || phase < 2
+                          ? 'old-round'
+                          : 'new-round',
+                      replyCardBindingIdentity: regenerating || phase < 2
+                          ? 'old-round'
+                          : 'new-round',
+                      replyCurrentCardId:
+                          phase == 0 || !regenerating && phase == 1 ? 1 : 2,
+                      replyCards: [
+                        if (phase < 2 || regenerating)
+                          LocationChatReplyCard(
+                            id: 1,
+                            messages: [displayedOld],
+                          ),
+                        if (phase >= 2 || regenerating && phase == 1)
+                          LocationChatReplyCard(id: 2, messages: incoming),
+                      ],
+                      replyRegenerationInProgress: regenerating && phase > 0,
+                      replyRegenerationDispatchRevision:
+                          regenerating && phase > 0 ? 1 : 0,
+                      style: kLocationChatStyle,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
+          await tester.pumpWidget(build());
+          await tester.pumpAndSettle();
+          coordinator.prepareWaitingReplyPosition();
+          phase = 1;
+          await tester.pumpWidget(build());
+          for (var frame = 0; frame < 50; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          String anchor() => operation == 'go-on'
+              ? (phase < 2 ? 'old-reply' : 'formal-old-reply')
+              : 'sent';
+          final bottom = messageBubbleBottom(tester, anchor());
+          var heldPixels = coordinator.controller.position.pixels;
+          for (evicted = 1; evicted <= 3; evicted++) {
+            phase = 2;
+            await tester.pumpWidget(build());
+            // Assert the first painted frame too, not just the settled result.
+            expect(messageBubbleBottom(tester, anchor()), closeTo(bottom, .01));
+            final correctedPixels = coordinator.controller.position.pixels;
+            expect(correctedPixels, lessThan(heldPixels));
+            for (var frame = 0; frame < 24; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expect(
+                messageBubbleBottom(tester, anchor()),
+                closeTo(bottom, .01),
+              );
+              expect(
+                coordinator.controller.position.pixels,
+                closeTo(correctedPixels, .01),
+              );
+            }
+            expect(coordinator.isReadingHistory, isFalse);
+            expect(coordinator.shouldFollowLatest, isFalse);
+            heldPixels = correctedPixels;
+          }
+          expect(tester.takeException(), isNull);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+      );
+    }
+  }
+
   testWidgets('Send promotes old card without replaying above the user row', (
     tester,
   ) async {
@@ -287,17 +601,19 @@ void main() {
           );
         }
 
-        double progress(int index) => ChatStreamingBody.revealedGraphemesOf(
-          tester.element(
-            find.descendant(
-              of: find.byWidgetPredicate(
-                (w) =>
-                    w is ChatMessageRow && w.message.localId == 'serial-$index',
-              ),
-              matching: find.byType(ChatStreamingBody),
+        double progress(int index) {
+          final body = find.descendant(
+            of: find.byWidgetPredicate(
+              (w) =>
+                  w is ChatMessageRow && w.message.localId == 'serial-$index',
             ),
-          ),
-        );
+            matching: find.byType(ChatStreamingBody),
+          );
+          // Queued tasks are registered without mounting an empty body.
+          if (body.evaluate().isEmpty) return 0;
+          return ChatStreamingBody.revealedGraphemesOf(tester.element(body));
+        }
+
         await tester.pumpWidget(build());
         await tester.pump(const Duration(milliseconds: 30));
         expect(progress(0), closeTo(5, .001));
@@ -632,9 +948,12 @@ void main() {
         final terminalBody = find.descendant(
           of: find.byWidgetPredicate(
             (w) => w is ChatMessageRow && w.message.localId == 'terminal-reply',
+            skipOffstage: false,
           ),
-          matching: find.byType(ChatStreamingBody),
+          matching: find.byType(ChatStreamingBody, skipOffstage: false),
+          skipOffstage: false,
         );
+        expect(terminalBody, findsOneWidget);
         expect(
           ChatStreamingBody.revealedGraphemesOf(tester.element(terminalBody)),
           lessThanOrEqualTo(

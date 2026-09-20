@@ -1440,7 +1440,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(
-      tester.getSize(find.byKey(const ValueKey('reply-card-gesture'))).height,
+      tester
+          .getSize(
+            find.byKey(
+              const ValueKey('reply-card-gesture'),
+              skipOffstage: false,
+            ),
+          )
+          .height,
       0,
     );
     final messageBottom = tester
