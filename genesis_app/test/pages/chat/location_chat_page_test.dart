@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,6 +39,7 @@ import 'package:genesis_flutter_android/network/chatroom/chatroom_socket_transpo
 import 'package:genesis_flutter_android/network/chatroom/chatroom_timeline_payload.dart';
 import 'package:genesis_flutter_android/network/chatroom/world_chatroom_service.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_page.dart';
+import 'package:genesis_flutter_android/pages/chat/location_chat_geometry_cache.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_reply_actions.dart';
 import 'package:genesis_flutter_android/pages/chat/message_parsers/location_chat_message_parsers.dart';
 import 'package:genesis_flutter_android/pages/chat/location_chat_scroll_coordinator.dart';
@@ -1885,6 +1887,120 @@ void main() {
       final tickIndex = list.messages.indexWhere((message) => message.isTick);
       expect(finalAnswerIndex, greaterThanOrEqualTo(0));
       expect(tickIndex, lessThan(finalAnswerIndex));
+      await tester.pumpWidget(const SizedBox.shrink());
+      unawaited(harness.service.dispose());
+      await tester.pump(const Duration(seconds: 3));
+    },
+  );
+
+  testWidgets(
+    'a canonical Tick replacing progress never collapses behind an active reveal',
+    (tester) async {
+      final harness = await _mountCompletedReplyActionPanel(
+        tester,
+        backend: _LocationChatReplyHttpTransport(),
+      );
+      final answer = 'Streaming answer ' * 40;
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_chunk',
+        roundId: 401,
+        messageId: 402,
+        seq: 1,
+        content: answer,
+        conversationType: 'user_message',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => find.text(answer).evaluate().isNotEmpty,
+      );
+      await tester.pump(const Duration(milliseconds: 60));
+      final answerBody = find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) => widget is ChatMessageRow && widget.message.text == answer,
+        ),
+        matching: find.byType(ChatStreamingBody),
+      );
+      final revealedBeforeTick = ChatStreamingBody.revealedGraphemesOf(
+        tester.element(answerBody.last),
+      );
+      expect(revealedBeforeTick, greaterThan(0));
+      expect(revealedBeforeTick, lessThan(answer.length));
+
+      harness.service.setInputBlocked(true);
+      final progressContent = find.byKey(
+        const ValueKey<String>('chat-tick-progress-content'),
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => progressContent.evaluate().isNotEmpty,
+      );
+      final tickSurface = find.byKey(
+        const ValueKey<String>('chat-tick-message-surface'),
+      );
+      final progressSurfaceElement = tester.element(tickSurface);
+      final progressSurfaceHeight = tester.getSize(tickSurface).height;
+      final progressList = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      final progressSlotId = progressList.messages.last.localId;
+      final tickSliver = find.byWidgetPredicate(
+        (widget) =>
+            widget is LocationChatCachedSliver &&
+            widget.identity ==
+                ValueKey<String>('location-chat-message-row:$progressSlotId'),
+      );
+      final progressExtent = tester
+          .renderObject<RenderSliver>(tickSliver)
+          .geometry!
+          .scrollExtent;
+
+      harness.socket.serverV2Tick(
+        messageId: 501,
+        locationMessageId: 501,
+        globalText: 'The world advanced after the active reveal.',
+      );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => harness.service.state.messagesByLocation['location-current']!.any(
+          (message) => message.businessType == 'tick',
+        ),
+      );
+      await tester.pump();
+      final list = tester.widget<LocationChatAnchoredMessageList>(
+        find.byType(LocationChatAnchoredMessageList),
+      );
+      expect(list.messages.any((message) => message.isTick), isTrue);
+
+      for (var frame = 0; frame < 20; frame += 1) {
+        await tester.pump(
+          frame == 0 ? Duration.zero : const Duration(milliseconds: 16),
+        );
+        expect(tickSurface, findsOneWidget);
+        expect(tester.element(tickSurface), same(progressSurfaceElement));
+        expect(
+          tester.widget<LocationChatCachedSliver>(tickSliver).empty,
+          isFalse,
+        );
+        expect(
+          tester.renderObject<RenderSliver>(tickSliver).geometry!.scrollExtent,
+          greaterThanOrEqualTo(progressExtent - 0.01),
+          reason: 'the Tick list row must not collapse on frame $frame',
+        );
+        expect(
+          tester.getSize(tickSurface).height,
+          greaterThanOrEqualTo(progressSurfaceHeight - 0.01),
+          reason: 'the reused Tick slot must not collapse on frame $frame',
+        );
+      }
+      harness.service.setInputBlocked(false);
+      harness.socket.serverV2StreamFrame(
+        streamType: 'llm_stream_end',
+        roundId: 401,
+        messageId: 602,
+        content: answer,
+        conversationType: 'user_message',
+      );
+
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
       await tester.pump(const Duration(seconds: 3));
@@ -3870,7 +3986,7 @@ void main() {
   );
 
   testWidgets(
-    'tick progress stays in the list until the canonical tick replaces its slot',
+    'tick progress keeps its row and height until the canonical tick expands it',
     (tester) async {
       final sessionStore = MemoryUserSessionStore();
       await sessionStore.saveUid('user-1');
@@ -3942,6 +4058,11 @@ void main() {
       );
       final progressSlotId = progressList.messages.last.localId;
       expect(progressSlotId, contains('location-chat-tick-progress'));
+      final tickSurface = find.byKey(
+        const ValueKey<String>('chat-tick-message-surface'),
+      );
+      final progressSurfaceElement = tester.element(tickSurface);
+      final progressSurfaceHeight = tester.getSize(tickSurface).height;
 
       service.setInputBlocked(false);
       await tester.pump();
@@ -3960,7 +4081,18 @@ void main() {
             ) ==
             true,
       );
-      await tester.pump(const Duration(milliseconds: 250));
+      for (var frame = 0; frame < 20; frame += 1) {
+        await tester.pump(
+          frame == 0 ? Duration.zero : const Duration(milliseconds: 16),
+        );
+        expect(tickSurface, findsOneWidget);
+        expect(tester.element(tickSurface), same(progressSurfaceElement));
+        expect(
+          tester.getSize(tickSurface).height,
+          greaterThanOrEqualTo(progressSurfaceHeight - 0.01),
+          reason: 'the progress slot must not collapse on frame $frame',
+        );
+      }
 
       expect(progressTitle, findsNothing);
       expect(

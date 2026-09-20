@@ -1723,6 +1723,12 @@ class _LocationChatAnchoredMessageListState
   @override
   void didUpdateWidget(LocationChatAnchoredMessageList oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final previousLayoutIds = oldWidget.messages
+        .map(
+          (message) =>
+              oldWidget.messageLayoutId?.call(message) ?? message.localId,
+        )
+        .toSet();
     if (!oldWidget.initialContentReady ||
         (!oldWidget.active && widget.active) ||
         (oldWidget.replyCurrentCardId != widget.replyCurrentCardId &&
@@ -1827,10 +1833,18 @@ class _LocationChatAnchoredMessageListState
       for (var index = 0; index < widget.messages.length; index++) {
         final message = widget.messages[index];
         final id = _receiptIdentity(message);
+        final reusesVisibleTickProgressLayout =
+            message.isTick &&
+            previousLayoutIds.contains(_messageLayoutId(message));
         if (!browsingExistingCard &&
             !message.isMe &&
             !message.isImage &&
             !message.isAiContentDisclaimer &&
+            // A canonical Tick takes over the visible progress placeholder's
+            // layout ID. Queuing that replacement would swap the mounted row
+            // for a zero-height sliver until its reveal turn, collapsing the
+            // whole timeline before the same slot expands again.
+            !reusesVisibleTickProgressLayout &&
             (newCardIds.contains(id) ||
                 // Restoring a gap between retained history windows is not a
                 // new reply. Only new tail arrivals (or a new card) animate.
