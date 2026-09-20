@@ -19,6 +19,7 @@ import 'package:genesis_flutter_android/network/models/world.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_settings.dart';
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
+import 'package:genesis_flutter_android/app/telemetry/genesis_telemetry.dart';
 import 'package:genesis_flutter_android/components/chat/chatroom_failure_toast.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
@@ -75,7 +76,323 @@ Finder _replyActionLoading(String label) => find.descendant(
   matching: find.byType(CircularProgressIndicator),
 );
 
+class _LocationChatCollectSink implements GenesisTelemetrySink {
+  final List<GenesisTelemetryEvent> events = <GenesisTelemetryEvent>[];
+
+  List<String> object3For(String action) => events
+      .where(
+        (event) =>
+            event.category == 'collect.log' &&
+            event.name == action &&
+            event.data['action_type'] == 'event',
+      )
+      .map((event) => '${event.data['object3']}')
+      .toList(growable: false);
+
+  @override
+  Future<void> captureException(Object error, StackTrace stackTrace) async {}
+
+  @override
+  Future<void> record(GenesisTelemetryEvent event) async => events.add(event);
+
+  @override
+  Future<void> setContext(GenesisTelemetryContext context) async {}
+
+  @override
+  Future<void> setUserId(String? uid) async {}
+}
+
+_LocationChatCollectSink _captureLocationChatCollect() {
+  GenesisTelemetry.resetForTesting();
+  final sink = _LocationChatCollectSink();
+  GenesisTelemetry.setSinkForTesting(sink);
+  return sink;
+}
+
 void main() {
+  testWidgets('Edit analytics pairs open and unchanged Save outcomes', (
+    tester,
+  ) async {
+    final telemetry = _captureLocationChatCollect();
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Edit'));
+    await tester.pumpAndSettle();
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => telemetry.object3For('location_chat_edit').length >= 2,
+    );
+    expect(telemetry.object3For('location_chat_edit'), [
+      'edit_click|301',
+      'edit_opened|301',
+    ]);
+
+    await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
+    await tester.pumpAndSettle();
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => telemetry.object3For('location_chat_edit').length == 4,
+    );
+    expect(telemetry.object3For('location_chat_edit'), [
+      'edit_click|301',
+      'edit_opened|301',
+      'save_click|301',
+      'save_no_change|301',
+    ]);
+    unawaited(harness.service.dispose());
+  });
+
+  testWidgets('Regenerate analytics waits for the final generated card', (
+    tester,
+  ) async {
+    final telemetry = _captureLocationChatCollect();
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final backend = _LocationChatReplyHttpTransport();
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+    );
+
+    await tester.tap(find.bySemanticsLabel('Regenerate'));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.replyActionFrames('regenerate_llm_card').isNotEmpty,
+    );
+    expect(telemetry.object3For('location_chat_regenerate'), ['click|0']);
+
+    backend.beginCandidate();
+    harness.socket.serverReplyActionAck(
+      'regenerate_llm_card',
+      roundId: 301,
+      payload: const {
+        'regeneration': {
+          'conversation_round_id': 301,
+          'original_card_id': 501,
+          'card_id': 502,
+          'generation_state': 'generating',
+          'billing': {'status': 'reserved'},
+        },
+      },
+    );
+    harness.socket.serverCandidateStream(streamType: 'start');
+    harness.socket.serverCandidateStream(
+      streamType: 'chunk',
+      content: 'Generated reply.',
+      seq: 1,
+    );
+    harness.socket.serverCandidateStream(
+      streamType: 'end',
+      content: 'Generated reply.',
+      seq: 2,
+    );
+    harness.socket.serverCandidateGenerationEnd();
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => telemetry.object3For('location_chat_regenerate').length == 2,
+    );
+    expect(telemetry.object3For('location_chat_regenerate'), [
+      'click|0',
+      'success|2',
+    ]);
+    unawaited(harness.service.dispose());
+  });
+
+  testWidgets('Regenerate analytics recognizes terminal balance failure', (
+    tester,
+  ) async {
+    final telemetry = _captureLocationChatCollect();
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final backend = _LocationChatReplyHttpTransport();
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+    );
+
+    await tester.tap(find.bySemanticsLabel('Regenerate'));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.replyActionFrames('regenerate_llm_card').isNotEmpty,
+    );
+    backend.beginCandidate();
+    harness.socket.serverReplyActionAck(
+      'regenerate_llm_card',
+      roundId: 301,
+      payload: const {
+        'regeneration': {
+          'conversation_round_id': 301,
+          'original_card_id': 501,
+          'card_id': 502,
+          'generation_state': 'generating',
+          'billing': {'status': 'reserved'},
+        },
+      },
+    );
+    backend.cards[1] = backend._cardJson(502, 2, 'failed', '');
+    harness.socket.serverCandidateGenerationEnd(
+      generationState: 'failed',
+      errNo: 21001,
+      errMsg: 'Insufficient balance',
+      error: const {'err_no': 21001, 'err_msg': 'Insufficient balance'},
+    );
+
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => telemetry.object3For('location_chat_regenerate').length == 2,
+    );
+    expect(telemetry.object3For('location_chat_regenerate'), [
+      'click|0',
+      'balance_insufficient|1',
+    ]);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpWidget(const SizedBox.shrink());
+    unawaited(harness.service.dispose());
+    await tester.pump();
+  });
+
+  testWidgets('Go On analytics waits for a persisted displayable reply', (
+    tester,
+  ) async {
+    final telemetry = _captureLocationChatCollect();
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final backend = _LocationChatReplyHttpTransport();
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: backend,
+    );
+
+    await tester.tap(find.bySemanticsLabel('Go on'));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.replyActionFrames('go_on').isNotEmpty,
+    );
+    expect(telemetry.object3For('location_chat_go_on'), ['click|301']);
+
+    harness.socket.serverReplyActionAck('go_on', roundId: 401);
+    harness.socket.serverWaitingConversationRound(roundId: 401);
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_start',
+      roundId: 401,
+      messageId: 402,
+      locationMessageId: 303,
+    );
+    harness.socket.serverV2StreamFrame(
+      streamType: 'llm_stream_end',
+      roundId: 401,
+      messageId: 402,
+      locationMessageId: 303,
+      content: 'The story continues.',
+    );
+    backend.seedGoOnReply();
+    harness.socket.serverEndConversationRound(roundId: 401);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => telemetry.object3For('location_chat_go_on').length == 2,
+    );
+    expect(telemetry.object3For('location_chat_go_on'), [
+      'click|301',
+      'success|401',
+    ]);
+    unawaited(harness.service.dispose());
+  });
+
+  testWidgets('Inspiration send succeeds only after the canonical message', (
+    tester,
+  ) async {
+    final telemetry = _captureLocationChatCollect();
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text('Good job!').evaluate().isNotEmpty,
+    );
+    expect(telemetry.object3For('location_chat_inspiration'), ['click|301']);
+
+    tester
+        .widget<LocationChatAnchoredMessageList>(
+          find.byType(LocationChatAnchoredMessageList),
+        )
+        .inspirationFeature
+        .onSend!('Good job!');
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => harness.socket.sendMessageCount == 1,
+    );
+    harness.socket.serverV2AckForLatestSend(errNo: 0);
+    await tester.pump();
+    expect(telemetry.object3For('location_chat_inspiration'), ['click|301']);
+    final sent = harness.socket._sentFrames.lastWhere(
+      (frame) => frame['type'] == 'send_message',
+    );
+    harness.socket.serverV2UserMessage(
+      messageId: 401,
+      clientMsgId: sent['client_msg_id'] as String,
+      content: 'Good job!',
+      conversationType: 'user_message',
+    );
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => telemetry.object3For('location_chat_inspiration').length == 2,
+    );
+    expect(telemetry.object3For('location_chat_inspiration'), [
+      'click|301',
+      'send_success',
+    ]);
+    unawaited(harness.service.dispose());
+  });
+
+  testWidgets('Inspiration edit and dismiss each finish one click', (
+    tester,
+  ) async {
+    final telemetry = _captureLocationChatCollect();
+    addTearDown(GenesisTelemetry.resetForTesting);
+    final harness = await _mountCompletedReplyActionPanel(
+      tester,
+      backend: _LocationChatReplyHttpTransport(),
+    );
+
+    await tester.tap(find.bySemanticsLabel('Inspiration'));
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text('Good job!').evaluate().isNotEmpty,
+    );
+    var list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    list.inspirationFeature.onEdit!('Good job!');
+    await tester.pump();
+    expect(telemetry.object3For('location_chat_inspiration'), [
+      'click|301',
+      'edit',
+    ]);
+
+    list.inspirationFeature.onExpandedChanged!(true);
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => telemetry.object3For('location_chat_inspiration').length == 3,
+    );
+    list = tester.widget<LocationChatAnchoredMessageList>(
+      find.byType(LocationChatAnchoredMessageList),
+    );
+    list.inspirationFeature.onExpandedChanged!(false);
+    await tester.pump();
+    expect(telemetry.object3For('location_chat_inspiration'), [
+      'click|301',
+      'edit',
+      'click|301',
+      'dismissed',
+    ]);
+    unawaited(harness.service.dispose());
+  });
+
   for (final prepared in [false, true]) {
     for (final completedWhileAway in [false, true]) {
       testWidgets(
@@ -4221,6 +4538,8 @@ void main() {
   testWidgets(
     'feature quota zero edit still opens and submits after repeated clicks',
     (tester) async {
+      final telemetry = _captureLocationChatCollect();
+      addTearDown(GenesisTelemetry.resetForTesting);
       final backend = _LocationChatReplyHttpTransport()
         ..localMember = false
         ..includeQuotas = true
@@ -4259,6 +4578,18 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('location-chat-edit-done')));
       await tester.pumpAndSettle();
       expect(backend.batches, hasLength(1));
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => telemetry.object3For('location_chat_edit').length == 6,
+      );
+      expect(telemetry.object3For('location_chat_edit'), [
+        'edit_click|301',
+        'edit_opened|301',
+        'edit_click|301',
+        'edit_opened|301',
+        'save_click|301',
+        'save_quota_insufficient|301',
+      ]);
       expect(find.byType(LocationChatEditPage), findsOneWidget);
       tester.widget<ChatHeader>(find.byType(ChatHeader)).onBack();
       await tester.pumpAndSettle();
@@ -6453,6 +6784,8 @@ void main() {
   testWidgets(
     'ten completed cards keep Regenerate visible with a limit toast',
     (tester) async {
+      final telemetry = _captureLocationChatCollect();
+      addTearDown(GenesisTelemetry.resetForTesting);
       final backend = _LocationChatReplyHttpTransport();
       final harness = await _mountCompletedReplyActionPanel(
         tester,
@@ -6501,6 +6834,14 @@ void main() {
         harness.service.replyActions!.stateFor('location-current')!.cardCount,
         10,
       );
+      await _pumpUntilLocationChatTest(
+        tester,
+        () => telemetry.object3For('location_chat_regenerate').length == 2,
+      );
+      expect(telemetry.object3For('location_chat_regenerate'), [
+        'click|10',
+        'limit|10',
+      ]);
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpWidget(const SizedBox.shrink());
       unawaited(harness.service.dispose());
@@ -13270,7 +13611,12 @@ class _LocationChatTestSocket implements ChatroomSocket {
     });
   }
 
-  void serverCandidateGenerationEnd({String generationState = 'succeeded'}) {
+  void serverCandidateGenerationEnd({
+    String generationState = 'succeeded',
+    int errNo = 0,
+    String errMsg = '',
+    Object? error,
+  }) {
     _serverFrame('llm_card_generation_end', {
       'world_id': 'world-current',
       'location_id': 'location-current',
@@ -13281,9 +13627,10 @@ class _LocationChatTestSocket implements ChatroomSocket {
         'card_id': 502,
         'generation_state': generationState,
         'billing': {'status': 'not_required'},
+        if (error != null) 'error': error,
       },
-      'err_no': 0,
-      'err_msg': '',
+      'err_no': errNo,
+      'err_msg': errMsg,
     });
   }
 

@@ -75,6 +75,8 @@ class LocationChatEditPageArgs {
     required this.messages,
     required this.style,
     required this.onSave,
+    this.onOpened,
+    this.onOpenFailed,
     this.cardId,
     this.backgroundImageUrl,
     this.backgroundPreviewImageUrl,
@@ -93,6 +95,8 @@ class LocationChatEditPageArgs {
   /// Quota failures are presented once here; other business failures use the
   /// global presenter. A failed save always retains this editor's draft.
   final Future<void> Function(LocationChatEditResult result) onSave;
+  final VoidCallback? onOpened;
+  final VoidCallback? onOpenFailed;
   final ChatUiStyleConfig style;
   final String? backgroundImageUrl;
   final String? backgroundPreviewImageUrl;
@@ -202,6 +206,9 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
         catalog: widget.args.mentionCatalog,
       )..setSerializedText(message.text);
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) widget.args.onOpened?.call();
+    });
   }
 
   @override
@@ -232,6 +239,12 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
 
   Future<void> _done() async {
     if (!_inputEnabled) return;
+    final saveAttempt = _LocationChatAnalyticsAttempt(
+      action: 'location_chat_edit',
+      worldId: widget.args.worldId,
+      locationId: widget.args.locationId,
+    );
+    saveAttempt.record('save_click|${widget.args.roundId}');
     FocusManager.instance.primaryFocus?.unfocus();
     final result = _draft();
     final hasRemainingMessage = _messages.any((message) {
@@ -239,6 +252,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
       return (result.texts[message.localId] ?? message.text).trim().isNotEmpty;
     });
     if (!hasRemainingMessage) {
+      saveAttempt.finish('save_failed|${widget.args.roundId}');
       showGenesisToast(context, _locationChatEditMinimumMessageToast);
       return;
     }
@@ -250,6 +264,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
               result.texts[message.localId] != message.text,
         );
     if (!hasChanges) {
+      saveAttempt.finish('save_no_change|${widget.args.roundId}');
       _complete(result);
       return;
     }
@@ -258,8 +273,14 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
     setState(() => _saving = true);
     try {
       await widget.args.onSave(result);
+      saveAttempt.finish('save_success|${widget.args.roundId}');
       if (mounted) _complete(result);
     } catch (error) {
+      final status = error is ChatroomFeatureQuotaException
+          ? 'save_quota_insufficient'
+          : _locationChatTelemetryUnknown(error)
+          ? 'save_unknown'
+          : 'save_failed';
       if (!isChatroomErrorPresentedGlobally(error) && overlay != null) {
         showGenesisToastInOverlay(
           overlay,
@@ -267,6 +288,7 @@ class _LocationChatEditPageState extends State<LocationChatEditPage>
           brightness: brightness,
         );
       }
+      saveAttempt.finish('$status|${widget.args.roundId}');
     } finally {
       if (mounted && !_completed) setState(() => _saving = false);
     }
@@ -403,11 +425,17 @@ extension _LocationChatEditActions on _LocationChatPanelState {
       'conversation_edit',
       queried: _editQuotaQueried,
     ),
-    onInvoke: () => unawaited(_startEditCurrentReply(style, selfCap, otherCap)),
+    onInvoke: () {
+      final attempt = _beginEditAnalytics();
+      unawaited(_startEditCurrentReply(style, selfCap, otherCap, attempt));
+    },
   );
 
   Future<void> _openReplyEditor(LocationChatEditPageArgs args) async {
-    if (_replyEditorOpen || !widget.active) return;
+    if (_replyEditorOpen || !widget.active) {
+      args.onOpenFailed?.call();
+      return;
+    }
     _replyEditorOpen = true;
     _composerFocusNode.unfocus();
     try {

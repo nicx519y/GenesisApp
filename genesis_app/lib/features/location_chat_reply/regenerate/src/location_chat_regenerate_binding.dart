@@ -7,21 +7,30 @@ extension _LocationChatRegenerateBinding on _LocationChatPanelState {
     return LocationChatRegenerateFeature(
       state: controls.regenerate,
       onLimitReached: controls.canExplainRegenerateLimit
-          ? () =>
-                showGenesisToast(context, 'You can generate up to 10 replies.')
+          ? () {
+              _recordRegenerateLimit();
+              showGenesisToast(context, 'You can generate up to 10 replies.');
+            }
           : null,
-      onInvoke: () => unawaited(
-        _submitReplyAction(
-          _LocationChatReplyActionTransaction(
-            action: _LocationChatReplyConnectionAction.regenerate,
-            commit: () => _runReplyGeneration(
-              (controller) => controller.regenerate(widget.locationId),
-              regenerating: true,
-              failureAction: _LocationChatReplyConnectionAction.regenerate,
+      onInvoke: () {
+        final attempt = _beginRegenerateAnalytics();
+        unawaited(
+          _submitReplyAction(
+            _LocationChatReplyActionTransaction(
+              action: _LocationChatReplyConnectionAction.regenerate,
+              commit: () => _runReplyGeneration(
+                (controller) => controller.regenerate(widget.locationId),
+                regenerating: true,
+                failureAction: _LocationChatReplyConnectionAction.regenerate,
+                onError: (error) =>
+                    _finishRegenerateAnalyticsFromError(attempt, error),
+              ),
+              onFailure: (error) =>
+                  _finishRegenerateAnalyticsFromError(attempt, error),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

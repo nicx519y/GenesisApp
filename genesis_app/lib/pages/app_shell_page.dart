@@ -185,7 +185,9 @@ class _AppShellPageState extends State<AppShellPage>
       }
       if (AppStartupCoordinator.isPostLaunchWorkAllowed) {
         _startMessagesPolling();
-        _notifyActiveTabActivated();
+        if (_mainRoute?.isCurrent == true) {
+          _notifyActiveTabActivated();
+        }
       }
     } else {
       _stopMessagesPolling();

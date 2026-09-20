@@ -5,10 +5,12 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
     ChatUiStyleConfig style,
     double? selfCap,
     double? otherCap,
+    _LocationChatEditAnalyticsAttempt attempt,
   ) => _submitReplyAction(
     _LocationChatReplyActionTransaction(
       action: _LocationChatReplyConnectionAction.edit,
-      commit: () => _editCurrentReply(style, selfCap, otherCap),
+      commit: () => _editCurrentReply(style, selfCap, otherCap, attempt),
+      onFailure: (error) => _finishEditAnalyticsFromError(attempt, error),
     ),
   );
 
@@ -16,6 +18,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
     ChatUiStyleConfig style,
     double? selfCap,
     double? otherCap,
+    _LocationChatEditAnalyticsAttempt attempt,
   ) async {
     final controller = _replyController;
     if (controller == null ||
@@ -27,6 +30,10 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
         _preparingReplyAction ||
         _inspirationLoading ||
         _replyEditorOpen) {
+      _finishEditAnalyticsFromError(
+        attempt,
+        StateError('This reply is no longer editable'),
+      );
       return;
     }
     final location = widget.locationId;
@@ -50,6 +57,10 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
             },
           ) ||
           !currentEditor()) {
+        _finishEditAnalyticsFromError(
+          attempt,
+          StateError('This reply is no longer editable'),
+        );
         return;
       }
       if (!_editQuotaLoading) {
@@ -60,6 +71,10 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
       }
       final target = await controller.prepareEditor(location);
       if (!currentEditor()) {
+        _finishEditAnalyticsFromError(
+          attempt,
+          StateError('This reply is no longer editable'),
+        );
         return;
       }
       final messages = _replyProjection.messages(
@@ -100,6 +115,11 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
           selfMessageBubbleMaxWidthCap: selfCap,
           otherMessageBubbleMaxWidthCap: otherCap,
           mentionCatalog: _textController.catalog,
+          onOpened: () => attempt.finish('edit_opened|${attempt.roundId}'),
+          onOpenFailed: () => _finishEditAnalyticsFromError(
+            attempt,
+            StateError('The editor could not be opened'),
+          ),
           onSave: (result) async {
             if (!currentEditor()) {
               throw StateError('This chat is no longer active.');
@@ -116,6 +136,7 @@ extension _LocationChatEditBinding on _LocationChatPanelState {
         ),
       );
     } catch (error) {
+      _finishEditAnalyticsFromError(attempt, error);
       if (mounted && currentEditor()) {
         if (!isChatroomErrorPresentedGlobally(error)) {
           showGenesisToast(context, chatroomOperationErrorMessage(error));

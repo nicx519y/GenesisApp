@@ -6,10 +6,12 @@ final class _LocationChatReplyActionTransaction {
   const _LocationChatReplyActionTransaction({
     required this.action,
     required this.commit,
+    this.onFailure,
   });
 
   final _LocationChatReplyConnectionAction action;
   final Future<void> Function() commit;
+  final void Function(Object error)? onFailure;
 }
 
 extension on _LocationChatReplyConnectionAction {
@@ -87,7 +89,12 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
   Future<void> _submitReplyAction(
     _LocationChatReplyActionTransaction transaction,
   ) async {
-    if (_replyConnectionAction != null) return;
+    if (_replyConnectionAction != null) {
+      transaction.onFailure?.call(
+        StateError('This reply action is no longer available'),
+      );
+      return;
+    }
     final operation = _LocationChatReplyOperationScope(this);
     final generation = ++_replyConnectionActionGeneration;
     final sourceRoundId = _displayReplyState?.roundId;
@@ -106,10 +113,14 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
       );
       if (!operation.canApplyToReply ||
           generation != _replyConnectionActionGeneration) {
+        transaction.onFailure?.call(
+          StateError('Could not confirm the reply action'),
+        );
         return;
       }
       await transaction.commit();
     } catch (error) {
+      transaction.onFailure?.call(error);
       if (mounted &&
           operation.canApplyToReply &&
           generation == _replyConnectionActionGeneration) {

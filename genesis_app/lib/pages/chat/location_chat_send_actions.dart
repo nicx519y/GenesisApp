@@ -78,6 +78,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     ChatroomInspirationSource? inspirationSource,
     int? inspirationEpoch,
     bool positionWaitingImmediately = false,
+    void Function(WorldChatroomMessage message)? onCanonicalMessage,
+    void Function(Object error, bool receiptReceived)? onFailure,
   }) async {
     final service = _service;
     if (service == null ||
@@ -91,15 +93,22 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _replyPresentationBlocksSend ||
         _sendConnectionPending ||
         _sending) {
+      onFailure?.call(StateError('This message can no longer be sent'), false);
       return;
     }
     final draftAtSubmit = _textController.serializedText;
     final text = normalizeGenesisUgcTextForDisplay(
       textOverride ?? outgoingMessage?.text ?? draftAtSubmit,
     );
-    if (isGenesisUgcTextBlank(text)) return;
+    if (isGenesisUgcTextBlank(text)) {
+      onFailure?.call(StateError('The message is empty'), false);
+      return;
+    }
     final hasNetwork = await _hasNetworkForSend();
-    if (hasNetwork && !await _prepareSendConnection(service)) return;
+    if (hasNetwork && !await _prepareSendConnection(service)) {
+      onFailure?.call(StateError('Could not connect to this chat'), false);
+      return;
+    }
     if (!mounted ||
         !widget.active ||
         !identical(service, _service) ||
@@ -112,6 +121,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _replyCardTransitionBusy ||
         _replyPresentationBlocksSend ||
         _sending) {
+      onFailure?.call(StateError('This message can no longer be sent'), false);
       return;
     }
     final controller = _replyController;
@@ -246,6 +256,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         isInitialSend: true,
         replyActionsSuppressionIdentity: replyActionsSuppressionIdentity,
         failBeforeTransport: true,
+        onCanonicalMessage: onCanonicalMessage,
+        onFailure: onFailure,
       );
       return;
     }
@@ -269,6 +281,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           );
         }
       } catch (error) {
+        onFailure?.call(error, false);
         if (mounted &&
             bindingGeneration == _replyBindingGeneration &&
             widget.locationId == location &&
@@ -305,6 +318,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           !widget.active ||
           location != widget.locationId ||
           !identical(service, _service)) {
+        onFailure?.call(
+          StateError('Could not confirm the message send'),
+          false,
+        );
         if (mounted && optimisticMessageAdded) {
           _setLocationChatState(() {
             cancelImmediateWaiting();
@@ -322,6 +339,10 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _chatroomState.inputBlocked ||
           _sendAwaitingResponse ||
           widget.worldTickInProgress) {
+        onFailure?.call(
+          StateError('This message can no longer be sent'),
+          false,
+        );
         _setLocationChatState(() {
           _sending = false;
           cancelImmediateWaiting();
@@ -343,6 +364,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       clientMsgId: clientMsgId,
       isInitialSend: true,
       replyActionsSuppressionIdentity: replyActionsSuppressionIdentity,
+      onCanonicalMessage: onCanonicalMessage,
+      onFailure: onFailure,
     );
   }
 
@@ -440,6 +463,8 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     required bool isInitialSend,
     String? replyActionsSuppressionIdentity,
     bool failBeforeTransport = false,
+    void Function(WorldChatroomMessage message)? onCanonicalMessage,
+    void Function(Object error, bool receiptReceived)? onFailure,
   }) async {
     var receiptReceived = false;
     final sentLocationId = widget.locationId;
@@ -463,6 +488,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       receiptReceived = true;
       if (!mounted) {
         service.cancelCanonicalMessageWait(clientMsgId);
+        onFailure?.call(StateError('Could not confirm the message send'), true);
         return;
       }
       unawaited(
@@ -501,6 +527,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           const Duration(seconds: 2),
         );
       }
+      onCanonicalMessage?.call(canonicalMessage);
       if (!mounted) return;
       GenesisTelemetry.collectLog(
         actionType: 'event',
@@ -535,6 +562,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         },
       );
     } catch (e) {
+      onFailure?.call(e, receiptReceived);
       if (receiptReceived) {
         service.cancelCanonicalMessageWait(clientMsgId, reason: e);
       }

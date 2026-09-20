@@ -2,6 +2,7 @@ part of 'location_chat_page.dart';
 
 extension _LocationChatReplyBinding on _LocationChatPanelState {
   void _detachReplyActions() {
+    _finishPendingReplyAnalyticsForDetach();
     _replyRenderGate.reset();
     _clearDeferredTick(resetOrdering: true);
     _entryChanges?.removeListener(_onPreparedEntryChanged);
@@ -74,6 +75,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
   }
 
   void _onReplyActionsChanged() {
+    _syncReplyAnalyticsOutcomes();
     if (_replyRebuildScheduled) return;
     _replyRebuildScheduled = true;
     final binding = _replyBindingGeneration;
@@ -143,6 +145,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     Future<void> Function(ChatroomReplyActionsController) action, {
     required bool regenerating,
     required _LocationChatReplyConnectionAction failureAction,
+    required void Function(Object error) onError,
   }) async {
     final controller = _replyController;
     if (controller == null ||
@@ -154,6 +157,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
                 (regenerating
                     ? _LocationChatReplyConnectionAction.regenerate
                     : _LocationChatReplyConnectionAction.goOn))) {
+      onError(StateError('This reply action is no longer available'));
       return;
     }
     final location = widget.locationId;
@@ -201,6 +205,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     try {
       await action(controller);
     } catch (error) {
+      onError(error);
       if (mounted && operation.canApplyToReply) {
         _setReplyControlsState(() => _waitingPositionResetRevision++);
         _showReplyActionFailure(error, failureAction);
