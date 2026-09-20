@@ -50,6 +50,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
     } else {
       _composerFocusNode.requestFocus();
     }
+    _finishInspirationAnalytics(_inspirationAnalyticsAttempt, 'edit');
   }
 
   LocationChatInspirationFeature _inspirationFeature(
@@ -97,6 +98,15 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
   }
 
   void _resetInspiration() {
+    final attempt = _inspirationAnalyticsAttempt;
+    if (attempt != null && !attempt.finished) {
+      if (attempt.phase == _LocationChatInspirationAnalyticsPhase.displayed) {
+        _finishInspirationAnalytics(attempt, 'dismissed');
+      } else if (attempt.phase !=
+          _LocationChatInspirationAnalyticsPhase.sending) {
+        _finishInspirationAnalytics(attempt, 'unknown');
+      }
+    }
     final location =
         _inspirationRequestSource?.locationId ??
         _inspirationDisplayedSource?.locationId;
@@ -136,20 +146,34 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
 
   void _onInspirationExpanded(bool expanded) {
     if (expanded) {
+      final attempt = _beginInspirationAnalytics();
       unawaited(
         _submitReplyAction(
           _LocationChatReplyActionTransaction(
             action: _LocationChatReplyConnectionAction.inspiration,
-            commit: _loadInspirations,
+            commit: () => _loadInspirations(attempt),
+            onFailure: (error) =>
+                _finishInspirationAnalyticsFromError(attempt, error),
           ),
         ),
       );
     } else if (_inspirationQuotaChecking || _inspirationLoading) {
       _setReplyControlsState(_resetInspiration);
+    } else {
+      final attempt = _inspirationAnalyticsAttempt;
+      scheduleMicrotask(() {
+        if (attempt != null &&
+            identical(_inspirationAnalyticsAttempt, attempt) &&
+            attempt.phase == _LocationChatInspirationAnalyticsPhase.displayed) {
+          _finishInspirationAnalytics(attempt, 'dismissed');
+        }
+      });
     }
   }
 
-  Future<void> _loadInspirations() async {
+  Future<void> _loadInspirations(
+    _LocationChatInspirationAnalyticsAttempt attempt,
+  ) async {
     final service = _service;
     final controller = _inspirationController;
     final source = _currentInspirationSource;
@@ -158,6 +182,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         source == null ||
         _inspirationQuotaChecking ||
         _inspirationLoading) {
+      _finishInspirationAnalytics(attempt, 'failed');
       return;
     }
     _inspirationQuotaChecking = true;
@@ -225,6 +250,11 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         return;
       }
       final messages = result.messages;
+      if (messages.isEmpty) {
+        _finishInspirationAnalytics(attempt, 'failed');
+        return;
+      }
+      attempt.phase = _LocationChatInspirationAnalyticsPhase.displayed;
       _setReplyControlsState(() {
         _inspirationDisplayedSource = verified;
         _inspirationMessages = messages;
@@ -239,6 +269,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
       }
     } catch (error) {
       if (error is ChatroomFeatureQuotaException) {
+        _finishInspirationAnalytics(attempt, 'failed');
         if (mounted && current()) {
           _setReplyControlsState(() => _inspirationQuotaQueried = true);
           if (error.quota == null) {
@@ -247,6 +278,7 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         }
         return;
       }
+      _finishInspirationAnalyticsFromError(attempt, error);
       if (mounted &&
           ownsRequest() &&
           !isChatroomErrorPresentedGlobally(error)) {
@@ -273,12 +305,20 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         !_inspirationMessages.contains(text)) {
       return;
     }
+    final attempt = _inspirationAnalyticsAttempt;
+    if (attempt != null) {
+      attempt.phase = _LocationChatInspirationAnalyticsPhase.sending;
+    }
     unawaited(
       _send(
         textOverride: text,
         inspirationSource: source,
         inspirationEpoch: epoch,
         positionWaitingImmediately: true,
+        onCanonicalMessage: (_) =>
+            _finishInspirationAnalytics(attempt, 'send_success'),
+        onFailure: (error, _) =>
+            _finishInspirationAnalyticsFromError(attempt, error),
       ),
     );
   }
