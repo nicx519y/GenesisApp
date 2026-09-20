@@ -17,6 +17,7 @@ extension _LocationChatRegenerateBinding on _LocationChatPanelState {
             commit: () => _runReplyGeneration(
               (controller) => controller.regenerate(widget.locationId),
               regenerating: true,
+              failureAction: _LocationChatReplyConnectionAction.regenerate,
             ),
           ),
         ),

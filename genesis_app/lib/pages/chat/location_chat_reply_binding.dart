@@ -142,6 +142,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
   Future<void> _runReplyGeneration(
     Future<void> Function(ChatroomReplyActionsController) action, {
     required bool regenerating,
+    required _LocationChatReplyConnectionAction failureAction,
   }) async {
     final controller = _replyController;
     if (controller == null ||
@@ -202,10 +203,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
     } catch (error) {
       if (mounted && operation.canApplyToReply) {
         _setReplyControlsState(() => _waitingPositionResetRevision++);
-        // HTTP and WS business errors already use the global presenter.
-        if (!isChatroomErrorPresentedGlobally(error)) {
-          showGenesisToast(context, chatroomOperationErrorMessage(error));
-        }
+        _showReplyActionFailure(error, failureAction);
       }
     } finally {
       if (operation.ownsReplyTarget) {

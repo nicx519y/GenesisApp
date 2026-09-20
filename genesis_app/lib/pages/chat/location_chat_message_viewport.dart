@@ -97,6 +97,21 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
         ? null
         : '${widget.worldId}/${widget.locationId}/${replyPresentationState.roundId}';
     final displayMessages = replyPresentation.messages;
+    final lastTimelineMessage = displayMessages.reversed
+        .where((message) => !message.isAiContentDisclaimer)
+        .firstOrNull;
+    final hasUnconfirmedLocalMessageAtEnd =
+        lastTimelineMessage != null &&
+        LocationChatLocalMessageOrder.isUnconfirmed(lastTimelineMessage);
+    final hasFailedLocalMessageAtEnd =
+        hasUnconfirmedLocalMessageAtEnd &&
+        lastTimelineMessage.status == 'failed';
+    final replyGroupBeforeMessageLocalId =
+        _localMessageOrder.firstLocalAfterRound(
+          '${replyPresentationState?.roundId ?? ''}',
+          displayMessages,
+        ) ??
+        (hasFailedLocalMessageAtEnd ? lastTimelineMessage.localId : null);
     final loadingRoundId = _ackLoadingRoundId();
     final loadingAfterMessageLocalId =
         _ackLoadingMessageLocalId != null &&
@@ -139,11 +154,13 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
               actions: controls.actions,
               visible:
                   !controls.goOnContentIsRendering &&
+                  !hasFailedLocalMessageAtEnd &&
                   _suppressedReplyActionsIdentity != replyActionsIdentity,
             ),
             backendPending: renderStatus.backendPending,
             presentationSettled: renderStatus.presentationSettled,
-            discardPending: renderStatus.discardPending,
+            discardPending:
+                renderStatus.discardPending || hasFailedLocalMessageAtEnd,
           );
           final actions = renderedControls.actions;
           final regenerateFeature = actions.hidden
@@ -199,6 +216,7 @@ extension _LocationChatMessageViewport on _LocationChatPanelState {
               replyPresentation.replyMessages,
             ),
             replyCurrentCardId: replyPresentationState?.viewedCardId ?? 0,
+            replyGroupBeforeMessageLocalId: replyGroupBeforeMessageLocalId,
             replyCardBindingIdentity:
                 '$_replyBindingGeneration/${widget.worldId}/${widget.locationId}/${replyPresentationState?.roundId}',
             replyCardSwitchEnabled: controls.cardSwitchEnabled,

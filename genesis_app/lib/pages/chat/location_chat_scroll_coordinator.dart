@@ -627,6 +627,7 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
     this.replyStatus,
     this.replyCards = const [],
     this.replyCurrentCardId = 0,
+    this.replyGroupBeforeMessageLocalId,
     this.replyCardBindingIdentity,
     this.replyCardSwitchEnabled = true,
     this.replyRegenerationInProgress = false,
@@ -705,6 +706,10 @@ class LocationChatAnchoredMessageList extends StatefulWidget {
   final Widget? replyStatus;
   final List<LocationChatReplyCard> replyCards;
   final int replyCurrentCardId;
+
+  /// Keeps the complete reply group (card, pagination and actions) before the
+  /// first local row sent after that round.
+  final String? replyGroupBeforeMessageLocalId;
   final String? replyCardBindingIdentity;
   final bool replyCardSwitchEnabled;
   final bool replyRegenerationInProgress;
@@ -901,7 +906,7 @@ class _LocationChatAnchoredMessageListState
       final style = widget.style ?? ChatUiStyleConfig.standard;
       final compact =
           _currentReplyCard?.messages.lastOrNull?.localId == last.localId
-          ? _replyActionsImmediatelyFollowDeck
+          ? _replyControlsImmediatelyFollowDeck
           : widget.replyActionsVisible &&
                 last.localId == widget.replyActionsMessageId;
       final bottomGap = compact
@@ -1096,7 +1101,7 @@ class _LocationChatAnchoredMessageListState
       final start = sourceCard == null
           ? -1
           : first == null
-          ? _messageLocalIds.length
+          ? _replyInsertionIndex ?? _messageLocalIds.length
           : _messageLocalIds.indexOf(_messageLayoutId(first));
       _waitingAnchorLayoutId = start > 0 ? _messageLocalIds[start - 1] : null;
     } else {
@@ -1254,12 +1259,29 @@ class _LocationChatAnchoredMessageListState
       .where((card) => card.id == widget.replyCurrentCardId)
       .firstOrNull;
 
-  bool get _replyActionsImmediatelyFollowDeck =>
-      widget.replyActionsVisible &&
+  bool get _replyPaginationVisible =>
+      widget.replyCardCount > 1 &&
+      !(widget.replyCardsConfirmed && !widget.showConfirmedCardPagination);
+
+  bool get _replyControlsGroupedBeforeFollowingMessage =>
+      _currentReplyCard != null &&
+      widget.replyGroupBeforeMessageLocalId != null &&
+      _renderedMessages.any(
+        (message) =>
+            message.localId == widget.replyGroupBeforeMessageLocalId &&
+            message.isMe &&
+            message.status == 'failed',
+      ) &&
+      !_usesImmediateSendWaitingSlot &&
+      !_showLoadingInReplyActionSlot;
+
+  bool get _replyControlsImmediatelyFollowDeck =>
       !_showLoadingInReplyActionSlot &&
-      _renderedMessages.isNotEmpty &&
-      _currentReplyCard?.messages.lastOrNull?.localId ==
-          _renderedMessages.last.localId;
+      (widget.replyActionsVisible || _replyPaginationVisible) &&
+      (_replyControlsGroupedBeforeFollowingMessage ||
+          (_renderedMessages.isNotEmpty &&
+              _currentReplyCard?.messages.lastOrNull?.localId ==
+                  _renderedMessages.last.localId));
 
   bool get _immediateSendWaitingActive =>
       widget.replyWaitingPositioningEnabled &&
@@ -1313,18 +1335,26 @@ class _LocationChatAnchoredMessageListState
   List<int> _timelineEntries(int count) {
     _timelineMessageCount = count;
     final card = _currentReplyCard;
-    final firstId = card?.messages.firstOrNull?.localId;
+    final cardMessageIds = card?.messages
+        .map((message) => message.localId)
+        .toSet();
+    final firstCardMessageIndex = cardMessageIds == null
+        ? -1
+        : _renderedMessages.indexWhere(
+            (message) => cardMessageIds.contains(message.localId),
+          );
     final start = card == null
         ? -1
-        : firstId == null
-        ? _replyInsertionIndex ?? count
-        : (_messageIndexByLocalId[firstId] ?? -1);
-    final length = card?.messages.length ?? 0;
+        : firstCardMessageIndex >= 0
+        ? firstCardMessageIndex
+        : _replyInsertionIndex ?? count;
+    final groupControls = _replyControlsGroupedBeforeFollowingMessage;
     final identity = (
       _messageLocalIds,
       count,
       start,
-      length,
+      Object.hashAll(cardMessageIds ?? const <String>{}),
+      groupControls,
       _replyIdentity,
       _waitingAfterMessageLocalId,
       _waitingIndicatorIdentity,
@@ -1335,12 +1365,15 @@ class _LocationChatAnchoredMessageListState
     _cachedTimelineEntries = [
       for (var i = 0; i <= count; i++) ...[
         if (i == start) -2,
-        if (i == count) -1,
-        if (i < count && !(start >= 0 && i >= start && i < start + length)) i,
+        if (i == start && groupControls) -1,
+        if (i == count && !groupControls) -1,
+        if (i < count &&
+            !(cardMessageIds?.contains(_renderedMessages[i].localId) ?? false))
+          i,
         if (i < count &&
             _renderedMessages[i].localId == _waitingAfterMessageLocalId &&
             !_waitingInReplyActionSlot &&
-            !(start >= 0 && i >= start && i < start + length))
+            !(cardMessageIds?.contains(_renderedMessages[i].localId) ?? false))
           -3,
       ],
     ];
@@ -1467,7 +1500,7 @@ class _LocationChatAnchoredMessageListState
           ChatStreamingEffects.activeTaskOf(context),
           style,
           widget.replyCurrentCardId,
-          _replyActionsImmediatelyFollowDeck,
+          _replyControlsImmediatelyFollowDeck,
           _messageBeforeReplyCard?.createdAt,
           widget.showDateDividers,
           widget.selfMessageBubbleMaxWidthCap,
@@ -1536,7 +1569,7 @@ class _LocationChatAnchoredMessageListState
           message.createdAt,
         );
     final compact =
-        index == messages.length - 1 && _replyActionsImmediatelyFollowDeck;
+        index == messages.length - 1 && _replyControlsImmediatelyFollowDeck;
     final identity = (
       message,
       currentRole,
@@ -1607,6 +1640,11 @@ class _LocationChatAnchoredMessageListState
 
   int? get _replyInsertionIndex {
     if (_replyIdentity == null) return null;
+    final before = widget.replyGroupBeforeMessageLocalId;
+    if (before != null) {
+      final index = _messageIndexByLocalId[before];
+      if (index != null) return index;
+    }
     return _renderedMessages.length;
   }
 
@@ -2073,10 +2111,13 @@ class _LocationChatAnchoredMessageListState
               .firstOrNull;
     if (nextAnchorId == null) return;
     _waitingAnchorLayoutId = nextAnchorId;
-    // Only a removed/replaced prefix needs compensation. A growing reply
-    // below the original waiting anchor must never become a scroll anchor.
-    if (anchorIndex <= 0 ||
-        !previous.take(anchorIndex).any((id) => !retainedIds.contains(id))) {
+    // A retry can promote a local row across this anchor without removing any
+    // IDs. Compare the whole prefix, not just missing IDs. Changes BELOW the
+    // anchor still never trigger compensation or follow a growing reply.
+    if (listEquals(
+      previous.take(anchorIndex).toList(),
+      next.take(next.indexOf(nextAnchorId)).toList(),
+    )) {
       return;
     }
     final offset = _messageContentOffset(anchorId);
@@ -3095,6 +3136,9 @@ class _LocationChatAnchoredMessageListState
                   _usesImmediateSendWaitingSlot ||
                   _showLoadingInReplyActionSlot ||
                   (widget.replyActionsVisible && _replyIdentity != null),
+              paginationExpanded: _replyControlsGroupedBeforeFollowingMessage
+                  ? true
+                  : null,
               actionToolbarKey: _replyActionToolbarKey,
               paginationKey: _replyPaginationKey,
               inspirationFeature: widget.inspirationFeature,

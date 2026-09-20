@@ -4,6 +4,42 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   String get _initialMessageText =>
       _initialOutgoingMessage?.text ?? _textController.serializedText;
 
+  Future<bool> _hasNetworkForSend() {
+    final check =
+        widget.networkAvailabilityCheck ?? locationChatHasNetworkConnection;
+    return check();
+  }
+
+  Future<bool> _prepareSendConnection(WorldChatroomService service) async {
+    final generation = ++_sendConnectionGeneration;
+    final serviceGeneration = _serviceGeneration;
+    final locationId = widget.locationId;
+    bool isCurrent() =>
+        mounted &&
+        widget.active &&
+        generation == _sendConnectionGeneration &&
+        serviceGeneration == _serviceGeneration &&
+        widget.locationId == locationId &&
+        identical(_service, service) &&
+        !service.isDisposed;
+
+    _setLocationChatState(() => _sendConnectionPending = true);
+    try {
+      if (!isCurrent()) return false;
+      await _openChatConnectionGate(service: service, isCurrent: isCurrent);
+      return isCurrent() && service.state.joinedLocationId == locationId;
+    } catch (error) {
+      if (mounted && isCurrent() && !isChatroomErrorPresentedGlobally(error)) {
+        showGenesisToast(context, chatroomOperationErrorMessage(error));
+      }
+      return false;
+    } finally {
+      if (mounted && generation == _sendConnectionGeneration) {
+        _setLocationChatState(() => _sendConnectionPending = false);
+      }
+    }
+  }
+
   void _maybeSendInitialMessage() {
     if (!_initialMessageSendPending || _initialMessageSendScheduled) return;
     if (!widget.active ||
@@ -45,13 +81,15 @@ extension _LocationChatSendActions on _LocationChatPanelState {
   }) async {
     final service = _service;
     if (service == null ||
-        _chatroomState.joinedLocationId != widget.locationId ||
+        !widget.isLeafLocation ||
         _chatroomState.inputBlocked ||
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _preparingReplyAction ||
+        _replyConnectionAction != null ||
         _replyCardTransitionBusy ||
         _replyPresentationBlocksSend ||
+        _sendConnectionPending ||
         _sending) {
       return;
     }
@@ -60,6 +98,22 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       textOverride ?? outgoingMessage?.text ?? draftAtSubmit,
     );
     if (isGenesisUgcTextBlank(text)) return;
+    final hasNetwork = await _hasNetworkForSend();
+    if (hasNetwork && !await _prepareSendConnection(service)) return;
+    if (!mounted ||
+        !widget.active ||
+        !identical(service, _service) ||
+        (hasNetwork && service.state.joinedLocationId != widget.locationId) ||
+        _chatroomState.inputBlocked ||
+        _sendAwaitingResponse ||
+        _replyGenerationInProgress ||
+        _preparingReplyAction ||
+        _replyConnectionAction != null ||
+        _replyCardTransitionBusy ||
+        _replyPresentationBlocksSend ||
+        _sending) {
+      return;
+    }
     final controller = _replyController;
     final replyPresentationState = controller?.presentationStateFor(
       widget.locationId,
@@ -81,6 +135,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         locationChatBubbleLayoutSettings.value.replyWaitingPositioningEnabled;
 
     void addOptimisticMessage() {
+      final previousPresentation = _replyProjection.presentation(
+        _renderedReplyState,
+      );
       if (positionWaiting) {
         _scrollCoordinator.prepareWaitingReplyPosition();
       }
@@ -101,6 +158,14 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             isMe: true,
             status: 'sending',
           );
+      _localMessageOrder.capture(
+        localMessage,
+        before: previousPresentation.messages,
+        canonical: _messages,
+        cardMessageIds: previousPresentation.replyMessages
+            .map((message) => message.localId)
+            .toSet(),
+      );
       _setLocationChatState(() {
         _clearAckLoading();
         _sending = true;
@@ -150,6 +215,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     void rollbackOptimisticMessage() {
       if (outgoingMessage == null) {
         _messages.remove(localMessage);
+        _localMessageOrder.remove(localMessage.localId);
         if (isGenesisUgcTextBlank(_textController.serializedText) &&
             !isGenesisUgcTextBlank(draftAtSubmit)) {
           _textController.setSerializedText(draftAtSubmit);
@@ -171,6 +237,18 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     // All send gestures insert the bubble and hide the previous reply's
     // controls in the same state update, before any reply finalization awaits.
     addOptimisticMessage();
+
+    if (!hasNetwork) {
+      await _submitLocalMessage(
+        service: service,
+        localMessage: localMessage,
+        clientMsgId: clientMsgId,
+        isInitialSend: true,
+        replyActionsSuppressionIdentity: replyActionsSuppressionIdentity,
+        failBeforeTransport: true,
+      );
+      return;
+    }
 
     if (controller != null) {
       final location = widget.locationId;
@@ -274,11 +352,27 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     if (!message.isMe ||
         message.status != 'failed' ||
         service == null ||
-        _chatroomState.joinedLocationId != widget.locationId ||
+        !widget.isLeafLocation ||
         _chatroomState.inputBlocked ||
         _sendAwaitingResponse ||
         _replyGenerationInProgress ||
         _preparingReplyAction ||
+        _replyConnectionAction != null ||
+        _sendConnectionPending ||
+        _sending) {
+      return;
+    }
+    if (!await _hasNetworkForSend()) return;
+    if (!await _prepareSendConnection(service)) return;
+    if (!mounted ||
+        !widget.active ||
+        !identical(service, _service) ||
+        service.state.joinedLocationId != widget.locationId ||
+        _chatroomState.inputBlocked ||
+        _sendAwaitingResponse ||
+        _replyGenerationInProgress ||
+        _preparingReplyAction ||
+        _replyConnectionAction != null ||
         _sending) {
       return;
     }
@@ -345,6 +439,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
     required String clientMsgId,
     required bool isInitialSend,
     String? replyActionsSuppressionIdentity,
+    bool failBeforeTransport = false,
   }) async {
     var receiptReceived = false;
     final sentLocationId = widget.locationId;
@@ -356,6 +451,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             locationId: widget.locationId,
           ),
         );
+      }
+      if (failBeforeTransport) {
+        throw const SocketException('No network connection');
       }
       final handle = service.sendMessage(
         localMessage.text,

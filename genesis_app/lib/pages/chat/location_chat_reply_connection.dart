@@ -12,8 +12,17 @@ final class _LocationChatReplyActionTransaction {
   final Future<void> Function() commit;
 }
 
-final class _LocationChatReplyConnectionGate {
-  const _LocationChatReplyConnectionGate({
+extension on _LocationChatReplyConnectionAction {
+  String get failureMessage => switch (this) {
+    _LocationChatReplyConnectionAction.regenerate => 'Regenerate failure',
+    _LocationChatReplyConnectionAction.goOn => 'Go on failure',
+    _LocationChatReplyConnectionAction.edit => 'Edit failure',
+    _LocationChatReplyConnectionAction.inspiration => 'Inspiration failure',
+  };
+}
+
+final class _LocationChatConnectionGate {
+  const _LocationChatConnectionGate({
     required this.service,
     required this.locationId,
     required this.isCurrent,
@@ -29,11 +38,6 @@ final class _LocationChatReplyConnectionGate {
 
   Future<void> open() async {
     _checkCurrent();
-    final state = service.state;
-    if (!state.connected && state.reconnecting) {
-      await _waitForReconnect();
-      _checkCurrent();
-    }
     if (service.state.joinedLocationId == locationId) {
       onJoined();
       return;
@@ -54,41 +58,32 @@ final class _LocationChatReplyConnectionGate {
       throw StateError('This chat is no longer active');
     }
   }
-
-  Future<void> _waitForReconnect() async {
-    final completer = Completer<void>();
-    late final StreamSubscription<WorldChatroomState> stateSubscription;
-    late final StreamSubscription<ChatroomFailureEvent> failureSubscription;
-
-    void completeFromState(WorldChatroomState state) {
-      if (completer.isCompleted) return;
-      if (!isCurrent() || service.isDisposed) {
-        completer.completeError(StateError('This chat is no longer active'));
-      } else if (state.connected) {
-        completer.complete();
-      } else if (!state.reconnecting) {
-        completer.completeError(StateError('WebSocket reconnection stopped'));
-      }
-    }
-
-    stateSubscription = service.states.listen(completeFromState);
-    failureSubscription = service.failures.listen((failure) {
-      if (completer.isCompleted) return;
-      if (failure.sourceType == 'connect' || failure.requestType == 'connect') {
-        completer.completeError(failure);
-      }
-    });
-    completeFromState(service.state);
-    try {
-      await completer.future;
-    } finally {
-      await stateSubscription.cancel();
-      await failureSubscription.cancel();
-    }
-  }
 }
 
 extension _LocationChatReplyConnection on _LocationChatPanelState {
+  void _showReplyActionFailure(
+    Object error,
+    _LocationChatReplyConnectionAction action,
+  ) {
+    final message = chatroomOperationErrorMessage(error);
+    if (message.isEmpty) {
+      showGenesisToast(context, action.failureMessage);
+    } else if (!isChatroomErrorPresentedGlobally(error)) {
+      showGenesisToast(context, message);
+    }
+  }
+
+  Future<void> _openChatConnectionGate({
+    required WorldChatroomService service,
+    required bool Function() isCurrent,
+  }) => _LocationChatConnectionGate(
+    service: service,
+    locationId: widget.locationId,
+    isCurrent: isCurrent,
+    join: () => _joinLocation(service),
+    onJoined: () => _joinedLocation = true,
+  ).open();
+
   Future<void> _submitReplyAction(
     _LocationChatReplyActionTransaction transaction,
   ) async {
@@ -105,13 +100,10 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
       if (service == null || !widget.isLeafLocation) {
         throw StateError('Chatroom is unavailable');
       }
-      await _LocationChatReplyConnectionGate(
+      await _openChatConnectionGate(
         service: service,
-        locationId: widget.locationId,
         isCurrent: () => operation.canApplyToReply,
-        join: () => _joinLocation(service),
-        onJoined: () => _joinedLocation = true,
-      ).open();
+      );
       if (!operation.canApplyToReply ||
           generation != _replyConnectionActionGeneration) {
         return;
@@ -120,9 +112,8 @@ extension _LocationChatReplyConnection on _LocationChatPanelState {
     } catch (error) {
       if (mounted &&
           operation.canApplyToReply &&
-          generation == _replyConnectionActionGeneration &&
-          !isChatroomErrorPresentedGlobally(error)) {
-        showGenesisToast(context, chatroomOperationErrorMessage(error));
+          generation == _replyConnectionActionGeneration) {
+        _showReplyActionFailure(error, transaction.action);
       }
     } finally {
       if (operation.ownsReplyTarget &&

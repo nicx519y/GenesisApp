@@ -47,6 +47,7 @@ class LocationChatReplyActions extends StatefulWidget {
     this.loadingIndicator,
     this.reservedLoadingIndicator,
     this.actionsExpanded = true,
+    this.paginationExpanded,
     this.actionToolbarKey,
     this.paginationKey,
   });
@@ -72,6 +73,7 @@ class LocationChatReplyActions extends StatefulWidget {
   /// Keeps the future loading slot laid out without changing toolbar animation.
   final Widget? reservedLoadingIndicator;
   final bool actionsExpanded;
+  final bool? paginationExpanded;
   final Key? actionToolbarKey;
   final Key? paginationKey;
   final ChatUiStyleConfig style;
@@ -205,7 +207,9 @@ class _LocationChatReplyActionsState extends State<LocationChatReplyActions> {
       children: [
         _LocationChatReplyPagination(
           key: widget.paginationKey,
-          expanded: widget.actionsExpanded && paginationVisible,
+          expanded:
+              (widget.paginationExpanded ?? widget.actionsExpanded) &&
+              paginationVisible,
           pagination: paginationVisible ? _buildPagination(context) : null,
         ),
         _LocationChatReplyActionToolbar(
