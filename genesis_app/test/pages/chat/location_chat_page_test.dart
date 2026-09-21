@@ -10490,7 +10490,7 @@ void main() {
     expect(source, contains('rootNavigator: true'));
     expect(source, contains('pushNamed<String>('));
     expect(source, contains("'world_id': modelWorldId"));
-    expect(source, contains("'page_cache': widget.memoryModelPageCache"));
+    expect(source, contains("'page_cache': _modelRequestCache"));
   });
 
   testWidgets('location chat model entry opens the current world model list', (
@@ -11654,8 +11654,87 @@ void main() {
   testWidgets('location chat updates when cached selected model arrives', (
     tester,
   ) async {
+    final harness = await _connectedLocationChatTestService();
+    final sessionStore = harness.services.sessionStore;
+    await sessionStore.saveUserInfo({'uid': 'user-1'});
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: harness.services,
+        child: MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            modelWorldId: 'world-current',
+            locationId: 'location-current',
+            active: true,
+            service: harness.service,
+            leaveOnInactive: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('Model'), findsOneWidget);
+
+    await sessionStore.saveUserInfo({
+      'uid': 'user-1',
+      'selected_model_code': 'luxury_selection_v4',
+    });
+    await tester.pump();
+
+    await _pumpUntilLocationChatTest(
+      tester,
+      () => find.text('Luxury Selection V4.0').evaluate().isNotEmpty,
+    );
+    expect(find.text('Luxury Selection V4.0'), findsOneWidget);
+    expect(find.text('Model'), findsNothing);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    unawaited(harness.service.dispose());
+  });
+
+  testWidgets('inactive location chat does not backfill the model catalog', (
+    tester,
+  ) async {
     final sessionStore = MemoryUserSessionStore();
-    await sessionStore.saveUserInfo({'uid': 'u_1'});
+    await sessionStore.saveUid('u_1');
+    await sessionStore.saveAuthToken('token');
+    await sessionStore.saveUserInfo({
+      'uid': 'u_1',
+      'selected_model_code': 'luxury_selection_v4',
+    });
+    final services = ServiceRegistry.build(
+      config: const AppConfig(useMock: true),
+      sessionStoreOverride: sessionStore,
+    );
+
+    await tester.pumpWidget(
+      AppServicesScope(
+        services: services,
+        child: const MaterialApp(
+          home: LocationChatPanel(
+            worldId: 'world-current',
+            modelWorldId: 'world-current',
+            locationId: 'location-current',
+            active: false,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final userInfo = await sessionStore.readUserInfo();
+    expect(userInfo?['selected_model_titles'], isNull);
+  });
+
+  testWidgets('model catalog backfill requires a complete session', (
+    tester,
+  ) async {
+    final sessionStore = MemoryUserSessionStore();
+    await sessionStore.saveUserInfo({
+      'selected_model_code': 'luxury_selection_v4',
+    });
     final services = ServiceRegistry.build(
       config: const AppConfig(useMock: true),
       sessionStoreOverride: sessionStore,
@@ -11674,24 +11753,10 @@ void main() {
         ),
       ),
     );
-    await tester.pump();
-    expect(find.text('Model'), findsOneWidget);
-
-    await sessionStore.saveUserInfo({
-      'uid': 'u_1',
-      'selected_model_code': 'luxury_selection_v4',
-    });
-    await tester.pump();
-
-    await _pumpUntilLocationChatTest(
-      tester,
-      () => find.text('Luxury Selection V4.0').evaluate().isNotEmpty,
-    );
-    expect(find.text('Luxury Selection V4.0'), findsOneWidget);
-    expect(find.text('Model'), findsNothing);
-
-    await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
+
+    final userInfo = await sessionStore.readUserInfo();
+    expect(userInfo?['selected_model_titles'], isNull);
   });
 
   testWidgets(

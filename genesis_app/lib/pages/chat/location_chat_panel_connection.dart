@@ -72,7 +72,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
           _selectedModelTitle = modelTitle;
         });
       }
-      if (modelTitle.isEmpty) {
+      if (modelTitle.isEmpty && widget.active) {
         unawaited(_backfillSelectedModelTitle(modelCode));
       }
     } catch (error) {
@@ -85,7 +85,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   Future<void> _backfillSelectedModelTitle(String modelCode) async {
     final modelWorldId = _modelWorldId;
     final code = modelCode.trim();
-    if (modelWorldId.isEmpty ||
+    if (!widget.active ||
+        modelWorldId.isEmpty ||
         code.isEmpty ||
         code == _selectedModelTitleLookupCode) {
       return;
@@ -93,7 +94,25 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _selectedModelTitleLookupCode = code;
     final services = AppServicesScope.read(context);
     try {
-      final catalog = await services.api.v1.gem.models(worldId: modelWorldId);
+      final session = await services.sessionStore.readCompleteSession();
+      if (!mounted ||
+          !widget.active ||
+          modelWorldId != _modelWorldId ||
+          code != _selectedModelCode) {
+        _selectedModelTitleLookupCode = '';
+        return;
+      }
+      if (session == null) {
+        _selectedModelTitleLookupCode = '';
+        return;
+      }
+      final catalog = await _modelRequestCache.loadModelCatalog(
+        uid: session.uid,
+        worldId: modelWorldId,
+        loader: () => services.api.v1.gem.models(worldId: modelWorldId),
+      );
+      if (catalog == null) return;
+      _modelRequestCache.storeModelCatalog(catalog);
       final titlesByCode = catalog.titlesByCode();
       final title = titlesByCode[code] ?? '';
       if (title.isEmpty) return;
@@ -114,6 +133,9 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   }
 
   void _handleCachedUserInfoChanged() {
+    // The session owner may have changed. Let the page-scoped coordinator
+    // decide whether this user/World pair is cached as permission denied.
+    _selectedModelTitleLookupCode = '';
     unawaited(_loadSelectedModelCodeFromCache());
   }
 
@@ -128,8 +150,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
             RouteNames.memoryModel,
             arguments: <String, Object?>{
               'world_id': modelWorldId,
-              if (widget.memoryModelPageCache != null)
-                'page_cache': widget.memoryModelPageCache,
+              'page_cache': _modelRequestCache,
             },
           );
       if (!mounted) return;

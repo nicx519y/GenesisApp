@@ -10,6 +10,7 @@ import '../../components/page_header.dart';
 import '../../network/api_exception.dart';
 import '../../network/models/gem_model.dart';
 import '../../network/models/user_memory_settings.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../ui/components/genesis_info_card.dart';
 import '../../ui/components/genesis_primary_button.dart';
 import '../../ui/components/genesis_refresh_indicator.dart';
@@ -161,12 +162,33 @@ class _MemoryModelPageState extends State<MemoryModelPage> {
     _pendingModelCode = _confirmedModelCode;
   }
 
-  Future<GemModelCatalog> _loadCatalog() {
+  Future<GemModelCatalog> _loadCatalog() async {
     final loader = widget.catalogLoader;
     if (loader != null) return loader(widget.worldId);
-    return AppServicesScope.read(
-      context,
-    ).api.v1.gem.models(worldId: widget.worldId);
+    final services = AppServicesScope.read(context);
+    final session = await services.sessionStore.readCompleteSession();
+    if (session == null) {
+      throw ApiException(
+        message: 'Complete user session is required for model list',
+        code: 10011,
+        kind: ApiExceptionKind.business,
+      );
+    }
+    final pageCache = widget.pageCache;
+    if (pageCache == null) {
+      return services.api.v1.gem.models(worldId: widget.worldId);
+    }
+    final catalog = await pageCache.loadModelCatalog(
+      uid: session.uid,
+      worldId: widget.worldId,
+      loader: () => services.api.v1.gem.models(worldId: widget.worldId),
+    );
+    if (catalog != null) return catalog;
+    throw ApiException(
+      message: 'Model list permission denied for this World',
+      code: 10011,
+      kind: ApiExceptionKind.business,
+    );
   }
 
   Future<UserMemorySettings> _loadMemory(String? worldId) {

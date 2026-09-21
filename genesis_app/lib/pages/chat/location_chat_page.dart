@@ -50,6 +50,7 @@ import '../../network/models/gem_model.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
+import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
 import '../../ui/components/genesis_primary_button.dart';
@@ -609,6 +610,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   String _selectedModelCode = '';
   String _selectedModelTitle = '';
   String _selectedModelTitleLookupCode = '';
+  late final MemoryModelPageCache _modelRequestCache;
+  late final bool _ownsModelRequestCache;
   double _devicePixelRatio = 1;
   bool _ownsService = false;
   bool _joinedLocation = false;
@@ -882,6 +885,9 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   @override
   void initState() {
     super.initState();
+    final sharedModelCache = widget.memoryModelPageCache;
+    _ownsModelRequestCache = sharedModelCache == null;
+    _modelRequestCache = sharedModelCache ?? MemoryModelPageCache();
     _optimisticSelfOccupancy = widget.active && widget.isLeafLocation;
     locationChatHeaderEffectSettings.addListener(
       _handleChatStyleSettingsChanged,
@@ -987,6 +993,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _composerFocusNode.dispose();
     _textController.removeListener(_handleDraftTextChanged);
     _textController.dispose();
+    if (_ownsModelRequestCache) _modelRequestCache.dispose();
     super.dispose();
   }
 
