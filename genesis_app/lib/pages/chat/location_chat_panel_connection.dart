@@ -10,6 +10,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
     _serviceGeneration++;
     _service = null;
     _sending = false;
+    _sendConnectionPending = false;
+    _sendConnectionGeneration++;
     _joinedLocation = false;
     _joiningLocation = false;
     _joiningLocationFuture = null;
@@ -275,6 +277,8 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
   Future<void> _deactivateConnection() async {
     _detachReplyActions();
     _sending = false;
+    _sendConnectionPending = false;
+    _sendConnectionGeneration++;
     final wasJoinedLocation = _joinedLocation;
     _joinedLocation = false;
     _joiningLocation = false;
@@ -346,6 +350,7 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       }
     } catch (e) {
       if (!mounted) return;
+      if (_replyConnectionAction != null) return;
       _setLocationChatState(() {
         _messages.add(ChatMessageVm.system('WebSocket connection failed: $e'));
       });
@@ -393,9 +398,11 @@ extension _LocationChatPanelConnection on _LocationChatPanelState {
       _optimisticSelfOccupancy = false;
       _recordPanelDebug(action: 'joinFailed', details: {'error': '$e'});
       if (!mounted) return false;
-      _setLocationChatState(() {
-        _messages.add(ChatMessageVm.system('Join failed: $e'));
-      });
+      if (_replyConnectionAction == null) {
+        _setLocationChatState(() {
+          _messages.add(ChatMessageVm.system('Join failed: $e'));
+        });
+      }
       return false;
     } finally {
       _joiningLocation = false;

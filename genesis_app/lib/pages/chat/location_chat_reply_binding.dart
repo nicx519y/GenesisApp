@@ -4,7 +4,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
   void _detachReplyActions() {
     _finishPendingReplyAnalyticsForDetach();
     _replyRenderGate.reset();
-    _clearDeferredTick(resetOrdering: true);
+    _clearDeferredTick();
     _entryChanges?.removeListener(_onPreparedEntryChanged);
     _entryChanges = null;
     _editQuotaChecking = false;
@@ -144,6 +144,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
   Future<void> _runReplyGeneration(
     Future<void> Function(ChatroomReplyActionsController) action, {
     required bool regenerating,
+    required _LocationChatReplyConnectionAction failureAction,
     required void Function(Object error) onError,
   }) async {
     final controller = _replyController;
@@ -207,10 +208,7 @@ extension _LocationChatReplyBinding on _LocationChatPanelState {
       onError(error);
       if (mounted && operation.canApplyToReply) {
         _setReplyControlsState(() => _waitingPositionResetRevision++);
-        // HTTP and WS business errors already use the global presenter.
-        if (!isChatroomErrorPresentedGlobally(error)) {
-          showGenesisToast(context, chatroomOperationErrorMessage(error));
-        }
+        _showReplyActionFailure(error, failureAction);
       }
     } finally {
       if (operation.ownsReplyTarget) {

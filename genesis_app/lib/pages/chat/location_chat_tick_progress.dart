@@ -55,10 +55,6 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     _deferredTickActionRoundIds.addAll(
       activeActions.map((round) => round.roundId),
     );
-    _tickPrecedingStreamKeys[_deferredTickLocalId!] = _deferredTickStreamKeys
-        .toSet();
-    _tickPrecedingActionRoundIds[_deferredTickLocalId!] =
-        _deferredTickActionRoundIds.toSet();
     for (final round in activeActions.reversed) {
       if (round.showCardPresentation) {
         _deferredTickPresentationRoundId = round.roundId;
@@ -131,7 +127,7 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     });
   }
 
-  void _clearDeferredTick({bool resetOrdering = false}) {
+  void _clearDeferredTick() {
     _deferredTickGeneration++;
     _deferredTickReleaseScheduled = false;
     _deferredTickLocalId = null;
@@ -140,55 +136,6 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
     _deferredTickActionRoundIds.clear();
     _deferredTickConversationGeneration = null;
     _deferredTickWaitsForConversationCompletion = false;
-    if (resetOrdering) {
-      _tickPrecedingStreamKeys.clear();
-      _tickPrecedingActionRoundIds.clear();
-    }
-  }
-
-  bool _messageBelongsBeforeTick(ChatMessageVm message, String tickLocalId) {
-    if (message.isTick) return false;
-    if (_tickPrecedingStreamKeys[tickLocalId]?.contains(
-          '${message.roundId}:${message.senderId}',
-        ) ??
-        false) {
-      return true;
-    }
-    final sourceRoundIds = _tickPrecedingActionRoundIds[tickLocalId];
-    if (sourceRoundIds == null) return false;
-    final controller = _replyController;
-    if (controller == null) return false;
-    return sourceRoundIds.any((sourceRoundId) {
-      final continuedRoundId = controller
-          .stateForRound(widget.locationId, sourceRoundId)
-          ?.goOnRoundId;
-      return continuedRoundId != null && message.roundId == '$continuedRoundId';
-    });
-  }
-
-  List<ChatMessageVm> _sequenceMessagesBeforeDeferredTicks() {
-    if (_tickPrecedingStreamKeys.isEmpty &&
-        _tickPrecedingActionRoundIds.isEmpty) {
-      return _messages;
-    }
-    final sequenced = _messages.toList();
-    // A stream can receive its final server message ID after the Tick ID.
-    // Preserve the visible completion order without changing canonical history.
-    for (final tickLocalId in _tickPrecedingStreamKeys.keys) {
-      final tickIndex = sequenced.indexWhere(
-        (message) => message.localId == tickLocalId,
-      );
-      if (tickIndex < 0) continue;
-      final preceding = <ChatMessageVm>[];
-      for (var index = sequenced.length - 1; index > tickIndex; index -= 1) {
-        final message = sequenced[index];
-        if (_messageBelongsBeforeTick(message, tickLocalId)) {
-          preceding.insert(0, sequenced.removeAt(index));
-        }
-      }
-      sequenced.insertAll(tickIndex, preceding);
-    }
-    return sequenced;
   }
 
   bool _syncTickProgressState({
@@ -336,16 +283,17 @@ extension _LocationChatTickProgress on _LocationChatPanelState {
   }
 
   List<ChatMessageVm> _locationChatProjectedMessages() {
-    final sequenced = _sequenceMessagesBeforeDeferredTicks();
     final deferredLocalId = _deferredTickLocalId;
     if (deferredLocalId == null) {
-      return _collapseConsecutiveLocationChatTicksForDisplay(sequenced);
+      return _collapseConsecutiveLocationChatTicksForDisplay(_messages);
     }
-    final deferredIndex = sequenced.indexWhere(
-      (message) => message.localId == deferredLocalId,
-    );
+    // Defer only the Tick itself. Messages that receive a later
+    // location_message_id stay mounted and keep their reveal state; once the
+    // Tick is released, the canonical location order inserts it before them.
     return _collapseConsecutiveLocationChatTicksForDisplay(
-      deferredIndex < 0 ? sequenced : sequenced.sublist(0, deferredIndex),
+      _messages
+          .where((message) => message.localId != deferredLocalId)
+          .toList(growable: false),
     );
   }
 

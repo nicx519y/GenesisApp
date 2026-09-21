@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
@@ -62,6 +63,7 @@ import '../../utils/genesis_ugc_text.dart';
 import '../../ui/components/genesis_delete_button.dart';
 import 'location_chat_scroll_coordinator.dart';
 import 'location_chat_reply_presentation.dart';
+import 'location_chat_local_message_order.dart';
 import 'location_chat_reply_card_switcher.dart';
 import 'location_chat_reply_render_snapshot.dart';
 import 'message_parsers/location_chat_message_parsers.dart';
@@ -110,6 +112,23 @@ const double _locationChatOlderMessagesTriggerExtent = 180;
 const Duration _locationChatOlderMessagesIdleDelay = Duration(milliseconds: 80);
 const String _locationChatDefaultBackgroundAsset =
     'assets/images/map_default/location_default.webp';
+typedef LocationChatNetworkAvailabilityCheck = Future<bool> Function();
+
+/// A local connectivity check used by Send to choose the failed-bubble path
+/// when the device has no usable network interface. Unknown platform failures
+/// deliberately fail open so a temporary probe problem never blocks WSS.
+Future<bool> locationChatHasNetworkConnection() async {
+  try {
+    final interfaces = await NetworkInterface.list(includeLoopback: false);
+    return interfaces.any(
+      (interface) => interface.addresses.any(
+        (address) => !address.isLoopback && !address.isLinkLocal,
+      ),
+    );
+  } catch (_) {
+    return true;
+  }
+}
 
 @visibleForTesting
 int debugLocationChatReplyProjectionCount = 0;
@@ -394,6 +413,7 @@ class LocationChatPanel extends StatefulWidget {
     this.messageQueueInitializationCovered = false,
     this.usePreparedEntry = false,
     this.unauthorizedHandledByOwner = false,
+    this.networkAvailabilityCheck,
     this.onCharactersMovedLocationTap,
   });
 
@@ -445,6 +465,7 @@ class LocationChatPanel extends StatefulWidget {
   final bool messageQueueInitializationCovered;
   final bool usePreparedEntry;
   final bool unauthorizedHandledByOwner;
+  final LocationChatNetworkAvailabilityCheck? networkAvailabilityCheck;
   final ChatCharacterMovementTap? onCharactersMovedLocationTap;
 
   @override
@@ -560,6 +581,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final BackdropKey _surfaceBackdropKey = BackdropKey();
   final Stopwatch _panelStopwatch = Stopwatch()..start();
   final _messages = <ChatMessageVm>[];
+  final _localMessageOrder = LocationChatLocalMessageOrder();
   final Map<String, _LocationChatTimelineVmCacheEntry> _timelineVmCache =
       <String, _LocationChatTimelineVmCacheEntry>{};
   final Map<String, _LocationChatMessageParseCacheEntry> _messageParseCache =
@@ -576,10 +598,6 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   final Set<int> _deferredTickActionRoundIds = <int>{};
   int? _deferredTickConversationGeneration;
   bool _deferredTickWaitsForConversationCompletion = false;
-  final Map<String, Set<String>> _tickPrecedingStreamKeys =
-      <String, Set<String>>{};
-  final Map<String, Set<int>> _tickPrecedingActionRoundIds =
-      <String, Set<int>>{};
   bool _deferredTickReleaseScheduled = false;
   int _deferredTickGeneration = 0;
   final Set<String> _myUserIdKeys = <String>{};
@@ -600,6 +618,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   List<WorldChatroomEntity>? _lastActiveOccupants;
   List<WorldChatroomEntity>? _exitRetainedOccupants;
   bool _sending = false;
+  bool _sendConnectionPending = false;
+  int _sendConnectionGeneration = 0;
   String? _preAckWaitingClientMsgId;
   String? _preAckWaitingMessageLocalId;
   bool _preAckWaitingAccepted = false;
@@ -702,6 +722,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   bool _replyActionsBlockedFor({required bool goOnPending}) {
     final state = _service?.state ?? _chatroomState;
     return _sending ||
+        _sendConnectionPending ||
         _sendAwaitingResponse ||
         state.inputBlocked ||
         widget.worldTickInProgress ||
@@ -992,7 +1013,10 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
         oldWidget.service != widget.service ||
         oldWidget.worldId != widget.worldId ||
         oldWidget.locationId != widget.locationId;
-    if (changedChatTarget) _detachReplyActions();
+    if (changedChatTarget) {
+      _localMessageOrder.clear();
+      _detachReplyActions();
+    }
     final adoptingLaunchedWorld =
         widget.retainOpeningPreviewUntilHistory &&
         oldWidget.worldId.isEmpty &&
@@ -1178,11 +1202,15 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
                       _initialOutgoingMessage != null),
               sendEnabled:
                   widget.active &&
-                  joined &&
+                  widget.isLeafLocation &&
+                  _service != null &&
                   _hasDraftText &&
                   !_sending &&
+                  !_sendConnectionPending &&
                   !_replyCardTransitionBusy &&
                   !_replyGenerationInProgress &&
+                  !_preparingReplyAction &&
+                  _replyConnectionAction == null &&
                   !_initialMessageSendPending &&
                   !_sendAwaitingResponse &&
                   _replyReadyToSend(context) &&

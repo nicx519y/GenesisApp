@@ -288,6 +288,13 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       reconciled: next,
       usedLocalIds: usedLocalIds,
     );
+    _localMessageOrder.retain(next);
+    final ordered = _localMessageOrder.apply(next, rememberFollowing: false);
+    if (!identical(ordered, next)) {
+      next
+        ..clear()
+        ..addAll(ordered);
+    }
     if (next.length != previous.length) {
       changed = true;
     }

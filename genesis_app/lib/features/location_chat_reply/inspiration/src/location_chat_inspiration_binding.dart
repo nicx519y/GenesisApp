@@ -279,10 +279,11 @@ extension _LocationChatInspirationBinding on _LocationChatPanelState {
         return;
       }
       _finishInspirationAnalyticsFromError(attempt, error);
-      if (mounted &&
-          ownsRequest() &&
-          !isChatroomErrorPresentedGlobally(error)) {
-        showGenesisToast(context, chatroomOperationErrorMessage(error));
+      if (mounted && ownsRequest()) {
+        _showReplyActionFailure(
+          error,
+          _LocationChatReplyConnectionAction.inspiration,
+        );
       }
     } finally {
       // Source changes reject the result; only a newer request owns these flags.

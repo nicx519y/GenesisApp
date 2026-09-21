@@ -88,6 +88,16 @@ class _LocationChatReplyProjectionCache {
       return true;
     }());
     var source = _owner._locationChatDisplayMessages();
+    final localMessages = source
+        .where(_owner._localMessageOrder.contains)
+        .toList();
+    // Project whole cards first. Otherwise an unconfirmed row at the end of
+    // canonical history can put a still-candidate OLD card below the new Send.
+    if (localMessages.isNotEmpty) {
+      source = source
+          .where((message) => !_owner._localMessageOrder.contains(message))
+          .toList();
+    }
     final retained = controller == null
         ? const <ChatroomReplyRoundState>[]
         : _owner._usesPreparedEntry
@@ -113,12 +123,22 @@ class _LocationChatReplyProjectionCache {
       source = _presentReplyRound(source, previous).messages;
     }
     _replyProjectionKey = key;
-    return _replyProjectionCache = state == null
+    final projected = state == null
         ? (
             messages: List<ChatMessageVm>.unmodifiable(source),
             replyMessages: const <ChatMessageVm>[],
           )
         : _presentReplyRound(source, state);
+    return _replyProjectionCache = (
+      messages: _owner._localMessageOrder.apply(
+        projected.messages,
+        localMessages: localMessages,
+        cardMessageIds: projected.replyMessages
+            .map((message) => message.localId)
+            .toSet(),
+      ),
+      replyMessages: projected.replyMessages,
+    );
   }
 
   _ReplyProjection _presentReplyRound(
