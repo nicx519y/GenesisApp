@@ -128,6 +128,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-process:2.9.4")
     implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("com.google.android.gms:play-services-ads-identifier:18.3.0")
+    debugImplementation("com.google.mlkit:text-recognition:16.0.1")
+    debugImplementation("com.google.mlkit:translate:17.0.3")
 }
 
 flutter {

@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'app/bootstrap/app_bootstrap.dart';
 import 'app/startup/startup_endpoint_config.dart';
 import 'app/debug/origin_world_sheet_debug_settings.dart';
+import 'app/debug/screen_translation_debug_settings.dart';
 import 'app/debug/world_new_content_debug_settings.dart';
 import 'app/debug/purchase_toast_debug_settings.dart';
 import 'app/genesis_app.dart';
@@ -77,7 +78,10 @@ Future<void> main() async {
       ? worldNewContentDebugSettings.load()
       : Future<bool>.value(false);
   // Local debug preference loads in parallel without holding the first frame.
-  if (kDebugMode) unawaited(purchaseToastDebugSettings.load());
+  if (kDebugMode) {
+    unawaited(purchaseToastDebugSettings.load());
+    unawaited(screenTranslationDebugSettings.load());
+  }
   final appConfig = await appConfigLoad;
   AppStartupCoordinator.recordLaunchEndpointConfigReady();
   if (appConfig.useMock != true) {

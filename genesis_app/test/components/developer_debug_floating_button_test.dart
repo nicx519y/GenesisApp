@@ -1,14 +1,65 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/debug/debug_screen_translation_service.dart';
 import 'package:genesis_flutter_android/ui/theme/genesis_theme.dart';
+import 'package:genesis_flutter_android/app/debug/screen_translation_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug_floating_button_visibility.dart';
 import 'package:genesis_flutter_android/components/developer_debug_floating_button.dart';
 import 'package:genesis_flutter_android/pages/me/developer_page.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   tearDown(() {
     hideGenesisDebugFloatingButton();
+    screenTranslationDebugSettings.resetForTesting();
+  });
+
+  testWidgets('hold-to-translate overlay disappears when pointer is released', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    await screenTranslationDebugSettings.setEnabled(true);
+    final navigatorKey = GlobalKey<NavigatorState>();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigatorKey,
+        home: DeveloperDebugFloatingButton(
+          navigatorKey: navigatorKey,
+          translateCurrentScreenOverride: () async {
+            return const <DebugScreenTranslationLine>[
+              DebugScreenTranslationLine(
+                text: '订阅',
+                left: 20,
+                top: 30,
+                right: 100,
+                bottom: 52,
+              ),
+            ];
+          },
+          child: const Scaffold(body: Text('Subscription')),
+        ),
+      ),
+    );
+
+    expect(find.text('中/EN'), findsOneWidget);
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('中/EN')),
+    );
+    await tester.pump();
+    for (var attempt = 0; attempt < 20; attempt += 1) {
+      await tester.pump(const Duration(milliseconds: 50));
+      if (find.text('订阅').evaluate().isNotEmpty) break;
+    }
+
+    expect(find.text('订阅'), findsOneWidget);
+
+    await gesture.up();
+    await tester.pump();
+
+    expect(find.text('订阅'), findsNothing);
+    expect(find.text('Subscription'), findsOneWidget);
   });
 
   testWidgets('debug floating button handles zero-sized constraints', (

@@ -15,9 +15,11 @@ import '../../app/config/app_config.dart';
 import '../../app/config/app_global_config.dart';
 import '../../app/debug_floating_button_visibility.dart';
 import '../../app/debug_page_tracker.dart';
+import '../../app/debug/debug_screen_translation_service.dart';
 import '../../app/debug/location_chat_bubble_layout_settings.dart';
 import '../../app/debug/location_chat_header_effect_settings.dart';
 import '../../app/debug/origin_world_sheet_debug_settings.dart';
+import '../../app/debug/screen_translation_debug_settings.dart';
 import '../../app/debug/world_new_content_debug_settings.dart';
 import '../../app/debug/purchase_toast_debug_settings.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -235,6 +237,9 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
   bool _loadingPurchaseToastDebugSettings = kDebugMode;
   bool _savingPurchaseToastDebugSettings = false;
   bool _showPurchaseToastDebug = purchaseToastDebugSettings.enabled;
+  bool _loadingScreenTranslationDebugSettings = kDebugMode;
+  bool _savingScreenTranslationDebugSettings = false;
+  bool _showScreenTranslationButton = screenTranslationDebugSettings.enabled;
   bool _loadingWorldNewContentDebugSettings = kDebugMode;
   bool _savingWorldNewContentDebugSettings = false;
   final Set<TelemetryChannel> _savingTelemetryChannels = <TelemetryChannel>{};
@@ -289,6 +294,7 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
       unawaited(_loadOriginWorldSheetDebugSettings());
       unawaited(_loadWorldNewContentDebugSettings());
       unawaited(_loadPurchaseToastDebugSettings());
+      unawaited(_loadScreenTranslationDebugSettings());
     }
     unawaited(locationChatBubbleLayoutSettings.load());
     unawaited(locationChatHeaderEffectSettings.load());
@@ -446,6 +452,55 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
     } finally {
       if (mounted) {
         _updateState(() => _savingPurchaseToastDebugSettings = false);
+      }
+    }
+  }
+
+  Future<void> _loadScreenTranslationDebugSettings() async {
+    final enabled = await screenTranslationDebugSettings.load();
+    if (!mounted) return;
+    _updateState(() {
+      _showScreenTranslationButton = enabled;
+      _loadingScreenTranslationDebugSettings = false;
+    });
+  }
+
+  Future<void> _setScreenTranslationDebugEnabled(bool enabled) async {
+    if (_loadingScreenTranslationDebugSettings ||
+        _savingScreenTranslationDebugSettings) {
+      return;
+    }
+    final previousValue = _showScreenTranslationButton;
+    _updateState(() {
+      _showScreenTranslationButton = enabled;
+      _savingScreenTranslationDebugSettings = true;
+    });
+    try {
+      await screenTranslationDebugSettings.setEnabled(enabled);
+      if (enabled && debugScreenTranslationService.isSupported && mounted) {
+        showGenesisToast(
+          context,
+          'Preparing the offline English-Chinese model...',
+        );
+        try {
+          await debugScreenTranslationService.prepare();
+          if (mounted) showGenesisToast(context, 'Translation model ready');
+        } catch (error) {
+          if (mounted) {
+            showGenesisToast(
+              context,
+              'Model preparation failed; hold the button to retry.',
+            );
+          }
+        }
+      }
+    } catch (error) {
+      if (!mounted) return;
+      _updateState(() => _showScreenTranslationButton = previousValue);
+      showGenesisToast(context, 'Save failed: $error');
+    } finally {
+      if (mounted) {
+        _updateState(() => _savingScreenTranslationDebugSettings = false);
       }
     }
   }
@@ -838,6 +893,26 @@ class _DeveloperPageContentState extends State<DeveloperPageContent>
           ),
         ),
         if (kDebugMode) ...[
+          const SizedBox(height: 18),
+          _DeveloperTestSectionPanel(
+            key: const ValueKey<String>(
+              'developer-screen-translation-debug-panel',
+            ),
+            child: _DeveloperToggleRow(
+              sectionTitle: 'Translation',
+              label: 'Show hold-to-translate button',
+              value: _showScreenTranslationButton,
+              enabled:
+                  !_loadingScreenTranslationDebugSettings &&
+                  !_savingScreenTranslationDebugSettings,
+              switchKey: const ValueKey<String>(
+                'developer-screen-translation-debug-switch',
+              ),
+              onChanged: (value) {
+                unawaited(_setScreenTranslationDebugEnabled(value));
+              },
+            ),
+          ),
           const SizedBox(height: 18),
           _DeveloperTestSectionPanel(
             key: const ValueKey<String>('developer-purchase-toast-debug-panel'),
