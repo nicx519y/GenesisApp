@@ -1,4 +1,12 @@
 PODS:
+  - Adjust (5.8.0):
+    - Adjust/Adjust (= 5.8.0)
+  - Adjust/Adjust (5.8.0):
+    - AdjustSignature (= 5.0.0)
+  - adjust_sdk (5.8.0):
+    - Adjust (= 5.8.0)
+    - Flutter
+  - AdjustSignature (5.0.0)
   - AppAuth (2.1.0):
     - AppAuth/Core (= 2.1.0)
     - AppAuth/ExternalUserAgent (= 2.1.0)
@@ -217,6 +225,7 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
+  - adjust_sdk (from `.symlinks/plugins/adjust_sdk/ios`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
   - firebase_crashlytics (from `.symlinks/plugins/firebase_crashlytics/ios`)
@@ -235,6 +244,8 @@ DEPENDENCIES:
 
 SPEC REPOS:
   trunk:
+    - Adjust
+    - AdjustSignature
     - AppAuth
     - AppCheckCore
     - Firebase
@@ -263,6 +274,8 @@ SPEC REPOS:
     - RecaptchaInterop
 
 EXTERNAL SOURCES:
+  adjust_sdk:
+    :path: ".symlinks/plugins/adjust_sdk/ios"
   firebase_analytics:
     :path: ".symlinks/plugins/firebase_analytics/ios"
   firebase_core:
@@ -295,6 +308,9 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/webview_flutter_wkwebview/darwin"
 
 SPEC CHECKSUMS:
+  Adjust: 688831c353a5ecb137d7e9b20dcfebebb3469780
+  adjust_sdk: 54fd6934b074277ecfa1f9988d61e7ac5417eb02
+  AdjustSignature: 2185aff42830b87214d84bee45da09c65129c12c
   AppAuth: ef4da5a3fc2e10b90c09a0a94a9baeaedc0341d5
   AppCheckCore: e215d35177a9cf469927863e69c13e220df32a8b
   Firebase: 7cc10425300768ec86292688af5cb228f0604bde

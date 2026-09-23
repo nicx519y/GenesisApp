@@ -67,6 +67,7 @@ dependencies:
   in_app_purchase_android: ^0.5.1
   in_app_purchase_storekit: ^0.4.10+1
   in_app_purchase_platform_interface: ^1.4.1
+  adjust_sdk: ^5.8.0
 
 dependency_overrides:
   dio_http2_adapter:

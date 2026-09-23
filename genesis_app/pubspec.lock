@@ -9,6 +9,14 @@ packages:
       url: "https://pub.flutter-io.cn"
     source: hosted
     version: "1.3.74"
+  adjust_sdk:
+    dependency: "direct main"
+    description:
+      name: adjust_sdk
+      sha256: "1767d844463fec6dd2e0cb2cae38982d0e98642a62116b6e0553a7fd6148167e"
+      url: "https://pub.flutter-io.cn"
+    source: hosted
+    version: "5.8.0"
   archive:
     dependency: transitive
     description:

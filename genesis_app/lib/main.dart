@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import 'app/attribution/adjust_attribution_runtime.dart';
 import 'app/bootstrap/app_bootstrap.dart';
 import 'app/startup/startup_endpoint_config.dart';
 import 'app/debug/origin_world_sheet_debug_settings.dart';
@@ -32,6 +33,7 @@ const _startupSystemUiTimeout = Duration(seconds: 2);
 Future<void> main() async {
   AppStartupCoordinator.beginLaunchTracking();
   WidgetsFlutterBinding.ensureInitialized();
+  AdjustAttributionRuntime.initialize();
   final appConfigLoad = loadStartupEndpointConfig();
   final systemUiInitialization = waitForStartupDependency(
     GenesisSystemUi.initialize(),

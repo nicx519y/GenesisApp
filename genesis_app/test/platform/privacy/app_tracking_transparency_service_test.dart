@@ -14,37 +14,33 @@ void main() {
   });
 
   test('non iOS platforms do not request tracking authorization', () async {
-    final calls = <String>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          calls.add(call.method);
-          return 'authorized';
-        });
+    var requested = false;
 
     final status = await AppTrackingTransparencyService.requestAuthorization(
-      channel: channel,
       platform: TargetPlatform.android,
+      request: () async {
+        requested = true;
+        return 3;
+      },
     );
 
     expect(status, AppTrackingAuthorizationStatus.notSupported);
-    expect(calls, isEmpty);
+    expect(requested, false);
   });
 
-  test('iOS request maps native authorization status', () async {
-    final calls = <String>[];
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-          calls.add(call.method);
-          return 'authorized';
-        });
+  test('iOS request maps Adjust authorization status', () async {
+    var requested = false;
 
     final status = await AppTrackingTransparencyService.requestAuthorization(
-      channel: channel,
       platform: TargetPlatform.iOS,
+      request: () async {
+        requested = true;
+        return 3;
+      },
     );
 
     expect(status, AppTrackingAuthorizationStatus.authorized);
-    expect(calls, [GenesisMethodChannels.requestTrackingAuthorization]);
+    expect(requested, true);
     expect(status.allowsTracking, true);
   });
 
@@ -68,16 +64,31 @@ void main() {
     },
   );
 
-  test('denied native authorization does not allow tracking', () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (_) async => 'denied');
-
+  test('denied Adjust authorization does not allow tracking', () async {
     final status = await AppTrackingTransparencyService.requestAuthorization(
-      channel: channel,
       platform: TargetPlatform.iOS,
+      request: () async => 2,
     );
 
     expect(status, AppTrackingAuthorizationStatus.denied);
     expect(status.allowsTracking, false);
+  });
+
+  test('unknown Adjust authorization values remain unknown', () async {
+    final status = await AppTrackingTransparencyService.requestAuthorization(
+      platform: TargetPlatform.iOS,
+      request: () async => -1,
+    );
+
+    expect(status, AppTrackingAuthorizationStatus.unknown);
+  });
+
+  test('missing Adjust plugin returns unknown', () async {
+    final status = await AppTrackingTransparencyService.requestAuthorization(
+      platform: TargetPlatform.iOS,
+      request: () async => throw MissingPluginException(),
+    );
+
+    expect(status, AppTrackingAuthorizationStatus.unknown);
   });
 }
