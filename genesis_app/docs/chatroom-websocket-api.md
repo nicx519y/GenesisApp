@@ -96,11 +96,34 @@ Flutter 在 Gateway signer 完成后，以不区分大小写的方式读取最�
   "ts": 1786340797001,
   "world_id": "world_001",
   "client_msg_id": "client_002",
+  "message_type": "text",
   "payload": {"content": "Hello"},
   "err_no": 0,
   "err_msg": ""
 }
 ```
+
+### 用户发言身份（目标 0.5.2）
+
+V2 `send_message` 顶层显式发送 `message_type: "text" | "narration"`，正文仍为 `payload.content`。发送原文，不拼接 `[User's note: ...]`，不提交 `min_app_version` 或发送者身份。省略、空串或非法发送类型按普通文本处理。图片沿用原协议，不由身份选择改变类型。
+
+```json
+{
+  "type": "send_message",
+  "world_id": "world_001",
+  "client_msg_id": "client_note_001",
+  "message_type": "narration",
+  "payload": {"content": "门外下起了雨。"}
+}
+```
+
+实时和 `GET /aitown-chat/api/v2/messages` 的历史使用同一形状：用户旁白仍是 `type=user`、`sender_type=user`，顶层 `message_type=narration`、`min_app_version=5002`。AI 旁白保留现有 narrator/nar 识别；不可将用户旁白改为 narrator 身份。
+
+展示版本使用 `major * 1000000 + minor * 1000 + patch`，与原生 build number 无关；当前版本达到 `min_app_version` 才展示，0 不限制。版本过滤只在展示层执行。完整消息仍落入地点队列、缓存、去重和连续序号判断，不能把隐藏消息视为漏收。历史初始 `since=0`，后续使用完整响应批次最小的正数 `location_message_id`；整页隐藏且 `has_more=true` 时继续加载。服务端 `newest_message_id` 保持整个地点最大序号，轮次范围刷新不变。
+
+输入默认角色口吻，以 icon 切换为旁白，占位文案不变；每条提交后恢复 text。待发送气泡、自动传输重试、手动失败重试和正式回显均保留该条类型。用户旁白复用 AI 旁白的整宽斜体、无头像昵称样式，前置 icon 颜色也与 AI 旁白一致，多人房也不显示昵称。错误仍走既有 Toast/失败状态，不写入正文。旁白沿用普通发言的 AI 回复、轮次、计价、Go On 和灵感流程。
+
+此为目标契约，不能据此判断后端已上线。开放前需确认 API 实例、P3 模板、Chat 消费/生成、Chat 发送依次发布；首次生成、备用模型重试、重新生成保留类型以及 Prompt 只包装一次，须跨服务联调验收。
 
 `user_enter_location` 不返回 ACK，但仍生成 `client_msg_id`：
 
@@ -335,7 +358,7 @@ Tick 解锁后，V2 还会收到世界级结束通知，顺序为 `tick_done →
 
 此分支不下发 `location_id`、`user_id`，也没有配套 waiting。客户端允许缺失地点，按 `world_id + conversation_round_id` 结束已有对应轮次的等待状态；不创建聊天气泡、空地点轮次或清除其他 P3 轮次。重复通知幂等，本地无对应等待轮次时不修改等待状态。`err_no=0` 仅表示结束通知无错误，不代表 AI 内容生成成功。通知可能缺失且不会自动补发，世界推进仍由 `tick_done` 解锁，不等待此事件。带地点的 P3 结束处理保持原规则。
 
-Tick reply 资格仅从正式 `type=tick` 消息及其正数 `conversation_round_id` 确定，WSS 与历史消息共用该规则，缺失 `conversation_type` 时也识别为 Tick。`tick_start`、`tick_done`、`end_conversation_round` 不参与 Tick 来源识别，不凭控制事件创建没有正式消息的回复来源。`tick_start/tick_done` 仍负责世界推进输入锁；`tick_done` 触发的详情刷新在后台继续。当前地点最新的正式 Tick 在连接就绪、世界推进解锁且无其他操作锁时，Go On、Inspiration 为 `idle`，Edit、Regenerate 为 `none`；不需要 waiting、AI 回复或 end。
+Tick reply 资格仅从正式 `type=tick` 消息及其正数 `conversation_round_id` 确定，WSS 与历史消息共用该规则，缺失 `conversation_type` 时也识别为 Tick。`tick_start`、`tick_done`、`end_conversation_round` 不参与 Tick 来源识别，不凭控制事件创建没有正式消息的回复来源。`tick_start/tick_done` 仍负责世界推进输入锁；`tick_done` 触发的详情刷新在后台继续。世界推进结束时，地点聊天同时清除本地 Tick 等待及 `Progressing the World` 占位，不等待正式 Tick 正文、详情刷新或结束轮次通知；失败或无正文也按此收尾，迟到的正式 Tick 正常展示。仅解除本次 Tick 等待，其他对话轮次、回复生成及资格限制继续生效。当前地点最新的正式 Tick 在连接就绪、世界推进解锁且无其他操作锁时，Go On、Inspiration 为 `idle`，Edit、Regenerate 为 `none`；不需要 waiting、AI 回复或 end。
 
 # Legacy WebSocket 适配附录
 
@@ -979,3 +1002,16 @@ Query：
 - 原始帧通过 `developer.log(name: 'ChatroomSocketFrame')` 输出到 Flutter DevTools Logging。
 - DevTools Network 将同一回复的 `llm_stream_start/llm_chunk/llm_stream_end`（含 V2 `stream_type`）或同一卡片消息的 `llm_card_stream start/chunk/end` 合并为一条 `WS_RECV` 记录。收到首帧即创建，后续帧以 NDJSON 追加到响应正文，结束帧关闭记录；世界、地点、轮次、发送者、卡片和消息 ID 用于隔离并发流，无法唯一匹配的帧单独记录。Logging 和应用内原始帧抓取仍逐帧保留。
 - Network 正文最多保留 64 KB，超限标注截断；同时最多保留 32 条活跃流，2 分钟无新帧、断线或检测到暂停录制时结束未完成记录。心跳及最近 1024 个已发送心跳 ID 对应的 ACK 继续过滤，普通消息和业务 ACK 保持单独记录。
+
+
+## P1 / P1i 章节状态扩展（2026-09-23 客户端适配）
+
+- V2 `type=tick` 的外层、游标、轮次与排序规则不变；payload 继续使用 `current_time`、字符串 `global`、`story_events`、`characters_moved`。
+- 新增 `global_status: [{owner, icon, form, content}]`；每个 `story_events` 新增 `cast: [{id, name}]` 与 `status: [{owner, icon, form, content}]`。保留 `location_id/text/clue`；新结构不依赖 `visibility/visible_to`。`clue` 缺失或为空允许继续。
+- `icon/form` 是动态文案，原样展示。支持全局状态 2 条、每地点状态 6 条、P1/P1i 地点块 10/6 个，按返回顺序展示；客户端不按提示词原目标再次截断。既有帧大小、字符串及集合安全上限仍生效。
+- HTTP 历史和本地 payload JSON 保留相同内容；legacy `sender_type=tick` 的 JSON `content` 也解码，纯文本内容保持可读。根据字段存在性区分旧结构和合法空数组，不迁移数据库列。
+- 新章节在聊天显示全部返回地点；旧章节保留原地点筛选、可见角色和时间信息，统一使用新的卡片内容布局。不存在的地点块在地点资料就绪后丢弃；无头像使用公共默认头像，名字优先角色档案、其次 `cast.name`。cast 排除用户 ID；非 world owner 必须属于本地点 cast。
+- 仅 Tick 内容损坏时显示静态骨架，原始 payload 保留，后续有效历史记录可替换；外层 V2 校验继续执行。合法空数组不显示骨架。字段扩展不改变 Tick 等待和回复按钮资格。
+- 此处为客户端目标契约与兼容行为，真实服务端发布状态需联调确认。
+
+章节的 `global_status`，以及每个地点项（HTTP `paragraphs[]` / 聊天 `story_events[]`）的 `cast`、`status` 均为独立可选数组，可分别省略或同时省略；模型层统一按空数组处理，保留章节旁白、地点叙述和线索，不因此把整条 Tick 判为损坏。字段存在时仍校验数组类型及元素结构（`null` 不视为空数组）。适用于实时 Tick、历史消息、缓存恢复以及 World / Origin 地点段落；旧结构识别和可见性规则不变。

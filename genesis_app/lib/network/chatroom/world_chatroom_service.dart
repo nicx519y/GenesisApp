@@ -60,10 +60,16 @@ class WorldChatroomOlderMessagesPage {
   const WorldChatroomOlderMessagesPage({
     required this.loadedCount,
     required this.hasMore,
+    this.messages = const <WorldChatroomMessage>[],
   });
 
   final int loadedCount;
   final bool hasMore;
+  final List<WorldChatroomMessage> messages;
+  int get nextLocationMessageId => messages
+      .map((message) => message.locationMessageId)
+      .where((id) => id > 0)
+      .fold<int>(0, (min, id) => min == 0 || id < min ? id : min);
 }
 
 /// A synchronous, location-scoped projection of message queue changes.
@@ -1238,7 +1244,11 @@ class WorldChatroomService {
     );
   }
 
-  ChatroomSendHandle sendMessage(String text, {String? clientMsgId}) {
+  ChatroomSendHandle sendMessage(
+    String text, {
+    String? clientMsgId,
+    String messageType = chatroomTextMessageType,
+  }) {
     final session = _session;
     if (session == null) {
       throw const ChatroomProtocolException('chatroom is not connected');
@@ -1264,7 +1274,11 @@ class WorldChatroomService {
     );
     late final Future<ChatroomAck> ackFuture;
     try {
-      ackFuture = session.sendMessage(text, clientMsgId: resolvedClientMsgId);
+      ackFuture = session.sendMessage(
+        text,
+        clientMsgId: resolvedClientMsgId,
+        messageType: messageType,
+      );
     } catch (error, stackTrace) {
       _failSubmittingConversationRound(
         locationId: roundLocationId,
@@ -1429,7 +1443,7 @@ class WorldChatroomService {
       since: beforeMessageId,
       limit: limit,
     );
-    await _mergeFetchedMessages(
+    final remoteMessages = await _mergeFetchedMessages(
       resolvedLocationId,
       response.messages,
       ticket: ticket,
@@ -1469,6 +1483,7 @@ class WorldChatroomService {
     final page = WorldChatroomOlderMessagesPage(
       loadedCount: loadedMessageKeys.length,
       hasMore: hasMore,
+      messages: List<WorldChatroomMessage>.unmodifiable(remoteMessages),
     );
     _recordServiceQueueDebug(
       action: 'loadOlderDone',

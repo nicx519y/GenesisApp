@@ -1,6 +1,15 @@
 part of 'genesis_api.dart';
 
 mixin _GenesisApiWorldOperations on _GenesisApiContext {
+  Future<WorldRecentSummaryPage> getWorldRecentSummary({
+    required String worldId,
+    String? cursor,
+  }) async {
+    return WorldRecentSummaryPage.fromJson(
+      await v1.world.recentSummary(worldId: worldId, cursor: cursor),
+    );
+  }
+
   Future<World> launchWorld({
     required int originId,
     String? ownerUid,

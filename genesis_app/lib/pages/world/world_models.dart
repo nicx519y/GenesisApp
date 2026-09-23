@@ -5,13 +5,14 @@ import '../../network/models/origin.dart';
 import '../../network/json_utils.dart';
 import 'world_value_helpers.dart';
 
-enum WorldBottomSheetKind { detail, locations, events, status, cast }
+enum WorldBottomSheetKind { detail, locations, events, recap, status, cast }
 
 String worldBottomSheetPageName(WorldBottomSheetKind kind) {
   return switch (kind) {
     WorldBottomSheetKind.detail => 'world_detail_shell',
     WorldBottomSheetKind.locations => 'world_locations',
     WorldBottomSheetKind.events => 'world_events',
+    WorldBottomSheetKind.recap => 'world_recap',
     WorldBottomSheetKind.status => 'world_status',
     WorldBottomSheetKind.cast => 'world_cast',
   };
@@ -124,6 +125,11 @@ const worldBottomTagItems = <WorldBottomTagItem>[
     label: 'Events',
     kind: WorldBottomSheetKind.events,
     asset: worldSectionEventsIconAsset,
+  ),
+  WorldBottomTagItem(
+    label: 'Recap',
+    kind: WorldBottomSheetKind.recap,
+    icon: Icons.menu_book_outlined,
   ),
   WorldBottomTagItem(
     label: 'Status',

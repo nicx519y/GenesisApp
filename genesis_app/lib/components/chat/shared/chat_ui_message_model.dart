@@ -25,6 +25,7 @@ class ChatMessageVm {
     required this.isMe,
     required this.status,
     this.senderType = 'user',
+    this.messageType = chatroomTextMessageType,
     DateTime? createdAt,
   }) : createdAt = createdAt ?? DateTime.now();
 
@@ -75,6 +76,7 @@ class ChatMessageVm {
   bool isMe;
   String status;
   final String senderType;
+  String messageType;
   String? error;
   final DateTime createdAt;
 
@@ -83,6 +85,10 @@ class ChatMessageVm {
 
   bool get isAiContentDisclaimer =>
       senderType == chatAiContentDisclaimerSenderType;
+
+  // User narration retains user identity and must not become a system row.
+  bool get isUserNarration =>
+      senderType == 'user' && messageType == chatroomNarrationMessageType;
 
   bool get isNarrator => senderType == 'narrator';
 
@@ -201,6 +207,8 @@ class ChatStoryEventParagraphVm {
     this.visibleRoles = const <ChatStoryEventVisibleRoleVm>[],
     this.locationId = '',
     this.locationName = '',
+    this.statuses = const [],
+    this.sourceIndex = 0,
   });
 
   final String timestamp;
@@ -210,6 +218,8 @@ class ChatStoryEventParagraphVm {
   final List<ChatStoryEventVisibleRoleVm> visibleRoles;
   final String locationId;
   final String locationName;
+  final List<ChatTickStatusVm> statuses;
+  final int sourceIndex;
 
   @override
   bool operator ==(Object other) {
@@ -220,7 +230,9 @@ class ChatStoryEventParagraphVm {
         other.visibilityLabel == visibilityLabel &&
         listEquals(other.visibleRoles, visibleRoles) &&
         other.locationId == locationId &&
-        other.locationName == locationName;
+        other.locationName == locationName &&
+        other.sourceIndex == sourceIndex &&
+        listEquals(other.statuses, statuses);
   }
 
   @override
@@ -232,6 +244,8 @@ class ChatStoryEventParagraphVm {
     Object.hashAll(visibleRoles),
     locationId,
     locationName,
+    sourceIndex,
+    Object.hashAll(statuses),
   );
 }
 

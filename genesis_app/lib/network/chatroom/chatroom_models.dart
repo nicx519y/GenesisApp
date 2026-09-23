@@ -262,6 +262,71 @@ class ChatroomV2Message {
   String encode() => jsonEncode(toJson());
 }
 
+/// P1/P1i status labels and emoji are server content, not client enums.
+class ChatroomTickStatus {
+  const ChatroomTickStatus({
+    required this.owner,
+    required this.icon,
+    required this.form,
+    required this.content,
+  });
+  final String owner;
+  final String icon;
+  final String form;
+  final String content;
+  factory ChatroomTickStatus.fromJson(Map<String, dynamic> json) =>
+      ChatroomTickStatus(
+        owner: _tickString(json, 'owner'),
+        icon: _tickString(json, 'icon'),
+        form: _tickString(json, 'form'),
+        content: _tickString(json, 'content'),
+      );
+  Map<String, Object?> toJson() => {
+    'owner': owner,
+    'icon': icon,
+    'form': form,
+    'content': content,
+  };
+}
+
+class ChatroomTickCast {
+  const ChatroomTickCast({required this.id, required this.name});
+  final String id;
+  final String name;
+  factory ChatroomTickCast.fromJson(Map<String, dynamic> json) =>
+      ChatroomTickCast(
+        id: _tickString(json, 'id'),
+        name: _tickString(json, 'name'),
+      );
+  Map<String, Object?> toJson() => {'id': id, 'name': name};
+}
+
+String _tickString(Map<String, dynamic> json, String field) {
+  final value = json[field];
+  if (value is! String || value.length > chatroomMaxStringCodeUnits) {
+    throw FormatException('Invalid tick $field');
+  }
+  return value;
+}
+
+List<Map<String, dynamic>> _tickList(Object? value) {
+  if (value is! List ||
+      value.length > chatroomMaxCollectionItems ||
+      value.any((item) => item is! Map)) {
+    throw const FormatException('Invalid tick collection');
+  }
+  return value
+      .map((item) => Map<String, dynamic>.from(item as Map))
+      .toList(growable: false);
+}
+
+// Missing optional collections are empty; present values still follow the
+// collection contract (including rejecting null and non-list values).
+List<Map<String, dynamic>> _optionalTickList(
+  Map<String, dynamic> json,
+  String field,
+) => json.containsKey(field) ? _tickList(json[field]) : const [];
+
 class ChatroomV2StoryEvent {
   const ChatroomV2StoryEvent({
     required this.locationId,
@@ -270,6 +335,9 @@ class ChatroomV2StoryEvent {
     required this.visibleTo,
     required this.text,
     required this.clue,
+    this.cast = const [],
+    this.status = const [],
+    this.hasStatusFields = false,
   });
 
   final String locationId;
@@ -278,9 +346,19 @@ class ChatroomV2StoryEvent {
   final List<String>? visibleTo;
   final String text;
   final String clue;
+  final List<ChatroomTickCast> cast;
+  final List<ChatroomTickStatus> status;
+  final bool hasStatusFields;
 
   factory ChatroomV2StoryEvent.fromJson(Map<String, dynamic> json) {
     final rawVisibleTo = json['visible_to'];
+    final hasStatusFields =
+        json.containsKey('cast') || json.containsKey('status');
+    if (hasStatusFields) {
+      _tickString(json, 'location_id');
+      _tickString(json, 'text');
+      if (json['clue'] != null) _tickString(json, 'clue');
+    }
     return ChatroomV2StoryEvent(
       locationId: asString(json['location_id']),
       timestamp: asString(json['timestamp']),
@@ -292,6 +370,19 @@ class ChatroomV2StoryEvent {
             ).map((value) => asString(value)).toList(growable: false),
       text: asString(json['text']),
       clue: asString(json['clue']),
+      hasStatusFields: hasStatusFields,
+      cast: hasStatusFields
+          ? _optionalTickList(
+              json,
+              'cast',
+            ).map(ChatroomTickCast.fromJson).toList(growable: false)
+          : const [],
+      status: hasStatusFields
+          ? _optionalTickList(
+              json,
+              'status',
+            ).map(ChatroomTickStatus.fromJson).toList(growable: false)
+          : const [],
     );
   }
 
@@ -302,6 +393,8 @@ class ChatroomV2StoryEvent {
     'visible_to': visibleTo,
     'text': text,
     'clue': clue,
+    if (hasStatusFields) 'cast': cast.map((item) => item.toJson()).toList(),
+    if (hasStatusFields) 'status': status.map((item) => item.toJson()).toList(),
   };
 }
 
@@ -340,6 +433,10 @@ class ChatroomV2TickPayload {
     required this.storyEvents,
     required this.charactersMoved,
     required this.fallbackContent,
+    this.globalStatus = const [],
+    this.hasStatusFields = false,
+    this.isMalformed = false,
+    this.malformedPayload = const {},
   });
 
   final String currentTime;
@@ -349,54 +446,146 @@ class ChatroomV2TickPayload {
   final List<ChatroomV2StoryEvent> storyEvents;
   final List<ChatroomV2CharacterMovement> charactersMoved;
   final String fallbackContent;
+  final List<ChatroomTickStatus> globalStatus;
+  final bool hasStatusFields;
+  final bool isMalformed;
+  final Map<String, dynamic> malformedPayload;
 
   bool get isFallback =>
+      !isMalformed &&
+      globalStatus.isEmpty &&
       fallbackContent.isNotEmpty &&
       globalText.isEmpty &&
       storyEvents.isEmpty &&
       charactersMoved.isEmpty;
 
   factory ChatroomV2TickPayload.fromJson(Map<String, dynamic> json) {
-    final rawStoryEvents = json['story_events'];
-    final rawCharactersMoved = json['characters_moved'];
-    if (rawStoryEvents != null && rawStoryEvents is! List) {
-      throw const ChatroomProtocolException(
-        'tick payload story_events must be an array',
+    // Legacy history may keep the complete chapter as a JSON content string.
+    final original = json;
+    final content = json['content'];
+    if (!json.containsKey('global') &&
+        !json.containsKey('story_events') &&
+        !json.containsKey('global_status') &&
+        content is String &&
+        content.trimLeft().startsWith('{')) {
+      try {
+        if (isChatroomFrameOversized(content)) {
+          throw const FormatException('Oversized tick');
+        }
+        final decoded = jsonDecode(content);
+        if (decoded is! Map<String, dynamic> ||
+            (!decoded.containsKey('global') &&
+                !decoded.containsKey('story_events') &&
+                !decoded.containsKey('global_status'))) {
+          throw const FormatException('Invalid tick content');
+        }
+        json = {...json, ...decoded}..remove('content');
+      } on FormatException {
+        return ChatroomV2TickPayload(
+          currentTime: asString(json['current_time']),
+          tickNo: asInt(json['tick_no']),
+          subTickNo: asInt(json['sub_tick_no']),
+          globalText: '',
+          storyEvents: const [],
+          charactersMoved: const [],
+          fallbackContent: '',
+          isMalformed: true,
+          malformedPayload: Map.unmodifiable(original),
+        );
+      }
+    }
+    final rawEvents = json['story_events'];
+    final hasStatusFields =
+        json.containsKey('global_status') ||
+        (rawEvents is List &&
+            rawEvents.any(
+              (item) =>
+                  item is Map &&
+                  (item.containsKey('cast') || item.containsKey('status')),
+            ));
+    try {
+      for (final field in ['current_time', 'global', 'content']) {
+        if (json.containsKey(field)) _tickString(json, field);
+      }
+      if (!json.containsKey('global') &&
+          !json.containsKey('story_events') &&
+          asString(json['content']).isEmpty &&
+          asString(json['current_time']).isEmpty) {
+        throw const FormatException('Missing tick content');
+      }
+      final events = _tickList(
+        rawEvents ?? (hasStatusFields ? null : const []),
+      );
+      if (hasStatusFields) {
+        _tickString(json, 'current_time');
+        _tickString(json, 'global');
+        for (final event in events) {
+          _tickString(event, 'location_id');
+          _tickString(event, 'text');
+          _optionalTickList(event, 'cast');
+          _optionalTickList(event, 'status');
+        }
+      }
+      return ChatroomV2TickPayload(
+        currentTime: asString(json['current_time']),
+        tickNo: asInt(json['tick_no']),
+        subTickNo: asInt(json['sub_tick_no']),
+        globalText: asString(json['global']),
+        globalStatus: _optionalTickList(
+          json,
+          'global_status',
+        ).map(ChatroomTickStatus.fromJson).toList(growable: false),
+        hasStatusFields: hasStatusFields,
+        storyEvents: events
+            .map(ChatroomV2StoryEvent.fromJson)
+            .toList(growable: false),
+        charactersMoved: _tickList(
+          json['characters_moved'] ?? const [],
+        ).map(ChatroomV2CharacterMovement.fromJson).toList(growable: false),
+        fallbackContent: asString(json['content']),
+      );
+    } on FormatException {
+      // Preserve the valid message envelope and identity so history can replace
+      // the static placeholder. Never expose malformed JSON as chat text.
+      return ChatroomV2TickPayload(
+        currentTime: asString(json['current_time']),
+        tickNo: asInt(json['tick_no']),
+        subTickNo: asInt(json['sub_tick_no']),
+        globalText: '',
+        storyEvents: const [],
+        charactersMoved: const [],
+        fallbackContent: '',
+        hasStatusFields: hasStatusFields,
+        isMalformed: true,
+        malformedPayload: Map.unmodifiable(original),
       );
     }
-    if (rawCharactersMoved != null && rawCharactersMoved is! List) {
-      throw const ChatroomProtocolException(
-        'tick payload characters_moved must be an array',
-      );
-    }
-    return ChatroomV2TickPayload(
-      currentTime: asString(json['current_time']),
-      tickNo: asInt(json['tick_no']),
-      subTickNo: asInt(json['sub_tick_no']),
-      globalText: asString(json['global']),
-      storyEvents: (rawStoryEvents as List? ?? const <Object?>[])
-          .map((value) => ChatroomV2StoryEvent.fromJson(asJsonMap(value)))
-          .toList(growable: false),
-      charactersMoved: (rawCharactersMoved as List? ?? const <Object?>[])
-          .map(
-            (value) => ChatroomV2CharacterMovement.fromJson(asJsonMap(value)),
-          )
-          .toList(growable: false),
-      fallbackContent: asString(json['content']),
-    );
   }
 
-  Map<String, Object?> toJson() => <String, Object?>{
-    'current_time': currentTime,
-    'tick_no': tickNo,
-    'sub_tick_no': subTickNo,
-    'global': globalText,
-    'story_events': storyEvents.map((event) => event.toJson()).toList(),
-    'characters_moved': charactersMoved
-        .map((movement) => movement.toJson())
-        .toList(),
-    if (fallbackContent.isNotEmpty) 'content': fallbackContent,
-  };
+  /// The public HTTP API keeps narrator/paragraphs; chat keeps global/story_events.
+  factory ChatroomV2TickPayload.fromTickResult(Map<String, dynamic> result) =>
+      ChatroomV2TickPayload.fromJson({
+        ...result,
+        if (result.containsKey('narrator')) 'global': result['narrator'],
+        if (result.containsKey('paragraphs'))
+          'story_events': result['paragraphs'],
+      });
+
+  Map<String, Object?> toJson() => isMalformed
+      ? Map<String, Object?>.from(malformedPayload)
+      : <String, Object?>{
+          'current_time': currentTime,
+          'tick_no': tickNo,
+          'sub_tick_no': subTickNo,
+          'global': globalText,
+          if (hasStatusFields || globalStatus.isNotEmpty)
+            'global_status': globalStatus.map((item) => item.toJson()).toList(),
+          'story_events': storyEvents.map((event) => event.toJson()).toList(),
+          'characters_moved': charactersMoved
+              .map((movement) => movement.toJson())
+              .toList(),
+          if (fallbackContent.isNotEmpty) 'content': fallbackContent,
+        };
 }
 
 class ChatroomEnvelope {

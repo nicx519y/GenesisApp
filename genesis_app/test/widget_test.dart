@@ -4,6 +4,7 @@ import 'package:genesis_flutter_android/components/gems/purchase_options_sheet.d
 import 'support/membership_fixtures.dart';
 import 'package:genesis_flutter_android/platform/billing/membership_guest_claim_record.dart';
 import 'dart:async';
+import 'package:genesis_flutter_android/pages/world/world_recap_cache.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
 import 'package:genesis_flutter_android/app/onboarding/personalization_store.dart';
 import 'package:genesis_flutter_android/components/onboarding/personalization_sheet.dart';
@@ -178,6 +179,7 @@ import 'package:genesis_flutter_android/ui/components/genesis_character_avatar.d
 import 'package:genesis_flutter_android/ui/components/genesis_primary_button.dart';
 import 'package:genesis_flutter_android/ui/components/genesis_search_field.dart';
 import 'package:genesis_flutter_android/ui/tokens/genesis_colors.dart';
+import 'package:genesis_flutter_android/ui/tokens/genesis_typography.dart';
 import 'package:genesis_flutter_android/utils/genesis_image_resource.dart';
 import 'package:genesis_flutter_android/utils/genesis_timestamp_formatter.dart';
 
@@ -2765,6 +2767,103 @@ class _RecordingCreateOriginTransport implements HttpTransport {
 }
 
 void main() {
+  testWidgets(
+    'world recap shares sheet navigation and session cache lifecycle',
+    (tester) async {
+      final transport = _RecapLifecycleTransport();
+      var services = await _testServices(transport: transport, useMock: false);
+      Widget app() => AppServicesScope(
+        services: services,
+        child: const MaterialApp(home: WorldPage(wid: 'w_test_1')),
+      );
+      Finder tag(String label) => find.descendant(
+        of: find.byKey(const ValueKey<String>('world-bottom-tags-overlay')),
+        matching: find.text(label),
+      );
+      final sheet = find.byKey(
+        const ValueKey<String>('world-single-section-bottom-sheet'),
+      );
+      Finder sheetPager() =>
+          find.descendant(of: sheet, matching: find.byType(PageView)).first;
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      expect(transport.recapRequests, isEmpty);
+      await tester.tap(tag('Events'));
+      await tester.pumpAndSettle();
+      expect(transport.recapRequests, isEmpty);
+      await tester.drag(sheetPager(), const Offset(-600, 0));
+      await tester.pumpAndSettle();
+      expect(transport.recapRequests.length, 1);
+      expect(
+        find.byKey(const ValueKey<String>('world-recap-skeleton')),
+        findsOneWidget,
+      );
+      expect(transport.recapRequests.single.uri.queryParameters, {
+        'world_id': 'w_test_1',
+      });
+      transport.completeRecap(0, 'Cached recap body.');
+      await tester.pumpAndSettle();
+      expect(find.text('Cached recap body.'), findsOneWidget);
+      final cache = tester
+          .widget<WorldSingleSectionBottomSheet>(
+            find.byType(WorldSingleSectionBottomSheet),
+          )
+          .recapCache;
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      expect(transport.recapRequests.length, 1);
+      await tester.drag(sheetPager(), const Offset(-600, 0));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: sheet, matching: find.text('Status')),
+        findsOneWidget,
+      );
+      expect(transport.recapRequests.length, 1);
+      await tester.drag(sheetPager(), const Offset(600, 0));
+      await tester.pumpAndSettle();
+      expect(transport.recapRequests.length, 2);
+      expect(find.text('Cached recap body.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('world-recap-skeleton')),
+        findsNothing,
+      );
+      transport.completeRecap(1, 'Updated recap body.');
+      await tester.pumpAndSettle();
+      expect(find.text('Updated recap body.'), findsOneWidget);
+      await tester.drag(
+        find.byKey(const ValueKey<String>('world-sheet-header-drag-area')),
+        const Offset(0, 500),
+      );
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+      expect(cache.items.single.body, 'Updated recap body.');
+      await tester.tap(tag('Recap'));
+      await tester.pumpAndSettle();
+      expect(transport.recapRequests.length, 3);
+      expect(find.text('Updated recap body.'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+      expect(cache.items, isEmpty);
+      transport.completeRecap(2, 'Late recap body.');
+      await tester.pumpAndSettle();
+      expect(cache.items, isEmpty);
+      services = await _testServices(transport: transport, useMock: false);
+      await tester.pumpWidget(app());
+      await tester.pumpAndSettle();
+      await tester.tap(tag('Recap'));
+      await tester.pumpAndSettle();
+      expect(transport.recapRequests.length, 4);
+      expect(
+        find.byKey(const ValueKey<String>('world-recap-skeleton')),
+        findsOneWidget,
+      );
+      expect(find.text('Updated recap body.'), findsNothing);
+      transport.completeRecap(3, 'Fresh world session.');
+      await tester.pumpAndSettle();
+      expect(find.text('Fresh world session.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('loaded empty events survive reopening during refresh', (
     tester,
   ) async {
@@ -2780,6 +2879,8 @@ void main() {
     );
     final notices = ValueNotifier<List<WorldNewUserJoinNotice>>([]);
     final cache = WorldSectionsEventsCache()..reset(world.worldId);
+    final recapCache = WorldRecapCache();
+    addTearDown(recapCache.dispose);
     addTearDown(worldState.dispose);
     addTearDown(selection.dispose);
     addTearDown(notices.dispose);
@@ -2792,6 +2893,7 @@ void main() {
           worldListenable: worldState,
           newUserJoinNoticesListenable: notices,
           eventsCache: cache,
+          recapCache: recapCache,
           currentUid: 'u_mock',
           recentChatLocationIds: const {},
           onLocationTap: (_) {},
@@ -24820,7 +24922,7 @@ void main() {
     final l1Badge = tester.widget<Text>(
       find.descendant(of: statisticsNote, matching: find.text('L1')),
     );
-    expect(l1Badge.style?.fontSize, 10);
+    expect(l1Badge.style?.fontSize, GenesisTypography.tabLabel.fontSize);
     expect(l1Badge.style?.color, GenesisColors.darkTextTertiary);
     expect(
       find.byKey(const ValueKey<String>('locations-inline-name-Loc_1')),
@@ -33066,7 +33168,7 @@ void main() {
         )
         .where((widget) => widget.decoration is BoxDecoration)
         .toList();
-    expect(tagFills, hasLength(4));
+    expect(tagFills, hasLength(5));
     for (final tag in tagFills) {
       expect(
         (tag.decoration as BoxDecoration).color,
@@ -33110,7 +33212,7 @@ void main() {
       const ValueKey<String>('world-sheet-page-indicator'),
     );
     expect(sheetIndicator, findsOneWidget);
-    expect(tester.getSize(sheetIndicator), const Size(53, 4));
+    expect(tester.getSize(sheetIndicator), const Size(62, 4));
     expect(
       tester.getTopLeft(sheetIndicator).dy - tester.getTopLeft(openedSheet).dy,
       closeTo(8.5, 0.001),
@@ -33122,7 +33224,7 @@ void main() {
       ),
       findsOneWidget,
     );
-    for (var index = 0; index < 4; index++) {
+    for (var index = 0; index < 5; index++) {
       final segment = find.byKey(
         ValueKey<String>('world-sheet-page-segment-$index'),
       );
@@ -35713,7 +35815,7 @@ void main() {
       await tester.pump();
       expect(
         find.byKey(const ValueKey<String>('chat-tick-progress-content')),
-        findsOneWidget,
+        findsNothing,
       );
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pump();
@@ -38422,7 +38524,11 @@ class _FakeChatroomSession implements ChatroomSession {
   }
 
   @override
-  Future<ChatroomAck> sendMessage(String text, {String? clientMsgId}) async {
+  Future<ChatroomAck> sendMessage(
+    String text, {
+    String? clientMsgId,
+    String messageType = 'text',
+  }) async {
     sentMessages.add(text);
     final resolvedClientMsgId = clientMsgId ?? 'client-1';
     sentClientMsgIds.add(resolvedClientMsgId);
@@ -38575,4 +38681,31 @@ class _EmptyListRefreshTransport extends _RecordingV1ListTransport {
   }
 
   void complete() => pending.complete(emptyResponse);
+}
+
+class _RecapLifecycleTransport extends _RecordingV1ListTransport {
+  _RecapLifecycleTransport() : super(worldRelationStatus: 'approved');
+  final recapRequests = <TransportRequest>[];
+  final pendingRecaps = <Completer<TransportResponse>>[];
+
+  @override
+  Future<TransportResponse> send(TransportRequest request) {
+    if (request.uri.path != '/api/v1/world/recent_summary') {
+      return super.send(request);
+    }
+    recapRequests.add(request);
+    final pending = Completer<TransportResponse>();
+    pendingRecaps.add(pending);
+    return pending.future;
+  }
+
+  void completeRecap(int index, String body) => pendingRecaps[index].complete(
+    _v1Response({
+      'items': [
+        {'body': body, 'tick_no': 9},
+      ],
+      'has_more': false,
+      'cursor': '',
+    }),
+  );
 }

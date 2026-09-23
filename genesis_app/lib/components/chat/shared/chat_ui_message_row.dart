@@ -81,12 +81,13 @@ class ChatMessageRow extends StatelessWidget {
         ),
       );
     }
-    if (message.isNarrator) {
+    if (message.isNarrator || message.isUserNarration) {
       return trackVisibility(
         ChatNarratorMessageBubble(
           message: message,
           style: style,
           onLongPressStart: onLongPressStart,
+          onFailedMessageTap: onFailedMessageTap,
         ),
       );
     }

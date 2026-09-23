@@ -2,7 +2,7 @@ part of 'chat_ui_library.dart';
 
 const Color _tickMessageBackgroundColor = Color(0x99151517);
 const Color _tickMessageAccentColor = GenesisColors.redPrimary;
-const Color _tickMessageHeaderColor = Color(0xFFF4F3F6);
+const Color _tickMessageHeaderColor = GenesisColors.darkTextPrimary;
 const Color _tickMessageBorderColor = Color(0x33FFFFFF);
 const Color _tickMessageDividerColor = Color(0x29FFFFFF);
 const double _tickMessageBlurSigma = GenesisBlur.strong;
@@ -13,12 +13,16 @@ class ChatTickPayloadVm extends ChatTimelinePayloadVm {
     this.storyEvents,
     this.charactersMoved,
     this.fallbackContent = '',
+    this.globalStatuses = const [],
+    this.isMalformed = false,
   });
 
   final String globalText;
   final ChatStoryEventsPayloadVm? storyEvents;
   final ChatCharactersMovedPayloadVm? charactersMoved;
   final String fallbackContent;
+  final List<ChatTickStatusVm> globalStatuses;
+  final bool isMalformed;
 
   bool get hasGlobal => globalText.trim().isNotEmpty;
 
@@ -27,11 +31,15 @@ class ChatTickPayloadVm extends ChatTimelinePayloadVm {
   bool get hasCharactersMoved => charactersMoved?.movements.isNotEmpty ?? false;
 
   bool get hasStructuredSections =>
-      hasGlobal || hasStoryEvents || hasCharactersMoved;
+      hasGlobal ||
+      globalStatuses.isNotEmpty ||
+      hasStoryEvents ||
+      hasCharactersMoved;
 
   String get copyText {
     return [
       if (hasGlobal) ...['Global', globalText.trim()],
+      ...globalStatuses.map((status) => status.copyText),
       if (hasStoryEvents) _storyEventsCopyText(storyEvents!),
       if (hasCharactersMoved) _charactersMovedCopyText(charactersMoved!),
       if (!hasStructuredSections && fallbackContent.trim().isNotEmpty)
@@ -45,12 +53,20 @@ class ChatTickPayloadVm extends ChatTimelinePayloadVm {
         other.globalText == globalText &&
         other.storyEvents == storyEvents &&
         other.charactersMoved == charactersMoved &&
-        other.fallbackContent == fallbackContent;
+        other.fallbackContent == fallbackContent &&
+        other.isMalformed == isMalformed &&
+        listEquals(other.globalStatuses, globalStatuses);
   }
 
   @override
-  int get hashCode =>
-      Object.hash(globalText, storyEvents, charactersMoved, fallbackContent);
+  int get hashCode => Object.hash(
+    globalText,
+    storyEvents,
+    charactersMoved,
+    fallbackContent,
+    isMalformed,
+    Object.hashAll(globalStatuses),
+  );
 }
 
 class ChatTickMessageBubble extends StatelessWidget {
@@ -86,16 +102,11 @@ class ChatTickMessageBubble extends StatelessWidget {
       );
     } else {
       transitionKey = 'plain';
-      content = _InlineMarkdownText(
-        text: _tickAdvanceText(message),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.left,
-        style: style.systemMessageTextStyle.copyWith(
-          color: _tickMessageHeaderColor,
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-        ),
+      content = _ChatCompositeTickMessageContent(
+        message: message,
+        payload: ChatTickPayloadVm(fallbackContent: message.text),
+        style: style,
+        onLocationTap: onLocationTap,
       );
     }
     return _ChatTickSurface(
@@ -226,16 +237,11 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final usesScenePlate = style.useScenePlateBubbleGeometry;
-    final storyEvents = payload.storyEvents;
-    final charactersMoved = payload.charactersMoved;
-    final groupedMovements = charactersMoved == null
-        ? const <ChatCharacterMovementVm>[]
-        : _groupTickCharacterMovements(charactersMoved.movements);
-    final showFallback =
-        !payload.hasStructuredSections &&
-        payload.fallbackContent.trim().isNotEmpty;
+    final movements = _groupTickCharacterMovements(
+      payload.charactersMoved?.movements ?? const [],
+    );
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ChatTickHeader(
@@ -243,65 +249,18 @@ class _ChatCompositeTickMessageContent extends StatelessWidget {
           headerKey: ValueKey<String>('chat-tick-header-${message.localId}'),
           style: style,
         ),
-        if (payload.hasGlobal) ...[
-          _ChatTickSectionDivider(style: style),
-          ChatTickGlobalSection(text: payload.globalText, style: style),
-        ],
-        if (storyEvents != null && storyEvents.paragraphs.isNotEmpty) ...[
-          SizedBox(height: usesScenePlate ? 12 : 20),
-          for (var index = 0; index < storyEvents.paragraphs.length; index += 1)
-            _ChatStoryEventParagraph(
-              messageLocalId: '${message.localId}-tick',
-              index: index,
-              paragraph: storyEvents.paragraphs[index],
-              style: style,
-              addTopSpacing: index > 0,
-              scenePlate: usesScenePlate,
-            ),
-        ],
-        if (groupedMovements.isNotEmpty)
-          usesScenePlate
-              ? _ChatTickMovementSection(
-                  messageLocalId: '${message.localId}-tick',
-                  movements: groupedMovements,
-                  style: style,
-                  onLocationTap: onLocationTap,
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const SizedBox(height: 20),
-                    for (
-                      var index = 0;
-                      index < groupedMovements.length;
-                      index += 1
-                    ) ...[
-                      if (index > 0) const SizedBox(height: 10),
-                      _ChatCharacterMovementRow(
-                        messageLocalId: '${message.localId}-tick',
-                        index: index,
-                        movement: groupedMovements[index],
-                        style: style,
-                        onLocationTap: onLocationTap,
-                        usePastTenseDirection: true,
-                      ),
-                    ],
-                  ],
-                ),
-        if (showFallback) ...[
-          const SizedBox(height: 10),
-          _InlineMarkdownText(
-            text: payload.fallbackContent,
-            textAlign: TextAlign.left,
-            style: style.systemMessageTextStyle.copyWith(
-              color: usesScenePlate
-                  ? Colors.white.withValues(alpha: 0.73)
-                  : null,
-              fontSize: usesScenePlate ? 14 : null,
-              height: usesScenePlate ? 1.3 : 1.45,
-            ),
+        ChatTickChapterContent(
+          payload: payload,
+          currentTime: message.currentTime,
+          messageLocalId: '${message.localId}-tick',
+        ),
+        if (!payload.isMalformed && movements.isNotEmpty)
+          _ChatTickMovementSection(
+            messageLocalId: '${message.localId}-tick',
+            movements: movements,
+            style: style,
+            onLocationTap: onLocationTap,
           ),
-        ],
       ],
     );
   }
@@ -371,11 +330,8 @@ class _ChatTickProgressTitleState extends State<_ChatTickProgressTitle> {
       key: const ValueKey<String>('chat-tick-progress-title'),
       '${widget.title}${List.filled(_dotCount, '.').join()}',
       textAlign: TextAlign.left,
-      style: const TextStyle(
-        color: _tickMessageHeaderColor,
-        fontSize: 14,
-        height: 1.3,
-        fontWeight: FontWeight.w600,
+      style: GenesisTypography.bodyStrong.copyWith(
+        color: GenesisColors.darkTextPrimary,
       ),
     );
   }
@@ -395,17 +351,6 @@ class ChatTickHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (!style.useScenePlateBubbleGeometry) {
-      return Text(
-        key: headerKey,
-        label,
-        style: style.systemMessageTextStyle.copyWith(
-          color: _tickMessageHeaderColor,
-          fontSize: 14,
-          fontWeight: FontWeight.w400,
-        ),
-      );
-    }
     return Container(
       key: headerKey,
       padding: const EdgeInsets.only(bottom: 10),
@@ -413,25 +358,30 @@ class ChatTickHeader extends StatelessWidget {
         border: Border(bottom: BorderSide(color: _tickMessageDividerColor)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            key: const ValueKey<String>('chat-tick-header-dot'),
-            width: 5,
-            height: 5,
-            decoration: const BoxDecoration(
-              color: _tickMessageAccentColor,
-              shape: BoxShape.circle,
+          _ChatTickFirstLineIcon(
+            textStyle: GenesisTypography.bodyStrong.copyWith(
+              leadingDistribution: TextLeadingDistribution.even,
+            ),
+            child: Container(
+              key: const ValueKey<String>('chat-tick-header-dot'),
+              width: 5,
+              height: 5,
+              decoration: const BoxDecoration(
+                color: _tickMessageAccentColor,
+                shape: BoxShape.circle,
+              ),
             ),
           ),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               label,
-              style: style.systemMessageTextStyle.copyWith(
+              style: GenesisTypography.bodyStrong.copyWith(
                 color: GenesisColors.darkTextPrimary,
-                fontSize: 14,
-                height: 1,
-                fontWeight: FontWeight.w600,
+                // Center the letterforms as well as the line box beside the dot.
+                leadingDistribution: TextLeadingDistribution.even,
               ),
             ),
           ),
@@ -453,20 +403,14 @@ class ChatTickGlobalSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = style.systemMessageTextStyle.color ?? Colors.white;
     return KeyedSubtree(
       key: const ValueKey<String>('chat-tick-global-section'),
       child: _InlineMarkdownText(
         text: text,
-        textAlign: TextAlign.left,
-        style: style.systemMessageTextStyle.copyWith(
-          color: style.useScenePlateBubbleGeometry
-              ? GenesisColors.darkTextSecondary
-              : textColor.withValues(alpha: 0.72),
-          fontSize: style.useScenePlateBubbleGeometry ? 14 : null,
-          height: style.useScenePlateBubbleGeometry ? 1.3 : null,
+        softItalic: true,
+        style: GenesisTypography.body.copyWith(
+          color: GenesisColors.darkTextSecondary,
         ),
-        softItalicPerToken: true,
       ),
     );
   }
@@ -516,31 +460,15 @@ class _ChatTickMovementSection extends StatelessWidget {
   }
 }
 
-class _ChatTickSectionDivider extends StatelessWidget {
-  const _ChatTickSectionDivider({required this.style});
-
-  final ChatUiStyleConfig style;
-
-  @override
-  Widget build(BuildContext context) {
-    if (style.useScenePlateBubbleGeometry) {
-      return const SizedBox(height: 10);
-    }
-    final color = (style.systemMessageTextStyle.color ?? Colors.white)
-        .withValues(alpha: 0.16);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Divider(height: 1, thickness: 1, color: color),
-    );
-  }
-}
-
 String chatTickMessageCopyText(ChatMessageVm message) {
   final header = message.currentTime.trim().isEmpty
       ? _tickLabel(message)
       : '${_tickLabel(message)} · ${message.currentTime.trim()}';
   final payload = message.timelinePayload;
   if (payload is! ChatTickPayloadVm) return _tickAdvanceText(message);
+  if (!payload.hasStructuredSections &&
+      payload.fallbackContent.trim() == message.currentTime.trim())
+    return header;
   final content = payload.copyText.trim();
   return content.isEmpty ? header : '$header\n$content';
 }
@@ -548,13 +476,19 @@ String chatTickMessageCopyText(ChatMessageVm message) {
 String _storyEventsCopyText(ChatStoryEventsPayloadVm event) {
   return [
     for (final paragraph in event.paragraphs) ...[
-      'Event',
+      if (paragraph.locationName.isNotEmpty)
+        paragraph.locationName
+      else if (event.locationName.isNotEmpty)
+        event.locationName
+      else
+        'Event',
       [
         if (paragraph.timestamp.trim().isNotEmpty) paragraph.timestamp.trim(),
         if (paragraph.visibilityLabel.trim().isNotEmpty)
           paragraph.visibilityLabel.trim(),
       ].join(' · '),
       paragraph.text.trim(),
+      ...paragraph.statuses.map((status) => status.copyText),
       if (paragraph.clue.trim().isNotEmpty) paragraph.clue.trim(),
     ],
   ].where((value) => value.trim().isNotEmpty).join('\n');

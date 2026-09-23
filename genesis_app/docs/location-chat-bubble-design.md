@@ -112,3 +112,19 @@ Developer Page 的 `switch → Location Chat → Streaming animations` 提供四
 - `ChatReplyWaitingBubble` 是可复用等待回复控件，使用同一个 `ChatBubbleSurface`，读取传入配置中的 AI 底色和正文色。页面只决定何时显示和移除，不重复实现圆点与底框。
 
 增加或修改以上类型时，同时维护本表、token 和共用控件；特例在调用方明确说明，不改全局配置来补偿单个页面。Inspiration、额度提示、Tick 和入场提示属于独立模块，不能直接套用旁白或 AI 的整套样式。
+
+
+## 用户旁白（0.5.2）
+
+用户旁白由 `sender_type=user` 与 `message_type=narration` 共同识别，保持用户消息的归属、回显匹配及重试，不归入 system/AI 消息。复用 `ChatNarratorMessageBubble` 的整宽、斜体、背景和布局，不显示头像和昵称；前置段落图标与 AI 旁白统一复用 `chatNarratorMessageIconColor(style)`，不按用户身份或收发方向区分颜色。用户旁白失败时保留原文并提供失败重试入口，不将异常文本写入气泡。统一斜体组件同时适用于 iOS 和 Android。
+
+输入框左侧旁白切换与右侧 Send 统一复用 `ChatComposerActionButton`：40×40、圆角 8、图标 17，使用相同背景模糊与按压反馈，两侧距输入框均为 9，底部对齐。旁白按钮始终显示白色段落图标，关闭为 Send 灰底、开启为品牌红底；关闭不等于禁用，空输入也能切换。切换保留草稿、焦点和键盘状态。每条消息提交后恢复正常发送，校验未通过时保留选择，失败重试保留原消息类型。
+
+
+## Tick 章节状态卡（P1 / P1i，2026-09-23）
+
+聊天与 World Events 复用 `ChatTickChapterContent`。顺序为 Tick 标题、原样章节时间、整宽斜体旁白、世界状态气泡、按返回顺序排列的地点块，聊天末尾保留既有去向行。每个地点展示地点名、缩进叙述、角色状态气泡、粉色斜体线索；状态气泡组间隔 6，标签单行省略，正文自然换行。world 状态不展示 owner 或角色头像。
+
+标题、地点名、角色名、标签使用 `GenesisTypography.bodyStrong`；时间、正文使用 `body`；历史辅助时间使用 `supporting`。斜体使用公共处理；主次文字使用 `darkTextPrimary/darkTextSecondary`，辅助时间使用 `darkTextTertiary`，线索使用 `redSecondary`。状态填充使用 `darkFaintFill`。不得另建字号、字重、行高组合，公共头像内部样式不覆盖。
+
+旧数据也使用统一布局：缺失状态区隐藏，保留原可见角色、不同于章节时间的段落时间及 World Events 数值变化。合法空集合不显示空区或骨架；内容损坏显示静态骨架，历史更新后恢复。界面不从 Tick cast 推导地图角色位置。

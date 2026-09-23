@@ -20,8 +20,12 @@ class LocationChatMessageParseContext {
     required this.roleAvatarUrl,
     this.hasCachedTimelinePayload = false,
     this.cachedTimelinePayload,
+    this.locationExists,
+    this.isUserId,
   });
 
+  final bool? Function(String)? locationExists;
+  final bool Function(String)? isUserId;
   final String currentLocationId;
   final LocationChatMessageResolver<bool> isMine;
   final LocationChatMessageResolver<String> senderName;
@@ -41,6 +45,8 @@ class LocationChatMessageParseContext {
   }) {
     return LocationChatMessageParseContext(
       currentLocationId: currentLocationId,
+      locationExists: locationExists,
+      isUserId: isUserId,
       isMine: isMine,
       senderName: senderName,
       avatarUrl: avatarUrl,

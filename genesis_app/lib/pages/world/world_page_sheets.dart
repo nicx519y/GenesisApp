@@ -61,6 +61,7 @@ extension _WorldPageSheets on _WorldPageState {
             worldListenable: _sectionsWorldNotifier,
             newUserJoinNoticesListenable: _newUserJoinNoticesNotifier,
             eventsCache: _sectionsEventsCache,
+            recapCache: _recapCache,
             currentUid: _currentUid,
             recentChatLocationIds: _recentChatLocationIds,
             onLocationTap: _handleBottomSheetLocationTap,

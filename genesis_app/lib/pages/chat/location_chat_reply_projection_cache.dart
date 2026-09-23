@@ -204,6 +204,8 @@ class _LocationChatReplyProjectionCache {
         isPlayerControlledRole: _owner._messageSenderIsPlayerControlledRole,
         characterName: identity.characterName,
         locationName: identity.locationName,
+        locationExists: identity.locationExists,
+        isUserId: identity.isUserId,
         roleName: identity.roleName,
         roleIsAi: identity.roleIsAi,
         roleAvatarUrl: identity.roleAvatarUrl,
@@ -252,6 +254,7 @@ class _LocationChatReplyProjectionCache {
         isMe: parsed.isMe,
         status: parsed.status,
         senderType: parsed.senderType,
+        messageType: parsed.messageType,
         createdAt: parsed.createdAt,
       );
       if (previous != null &&

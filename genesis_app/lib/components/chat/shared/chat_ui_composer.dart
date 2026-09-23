@@ -72,6 +72,7 @@ class ChatComposer extends StatelessWidget {
     this.secondaryLeadingShortcutLabel,
     this.onSecondaryLeadingShortcutPressed,
     this.composerHeader,
+    this.leadingAction,
     this.sendIcon = ChatComposerSendIcon.send,
     this.animateSendButton = true,
     this.pinActionsToBottom = false,
@@ -96,6 +97,7 @@ class ChatComposer extends StatelessWidget {
   final String? secondaryLeadingShortcutLabel;
   final VoidCallback? onSecondaryLeadingShortcutPressed;
   final Widget? composerHeader;
+  final Widget? leadingAction;
   final ChatComposerSendIcon sendIcon;
   final bool animateSendButton;
   final bool pinActionsToBottom;
@@ -141,6 +143,10 @@ class ChatComposer extends StatelessWidget {
                         ? CrossAxisAlignment.center
                         : CrossAxisAlignment.start,
                     children: [
+                      if (leadingAction != null) ...[
+                        leadingAction!,
+                        SizedBox(width: style.composerActionGap),
+                      ],
                       if (style.showComposerVoiceButton) ...[
                         _ComposerIconButton(
                           icon: MyFlutterApp.voice,
@@ -523,11 +529,65 @@ class _ComposerSendButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final enabled = onPressed != null && !sending;
-    final background = enabled || sending
+    return ChatComposerActionButton(
+      key: const ValueKey('chat-composer-send-button'),
+      active: enabled || sending,
+      onPressed: onPressed,
+      loading: sending,
+      animate: animate,
+      style: style,
+      icon: label == null
+          ? icon == ChatComposerSendIcon.arrowUp
+                ? CustomPaint(
+                    size: Size.square(style.composerSendButtonIconSize),
+                    painter: _ComposerUpArrowPainter(
+                      color: style.composerSendButtonIconColor,
+                    ),
+                  )
+                : Icon(
+                    Icons.send,
+                    color: style.composerSendButtonIconColor,
+                    size: style.composerSendButtonIconSize,
+                  )
+          : Text(
+              genesisDisplaySafeText(label!),
+              maxLines: 1,
+              overflow: TextOverflow.clip,
+              style: TextStyle(
+                color: style.composerSendButtonIconColor,
+                fontSize: 14,
+              ),
+            ),
+    );
+  }
+}
+
+/// Shared surface and interaction for send and composer mode buttons.
+/// Selection controls the background independently of whether taps are enabled.
+class ChatComposerActionButton extends StatelessWidget {
+  const ChatComposerActionButton({
+    super.key,
+    required this.icon,
+    required this.active,
+    required this.onPressed,
+    required this.style,
+    this.loading = false,
+    this.animate = true,
+  });
+
+  final Widget icon;
+  final bool active;
+  final VoidCallback? onPressed;
+  final ChatUiStyleConfig style;
+  final bool loading;
+  final bool animate;
+
+  @override
+  Widget build(BuildContext context) {
+    final background = active
         ? style.composerSendButtonColor
         : style.composerSendButtonDisabledColor;
     return SizedBox(
-      key: const ValueKey('chat-composer-send-button'),
       width: style.composerSendButtonWidth,
       height: style.composerSendButtonHeight,
       child: ChatComposerSendButtonSurface(
@@ -566,8 +626,8 @@ class _ComposerSendButton extends StatelessWidget {
                       ? null
                       : const WidgetStatePropertyAll(Colors.transparent),
                 ),
-            onPressed: enabled ? onPressed : null,
-            child: sending && animate
+            onPressed: loading ? null : onPressed,
+            child: loading && animate
                 ? SizedBox(
                     width: style.composerSendButtonLoadingSize,
                     height: style.composerSendButtonLoadingSize,
@@ -578,28 +638,7 @@ class _ComposerSendButton extends StatelessWidget {
                       ),
                     ),
                   )
-                : label == null
-                ? icon == ChatComposerSendIcon.arrowUp
-                      ? CustomPaint(
-                          size: Size.square(style.composerSendButtonIconSize),
-                          painter: _ComposerUpArrowPainter(
-                            color: style.composerSendButtonIconColor,
-                          ),
-                        )
-                      : Icon(
-                          Icons.send,
-                          color: style.composerSendButtonIconColor,
-                          size: style.composerSendButtonIconSize,
-                        )
-                : Text(
-                    genesisDisplaySafeText(label!),
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: TextStyle(
-                      color: style.composerSendButtonIconColor,
-                      fontSize: 14,
-                    ),
-                  ),
+                : icon,
           ),
         ),
       ),

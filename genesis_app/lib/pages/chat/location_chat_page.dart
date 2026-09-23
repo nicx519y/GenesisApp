@@ -6,6 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../icons/custom_icon_assets.dart';
 
 import '../../ui/tokens/genesis_blur.dart';
 import '../../app/bootstrap/app_services_scope.dart';
@@ -50,6 +53,7 @@ import '../../network/models/gem_model.dart';
 import '../../network/models/location_tree.dart';
 import '../../network/models/world.dart';
 import '../../platform/device/android_sdk_version.dart';
+import '../../platform/app/app_metadata_service.dart';
 import '../../platform/session/user_session_store.dart';
 import '../../routers/app_router.dart';
 import '../../ui/components/genesis_character_avatar.dart';
@@ -621,6 +625,34 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
   List<WorldChatroomEntity>? _lastActiveOccupants;
   List<WorldChatroomEntity>? _exitRetainedOccupants;
   bool _sending = false;
+  String _composerMessageType = chatroomTextMessageType;
+  int _messageAppVersion = 0;
+  bool _messageAppVersionLoaded = false;
+  int _olderMessagesCursor = 0;
+  int? _hiddenHistoryAttemptedCursor;
+
+  bool _messageVersionIsVisible(WorldChatroomMessage message) =>
+      chatroomMessageVersionIsVisible(
+        message.minAppVersion,
+        _messageAppVersion,
+      );
+
+  Future<void> _loadMessageAppVersion() async {
+    final version = await AppMetadataService.buildAppVersion();
+    if (!mounted) return;
+    _messageAppVersion = chatroomAppVersionNumber(version.versionName);
+    _messageAppVersionLoaded = true;
+    _replyProjection.clear();
+    final service = _service;
+    if (service != null) {
+      _syncFromServiceState(service, forceMessageReconcile: true);
+    } else {
+      _reconcileMessages(widget.openingPreviewMessages);
+    }
+    _setLocationChatState(() {});
+    _loadPastHiddenInitialHistoryIfNeeded();
+  }
+
   bool _sendConnectionPending = false;
   int _sendConnectionGeneration = 0;
   String? _preAckWaitingClientMsgId;
@@ -944,6 +976,7 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
     _scrollController.addListener(_handleMessageListScroll);
     _scrollCoordinator.enter();
     _prepareConnection();
+    unawaited(_loadMessageAppVersion());
     if (_hasModelWorldId) {
       unawaited(_loadSelectedModelCodeFromCache());
     }
@@ -1040,6 +1073,11 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
           _lastActiveOccupants ??
           _roomOccupantsForCurrentLocation(_chatroomState);
       _optimisticSelfOccupancy = false;
+    }
+    if (changedChatTarget) {
+      _composerMessageType = chatroomTextMessageType;
+      _olderMessagesCursor = 0;
+      _hiddenHistoryAttemptedCursor = null;
     }
     if (changedChatTarget || becameInactive) {
       _service?.releaseMessageWindow(this);
@@ -1203,6 +1241,16 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               focusNode: _composerFocusNode,
               onInputTap: _handleComposerInputTap,
               hintText: 'Text...',
+              messageType: _composerMessageType,
+              onToggleMessageType:
+                  _messageAppVersion < chatroomNarrationMinAppVersion
+                  ? null
+                  : () => _setLocationChatState(() {
+                      _composerMessageType =
+                          _composerMessageType == chatroomNarrationMessageType
+                          ? chatroomTextMessageType
+                          : chatroomNarrationMessageType;
+                    }),
               inputEnabled:
                   widget.active &&
                   !(_initialMessageSendPending &&

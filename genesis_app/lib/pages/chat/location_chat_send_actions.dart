@@ -97,6 +97,9 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       return;
     }
     final draftAtSubmit = _textController.serializedText;
+    final messageTypeAtSubmit =
+        outgoingMessage?.messageType ??
+        (textOverride == null ? _composerMessageType : chatroomTextMessageType);
     final text = normalizeGenesisUgcTextForDisplay(
       textOverride ?? outgoingMessage?.text ?? draftAtSubmit,
     );
@@ -167,6 +170,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
             text: text,
             isMe: true,
             status: 'sending',
+            messageType: messageTypeAtSubmit,
           );
       _localMessageOrder.capture(
         localMessage,
@@ -196,6 +200,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
           _preAckWaitingMessageLocalId = localMessage.localId;
           _preAckWaitingAccepted = false;
         }
+        _composerMessageType = chatroomTextMessageType;
         if (outgoingMessage != null) return;
         if (_textController.serializedText == draftAtSubmit) {
           _hasDraftText = false;
@@ -228,6 +233,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
         _localMessageOrder.remove(localMessage.localId);
         if (isGenesisUgcTextBlank(_textController.serializedText) &&
             !isGenesisUgcTextBlank(draftAtSubmit)) {
+          _composerMessageType = messageTypeAtSubmit;
           _textController.setSerializedText(draftAtSubmit);
           _hasDraftText = true;
         }
@@ -483,6 +489,7 @@ extension _LocationChatSendActions on _LocationChatPanelState {
       final handle = service.sendMessage(
         localMessage.text,
         clientMsgId: clientMsgId,
+        messageType: localMessage.messageType,
       );
       final receipt = await handle.receipt;
       receiptReceived = true;

@@ -1605,6 +1605,39 @@ void main() {
   });
 
   group('V2 WebSocket contract', () {
+    test(
+      'narration uses top-level type and retries the unchanged raw content',
+      () async {
+        final socket = _FakeChatroomSocket();
+        final client = await _client(
+          _FakeChatroomTransport(socket),
+          autoHeartbeat: false,
+          ackTimeout: const Duration(milliseconds: 30),
+          handshakeHeaderSigner: _v2HandshakeSigner,
+        );
+        final session = await client.connect(worldId: 'world-1');
+        addTearDown(session.disconnect);
+        const content = '门外下起了雨。';
+        final future = session.sendMessage(
+          content,
+          clientMsgId: 'narration-retry',
+          messageType: 'narration',
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 40));
+        final frames = socket.sentFrames('send_message');
+        expect(frames.length, greaterThanOrEqualTo(2));
+        for (final frame in frames) {
+          expect(frame['message_type'], 'narration');
+          expect(frame['client_msg_id'], 'narration-retry');
+          expect(frame['payload'], {'content': content});
+          expect(frame.containsKey('min_app_version'), isFalse);
+          expect(frame.containsKey('sender_type'), isFalse);
+        }
+        socket.serverV2Ack('narration-retry');
+        await future;
+      },
+    );
+
     test('selects V2 only above the 0.3.3 version boundary', () {
       expect(
         resolveChatroomProtocolVersion(''),
@@ -1961,6 +1994,7 @@ void main() {
         'ts': isA<int>(),
         'world_id': 'world-1',
         'client_msg_id': 'client-2',
+        'message_type': 'text',
         'payload': <String, Object?>{'content': 'Hello'},
         'err_no': 0,
         'err_msg': '',

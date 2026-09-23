@@ -24,6 +24,8 @@ import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
+import 'world_recap_cache.dart';
+import 'world_recap_section.dart';
 import 'world_sections.dart';
 
 class WorldBottomTags extends StatelessWidget {
@@ -175,6 +177,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
     required this.worldListenable,
     required this.newUserJoinNoticesListenable,
     required this.eventsCache,
+    required this.recapCache,
     required this.currentUid,
     required this.recentChatLocationIds,
     required this.onLocationTap,
@@ -188,6 +191,7 @@ class WorldSingleSectionBottomSheet extends StatefulWidget {
   final ValueListenable<List<WorldNewUserJoinNotice>>
   newUserJoinNoticesListenable;
   final WorldSectionsEventsCache eventsCache;
+  final WorldRecapCache recapCache;
   final String currentUid;
   final Set<String> recentChatLocationIds;
   final ValueChanged<WorldPoint> onLocationTap;
@@ -225,6 +229,7 @@ class WorldSingleSectionBottomSheetState
   List<Map<String, dynamic>>? _cachedCharacterPositions;
   List<Map<String, dynamic>>? _cachedUserPositions;
   String _cachedLocationListCurrentUid = '';
+  WorldBottomSheetKind? _lastSelectedKind;
 
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
@@ -252,6 +257,7 @@ class WorldSingleSectionBottomSheetState
     worldNewContentDebugSettings.listenable.addListener(
       _handleWorldNewContentDebugSettingsChanged,
     );
+    _refreshRecapOnEntry();
   }
 
   @override
@@ -332,11 +338,27 @@ class WorldSingleSectionBottomSheetState
   }
 
   void _handleSelectionChanged() {
+    _refreshRecapOnEntry();
     if (_isEventsSheet) {
       _ensureEventsForCurrentWorld(forceFirstPageRefresh: true);
     }
     _animateToSelectionPage();
     if (mounted) setState(() {});
+  }
+
+  void _refreshRecapOnEntry() {
+    final kind = _selection.kind;
+    final entered =
+        kind == WorldBottomSheetKind.recap && _lastSelectedKind != kind;
+    _lastSelectedKind = kind;
+    if (entered) {
+      unawaited(
+        widget.recapCache.refresh(
+          _currentWorld.worldId,
+          widget.services.api.getWorldRecentSummary,
+        ),
+      );
+    }
   }
 
   int _pageForKind(WorldBottomSheetKind kind) {
@@ -626,6 +648,12 @@ class WorldSingleSectionBottomSheetState
         scrollController,
       ),
       WorldBottomSheetKind.events => _buildEventsSectionPage(scrollController),
+      WorldBottomSheetKind.recap => WorldRecapSection(
+        cache: widget.recapCache,
+        load: widget.services.api.getWorldRecentSummary,
+        scrollController: scrollController,
+        active: _selection.kind == WorldBottomSheetKind.recap,
+      ),
       WorldBottomSheetKind.status => _buildStatusSectionPage(scrollController),
       WorldBottomSheetKind.cast => _buildCastSectionPage(scrollController),
     };

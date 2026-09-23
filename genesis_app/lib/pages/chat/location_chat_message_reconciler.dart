@@ -99,6 +99,8 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
       ),
       characterName: timelineIdentityIndex.characterName,
       locationName: timelineIdentityIndex.locationName,
+      locationExists: timelineIdentityIndex.locationExists,
+      isUserId: timelineIdentityIndex.isUserId,
       roleName: timelineIdentityIndex.roleName,
       roleIsAi: timelineIdentityIndex.roleIsAi,
       roleAvatarUrl: (roleId) => _resizedLocationChatAvatarUrl(
@@ -109,6 +111,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
     final retainedMessageParseCacheKeys = <String>{};
     final visibleSource = <LocationChatParsedMessage>[];
     for (final message in renderWindow.messages) {
+      if (!_messageVersionIsVisible(message)) continue;
       final isTimelineMessage = isChatroomTimelinePayloadSenderType(
         message.senderType,
       );
@@ -223,6 +226,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
             existing.avatarUrl != avatarUrl ||
             existing.imageUrl != parsed.imageUrl ||
             existing.timelinePayload != parsed.timelinePayload ||
+            existing.messageType != parsed.messageType ||
             existing.text != parsed.text ||
             existing.currentTime != parsed.currentTime ||
             existing.status != parsed.status ||
@@ -241,6 +245,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
         existing.avatarUrl = avatarUrl;
         existing.imageUrl = parsed.imageUrl;
         existing.timelinePayload = parsed.timelinePayload;
+        existing.messageType = parsed.messageType;
         existing.text = parsed.text;
         existing.currentTime = parsed.currentTime;
         existing.status = parsed.status;
@@ -268,6 +273,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
           isMe: parsed.isMe,
           status: parsed.status,
           senderType: parsed.senderType,
+          messageType: parsed.messageType,
           createdAt: parsed.createdAt,
         );
         usedLocalIds.add(nextMessage.localId);
@@ -586,6 +592,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
           age > const Duration(minutes: 1)) {
         continue;
       }
+      if (candidate.messageType != message.messageType) continue;
       if (candidate.text.trim() != content) continue;
       return candidate;
     }
@@ -593,6 +600,7 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
   }
 
   LocationChatMessageParser? _parserForMessage(WorldChatroomMessage message) {
+    if (!_messageVersionIsVisible(message)) return null;
     return locationChatMessageParserForTesting(message);
   }
 
@@ -716,8 +724,13 @@ extension _LocationChatMessageReconciler on _LocationChatPanelState {
 
 @visibleForTesting
 LocationChatMessageParser? locationChatMessageParserForTesting(
-  WorldChatroomMessage message,
-) {
+  WorldChatroomMessage message, {
+  int? appVersion,
+}) {
+  if (appVersion != null &&
+      !chatroomMessageVersionIsVisible(message.minAppVersion, appVersion)) {
+    return null;
+  }
   if (!locationChatMessageHasRenderableBusinessContent(message)) {
     return null;
   }
@@ -741,6 +754,11 @@ LocationChatMessageParser? locationChatMessageParserForTesting(
         _ => null,
       };
     case 'user':
+      if (normalizedMessageType != chatroomTextMessageType &&
+          normalizedMessageType != chatroomNarrationMessageType) {
+        return null;
+      }
+      return const TextMessageParser(senderType: 'user');
     case 'character':
     case 'system':
       if (normalizedMessageType != chatroomTextMessageType) return null;
@@ -781,6 +799,9 @@ class _LocationChatTimelineIdentityIndex {
     required this.roleIsAiById,
     required this.roleAvatarsById,
     required this.revision,
+    required this.locationsLoaded,
+    required this.locationIds,
+    required this.userIds,
   });
 
   factory _LocationChatTimelineIdentityIndex.fromState(
@@ -869,7 +890,30 @@ class _LocationChatTimelineIdentityIndex {
       characterPositions: characterPositions,
       entitiesById: state.entitiesById,
     );
+    final locationIds = locations
+        .map(
+          (location) => _chatroomIdentityKey(
+            _firstMapString(location, const ['location_id', 'id']),
+          ),
+        )
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final userIds = <String>{
+      ...currentUserIds.map(_chatroomIdentityKey),
+      for (final user in world?.userPositions ?? const <Map<String, dynamic>>[])
+        _chatroomIdentityKey(
+          _firstMapString(user, const ['uid', 'user_id', 'player_uid']),
+        ),
+      for (final entry in state.entitiesById.entries)
+        if (entry.value.type == WorldChatroomEntityType.player) ...[
+          _chatroomIdentityKey(entry.key),
+          _chatroomIdentityKey(entry.value.id),
+        ],
+    }..remove('');
     final revision = Object.hashAll(<Object?>[
+      world != null,
+      ...locationIds,
+      ...userIds,
       ...currentUserIds.map(_chatroomIdentityKey),
       ...currentSenderIds.map(_chatroomIdentityKey),
       ...characterNamesById.entries.expand((entry) => [entry.key, entry.value]),
@@ -885,6 +929,9 @@ class _LocationChatTimelineIdentityIndex {
       roleIsAiById: roleIsAiById,
       roleAvatarsById: roleAvatarsById,
       revision: revision,
+      locationsLoaded: world != null,
+      locationIds: locationIds,
+      userIds: userIds,
     );
   }
 
@@ -894,6 +941,12 @@ class _LocationChatTimelineIdentityIndex {
   final Map<String, bool> roleIsAiById;
   final Map<String, String> roleAvatarsById;
   final int revision;
+  final bool locationsLoaded;
+  final Set<String> locationIds;
+  final Set<String> userIds;
+  bool? locationExists(String id) =>
+      locationsLoaded ? locationIds.contains(_chatroomIdentityKey(id)) : null;
+  bool isUserId(String id) => userIds.contains(_chatroomIdentityKey(id));
 
   String characterName(String characterId) {
     final resolvedId = characterId.trim();
