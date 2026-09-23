@@ -176,7 +176,15 @@ class _AppShellPageState extends State<AppShellPage>
           ? AppServicesScope.read(context).adjustDeviceRegistration
           : null;
       if (adjustDeviceRegistration != null) {
-        unawaited(adjustDeviceRegistration.register());
+        unawaited(
+          adjustDeviceRegistration.register().whenComplete(
+            () => mounted
+                ? AppServicesScope.read(context).eventReporting?.flush()
+                : null,
+          ),
+        );
+      } else if (mounted) {
+        unawaited(AppServicesScope.read(context).eventReporting?.flush());
       }
       if (previousState != AppLifecycleState.resumed) _attResumeGeneration++;
       _schedulePendingDailyCheckIn();
@@ -619,7 +627,13 @@ class _AppShellPageState extends State<AppShellPage>
     services.billing?.resetForSession();
     final adjustDeviceRegistration = services.adjustDeviceRegistration;
     if (adjustDeviceRegistration != null) {
-      unawaited(adjustDeviceRegistration.register(force: true));
+      unawaited(
+        adjustDeviceRegistration
+            .register(force: true)
+            .whenComplete(() => services.eventReporting?.flush()),
+      );
+    } else {
+      unawaited(services.eventReporting?.flush());
     }
     unawaited(
       _recoverBilling(BillingRecoverySource.foreground, onlyIfUidChanged: true),

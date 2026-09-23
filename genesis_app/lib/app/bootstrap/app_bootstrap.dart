@@ -119,7 +119,13 @@ class AppBootstrap {
 
     final adjustDeviceRegistration = services.adjustDeviceRegistration;
     if (adjustDeviceRegistration != null) {
-      unawaited(adjustDeviceRegistration.register());
+      unawaited(
+        adjustDeviceRegistration.register().whenComplete(
+          () => services.eventReporting?.flush(),
+        ),
+      );
+    } else {
+      unawaited(services.eventReporting?.flush());
     }
 
     if (uid != null && (authToken == null || authToken.isEmpty)) {

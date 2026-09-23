@@ -21,6 +21,12 @@ typedef FirebaseReadiness = Future<void> Function();
 typedef FirebaseAnalyticsMessageSentCountIncrementer = Future<int> Function();
 typedef FirebaseAnalyticsCollectionConfigurator =
     Future<void> Function(bool enabled, String appEnvironment);
+typedef FirebaseAnalyticsServerEventReporter =
+    Future<void> Function({
+      required String event,
+      required Map<String, Object> parameters,
+      String? businessId,
+    });
 
 enum FirebaseAnalyticsPurchaseKind { gems, subscription }
 
@@ -135,12 +141,19 @@ class FirebaseAnalyticsMonitoring {
   static bool? _enabledOverride;
   static FirebaseAnalyticsCollectionConfigurator _collectionConfigurator =
       _configureFirebaseAnalyticsCollection;
+  static FirebaseAnalyticsServerEventReporter? _serverEventReporter;
 
   static Future<void> configureCollection({
     required bool enabled,
     required String appEnvironment,
   }) {
     return _collectionConfigurator(enabled, appEnvironment);
+  }
+
+  static void configureServerEventReporter(
+    FirebaseAnalyticsServerEventReporter? reporter,
+  ) {
+    _serverEventReporter = reporter;
   }
 
   static Future<void> recordLaunch({
@@ -296,6 +309,7 @@ class FirebaseAnalyticsMonitoring {
     required String productId,
     required FirebaseAnalyticsPurchaseKind kind,
     required String purchaseIdentity,
+    String? businessIdentity,
     bool requireEligibility = false,
     int? priceAmountMicros,
     String priceCurrencyCode = '',
@@ -321,6 +335,11 @@ class FirebaseAnalyticsMonitoring {
     // transaction ID, never the original subscription chain. Persist only a
     // digest, and keep this identity out of the Analytics parameters/logs.
     final identity = _purchaseIdentityDigest(provider, kind, purchaseIdentity);
+    final normalizedBusinessIdentity = (businessIdentity ?? purchaseIdentity)
+        .trim();
+    final serverBusinessId = normalizedBusinessIdentity.isEmpty
+        ? null
+        : '${kind.name}:$normalizedBusinessIdentity';
     var deviceId = 'unknown';
     try {
       final value = (await _deviceIdReader()).trim();
@@ -344,27 +363,47 @@ class FirebaseAnalyticsMonitoring {
         'purchase',
         parameters,
         storageKey: 'purchase_transaction_v1.$identity',
+        businessId: serverBusinessId,
       ),
       _recordEventOnce(
         kindName,
         parameters,
         storageKey: '${kindName}_transaction_v1.$identity',
+        businessId: serverBusinessId,
       ),
-      _recordEventOnce('purchase_first', parameters),
-      _recordEventOnce(kindFirstEvent, parameters),
+      _recordEventOnce(
+        'purchase_first',
+        parameters,
+        businessId: serverBusinessId,
+      ),
+      _recordEventOnce(
+        kindFirstEvent,
+        parameters,
+        businessId: serverBusinessId,
+      ),
       if (day0) ...[
         _recordEventOnce(
           'purchase_day0',
           parameters,
           storageKey: 'purchase_day0_transaction_v1.$identity',
+          businessId: serverBusinessId,
         ),
         _recordEventOnce(
           '${kindName}_day0',
           parameters,
           storageKey: '${kindName}_day0_transaction_v1.$identity',
+          businessId: serverBusinessId,
         ),
-        _recordEventOnce('purchase_first_day0', parameters),
-        _recordEventOnce('${kindName}_first_day0', parameters),
+        _recordEventOnce(
+          'purchase_first_day0',
+          parameters,
+          businessId: serverBusinessId,
+        ),
+        _recordEventOnce(
+          '${kindName}_first_day0',
+          parameters,
+          businessId: serverBusinessId,
+        ),
       ],
     ]);
   }
@@ -425,6 +464,7 @@ class FirebaseAnalyticsMonitoring {
     Map<String, Object> parameters,
   ) async {
     if (!_isEnabled) return;
+    final serverReport = _reportServerEvent(name, parameters);
     try {
       await _readiness();
       await _client.logEvent(name: name, parameters: parameters);
@@ -432,6 +472,7 @@ class FirebaseAnalyticsMonitoring {
       debugPrint('[Telemetry][FirebaseAnalytics] $name failed: $e');
       debugPrint('[Telemetry][FirebaseAnalytics] stacktrace:\n$st');
     }
+    await serverReport;
   }
 
   static Future<void> _recordEventWithFirst(
@@ -462,6 +503,7 @@ class FirebaseAnalyticsMonitoring {
     String name,
     Map<String, Object> parameters, {
     String? storageKey,
+    String? businessId,
   }) {
     if (!_isEnabled) return Future<void>.value();
     final key = storageKey ?? name;
@@ -469,13 +511,17 @@ class FirebaseAnalyticsMonitoring {
     if (existing != null) return existing;
 
     late final Future<void> recording;
-    recording = _recordEventOnceUnlocked(name, parameters, key).whenComplete(
-      () {
-        if (identical(_onceEventRecordings[key], recording)) {
-          _onceEventRecordings.remove(key);
-        }
-      },
-    );
+    recording =
+        _recordEventOnceUnlocked(
+          name,
+          parameters,
+          key,
+          businessId: businessId,
+        ).whenComplete(() {
+          if (identical(_onceEventRecordings[key], recording)) {
+            _onceEventRecordings.remove(key);
+          }
+        });
     _onceEventRecordings[key] = recording;
     return recording;
   }
@@ -483,8 +529,14 @@ class FirebaseAnalyticsMonitoring {
   static Future<void> _recordEventOnceUnlocked(
     String name,
     Map<String, Object> parameters,
-    String storageKey,
-  ) async {
+    String storageKey, {
+    String? businessId,
+  }) async {
+    final serverReport = _reportServerEvent(
+      name,
+      parameters,
+      businessId: businessId,
+    );
     try {
       if (await _onceEventStore.wasSent(storageKey)) return;
       await _readiness();
@@ -495,6 +547,27 @@ class FirebaseAnalyticsMonitoring {
     } catch (e, st) {
       debugPrint('[Telemetry][FirebaseAnalytics] $name failed: $e');
       debugPrint('[Telemetry][FirebaseAnalytics] stacktrace:\n$st');
+    } finally {
+      await serverReport;
+    }
+  }
+
+  static Future<void> _reportServerEvent(
+    String name,
+    Map<String, Object> parameters, {
+    String? businessId,
+  }) async {
+    final reporter = _serverEventReporter;
+    if (reporter == null) return;
+    try {
+      await reporter(
+        event: name,
+        parameters: parameters,
+        businessId: businessId,
+      );
+    } catch (e, st) {
+      debugPrint('[Telemetry][EventReport] $name enqueue failed: $e');
+      debugPrint('[Telemetry][EventReport] stacktrace:\n$st');
     }
   }
 
@@ -588,6 +661,7 @@ class FirebaseAnalyticsMonitoring {
     _messageSentCountQueue = Future<void>.value();
     _enabledOverride = null;
     _collectionConfigurator = _configureFirebaseAnalyticsCollection;
+    _serverEventReporter = null;
   }
 
   static Future<String> _readNativeDeviceId() {

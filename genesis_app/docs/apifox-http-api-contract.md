@@ -86,6 +86,7 @@ Origin detail 增量核对时间：2026-08-05
 | origin | GET | `/api/v1/origin/my_launch_preset_characters` | 查询我 launch 过的 preset 角色 |
 | app | GET | `/api/v1/app/config` | App 启动全局配置 |
 | device | POST | `/api/v1/device/register` | 注册设备对应的 Adjust 和广告标识 |
+| event | POST | `/api/v1/event/report` | 上报归因事件供服务端转发 Adjust S2S |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
 | origin | GET | `/api/v1/origin/map` | 读取 Origin 2.5D 地图 |
 | origin | GET | `/api/v2/origin/foredit` | 获取 V2 Origin 完整编辑详情 |
@@ -2657,6 +2658,14 @@ World：
 - body 必填 `adid`；Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`。可选字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。客户端只在 Adjust 已取得非空 ADID 后调用。
 - 启动后注册为 best effort，不阻塞首帧。ADID 尚未取得或请求失败时，在下一次前台恢复重试；登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册。
 - 本接口只保存设备与 Adjust/广告标识映射，不上报 Adjust 事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
+
+## Adjust S2S 事件上报（2026-09-23 核对）
+
+- `POST /api/v1/event/report` 复用 Gateway 签名链路提供的 `X-App-ID`、`X-Platform`、`X-Device-ID`。body 传 `event`、`environment`、可选 `business_id` 和字符串 map `params`。
+- 客户端同步 Firebase 当前实际触发的 15 个事件：`login_first`、`message_sent_first`、`message_sent_10_first`、`message_sent_20_first`、`purchase`、`purchase_first`、`purchase_day0`、`purchase_first_day0`、`gems`、`gems_first`、`gems_day0`、`gems_first_day0`、`subscription`、`subscription_first`、`subscription_day0`。本次不发送 `first_open` 和 `subscription_renew`。
+- 登录事件参数为 `method/device_id`；消息事件参数为 `world_id/location_id/device_id`；购买事件参数为 `provider/product_id/device_id`，仅商店价格和 ISO 4217 币种同时有效时额外传 `value/currency`。S2S 的参数名和值与同次 Firebase 调用一致，值按接口要求转为字符串；不补造缺失参数。
+- `purchase`、`purchase_day0`、`gems`、`gems_day0`、`subscription`、`subscription_day0` 是逐笔事件，必须传 `business_id`。Gems 使用 `gems:<服务端交易号或商店交易号>`；订阅使用 `subscription:<当前付款周期商店交易号>`，交易号缺失时才回退本次购买凭据。其余 9 个事件为设备唯一事件，不传 `business_id`。
+- 事件在 HTTP 前持久化；业务成功（包括服务端判重）后记录为已送达。网络、超时、Gateway、5xx、408、429 和无效响应按顺序退避重试，并在启动完成设备注册、回前台和会话变化时再次发送；明确的参数/业务拒绝记录为终态，避免阻塞后续事件。Release 使用 `production`，非 Release 使用 `sandbox`。Firebase 和事件 S2S 都受现有 Analytics 上传开关控制，事件上报失败不改变登录、发消息或购买结果。
 
 ## Pro 会员购买与上报（2026-09-16 更新）
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/app/telemetry/app_event_reporting.dart';
 import 'package:genesis_flutter_android/app/telemetry/firebase_analytics_monitoring.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -256,6 +257,118 @@ void main() {
       }),
     ]);
   });
+
+  test(
+    'routes all 15 selected events with the exact Firebase params',
+    () async {
+      final serverEvents = <_ServerRecordedEvent>[];
+      FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+        required event,
+        required parameters,
+        businessId,
+      }) async {
+        if (AppEventReporting.supportedEvents.contains(event)) {
+          serverEvents.add(
+            _ServerRecordedEvent(event, Map.of(parameters), businessId),
+          );
+        }
+      });
+      FirebaseAnalyticsMonitoring.setMessageSentCountIncrementerForTesting(
+        () async => 20,
+      );
+      FirebaseAnalyticsMonitoring.setDay0AnchorStoreForTesting(
+        _MemoryDay0AnchorStore(),
+      );
+      await FirebaseAnalyticsMonitoring.recordServerTimeSynchronized(
+        DateTime.utc(2026, 1, 1),
+      );
+      FirebaseAnalyticsMonitoring.setPurchaseServerNowForTesting(
+        () => DateTime.utc(2026, 1, 1, 1),
+      );
+
+      await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+      await FirebaseAnalyticsMonitoring.recordMessageSent(
+        worldId: 'world-1',
+        locationId: 'location-1',
+      );
+      await FirebaseAnalyticsMonitoring.recordPurchase(
+        provider: 'google',
+        productId: 'gems-500',
+        kind: FirebaseAnalyticsPurchaseKind.gems,
+        purchaseIdentity: 'gems-proof',
+        businessIdentity: 'gems-order-1',
+        priceAmountMicros: 4990000,
+        priceCurrencyCode: 'usd',
+      );
+      await FirebaseAnalyticsMonitoring.recordPurchase(
+        provider: 'apple',
+        productId: 'subscription-year',
+        kind: FirebaseAnalyticsPurchaseKind.subscription,
+        purchaseIdentity: 'subscription-proof',
+        businessIdentity: 'subscription-period-1',
+        priceAmountMicros: 29990000,
+        priceCurrencyCode: 'usd',
+      );
+
+      expect(
+        serverEvents.map((event) => event.name).toSet(),
+        AppEventReporting.supportedEvents,
+      );
+      expect(
+        serverEvents.where((event) => event.name == 'login_first').first.params,
+        const <String, Object>{
+          'method': 'google',
+          'device_id': 'test-device-id',
+        },
+      );
+      for (final name in const <String>{
+        'message_sent_first',
+        'message_sent_10_first',
+        'message_sent_20_first',
+      }) {
+        expect(
+          serverEvents.where((event) => event.name == name).first.params,
+          const <String, Object>{
+            'world_id': 'world-1',
+            'location_id': 'location-1',
+            'device_id': 'test-device-id',
+          },
+        );
+      }
+      for (final event in serverEvents.where(
+        (event) => event.businessId == 'gems:gems-order-1',
+      )) {
+        expect(event.params, const <String, Object>{
+          'provider': 'google',
+          'product_id': 'gems-500',
+          'device_id': 'test-device-id',
+          'value': 4.99,
+          'currency': 'USD',
+        });
+        expect(event.businessId, 'gems:gems-order-1');
+      }
+      for (final event in serverEvents.where(
+        (event) => event.businessId == 'subscription:subscription-period-1',
+      )) {
+        expect(event.params, const <String, Object>{
+          'provider': 'apple',
+          'product_id': 'subscription-year',
+          'device_id': 'test-device-id',
+          'value': 29.99,
+          'currency': 'USD',
+        });
+        expect(event.businessId, 'subscription:subscription-period-1');
+      }
+      expect(
+        serverEvents.any((event) => event.name == 'subscription_renew'),
+        isFalse,
+      );
+      expect(
+        serverEvents.any((event) => event.name == 'subscription_first_day0'),
+        isFalse,
+      );
+    },
+  );
 
   test('purchase category first events are independent', () async {
     await FirebaseAnalyticsMonitoring.recordPurchase(
@@ -1114,6 +1227,14 @@ class _RecordedEvent {
 
   @override
   String toString() => '_RecordedEvent($name, $parameters)';
+}
+
+class _ServerRecordedEvent {
+  const _ServerRecordedEvent(this.name, this.params, this.businessId);
+
+  final String name;
+  final Map<String, Object> params;
+  final String? businessId;
 }
 
 bool _mapsEqual(Map<String, Object> first, Map<String, Object> second) {

@@ -1197,6 +1197,14 @@ class LocalMockGenesisTransport implements HttpTransport {
       return _v1Ok(<String, dynamic>{});
     }
 
+    if (method == 'POST' && path == 'event/report') {
+      return _v1Ok(<String, dynamic>{
+        'id': 'mock-event-report',
+        'duplicate': false,
+        'report_status': 'saved',
+      });
+    }
+
     return _error(404, 'mock v1 route not found: $method /api/v1/$path');
   }
 

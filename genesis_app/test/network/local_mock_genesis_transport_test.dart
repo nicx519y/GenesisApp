@@ -66,6 +66,16 @@ void main() {
       );
     }
   });
+  test('local mock accepts an Adjust S2S event report', () async {
+    await GenesisApi(useMock: true).v1.event.report(
+      event: 'login_first',
+      environment: 'sandbox',
+      params: const <String, String>{
+        'method': 'google',
+        'device_id': 'mock-device',
+      },
+    );
+  });
   test('local mock shares budget and keeps per-world usage capped', () async {
     final api = GenesisApi(useMock: true);
     const worldOne = 'w_memory_mock_one';

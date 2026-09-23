@@ -34,6 +34,7 @@ import '../../platform/billing/membership_checkout_platform.dart';
 import '../../platform/billing/membership_pending_store.dart';
 import '../../platform/billing/membership_store_restorer.dart';
 import '../telemetry/device_info_telemetry.dart';
+import '../telemetry/app_event_reporting.dart';
 import '../telemetry/firebase_analytics_monitoring.dart';
 import '../telemetry/genesis_telemetry.dart';
 import '../version/app_version_check_service.dart';
@@ -69,6 +70,7 @@ class AppServices {
     AppGlobalConfigStore? appGlobalConfig,
     PersonalizationStore? personalization,
     this.adjustDeviceRegistration,
+    this.eventReporting,
   }) : membershipCatalog =
            membershipCatalog ??
            MembershipCatalog(
@@ -161,6 +163,7 @@ class AppServices {
   final AppGlobalConfigStore appGlobalConfig;
   final ValueNotifier<int> sessionRevision;
   final AdjustDeviceRegistration? adjustDeviceRegistration;
+  final AppEventReporting? eventReporting;
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
   (String?, int, String, DateTime?)? _quotaMembershipSignature;
   Future<void> _originFeedGenderUpdate = Future.value();
@@ -268,6 +271,7 @@ class AppServices {
     personalization.dispose();
     gemWallet.dispose();
     appGlobalConfig.dispose();
+    unawaited(eventReporting?.dispose());
   }
 }
 
@@ -390,6 +394,23 @@ class ServiceRegistry {
       ),
       _ => null,
     };
+    final eventReporting =
+        !effectiveUseMock &&
+            (defaultTargetPlatform == TargetPlatform.android ||
+                defaultTargetPlatform == TargetPlatform.iOS)
+        ? AppEventReporting(
+            environment: kReleaseMode ? 'production' : 'sandbox',
+            sender: (report) => api.v1.event.report(
+              event: report.event,
+              environment: report.environment,
+              params: report.params,
+              businessId: report.businessId,
+            ),
+          )
+        : null;
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(
+      eventReporting?.report,
+    );
     final chatroom = ChatroomClient(
       wsBaseUrl: config.chatroomWsBaseUrl,
       sessionStore: sessionStore,
@@ -533,6 +554,7 @@ class ServiceRegistry {
       membershipPurchases: membershipPurchases,
       sessionRevision: sessionRevision,
       adjustDeviceRegistration: adjustDeviceRegistration,
+      eventReporting: eventReporting,
     );
   }
 
