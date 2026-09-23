@@ -331,6 +331,7 @@ void main() {
       await _settle();
       expect(client.events.map((e) => e.name), [
         'purchase',
+        'gems',
         'purchase_first',
         'gems_first',
       ]);
@@ -339,7 +340,7 @@ void main() {
       platform.recoverablePurchases = [purchase];
       await service.recoverStorePurchases(productCatalog: [_product]);
       await _settle();
-      expect(client.events, hasLength(3));
+      expect(client.events, hasLength(4));
       expect(
         uiEvents.where((e) => e.kind == BillingUiEventKind.success),
         isNotEmpty,
@@ -361,6 +362,7 @@ void main() {
       await _settle();
       expect(client.events.map((e) => e.name), [
         'purchase',
+        'gems',
         'purchase_first',
         'gems_first',
       ]);
@@ -463,7 +465,7 @@ void main() {
     expect(client.events, isEmpty);
     ready.complete();
     await _settle();
-    expect(client.events, hasLength(3));
+    expect(client.events, hasLength(4));
   });
 
   test(
@@ -561,6 +563,13 @@ void main() {
           'value': 1.49,
           'currency': 'USD',
         }),
+        const _FirebaseAnalyticsRecord('gems', <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+          'value': 1.49,
+          'currency': 'USD',
+        }),
         const _FirebaseAnalyticsRecord('purchase_first', <String, Object>{
           'provider': 'google',
           'product_id': 'worldo_gems_500',
@@ -576,6 +585,13 @@ void main() {
           'currency': 'USD',
         }),
         const _FirebaseAnalyticsRecord('purchase', <String, Object>{
+          'provider': 'google',
+          'product_id': 'worldo_gems_500',
+          'device_id': 'test-device-id',
+          'value': 1.49,
+          'currency': 'USD',
+        }),
+        const _FirebaseAnalyticsRecord('gems', <String, Object>{
           'provider': 'google',
           'product_id': 'worldo_gems_500',
           'device_id': 'test-device-id',

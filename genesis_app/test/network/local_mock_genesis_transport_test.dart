@@ -1932,5 +1932,9 @@ void main() {
       deviceId: 'device_mock_1',
       platform: 'android',
     );
+    await api.v1.device.registerAttribution(
+      adid: 'adjust_mock_1',
+      gpsAdid: '38400000-8cf0-11bd-b23e-10b96e40000d',
+    );
   });
 }

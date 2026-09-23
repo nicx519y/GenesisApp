@@ -425,6 +425,7 @@ void main() {
         await _settleAnalytics();
         expect(client.events.map((e) => e.name), [
           'purchase',
+          'subscription',
           'purchase_first',
           'subscription_first',
         ]);
@@ -574,9 +575,11 @@ void main() {
 
       expect(analytics.events.map((event) => event.name), <String>[
         'purchase',
+        'subscription',
         'purchase_first',
         'subscription_first',
         'purchase',
+        'subscription',
       ]);
       expect(analytics.events.first.parameters, <String, Object>{
         'provider': 'google',

@@ -52,9 +52,11 @@ void main() {
       await purchase(identity: 'receipt-2');
       expect(client.events.map((e) => e.name), [
         'purchase',
+        'gems',
         'purchase_first',
         'gems_first',
         'purchase',
+        'gems',
       ]);
     },
   );
@@ -88,7 +90,7 @@ void main() {
         () async => 'device',
       );
       await purchase(identity: 'private-store-token');
-      expect(client.events, hasLength(3));
+      expect(client.events, hasLength(4));
     },
   );
 
@@ -100,24 +102,30 @@ void main() {
     await purchase();
     expect(client.events.map((e) => e.name), [
       'purchase',
+      'gems',
       'purchase_first',
       'gems_first',
     ]);
-    expect(client.attempts, 6);
+    expect(client.attempts, 8);
   });
 
   test('partial purchase failure retries only the unsent event', () async {
     client.failedEventNames.add('gems_first');
     await purchase();
-    expect(client.events.map((e) => e.name), ['purchase', 'purchase_first']);
+    expect(client.events.map((e) => e.name), [
+      'purchase',
+      'gems',
+      'purchase_first',
+    ]);
     client.failedEventNames.clear();
     await purchase();
     expect(client.events.map((e) => e.name), [
       'purchase',
+      'gems',
       'purchase_first',
       'gems_first',
     ]);
-    expect(client.attempts, 4);
+    expect(client.attempts, 5);
   });
 
   test('legacy first markers remain valid for transaction deduplication', () async {
@@ -132,7 +140,7 @@ void main() {
     );
     await purchase();
     await purchase();
-    expect(client.events.map((e) => e.name), ['purchase']);
+    expect(client.events.map((e) => e.name).toSet(), {'purchase', 'gems'});
   });
 
   test(
@@ -142,7 +150,7 @@ void main() {
         () async => throw StateError('device unavailable'),
       );
       await purchase();
-      expect(client.events, hasLength(3));
+      expect(client.events, hasLength(4));
       expect(
         client.events.every((e) => e.parameters['device_id'] == 'unknown'),
         isTrue,
@@ -159,7 +167,7 @@ void main() {
       expect(client.events, isEmpty);
       FirebaseAnalyticsMonitoring.setEnabledForTesting(true);
       await purchase();
-      expect(client.events, hasLength(3));
+      expect(client.events, hasLength(4));
     },
   );
 
@@ -231,6 +239,11 @@ void main() {
         'product_id': 'worldo_gems_500',
         'device_id': 'test-device-id',
       }),
+      const _RecordedEvent('gems', <String, Object>{
+        'provider': 'google',
+        'product_id': 'worldo_gems_500',
+        'device_id': 'test-device-id',
+      }),
       const _RecordedEvent('purchase_first', <String, Object>{
         'provider': 'google',
         'product_id': 'worldo_gems_500',
@@ -272,12 +285,16 @@ void main() {
 
     expect(client.events.map((event) => event.name), <String>[
       'purchase',
+      'gems',
       'purchase_first',
       'gems_first',
       'purchase',
+      'gems',
       'purchase',
+      'subscription',
       'subscription_first',
       'purchase',
+      'subscription',
     ]);
     expect(
       client.events.singleWhere((event) => event.name == 'gems_first'),
@@ -319,6 +336,7 @@ void main() {
 
       expect(client.events.map((event) => event.name).toSet(), {
         'purchase',
+        'gems',
         'purchase_first',
         'gems_first',
         'purchase_day0',
@@ -326,7 +344,7 @@ void main() {
         'purchase_first_day0',
         'gems_first_day0',
       });
-      expect(client.events, hasLength(7));
+      expect(client.events, hasLength(8));
       for (final event in client.events) {
         expect(event.parameters, <String, Object>{
           'provider': 'google',
@@ -359,10 +377,11 @@ void main() {
 
       expect(client.events.map((event) => event.name).toSet(), {
         'purchase',
+        'gems',
         'purchase_day0',
         'gems_day0',
       });
-      expect(client.events, hasLength(3));
+      expect(client.events, hasLength(4));
     },
   );
 
@@ -424,7 +443,7 @@ void main() {
       () => DateTime.utc(2026, 1, 1, 16),
     );
     await purchase(identity: 'beijing-next-day');
-    expect(client.events.map((event) => event.name), ['purchase']);
+    expect(client.events.map((event) => event.name), ['purchase', 'gems']);
   });
 
   test('a server time before the anchor is never Day0 eligible', () async {
@@ -482,7 +501,7 @@ void main() {
       () => anchor.add(const Duration(hours: 1)),
     );
     await purchase(identity: 'restart-day0');
-    expect(client.events, hasLength(7));
+    expect(client.events, hasLength(8));
 
     FirebaseAnalyticsMonitoring.resetForTesting();
     FirebaseAnalyticsMonitoring.setClientForTesting(client);
@@ -505,7 +524,7 @@ void main() {
     );
     await purchase(identity: 'restart-day0');
 
-    expect(client.events, hasLength(7));
+    expect(client.events, hasLength(8));
     final preferences = await SharedPreferences.getInstance();
     expect(
       preferences.getInt(
@@ -532,6 +551,7 @@ void main() {
 
       expect(client.events.map((event) => event.name).toSet(), {
         'purchase',
+        'gems',
         'purchase_day0',
         'gems_day0',
         'purchase_first_day0',
@@ -726,9 +746,10 @@ void main() {
       purchaseIdentity: 'test-purchase-7',
     );
 
-    expect(client.attempts, 6);
+    expect(client.attempts, 8);
     expect(client.events.map((event) => event.name), <String>[
       'purchase',
+      'gems',
       'purchase_first',
       'gems_first',
     ]);

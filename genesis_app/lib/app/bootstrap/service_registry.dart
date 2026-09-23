@@ -41,6 +41,7 @@ import '../../platform/billing/app_store_billing_platform.dart';
 import '../../platform/billing/billing_service.dart';
 import '../../platform/billing/google_play_billing_platform.dart';
 import '../../platform/billing/pending_purchase_store.dart';
+import '../attribution/adjust_device_registration.dart';
 
 class AppServices {
   AppServices({
@@ -67,6 +68,7 @@ class AppServices {
     ValueNotifier<int>? sessionRevision,
     AppGlobalConfigStore? appGlobalConfig,
     PersonalizationStore? personalization,
+    this.adjustDeviceRegistration,
   }) : membershipCatalog =
            membershipCatalog ??
            MembershipCatalog(
@@ -158,6 +160,7 @@ class AppServices {
   final MembershipCatalog membershipCatalog;
   final AppGlobalConfigStore appGlobalConfig;
   final ValueNotifier<int> sessionRevision;
+  final AdjustDeviceRegistration? adjustDeviceRegistration;
   final ValueNotifier<String?> pendingLoginCheckInUid = ValueNotifier(null);
   (String?, int, String, DateTime?)? _quotaMembershipSignature;
   Future<void> _originFeedGenderUpdate = Future.value();
@@ -380,6 +383,13 @@ class ServiceRegistry {
         if (overlay != null) showGenesisToastInOverlay(overlay, message);
       },
     );
+    final adjustDeviceRegistration = switch (defaultTargetPlatform) {
+      TargetPlatform.android || TargetPlatform.iOS => AdjustDeviceRegistration(
+        platform: defaultTargetPlatform,
+        registerDevice: api.v1.device.registerAttribution,
+      ),
+      _ => null,
+    };
     final chatroom = ChatroomClient(
       wsBaseUrl: config.chatroomWsBaseUrl,
       sessionStore: sessionStore,
@@ -522,6 +532,7 @@ class ServiceRegistry {
       billing: billing,
       membershipPurchases: membershipPurchases,
       sessionRevision: sessionRevision,
+      adjustDeviceRegistration: adjustDeviceRegistration,
     );
   }
 

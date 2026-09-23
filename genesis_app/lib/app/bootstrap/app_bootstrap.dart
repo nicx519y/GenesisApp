@@ -117,11 +117,17 @@ class AppBootstrap {
       debugPrint('[GatewayAuth] stacktrace:\n$st');
     }
 
+    final adjustDeviceRegistration = services.adjustDeviceRegistration;
+    if (adjustDeviceRegistration != null) {
+      unawaited(adjustDeviceRegistration.register());
+    }
+
     if (uid != null && (authToken == null || authToken.isEmpty)) {
       unawaited(
-        _restoreMissingBackendToken(
-          services,
-        ).then((_) => services.membership.start()),
+        _restoreMissingBackendToken(services).then((_) async {
+          await services.adjustDeviceRegistration?.register(force: true);
+          await services.membership.start();
+        }),
       );
     } else {
       unawaited(services.membership.start());

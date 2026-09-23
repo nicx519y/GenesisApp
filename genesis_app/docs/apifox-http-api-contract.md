@@ -45,7 +45,7 @@ Origin detail 增量核对时间：2026-08-05
 
 ## 总览
 
-本文档当前覆盖 58 个接口，分为 `app`、`用户`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十三组：
+本文档当前覆盖 59 个接口，分为 `app`、`用户`、`device`、`origin`、`world`、`chatroom`、`search`、`discuss`、`direct_message`、`notify`、`report`、`feedback`、`collect` 和 `upload` 十四组：
 
 | 分组 | 方法 | 路径 | 名称 |
 | --- | --- | --- | --- |
@@ -85,6 +85,7 @@ Origin detail 增量核对时间：2026-08-05
 | origin | GET | `/api/v1/origin/hot_tags` | Origin 热门标签 |
 | origin | GET | `/api/v1/origin/my_launch_preset_characters` | 查询我 launch 过的 preset 角色 |
 | app | GET | `/api/v1/app/config` | App 启动全局配置 |
+| device | POST | `/api/v1/device/register` | 注册设备对应的 Adjust 和广告标识 |
 | origin | GET | `/api/v1/origin/detail` | Origin 模板详情 |
 | origin | GET | `/api/v1/origin/map` | 读取 Origin 2.5D 地图 |
 | origin | GET | `/api/v2/origin/foredit` | 获取 V2 Origin 完整编辑详情 |
@@ -2649,6 +2650,13 @@ World：
 - 每次启动检查；completed=false 展示已有不可取消的 PersonalizationSheet。动态 item 沿用原样式，不增加关闭或跳过入口。读取失败按未知重试，保存失败保留选项，不提前进入订阅或释放登录拦截。
 - 优先级：资料检查/填写 > 游客 VIP 强制登录。Continue 保存成功后，待绑定订单的游客关闭资料弹窗进入原强制登录；其他情况继续原 Subscription。登录后重读当前 UID，清除跨身份状态；迟到的读写结果不得完成另一账号的引导。登录签到等待资料流程结束。
 - 正式选项与预览数据分离；`PersonalizationStore` 管理当前身份与在途请求，`PersonalizationGate` 管理启动弹窗，VIP report/claim 和 Gems 购买、余额及奖励规则不变。
+
+## Adjust 设备标识注册（2026-09-23 核对）
+
+- `POST /api/v1/device/register`：游客与登录用户均可调用。当前 Gateway 请求链提供必填 `X-Device-ID`、`X-App-ID`、`X-Platform`；UID 由服务端 session 读取，不在 body 中传递。
+- body 必填 `adid`；Android 可选 `gps_adid`，iOS 可选 `idfa`、`idfv`。可选字段缺失或 `null` 时服务端保留原值，空串或全零 UUID 清空对应值。客户端只在 Adjust 已取得非空 ADID 后调用。
+- 启动后注册为 best effort，不阻塞首帧。ADID 尚未取得或请求失败时，在下一次前台恢复重试；登录、退出或切换账号后强制同步一次，使服务端按当前 session 更新设备映射。相同进程内字段未变化时跳过普通重复注册。
+- 本接口只保存设备与 Adjust/广告标识映射，不上报 Adjust 事件。App Token、Event Token、S2S 凭证和事件去重仍由服务端负责。
 
 ## Pro 会员购买与上报（2026-09-16 更新）
 

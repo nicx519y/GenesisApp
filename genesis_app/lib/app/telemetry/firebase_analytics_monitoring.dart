@@ -345,6 +345,11 @@ class FirebaseAnalyticsMonitoring {
         parameters,
         storageKey: 'purchase_transaction_v1.$identity',
       ),
+      _recordEventOnce(
+        kindName,
+        parameters,
+        storageKey: '${kindName}_transaction_v1.$identity',
+      ),
       _recordEventOnce('purchase_first', parameters),
       _recordEventOnce(kindFirstEvent, parameters),
       if (day0) ...[

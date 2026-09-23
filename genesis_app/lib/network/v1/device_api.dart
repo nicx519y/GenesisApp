@@ -4,6 +4,33 @@ import 'v1_api_resource.dart';
 class DeviceV1Api extends V1ApiResource {
   const DeviceV1Api(super.client);
 
+  /// Registers the Adjust device identifier and the platform-specific
+  /// advertising identifiers for the current Gateway device identity.
+  ///
+  /// `null` optional identifiers are omitted so the server preserves their
+  /// current values. Empty strings are sent intentionally and clear the
+  /// corresponding value according to the API contract.
+  Future<void> registerAttribution({
+    required String adid,
+    String? gpsAdid,
+    String? idfa,
+    String? idfv,
+  }) async {
+    final normalizedAdid = adid.trim();
+    if (normalizedAdid.isEmpty) {
+      throw ArgumentError.value(adid, 'adid', 'must not be empty');
+    }
+    await postData(
+      'device/register',
+      v1Body({
+        'adid': normalizedAdid,
+        'gps_adid': gpsAdid?.trim(),
+        'idfa': idfa?.trim(),
+        'idfv': idfv?.trim(),
+      }),
+    );
+  }
+
   Future<PersonalizationData> personalization({
     required String deviceId,
   }) async => PersonalizationData.fromJson(
