@@ -41,6 +41,7 @@ import 'package:genesis_flutter_android/app/debug/location_chat_bubble_layout_se
 import 'package:genesis_flutter_android/app/debug/location_chat_header_effect_settings.dart';
 import 'package:genesis_flutter_android/app/debug/origin_world_sheet_debug_settings.dart';
 import 'package:genesis_flutter_android/app/debug/world_new_content_debug_settings.dart';
+import 'package:genesis_flutter_android/app/debug/world_recap_debug_preview.dart';
 import 'package:genesis_flutter_android/app/debug/purchase_toast_debug_settings.dart';
 import 'package:genesis_flutter_android/platform/billing/purchase_toast_diagnostics.dart';
 import 'package:genesis_flutter_android/components/gems/pro_membership_badge.dart';
@@ -2770,6 +2771,11 @@ void main() {
   testWidgets(
     'world recap shares sheet navigation and session cache lifecycle',
     (tester) async {
+      // Recap is members-only; stand in for a member reading the live recap.
+      worldRecapDebugPreview.value = WorldRecapDebugPreview.memberLive;
+      addTearDown(
+        () => worldRecapDebugPreview.value = WorldRecapDebugPreview.off,
+      );
       final transport = _RecapLifecycleTransport();
       var services = await _testServices(transport: transport, useMock: false);
       Widget app() => AppServicesScope(

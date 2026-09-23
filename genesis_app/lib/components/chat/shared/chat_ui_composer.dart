@@ -73,6 +73,7 @@ class ChatComposer extends StatelessWidget {
     this.onSecondaryLeadingShortcutPressed,
     this.composerHeader,
     this.leadingAction,
+    this.inputLeading,
     this.sendIcon = ChatComposerSendIcon.send,
     this.animateSendButton = true,
     this.pinActionsToBottom = false,
@@ -98,6 +99,11 @@ class ChatComposer extends StatelessWidget {
   final VoidCallback? onSecondaryLeadingShortcutPressed;
   final Widget? composerHeader;
   final Widget? leadingAction;
+
+  /// Sits inside the input box, left of the text and pinned to its first line,
+  /// so it stays beside the start of a long message as the box grows.
+  /// It brings its own spacing, so the text starts flush against it.
+  final Widget? inputLeading;
   final ChatComposerSendIcon sendIcon;
   final bool animateSendButton;
   final bool pinActionsToBottom;
@@ -113,6 +119,67 @@ class ChatComposer extends StatelessWidget {
     final submitFromKeyboard = !style.showComposerSendButton;
     final bottomInset =
         bottomSafeAreaInset ?? GenesisSafeAreaInsets.bottom(context);
+    final inputTextStyle = GenesisTypography.withFallback(style.inputTextStyle);
+    final lineHeight = inputLeading == null
+        ? 0.0
+        : (TextPainter(
+            text: TextSpan(text: ' ', style: inputTextStyle),
+            textScaler: MediaQuery.textScalerOf(context),
+            textDirection: TextDirection.ltr,
+          )..layout()).preferredLineHeight;
+    // A small text scale would leave one line short of the minimum height and
+    // riding high in it; padding it out keeps that line centred in the box.
+    final verticalPadding = inputLeading == null
+        ? style.inputVerticalPadding
+        : math.max(
+            style.inputVerticalPadding,
+            (style.inputMinHeight - lineHeight) / 2,
+          );
+    final textField = TextField(
+      key: const ValueKey<String>('chat-composer-input'),
+      controller: controller,
+      focusNode: focusNode,
+      cursorColor: style.inputTextStyle.color ?? GenesisColors.textPrimary,
+      enabled: inputEnabled,
+      minLines: style.inputMinLines,
+      maxLines: style.inputMaxLines,
+      keyboardType: submitFromKeyboard
+          ? TextInputType.text
+          : TextInputType.multiline,
+      textInputAction: submitFromKeyboard
+          ? TextInputAction.send
+          : TextInputAction.newline,
+      onTapOutside: (_) => FocusManager.instance.primaryFocus?.unfocus(),
+      onTap: onInputTap,
+      onTapAlwaysCalled: onInputTapAlwaysCalled,
+      onSubmitted: submitFromKeyboard
+          ? (_) {
+              if (sendEnabled) {
+                unawaited(onSend());
+              }
+            }
+          : null,
+      style: inputTextStyle,
+      decoration: InputDecoration(
+        border: InputBorder.none,
+        hintText: hintText,
+        // A long name ellipsizes rather than
+        // wrapping the empty box to two lines.
+        hintMaxLines: 1,
+        // Beside a leading mark the field keeps the style's own min height.
+        // Material's 48 would centre a lone line 4px below the mark, then drop
+        // that centring once the text wrapped, so no fixed mark could sit on
+        // the first line in both.
+        isDense: inputLeading != null,
+        hintStyle: style.inputHintStyle,
+        contentPadding: EdgeInsets.fromLTRB(
+          inputLeading == null ? style.inputHorizontalPadding : 0,
+          verticalPadding,
+          style.inputHorizontalPadding,
+          verticalPadding,
+        ),
+      ),
+    );
     return _ChatComposerHeightObserver(
       onHeightChanged: onHeightChanged,
       child: ClipRect(
@@ -178,51 +245,23 @@ class ChatComposer extends StatelessWidget {
                                     minHeight: style.inputMinHeight,
                                     maxHeight: style.inputMaxHeight,
                                   ),
-                                  child: TextField(
-                                    key: const ValueKey<String>(
-                                      'chat-composer-input',
-                                    ),
-                                    controller: controller,
-                                    focusNode: focusNode,
-                                    cursorColor:
-                                        style.inputTextStyle.color ??
-                                        GenesisColors.textPrimary,
-                                    enabled: inputEnabled,
-                                    minLines: style.inputMinLines,
-                                    maxLines: style.inputMaxLines,
-                                    keyboardType: submitFromKeyboard
-                                        ? TextInputType.text
-                                        : TextInputType.multiline,
-                                    textInputAction: submitFromKeyboard
-                                        ? TextInputAction.send
-                                        : TextInputAction.newline,
-                                    onTapOutside: (_) => FocusManager
-                                        .instance
-                                        .primaryFocus
-                                        ?.unfocus(),
-                                    onTap: onInputTap,
-                                    onTapAlwaysCalled: onInputTapAlwaysCalled,
-                                    onSubmitted: submitFromKeyboard
-                                        ? (_) {
-                                            if (sendEnabled) {
-                                              unawaited(onSend());
-                                            }
-                                          }
-                                        : null,
-                                    style: GenesisTypography.withFallback(
-                                      style.inputTextStyle,
-                                    ),
-                                    decoration: InputDecoration(
-                                      border: InputBorder.none,
-                                      hintText: hintText,
-                                      hintStyle: style.inputHintStyle,
-                                      contentPadding: EdgeInsets.symmetric(
-                                        horizontal:
-                                            style.inputHorizontalPadding,
-                                        vertical: style.inputVerticalPadding,
-                                      ),
-                                    ),
-                                  ),
+                                  child: inputLeading == null
+                                      ? textField
+                                      : Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            SizedBox(
+                                              height:
+                                                  lineHeight +
+                                                  verticalPadding * 2,
+                                              child: Center(
+                                                child: inputLeading,
+                                              ),
+                                            ),
+                                            Expanded(child: textField),
+                                          ],
+                                        ),
                                 ),
                                 if (leadingShortcutLabel != null ||
                                     secondaryLeadingShortcutLabel != null)

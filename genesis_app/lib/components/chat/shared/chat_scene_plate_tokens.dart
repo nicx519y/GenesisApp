@@ -18,6 +18,10 @@ const double kLocationChatMessageBottomGap = 14;
 const Color kChatBubbleTextColor = Color(0xFFF4F3F6);
 const Color kChatBubbleEmphasisColor = Color(0xFF888888);
 const Color kChatSelfBubbleColor = Color(0x99C41F2E);
+
+/// [kChatSelfBubbleColor] at full strength, for marks that stand for the
+/// user and would read muddy through the bubble's translucency.
+const Color kChatSelfAccentColor = Color(0xFFC41F2E);
 const Color kChatNarratorBubbleColor = Color(0x80151517);
 const TextStyle kChatNarratorTextStyle = TextStyle(
   color: Color.fromRGBO(255, 255, 255, 0.73),

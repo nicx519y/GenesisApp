@@ -70,7 +70,11 @@ class ChatNarratorMessageBubble extends StatelessWidget {
       backgroundColor: chatNarratorMessageBackgroundColor(style),
       border: editor == null ? null : chatNarratorEditorBorder,
       textStyle: narratorTextStyle,
-      leadingIconColor: chatNarratorMessageIconColor(style),
+      // Narration a player sent carries the red of player bubbles, so it
+      // reads apart from the story's own narrator, which stays white.
+      leadingIconColor: message.isUserNarration
+          ? kChatSelfAccentColor
+          : chatNarratorMessageIconColor(style),
       softItalic: usesScenePlate || message.isUserNarration,
       markdownEmphasisColor: narratorTextStyle.color ?? Colors.white,
       style: style,

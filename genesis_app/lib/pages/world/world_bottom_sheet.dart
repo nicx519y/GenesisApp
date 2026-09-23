@@ -24,6 +24,7 @@ import 'world_constants.dart';
 import 'world_header.dart';
 import 'world_map_data.dart';
 import 'world_models.dart';
+import '../../app/debug/world_recap_debug_preview.dart';
 import 'world_recap_cache.dart';
 import 'world_recap_section.dart';
 import 'world_sections.dart';
@@ -231,6 +232,13 @@ class WorldSingleSectionBottomSheetState
   String _cachedLocationListCurrentUid = '';
   WorldBottomSheetKind? _lastSelectedKind;
 
+  /// Made once, so the recap sees one steady source rather than a new one on
+  /// every rebuild of the sheet.
+  late final Listenable _recapMembershipChanges = Listenable.merge([
+    widget.services.membership.state,
+    worldRecapDebugPreview,
+  ]);
+
   WorldDetail get _currentWorld =>
       widget.worldListenable.value ?? widget.initialWorld;
 
@@ -351,14 +359,29 @@ class WorldSingleSectionBottomSheetState
     final entered =
         kind == WorldBottomSheetKind.recap && _lastSelectedKind != kind;
     _lastSelectedKind = kind;
-    if (entered) {
+    if (!entered) return;
+    final worldId = _currentWorld.worldId;
+    // Recap is a Worldo Premium feature: nothing is fetched for anyone else.
+    _checkRecapMembership((isVip) {
+      if (isVip != true || !mounted) return;
       unawaited(
         widget.recapCache.refresh(
-          _currentWorld.worldId,
+          worldId,
           widget.services.api.getWorldRecentSummary,
         ),
       );
+    });
+  }
+
+  /// Membership as the recap sees it: a developer preview may stand in for
+  /// the real answer in debug builds.
+  void _checkRecapMembership(ValueChanged<bool?> callback) {
+    final forced = worldRecapForcedMembership;
+    if (forced != null) {
+      scheduleMicrotask(() => callback(forced));
+      return;
     }
+    widget.services.membership.checkVip(callback);
   }
 
   int _pageForKind(WorldBottomSheetKind kind) {
@@ -653,6 +676,9 @@ class WorldSingleSectionBottomSheetState
         load: widget.services.api.getWorldRecentSummary,
         scrollController: scrollController,
         active: _selection.kind == WorldBottomSheetKind.recap,
+        checkVip: _checkRecapMembership,
+        membershipChanges: _recapMembershipChanges,
+        worldId: _currentWorld.worldId,
       ),
       WorldBottomSheetKind.status => _buildStatusSectionPage(scrollController),
       WorldBottomSheetKind.cast => _buildCastSectionPage(scrollController),

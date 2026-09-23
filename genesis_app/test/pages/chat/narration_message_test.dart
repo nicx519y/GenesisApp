@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_scene_plate_tokens.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_http_models.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_type.dart';
@@ -118,10 +119,9 @@ void main() {
         );
         expect(bubble.fullWidth, isTrue);
         expect(bubble.softItalic, isTrue);
-        expect(
-          bubble.leadingIconColor,
-          chatNarratorMessageIconColor(kLocationChatStyle),
-        );
+        // A player's narration carries the red of player bubbles; only the
+        // story's own narrator keeps the plain mark.
+        expect(bubble.leadingIconColor, kChatSelfAccentColor);
         expect(bubble.text, '门外下起了雨。');
         expect(find.text('Alice'), findsNothing);
         expect(find.byType(ChatAvatar), findsNothing);

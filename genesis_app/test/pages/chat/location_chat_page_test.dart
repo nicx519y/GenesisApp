@@ -166,13 +166,10 @@ void main() {
       await tester.widget<ChatComposer>(composer).onSend();
       await tester.pump();
       expect(harness.socket.sendMessageCount, 0);
+      expect(find.byKey(const ValueKey('speaker-narrator')), findsOneWidget);
       expect(
-        tester
-            .widget<ChatComposerActionButton>(
-              find.byKey(const ValueKey('location-chat-message-type-toggle')),
-            )
-            .active,
-        isTrue,
+        tester.widget<ChatComposer>(composer).hintText,
+        'Message as the Narrator',
       );
       tester.widget<ChatComposer>(composer).controller.text = '门外下起了雨。';
       await tester.pump();
@@ -193,7 +190,11 @@ void main() {
             .messageType,
         'text',
       );
-      expect(tester.widget<ChatComposer>(composer).hintText, 'Text...');
+      expect(find.byKey(const ValueKey('speaker-character')), findsOneWidget);
+      expect(
+        tester.widget<ChatComposer>(composer).hintText,
+        isNot('Message as the Narrator'),
+      );
       harness.socket.serverV2AckForLatestSend(errNo: 3001);
       await _pumpUntilLocationChatTest(
         tester,
@@ -3559,7 +3560,7 @@ void main() {
     expect(scaffold.resizeToAvoidBottomInset, isFalse);
     expect(
       tester.widget<ChatComposer>(find.byType(ChatComposer)).hintText,
-      'Text...',
+      'Message as Player One',
     );
     expect(
       tester

@@ -104,6 +104,8 @@ class WorldTickEventItem extends StatelessWidget {
               payload: payload,
               currentTime: chapter.currentTime,
               messageLocalId: 'world-event-$tickNumber-$subTickNumber',
+              // Only the tick's own rule stays on the Events page.
+              locationDividers: false,
               locationFooterBuilder: (paragraph) {
                 final details = _characterDetails(
                   paragraphs[paragraph.sourceIndex],

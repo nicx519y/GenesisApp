@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:genesis_flutter_android/components/chat/shared/chat_scene_plate_tokens.dart';
 import 'package:genesis_flutter_android/components/chat/shared/chat_ui.dart';
 import 'package:genesis_flutter_android/icons/custom_icon_assets.dart';
 import 'package:genesis_flutter_android/network/chatroom/chatroom_message_type.dart';
@@ -164,25 +165,36 @@ void main() {
       );
       final send = find.byKey(const ValueKey('chat-composer-send-button'));
       final input = find.byKey(const ValueKey('chat-composer-input-surface'));
-      expect(find.byType(ChatComposerActionButton), findsNWidgets(2));
-      expect(tester.widget<ChatComposerActionButton>(toggle).active, isFalse);
-      final svg = tester.widget<SvgPicture>(
-        find.descendant(of: toggle, matching: find.byType(SvgPicture)),
-      );
-      expect((svg.bytesLoader as SvgAssetLoader).assetName, paragraphIconAsset);
-      expect(svg.width, 17);
-      expect(svg.height, 17);
-      expect(
-        svg.colorFilter,
-        ColorFilter.mode(
-          kLocationChatStyle.composerSendButtonIconColor,
-          BlendMode.srcIn,
-        ),
-      );
+      // Only Send stays outside the input; the toggle sits inside it.
+      expect(find.byType(ChatComposerActionButton), findsOneWidget);
+      Finder mark(String key) =>
+          find.descendant(of: toggle, matching: find.byKey(ValueKey(key)));
+      expect(mark('speaker-character'), findsOneWidget);
+      expect(mark('speaker-narrator'), findsNothing);
       // An empty draft disables Send, but must still allow mode selection.
       await tester.tap(toggle);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(selected, isTrue);
+      expect(mark('speaker-narrator'), findsOneWidget);
+      // The narrator mark: the composer's grey plate, the user's own red.
+      final plate = tester.widget<Container>(mark('speaker-narrator'));
+      expect(
+        (plate.decoration! as BoxDecoration).color,
+        kLocationChatStyle.composerSendButtonDisabledColor,
+      );
+      final svg = tester.widget<SvgPicture>(
+        find.descendant(
+          of: mark('speaker-narrator'),
+          matching: find.byType(SvgPicture),
+        ),
+      );
+      expect((svg.bytesLoader as SvgAssetLoader).assetName, paragraphIconAsset);
+      expect(svg.width, 14);
+      expect(svg.height, 14);
+      expect(
+        svg.colorFilter,
+        const ColorFilter.mode(kChatSelfAccentColor, BlendMode.srcIn),
+      );
       expect(
         tester.getSemantics(toggle),
         matchesSemantics(
@@ -206,7 +218,7 @@ void main() {
       final keyboardVisible = tester.testTextInput.isVisible;
       final height = tester.getSize(find.byType(ChatComposer)).height;
       await tester.tap(toggle);
-      await tester.pump();
+      await tester.pumpAndSettle();
       expect(selected, isFalse);
       expect(focus.hasFocus, isTrue);
       expect(controller.value, value);
@@ -214,9 +226,9 @@ void main() {
       expect(tester.getSize(find.byType(ChatComposer)).height, height);
       expect(tester.getSize(toggle), const Size(40, 40));
       expect(tester.getSize(send), const Size(40, 40));
-      expect(tester.getRect(input).left - tester.getRect(toggle).right, 9);
+      expect(tester.getRect(toggle).left, tester.getRect(input).left);
+      expect(tester.getRect(toggle).top, tester.getRect(input).top);
       expect(tester.getRect(send).left - tester.getRect(input).right, 9);
-      expect(tester.getRect(toggle).bottom, tester.getRect(send).bottom);
       expect(tester.getRect(input).bottom, tester.getRect(send).bottom);
       update(() => enabled = false);
       await tester.pump();

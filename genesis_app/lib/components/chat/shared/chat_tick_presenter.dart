@@ -13,7 +13,7 @@ ChatTickPayloadVm presentChatTickChapter(
   required bool? Function(String) roleIsAi,
   bool? Function(String)? locationExists,
   bool Function(String)? isUserId,
-  String legacyLocationId = '',
+  String restrictToLocationId = '',
   bool requireLegacyVisibility = false,
   ChatCharactersMovedPayloadVm? charactersMoved,
 }) {
@@ -48,9 +48,9 @@ ChatTickPayloadVm presentChatTickChapter(
     final locationId = event.locationId.trim();
     final modern = payload.hasStatusFields || event.hasStatusFields;
     if (modern && locationExists?.call(locationId) == false) continue;
-    if (!modern &&
-        legacyLocationId.isNotEmpty &&
-        locationId != legacyLocationId) {
+    // Chat shows one chatroom, so it passes its own location and drops the
+    // rest. World Events passes nothing and keeps every location.
+    if (restrictToLocationId.isNotEmpty && locationId != restrictToLocationId) {
       continue;
     }
     final visibility = event.visibility.trim().toLowerCase();

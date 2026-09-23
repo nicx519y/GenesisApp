@@ -24,6 +24,7 @@ import '../../app/telemetry/firebase_analytics_monitoring.dart';
 import '../../app/telemetry/genesis_telemetry.dart';
 import '../../components/auth/login_guard.dart';
 import '../../components/chat/chatroom_failure_toast.dart';
+import '../../components/chat/shared/chat_scene_plate_tokens.dart';
 import '../../components/chat/shared/chat_ui.dart';
 import '../../components/common/genesis_bottom_sheet_panel.dart';
 import '../../components/common/genesis_center_toast.dart';
@@ -1241,6 +1242,8 @@ class _LocationChatPanelState extends State<LocationChatPanel> {
               focusNode: _composerFocusNode,
               onInputTap: _handleComposerInputTap,
               hintText: 'Text...',
+              selfName: _localSelfDisplayName(),
+              selfAvatarUrl: _localSelfAvatarUrl(),
               messageType: _composerMessageType,
               onToggleMessageType:
                   _messageAppVersion < chatroomNarrationMinAppVersion

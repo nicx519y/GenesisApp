@@ -52,7 +52,7 @@ class TickMessageParser implements LocationChatMessageParser {
       roleName: context.roleName,
       roleAvatarUrl: context.roleAvatarUrl,
       roleIsAi: context.roleIsAi,
-      legacyLocationId: context.currentLocationId.trim(),
+      restrictToLocationId: context.currentLocationId.trim(),
       requireLegacyVisibility: true,
       charactersMoved: _charactersMovedViewModel(
         payload.charactersMoved,

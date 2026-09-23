@@ -68,11 +68,18 @@ class ChatTickChapterContent extends StatelessWidget {
     required this.currentTime,
     this.messageLocalId = 'world-event',
     this.locationFooterBuilder,
+    this.locationDividers = true,
   });
   final ChatTickPayloadVm payload;
   final String currentTime;
   final String messageLocalId;
   final Widget Function(ChatStoryEventParagraphVm)? locationFooterBuilder;
+
+  /// Rules each location off from the one before. The chat bubble keeps them:
+  /// it is already one tight container. A full page drops them and lets the
+  /// same space alone part the locations, leaving the tick's own rule as the
+  /// one line on it.
+  final bool locationDividers;
 
   @override
   Widget build(BuildContext context) {
@@ -134,6 +141,7 @@ class ChatTickChapterContent extends StatelessWidget {
                 ? paragraph.locationName
                 : payload.storyEvents!.locationName,
             footer: locationFooterBuilder?.call(paragraph),
+            divider: locationDividers,
           ),
         if (!payload.hasStructuredSections &&
             payload.fallbackContent.trim().isNotEmpty &&
@@ -157,11 +165,13 @@ class _TickChapterLocation extends StatelessWidget {
     required this.messageLocalId,
     required this.locationName,
     this.footer,
+    this.divider = true,
   });
   final ChatStoryEventParagraphVm paragraph;
   final String messageLocalId;
   final Widget? footer;
   final String locationName;
+  final bool divider;
   @override
   Widget build(BuildContext context) {
     final body = GenesisTypography.body.copyWith(
@@ -171,11 +181,15 @@ class _TickChapterLocation extends StatelessWidget {
       key: ValueKey(
         'chat-story-event-paragraph-$messageLocalId-${paragraph.sourceIndex}',
       ),
+      // The gap is the same with or without the rule, so dropping it changes
+      // nothing else about the layout.
       margin: const EdgeInsets.only(top: 12),
       padding: const EdgeInsets.only(top: 11),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: _tickMessageDividerColor)),
-      ),
+      decoration: divider
+          ? const BoxDecoration(
+              border: Border(top: BorderSide(color: _tickMessageDividerColor)),
+            )
+          : null,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -319,7 +333,9 @@ class _TickStatusGroup extends StatelessWidget {
           key: ValueKey('tick-status-${status.owner}-$index'),
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
           decoration: BoxDecoration(
-            color: GenesisColors.darkFaintFill,
+            // An information card, not an input: the faint fill read lighter
+            // than a chat bubble, above the message it only annotates.
+            color: GenesisColors.darkCardBackground,
             borderRadius: BorderRadius.circular(8),
           ),
           child: Column(

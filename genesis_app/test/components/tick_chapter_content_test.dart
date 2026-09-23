@@ -79,9 +79,13 @@ Map<String, dynamic> _chapter({int locations = 2, int statuses = 2}) => {
   ],
   'characters_moved': <Object?>[],
 };
+
+/// Presents a chapter as World Events does, keeping every location. A chat
+/// presentation narrows to its own room; pass [restrictToLocationId] for that.
 ChatTickPayloadVm _present(
   Map<String, dynamic> json, {
   bool? Function(String)? exists,
+  String restrictToLocationId = '',
 }) => presentChatTickChapter(
   ChatroomV2TickPayload.fromJson(json),
   locationName: (id) => 'Room $id',
@@ -90,7 +94,7 @@ ChatTickPayloadVm _present(
   roleIsAi: (_) => true,
   locationExists: exists,
   isUserId: (id) => id == 'user',
-  legacyLocationId: 'loc-0',
+  restrictToLocationId: restrictToLocationId,
   requireLegacyVisibility: true,
 );
 ChatMessageVm _message(ChatTickPayloadVm payload) => ChatMessageVm(
@@ -424,12 +428,30 @@ void main() {
             'visible_to': ['char-0'],
           },
         ],
-      });
+      }, restrictToLocationId: 'loc-0');
       expect(vm.storyEvents!.paragraphs, hasLength(1));
       final paragraph = vm.storyEvents!.paragraphs.single;
       expect(paragraph.timestamp, 'Day 1');
       expect(paragraph.visibleRoles.single.name, 'Profile name');
       expect(paragraph.sourceIndex, 1);
+    },
+  );
+
+  test(
+    'a chat narrows every chapter to its own room; World keeps them all',
+    () {
+      final raw = _chapter(locations: 3, statuses: 0);
+      List<String> rooms(ChatTickPayloadVm vm) => [
+        for (final paragraph in vm.storyEvents!.paragraphs)
+          paragraph.locationName,
+      ];
+
+      expect(rooms(_present(raw, restrictToLocationId: 'loc-1')), [
+        'Room loc-1',
+      ]);
+      expect(rooms(_present(raw)), ['Room loc-0', 'Room loc-1', 'Room loc-2']);
+      // A chat room the chapter never mentions carries no story events at all.
+      expect(_present(raw, restrictToLocationId: 'loc-9').storyEvents, isNull);
     },
   );
 

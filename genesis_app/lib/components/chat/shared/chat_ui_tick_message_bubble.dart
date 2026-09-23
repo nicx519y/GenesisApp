@@ -7,6 +7,14 @@ const Color _tickMessageBorderColor = Color(0x33FFFFFF);
 const Color _tickMessageDividerColor = Color(0x29FFFFFF);
 const double _tickMessageBlurSigma = GenesisBlur.strong;
 
+/// How a tick is named wherever one is: the chat bubble, the World Events
+/// pager and the recap timeline all read the same.
+final TextStyle chatTickLabelStyle = GenesisTypography.bodyStrong.copyWith(
+  color: GenesisColors.darkTextPrimary,
+  // Center the letterforms as well as the line box beside a leading mark.
+  leadingDistribution: TextLeadingDistribution.even,
+);
+
 class ChatTickPayloadVm extends ChatTimelinePayloadVm {
   const ChatTickPayloadVm({
     this.globalText = '',
@@ -375,16 +383,7 @@ class ChatTickHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              label,
-              style: GenesisTypography.bodyStrong.copyWith(
-                color: GenesisColors.darkTextPrimary,
-                // Center the letterforms as well as the line box beside the dot.
-                leadingDistribution: TextLeadingDistribution.even,
-              ),
-            ),
-          ),
+          Expanded(child: Text(label, style: chatTickLabelStyle)),
         ],
       ),
     );
