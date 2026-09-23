@@ -129,6 +129,7 @@ dependencies {
     implementation("com.google.android.gms:play-services-auth:21.4.0")
     implementation("com.google.android.gms:play-services-ads-identifier:18.3.0")
     implementation("com.android.installreferrer:installreferrer:2.2")
+    implementation("com.adjust.sdk:adjust-android-meta-referrer:5.8.0")
 }
 
 flutter {

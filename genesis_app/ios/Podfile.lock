@@ -3,6 +3,8 @@ PODS:
     - Adjust/Adjust (= 5.8.0)
   - Adjust/Adjust (5.8.0):
     - AdjustSignature (= 5.0.0)
+  - Adjust/AdjustGoogleOdm (5.8.0):
+    - Adjust/Adjust
   - adjust_sdk (5.8.0):
     - Adjust (= 5.8.0)
     - Flutter
@@ -225,6 +227,7 @@ PODS:
     - FlutterMacOS
 
 DEPENDENCIES:
+  - Adjust/AdjustGoogleOdm
   - adjust_sdk (from `.symlinks/plugins/adjust_sdk/ios`)
   - firebase_analytics (from `.symlinks/plugins/firebase_analytics/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
@@ -353,6 +356,6 @@ SPEC CHECKSUMS:
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
   webview_flutter_wkwebview: 8ebf4fded22593026f7dbff1fbff31ea98573c8d
 
-PODFILE CHECKSUM: dcfef3bb843dabef46670c343c92cd8678381f80
+PODFILE CHECKSUM: 751f3e5567e3e63507ccbc2af9e0b202b57926ee
 
 COCOAPODS: 1.17.0

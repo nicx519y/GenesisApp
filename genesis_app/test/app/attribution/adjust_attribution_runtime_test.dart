@@ -30,6 +30,16 @@ void main() {
     );
 
     expect(config.attConsentWaitingInterval, isNull);
+    expect(config.toMap['fbAppId'], AdjustAttributionRuntime.metaAppId);
+  });
+
+  test('iOS config does not include the Android-only Meta app ID', () {
+    final config = AdjustAttributionRuntime.createConfig(
+      releaseMode: false,
+      platform: TargetPlatform.iOS,
+    );
+
+    expect(config.toMap, isNot(contains('fbAppId')));
   });
 
   test(

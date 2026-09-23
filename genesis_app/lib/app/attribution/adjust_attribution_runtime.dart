@@ -14,6 +14,7 @@ class AdjustAttributionRuntime {
   const AdjustAttributionRuntime._();
 
   static const String appToken = 'k5fhwrccqmtc';
+  static const String metaAppId = '1085582550499704';
 
   static bool _initialized = false;
 
@@ -48,6 +49,7 @@ class AdjustAttributionRuntime {
     required bool releaseMode,
     TargetPlatform? platform,
   }) {
+    final resolvedPlatform = platform ?? defaultTargetPlatform;
     final config =
         AdjustConfig(
             appToken,
@@ -58,6 +60,10 @@ class AdjustAttributionRuntime {
           ..logLevel = releaseMode
               ? AdjustLogLevel.suppress
               : AdjustLogLevel.verbose;
+
+    if (resolvedPlatform == TargetPlatform.android) {
+      config.fbAppId = metaAppId;
+    }
 
     // Do not configure Adjust's ATT waiting interval here. While the native
     // ATT alert is visible iOS marks the app inactive, and Adjust pauses that
