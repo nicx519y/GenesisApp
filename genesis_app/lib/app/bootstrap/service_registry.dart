@@ -403,6 +403,7 @@ class ServiceRegistry {
             sender: (report) => api.v1.event.report(
               event: report.event,
               environment: report.environment,
+              occurredAtMicros: report.occurredAtMicros,
               params: report.params,
               businessId: report.businessId,
             ),

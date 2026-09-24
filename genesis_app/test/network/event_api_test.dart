@@ -27,6 +27,7 @@ void main() {
     await api.report(
       event: 'gems',
       environment: 'sandbox',
+      occurredAtMicros: 1767225600123456,
       businessId: 'gems:order-1',
       params: const <String, String>{
         'provider': 'google',
@@ -42,6 +43,7 @@ void main() {
     expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
       'event': 'gems',
       'environment': 'sandbox',
+      'occurred_at': 1767225600123456,
       'business_id': 'gems:order-1',
       'params': {
         'provider': 'google',
@@ -73,6 +75,7 @@ void main() {
     await api.report(
       event: 'login_first',
       environment: 'production',
+      occurredAtMicros: 1767225600123456,
       businessId: ' ',
       params: const {'method': 'google', 'device_id': 'device-1'},
     );
@@ -80,6 +83,7 @@ void main() {
     expect(jsonDecode(utf8.decode(captured!.bodyBytes!)), {
       'event': 'login_first',
       'environment': 'production',
+      'occurred_at': 1767225600123456,
       'params': {'method': 'google', 'device_id': 'device-1'},
     });
   });
@@ -95,7 +99,33 @@ void main() {
     );
 
     await expectLater(
-      api.report(event: 'login_first', environment: 'test', params: const {}),
+      api.report(
+        event: 'login_first',
+        environment: 'test',
+        occurredAtMicros: 1767225600123456,
+        params: const {},
+      ),
+      throwsArgumentError,
+    );
+  });
+
+  test('event report rejects a non-positive occurred_at', () async {
+    final api = EventV1Api(
+      ApiClient(
+        baseUrl: 'https://example.test/api/',
+        transport: _CallbackTransport((_) {
+          throw StateError('request must not be sent');
+        }),
+      ),
+    );
+
+    await expectLater(
+      api.report(
+        event: 'login_first',
+        environment: 'sandbox',
+        occurredAtMicros: 0,
+        params: const {},
+      ),
       throwsArgumentError,
     );
   });

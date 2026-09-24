@@ -70,6 +70,7 @@ void main() {
     await GenesisApi(useMock: true).v1.event.report(
       event: 'login_first',
       environment: 'sandbox',
+      occurredAtMicros: 1767225600123456,
       params: const <String, String>{
         'method': 'google',
         'device_id': 'mock-device',

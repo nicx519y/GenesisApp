@@ -28,6 +28,9 @@ void main() {
         return messageSentCount;
       },
     );
+    FirebaseAnalyticsMonitoring.setOccurredAtMicrosReaderForTesting(
+      () => 1767225600123456,
+    );
   });
   tearDown(FirebaseAnalyticsMonitoring.resetForTesting);
 
@@ -259,17 +262,23 @@ void main() {
   });
 
   test(
-    'routes all 15 selected events with the exact Firebase params',
+    'routes all 16 selected events with the exact Firebase params and time',
     () async {
       final serverEvents = <_ServerRecordedEvent>[];
       FirebaseAnalyticsMonitoring.configureServerEventReporter(({
         required event,
+        required occurredAtMicros,
         required parameters,
         businessId,
       }) async {
         if (AppEventReporting.supportedEvents.contains(event)) {
           serverEvents.add(
-            _ServerRecordedEvent(event, Map.of(parameters), businessId),
+            _ServerRecordedEvent(
+              event,
+              occurredAtMicros,
+              Map.of(parameters),
+              businessId,
+            ),
           );
         }
       });
@@ -313,6 +322,12 @@ void main() {
       expect(
         serverEvents.map((event) => event.name).toSet(),
         AppEventReporting.supportedEvents,
+      );
+      expect(
+        serverEvents.every(
+          (event) => event.occurredAtMicros == 1767225600123456,
+        ),
+        isTrue,
       );
       expect(
         serverEvents.where((event) => event.name == 'login_first').first.params,
@@ -365,7 +380,84 @@ void main() {
       );
       expect(
         serverEvents.any((event) => event.name == 'subscription_first_day0'),
-        isFalse,
+        isTrue,
+      );
+    },
+  );
+
+  test('existing Firebase first marker suppresses S2S backfill', () async {
+    final onceEventStore = _MemoryOnceEventStore()
+      ..sentEvents.add('login_first');
+    FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(onceEventStore);
+    final serverEvents = <_ServerRecordedEvent>[];
+    FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+      required event,
+      required occurredAtMicros,
+      required parameters,
+      businessId,
+    }) async {
+      if (AppEventReporting.supportedEvents.contains(event)) {
+        serverEvents.add(
+          _ServerRecordedEvent(
+            event,
+            occurredAtMicros,
+            Map.of(parameters),
+            businessId,
+          ),
+        );
+      }
+    });
+
+    await FirebaseAnalyticsMonitoring.recordLogin(method: 'google');
+
+    expect(client.events.map((event) => event.name), <String>['login']);
+    expect(serverEvents, isEmpty);
+  });
+
+  test(
+    'existing purchase first markers do not suppress new transaction events',
+    () async {
+      final onceEventStore = _MemoryOnceEventStore()
+        ..sentEvents.addAll(<String>{'purchase_first', 'gems_first'});
+      FirebaseAnalyticsMonitoring.setOnceEventStoreForTesting(onceEventStore);
+      final serverEvents = <_ServerRecordedEvent>[];
+      FirebaseAnalyticsMonitoring.configureServerEventReporter(({
+        required event,
+        required occurredAtMicros,
+        required parameters,
+        businessId,
+      }) async {
+        if (AppEventReporting.supportedEvents.contains(event)) {
+          serverEvents.add(
+            _ServerRecordedEvent(
+              event,
+              occurredAtMicros,
+              Map.of(parameters),
+              businessId,
+            ),
+          );
+        }
+      });
+
+      await FirebaseAnalyticsMonitoring.recordPurchase(
+        provider: 'google',
+        productId: 'gems-500',
+        kind: FirebaseAnalyticsPurchaseKind.gems,
+        purchaseIdentity: 'new-proof',
+        businessIdentity: 'new-order',
+      );
+
+      expect(client.events.map((event) => event.name).toSet(), <String>{
+        'purchase',
+        'gems',
+      });
+      expect(serverEvents.map((event) => event.name).toSet(), <String>{
+        'purchase',
+        'gems',
+      });
+      expect(
+        serverEvents.every((event) => event.businessId == 'gems:new-order'),
+        isTrue,
       );
     },
   );
@@ -1230,9 +1322,15 @@ class _RecordedEvent {
 }
 
 class _ServerRecordedEvent {
-  const _ServerRecordedEvent(this.name, this.params, this.businessId);
+  const _ServerRecordedEvent(
+    this.name,
+    this.occurredAtMicros,
+    this.params,
+    this.businessId,
+  );
 
   final String name;
+  final int occurredAtMicros;
   final Map<String, Object> params;
   final String? businessId;
 }

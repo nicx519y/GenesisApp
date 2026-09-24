@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:genesis_flutter_android/app/telemetry/app_event_reporting.dart';
 import 'package:genesis_flutter_android/network/api_exception.dart';
@@ -13,6 +15,7 @@ void main() {
     const report = AppEventReport(
       event: 'login_first',
       environment: 'sandbox',
+      occurredAtMicros: 1767225600123456,
       params: <String, String>{'method': 'google', 'device_id': 'device-1'},
       reportKey: 'report-1',
     );
@@ -22,6 +25,54 @@ void main() {
     expect(await store.pending(limit: 20), hasLength(1));
     await store.markDelivered(report.reportKey);
     expect(await store.pending(limit: 20), isEmpty);
+    await store.close();
+  });
+
+  test('sqflite v1 outbox migrates pending rows with occurred_at', () async {
+    sqfliteFfiInit();
+    final directory = await Directory.systemTemp.createTemp(
+      'genesis-event-report-migration-',
+    );
+    final databasePath = '${directory.path}/reports.db';
+    addTearDown(() async {
+      await databaseFactoryFfiNoIsolate.deleteDatabase(databasePath);
+      await directory.delete(recursive: true);
+    });
+    final legacyDatabase = await databaseFactoryFfiNoIsolate.openDatabase(
+      databasePath,
+      options: OpenDatabaseOptions(
+        version: 1,
+        onCreate: (database, _) => database.execute('''
+CREATE TABLE app_event_reports (
+  sequence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  report_key TEXT NOT NULL UNIQUE,
+  event_name TEXT NOT NULL,
+  environment TEXT NOT NULL,
+  business_id TEXT,
+  params_json TEXT NOT NULL,
+  delivered INTEGER NOT NULL DEFAULT 0
+)
+'''),
+      ),
+    );
+    await legacyDatabase.insert('app_event_reports', <String, Object?>{
+      'report_key': 'legacy-report',
+      'event_name': 'login_first',
+      'environment': 'sandbox',
+      'params_json': '{"method":"google"}',
+      'delivered': 0,
+    });
+    await legacyDatabase.close();
+
+    final store = SqfliteAppEventReportStore(
+      databaseFactoryOverride: databaseFactoryFfiNoIsolate,
+      databasePath: databasePath,
+    );
+    final pending = await store.pending(limit: 20);
+
+    expect(pending, hasLength(1));
+    expect(pending.single.reportKey, 'legacy-report');
+    expect(pending.single.occurredAtMicros, greaterThan(0));
     await store.close();
   });
 
@@ -40,6 +91,7 @@ void main() {
 
       await reporting.report(
         event: 'gems',
+        occurredAtMicros: 1767225600123456,
         businessId: 'gems:order-1',
         parameters: const <String, Object>{
           'provider': 'google',
@@ -51,6 +103,7 @@ void main() {
       );
       await reporting.report(
         event: 'login_first',
+        occurredAtMicros: 1767225600123456,
         businessId: 'must-be-ignored',
         parameters: const <String, Object>{
           'method': 'google',
@@ -59,6 +112,7 @@ void main() {
       );
       await reporting.report(
         event: 'subscription_renew',
+        occurredAtMicros: 1767225600123456,
         businessId: 'subscription:renewal-1',
         parameters: const <String, Object>{'device_id': 'device-1'},
       );
@@ -66,6 +120,7 @@ void main() {
 
       expect(sent.map((report) => report.event), ['gems', 'login_first']);
       expect(sent.first.businessId, 'gems:order-1');
+      expect(sent.first.occurredAtMicros, 1767225600123456);
       expect(sent.first.params, const <String, String>{
         'provider': 'google',
         'product_id': 'gems-500',
@@ -100,6 +155,7 @@ void main() {
 
     await reporting.report(
       event: 'message_sent_first',
+      occurredAtMicros: 1767225600123456,
       parameters: const <String, Object>{
         'world_id': 'world-1',
         'location_id': 'location-1',
@@ -116,6 +172,7 @@ void main() {
 
     await reporting.report(
       event: 'message_sent_first',
+      occurredAtMicros: 1767225600999999,
       parameters: const <String, Object>{
         'world_id': 'different',
         'location_id': 'different',
@@ -137,6 +194,7 @@ void main() {
 
     await reporting.report(
       event: 'purchase',
+      occurredAtMicros: 1767225600123456,
       parameters: const <String, Object>{'device_id': 'device-1'},
     );
 
@@ -164,10 +222,12 @@ void main() {
 
     await reporting.report(
       event: 'gems_first_day0',
+      occurredAtMicros: 1767225600123456,
       parameters: const <String, Object>{'device_id': 'device-1'},
     );
     await reporting.report(
       event: 'login_first',
+      occurredAtMicros: 1767225600123456,
       parameters: const <String, Object>{
         'method': 'google',
         'device_id': 'device-1',
